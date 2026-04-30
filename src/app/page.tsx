@@ -1,0 +1,1568 @@
+"use client";
+
+import {
+  BadgeCheck,
+  Banknote,
+  Boxes,
+  Check,
+  ChevronRight,
+  ClipboardList,
+  CreditCard,
+  ExternalLink,
+  Eye,
+  Globe2,
+  Home,
+  Languages,
+  Lock,
+  LogIn,
+  Play,
+  QrCode,
+  Radio,
+  Search,
+  Save,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  Ticket,
+  Trash2,
+  Upload,
+  UserRound,
+  Video,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLiffSession } from "@/lib/line/use-liff-session";
+
+type Lang = "th" | "en";
+type View = "home" | "checkout" | "pick" | "orders" | "admin";
+type OrderStatus = "pending" | "approved" | "picked" | "rejected";
+
+type DrawConfig = {
+  titleTh: string;
+  titleEn: string;
+  series: "One Piece" | "Pokemon";
+  price: number;
+  totalSlots: number;
+  facebookUrl: string;
+  youtubeUrl: string;
+  promptPay: string;
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+};
+
+type Order = {
+  id: string;
+  lineName: string;
+  quantity: number;
+  amount: number;
+  status: OrderStatus;
+  slipName: string;
+  slots: number[];
+  createdAt: string;
+};
+
+type FeaturedCard = {
+  name: string;
+  grade: string;
+  series: "One Piece" | "Pokemon";
+  tone: "red" | "gold" | "blue" | "green" | "rose" | "violet";
+};
+
+type ChaseCard = FeaturedCard & {
+  rank: 1 | 2 | 3;
+  value: number;
+  subtitle: string;
+};
+
+const copy = {
+  th: {
+    appName: "Lucky Draw",
+    tag: "จ่ายก่อน เลือกเลข แล้วลุ้นเปิดซองสด",
+    liveNow: "ถ่ายทอดสด",
+    lineReady: "พร้อมใช้งานบน LINE LIFF",
+    browserReady: "ใช้งานได้ทุกอุปกรณ์",
+    activeDraw: "รอบที่เปิดอยู่",
+    watchStream: "ดูไลฟ์",
+    openFacebook: "เปิด Facebook",
+    openYoutube: "เปิด YouTube",
+    buyNow: "ชำระเงิน",
+    pickNumbers: "เลือกเลข",
+    orders: "ออเดอร์",
+    admin: "แอดมิน",
+    pricePerDraw: "ราคาต่อสิทธิ์",
+    remaining: "เลขว่าง",
+    sold: "ขายแล้ว",
+    selected: "เลือกแล้ว",
+    customer: "ลูกค้า",
+    draws: "สิทธิ์",
+    total: "รวม",
+    payFirstTitle: "ชำระเงินก่อนเลือกเลข",
+    payFirstBody: "เลือกจำนวนสิทธิ์ โอนเงิน อัปโหลดสลิป แล้วรอแอดมินอนุมัติเพื่อปลดล็อกการเลือกเลข",
+    uploadSlip: "อัปโหลดสลิป",
+    createOrder: "ส่งออเดอร์",
+    pending: "รอตรวจสลิป",
+    approved: "อนุมัติแล้ว",
+    picked: "เลือกเลขแล้ว",
+    rejected: "ไม่ผ่าน",
+    noOrders: "ยังไม่มีออเดอร์",
+    approve: "อนุมัติ",
+    reject: "ปฏิเสธ",
+    save: "บันทึก",
+    streamSettings: "ตั้งค่าลิงก์ไลฟ์",
+    drawSettings: "ตั้งค่ารอบ",
+    paymentSettings: "บัญชีรับเงิน",
+    lineStatus: "จำลอง LINE Login",
+    loginLine: "เข้าสู่ระบบ LINE",
+    verifiedLine: "ยืนยัน LINE แล้ว",
+    lockedPick: "เลขจะเลือกได้หลังแอดมินอนุมัติสลิป",
+    chooseExact: "เลือกให้ครบตามจำนวนสิทธิ์",
+    confirmPick: "ยืนยันเลข",
+    openAdmin: "เปิดหน้าแอดมิน",
+    searchOrder: "ค้นหาออเดอร์",
+    pickedByAdmin: "แอดมินเลือกเลขให้ลูกค้า",
+    manualPick: "เลือกเลขแทนลูกค้า",
+    saved: "บันทึกแล้ว",
+    currentPicks: "เลขที่เลือก",
+    openPicks: "รอเลือกเลข",
+    roundCards: "การ์ดรอบนี้",
+    roundCardsSub: "ตัวอย่างการ์ดในรอบถัดไป",
+    topRewards: "การ์ดมูลค่าสูง",
+    estValue: "มูลค่าประเมิน",
+    moreCards: "ใบอื่น",
+    cardSettings: "ตั้งค่าการ์ดในรอบ",
+    posterCards: "การ์ดหน้าปก",
+    topCards: "การ์ดมูลค่าสูง",
+    addCard: "เพิ่มการ์ด",
+    remove: "ลบ",
+  },
+  en: {
+    appName: "Lucky Draw",
+    tag: "Pay first, pick numbers, watch the live reveal",
+    liveNow: "Live now",
+    lineReady: "LINE LIFF ready",
+    browserReady: "Works on every device",
+    activeDraw: "Active draw",
+    watchStream: "Watch stream",
+    openFacebook: "Open Facebook",
+    openYoutube: "Open YouTube",
+    buyNow: "Pay",
+    pickNumbers: "Pick",
+    orders: "Orders",
+    admin: "Admin",
+    pricePerDraw: "Price per draw",
+    remaining: "Available",
+    sold: "Sold",
+    selected: "Selected",
+    customer: "Customer",
+    draws: "Draws",
+    total: "Total",
+    payFirstTitle: "Pay before choosing numbers",
+    payFirstBody: "Choose draw quantity, transfer payment, upload slip, then wait for admin approval to unlock number picking.",
+    uploadSlip: "Upload slip",
+    createOrder: "Submit order",
+    pending: "Pending review",
+    approved: "Approved",
+    picked: "Picked",
+    rejected: "Rejected",
+    noOrders: "No orders yet",
+    approve: "Approve",
+    reject: "Reject",
+    save: "Save",
+    streamSettings: "Stream links",
+    drawSettings: "Draw settings",
+    paymentSettings: "Payment account",
+    lineStatus: "LINE Login demo",
+    loginLine: "Login with LINE",
+    verifiedLine: "LINE verified",
+    lockedPick: "Picking unlocks after admin approves the payment slip",
+    chooseExact: "Choose exactly your approved draw quantity",
+    confirmPick: "Confirm numbers",
+    openAdmin: "Open admin",
+    searchOrder: "Search orders",
+    pickedByAdmin: "Admin picked for customer",
+    manualPick: "Pick for customer",
+    saved: "Saved",
+    currentPicks: "Picked numbers",
+    openPicks: "Awaiting picks",
+    roundCards: "This round's cards",
+    roundCardsSub: "Preview cards for the next draw event",
+    topRewards: "Top value cards",
+    estValue: "est. value",
+    moreCards: "more",
+    cardSettings: "Round card settings",
+    posterCards: "Poster cards",
+    topCards: "Top value cards",
+    addCard: "Add card",
+    remove: "Remove",
+  },
+};
+
+const defaultDraw: DrawConfig = {
+  titleTh: "กล่องสุ่ม One Piece Portgas Arc",
+  titleEn: "One Piece Portgas Arc Lucky Draw",
+  series: "One Piece",
+  price: 5000,
+  totalSlots: 66,
+  facebookUrl: "https://www.facebook.com/",
+  youtubeUrl: "",
+  promptPay: "081-234-5678",
+  bankName: "Kasikorn Bank",
+  accountName: "Lucky Draw Shop",
+  accountNumber: "123-4-56789-0",
+};
+
+const seedOrders: Order[] = [
+  {
+    id: "LD-1001",
+    lineName: "Merry",
+    quantity: 2,
+    amount: 10000,
+    status: "picked",
+    slipName: "sample-slip.jpg",
+    slots: [7, 21],
+    createdAt: "2026-04-30T09:00:00.000Z",
+  },
+  {
+    id: "LD-1002",
+    lineName: "Customer A",
+    quantity: 1,
+    amount: 5000,
+    status: "approved",
+    slipName: "transfer.png",
+    slots: [],
+    createdAt: "2026-04-30T09:22:00.000Z",
+  },
+];
+
+const storageKey = "lucky-draw-mvp-v2";
+
+const defaultFeaturedCards: FeaturedCard[] = [
+  { name: "Portgas D. Ace", grade: "PSA 10", series: "One Piece", tone: "red" },
+  { name: "Monkey D. Luffy", grade: "PSA 10", series: "One Piece", tone: "gold" },
+  { name: "Roronoa Zoro", grade: "BGS 10", series: "One Piece", tone: "green" },
+  { name: "Shanks Alt Art", grade: "BGS 10", series: "One Piece", tone: "rose" },
+  { name: "Nami Parallel", grade: "PSA 10", series: "One Piece", tone: "blue" },
+  { name: "Boa Hancock", grade: "PSA 10", series: "One Piece", tone: "violet" },
+  { name: "Charizard ex", grade: "PSA 10", series: "Pokemon", tone: "red" },
+  { name: "Pikachu Promo", grade: "PSA 10", series: "Pokemon", tone: "gold" },
+  { name: "Lugia V", grade: "BGS 10", series: "Pokemon", tone: "blue" },
+  { name: "Rayleigh SP", grade: "PSA 10", series: "One Piece", tone: "green" },
+  { name: "Sabo Manga", grade: "PSA 10", series: "One Piece", tone: "rose" },
+  { name: "Mewtwo SAR", grade: "BGS 10", series: "Pokemon", tone: "violet" },
+];
+
+const defaultChaseCards: ChaseCard[] = [
+  {
+    rank: 1,
+    name: "Portgas D. Ace Alt Art",
+    subtitle: "One Piece · PSA 10 GEM MINT",
+    grade: "PSA 10",
+    series: "One Piece",
+    tone: "red",
+    value: 85000,
+  },
+  {
+    rank: 2,
+    name: "Monkey D. Luffy Manga",
+    subtitle: "One Piece · PSA 10 GEM MINT",
+    grade: "PSA 10",
+    series: "One Piece",
+    tone: "gold",
+    value: 42000,
+  },
+  {
+    rank: 3,
+    name: "Shanks Alternate Art",
+    subtitle: "One Piece · BGS 10 PRISTINE",
+    grade: "BGS 10",
+    series: "One Piece",
+    tone: "rose",
+    value: 28000,
+  },
+];
+
+type SavedState = {
+  lang?: Lang;
+  lineVerified?: boolean;
+  lineName?: string;
+  draw?: DrawConfig;
+  orders?: Order[];
+  featuredCards?: FeaturedCard[];
+  chaseCards?: ChaseCard[];
+};
+
+function readSavedState(): SavedState {
+  if (typeof window === "undefined") return {};
+  const saved = window.localStorage.getItem(storageKey);
+  if (!saved) return {};
+  try {
+    return JSON.parse(saved) as SavedState;
+  } catch {
+    window.localStorage.removeItem(storageKey);
+    return {};
+  }
+}
+
+function money(value: number) {
+  return new Intl.NumberFormat("th-TH").format(value);
+}
+
+function orderLabel(status: OrderStatus, lang: Lang) {
+  return copy[lang][status];
+}
+
+function statusClass(status: OrderStatus) {
+  if (status === "approved") return "border-emerald-400/35 bg-emerald-400/12 text-emerald-200";
+  if (status === "picked") return "border-sky-400/35 bg-sky-400/12 text-sky-200";
+  if (status === "rejected") return "border-rose-400/35 bg-rose-400/12 text-rose-200";
+  return "border-amber-300/35 bg-amber-300/12 text-amber-100";
+}
+
+export default function LuckyDrawApp() {
+  const hydratedRef = useRef(false);
+  const liffSession = useLiffSession();
+  const [lang, setLang] = useState<Lang>("th");
+  const [view, setView] = useState<View>("home");
+  const [lineVerified, setLineVerified] = useState(false);
+  const [draw, setDraw] = useState<DrawConfig>(defaultDraw);
+  const [orders, setOrders] = useState<Order[]>(seedOrders);
+  const [featuredCards, setFeaturedCards] = useState<FeaturedCard[]>(defaultFeaturedCards);
+  const [chaseCards, setChaseCards] = useState<ChaseCard[]>(defaultChaseCards);
+  const [quantity, setQuantity] = useState(1);
+  const [slipName, setSlipName] = useState("");
+  const [lineName, setLineName] = useState("LINE Customer");
+  const [activeOrderId, setActiveOrderId] = useState("LD-1002");
+  const [selectedSlots, setSelectedSlots] = useState<number[]>([]);
+  const [query, setQuery] = useState("");
+  const t = copy[lang];
+
+  useEffect(() => {
+    const saved = readSavedState();
+    window.setTimeout(() => {
+      if (saved.lang) setLang(saved.lang);
+      if (typeof saved.lineVerified === "boolean") setLineVerified(saved.lineVerified);
+      if (saved.lineName) setLineName(saved.lineName);
+      if (saved.draw) setDraw(saved.draw);
+      if (saved.orders) setOrders(saved.orders);
+      if (saved.featuredCards) setFeaturedCards(saved.featuredCards);
+      if (saved.chaseCards) setChaseCards(saved.chaseCards);
+      hydratedRef.current = true;
+    }, 0);
+  }, []);
+
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    window.localStorage.setItem(
+      storageKey,
+      JSON.stringify({ lang, lineVerified, lineName, draw, orders, featuredCards, chaseCards }),
+    );
+  }, [lang, lineVerified, lineName, draw, orders, featuredCards, chaseCards]);
+
+  useEffect(() => {
+    const syncLiffState = window.setTimeout(() => {
+      if (liffSession.status === "authenticated" && liffSession.profile) {
+        setLineVerified(true);
+        setLineName(liffSession.profile.displayName);
+      }
+
+      if (liffSession.status === "ready") {
+        setLineVerified(false);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(syncLiffState);
+  }, [liffSession.profile, liffSession.status]);
+
+  const takenSlots = useMemo(
+    () => new Set(orders.flatMap((order) => order.slots)),
+    [orders],
+  );
+
+  const activeOrder = orders.find((order) => order.id === activeOrderId);
+  const remaining = draw.totalSlots - takenSlots.size;
+  const progress = Math.round((takenSlots.size / draw.totalSlots) * 100);
+  const filteredOrders = orders.filter((order) => {
+    const text = `${order.id} ${order.lineName} ${order.status} ${order.slots.join(",")}`.toLowerCase();
+    return text.includes(query.toLowerCase());
+  });
+
+  function handleLineLogin() {
+    void liffSession.login();
+  }
+
+  function createOrder() {
+    if (!lineVerified) {
+      handleLineLogin();
+      return;
+    }
+
+    const id = `LD-${Math.floor(1000 + Math.random() * 9000)}`;
+    const next: Order = {
+      id,
+      lineName: lineName.trim() || "LINE Customer",
+      quantity,
+      amount: quantity * draw.price,
+      status: "pending",
+      slipName: slipName || "manual-transfer",
+      slots: [],
+      createdAt: new Date().toISOString(),
+    };
+    setOrders((current) => [next, ...current]);
+    setActiveOrderId(id);
+    setSelectedSlots([]);
+    setView("orders");
+  }
+
+  function updateOrder(id: string, patch: Partial<Order>) {
+    setOrders((current) =>
+      current.map((order) => (order.id === id ? { ...order, ...patch } : order)),
+    );
+  }
+
+  function assignOrderSlots(id: string, slots: number[]) {
+    const order = orders.find((item) => item.id === id);
+    if (!order) return;
+    updateOrder(id, {
+      slots,
+      status: slots.length === order.quantity ? "picked" : "approved",
+    });
+  }
+
+  function toggleSlot(slot: number) {
+    if (!activeOrder || activeOrder.status !== "approved" || takenSlots.has(slot)) return;
+    setSelectedSlots((current) => {
+      if (current.includes(slot)) return current.filter((item) => item !== slot);
+      if (current.length >= activeOrder.quantity) return current;
+      return [...current, slot].sort((a, b) => a - b);
+    });
+  }
+
+  function confirmSlots() {
+    if (!activeOrder || selectedSlots.length !== activeOrder.quantity) return;
+    updateOrder(activeOrder.id, { slots: selectedSlots, status: "picked" });
+    setSelectedSlots([]);
+    setView("orders");
+  }
+
+  return (
+    <main className="app-shell mobile-safe">
+      <header className="glass sticky top-3 z-30 mb-4 flex items-center justify-between rounded-[22px] px-3 py-3">
+        <button
+          aria-label="Home"
+          className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]"
+          onClick={() => setView("home")}
+        >
+          <Sparkles className="h-5 w-5 text-[var(--gold)]" />
+        </button>
+        <div className="min-w-0 px-3 text-center">
+          <p className="truncate text-base font-black tracking-wide text-[var(--gold)]">{t.appName}</p>
+          <p className="truncate text-[11px] text-[var(--muted)]">{t.tag}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            className="flex h-10 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 text-xs font-bold"
+            onClick={() => setLang(lang === "th" ? "en" : "th")}
+          >
+            <Languages className="h-4 w-4 text-[var(--gold)]" />
+            {lang.toUpperCase()}
+          </button>
+        </div>
+      </header>
+
+      <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+        <section className="space-y-4">
+          {view === "home" && (
+            <HomeView
+              draw={draw}
+              lang={lang}
+              lineVerified={lineVerified}
+              remaining={remaining}
+              progress={progress}
+              sold={takenSlots.size}
+              featuredCards={featuredCards}
+              chaseCards={chaseCards}
+              onLogin={handleLineLogin}
+              onCheckout={() => setView("checkout")}
+              onPick={() => setView("pick")}
+            />
+          )}
+          {view === "checkout" && (
+            <CheckoutView
+              draw={draw}
+              lang={lang}
+              lineName={lineName}
+              lineVerified={lineVerified}
+              quantity={quantity}
+              slipName={slipName}
+              onLineName={setLineName}
+              onQuantity={setQuantity}
+              onSlip={setSlipName}
+              onSubmit={createOrder}
+            />
+          )}
+          {view === "pick" && (
+            <PickView
+              draw={draw}
+              lang={lang}
+              orders={orders}
+              activeOrderId={activeOrderId}
+              selectedSlots={selectedSlots}
+              takenSlots={takenSlots}
+              onOrder={setActiveOrderId}
+              onSlot={toggleSlot}
+              onConfirm={confirmSlots}
+            />
+          )}
+          {view === "orders" && (
+            <OrdersView
+              lang={lang}
+              orders={orders}
+              query={query}
+              filteredOrders={filteredOrders}
+              onQuery={setQuery}
+              onPick={(id) => {
+                setActiveOrderId(id);
+                setSelectedSlots([]);
+                setView("pick");
+              }}
+            />
+          )}
+          {view === "admin" && (
+            <AdminView
+              draw={draw}
+              lang={lang}
+              orders={orders}
+              onDraw={setDraw}
+              onApprove={(id) => updateOrder(id, { status: "approved" })}
+              onReject={(id) => updateOrder(id, { status: "rejected" })}
+              onAssignSlots={assignOrderSlots}
+              featuredCards={featuredCards}
+              chaseCards={chaseCards}
+              onFeaturedCards={setFeaturedCards}
+              onChaseCards={setChaseCards}
+            />
+          )}
+        </section>
+
+        <aside className="hidden space-y-4 lg:block">
+          <StatusPanel
+            draw={draw}
+            lang={lang}
+            lineVerified={lineVerified}
+            remaining={remaining}
+            sold={takenSlots.size}
+            orders={orders}
+            onLogin={handleLineLogin}
+            onAdmin={() => setView("admin")}
+          />
+        </aside>
+      </div>
+
+      <BottomNav view={view} setView={setView} pending={orders.filter((o) => o.status === "pending").length} />
+    </main>
+  );
+}
+
+function HomeView({
+  draw,
+  lang,
+  lineVerified,
+  remaining,
+  progress,
+  sold,
+  featuredCards,
+  chaseCards,
+  onLogin,
+  onCheckout,
+  onPick,
+}: {
+  draw: DrawConfig;
+  lang: Lang;
+  lineVerified: boolean;
+  remaining: number;
+  progress: number;
+  sold: number;
+  featuredCards: FeaturedCard[];
+  chaseCards: ChaseCard[];
+  onLogin: () => void;
+  onCheckout: () => void;
+  onPick: () => void;
+}) {
+  const t = copy[lang];
+  return (
+    <>
+      <div className="glass overflow-hidden rounded-[28px]">
+        <div className="relative aspect-video bg-black">
+          {draw.youtubeUrl ? (
+            <iframe
+              className="h-full w-full"
+              src={draw.youtubeUrl}
+              title="Lucky Draw live stream"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          ) : (
+            <div className="grid h-full place-items-center bg-[radial-gradient(circle_at_center,rgba(244,197,66,0.13),transparent_42%),linear-gradient(135deg,#13172a,#080912)] text-center">
+              <div>
+                <Video className="mx-auto h-10 w-10 text-[var(--gold)]" />
+                <p className="mt-3 text-lg font-black">{t.watchStream}</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">Add the YouTube embed URL in Admin</p>
+              </div>
+            </div>
+          )}
+          <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-rose-500 px-3 py-1.5 text-xs font-black uppercase text-white status-live">
+            <Radio className="h-3.5 w-3.5" />
+            {t.liveNow}
+          </div>
+        </div>
+        <div className="space-y-4 border-t border-white/10 bg-black/10 p-4 sm:p-5">
+          <CardPoster draw={draw} lang={lang} cards={featuredCards} onPick={onPick} />
+          <TopRewards lang={lang} cards={chaseCards} />
+        </div>
+        <div className="p-4 sm:p-5">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <Pill icon={<Video />} text={draw.series} />
+            <Pill icon={<Globe2 />} text={t.browserReady} />
+            <Pill icon={<ShieldCheck />} text={t.lineReady} />
+          </div>
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.activeDraw}</p>
+          <h1 className="mt-2 text-3xl font-black leading-tight sm:text-5xl">
+            {lang === "th" ? draw.titleTh : draw.titleEn}
+          </h1>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <Metric label={t.pricePerDraw} value={`${money(draw.price)} THB`} />
+            <Metric label={t.remaining} value={`${remaining}/${draw.totalSlots}`} />
+            <Metric label={t.sold} value={`${sold} (${progress}%)`} />
+          </div>
+          <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/10">
+            <div className="h-full rounded-full bg-[linear-gradient(135deg,var(--gold-2),var(--gold))]" style={{ width: `${progress}%` }} />
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <button className="gold-button flex h-14 items-center justify-center gap-2 rounded-2xl font-black" onClick={onCheckout}>
+              <CreditCard className="h-5 w-5" />
+              {t.buyNow}
+            </button>
+            <button className="plain-button flex h-14 items-center justify-center gap-2 rounded-2xl font-black" onClick={onPick}>
+              <Ticket className="h-5 w-5" />
+              {t.pickNumbers}
+            </button>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <a className="plain-button flex h-12 items-center justify-center gap-2 rounded-2xl text-sm font-bold" href={draw.facebookUrl} target="_blank" rel="noreferrer">
+              <ExternalLink className="h-4 w-4" />
+              {t.openFacebook}
+            </a>
+            <a className="plain-button flex h-12 items-center justify-center gap-2 rounded-2xl text-sm font-bold" href={draw.youtubeUrl ? draw.youtubeUrl.replace("/embed/", "/") : "#admin-stream"} target="_blank" rel="noreferrer">
+              <Play className="h-4 w-4" />
+              {t.openYoutube}
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div className="soft-card rounded-[24px] p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-black">{t.lineStatus}</p>
+            <p className="text-sm text-[var(--muted)]">{lineVerified ? t.verifiedLine : t.lineReady}</p>
+          </div>
+          <button className="plain-button flex h-11 items-center justify-center gap-2 rounded-2xl px-4 font-bold" onClick={onLogin}>
+            {lineVerified ? <BadgeCheck className="h-4 w-4 text-emerald-300" /> : <LogIn className="h-4 w-4" />}
+            {lineVerified ? t.verifiedLine : t.loginLine}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function CardPoster({ draw, lang, cards, onPick }: { draw: DrawConfig; lang: Lang; cards: FeaturedCard[]; onPick: () => void }) {
+  const t = copy[lang];
+  const visibleCards = cards.slice(-12);
+  return (
+    <section className="poster-panel overflow-hidden rounded-[24px]">
+      <div className="poster-heading">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-[var(--gold)]">{t.roundCards}</p>
+          <p className="mt-1 truncate text-xs text-[var(--muted)]">
+            {t.roundCardsSub} · {draw.totalSlots} slots
+          </p>
+        </div>
+        <button className="text-xs font-black text-[var(--gold)]" onClick={onPick}>
+          {t.pickNumbers}
+        </button>
+      </div>
+      <div className="poster-grid">
+        {visibleCards.map((card, index) => (
+          <MiniCard key={`${card.name}-${index}`} card={card} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TopRewards({ lang, cards }: { lang: Lang; cards: ChaseCard[] }) {
+  const t = copy[lang];
+  return (
+    <section className="space-y-3">
+      <div className="section-rule">
+        <span>{t.topRewards}</span>
+      </div>
+      <div className="space-y-2">
+        {cards.map((card) => (
+          <article key={card.rank} className={`reward-row reward-${card.rank}`}>
+            <div className={`rank-medal rank-${card.rank}`}>
+              {card.rank}
+            </div>
+            <div className="h-[74px] w-[54px] shrink-0 overflow-hidden rounded-lg border border-white/10">
+              <CardArtwork card={card} compact />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-black text-white">{card.name}</p>
+              <p className="mt-1 truncate text-xs text-[var(--muted)]">{card.subtitle}</p>
+            </div>
+            <div className="text-right">
+              <p className={`reward-value reward-value-${card.rank}`}>฿{money(card.value)}</p>
+              <p className="mt-1 text-[10px] text-[var(--muted)]">{t.estValue}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MiniCard({ card }: { card: FeaturedCard }) {
+  return (
+    <article className="mini-card">
+      <div className="card-art-preview">
+        <CardArtwork card={card} />
+      </div>
+      <div className="min-w-0 px-2 py-2">
+        <p className="truncate text-[11px] font-bold text-white/85">
+          <span className={`series-dot ${card.series === "Pokemon" ? "series-pokemon" : "series-one-piece"}`} />
+          {card.name}
+        </p>
+      </div>
+    </article>
+  );
+}
+
+function CardArtwork({ card, compact }: { card: FeaturedCard; compact?: boolean }) {
+  return (
+    <div className={`card-art card-art-${card.tone} ${compact ? "card-art-fill" : ""}`}>
+      <div className="card-art-shine" />
+      <span className={`grade-chip ${card.grade.startsWith("BGS") ? "grade-bgs" : ""}`}>{card.grade}</span>
+      <div className="card-art-symbol">
+        <Ticket className={compact ? "h-4 w-4" : "h-6 w-6"} />
+      </div>
+      <div className="card-art-bottom" />
+    </div>
+  );
+}
+
+function CheckoutView({
+  draw,
+  lang,
+  lineName,
+  lineVerified,
+  quantity,
+  slipName,
+  onLineName,
+  onQuantity,
+  onSlip,
+  onSubmit,
+}: {
+  draw: DrawConfig;
+  lang: Lang;
+  lineName: string;
+  lineVerified: boolean;
+  quantity: number;
+  slipName: string;
+  onLineName: (value: string) => void;
+  onQuantity: (value: number) => void;
+  onSlip: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  const t = copy[lang];
+  return (
+    <div className="glass rounded-[28px] p-4 sm:p-6">
+      <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.buyNow}</p>
+      <h2 className="mt-2 text-2xl font-black">{t.payFirstTitle}</h2>
+      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{t.payFirstBody}</p>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{t.customer}</span>
+          <input
+            className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
+            value={lineName}
+            onChange={(event) => onLineName(event.target.value)}
+          />
+        </label>
+        <label className="space-y-2">
+          <span className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{t.draws}</span>
+          <select
+            className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
+            value={quantity}
+            onChange={(event) => onQuantity(Number(event.target.value))}
+          >
+            {[1, 2, 3, 4, 5, 6, 8, 10].map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="soft-card rounded-3xl p-4">
+          <div className="mb-3 flex items-center gap-2 text-sm font-black">
+            <QrCode className="h-4 w-4 text-[var(--gold)]" />
+            PromptPay
+          </div>
+          <div className="grid aspect-square place-items-center rounded-2xl bg-white p-5 text-center text-slate-900">
+            <div>
+              <QrCode className="mx-auto h-20 w-20" />
+              <p className="mt-3 text-sm font-black">{draw.promptPay}</p>
+              <p className="text-xs text-slate-500">{money(quantity * draw.price)} THB</p>
+            </div>
+          </div>
+        </div>
+        <div className="soft-card rounded-3xl p-4">
+          <div className="mb-3 flex items-center gap-2 text-sm font-black">
+            <Banknote className="h-4 w-4 text-[var(--gold)]" />
+            {draw.bankName}
+          </div>
+          <dl className="space-y-3 text-sm">
+            <Row label="Name" value={draw.accountName} />
+            <Row label="Account" value={draw.accountNumber} />
+            <Row label={t.total} value={`${money(quantity * draw.price)} THB`} strong />
+          </dl>
+        </div>
+      </div>
+
+      <label className="mt-5 flex min-h-28 flex-col items-center justify-center rounded-3xl border border-dashed border-white/18 bg-white/[0.035] p-4 text-center">
+        <Upload className="h-6 w-6 text-[var(--gold)]" />
+        <span className="mt-2 text-sm font-black">{t.uploadSlip}</span>
+        <span className="mt-1 text-xs text-[var(--muted)]">{slipName || "JPG, PNG, or PDF demo upload"}</span>
+        <input
+          className="hidden"
+          type="file"
+          accept="image/*,.pdf"
+          onChange={(event) => onSlip(event.target.files?.[0]?.name || "")}
+        />
+      </label>
+
+      <button className="gold-button mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl font-black" onClick={onSubmit}>
+        {lineVerified ? <Check className="h-5 w-5" /> : <LogIn className="h-5 w-5" />}
+        {lineVerified ? t.createOrder : t.loginLine}
+      </button>
+    </div>
+  );
+}
+
+function PickView({
+  draw,
+  lang,
+  orders,
+  activeOrderId,
+  selectedSlots,
+  takenSlots,
+  onOrder,
+  onSlot,
+  onConfirm,
+}: {
+  draw: DrawConfig;
+  lang: Lang;
+  orders: Order[];
+  activeOrderId: string;
+  selectedSlots: number[];
+  takenSlots: Set<number>;
+  onOrder: (id: string) => void;
+  onSlot: (slot: number) => void;
+  onConfirm: () => void;
+}) {
+  const t = copy[lang];
+  const approvedOrders = orders.filter((order) => order.status === "approved");
+  const activeOrder = orders.find((order) => order.id === activeOrderId);
+  const canPick = activeOrder?.status === "approved";
+  const slots = Array.from({ length: draw.totalSlots }, (_, index) => index + 1);
+  const selectedCount = activeOrder?.slots.length ? activeOrder.slots.length : selectedSlots.length;
+
+  return (
+    <div className="glass rounded-[28px] p-4 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.pickNumbers}</p>
+          <h2 className="mt-2 text-2xl font-black">{canPick ? t.chooseExact : t.lockedPick}</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            {activeOrder
+              ? `${activeOrder.id} · ${t.selected} ${selectedCount} / ${activeOrder.quantity}`
+              : t.noOrders}
+          </p>
+        </div>
+        <select
+          className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
+          value={activeOrderId}
+          onChange={(event) => onOrder(event.target.value)}
+        >
+          {approvedOrders.length === 0 && <option value={activeOrderId}>{t.pending}</option>}
+          {approvedOrders.map((order) => (
+            <option key={order.id} value={order.id}>
+              {order.id} · {order.lineName} · {order.quantity} {t.draws}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mt-5 grid grid-cols-6 gap-2 sm:grid-cols-11">
+        {slots.map((slot) => {
+          const taken = takenSlots.has(slot);
+          const picked = selectedSlots.includes(slot);
+          return (
+            <button
+              key={slot}
+              className={[
+                "aspect-square rounded-2xl border text-sm font-black transition",
+                taken ? "border-white/5 bg-black/35 text-white/20" : "",
+                !taken && picked ? "border-[var(--gold)] bg-[var(--gold)] text-slate-950 shadow-[0_0_22px_rgba(244,197,66,0.35)]" : "",
+                !taken && !picked ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-200 hover:border-emerald-200" : "",
+                !canPick && !taken ? "opacity-45" : "",
+              ].join(" ")}
+              disabled={taken || !canPick}
+              onClick={() => onSlot(slot)}
+            >
+              {slot}
+            </button>
+          );
+        })}
+      </div>
+
+      <button
+        className="gold-button mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl font-black"
+        disabled={!activeOrder || selectedSlots.length !== activeOrder.quantity}
+        onClick={onConfirm}
+      >
+        <Ticket className="h-5 w-5" />
+        {t.confirmPick}
+      </button>
+    </div>
+  );
+}
+
+function OrdersView({
+  lang,
+  orders,
+  query,
+  filteredOrders,
+  onQuery,
+  onPick,
+}: {
+  lang: Lang;
+  orders: Order[];
+  query: string;
+  filteredOrders: Order[];
+  onQuery: (value: string) => void;
+  onPick: (id: string) => void;
+}) {
+  const t = copy[lang];
+  return (
+    <div className="glass rounded-[28px] p-4 sm:p-6">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.orders}</p>
+          <h2 className="mt-2 text-2xl font-black">{orders.length} Orders</h2>
+        </div>
+        <ClipboardList className="h-8 w-8 text-[var(--gold)]" />
+      </div>
+      <label className="mt-5 flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-4">
+        <Search className="h-4 w-4 text-[var(--muted)]" />
+        <input
+          className="min-w-0 flex-1 bg-transparent outline-none"
+          placeholder={t.searchOrder}
+          value={query}
+          onChange={(event) => onQuery(event.target.value)}
+        />
+      </label>
+      <div className="mt-5 space-y-3">
+        {filteredOrders.length === 0 && <Empty text={t.noOrders} />}
+        {filteredOrders.map((order) => (
+          <OrderCard key={order.id} lang={lang} order={order} onPick={onPick} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AdminView({
+  draw,
+  lang,
+  orders,
+  featuredCards,
+  chaseCards,
+  onDraw,
+  onApprove,
+  onReject,
+  onAssignSlots,
+  onFeaturedCards,
+  onChaseCards,
+}: {
+  draw: DrawConfig;
+  lang: Lang;
+  orders: Order[];
+  featuredCards: FeaturedCard[];
+  chaseCards: ChaseCard[];
+  onDraw: (draw: DrawConfig) => void;
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+  onAssignSlots: (id: string, slots: number[]) => void;
+  onFeaturedCards: (cards: FeaturedCard[]) => void;
+  onChaseCards: (cards: ChaseCard[]) => void;
+}) {
+  const t = copy[lang];
+  const [draft, setDraft] = useState(draw);
+  const [saved, setSaved] = useState(false);
+  const pending = orders.filter((order) => order.status === "pending");
+  const selectableOrders = orders.filter((order) => order.status === "approved" || order.status === "picked");
+  const takenSlots = new Set(orders.flatMap((order) => order.slots));
+
+  function saveDraft() {
+    onDraw(draft);
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 1400);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="glass rounded-[28px] p-4 sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.admin}</p>
+            <h2 className="mt-2 text-2xl font-black">{t.streamSettings}</h2>
+          </div>
+          <button className="gold-button flex h-11 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black" onClick={saveDraft}>
+            <Save className="h-4 w-4" />
+            {saved ? t.saved : t.save}
+          </button>
+        </div>
+        <div className="mt-5 grid gap-3">
+          <TextField label="Facebook Live URL" value={draft.facebookUrl} onChange={(value) => setDraft({ ...draft, facebookUrl: value })} />
+          <TextField label="YouTube Embed URL" value={draft.youtubeUrl} onChange={(value) => setDraft({ ...draft, youtubeUrl: value })} />
+        </div>
+      </div>
+
+      <div className="glass rounded-[28px] p-4 sm:p-6">
+        <h3 className="text-lg font-black">{t.drawSettings}</h3>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <TextField label="Title TH" value={draft.titleTh} onChange={(value) => setDraft({ ...draft, titleTh: value })} />
+          <TextField label="Title EN" value={draft.titleEn} onChange={(value) => setDraft({ ...draft, titleEn: value })} />
+          <NumberField label="Price" value={draft.price} onChange={(value) => setDraft({ ...draft, price: value })} />
+          <NumberField label="Total Slots" value={draft.totalSlots} onChange={(value) => setDraft({ ...draft, totalSlots: value })} />
+        </div>
+      </div>
+
+      <div className="glass rounded-[28px] p-4 sm:p-6">
+        <h3 className="text-lg font-black">{t.paymentSettings}</h3>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <TextField label="PromptPay" value={draft.promptPay} onChange={(value) => setDraft({ ...draft, promptPay: value })} />
+          <TextField label="Bank" value={draft.bankName} onChange={(value) => setDraft({ ...draft, bankName: value })} />
+          <TextField label="Account Name" value={draft.accountName} onChange={(value) => setDraft({ ...draft, accountName: value })} />
+          <TextField label="Account Number" value={draft.accountNumber} onChange={(value) => setDraft({ ...draft, accountNumber: value })} />
+        </div>
+      </div>
+
+      <AdminSlotEditor
+        draw={draft}
+        lang={lang}
+        orders={selectableOrders}
+        takenSlots={takenSlots}
+        onAssignSlots={onAssignSlots}
+      />
+
+      <AdminCardEditor
+        lang={lang}
+        featuredCards={featuredCards}
+        chaseCards={chaseCards}
+        onFeaturedCards={onFeaturedCards}
+        onChaseCards={onChaseCards}
+      />
+
+      <div className="glass rounded-[28px] p-4 sm:p-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-black">{t.pending}</h3>
+          <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-xs font-black text-amber-100">{pending.length}</span>
+        </div>
+        <div className="mt-4 space-y-3">
+          {pending.length === 0 && <Empty text="No pending slips" />}
+          {pending.map((order) => (
+            <div key={order.id} className="soft-card rounded-3xl p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-black">{order.id} / {order.lineName}</p>
+                  <p className="mt-1 break-words text-sm text-[var(--muted)]">{order.quantity} draws / {money(order.amount)} THB / {order.slipName}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+                  <button className="plain-button flex h-11 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold sm:px-4" onClick={() => onApprove(order.id)}>
+                    <Check className="h-4 w-4 text-emerald-300" />
+                    {t.approve}
+                  </button>
+                  <button className="danger-button flex h-11 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold sm:px-4" onClick={() => onReject(order.id)}>
+                    <Lock className="h-4 w-4" />
+                    {t.reject}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminCardEditor({
+  lang,
+  featuredCards,
+  chaseCards,
+  onFeaturedCards,
+  onChaseCards,
+}: {
+  lang: Lang;
+  featuredCards: FeaturedCard[];
+  chaseCards: ChaseCard[];
+  onFeaturedCards: (cards: FeaturedCard[]) => void;
+  onChaseCards: (cards: ChaseCard[]) => void;
+}) {
+  const t = copy[lang];
+
+  function updateFeatured(index: number, patch: Partial<FeaturedCard>) {
+    onFeaturedCards(featuredCards.map((card, cardIndex) => (cardIndex === index ? { ...card, ...patch } : card)));
+  }
+
+  function updateChase(index: number, patch: Partial<ChaseCard>) {
+    onChaseCards(chaseCards.map((card, cardIndex) => (cardIndex === index ? { ...card, ...patch } : card)));
+  }
+
+  function addFeatured() {
+    onFeaturedCards([
+      ...featuredCards,
+      { name: "New Card", grade: "PSA 10", series: "One Piece", tone: "gold" },
+    ]);
+  }
+
+  function addChase() {
+    const nextRank = Math.min(chaseCards.length + 1, 3) as 1 | 2 | 3;
+    const nextCard: ChaseCard = {
+      rank: nextRank,
+      name: "New Chase Card",
+      subtitle: "One Piece · PSA 10 GEM MINT",
+      grade: "PSA 10",
+      series: "One Piece",
+      tone: "gold",
+      value: 10000,
+    };
+    onChaseCards([
+      ...chaseCards,
+      nextCard,
+    ].slice(0, 3));
+  }
+
+  return (
+    <div className="glass rounded-[28px] p-4 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.cardSettings}</p>
+          <h3 className="mt-2 text-lg font-black">{t.posterCards}</h3>
+        </div>
+        <button className="plain-button flex h-11 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold" onClick={addFeatured}>
+          <Sparkles className="h-4 w-4 text-[var(--gold)]" />
+          {t.addCard}
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        {featuredCards.map((card, index) => (
+          <div key={`${card.name}-${index}`} className="soft-card rounded-3xl p-3">
+            <div className="grid gap-3 sm:grid-cols-[1fr_0.7fr_0.7fr_0.7fr_auto] sm:items-end">
+              <TextField label={`Card ${index + 1}`} value={card.name} onChange={(value) => updateFeatured(index, { name: value })} />
+              <TextField label="Grade" value={card.grade} onChange={(value) => updateFeatured(index, { grade: value })} />
+              <SelectField
+                label="Series"
+                value={card.series}
+                options={["One Piece", "Pokemon"]}
+                onChange={(value) => updateFeatured(index, { series: value as FeaturedCard["series"] })}
+              />
+              <SelectField
+                label="Color"
+                value={card.tone}
+                options={["red", "gold", "blue", "green", "rose", "violet"]}
+                onChange={(value) => updateFeatured(index, { tone: value as FeaturedCard["tone"] })}
+              />
+              <button
+                className="danger-button flex h-12 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold"
+                disabled={featuredCards.length <= 1}
+                onClick={() => onFeaturedCards(featuredCards.filter((_, cardIndex) => cardIndex !== index))}
+              >
+                <Trash2 className="h-4 w-4" />
+                {t.remove}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="text-lg font-black">{t.topCards}</h3>
+        <button
+          className="plain-button flex h-11 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold"
+          disabled={chaseCards.length >= 3}
+          onClick={addChase}
+        >
+          <Sparkles className="h-4 w-4 text-[var(--gold)]" />
+          {t.addCard}
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        {chaseCards.map((card, index) => (
+          <div key={`${card.rank}-${card.name}`} className="soft-card rounded-3xl p-3">
+            <div className="grid gap-3 sm:grid-cols-[0.45fr_1fr_1fr_0.65fr_auto] sm:items-end">
+              <NumberField label="Rank" value={card.rank} onChange={(value) => updateChase(index, { rank: Math.min(Math.max(value, 1), 3) as 1 | 2 | 3 })} />
+              <TextField label="Card" value={card.name} onChange={(value) => updateChase(index, { name: value })} />
+              <TextField label="Subtitle" value={card.subtitle} onChange={(value) => updateChase(index, { subtitle: value })} />
+              <NumberField label="Value THB" value={card.value} onChange={(value) => updateChase(index, { value })} />
+              <button
+                className="danger-button flex h-12 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold"
+                disabled={chaseCards.length <= 1}
+                onClick={() => onChaseCards(chaseCards.filter((_, cardIndex) => cardIndex !== index))}
+              >
+                <Trash2 className="h-4 w-4" />
+                {t.remove}
+              </button>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <TextField label="Grade" value={card.grade} onChange={(value) => updateChase(index, { grade: value })} />
+              <SelectField
+                label="Series"
+                value={card.series}
+                options={["One Piece", "Pokemon"]}
+                onChange={(value) => updateChase(index, { series: value as FeaturedCard["series"] })}
+              />
+              <SelectField
+                label="Color"
+                value={card.tone}
+                options={["red", "gold", "blue", "green", "rose", "violet"]}
+                onChange={(value) => updateChase(index, { tone: value as FeaturedCard["tone"] })}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AdminSlotEditor({
+  draw,
+  lang,
+  orders,
+  takenSlots,
+  onAssignSlots,
+}: {
+  draw: DrawConfig;
+  lang: Lang;
+  orders: Order[];
+  takenSlots: Set<number>;
+  onAssignSlots: (id: string, slots: number[]) => void;
+}) {
+  const t = copy[lang];
+  const [orderId, setOrderId] = useState(orders[0]?.id ?? "");
+  const activeOrder = orders.find((order) => order.id === orderId) ?? orders[0];
+  const slots = Array.from({ length: draw.totalSlots }, (_, index) => index + 1);
+
+  function toggleAdminSlot(slot: number) {
+    if (!activeOrder) return;
+    const owned = activeOrder.slots.includes(slot);
+    const unavailable = takenSlots.has(slot) && !owned;
+    if (unavailable) return;
+
+    const nextSlots = owned
+      ? activeOrder.slots.filter((item) => item !== slot)
+      : [...activeOrder.slots, slot].sort((a, b) => a - b);
+
+    if (nextSlots.length > activeOrder.quantity) return;
+    onAssignSlots(activeOrder.id, nextSlots);
+  }
+
+  return (
+    <div className="glass rounded-[28px] p-4 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.manualPick}</p>
+          <h3 className="mt-2 text-lg font-black">{t.pickedByAdmin}</h3>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            {activeOrder
+              ? `${activeOrder.id} · ${activeOrder.lineName} · ${activeOrder.slots.length}/${activeOrder.quantity}`
+              : t.openPicks}
+          </p>
+        </div>
+        <select
+          className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)] sm:w-auto"
+          value={activeOrder?.id ?? ""}
+          onChange={(event) => setOrderId(event.target.value)}
+        >
+          {orders.length === 0 && <option value="">{t.openPicks}</option>}
+          {orders.map((order) => (
+            <option key={order.id} value={order.id}>
+              {order.id} · {order.lineName}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {activeOrder ? (
+        <>
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-[var(--muted)]">
+            {t.currentPicks}:{" "}
+            <span className="font-black text-[var(--gold)]">
+              {activeOrder.slots.length ? activeOrder.slots.join(", ") : "-"}
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-6 gap-2 sm:grid-cols-11">
+            {slots.map((slot) => {
+              const owned = activeOrder.slots.includes(slot);
+              const unavailable = takenSlots.has(slot) && !owned;
+              return (
+                <button
+                  key={slot}
+                  className={[
+                    "aspect-square rounded-2xl border text-sm font-black transition",
+                    unavailable ? "border-white/5 bg-black/35 text-white/20" : "",
+                    owned ? "border-[var(--gold)] bg-[var(--gold)] text-slate-950 shadow-[0_0_22px_rgba(244,197,66,0.35)]" : "",
+                    !owned && !unavailable ? "border-sky-300/25 bg-sky-300/10 text-sky-100 hover:border-sky-200" : "",
+                  ].join(" ")}
+                  disabled={unavailable}
+                  onClick={() => toggleAdminSlot(slot)}
+                >
+                  {slot}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <div className="mt-4">
+          <Empty text={t.openPicks} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatusPanel({
+  draw,
+  lang,
+  lineVerified,
+  remaining,
+  sold,
+  orders,
+  onLogin,
+  onAdmin,
+}: {
+  draw: DrawConfig;
+  lang: Lang;
+  lineVerified: boolean;
+  remaining: number;
+  sold: number;
+  orders: Order[];
+  onLogin: () => void;
+  onAdmin: () => void;
+}) {
+  const t = copy[lang];
+  return (
+    <>
+      <div className="glass rounded-[28px] p-5">
+        <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">Control</p>
+        <button className="plain-button mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl font-black" onClick={onLogin}>
+          <UserRound className="h-4 w-4" />
+          {lineVerified ? t.verifiedLine : t.loginLine}
+        </button>
+        <button className="plain-button mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl font-black" onClick={onAdmin}>
+          <Settings className="h-4 w-4" />
+          {t.openAdmin}
+        </button>
+      </div>
+      <div className="glass rounded-[28px] p-5">
+        <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">Snapshot</p>
+        <div className="mt-4 space-y-3">
+          <Row label={t.pricePerDraw} value={`${money(draw.price)} THB`} strong />
+          <Row label={t.remaining} value={String(remaining)} strong />
+          <Row label={t.sold} value={String(sold)} strong />
+          <Row label={t.orders} value={String(orders.length)} strong />
+        </div>
+      </div>
+    </>
+  );
+}
+
+function BottomNav({ view, setView, pending }: { view: View; setView: (view: View) => void; pending: number }) {
+  const items: Array<{ view: View; icon: React.ReactNode; label: string; badge?: number }> = [
+    { view: "home", icon: <Home className="h-5 w-5" />, label: "Home" },
+    { view: "checkout", icon: <CreditCard className="h-5 w-5" />, label: "Pay" },
+    { view: "pick", icon: <Ticket className="h-5 w-5" />, label: "Pick" },
+    { view: "orders", icon: <ClipboardList className="h-5 w-5" />, label: "Orders" },
+    { view: "admin", icon: <Settings className="h-5 w-5" />, label: "Admin", badge: pending },
+  ];
+  return (
+    <nav className="fixed bottom-3 left-1/2 z-40 grid w-[calc(100%-24px)] max-w-[560px] -translate-x-1/2 grid-cols-5 rounded-[24px] border border-white/10 bg-[#10111f]/95 p-2 shadow-2xl backdrop-blur">
+      {items.map((item) => (
+        <button
+          key={item.view}
+          className={[
+            "relative flex h-14 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-bold transition",
+            view === item.view ? "bg-[var(--gold)] text-slate-950" : "text-[var(--muted)] hover:bg-white/[0.05] hover:text-white",
+          ].join(" ")}
+          onClick={() => setView(item.view)}
+        >
+          {item.icon}
+          {item.label}
+          {!!item.badge && (
+            <span className="absolute right-2 top-1 grid h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-1 text-[10px] text-white">
+              {item.badge}
+            </span>
+          )}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function Pill({ icon, text }: { icon: React.ReactNode; text: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.055] px-3 py-1.5 text-xs font-bold text-white/85">
+      <span className="[&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-[var(--gold)]">{icon}</span>
+      {text}
+    </span>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="soft-card rounded-3xl p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted)]">{label}</p>
+      <p className="mt-2 text-xl font-black">{value}</p>
+    </div>
+  );
+}
+
+function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-[var(--muted)]">{label}</dt>
+      <dd className={strong ? "font-black text-[var(--gold)]" : "font-bold"}>{value}</dd>
+    </div>
+  );
+}
+
+function OrderCard({ lang, order, onPick }: { lang: Lang; order: Order; onPick: (id: string) => void }) {
+  const t = copy[lang];
+  const canPick = order.status === "approved";
+  return (
+    <article className="soft-card rounded-3xl p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-lg font-black">{order.id}</p>
+            <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${statusClass(order.status)}`}>
+              {orderLabel(order.status, lang)}
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            {order.lineName} / {order.quantity} {t.draws} / {money(order.amount)} THB
+          </p>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            {order.slots.length ? `${t.selected}: ${order.slots.join(", ")}` : `${t.uploadSlip}: ${order.slipName}`}
+          </p>
+        </div>
+        <button
+          className="plain-button flex h-11 items-center justify-center gap-2 rounded-2xl px-4 font-bold"
+          disabled={!canPick}
+          onClick={() => onPick(order.id)}
+        >
+          {canPick ? <ChevronRight className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          {canPick ? t.pickNumbers : orderLabel(order.status, lang)}
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function TextField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="space-y-2">
+      <span className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
+      <input
+        className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="space-y-2">
+      <span className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
+      <select
+        className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  return (
+    <label className="space-y-2">
+      <span className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
+      <input
+        className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
+        min={1}
+        type="number"
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    </label>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return (
+    <div className="grid min-h-32 place-items-center rounded-3xl border border-dashed border-white/14 bg-white/[0.03] text-center text-sm text-[var(--muted)]">
+      <div>
+        <Boxes className="mx-auto mb-2 h-6 w-6 text-white/35" />
+        {text}
+      </div>
+    </div>
+  );
+}

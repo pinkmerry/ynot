@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Lucky Draw — Lot Detail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Dots&family=Noto+Sans+JP:wght@400;500;700&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lucky-draw-shared.css">
+<style>
+body { padding-bottom: 100px; }
+
+.hero-banner {
+  position: relative;
+  background: linear-gradient(135deg, #0d0820, #160d38);
+  border-bottom: 1px solid var(--border2);
+  padding: 16px 16px 20px;
+}
+.hero-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at top right, #f5c63810, transparent 60%);
+  pointer-events: none;
+}
+.hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.hero-title { font-family: var(--font-jp); font-size: 22px; color: #fff; text-shadow: 0 0 20px #f5c63855; letter-spacing: 1px; }
+.hero-sub   { font-size: 12px; color: var(--muted); margin-top: 4px; letter-spacing: 1px; }
+.price-chip {
+  background: linear-gradient(135deg, var(--gold2), var(--gold));
+  border-radius: 10px; padding: 8px 14px; text-align: right; flex-shrink: 0;
+}
+.price-chip .amount { font-family: var(--font-jp); font-size: 20px; font-weight: 900; color: #111; line-height: 1; }
+.price-chip .unit   { font-size: 10px; color: #5a3800; font-weight: 700; }
+.stats-row { display: flex; gap: 8px; }
+.stat-pill { flex: 1; background: rgba(0,0,0,.3); border: 1px solid var(--border); border-radius: 8px; padding: 8px; text-align: center; }
+.stat-pill .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.stat-pill .value { font-family: var(--font-jp); font-size: 18px; font-weight: 700; line-height: 1.2; }
+
+/* Highlight cards strip */
+.highlight-strip { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 8px; scrollbar-width: none; }
+.highlight-strip::-webkit-scrollbar { display: none; }
+.highlight-card { flex-shrink: 0; width: 90px; background: var(--bg3); border: 1px solid var(--border2); border-radius: 10px; overflow: hidden; cursor: pointer; transition: transform .2s; }
+.highlight-card:active { transform: scale(.96); }
+.highlight-card.prize-1 { border-color: #f5c63888; box-shadow: 0 0 12px #f5c63822; }
+.highlight-card.prize-2 { border-color: #c0c0c066; }
+.highlight-card.prize-3 { border-color: #cd7f3266; }
+.hcard-img { width: 90px; height: 110px; }
+.hcard-foot { padding: 5px 6px 6px; }
+.hcard-name { font-size: 9px; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hcard-value { font-size: 10px; color: var(--gold); font-family: var(--font-jp); margin-top: 2px; }
+
+/* Legend */
+.legend { display: flex; gap: 10px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
+/* Selected summary bar */
+.selected-bar {
+  position: fixed; bottom: 72px; left: 50%; transform: translateX(-50%);
+  width: calc(100% - 28px); max-width: 402px;
+  background: var(--surface); border: 1.5px solid var(--gold);
+  border-radius: 14px; padding: 12px 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  box-shadow: 0 4px 30px #00000088;
+  z-index: 90;
+  transition: all .3s;
+}
+.selected-bar.hidden { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(10px); }
+.selected-info .slot-label { font-size: 12px; color: var(--muted); }
+.selected-info .slot-nums  { font-family: var(--font-jp); font-size: 15px; color: var(--gold); font-weight: 700; }
+.selected-info .slot-price { font-size: 12px; color: var(--text); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="topbar-back" href="Lucky Draw Home.html">←</a>
+  <span class="topbar-title" id="pageTitle">PORTGAS ARC</span>
+  <div class="lang-toggle">
+    <button class="lang-btn" onclick="setLang('th',this)">TH</button>
+    <button class="lang-btn active" onclick="setLang('en',this)">EN</button>
+  </div>
+</header>
+
+<!-- HERO BANNER -->
+<div class="hero-banner">
+  <div class="hero-top">
+    <div>
+      <div class="hero-title" id="heroTitle">—</div>
+      <div class="hero-sub" id="heroBadge">—</div>
+    </div>
+    <div class="price-chip">
+      <div class="unit">ONE PRICE</div>
+      <div class="amount" id="heroPrice">—</div>
+      <div class="unit">THB / card</div>
+    </div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-pill">
+      <div class="label">Drawn</div>
+      <div class="value" id="statDrawn" style="color:var(--gold);">—</div>
+    </div>
+    <div class="stat-pill">
+      <div class="label">Remaining</div>
+      <div class="value" id="statRemain" style="color:var(--green);">—</div>
+    </div>
+    <div class="stat-pill">
+      <div class="label">Total</div>
+      <div class="value" id="statTotal" style="color:#fff;">—</div>
+    </div>
+  </div>
+  <div style="margin-top:10px;">
+    <div class="progress-wrap">
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    </div>
+  </div>
+</div>
+
+<div style="height:10px;"></div>
+
+<!-- HIGHLIGHT CARDS -->
+<section>
+  <div class="section-title">HIGHLIGHT CARDS</div>
+  <div class="highlight-strip" id="highlightStrip"></div>
+</section>
+
+<div class="jp-divider">✦ ✦ ✦</div>
+
+<!-- SLOT PICKER -->
+<section>
+  <div class="section-title">PICK YOUR SLOT</div>
+  <div class="legend" style="margin-bottom:12px;">
+    <div class="legend-item"><div class="legend-dot" style="background:#0d2018;border:1px solid #3ecf7a44;"></div><span style="font-size:11px;color:var(--muted);">Available</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#111;border:1px solid #222;"></div><span style="font-size:11px;color:var(--muted);">Taken</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#1a1a0e;border:1px solid #888822;"></div><span style="font-size:11px;color:var(--muted);">Pending</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--gold);border:1px solid var(--gold);"></div><span style="font-size:11px;color:var(--muted);">Selected</span></div>
+  </div>
+  <div class="slot-grid" id="slotGrid"></div>
+</section>
+
+<!-- SELECTED BAR -->
+<div class="selected-bar hidden" id="selectedBar">
+  <div class="selected-info">
+    <div class="slot-label">Selected slot(s)</div>
+    <div class="slot-nums" id="selNums">—</div>
+    <div class="slot-price" id="selPrice">—</div>
+  </div>
+  <button class="btn-gold" style="width:auto;padding:12px 20px;font-size:14px;" onclick="goPayment()">Pay Now →</button>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-item" onclick="location.href='Lucky Draw Home.html'">
+    <span class="nav-icon">🏠</span><span class="nav-label">Home</span>
+  </button>
+  <button class="nav-item" style="position:relative;" onclick="location.href='Lucky Draw Orders.html'">
+    <span class="nav-icon">📋</span><span class="nav-label">My Orders</span>
+  </button>
+  <button class="nav-item">
+    <span class="nav-icon">🏆</span><span class="nav-label">Rank</span>
+  </button>
+  <button class="nav-item">
+    <span class="nav-icon">💬</span><span class="nav-label">LINE</span>
+  </button>
+</nav>
+
+<script src="lucky-draw-data.js"></script>
+<script>
+const cfg   = LD.getConfig();
+const slots = LD.getSlots();
+let selected = [];
+
+// Populate header
+document.getElementById('pageTitle').textContent  = cfg.name;
+document.getElementById('heroTitle').textContent  = cfg.name;
+document.getElementById('heroBadge').textContent  = cfg.series + ' · ' + cfg.badge;
+document.getElementById('heroPrice').textContent  = cfg.pricePerCard.toLocaleString();
+
+const takenCount = Object.values(slots).filter(s => s === 'taken' || s === 'pending').length;
+const remaining  = cfg.totalSlots - takenCount;
+document.getElementById('statDrawn').textContent  = takenCount;
+document.getElementById('statRemain').textContent = remaining;
+document.getElementById('statTotal').textContent  = cfg.totalSlots;
+document.getElementById('progressFill').style.width = Math.round(takenCount / cfg.totalSlots * 100) + '%';
+
+// Highlight strip
+const strip = document.getElementById('highlightStrip');
+const highlights = cfg.cards.filter(c => c.highlight || c.prizeRank > 0).sort((a,b) => (a.prizeRank||99)-(b.prizeRank||99));
+highlights.forEach(card => {
+  const prizeClass = card.prizeRank === 1 ? 'prize-1' : card.prizeRank === 2 ? 'prize-2' : card.prizeRank === 3 ? 'prize-3' : '';
+  const prizeLabel = card.prizeRank === 1 ? '🥇' : card.prizeRank === 2 ? '🥈' : card.prizeRank === 3 ? '🥉' : '';
+  const gradeClass = card.grade.startsWith('BGS') ? 'badge-blue' : 'badge-gold';
+  strip.innerHTML += `
+    <div class="highlight-card ${prizeClass}">
+      <div class="hcard-img card-thumb" style="width:90px;height:110px;">
+        ${prizeLabel ? `<span style="position:absolute;top:4px;left:4px;font-size:14px;">${prizeLabel}</span>` : ''}
+        <span class="badge ${gradeClass}" style="position:absolute;bottom:4px;left:4px;font-size:8px;">${card.grade}</span>
+        <span style="font-size:9px;color:#444;">card art</span>
+      </div>
+      <div class="hcard-foot">
+        <div class="hcard-name">${card.name}</div>
+        <div class="hcard-value">฿${card.value.toLocaleString()}</div>
+      </div>
+    </div>`;
+});
+
+// Slot grid
+const grid = document.getElementById('slotGrid');
+for (let i = 1; i <= cfg.totalSlots; i++) {
+  const status = slots[i] || 'available';
+  const div = document.createElement('div');
+  div.className = `slot ${status}`;
+  div.dataset.num = i;
+  div.innerHTML = `<span class="slot-num">${i}</span>${status === 'taken' ? '<span class="slot-sub">✗</span>' : status === 'pending' ? '<span class="slot-sub">⏳</span>' : ''}`;
+  if (status === 'available') {
+    div.addEventListener('click', () => toggleSlot(i, div));
+  }
+  grid.appendChild(div);
+}
+
+function toggleSlot(num, el) {
+  const idx = selected.indexOf(num);
+  if (idx >= 0) {
+    selected.splice(idx, 1);
+    el.className = 'slot available';
+    el.innerHTML = `<span class="slot-num">${num}</span>`;
+  } else {
+    selected.push(num);
+    el.className = 'slot selected';
+    el.innerHTML = `<span class="slot-num">${num}</span><span class="slot-sub">✓</span>`;
+  }
+  updateBar();
+}
+
+function updateBar() {
+  const bar = document.getElementById('selectedBar');
+  if (selected.length === 0) { bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  document.getElementById('selNums').textContent  = 'Slot ' + selected.sort((a,b)=>a-b).join(', ');
+  document.getElementById('selPrice').textContent = '฿' + (selected.length * cfg.pricePerCard).toLocaleString() + ' total';
+}
+
+function goPayment() {
+  if (!selected.length) return;
+  sessionStorage.setItem('ld_selected_slots', JSON.stringify(selected));
+  location.href = 'Lucky Draw Payment.html';
+}
+
+function setLang(l, btn) {
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>

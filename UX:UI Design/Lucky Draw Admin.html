@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Lucky Draw — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Dots&family=Noto+Sans+JP:wght@400;500;700&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lucky-draw-shared.css">
+<style>
+body { padding-bottom: 20px; }
+
+/* Login */
+#loginScreen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; gap:20px; padding:24px; }
+.login-logo { font-family:var(--font-jp); font-size:28px; color:var(--gold); text-shadow:0 0 20px #f5c63855; }
+.pin-dots { display:flex; gap:12px; margin:8px 0; }
+.pin-dot { width:16px; height:16px; border-radius:50%; border:2px solid var(--border2); background:transparent; transition:all .2s; }
+.pin-dot.filled { background:var(--gold); border-color:var(--gold); }
+.pin-pad { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; width:100%; max-width:260px; }
+.pin-key { padding:16px; border-radius:12px; background:var(--surface); border:1px solid var(--border2); font-family:var(--font-jp); font-size:20px; color:#fff; cursor:pointer; text-align:center; transition:all .15s; }
+.pin-key:active { background:var(--gold); color:#111; transform:scale(.95); }
+.pin-key.del { color:var(--red); }
+.pin-error { color:var(--red); font-size:13px; display:none; }
+
+/* Stats bar */
+.stats-bar { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; padding:10px 14px 0; }
+.stat-card { background:var(--bg2); border:1px solid var(--border2); border-radius:10px; padding:10px 8px; text-align:center; }
+.stat-card .val { font-family:var(--font-jp); font-size:18px; font-weight:700; line-height:1; }
+.stat-card .lbl { font-size:9px; color:var(--muted); margin-top:4px; text-transform:uppercase; letter-spacing:.5px; }
+
+/* Status toggle */
+.status-toggle { display:flex; gap:6px; }
+.status-opt { flex:1; padding:8px; border-radius:8px; border:1px solid var(--border2); background:transparent; color:var(--muted); font-size:12px; cursor:pointer; text-align:center; transition:all .2s; font-family:var(--font-b); }
+.status-opt.active-draft { background:#1a1a2e; border-color:var(--blue); color:var(--blue); }
+.status-opt.active-live  { background:#1a0808; border-color:var(--red); color:var(--red); }
+.status-opt.active-ended { background:#0e1a0e; border-color:var(--green); color:var(--green); }
+
+/* Card list */
+.card-list-item { display:flex; align-items:center; gap:10px; background:var(--bg2); border:1px solid var(--border2); border-radius:12px; padding:10px 12px; margin-bottom:8px; }
+.card-list-item .thumb { width:40px; height:52px; border-radius:6px; flex-shrink:0; }
+.card-list-info { flex:1; min-width:0; }
+.card-list-name { font-size:13px; color:#fff; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.card-list-meta { font-size:11px; color:var(--muted); margin-top:2px; }
+.card-list-actions { display:flex; gap:5px; flex-shrink:0; }
+.prize-star { font-size:14px; cursor:pointer; opacity:.4; transition:opacity .2s; }
+.prize-star.on { opacity:1; }
+
+/* Add card form */
+#addCardForm { background:var(--bg3); border:1px dashed var(--border2); border-radius:14px; padding:14px; margin-bottom:12px; display:none; }
+
+/* Orders */
+.order-card { background:var(--bg2); border:1px solid var(--border2); border-radius:14px; padding:12px 14px; margin-bottom:10px; }
+.order-card.pending { border-color:#f5c63844; }
+.order-card.approved { border-color:#3ecf7a44; }
+.order-card.rejected { border-color:#e8455544; }
+.order-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+.order-id { font-family:var(--font-jp); font-size:11px; color:var(--muted); }
+.order-name { font-size:14px; color:#fff; font-weight:700; }
+.order-meta { font-size:11px; color:var(--muted); margin-top:2px; }
+.slip-img { width:100%; max-height:160px; object-fit:contain; border-radius:8px; border:1px solid var(--border2); margin:8px 0; cursor:pointer; }
+.order-actions { display:flex; gap:8px; margin-top:10px; }
+.order-actions button { flex:1; }
+
+/* Slots tab */
+.slot-admin-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:5px; }
+.slot-admin { height:44px; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:all .15s; border:1px solid; font-family:var(--font-jp); font-size:12px; font-weight:700; }
+.slot-admin.available { background:#0d2018; border-color:#3ecf7a44; color:var(--green); }
+.slot-admin.taken     { background:#1a0808; border-color:#e8455544; color:var(--red); }
+.slot-admin.pending   { background:#1a1a0e; border-color:#888822; color:#aaa855; }
+
+/* Section subheader */
+.sub-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.sub-title { font-size:14px; color:#fff; font-weight:700; }
+
+/* Save toast */
+#toast { position:fixed; top:60px; left:50%; transform:translateX(-50%) translateY(-20px); background:var(--green); color:#072010; border-radius:10px; padding:10px 20px; font-size:13px; font-weight:700; opacity:0; transition:all .3s; z-index:999; pointer-events:none; }
+#toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* Slip modal */
+#slipModal { position:fixed; inset:0; background:#000c; z-index:999; display:none; align-items:center; justify-content:center; padding:20px; }
+#slipModal img { max-width:100%; max-height:80vh; border-radius:12px; border:2px solid var(--gold); }
+#slipModal.open { display:flex; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+  <div class="login-logo">✦ ADMIN ✦</div>
+  <div style="font-size:13px;color:var(--muted);">Enter PIN to continue</div>
+  <div class="pin-dots" id="pinDots">
+    <div class="pin-dot"></div><div class="pin-dot"></div>
+    <div class="pin-dot"></div><div class="pin-dot"></div>
+  </div>
+  <div class="pin-error" id="pinError">Wrong PIN. Try again.</div>
+  <div class="pin-pad">
+    <div class="pin-key" onclick="pinPress('1')">1</div>
+    <div class="pin-key" onclick="pinPress('2')">2</div>
+    <div class="pin-key" onclick="pinPress('3')">3</div>
+    <div class="pin-key" onclick="pinPress('4')">4</div>
+    <div class="pin-key" onclick="pinPress('5')">5</div>
+    <div class="pin-key" onclick="pinPress('6')">6</div>
+    <div class="pin-key" onclick="pinPress('7')">7</div>
+    <div class="pin-key" onclick="pinPress('8')">8</div>
+    <div class="pin-key" onclick="pinPress('9')">9</div>
+    <div class="pin-key del" onclick="pinDel()">⌫</div>
+    <div class="pin-key" onclick="pinPress('0')">0</div>
+    <div class="pin-key" onclick="pinPress('')"></div>
+  </div>
+  <div style="font-size:11px;color:var(--muted);">Default PIN: 1234</div>
+</div>
+
+<!-- ADMIN APP (hidden until login) -->
+<div id="adminApp" style="display:none;">
+
+  <header class="topbar">
+    <a class="topbar-back" href="Lucky Draw Home.html">←</a>
+    <span class="topbar-title">⚙ ADMIN</span>
+    <button onclick="LD.resetAll();location.reload()" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;padding:4px 8px;">Reset</button>
+  </header>
+
+  <!-- Stats -->
+  <div class="stats-bar" id="statsBar"></div>
+
+  <!-- Tabs -->
+  <div class="tab-bar" style="top:52px;">
+    <div class="tab-item active" onclick="showTab('draw',this)">Draw</div>
+    <div class="tab-item" onclick="showTab('cards',this)">Cards</div>
+    <div class="tab-item" onclick="showTab('orders',this)">Orders</div>
+    <div class="tab-item" onclick="showTab('slots',this)">Slots</div>
+    <div class="tab-item" onclick="showTab('settings',this)">Settings</div>
+  </div>
+
+  <!-- ── TAB: DRAW ──────────────────────────────── -->
+  <div id="tab-draw" style="padding:14px;">
+    <div class="field">
+      <label>Draw Name</label>
+      <input type="text" id="cfgName" placeholder="e.g. Portgas Arc">
+    </div>
+    <div style="display:flex;gap:8px;">
+      <div class="field" style="flex:1;">
+        <label>Card Series</label>
+        <select id="cfgSeries">
+          <option>One Piece</option>
+          <option>Pokémon</option>
+          <option>Yu-Gi-Oh</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field" style="flex:1;">
+        <label>Grade Badge</label>
+        <input type="text" id="cfgBadge" placeholder="PSA 10 / BGS 10">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <div class="field" style="flex:1;">
+        <label>Price / Card (THB)</label>
+        <input type="number" id="cfgPrice" placeholder="9999">
+      </div>
+      <div class="field" style="flex:1;">
+        <label>Total Slots</label>
+        <input type="number" id="cfgSlots" placeholder="66">
+      </div>
+    </div>
+    <div class="field">
+      <label>Stream Date & Time</label>
+      <input type="datetime-local" id="cfgDate">
+    </div>
+    <div class="field">
+      <label>YouTube Live URL</label>
+      <input type="url" id="cfgYt" placeholder="https://youtube.com/live/...">
+    </div>
+    <div class="field">
+      <label>Facebook Live URL</label>
+      <input type="url" id="cfgFb" placeholder="https://fb.com/...">
+    </div>
+    <div class="field">
+      <label>TikTok Live URL</label>
+      <input type="url" id="cfgTt" placeholder="https://tiktok.com/live/...">
+    </div>
+    <div class="field">
+      <label>Draw Status</label>
+      <div class="status-toggle">
+        <div class="status-opt" data-status="draft" onclick="setStatus('draft',this)">Draft</div>
+        <div class="status-opt" data-status="live"  onclick="setStatus('live',this)">🔴 Live</div>
+        <div class="status-opt" data-status="ended" onclick="setStatus('ended',this)">Ended</div>
+      </div>
+    </div>
+    <button class="btn-gold" onclick="saveDraw()">💾 Save Draw Settings</button>
+    <button class="btn-ghost" style="margin-top:8px;" onclick="if(confirm('Reset ALL slots to available?')){const s={};for(let i=1;i<=parseInt(document.getElementById(\'cfgSlots\').value||66);i++)s[i]=\'available\';LD.saveSlots(s);showToast('Slots reset!');}">Reset All Slots</button>
+  </div>
+
+  <!-- ── TAB: CARDS ──────────────────────────────── -->
+  <div id="tab-cards" style="padding:14px;display:none;">
+    <div class="sub-header">
+      <span class="sub-title">Cards in this Round</span>
+      <button class="btn-sm" style="background:var(--gold);color:#111;" onclick="toggleAddForm()">+ Add Card</button>
+    </div>
+
+    <!-- Add card form -->
+    <div id="addCardForm">
+      <div style="font-size:13px;color:var(--gold);font-weight:700;margin-bottom:10px;">New Card</div>
+      <div class="field"><label>Card Name</label><input type="text" id="newCardName" placeholder="e.g. Portgas D. Ace Alt Art"></div>
+      <div style="display:flex;gap:8px;">
+        <div class="field" style="flex:1;"><label>Grade</label>
+          <select id="newCardGrade"><option>PSA 10</option><option>PSA 9</option><option>BGS 10</option><option>BGS 9.5</option></select>
+        </div>
+        <div class="field" style="flex:1;"><label>Series</label>
+          <select id="newCardSeries"><option>One Piece</option><option>Pokémon</option><option>Yu-Gi-Oh</option></select>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div class="field" style="flex:1;"><label>Est. Value (THB)</label><input type="number" id="newCardValue" placeholder="10000"></div>
+        <div class="field" style="flex:1;"><label>Prize Rank (0=none)</label><input type="number" id="newCardRank" placeholder="0" min="0" max="10"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <input type="checkbox" id="newCardHighlight" style="width:16px;height:16px;">
+        <label for="newCardHighlight" style="font-size:13px;color:#ccc;">Show in Highlights</label>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-sm btn-approve" style="flex:1;padding:10px;" onclick="addCard()">Add Card</button>
+        <button class="btn-sm btn-outline" style="flex:1;padding:10px;" onclick="toggleAddForm()">Cancel</button>
+      </div>
+    </div>
+
+    <div id="cardList"></div>
+  </div>
+
+  <!-- ── TAB: ORDERS ──────────────────────────────── -->
+  <div id="tab-orders" style="padding:14px;display:none;">
+    <div class="sub-header">
+      <span class="sub-title">Pending Orders</span>
+      <span class="badge badge-red" id="pendingCount">0 pending</span>
+    </div>
+    <div id="orderList"></div>
+  </div>
+
+  <!-- ── TAB: SLOTS ──────────────────────────────── -->
+  <div id="tab-slots" style="padding:14px;display:none;">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Tap a slot to toggle available ↔ drawn. Pending slots are locked.</div>
+    <div class="legend" style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:5px;"><div style="width:12px;height:12px;background:#0d2018;border:1px solid #3ecf7a44;border-radius:2px;"></div><span style="font-size:11px;color:var(--muted);">Available</span></div>
+      <div style="display:flex;align-items:center;gap:5px;"><div style="width:12px;height:12px;background:#1a0808;border:1px solid #e8455544;border-radius:2px;"></div><span style="font-size:11px;color:var(--muted);">Drawn</span></div>
+      <div style="display:flex;align-items:center;gap:5px;"><div style="width:12px;height:12px;background:#1a1a0e;border:1px solid #888822;border-radius:2px;"></div><span style="font-size:11px;color:var(--muted);">Pending</span></div>
+    </div>
+    <div class="slot-admin-grid" id="adminSlotGrid"></div>
+    <button class="btn-gold" style="margin-top:14px;" onclick="saveSlots()">💾 Save Slot Changes</button>
+  </div>
+
+  <!-- ── TAB: SETTINGS ──────────────────────────────── -->
+  <div id="tab-settings" style="padding:14px;display:none;">
+    <div class="field"><label>Bank Name</label><input type="text" id="sBankName" placeholder="e.g. Kasikorn Bank"></div>
+    <div class="field"><label>Bank Account Number</label><input type="text" id="sBankAcct" placeholder="xxx-x-xxxxx-x"></div>
+    <div class="field"><label>Account Holder Name</label><input type="text" id="sBankHolder" placeholder="Lucky Draw Co., Ltd."></div>
+    <div class="field"><label>PromptPay ID (phone or national ID)</label><input type="text" id="sPromptpay" placeholder="0812345678"></div>
+    <div class="field"><label>Admin PIN (4 digits)</label><input type="password" id="sPin" maxlength="4" placeholder="••••"></div>
+    <button class="btn-gold" onclick="saveSettings()">💾 Save Payment Settings</button>
+  </div>
+
+</div><!-- /adminApp -->
+
+<!-- Toast -->
+<div id="toast">✓ Saved!</div>
+
+<!-- Slip modal -->
+<div id="slipModal" onclick="this.classList.remove('open')">
+  <img id="slipModalImg" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="slip">
+</div>
+
+<script src="lucky-draw-data.js"></script>
+<script>
+// ── PIN ──────────────────────────────────────────────────────────────
+const ADMIN_PIN_KEY = 'ld_admin_pin';
+let pinBuffer = '';
+
+function getPin() { return localStorage.getItem(ADMIN_PIN_KEY) || '1234'; }
+
+function updatePinDots() {
+  const dots = document.querySelectorAll('.pin-dot');
+  dots.forEach((d,i) => d.classList.toggle('filled', i < pinBuffer.length));
+}
+
+function pinPress(n) {
+  if (!n || pinBuffer.length >= 4) return;
+  pinBuffer += n;
+  updatePinDots();
+  if (pinBuffer.length === 4) {
+    if (pinBuffer === getPin()) {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('adminApp').style.display = 'block';
+      initAdmin();
+    } else {
+      document.getElementById('pinError').style.display = 'block';
+      setTimeout(() => { pinBuffer = ''; updatePinDots(); document.getElementById('pinError').style.display='none'; }, 800);
+    }
+  }
+}
+
+function pinDel() {
+  pinBuffer = pinBuffer.slice(0,-1);
+  updatePinDots();
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────
+let cfg, slots, orders, editSlots;
+
+function initAdmin() {
+  cfg    = LD.getConfig();
+  slots  = LD.getSlots();
+  orders = LD.getOrders();
+  editSlots = { ...slots };
+
+  // Stats
+  const takenCount = Object.values(slots).filter(s=>s!=='available').length;
+  const revenue = orders.filter(o=>o.status==='approved').reduce((s,o)=>s+o.total,0);
+  const pending = orders.filter(o=>o.status==='pending').length;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-card"><div class="val" style="color:var(--gold)">${cfg.totalSlots - Object.values(slots).filter(s=>s==='available').length}</div><div class="lbl">Drawn</div></div>
+    <div class="stat-card"><div class="val" style="color:var(--green)">${Object.values(slots).filter(s=>s==='available').length}</div><div class="lbl">Left</div></div>
+    <div class="stat-card"><div class="val" style="color:var(--red)">${pending}</div><div class="lbl">Pending</div></div>
+    <div class="stat-card"><div class="val" style="color:#fff;font-size:13px;">฿${Math.round(revenue/1000)}k</div><div class="lbl">Revenue</div></div>`;
+
+  // Draw tab
+  document.getElementById('cfgName').value  = cfg.name;
+  document.getElementById('cfgSeries').value= cfg.series;
+  document.getElementById('cfgBadge').value = cfg.badge;
+  document.getElementById('cfgPrice').value = cfg.pricePerCard;
+  document.getElementById('cfgSlots').value = cfg.totalSlots;
+  document.getElementById('cfgDate').value  = cfg.streamDate || '';
+  document.getElementById('cfgYt').value    = cfg.streamUrls?.yt || '';
+  document.getElementById('cfgFb').value    = cfg.streamUrls?.fb || '';
+  document.getElementById('cfgTt').value    = cfg.streamUrls?.tt || '';
+  setStatus(cfg.status || 'live');
+
+  // Settings tab
+  document.getElementById('sBankName').value   = cfg.bankName || '';
+  document.getElementById('sBankAcct').value   = cfg.bankAccount || '';
+  document.getElementById('sBankHolder').value = cfg.bankHolder || '';
+  document.getElementById('sPromptpay').value  = cfg.promptpayId || '';
+
+  renderCards();
+  renderOrders();
+  renderAdminSlots();
+}
+
+// ── TAB SWITCHING ─────────────────────────────────────────────────────
+function showTab(name, el) {
+  document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display='none');
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-'+name).style.display = '';
+  if (el) el.classList.add('active');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = '✓ ' + msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── DRAW SETTINGS ────────────────────────────────────────────────────
+let currentStatus = 'live';
+function setStatus(s, el) {
+  currentStatus = s;
+  document.querySelectorAll('.status-opt').forEach(o => {
+    o.className = 'status-opt' + (o.dataset.status === s ? ` active-${s}` : '');
+  });
+}
+
+function saveDraw() {
+  cfg.name        = document.getElementById('cfgName').value.trim() || cfg.name;
+  cfg.series      = document.getElementById('cfgSeries').value;
+  cfg.badge       = document.getElementById('cfgBadge').value.trim() || cfg.badge;
+  cfg.pricePerCard= parseInt(document.getElementById('cfgPrice').value) || cfg.pricePerCard;
+  cfg.totalSlots  = parseInt(document.getElementById('cfgSlots').value) || cfg.totalSlots;
+  cfg.streamDate  = document.getElementById('cfgDate').value;
+  cfg.streamUrls  = {
+    yt: document.getElementById('cfgYt').value,
+    fb: document.getElementById('cfgFb').value,
+    tt: document.getElementById('cfgTt').value,
+  };
+  cfg.status = currentStatus;
+  LD.saveConfig(cfg);
+  showToast('Draw settings saved!');
+}
+
+// ── CARDS ─────────────────────────────────────────────────────────────
+function renderCards() {
+  const list = document.getElementById('cardList');
+  list.innerHTML = '';
+  cfg.cards.forEach(card => {
+    const gradeClass = card.grade.startsWith('BGS') ? 'badge-blue' : 'badge-gold';
+    list.innerHTML += `
+      <div class="card-list-item fade-in">
+        <div class="thumb card-thumb" style="width:40px;height:52px;">
+          <span style="font-size:7px;color:#555;text-align:center;">${card.grade}</span>
+        </div>
+        <div class="card-list-info">
+          <div class="card-list-name">${card.name}</div>
+          <div class="card-list-meta">
+            <span class="badge ${gradeClass}" style="font-size:9px;">${card.grade}</span>
+            <span style="margin-left:4px;">${card.series}</span>
+            <span style="margin-left:6px;color:var(--gold);">฿${card.value?.toLocaleString()||'—'}</span>
+          </div>
+        </div>
+        <div class="card-list-actions">
+          <span class="prize-star ${card.prizeRank>0?'on':''}" title="Top Prize" onclick="togglePrize(${card.id})">★</span>
+          <span class="prize-star ${card.highlight?'on':''}" title="Highlight" onclick="toggleHighlight(${card.id})" style="color:var(--blue);">◆</span>
+          <button class="btn-sm btn-reject" style="padding:4px 8px;" onclick="deleteCard(${card.id})">✕</button>
+        </div>
+      </div>`;
+  });
+}
+
+function toggleAddForm() {
+  const f = document.getElementById('addCardForm');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+function addCard() {
+  const name  = document.getElementById('newCardName').value.trim();
+  if (!name) { alert('Enter card name'); return; }
+  const newCard = {
+    id: Date.now(),
+    name,
+    grade:     document.getElementById('newCardGrade').value,
+    series:    document.getElementById('newCardSeries').value,
+    value:     parseInt(document.getElementById('newCardValue').value) || 0,
+    prizeRank: parseInt(document.getElementById('newCardRank').value) || 0,
+    highlight: document.getElementById('newCardHighlight').checked,
+  };
+  cfg.cards.push(newCard);
+  LD.saveConfig(cfg);
+  renderCards();
+  document.getElementById('addCardForm').style.display = 'none';
+  ['newCardName','newCardValue','newCardRank'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('newCardHighlight').checked = false;
+  showToast('Card added!');
+}
+
+function deleteCard(id) {
+  if (!confirm('Remove this card?')) return;
+  cfg.cards = cfg.cards.filter(c => c.id !== id);
+  LD.saveConfig(cfg);
+  renderCards();
+  showToast('Card removed');
+}
+
+function togglePrize(id) {
+  const c = cfg.cards.find(c=>c.id===id);
+  if (!c) return;
+  if (c.prizeRank > 0) { c.prizeRank = 0; }
+  else {
+    const maxRank = Math.max(0, ...cfg.cards.filter(x=>x.prizeRank>0).map(x=>x.prizeRank));
+    c.prizeRank = maxRank + 1;
+  }
+  LD.saveConfig(cfg);
+  renderCards();
+}
+
+function toggleHighlight(id) {
+  const c = cfg.cards.find(c=>c.id===id);
+  if (c) { c.highlight = !c.highlight; LD.saveConfig(cfg); renderCards(); }
+}
+
+// ── ORDERS ────────────────────────────────────────────────────────────
+function renderOrders() {
+  orders = LD.getOrders();
+  const pending = orders.filter(o=>o.status==='pending').length;
+  document.getElementById('pendingCount').textContent = pending + ' pending';
+
+  const list = document.getElementById('orderList');
+  if (!orders.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">No orders yet</div>'; return; }
+
+  list.innerHTML = '';
+  orders.forEach(order => {
+    const statusBadge = order.status === 'pending' ? 'badge-red' : order.status === 'approved' ? 'badge-green' : 'badge-muted';
+    const ts = order.timestamp ? new Date(order.timestamp).toLocaleString() : '';
+    list.innerHTML += `
+      <div class="order-card ${order.status} fade-in">
+        <div class="order-header">
+          <div>
+            <div class="order-id">${order.id}</div>
+            <div class="order-name">${order.name || '—'}</div>
+            <div class="order-meta">${order.phone || ''} · Slot ${(order.slots||[]).join(', ')} · ฿${(order.total||0).toLocaleString()}</div>
+            <div class="order-meta" style="margin-top:2px;">${ts}</div>
+          </div>
+          <span class="badge ${statusBadge}" style="font-size:10px;flex-shrink:0;">${order.status.toUpperCase()}</span>
+        </div>
+        ${order.slipImage ? `<img class="slip-img" src="${order.slipImage}" alt="slip" onclick="openSlip('${order.slipImage}')">` : '<div style="font-size:11px;color:var(--muted);margin:6px 0;">No slip uploaded</div>'}
+        ${order.status === 'pending' ? `
+        <div class="order-actions">
+          <button class="btn-sm btn-approve" style="padding:10px;" onclick="approveOrder('${order.id}')">✓ Approve</button>
+          <button class="btn-sm btn-reject"  style="padding:10px;" onclick="rejectOrder('${order.id}')">✕ Reject</button>
+        </div>` : `
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">
+          ${order.status === 'approved' ? '✓ Payment approved — slot confirmed' : '✕ Rejected'}
+          ${order.shippingCode ? ` · Tracking: <span style="color:var(--gold)">${order.shippingCode}</span>` : ''}
+        </div>
+        ${order.status === 'approved' ? `
+        <div style="display:flex;gap:6px;margin-top:8px;align-items:center;">
+          <input type="text" placeholder="Add tracking code" style="flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--font-b);font-size:12px;padding:6px 10px;outline:none;" id="track_${order.id}">
+          <button class="btn-sm" style="background:var(--blue);color:#fff;padding:7px 12px;" onclick="saveTracking('${order.id}')">Save</button>
+        </div>` : ''}`}
+      </div>`;
+  });
+}
+
+function approveOrder(id) {
+  LD.updateOrder(id, { status: 'approved' });
+  // Mark slots as taken
+  const order = LD.getOrders().find(o=>o.id===id);
+  if (order) {
+    const s = LD.getSlots();
+    (order.slots||[]).forEach(n => { s[n] = 'taken'; });
+    LD.saveSlots(s);
+    editSlots = { ...s };
+    renderAdminSlots();
+  }
+  renderOrders();
+  initAdmin();
+  showToast('Order approved!');
+}
+
+function rejectOrder(id) {
+  if (!confirm('Reject and release slot(s)?')) return;
+  const order = LD.getOrders().find(o=>o.id===id);
+  LD.updateOrder(id, { status: 'rejected' });
+  if (order) {
+    const s = LD.getSlots();
+    (order.slots||[]).forEach(n => { s[n] = 'available'; });
+    LD.saveSlots(s);
+    editSlots = { ...s };
+    renderAdminSlots();
+  }
+  renderOrders();
+  initAdmin();
+  showToast('Order rejected. Slot released.');
+}
+
+function saveTracking(id) {
+  const code = document.getElementById('track_'+id)?.value.trim();
+  if (!code) return;
+  LD.updateOrder(id, { shippingCode: code });
+  renderOrders();
+  showToast('Tracking saved!');
+}
+
+function openSlip(src) {
+  document.getElementById('slipModalImg').src = src;
+  document.getElementById('slipModal').classList.add('open');
+}
+
+// ── SLOTS ─────────────────────────────────────────────────────────────
+function renderAdminSlots() {
+  const grid = document.getElementById('adminSlotGrid');
+  grid.innerHTML = '';
+  for (let i = 1; i <= cfg.totalSlots; i++) {
+    const status = editSlots[i] || 'available';
+    const div = document.createElement('div');
+    div.className = `slot-admin ${status === 'taken' ? 'taken' : status === 'pending' ? 'pending' : 'available'}`;
+    div.textContent = i;
+    if (status !== 'pending') {
+      div.onclick = () => {
+        editSlots[i] = editSlots[i] === 'taken' ? 'available' : 'taken';
+        div.className = `slot-admin ${editSlots[i] === 'taken' ? 'taken' : 'available'}`;
+      };
+    }
+    grid.appendChild(div);
+  }
+}
+
+function saveSlots() {
+  LD.saveSlots(editSlots);
+  showToast('Slots saved!');
+  initAdmin();
+}
+
+// ── SETTINGS ──────────────────────────────────────────────────────────
+function saveSettings() {
+  cfg.bankName   = document.getElementById('sBankName').value.trim();
+  cfg.bankAccount= document.getElementById('sBankAcct').value.trim();
+  cfg.bankHolder = document.getElementById('sBankHolder').value.trim();
+  cfg.promptpayId= document.getElementById('sPromptpay').value.trim();
+  LD.saveConfig(cfg);
+  const newPin = document.getElementById('sPin').value.trim();
+  if (newPin.length === 4) localStorage.setItem('ld_admin_pin', newPin);
+  showToast('Settings saved!');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+/* ── Lucky Draw Shared Styles ──────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #07070f;
+  --bg2:     #0e0e1c;
+  --bg3:     #141428;
+  --surface: #181830;
+  --border:  #1e1e3a;
+  --border2: #2a2a48;
+  --gold:    #f5c638;
+  --gold2:   #e8a020;
+  --red:     #e84555;
+  --green:   #3ecf7a;
+  --blue:    #5b8cff;
+  --text:    #f0ead8;
+  --muted:   #888899;
+  --font-jp: 'Zen Dots', 'Noto Sans JP', sans-serif;
+  --font-b:  'Noto Sans JP', 'Sarabun', sans-serif;
+}
+html { background: var(--bg); color: var(--text); font-family: var(--font-b); font-size: 15px; }
+body { max-width: 430px; margin: 0 auto; background: var(--bg); min-height: 100vh; overflow-x: hidden; }
+
+/* Topbar */
+.topbar { position: sticky; top: 0; z-index: 100; background: linear-gradient(180deg,#07070f 80%,transparent); display: flex; align-items: center; justify-content: space-between; padding: 10px 16px 8px; }
+.topbar-back { width: 36px; height: 36px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border2); display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; color: var(--text); text-decoration: none; }
+.topbar-title { font-family: var(--font-jp); font-size: 16px; color: var(--gold); letter-spacing: 1px; }
+
+/* Section */
+section { padding: 0 14px 14px; }
+.section-title { font-family: var(--font-jp); font-size: 13px; letter-spacing: 3px; color: var(--gold); text-align: center; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.section-title::before, .section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg,transparent,var(--gold),transparent); opacity: .4; }
+.jp-divider { text-align: center; font-size: 11px; color: #2a2a48; letter-spacing: 4px; padding: 6px 0; user-select: none; }
+
+/* Cards */
+.surface-card { background: var(--bg2); border: 1px solid var(--border2); border-radius: 14px; padding: 14px; }
+.surface-card + .surface-card { margin-top: 10px; }
+
+/* Buttons */
+.btn-gold { width: 100%; padding: 14px; border-radius: 12px; border: none; cursor: pointer; font-family: var(--font-jp); font-size: 16px; letter-spacing: 2px; background: linear-gradient(135deg,var(--gold2),var(--gold)); color: #111; font-weight: 900; box-shadow: 0 4px 20px #f5c63844; transition: all .2s; position: relative; overflow: hidden; }
+.btn-gold::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg,transparent 20%,rgba(255,255,255,.2) 50%,transparent 80%); background-size: 200% 100%; animation: shimmer 2.5s linear infinite; }
+.btn-gold:active { transform: scale(.98); }
+.btn-ghost { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border2); background: transparent; color: var(--text); font-family: var(--font-jp); font-size: 14px; cursor: pointer; letter-spacing: 1px; transition: all .2s; }
+.btn-ghost:active { background: var(--surface); }
+.btn-sm { padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer; font-size: 12px; font-family: var(--font-b); font-weight: 700; transition: all .15s; }
+.btn-approve { background: var(--green); color: #072010; }
+.btn-reject  { background: var(--red); color: #fff; }
+.btn-outline { background: transparent; border: 1px solid var(--border2); color: var(--muted); }
+
+/* Badge */
+.badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: .5px; }
+.badge-gold  { background: var(--gold); color: #111; }
+.badge-blue  { background: var(--blue); color: #fff; }
+.badge-red   { background: var(--red); color: #fff; }
+.badge-green { background: var(--green); color: #07200e; }
+.badge-muted { background: var(--surface); color: var(--muted); border: 1px solid var(--border2); }
+.badge-live  { background: var(--red); color: #fff; animation: pulse-glow 2s infinite; }
+
+/* Form elements */
+.field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+.field label { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.field input, .field select, .field textarea {
+  background: var(--bg3); border: 1px solid var(--border2); border-radius: 8px;
+  color: var(--text); font-family: var(--font-b); font-size: 14px; padding: 10px 12px;
+  outline: none; transition: border-color .2s; width: 100%;
+}
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--gold); }
+.field select option { background: var(--bg3); }
+
+/* Tab bar */
+.tab-bar { display: flex; background: var(--bg2); border-bottom: 1px solid var(--border); position: sticky; top: 52px; z-index: 90; }
+.tab-item { flex: 1; padding: 11px 4px; text-align: center; font-size: 12px; color: var(--muted); border-bottom: 2px solid transparent; cursor: pointer; transition: all .2s; font-family: var(--font-b); letter-spacing: .3px; }
+.tab-item.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+/* Bottom nav */
+.bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: var(--bg2); border-top: 1px solid var(--border2); display: flex; justify-content: space-around; align-items: center; padding: 8px 0 12px; z-index: 100; }
+.nav-item { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 60px; cursor: pointer; padding: 4px 8px; border-radius: 10px; border: none; background: transparent; }
+.nav-item.active .nav-icon { filter: drop-shadow(0 0 6px var(--gold)); }
+.nav-item.active .nav-label { color: var(--gold); }
+.nav-icon { font-size: 20px; line-height: 1; }
+.nav-label { font-size: 10px; color: var(--muted); }
+.nav-badge { position: absolute; top: 2px; right: 8px; width: 16px; height: 16px; border-radius: 50%; background: var(--red); font-size: 9px; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+
+/* Progress bar */
+.progress-wrap { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg,var(--gold2),var(--gold)); }
+
+/* Lang toggle */
+.lang-toggle { display: flex; background: var(--bg3); border-radius: 20px; overflow: hidden; border: 1px solid var(--border2); }
+.lang-btn { padding: 4px 10px; font-size: 12px; cursor: pointer; border: none; background: transparent; color: var(--muted); transition: all .2s; font-family: var(--font-b); }
+.lang-btn.active { background: var(--gold); color: #111; font-weight: 700; }
+
+/* Slot grid */
+.slot-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+.slot { height: 44px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all .15s; border: 1px solid; }
+.slot.available { background: #0d2018; border-color: #3ecf7a44; color: var(--green); }
+.slot.available:active { transform: scale(.95); }
+.slot.taken     { background: #111; border-color: #222; color: #333; cursor: default; }
+.slot.selected  { background: var(--gold); border-color: var(--gold); color: #111; box-shadow: 0 0 12px #f5c63866; }
+.slot.pending   { background: #1a1a0e; border-color: #888822; color: #aaa855; cursor: default; }
+.slot-num { font-family: var(--font-jp); font-size: 13px; font-weight: 700; }
+.slot-sub { font-size: 7px; line-height: 1; }
+
+/* Card thumbnail placeholder */
+.card-thumb { border-radius: 8px; background: repeating-linear-gradient(-45deg,#1a1a30 0,#1a1a30 6px,#16162a 6px,#16162a 12px); display: flex; align-items: center; justify-content: center; font-size: 9px; color: #444; text-align: center; border: 1px solid var(--border); position: relative; }
+
+/* Animations */
+@keyframes shimmer { 0% { background-position:-200% center } 100% { background-position:200% center } }
+@keyframes pulse-glow { 0%,100% { box-shadow:0 0 8px #e8455544 } 50% { box-shadow:0 0 20px #e84555aa } }
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:none } }
+.fade-in { animation: fadeIn .3s ease forwards; }
