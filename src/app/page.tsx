@@ -634,6 +634,7 @@ export default function LuckyDrawApp() {
         </aside>
       </div>
 
+      <div className="bottom-nav-spacer" aria-hidden="true" />
       <BottomNav view={view} setView={setView} pending={orders.filter((o) => o.status === "pending").length} />
     </main>
   );

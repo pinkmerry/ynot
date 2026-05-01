@@ -15,7 +15,7 @@
   --muted: #9b9daf;
   --bottom-nav-height: 88px;
   --bottom-nav-gap: 12px;
-  --bottom-nav-clearance: 36px;
+  --bottom-nav-clearance: 128px;
 }
 
 @theme inline {
@@ -72,6 +72,10 @@ a {
 
 .mobile-safe {
   padding-bottom: calc(var(--bottom-nav-height) + var(--bottom-nav-gap) + var(--bottom-nav-clearance) + env(safe-area-inset-bottom));
+}
+
+.bottom-nav-spacer {
+  height: calc(var(--bottom-nav-height) + var(--bottom-nav-gap) + var(--bottom-nav-clearance) + env(safe-area-inset-bottom));
 }
 
 .bottom-nav-shell {
@@ -374,6 +378,10 @@ a {
 @media (max-width: 720px) {
   .app-shell {
     padding: 12px;
+  }
+
+  .bottom-nav-spacer {
+    height: calc(var(--bottom-nav-height) + var(--bottom-nav-gap) + var(--bottom-nav-clearance) + 44px + env(safe-area-inset-bottom));
   }
 }
 
