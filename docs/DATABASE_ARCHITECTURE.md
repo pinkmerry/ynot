@@ -11,7 +11,7 @@ Recommended stack for phase 1 production:
 - Next.js on Vercel
 - Supabase Postgres for database
 - Supabase Realtime for live slot/order updates
-- Supabase Storage or Cloudinary for payment slip images
+- Supabase Storage for private payment slip files
 - LINE LIFF login with server-side LINE ID token verification
 
 Supabase references checked for this design:
@@ -158,21 +158,21 @@ Order statuses:
 
 ### 4.6 `payment_slips`
 
-Payment proof metadata. The image can live in Supabase Storage or Cloudinary.
+Payment proof metadata. Phase 1 stores uploaded slip files in private Supabase Storage, or records `manual_line` when the customer sends the slip to LINE and admin checks it manually.
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | uuid primary key |
 | `order_id` | uuid references `orders(id)` |
-| `storage_provider` | text | `supabase`, `cloudinary`, `manual_line` |
-| `file_path` | text | Private storage path or Cloudinary public id |
-| `file_url` | text | Optional; avoid public URLs if using private storage |
+| `storage_provider` | text | `supabase`, `manual_line`; `cloudinary` remains legacy-compatible only |
+| `file_path` | text | Private Supabase Storage path |
+| `file_url` | text | Optional; avoid public URLs for bank slips |
 | `original_filename` | text |
 | `uploaded_at` | timestamptz |
 | `reviewed_by` | uuid references `admin_users(id)` |
 | `reviewed_at` | timestamptz |
 
-For quickest launch, this table also supports `manual_line` where customer sends slip in LINE chat and admin approves manually.
+For quickest launch, this table also supports `manual_line` where customer sends slip in LINE chat and admin approves manually. Paid slip-check API verification is future work and should not block Phase 1.
 
 ### 4.7 `order_picks`
 
@@ -286,24 +286,20 @@ Important implementation note:
 
 Admin authorization should come from database membership (`admin_users`) or app metadata controlled by the server. Do not trust user-editable profile metadata for admin decisions.
 
-## 8. Storage Decision
+## 8. Storage And Verification Decision
 
-Fastest launch option:
+Phase 1:
 
-- Keep payment slip as optional.
-- Allow `manual_line` slip review.
-- Admin manually approves after checking LINE chat.
-
-Recommended production option:
-
-- Use a private Supabase Storage bucket named `payment-slips`.
+- Admin manually checks all payment slips.
+- Use a private Supabase Storage bucket named `payment-slips` for uploaded slip files.
 - Store file path in `payment_slips.file_path`.
 - Admin page requests a short-lived signed URL to view the slip.
+- Keep `manual_line` as fallback when customer sends slip to LINE Official Account instead of uploading.
 
-Cloudinary option:
+Future:
 
-- Store Cloudinary public ID in `payment_slips.file_path`.
-- Prefer signed/private delivery for payment slips because bank slips may contain personal or financial data.
+- Add paid slip-check API only after real order volume makes the cost worthwhile.
+- API verification should assist admin review first, not automatically approve orders on day one.
 
 ## 9. Suggested SQL Skeleton
 
@@ -425,14 +421,14 @@ Build in this order:
 6. Add order creation and manual payment approval.
 7. Add atomic slot-pick RPC.
 8. Add Realtime subscriptions for slots and orders.
-9. Add slip upload: either manual LINE first, then private Supabase Storage.
+9. Add protected Supabase Storage slip upload and manual admin review.
 10. Deploy to Vercel with environment variables.
 
 ## 11. Open Decisions
 
 These need your final decision before implementation:
 
-1. Slip handling for first launch: manual LINE slip, Supabase Storage, or Cloudinary.
+1. Exact first-launch slip proof requirement: uploaded file required, or manual LINE note allowed.
 2. Admin identity: which LINE accounts should be owner/admin.
 3. Whether customers outside LINE can browse only, or must be blocked completely.
 4. Whether picked slots can be changed after they are announced on livestream.

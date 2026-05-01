@@ -99,6 +99,47 @@ Supabase wiring now uses server API routes:
 - `POST /api/lucky-draw/picks`: confirms customer slot picks through the atomic database RPC.
 - `PATCH /api/lucky-draw/admin/order`: admin approve/reject/manual slot assignment.
 - `PATCH /api/lucky-draw/admin/draw`: admin draw/payment/stream settings save.
+- `POST /api/lucky-draw/admin/qr`: admin uploads and replaces the payment QR image.
+
+Current payment-slip decision:
+
+- Phase 1 uses **manual admin slip checking**.
+- Customers can submit an order with slip proof or manual slip note; admin checks it first.
+- Paid/third-party slip-check APIs are intentionally **future work** because they add operating cost.
+- The next implementation step should store uploaded slip files privately, then let admin view them from a protected admin action.
+
+## 3.2 Current Build Status And Next Phase
+
+Already working:
+
+- Supabase-backed active draw and order data.
+- LINE LIFF session verification with admin membership from `admin_users`.
+- Customer order creation after LINE login.
+- Admin approve/reject payment.
+- Customer/admin slot picking through atomic database RPC.
+- Admin draw/payment/stream settings save.
+- Admin payment QR upload and Pay page QR display.
+- Mobile bottom navigation clearance for LIFF.
+
+Next build phase:
+
+1. **Admin-first payment slip review**
+   - Customer uploads a slip file or submits a manual LINE slip note.
+   - Slip file is private in Supabase Storage.
+   - Admin views the slip from a protected Admin action.
+   - Admin remains the final approver.
+
+2. **Realtime operations**
+   - Admin sees new orders and picked slots without refreshing.
+   - Customer sees approval and slot changes without refreshing.
+
+3. **Admin workflow hardening**
+   - Add confirmation, loading, and error states around approve/reject/manual pick.
+   - Add admin notes and basic filters for pending/approved/picked/rejected orders.
+
+4. **Post-livestream operations**
+   - Add result notes and shipping/tracking after the draw.
+   - Keep this after payment/slip/realtime stability.
 
 Admin setup after the owner LINE account logs in once:
 
@@ -158,68 +199,31 @@ Recommended Supabase usage:
   - optional phone/LINE contact typed by user
 - Avoid storing unnecessary sensitive information.
 
-### 4.3 Slip Image Storage
+### 4.3 Payment Slip Handling
 
-There are three practical options.
+Phase 1 decision:
 
-#### Recommended Phase 1: Cloudinary Free Tier
+- Admin checks payment slips manually.
+- Do not use a paid slip-check API yet.
+- Keep API slip checking as a future upgrade when order volume justifies the cost.
 
-Use Cloudinary for slip uploads.
+Recommended Phase 1 storage:
 
-Pros:
+- Use Supabase Storage private bucket `payment-slips`.
+- Store only metadata in Supabase: storage provider, private file path, original filename, upload time, and review status.
+- Admin views slip files through a protected admin API that returns a short-lived signed URL.
+- Customers should not see other customers' slips, and slip files should not be public.
 
-- Easy image upload and preview.
-- Free tier is usually enough for early launch.
-- Good image handling.
+Manual fallback:
 
-Cons:
+- If customer cannot upload a slip in LIFF, customer can send the slip to LINE Official Account.
+- Admin can still approve/reject the order manually from Admin.
+- Store this as `storage_provider = manual_line` with a note/filename so the order remains trackable.
 
-- Need Cloudinary account and environment keys.
-- Payment slips can contain sensitive data, so URLs and access should be handled carefully.
+Future automation:
 
-Implementation idea:
-
-- Customer uploads slip through the app.
-- Next.js server signs upload or handles upload endpoint.
-- Store only `slip_image_url` and Cloudinary public ID in Supabase.
-- Admin can view slip from protected admin page.
-
-#### Alternative: Supabase Storage
-
-Use Supabase Storage for slips.
-
-Pros:
-
-- Same platform as database.
-- Can use private buckets and signed URLs.
-
-Cons:
-
-- Slightly more policy setup.
-- Need careful storage RLS configuration.
-
-#### Temporary Fallback: Manual LINE Slip
-
-If we want to launch before image upload is ready:
-
-- Customer pays.
-- Customer submits order with transaction note/reference.
-- App tells customer to send slip to LINE Official Account.
-- Admin manually approves in admin page.
-
-Pros:
-
-- Fastest.
-- No image storage needed for day one.
-
-Cons:
-
-- More manual work.
-- Admin must match LINE messages with orders.
-
-Recommendation:
-
-Build the data model so `slip_image_url` is optional. This allows day-one manual slip handling, then Cloudinary can be added without changing the whole app.
+- Add paid slip-check API only after the manual flow is stable.
+- The API should pre-fill verification status or flag suspicious slips, but admin should remain the final approver at first.
 
 ## 5. Production User Flow
 
@@ -673,14 +677,15 @@ Expected variables:
 - `NEXT_PUBLIC_LINE_LIFF_ID`
 - `LINE_LOGIN_CHANNEL_ID`
 - `LINE_SESSION_SECRET`
-- `LINE_MESSAGING_CHANNEL_ACCESS_TOKEN` later, if notifications are enabled
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `CLOUDINARY_CLOUD_NAME`
-- `CLOUDINARY_API_KEY`
-- `CLOUDINARY_API_SECRET`
 - `ADMIN_AUTH_SECRET`
+
+Future optional variables:
+
+- Slip-check provider credentials, only when automated slip verification is added.
+- `LINE_MESSAGING_CHANNEL_ACCESS_TOKEN`, only when LINE notifications are enabled.
 
 Only `NEXT_PUBLIC_*` variables can be exposed to the browser.
 
@@ -729,7 +734,7 @@ Owner provides:
 Technical setup:
 
 - Create Next.js project.
-- Choose Cloudinary or manual slip fallback.
+- Use manual admin slip checking first, with Supabase Storage for private uploaded slip files.
 - Create Supabase project.
 - Prepare Vercel project.
 
@@ -740,7 +745,7 @@ Build:
 - Home page
 - Draw detail / buy quantity page
 - Payment page
-- Slip upload or manual slip note
+- Manual admin slip checking with protected slip upload/viewing
 - My orders page
 - Approved-order number picker
 - Admin dashboard
@@ -757,6 +762,7 @@ Production MVP success criteria:
 - Customer must be LINE-verified before purchase.
 - Customer can pay for multiple draw chances.
 - Admin can approve payment.
+- Admin can view submitted slip proof or manual LINE note before approval.
 - Approved customer can pick exactly the paid quantity of numbers.
 - Taken numbers cannot be selected by other customers.
 - Admin can replace livestream links for every stream.
@@ -768,7 +774,7 @@ Add:
 
 - Automatic LINE notifications.
 - Better admin login / multiple admins.
-- Private signed slip URLs.
+- Stronger admin workflow: filters, notes, confirmations, and private signed slip URLs.
 - Result recording per selected slot.
 - Shipping management.
 - CSV export.
@@ -785,7 +791,7 @@ Add:
 - Promotions/coupons.
 - Wallet or credit system if needed.
 - Inventory/card catalog.
-- Automated payment verification if a bank/payment provider integration becomes available.
+- Automated payment verification with a paid slip-check API when order volume justifies it.
 
 ## 13. Page Map
 
@@ -905,7 +911,7 @@ Recommended implementation order:
 6. Add draw/card/slot read APIs.
 7. Add LIFF login shell.
 8. Add order creation after payment form.
-9. Add slip upload or manual slip fallback.
+9. Add admin/manual slip checking with protected Supabase Storage upload.
 10. Add admin order approval.
 11. Add approved-order slot picker.
 12. Add atomic slot claiming.
@@ -920,7 +926,7 @@ Recommended implementation order:
 
 These are still needed before implementation or before production launch:
 
-- Confirm Cloudinary vs manual slip fallback vs Supabase Storage.
+- Confirm exact admin slip review wording and whether manual LINE note is enough for launch.
 - Confirm first draw data.
 - Confirm payment account details.
 - Confirm Thai/English wording.
@@ -934,6 +940,6 @@ These are still needed before implementation or before production launch:
 
 Use this stack for production MVP:
 
-**Next.js + Vercel + Supabase + LINE LIFF + Cloudinary optional.**
+**Next.js + Vercel + Supabase + LINE LIFF.**
 
-Supabase is worth using from the start because the app needs trustworthy shared state, not because we want to collect lots of customer data. We can store minimal LINE identity and order records, keep slip upload optional at first, and still make the most important production behavior reliable: paid customer gets the correct number of picks, selected envelope numbers cannot be duplicated, and admin can control every livestream round from the dashboard.
+Supabase is worth using from the start because the app needs trustworthy shared state, not because we want to collect lots of customer data. We can store minimal LINE identity and order records, keep slip files private, and still make the most important production behavior reliable: paid customer gets the correct number of picks, selected envelope numbers cannot be duplicated, and admin can control every livestream round from the dashboard.
