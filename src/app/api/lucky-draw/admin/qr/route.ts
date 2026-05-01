@@ -4,7 +4,7 @@ import { isAdminSession, readSessionCookie } from "@/lib/lucky-draw/session";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 const bucketName = "lucky-draw-assets";
-const maxQrBytes = 5 * 1024 * 1024;
+const maxQrBytes = 10 * 1024 * 1024;
 const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function extensionFor(type: string) {
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   }
 
   if (file.size > maxQrBytes) {
-    return Response.json({ error: "QR image must be 5 MB or smaller." }, { status: 400 });
+    return Response.json({ error: "QR image must be 10 MB or smaller." }, { status: 400 });
   }
 
   const supabase = createServiceSupabaseClient();

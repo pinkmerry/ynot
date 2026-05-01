@@ -6,7 +6,7 @@ values (
   'lucky-draw-assets',
   'lucky-draw-assets',
   true,
-  5242880,
+  10485760,
   array['image/jpeg', 'image/png', 'image/webp']
 )
 on conflict (id) do update

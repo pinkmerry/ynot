@@ -967,16 +967,18 @@ function CheckoutView({
             <QrCode className="h-4 w-4 text-[var(--gold)]" />
             PromptPay
           </div>
-          <div className="grid aspect-square place-items-center rounded-2xl bg-white p-5 text-center text-slate-900">
+          <div className="relative grid aspect-square w-full place-items-center overflow-hidden rounded-2xl bg-white p-3 text-center text-slate-900">
             {draw.qrImageUrl ? (
-              <Image
-                className="rounded-xl object-contain"
-                src={draw.qrImageUrl}
-                alt="PromptPay QR"
-                width={224}
-                height={224}
-                unoptimized
-              />
+              <div className="relative h-full w-full">
+                <Image
+                  className="rounded-xl object-contain"
+                  src={draw.qrImageUrl}
+                  alt="PromptPay QR"
+                  fill
+                  sizes="(max-width: 640px) calc(100vw - 112px), 280px"
+                  unoptimized
+                />
+              </div>
             ) : (
             <div>
               <QrCode className="mx-auto h-20 w-20" />
@@ -1247,16 +1249,18 @@ function AdminView({
           <TextField label="Account Number" value={draft.accountNumber} onChange={(value) => setDraft({ ...draft, accountNumber: value })} />
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-[180px_1fr] sm:items-center">
-          <div className="grid aspect-square place-items-center rounded-3xl bg-white p-4">
+          <div className="relative grid aspect-square w-full place-items-center overflow-hidden rounded-3xl bg-white p-3">
             {draft.qrImageUrl ? (
-              <Image
-                className="rounded-xl object-contain"
-                src={draft.qrImageUrl}
-                alt="Current payment QR"
-                width={148}
-                height={148}
-                unoptimized
-              />
+              <div className="relative h-full w-full">
+                <Image
+                  className="rounded-xl object-contain"
+                  src={draft.qrImageUrl}
+                  alt="Current payment QR"
+                  fill
+                  sizes="180px"
+                  unoptimized
+                />
+              </div>
             ) : (
               <QrCode className="h-16 w-16 text-slate-900" />
             )}
