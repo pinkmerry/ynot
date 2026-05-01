@@ -56,6 +56,7 @@ export type Database = {
           facebook_live_url: string | null;
           youtube_embed_url: string | null;
           promptpay_id: string | null;
+          promptpay_qr_image_url: string | null;
           bank_name: string | null;
           bank_account_name: string | null;
           bank_account_number: string | null;
@@ -76,6 +77,7 @@ export type Database = {
           facebook_live_url?: string | null;
           youtube_embed_url?: string | null;
           promptpay_id?: string | null;
+          promptpay_qr_image_url?: string | null;
           bank_name?: string | null;
           bank_account_name?: string | null;
           bank_account_number?: string | null;

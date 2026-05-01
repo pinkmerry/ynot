@@ -10,6 +10,7 @@ export type DrawConfig = {
   facebookUrl: string;
   youtubeUrl: string;
   promptPay: string;
+  qrImageUrl: string;
   bankName: string;
   accountName: string;
   accountNumber: string;

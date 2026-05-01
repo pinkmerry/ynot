@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   BadgeCheck,
   Banknote,
@@ -482,6 +483,33 @@ export default function LuckyDrawApp() {
     void refreshFromDatabase();
   }
 
+  async function uploadPaymentQr(file: File) {
+    if (!databaseReady) {
+      const localUrl = URL.createObjectURL(file);
+      setDraw((current) => ({ ...current, qrImageUrl: localUrl }));
+      return localUrl;
+    }
+
+    const form = new FormData();
+    form.set("file", file);
+
+    const response = await fetch("/api/lucky-draw/admin/qr", {
+      method: "POST",
+      body: form,
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      setSyncError(payload?.error ?? "QR upload failed.");
+      return "";
+    }
+
+    const payload = (await response.json()) as { qrImageUrl: string };
+    setDraw((current) => ({ ...current, qrImageUrl: payload.qrImageUrl }));
+    void refreshFromDatabase();
+    return payload.qrImageUrl;
+  }
+
   function toggleSlot(slot: number) {
     if (!activeOrder || activeOrder.status !== "approved" || takenSlots.has(slot)) return;
     setSelectedSlots((current) => {
@@ -612,6 +640,7 @@ export default function LuckyDrawApp() {
               onApprove={(id) => void updateOrderStatus(id, "approved")}
               onReject={(id) => void updateOrderStatus(id, "rejected")}
               onAssignSlots={assignOrderSlots}
+              onQrUpload={uploadPaymentQr}
               featuredCards={featuredCards}
               chaseCards={chaseCards}
               onFeaturedCards={setFeaturedCards}
@@ -900,12 +929,29 @@ function CheckoutView({
             PromptPay
           </div>
           <div className="grid aspect-square place-items-center rounded-2xl bg-white p-5 text-center text-slate-900">
+            {draw.qrImageUrl ? (
+              <Image
+                className="rounded-xl object-contain"
+                src={draw.qrImageUrl}
+                alt="PromptPay QR"
+                width={224}
+                height={224}
+                unoptimized
+              />
+            ) : (
             <div>
               <QrCode className="mx-auto h-20 w-20" />
               <p className="mt-3 text-sm font-black">{draw.promptPay}</p>
               <p className="text-xs text-slate-500">{money(quantity * draw.price)} THB</p>
             </div>
+            )}
           </div>
+          {draw.qrImageUrl && (
+            <div className="mt-3 text-center">
+              <p className="text-sm font-black text-white">{draw.promptPay}</p>
+              <p className="text-xs text-[var(--muted)]">{money(quantity * draw.price)} THB</p>
+            </div>
+          )}
         </div>
         <div className="soft-card rounded-3xl p-4">
           <div className="mb-3 flex items-center gap-2 text-sm font-black">
@@ -1083,6 +1129,7 @@ function AdminView({
   onApprove,
   onReject,
   onAssignSlots,
+  onQrUpload,
   onFeaturedCards,
   onChaseCards,
 }: {
@@ -1095,12 +1142,14 @@ function AdminView({
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
   onAssignSlots: (id: string, slots: number[]) => void;
+  onQrUpload: (file: File) => Promise<string>;
   onFeaturedCards: (cards: FeaturedCard[]) => void;
   onChaseCards: (cards: ChaseCard[]) => void;
 }) {
   const t = copy[lang];
   const [draft, setDraft] = useState(draw);
   const [saved, setSaved] = useState(false);
+  const [qrUploading, setQrUploading] = useState(false);
   const pending = orders.filter((order) => order.status === "pending");
   const selectableOrders = orders.filter((order) => order.status === "approved" || order.status === "picked");
   const takenSlots = new Set(orders.flatMap((order) => order.slots));
@@ -1109,6 +1158,14 @@ function AdminView({
     onDraw(draft);
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1400);
+  }
+
+  async function handleQrUpload(file?: File) {
+    if (!file) return;
+    setQrUploading(true);
+    const qrImageUrl = await onQrUpload(file);
+    if (qrImageUrl) setDraft((current) => ({ ...current, qrImageUrl }));
+    setQrUploading(false);
   }
 
   return (
@@ -1147,6 +1204,34 @@ function AdminView({
           <TextField label="Bank" value={draft.bankName} onChange={(value) => setDraft({ ...draft, bankName: value })} />
           <TextField label="Account Name" value={draft.accountName} onChange={(value) => setDraft({ ...draft, accountName: value })} />
           <TextField label="Account Number" value={draft.accountNumber} onChange={(value) => setDraft({ ...draft, accountNumber: value })} />
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-[180px_1fr] sm:items-center">
+          <div className="grid aspect-square place-items-center rounded-3xl bg-white p-4">
+            {draft.qrImageUrl ? (
+              <Image
+                className="rounded-xl object-contain"
+                src={draft.qrImageUrl}
+                alt="Current payment QR"
+                width={148}
+                height={148}
+                unoptimized
+              />
+            ) : (
+              <QrCode className="h-16 w-16 text-slate-900" />
+            )}
+          </div>
+          <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-white/18 bg-white/[0.035] p-4 text-center">
+            <Upload className="h-6 w-6 text-[var(--gold)]" />
+            <span className="mt-2 text-sm font-black">{qrUploading ? "Uploading QR..." : "Upload payment QR"}</span>
+            <span className="mt-1 text-xs text-[var(--muted)]">JPG, PNG, or WEBP · max 5 MB</span>
+            <input
+              className="hidden"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={qrUploading}
+              onChange={(event) => void handleQrUpload(event.target.files?.[0])}
+            />
+          </label>
         </div>
       </div>
 

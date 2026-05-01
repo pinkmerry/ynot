@@ -9,6 +9,7 @@ export const defaultDraw: DrawConfig = {
   facebookUrl: "https://www.facebook.com/",
   youtubeUrl: "",
   promptPay: "081-234-5678",
+  qrImageUrl: "",
   bankName: "Kasikorn Bank",
   accountName: "Lucky Draw Shop",
   accountNumber: "123-4-56789-0",

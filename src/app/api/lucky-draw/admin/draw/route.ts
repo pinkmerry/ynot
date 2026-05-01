@@ -44,6 +44,7 @@ export async function PATCH(request: Request) {
     facebookUrl: body.draw.facebookUrl ?? activeDraw.facebook_live_url ?? "",
     youtubeUrl: body.draw.youtubeUrl ?? activeDraw.youtube_embed_url ?? "",
     promptPay: body.draw.promptPay ?? activeDraw.promptpay_id ?? "",
+    qrImageUrl: body.draw.qrImageUrl ?? activeDraw.promptpay_qr_image_url ?? "",
     bankName: body.draw.bankName ?? activeDraw.bank_name ?? "",
     accountName: body.draw.accountName ?? activeDraw.bank_account_name ?? "",
     accountNumber: body.draw.accountNumber ?? activeDraw.bank_account_number ?? "",
