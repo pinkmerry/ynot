@@ -75,6 +75,8 @@ const copy = {
     payFirstTitle: "ชำระเงินก่อนเลือกเลข",
     payFirstBody: "เลือกจำนวนสิทธิ์ โอนเงิน อัปโหลดสลิป แล้วรอแอดมินอนุมัติเพื่อปลดล็อกการเลือกเลข",
     uploadSlip: "อัปโหลดสลิป",
+    viewSlip: "ดูสลิป",
+    manualSlip: "ส่งใน LINE / ตรวจด้วยมือ",
     createOrder: "ส่งออเดอร์",
     pending: "รอตรวจสลิป",
     approved: "อนุมัติแล้ว",
@@ -135,6 +137,8 @@ const copy = {
     payFirstTitle: "Pay before choosing numbers",
     payFirstBody: "Choose draw quantity, transfer payment, upload slip, then wait for admin approval to unlock number picking.",
     uploadSlip: "Upload slip",
+    viewSlip: "View slip",
+    manualSlip: "Sent in LINE / manual check",
     createOrder: "Submit order",
     pending: "Pending review",
     approved: "Approved",
@@ -277,6 +281,7 @@ export default function LuckyDrawApp() {
   const [chaseCards, setChaseCards] = useState<ChaseCard[]>(defaultChaseCards);
   const [quantity, setQuantity] = useState(1);
   const [slipName, setSlipName] = useState("");
+  const [slipFile, setSlipFile] = useState<File | null>(null);
   const [lineName, setLineName] = useState("LINE Customer");
   const [activeOrderId, setActiveOrderId] = useState("LD-1002");
   const [selectedSlots, setSelectedSlots] = useState<number[]>([]);
@@ -373,10 +378,14 @@ export default function LuckyDrawApp() {
     }
 
     if (databaseReady) {
+      const form = new FormData();
+      form.set("quantity", String(quantity));
+      form.set("slipName", slipName || "manual-transfer");
+      if (slipFile) form.set("slip", slipFile);
+
       const response = await fetch("/api/lucky-draw", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ quantity, slipName }),
+        body: form,
       });
 
       if (response.status === 401) {
@@ -390,6 +399,7 @@ export default function LuckyDrawApp() {
         setActiveOrderId(payload.order.id);
         setSelectedSlots([]);
         setSlipName("");
+        setSlipFile(null);
         setView("orders");
         void refreshFromDatabase();
         return;
@@ -408,13 +418,38 @@ export default function LuckyDrawApp() {
       amount: quantity * draw.price,
       status: "pending",
       slipName: slipName || "manual-transfer",
+      slipProvider: "manual_line",
+      hasSlipFile: false,
       slots: [],
       createdAt: new Date().toISOString(),
     };
     setOrders((current) => [next, ...current]);
     setActiveOrderId(id);
     setSelectedSlots([]);
+    setSlipFile(null);
     setView("orders");
+  }
+
+  async function viewPaymentSlip(id: string) {
+    if (!databaseReady) {
+      setSyncError("Slip preview is only available after database sync is ready.");
+      return;
+    }
+
+    const response = await fetch(`/api/lucky-draw/admin/slip?orderId=${encodeURIComponent(id)}`);
+    const payload = (await response.json().catch(() => null)) as { error?: string; signedUrl?: string | null } | null;
+    if (!response.ok) {
+      setSyncError(payload?.error ?? "Payment slip could not be opened.");
+      return;
+    }
+
+    if (!payload?.signedUrl) {
+      setSyncError("This order is marked for manual LINE slip checking.");
+      return;
+    }
+
+    const opened = window.open(payload.signedUrl, "_blank", "noopener,noreferrer");
+    if (!opened) window.location.href = payload.signedUrl;
   }
 
   async function updateOrderStatus(id: string, status: OrderStatus) {
@@ -600,7 +635,10 @@ export default function LuckyDrawApp() {
               slipName={slipName}
               onLineName={setLineName}
               onQuantity={setQuantity}
-              onSlip={setSlipName}
+              onSlip={(file) => {
+                setSlipFile(file);
+                setSlipName(file?.name ?? "");
+              }}
               onSubmit={createOrder}
             />
           )}
@@ -639,6 +677,7 @@ export default function LuckyDrawApp() {
               onDraw={saveDrawSettings}
               onApprove={(id) => void updateOrderStatus(id, "approved")}
               onReject={(id) => void updateOrderStatus(id, "rejected")}
+              onViewSlip={(id) => void viewPaymentSlip(id)}
               onAssignSlots={assignOrderSlots}
               onQrUpload={uploadPaymentQr}
               featuredCards={featuredCards}
@@ -887,7 +926,7 @@ function CheckoutView({
   slipName: string;
   onLineName: (value: string) => void;
   onQuantity: (value: number) => void;
-  onSlip: (value: string) => void;
+  onSlip: (file: File | null) => void;
   onSubmit: () => void;
 }) {
   const t = copy[lang];
@@ -974,7 +1013,7 @@ function CheckoutView({
           className="hidden"
           type="file"
           accept="image/*,.pdf"
-          onChange={(event) => onSlip(event.target.files?.[0]?.name || "")}
+          onChange={(event) => onSlip(event.target.files?.[0] ?? null)}
         />
       </label>
 
@@ -1128,6 +1167,7 @@ function AdminView({
   onDraw,
   onApprove,
   onReject,
+  onViewSlip,
   onAssignSlots,
   onQrUpload,
   onFeaturedCards,
@@ -1141,6 +1181,7 @@ function AdminView({
   onDraw: (draw: DrawConfig) => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  onViewSlip: (id: string) => void;
   onAssignSlots: (id: string, slots: number[]) => void;
   onQrUpload: (file: File) => Promise<string>;
   onFeaturedCards: (cards: FeaturedCard[]) => void;
@@ -1263,9 +1304,19 @@ function AdminView({
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="font-black">{order.id} / {order.lineName}</p>
-                  <p className="mt-1 break-words text-sm text-[var(--muted)]">{order.quantity} draws / {money(order.amount)} THB / {order.slipName}</p>
+                  <p className="mt-1 break-words text-sm text-[var(--muted)]">
+                    {order.quantity} draws / {money(order.amount)} THB / {order.hasSlipFile ? order.slipName : t.manualSlip}
+                  </p>
                 </div>
-                <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+                <div className="grid grid-cols-3 gap-2 sm:flex sm:shrink-0">
+                  <button
+                    className="plain-button flex h-11 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold sm:px-4"
+                    disabled={!order.hasSlipFile}
+                    onClick={() => onViewSlip(order.id)}
+                  >
+                    <ExternalLink className="h-4 w-4 text-sky-300" />
+                    {t.viewSlip}
+                  </button>
                   <button className="plain-button flex h-11 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold sm:px-4" onClick={() => onApprove(order.id)}>
                     <Check className="h-4 w-4 text-emerald-300" />
                     {t.approve}
@@ -1645,7 +1696,9 @@ function OrderCard({ lang, order, onPick }: { lang: Lang; order: Order; onPick: 
             {order.lineName} / {order.quantity} {t.draws} / {money(order.amount)} THB
           </p>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            {order.slots.length ? `${t.selected}: ${order.slots.join(", ")}` : `${t.uploadSlip}: ${order.slipName}`}
+            {order.slots.length
+              ? `${t.selected}: ${order.slots.join(", ")}`
+              : `${t.uploadSlip}: ${order.hasSlipFile ? order.slipName : t.manualSlip}`}
           </p>
         </div>
         <button

@@ -12,6 +12,8 @@ type OrderParts = {
   order: OrderRow;
   lineName?: string | null;
   slipName?: string | null;
+  slipProvider?: Order["slipProvider"] | null;
+  slipFilePath?: string | null;
   slots?: number[];
 };
 
@@ -79,6 +81,8 @@ export function toOrder(parts: OrderParts): Order {
     amount: parts.order.amount_thb,
     status: toOrderStatus(parts.order.status),
     slipName: parts.slipName ?? "manual-transfer",
+    slipProvider: parts.slipProvider ?? "manual_line",
+    hasSlipFile: Boolean(parts.slipFilePath),
     slots: (parts.slots ?? []).sort((a, b) => a - b),
     createdAt: parts.order.created_at,
   };
@@ -134,7 +138,7 @@ export async function getLuckyDrawState(options: {
   if (profilesError) throw profilesError;
 
   const { data: slips, error: slipsError } = orderIds.length
-    ? await supabase.from("payment_slips").select("order_id,original_filename").in("order_id", orderIds)
+    ? await supabase.from("payment_slips").select("order_id,storage_provider,file_path,original_filename").in("order_id", orderIds)
     : { data: [], error: null };
 
   if (slipsError) throw slipsError;
@@ -153,7 +157,7 @@ export async function getLuckyDrawState(options: {
   if (slotsError) throw slotsError;
 
   const profileNameById = new Map((profiles ?? []).map((profile) => [profile.id, profile.line_display_name]));
-  const slipNameByOrderId = new Map((slips ?? []).map((slip) => [slip.order_id, slip.original_filename]));
+  const slipByOrderId = new Map((slips ?? []).map((slip) => [slip.order_id, slip]));
   const slotNumberById = new Map((slots ?? []).map((slot) => [slot.id, slot.slot_number]));
   const slotNumbersByOrderId = new Map<string, number[]>();
 
@@ -169,7 +173,9 @@ export async function getLuckyDrawState(options: {
       toOrder({
         order,
         lineName: profileNameById.get(order.profile_id),
-        slipName: slipNameByOrderId.get(order.id),
+        slipName: slipByOrderId.get(order.id)?.original_filename,
+        slipProvider: slipByOrderId.get(order.id)?.storage_provider,
+        slipFilePath: slipByOrderId.get(order.id)?.file_path,
         slots: slotNumbersByOrderId.get(order.id),
       }),
     ),

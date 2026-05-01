@@ -23,6 +23,8 @@ export type Order = {
   amount: number;
   status: OrderStatus;
   slipName: string;
+  slipProvider: "supabase" | "cloudinary" | "manual_line";
+  hasSlipFile: boolean;
   slots: number[];
   createdAt: string;
 };

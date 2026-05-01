@@ -119,25 +119,21 @@ Already working:
 - Customer/admin slot picking through atomic database RPC.
 - Admin draw/payment/stream settings save.
 - Admin payment QR upload and Pay page QR display.
+- Customer payment slip upload to private Supabase Storage.
+- Protected Admin slip review with short-lived signed URLs.
 - Mobile bottom navigation clearance for LIFF.
 
 Next build phase:
 
-1. **Admin-first payment slip review**
-   - Customer uploads a slip file or submits a manual LINE slip note.
-   - Slip file is private in Supabase Storage.
-   - Admin views the slip from a protected Admin action.
-   - Admin remains the final approver.
-
-2. **Realtime operations**
+1. **Realtime operations**
    - Admin sees new orders and picked slots without refreshing.
    - Customer sees approval and slot changes without refreshing.
 
-3. **Admin workflow hardening**
+2. **Admin workflow hardening**
    - Add confirmation, loading, and error states around approve/reject/manual pick.
    - Add admin notes and basic filters for pending/approved/picked/rejected orders.
 
-4. **Post-livestream operations**
+3. **Post-livestream operations**
    - Add result notes and shipping/tracking after the draw.
    - Keep this after payment/slip/realtime stability.
 

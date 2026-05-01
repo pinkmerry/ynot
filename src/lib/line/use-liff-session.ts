@@ -16,7 +16,7 @@ type LiffSessionState = {
   logout: () => void;
 };
 
-const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID ?? "2009942829-gDxsXZJR";
+const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
 
 export function useLiffSession(): LiffSessionState {
   const [status, setStatus] = useState<LiffSessionState["status"]>("loading");
@@ -24,6 +24,12 @@ export function useLiffSession(): LiffSessionState {
   const [error, setError] = useState<string | null>(null);
 
   const login = useCallback(async () => {
+    if (!liffId) {
+      setError("LINE LIFF ID is not configured.");
+      setStatus("ready");
+      return;
+    }
+
     const { default: liff } = await import("@line/liff");
     await liff.init({ liffId, withLoginOnExternalBrowser: true });
 
@@ -45,6 +51,11 @@ export function useLiffSession(): LiffSessionState {
 
     async function initialize() {
       try {
+        if (!liffId) {
+          setStatus("ready");
+          return;
+        }
+
         const { default: liff } = await import("@line/liff");
         await liff.init({ liffId, withLoginOnExternalBrowser: true });
 

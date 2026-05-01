@@ -420,8 +420,8 @@ Build in this order:
 5. Add admin login guard.
 6. Add order creation and manual payment approval.
 7. Add atomic slot-pick RPC.
-8. Add Realtime subscriptions for slots and orders.
-9. Add protected Supabase Storage slip upload and manual admin review.
+8. Add protected Supabase Storage slip upload and manual admin review.
+9. Add Realtime subscriptions for slots and orders.
 10. Deploy to Vercel with environment variables.
 
 ## 11. Open Decisions
