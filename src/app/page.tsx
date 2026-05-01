@@ -480,7 +480,7 @@ export default function LuckyDrawApp() {
       status: slots.length === order.quantity ? "picked" : "approved",
     });
 
-    if (!databaseReady || slots.length === 0) return;
+    if (!databaseReady) return;
 
     const response = await fetch("/api/lucky-draw/admin/order", {
       method: "PATCH",
@@ -1268,7 +1268,7 @@ function AdminView({
           <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-white/18 bg-white/[0.035] p-4 text-center">
             <Upload className="h-6 w-6 text-[var(--gold)]" />
             <span className="mt-2 text-sm font-black">{qrUploading ? "Uploading QR..." : "Upload payment QR"}</span>
-            <span className="mt-1 text-xs text-[var(--muted)]">JPG, PNG, or WEBP · max 5 MB</span>
+            <span className="mt-1 text-xs text-[var(--muted)]">JPG, PNG, or WEBP · max 10 MB</span>
             <input
               className="hidden"
               type="file"
