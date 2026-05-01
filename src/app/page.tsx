@@ -33,22 +33,9 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLiffSession } from "@/lib/line/use-liff-session";
 import { defaultDraw, seedOrders } from "@/lib/lucky-draw/defaults";
-import type { DrawConfig, Lang, Order, OrderStatus } from "@/lib/lucky-draw/types";
+import type { ChaseCard, DrawConfig, FeaturedCard, Lang, Order, OrderStatus } from "@/lib/lucky-draw/types";
 
 type View = "home" | "checkout" | "pick" | "orders" | "admin";
-
-type FeaturedCard = {
-  name: string;
-  grade: string;
-  series: "One Piece" | "Pokemon";
-  tone: "red" | "gold" | "blue" | "green" | "rose" | "violet";
-};
-
-type ChaseCard = FeaturedCard & {
-  rank: 1 | 2 | 3;
-  value: number;
-  subtitle: string;
-};
 
 const copy = {
   th: {
@@ -111,6 +98,7 @@ const copy = {
     posterCards: "การ์ดหน้าปก",
     topCards: "การ์ดมูลค่าสูง",
     addCard: "เพิ่มการ์ด",
+    uploadPhoto: "อัปโหลดรูป",
     remove: "ลบ",
   },
   en: {
@@ -173,6 +161,7 @@ const copy = {
     posterCards: "Poster cards",
     topCards: "Top value cards",
     addCard: "Add card",
+    uploadPhoto: "Upload photo",
     remove: "Remove",
   },
 };
@@ -180,23 +169,24 @@ const copy = {
 const storageKey = "lucky-draw-mvp-v2";
 
 const defaultFeaturedCards: FeaturedCard[] = [
-  { name: "Portgas D. Ace", grade: "PSA 10", series: "One Piece", tone: "red" },
-  { name: "Monkey D. Luffy", grade: "PSA 10", series: "One Piece", tone: "gold" },
-  { name: "Roronoa Zoro", grade: "BGS 10", series: "One Piece", tone: "green" },
-  { name: "Shanks Alt Art", grade: "BGS 10", series: "One Piece", tone: "rose" },
-  { name: "Nami Parallel", grade: "PSA 10", series: "One Piece", tone: "blue" },
-  { name: "Boa Hancock", grade: "PSA 10", series: "One Piece", tone: "violet" },
-  { name: "Charizard ex", grade: "PSA 10", series: "Pokemon", tone: "red" },
-  { name: "Pikachu Promo", grade: "PSA 10", series: "Pokemon", tone: "gold" },
-  { name: "Lugia V", grade: "BGS 10", series: "Pokemon", tone: "blue" },
-  { name: "Rayleigh SP", grade: "PSA 10", series: "One Piece", tone: "green" },
-  { name: "Sabo Manga", grade: "PSA 10", series: "One Piece", tone: "rose" },
-  { name: "Mewtwo SAR", grade: "BGS 10", series: "Pokemon", tone: "violet" },
+  { id: "poster-ace", name: "Portgas D. Ace", grade: "PSA 10", series: "One Piece", tone: "red" },
+  { id: "poster-luffy", name: "Monkey D. Luffy", grade: "PSA 10", series: "One Piece", tone: "gold" },
+  { id: "poster-zoro", name: "Roronoa Zoro", grade: "BGS 10", series: "One Piece", tone: "green" },
+  { id: "poster-shanks", name: "Shanks Alt Art", grade: "BGS 10", series: "One Piece", tone: "rose" },
+  { id: "poster-nami", name: "Nami Parallel", grade: "PSA 10", series: "One Piece", tone: "blue" },
+  { id: "poster-boa", name: "Boa Hancock", grade: "PSA 10", series: "One Piece", tone: "violet" },
+  { id: "poster-charizard", name: "Charizard ex", grade: "PSA 10", series: "Pokemon", tone: "red" },
+  { id: "poster-pikachu", name: "Pikachu Promo", grade: "PSA 10", series: "Pokemon", tone: "gold" },
+  { id: "poster-lugia", name: "Lugia V", grade: "BGS 10", series: "Pokemon", tone: "blue" },
+  { id: "poster-rayleigh", name: "Rayleigh SP", grade: "PSA 10", series: "One Piece", tone: "green" },
+  { id: "poster-sabo", name: "Sabo Manga", grade: "PSA 10", series: "One Piece", tone: "rose" },
+  { id: "poster-mewtwo", name: "Mewtwo SAR", grade: "BGS 10", series: "Pokemon", tone: "violet" },
 ];
 
 const defaultChaseCards: ChaseCard[] = [
   {
     rank: 1,
+    id: "chase-ace",
     name: "Portgas D. Ace Alt Art",
     subtitle: "One Piece · PSA 10 GEM MINT",
     grade: "PSA 10",
@@ -206,6 +196,7 @@ const defaultChaseCards: ChaseCard[] = [
   },
   {
     rank: 2,
+    id: "chase-luffy",
     name: "Monkey D. Luffy Manga",
     subtitle: "One Piece · PSA 10 GEM MINT",
     grade: "PSA 10",
@@ -215,6 +206,7 @@ const defaultChaseCards: ChaseCard[] = [
   },
   {
     rank: 3,
+    id: "chase-shanks",
     name: "Shanks Alternate Art",
     subtitle: "One Piece · BGS 10 PRISTINE",
     grade: "BGS 10",
@@ -239,6 +231,8 @@ type LuckyDrawApiResponse = {
   state: {
     draw: DrawConfig;
     orders: Order[];
+    featuredCards?: FeaturedCard[];
+    chaseCards?: ChaseCard[];
   };
 };
 
@@ -262,6 +256,10 @@ function orderLabel(status: OrderStatus, lang: Lang) {
   return copy[lang][status];
 }
 
+function newCardId(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function statusClass(status: OrderStatus) {
   if (status === "approved") return "border-emerald-400/35 bg-emerald-400/12 text-emerald-200";
   if (status === "picked") return "border-sky-400/35 bg-sky-400/12 text-sky-200";
@@ -282,6 +280,8 @@ export default function LuckyDrawApp() {
   const [quantity, setQuantity] = useState(1);
   const [slipName, setSlipName] = useState("");
   const [slipFile, setSlipFile] = useState<File | null>(null);
+  const [slipPreviewUrl, setSlipPreviewUrl] = useState("");
+  const slipPreviewUrlRef = useRef("");
   const [lineName, setLineName] = useState("LINE Customer");
   const [activeOrderId, setActiveOrderId] = useState("LD-1002");
   const [selectedSlots, setSelectedSlots] = useState<number[]>([]);
@@ -316,6 +316,10 @@ export default function LuckyDrawApp() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [view]);
+
+  useEffect(() => () => {
+    if (slipPreviewUrlRef.current) URL.revokeObjectURL(slipPreviewUrlRef.current);
+  }, []);
 
   useEffect(() => {
     const syncLiffState = window.setTimeout(() => {
@@ -358,6 +362,8 @@ export default function LuckyDrawApp() {
       if (payload.configured) {
         setDraw(payload.state.draw);
         setOrders(payload.state.orders);
+        if (payload.state.featuredCards?.length) setFeaturedCards(payload.state.featuredCards);
+        if (payload.state.chaseCards?.length) setChaseCards(payload.state.chaseCards);
         setActiveOrderId((current) => payload.state.orders.find((order) => order.id === current)?.id ?? payload.state.orders[0]?.id ?? "");
       }
     } catch {
@@ -369,6 +375,25 @@ export default function LuckyDrawApp() {
     setOrders((current) =>
       current.map((order) => (order.id === id ? { ...order, ...patch } : order)),
     );
+  }
+
+  function setPaymentSlip(file: File | null) {
+    if (slipPreviewUrlRef.current) {
+      URL.revokeObjectURL(slipPreviewUrlRef.current);
+      slipPreviewUrlRef.current = "";
+    }
+
+    setSlipFile(file);
+    setSlipName(file?.name ?? "");
+
+    if (file?.type.startsWith("image/")) {
+      const previewUrl = URL.createObjectURL(file);
+      slipPreviewUrlRef.current = previewUrl;
+      setSlipPreviewUrl(previewUrl);
+      return;
+    }
+
+    setSlipPreviewUrl("");
   }
 
   async function createOrder() {
@@ -398,8 +423,7 @@ export default function LuckyDrawApp() {
         setOrders((current) => [payload.order, ...current.filter((order) => order.id !== payload.order.id)]);
         setActiveOrderId(payload.order.id);
         setSelectedSlots([]);
-        setSlipName("");
-        setSlipFile(null);
+        setPaymentSlip(null);
         setView("orders");
         void refreshFromDatabase();
         return;
@@ -426,7 +450,7 @@ export default function LuckyDrawApp() {
     setOrders((current) => [next, ...current]);
     setActiveOrderId(id);
     setSelectedSlots([]);
-    setSlipFile(null);
+    setPaymentSlip(null);
     setView("orders");
   }
 
@@ -518,6 +542,27 @@ export default function LuckyDrawApp() {
     void refreshFromDatabase();
   }
 
+  async function saveCardSettings(nextFeaturedCards: FeaturedCard[], nextChaseCards: ChaseCard[]) {
+    setFeaturedCards(nextFeaturedCards);
+    setChaseCards(nextChaseCards);
+    if (!databaseReady) return;
+
+    const response = await fetch("/api/lucky-draw/admin/draw", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ featuredCards: nextFeaturedCards, chaseCards: nextChaseCards }),
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      setSyncError(payload?.error ?? "Card settings could not be saved.");
+      void refreshFromDatabase();
+      return;
+    }
+
+    void refreshFromDatabase();
+  }
+
   async function uploadPaymentQr(file: File) {
     if (!databaseReady) {
       const localUrl = URL.createObjectURL(file);
@@ -543,6 +588,29 @@ export default function LuckyDrawApp() {
     setDraw((current) => ({ ...current, qrImageUrl: payload.qrImageUrl }));
     void refreshFromDatabase();
     return payload.qrImageUrl;
+  }
+
+  async function uploadCardImage(file: File) {
+    if (!databaseReady) {
+      return URL.createObjectURL(file);
+    }
+
+    const form = new FormData();
+    form.set("file", file);
+
+    const response = await fetch("/api/lucky-draw/admin/card-image", {
+      method: "POST",
+      body: form,
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      setSyncError(payload?.error ?? "Card image upload failed.");
+      return "";
+    }
+
+    const payload = (await response.json()) as { imageUrl: string };
+    return payload.imageUrl;
   }
 
   function toggleSlot(slot: number) {
@@ -633,12 +701,10 @@ export default function LuckyDrawApp() {
               lineVerified={lineVerified}
               quantity={quantity}
               slipName={slipName}
+              slipPreviewUrl={slipPreviewUrl}
               onLineName={setLineName}
               onQuantity={setQuantity}
-              onSlip={(file) => {
-                setSlipFile(file);
-                setSlipName(file?.name ?? "");
-              }}
+              onSlip={setPaymentSlip}
               onSubmit={createOrder}
             />
           )}
@@ -680,10 +746,12 @@ export default function LuckyDrawApp() {
               onViewSlip={(id) => void viewPaymentSlip(id)}
               onAssignSlots={assignOrderSlots}
               onQrUpload={uploadPaymentQr}
+              onCardImageUpload={uploadCardImage}
               featuredCards={featuredCards}
               chaseCards={chaseCards}
               onFeaturedCards={setFeaturedCards}
               onChaseCards={setChaseCards}
+              onSaveCards={(nextFeaturedCards, nextChaseCards) => void saveCardSettings(nextFeaturedCards, nextChaseCards)}
             />
           )}
         </section>
@@ -894,6 +962,22 @@ function MiniCard({ card }: { card: FeaturedCard }) {
 }
 
 function CardArtwork({ card, compact }: { card: FeaturedCard; compact?: boolean }) {
+  if (card.photoUrl) {
+    return (
+      <div className="relative h-full w-full bg-black">
+        <Image
+          className="object-cover"
+          src={card.photoUrl}
+          alt={card.name}
+          fill
+          sizes={compact ? "54px" : "120px"}
+          unoptimized
+        />
+        <span className={`grade-chip ${card.grade.startsWith("BGS") ? "grade-bgs" : ""}`}>{card.grade}</span>
+      </div>
+    );
+  }
+
   return (
     <div className={`card-art card-art-${card.tone} ${compact ? "card-art-fill" : ""}`}>
       <div className="card-art-shine" />
@@ -913,6 +997,7 @@ function CheckoutView({
   lineVerified,
   quantity,
   slipName,
+  slipPreviewUrl,
   onLineName,
   onQuantity,
   onSlip,
@@ -924,6 +1009,7 @@ function CheckoutView({
   lineVerified: boolean;
   quantity: number;
   slipName: string;
+  slipPreviewUrl: string;
   onLineName: (value: string) => void;
   onQuantity: (value: number) => void;
   onSlip: (file: File | null) => void;
@@ -1007,14 +1093,22 @@ function CheckoutView({
         </div>
       </div>
 
-      <label className="mt-5 flex min-h-28 flex-col items-center justify-center rounded-3xl border border-dashed border-white/18 bg-white/[0.035] p-4 text-center">
-        <Upload className="h-6 w-6 text-[var(--gold)]" />
-        <span className="mt-2 text-sm font-black">{t.uploadSlip}</span>
-        <span className="mt-1 text-xs text-[var(--muted)]">{slipName || "JPG, PNG, or PDF demo upload"}</span>
+      <label className="mt-5 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-white/18 bg-white/[0.035] p-4 text-center">
+        {slipPreviewUrl ? (
+          <span className="relative block h-40 w-full overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+            <Image className="object-contain" src={slipPreviewUrl} alt={slipName || "Uploaded payment slip"} fill sizes="(max-width: 640px) calc(100vw - 64px), 360px" unoptimized />
+          </span>
+        ) : (
+          <Upload className="h-6 w-6 text-[var(--gold)]" />
+        )}
+        <span className="mt-2 text-sm font-black">{slipName ? `${t.uploadSlip}: ${slipName}` : t.uploadSlip}</span>
+        <span className="mt-1 text-xs text-[var(--muted)]">
+          {slipName ? "Ready to submit" : "JPG, PNG, WEBP, or PDF"}
+        </span>
         <input
           className="hidden"
           type="file"
-          accept="image/*,.pdf"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
           onChange={(event) => onSlip(event.target.files?.[0] ?? null)}
         />
       </label>
@@ -1172,8 +1266,10 @@ function AdminView({
   onViewSlip,
   onAssignSlots,
   onQrUpload,
+  onCardImageUpload,
   onFeaturedCards,
   onChaseCards,
+  onSaveCards,
 }: {
   draw: DrawConfig;
   lang: Lang;
@@ -1186,8 +1282,10 @@ function AdminView({
   onViewSlip: (id: string) => void;
   onAssignSlots: (id: string, slots: number[]) => void;
   onQrUpload: (file: File) => Promise<string>;
+  onCardImageUpload: (file: File) => Promise<string>;
   onFeaturedCards: (cards: FeaturedCard[]) => void;
   onChaseCards: (cards: ChaseCard[]) => void;
+  onSaveCards: (featuredCards: FeaturedCard[], chaseCards: ChaseCard[]) => void;
 }) {
   const t = copy[lang];
   const [draft, setDraft] = useState(draw);
@@ -1292,8 +1390,10 @@ function AdminView({
         lang={lang}
         featuredCards={featuredCards}
         chaseCards={chaseCards}
+        onCardImageUpload={onCardImageUpload}
         onFeaturedCards={onFeaturedCards}
         onChaseCards={onChaseCards}
+        onSaveCards={onSaveCards}
       />
 
       <div className="glass rounded-[28px] p-4 sm:p-6">
@@ -1343,16 +1443,22 @@ function AdminCardEditor({
   lang,
   featuredCards,
   chaseCards,
+  onCardImageUpload,
   onFeaturedCards,
   onChaseCards,
+  onSaveCards,
 }: {
   lang: Lang;
   featuredCards: FeaturedCard[];
   chaseCards: ChaseCard[];
+  onCardImageUpload: (file: File) => Promise<string>;
   onFeaturedCards: (cards: FeaturedCard[]) => void;
   onChaseCards: (cards: ChaseCard[]) => void;
+  onSaveCards: (featuredCards: FeaturedCard[], chaseCards: ChaseCard[]) => void;
 }) {
   const t = copy[lang];
+  const [cardsSaved, setCardsSaved] = useState(false);
+  const [uploadingCardId, setUploadingCardId] = useState("");
 
   function updateFeatured(index: number, patch: Partial<FeaturedCard>) {
     onFeaturedCards(featuredCards.map((card, cardIndex) => (cardIndex === index ? { ...card, ...patch } : card)));
@@ -1365,7 +1471,7 @@ function AdminCardEditor({
   function addFeatured() {
     onFeaturedCards([
       ...featuredCards,
-      { name: "New Card", grade: "PSA 10", series: "One Piece", tone: "gold" },
+      { id: newCardId("poster"), name: "New Card", grade: "PSA 10", series: "One Piece", tone: "gold" },
     ]);
   }
 
@@ -1373,6 +1479,7 @@ function AdminCardEditor({
     const nextRank = Math.min(chaseCards.length + 1, 3) as 1 | 2 | 3;
     const nextCard: ChaseCard = {
       rank: nextRank,
+      id: newCardId("chase"),
       name: "New Chase Card",
       subtitle: "One Piece · PSA 10 GEM MINT",
       grade: "PSA 10",
@@ -1384,6 +1491,44 @@ function AdminCardEditor({
       ...chaseCards,
       nextCard,
     ].slice(0, 3));
+  }
+
+  function saveCards() {
+    onSaveCards(featuredCards, chaseCards);
+    setCardsSaved(true);
+    window.setTimeout(() => setCardsSaved(false), 1400);
+  }
+
+  async function uploadFeaturedImage(index: number, file?: File) {
+    if (!file) return;
+    const card = featuredCards[index];
+    const cardId = card.id ?? `featured-${index}`;
+    setUploadingCardId(cardId);
+    const photoUrl = await onCardImageUpload(file);
+    if (photoUrl) {
+      const nextFeaturedCards = featuredCards.map((item, cardIndex) =>
+        cardIndex === index ? { ...item, id: item.id ?? newCardId("poster"), photoUrl } : item,
+      );
+      onFeaturedCards(nextFeaturedCards);
+      onSaveCards(nextFeaturedCards, chaseCards);
+    }
+    setUploadingCardId("");
+  }
+
+  async function uploadChaseImage(index: number, file?: File) {
+    if (!file) return;
+    const card = chaseCards[index];
+    const cardId = card.id ?? `chase-${index}`;
+    setUploadingCardId(cardId);
+    const photoUrl = await onCardImageUpload(file);
+    if (photoUrl) {
+      const nextChaseCards = chaseCards.map((item, cardIndex) =>
+        cardIndex === index ? { ...item, id: item.id ?? newCardId("chase"), photoUrl } : item,
+      );
+      onChaseCards(nextChaseCards);
+      onSaveCards(featuredCards, nextChaseCards);
+    }
+    setUploadingCardId("");
   }
 
   return (
@@ -1401,8 +1546,22 @@ function AdminCardEditor({
 
       <div className="mt-4 grid gap-3">
         {featuredCards.map((card, index) => (
-          <div key={`${card.name}-${index}`} className="soft-card rounded-3xl p-3">
-            <div className="grid gap-3 sm:grid-cols-[1fr_0.7fr_0.7fr_0.7fr_auto] sm:items-end">
+          <div key={card.id ?? `featured-${index}`} className="soft-card rounded-3xl p-3">
+            <div className="grid gap-3 sm:grid-cols-[96px_1fr_0.7fr_0.7fr_0.7fr_auto] sm:items-end">
+              <label className="group cursor-pointer">
+                <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl border border-white/10 bg-black/25">
+                  <CardArtwork card={card} compact />
+                </span>
+                <span className="mt-2 flex h-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black text-[var(--gold)]">
+                  {uploadingCardId === (card.id ?? `featured-${index}`) ? "Uploading..." : t.uploadPhoto}
+                </span>
+                <input
+                  className="hidden"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) => void uploadFeaturedImage(index, event.target.files?.[0])}
+                />
+              </label>
               <TextField label={`Card ${index + 1}`} value={card.name} onChange={(value) => updateFeatured(index, { name: value })} />
               <TextField label="Grade" value={card.grade} onChange={(value) => updateFeatured(index, { grade: value })} />
               <SelectField
@@ -1444,8 +1603,22 @@ function AdminCardEditor({
 
       <div className="mt-4 grid gap-3">
         {chaseCards.map((card, index) => (
-          <div key={`${card.rank}-${card.name}`} className="soft-card rounded-3xl p-3">
-            <div className="grid gap-3 sm:grid-cols-[0.45fr_1fr_1fr_0.65fr_auto] sm:items-end">
+          <div key={card.id ?? `chase-${index}`} className="soft-card rounded-3xl p-3">
+            <div className="grid gap-3 sm:grid-cols-[96px_0.45fr_1fr_1fr_0.65fr_auto] sm:items-end">
+              <label className="group cursor-pointer">
+                <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl border border-white/10 bg-black/25">
+                  <CardArtwork card={card} compact />
+                </span>
+                <span className="mt-2 flex h-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black text-[var(--gold)]">
+                  {uploadingCardId === (card.id ?? `chase-${index}`) ? "Uploading..." : t.uploadPhoto}
+                </span>
+                <input
+                  className="hidden"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) => void uploadChaseImage(index, event.target.files?.[0])}
+                />
+              </label>
               <NumberField label="Rank" value={card.rank} onChange={(value) => updateChase(index, { rank: Math.min(Math.max(value, 1), 3) as 1 | 2 | 3 })} />
               <TextField label="Card" value={card.name} onChange={(value) => updateChase(index, { name: value })} />
               <TextField label="Subtitle" value={card.subtitle} onChange={(value) => updateChase(index, { subtitle: value })} />
@@ -1477,6 +1650,10 @@ function AdminCardEditor({
           </div>
         ))}
       </div>
+      <button className="gold-button mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black" onClick={saveCards}>
+        <Save className="h-4 w-4" />
+        {cardsSaved ? t.saved : t.save}
+      </button>
     </div>
   );
 }

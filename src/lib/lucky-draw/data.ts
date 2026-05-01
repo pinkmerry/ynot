@@ -2,7 +2,7 @@ import "server-only";
 
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
-import type { DrawConfig, LuckyDrawState, Order, OrderStatus } from "./types";
+import type { ChaseCard, DrawConfig, FeaturedCard, LuckyDrawState, Order, OrderStatus } from "./types";
 
 type Supabase = ReturnType<typeof createServiceSupabaseClient>;
 type DrawRow = Database["public"]["Tables"]["draw_rounds"]["Row"];
@@ -57,6 +57,48 @@ export function fromDrawConfig(draw: DrawConfig): Database["public"]["Tables"]["
     bank_account_name: draw.accountName || null,
     bank_account_number: draw.accountNumber || null,
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function toFeaturedCards(value: unknown): FeaturedCard[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item) || typeof item.name !== "string" || typeof item.grade !== "string") return [];
+    return [{
+      id: typeof item.id === "string" ? item.id : undefined,
+      name: item.name,
+      grade: item.grade,
+      series: item.series === "Pokemon" ? "Pokemon" : "One Piece",
+      tone: item.tone === "red" || item.tone === "gold" || item.tone === "blue" || item.tone === "green" || item.tone === "rose" || item.tone === "violet"
+        ? item.tone
+        : "gold",
+      photoUrl: typeof item.photoUrl === "string" ? item.photoUrl : undefined,
+    }];
+  });
+}
+
+function toChaseCards(value: unknown): ChaseCard[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item) || typeof item.name !== "string" || typeof item.grade !== "string") return [];
+    const rank = Number(item.rank);
+    return [{
+      id: typeof item.id === "string" ? item.id : undefined,
+      rank: rank === 1 || rank === 2 || rank === 3 ? rank : 1,
+      name: item.name,
+      subtitle: typeof item.subtitle === "string" ? item.subtitle : "",
+      grade: item.grade,
+      series: item.series === "Pokemon" ? "Pokemon" : "One Piece",
+      tone: item.tone === "red" || item.tone === "gold" || item.tone === "blue" || item.tone === "green" || item.tone === "rose" || item.tone === "violet"
+        ? item.tone
+        : "gold",
+      value: Number.isFinite(Number(item.value)) ? Number(item.value) : 0,
+      photoUrl: typeof item.photoUrl === "string" ? item.photoUrl : undefined,
+    }];
+  });
 }
 
 export function toOrderStatus(status: OrderRow["status"]): OrderStatus {
@@ -169,6 +211,8 @@ export async function getLuckyDrawState(options: {
 
   return {
     draw: toDrawConfig(activeDraw),
+    featuredCards: toFeaturedCards(activeDraw.featured_cards),
+    chaseCards: toChaseCards(activeDraw.chase_cards),
     orders: orderRows.map((order) =>
       toOrder({
         order,

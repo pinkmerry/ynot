@@ -2,10 +2,13 @@ import { cookies } from "next/headers";
 import { fromDrawConfig, getActiveDraw, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { isAdminSession, readSessionCookie } from "@/lib/lucky-draw/session";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import type { DrawConfig } from "@/lib/lucky-draw/types";
+import type { ChaseCard, DrawConfig, FeaturedCard } from "@/lib/lucky-draw/types";
+import type { Json } from "@/lib/supabase/types";
 
 type UpdateDrawBody = {
   draw?: Partial<DrawConfig>;
+  featuredCards?: FeaturedCard[];
+  chaseCards?: ChaseCard[];
 };
 
 export async function PATCH(request: Request) {
@@ -25,7 +28,7 @@ export async function PATCH(request: Request) {
     return Response.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  if (!body.draw) {
+  if (!body.draw && !body.featuredCards && !body.chaseCards) {
     return Response.json({ error: "Missing draw settings." }, { status: 400 });
   }
 
@@ -36,21 +39,27 @@ export async function PATCH(request: Request) {
   }
 
   const nextDraw: DrawConfig = {
-    titleTh: body.draw.titleTh ?? activeDraw.title_th,
-    titleEn: body.draw.titleEn ?? activeDraw.title_en,
-    series: body.draw.series ?? (activeDraw.series === "pokemon" ? "Pokemon" : "One Piece"),
-    price: body.draw.price ?? activeDraw.price_thb,
-    totalSlots: body.draw.totalSlots ?? activeDraw.total_slots,
-    facebookUrl: body.draw.facebookUrl ?? activeDraw.facebook_live_url ?? "",
-    youtubeUrl: body.draw.youtubeUrl ?? activeDraw.youtube_embed_url ?? "",
-    promptPay: body.draw.promptPay ?? activeDraw.promptpay_id ?? "",
-    qrImageUrl: body.draw.qrImageUrl ?? activeDraw.promptpay_qr_image_url ?? "",
-    bankName: body.draw.bankName ?? activeDraw.bank_name ?? "",
-    accountName: body.draw.accountName ?? activeDraw.bank_account_name ?? "",
-    accountNumber: body.draw.accountNumber ?? activeDraw.bank_account_number ?? "",
+    titleTh: body.draw?.titleTh ?? activeDraw.title_th,
+    titleEn: body.draw?.titleEn ?? activeDraw.title_en,
+    series: body.draw?.series ?? (activeDraw.series === "pokemon" ? "Pokemon" : "One Piece"),
+    price: body.draw?.price ?? activeDraw.price_thb,
+    totalSlots: body.draw?.totalSlots ?? activeDraw.total_slots,
+    facebookUrl: body.draw?.facebookUrl ?? activeDraw.facebook_live_url ?? "",
+    youtubeUrl: body.draw?.youtubeUrl ?? activeDraw.youtube_embed_url ?? "",
+    promptPay: body.draw?.promptPay ?? activeDraw.promptpay_id ?? "",
+    qrImageUrl: body.draw?.qrImageUrl ?? activeDraw.promptpay_qr_image_url ?? "",
+    bankName: body.draw?.bankName ?? activeDraw.bank_name ?? "",
+    accountName: body.draw?.accountName ?? activeDraw.bank_account_name ?? "",
+    accountNumber: body.draw?.accountNumber ?? activeDraw.bank_account_number ?? "",
   };
 
-  const { error } = await supabase.from("draw_rounds").update(fromDrawConfig(nextDraw)).eq("id", activeDraw.id);
+  const patch = {
+    ...fromDrawConfig(nextDraw),
+    ...(body.featuredCards ? { featured_cards: body.featuredCards as unknown as Json } : {}),
+    ...(body.chaseCards ? { chase_cards: body.chaseCards as unknown as Json } : {}),
+  };
+
+  const { error } = await supabase.from("draw_rounds").update(patch).eq("id", activeDraw.id);
   if (error) throw error;
 
   if (nextDraw.totalSlots !== activeDraw.total_slots) {

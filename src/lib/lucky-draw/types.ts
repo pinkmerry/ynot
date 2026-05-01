@@ -16,6 +16,21 @@ export type DrawConfig = {
   accountNumber: string;
 };
 
+export type FeaturedCard = {
+  id?: string;
+  name: string;
+  grade: string;
+  series: "One Piece" | "Pokemon";
+  tone: "red" | "gold" | "blue" | "green" | "rose" | "violet";
+  photoUrl?: string;
+};
+
+export type ChaseCard = FeaturedCard & {
+  rank: 1 | 2 | 3;
+  value: number;
+  subtitle: string;
+};
+
 export type Order = {
   id: string;
   lineName: string;
@@ -32,4 +47,6 @@ export type Order = {
 export type LuckyDrawState = {
   draw: DrawConfig;
   orders: Order[];
+  featuredCards?: FeaturedCard[];
+  chaseCards?: ChaseCard[];
 };
