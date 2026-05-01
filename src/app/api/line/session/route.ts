@@ -1,4 +1,5 @@
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { createSessionCookieValue, luckyDrawSessionCookie } from "@/lib/lucky-draw/session";
 
 type LineVerifyResponse = {
   sub?: string;
@@ -53,14 +54,51 @@ export async function POST(request: Request) {
 
   try {
     const supabase = createServiceSupabaseClient();
-    await supabase.from("profiles").upsert(
-      {
-        line_user_id: profile.lineUserId,
-        line_display_name: profile.displayName,
-        line_picture_url: profile.pictureUrl ?? null,
-      },
-      { onConflict: "line_user_id" },
-    );
+    const { data: savedProfile, error: profileError } = await supabase
+      .from("profiles")
+      .upsert(
+        {
+          line_user_id: profile.lineUserId,
+          line_display_name: profile.displayName,
+          line_picture_url: profile.pictureUrl ?? null,
+        },
+        { onConflict: "line_user_id" },
+      )
+      .select("id,line_user_id")
+      .single();
+
+    if (profileError) throw profileError;
+
+    const { data: adminUser } = await supabase
+      .from("admin_users")
+      .select("id,role")
+      .eq("profile_id", savedProfile.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    const sessionCookie = createSessionCookieValue({
+      profileId: savedProfile.id,
+      lineUserId: savedProfile.line_user_id,
+      displayName: profile.displayName,
+      adminId: adminUser?.id,
+      adminRole: adminUser?.role,
+    });
+
+    const response = Response.json({
+      ...profile,
+      isAdmin: !!adminUser,
+      adminRole: adminUser?.role ?? null,
+    });
+
+    if (sessionCookie) {
+      const secure = process.env.NODE_ENV === "production" ? " Secure;" : "";
+      response.headers.set(
+        "Set-Cookie",
+        `${luckyDrawSessionCookie}=${sessionCookie}; HttpOnly;${secure} SameSite=Lax; Path=/; Max-Age=2592000`,
+      );
+    }
+
+    return response;
   } catch {
     // Local LIFF testing can work before Supabase env vars are installed.
   }

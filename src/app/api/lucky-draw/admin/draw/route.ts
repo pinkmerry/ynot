@@ -1,0 +1,67 @@
+import { cookies } from "next/headers";
+import { fromDrawConfig, getActiveDraw, isSupabaseConfigured } from "@/lib/lucky-draw/data";
+import { isAdminSession, readSessionCookie } from "@/lib/lucky-draw/session";
+import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import type { DrawConfig } from "@/lib/lucky-draw/types";
+
+type UpdateDrawBody = {
+  draw?: Partial<DrawConfig>;
+};
+
+export async function PATCH(request: Request) {
+  if (!isSupabaseConfigured()) {
+    return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  }
+
+  const session = readSessionCookie(await cookies());
+  if (!isAdminSession(session)) {
+    return Response.json({ error: "Admin access is required." }, { status: 403 });
+  }
+
+  let body: UpdateDrawBody;
+  try {
+    body = (await request.json()) as UpdateDrawBody;
+  } catch {
+    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  if (!body.draw) {
+    return Response.json({ error: "Missing draw settings." }, { status: 400 });
+  }
+
+  const supabase = createServiceSupabaseClient();
+  const activeDraw = await getActiveDraw(supabase);
+  if (!activeDraw) {
+    return Response.json({ error: "No draw round exists yet." }, { status: 404 });
+  }
+
+  const nextDraw: DrawConfig = {
+    titleTh: body.draw.titleTh ?? activeDraw.title_th,
+    titleEn: body.draw.titleEn ?? activeDraw.title_en,
+    series: body.draw.series ?? (activeDraw.series === "pokemon" ? "Pokemon" : "One Piece"),
+    price: body.draw.price ?? activeDraw.price_thb,
+    totalSlots: body.draw.totalSlots ?? activeDraw.total_slots,
+    facebookUrl: body.draw.facebookUrl ?? activeDraw.facebook_live_url ?? "",
+    youtubeUrl: body.draw.youtubeUrl ?? activeDraw.youtube_embed_url ?? "",
+    promptPay: body.draw.promptPay ?? activeDraw.promptpay_id ?? "",
+    bankName: body.draw.bankName ?? activeDraw.bank_name ?? "",
+    accountName: body.draw.accountName ?? activeDraw.bank_account_name ?? "",
+    accountNumber: body.draw.accountNumber ?? activeDraw.bank_account_number ?? "",
+  };
+
+  const { error } = await supabase.from("draw_rounds").update(fromDrawConfig(nextDraw)).eq("id", activeDraw.id);
+  if (error) throw error;
+
+  if (nextDraw.totalSlots !== activeDraw.total_slots) {
+    await supabase.rpc("create_draw_slots", { p_draw_round_id: activeDraw.id });
+  }
+
+  await supabase.from("audit_events").insert({
+    actor_admin_id: session?.adminId,
+    event_type: "draw_updated",
+    draw_round_id: activeDraw.id,
+    metadata: { slug: activeDraw.slug },
+  });
+
+  return Response.json({ ok: true });
+}

@@ -13,6 +13,9 @@
   --sky: #6ca6ff;
   --rose: #f05a6c;
   --muted: #9b9daf;
+  --bottom-nav-height: 88px;
+  --bottom-nav-gap: 12px;
+  --bottom-nav-clearance: 36px;
 }
 
 @theme inline {
@@ -29,6 +32,7 @@
 html {
   min-height: 100%;
   background: var(--background);
+  scroll-padding-bottom: calc(var(--bottom-nav-height) + var(--bottom-nav-gap) + var(--bottom-nav-clearance) + env(safe-area-inset-bottom));
 }
 
 body {
@@ -67,7 +71,11 @@ a {
 }
 
 .mobile-safe {
-  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--bottom-nav-height) + var(--bottom-nav-gap) + var(--bottom-nav-clearance) + env(safe-area-inset-bottom));
+}
+
+.bottom-nav-shell {
+  bottom: calc(var(--bottom-nav-gap) + env(safe-area-inset-bottom));
 }
 
 .glass {

@@ -58,6 +58,59 @@ The existing prototype currently lets the customer pick numbers before payment. 
 
 The slot picker design can still be reused, but it should be shown only after an order is approved and has remaining picks.
 
+## 3.1 Button Completion Plan
+
+Goal: every visible button, tab, picker, upload, and admin action should either complete the real action, show a useful disabled/loading/error state, or navigate to the correct next step.
+
+Recommended order:
+
+1. Customer basics:
+   - Home: LINE login, language toggle, Pay, Pick, Orders, and livestream platform buttons.
+   - Payment: quantity selector, slip upload, create order, copy payment details, and validation before submit.
+   - Orders: search, view order details, view slip/status, continue to Pick when approved.
+   - Pick: order selector, slot buttons, exact quantity enforcement, confirm numbers, and success feedback.
+
+2. Admin operations:
+   - Draw settings save.
+   - Payment settings save.
+   - Approve/reject payment with confirmation and audit record.
+   - Manual slot assignment for a customer.
+   - Card list add/remove/edit controls.
+   - Stream link update controls.
+
+3. Production wiring:
+   - Replace demo localStorage actions with Supabase reads/writes.
+   - Connect LINE LIFF identity to customer orders.
+   - Upload payment slips to protected storage.
+   - Add loading, success, and error toasts for every mutation.
+   - Block duplicate submits while a request is pending.
+
+4. Verification:
+   - Make a button inventory for each page and mark each item as working, disabled by design, or pending backend.
+   - Test on mobile width first, especially fixed bottom navigation and bottom action buttons.
+   - Test the full path: login -> pay -> admin approve -> pick -> orders.
+   - Test admin path: edit draw -> approve/reject -> assign slots -> update cards/stream.
+   - Add focused automated tests for critical state transitions once backend wiring starts.
+
+Supabase wiring now uses server API routes:
+
+- `GET /api/lucky-draw`: loads the active draw and the current user's orders. Admin users see all orders.
+- `POST /api/lucky-draw`: creates a customer order after LINE login.
+- `POST /api/lucky-draw/picks`: confirms customer slot picks through the atomic database RPC.
+- `PATCH /api/lucky-draw/admin/order`: admin approve/reject/manual slot assignment.
+- `PATCH /api/lucky-draw/admin/draw`: admin draw/payment/stream settings save.
+
+Admin setup after the owner LINE account logs in once:
+
+```sql
+insert into public.admin_users (profile_id, role)
+select id, 'owner'
+from public.profiles
+where line_user_id = '<OWNER_LINE_USER_ID>'
+on conflict (profile_id) do update
+set role = excluded.role, is_active = true;
+```
+
 ## 4. Recommended Architecture
 
 ### 4.1 Frontend And Hosting
@@ -617,12 +670,12 @@ Slot claiming must be atomic:
 Expected variables:
 
 - `NEXT_PUBLIC_SITE_URL`
-- `NEXT_PUBLIC_LIFF_ID`
-- `LINE_CHANNEL_ID`
-- `LINE_CHANNEL_SECRET`
+- `NEXT_PUBLIC_LINE_LIFF_ID`
+- `LINE_LOGIN_CHANNEL_ID`
+- `LINE_SESSION_SECRET`
 - `LINE_MESSAGING_CHANNEL_ACCESS_TOKEN` later, if notifications are enabled
 - `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `CLOUDINARY_CLOUD_NAME`
 - `CLOUDINARY_API_KEY`

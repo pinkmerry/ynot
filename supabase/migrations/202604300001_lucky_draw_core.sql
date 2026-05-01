@@ -455,3 +455,53 @@ begin
   end if;
 end;
 $$;
+
+with starter_draw as (
+  insert into public.draw_rounds (
+    slug,
+    status,
+    series,
+    title_th,
+    title_en,
+    price_thb,
+    total_slots,
+    facebook_live_url,
+    youtube_embed_url,
+    promptpay_id,
+    bank_name,
+    bank_account_name,
+    bank_account_number
+  )
+  values (
+    'portgas-arc-starter',
+    'live',
+    'one_piece',
+    'กล่องสุ่ม One Piece Portgas Arc',
+    'One Piece Portgas Arc Lucky Draw',
+    5000,
+    66,
+    'https://www.facebook.com/',
+    null,
+    '081-234-5678',
+    'Kasikorn Bank',
+    'Lucky Draw Shop',
+    '123-4-56789-0'
+  )
+  on conflict (slug) do update
+  set
+    status = excluded.status,
+    series = excluded.series,
+    title_th = excluded.title_th,
+    title_en = excluded.title_en,
+    price_thb = excluded.price_thb,
+    total_slots = excluded.total_slots,
+    facebook_live_url = excluded.facebook_live_url,
+    youtube_embed_url = excluded.youtube_embed_url,
+    promptpay_id = excluded.promptpay_id,
+    bank_name = excluded.bank_name,
+    bank_account_name = excluded.bank_account_name,
+    bank_account_number = excluded.bank_account_number
+  returning id
+)
+select public.create_draw_slots(id)
+from starter_draw;

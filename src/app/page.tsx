@@ -31,35 +31,10 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLiffSession } from "@/lib/line/use-liff-session";
+import { defaultDraw, seedOrders } from "@/lib/lucky-draw/defaults";
+import type { DrawConfig, Lang, Order, OrderStatus } from "@/lib/lucky-draw/types";
 
-type Lang = "th" | "en";
 type View = "home" | "checkout" | "pick" | "orders" | "admin";
-type OrderStatus = "pending" | "approved" | "picked" | "rejected";
-
-type DrawConfig = {
-  titleTh: string;
-  titleEn: string;
-  series: "One Piece" | "Pokemon";
-  price: number;
-  totalSlots: number;
-  facebookUrl: string;
-  youtubeUrl: string;
-  promptPay: string;
-  bankName: string;
-  accountName: string;
-  accountNumber: string;
-};
-
-type Order = {
-  id: string;
-  lineName: string;
-  quantity: number;
-  amount: number;
-  status: OrderStatus;
-  slipName: string;
-  slots: number[];
-  createdAt: string;
-};
 
 type FeaturedCard = {
   name: string;
@@ -197,43 +172,6 @@ const copy = {
   },
 };
 
-const defaultDraw: DrawConfig = {
-  titleTh: "กล่องสุ่ม One Piece Portgas Arc",
-  titleEn: "One Piece Portgas Arc Lucky Draw",
-  series: "One Piece",
-  price: 5000,
-  totalSlots: 66,
-  facebookUrl: "https://www.facebook.com/",
-  youtubeUrl: "",
-  promptPay: "081-234-5678",
-  bankName: "Kasikorn Bank",
-  accountName: "Lucky Draw Shop",
-  accountNumber: "123-4-56789-0",
-};
-
-const seedOrders: Order[] = [
-  {
-    id: "LD-1001",
-    lineName: "Merry",
-    quantity: 2,
-    amount: 10000,
-    status: "picked",
-    slipName: "sample-slip.jpg",
-    slots: [7, 21],
-    createdAt: "2026-04-30T09:00:00.000Z",
-  },
-  {
-    id: "LD-1002",
-    lineName: "Customer A",
-    quantity: 1,
-    amount: 5000,
-    status: "approved",
-    slipName: "transfer.png",
-    slots: [],
-    createdAt: "2026-04-30T09:22:00.000Z",
-  },
-];
-
 const storageKey = "lucky-draw-mvp-v2";
 
 const defaultFeaturedCards: FeaturedCard[] = [
@@ -291,6 +229,14 @@ type SavedState = {
   chaseCards?: ChaseCard[];
 };
 
+type LuckyDrawApiResponse = {
+  configured: boolean;
+  state: {
+    draw: DrawConfig;
+    orders: Order[];
+  };
+};
+
 function readSavedState(): SavedState {
   if (typeof window === "undefined") return {};
   const saved = window.localStorage.getItem(storageKey);
@@ -334,6 +280,8 @@ export default function LuckyDrawApp() {
   const [activeOrderId, setActiveOrderId] = useState("LD-1002");
   const [selectedSlots, setSelectedSlots] = useState<number[]>([]);
   const [query, setQuery] = useState("");
+  const [databaseReady, setDatabaseReady] = useState(false);
+  const [syncError, setSyncError] = useState("");
   const t = copy[lang];
 
   useEffect(() => {
@@ -347,6 +295,7 @@ export default function LuckyDrawApp() {
       if (saved.featuredCards) setFeaturedCards(saved.featuredCards);
       if (saved.chaseCards) setChaseCards(saved.chaseCards);
       hydratedRef.current = true;
+      void refreshFromDatabase();
     }, 0);
   }, []);
 
@@ -357,6 +306,10 @@ export default function LuckyDrawApp() {
       JSON.stringify({ lang, lineVerified, lineName, draw, orders, featuredCards, chaseCards }),
     );
   }, [lang, lineVerified, lineName, draw, orders, featuredCards, chaseCards]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [view]);
 
   useEffect(() => {
     const syncLiffState = window.setTimeout(() => {
@@ -390,9 +343,59 @@ export default function LuckyDrawApp() {
     void liffSession.login();
   }
 
-  function createOrder() {
+  async function refreshFromDatabase() {
+    try {
+      const response = await fetch("/api/lucky-draw");
+      if (!response.ok) return;
+      const payload = (await response.json()) as LuckyDrawApiResponse;
+      setDatabaseReady(payload.configured);
+      if (payload.configured) {
+        setDraw(payload.state.draw);
+        setOrders(payload.state.orders);
+        setActiveOrderId((current) => payload.state.orders.find((order) => order.id === current)?.id ?? payload.state.orders[0]?.id ?? "");
+      }
+    } catch {
+      setSyncError("Database sync is unavailable. Using local demo data.");
+    }
+  }
+
+  function applyOrderPatch(id: string, patch: Partial<Order>) {
+    setOrders((current) =>
+      current.map((order) => (order.id === id ? { ...order, ...patch } : order)),
+    );
+  }
+
+  async function createOrder() {
     if (!lineVerified) {
       handleLineLogin();
+      return;
+    }
+
+    if (databaseReady) {
+      const response = await fetch("/api/lucky-draw", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ quantity, slipName }),
+      });
+
+      if (response.status === 401) {
+        handleLineLogin();
+        return;
+      }
+
+      if (response.ok) {
+        const payload = (await response.json()) as { order: Order };
+        setOrders((current) => [payload.order, ...current.filter((order) => order.id !== payload.order.id)]);
+        setActiveOrderId(payload.order.id);
+        setSelectedSlots([]);
+        setSlipName("");
+        setView("orders");
+        void refreshFromDatabase();
+        return;
+      }
+
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      setSyncError(payload?.error ?? "Order could not be created in Supabase.");
       return;
     }
 
@@ -413,19 +416,70 @@ export default function LuckyDrawApp() {
     setView("orders");
   }
 
-  function updateOrder(id: string, patch: Partial<Order>) {
-    setOrders((current) =>
-      current.map((order) => (order.id === id ? { ...order, ...patch } : order)),
-    );
+  async function updateOrderStatus(id: string, status: OrderStatus) {
+    applyOrderPatch(id, { status });
+    if (!databaseReady) return;
+
+    const response = await fetch("/api/lucky-draw/admin/order", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ orderId: id, status }),
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      setSyncError(payload?.error ?? "Admin order update failed.");
+      void refreshFromDatabase();
+      return;
+    }
+
+    void refreshFromDatabase();
   }
 
-  function assignOrderSlots(id: string, slots: number[]) {
+  async function assignOrderSlots(id: string, slots: number[]) {
     const order = orders.find((item) => item.id === id);
     if (!order) return;
-    updateOrder(id, {
+    applyOrderPatch(id, {
       slots,
       status: slots.length === order.quantity ? "picked" : "approved",
     });
+
+    if (!databaseReady || slots.length === 0) return;
+
+    const response = await fetch("/api/lucky-draw/admin/order", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ orderId: id, slots }),
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      setSyncError(payload?.error ?? "Admin slot assignment failed.");
+      void refreshFromDatabase();
+      return;
+    }
+
+    void refreshFromDatabase();
+  }
+
+  async function saveDrawSettings(nextDraw: DrawConfig) {
+    setDraw(nextDraw);
+    if (!databaseReady) return;
+
+    const response = await fetch("/api/lucky-draw/admin/draw", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ draw: nextDraw }),
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      setSyncError(payload?.error ?? "Draw settings could not be saved.");
+      void refreshFromDatabase();
+      return;
+    }
+
+    void refreshFromDatabase();
   }
 
   function toggleSlot(slot: number) {
@@ -437,11 +491,28 @@ export default function LuckyDrawApp() {
     });
   }
 
-  function confirmSlots() {
+  async function confirmSlots() {
     if (!activeOrder || selectedSlots.length !== activeOrder.quantity) return;
-    updateOrder(activeOrder.id, { slots: selectedSlots, status: "picked" });
+
+    if (databaseReady) {
+      const response = await fetch("/api/lucky-draw/picks", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ orderId: activeOrder.id, slots: selectedSlots }),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        setSyncError(payload?.error ?? "Could not confirm selected numbers.");
+        void refreshFromDatabase();
+        return;
+      }
+    }
+
+    applyOrderPatch(activeOrder.id, { slots: selectedSlots, status: "picked" });
     setSelectedSlots([]);
     setView("orders");
+    if (databaseReady) void refreshFromDatabase();
   }
 
   return (
@@ -471,6 +542,11 @@ export default function LuckyDrawApp() {
 
       <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
         <section className="space-y-4">
+          {syncError && (
+            <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-sm font-bold text-amber-100">
+              {syncError}
+            </div>
+          )}
           {view === "home" && (
             <HomeView
               draw={draw}
@@ -532,9 +608,9 @@ export default function LuckyDrawApp() {
               draw={draw}
               lang={lang}
               orders={orders}
-              onDraw={setDraw}
-              onApprove={(id) => updateOrder(id, { status: "approved" })}
-              onReject={(id) => updateOrder(id, { status: "rejected" })}
+              onDraw={saveDrawSettings}
+              onApprove={(id) => void updateOrderStatus(id, "approved")}
+              onReject={(id) => void updateOrderStatus(id, "rejected")}
               onAssignSlots={assignOrderSlots}
               featuredCards={featuredCards}
               chaseCards={chaseCards}
@@ -1416,7 +1492,7 @@ function BottomNav({ view, setView, pending }: { view: View; setView: (view: Vie
     { view: "admin", icon: <Settings className="h-5 w-5" />, label: "Admin", badge: pending },
   ];
   return (
-    <nav className="fixed bottom-3 left-1/2 z-40 grid w-[calc(100%-24px)] max-w-[560px] -translate-x-1/2 grid-cols-5 rounded-[24px] border border-white/10 bg-[#10111f]/95 p-2 shadow-2xl backdrop-blur">
+    <nav className="bottom-nav-shell fixed left-1/2 z-40 grid w-[calc(100%-24px)] max-w-[560px] -translate-x-1/2 grid-cols-5 rounded-[24px] border border-white/10 bg-[#10111f]/95 p-2 shadow-2xl backdrop-blur">
       {items.map((item) => (
         <button
           key={item.view}
