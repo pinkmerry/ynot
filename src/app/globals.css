@@ -31,6 +31,7 @@
 
 html {
   min-height: 100%;
+  width: 100%;
   max-width: 100%;
   background: var(--background);
   overflow-x: hidden;
@@ -40,6 +41,8 @@ html {
 body {
   min-height: 100vh;
   min-height: 100dvh;
+  width: 100%;
+  min-width: 0;
   max-width: 100%;
   overflow-x: hidden;
   background:
@@ -72,7 +75,8 @@ a {
 
 .app-shell {
   width: 100%;
-  max-width: 1480px;
+  width: min(100%, 100dvw);
+  max-width: min(1480px, 100dvw);
   margin: 0 auto;
   overflow-x: hidden;
   padding: 16px; /* safe fallback */
@@ -87,6 +91,17 @@ a {
 .app-shell > * {
   min-width: 0;
   max-width: 100%;
+}
+
+.app-shell,
+.app-shell section,
+.app-shell aside,
+.glass,
+.soft-card,
+.poster-panel,
+.admin-tier-panel,
+.card-edit-panel {
+  min-width: 0;
 }
 
 .mobile-safe {
@@ -440,6 +455,29 @@ a {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.reward-copy,
+.reward-price {
+  min-width: 0;
+}
+
+.reward-title,
+.reward-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.slot-button {
+  min-width: 0;
+}
+
 .reward-1 {
   background: linear-gradient(135deg, rgba(38, 32, 18, 0.95), rgba(30, 24, 52, 0.95));
   border-color: rgba(244, 197, 66, 0.36);
@@ -561,7 +599,11 @@ a {
 
   .poster-grid,
   .poster-grid-dense {
-    grid-template-columns: repeat(auto-fit, minmax(98px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(92px, 100%), 1fr));
+  }
+
+  .slot-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .bottom-nav-spacer {
@@ -569,7 +611,43 @@ a {
   }
 }
 
+@media (max-width: 390px) {
+  .app-shell {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .reward-row {
+    grid-template-columns: 30px 48px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .reward-art {
+    width: 48px !important;
+    height: 66px !important;
+  }
+
+  .rank-medal {
+    width: 30px;
+    height: 30px;
+  }
+
+  .slot-grid {
+    gap: 7px;
+  }
+}
+
+@media (min-width: 430px) and (max-width: 719px) {
+  .slot-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
 @media (min-width: 720px) {
+  .slot-grid {
+    grid-template-columns: repeat(11, minmax(0, 1fr));
+  }
+
   .poster-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }

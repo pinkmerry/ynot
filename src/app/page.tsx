@@ -776,8 +776,8 @@ export default function LuckyDrawApp() {
         </div>
       </header>
 
-      <div className={view === "admin" ? "grid gap-4" : "grid gap-4 lg:grid-cols-[1.3fr_0.7fr]"}>
-        <section className="space-y-4">
+      <div className={view === "admin" ? "grid min-w-0 gap-4" : "grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)]"}>
+        <section className="min-w-0 space-y-4">
           {syncError && (
             <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-sm font-bold text-amber-100">
               {syncError}
@@ -862,7 +862,7 @@ export default function LuckyDrawApp() {
           )}
         </section>
 
-        <aside className={view === "admin" ? "hidden" : "hidden space-y-4 lg:block"}>
+        <aside className={view === "admin" ? "hidden" : "hidden min-w-0 space-y-4 lg:block"}>
           <StatusPanel
             draw={draw}
             lang={lang}
@@ -1037,8 +1037,8 @@ function TopRewards({ lang, cards }: { lang: Lang; cards: ChaseCard[] }) {
               <CardArtwork card={card} compact />
             </div>
             <div className="reward-copy min-w-0 flex-1">
-              <p className="truncate text-sm font-black text-white">{card.name}</p>
-              <p className="mt-1 truncate text-xs text-[var(--muted)]">{cardMeta(card)}</p>
+              <p className="reward-title truncate text-sm font-black text-white">{card.name}</p>
+              <p className="reward-meta mt-1 truncate text-xs text-[var(--muted)]">{cardMeta(card)}</p>
             </div>
             <div className="reward-price text-right">
               <p className={`reward-value reward-value-${card.rank}`}>฿{money(card.value)}</p>
@@ -1281,7 +1281,7 @@ function PickView({
         </select>
       </div>
 
-      <div className="mt-5 grid grid-cols-6 gap-2 sm:grid-cols-11">
+      <div className="slot-grid mt-5">
         {slots.map((slot) => {
           const taken = takenSlots.has(slot);
           const picked = selectedSlots.includes(slot);
@@ -1289,7 +1289,7 @@ function PickView({
             <button
               key={slot}
               className={[
-                "aspect-square rounded-2xl border text-sm font-black transition",
+                "slot-button aspect-square rounded-2xl border text-sm font-black transition",
                 taken ? "border-white/5 bg-black/35 text-white/20" : "",
                 !taken && picked ? "border-[var(--gold)] bg-[var(--gold)] text-slate-950 shadow-[0_0_22px_rgba(244,197,66,0.35)]" : "",
                 !taken && !picked ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-200 hover:border-emerald-200" : "",
@@ -1994,7 +1994,7 @@ function AdminSlotEditor({
               {activeOrder.slots.length ? activeOrder.slots.join(", ") : "-"}
             </span>
           </div>
-          <div className="mt-4 grid grid-cols-6 gap-2 sm:grid-cols-11">
+          <div className="slot-grid mt-4">
             {slots.map((slot) => {
               const owned = activeOrder.slots.includes(slot);
               const unavailable = takenSlots.has(slot) && !owned;
@@ -2002,7 +2002,7 @@ function AdminSlotEditor({
                 <button
                   key={slot}
                   className={[
-                    "aspect-square rounded-2xl border text-sm font-black transition",
+                    "slot-button aspect-square rounded-2xl border text-sm font-black transition",
                     unavailable ? "border-white/5 bg-black/35 text-white/20" : "",
                     owned ? "border-[var(--gold)] bg-[var(--gold)] text-slate-950 shadow-[0_0_22px_rgba(244,197,66,0.35)]" : "",
                     !owned && !unavailable ? "border-sky-300/25 bg-sky-300/10 text-sky-100 hover:border-sky-200" : "",
