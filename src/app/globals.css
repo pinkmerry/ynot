@@ -71,12 +71,17 @@ a {
 }
 
 .app-shell {
-  width: min(100%, 1480px);
+  width: 100%;
+  max-width: 1480px;
   margin: 0 auto;
-  overflow-x: clip;
-  padding: clamp(12px, 1.8vw, 24px);
-  /* Prevent content from escaping viewport on mobile */
-  contain: inline-size;
+  overflow-x: hidden;
+  padding: 16px; /* safe fallback */
+}
+
+@media (min-width: 720px) {
+  .app-shell {
+    padding: 24px;
+  }
 }
 
 .app-shell > * {
@@ -239,7 +244,7 @@ a {
 
 .poster-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(104px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
   gap: 8px;
   padding: 10px;
 }
@@ -534,7 +539,7 @@ a {
 
   .poster-grid,
   .poster-grid-dense {
-    grid-template-columns: repeat(auto-fit, minmax(min(98px, 100%), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(98px, 1fr));
   }
 
   .bottom-nav-spacer {
