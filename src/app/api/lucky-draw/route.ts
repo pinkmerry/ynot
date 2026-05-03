@@ -14,6 +14,14 @@ const slipBucketName = "payment-slips";
 const maxSlipBytes = 10 * 1024 * 1024;
 const allowedSlipTypes = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
 
+export const dynamic = "force-dynamic";
+
+function jsonNoStore(body: unknown, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set("cache-control", "no-store");
+  return Response.json(body, { ...init, headers });
+}
+
 function cleanFileName(name: string) {
   return name
     .trim()
@@ -62,7 +70,7 @@ async function readCreateOrderRequest(request: Request): Promise<{
 
 export async function GET() {
   if (!isSupabaseConfigured()) {
-    return Response.json({
+    return jsonNoStore({
       configured: false,
       state: { draw: defaultDraw, orders: seedOrders },
     });
@@ -74,7 +82,7 @@ export async function GET() {
     includeAllOrders: Boolean(session?.adminId),
   });
 
-  return Response.json({
+  return jsonNoStore({
     configured: true,
     state: state ?? { draw: defaultDraw, orders: [] },
   });

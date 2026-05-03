@@ -416,7 +416,7 @@ export default function LuckyDrawApp() {
   async function refreshFromDatabase() {
     const cardMutationVersion = cardMutationRef.current;
     try {
-      const response = await fetch("/api/lucky-draw");
+      const response = await fetch("/api/lucky-draw", { cache: "no-store" });
       if (!response.ok) return;
       const payload = (await response.json()) as LuckyDrawApiResponse;
       setDatabaseReady(payload.configured);

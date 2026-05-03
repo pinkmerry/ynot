@@ -236,7 +236,8 @@ function normalizeCardCode(code: string | null | undefined) {
 async function upsertCatalogCard(supabase: Supabase, card: FeaturedCard) {
   const searchName = normalizeCardSearchName(card.name);
   const cardCode = normalizeCardCode(card.code);
-  const cardPatch = {
+  const hasImage = Boolean(card.photoUrl || card.photoStoragePath);
+  const cardPatch: Database["public"]["Tables"]["cards"]["Insert"] = {
     card_code: cardCode,
     name: card.name.trim() || "Untitled Card",
     search_name: searchName,
@@ -244,8 +245,12 @@ async function upsertCatalogCard(supabase: Supabase, card: FeaturedCard) {
     series: fromAppSeries(card.series),
     grade: card.grade.trim() || "Ungraded",
     tone: toCardTone(card.tone),
-    image_url: card.photoUrl || null,
-    image_storage_path: card.photoStoragePath || null,
+    ...(hasImage
+      ? {
+          image_url: card.photoUrl || null,
+          image_storage_path: card.photoStoragePath || null,
+        }
+      : {}),
   };
 
   if (card.catalogCardId) {
@@ -291,9 +296,86 @@ async function upsertCatalogCard(supabase: Supabase, card: FeaturedCard) {
   return data;
 }
 
-export async function syncRoundPrizeCards(supabase: Supabase, drawRoundId: string, featuredCards: FeaturedCard[], chaseCards: ChaseCard[]) {
-  const featuredRows = await Promise.all(featuredCards.map(async (card, index) => {
+function cardCodeIdentity(card: FeaturedCard) {
+  const cardCode = normalizeCardCode(card.code);
+  return cardCode ? `code:${cardCode.toLowerCase()}` : "";
+}
+
+function cardNameIdentity(card: FeaturedCard) {
+  return `name:${normalizeCardSearchName(card.name)}`;
+}
+
+function cardPrimaryIdentity(card: FeaturedCard, aliases: Map<string, string>) {
+  if (card.catalogCardId) return `id:${card.catalogCardId}`;
+  const codeIdentity = cardCodeIdentity(card);
+  if (codeIdentity) return aliases.get(codeIdentity) ?? codeIdentity;
+  const nameIdentity = cardNameIdentity(card);
+  return aliases.get(nameIdentity) ?? nameIdentity;
+}
+
+function buildCardIdentityAliases(cards: FeaturedCard[]) {
+  const aliases = new Map<string, string>();
+  for (const card of cards) {
+    if (!card.catalogCardId) continue;
+    const idIdentity = `id:${card.catalogCardId}`;
+    const codeIdentity = cardCodeIdentity(card);
+    if (codeIdentity) aliases.set(codeIdentity, idIdentity);
+    aliases.set(cardNameIdentity(card), idIdentity);
+  }
+  return aliases;
+}
+
+function uploadedImageIsNewer(card: FeaturedCard, current: FeaturedCard) {
+  return Boolean(card.photoStoragePath && card.photoStoragePath !== current.photoStoragePath);
+}
+
+function mergeCatalogCardDraft(current: FeaturedCard, next: FeaturedCard): FeaturedCard {
+  const preferredImage = uploadedImageIsNewer(next, current) || (!current.photoUrl && next.photoUrl) ? next : current;
+  return {
+    ...next,
+    code: next.code ?? current.code,
+    catalogCardId: next.catalogCardId ?? current.catalogCardId,
+    photoUrl: preferredImage.photoUrl,
+    photoStoragePath: preferredImage.photoStoragePath,
+  };
+}
+
+async function upsertRoundCatalogCards(supabase: Supabase, cards: FeaturedCard[]) {
+  const aliases = buildCardIdentityAliases(cards);
+  const mergedCards = new Map<string, FeaturedCard>();
+
+  for (const card of cards) {
+    const identity = cardPrimaryIdentity(card, aliases);
+    const current = mergedCards.get(identity);
+    mergedCards.set(identity, current ? mergeCatalogCardDraft(current, card) : card);
+  }
+
+  const catalogByIdentity = new Map<string, CardRow>();
+  for (const [identity, card] of mergedCards) {
     const catalogCard = await upsertCatalogCard(supabase, card);
+    catalogByIdentity.set(identity, catalogCard);
+
+    const idIdentity = `id:${catalogCard.id}`;
+    catalogByIdentity.set(idIdentity, catalogCard);
+    const codeIdentity = cardCodeIdentity({ ...card, code: catalogCard.card_code ?? card.code });
+    if (codeIdentity) catalogByIdentity.set(codeIdentity, catalogCard);
+    catalogByIdentity.set(cardNameIdentity({ ...card, name: catalogCard.name }), catalogCard);
+  }
+
+  return {
+    getCatalogCard(card: FeaturedCard) {
+      const identity = cardPrimaryIdentity(card, aliases);
+      const catalogCard = catalogByIdentity.get(identity);
+      if (!catalogCard) throw new Error(`Card catalog sync failed for ${card.name}.`);
+      return catalogCard;
+    },
+  };
+}
+
+export async function syncRoundPrizeCards(supabase: Supabase, drawRoundId: string, featuredCards: FeaturedCard[], chaseCards: ChaseCard[]) {
+  const catalogSync = await upsertRoundCatalogCards(supabase, [...featuredCards, ...chaseCards]);
+  const featuredRows = featuredCards.map((card, index) => {
+    const catalogCard = catalogSync.getCatalogCard(card);
     return {
       draw_round_id: drawRoundId,
       card_id: catalogCard.id,
@@ -302,10 +384,10 @@ export async function syncRoundPrizeCards(supabase: Supabase, drawRoundId: strin
       value_thb: null,
       tone: toCardTone(card.tone),
     };
-  }));
+  });
 
-  const chaseRows = await Promise.all(chaseCards.map(async (card, index) => {
-    const catalogCard = await upsertCatalogCard(supabase, card);
+  const chaseRows = chaseCards.map((card, index) => {
+    const catalogCard = catalogSync.getCatalogCard(card);
     return {
       draw_round_id: drawRoundId,
       card_id: catalogCard.id,
@@ -314,7 +396,7 @@ export async function syncRoundPrizeCards(supabase: Supabase, drawRoundId: strin
       value_thb: Number.isFinite(card.value) ? Math.max(card.value, 0) : 0,
       tone: toCardTone(card.tone),
     };
-  }));
+  });
 
   const rows = [...featuredRows, ...chaseRows];
   if (rows.length) {
