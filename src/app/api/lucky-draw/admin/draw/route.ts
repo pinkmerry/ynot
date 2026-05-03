@@ -44,6 +44,7 @@ export async function PATCH(request: Request) {
     series: body.draw?.series ?? (activeDraw.series === "pokemon" ? "Pokemon" : "One Piece"),
     price: body.draw?.price ?? activeDraw.price_thb,
     totalSlots: body.draw?.totalSlots ?? activeDraw.total_slots,
+    orderCodePrefix: body.draw?.orderCodePrefix ?? activeDraw.order_code_prefix ?? "LD",
     facebookUrl: body.draw?.facebookUrl ?? activeDraw.facebook_live_url ?? "",
     youtubeUrl: body.draw?.youtubeUrl ?? activeDraw.youtube_embed_url ?? "",
     promptPay: body.draw?.promptPay ?? activeDraw.promptpay_id ?? "",

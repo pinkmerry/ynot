@@ -7,6 +7,7 @@ export type DrawConfig = {
   series: "One Piece" | "Pokemon";
   price: number;
   totalSlots: number;
+  orderCodePrefix: string;
   facebookUrl: string;
   youtubeUrl: string;
   promptPay: string;

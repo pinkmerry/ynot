@@ -231,6 +231,10 @@ a {
   padding: 10px;
 }
 
+.poster-grid-dense {
+  gap: 6px;
+}
+
 .mini-card {
   overflow: hidden;
   border-radius: 10px;
@@ -475,5 +479,9 @@ a {
 @media (min-width: 720px) {
   .poster-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .poster-grid-dense {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }

@@ -6,6 +6,7 @@ export const defaultDraw: DrawConfig = {
   series: "One Piece",
   price: 5000,
   totalSlots: 66,
+  orderCodePrefix: "LD",
   facebookUrl: "https://www.facebook.com/",
   youtubeUrl: "",
   promptPay: "081-234-5678",

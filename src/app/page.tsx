@@ -93,6 +93,8 @@ const copy = {
     roundCards: "การ์ดรอบนี้",
     roundCardsSub: "ตัวอย่างการ์ดในรอบถัดไป",
     topRewards: "การ์ดมูลค่าสูง",
+    showingCards: "แสดง",
+    maxCards: "สูงสุด 20 ใบ",
     estValue: "มูลค่าประเมิน",
     moreCards: "ใบอื่น",
     cardSettings: "ตั้งค่าการ์ดในรอบ",
@@ -100,6 +102,7 @@ const copy = {
     topCards: "การ์ดมูลค่าสูง",
     addCard: "เพิ่มการ์ด",
     addPrizeCard: "เพิ่มการ์ดรางวัล",
+    orderSlipDetail: "รายละเอียดออเดอร์ในสลิป (Prefix)",
     prizeTier: "ประเภทการ์ด",
     normalPrize: "การ์ดรางวัลปกติ",
     highTierPrize: "การ์ดมูลค่าสูง",
@@ -160,6 +163,8 @@ const copy = {
     roundCards: "This round's cards",
     roundCardsSub: "Preview cards for the next draw event",
     topRewards: "Top value cards",
+    showingCards: "Showing",
+    maxCards: "max 20 cards",
     estValue: "est. value",
     moreCards: "more",
     cardSettings: "Round card settings",
@@ -167,6 +172,7 @@ const copy = {
     topCards: "Top value cards",
     addCard: "Add card",
     addPrizeCard: "Add prize card",
+    orderSlipDetail: "Order slip detail / order prefix",
     prizeTier: "Prize type",
     normalPrize: "Normal card prize",
     highTierPrize: "High tier card prize",
@@ -261,6 +267,22 @@ function money(value: number) {
   return new Intl.NumberFormat("th-TH").format(value);
 }
 
+function normalizeOrderPrefixInput(value: string) {
+  return value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 16);
+}
+
+function normalizeDrawConfig(draw: Partial<DrawConfig>): DrawConfig {
+  return {
+    ...defaultDraw,
+    ...draw,
+    orderCodePrefix: normalizeOrderPrefixInput(draw.orderCodePrefix ?? defaultDraw.orderCodePrefix) || defaultDraw.orderCodePrefix,
+  };
+}
+
 function orderLabel(status: OrderStatus, lang: Lang) {
   return copy[lang][status];
 }
@@ -305,7 +327,7 @@ export default function LuckyDrawApp() {
       if (saved.lang) setLang(saved.lang);
       if (typeof saved.lineVerified === "boolean") setLineVerified(saved.lineVerified);
       if (saved.lineName) setLineName(saved.lineName);
-      if (saved.draw) setDraw(saved.draw);
+      if (saved.draw) setDraw(normalizeDrawConfig(saved.draw));
       if (saved.orders) setOrders(saved.orders);
       if (saved.featuredCards) setFeaturedCards(saved.featuredCards);
       if (saved.chaseCards) setChaseCards(saved.chaseCards);
@@ -838,8 +860,8 @@ function HomeView({
           </div>
         </div>
         <div className="space-y-4 border-t border-white/10 bg-black/10 p-4 sm:p-5">
-          <CardPoster draw={draw} lang={lang} cards={featuredCards} onPick={onPick} />
           <TopRewards lang={lang} cards={chaseCards} />
+          <CardPoster lang={lang} cards={featuredCards} onPick={onPick} />
         </div>
         <div className="p-4 sm:p-5">
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -898,23 +920,23 @@ function HomeView({
   );
 }
 
-function CardPoster({ draw, lang, cards, onPick }: { draw: DrawConfig; lang: Lang; cards: FeaturedCard[]; onPick: () => void }) {
+function CardPoster({ lang, cards, onPick }: { lang: Lang; cards: FeaturedCard[]; onPick: () => void }) {
   const t = copy[lang];
-  const visibleCards = cards.slice(-12);
+  const visibleCards = cards.slice(0, 20);
   return (
     <section className="poster-panel overflow-hidden rounded-[24px]">
       <div className="poster-heading">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.22em] text-[var(--gold)]">{t.roundCards}</p>
           <p className="mt-1 truncate text-xs text-[var(--muted)]">
-            {t.roundCardsSub} · {draw.totalSlots} slots
+            {t.roundCardsSub} · {t.showingCards} {visibleCards.length}/{cards.length} · {t.maxCards}
           </p>
         </div>
         <button className="text-xs font-black text-[var(--gold)]" onClick={onPick}>
           {t.pickNumbers}
         </button>
       </div>
-      <div className="poster-grid">
+      <div className={`poster-grid ${visibleCards.length > 12 ? "poster-grid-dense" : ""}`}>
         {visibleCards.map((card, index) => (
           <MiniCard key={`${card.name}-${index}`} card={card} />
         ))}
@@ -1344,6 +1366,11 @@ function AdminView({
           <TextField label="Title EN" value={draft.titleEn} onChange={(value) => setDraft({ ...draft, titleEn: value })} />
           <NumberField label="Price" value={draft.price} onChange={(value) => setDraft({ ...draft, price: value })} />
           <NumberField label="Total Slots" value={draft.totalSlots} onChange={(value) => setDraft({ ...draft, totalSlots: value })} />
+          <TextField
+            label={t.orderSlipDetail}
+            value={draft.orderCodePrefix}
+            onChange={(value) => setDraft({ ...draft, orderCodePrefix: normalizeOrderPrefixInput(value) })}
+          />
         </div>
       </div>
 

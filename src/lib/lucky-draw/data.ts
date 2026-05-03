@@ -25,6 +25,15 @@ export function isSupabaseConfigured() {
   );
 }
 
+function normalizeOrderCodePrefix(value: string | null | undefined) {
+  const prefix = (value ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 16);
+  return prefix || "LD";
+}
+
 export function toDrawConfig(row: DrawRow): DrawConfig {
   return {
     titleTh: row.title_th,
@@ -32,6 +41,7 @@ export function toDrawConfig(row: DrawRow): DrawConfig {
     series: row.series === "pokemon" ? "Pokemon" : "One Piece",
     price: row.price_thb,
     totalSlots: row.total_slots,
+    orderCodePrefix: normalizeOrderCodePrefix(row.order_code_prefix),
     facebookUrl: row.facebook_live_url ?? "",
     youtubeUrl: row.youtube_embed_url ?? "",
     promptPay: row.promptpay_id ?? "",
@@ -49,6 +59,7 @@ export function fromDrawConfig(draw: DrawConfig): Database["public"]["Tables"]["
     series: draw.series === "Pokemon" ? "pokemon" : "one_piece",
     price_thb: draw.price,
     total_slots: draw.totalSlots,
+    order_code_prefix: normalizeOrderCodePrefix(draw.orderCodePrefix),
     facebook_live_url: draw.facebookUrl || null,
     youtube_embed_url: draw.youtubeUrl || null,
     promptpay_id: draw.promptPay || null,
