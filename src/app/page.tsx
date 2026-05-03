@@ -317,6 +317,18 @@ function applyCatalogCard(card: FeaturedCard, catalogCard: CardCatalogItem): Fea
   };
 }
 
+function normalizeCardIdentityText(value: string | undefined) {
+  return (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function cardsShareCatalogIdentity(a: FeaturedCard, b: FeaturedCard) {
+  if (a.catalogCardId && b.catalogCardId) return a.catalogCardId === b.catalogCardId;
+  if (a.code?.trim() && b.code?.trim()) return normalizeCardIdentityText(a.code) === normalizeCardIdentityText(b.code);
+  if (a.catalogCardId || b.catalogCardId || a.code?.trim() || b.code?.trim()) return false;
+  const name = normalizeCardIdentityText(a.name);
+  return name.length > 0 && name !== "new card" && name !== "new chase card" && name === normalizeCardIdentityText(b.name);
+}
+
 function statusClass(status: OrderStatus) {
   if (status === "approved") return "border-emerald-400/35 bg-emerald-400/12 text-emerald-200";
   if (status === "picked") return "border-sky-400/35 bg-sky-400/12 text-sky-200";
@@ -327,6 +339,7 @@ function statusClass(status: OrderStatus) {
 export default function LuckyDrawApp() {
   const hydratedRef = useRef(false);
   const cardMutationRef = useRef(0);
+  const cardDraftDirtyRef = useRef(false);
   const liffSession = useLiffSession();
   const [lang, setLang] = useState<Lang>("th");
   const [view, setView] = useState<View>("home");
@@ -423,7 +436,7 @@ export default function LuckyDrawApp() {
       if (payload.configured) {
         setDraw(payload.state.draw);
         setOrders(payload.state.orders);
-        if (cardMutationVersion === cardMutationRef.current) {
+        if (!cardDraftDirtyRef.current && cardMutationVersion === cardMutationRef.current) {
           if (payload.state.featuredCards?.length) setFeaturedCards(payload.state.featuredCards);
           if (payload.state.chaseCards?.length) setChaseCards(payload.state.chaseCards);
           if (payload.state.cardCatalog) setCardCatalog(payload.state.cardCatalog);
@@ -608,9 +621,13 @@ export default function LuckyDrawApp() {
 
   async function saveCardSettings(nextFeaturedCards: FeaturedCard[], nextChaseCards: ChaseCard[]) {
     cardMutationRef.current += 1;
+    cardDraftDirtyRef.current = true;
     setFeaturedCards(nextFeaturedCards);
     setChaseCards(nextChaseCards);
-    if (!databaseReady) return;
+    if (!databaseReady) {
+      cardDraftDirtyRef.current = false;
+      return;
+    }
 
     const response = await fetch("/api/lucky-draw/admin/draw", {
       method: "PATCH",
@@ -625,7 +642,20 @@ export default function LuckyDrawApp() {
       return;
     }
 
+    cardDraftDirtyRef.current = false;
     void refreshFromDatabase();
+  }
+
+  function updateFeaturedCardDraft(nextFeaturedCards: FeaturedCard[]) {
+    cardDraftDirtyRef.current = true;
+    cardMutationRef.current += 1;
+    setFeaturedCards(nextFeaturedCards);
+  }
+
+  function updateChaseCardDraft(nextChaseCards: ChaseCard[]) {
+    cardDraftDirtyRef.current = true;
+    cardMutationRef.current += 1;
+    setChaseCards(nextChaseCards);
   }
 
   async function uploadPaymentQr(file: File) {
@@ -815,8 +845,8 @@ export default function LuckyDrawApp() {
               featuredCards={featuredCards}
               chaseCards={chaseCards}
               cardCatalog={cardCatalog}
-              onFeaturedCards={setFeaturedCards}
-              onChaseCards={setChaseCards}
+              onFeaturedCards={updateFeaturedCardDraft}
+              onChaseCards={updateChaseCardDraft}
               onSaveCards={(nextFeaturedCards, nextChaseCards) => void saveCardSettings(nextFeaturedCards, nextChaseCards)}
             />
           )}
@@ -1538,23 +1568,64 @@ function AdminCardEditor({
   const [addTier, setAddTier] = useState<"normal" | "high">("normal");
 
   function updateFeatured(index: number, patch: Partial<FeaturedCard>) {
-    onFeaturedCards(featuredCards.map((card, cardIndex) => (cardIndex === index ? { ...card, ...patch } : card)));
+    const sourceCard = featuredCards[index];
+    const nextFeaturedCards = featuredCards.map((card, cardIndex) =>
+      cardIndex === index || cardsShareCatalogIdentity(card, sourceCard) ? { ...card, ...patch } : card,
+    );
+    const nextChaseCards = chaseCards.map((card) =>
+      cardsShareCatalogIdentity(card, sourceCard) ? { ...card, ...patch } : card,
+    );
+    onFeaturedCards(nextFeaturedCards);
+    onChaseCards(nextChaseCards);
   }
 
   function updateChase(index: number, patch: Partial<ChaseCard>) {
-    onChaseCards(chaseCards.map((card, cardIndex) => (cardIndex === index ? { ...card, ...patch } : card)));
+    const sourceCard = chaseCards[index];
+    const sharedPatch: Partial<FeaturedCard> = {
+      code: patch.code,
+      name: patch.name,
+      grade: patch.grade,
+      series: patch.series,
+      tone: patch.tone,
+      photoUrl: patch.photoUrl,
+      photoStoragePath: patch.photoStoragePath,
+    };
+    const nextFeaturedCards = featuredCards.map((card) =>
+      cardsShareCatalogIdentity(card, sourceCard) ? { ...card, ...sharedPatch } : card,
+    );
+    const nextChaseCards = chaseCards.map((card, cardIndex) =>
+      cardIndex === index ? { ...card, ...patch } : cardsShareCatalogIdentity(card, sourceCard) ? { ...card, ...sharedPatch } : card,
+    );
+    onFeaturedCards(nextFeaturedCards);
+    onChaseCards(nextChaseCards);
   }
 
   function pickFeaturedCatalogCard(index: number, catalogCardId: string) {
     const catalogCard = cardCatalog.find((card) => card.catalogCardId === catalogCardId);
     if (!catalogCard) return;
-    onFeaturedCards(featuredCards.map((card, cardIndex) => (cardIndex === index ? applyCatalogCard(card, catalogCard) : card)));
+    const sourceCard = featuredCards[index];
+    const nextFeaturedCards = featuredCards.map((card, cardIndex) =>
+      cardIndex === index || cardsShareCatalogIdentity(card, sourceCard) ? applyCatalogCard(card, catalogCard) : card,
+    );
+    const nextChaseCards = chaseCards.map((card) =>
+      cardsShareCatalogIdentity(card, sourceCard) ? { ...card, ...applyCatalogCard(card, catalogCard) } : card,
+    );
+    onFeaturedCards(nextFeaturedCards);
+    onChaseCards(nextChaseCards);
   }
 
   function pickChaseCatalogCard(index: number, catalogCardId: string) {
     const catalogCard = cardCatalog.find((card) => card.catalogCardId === catalogCardId);
     if (!catalogCard) return;
-    onChaseCards(chaseCards.map((card, cardIndex) => (cardIndex === index ? { ...card, ...applyCatalogCard(card, catalogCard) } : card)));
+    const sourceCard = chaseCards[index];
+    const nextFeaturedCards = featuredCards.map((card) =>
+      cardsShareCatalogIdentity(card, sourceCard) ? applyCatalogCard(card, catalogCard) : card,
+    );
+    const nextChaseCards = chaseCards.map((card, cardIndex) =>
+      cardIndex === index || cardsShareCatalogIdentity(card, sourceCard) ? { ...card, ...applyCatalogCard(card, catalogCard) } : card,
+    );
+    onFeaturedCards(nextFeaturedCards);
+    onChaseCards(nextChaseCards);
   }
 
   function addFeatured() {
@@ -1600,13 +1671,20 @@ function AdminCardEditor({
     try {
       const upload = await onCardImageUpload(file);
       if (upload) {
+        const imagePatch = { photoUrl: upload.imageUrl, photoStoragePath: upload.storagePath };
         const nextFeaturedCards = featuredCards.map((item, cardIndex) =>
           cardIndex === index
-            ? { ...item, id: item.id ?? newCardId("poster"), photoUrl: upload.imageUrl, photoStoragePath: upload.storagePath }
-            : item,
+            ? { ...item, id: item.id ?? newCardId("poster"), ...imagePatch }
+            : cardsShareCatalogIdentity(item, card)
+              ? { ...item, ...imagePatch }
+              : item,
+        );
+        const nextChaseCards = chaseCards.map((item) =>
+          cardsShareCatalogIdentity(item, card) ? { ...item, ...imagePatch } : item,
         );
         onFeaturedCards(nextFeaturedCards);
-        onSaveCards(nextFeaturedCards, chaseCards);
+        onChaseCards(nextChaseCards);
+        onSaveCards(nextFeaturedCards, nextChaseCards);
       }
     } finally {
       setUploadingCardId("");
@@ -1621,13 +1699,20 @@ function AdminCardEditor({
     try {
       const upload = await onCardImageUpload(file);
       if (upload) {
+        const imagePatch = { photoUrl: upload.imageUrl, photoStoragePath: upload.storagePath };
+        const nextFeaturedCards = featuredCards.map((item) =>
+          cardsShareCatalogIdentity(item, card) ? { ...item, ...imagePatch } : item,
+        );
         const nextChaseCards = chaseCards.map((item, cardIndex) =>
           cardIndex === index
-            ? { ...item, id: item.id ?? newCardId("chase"), photoUrl: upload.imageUrl, photoStoragePath: upload.storagePath }
-            : item,
+            ? { ...item, id: item.id ?? newCardId("chase"), ...imagePatch }
+            : cardsShareCatalogIdentity(item, card)
+              ? { ...item, ...imagePatch }
+              : item,
         );
+        onFeaturedCards(nextFeaturedCards);
         onChaseCards(nextChaseCards);
-        onSaveCards(featuredCards, nextChaseCards);
+        onSaveCards(nextFeaturedCards, nextChaseCards);
       }
     } finally {
       setUploadingCardId("");
