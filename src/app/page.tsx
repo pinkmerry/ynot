@@ -918,11 +918,11 @@ function HomeView({
               allowFullScreen
             />
           ) : (
-            <div className="grid h-full place-items-center bg-[radial-gradient(circle_at_center,rgba(244,197,66,0.13),transparent_42%),linear-gradient(135deg,#13172a,#080912)] text-center">
-              <div>
+            <div className="grid h-full place-items-center bg-[radial-gradient(circle_at_center,rgba(244,197,66,0.13),transparent_42%),linear-gradient(135deg,#13172a,#080912)] px-4 text-center">
+              <div className="max-w-full">
                 <Video className="mx-auto h-10 w-10 text-[var(--gold)]" />
                 <p className="mt-3 text-lg font-black">{t.watchStream}</p>
-                <p className="mt-1 text-sm text-[var(--muted)]">Add the YouTube embed URL in Admin</p>
+                <p className="mx-auto mt-1 max-w-[26ch] text-wrap text-sm leading-snug text-[var(--muted)]">Add the YouTube embed URL in Admin</p>
               </div>
             </div>
           )}
@@ -1030,14 +1030,14 @@ function TopRewards({ lang, cards }: { lang: Lang; cards: ChaseCard[] }) {
             <div className={`rank-medal rank-${card.rank}`}>
               {card.rank}
             </div>
-            <div className="h-[74px] w-[54px] shrink-0 overflow-hidden rounded-lg border border-white/10">
+            <div className="reward-art h-[74px] w-[54px] shrink-0 overflow-hidden rounded-lg border border-white/10">
               <CardArtwork card={card} compact />
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="reward-copy min-w-0 flex-1">
               <p className="truncate text-sm font-black text-white">{card.name}</p>
               <p className="mt-1 truncate text-xs text-[var(--muted)]">{cardMeta(card)}</p>
             </div>
-            <div className="text-right">
+            <div className="reward-price text-right">
               <p className={`reward-value reward-value-${card.rank}`}>฿{money(card.value)}</p>
               <p className="mt-1 text-[10px] text-[var(--muted)]">{t.estValue}</p>
             </div>

@@ -74,6 +74,10 @@ a {
   padding: clamp(12px, 1.8vw, 24px);
 }
 
+.app-shell > * {
+  min-width: 0;
+}
+
 .mobile-safe {
   padding-bottom: calc(var(--bottom-nav-height) + var(--bottom-nav-gap) + var(--bottom-nav-clearance) + env(safe-area-inset-bottom));
 }
@@ -229,7 +233,7 @@ a {
 
 .poster-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(104px, 100%), 1fr));
   gap: 8px;
   padding: 10px;
 }
@@ -393,6 +397,9 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   border-radius: 14px;
   padding: 12px;
@@ -472,6 +479,56 @@ a {
 @media (max-width: 720px) {
   .app-shell {
     padding: 12px;
+  }
+
+  .reward-row {
+    display: grid;
+    grid-template-columns: 34px 54px minmax(0, 1fr);
+    grid-template-areas:
+      "rank art copy"
+      "rank art price";
+    align-items: center;
+    gap: 8px 10px;
+    padding: 10px;
+  }
+
+  .rank-medal {
+    grid-area: rank;
+  }
+
+  .reward-art {
+    grid-area: art;
+  }
+
+  .reward-copy {
+    grid-area: copy;
+  }
+
+  .reward-price {
+    grid-area: price;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .reward-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+  }
+
+  .section-rule {
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+  }
+
+  .poster-heading {
+    padding: 12px;
+  }
+
+  .poster-grid,
+  .poster-grid-dense {
+    grid-template-columns: repeat(auto-fit, minmax(min(98px, 100%), 1fr));
   }
 
   .bottom-nav-spacer {
