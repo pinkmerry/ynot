@@ -62,5 +62,5 @@ export async function POST(request: Request) {
     metadata: { path },
   });
 
-  return Response.json({ imageUrl: data.publicUrl });
+  return Response.json({ imageUrl: data.publicUrl, storagePath: path });
 }

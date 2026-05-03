@@ -37,6 +37,7 @@ import { defaultDraw, seedOrders } from "@/lib/lucky-draw/defaults";
 import type { CardCatalogItem, ChaseCard, DrawConfig, FeaturedCard, Lang, Order, OrderStatus } from "@/lib/lucky-draw/types";
 
 type View = "home" | "checkout" | "pick" | "orders" | "admin";
+type CardImageUploadResult = { imageUrl: string; storagePath?: string };
 
 const copy = {
   th: {
@@ -106,6 +107,7 @@ const copy = {
     prizeTier: "ประเภทการ์ด",
     normalPrize: "การ์ดรางวัลปกติ",
     highTierPrize: "การ์ดมูลค่าสูง",
+    cardCode: "รหัสการ์ด",
     savedCard: "เลือกจากคลังการ์ด",
     pickSavedCard: "ค้นหา / เลือกการ์ดที่เคยบันทึก",
     noSavedCards: "ยังไม่มีการ์ดที่บันทึก",
@@ -179,6 +181,7 @@ const copy = {
     prizeTier: "Prize type",
     normalPrize: "Normal card prize",
     highTierPrize: "High tier card prize",
+    cardCode: "Card code",
     savedCard: "Saved card",
     pickSavedCard: "Search / pick saved card",
     noSavedCards: "No saved cards yet",
@@ -304,11 +307,13 @@ function applyCatalogCard(card: FeaturedCard, catalogCard: CardCatalogItem): Fea
   return {
     ...card,
     catalogCardId: catalogCard.catalogCardId,
+    code: catalogCard.code,
     name: catalogCard.name,
     grade: catalogCard.grade,
     series: catalogCard.series,
     tone: catalogCard.tone,
     photoUrl: catalogCard.photoUrl,
+    photoStoragePath: catalogCard.photoStoragePath,
   };
 }
 
@@ -321,6 +326,7 @@ function statusClass(status: OrderStatus) {
 
 export default function LuckyDrawApp() {
   const hydratedRef = useRef(false);
+  const cardMutationRef = useRef(0);
   const liffSession = useLiffSession();
   const [lang, setLang] = useState<Lang>("th");
   const [view, setView] = useState<View>("home");
@@ -408,6 +414,7 @@ export default function LuckyDrawApp() {
   }
 
   async function refreshFromDatabase() {
+    const cardMutationVersion = cardMutationRef.current;
     try {
       const response = await fetch("/api/lucky-draw");
       if (!response.ok) return;
@@ -416,9 +423,11 @@ export default function LuckyDrawApp() {
       if (payload.configured) {
         setDraw(payload.state.draw);
         setOrders(payload.state.orders);
-        if (payload.state.featuredCards?.length) setFeaturedCards(payload.state.featuredCards);
-        if (payload.state.chaseCards?.length) setChaseCards(payload.state.chaseCards);
-        if (payload.state.cardCatalog) setCardCatalog(payload.state.cardCatalog);
+        if (cardMutationVersion === cardMutationRef.current) {
+          if (payload.state.featuredCards?.length) setFeaturedCards(payload.state.featuredCards);
+          if (payload.state.chaseCards?.length) setChaseCards(payload.state.chaseCards);
+          if (payload.state.cardCatalog) setCardCatalog(payload.state.cardCatalog);
+        }
         setActiveOrderId((current) => payload.state.orders.find((order) => order.id === current)?.id ?? payload.state.orders[0]?.id ?? "");
       }
     } catch {
@@ -598,6 +607,7 @@ export default function LuckyDrawApp() {
   }
 
   async function saveCardSettings(nextFeaturedCards: FeaturedCard[], nextChaseCards: ChaseCard[]) {
+    cardMutationRef.current += 1;
     setFeaturedCards(nextFeaturedCards);
     setChaseCards(nextChaseCards);
     if (!databaseReady) return;
@@ -647,7 +657,7 @@ export default function LuckyDrawApp() {
 
   async function uploadCardImage(file: File) {
     if (!databaseReady) {
-      return URL.createObjectURL(file);
+      return { imageUrl: URL.createObjectURL(file) };
     }
 
     const form = new FormData();
@@ -664,8 +674,8 @@ export default function LuckyDrawApp() {
       return "";
     }
 
-    const payload = (await response.json()) as { imageUrl: string };
-    return payload.imageUrl;
+    const payload = (await response.json()) as { imageUrl: string; storagePath?: string };
+    return payload;
   }
 
   function toggleSlot(slot: number) {
@@ -726,7 +736,7 @@ export default function LuckyDrawApp() {
         </div>
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+      <div className={view === "admin" ? "grid gap-4" : "grid gap-4 lg:grid-cols-[1.3fr_0.7fr]"}>
         <section className="space-y-4">
           {syncError && (
             <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-sm font-bold text-amber-100">
@@ -812,7 +822,7 @@ export default function LuckyDrawApp() {
           )}
         </section>
 
-        <aside className="hidden space-y-4 lg:block">
+        <aside className={view === "admin" ? "hidden" : "hidden space-y-4 lg:block"}>
           <StatusPanel
             draw={draw}
             lang={lang}
@@ -1340,7 +1350,7 @@ function AdminView({
   onViewSlip: (id: string) => void;
   onAssignSlots: (id: string, slots: number[]) => void;
   onQrUpload: (file: File) => Promise<string>;
-  onCardImageUpload: (file: File) => Promise<string>;
+  onCardImageUpload: (file: File) => Promise<CardImageUploadResult | "">;
   onFeaturedCards: (cards: FeaturedCard[]) => void;
   onChaseCards: (cards: ChaseCard[]) => void;
   onSaveCards: (featuredCards: FeaturedCard[], chaseCards: ChaseCard[]) => void;
@@ -1517,7 +1527,7 @@ function AdminCardEditor({
   featuredCards: FeaturedCard[];
   chaseCards: ChaseCard[];
   cardCatalog: CardCatalogItem[];
-  onCardImageUpload: (file: File) => Promise<string>;
+  onCardImageUpload: (file: File) => Promise<CardImageUploadResult | "">;
   onFeaturedCards: (cards: FeaturedCard[]) => void;
   onChaseCards: (cards: ChaseCard[]) => void;
   onSaveCards: (featuredCards: FeaturedCard[], chaseCards: ChaseCard[]) => void;
@@ -1588,10 +1598,12 @@ function AdminCardEditor({
     const cardId = card.id ?? `featured-${index}`;
     setUploadingCardId(cardId);
     try {
-      const photoUrl = await onCardImageUpload(file);
-      if (photoUrl) {
+      const upload = await onCardImageUpload(file);
+      if (upload) {
         const nextFeaturedCards = featuredCards.map((item, cardIndex) =>
-          cardIndex === index ? { ...item, id: item.id ?? newCardId("poster"), photoUrl } : item,
+          cardIndex === index
+            ? { ...item, id: item.id ?? newCardId("poster"), photoUrl: upload.imageUrl, photoStoragePath: upload.storagePath }
+            : item,
         );
         onFeaturedCards(nextFeaturedCards);
         onSaveCards(nextFeaturedCards, chaseCards);
@@ -1607,10 +1619,12 @@ function AdminCardEditor({
     const cardId = card.id ?? `chase-${index}`;
     setUploadingCardId(cardId);
     try {
-      const photoUrl = await onCardImageUpload(file);
-      if (photoUrl) {
+      const upload = await onCardImageUpload(file);
+      if (upload) {
         const nextChaseCards = chaseCards.map((item, cardIndex) =>
-          cardIndex === index ? { ...item, id: item.id ?? newCardId("chase"), photoUrl } : item,
+          cardIndex === index
+            ? { ...item, id: item.id ?? newCardId("chase"), photoUrl: upload.imageUrl, photoStoragePath: upload.storagePath }
+            : item,
         );
         onChaseCards(nextChaseCards);
         onSaveCards(featuredCards, nextChaseCards);
@@ -1666,7 +1680,7 @@ function AdminCardEditor({
                 </span>
                 <ChevronDown className="tier-chevron h-4 w-4" />
               </summary>
-              <div className="mt-3 grid gap-3 sm:grid-cols-[96px_1fr_1fr] sm:items-end">
+              <div className="mt-3 grid gap-3 sm:grid-cols-[96px_1fr_0.7fr_1fr] sm:items-end">
                 <label className="upload-target group cursor-pointer">
                   <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl border border-white/10 bg-black/25">
                     <CardArtwork card={card} compact />
@@ -1688,6 +1702,7 @@ function AdminCardEditor({
                   promptLabel={t.pickSavedCard}
                   onSelect={(catalogCardId) => pickFeaturedCatalogCard(index, catalogCardId)}
                 />
+                <TextField label={t.cardCode} value={card.code ?? ""} onChange={(value) => updateFeatured(index, { code: value })} />
                 <TextField label={`Card ${index + 1}`} value={card.name} onChange={(value) => updateFeatured(index, { name: value })} />
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-[0.7fr_0.7fr_0.7fr_auto] sm:items-end">
@@ -1739,7 +1754,7 @@ function AdminCardEditor({
                 </span>
                 <ChevronDown className="tier-chevron h-4 w-4" />
               </summary>
-              <div className="mt-3 grid gap-3 sm:grid-cols-[96px_0.45fr_1fr_1fr] sm:items-end">
+              <div className="mt-3 grid gap-3 sm:grid-cols-[96px_0.45fr_0.8fr_1fr_1fr] sm:items-end">
                 <label className="upload-target group cursor-pointer">
                   <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl border border-white/10 bg-black/25">
                     <CardArtwork card={card} compact />
@@ -1762,6 +1777,7 @@ function AdminCardEditor({
                   promptLabel={t.pickSavedCard}
                   onSelect={(catalogCardId) => pickChaseCatalogCard(index, catalogCardId)}
                 />
+                <TextField label={t.cardCode} value={card.code ?? ""} onChange={(value) => updateChase(index, { code: value })} />
                 <TextField label="Card" value={card.name} onChange={(value) => updateChase(index, { name: value })} />
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-[0.65fr_auto] sm:items-end">
@@ -2101,7 +2117,7 @@ function CardCatalogSelect({
   const options = [
     { label: cards.length ? promptLabel : emptyLabel, value: "" },
     ...cards.map((card) => ({
-      label: `${card.name} · ${card.grade} · ${card.series}`,
+      label: `${card.code ? `${card.code} · ` : ""}${card.name} · ${card.grade} · ${card.series}`,
       value: card.catalogCardId,
     })),
   ];

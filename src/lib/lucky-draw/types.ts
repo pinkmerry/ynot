@@ -20,11 +20,13 @@ export type DrawConfig = {
 export type FeaturedCard = {
   id?: string;
   catalogCardId?: string;
+  code?: string;
   name: string;
   grade: string;
   series: "One Piece" | "Pokemon";
   tone: "red" | "gold" | "blue" | "green" | "rose" | "violet";
   photoUrl?: string;
+  photoStoragePath?: string;
 };
 
 export type ChaseCard = FeaturedCard & {

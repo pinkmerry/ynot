@@ -98,8 +98,10 @@ export type Database = {
       cards: {
         Row: {
           id: string;
+          card_code: string | null;
           name: string;
           search_name: string;
+          search_code: string | null;
           series: "one_piece" | "pokemon";
           grade: string;
           tone: "red" | "gold" | "blue" | "green" | "rose" | "violet";
@@ -110,8 +112,10 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          card_code?: string | null;
           name: string;
           search_name: string;
+          search_code?: string | null;
           series: "one_piece" | "pokemon";
           grade: string;
           tone?: "red" | "gold" | "blue" | "green" | "rose" | "violet";

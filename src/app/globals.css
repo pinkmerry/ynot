@@ -66,9 +66,9 @@ a {
 }
 
 .app-shell {
-  width: min(100%, 1180px);
+  width: min(100%, 1480px);
   margin: 0 auto;
-  padding: 18px;
+  padding: clamp(12px, 1.8vw, 24px);
 }
 
 .mobile-safe {

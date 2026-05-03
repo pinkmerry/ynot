@@ -83,6 +83,7 @@ function toFeaturedCards(value: unknown): FeaturedCard[] {
     return [{
       id: typeof item.id === "string" ? item.id : undefined,
       catalogCardId: typeof item.catalogCardId === "string" ? item.catalogCardId : undefined,
+      code: typeof item.code === "string" ? item.code : undefined,
       name: item.name,
       grade: item.grade,
       series: item.series === "Pokemon" ? "Pokemon" : "One Piece",
@@ -90,6 +91,7 @@ function toFeaturedCards(value: unknown): FeaturedCard[] {
         ? item.tone
         : "gold",
       photoUrl: typeof item.photoUrl === "string" ? item.photoUrl : undefined,
+      photoStoragePath: typeof item.photoStoragePath === "string" ? item.photoStoragePath : undefined,
     }];
   });
 }
@@ -102,6 +104,7 @@ function toChaseCards(value: unknown): ChaseCard[] {
     return [{
       id: typeof item.id === "string" ? item.id : undefined,
       catalogCardId: typeof item.catalogCardId === "string" ? item.catalogCardId : undefined,
+      code: typeof item.code === "string" ? item.code : undefined,
       rank: Number.isInteger(rank) && rank > 0 ? rank : 1,
       name: item.name,
       grade: item.grade,
@@ -111,6 +114,7 @@ function toChaseCards(value: unknown): ChaseCard[] {
         : "gold",
       value: Number.isFinite(Number(item.value)) ? Number(item.value) : 0,
       photoUrl: typeof item.photoUrl === "string" ? item.photoUrl : undefined,
+      photoStoragePath: typeof item.photoStoragePath === "string" ? item.photoStoragePath : undefined,
     }];
   });
 }
@@ -134,11 +138,13 @@ function toCatalogItem(row: CardRow): CardCatalogItem {
   return {
     id: row.id,
     catalogCardId: row.id,
+    code: row.card_code ?? undefined,
     name: row.name,
     grade: row.grade,
     series: toAppSeries(row.series),
     tone: toCardTone(row.tone),
     photoUrl: row.image_url ?? undefined,
+    photoStoragePath: row.image_storage_path ?? undefined,
   };
 }
 
@@ -146,11 +152,13 @@ function prizeToFeaturedCard(prize: DrawRoundPrizeRow, card: CardRow): FeaturedC
   return {
     id: prize.id,
     catalogCardId: card.id,
+    code: card.card_code ?? undefined,
     name: card.name,
     grade: card.grade,
     series: toAppSeries(card.series),
     tone: toCardTone(prize.tone ?? card.tone),
     photoUrl: card.image_url ?? undefined,
+    photoStoragePath: card.image_storage_path ?? undefined,
   };
 }
 
@@ -216,16 +224,28 @@ function normalizeCardSearchName(name: string) {
   return name.trim().toLowerCase().replace(/[^a-z0-9ก-๙]+/gi, " ").replace(/\s+/g, " ").slice(0, 160) || "card";
 }
 
+function normalizeCardCode(code: string | null | undefined) {
+  const clean = (code ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  return clean || null;
+}
+
 async function upsertCatalogCard(supabase: Supabase, card: FeaturedCard) {
   const searchName = normalizeCardSearchName(card.name);
+  const cardCode = normalizeCardCode(card.code);
   const cardPatch = {
+    card_code: cardCode,
     name: card.name.trim() || "Untitled Card",
     search_name: searchName,
+    search_code: cardCode?.toLowerCase() ?? null,
     series: fromAppSeries(card.series),
     grade: card.grade.trim() || "Ungraded",
     tone: toCardTone(card.tone),
     image_url: card.photoUrl || null,
-    image_storage_path: null,
+    image_storage_path: card.photoStoragePath || null,
   };
 
   if (card.catalogCardId) {
@@ -240,11 +260,12 @@ async function upsertCatalogCard(supabase: Supabase, card: FeaturedCard) {
     if (data) return data;
   }
 
-  const { data: existing, error: existingError } = await supabase
+  const existingQuery = supabase
     .from("cards")
     .select("*")
-    .eq("search_name", searchName)
+    .eq(cardCode ? "search_code" : "search_name", cardCode ? cardCode.toLowerCase() : searchName)
     .maybeSingle();
+  const { data: existing, error: existingError } = await existingQuery;
 
   if (existingError) throw existingError;
 
