@@ -6,6 +6,7 @@ import {
   Banknote,
   Boxes,
   Check,
+  ChevronDown,
   ChevronRight,
   ClipboardList,
   CreditCard,
@@ -30,7 +31,7 @@ import {
   UserRound,
   Video,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLiffSession } from "@/lib/line/use-liff-session";
 import { defaultDraw, seedOrders } from "@/lib/lucky-draw/defaults";
 import type { ChaseCard, DrawConfig, FeaturedCard, Lang, Order, OrderStatus } from "@/lib/lucky-draw/types";
@@ -98,6 +99,10 @@ const copy = {
     posterCards: "การ์ดหน้าปก",
     topCards: "การ์ดมูลค่าสูง",
     addCard: "เพิ่มการ์ด",
+    addPrizeCard: "เพิ่มการ์ดรางวัล",
+    prizeTier: "ประเภทการ์ด",
+    normalPrize: "การ์ดรางวัลปกติ",
+    highTierPrize: "การ์ดมูลค่าสูง",
     uploadPhoto: "อัปโหลดรูป",
     remove: "ลบ",
   },
@@ -161,6 +166,10 @@ const copy = {
     posterCards: "Poster cards",
     topCards: "Top value cards",
     addCard: "Add card",
+    addPrizeCard: "Add prize card",
+    prizeTier: "Prize type",
+    normalPrize: "Normal card prize",
+    highTierPrize: "High tier card prize",
     uploadPhoto: "Upload photo",
     remove: "Remove",
   },
@@ -1459,6 +1468,7 @@ function AdminCardEditor({
   const t = copy[lang];
   const [cardsSaved, setCardsSaved] = useState(false);
   const [uploadingCardId, setUploadingCardId] = useState("");
+  const [addTier, setAddTier] = useState<"normal" | "high">("normal");
 
   function updateFeatured(index: number, patch: Partial<FeaturedCard>) {
     onFeaturedCards(featuredCards.map((card, cardIndex) => (cardIndex === index ? { ...card, ...patch } : card)));
@@ -1476,7 +1486,7 @@ function AdminCardEditor({
   }
 
   function addChase() {
-    const nextRank = Math.min(chaseCards.length + 1, 3) as 1 | 2 | 3;
+    const nextRank = chaseCards.length ? Math.max(...chaseCards.map((card) => card.rank)) + 1 : 1;
     const nextCard: ChaseCard = {
       rank: nextRank,
       id: newCardId("chase"),
@@ -1487,10 +1497,15 @@ function AdminCardEditor({
       tone: "gold",
       value: 10000,
     };
-    onChaseCards([
-      ...chaseCards,
-      nextCard,
-    ].slice(0, 3));
+    onChaseCards([...chaseCards, nextCard]);
+  }
+
+  function addPrizeCard() {
+    if (addTier === "high") {
+      addChase();
+      return;
+    }
+    addFeatured();
   }
 
   function saveCards() {
@@ -1504,15 +1519,18 @@ function AdminCardEditor({
     const card = featuredCards[index];
     const cardId = card.id ?? `featured-${index}`;
     setUploadingCardId(cardId);
-    const photoUrl = await onCardImageUpload(file);
-    if (photoUrl) {
-      const nextFeaturedCards = featuredCards.map((item, cardIndex) =>
-        cardIndex === index ? { ...item, id: item.id ?? newCardId("poster"), photoUrl } : item,
-      );
-      onFeaturedCards(nextFeaturedCards);
-      onSaveCards(nextFeaturedCards, chaseCards);
+    try {
+      const photoUrl = await onCardImageUpload(file);
+      if (photoUrl) {
+        const nextFeaturedCards = featuredCards.map((item, cardIndex) =>
+          cardIndex === index ? { ...item, id: item.id ?? newCardId("poster"), photoUrl } : item,
+        );
+        onFeaturedCards(nextFeaturedCards);
+        onSaveCards(nextFeaturedCards, chaseCards);
+      }
+    } finally {
+      setUploadingCardId("");
     }
-    setUploadingCardId("");
   }
 
   async function uploadChaseImage(index: number, file?: File) {
@@ -1520,15 +1538,18 @@ function AdminCardEditor({
     const card = chaseCards[index];
     const cardId = card.id ?? `chase-${index}`;
     setUploadingCardId(cardId);
-    const photoUrl = await onCardImageUpload(file);
-    if (photoUrl) {
-      const nextChaseCards = chaseCards.map((item, cardIndex) =>
-        cardIndex === index ? { ...item, id: item.id ?? newCardId("chase"), photoUrl } : item,
-      );
-      onChaseCards(nextChaseCards);
-      onSaveCards(featuredCards, nextChaseCards);
+    try {
+      const photoUrl = await onCardImageUpload(file);
+      if (photoUrl) {
+        const nextChaseCards = chaseCards.map((item, cardIndex) =>
+          cardIndex === index ? { ...item, id: item.id ?? newCardId("chase"), photoUrl } : item,
+        );
+        onChaseCards(nextChaseCards);
+        onSaveCards(featuredCards, nextChaseCards);
+      }
+    } finally {
+      setUploadingCardId("");
     }
-    setUploadingCardId("");
   }
 
   return (
@@ -1536,120 +1557,158 @@ function AdminCardEditor({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.cardSettings}</p>
-          <h3 className="mt-2 text-lg font-black">{t.posterCards}</h3>
+          <h3 className="mt-2 text-lg font-black">{t.addPrizeCard}</h3>
+          <p className="mt-1 text-sm text-[var(--muted)]">{featuredCards.length} {t.normalPrize} / {chaseCards.length} {t.highTierPrize}</p>
         </div>
-        <button className="plain-button flex h-11 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold" onClick={addFeatured}>
-          <Sparkles className="h-4 w-4 text-[var(--gold)]" />
-          {t.addCard}
-        </button>
+        <div className="grid gap-2 sm:grid-cols-[220px_auto] sm:items-end">
+          <SelectField
+            label={t.prizeTier}
+            value={addTier}
+            options={[
+              { label: t.normalPrize, value: "normal" },
+              { label: t.highTierPrize, value: "high" },
+            ]}
+            onChange={(value) => setAddTier(value === "high" ? "high" : "normal")}
+          />
+          <button className="plain-button flex h-12 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold" onClick={addPrizeCard}>
+            <Sparkles className="h-4 w-4 text-[var(--gold)]" />
+            {t.addCard}
+          </button>
+        </div>
       </div>
 
-      <div className="mt-4 grid gap-3">
-        {featuredCards.map((card, index) => (
-          <div key={card.id ?? `featured-${index}`} className="soft-card rounded-3xl p-3">
-            <div className="grid gap-3 sm:grid-cols-[96px_1fr_0.7fr_0.7fr_0.7fr_auto] sm:items-end">
-              <label className="group cursor-pointer">
-                <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl border border-white/10 bg-black/25">
+      <details className="admin-tier-panel mt-5" open>
+        <summary>
+          <span>
+            <span className="block text-xs font-bold uppercase tracking-[0.2em] text-[var(--gold)]">{t.normalPrize}</span>
+            <span className="mt-1 block text-sm text-[var(--muted)]">{featuredCards.length} cards shown on Home</span>
+          </span>
+          <ChevronDown className="tier-chevron h-5 w-5" />
+        </summary>
+        <div className="mt-3 grid gap-3">
+          {featuredCards.map((card, index) => (
+            <details key={card.id ?? `featured-${index}`} className="card-edit-panel">
+              <summary>
+                <span className="relative block h-16 w-12 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/25">
                   <CardArtwork card={card} compact />
                 </span>
-                <span className="mt-2 flex h-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black text-[var(--gold)]">
-                  {uploadingCardId === (card.id ?? `featured-${index}`) ? "Uploading..." : t.uploadPhoto}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-black">{index + 1}. {card.name}</span>
+                  <span className="mt-1 block truncate text-xs text-[var(--muted)]">{card.grade} / {card.series}</span>
                 </span>
-                <input
-                  className="hidden"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(event) => void uploadFeaturedImage(index, event.target.files?.[0])}
+                <ChevronDown className="tier-chevron h-4 w-4" />
+              </summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-[96px_1fr_0.7fr_0.7fr_0.7fr_auto] sm:items-end">
+                <label className="upload-target group cursor-pointer">
+                  <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl border border-white/10 bg-black/25">
+                    <CardArtwork card={card} compact />
+                  </span>
+                  <span className="mt-2 flex h-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black text-[var(--gold)]">
+                    {uploadingCardId === (card.id ?? `featured-${index}`) ? "Uploading..." : t.uploadPhoto}
+                  </span>
+                  <input
+                    className="hidden"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) => void uploadFeaturedImage(index, event.target.files?.[0])}
+                  />
+                </label>
+                <TextField label={`Card ${index + 1}`} value={card.name} onChange={(value) => updateFeatured(index, { name: value })} />
+                <TextField label="Grade" value={card.grade} onChange={(value) => updateFeatured(index, { grade: value })} />
+                <SelectField
+                  label="Series"
+                  value={card.series}
+                  options={["One Piece", "Pokemon"]}
+                  onChange={(value) => updateFeatured(index, { series: value as FeaturedCard["series"] })}
                 />
-              </label>
-              <TextField label={`Card ${index + 1}`} value={card.name} onChange={(value) => updateFeatured(index, { name: value })} />
-              <TextField label="Grade" value={card.grade} onChange={(value) => updateFeatured(index, { grade: value })} />
-              <SelectField
-                label="Series"
-                value={card.series}
-                options={["One Piece", "Pokemon"]}
-                onChange={(value) => updateFeatured(index, { series: value as FeaturedCard["series"] })}
-              />
-              <SelectField
-                label="Color"
-                value={card.tone}
-                options={["red", "gold", "blue", "green", "rose", "violet"]}
-                onChange={(value) => updateFeatured(index, { tone: value as FeaturedCard["tone"] })}
-              />
-              <button
-                className="danger-button flex h-12 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold"
-                disabled={featuredCards.length <= 1}
-                onClick={() => onFeaturedCards(featuredCards.filter((_, cardIndex) => cardIndex !== index))}
-              >
-                <Trash2 className="h-4 w-4" />
-                {t.remove}
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+                <SelectField
+                  label="Color"
+                  value={card.tone}
+                  options={["red", "gold", "blue", "green", "rose", "violet"]}
+                  onChange={(value) => updateFeatured(index, { tone: value as FeaturedCard["tone"] })}
+                />
+                <button
+                  className="danger-button flex h-12 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold"
+                  disabled={featuredCards.length <= 1}
+                  onClick={() => onFeaturedCards(featuredCards.filter((_, cardIndex) => cardIndex !== index))}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {t.remove}
+                </button>
+              </div>
+            </details>
+          ))}
+        </div>
+      </details>
 
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-lg font-black">{t.topCards}</h3>
-        <button
-          className="plain-button flex h-11 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold"
-          disabled={chaseCards.length >= 3}
-          onClick={addChase}
-        >
-          <Sparkles className="h-4 w-4 text-[var(--gold)]" />
-          {t.addCard}
-        </button>
-      </div>
-
-      <div className="mt-4 grid gap-3">
-        {chaseCards.map((card, index) => (
-          <div key={card.id ?? `chase-${index}`} className="soft-card rounded-3xl p-3">
-            <div className="grid gap-3 sm:grid-cols-[96px_0.45fr_1fr_1fr_0.65fr_auto] sm:items-end">
-              <label className="group cursor-pointer">
-                <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl border border-white/10 bg-black/25">
+      <details className="admin-tier-panel mt-4" open>
+        <summary>
+          <span>
+            <span className="block text-xs font-bold uppercase tracking-[0.2em] text-[var(--gold)]">{t.highTierPrize}</span>
+            <span className="mt-1 block text-sm text-[var(--muted)]">{chaseCards.length} cards shown as top value prizes</span>
+          </span>
+          <ChevronDown className="tier-chevron h-5 w-5" />
+        </summary>
+        <div className="mt-3 grid gap-3">
+          {chaseCards.map((card, index) => (
+            <details key={card.id ?? `chase-${index}`} className="card-edit-panel">
+              <summary>
+                <span className="relative block h-16 w-12 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/25">
                   <CardArtwork card={card} compact />
                 </span>
-                <span className="mt-2 flex h-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black text-[var(--gold)]">
-                  {uploadingCardId === (card.id ?? `chase-${index}`) ? "Uploading..." : t.uploadPhoto}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-black">#{card.rank} {card.name}</span>
+                  <span className="mt-1 block truncate text-xs text-[var(--muted)]">฿{money(card.value)} / {card.grade}</span>
                 </span>
-                <input
-                  className="hidden"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(event) => void uploadChaseImage(index, event.target.files?.[0])}
+                <ChevronDown className="tier-chevron h-4 w-4" />
+              </summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-[96px_0.45fr_1fr_1fr_0.65fr_auto] sm:items-end">
+                <label className="upload-target group cursor-pointer">
+                  <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl border border-white/10 bg-black/25">
+                    <CardArtwork card={card} compact />
+                  </span>
+                  <span className="mt-2 flex h-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black text-[var(--gold)]">
+                    {uploadingCardId === (card.id ?? `chase-${index}`) ? "Uploading..." : t.uploadPhoto}
+                  </span>
+                  <input
+                    className="hidden"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) => void uploadChaseImage(index, event.target.files?.[0])}
+                  />
+                </label>
+                <NumberField label="Rank" value={card.rank} onChange={(value) => updateChase(index, { rank: Math.max(value, 1) })} />
+                <TextField label="Card" value={card.name} onChange={(value) => updateChase(index, { name: value })} />
+                <TextField label="Subtitle" value={card.subtitle} onChange={(value) => updateChase(index, { subtitle: value })} />
+                <NumberField label="Value THB" value={card.value} onChange={(value) => updateChase(index, { value })} />
+                <button
+                  className="danger-button flex h-12 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold"
+                  disabled={chaseCards.length <= 1}
+                  onClick={() => onChaseCards(chaseCards.filter((_, cardIndex) => cardIndex !== index))}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {t.remove}
+                </button>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <TextField label="Grade" value={card.grade} onChange={(value) => updateChase(index, { grade: value })} />
+                <SelectField
+                  label="Series"
+                  value={card.series}
+                  options={["One Piece", "Pokemon"]}
+                  onChange={(value) => updateChase(index, { series: value as FeaturedCard["series"] })}
                 />
-              </label>
-              <NumberField label="Rank" value={card.rank} onChange={(value) => updateChase(index, { rank: Math.min(Math.max(value, 1), 3) as 1 | 2 | 3 })} />
-              <TextField label="Card" value={card.name} onChange={(value) => updateChase(index, { name: value })} />
-              <TextField label="Subtitle" value={card.subtitle} onChange={(value) => updateChase(index, { subtitle: value })} />
-              <NumberField label="Value THB" value={card.value} onChange={(value) => updateChase(index, { value })} />
-              <button
-                className="danger-button flex h-12 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold"
-                disabled={chaseCards.length <= 1}
-                onClick={() => onChaseCards(chaseCards.filter((_, cardIndex) => cardIndex !== index))}
-              >
-                <Trash2 className="h-4 w-4" />
-                {t.remove}
-              </button>
-            </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <TextField label="Grade" value={card.grade} onChange={(value) => updateChase(index, { grade: value })} />
-              <SelectField
-                label="Series"
-                value={card.series}
-                options={["One Piece", "Pokemon"]}
-                onChange={(value) => updateChase(index, { series: value as FeaturedCard["series"] })}
-              />
-              <SelectField
-                label="Color"
-                value={card.tone}
-                options={["red", "gold", "blue", "green", "rose", "violet"]}
-                onChange={(value) => updateChase(index, { tone: value as FeaturedCard["tone"] })}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
+                <SelectField
+                  label="Color"
+                  value={card.tone}
+                  options={["red", "gold", "blue", "green", "rose", "violet"]}
+                  onChange={(value) => updateChase(index, { tone: value as FeaturedCard["tone"] })}
+                />
+              </div>
+            </details>
+          ))}
+        </div>
+      </details>
       <button className="gold-button mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black" onClick={saveCards}>
         <Save className="h-4 w-4" />
         {cardsSaved ? t.saved : t.save}
@@ -1896,10 +1955,12 @@ function OrderCard({ lang, order, onPick }: { lang: Lang; order: Order; onPick: 
 }
 
 function TextField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const id = useId();
   return (
-    <label className="space-y-2">
-      <span className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
+    <label className="space-y-2" htmlFor={id}>
+      <span className="block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
       <input
+        id={id}
         className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -1916,20 +1977,22 @@ function SelectField({
 }: {
   label: string;
   value: string;
-  options: string[];
+  options: Array<string | { label: string; value: string }>;
   onChange: (value: string) => void;
 }) {
+  const id = useId();
   return (
-    <label className="space-y-2">
-      <span className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
+    <label className="space-y-2" htmlFor={id}>
+      <span className="block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
       <select
+        id={id}
         className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
         {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
+          <option key={typeof option === "string" ? option : option.value} value={typeof option === "string" ? option : option.value}>
+            {typeof option === "string" ? option : option.label}
           </option>
         ))}
       </select>
@@ -1938,10 +2001,12 @@ function SelectField({
 }
 
 function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  const id = useId();
   return (
-    <label className="space-y-2">
-      <span className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
+    <label className="space-y-2" htmlFor={id}>
+      <span className="block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
       <input
+        id={id}
         className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
         min={1}
         type="number"

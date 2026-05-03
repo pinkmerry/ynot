@@ -26,7 +26,7 @@ export type FeaturedCard = {
 };
 
 export type ChaseCard = FeaturedCard & {
-  rank: 1 | 2 | 3;
+  rank: number;
   value: number;
   subtitle: string;
 };
