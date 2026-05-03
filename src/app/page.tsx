@@ -911,7 +911,7 @@ function HomeView({
   return (
     <>
       <div className="glass overflow-hidden rounded-[28px]">
-        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
+        <div className="relative w-full overflow-hidden bg-black aspect-video">
           {draw.youtubeUrl ? (
             <iframe
               className="absolute inset-0 h-full w-full"
@@ -1129,7 +1129,7 @@ function CheckoutView({
       <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{t.payFirstBody}</p>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <label className="space-y-2">
+        <label className="block space-y-2">
           <span className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{t.customer}</span>
           <input
             className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
@@ -1137,7 +1137,7 @@ function CheckoutView({
             onChange={(event) => onLineName(event.target.value)}
           />
         </label>
-        <label className="space-y-2">
+        <label className="block space-y-2">
           <span className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{t.draws}</span>
           <select
             className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
@@ -1760,25 +1760,29 @@ function AdminCardEditor({
       </div>
 
       <details className="admin-tier-panel mt-5" open>
-        <summary>
-          <span>
-            <span className="block text-xs font-bold uppercase tracking-[0.2em] text-[var(--gold)]">{t.normalPrize}</span>
-            <span className="mt-1 block text-sm text-[var(--muted)]">{featuredCards.length} cards shown on Home</span>
-          </span>
-          <ChevronDown className="tier-chevron h-5 w-5" />
+        <summary className="block cursor-pointer outline-none">
+          <div className="flex w-full min-w-0 items-center gap-3">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-bold uppercase tracking-[0.2em] text-[var(--gold)]">{t.normalPrize}</span>
+              <span className="mt-1 block truncate text-sm text-[var(--muted)]">{featuredCards.length} cards shown on Home</span>
+            </span>
+            <ChevronDown className="tier-chevron h-5 w-5 shrink-0" />
+          </div>
         </summary>
         <div className="mt-3 grid gap-3">
           {featuredCards.map((card, index) => (
             <details key={card.id ?? `featured-${index}`} className="card-edit-panel">
-              <summary>
-                <span className="relative block h-16 w-12 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/25">
-                  <CardArtwork card={card} compact />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-black">{index + 1}. {card.name}</span>
-                  <span className="mt-1 block truncate text-xs text-[var(--muted)]">{card.grade} / {card.series}</span>
-                </span>
-                <ChevronDown className="tier-chevron h-4 w-4" />
+              <summary className="block cursor-pointer outline-none">
+                <div className="flex w-full min-w-0 items-center gap-3">
+                  <span className="relative block h-16 w-12 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/25">
+                    <CardArtwork card={card} compact />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-black">{index + 1}. {card.name}</span>
+                    <span className="mt-1 block truncate text-xs text-[var(--muted)]">{card.grade} / {card.series}</span>
+                  </span>
+                  <ChevronDown className="tier-chevron h-4 w-4 shrink-0" />
+                </div>
               </summary>
               <div className="mt-3 grid gap-3 sm:grid-cols-[96px_1fr_0.7fr_1fr] sm:items-end">
                 <label className="upload-target group cursor-pointer">
@@ -1834,12 +1838,14 @@ function AdminCardEditor({
       </details>
 
       <details className="admin-tier-panel mt-4" open>
-        <summary>
-          <span>
-            <span className="block text-xs font-bold uppercase tracking-[0.2em] text-[var(--gold)]">{t.highTierPrize}</span>
-            <span className="mt-1 block text-sm text-[var(--muted)]">{chaseCards.length} cards shown as top value prizes</span>
-          </span>
-          <ChevronDown className="tier-chevron h-5 w-5" />
+        <summary className="block cursor-pointer outline-none">
+          <div className="flex w-full min-w-0 items-center gap-3">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-bold uppercase tracking-[0.2em] text-[var(--gold)]">{t.highTierPrize}</span>
+              <span className="mt-1 block truncate text-sm text-[var(--muted)]">{chaseCards.length} cards shown as top value prizes</span>
+            </span>
+            <ChevronDown className="tier-chevron h-5 w-5 shrink-0" />
+          </div>
         </summary>
         <div className="mt-3 grid gap-3">
           {chaseCards.map((card, index) => (
@@ -2162,7 +2168,7 @@ function OrderCard({ lang, order, onPick }: { lang: Lang; order: Order; onPick: 
 function TextField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   const id = useId();
   return (
-    <label className="space-y-2" htmlFor={id}>
+    <label className="block space-y-2" htmlFor={id}>
       <span className="block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
       <input
         id={id}
@@ -2187,7 +2193,7 @@ function SelectField({
 }) {
   const id = useId();
   return (
-    <label className="space-y-2" htmlFor={id}>
+    <label className="block space-y-2" htmlFor={id}>
       <span className="block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
       <select
         id={id}
@@ -2241,7 +2247,7 @@ function CardCatalogSelect({
 function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
   const id = useId();
   return (
-    <label className="space-y-2" htmlFor={id}>
+    <label className="block space-y-2" htmlFor={id}>
       <span className="block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
       <input
         id={id}
