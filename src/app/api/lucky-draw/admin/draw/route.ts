@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { fromDrawConfig, getActiveDraw, isSupabaseConfigured } from "@/lib/lucky-draw/data";
+import { fromDrawConfig, getActiveDraw, isSupabaseConfigured, syncRoundPrizeCards } from "@/lib/lucky-draw/data";
 import { isAdminSession, readSessionCookie } from "@/lib/lucky-draw/session";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { ChaseCard, DrawConfig, FeaturedCard } from "@/lib/lucky-draw/types";
@@ -62,6 +62,15 @@ export async function PATCH(request: Request) {
 
   const { error } = await supabase.from("draw_rounds").update(patch).eq("id", activeDraw.id);
   if (error) throw error;
+
+  if (body.featuredCards || body.chaseCards) {
+    await syncRoundPrizeCards(
+      supabase,
+      activeDraw.id,
+      body.featuredCards ?? [],
+      body.chaseCards ?? [],
+    );
+  }
 
   if (nextDraw.totalSlots !== activeDraw.total_slots) {
     await supabase.rpc("create_draw_slots", { p_draw_round_id: activeDraw.id });

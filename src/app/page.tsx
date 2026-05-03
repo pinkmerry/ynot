@@ -34,7 +34,7 @@ import {
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLiffSession } from "@/lib/line/use-liff-session";
 import { defaultDraw, seedOrders } from "@/lib/lucky-draw/defaults";
-import type { ChaseCard, DrawConfig, FeaturedCard, Lang, Order, OrderStatus } from "@/lib/lucky-draw/types";
+import type { CardCatalogItem, ChaseCard, DrawConfig, FeaturedCard, Lang, Order, OrderStatus } from "@/lib/lucky-draw/types";
 
 type View = "home" | "checkout" | "pick" | "orders" | "admin";
 
@@ -106,6 +106,9 @@ const copy = {
     prizeTier: "ประเภทการ์ด",
     normalPrize: "การ์ดรางวัลปกติ",
     highTierPrize: "การ์ดมูลค่าสูง",
+    savedCard: "เลือกจากคลังการ์ด",
+    pickSavedCard: "ค้นหา / เลือกการ์ดที่เคยบันทึก",
+    noSavedCards: "ยังไม่มีการ์ดที่บันทึก",
     uploadPhoto: "อัปโหลดรูป",
     remove: "ลบ",
   },
@@ -176,6 +179,9 @@ const copy = {
     prizeTier: "Prize type",
     normalPrize: "Normal card prize",
     highTierPrize: "High tier card prize",
+    savedCard: "Saved card",
+    pickSavedCard: "Search / pick saved card",
+    noSavedCards: "No saved cards yet",
     uploadPhoto: "Upload photo",
     remove: "Remove",
   },
@@ -203,7 +209,6 @@ const defaultChaseCards: ChaseCard[] = [
     rank: 1,
     id: "chase-ace",
     name: "Portgas D. Ace Alt Art",
-    subtitle: "One Piece · PSA 10 GEM MINT",
     grade: "PSA 10",
     series: "One Piece",
     tone: "red",
@@ -213,7 +218,6 @@ const defaultChaseCards: ChaseCard[] = [
     rank: 2,
     id: "chase-luffy",
     name: "Monkey D. Luffy Manga",
-    subtitle: "One Piece · PSA 10 GEM MINT",
     grade: "PSA 10",
     series: "One Piece",
     tone: "gold",
@@ -223,7 +227,6 @@ const defaultChaseCards: ChaseCard[] = [
     rank: 3,
     id: "chase-shanks",
     name: "Shanks Alternate Art",
-    subtitle: "One Piece · BGS 10 PRISTINE",
     grade: "BGS 10",
     series: "One Piece",
     tone: "rose",
@@ -239,6 +242,7 @@ type SavedState = {
   orders?: Order[];
   featuredCards?: FeaturedCard[];
   chaseCards?: ChaseCard[];
+  cardCatalog?: CardCatalogItem[];
 };
 
 type LuckyDrawApiResponse = {
@@ -248,6 +252,7 @@ type LuckyDrawApiResponse = {
     orders: Order[];
     featuredCards?: FeaturedCard[];
     chaseCards?: ChaseCard[];
+    cardCatalog?: CardCatalogItem[];
   };
 };
 
@@ -291,6 +296,22 @@ function newCardId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function cardMeta(card: FeaturedCard) {
+  return `${card.series} · ${card.grade}`;
+}
+
+function applyCatalogCard(card: FeaturedCard, catalogCard: CardCatalogItem): FeaturedCard {
+  return {
+    ...card,
+    catalogCardId: catalogCard.catalogCardId,
+    name: catalogCard.name,
+    grade: catalogCard.grade,
+    series: catalogCard.series,
+    tone: catalogCard.tone,
+    photoUrl: catalogCard.photoUrl,
+  };
+}
+
 function statusClass(status: OrderStatus) {
   if (status === "approved") return "border-emerald-400/35 bg-emerald-400/12 text-emerald-200";
   if (status === "picked") return "border-sky-400/35 bg-sky-400/12 text-sky-200";
@@ -308,6 +329,7 @@ export default function LuckyDrawApp() {
   const [orders, setOrders] = useState<Order[]>(seedOrders);
   const [featuredCards, setFeaturedCards] = useState<FeaturedCard[]>(defaultFeaturedCards);
   const [chaseCards, setChaseCards] = useState<ChaseCard[]>(defaultChaseCards);
+  const [cardCatalog, setCardCatalog] = useState<CardCatalogItem[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [slipName, setSlipName] = useState("");
   const [slipFile, setSlipFile] = useState<File | null>(null);
@@ -331,6 +353,7 @@ export default function LuckyDrawApp() {
       if (saved.orders) setOrders(saved.orders);
       if (saved.featuredCards) setFeaturedCards(saved.featuredCards);
       if (saved.chaseCards) setChaseCards(saved.chaseCards);
+      if (saved.cardCatalog) setCardCatalog(saved.cardCatalog);
       hydratedRef.current = true;
       void refreshFromDatabase();
     }, 0);
@@ -340,9 +363,9 @@ export default function LuckyDrawApp() {
     if (!hydratedRef.current) return;
     window.localStorage.setItem(
       storageKey,
-      JSON.stringify({ lang, lineVerified, lineName, draw, orders, featuredCards, chaseCards }),
+      JSON.stringify({ lang, lineVerified, lineName, draw, orders, featuredCards, chaseCards, cardCatalog }),
     );
-  }, [lang, lineVerified, lineName, draw, orders, featuredCards, chaseCards]);
+  }, [lang, lineVerified, lineName, draw, orders, featuredCards, chaseCards, cardCatalog]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -395,6 +418,7 @@ export default function LuckyDrawApp() {
         setOrders(payload.state.orders);
         if (payload.state.featuredCards?.length) setFeaturedCards(payload.state.featuredCards);
         if (payload.state.chaseCards?.length) setChaseCards(payload.state.chaseCards);
+        if (payload.state.cardCatalog) setCardCatalog(payload.state.cardCatalog);
         setActiveOrderId((current) => payload.state.orders.find((order) => order.id === current)?.id ?? payload.state.orders[0]?.id ?? "");
       }
     } catch {
@@ -780,6 +804,7 @@ export default function LuckyDrawApp() {
               onCardImageUpload={uploadCardImage}
               featuredCards={featuredCards}
               chaseCards={chaseCards}
+              cardCatalog={cardCatalog}
               onFeaturedCards={setFeaturedCards}
               onChaseCards={setChaseCards}
               onSaveCards={(nextFeaturedCards, nextChaseCards) => void saveCardSettings(nextFeaturedCards, nextChaseCards)}
@@ -963,7 +988,7 @@ function TopRewards({ lang, cards }: { lang: Lang; cards: ChaseCard[] }) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-black text-white">{card.name}</p>
-              <p className="mt-1 truncate text-xs text-[var(--muted)]">{card.subtitle}</p>
+              <p className="mt-1 truncate text-xs text-[var(--muted)]">{cardMeta(card)}</p>
             </div>
             <div className="text-right">
               <p className={`reward-value reward-value-${card.rank}`}>฿{money(card.value)}</p>
@@ -1291,6 +1316,7 @@ function AdminView({
   orders,
   featuredCards,
   chaseCards,
+  cardCatalog,
   onDraw,
   onApprove,
   onReject,
@@ -1307,6 +1333,7 @@ function AdminView({
   orders: Order[];
   featuredCards: FeaturedCard[];
   chaseCards: ChaseCard[];
+  cardCatalog: CardCatalogItem[];
   onDraw: (draw: DrawConfig) => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
@@ -1426,6 +1453,7 @@ function AdminView({
         lang={lang}
         featuredCards={featuredCards}
         chaseCards={chaseCards}
+        cardCatalog={cardCatalog}
         onCardImageUpload={onCardImageUpload}
         onFeaturedCards={onFeaturedCards}
         onChaseCards={onChaseCards}
@@ -1479,6 +1507,7 @@ function AdminCardEditor({
   lang,
   featuredCards,
   chaseCards,
+  cardCatalog,
   onCardImageUpload,
   onFeaturedCards,
   onChaseCards,
@@ -1487,6 +1516,7 @@ function AdminCardEditor({
   lang: Lang;
   featuredCards: FeaturedCard[];
   chaseCards: ChaseCard[];
+  cardCatalog: CardCatalogItem[];
   onCardImageUpload: (file: File) => Promise<string>;
   onFeaturedCards: (cards: FeaturedCard[]) => void;
   onChaseCards: (cards: ChaseCard[]) => void;
@@ -1505,6 +1535,18 @@ function AdminCardEditor({
     onChaseCards(chaseCards.map((card, cardIndex) => (cardIndex === index ? { ...card, ...patch } : card)));
   }
 
+  function pickFeaturedCatalogCard(index: number, catalogCardId: string) {
+    const catalogCard = cardCatalog.find((card) => card.catalogCardId === catalogCardId);
+    if (!catalogCard) return;
+    onFeaturedCards(featuredCards.map((card, cardIndex) => (cardIndex === index ? applyCatalogCard(card, catalogCard) : card)));
+  }
+
+  function pickChaseCatalogCard(index: number, catalogCardId: string) {
+    const catalogCard = cardCatalog.find((card) => card.catalogCardId === catalogCardId);
+    if (!catalogCard) return;
+    onChaseCards(chaseCards.map((card, cardIndex) => (cardIndex === index ? { ...card, ...applyCatalogCard(card, catalogCard) } : card)));
+  }
+
   function addFeatured() {
     onFeaturedCards([
       ...featuredCards,
@@ -1518,7 +1560,6 @@ function AdminCardEditor({
       rank: nextRank,
       id: newCardId("chase"),
       name: "New Chase Card",
-      subtitle: "One Piece · PSA 10 GEM MINT",
       grade: "PSA 10",
       series: "One Piece",
       tone: "gold",
@@ -1625,7 +1666,7 @@ function AdminCardEditor({
                 </span>
                 <ChevronDown className="tier-chevron h-4 w-4" />
               </summary>
-              <div className="mt-3 grid gap-3 sm:grid-cols-[96px_1fr_0.7fr_0.7fr_0.7fr_auto] sm:items-end">
+              <div className="mt-3 grid gap-3 sm:grid-cols-[96px_1fr_1fr] sm:items-end">
                 <label className="upload-target group cursor-pointer">
                   <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl border border-white/10 bg-black/25">
                     <CardArtwork card={card} compact />
@@ -1640,7 +1681,16 @@ function AdminCardEditor({
                     onChange={(event) => void uploadFeaturedImage(index, event.target.files?.[0])}
                   />
                 </label>
+                <CardCatalogSelect
+                  label={t.savedCard}
+                  cards={cardCatalog}
+                  emptyLabel={t.noSavedCards}
+                  promptLabel={t.pickSavedCard}
+                  onSelect={(catalogCardId) => pickFeaturedCatalogCard(index, catalogCardId)}
+                />
                 <TextField label={`Card ${index + 1}`} value={card.name} onChange={(value) => updateFeatured(index, { name: value })} />
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-[0.7fr_0.7fr_0.7fr_auto] sm:items-end">
                 <TextField label="Grade" value={card.grade} onChange={(value) => updateFeatured(index, { grade: value })} />
                 <SelectField
                   label="Series"
@@ -1689,7 +1739,7 @@ function AdminCardEditor({
                 </span>
                 <ChevronDown className="tier-chevron h-4 w-4" />
               </summary>
-              <div className="mt-3 grid gap-3 sm:grid-cols-[96px_0.45fr_1fr_1fr_0.65fr_auto] sm:items-end">
+              <div className="mt-3 grid gap-3 sm:grid-cols-[96px_0.45fr_1fr_1fr] sm:items-end">
                 <label className="upload-target group cursor-pointer">
                   <span className="relative block aspect-[3/4] overflow-hidden rounded-2xl border border-white/10 bg-black/25">
                     <CardArtwork card={card} compact />
@@ -1705,8 +1755,16 @@ function AdminCardEditor({
                   />
                 </label>
                 <NumberField label="Rank" value={card.rank} onChange={(value) => updateChase(index, { rank: Math.max(value, 1) })} />
+                <CardCatalogSelect
+                  label={t.savedCard}
+                  cards={cardCatalog}
+                  emptyLabel={t.noSavedCards}
+                  promptLabel={t.pickSavedCard}
+                  onSelect={(catalogCardId) => pickChaseCatalogCard(index, catalogCardId)}
+                />
                 <TextField label="Card" value={card.name} onChange={(value) => updateChase(index, { name: value })} />
-                <TextField label="Subtitle" value={card.subtitle} onChange={(value) => updateChase(index, { subtitle: value })} />
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-[0.65fr_auto] sm:items-end">
                 <NumberField label="Value THB" value={card.value} onChange={(value) => updateChase(index, { value })} />
                 <button
                   className="danger-button flex h-12 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold"
@@ -2024,6 +2082,39 @@ function SelectField({
         ))}
       </select>
     </label>
+  );
+}
+
+function CardCatalogSelect({
+  label,
+  cards,
+  emptyLabel,
+  promptLabel,
+  onSelect,
+}: {
+  label: string;
+  cards: CardCatalogItem[];
+  emptyLabel: string;
+  promptLabel: string;
+  onSelect: (catalogCardId: string) => void;
+}) {
+  const options = [
+    { label: cards.length ? promptLabel : emptyLabel, value: "" },
+    ...cards.map((card) => ({
+      label: `${card.name} · ${card.grade} · ${card.series}`,
+      value: card.catalogCardId,
+    })),
+  ];
+
+  return (
+    <SelectField
+      label={label}
+      value=""
+      options={options}
+      onChange={(value) => {
+        if (value) onSelect(value);
+      }}
+    />
   );
 }
 

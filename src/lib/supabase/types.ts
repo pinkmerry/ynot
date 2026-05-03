@@ -95,6 +95,60 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["draw_rounds"]["Insert"]>;
         Relationships: [];
       };
+      cards: {
+        Row: {
+          id: string;
+          name: string;
+          search_name: string;
+          series: "one_piece" | "pokemon";
+          grade: string;
+          tone: "red" | "gold" | "blue" | "green" | "rose" | "violet";
+          image_url: string | null;
+          image_storage_path: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          search_name: string;
+          series: "one_piece" | "pokemon";
+          grade: string;
+          tone?: "red" | "gold" | "blue" | "green" | "rose" | "violet";
+          image_url?: string | null;
+          image_storage_path?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["cards"]["Insert"]>;
+        Relationships: [];
+      };
+      draw_round_prizes: {
+        Row: {
+          id: string;
+          draw_round_id: string;
+          card_id: string;
+          tier: "normal" | "high";
+          rank: number;
+          value_thb: number | null;
+          tone: "red" | "gold" | "blue" | "green" | "rose" | "violet" | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          draw_round_id: string;
+          card_id: string;
+          tier: "normal" | "high";
+          rank: number;
+          value_thb?: number | null;
+          tone?: "red" | "gold" | "blue" | "green" | "rose" | "violet" | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["draw_round_prizes"]["Insert"]>;
+        Relationships: [];
+      };
       draw_slots: {
         Row: {
           id: string;

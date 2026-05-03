@@ -19,6 +19,7 @@ export type DrawConfig = {
 
 export type FeaturedCard = {
   id?: string;
+  catalogCardId?: string;
   name: string;
   grade: string;
   series: "One Piece" | "Pokemon";
@@ -29,8 +30,9 @@ export type FeaturedCard = {
 export type ChaseCard = FeaturedCard & {
   rank: number;
   value: number;
-  subtitle: string;
 };
+
+export type CardCatalogItem = Required<Pick<FeaturedCard, "catalogCardId">> & Omit<FeaturedCard, "catalogCardId">;
 
 export type Order = {
   id: string;
@@ -50,4 +52,5 @@ export type LuckyDrawState = {
   orders: Order[];
   featuredCards?: FeaturedCard[];
   chaseCards?: ChaseCard[];
+  cardCatalog?: CardCatalogItem[];
 };
