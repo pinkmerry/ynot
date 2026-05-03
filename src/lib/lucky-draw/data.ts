@@ -269,11 +269,13 @@ async function upsertCatalogCard(supabase: Supabase, card: FeaturedCard) {
     .from("cards")
     .select("*")
     .eq(cardCode ? "search_code" : "search_name", cardCode ? cardCode.toLowerCase() : searchName)
-    .maybeSingle();
-  const { data: existing, error: existingError } = await existingQuery;
+    .order("updated_at", { ascending: false })
+    .limit(1);
+  const { data: existingRows, error: existingError } = await existingQuery;
 
   if (existingError) throw existingError;
 
+  const existing = existingRows?.[0];
   if (existing) {
     const { data, error } = await supabase
       .from("cards")

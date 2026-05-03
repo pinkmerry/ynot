@@ -32,11 +32,13 @@
 html {
   min-height: 100%;
   background: var(--background);
+  overflow-x: hidden;
   scroll-padding-bottom: calc(var(--bottom-nav-height) + var(--bottom-nav-gap) + var(--bottom-nav-clearance) + env(safe-area-inset-bottom));
 }
 
 body {
   min-height: 100vh;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at top left, rgba(244, 197, 66, 0.13), transparent 34rem),
     linear-gradient(135deg, #07070f 0%, #0d1220 52%, #150b18 100%);
@@ -68,6 +70,7 @@ a {
 .app-shell {
   width: min(100%, 1480px);
   margin: 0 auto;
+  overflow-x: clip;
   padding: clamp(12px, 1.8vw, 24px);
 }
 

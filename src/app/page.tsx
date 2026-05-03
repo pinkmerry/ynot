@@ -626,24 +626,31 @@ export default function LuckyDrawApp() {
     setChaseCards(nextChaseCards);
     if (!databaseReady) {
       cardDraftDirtyRef.current = false;
-      return;
+      return true;
     }
 
-    const response = await fetch("/api/lucky-draw/admin/draw", {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ featuredCards: nextFeaturedCards, chaseCards: nextChaseCards }),
-    });
+    try {
+      setSyncError("");
+      const response = await fetch("/api/lucky-draw/admin/draw", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ featuredCards: nextFeaturedCards, chaseCards: nextChaseCards }),
+      });
 
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-      setSyncError(payload?.error ?? "Card settings could not be saved.");
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        setSyncError(payload?.error ?? "Card settings could not be saved.");
+        void refreshFromDatabase();
+        return false;
+      }
+
+      cardDraftDirtyRef.current = false;
       void refreshFromDatabase();
-      return;
+      return true;
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : "Card settings could not be saved.");
+      return false;
     }
-
-    cardDraftDirtyRef.current = false;
-    void refreshFromDatabase();
   }
 
   function updateFeaturedCardDraft(nextFeaturedCards: FeaturedCard[]) {
@@ -743,7 +750,7 @@ export default function LuckyDrawApp() {
 
   return (
     <main className="app-shell mobile-safe">
-      <header className="glass sticky top-3 z-30 mb-4 flex items-center justify-between rounded-[22px] px-3 py-3">
+      <header className="glass sticky top-3 z-30 mb-4 grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2 rounded-[22px] px-3 py-3">
         <button
           aria-label="Home"
           className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]"
@@ -751,16 +758,16 @@ export default function LuckyDrawApp() {
         >
           <Sparkles className="h-5 w-5 text-[var(--gold)]" />
         </button>
-        <div className="min-w-0 px-3 text-center">
+        <div className="min-w-0 px-1 text-center sm:px-3">
           <p className="truncate text-base font-black tracking-wide text-[var(--gold)]">{t.appName}</p>
           <p className="truncate text-[11px] text-[var(--muted)]">{t.tag}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 justify-end">
           <button
-            className="flex h-10 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 text-xs font-bold"
+            className="flex h-10 max-w-[76px] items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 text-xs font-bold"
             onClick={() => setLang(lang === "th" ? "en" : "th")}
           >
-            <Languages className="h-4 w-4 text-[var(--gold)]" />
+            <Languages className="h-4 w-4 shrink-0 text-[var(--gold)]" />
             {lang.toUpperCase()}
           </button>
         </div>
@@ -847,7 +854,7 @@ export default function LuckyDrawApp() {
               cardCatalog={cardCatalog}
               onFeaturedCards={updateFeaturedCardDraft}
               onChaseCards={updateChaseCardDraft}
-              onSaveCards={(nextFeaturedCards, nextChaseCards) => void saveCardSettings(nextFeaturedCards, nextChaseCards)}
+              onSaveCards={saveCardSettings}
             />
           )}
         </section>
@@ -1383,7 +1390,7 @@ function AdminView({
   onCardImageUpload: (file: File) => Promise<CardImageUploadResult | "">;
   onFeaturedCards: (cards: FeaturedCard[]) => void;
   onChaseCards: (cards: ChaseCard[]) => void;
-  onSaveCards: (featuredCards: FeaturedCard[], chaseCards: ChaseCard[]) => void;
+  onSaveCards: (featuredCards: FeaturedCard[], chaseCards: ChaseCard[]) => Promise<boolean>;
 }) {
   const t = copy[lang];
   const [draft, setDraft] = useState(draw);
@@ -1560,10 +1567,11 @@ function AdminCardEditor({
   onCardImageUpload: (file: File) => Promise<CardImageUploadResult | "">;
   onFeaturedCards: (cards: FeaturedCard[]) => void;
   onChaseCards: (cards: ChaseCard[]) => void;
-  onSaveCards: (featuredCards: FeaturedCard[], chaseCards: ChaseCard[]) => void;
+  onSaveCards: (featuredCards: FeaturedCard[], chaseCards: ChaseCard[]) => Promise<boolean>;
 }) {
   const t = copy[lang];
   const [cardsSaved, setCardsSaved] = useState(false);
+  const [cardsSaving, setCardsSaving] = useState(false);
   const [uploadingCardId, setUploadingCardId] = useState("");
   const [addTier, setAddTier] = useState<"normal" | "high">("normal");
 
@@ -1657,10 +1665,14 @@ function AdminCardEditor({
     addFeatured();
   }
 
-  function saveCards() {
-    onSaveCards(featuredCards, chaseCards);
-    setCardsSaved(true);
-    window.setTimeout(() => setCardsSaved(false), 1400);
+  async function saveCards() {
+    setCardsSaving(true);
+    const saved = await onSaveCards(featuredCards, chaseCards);
+    setCardsSaving(false);
+    if (saved) {
+      setCardsSaved(true);
+      window.setTimeout(() => setCardsSaved(false), 1400);
+    }
   }
 
   async function uploadFeaturedImage(index: number, file?: File) {
@@ -1684,7 +1696,7 @@ function AdminCardEditor({
         );
         onFeaturedCards(nextFeaturedCards);
         onChaseCards(nextChaseCards);
-        onSaveCards(nextFeaturedCards, nextChaseCards);
+        await onSaveCards(nextFeaturedCards, nextChaseCards);
       }
     } finally {
       setUploadingCardId("");
@@ -1712,7 +1724,7 @@ function AdminCardEditor({
         );
         onFeaturedCards(nextFeaturedCards);
         onChaseCards(nextChaseCards);
-        onSaveCards(nextFeaturedCards, nextChaseCards);
+        await onSaveCards(nextFeaturedCards, nextChaseCards);
       }
     } finally {
       setUploadingCardId("");
@@ -1895,9 +1907,13 @@ function AdminCardEditor({
           ))}
         </div>
       </details>
-      <button className="gold-button mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black" onClick={saveCards}>
+      <button
+        className="gold-button mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black"
+        disabled={cardsSaving}
+        onClick={() => void saveCards()}
+      >
         <Save className="h-4 w-4" />
-        {cardsSaved ? t.saved : t.save}
+        {cardsSaving ? "Saving..." : cardsSaved ? t.saved : t.save}
       </button>
     </div>
   );
