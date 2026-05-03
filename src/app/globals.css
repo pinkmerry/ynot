@@ -15,7 +15,7 @@
   --muted: #9b9daf;
   --bottom-nav-height: 88px;
   --bottom-nav-gap: 12px;
-  --bottom-nav-clearance: 128px;
+  --bottom-nav-clearance: 24px;
 }
 
 @theme inline {
@@ -31,6 +31,7 @@
 
 html {
   min-height: 100%;
+  max-width: 100%;
   background: var(--background);
   overflow-x: hidden;
   scroll-padding-bottom: calc(var(--bottom-nav-height) + var(--bottom-nav-gap) + var(--bottom-nav-clearance) + env(safe-area-inset-bottom));
@@ -38,6 +39,8 @@ html {
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
+  max-width: 100%;
   overflow-x: hidden;
   background:
     radial-gradient(circle at top left, rgba(244, 197, 66, 0.13), transparent 34rem),
@@ -72,10 +75,13 @@ a {
   margin: 0 auto;
   overflow-x: clip;
   padding: clamp(12px, 1.8vw, 24px);
+  /* Prevent content from escaping viewport on mobile */
+  contain: inline-size;
 }
 
 .app-shell > * {
   min-width: 0;
+  max-width: 100%;
 }
 
 .mobile-safe {
@@ -532,7 +538,7 @@ a {
   }
 
   .bottom-nav-spacer {
-    height: calc(var(--bottom-nav-height) + var(--bottom-nav-gap) + var(--bottom-nav-clearance) + 44px + env(safe-area-inset-bottom));
+    height: calc(var(--bottom-nav-height) + var(--bottom-nav-gap) + var(--bottom-nav-clearance) + env(safe-area-inset-bottom));
   }
 }
 

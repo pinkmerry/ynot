@@ -640,15 +640,18 @@ export default function LuckyDrawApp() {
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;
         setSyncError(payload?.error ?? "Card settings could not be saved.");
-        void refreshFromDatabase();
+        // Don't call refreshFromDatabase here — keep the optimistic state so the user sees their changes
+        cardDraftDirtyRef.current = false;
         return false;
       }
 
+      // Keep dirty flag true during the refresh so refreshFromDatabase won't overwrite our new cards
+      await refreshFromDatabase();
       cardDraftDirtyRef.current = false;
-      void refreshFromDatabase();
       return true;
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : "Card settings could not be saved.");
+      cardDraftDirtyRef.current = false;
       return false;
     }
   }
@@ -908,10 +911,10 @@ function HomeView({
   return (
     <>
       <div className="glass overflow-hidden rounded-[28px]">
-        <div className="relative aspect-video bg-black">
+        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
           {draw.youtubeUrl ? (
             <iframe
-              className="h-full w-full"
+              className="absolute inset-0 h-full w-full"
               src={draw.youtubeUrl}
               title="Lucky Draw live stream"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
