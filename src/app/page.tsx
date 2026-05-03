@@ -1967,7 +1967,7 @@ function AdminSlotEditor({
           </p>
         </div>
         <select
-          className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)] sm:w-auto"
+          className="h-12 w-full min-w-0 rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)] sm:w-auto"
           value={activeOrder?.id ?? ""}
           onChange={(event) => setOrderId(event.target.value)}
         >
@@ -2166,7 +2166,7 @@ function TextField({ label, value, onChange }: { label: string; value: string; o
       <span className="block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
       <input
         id={id}
-        className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
+        className="h-12 w-full min-w-0 rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -2191,7 +2191,7 @@ function SelectField({
       <span className="block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
       <select
         id={id}
-        className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
+        className="h-12 w-full min-w-0 rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
@@ -2245,7 +2245,7 @@ function NumberField({ label, value, onChange }: { label: string; value: number;
       <span className="block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
       <input
         id={id}
-        className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
+        className="h-12 w-full min-w-0 rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
         min={1}
         type="number"
         value={value}
