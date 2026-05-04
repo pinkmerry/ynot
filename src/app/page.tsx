@@ -299,10 +299,6 @@ function newCardId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function cardMeta(card: FeaturedCard) {
-  return `${card.series} · ${card.grade}`;
-}
-
 function applyCatalogCard(card: FeaturedCard, catalogCard: CardCatalogItem): FeaturedCard {
   return {
     ...card,
@@ -908,6 +904,7 @@ function HomeView({
   onPick: () => void;
 }) {
   const t = copy[lang];
+  const roundCards = [...chaseCards, ...featuredCards];
   return (
     <>
       <div className="glass overflow-hidden rounded-[28px]">
@@ -935,8 +932,7 @@ function HomeView({
           </div>
         </div>
         <div className="space-y-4 border-t border-white/10 bg-black/10 p-4 sm:p-5">
-          <TopRewards lang={lang} cards={chaseCards} />
-          <CardPoster lang={lang} cards={featuredCards} onPick={onPick} />
+          <CardPoster lang={lang} cards={roundCards} onPick={onPick} />
         </div>
         <div className="p-4 sm:p-5">
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -1014,34 +1010,6 @@ function CardPoster({ lang, cards, onPick }: { lang: Lang; cards: FeaturedCard[]
       <div className={`poster-grid ${visibleCards.length > 12 ? "poster-grid-dense" : ""}`}>
         {visibleCards.map((card, index) => (
           <MiniCard key={`${card.name}-${index}`} card={card} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function TopRewards({ lang, cards }: { lang: Lang; cards: ChaseCard[] }) {
-  const t = copy[lang];
-  return (
-    <section>
-      <div className="space-y-2">
-        {cards.map((card) => (
-          <article key={card.rank} className={`reward-row reward-${card.rank}`}>
-            <div className={`rank-medal rank-${card.rank}`}>
-              {card.rank}
-            </div>
-            <div className="reward-art h-[74px] w-[54px] shrink-0 overflow-hidden rounded-lg border border-white/10">
-              <CardArtwork card={card} compact />
-            </div>
-            <div className="reward-copy min-w-0 flex-1">
-              <p className="reward-title truncate text-sm font-black text-white">{card.name}</p>
-              <p className="reward-meta mt-1 truncate text-xs text-[var(--muted)]">{cardMeta(card)}</p>
-            </div>
-            <div className="reward-price text-right">
-              <p className={`reward-value reward-value-${card.rank}`}>฿{money(card.value)}</p>
-              <p className="mt-1 text-[10px] text-[var(--muted)]">{t.estValue}</p>
-            </div>
-          </article>
         ))}
       </div>
     </section>
