@@ -17,6 +17,22 @@ type LiffSessionState = {
 };
 
 const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
+const primarySiteUrl = "https://www.ynottcg.com";
+
+function getLiffRedirectUri() {
+  if (typeof window === "undefined") return primarySiteUrl;
+
+  const currentUrl = new URL(window.location.href);
+
+  if (currentUrl.hostname === "localhost" || currentUrl.hostname === "127.0.0.1") {
+    return currentUrl.href;
+  }
+
+  const primaryUrl = new URL(primarySiteUrl);
+  currentUrl.protocol = primaryUrl.protocol;
+  currentUrl.host = primaryUrl.host;
+  return currentUrl.href;
+}
 
 export function useLiffSession(): LiffSessionState {
   const [status, setStatus] = useState<LiffSessionState["status"]>("loading");
@@ -34,7 +50,7 @@ export function useLiffSession(): LiffSessionState {
     await liff.init({ liffId, withLoginOnExternalBrowser: true });
 
     if (!liff.isLoggedIn()) {
-      liff.login({ redirectUri: window.location.href });
+      liff.login({ redirectUri: getLiffRedirectUri() });
     }
   }, []);
 
