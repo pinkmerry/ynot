@@ -38,10 +38,18 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid slot numbers." }, { status: 400 });
   }
 
+  if (new Set(slots).size !== slots.length) {
+    return Response.json({ error: "Duplicate slot numbers are not allowed." }, { status: 400 });
+  }
+
   const supabase = createServiceSupabaseClient();
   const order = await findOrderByPublicCode(supabase, body.orderId);
   if (!order) {
     return Response.json({ error: "Order not found." }, { status: 404 });
+  }
+
+  if (!session.adminId && slots.length !== order.quantity) {
+    return Response.json({ error: "Select exactly the number of slots in this order." }, { status: 400 });
   }
 
   const { data, error } = await supabase.rpc("claim_order_slots", {

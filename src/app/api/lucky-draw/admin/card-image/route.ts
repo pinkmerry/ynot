@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { getActiveDraw, isSupabaseConfigured } from "@/lib/lucky-draw/data";
-import { isAdminSession, readSessionCookie } from "@/lib/lucky-draw/session";
+import { readSessionCookie, verifyAdminSession } from "@/lib/lucky-draw/session";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 const bucketName = "lucky-draw-assets";
@@ -18,8 +18,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   }
 
-  const session = readSessionCookie(await cookies());
-  if (!isAdminSession(session)) {
+  const session = await verifyAdminSession(readSessionCookie(await cookies()));
+  if (!session) {
     return Response.json({ error: "Admin access is required." }, { status: 403 });
   }
 
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
   const { data } = supabase.storage.from(bucketName).getPublicUrl(path);
 
   await supabase.from("audit_events").insert({
-    actor_admin_id: session?.adminId,
+    actor_admin_id: session.adminId,
     event_type: "card_image_uploaded",
     draw_round_id: activeDraw.id,
     metadata: { path },

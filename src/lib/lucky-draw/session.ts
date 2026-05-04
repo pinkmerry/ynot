@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 export const luckyDrawSessionCookie = "lucky_draw_session";
 
@@ -58,4 +59,24 @@ export function readSessionCookie(cookieStore: CookieReader): LuckyDrawSession |
 
 export function isAdminSession(session: LuckyDrawSession | null) {
   return !!session?.adminId && (session.adminRole === "owner" || session.adminRole === "admin" || session.adminRole === "staff");
+}
+
+export async function verifyAdminSession(session: LuckyDrawSession | null): Promise<LuckyDrawSession | null> {
+  if (!session?.profileId) return null;
+
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("admin_users")
+    .select("id,role")
+    .eq("profile_id", session.profileId)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return {
+    ...session,
+    adminId: data.id,
+    adminRole: data.role,
+  };
 }

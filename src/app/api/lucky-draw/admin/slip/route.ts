@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { findOrderByPublicCode, isSupabaseConfigured } from "@/lib/lucky-draw/data";
-import { isAdminSession, readSessionCookie } from "@/lib/lucky-draw/session";
+import { readSessionCookie, verifyAdminSession } from "@/lib/lucky-draw/session";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 const slipBucketName = "payment-slips";
@@ -11,8 +11,8 @@ export async function GET(request: Request) {
     return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   }
 
-  const session = readSessionCookie(await cookies());
-  if (!isAdminSession(session)) {
+  const session = await verifyAdminSession(readSessionCookie(await cookies()));
+  if (!session) {
     return Response.json({ error: "Admin access is required." }, { status: 403 });
   }
 

@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { findOrderByPublicCode, fromOrderStatus, isSupabaseConfigured } from "@/lib/lucky-draw/data";
-import { isAdminSession, readSessionCookie } from "@/lib/lucky-draw/session";
+import { readSessionCookie, verifyAdminSession } from "@/lib/lucky-draw/session";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { OrderStatus } from "@/lib/lucky-draw/types";
 
@@ -15,8 +15,8 @@ export async function PATCH(request: Request) {
     return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   }
 
-  const session = readSessionCookie(await cookies());
-  if (!isAdminSession(session)) {
+  const session = await verifyAdminSession(readSessionCookie(await cookies()));
+  if (!session) {
     return Response.json({ error: "Admin access is required." }, { status: 403 });
   }
 
@@ -43,7 +43,7 @@ export async function PATCH(request: Request) {
       p_order_id: order.id,
       p_slot_numbers: slots,
       p_actor_profile_id: null,
-      p_actor_admin_id: session?.adminId ?? null,
+      p_actor_admin_id: session.adminId ?? null,
     });
 
     if (error) return Response.json({ error: error.message }, { status: 409 });
@@ -57,9 +57,9 @@ export async function PATCH(request: Request) {
   const status = body.status as OrderStatus;
   const patch = {
     status: fromOrderStatus(status),
-    approved_by: status === "approved" ? session?.adminId : null,
+    approved_by: status === "approved" ? session.adminId : null,
     approved_at: status === "approved" ? new Date().toISOString() : null,
-    rejected_by: status === "rejected" ? session?.adminId : null,
+    rejected_by: status === "rejected" ? session.adminId : null,
     rejected_at: status === "rejected" ? new Date().toISOString() : null,
   };
 
@@ -67,7 +67,7 @@ export async function PATCH(request: Request) {
   if (error) throw error;
 
   await supabase.from("audit_events").insert({
-    actor_admin_id: session?.adminId,
+    actor_admin_id: session.adminId,
     event_type: status === "approved" ? "payment_approved" : status === "rejected" ? "payment_rejected" : "payment_reset",
     draw_round_id: order.draw_round_id,
     order_id: order.id,

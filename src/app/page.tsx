@@ -15,6 +15,7 @@ import {
   Globe2,
   Home,
   Languages,
+  Loader2,
   Lock,
   LogIn,
   Play,
@@ -34,10 +35,13 @@ import {
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLiffSession } from "@/lib/line/use-liff-session";
 import { defaultDraw, seedOrders } from "@/lib/lucky-draw/defaults";
-import type { CardCatalogItem, ChaseCard, DrawConfig, FeaturedCard, Lang, Order, OrderStatus } from "@/lib/lucky-draw/types";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import type { CardCatalogItem, ChaseCard, DrawConfig, DrawStatus, FeaturedCard, Lang, Order, OrderStatus, ProfileInfo, SlipVerificationStatus } from "@/lib/lucky-draw/types";
 
-type View = "home" | "checkout" | "pick" | "orders" | "admin";
+type View = "home" | "checkout" | "pick" | "orders" | "profile" | "admin";
 type CardImageUploadResult = { imageUrl: string; storagePath?: string };
+type AdminRole = "owner" | "admin" | "staff";
+type DrawLifecycleAction = "close_sales" | "create_next" | "publish_next" | "reopen_sales";
 
 const copy = {
   th: {
@@ -54,6 +58,7 @@ const copy = {
     pickNumbers: "เลือกเลข",
     orders: "ออเดอร์",
     admin: "แอดมิน",
+    profile: "โปรไฟล์",
     pricePerDraw: "ราคาต่อสิทธิ์",
     remaining: "เลขว่าง",
     sold: "ขายแล้ว",
@@ -62,11 +67,12 @@ const copy = {
     draws: "สิทธิ์",
     total: "รวม",
     payFirstTitle: "ชำระเงินก่อนเลือกเลข",
-    payFirstBody: "เลือกจำนวนสิทธิ์ โอนเงิน อัปโหลดสลิป แล้วรอแอดมินอนุมัติเพื่อปลดล็อกการเลือกเลข",
+    payFirstBody: "เลือกจำนวนสิทธิ์ โอนเงิน อัปโหลดรูปสลิป ระบบจะตรวจอัตโนมัติและปลดล็อกการเลือกเลขเมื่อข้อมูลถูกต้อง",
     uploadSlip: "อัปโหลดสลิป",
     viewSlip: "ดูสลิป",
     manualSlip: "ส่งใน LINE / ตรวจด้วยมือ",
     createOrder: "ส่งออเดอร์",
+    sendingOrder: "กำลังส่งออเดอร์",
     pending: "รอตรวจสลิป",
     approved: "อนุมัติแล้ว",
     picked: "เลือกเลขแล้ว",
@@ -84,6 +90,9 @@ const copy = {
     lockedPick: "เลขจะเลือกได้หลังแอดมินอนุมัติสลิป",
     chooseExact: "เลือกให้ครบตามจำนวนสิทธิ์",
     confirmPick: "ยืนยันเลข",
+    savingPick: "กำลังบันทึกเลข",
+    viewPicked: "ดูเลขที่เลือก",
+    alreadyPicked: "บันทึกเลขแล้ว",
     openAdmin: "เปิดหน้าแอดมิน",
     searchOrder: "ค้นหาออเดอร์",
     pickedByAdmin: "แอดมินเลือกเลขให้ลูกค้า",
@@ -113,6 +122,44 @@ const copy = {
     noSavedCards: "ยังไม่มีการ์ดที่บันทึก",
     uploadPhoto: "อัปโหลดรูป",
     remove: "ลบ",
+    accountInfo: "ข้อมูลบัญชี",
+    profileSettings: "จัดการข้อมูลส่วนตัว",
+    displayName: "ชื่อ LINE",
+    loginStatus: "สถานะเข้าสู่ระบบ",
+    accessLevel: "สิทธิ์การใช้งาน",
+    customerAccess: "ลูกค้า",
+    adminAccess: "แอดมิน",
+    language: "ภาษา",
+    orderSummary: "สรุปออเดอร์",
+    paidOrders: "ออเดอร์ที่อนุมัติ",
+    pickedOrders: "ออเดอร์ที่เลือกเลขแล้ว",
+    lineAccount: "บัญชี LINE",
+    contactInfo: "ข้อมูลติดต่อ",
+    shippingAddress: "ที่อยู่จัดส่ง",
+    fullName: "ชื่อ-นามสกุล",
+    phone: "เบอร์โทร",
+    addressLine1: "ที่อยู่บรรทัด 1",
+    addressLine2: "ที่อยู่บรรทัด 2",
+    subdistrict: "ตำบล / แขวง",
+    district: "อำเภอ / เขต",
+    province: "จังหวัด",
+    postalCode: "รหัสไปรษณีย์",
+    country: "ประเทศ",
+    deliveryNote: "หมายเหตุจัดส่ง",
+    loginToEditProfile: "เข้าสู่ระบบ LINE เพื่อจัดการข้อมูลส่วนตัว",
+    saveProfile: "บันทึกข้อมูลส่วนตัว",
+    drawLifecycle: "จัดการรอบ",
+    drawStatus: "สถานะรอบ",
+    closeSales: "ปิดรับออเดอร์",
+    reopenSales: "เปิดรับออเดอร์อีกครั้ง",
+    createNextDraw: "สร้างรอบถัดไป",
+    publishNextDraw: "เผยแพร่รอบถัดไป",
+    statusDraft: "ฉบับร่าง",
+    statusLive: "เปิดขาย",
+    statusClosed: "ปิดรอบ",
+    statusArchived: "เก็บประวัติ",
+    pendingPayments: "รอตรวจชำระเงิน",
+    awaitingPicks: "รอเลือกเลข",
   },
   en: {
     appName: "Lucky Draw",
@@ -128,6 +175,7 @@ const copy = {
     pickNumbers: "Pick",
     orders: "Orders",
     admin: "Admin",
+    profile: "Profile",
     pricePerDraw: "Price per draw",
     remaining: "Available",
     sold: "Sold",
@@ -136,11 +184,12 @@ const copy = {
     draws: "Draws",
     total: "Total",
     payFirstTitle: "Pay before choosing numbers",
-    payFirstBody: "Choose draw quantity, transfer payment, upload slip, then wait for admin approval to unlock number picking.",
+    payFirstBody: "Choose draw quantity, transfer payment, upload a slip image, and the system will verify it before unlocking number picking.",
     uploadSlip: "Upload slip",
     viewSlip: "View slip",
     manualSlip: "Sent in LINE / manual check",
     createOrder: "Submit order",
+    sendingOrder: "Submitting order",
     pending: "Pending review",
     approved: "Approved",
     picked: "Picked",
@@ -158,6 +207,9 @@ const copy = {
     lockedPick: "Picking unlocks after admin approves the payment slip",
     chooseExact: "Choose exactly your approved draw quantity",
     confirmPick: "Confirm numbers",
+    savingPick: "Saving numbers",
+    viewPicked: "View numbers",
+    alreadyPicked: "Numbers saved",
     openAdmin: "Open admin",
     searchOrder: "Search orders",
     pickedByAdmin: "Admin picked for customer",
@@ -187,10 +239,61 @@ const copy = {
     noSavedCards: "No saved cards yet",
     uploadPhoto: "Upload photo",
     remove: "Remove",
+    accountInfo: "Account info",
+    profileSettings: "Personal info management",
+    displayName: "LINE name",
+    loginStatus: "Login status",
+    accessLevel: "Access level",
+    customerAccess: "Customer",
+    adminAccess: "Admin",
+    language: "Language",
+    orderSummary: "Order summary",
+    paidOrders: "Approved orders",
+    pickedOrders: "Picked orders",
+    lineAccount: "LINE account",
+    contactInfo: "Contact info",
+    shippingAddress: "Shipping address",
+    fullName: "Full name",
+    phone: "Phone",
+    addressLine1: "Address line 1",
+    addressLine2: "Address line 2",
+    subdistrict: "Subdistrict",
+    district: "District",
+    province: "Province",
+    postalCode: "Postal code",
+    country: "Country",
+    deliveryNote: "Delivery note",
+    loginToEditProfile: "Login with LINE to manage your personal info",
+    saveProfile: "Save personal info",
+    drawLifecycle: "Draw lifecycle",
+    drawStatus: "Draw status",
+    closeSales: "Close sales",
+    reopenSales: "Reopen sales",
+    createNextDraw: "Create next draw",
+    publishNextDraw: "Publish next draw",
+    statusDraft: "Draft",
+    statusLive: "Live",
+    statusClosed: "Closed",
+    statusArchived: "Archived",
+    pendingPayments: "Pending payments",
+    awaitingPicks: "Awaiting picks",
   },
 };
 
 const storageKey = "lucky-draw-mvp-v2";
+
+const emptyProfileInfo: ProfileInfo = {
+  fullName: "",
+  phone: "",
+  addressLine1: "",
+  addressLine2: "",
+  subdistrict: "",
+  district: "",
+  province: "",
+  postalCode: "",
+  country: "Thailand",
+  deliveryNote: "",
+};
 
 const defaultFeaturedCards: FeaturedCard[] = [
   { id: "poster-ace", name: "Portgas D. Ace", grade: "PSA 10", series: "One Piece", tone: "red" },
@@ -239,8 +342,6 @@ const defaultChaseCards: ChaseCard[] = [
 
 type SavedState = {
   lang?: Lang;
-  lineVerified?: boolean;
-  lineName?: string;
   draw?: DrawConfig;
   orders?: Order[];
   featuredCards?: FeaturedCard[];
@@ -250,6 +351,11 @@ type SavedState = {
 
 type LuckyDrawApiResponse = {
   configured: boolean;
+  viewer?: {
+    displayName: string;
+    isAdmin: boolean;
+    adminRole: AdminRole | null;
+  } | null;
   state: {
     draw: DrawConfig;
     orders: Order[];
@@ -273,6 +379,19 @@ function readSavedState(): SavedState {
 
 function money(value: number) {
   return new Intl.NumberFormat("th-TH").format(value);
+}
+
+function paymentDigits(value: string | undefined) {
+  const digits = (value ?? "").replace(/\D+/g, "");
+  return digits && !/^0+$/.test(digits) ? digits : "";
+}
+
+function promptPayDisplay(value: string | undefined) {
+  const digits = paymentDigits(value);
+  if (digits.length === 11 && digits.startsWith("66")) return `0${digits.slice(2)}`;
+  if (digits.length === 10 && digits.startsWith("0")) return digits;
+  if (digits.length === 13 || digits.length === 15) return digits;
+  return "";
 }
 
 function normalizeOrderPrefixInput(value: string) {
@@ -332,14 +451,58 @@ function statusClass(status: OrderStatus) {
   return "border-amber-300/35 bg-amber-300/12 text-amber-100";
 }
 
+function slipVerificationLabel(status: SlipVerificationStatus, lang: Lang) {
+  const labels: Record<SlipVerificationStatus, { th: string; en: string }> = {
+    unverified: { th: "ยังไม่ตรวจ API", en: "API not checked" },
+    valid: { th: "สลิปถูกต้อง", en: "Slip verified" },
+    duplicate: { th: "สลิปซ้ำ", en: "Duplicate slip" },
+    fraud: { th: "สลิปปลอม", en: "Fraud slip" },
+    not_found: { th: "ไม่พบสลิป", en: "Slip not found" },
+    amount_mismatch: { th: "ยอดไม่ตรง", en: "Amount mismatch" },
+    receiver_mismatch: { th: "บัญชีรับเงินไม่ตรง", en: "Receiver mismatch" },
+    date_mismatch: { th: "เกิน 24 ชม.", en: "Older than 24h" },
+    provider_error: { th: "API ใช้ไม่ได้", en: "API unavailable" },
+    manual_review: { th: "ตรวจด้วยมือ", en: "Manual review" },
+  };
+  return labels[status][lang];
+}
+
+function slipVerificationClass(status: SlipVerificationStatus) {
+  if (status === "valid") return "border-emerald-400/35 bg-emerald-400/12 text-emerald-200";
+  if (status === "provider_error" || status === "manual_review" || status === "unverified") {
+    return "border-amber-300/35 bg-amber-300/12 text-amber-100";
+  }
+  return "border-rose-400/35 bg-rose-400/12 text-rose-200";
+}
+
+function drawStatusLabel(status: DrawStatus, lang: Lang) {
+  const t = copy[lang];
+  if (status === "draft") return t.statusDraft;
+  if (status === "closed") return t.statusClosed;
+  if (status === "archived") return t.statusArchived;
+  return t.statusLive;
+}
+
+function drawStatusClass(status: DrawStatus) {
+  if (status === "draft") return "border-sky-400/35 bg-sky-400/12 text-sky-100";
+  if (status === "closed") return "border-amber-300/35 bg-amber-300/12 text-amber-100";
+  if (status === "archived") return "border-white/10 bg-white/[0.04] text-[var(--muted)]";
+  return "border-emerald-400/35 bg-emerald-400/12 text-emerald-100";
+}
+
 export default function LuckyDrawApp() {
   const hydratedRef = useRef(false);
   const cardMutationRef = useRef(0);
   const cardDraftDirtyRef = useRef(false);
+  const refreshRef = useRef<() => void>(() => {});
+  const orderSubmitInFlightRef = useRef(false);
+  const pickSubmitInFlightRef = useRef(false);
   const liffSession = useLiffSession();
   const [lang, setLang] = useState<Lang>("th");
   const [view, setView] = useState<View>("home");
   const [lineVerified, setLineVerified] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminRole, setAdminRole] = useState<AdminRole | null>(null);
   const [draw, setDraw] = useState<DrawConfig>(defaultDraw);
   const [orders, setOrders] = useState<Order[]>(seedOrders);
   const [featuredCards, setFeaturedCards] = useState<FeaturedCard[]>(defaultFeaturedCards);
@@ -356,21 +519,31 @@ export default function LuckyDrawApp() {
   const [query, setQuery] = useState("");
   const [databaseReady, setDatabaseReady] = useState(false);
   const [syncError, setSyncError] = useState("");
+  const [profileInfo, setProfileInfo] = useState<ProfileInfo>(emptyProfileInfo);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const [orderSubmitting, setOrderSubmitting] = useState(false);
+  const [pickSubmitting, setPickSubmitting] = useState(false);
   const t = copy[lang];
+
+  useEffect(() => {
+    refreshRef.current = () => {
+      void refreshFromDatabase();
+    };
+  });
 
   useEffect(() => {
     const saved = readSavedState();
     window.setTimeout(() => {
       if (saved.lang) setLang(saved.lang);
-      if (typeof saved.lineVerified === "boolean") setLineVerified(saved.lineVerified);
-      if (saved.lineName) setLineName(saved.lineName);
       if (saved.draw) setDraw(normalizeDrawConfig(saved.draw));
       if (saved.orders) setOrders(saved.orders);
       if (saved.featuredCards) setFeaturedCards(saved.featuredCards);
       if (saved.chaseCards) setChaseCards(saved.chaseCards);
       if (saved.cardCatalog) setCardCatalog(saved.cardCatalog);
       hydratedRef.current = true;
-      void refreshFromDatabase();
+      setHydrated(true);
     }, 0);
   }, []);
 
@@ -378,9 +551,9 @@ export default function LuckyDrawApp() {
     if (!hydratedRef.current) return;
     window.localStorage.setItem(
       storageKey,
-      JSON.stringify({ lang, lineVerified, lineName, draw, orders, featuredCards, chaseCards, cardCatalog }),
+      JSON.stringify({ lang, draw, orders, featuredCards, chaseCards, cardCatalog }),
     );
-  }, [lang, lineVerified, lineName, draw, orders, featuredCards, chaseCards, cardCatalog]);
+  }, [lang, draw, orders, featuredCards, chaseCards, cardCatalog]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -395,15 +568,55 @@ export default function LuckyDrawApp() {
       if (liffSession.status === "authenticated" && liffSession.profile) {
         setLineVerified(true);
         setLineName(liffSession.profile.displayName);
+        setIsAdmin(Boolean(liffSession.profile.isAdmin));
+        setAdminRole(liffSession.profile.adminRole ?? null);
+        if (!liffSession.profile.isAdmin) {
+          setView((current) => (current === "admin" ? "profile" : current));
+        }
+        void refreshProfileInfo();
+        refreshRef.current();
       }
 
       if (liffSession.status === "ready") {
         setLineVerified(false);
+        setIsAdmin(false);
+        setAdminRole(null);
+        setProfileInfo(emptyProfileInfo);
+        setProfileLoaded(false);
+        setView((current) => (current === "admin" ? "profile" : current));
       }
     }, 0);
 
     return () => window.clearTimeout(syncLiffState);
   }, [liffSession.profile, liffSession.status]);
+
+  useEffect(() => {
+    if (!hydrated || liffSession.status === "loading") return;
+    refreshRef.current();
+  }, [hydrated, liffSession.profile, liffSession.status]);
+
+  useEffect(() => {
+    if (!databaseReady) return;
+
+    let channel: ReturnType<ReturnType<typeof createBrowserSupabaseClient>["channel"]> | null = null;
+    try {
+      const supabase = createBrowserSupabaseClient();
+      channel = supabase
+        .channel("lucky-draw-live-refresh")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "lucky_draw_realtime_events" },
+          () => refreshRef.current(),
+        )
+        .subscribe();
+    } catch {
+      return;
+    }
+
+    return () => {
+      if (channel) void channel.unsubscribe();
+    };
+  }, [databaseReady]);
 
   const takenSlots = useMemo(
     () => new Set(orders.flatMap((order) => order.slots)),
@@ -418,29 +631,139 @@ export default function LuckyDrawApp() {
     return text.includes(query.toLowerCase());
   });
 
+  function choosePickOrder(orderId?: string, sourceOrders = orders) {
+    const pickableOrders = sourceOrders.filter((order) => order.status === "approved" || order.status === "picked");
+    const nextOrder =
+      (orderId ? pickableOrders.find((order) => order.id === orderId) : null)
+      ?? pickableOrders.find((order) => order.status === "approved")
+      ?? pickableOrders[0]
+      ?? null;
+
+    setActiveOrderId(nextOrder?.id ?? "");
+    setSelectedSlots(nextOrder?.slots ?? []);
+    return nextOrder;
+  }
+
+  function openPickView(orderId?: string) {
+    choosePickOrder(orderId);
+    setView("pick");
+  }
+
+  function handlePickOrderChange(orderId: string) {
+    choosePickOrder(orderId);
+  }
+
   function handleLineLogin() {
     void liffSession.login();
   }
 
-  async function refreshFromDatabase() {
+  async function refreshProfileInfo() {
+    try {
+      const response = await fetch("/api/lucky-draw/profile", { cache: "no-store" });
+      if (response.status === 401) {
+        setProfileInfo(emptyProfileInfo);
+        setProfileLoaded(false);
+        return;
+      }
+      if (!response.ok) return;
+
+      const payload = (await response.json()) as { displayName?: string; profile: ProfileInfo };
+      if (payload.displayName) setLineName(payload.displayName);
+      setProfileInfo({ ...emptyProfileInfo, ...payload.profile });
+      setProfileLoaded(true);
+    } catch {
+      setSyncError("Profile sync is unavailable.");
+    }
+  }
+
+  async function saveProfileInfo(nextProfileInfo: ProfileInfo) {
+    setProfileSaving(true);
+    setProfileInfo(nextProfileInfo);
+    try {
+      const response = await fetch("/api/lucky-draw/profile", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(nextProfileInfo),
+      });
+
+      if (response.status === 401) {
+        handleLineLogin();
+        return false;
+      }
+
+      const payload = (await response.json().catch(() => null)) as { error?: string; displayName?: string; profile?: ProfileInfo } | null;
+      if (!response.ok) {
+        setSyncError(payload?.error ?? "Profile could not be saved.");
+        await refreshProfileInfo();
+        return false;
+      }
+
+      if (payload?.displayName) setLineName(payload.displayName);
+      if (payload?.profile) setProfileInfo({ ...emptyProfileInfo, ...payload.profile });
+      setProfileLoaded(true);
+      return true;
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : "Profile could not be saved.");
+      return false;
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  async function refreshFromDatabase(options: { preferredActiveOrderId?: string } = {}) {
     const cardMutationVersion = cardMutationRef.current;
     try {
       const response = await fetch("/api/lucky-draw", { cache: "no-store" });
-      if (!response.ok) return;
+      if (!response.ok) return null;
       const payload = (await response.json()) as LuckyDrawApiResponse;
       setDatabaseReady(payload.configured);
       if (payload.configured) {
+        if (payload.viewer) {
+          setLineVerified(true);
+          setLineName(payload.viewer.displayName);
+          setIsAdmin(payload.viewer.isAdmin);
+          setAdminRole(payload.viewer.adminRole);
+          if (!payload.viewer.isAdmin && view === "admin") setView("profile");
+          void refreshProfileInfo();
+        } else {
+          setLineVerified(false);
+          setIsAdmin(false);
+          setAdminRole(null);
+          setProfileInfo(emptyProfileInfo);
+          setProfileLoaded(false);
+          if (view === "admin") setView("profile");
+        }
         setDraw(payload.state.draw);
-        setOrders(payload.state.orders);
+        const nextOrders = payload.state.orders;
+        setOrders(nextOrders);
         if (!cardDraftDirtyRef.current && cardMutationVersion === cardMutationRef.current) {
           if (payload.state.featuredCards?.length) setFeaturedCards(payload.state.featuredCards);
           if (payload.state.chaseCards?.length) setChaseCards(payload.state.chaseCards);
           if (payload.state.cardCatalog) setCardCatalog(payload.state.cardCatalog);
         }
-        setActiveOrderId((current) => payload.state.orders.find((order) => order.id === current)?.id ?? payload.state.orders[0]?.id ?? "");
+        const preferredActiveOrderId = options.preferredActiveOrderId ?? activeOrderId;
+        const nextActiveOrder =
+          nextOrders.find((order) => order.id === preferredActiveOrderId)
+          ?? nextOrders.find((order) => order.status === "approved")
+          ?? nextOrders.find((order) => order.status === "picked")
+          ?? nextOrders[0]
+          ?? null;
+        setActiveOrderId(nextActiveOrder?.id ?? "");
+        setSelectedSlots((current) => {
+          if (!nextActiveOrder) return [];
+          if (nextActiveOrder.status === "picked" || nextActiveOrder.slots.length) return nextActiveOrder.slots;
+          const takenByOther = new Set(
+            nextOrders
+              .filter((order) => order.id !== nextActiveOrder.id)
+              .flatMap((order) => order.slots),
+          );
+          return current.filter((slot) => !takenByOther.has(slot)).slice(0, nextActiveOrder.quantity);
+        });
       }
+      return payload;
     } catch {
       setSyncError("Database sync is unavailable. Using local demo data.");
+      return null;
     }
   }
 
@@ -475,56 +798,69 @@ export default function LuckyDrawApp() {
       return;
     }
 
-    if (databaseReady) {
-      const form = new FormData();
-      form.set("quantity", String(quantity));
-      form.set("slipName", slipName || "manual-transfer");
-      if (slipFile) form.set("slip", slipFile);
+    if (orderSubmitInFlightRef.current) return;
+    orderSubmitInFlightRef.current = true;
+    setOrderSubmitting(true);
+    setSyncError("");
 
-      const response = await fetch("/api/lucky-draw", {
-        method: "POST",
-        body: form,
-      });
+    try {
+      if (databaseReady) {
+        const form = new FormData();
+        form.set("quantity", String(quantity));
+        form.set("slipName", slipName || "manual-transfer");
+        if (slipFile) form.set("slip", slipFile);
 
-      if (response.status === 401) {
-        handleLineLogin();
+        const response = await fetch("/api/lucky-draw", {
+          method: "POST",
+          body: form,
+        });
+
+        if (response.status === 401) {
+          handleLineLogin();
+          return;
+        }
+
+        if (response.ok) {
+          const payload = (await response.json()) as { order: Order };
+          setOrders((current) => [payload.order, ...current.filter((order) => order.id !== payload.order.id)]);
+          setActiveOrderId(payload.order.id);
+          setSelectedSlots(payload.order.slots);
+          setPaymentSlip(null);
+          await refreshFromDatabase({ preferredActiveOrderId: payload.order.id });
+          setView("orders");
+          return;
+        }
+
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        setSyncError(payload?.error ?? "Order could not be created in Supabase.");
         return;
       }
 
-      if (response.ok) {
-        const payload = (await response.json()) as { order: Order };
-        setOrders((current) => [payload.order, ...current.filter((order) => order.id !== payload.order.id)]);
-        setActiveOrderId(payload.order.id);
-        setSelectedSlots([]);
-        setPaymentSlip(null);
-        setView("orders");
-        void refreshFromDatabase();
-        return;
-      }
-
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-      setSyncError(payload?.error ?? "Order could not be created in Supabase.");
-      return;
+      const id = `LD-${Math.floor(1000 + Math.random() * 9000)}`;
+      const next: Order = {
+        id,
+        lineName: lineName.trim() || "LINE Customer",
+        quantity,
+        amount: quantity * draw.price,
+        status: "pending",
+        slipName: slipName || "manual-transfer",
+        slipProvider: "manual_line",
+        hasSlipFile: false,
+        slipVerificationStatus: "manual_review",
+        slipProviderCode: null,
+        slipProviderMessage: null,
+        slots: [],
+        createdAt: new Date().toISOString(),
+      };
+      setOrders((current) => [next, ...current]);
+      setActiveOrderId(id);
+      setSelectedSlots([]);
+      setPaymentSlip(null);
+      setView("orders");
+    } finally {
+      orderSubmitInFlightRef.current = false;
+      setOrderSubmitting(false);
     }
-
-    const id = `LD-${Math.floor(1000 + Math.random() * 9000)}`;
-    const next: Order = {
-      id,
-      lineName: lineName.trim() || "LINE Customer",
-      quantity,
-      amount: quantity * draw.price,
-      status: "pending",
-      slipName: slipName || "manual-transfer",
-      slipProvider: "manual_line",
-      hasSlipFile: false,
-      slots: [],
-      createdAt: new Date().toISOString(),
-    };
-    setOrders((current) => [next, ...current]);
-    setActiveOrderId(id);
-    setSelectedSlots([]);
-    setPaymentSlip(null);
-    setView("orders");
   }
 
   async function viewPaymentSlip(id: string) {
@@ -597,22 +933,50 @@ export default function LuckyDrawApp() {
 
   async function saveDrawSettings(nextDraw: DrawConfig) {
     setDraw(nextDraw);
-    if (!databaseReady) return;
+    if (!databaseReady) return true;
 
-    const response = await fetch("/api/lucky-draw/admin/draw", {
-      method: "PATCH",
+    try {
+      setSyncError("");
+      const response = await fetch("/api/lucky-draw/admin/draw", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ draw: nextDraw }),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        setSyncError(payload?.error ?? "Draw settings could not be saved.");
+        await refreshFromDatabase();
+        return false;
+      }
+
+      await refreshFromDatabase();
+      return true;
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : "Draw settings could not be saved.");
+      await refreshFromDatabase();
+      return false;
+    }
+  }
+
+  async function updateDrawLifecycle(action: DrawLifecycleAction) {
+    if (!databaseReady) return false;
+
+    const response = await fetch("/api/lucky-draw/admin/draw/lifecycle", {
+      method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ draw: nextDraw }),
+      body: JSON.stringify({ action }),
     });
 
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
     if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-      setSyncError(payload?.error ?? "Draw settings could not be saved.");
+      setSyncError(payload?.error ?? "Draw lifecycle could not be updated.");
       void refreshFromDatabase();
-      return;
+      return false;
     }
 
-    void refreshFromDatabase();
+    await refreshFromDatabase();
+    return true;
   }
 
   async function saveCardSettings(nextFeaturedCards: FeaturedCard[], nextChaseCards: ChaseCard[]) {
@@ -715,7 +1079,9 @@ export default function LuckyDrawApp() {
   }
 
   function toggleSlot(slot: number) {
-    if (!activeOrder || activeOrder.status !== "approved" || takenSlots.has(slot)) return;
+    if (!activeOrder || activeOrder.status !== "approved" || pickSubmitInFlightRef.current) return;
+    const takenByOther = orders.some((order) => order.id !== activeOrder.id && order.slots.includes(slot));
+    if (takenByOther) return;
     setSelectedSlots((current) => {
       if (current.includes(slot)) return current.filter((item) => item !== slot);
       if (current.length >= activeOrder.quantity) return current;
@@ -725,26 +1091,45 @@ export default function LuckyDrawApp() {
 
   async function confirmSlots() {
     if (!activeOrder || selectedSlots.length !== activeOrder.quantity) return;
+    if (pickSubmitInFlightRef.current) return;
 
-    if (databaseReady) {
-      const response = await fetch("/api/lucky-draw/picks", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ orderId: activeOrder.id, slots: selectedSlots }),
-      });
+    const orderId = activeOrder.id;
+    const nextSlots = [...selectedSlots].sort((a, b) => a - b);
+    pickSubmitInFlightRef.current = true;
+    setPickSubmitting(true);
+    setSyncError("");
 
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-        setSyncError(payload?.error ?? "Could not confirm selected numbers.");
-        void refreshFromDatabase();
-        return;
+    try {
+      let savedSlots = nextSlots;
+      if (databaseReady) {
+        const response = await fetch("/api/lucky-draw/picks", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ orderId, slots: nextSlots }),
+        });
+
+        const payload = (await response.json().catch(() => null)) as { error?: string; picks?: { slot_number?: number; slotNumber?: number }[] } | null;
+        if (!response.ok) {
+          setSyncError(payload?.error ?? "Could not confirm selected numbers.");
+          await refreshFromDatabase({ preferredActiveOrderId: orderId });
+          return;
+        }
+
+        const providerSlots = payload?.picks
+          ?.map((pick) => Number(pick.slot_number ?? pick.slotNumber))
+          .filter((slot) => Number.isInteger(slot) && slot > 0)
+          .sort((a, b) => a - b);
+        if (providerSlots?.length) savedSlots = providerSlots;
       }
-    }
 
-    applyOrderPatch(activeOrder.id, { slots: selectedSlots, status: "picked" });
-    setSelectedSlots([]);
-    setView("orders");
-    if (databaseReady) void refreshFromDatabase();
+      applyOrderPatch(orderId, { slots: savedSlots, status: "picked" });
+      setSelectedSlots(savedSlots);
+      if (databaseReady) await refreshFromDatabase({ preferredActiveOrderId: orderId });
+      setView("orders");
+    } finally {
+      pickSubmitInFlightRef.current = false;
+      setPickSubmitting(false);
+    }
   }
 
   return (
@@ -791,7 +1176,7 @@ export default function LuckyDrawApp() {
               chaseCards={chaseCards}
               onLogin={handleLineLogin}
               onCheckout={() => setView("checkout")}
-              onPick={() => setView("pick")}
+              onPick={() => openPickView()}
             />
           )}
           {view === "checkout" && (
@@ -803,6 +1188,7 @@ export default function LuckyDrawApp() {
               quantity={quantity}
               slipName={slipName}
               slipPreviewUrl={slipPreviewUrl}
+              isSubmitting={orderSubmitting}
               onLineName={setLineName}
               onQuantity={setQuantity}
               onSlip={setPaymentSlip}
@@ -817,7 +1203,8 @@ export default function LuckyDrawApp() {
               activeOrderId={activeOrderId}
               selectedSlots={selectedSlots}
               takenSlots={takenSlots}
-              onOrder={setActiveOrderId}
+              isConfirming={pickSubmitting}
+              onOrder={handlePickOrderChange}
               onSlot={toggleSlot}
               onConfirm={confirmSlots}
             />
@@ -830,18 +1217,33 @@ export default function LuckyDrawApp() {
               filteredOrders={filteredOrders}
               onQuery={setQuery}
               onPick={(id) => {
-                setActiveOrderId(id);
-                setSelectedSlots([]);
-                setView("pick");
+                openPickView(id);
               }}
             />
           )}
-          {view === "admin" && (
+          {view === "profile" && (
+            <ProfileView
+              lang={lang}
+              lineName={lineName}
+              lineVerified={lineVerified}
+              isAdmin={isAdmin}
+              adminRole={adminRole}
+              orders={orders}
+              profileInfo={profileInfo}
+              profileLoaded={profileLoaded}
+              profileSaving={profileSaving}
+              onLogin={handleLineLogin}
+              onLanguage={() => setLang(lang === "th" ? "en" : "th")}
+              onSaveProfile={saveProfileInfo}
+            />
+          )}
+          {view === "admin" && isAdmin && (
             <AdminView
               draw={draw}
               lang={lang}
               orders={orders}
               onDraw={saveDrawSettings}
+              onDrawLifecycle={updateDrawLifecycle}
               onApprove={(id) => void updateOrderStatus(id, "approved")}
               onReject={(id) => void updateOrderStatus(id, "rejected")}
               onViewSlip={(id) => void viewPaymentSlip(id)}
@@ -856,6 +1258,22 @@ export default function LuckyDrawApp() {
               onSaveCards={saveCardSettings}
             />
           )}
+          {view === "admin" && !isAdmin && (
+            <ProfileView
+              lang={lang}
+              lineName={lineName}
+              lineVerified={lineVerified}
+              isAdmin={isAdmin}
+              adminRole={adminRole}
+              orders={orders}
+              profileInfo={profileInfo}
+              profileLoaded={profileLoaded}
+              profileSaving={profileSaving}
+              onLogin={handleLineLogin}
+              onLanguage={() => setLang(lang === "th" ? "en" : "th")}
+              onSaveProfile={saveProfileInfo}
+            />
+          )}
         </section>
 
         <aside className={view === "admin" ? "hidden" : "hidden min-w-0 space-y-4 lg:block"}>
@@ -867,13 +1285,26 @@ export default function LuckyDrawApp() {
             sold={takenSlots.size}
             orders={orders}
             onLogin={handleLineLogin}
+            onProfile={() => setView("profile")}
+            isAdmin={isAdmin}
             onAdmin={() => setView("admin")}
           />
         </aside>
       </div>
 
       <div className="bottom-nav-spacer" aria-hidden="true" />
-      <BottomNav view={view} setView={setView} pending={orders.filter((o) => o.status === "pending").length} />
+      <BottomNav
+        view={view}
+        setView={(nextView) => {
+          if (nextView === "pick") {
+            openPickView();
+            return;
+          }
+          setView(nextView);
+        }}
+        pending={orders.filter((o) => o.status === "pending").length}
+        isAdmin={isAdmin}
+      />
     </main>
   );
 }
@@ -926,9 +1357,9 @@ function HomeView({
               </div>
             </div>
           )}
-          <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-rose-500 px-3 py-1.5 text-xs font-black uppercase text-white status-live">
+          <div className={`absolute left-4 top-4 flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black uppercase text-white ${draw.status === "live" ? "bg-rose-500 status-live" : "bg-slate-700"}`}>
             <Radio className="h-3.5 w-3.5" />
-            {t.liveNow}
+            {draw.status === "live" ? t.liveNow : drawStatusLabel(draw.status, lang)}
           </div>
         </div>
         <div className="space-y-4 border-t border-white/10 bg-black/10 p-4 sm:p-5">
@@ -953,7 +1384,7 @@ function HomeView({
             <div className="h-full rounded-full bg-[linear-gradient(135deg,var(--gold-2),var(--gold))]" style={{ width: `${progress}%` }} />
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <button className="gold-button flex h-14 items-center justify-center gap-2 rounded-2xl font-black" onClick={onCheckout}>
+            <button className="gold-button flex h-14 items-center justify-center gap-2 rounded-2xl font-black" disabled={draw.status !== "live"} onClick={onCheckout}>
               <CreditCard className="h-5 w-5" />
               {t.buyNow}
             </button>
@@ -1069,6 +1500,7 @@ function CheckoutView({
   quantity,
   slipName,
   slipPreviewUrl,
+  isSubmitting,
   onLineName,
   onQuantity,
   onSlip,
@@ -1081,12 +1513,14 @@ function CheckoutView({
   quantity: number;
   slipName: string;
   slipPreviewUrl: string;
+  isSubmitting: boolean;
   onLineName: (value: string) => void;
   onQuantity: (value: number) => void;
   onSlip: (file: File | null) => void;
   onSubmit: () => void;
 }) {
   const t = copy[lang];
+  const cleanPromptPay = promptPayDisplay(draw.promptPay);
   return (
     <div className="glass rounded-[28px] p-4 sm:p-6">
       <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.buyNow}</p>
@@ -1099,6 +1533,7 @@ function CheckoutView({
           <input
             className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
             value={lineName}
+            disabled={isSubmitting}
             onChange={(event) => onLineName(event.target.value)}
           />
         </label>
@@ -1107,6 +1542,7 @@ function CheckoutView({
           <select
             className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
             value={quantity}
+            disabled={isSubmitting}
             onChange={(event) => onQuantity(Number(event.target.value))}
           >
             {[1, 2, 3, 4, 5, 6, 8, 10].map((item) => (
@@ -1122,7 +1558,7 @@ function CheckoutView({
         <div className="soft-card rounded-3xl p-4">
           <div className="mb-3 flex items-center gap-2 text-sm font-black">
             <QrCode className="h-4 w-4 text-[var(--gold)]" />
-            PromptPay
+            {cleanPromptPay ? "PromptPay" : "Payment QR"}
           </div>
           <div className="relative grid aspect-square w-full place-items-center overflow-hidden rounded-2xl bg-white p-3 text-center text-slate-900">
             {draw.qrImageUrl ? (
@@ -1139,14 +1575,14 @@ function CheckoutView({
             ) : (
             <div>
               <QrCode className="mx-auto h-20 w-20" />
-              <p className="mt-3 text-sm font-black">{draw.promptPay}</p>
+              {cleanPromptPay && <p className="mt-3 text-sm font-black">{cleanPromptPay}</p>}
               <p className="text-xs text-slate-500">{money(quantity * draw.price)} THB</p>
             </div>
             )}
           </div>
-          {draw.qrImageUrl && (
+          {draw.qrImageUrl && cleanPromptPay && (
             <div className="mt-3 text-center">
-              <p className="text-sm font-black text-white">{draw.promptPay}</p>
+              <p className="text-sm font-black text-white">{cleanPromptPay}</p>
               <p className="text-xs text-[var(--muted)]">{money(quantity * draw.price)} THB</p>
             </div>
           )}
@@ -1164,7 +1600,7 @@ function CheckoutView({
         </div>
       </div>
 
-      <label className="mt-5 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-white/18 bg-white/[0.035] p-4 text-center">
+      <label className={`mt-5 flex min-h-28 flex-col items-center justify-center rounded-3xl border border-dashed border-white/18 bg-white/[0.035] p-4 text-center ${isSubmitting ? "cursor-wait opacity-70" : "cursor-pointer"}`}>
         {slipPreviewUrl ? (
           <span className="relative block h-40 w-full overflow-hidden rounded-2xl border border-white/10 bg-black/20">
             <Image className="object-contain" src={slipPreviewUrl} alt={slipName || "Uploaded payment slip"} fill sizes="(max-width: 640px) calc(100vw - 64px), 360px" unoptimized />
@@ -1174,19 +1610,31 @@ function CheckoutView({
         )}
         <span className="mt-2 text-sm font-black">{slipName ? `${t.uploadSlip}: ${slipName}` : t.uploadSlip}</span>
         <span className="mt-1 text-xs text-[var(--muted)]">
-          {slipName ? "Ready to submit" : "JPG, PNG, WEBP, or PDF"}
+          {slipName ? "Ready to submit" : "JPG, PNG, or WEBP"}
         </span>
         <input
           className="hidden"
           type="file"
-          accept="image/jpeg,image/png,image/webp,application/pdf"
+          accept="image/jpeg,image/png,image/webp"
+          disabled={isSubmitting}
           onChange={(event) => onSlip(event.target.files?.[0] ?? null)}
         />
       </label>
 
-      <button className="gold-button mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl font-black" onClick={onSubmit}>
-        {lineVerified ? <Check className="h-5 w-5" /> : <LogIn className="h-5 w-5" />}
-        {lineVerified ? t.createOrder : t.loginLine}
+      <button
+        className="gold-button mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl font-black disabled:cursor-wait disabled:opacity-70"
+        disabled={isSubmitting}
+        aria-busy={isSubmitting}
+        onClick={onSubmit}
+      >
+        {isSubmitting ? (
+          <Loader2 className="h-5 w-5 animate-spin" />
+        ) : lineVerified ? (
+          <Check className="h-5 w-5" />
+        ) : (
+          <LogIn className="h-5 w-5" />
+        )}
+        {isSubmitting ? t.sendingOrder : lineVerified ? t.createOrder : t.loginLine}
       </button>
     </div>
   );
@@ -1199,6 +1647,7 @@ function PickView({
   activeOrderId,
   selectedSlots,
   takenSlots,
+  isConfirming,
   onOrder,
   onSlot,
   onConfirm,
@@ -1209,23 +1658,26 @@ function PickView({
   activeOrderId: string;
   selectedSlots: number[];
   takenSlots: Set<number>;
+  isConfirming: boolean;
   onOrder: (id: string) => void;
   onSlot: (slot: number) => void;
   onConfirm: () => void;
 }) {
   const t = copy[lang];
-  const approvedOrders = orders.filter((order) => order.status === "approved");
+  const pickableOrders = orders.filter((order) => order.status === "approved" || order.status === "picked");
   const activeOrder = orders.find((order) => order.id === activeOrderId);
-  const canPick = activeOrder?.status === "approved";
+  const alreadyPicked = activeOrder?.status === "picked";
+  const canPick = activeOrder?.status === "approved" && !isConfirming;
   const slots = Array.from({ length: draw.totalSlots }, (_, index) => index + 1);
-  const selectedCount = activeOrder?.slots.length ? activeOrder.slots.length : selectedSlots.length;
+  const activeOrderSlots = new Set(activeOrder?.slots ?? []);
+  const selectedCount = alreadyPicked ? activeOrder?.slots.length ?? 0 : selectedSlots.length;
 
   return (
     <div className="glass rounded-[28px] p-4 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.pickNumbers}</p>
-          <h2 className="mt-2 text-2xl font-black">{canPick ? t.chooseExact : t.lockedPick}</h2>
+          <h2 className="mt-2 text-2xl font-black">{alreadyPicked ? t.alreadyPicked : canPick ? t.chooseExact : t.lockedPick}</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
             {activeOrder
               ? `${activeOrder.id} · ${t.selected} ${selectedCount} / ${activeOrder.quantity}`
@@ -1237,10 +1689,10 @@ function PickView({
           value={activeOrderId}
           onChange={(event) => onOrder(event.target.value)}
         >
-          {approvedOrders.length === 0 && <option value={activeOrderId}>{t.pending}</option>}
-          {approvedOrders.map((order) => (
+          {pickableOrders.length === 0 && <option value={activeOrderId}>{t.pending}</option>}
+          {pickableOrders.map((order) => (
             <option key={order.id} value={order.id}>
-              {order.id} · {order.lineName} · {order.quantity} {t.draws}
+              {order.id} · {order.lineName} · {order.quantity} {t.draws} · {orderLabel(order.status, lang)}
             </option>
           ))}
         </select>
@@ -1248,8 +1700,9 @@ function PickView({
 
       <div className="slot-grid mt-5">
         {slots.map((slot) => {
-          const taken = takenSlots.has(slot);
-          const picked = selectedSlots.includes(slot);
+          const owned = activeOrderSlots.has(slot);
+          const taken = takenSlots.has(slot) && !owned;
+          const picked = selectedSlots.includes(slot) || owned;
           return (
             <button
               key={slot}
@@ -1270,12 +1723,13 @@ function PickView({
       </div>
 
       <button
-        className="gold-button mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl font-black"
-        disabled={!activeOrder || selectedSlots.length !== activeOrder.quantity}
+        className="gold-button mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl font-black disabled:cursor-not-allowed disabled:opacity-70"
+        disabled={!activeOrder || isConfirming || activeOrder.status !== "approved" || selectedSlots.length !== activeOrder.quantity}
+        aria-busy={isConfirming}
         onClick={onConfirm}
       >
-        <Ticket className="h-5 w-5" />
-        {t.confirmPick}
+        {isConfirming ? <Loader2 className="h-5 w-5 animate-spin" /> : alreadyPicked ? <Check className="h-5 w-5" /> : <Ticket className="h-5 w-5" />}
+        {isConfirming ? t.savingPick : alreadyPicked ? t.alreadyPicked : t.confirmPick}
       </button>
     </div>
   );
@@ -1325,6 +1779,161 @@ function OrdersView({
   );
 }
 
+function ProfileView({
+  lang,
+  lineName,
+  lineVerified,
+  isAdmin,
+  adminRole,
+  orders,
+  profileInfo,
+  profileLoaded,
+  profileSaving,
+  onLogin,
+  onLanguage,
+  onSaveProfile,
+}: {
+  lang: Lang;
+  lineName: string;
+  lineVerified: boolean;
+  isAdmin: boolean;
+  adminRole: AdminRole | null;
+  orders: Order[];
+  profileInfo: ProfileInfo;
+  profileLoaded: boolean;
+  profileSaving: boolean;
+  onLogin: () => void;
+  onLanguage: () => void;
+  onSaveProfile: (profileInfo: ProfileInfo) => Promise<boolean>;
+}) {
+  const t = copy[lang];
+  const [draft, setDraft] = useState(profileInfo);
+  const [draftDirty, setDraftDirty] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const approvedCount = orders.filter((order) => order.status === "approved" || order.status === "picked").length;
+  const pickedCount = orders.filter((order) => order.status === "picked").length;
+  const profileName = profileInfo.fullName || profileInfo.phone || "-";
+
+  useEffect(() => {
+    if (draftDirty) return;
+    const syncDraft = window.setTimeout(() => setDraft(profileInfo), 0);
+    return () => window.clearTimeout(syncDraft);
+  }, [draftDirty, profileInfo]);
+
+  function updateProfileDraft(patch: Partial<ProfileInfo>) {
+    setDraft((current) => ({ ...current, ...patch }));
+    setDraftDirty(true);
+  }
+
+  async function saveProfileDraft() {
+    const ok = await onSaveProfile(draft);
+    if (!ok) return;
+    setDraftDirty(false);
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 1400);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="glass rounded-[28px] p-4 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.profile}</p>
+            <h2 className="mt-2 truncate text-2xl font-black">{t.lineAccount}</h2>
+          </div>
+          <UserRound className="h-8 w-8 shrink-0 text-[var(--gold)]" />
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <InfoTile label={t.displayName} value={lineVerified ? lineName : "LINE Customer"} />
+          <InfoTile label={t.loginStatus} value={lineVerified ? t.verifiedLine : t.loginLine} />
+          <InfoTile label={t.accessLevel} value={isAdmin ? `${t.adminAccess}${adminRole ? ` / ${adminRole}` : ""}` : t.customerAccess} />
+          <InfoTile label={t.contactInfo} value={profileLoaded ? profileName : "-"} />
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <button className="plain-button flex h-12 items-center justify-center gap-2 rounded-2xl px-4 font-bold" onClick={onLogin}>
+            {lineVerified ? <BadgeCheck className="h-4 w-4 text-emerald-300" /> : <LogIn className="h-4 w-4" />}
+            {lineVerified ? t.verifiedLine : t.loginLine}
+          </button>
+          <button className="plain-button flex h-12 items-center justify-center gap-2 rounded-2xl px-4 font-bold" onClick={onLanguage}>
+            <Languages className="h-4 w-4 text-[var(--gold)]" />
+            {t.language}: {lang.toUpperCase()}
+          </button>
+        </div>
+      </div>
+
+      {lineVerified ? (
+        <div className="glass rounded-[28px] p-4 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.profileSettings}</p>
+              <h3 className="mt-2 text-lg font-black">{t.shippingAddress}</h3>
+            </div>
+            <button
+              className="gold-button flex h-11 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black"
+              disabled={profileSaving}
+              onClick={() => void saveProfileDraft()}
+            >
+              <Save className="h-4 w-4" />
+              {profileSaving ? "Saving..." : saved ? t.saved : t.saveProfile}
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <TextField label={t.fullName} value={draft.fullName} onChange={(value) => updateProfileDraft({ fullName: value })} />
+            <TextField label={t.phone} value={draft.phone} onChange={(value) => updateProfileDraft({ phone: value })} />
+          </div>
+
+          <div className="mt-3 grid gap-3">
+            <TextField label={t.addressLine1} value={draft.addressLine1} onChange={(value) => updateProfileDraft({ addressLine1: value })} />
+            <TextField label={t.addressLine2} value={draft.addressLine2} onChange={(value) => updateProfileDraft({ addressLine2: value })} />
+          </div>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <TextField label={t.subdistrict} value={draft.subdistrict} onChange={(value) => updateProfileDraft({ subdistrict: value })} />
+            <TextField label={t.district} value={draft.district} onChange={(value) => updateProfileDraft({ district: value })} />
+            <TextField label={t.province} value={draft.province} onChange={(value) => updateProfileDraft({ province: value })} />
+            <TextField label={t.postalCode} value={draft.postalCode} onChange={(value) => updateProfileDraft({ postalCode: value })} />
+            <TextField label={t.country} value={draft.country} onChange={(value) => updateProfileDraft({ country: value })} />
+          </div>
+
+          <div className="mt-3">
+            <TextAreaField label={t.deliveryNote} value={draft.deliveryNote} onChange={(value) => updateProfileDraft({ deliveryNote: value })} />
+          </div>
+        </div>
+      ) : (
+        <div className="glass rounded-[28px] p-4 sm:p-6">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.profileSettings}</p>
+          <h3 className="mt-2 text-lg font-black">{t.loginToEditProfile}</h3>
+          <button className="gold-button mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl font-black" onClick={onLogin}>
+            <LogIn className="h-4 w-4" />
+            {t.loginLine}
+          </button>
+        </div>
+      )}
+
+      <div className="glass rounded-[28px] p-4 sm:p-6">
+        <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.orderSummary}</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <Metric label={t.orders} value={String(orders.length)} />
+          <Metric label={t.paidOrders} value={String(approvedCount)} />
+          <Metric label={t.pickedOrders} value={String(pickedCount)} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="soft-card min-w-0 rounded-3xl p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</p>
+      <p className="mt-2 truncate text-base font-black">{value}</p>
+    </div>
+  );
+}
+
 function AdminView({
   draw,
   lang,
@@ -1342,6 +1951,7 @@ function AdminView({
   onFeaturedCards,
   onChaseCards,
   onSaveCards,
+  onDrawLifecycle,
 }: {
   draw: DrawConfig;
   lang: Lang;
@@ -1349,7 +1959,8 @@ function AdminView({
   featuredCards: FeaturedCard[];
   chaseCards: ChaseCard[];
   cardCatalog: CardCatalogItem[];
-  onDraw: (draw: DrawConfig) => void;
+  onDraw: (draw: DrawConfig) => Promise<boolean>;
+  onDrawLifecycle: (action: DrawLifecycleAction) => Promise<boolean>;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
   onViewSlip: (id: string) => void;
@@ -1362,14 +1973,28 @@ function AdminView({
 }) {
   const t = copy[lang];
   const [draft, setDraft] = useState(draw);
+  const [draftDirty, setDraftDirty] = useState(false);
   const [saved, setSaved] = useState(false);
   const [qrUploading, setQrUploading] = useState(false);
   const pending = orders.filter((order) => order.status === "pending");
   const selectableOrders = orders.filter((order) => order.status === "approved" || order.status === "picked");
   const takenSlots = new Set(orders.flatMap((order) => order.slots));
 
-  function saveDraft() {
-    onDraw(draft);
+  useEffect(() => {
+    if (draftDirty) return;
+    const syncDraft = window.setTimeout(() => setDraft(draw), 0);
+    return () => window.clearTimeout(syncDraft);
+  }, [draw, draftDirty]);
+
+  function updateDraft(patch: Partial<DrawConfig>) {
+    setDraft((current) => ({ ...current, ...patch }));
+    setDraftDirty(true);
+  }
+
+  async function saveDraft() {
+    const ok = await onDraw(draft);
+    if (!ok) return;
+    setDraftDirty(false);
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1400);
   }
@@ -1378,40 +2003,47 @@ function AdminView({
     if (!file) return;
     setQrUploading(true);
     const qrImageUrl = await onQrUpload(file);
-    if (qrImageUrl) setDraft((current) => ({ ...current, qrImageUrl }));
+    if (qrImageUrl) updateDraft({ qrImageUrl });
     setQrUploading(false);
   }
 
   return (
     <div className="space-y-4">
+      <AdminLifecyclePanel
+        draw={draw}
+        lang={lang}
+        orders={orders}
+        onDrawLifecycle={onDrawLifecycle}
+      />
+
       <div className="glass rounded-[28px] p-4 sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.admin}</p>
             <h2 className="mt-2 text-2xl font-black">{t.streamSettings}</h2>
           </div>
-          <button className="gold-button flex h-11 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black" onClick={saveDraft}>
+          <button className="gold-button flex h-11 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black" onClick={() => void saveDraft()}>
             <Save className="h-4 w-4" />
             {saved ? t.saved : t.save}
           </button>
         </div>
         <div className="mt-5 grid gap-3">
-          <TextField label="Facebook Live URL" value={draft.facebookUrl} onChange={(value) => setDraft({ ...draft, facebookUrl: value })} />
-          <TextField label="YouTube Embed URL" value={draft.youtubeUrl} onChange={(value) => setDraft({ ...draft, youtubeUrl: value })} />
+          <TextField label="Facebook Live URL" value={draft.facebookUrl} onChange={(value) => updateDraft({ facebookUrl: value })} />
+          <TextField label="YouTube Embed URL" value={draft.youtubeUrl} onChange={(value) => updateDraft({ youtubeUrl: value })} />
         </div>
       </div>
 
       <div className="glass rounded-[28px] p-4 sm:p-6">
         <h3 className="text-lg font-black">{t.drawSettings}</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <TextField label="Title TH" value={draft.titleTh} onChange={(value) => setDraft({ ...draft, titleTh: value })} />
-          <TextField label="Title EN" value={draft.titleEn} onChange={(value) => setDraft({ ...draft, titleEn: value })} />
-          <NumberField label="Price" value={draft.price} onChange={(value) => setDraft({ ...draft, price: value })} />
-          <NumberField label="Total Slots" value={draft.totalSlots} onChange={(value) => setDraft({ ...draft, totalSlots: value })} />
+          <TextField label="Title TH" value={draft.titleTh} onChange={(value) => updateDraft({ titleTh: value })} />
+          <TextField label="Title EN" value={draft.titleEn} onChange={(value) => updateDraft({ titleEn: value })} />
+          <NumberField label="Price" value={draft.price} onChange={(value) => updateDraft({ price: value })} />
+          <NumberField label="Total Slots" value={draft.totalSlots} onChange={(value) => updateDraft({ totalSlots: value })} />
           <TextField
             label={t.orderSlipDetail}
             value={draft.orderCodePrefix}
-            onChange={(value) => setDraft({ ...draft, orderCodePrefix: normalizeOrderPrefixInput(value) })}
+            onChange={(value) => updateDraft({ orderCodePrefix: normalizeOrderPrefixInput(value) })}
           />
         </div>
       </div>
@@ -1419,10 +2051,10 @@ function AdminView({
       <div className="glass rounded-[28px] p-4 sm:p-6">
         <h3 className="text-lg font-black">{t.paymentSettings}</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <TextField label="PromptPay" value={draft.promptPay} onChange={(value) => setDraft({ ...draft, promptPay: value })} />
-          <TextField label="Bank" value={draft.bankName} onChange={(value) => setDraft({ ...draft, bankName: value })} />
-          <TextField label="Account Name" value={draft.accountName} onChange={(value) => setDraft({ ...draft, accountName: value })} />
-          <TextField label="Account Number" value={draft.accountNumber} onChange={(value) => setDraft({ ...draft, accountNumber: value })} />
+          <TextField label="PromptPay" value={draft.promptPay} onChange={(value) => updateDraft({ promptPay: value })} />
+          <TextField label="Bank" value={draft.bankName} onChange={(value) => updateDraft({ bankName: value })} />
+          <TextField label="Account Name" value={draft.accountName} onChange={(value) => updateDraft({ accountName: value })} />
+          <TextField label="Account Number" value={draft.accountNumber} onChange={(value) => updateDraft({ accountNumber: value })} />
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-[180px_1fr] sm:items-center">
           <div className="relative grid aspect-square w-full place-items-center overflow-hidden rounded-3xl bg-white p-3">
@@ -1490,6 +2122,10 @@ function AdminView({
                   <p className="mt-1 break-words text-sm text-[var(--muted)]">
                     {order.quantity} draws / {money(order.amount)} THB / {order.hasSlipFile ? order.slipName : t.manualSlip}
                   </p>
+                  <SlipVerificationBadge lang={lang} order={order} />
+                  {order.slipProviderMessage && (
+                    <p className="mt-1 max-w-xl break-words text-xs text-[var(--muted)]">{order.slipProviderMessage}</p>
+                  )}
                 </div>
                 <div className="grid grid-cols-3 gap-2 sm:flex sm:shrink-0">
                   <button
@@ -1513,6 +2149,97 @@ function AdminView({
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminLifecyclePanel({
+  draw,
+  lang,
+  orders,
+  onDrawLifecycle,
+}: {
+  draw: DrawConfig;
+  lang: Lang;
+  orders: Order[];
+  onDrawLifecycle: (action: DrawLifecycleAction) => Promise<boolean>;
+}) {
+  const t = copy[lang];
+  const [busyAction, setBusyAction] = useState<DrawLifecycleAction | "">("");
+  const pendingCount = orders.filter((order) => order.status === "pending").length;
+  const awaitingPickCount = orders.filter((order) => order.status === "approved").length;
+
+  async function runAction(action: DrawLifecycleAction) {
+    setBusyAction(action);
+    try {
+      await onDrawLifecycle(action);
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  return (
+    <div className="glass rounded-[28px] p-4 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">{t.drawLifecycle}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <h2 className="min-w-0 truncate text-2xl font-black">{drawStatusLabel(draw.status, lang)}</h2>
+            <span className={`rounded-full border px-3 py-1 text-xs font-black ${drawStatusClass(draw.status)}`}>
+              {t.drawStatus}
+            </span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+          <Metric label={t.pendingPayments} value={String(pendingCount)} />
+          <Metric label={t.awaitingPicks} value={String(awaitingPickCount)} />
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        {draw.status === "live" && (
+          <button
+            className="plain-button flex h-12 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black"
+            disabled={Boolean(busyAction)}
+            onClick={() => void runAction("close_sales")}
+          >
+            <Lock className="h-4 w-4 text-amber-200" />
+            {busyAction === "close_sales" ? "Working..." : t.closeSales}
+          </button>
+        )}
+
+        {draw.status === "closed" && (
+          <>
+            <button
+              className="plain-button flex h-12 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black"
+              disabled={Boolean(busyAction)}
+              onClick={() => void runAction("reopen_sales")}
+            >
+              <Play className="h-4 w-4 text-emerald-200" />
+              {busyAction === "reopen_sales" ? "Working..." : t.reopenSales}
+            </button>
+            <button
+              className="gold-button flex h-12 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black"
+              disabled={Boolean(busyAction)}
+              onClick={() => void runAction("create_next")}
+            >
+              <Sparkles className="h-4 w-4" />
+              {busyAction === "create_next" ? "Working..." : t.createNextDraw}
+            </button>
+          </>
+        )}
+
+        {draw.status === "draft" && (
+          <button
+            className="gold-button flex h-12 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black"
+            disabled={Boolean(busyAction)}
+            onClick={() => void runAction("publish_next")}
+          >
+            <Play className="h-4 w-4" />
+            {busyAction === "publish_next" ? "Working..." : t.publishNextDraw}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1998,6 +2725,8 @@ function StatusPanel({
   sold,
   orders,
   onLogin,
+  onProfile,
+  isAdmin,
   onAdmin,
 }: {
   draw: DrawConfig;
@@ -2007,6 +2736,8 @@ function StatusPanel({
   sold: number;
   orders: Order[];
   onLogin: () => void;
+  onProfile: () => void;
+  isAdmin: boolean;
   onAdmin: () => void;
 }) {
   const t = copy[lang];
@@ -2018,10 +2749,16 @@ function StatusPanel({
           <UserRound className="h-4 w-4" />
           {lineVerified ? t.verifiedLine : t.loginLine}
         </button>
-        <button className="plain-button mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl font-black" onClick={onAdmin}>
-          <Settings className="h-4 w-4" />
-          {t.openAdmin}
+        <button className="plain-button mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl font-black" onClick={onProfile}>
+          <UserRound className="h-4 w-4" />
+          {t.profile}
         </button>
+        {isAdmin && (
+          <button className="plain-button mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl font-black" onClick={onAdmin}>
+            <Settings className="h-4 w-4" />
+            {t.openAdmin}
+          </button>
+        )}
       </div>
       <div className="glass rounded-[28px] p-5">
         <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--gold)]">Snapshot</p>
@@ -2036,16 +2773,20 @@ function StatusPanel({
   );
 }
 
-function BottomNav({ view, setView, pending }: { view: View; setView: (view: View) => void; pending: number }) {
+function BottomNav({ view, setView, pending, isAdmin }: { view: View; setView: (view: View) => void; pending: number; isAdmin: boolean }) {
   const items: Array<{ view: View; icon: React.ReactNode; label: string; badge?: number }> = [
     { view: "home", icon: <Home className="h-5 w-5" />, label: "Home" },
     { view: "checkout", icon: <CreditCard className="h-5 w-5" />, label: "Pay" },
     { view: "pick", icon: <Ticket className="h-5 w-5" />, label: "Pick" },
     { view: "orders", icon: <ClipboardList className="h-5 w-5" />, label: "Orders" },
-    { view: "admin", icon: <Settings className="h-5 w-5" />, label: "Admin", badge: pending },
+    { view: "profile", icon: <UserRound className="h-5 w-5" />, label: "Profile" },
+    ...(isAdmin ? [{ view: "admin" as const, icon: <Settings className="h-5 w-5" />, label: "Admin", badge: pending }] : []),
   ];
   return (
-    <nav className="bottom-nav-shell fixed left-1/2 z-40 grid w-[calc(100%-24px)] max-w-[560px] -translate-x-1/2 grid-cols-5 rounded-[24px] border border-white/10 bg-[#10111f]/95 p-2 shadow-2xl backdrop-blur">
+    <nav
+      className="bottom-nav-shell fixed left-1/2 z-40 grid w-[calc(100%-24px)] max-w-[640px] -translate-x-1/2 rounded-[24px] border border-white/10 bg-[#10111f]/95 p-2 shadow-2xl backdrop-blur"
+      style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+    >
       {items.map((item) => (
         <button
           key={item.view}
@@ -2095,9 +2836,24 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
   );
 }
 
+function SlipVerificationBadge({ lang, order }: { lang: Lang; order: Order }) {
+  if (order.slipProvider === "manual_line" && order.slipVerificationStatus === "manual_review") {
+    return null;
+  }
+
+  return (
+    <span className={`mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-black ${slipVerificationClass(order.slipVerificationStatus)}`}>
+      <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+      <span className="truncate">{slipVerificationLabel(order.slipVerificationStatus, lang)}</span>
+      {order.slipProviderCode && <span className="font-mono opacity-75">{order.slipProviderCode}</span>}
+    </span>
+  );
+}
+
 function OrderCard({ lang, order, onPick }: { lang: Lang; order: Order; onPick: (id: string) => void }) {
   const t = copy[lang];
   const canPick = order.status === "approved";
+  const canViewPicked = order.status === "picked";
   return (
     <article className="soft-card rounded-3xl p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -2116,14 +2872,15 @@ function OrderCard({ lang, order, onPick }: { lang: Lang; order: Order; onPick: 
               ? `${t.selected}: ${order.slots.join(", ")}`
               : `${t.uploadSlip}: ${order.hasSlipFile ? order.slipName : t.manualSlip}`}
           </p>
+          <SlipVerificationBadge lang={lang} order={order} />
         </div>
         <button
           className="plain-button flex h-11 items-center justify-center gap-2 rounded-2xl px-4 font-bold"
-          disabled={!canPick}
+          disabled={!canPick && !canViewPicked}
           onClick={() => onPick(order.id)}
         >
           {canPick ? <ChevronRight className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          {canPick ? t.pickNumbers : orderLabel(order.status, lang)}
+          {canPick ? t.pickNumbers : canViewPicked ? t.viewPicked : orderLabel(order.status, lang)}
         </button>
       </div>
     </article>
@@ -2138,6 +2895,21 @@ function TextField({ label, value, onChange }: { label: string; value: string; o
       <input
         id={id}
         className="h-12 w-full min-w-0 rounded-2xl border border-white/10 bg-black/25 px-4 outline-none focus:border-[var(--gold)]"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
+function TextAreaField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const id = useId();
+  return (
+    <label className="block space-y-2" htmlFor={id}>
+      <span className="block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{label}</span>
+      <textarea
+        id={id}
+        className="min-h-24 w-full min-w-0 resize-y rounded-2xl border border-white/10 bg-black/25 px-4 py-3 outline-none focus:border-[var(--gold)]"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />

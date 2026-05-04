@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { fromDrawConfig, getActiveDraw, isSupabaseConfigured, syncRoundPrizeCards } from "@/lib/lucky-draw/data";
-import { isAdminSession, readSessionCookie } from "@/lib/lucky-draw/session";
+import { readSessionCookie, verifyAdminSession } from "@/lib/lucky-draw/session";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { ChaseCard, DrawConfig, FeaturedCard } from "@/lib/lucky-draw/types";
 import type { Json } from "@/lib/supabase/types";
@@ -17,8 +17,8 @@ export async function PATCH(request: Request) {
       return Response.json({ error: "Supabase is not configured." }, { status: 503 });
     }
 
-    const session = readSessionCookie(await cookies());
-    if (!isAdminSession(session)) {
+    const session = await verifyAdminSession(readSessionCookie(await cookies()));
+    if (!session) {
       return Response.json({ error: "Admin access is required." }, { status: 403 });
     }
 
@@ -40,6 +40,8 @@ export async function PATCH(request: Request) {
     }
 
     const nextDraw: DrawConfig = {
+      slug: activeDraw.slug,
+      status: activeDraw.status,
       titleTh: body.draw?.titleTh ?? activeDraw.title_th,
       titleEn: body.draw?.titleEn ?? activeDraw.title_en,
       series: body.draw?.series ?? (activeDraw.series === "pokemon" ? "Pokemon" : "One Piece"),
@@ -78,7 +80,7 @@ export async function PATCH(request: Request) {
     }
 
     await supabase.from("audit_events").insert({
-      actor_admin_id: session?.adminId,
+      actor_admin_id: session.adminId,
       event_type: "draw_updated",
       draw_round_id: activeDraw.id,
       metadata: { slug: activeDraw.slug },

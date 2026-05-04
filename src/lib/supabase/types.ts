@@ -10,6 +10,16 @@ export type Database = {
           line_display_name: string | null;
           line_picture_url: string | null;
           preferred_language: "th" | "en";
+          full_name: string | null;
+          phone: string | null;
+          address_line1: string | null;
+          address_line2: string | null;
+          subdistrict: string | null;
+          district: string | null;
+          province: string | null;
+          postal_code: string | null;
+          country: string | null;
+          delivery_note: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -19,6 +29,16 @@ export type Database = {
           line_display_name?: string | null;
           line_picture_url?: string | null;
           preferred_language?: "th" | "en";
+          full_name?: string | null;
+          phone?: string | null;
+          address_line1?: string | null;
+          address_line2?: string | null;
+          subdistrict?: string | null;
+          district?: string | null;
+          province?: string | null;
+          postal_code?: string | null;
+          country?: string | null;
+          delivery_note?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -231,6 +251,25 @@ export type Database = {
           file_path: string | null;
           file_url: string | null;
           original_filename: string | null;
+          file_sha256: string | null;
+          slip2go_reference_id: string | null;
+          decoded_qr_hash: string | null;
+          verification_status:
+            | "unverified"
+            | "valid"
+            | "duplicate"
+            | "fraud"
+            | "not_found"
+            | "amount_mismatch"
+            | "receiver_mismatch"
+            | "date_mismatch"
+            | "provider_error"
+            | "manual_review";
+          provider_code: string | null;
+          provider_message: string | null;
+          provider_response: Json;
+          verified_at: string | null;
+          duplicate_of_slip_id: string | null;
           uploaded_at: string;
           reviewed_by: string | null;
           reviewed_at: string | null;
@@ -242,6 +281,25 @@ export type Database = {
           file_path?: string | null;
           file_url?: string | null;
           original_filename?: string | null;
+          file_sha256?: string | null;
+          slip2go_reference_id?: string | null;
+          decoded_qr_hash?: string | null;
+          verification_status?:
+            | "unverified"
+            | "valid"
+            | "duplicate"
+            | "fraud"
+            | "not_found"
+            | "amount_mismatch"
+            | "receiver_mismatch"
+            | "date_mismatch"
+            | "provider_error"
+            | "manual_review";
+          provider_code?: string | null;
+          provider_message?: string | null;
+          provider_response?: Json;
+          verified_at?: string | null;
+          duplicate_of_slip_id?: string | null;
           uploaded_at?: string;
           reviewed_by?: string | null;
           reviewed_at?: string | null;
@@ -293,6 +351,24 @@ export type Database = {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["audit_events"]["Insert"]>;
+        Relationships: [];
+      };
+      lucky_draw_realtime_events: {
+        Row: {
+          id: string;
+          topic: "draw" | "orders" | "slots" | "payments" | "cards";
+          draw_round_id: string | null;
+          order_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          topic: "draw" | "orders" | "slots" | "payments" | "cards";
+          draw_round_id?: string | null;
+          order_id?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["lucky_draw_realtime_events"]["Insert"]>;
         Relationships: [];
       };
     };

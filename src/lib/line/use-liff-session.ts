@@ -6,6 +6,8 @@ type LiffProfile = {
   lineUserId: string;
   displayName: string;
   pictureUrl?: string;
+  isAdmin?: boolean;
+  adminRole?: "owner" | "admin" | "staff" | null;
 };
 
 type LiffSessionState = {
@@ -18,6 +20,14 @@ type LiffSessionState = {
 
 const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
 const primarySiteUrl = "https://www.ynottcg.com";
+
+async function clearServerSession() {
+  try {
+    await fetch("/api/line/session", { method: "DELETE", cache: "no-store" });
+  } catch {
+    // A stale server cookie should never block the client from logging out.
+  }
+}
 
 function getLiffRedirectUri() {
   if (typeof window === "undefined") return primarySiteUrl;
@@ -55,11 +65,16 @@ export function useLiffSession(): LiffSessionState {
   }, []);
 
   const logout = useCallback(() => {
-    void import("@line/liff").then(({ default: liff }) => {
-      if (liff.isLoggedIn()) liff.logout();
-      setProfile(null);
-      setStatus("ready");
-    });
+    void (async () => {
+      try {
+        const { default: liff } = await import("@line/liff");
+        if (liff.isLoggedIn()) liff.logout();
+      } finally {
+        await clearServerSession();
+        setProfile(null);
+        setStatus("ready");
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -78,12 +93,18 @@ export function useLiffSession(): LiffSessionState {
         if (!active) return;
 
         if (!liff.isLoggedIn()) {
+          await clearServerSession();
+          if (!active) return;
+          setProfile(null);
           setStatus("ready");
           return;
         }
 
         const idToken = liff.getIDToken();
         if (!idToken) {
+          await clearServerSession();
+          if (!active) return;
+          setProfile(null);
           setStatus("ready");
           setError("LINE LIFF is missing the openid scope.");
           return;
@@ -96,6 +117,7 @@ export function useLiffSession(): LiffSessionState {
         });
 
         if (!response.ok) {
+          await clearServerSession();
           throw new Error("LINE token verification failed.");
         }
 
@@ -106,6 +128,7 @@ export function useLiffSession(): LiffSessionState {
         setStatus("authenticated");
       } catch (reason) {
         if (!active) return;
+        setProfile(null);
         setError(reason instanceof Error ? reason.message : "LINE LIFF initialization failed.");
         setStatus("error");
       }

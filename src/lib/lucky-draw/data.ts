@@ -2,7 +2,7 @@ import "server-only";
 
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
-import type { CardCatalogItem, ChaseCard, DrawConfig, FeaturedCard, LuckyDrawState, Order, OrderStatus } from "./types";
+import type { CardCatalogItem, ChaseCard, DrawConfig, DrawStatus, FeaturedCard, LuckyDrawState, Order, OrderStatus, SlipVerificationStatus } from "./types";
 
 type Supabase = ReturnType<typeof createServiceSupabaseClient>;
 type DrawRow = Database["public"]["Tables"]["draw_rounds"]["Row"];
@@ -16,6 +16,9 @@ type OrderParts = {
   slipName?: string | null;
   slipProvider?: Order["slipProvider"] | null;
   slipFilePath?: string | null;
+  slipVerificationStatus?: SlipVerificationStatus | null;
+  slipProviderCode?: string | null;
+  slipProviderMessage?: string | null;
   slots?: number[];
 };
 
@@ -36,8 +39,23 @@ function normalizeOrderCodePrefix(value: string | null | undefined) {
   return prefix || "LD";
 }
 
+function normalizePaymentDigits(value: string | null | undefined) {
+  const digits = (value ?? "").replace(/\D+/g, "");
+  return digits && !/^0+$/.test(digits) ? digits : "";
+}
+
+function normalizePromptPayId(value: string | null | undefined) {
+  const digits = normalizePaymentDigits(value);
+  if (digits.length === 11 && digits.startsWith("66")) return `0${digits.slice(2)}`;
+  if (digits.length === 10 && digits.startsWith("0")) return digits;
+  if (digits.length === 13 || digits.length === 15) return digits;
+  return "";
+}
+
 export function toDrawConfig(row: DrawRow): DrawConfig {
   return {
+    slug: row.slug,
+    status: row.status,
     titleTh: row.title_th,
     titleEn: row.title_en,
     series: row.series === "pokemon" ? "Pokemon" : "One Piece",
@@ -64,11 +82,11 @@ export function fromDrawConfig(draw: DrawConfig): Database["public"]["Tables"]["
     order_code_prefix: normalizeOrderCodePrefix(draw.orderCodePrefix),
     facebook_live_url: draw.facebookUrl || null,
     youtube_embed_url: draw.youtubeUrl || null,
-    promptpay_id: draw.promptPay || null,
+    promptpay_id: normalizePromptPayId(draw.promptPay) || null,
     promptpay_qr_image_url: draw.qrImageUrl || null,
     bank_name: draw.bankName || null,
     bank_account_name: draw.accountName || null,
-    bank_account_number: draw.accountNumber || null,
+    bank_account_number: normalizePaymentDigits(draw.accountNumber) || null,
   };
 }
 
@@ -446,23 +464,52 @@ export function toOrder(parts: OrderParts): Order {
     slipName: parts.slipName ?? "manual-transfer",
     slipProvider: parts.slipProvider ?? "manual_line",
     hasSlipFile: Boolean(parts.slipFilePath),
+    slipVerificationStatus: parts.slipVerificationStatus ?? "unverified",
+    slipProviderCode: parts.slipProviderCode ?? null,
+    slipProviderMessage: parts.slipProviderMessage ?? null,
     slots: (parts.slots ?? []).sort((a, b) => a - b),
     createdAt: parts.order.created_at,
   };
 }
 
-export async function getActiveDraw(supabase: Supabase) {
+function drawTimeValue(value: string | null) {
+  return value ? new Date(value).getTime() : 0;
+}
+
+function sortDrawsByPriority(rows: DrawRow[], priority: DrawStatus[]) {
+  const fallbackPriority = priority.length;
+  const priorityByStatus = new Map(priority.map((status, index) => [status, index]));
+
+  return [...rows].sort((a, b) => {
+    const aPriority = priorityByStatus.get(a.status) ?? fallbackPriority;
+    const bPriority = priorityByStatus.get(b.status) ?? fallbackPriority;
+    if (aPriority !== bPriority) return aPriority - bPriority;
+
+    const startsDelta = drawTimeValue(b.starts_at) - drawTimeValue(a.starts_at);
+    if (startsDelta !== 0) return startsDelta;
+
+    return drawTimeValue(b.created_at) - drawTimeValue(a.created_at);
+  });
+}
+
+export async function getActiveDraw(
+  supabase: Supabase,
+  options: {
+    statuses?: DrawStatus[];
+    priority?: DrawStatus[];
+  } = {},
+) {
+  const statuses = options.statuses ?? ["draft", "live", "closed"];
+  const priority = options.priority ?? statuses;
   const { data, error } = await supabase
     .from("draw_rounds")
     .select("*")
-    .in("status", ["live", "draft"])
-    .order("starts_at", { ascending: false, nullsFirst: false })
+    .in("status", statuses)
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(20);
 
   if (error) throw error;
-  return data;
+  return sortDrawsByPriority(data ?? [], priority)[0] ?? null;
 }
 
 export async function getLuckyDrawState(options: {
@@ -470,7 +517,9 @@ export async function getLuckyDrawState(options: {
   includeAllOrders?: boolean;
 } = {}): Promise<LuckyDrawState | null> {
   const supabase = createServiceSupabaseClient();
-  const activeDraw = await getActiveDraw(supabase);
+  const activeDraw = await getActiveDraw(supabase, options.includeAllOrders
+    ? { statuses: ["draft", "live", "closed"], priority: ["draft", "live", "closed"] }
+    : { statuses: ["live", "closed"], priority: ["live", "closed"] });
   if (!activeDraw) return null;
 
   let query = supabase
@@ -495,13 +544,17 @@ export async function getLuckyDrawState(options: {
   const orderIds = orderRows.map((order) => order.id);
 
   const { data: profiles, error: profilesError } = profileIds.length
-    ? await supabase.from("profiles").select("id,line_display_name").in("id", profileIds)
+    ? await supabase.from("profiles").select("id,line_display_name,full_name").in("id", profileIds)
     : { data: [], error: null };
 
   if (profilesError) throw profilesError;
 
   const { data: slips, error: slipsError } = orderIds.length
-    ? await supabase.from("payment_slips").select("order_id,storage_provider,file_path,original_filename").in("order_id", orderIds)
+    ? await supabase
+        .from("payment_slips")
+        .select("order_id,storage_provider,file_path,original_filename,verification_status,provider_code,provider_message")
+        .in("order_id", orderIds)
+        .order("uploaded_at", { ascending: false })
     : { data: [], error: null };
 
   if (slipsError) throw slipsError;
@@ -519,8 +572,11 @@ export async function getLuckyDrawState(options: {
 
   if (slotsError) throw slotsError;
 
-  const profileNameById = new Map((profiles ?? []).map((profile) => [profile.id, profile.line_display_name]));
-  const slipByOrderId = new Map((slips ?? []).map((slip) => [slip.order_id, slip]));
+  const profileNameById = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name ?? profile.line_display_name]));
+  const slipByOrderId = new Map<string, NonNullable<typeof slips>[number]>();
+  for (const slip of slips ?? []) {
+    if (!slipByOrderId.has(slip.order_id)) slipByOrderId.set(slip.order_id, slip);
+  }
   const slotNumberById = new Map((slots ?? []).map((slot) => [slot.id, slot.slot_number]));
   const slotNumbersByOrderId = new Map<string, number[]>();
 
@@ -546,6 +602,9 @@ export async function getLuckyDrawState(options: {
         slipName: slipByOrderId.get(order.id)?.original_filename,
         slipProvider: slipByOrderId.get(order.id)?.storage_provider,
         slipFilePath: slipByOrderId.get(order.id)?.file_path,
+        slipVerificationStatus: slipByOrderId.get(order.id)?.verification_status,
+        slipProviderCode: slipByOrderId.get(order.id)?.provider_code,
+        slipProviderMessage: slipByOrderId.get(order.id)?.provider_message,
         slots: slotNumbersByOrderId.get(order.id),
       }),
     ),

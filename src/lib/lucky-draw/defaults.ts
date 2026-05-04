@@ -1,6 +1,8 @@
 import type { DrawConfig, Order } from "./types";
 
 export const defaultDraw: DrawConfig = {
+  slug: "demo",
+  status: "live",
   titleTh: "กล่องสุ่ม One Piece Portgas Arc",
   titleEn: "One Piece Portgas Arc Lucky Draw",
   series: "One Piece",
@@ -26,6 +28,9 @@ export const seedOrders: Order[] = [
     slipName: "sample-slip.jpg",
     slipProvider: "manual_line",
     hasSlipFile: false,
+    slipVerificationStatus: "manual_review",
+    slipProviderCode: null,
+    slipProviderMessage: null,
     slots: [7, 21],
     createdAt: "2026-04-30T09:00:00.000Z",
   },
@@ -38,6 +43,9 @@ export const seedOrders: Order[] = [
     slipName: "transfer.png",
     slipProvider: "manual_line",
     hasSlipFile: false,
+    slipVerificationStatus: "manual_review",
+    slipProviderCode: null,
+    slipProviderMessage: null,
     slots: [],
     createdAt: "2026-04-30T09:22:00.000Z",
   },

@@ -105,3 +105,13 @@ export async function POST(request: Request) {
 
   return Response.json(profile);
 }
+
+export async function DELETE() {
+  const response = Response.json({ ok: true });
+  const secure = process.env.NODE_ENV === "production" ? " Secure;" : "";
+  response.headers.set(
+    "Set-Cookie",
+    `${luckyDrawSessionCookie}=; HttpOnly;${secure} SameSite=Lax; Path=/; Max-Age=0`,
+  );
+  return response;
+}
