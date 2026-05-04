@@ -1023,10 +1023,7 @@ function CardPoster({ lang, cards, onPick }: { lang: Lang; cards: FeaturedCard[]
 function TopRewards({ lang, cards }: { lang: Lang; cards: ChaseCard[] }) {
   const t = copy[lang];
   return (
-    <section className="space-y-3">
-      <div className="section-rule">
-        <span>{t.topRewards}</span>
-      </div>
+    <section>
       <div className="space-y-2">
         {cards.map((card) => (
           <article key={card.rank} className={`reward-row reward-${card.rank}`}>
