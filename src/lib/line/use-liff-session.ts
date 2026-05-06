@@ -21,6 +21,27 @@ type LiffSessionState = {
 const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
 const primarySiteUrl = "https://www.ynottcg.com";
 
+function isLocalHost(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
+function redirectToPrimaryHost() {
+  if (typeof window === "undefined") return false;
+
+  const currentUrl = new URL(window.location.href);
+  if (isLocalHost(currentUrl.hostname) || currentUrl.host === new URL(primarySiteUrl).host) {
+    return false;
+  }
+
+  const primaryUrl = new URL(primarySiteUrl);
+  currentUrl.protocol = primaryUrl.protocol;
+  currentUrl.host = primaryUrl.host;
+  currentUrl.search = "";
+  currentUrl.hash = "";
+  window.location.replace(currentUrl.href);
+  return true;
+}
+
 async function clearServerSession() {
   try {
     await fetch("/api/line/session", { method: "DELETE", cache: "no-store" });
@@ -34,7 +55,7 @@ function getLiffRedirectUri() {
 
   const currentUrl = new URL(window.location.href);
 
-  if (currentUrl.hostname === "localhost" || currentUrl.hostname === "127.0.0.1") {
+  if (isLocalHost(currentUrl.hostname)) {
     currentUrl.search = "";
     currentUrl.hash = "";
     return currentUrl.href;
@@ -54,6 +75,8 @@ export function useLiffSession(): LiffSessionState {
   const [error, setError] = useState<string | null>(null);
 
   const login = useCallback(async () => {
+    if (redirectToPrimaryHost()) return;
+
     if (!liffId) {
       setError("LINE LIFF ID is not configured.");
       setStatus("ready");
@@ -86,6 +109,8 @@ export function useLiffSession(): LiffSessionState {
 
     async function initialize() {
       try {
+        if (redirectToPrimaryHost()) return;
+
         if (!liffId) {
           setStatus("ready");
           return;
