@@ -69,6 +69,11 @@ function getLiffRedirectUri() {
   return currentUrl.href;
 }
 
+function openLiffUrl() {
+  if (!liffId || typeof window === "undefined") return;
+  window.location.href = `https://liff.line.me/${liffId}`;
+}
+
 export function useLiffSession(): LiffSessionState {
   const [status, setStatus] = useState<LiffSessionState["status"]>("loading");
   const [profile, setProfile] = useState<LiffProfile | null>(null);
@@ -83,11 +88,16 @@ export function useLiffSession(): LiffSessionState {
       return;
     }
 
-    const { default: liff } = await import("@line/liff");
-    await liff.init({ liffId, withLoginOnExternalBrowser: true });
+    try {
+      const { default: liff } = await import("@line/liff");
+      await liff.init({ liffId, withLoginOnExternalBrowser: true });
 
-    if (!liff.isLoggedIn()) {
-      liff.login({ redirectUri: getLiffRedirectUri() });
+      if (!liff.isLoggedIn()) {
+        liff.login({ redirectUri: getLiffRedirectUri() });
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "LINE LIFF initialization failed.");
+      openLiffUrl();
     }
   }, []);
 
