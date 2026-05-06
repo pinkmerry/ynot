@@ -33,7 +33,8 @@ export function isSupabaseConfigured() {
 function normalizeOrderCodePrefix(value: string | null | undefined) {
   const prefix = (value ?? "")
     .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/[^A-Z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 16);
   return prefix || "LD";

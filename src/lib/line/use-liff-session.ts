@@ -35,12 +35,16 @@ function getLiffRedirectUri() {
   const currentUrl = new URL(window.location.href);
 
   if (currentUrl.hostname === "localhost" || currentUrl.hostname === "127.0.0.1") {
+    currentUrl.search = "";
+    currentUrl.hash = "";
     return currentUrl.href;
   }
 
   const primaryUrl = new URL(primarySiteUrl);
   currentUrl.protocol = primaryUrl.protocol;
   currentUrl.host = primaryUrl.host;
+  currentUrl.search = "";
+  currentUrl.hash = "";
   return currentUrl.href;
 }
 

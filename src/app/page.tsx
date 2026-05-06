@@ -394,12 +394,16 @@ function promptPayDisplay(value: string | undefined) {
   return "";
 }
 
-function normalizeOrderPrefixInput(value: string) {
+function cleanOrderPrefixInput(value: string) {
   return value
     .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/[^A-Z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
     .slice(0, 16);
+}
+
+function normalizeOrderPrefixInput(value: string) {
+  return cleanOrderPrefixInput(value).replace(/^-+|-+$/g, "");
 }
 
 function normalizeDrawConfig(draw: Partial<DrawConfig>): DrawConfig {
@@ -2043,7 +2047,7 @@ function AdminView({
           <TextField
             label={t.orderSlipDetail}
             value={draft.orderCodePrefix}
-            onChange={(value) => updateDraft({ orderCodePrefix: normalizeOrderPrefixInput(value) })}
+            onChange={(value) => updateDraft({ orderCodePrefix: cleanOrderPrefixInput(value) })}
           />
         </div>
       </div>
