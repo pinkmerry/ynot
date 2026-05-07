@@ -19,23 +19,20 @@ type LiffSessionState = {
 };
 
 const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
-const primarySiteUrl = "https://www.ynottcg.com";
+const primaryLiffUrl = "https://liff.ynottcg.com";
+const websiteHosts = new Set(["ynottcg.com", "www.ynottcg.com"]);
 
-function isLocalHost(hostname: string) {
-  return hostname === "localhost" || hostname === "127.0.0.1";
-}
-
-function redirectToPrimaryHost() {
+function redirectWebsiteHostToLiff() {
   if (typeof window === "undefined") return false;
 
   const currentUrl = new URL(window.location.href);
-  if (isLocalHost(currentUrl.hostname) || currentUrl.host === new URL(primarySiteUrl).host) {
+  if (!websiteHosts.has(currentUrl.hostname)) {
     return false;
   }
 
-  const primaryUrl = new URL(primarySiteUrl);
-  currentUrl.protocol = primaryUrl.protocol;
-  currentUrl.host = primaryUrl.host;
+  const liffUrl = new URL(primaryLiffUrl);
+  currentUrl.protocol = liffUrl.protocol;
+  currentUrl.host = liffUrl.host;
   currentUrl.search = "";
   currentUrl.hash = "";
   window.location.replace(currentUrl.href);
@@ -51,21 +48,18 @@ async function clearServerSession() {
 }
 
 function getLiffRedirectUri() {
-  if (typeof window === "undefined") return primarySiteUrl;
+  if (typeof window === "undefined") return primaryLiffUrl;
 
   const currentUrl = new URL(window.location.href);
-
-  if (isLocalHost(currentUrl.hostname)) {
-    currentUrl.search = "";
-    currentUrl.hash = "";
-    return currentUrl.href;
-  }
-
-  const primaryUrl = new URL(primarySiteUrl);
-  currentUrl.protocol = primaryUrl.protocol;
-  currentUrl.host = primaryUrl.host;
   currentUrl.search = "";
   currentUrl.hash = "";
+
+  if (websiteHosts.has(currentUrl.hostname)) {
+    const liffUrl = new URL(primaryLiffUrl);
+    currentUrl.protocol = liffUrl.protocol;
+    currentUrl.host = liffUrl.host;
+  }
+
   return currentUrl.href;
 }
 
@@ -80,7 +74,7 @@ export function useLiffSession(): LiffSessionState {
   const [error, setError] = useState<string | null>(null);
 
   const login = useCallback(async () => {
-    if (redirectToPrimaryHost()) return;
+    if (redirectWebsiteHostToLiff()) return;
 
     if (!liffId) {
       setError("LINE LIFF ID is not configured.");
@@ -119,7 +113,7 @@ export function useLiffSession(): LiffSessionState {
 
     async function initialize() {
       try {
-        if (redirectToPrimaryHost()) return;
+        if (redirectWebsiteHostToLiff()) return;
 
         if (!liffId) {
           setStatus("ready");

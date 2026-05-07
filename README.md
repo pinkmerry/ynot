@@ -34,3 +34,11 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Domain map (2026-05-07)
+
+- LINE LIFF intended URL: `https://liff.ynottcg.com`
+- Temporary LIFF fallback while DNS is pending: `https://lucky-draw-liff.vercel.app`
+- Normal website URL: `https://www.ynottcg.com`
+
+The LIFF app should not redirect `liff.ynottcg.com` or `lucky-draw-liff.vercel.app` to the normal website. Add the Squarespace DNS record `A liff.ynottcg.com 76.76.21.21`, then update LINE Console / rich-menu URLs to `https://liff.ynottcg.com`.
