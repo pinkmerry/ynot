@@ -1,9 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { signOutAction } from "@/features/auth/actions";
-import type { YnotCampaign, YnotCollectionItem, YnotDashboardData, YnotExchangeOrder, YnotPaymentMethod, YnotRankingRow, YnotShippingRequest, YnotTopUp, YnotViewer, YnotWallet } from "./types";
+import type { HomeFilterState, HomeSeriesFilter, HomeSortOption, HomeTagFilter, YnotCampaign, YnotCollectionItem, YnotDashboardData, YnotExchangeOrder, YnotPaymentMethod, YnotRankingRow, YnotShippingRequest, YnotTopUp, YnotViewer, YnotWallet } from "./types";
 import { exchangeCatalog, exchangeCategories, featuredCampaigns, rewardTiers, sampleCollectionCards } from "./storefront-content";
-import { StoreHeaderNav, StoreSettingsMenu } from "./StorePreferences";
+import { StoreHeaderNav, StoreSettingsMenu, StoreSortSelect } from "./StorePreferences";
 
 const homeCategories = [
   { label: "Pokemon", series: "pokemon" },
@@ -12,14 +12,7 @@ const homeCategories = [
 
 const filterTags = ["All", "New", "PSA10"] as const;
 
-export type HomeSeriesFilter = "all" | YnotCampaign["series"];
-export type HomeTagFilter = "all" | "new" | "psa10";
-export type HomeFilterState = {
-  series: HomeSeriesFilter;
-  tag: HomeTagFilter;
-};
-
-const defaultHomeFilter: HomeFilterState = { series: "all", tag: "all" };
+const defaultHomeFilter: HomeFilterState = { series: "all", tag: "all", sort: "recommended" };
 
 export function normalizeHomeSeries(value: string | string[] | undefined): HomeSeriesFilter {
   const rawValue = Array.isArray(value) ? value[0] : value;
@@ -29,6 +22,11 @@ export function normalizeHomeSeries(value: string | string[] | undefined): HomeS
 export function normalizeHomeTag(value: string | string[] | undefined): HomeTagFilter {
   const rawValue = Array.isArray(value) ? value[0] : value;
   return rawValue === "new" || rawValue === "psa10" ? rawValue : "all";
+}
+
+export function normalizeHomeSort(value: string | string[] | undefined): HomeSortOption {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  return rawValue === "latest" || rawValue === "coins-desc" || rawValue === "coins-asc" ? rawValue : "recommended";
 }
 
 function displayCampaigns(campaigns: YnotCampaign[]) {
@@ -48,6 +46,7 @@ function homeFilterHref(nextFilter: Partial<HomeFilterState>) {
   const params = new URLSearchParams();
   if (filter.series !== "all") params.set("series", filter.series);
   if (filter.tag !== "all") params.set("tag", filter.tag);
+  if (filter.sort !== "recommended") params.set("sort", filter.sort);
   const query = params.toString();
   return query ? `/?${query}` : "/";
 }
@@ -72,11 +71,35 @@ function campaignMatchesTag(campaign: YnotCampaign, tag: HomeTagFilter) {
   return searchText.includes("psa10");
 }
 
+function campaignTimestamp(campaign: YnotCampaign) {
+  const rawDate = campaign.startsAt ?? campaign.createdAt ?? campaign.endsAt;
+  if (!rawDate) return 0;
+  const timestamp = Date.parse(rawDate);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function byTitle(left: YnotCampaign, right: YnotCampaign) {
+  return (left.titleTh || left.titleEn).localeCompare(right.titleTh || right.titleEn);
+}
+
+function sortedCampaigns(campaigns: YnotCampaign[], sort: HomeSortOption) {
+  if (sort === "recommended") return campaigns;
+  const items = [...campaigns];
+  if (sort === "latest") {
+    return items.sort((left, right) => campaignTimestamp(right) - campaignTimestamp(left) || byTitle(left, right));
+  }
+  return items.sort((left, right) => {
+    const priceSort = sort === "coins-desc" ? right.costCoins - left.costCoins : left.costCoins - right.costCoins;
+    return priceSort || byTitle(left, right);
+  });
+}
+
 function filteredCampaigns(campaigns: YnotCampaign[], filter: HomeFilterState) {
-  return displayCampaigns(campaigns).filter((campaign) => {
+  const filtered = displayCampaigns(campaigns).filter((campaign) => {
     const matchesSeries = filter.series === "all" || campaign.series === filter.series;
     return matchesSeries && campaignMatchesTag(campaign, filter.tag);
   });
+  return sortedCampaigns(filtered, filter.sort);
 }
 
 function homeFilterHeading(filter: HomeFilterState) {
@@ -152,22 +175,14 @@ function StoreFilterStrip({ homeFilter }: { homeFilter: HomeFilterState }) {
               key={tag}
               aria-current={homeFilter.tag === tagKey ? "page" : undefined}
               className={`filter-chip ${homeFilter.tag === tagKey ? "active" : ""}`}
-              href={homeFilterHref({ series: homeFilter.series, tag: tagKey })}
+              href={homeFilterHref({ series: homeFilter.series, tag: tagKey, sort: homeFilter.sort })}
             >
               {tag}
             </Link>
           );
         })}
       </div>
-      <label className="store-sort-select">
-        <span>Sort</span>
-        <select defaultValue="recommended" aria-label="Sort mystery packs">
-          <option value="recommended">Recommended</option>
-          <option value="latest">Latest</option>
-          <option value="coins-desc">Coins in Descending Order</option>
-          <option value="coins-asc">Lowest Coins First</option>
-        </select>
-      </label>
+      <StoreSortSelect homeFilter={homeFilter} />
     </div>
   );
 }
@@ -282,7 +297,7 @@ function CategoryStrip({ homeFilter }: { homeFilter: HomeFilterState }) {
           key={category.series}
           aria-current={homeFilter.series === category.series ? "page" : undefined}
           className={`category-tab ${homeFilter.series === category.series ? "active" : ""}`}
-          href={homeFilterHref({ series: category.series, tag: homeFilter.tag })}
+          href={homeFilterHref({ series: category.series, tag: homeFilter.tag, sort: homeFilter.sort })}
         >
           {category.label}
         </Link>

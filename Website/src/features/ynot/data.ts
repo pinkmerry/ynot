@@ -100,8 +100,10 @@ export async function getCampaigns(options: { includePrivate?: boolean } = {}): 
       mode: row.mode,
       visibility: row.visibility,
       totalSlots: row.total_slots,
+      sortOrder: row.sort_order,
       startsAt: row.starts_at,
       endsAt: row.ends_at,
+      createdAt: row.created_at,
       displayTags: safeDisplayTags(row),
     }));
   });

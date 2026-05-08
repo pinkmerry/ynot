@@ -19,8 +19,10 @@ export type YnotCampaign = {
   mode: "slot_pick" | "instant_gacha";
   visibility: "public" | "hidden" | "private";
   totalSlots: number;
+  sortOrder?: number;
   startsAt: string | null;
   endsAt: string | null;
+  createdAt?: string;
   remainingSlots?: number;
   categoryLabel?: string;
   heroLabel?: string;
@@ -135,4 +137,13 @@ export type YnotDashboardData = {
   addresses: YnotAddress[];
   rankings: YnotRankingRow[];
   adminTopUps: YnotTopUp[];
+};
+
+export type HomeSeriesFilter = "all" | YnotCampaign["series"];
+export type HomeTagFilter = "all" | "new" | "psa10";
+export type HomeSortOption = "recommended" | "latest" | "coins-desc" | "coins-asc";
+export type HomeFilterState = {
+  series: HomeSeriesFilter;
+  tag: HomeTagFilter;
+  sort: HomeSortOption;
 };

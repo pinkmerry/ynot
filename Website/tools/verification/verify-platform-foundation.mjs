@@ -74,8 +74,10 @@ for (const api of apis) {
 notCheck("src/app/page.tsx", "root no longer redirects to wireframes", /redirect\(["']\/ynot-wireframes\.html/);
 check("src/app/layout.tsx", "production metadata is set", /YNot TCG · Lucky Draw/);
 check("src/features/ynot/components.tsx", "normal web login and signup navigation exist", /href="\/login"[\s\S]*href="\/signup"/);
-check("src/app/page.tsx", "home page reads category and tag filters from URL search params", /searchParams[\s\S]*normalizeHomeSeries\(params\?\.series\)[\s\S]*normalizeHomeTag\(params\?\.tag\)/);
-check("src/features/ynot/components.tsx", "home category and tag filters are real links that preserve filter state", /homeFilterHref[\s\S]*href=\{homeFilterHref\(\{ series: category\.series, tag: homeFilter\.tag \}\)\}/);
+check("src/app/page.tsx", "home page reads category, tag, and sort filters from URL search params", /searchParams[\s\S]*normalizeHomeSeries\(params\?\.series\)[\s\S]*normalizeHomeTag\(params\?\.tag\)[\s\S]*normalizeHomeSort\(params\?\.sort\)/);
+check("src/features/ynot/components.tsx", "home category and tag filters are real links that preserve filter state", /homeFilterHref[\s\S]*href=\{homeFilterHref\(\{ series: category\.series, tag: homeFilter\.tag, sort: homeFilter\.sort \}\)\}/);
+check("src/features/ynot/components.tsx", "home campaigns are sorted by selected sort option", /function sortedCampaigns[\s\S]*sort === "latest"[\s\S]*coins-desc[\s\S]*filteredCampaigns[\s\S]*sortedCampaigns\(filtered, filter\.sort\)/);
+check("src/features/ynot/StorePreferences.tsx", "sort select updates the URL query", /export function StoreSortSelect[\s\S]*router\.replace\(homeSortHref\(\{ \.\.\.homeFilter, sort \}\), \{ scroll: false \}\)/);
 check("src/features/ynot/components.tsx", "customer pack card labels price per pack instead of per random", /coins per pack[\s\S]*\/pack/);
 check("src/features/auth/AuthForm.tsx", "LINE login is available from auth pages", /\/api\/line\/login\/start\?mode=login/);
 check("src/app/(store)/profile/page.tsx", "profile page exposes LINE connect flow", /mode=connect[\s\S]*Connect LINE to this account/);

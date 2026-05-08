@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import type { HomeFilterState, HomeSortOption } from "./types";
 
 type Language = "en" | "th";
 type Theme = "dark" | "light";
@@ -137,6 +139,51 @@ function useStorePreferences() {
 function protectedHref(href: string, authenticated: boolean, isProtected: boolean) {
   if (authenticated || !isProtected) return href;
   return `/login?next=${encodeURIComponent(href)}`;
+}
+
+const sortOptions: Array<{ value: HomeSortOption; label: string }> = [
+  { value: "recommended", label: "Recommended" },
+  { value: "latest", label: "Latest" },
+  { value: "coins-desc", label: "Coins in Descending Order" },
+  { value: "coins-asc", label: "Lowest Coins First" },
+];
+
+function isHomeSortOption(value: string): value is HomeSortOption {
+  return sortOptions.some((option) => option.value === value);
+}
+
+function homeSortHref(filter: HomeFilterState) {
+  const params = new URLSearchParams();
+  if (filter.series !== "all") params.set("series", filter.series);
+  if (filter.tag !== "all") params.set("tag", filter.tag);
+  if (filter.sort !== "recommended") params.set("sort", filter.sort);
+  const query = params.toString();
+  return query ? `/?${query}` : "/";
+}
+
+export function StoreSortSelect({ homeFilter }: { homeFilter: HomeFilterState }) {
+  const router = useRouter();
+
+  return (
+    <label className="store-sort-select">
+      <span>Sort</span>
+      <select
+        aria-label="Sort mystery packs"
+        onChange={(event) => {
+          const sort = event.target.value;
+          if (!isHomeSortOption(sort)) return;
+          router.replace(homeSortHref({ ...homeFilter, sort }), { scroll: false });
+        }}
+        value={homeFilter.sort}
+      >
+        {sortOptions.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 export function StoreHeaderNav({ authenticated }: { authenticated: boolean }) {
