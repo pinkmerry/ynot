@@ -1,44 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lucky Draw / YNot Project
 
-## Getting Started
+This is the main project folder. The project is organized into clear areas so it is easy to see what belongs where.
 
-First, run the development server:
+## Folder map
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```text
+Lucky Draw/
+├── Website/       Normal production website app, website UI, website APIs, and website plan/docs
+├── Database/      Supabase migrations, database architecture, RLS/RPC plans, and DB runbooks
+├── Line LIFF/     LINE LIFF integration notes and original LIFF/design references
+├── AGENTS.md      Agent/project instructions
+└── README.md      This project map
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Where to work
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Website
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Use this when building or testing the normal website:
 
-## Learn More
+```bash
+cd Website
+npm run dev -- -p 3005
+npm run check
+```
 
-To learn more about Next.js, take a look at the following resources:
+Website plan/status files live in:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `Website/docs/PROJECT_BRIEF_AND_NEXT_PHASE_PLAN.md`
+- `Website/docs/PROJECT_STATUS.md`
+- `Website/docs/plans/`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Database
 
-## Deploy on Vercel
+Use this for schema/migration planning and Supabase migration files:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `Database/supabase/migrations/`
+- `Database/docs/DATABASE_ARCHITECTURE.md`
+- `Database/docs/plans/`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Website verification scripts read migration files directly from `../Database/supabase`.
 
-## Domain map (2026-05-07)
+### Line LIFF
 
+Use this for LINE LIFF notes and references:
+
+- `Line LIFF/README.md`
+- `Line LIFF/docs/LIFF_INTEGRATION_MAP.md`
+- `Line LIFF/design-references/`
+
+## Production URL map
+
+- Normal website: `https://www.ynottcg.com`
+- Apex website redirect: `https://ynottcg.com` -> `https://www.ynottcg.com`
+- Website Vercel project: `ynot-lucky-draw-platform` with root directory `Website`
 - LINE LIFF intended URL: `https://liff.ynottcg.com`
 - Temporary LIFF fallback while DNS is pending: `https://lucky-draw-liff.vercel.app`
-- Normal website URL: `https://www.ynottcg.com`
 
 The LIFF app should not redirect `liff.ynottcg.com` or `lucky-draw-liff.vercel.app` to the normal website. Add the Squarespace DNS record `A liff.ynottcg.com 76.76.21.21`, then update LINE Console / rich-menu URLs to `https://liff.ynottcg.com`.
+
+## Current next phase
+
+Current online-testing status and next gate:
+
+- `Website/docs/PROJECT_BRIEF_AND_NEXT_PHASE_PLAN.md`
+- `Website/docs/verification/2026-05-07-github-vercel-production-deploy.md`
+- `Database/docs/verification/2026-05-07-production-db-next-phase-gate.md`

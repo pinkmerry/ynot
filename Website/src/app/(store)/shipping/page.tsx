@@ -1,0 +1,26 @@
+import { AddressForm, CollectionActionPanel } from "@/features/ynot/client";
+import { OrderList, PageHeader, YnotShell } from "@/features/ynot/components";
+import { getYnotDashboardData } from "@/features/ynot/data";
+import { requireCurrentProfile } from "@/lib/auth/protected-route";
+
+export const dynamic = "force-dynamic";
+
+export default async function ShippingPage() {
+  await requireCurrentProfile("/shipping");
+  const data = await getYnotDashboardData();
+  return (
+    <YnotShell viewer={data.viewer}>
+      <PageHeader eyebrow="07 · Real Shipping" title="Pick cards to ship" description="4 stages: pick → address → confirm → success." />
+      <div className="phone-page-shell shipping-phone grid gap-4 xl:grid-cols-[0.8fr_1fr]">
+        <div className="inner-phone-header">
+          <div className="phone-rule" aria-hidden><span /><span /><span /></div>
+          <div className="template-top-bar centered"><h2>Pick cards to ship</h2></div>
+          <div className="ranking-tabs collection-tabs"><span className="active">Pending</span><span>Awaiting ship</span><span>Shipped</span></div>
+        </div>
+        <CollectionActionPanel collection={data.collection} addresses={data.addresses} />
+        <AddressForm addresses={data.addresses} />
+        <OrderList title="Shipping history" orders={data.shipping} />
+      </div>
+    </YnotShell>
+  );
+}

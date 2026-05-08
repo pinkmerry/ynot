@@ -1,0 +1,212 @@
+[
+  {
+    "route": "/",
+    "label": "Login",
+    "role": "anonymous",
+    "expectedAction": "navigate:/login"
+  },
+  {
+    "route": "/",
+    "label": "Sign up",
+    "role": "anonymous",
+    "expectedAction": "navigate:/signup"
+  },
+  {
+    "route": "/",
+    "label": "Detail",
+    "role": "anonymous",
+    "expectedAction": "navigate:/gacha/[campaignId]"
+  },
+  {
+    "route": "/",
+    "label": "Open",
+    "role": "anonymous",
+    "expectedAction": "navigate:/gacha/[campaignId]/open"
+  },
+  {
+    "route": "/login",
+    "label": "Continue with Google",
+    "role": "anonymous",
+    "expectedAction": "server-action:signInWithGoogleAction"
+  },
+  {
+    "route": "/login",
+    "label": "Continue with LINE",
+    "role": "anonymous",
+    "expectedAction": "navigate:/api/line/login/start?mode=login"
+  },
+  {
+    "route": "/login",
+    "label": "Log in",
+    "role": "anonymous",
+    "expectedAction": "server-action:signInWithPasswordAction"
+  },
+  {
+    "route": "/signup",
+    "label": "Sign up",
+    "role": "anonymous",
+    "expectedAction": "server-action:signUpWithPasswordAction"
+  },
+  {
+    "route": "/wallet",
+    "label": "Create top-up for admin review",
+    "role": "customer",
+    "expectedAction": "mutation:POST /api/ynot/wallet",
+    "disabledReason": "No active payment method or form is submitting"
+  },
+  {
+    "route": "/gacha/[campaignId]/open",
+    "label": "Login before opening",
+    "role": "anonymous",
+    "expectedAction": "navigate:/login"
+  },
+  {
+    "route": "/gacha/[campaignId]/open",
+    "label": "Open gacha",
+    "role": "customer",
+    "expectedAction": "mutation:POST /api/ynot/gacha/open"
+  },
+  {
+    "route": "/collection",
+    "label": "Request exchange",
+    "role": "customer",
+    "expectedAction": "mutation:POST /api/ynot/exchange",
+    "disabledReason": "No owned card is selected or form is submitting"
+  },
+  {
+    "route": "/collection",
+    "label": "Request shipping",
+    "role": "customer",
+    "expectedAction": "mutation:POST /api/ynot/shipping",
+    "disabledReason": "No owned card/address is selected or form is submitting"
+  },
+  {
+    "route": "/shipping",
+    "label": "Save address",
+    "role": "customer",
+    "expectedAction": "mutation:POST /api/ynot/addresses"
+  },
+  {
+    "route": "/profile",
+    "label": "Connect LINE to this account",
+    "role": "customer",
+    "expectedAction": "navigate:/api/line/login/start?mode=connect"
+  },
+  {
+    "route": "/profile",
+    "label": "Login with LINE",
+    "role": "anonymous",
+    "expectedAction": "navigate:/api/line/login/start?mode=login"
+  },
+  {
+    "route": "/profile",
+    "label": "Logout",
+    "role": "customer",
+    "expectedAction": "server-action:signOutAction"
+  },
+  {
+    "route": "/admin/top-ups",
+    "label": "Approve",
+    "role": "admin",
+    "expectedAction": "mutation:PATCH /api/ynot/admin/top-ups"
+  },
+  {
+    "route": "/admin/top-ups",
+    "label": "Reject",
+    "role": "admin",
+    "expectedAction": "mutation:PATCH /api/ynot/admin/top-ups"
+  },
+  {
+    "route": "/admin/settings",
+    "label": "Save payment method",
+    "role": "admin",
+    "expectedAction": "mutation:POST /api/ynot/admin/payment-methods"
+  },
+  {
+    "route": "/admin/campaigns",
+    "label": "Save campaign draft",
+    "role": "admin",
+    "expectedAction": "mutation:POST /api/ynot/admin/campaigns"
+  },
+  {
+    "route": "/admin/campaigns",
+    "label": "Save status",
+    "role": "admin",
+    "expectedAction": "mutation:PATCH /api/ynot/admin/campaigns"
+  },
+  {
+    "route": "/admin/campaigns",
+    "label": "Make live public",
+    "role": "admin",
+    "expectedAction": "mutation:PATCH /api/ynot/admin/campaigns"
+  },
+  {
+    "route": "/admin/campaigns",
+    "label": "Close public",
+    "role": "admin",
+    "expectedAction": "mutation:PATCH /api/ynot/admin/campaigns"
+  },
+  {
+    "route": "/admin/campaigns",
+    "label": "Archive private",
+    "role": "admin",
+    "expectedAction": "mutation:PATCH /api/ynot/admin/campaigns"
+  },
+  {
+    "route": "/admin/prizes",
+    "label": "Save card",
+    "role": "admin",
+    "expectedAction": "mutation:POST /api/ynot/admin/cards",
+    "disabledReason": "Card name is blank or form is submitting"
+  },
+  {
+    "route": "/admin/prizes",
+    "label": "Save campaign prize slot",
+    "role": "admin",
+    "expectedAction": "mutation:POST /api/ynot/admin/prizes",
+    "disabledReason": "No campaign/card is selected or form is submitting"
+  },
+  {
+    "route": "/admin/prizes",
+    "label": "Delete",
+    "role": "admin",
+    "expectedAction": "mutation:DELETE /api/ynot/admin/prizes",
+    "disabledReason": "Form is submitting"
+  },
+  {
+    "route": "/admin/users",
+    "label": "Save role",
+    "role": "admin",
+    "expectedAction": "mutation:PATCH /api/ynot/admin/users"
+  },
+  {
+    "route": "/admin/users",
+    "label": "Approve merge",
+    "role": "admin",
+    "expectedAction": "mutation:PATCH /api/ynot/admin/merge-requests"
+  },
+  {
+    "route": "/admin/users",
+    "label": "Reject merge",
+    "role": "admin",
+    "expectedAction": "mutation:PATCH /api/ynot/admin/merge-requests"
+  },
+  {
+    "route": "/admin/exchange",
+    "label": "Approve exchange",
+    "role": "admin",
+    "expectedAction": "mutation:PATCH /api/ynot/admin/exchange"
+  },
+  {
+    "route": "/admin/exchange",
+    "label": "Reject exchange",
+    "role": "admin",
+    "expectedAction": "mutation:PATCH /api/ynot/admin/exchange"
+  },
+  {
+    "route": "/admin/shipping",
+    "label": "Save shipping status",
+    "role": "admin",
+    "expectedAction": "mutation:PATCH /api/ynot/admin/shipping"
+  }
+]
