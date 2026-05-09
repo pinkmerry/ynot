@@ -1,10 +1,10 @@
 # Lucky Draw / YNot Project Status
 
-Updated: 2026-05-08
+Updated: 2026-05-09
 
 ## Current Phase
 
-Phase-by-phase implementation is underway. Backend/Auth Phase 1, website auth, LINE OAuth/linking, wallet/top-up/gacha/collection/exchange/shipping, admin campaign/prize/user management, account merge review, button-map foundation, Japan-Toreca-style responsive web layout, latest prototype-inspired cyber theme, and local navigation cleanup are implemented and locally verified. A separate GitHub repo and Vercel production project now exist for online testing, the website domain is being moved to `https://www.ynottcg.com`, and production Supabase migrations are still blocked by missing SQL execution access and full-backup evidence.
+Phase-by-phase implementation is underway. Backend/Auth Phase 1, website auth, LINE OAuth/linking, wallet/top-up/gacha/collection/exchange/shipping, admin campaign/prize/user management, account merge review, button-map foundation, Japan-Toreca-style responsive web layout, latest prototype-inspired cyber theme, and local navigation cleanup, and localhost admin control-center redesign are implemented and locally verified. A separate GitHub repo and Vercel production project now exist for online testing, the website domain is being moved to `https://www.ynottcg.com`, and production Supabase migrations are still blocked by missing SQL execution access and full-backup evidence.
 
 ## Current Goal
 
@@ -149,6 +149,19 @@ Build the production YNot/Lucky Draw platform as a normal website, not LIFF-only
   - `npm run lint` passed.
   - `npm run build` passed.
   - `node tools/verification/verify-lucky-draw-plan.mjs --strict-shell` passed.
+
+### Admin Control Center localhost implementation
+
+- Reworked `/admin` from a readiness-first page into an owner-facing Admin Control Center with cards for Random Packs, Categories, Prize/Card Catalog, Users, Top-ups, Shipping, Exchange, Rankings, Settings, Audit, and System Health.
+- Added shared admin section navigation through `AdminSectionShell`/`AdminNav` so admin pages are discoverable from desktop/mobile localhost testing.
+- Added `/admin/health` for production readiness signals so failures remain visible without burying daily operations.
+- Added `/admin/categories` first-version Category Manager for current fixed `draw_rounds.series` categories (`pokemon`, `one_piece`) and documented the future dynamic `categories` table path.
+- Updated `/admin/campaigns` copy and flow into Random Pack Studio while preserving existing create/update/publish controls.
+- Ralph artifacts: `.omx/context/implement-admin-20260509T031304Z.md`, `.omx/plans/prd-implement-admin.md`, `.omx/plans/test-spec-implement-admin.md`.
+- Verification evidence: `npm run typecheck`, `npm run lint`, `npm run build`, localhost dev admin smoke for `/admin`, `/admin/health`, `/admin/categories`, `/admin/campaigns`, `/admin/prizes`, `/admin/users`, `/admin/top-ups`, `/admin/shipping`, `/admin/exchange`, `/admin/settings`, `/admin/audit`, and `/admin/rankings` all returned 200; architect verification approved.
+- Admin UX redesign follow-up: replaced the horizontal admin nav with a desktop side menu/mobile horizontal menu, simplified `/admin` into Quick actions/Main tools/System status, rebuilt `/admin/categories` with normal-flow Active/Future category cards to avoid clipped text, and grouped `/admin/campaigns` into Basic info, Price & quantity, Display labels, and Existing packs.
+- Admin UX redesign Ralph artifacts: `.omx/context/admin-ux-redesign-20260509T083023Z.md`, `.omx/plans/prd-admin-ux-redesign.md`, `.omx/plans/test-spec-admin-ux-redesign.md`.
+- Admin UX redesign verification evidence: `npm run typecheck`, `npm run lint`, `npm run build`, authenticated localhost smoke for `/admin`, `/admin/categories`, `/admin/campaigns`, and `/admin/health` all found expected markers; architect verification approved.
 
 ## Not Implemented Yet
 
@@ -384,3 +397,89 @@ Yes: we now have approved plans, an implemented website/database foundation, and
 - Added `tools/verification/verify-phase-readiness.mjs` and wired it into `npm run verify:ynot` so phase docs, required migration files, readiness route, and phase coverage stay checked.
 - The console explicitly preserves production gates: no production Supabase migration, provider dashboard change, payment approval, or Vercel production deploy is performed from localhost.
 - Local positive UI paths are testable for auth/profile/admin gate, wallet, gacha/open, collection, exchange, shipping, and admin operation surfaces. Real positive mutation evidence still requires migrated staging/production database and provider/admin credentials.
+
+### Ralph weakness hardening pass
+
+- Added a Ralph-specific context snapshot and PRD/test spec for fixing project weaknesses:
+  - `.omx/context/fix-all-weaknesses-20260508T160220Z.md`
+  - `.omx/plans/prd-fix-project-weaknesses.md`
+  - `.omx/plans/test-spec-fix-project-weaknesses.md`
+- Production demo leakage risk reduced:
+  - Storefront demo campaign fallback is now allowed only in local/explicit demo mode and defaults off in production.
+  - Customer collection/actions no longer render sample cards or hardcoded inventory counts as if they were real owned inventory. Collection metrics now derive from wallet/collection row state.
+  - Fake live activity, fake ranking rows, hardcoded demo campaign CTAs, static reward tiers, and fake exchange catalog/coin totals are removed or gated behind explicit demo mode.
+  - Unsupported “provably fair” customer copy was softened to server-recorded/result-tracking language until a real verifiable seed/hash proof model exists.
+  - Fabricated remaining-stock fallback was removed; production campaigns without a real `remainingSlots` value now show neutral server-tracked stock copy instead of invented counts.
+  - Phase readiness links no longer point at the hardcoded demo campaign; they use stable real pages/admin/readiness surfaces.
+- Admin operational visibility improved:
+  - Admin dashboard now includes platform health checks for key env vars, demo mode, durable rate-limit backend config, and core Supabase platform tables including `cards`, `draw_round_prizes`, and `api_rate_limits`.
+  - Dashboard data-read fallbacks are recorded per request and surfaced in admin health as warnings instead of being hidden as empty UI only.
+- Sensitive website mutations now use a shared server-only rate-limit helper across wallet top-up, gacha open, exchange, shipping, address save, and key admin mutation routes.
+  - Local/dev can use bounded in-memory limiting.
+  - Production fails closed unless `RATE_LIMIT_BACKEND=supabase` is configured after applying the new `api_rate_limits` migration/RPC.
+- Added durable rate-limit schema/RPC migration: `../Database/supabase/migrations/20260508162000_add_api_rate_limits.sql`, plus generated type coverage in `src/lib/supabase/types.ts`.
+- API ownership is now documented in `docs/architecture/api-boundary.md` to separate legacy `/api/lucky-draw/*`, LINE `/api/line/*`, and website `/api/ynot/*` responsibilities.
+- Added and strengthened `npm run verify:hardening`, and included it in `npm run verify:ynot` / `npm run check`, so the new hardening rules catch demo leakage, missing durable rate-limit wiring, weak admin health checks, fake collection/exchange values, unsupported fairness claims, fabricated stock fallbacks, and unsafe route coverage regressions.
+- Final Ralph evidence: architect verification approved after the fabricated stock-count blocker was removed; scoped deslop pass completed on Ralph-changed files; post-deslop `npm run verify:hardening`, `npx tsc --noEmit --pretty false`, and full `npm run check` passed.
+- Remaining external blockers are unchanged: production Supabase migration, provider dashboard changes, production payment/gacha pilot, and full live UAT still require backup, SQL/provider access, owner go/no-go, and real staging/production credentials.
+
+### Complete admin current-schema workflow implementation
+
+- Implemented the approved Option A from `.omx/plans/ralplan-complete-admin-page-next-step.md`: complete current schema-backed admin workflows first, while keeping future CMS (`store_categories`, `media_assets`) as later-phase work.
+- Added Ralph gate docs:
+  - `.omx/plans/prd-complete-admin-db-workflows.md`
+  - `.omx/plans/test-spec-complete-admin-db-workflows.md`
+- Closed the known shipping admin transaction-safety gap locally:
+  - Added migration `../Database/supabase/migrations/20260509162000_add_admin_shipping_status_rpc.sql` with `public.update_shipping_request_status(...)`.
+  - The RPC locks the shipping request row, validates status transitions, updates related collection item states, and writes `shipping_status_updated` audit events in one database transaction.
+  - Execution is revoked from public/anon/authenticated and granted to `service_role` only.
+  - `/api/ynot/admin/shipping` now calls the RPC instead of directly updating `shipping_requests`, `collection_items`, and `audit_events` from route code.
+  - Supabase TypeScript types include the new RPC signature.
+- Added durable workflow documentation: `docs/architecture/admin-workflow-matrix.md`, including the current admin route/API/database matrix, current-schema completion status, and future CMS roadmap.
+- Strengthened `npm run verify:hardening` to guard the new admin shipping RPC, admin route boundary, Supabase type coverage, and admin workflow matrix.
+- Important guard: this is checked-in local code/migration work only. No production Supabase migration was applied because production DB changes still require backup, project/env confirmation, SQL review, and owner go/no-go.
+
+### Production admin test-data readiness implementation
+
+- Implemented the approved production-test admin workflow locally; no production Supabase migration, seed apply, or deploy was performed.
+- Added Ralph gate docs:
+  - `.omx/plans/prd-production-admin-test-data-readiness.md`
+  - `.omx/plans/test-spec-production-admin-test-data-readiness.md`
+- Added migration `../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql` for:
+  - database-backed `store_categories` and `draw_round_categories`, seeded with Pokemon/One Piece compatibility rows;
+  - `is_test`/`seed_run_id` tagging for campaigns/cards/prizes;
+  - `draw_round_testers` whitelist;
+  - `draw_round_prize_units` inventory units;
+  - `seed_runs`/`seed_run_items` registry;
+  - RLS/grants that keep test rows and seed/whitelist/inventory tables hidden from direct anon/auth reads;
+  - transactional `open_gacha_campaign` replacement that locks campaign, wallet, slots, and prize units and checks test whitelist/admin access before opening.
+- Admin UX/API now supports the test workflow:
+  - `/admin/categories` can create/edit DB categories.
+  - `/admin/campaigns` can assign categories and mark packs as production-test packs.
+  - `/admin/prizes` can create test cards with approved asset evidence and attach prize quantities to packs.
+  - Admin pack/prize views show remaining pack/prize inventory summaries.
+- Fixed architect-review blocker: `/gacha/[campaignId]` and `/gacha/[campaignId]/open` now have a whitelisted/admin test-pack read path via `getCampaign(..., { allowTestForCurrentViewer: true })`, while the normal public campaign list still excludes test packs.
+- Added generated/original placeholder assets under `public/test-assets/`, an auditable manifest at `tools/seed/assets/asset-manifest.json`, and a production-safe seed script at `tools/seed/seed-production-admin-test-data.mjs` with `--dry-run`, `--apply`, `--hide`, and `--cleanup` modes.
+- Added runbook `docs/runbooks/production-admin-test-data.md`. Production apply remains gated by backup proof, RLS/direct-query proof, staging UAT, asset review, seed dry-run review, and owner go/no-go.
+- Added `npm run verify:production-test` and wired it into `npm run verify:ynot`/`npm run check`.
+- Verification evidence: `node tools/seed/seed-production-admin-test-data.mjs --dry-run` passed; `npm run typecheck`, `npm run lint`, `npm run verify:production-test` (53 checks), `npm run verify:hardening`, and full `npm run check` passed. Architect re-review approved after the test-pack read path fix.
+- Tooling note: Supabase CLI is not installed in this local environment, so migration application must be done through reviewed SQL/CI/operator tooling after the production gate.
+
+### Admin category production fix + tone-field removal
+
+- Category create/update now has clearer admin UX:
+  - category fields have visible field titles, required markers, and save confirmation;
+  - saved categories update the local dropdown immediately after the API returns;
+  - `/api/ynot/admin/categories` returns a specific `CATEGORY_SCHEMA_MISSING` error if production Supabase does not have `store_categories` yet.
+- Card and prize-pool admin forms now show visible field titles for important inputs instead of relying only on placeholder text.
+- The active Website code no longer reads/writes the legacy color/tone field (`gold`, `red`, `blue`, `green`, `rose`, `violet`) for:
+  - YNot admin card creation/update;
+  - YNot prize-pool assignment;
+  - legacy Lucky Draw admin card editors;
+  - customer card rendering and DB-to-UI mapping;
+  - Supabase TypeScript table types.
+- Added migration `../Database/supabase/migrations/20260509183000_remove_card_tone_fields.sql` to strip `tone` from stored JSON card arrays and drop `cards.tone` / `draw_round_prizes.tone` after both Website and LIFF are on no-tone code.
+- Added optional production DB readiness checker: `npm run verify:production-db`. This reads `.env.local`, checks whether production has the required category/inventory tables and RPC, and warns whether legacy tone columns still exist.
+- Fresh production schema probe against the current `.env.local` Supabase service-role endpoint fails on five required production-test admin schema objects: `store_categories`, `draw_round_categories`, `draw_round_prize_units`, `seed_runs`, and `get_draw_round_inventory_summary`.
+- Legacy `cards.tone` / `draw_round_prizes.tone` still exist until the final no-tone cleanup migration is applied.
+- Current blocker: category creation cannot work on production until the reviewed migration `20260509100000_admin_test_categories_inventory.sql` is applied. This local environment has service-role Data API access but no Supabase SQL/DDL path (`supabase` CLI and `psql` are unavailable, and no DB URL/access token is configured), so production DDL still needs the operator/CI/Supabase dashboard apply step.

@@ -1,29 +1,6 @@
 import type { YnotCampaign } from "./types";
 
-export const homeCategories = [
-  { key: "all", labelTh: "ทั้งหมด", labelEn: "All", note: "Live mystery packs" },
-  { key: "pokemon", labelTh: "โปเกมอน", labelEn: "Pokemon", note: "PSA10 / SAR / promo" },
-  { key: "one_piece", labelTh: "วันพีซ", labelEn: "One Piece", note: "Manga / leader / serial" },
-  { key: "hobby", labelTh: "ฮ็อบบี้", labelEn: "Hobby", note: "Sealed boxes and collectibles" },
-  { key: "popmart", labelTh: "POP MART", labelEn: "POPMART", note: "Blind box / art toy" },
-  { key: "apparel", labelTh: "เสื้อ", labelEn: "Apparel", note: "Limited merch and drops" },
-] as const;
-
-export const exchangeCategories = [
-  "Pokemon",
-  "One Piece",
-  "Hobby",
-  "POPMART",
-  "Yu-Gi-Oh!",
-  "Weiss",
-  "Magic: The Gathering",
-  "Duel Masters",
-  "Apparel",
-  "Others",
-  "Mileage",
-] as const;
-
-export const statusFilters = ["All", "New", "Few left", "PSA10", "Login Bonus", "Oripa Gift", "Mileage", "Last chance"] as const;
+export const statusFilters = ["All", "New", "PSA10"] as const;
 
 export const featuredCampaigns: YnotCampaign[] = [
   {
@@ -122,23 +99,4 @@ export const rewardTiers = [
   { rank: "B", name: "Chase cards", remain: "6 / 12", note: "SR / RR", cards: ["SR", "SR", "SR", "SR"] },
   { rank: "C", name: "Foil cards", remain: "24 / 40", note: "R foil", cards: ["R", "R", "R", "R", "R"] },
   { rank: "D", name: "Base rewards", remain: "9 / 43", note: "Can be exchanged for coins", cards: ["N", "N"] },
-] as const;
-
-export const exchangeCatalog = [
-  { name: "(PSA10) Lucia", coin: "263,000", tickets: 0, sold: true, category: "Pokemon" },
-  { name: "(PSA10) Sightseer", coin: "161,000", tickets: 0, sold: true, category: "Pokemon" },
-  { name: "(PSA10) Marnie", coin: "98,000", tickets: 0, sold: true, category: "Pokemon" },
-  { name: "Umbreon GX", coin: "74,800", tickets: 0, sold: true, category: "Pokemon" },
-  { name: "(PSA10) Nanjamo", coin: "74,000", tickets: 0, sold: true, category: "Pokemon" },
-  { name: "(PSA10) Clefairy", coin: "41,000", tickets: 0, sold: true, category: "Pokemon" },
-  { name: "Ditto Reverse", coin: "39,800", tickets: 3, sold: false, category: "Pokemon" },
-  { name: "Rayquaza V", coin: "31,800", tickets: 5, sold: false, category: "Pokemon" },
-  { name: "Ichigeki VMAX", coin: "23,800", tickets: 2, sold: false, category: "Pokemon" },
-] as const;
-
-export const sampleCollectionCards = [
-  { name: "YGO Card RL", code: "YGO-PH-00", type: "RL", coin: "2,430.00", selected: true },
-  { name: "Lucario VSTAR", code: "PK-s-p-305", type: "PROMO", coin: "3,270.00", selected: true },
-  { name: "Quarter Century Box", code: "yugioh-QCAC", type: "BOX", coin: "69.00", selected: false },
-  { name: "Over Rush Pack 4", code: "yugioh-ORP4", type: "BOX", coin: "60.00", selected: false },
 ] as const;

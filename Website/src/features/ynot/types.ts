@@ -24,10 +24,31 @@ export type YnotCampaign = {
   endsAt: string | null;
   createdAt?: string;
   remainingSlots?: number;
+  totalPrizeUnits?: number;
+  availablePrizeUnits?: number;
+  awardedPrizeUnits?: number;
+  voidPrizeUnits?: number;
   categoryLabel?: string;
+  categoryIds?: string[];
+  categorySlugs?: string[];
+  isTest?: boolean;
   heroLabel?: string;
   displayTags?: string[];
   demo?: boolean;
+};
+
+export type YnotCategory = {
+  id: string;
+  slug: string;
+  nameTh: string;
+  nameEn: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  icon?: string | null;
+  legacySeries?: "one_piece" | "pokemon" | null;
+  sortOrder: number;
+  isActive: boolean;
+  isTest: boolean;
 };
 
 export type YnotPaymentMethod = {
@@ -121,13 +142,36 @@ export type YnotPrizePoolItem = {
   tier: "normal" | "high";
   rank: number;
   valueThb?: number | null;
-  tone?: "red" | "gold" | "blue" | "green" | "rose" | "violet" | null;
+  totalUnits: number;
+  availableUnits: number;
+  awardedUnits: number;
+  voidUnits: number;
+};
+
+
+export type YnotDataIssue = {
+  label: string;
+  message: string;
+  recordedAt: string;
+};
+
+export type YnotPlatformHealthCheck = {
+  key: string;
+  label: string;
+  status: "pass" | "warn" | "fail";
+  detail: string;
+};
+
+export type YnotPlatformHealth = {
+  generatedAt: string;
+  checks: YnotPlatformHealthCheck[];
 };
 
 export type YnotDashboardData = {
   configured: boolean;
   viewer: YnotViewer;
   campaigns: YnotCampaign[];
+  categories: YnotCategory[];
   paymentMethods: YnotPaymentMethod[];
   wallet: YnotWallet;
   topUps: YnotTopUp[];
@@ -137,6 +181,8 @@ export type YnotDashboardData = {
   addresses: YnotAddress[];
   rankings: YnotRankingRow[];
   adminTopUps: YnotTopUp[];
+  platformHealth?: YnotPlatformHealth;
+  dataIssues: YnotDataIssue[];
 };
 
 export type HomeSeriesFilter = "all" | YnotCampaign["series"];

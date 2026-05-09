@@ -19,6 +19,8 @@ const requiredPhaseDocs = [1, 2, 3, 4, 5, 6, 7].map((phase) => {
 const requiredFiles = [
   "src/features/ynot/phase-readiness.ts",
   "src/app/(store)/local-readiness/page.tsx",
+  "src/app/(store)/gacha/[campaignId]/page.tsx",
+  "src/app/(store)/gacha/[campaignId]/open/page.tsx",
   "docs/plans/production-phases/00-index.md",
   "docs/plans/production-phases/README.md",
   "docs/plans/production-phases/appendix-go-no-go-evidence-template.md",
@@ -38,8 +40,6 @@ const requiredRoutes = [
   "/collection",
   "/exchange",
   "/shipping",
-  "/gacha/pokemon-gold-07",
-  "/gacha/pokemon-gold-07/open",
   "/admin",
   "/admin/campaigns",
   "/admin/prizes",
@@ -78,6 +78,8 @@ if (existsSync(readinessPath)) {
     if (text.includes(`href: "${route}"`) || route === "/local-readiness") pass(`readiness route/link covered: ${route}`);
     else fail(`readiness missing route/link: ${route}`);
   }
+  if (!text.includes("/gacha/pokemon-gold-07")) pass("readiness avoids hardcoded demo campaign routes");
+  else fail("readiness still links to hardcoded demo campaign routes");
   if (text.includes("external-gated") && text.includes("No production mutation is safe from localhost")) pass("readiness records external production gates");
   else fail("readiness does not record external production gates");
 }

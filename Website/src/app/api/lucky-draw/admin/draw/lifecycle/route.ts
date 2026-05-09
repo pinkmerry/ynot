@@ -36,7 +36,7 @@ async function countUnsettledOrders(supabase: ReturnType<typeof createServiceSup
 async function copyRoundPrizes(supabase: ReturnType<typeof createServiceSupabaseClient>, sourceDrawId: string, nextDrawId: string) {
   const { data, error } = await supabase
     .from("draw_round_prizes")
-    .select("card_id,tier,rank,value_thb,tone")
+    .select("card_id,tier,rank,value_thb")
     .eq("draw_round_id", sourceDrawId);
 
   if (error) throw error;
@@ -49,7 +49,6 @@ async function copyRoundPrizes(supabase: ReturnType<typeof createServiceSupabase
       tier: prize.tier,
       rank: prize.rank,
       value_thb: prize.value_thb,
-      tone: prize.tone,
     })),
   );
 

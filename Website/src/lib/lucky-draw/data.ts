@@ -106,9 +106,6 @@ function toFeaturedCards(value: unknown): FeaturedCard[] {
       name: item.name,
       grade: item.grade,
       series: item.series === "Pokemon" ? "Pokemon" : "One Piece",
-      tone: item.tone === "red" || item.tone === "gold" || item.tone === "blue" || item.tone === "green" || item.tone === "rose" || item.tone === "violet"
-        ? item.tone
-        : "gold",
       photoUrl: typeof item.photoUrl === "string" ? item.photoUrl : undefined,
       photoStoragePath: typeof item.photoStoragePath === "string" ? item.photoStoragePath : undefined,
     }];
@@ -128,9 +125,6 @@ function toChaseCards(value: unknown): ChaseCard[] {
       name: item.name,
       grade: item.grade,
       series: item.series === "Pokemon" ? "Pokemon" : "One Piece",
-      tone: item.tone === "red" || item.tone === "gold" || item.tone === "blue" || item.tone === "green" || item.tone === "rose" || item.tone === "violet"
-        ? item.tone
-        : "gold",
       value: Number.isFinite(Number(item.value)) ? Number(item.value) : 0,
       photoUrl: typeof item.photoUrl === "string" ? item.photoUrl : undefined,
       photoStoragePath: typeof item.photoStoragePath === "string" ? item.photoStoragePath : undefined,
@@ -146,13 +140,6 @@ function fromAppSeries(value: FeaturedCard["series"]): CardRow["series"] {
   return value === "Pokemon" ? "pokemon" : "one_piece";
 }
 
-function toCardTone(value: string | null | undefined): FeaturedCard["tone"] {
-  if (value === "red" || value === "gold" || value === "blue" || value === "green" || value === "rose" || value === "violet") {
-    return value;
-  }
-  return "gold";
-}
-
 function toCatalogItem(row: CardRow): CardCatalogItem {
   return {
     id: row.id,
@@ -161,7 +148,6 @@ function toCatalogItem(row: CardRow): CardCatalogItem {
     name: row.name,
     grade: row.grade,
     series: toAppSeries(row.series),
-    tone: toCardTone(row.tone),
     photoUrl: row.image_url ?? undefined,
     photoStoragePath: row.image_storage_path ?? undefined,
   };
@@ -175,7 +161,6 @@ function prizeToFeaturedCard(prize: DrawRoundPrizeRow, card: CardRow): FeaturedC
     name: card.name,
     grade: card.grade,
     series: toAppSeries(card.series),
-    tone: toCardTone(prize.tone ?? card.tone),
     photoUrl: card.image_url ?? undefined,
     photoStoragePath: card.image_storage_path ?? undefined,
   };
@@ -263,7 +248,6 @@ async function upsertCatalogCard(supabase: Supabase, card: FeaturedCard) {
     search_code: cardCode?.toLowerCase() ?? null,
     series: fromAppSeries(card.series),
     grade: card.grade.trim() || "Ungraded",
-    tone: toCardTone(card.tone),
     ...(hasImage
       ? {
           image_url: card.photoUrl || null,
@@ -403,7 +387,6 @@ export async function syncRoundPrizeCards(supabase: Supabase, drawRoundId: strin
       tier: "normal" as const,
       rank: index + 1,
       value_thb: null,
-      tone: toCardTone(card.tone),
     };
   });
 
@@ -415,7 +398,6 @@ export async function syncRoundPrizeCards(supabase: Supabase, drawRoundId: strin
       tier: "high" as const,
       rank: Number.isInteger(card.rank) && card.rank > 0 ? card.rank : index + 1,
       value_thb: Number.isFinite(card.value) ? Math.max(card.value, 0) : 0,
-      tone: toCardTone(card.tone),
     };
   });
 

@@ -5,6 +5,7 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { sha256Hex } from "@/lib/slip2go/client";
 import { getPaymentMethods, getTopUps, getWallet } from "@/features/ynot/data";
 import { toTopUp } from "@/features/ynot/data";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,8 @@ export async function POST(request: Request) {
   if (!isSupabaseConfigured()) return jsonNoStore({ error: "Supabase is not configured." }, { status: 503 });
   const session = await resolveCurrentProfile();
   if (!session?.profileId) return jsonNoStore({ error: "Login is required." }, { status: 401 });
+  const limited = await enforceRateLimit(request, "ynot:wallet:top-up", { limit: 6, windowMs: 60_000 }, session.profileId);
+  if (limited) return limited;
 
   const form = await request.formData();
   const paymentMethodId = String(form.get("paymentMethodId") ?? "").trim();

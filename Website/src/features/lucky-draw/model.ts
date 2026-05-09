@@ -261,18 +261,18 @@ export const emptyProfileInfo: ProfileInfo = {
 };
 
 export const defaultFeaturedCards: FeaturedCard[] = [
-  { id: "poster-ace", name: "Portgas D. Ace", grade: "PSA 10", series: "One Piece", tone: "red" },
-  { id: "poster-luffy", name: "Monkey D. Luffy", grade: "PSA 10", series: "One Piece", tone: "gold" },
-  { id: "poster-zoro", name: "Roronoa Zoro", grade: "BGS 10", series: "One Piece", tone: "green" },
-  { id: "poster-shanks", name: "Shanks Alt Art", grade: "BGS 10", series: "One Piece", tone: "rose" },
-  { id: "poster-nami", name: "Nami Parallel", grade: "PSA 10", series: "One Piece", tone: "blue" },
-  { id: "poster-boa", name: "Boa Hancock", grade: "PSA 10", series: "One Piece", tone: "violet" },
-  { id: "poster-charizard", name: "Charizard ex", grade: "PSA 10", series: "Pokemon", tone: "red" },
-  { id: "poster-pikachu", name: "Pikachu Promo", grade: "PSA 10", series: "Pokemon", tone: "gold" },
-  { id: "poster-lugia", name: "Lugia V", grade: "BGS 10", series: "Pokemon", tone: "blue" },
-  { id: "poster-rayleigh", name: "Rayleigh SP", grade: "PSA 10", series: "One Piece", tone: "green" },
-  { id: "poster-sabo", name: "Sabo Manga", grade: "PSA 10", series: "One Piece", tone: "rose" },
-  { id: "poster-mewtwo", name: "Mewtwo SAR", grade: "BGS 10", series: "Pokemon", tone: "violet" },
+  { id: "poster-ace", name: "Portgas D. Ace", grade: "PSA 10", series: "One Piece" },
+  { id: "poster-luffy", name: "Monkey D. Luffy", grade: "PSA 10", series: "One Piece" },
+  { id: "poster-zoro", name: "Roronoa Zoro", grade: "BGS 10", series: "One Piece" },
+  { id: "poster-shanks", name: "Shanks Alt Art", grade: "BGS 10", series: "One Piece" },
+  { id: "poster-nami", name: "Nami Parallel", grade: "PSA 10", series: "One Piece" },
+  { id: "poster-boa", name: "Boa Hancock", grade: "PSA 10", series: "One Piece" },
+  { id: "poster-charizard", name: "Charizard ex", grade: "PSA 10", series: "Pokemon" },
+  { id: "poster-pikachu", name: "Pikachu Promo", grade: "PSA 10", series: "Pokemon" },
+  { id: "poster-lugia", name: "Lugia V", grade: "BGS 10", series: "Pokemon" },
+  { id: "poster-rayleigh", name: "Rayleigh SP", grade: "PSA 10", series: "One Piece" },
+  { id: "poster-sabo", name: "Sabo Manga", grade: "PSA 10", series: "One Piece" },
+  { id: "poster-mewtwo", name: "Mewtwo SAR", grade: "BGS 10", series: "Pokemon" },
 ];
 
 export const defaultChaseCards: ChaseCard[] = [
@@ -282,7 +282,6 @@ export const defaultChaseCards: ChaseCard[] = [
     name: "Portgas D. Ace Alt Art",
     grade: "PSA 10",
     series: "One Piece",
-    tone: "red",
     value: 85000,
   },
   {
@@ -291,7 +290,6 @@ export const defaultChaseCards: ChaseCard[] = [
     name: "Monkey D. Luffy Manga",
     grade: "PSA 10",
     series: "One Piece",
-    tone: "gold",
     value: 42000,
   },
   {
@@ -300,7 +298,6 @@ export const defaultChaseCards: ChaseCard[] = [
     name: "Shanks Alternate Art",
     grade: "BGS 10",
     series: "One Piece",
-    tone: "rose",
     value: 28000,
   },
 ];
@@ -391,7 +388,6 @@ export function applyCatalogCard(card: FeaturedCard, catalogCard: CardCatalogIte
     name: catalogCard.name,
     grade: catalogCard.grade,
     series: catalogCard.series,
-    tone: catalogCard.tone,
     photoUrl: catalogCard.photoUrl,
     photoStoragePath: catalogCard.photoStoragePath,
   };

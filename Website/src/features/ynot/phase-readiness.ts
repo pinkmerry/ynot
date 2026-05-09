@@ -42,8 +42,8 @@ export const phaseReadinessItems: PhaseReadinessItem[] = [
     ],
     localhostLinks: [
       { label: "Mystery packs", href: "/" },
-      { label: "Pack detail", href: "/gacha/pokemon-gold-07" },
-      { label: "Pack open", href: "/gacha/pokemon-gold-07/open" },
+      { label: "Campaign admin", href: "/admin/campaigns" },
+      { label: "Readiness console", href: "/local-readiness" },
     ],
     evidenceNeeded: ["Staging Supabase ref", "Migration apply output", "RLS/grant checks", "Preview deployment URL"],
     externalGate: "Requires staging Supabase/project or branch and Vercel preview envs.",
@@ -99,8 +99,8 @@ export const phaseReadinessItems: PhaseReadinessItem[] = [
       "Open admin Campaigns/Prizes/Exchange/Shipping pages to inspect operation surfaces.",
     ],
     localhostLinks: [
-      { label: "Pack detail", href: "/gacha/pokemon-gold-07" },
-      { label: "Open pack", href: "/gacha/pokemon-gold-07/open" },
+      { label: "Mystery packs", href: "/" },
+      { label: "Campaign admin", href: "/admin/campaigns" },
       { label: "Collection", href: "/collection" },
       { label: "Exchange", href: "/exchange" },
       { label: "Shipping", href: "/shipping" },
@@ -141,7 +141,7 @@ export const phaseReadinessItems: PhaseReadinessItem[] = [
     localhostLinks: [
       { label: "Login", href: "/login" },
       { label: "Wallet", href: "/wallet" },
-      { label: "Open pack", href: "/gacha/pokemon-gold-07/open" },
+      { label: "Mystery packs", href: "/" },
       { label: "Collection", href: "/collection" },
       { label: "Shipping", href: "/shipping" },
     ],

@@ -177,6 +177,9 @@ export type Database = {
           bank_account_number: string | null;
           starts_at: string | null;
           created_by: string | null;
+          is_test: boolean;
+          seed_run_id: string | null;
+          test_metadata: Json;
           created_at: string;
           updated_at: string;
         };
@@ -209,10 +212,43 @@ export type Database = {
           bank_account_number?: string | null;
           starts_at?: string | null;
           created_by?: string | null;
+          is_test?: boolean;
+          seed_run_id?: string | null;
+          test_metadata?: Json;
           created_at?: string;
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["draw_rounds"]["Insert"]>;
+        Relationships: [];
+      };
+      seed_runs: {
+        Row: { id: string; seed_key: string; label: string; environment: "local" | "staging" | "production"; status: "planned" | "dry_run" | "applied" | "hidden" | "cleanup_started" | "cleaned" | "failed"; applied_by_admin_id: string | null; metadata: Json; created_at: string; updated_at: string };
+        Insert: { id?: string; seed_key: string; label: string; environment?: "local" | "staging" | "production"; status?: "planned" | "dry_run" | "applied" | "hidden" | "cleanup_started" | "cleaned" | "failed"; applied_by_admin_id?: string | null; metadata?: Json; created_at?: string; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["seed_runs"]["Insert"]>;
+        Relationships: [];
+      };
+      seed_run_items: {
+        Row: { id: string; seed_run_id: string; table_name: string; row_id: string | null; row_key: string | null; action: "planned" | "upserted" | "hidden" | "voided" | "skipped" | "failed"; metadata: Json; created_at: string };
+        Insert: { id?: string; seed_run_id: string; table_name: string; row_id?: string | null; row_key?: string | null; action: "planned" | "upserted" | "hidden" | "voided" | "skipped" | "failed"; metadata?: Json; created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["seed_run_items"]["Insert"]>;
+        Relationships: [];
+      };
+      store_categories: {
+        Row: { id: string; slug: string; name_th: string; name_en: string; description: string | null; image_url: string | null; icon: string | null; legacy_series: "pokemon" | "one_piece" | null; sort_order: number; is_active: boolean; is_test: boolean; seed_run_id: string | null; metadata: Json; created_by_admin_id: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; slug: string; name_th: string; name_en: string; description?: string | null; image_url?: string | null; icon?: string | null; legacy_series?: "pokemon" | "one_piece" | null; sort_order?: number; is_active?: boolean; is_test?: boolean; seed_run_id?: string | null; metadata?: Json; created_by_admin_id?: string | null; created_at?: string; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["store_categories"]["Insert"]>;
+        Relationships: [];
+      };
+      draw_round_categories: {
+        Row: { draw_round_id: string; category_id: string; is_primary: boolean; created_at: string };
+        Insert: { draw_round_id: string; category_id: string; is_primary?: boolean; created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["draw_round_categories"]["Insert"]>;
+        Relationships: [];
+      };
+      draw_round_testers: {
+        Row: { draw_round_id: string; profile_id: string; added_by_admin_id: string | null; seed_run_id: string | null; created_at: string };
+        Insert: { draw_round_id: string; profile_id: string; added_by_admin_id?: string | null; seed_run_id?: string | null; created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["draw_round_testers"]["Insert"]>;
         Relationships: [];
       };
       cards: {
@@ -224,9 +260,13 @@ export type Database = {
           search_code: string | null;
           series: "one_piece" | "pokemon";
           grade: string;
-          tone: "red" | "gold" | "blue" | "green" | "rose" | "violet";
           image_url: string | null;
           image_storage_path: string | null;
+          is_test: boolean;
+          seed_run_id: string | null;
+          asset_source: string | null;
+          asset_license: string | null;
+          asset_manifest_key: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -238,9 +278,13 @@ export type Database = {
           search_code?: string | null;
           series: "one_piece" | "pokemon";
           grade: string;
-          tone?: "red" | "gold" | "blue" | "green" | "rose" | "violet";
           image_url?: string | null;
           image_storage_path?: string | null;
+          is_test?: boolean;
+          seed_run_id?: string | null;
+          asset_source?: string | null;
+          asset_license?: string | null;
+          asset_manifest_key?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -255,7 +299,9 @@ export type Database = {
           tier: "normal" | "high";
           rank: number;
           value_thb: number | null;
-          tone: "red" | "gold" | "blue" | "green" | "rose" | "violet" | null;
+          is_test: boolean;
+          seed_run_id: string | null;
+          metadata: Json;
           created_at: string;
           updated_at: string;
         };
@@ -266,11 +312,19 @@ export type Database = {
           tier: "normal" | "high";
           rank: number;
           value_thb?: number | null;
-          tone?: "red" | "gold" | "blue" | "green" | "rose" | "violet" | null;
+          is_test?: boolean;
+          seed_run_id?: string | null;
+          metadata?: Json;
           created_at?: string;
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["draw_round_prizes"]["Insert"]>;
+        Relationships: [];
+      };
+      draw_round_prize_units: {
+        Row: { id: string; draw_round_id: string; draw_round_prize_id: string; card_id: string; status: "available" | "reserved" | "awarded" | "void"; profile_id: string | null; gacha_open_id: string | null; gacha_open_item_id: string | null; collection_item_id: string | null; seed_run_id: string | null; awarded_at: string | null; voided_at: string | null; metadata: Json; created_at: string; updated_at: string };
+        Insert: { id?: string; draw_round_id: string; draw_round_prize_id: string; card_id: string; status?: "available" | "reserved" | "awarded" | "void"; profile_id?: string | null; gacha_open_id?: string | null; gacha_open_item_id?: string | null; collection_item_id?: string | null; seed_run_id?: string | null; awarded_at?: string | null; voided_at?: string | null; metadata?: Json; created_at?: string; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["draw_round_prize_units"]["Insert"]>;
         Relationships: [];
       };
       draw_slots: {
@@ -464,8 +518,8 @@ export type Database = {
         Relationships: [];
       };
       gacha_open_items: {
-        Row: { id: string; gacha_open_id: string; card_id: string; draw_round_prize_id: string | null; tier: string | null; value_thb: number | null; result_position: number; created_at: string };
-        Insert: { id?: string; gacha_open_id: string; card_id: string; draw_round_prize_id?: string | null; tier?: string | null; value_thb?: number | null; result_position?: number; created_at?: string };
+        Row: { id: string; gacha_open_id: string; card_id: string; draw_round_prize_id: string | null; draw_round_prize_unit_id: string | null; tier: string | null; value_thb: number | null; result_position: number; created_at: string };
+        Insert: { id?: string; gacha_open_id: string; card_id: string; draw_round_prize_id?: string | null; draw_round_prize_unit_id?: string | null; tier?: string | null; value_thb?: number | null; result_position?: number; created_at?: string };
         Update: Partial<Database["public"]["Tables"]["gacha_open_items"]["Insert"]>;
         Relationships: [];
       };
@@ -701,6 +755,25 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["app_realtime_events"]["Insert"]>;
         Relationships: [];
       };
+
+      api_rate_limits: {
+        Row: {
+          key: string;
+          window_start: string;
+          expires_at: string;
+          count: number;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          window_start?: string;
+          expires_at: string;
+          count?: number;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["api_rate_limits"]["Insert"]>;
+        Relationships: [];
+      };
       lucky_draw_realtime_events: {
         Row: {
           id: string;
@@ -741,12 +814,28 @@ export type Database = {
       approve_top_up_request: { Args: { p_top_up_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       reject_top_up_request: { Args: { p_top_up_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       open_gacha_campaign: { Args: { p_profile_id: string; p_draw_round_id: string; p_quantity?: number; p_idempotency_key?: string | null }; Returns: Json };
+      profile_can_open_test_draw_round: { Args: { p_draw_round_id: string; p_profile_id: string }; Returns: boolean };
+      get_draw_round_inventory_summary: { Args: { p_draw_round_id?: string | null; p_profile_id?: string | null }; Returns: Json };
+      ensure_draw_round_prize_units: { Args: { p_draw_round_prize_id: string; p_total_units: number; p_admin_id: string; p_seed_run_id?: string | null }; Returns: Json };
       submit_exchange_order: { Args: { p_profile_id: string; p_collection_item_ids: string[]; p_customer_note?: string | null; p_idempotency_key?: string | null }; Returns: Json };
       approve_exchange_order: { Args: { p_exchange_order_id: string; p_admin_id: string; p_approved_coin_value?: number | null; p_admin_note?: string | null }; Returns: Json };
       reject_exchange_order: { Args: { p_exchange_order_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       complete_account_merge_request: { Args: { p_merge_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       reject_account_merge_request: { Args: { p_merge_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       request_shipping_for_items: { Args: { p_profile_id: string; p_address_id: string; p_collection_item_ids: string[]; p_customer_note?: string | null; p_idempotency_key?: string | null }; Returns: Json };
+      update_shipping_request_status: {
+        Args: {
+          p_shipping_request_id: string;
+          p_admin_id: string;
+          p_status: "submitted" | "packing" | "shipped" | "delivered" | "cancelled";
+          p_tracking_provider?: string | null;
+          p_tracking_number?: string | null;
+          p_admin_note?: string | null;
+        };
+        Returns: Json;
+      };
+      consume_api_rate_limit: { Args: { p_key: string; p_limit: number; p_window_seconds: number }; Returns: Json };
+      purge_expired_api_rate_limits: { Args: Record<string, never>; Returns: number };
     };
     Views: Record<string, never>;
     Enums: Record<string, never>;

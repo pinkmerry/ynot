@@ -51,7 +51,6 @@ export type FeaturedCard = {
   name: string;
   grade: string;
   series: "One Piece" | "Pokemon";
-  tone: "red" | "gold" | "blue" | "green" | "rose" | "violet";
   photoUrl?: string;
   photoStoragePath?: string;
 };

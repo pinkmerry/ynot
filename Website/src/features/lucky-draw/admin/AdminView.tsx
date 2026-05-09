@@ -385,7 +385,6 @@ function AdminCardEditor({
       name: patch.name,
       grade: patch.grade,
       series: patch.series,
-      tone: patch.tone,
       photoUrl: patch.photoUrl,
       photoStoragePath: patch.photoStoragePath,
     };
@@ -430,7 +429,7 @@ function AdminCardEditor({
   function addFeatured() {
     onFeaturedCards([
       ...featuredCards,
-      { id: newCardId("poster"), name: "New Card", grade: "PSA 10", series: "One Piece", tone: "gold" },
+      { id: newCardId("poster"), name: "New Card", grade: "PSA 10", series: "One Piece" },
     ]);
   }
 
@@ -442,7 +441,6 @@ function AdminCardEditor({
       name: "New Chase Card",
       grade: "PSA 10",
       series: "One Piece",
-      tone: "gold",
       value: 10000,
     };
     onChaseCards([...chaseCards, nextCard]);
@@ -597,19 +595,13 @@ function AdminCardEditor({
                 <TextField label={t.cardCode} value={card.code ?? ""} onChange={(value) => updateFeatured(index, { code: value })} />
                 <TextField label={`Card ${index + 1}`} value={card.name} onChange={(value) => updateFeatured(index, { name: value })} />
               </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-[0.7fr_0.7fr_0.7fr_auto] sm:items-end">
+              <div className="mt-3 grid gap-3 sm:grid-cols-[0.7fr_0.7fr_auto] sm:items-end">
                 <TextField label="Grade" value={card.grade} onChange={(value) => updateFeatured(index, { grade: value })} />
                 <SelectField
                   label="Series"
                   value={card.series}
                   options={["One Piece", "Pokemon"]}
                   onChange={(value) => updateFeatured(index, { series: value as FeaturedCard["series"] })}
-                />
-                <SelectField
-                  label="Color"
-                  value={card.tone}
-                  options={["red", "gold", "blue", "green", "rose", "violet"]}
-                  onChange={(value) => updateFeatured(index, { tone: value as FeaturedCard["tone"] })}
                 />
                 <button
                   className="danger-button flex h-12 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold"
@@ -685,19 +677,13 @@ function AdminCardEditor({
                   {t.remove}
                 </button>
               </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <TextField label="Grade" value={card.grade} onChange={(value) => updateChase(index, { grade: value })} />
                 <SelectField
                   label="Series"
                   value={card.series}
                   options={["One Piece", "Pokemon"]}
                   onChange={(value) => updateChase(index, { series: value as FeaturedCard["series"] })}
-                />
-                <SelectField
-                  label="Color"
-                  value={card.tone}
-                  options={["red", "gold", "blue", "green", "rose", "violet"]}
-                  onChange={(value) => updateChase(index, { tone: value as FeaturedCard["tone"] })}
                 />
               </div>
             </details>

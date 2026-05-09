@@ -1,9 +1,30 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { signOutAction } from "@/features/auth/actions";
-import type { HomeFilterState, HomeSeriesFilter, HomeSortOption, HomeTagFilter, YnotCampaign, YnotCollectionItem, YnotDashboardData, YnotExchangeOrder, YnotPaymentMethod, YnotRankingRow, YnotShippingRequest, YnotTopUp, YnotViewer, YnotWallet } from "./types";
-import { exchangeCatalog, exchangeCategories, featuredCampaigns, rewardTiers, sampleCollectionCards } from "./storefront-content";
-import { StoreHeaderNav, StoreSettingsMenu, StoreSortSelect } from "./StorePreferences";
+import type {
+  HomeFilterState,
+  HomeSeriesFilter,
+  HomeSortOption,
+  HomeTagFilter,
+  YnotCampaign,
+  YnotCategory,
+  YnotCollectionItem,
+  YnotDashboardData,
+  YnotExchangeOrder,
+  YnotPaymentMethod,
+  YnotRankingRow,
+  YnotShippingRequest,
+  YnotTopUp,
+  YnotViewer,
+  YnotWallet,
+} from "./types";
+import { featuredCampaigns, rewardTiers } from "./storefront-content";
+import { allowDemoStorefront, productionSafetyLabel } from "./runtime-flags";
+import {
+  StoreHeaderNav,
+  StoreSettingsMenu,
+  StoreSortSelect,
+} from "./StorePreferences";
 
 const homeCategories = [
   { label: "Pokemon", series: "pokemon" },
@@ -12,33 +33,79 @@ const homeCategories = [
 
 const filterTags = ["All", "New", "PSA10"] as const;
 
-const defaultHomeFilter: HomeFilterState = { series: "all", tag: "all", sort: "recommended" };
+const defaultHomeFilter: HomeFilterState = {
+  series: "all",
+  tag: "all",
+  sort: "recommended",
+};
 
-export function normalizeHomeSeries(value: string | string[] | undefined): HomeSeriesFilter {
+const adminNavItems = [
+  { href: "/admin", label: "Dashboard", kicker: "Control" },
+  { href: "/admin/campaigns", label: "Random Packs", kicker: "Studio" },
+  { href: "/admin/categories", label: "Categories", kicker: "Catalog" },
+  { href: "/admin/prizes", label: "Prizes", kicker: "Cards" },
+  { href: "/admin/users", label: "Users", kicker: "Accounts" },
+  { href: "/admin/top-ups", label: "Top-ups", kicker: "Wallet" },
+  { href: "/admin/rankings", label: "Rankings", kicker: "Leaderboard" },
+  { href: "/admin/shipping", label: "Shipping", kicker: "Fulfill" },
+  { href: "/admin/exchange", label: "Exchange", kicker: "Review" },
+  { href: "/admin/settings", label: "Settings", kicker: "Payments" },
+  { href: "/admin/audit", label: "Audit", kicker: "Log" },
+  { href: "/admin/health", label: "Health", kicker: "System" },
+] as const;
+
+const adminCategoryCards = [
+  {
+    series: "pokemon",
+    title: "Pokemon",
+    subtitle: "PSA10, Japanese chase cards, sealed pack campaigns",
+    accent: "⚡",
+    status: "Active fixed series",
+  },
+  {
+    series: "one_piece",
+    title: "One Piece",
+    subtitle: "Manga rare, leader parallel, treasure box campaigns",
+    accent: "☠️",
+    status: "Active fixed series",
+  },
+] as const;
+
+export function normalizeHomeSeries(
+  value: string | string[] | undefined,
+): HomeSeriesFilter {
   const rawValue = Array.isArray(value) ? value[0] : value;
   return rawValue === "pokemon" || rawValue === "one_piece" ? rawValue : "all";
 }
 
-export function normalizeHomeTag(value: string | string[] | undefined): HomeTagFilter {
+export function normalizeHomeTag(
+  value: string | string[] | undefined,
+): HomeTagFilter {
   const rawValue = Array.isArray(value) ? value[0] : value;
   return rawValue === "new" || rawValue === "psa10" ? rawValue : "all";
 }
 
-export function normalizeHomeSort(value: string | string[] | undefined): HomeSortOption {
+export function normalizeHomeSort(
+  value: string | string[] | undefined,
+): HomeSortOption {
   const rawValue = Array.isArray(value) ? value[0] : value;
-  return rawValue === "latest" || rawValue === "coins-desc" || rawValue === "coins-asc" ? rawValue : "recommended";
+  return rawValue === "latest" ||
+    rawValue === "coins-desc" ||
+    rawValue === "coins-asc"
+    ? rawValue
+    : "recommended";
 }
 
 function displayCampaigns(campaigns: YnotCampaign[]) {
-  return campaigns.length ? campaigns : featuredCampaigns;
+  return campaigns.length
+    ? campaigns
+    : allowDemoStorefront()
+      ? featuredCampaigns
+      : [];
 }
 
 function seriesLabel(series: YnotCampaign["series"]) {
   return series === "pokemon" ? "Pokemon" : "One Piece";
-}
-
-function navSlug(label: string) {
-  return label.toLowerCase().replaceAll("&", "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 function homeFilterHref(nextFilter: Partial<HomeFilterState>) {
@@ -79,24 +146,34 @@ function campaignTimestamp(campaign: YnotCampaign) {
 }
 
 function byTitle(left: YnotCampaign, right: YnotCampaign) {
-  return (left.titleTh || left.titleEn).localeCompare(right.titleTh || right.titleEn);
+  return (left.titleTh || left.titleEn).localeCompare(
+    right.titleTh || right.titleEn,
+  );
 }
 
 function sortedCampaigns(campaigns: YnotCampaign[], sort: HomeSortOption) {
   if (sort === "recommended") return campaigns;
   const items = [...campaigns];
   if (sort === "latest") {
-    return items.sort((left, right) => campaignTimestamp(right) - campaignTimestamp(left) || byTitle(left, right));
+    return items.sort(
+      (left, right) =>
+        campaignTimestamp(right) - campaignTimestamp(left) ||
+        byTitle(left, right),
+    );
   }
   return items.sort((left, right) => {
-    const priceSort = sort === "coins-desc" ? right.costCoins - left.costCoins : left.costCoins - right.costCoins;
+    const priceSort =
+      sort === "coins-desc"
+        ? right.costCoins - left.costCoins
+        : left.costCoins - right.costCoins;
     return priceSort || byTitle(left, right);
   });
 }
 
 function filteredCampaigns(campaigns: YnotCampaign[], filter: HomeFilterState) {
   const filtered = displayCampaigns(campaigns).filter((campaign) => {
-    const matchesSeries = filter.series === "all" || campaign.series === filter.series;
+    const matchesSeries =
+      filter.series === "all" || campaign.series === filter.series;
     return matchesSeries && campaignMatchesTag(campaign, filter.tag);
   });
   return sortedCampaigns(filtered, filter.sort);
@@ -109,16 +186,53 @@ function homeFilterHeading(filter: HomeFilterState) {
 }
 
 function remaining(campaign: YnotCampaign) {
-  return campaign.remainingSlots ?? Math.max(0, Math.ceil(campaign.totalSlots * 0.42));
+  const remainingSlots = campaign.remainingSlots;
+  if (typeof remainingSlots !== "number" || !Number.isFinite(remainingSlots))
+    return null;
+  return Math.max(0, remainingSlots);
 }
 
 function remainingPercent(campaign: YnotCampaign) {
-  return Math.max(3, Math.min(100, (remaining(campaign) / Math.max(campaign.totalSlots, 1)) * 100));
+  const remainingSlots = remaining(campaign);
+  if (remainingSlots === null) return null;
+  return Math.max(
+    3,
+    Math.min(100, (remainingSlots / Math.max(campaign.totalSlots, 1)) * 100),
+  );
+}
+
+function remainingStatusText(campaign: YnotCampaign) {
+  const remainingSlots = remaining(campaign);
+  if (remainingSlots === null) return "Stock tracked by server";
+  return `${remainingSlots.toLocaleString()} left`;
+}
+
+function remainingRatioText(campaign: YnotCampaign) {
+  const remainingSlots = remaining(campaign);
+  if (remainingSlots === null) return "Server-tracked stock";
+  return `${remainingSlots.toLocaleString()}/${campaign.totalSlots.toLocaleString()}`;
+}
+
+function ProgressTrack({ campaign }: { campaign: YnotCampaign }) {
+  const percent = remainingPercent(campaign);
+  if (percent === null)
+    return (
+      <div
+        className="progress-track stock-untracked"
+        aria-label="Stock is tracked server-side"
+      />
+    );
+  return (
+    <div className="progress-track">
+      <span style={{ width: `${percent}%` }} />
+    </div>
+  );
 }
 
 function campaignDisplayTags(campaign: YnotCampaign) {
   const fallback = campaign.series === "pokemon" ? ["PSA10"] : ["Manga"];
-  const tags = campaign.displayTags?.map((tag) => tag.trim()).filter(Boolean) ?? [];
+  const tags =
+    campaign.displayTags?.map((tag) => tag.trim()).filter(Boolean) ?? [];
   return (tags.length ? tags : fallback).slice(0, 3);
 }
 
@@ -126,7 +240,15 @@ function formatCoins(value: number) {
   return value.toLocaleString();
 }
 
-export function YnotShell({ viewer, children, homeFilter = defaultHomeFilter }: { viewer: YnotViewer; children: ReactNode; homeFilter?: HomeFilterState }) {
+export function YnotShell({
+  viewer,
+  children,
+  homeFilter = defaultHomeFilter,
+}: {
+  viewer: YnotViewer;
+  children: ReactNode;
+  homeFilter?: HomeFilterState;
+}) {
   return (
     <main className="app-shell store-shell mobile-safe space-y-7">
       <header className="storefront-header sticky top-3 z-30">
@@ -142,16 +264,29 @@ export function YnotShell({ viewer, children, homeFilter = defaultHomeFilter }: 
           <div className="store-actions">
             {viewer.authenticated ? (
               <>
-                <span className="account-chip">{viewer.displayName} · {viewer.authSource === "line" ? "LINE" : "Web"}</span>
-                {viewer.isAdmin && <Link className="secondary-action compact" href="/admin">Admin</Link>}
+                <span className="account-chip">
+                  {viewer.displayName} ·{" "}
+                  {viewer.authSource === "line" ? "LINE" : "Web"}
+                </span>
+                {viewer.isAdmin && (
+                  <Link className="secondary-action compact" href="/admin">
+                    Admin
+                  </Link>
+                )}
                 <form action={signOutAction}>
-                  <button className="secondary-action compact" type="submit">Logout</button>
+                  <button className="secondary-action compact" type="submit">
+                    Logout
+                  </button>
                 </form>
               </>
             ) : (
               <>
-                <Link className="secondary-action compact" href="/login">Login</Link>
-                <Link className="primary-action compact" href="/signup">Sign Up</Link>
+                <Link className="secondary-action compact" href="/login">
+                  Login
+                </Link>
+                <Link className="primary-action compact" href="/signup">
+                  Sign Up
+                </Link>
               </>
             )}
             <StoreSettingsMenu />
@@ -169,13 +304,18 @@ function StoreFilterStrip({ homeFilter }: { homeFilter: HomeFilterState }) {
     <div className="store-filter-strip" aria-label="Mystery pack filters">
       <div className="store-filter-scroll">
         {filterTags.map((tag) => {
-          const tagKey: HomeTagFilter = tag === "All" ? "all" : tag === "New" ? "new" : "psa10";
+          const tagKey: HomeTagFilter =
+            tag === "All" ? "all" : tag === "New" ? "new" : "psa10";
           return (
             <Link
               key={tag}
               aria-current={homeFilter.tag === tagKey ? "page" : undefined}
               className={`filter-chip ${homeFilter.tag === tagKey ? "active" : ""}`}
-              href={homeFilterHref({ series: homeFilter.series, tag: tagKey, sort: homeFilter.sort })}
+              href={homeFilterHref({
+                series: homeFilter.series,
+                tag: tagKey,
+                sort: homeFilter.sort,
+              })}
             >
               {tag}
             </Link>
@@ -187,7 +327,17 @@ function StoreFilterStrip({ homeFilter }: { homeFilter: HomeFilterState }) {
   );
 }
 
-export function PageHeader({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: ReactNode }) {
+export function PageHeader({
+  eyebrow,
+  title,
+  description,
+  action,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
   return (
     <section className="page-intro">
       <div className="min-w-0">
@@ -200,12 +350,24 @@ export function PageHeader({ eyebrow, title, description, action }: { eyebrow: s
   );
 }
 
-function PhoneTopBar({ title, coin, action }: { title: string; coin?: number | string; action?: ReactNode }) {
+function PhoneTopBar({
+  title,
+  coin,
+  action,
+}: {
+  title: string;
+  coin?: number | string;
+  action?: ReactNode;
+}) {
   return (
     <div className="template-top-bar">
       <h2>{title}</h2>
       <div className="template-top-actions">
-        {coin !== undefined && <span className="coin-pill"><CoinIcon /> {typeof coin === "number" ? formatCoins(coin) : coin}</span>}
+        {coin !== undefined && (
+          <span className="coin-pill">
+            <CoinIcon /> {typeof coin === "number" ? formatCoins(coin) : coin}
+          </span>
+        )}
         {action}
       </div>
     </div>
@@ -213,15 +375,27 @@ function PhoneTopBar({ title, coin, action }: { title: string; coin?: number | s
 }
 
 function PhoneRule() {
-  return <div className="phone-rule" aria-hidden><span /><span /><span /></div>;
+  return (
+    <div className="phone-rule" aria-hidden>
+      <span />
+      <span />
+      <span />
+    </div>
+  );
 }
 
-export function YnotHomeExperience({ data, homeFilter = defaultHomeFilter }: { data: YnotDashboardData; homeFilter?: HomeFilterState }) {
+export function YnotHomeExperience({
+  data,
+  homeFilter = defaultHomeFilter,
+}: {
+  data: YnotDashboardData;
+  homeFilter?: HomeFilterState;
+}) {
   const campaigns = filteredCampaigns(data.campaigns, homeFilter);
 
   return (
     <>
-      <MobileTorecaHero />
+      <MobileTorecaHero campaign={campaigns[0]} />
       <div className="store-home-grid">
         <aside className="store-left-rail" aria-label="Store sections">
           <RailLink icon="◆" label="Mystery Packs" href="/" active />
@@ -232,61 +406,155 @@ export function YnotHomeExperience({ data, homeFilter = defaultHomeFilter }: { d
         <div className="store-main-stack">
           <div className="catalog-toolbar">
             <h1>List of Mystery Packs for {homeFilterHeading(homeFilter)}</h1>
-            <Link className="mini-link" href="/exchange">See all →</Link>
+            <Link className="mini-link" href="/exchange">
+              See all →
+            </Link>
           </div>
           <section className="home-pack-board product-section">
-            <PhoneTopBar title="YNOT." coin={data.wallet.balanceCoins || 1250} action={<span className="template-icon-button">♧</span>} />
+            <PhoneTopBar
+              title="YNOT."
+              coin={data.wallet.balanceCoins}
+              action={<span className="template-icon-button">♧</span>}
+            />
             <PhoneRule />
             <CategoryStrip homeFilter={homeFilter} />
             <section className="template-promo">
-              <span>FLASH · 2 DAYS LEFT</span>
-              <strong>SUMMER BURST</strong>
-              <p>2X PULL BONUS</p>
-              <Link href="/gacha/pokemon-gold-07">VIEW DETAILS →</Link>
+              {campaigns[0] ? (
+                <>
+                  <span>
+                    {seriesLabel(campaigns[0].series)} · {campaigns[0].status}
+                  </span>
+                  <strong>
+                    {campaigns[0].titleTh || campaigns[0].titleEn}
+                  </strong>
+                  <p>
+                    {campaigns[0].heroLabel ?? "Admin-published mystery pack"}
+                  </p>
+                  <Link href={`/gacha/${campaigns[0].slug}`}>
+                    VIEW DETAILS →
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <span>Store setup</span>
+                  <strong>No live packs yet</strong>
+                  <p>
+                    Admin must publish real packs before customers can open.
+                  </p>
+                  <Link href="/local-readiness">VIEW READINESS →</Link>
+                </>
+              )}
             </section>
             <div className="section-heading-row template-section-heading">
               <h3 className="title-m">Featured Today</h3>
-              <Link className="mini-link" href="/exchange">See all →</Link>
+              <Link className="mini-link" href="/exchange">
+                See all →
+              </Link>
             </div>
-            <CampaignGrid campaigns={campaigns} emptyTitle="No packs match this filter" emptyBody="Try All, switch category, or ask admin to add matching pack labels." />
+            <CampaignGrid
+              campaigns={campaigns}
+              emptyTitle="No packs match this filter"
+              emptyBody="Try All, switch category, or ask admin to add matching pack labels."
+            />
             <section className="live-now-strip">
               <div className="section-heading-row">
-                <h3 className="title-m">Live Now</h3>
-                <span className="orange-chip">● 12 rooms</span>
+                <h3 className="title-m">Store status</h3>
+                <span className="orange-chip">
+                  ● {campaigns.length} visible packs
+                </span>
               </div>
-              <div className="live-now-row"><span>Otto J.</span><p>Just got SR Mewtwo · 2 min ago</p><strong>👏</strong></div>
-              <div className="live-now-row"><span>Mint S.</span><p>Just got UR Charizard · 5 min ago</p><strong>👏</strong></div>
+              {campaigns.length ? (
+                campaigns.slice(0, 2).map((campaign) => (
+                  <div
+                    className="live-now-row"
+                    key={`store-status-${campaign.id}`}
+                  >
+                    <span>{seriesLabel(campaign.series)}</span>
+                    <p>
+                      {campaign.titleTh || campaign.titleEn} ·{" "}
+                      {remainingStatusText(campaign)}
+                    </p>
+                    <strong>›</strong>
+                  </div>
+                ))
+              ) : (
+                <div className="live-now-row">
+                  <span>Admin</span>
+                  <p>No real live packs are published yet.</p>
+                  <strong>!</strong>
+                </div>
+              )}
             </section>
           </section>
         </div>
 
         <aside className="store-right-rail">
           <PromoCard />
-          <LiveActivity />
+          <LiveActivity campaigns={campaigns} />
         </aside>
       </div>
     </>
   );
 }
 
-function MobileTorecaHero() {
+function MobileTorecaHero({ campaign }: { campaign?: YnotCampaign }) {
+  const openHref = campaign
+    ? `/gacha/${campaign.slug}/open`
+    : "/local-readiness";
   return (
     <section className="toreca-mobile-hero" aria-label="YNot mobile hero">
       <div className="hero-card-fan" aria-hidden>
-        {Array.from({ length: 8 }).map((_, index) => <span key={index} />)}
+        {Array.from({ length: 8 }).map((_, index) => (
+          <span key={index} />
+        ))}
       </div>
       <div className="hero-copy">
-        <h1>RIP PACKS<br />SHIP CARDS<br />COLLECT AND<br />REPEAT</h1>
-        <p>JOIN OVER 250,000 USERS WORLDWIDE</p>
-        <Link className="hero-rip-button" href="/gacha/pokemon-gold-07/open">Rip Mystery Pack</Link>
+        <h1>
+          RIP PACKS
+          <br />
+          SHIP CARDS
+          <br />
+          COLLECT AND
+          <br />
+          REPEAT
+        </h1>
+        <p>
+          {campaign
+            ? "OPEN LIVE ADMIN-PUBLISHED PACKS"
+            : "AWAITING FIRST LIVE PACK"}
+        </p>
+        <Link className="hero-rip-button" href={openHref}>
+          {campaign ? "Rip Mystery Pack" : "View Readiness"}
+        </Link>
       </div>
-      <Link className="hero-see-more" href={homeFilterHref({ series: "pokemon" })}>⌄ See more packs ⌄</Link>
+      <Link
+        className="hero-see-more"
+        href={homeFilterHref({ series: "pokemon" })}
+      >
+        ⌄ See more packs ⌄
+      </Link>
     </section>
   );
 }
 
-function RailLink({ icon, label, href, active }: { icon: string; label: string; href: string; active?: boolean }) {
-  return <Link className={`rail-link ${active ? "active" : ""}`} href={href}><span>{icon}</span>{label}<span aria-hidden>›</span></Link>;
+function RailLink({
+  icon,
+  label,
+  href,
+  active,
+}: {
+  icon: string;
+  label: string;
+  href: string;
+  active?: boolean;
+}) {
+  return (
+    <Link className={`rail-link ${active ? "active" : ""}`} href={href}>
+      <span>{icon}</span>
+      {label}
+      <span aria-hidden>›</span>
+    </Link>
+  );
 }
 
 function CategoryStrip({ homeFilter }: { homeFilter: HomeFilterState }) {
@@ -295,9 +563,15 @@ function CategoryStrip({ homeFilter }: { homeFilter: HomeFilterState }) {
       {homeCategories.map((category) => (
         <Link
           key={category.series}
-          aria-current={homeFilter.series === category.series ? "page" : undefined}
+          aria-current={
+            homeFilter.series === category.series ? "page" : undefined
+          }
           className={`category-tab ${homeFilter.series === category.series ? "active" : ""}`}
-          href={homeFilterHref({ series: category.series, tag: homeFilter.tag, sort: homeFilter.sort })}
+          href={homeFilterHref({
+            series: category.series,
+            tag: homeFilter.tag,
+            sort: homeFilter.sort,
+          })}
         >
           {category.label}
         </Link>
@@ -311,39 +585,82 @@ function PromoCard() {
     <section className="app-promo-card">
       <p className="section-label">YNot Trading Card Center</p>
       <h3>Now available as a web + LINE experience!</h3>
-      <p>Top up by bank transfer or QR, open packs, exchange cards, and request shipping from one account.</p>
-      <div className="promo-qr" aria-label="QR placeholder">QR</div>
-      <Link className="primary-action w-full justify-center" href="/wallet">Top up wallet</Link>
+      <p>
+        Top up by bank transfer or QR, open packs, exchange cards, and request
+        shipping from one account.
+      </p>
+      <div className="promo-qr" aria-label="Wallet QR configured by admin">
+        QR
+      </div>
+      <Link className="primary-action w-full justify-center" href="/wallet">
+        Top up wallet
+      </Link>
     </section>
   );
 }
 
-function LiveActivity() {
-  const rows = ["Mint opened Pokemon Gold", "Boo Boo exchanged PSA10", "YUYA shipped One Piece", "Admin approved top-up"];
+function LiveActivity({ campaigns }: { campaigns: YnotCampaign[] }) {
   return (
     <section className="live-panel">
       <div className="section-heading-row">
         <div>
-          <p className="section-label">Live activity</p>
-          <h3 className="title-m">Store feed</h3>
+          <p className="section-label">Store activity</p>
+          <h3 className="title-m">Published packs</h3>
         </div>
         <span className="live-dot" />
       </div>
       <div className="live-list">
-        {rows.map((row) => <p key={row}>{row}<span>now</span></p>)}
+        {campaigns.length ? (
+          campaigns.slice(0, 4).map((campaign) => (
+            <p key={`activity-${campaign.id}`}>
+              {campaign.titleTh || campaign.titleEn}
+              <span>{campaign.status}</span>
+            </p>
+          ))
+        ) : (
+          <p>
+            No public pack activity yet<span>setup</span>
+          </p>
+        )}
       </div>
     </section>
   );
 }
 
-export function MetricGrid({ wallet, topUps, collection, campaigns }: { wallet: YnotWallet; topUps: YnotTopUp[]; collection: YnotCollectionItem[]; campaigns: YnotCampaign[] }) {
-  const pendingTopUps = topUps.filter((topUp) => topUp.status === "pending_review" || topUp.status === "pending_slip").length;
+export function MetricGrid({
+  wallet,
+  topUps,
+  collection,
+  campaigns,
+}: {
+  wallet: YnotWallet;
+  topUps: YnotTopUp[];
+  collection: YnotCollectionItem[];
+  campaigns: YnotCampaign[];
+}) {
+  const pendingTopUps = topUps.filter(
+    (topUp) =>
+      topUp.status === "pending_review" || topUp.status === "pending_slip",
+  ).length;
   return (
     <div className="metric-grid">
-      <Metric label="Coin balance" value={`${(wallet.balanceCoins || 0).toLocaleString()} coins`} />
+      <Metric
+        label="Coin balance"
+        value={`${(wallet.balanceCoins || 0).toLocaleString()} coins`}
+      />
       <Metric label="Pending top-ups" value={String(pendingTopUps)} />
-      <Metric label="Owned cards" value={String(collection.filter((item) => item.status === "owned").length || sampleCollectionCards.length)} />
-      <Metric label="Live campaigns" value={String(campaigns.filter((campaign) => campaign.status === "live").length)} />
+      <Metric
+        label="Owned cards"
+        value={String(
+          collection.filter((item) => item.status === "owned").length,
+        )}
+      />
+      <Metric
+        label="Live campaigns"
+        value={String(
+          campaigns.filter((campaign) => campaign.status === "live").length,
+        )}
+      />
     </div>
   );
 }
@@ -372,7 +689,9 @@ export function CampaignGrid({
   if (!items.length) return <EmptyState title={emptyTitle} body={emptyBody} />;
   return (
     <div className="campaign-grid">
-      {items.map((campaign) => <CampaignCard key={campaign.id} campaign={campaign} />)}
+      {items.map((campaign) => (
+        <CampaignCard key={campaign.id} campaign={campaign} />
+      ))}
     </div>
   );
 }
@@ -381,26 +700,58 @@ export function CampaignCard({ campaign }: { campaign: YnotCampaign }) {
   const title = campaign.titleTh || campaign.titleEn;
   const displayTags = campaignDisplayTags(campaign);
   const remainingSlots = remaining(campaign);
+  const remainingLabel =
+    remainingSlots === null
+      ? "Server-tracked stock"
+      : `Remaining ${remainingSlots.toLocaleString()}/${campaign.totalSlots.toLocaleString()}`;
   return (
     <article className="product-card clean-pack-card">
       <div className="pack-card-top">
-        <div className="product-tags pack-info-tags" aria-label="Pack status and admin tags">
+        <div
+          className="product-tags pack-info-tags"
+          aria-label="Pack status and admin tags"
+        >
           <span className="status-pill">{campaign.status}</span>
-          {displayTags.map((tag, index) => <span key={`${campaign.id}-tag-${index}-${tag}`} className="soft-pill campaign-label-pill">{tag}</span>)}
+          {displayTags.map((tag, index) => (
+            <span
+              key={`${campaign.id}-tag-${index}-${tag}`}
+              className="soft-pill campaign-label-pill"
+            >
+              {tag}
+            </span>
+          ))}
         </div>
         <h3 className="title-m pack-card-title">{title}</h3>
       </div>
-      <Link className="pack-image-link" href={`/gacha/${campaign.slug}`} aria-label={`View ${title}`}>
+      <Link
+        className="pack-image-link"
+        href={`/gacha/${campaign.slug}`}
+        aria-label={`View ${title}`}
+      >
         <CampaignArtwork campaign={campaign} clean />
       </Link>
-      <div className="pack-card-bottom" aria-label="Pack price and remaining stock">
-        <span className="pack-price-line" aria-label={`${formatCoins(campaign.costCoins)} coins per pack`}><CoinIcon /> {formatCoins(campaign.costCoins)}/pack</span>
-        <span className="pack-remaining-line" aria-label={`Remaining ${remainingSlots.toLocaleString()} out of ${campaign.totalSlots.toLocaleString()}`}>Remaining {remainingSlots.toLocaleString()}/{campaign.totalSlots.toLocaleString()}</span>
+      <div
+        className="pack-card-bottom"
+        aria-label="Pack price and stock status"
+      >
+        <span
+          className="pack-price-line"
+          aria-label={`${formatCoins(campaign.costCoins)} coins per pack`}
+        >
+          <CoinIcon /> {formatCoins(campaign.costCoins)}/pack
+        </span>
+        <span className="pack-remaining-line" aria-label={remainingLabel}>
+          {remainingLabel}
+        </span>
       </div>
-      <div className="progress-track"><span style={{ width: `${remainingPercent(campaign)}%` }} /></div>
+      <ProgressTrack campaign={campaign} />
       <div className="product-actions">
-        <Link className="secondary-action" href={`/gacha/${campaign.slug}`}>Details</Link>
-        <Link className="primary-action" href={`/gacha/${campaign.slug}/open`}>Open</Link>
+        <Link className="secondary-action" href={`/gacha/${campaign.slug}`}>
+          Details
+        </Link>
+        <Link className="primary-action" href={`/gacha/${campaign.slug}/open`}>
+          Open
+        </Link>
       </div>
     </article>
   );
@@ -410,15 +761,29 @@ export function CampaignDetailPanel({ campaign }: { campaign: YnotCampaign }) {
   return (
     <section className="product-detail-grid detail-phone phone-surface">
       <PhoneTopBar
-        title={campaign.slug === "pokemon-gold-07" ? "Gold Set #07" : campaign.titleEn}
-        action={<><Link className="template-icon-button" href="/">‹</Link><Link className="template-icon-button" href="/collection">♡</Link></>}
+        title={campaign.titleEn}
+        action={
+          <>
+            <Link className="template-icon-button" href="/">
+              ‹
+            </Link>
+            <Link className="template-icon-button" href="/collection">
+              ♡
+            </Link>
+          </>
+        }
       />
       <PhoneRule />
       <CampaignArtwork campaign={campaign} large />
       <section className="detail-info-card">
-        <p className="section-label">{campaign.categoryLabel ?? seriesLabel(campaign.series)} mystery pack</p>
+        <p className="section-label">
+          {campaign.categoryLabel ?? seriesLabel(campaign.series)} mystery pack
+        </p>
         <h3 className="page-title">{campaign.titleTh || campaign.titleEn}</h3>
-        <p className="page-description">{campaign.heroLabel ?? "High-value chase cards, exchangeable collection rewards, and real shipping support."}</p>
+        <p className="page-description">
+          {campaign.heroLabel ??
+            "High-value chase cards, exchangeable collection rewards, and real shipping support."}
+        </p>
         <div className="filter-chip-row">
           <span className="filter-chip active">PSA10</span>
           <span className="filter-chip">High value</span>
@@ -426,14 +791,31 @@ export function CampaignDetailPanel({ campaign }: { campaign: YnotCampaign }) {
           <span className="filter-chip">Shipping ready</span>
         </div>
         <div className="detail-stat-grid">
-          <div><span>Price/pull</span><strong><CoinIcon /> {formatCoins(campaign.costCoins)}</strong></div>
-          <div><span>Remaining</span><strong>{remaining(campaign).toLocaleString()} / {campaign.totalSlots.toLocaleString()} left</strong></div>
+          <div>
+            <span>Price/pull</span>
+            <strong>
+              <CoinIcon /> {formatCoins(campaign.costCoins)}
+            </strong>
+          </div>
+          <div>
+            <span>Stock</span>
+            <strong>{remainingRatioText(campaign)}</strong>
+          </div>
         </div>
-        <div className="progress-track"><span style={{ width: `${remainingPercent(campaign)}%` }} /></div>
+        <ProgressTrack campaign={campaign} />
         <div className="detail-actions">
-          <Link className="primary-action" href={`/gacha/${campaign.slug}/open`}>Pull × 1</Link>
-          <Link className="orange-action" href={`/gacha/${campaign.slug}/open`}>Pull × 10</Link>
-          <Link className="secondary-action" href="/wallet">Top up wallet</Link>
+          <Link
+            className="primary-action"
+            href={`/gacha/${campaign.slug}/open`}
+          >
+            Pull × 1
+          </Link>
+          <Link className="orange-action" href={`/gacha/${campaign.slug}/open`}>
+            Pull × 10
+          </Link>
+          <Link className="secondary-action" href="/wallet">
+            Top up wallet
+          </Link>
         </div>
         <div className="reward-section">
           <div className="section-heading-row">
@@ -441,12 +823,25 @@ export function CampaignDetailPanel({ campaign }: { campaign: YnotCampaign }) {
               <p className="section-label">Rewards</p>
               <h4 className="title-m">Prize lineup</h4>
             </div>
-            <span className="status-pill">Live</span>
+            <span className="status-pill">{campaign.status}</span>
           </div>
-          <RewardTierList />
+          {campaign.demo && allowDemoStorefront() ? (
+            <RewardTierList />
+          ) : (
+            <EmptyState
+              title="Real prize pool required"
+              body="Admin-managed prize data must be published for this campaign before public launch."
+            />
+          )}
         </div>
       </section>
-      <div className="transparent-note"><strong>🔒 100% Transparent</strong><span>Every pull has a verifiable hash · stock counts update real-time</span></div>
+      <div className="transparent-note">
+        <strong>🔒 100% Transparent</strong>
+        <span>
+          Production pulls are tracked by database rows after migrations are
+          applied
+        </span>
+      </div>
     </section>
   );
 }
@@ -457,11 +852,23 @@ export function RewardTierList({ compact = false }: { compact?: boolean }) {
       {rewardTiers.map((tier, index) => (
         <div key={tier.rank} className="reward-tier-card">
           <div className="tier-heading">
-            <div><span className={`tier-rank tier-${tier.rank.toLowerCase()}`}>{tier.rank}</span><strong>{tier.name}</strong></div>
+            <div>
+              <span className={`tier-rank tier-${tier.rank.toLowerCase()}`}>
+                {tier.rank}
+              </span>
+              <strong>{tier.name}</strong>
+            </div>
             <span>{tier.remain} left</span>
           </div>
           <div className="tier-cards">
-            {tier.cards.map((card, cardIndex) => <PrizeCard key={`${tier.rank}-${cardIndex}`} label={card} rare={index < 2} compact={compact} />)}
+            {tier.cards.map((card, cardIndex) => (
+              <PrizeCard
+                key={`${tier.rank}-${cardIndex}`}
+                label={card}
+                rare={index < 2}
+                compact={compact}
+              />
+            ))}
           </div>
           <p className="txt-s">{tier.note}</p>
         </div>
@@ -470,41 +877,89 @@ export function RewardTierList({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function CampaignArtwork({ campaign, large = false, clean = false }: { campaign: YnotCampaign; large?: boolean; clean?: boolean }) {
-  const hasPackAsset = campaign.slug === "pokemon-gold-07";
+function CampaignArtwork({
+  campaign,
+  large = false,
+  clean = false,
+}: {
+  campaign: YnotCampaign;
+  large?: boolean;
+  clean?: boolean;
+}) {
+  const hasPackAsset = Boolean(
+    campaign.demo &&
+    allowDemoStorefront() &&
+    campaign.slug === "pokemon-gold-07",
+  );
   return (
-    <div className={`campaign-art ${campaign.series === "pokemon" ? "pokemon" : "one-piece"} ${hasPackAsset ? "has-asset" : ""} ${large ? "large" : ""} ${clean ? "clean-art" : ""}`}>
+    <div
+      className={`campaign-art ${campaign.series === "pokemon" ? "pokemon" : "one-piece"} ${hasPackAsset ? "has-asset" : ""} ${large ? "large" : ""} ${clean ? "clean-art" : ""}`}
+    >
       <span className="art-glow" aria-hidden />
       {clean && !hasPackAsset && (
         <span className="clean-pack-cover" aria-hidden>
-          <span className="clean-cover-kicker">{campaign.categoryLabel ?? seriesLabel(campaign.series)}</span>
+          <span className="clean-cover-kicker">
+            {campaign.categoryLabel ?? seriesLabel(campaign.series)}
+          </span>
           <span className="clean-cover-title">{campaign.titleEn}</span>
           <span className="clean-cover-footer">Mystery Pack</span>
         </span>
       )}
       {!clean && (
         <>
-          <span className="art-count">{large ? "PROVABLY FAIR" : `1/${formatCoins(campaign.costCoins)}`}</span>
-          <span className="art-category">{campaign.categoryLabel ?? seriesLabel(campaign.series)}</span>
+          <span className="art-count">
+            {large ? "SERVER RECORDED" : `1/${formatCoins(campaign.costCoins)}`}
+          </span>
+          <span className="art-category">
+            {campaign.categoryLabel ?? seriesLabel(campaign.series)}
+          </span>
           <strong>{campaign.titleEn}</strong>
           <p>{campaign.heroLabel ?? seriesLabel(campaign.series)}</p>
-          <span className="art-coin"><CoinIcon /> {formatCoins(campaign.costCoins)}</span>
-          <span className="art-stock">{remaining(campaign).toLocaleString()}/{campaign.totalSlots.toLocaleString()}</span>
+          <span className="art-coin">
+            <CoinIcon /> {formatCoins(campaign.costCoins)}
+          </span>
+          <span className="art-stock">{remainingRatioText(campaign)}</span>
         </>
       )}
     </div>
   );
 }
 
-function PrizeCard({ label, rare, compact }: { label: string; rare?: boolean; compact?: boolean }) {
-  return <div className={`prize-card ${rare ? "rare" : ""} ${compact ? "compact" : ""}`}><span>{label}</span></div>;
+function PrizeCard({
+  label,
+  rare,
+  compact,
+}: {
+  label: string;
+  rare?: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={`prize-card ${rare ? "rare" : ""} ${compact ? "compact" : ""}`}
+    >
+      <span>{label}</span>
+    </div>
+  );
 }
 
 function CoinIcon() {
-  return <span aria-label="coin" className="coin-icon">●</span>;
+  return (
+    <span aria-label="coin" className="coin-icon">
+      ●
+    </span>
+  );
 }
 
-export function WalletPanel({ wallet, paymentMethods, topUps }: { wallet: YnotWallet; paymentMethods: YnotPaymentMethod[]; topUps: YnotTopUp[] }) {
+export function WalletPanel({
+  wallet,
+  paymentMethods,
+  topUps,
+}: {
+  wallet: YnotWallet;
+  paymentMethods: YnotPaymentMethod[];
+  topUps: YnotTopUp[];
+}) {
   return (
     <div className="wallet-panel-stack">
       <section className="soft-card wallet-balance-card">
@@ -515,16 +970,36 @@ export function WalletPanel({ wallet, paymentMethods, topUps }: { wallet: YnotWa
       <section className="soft-card wallet-method-card">
         <h3 className="title-m">Manual transfer / QR methods</h3>
         <div className="mt-4 grid gap-3">
-          {paymentMethods.length ? paymentMethods.map((method) => (
-            <div key={method.id} className="payment-method-card">
-              <span className="payment-icon">{method.type === "promptpay_qr" ? "▣" : "🏦"}</span>
-              <p className="title-s text-[var(--gold)]">{method.displayName}</p>
-              <p className="txt-s mt-1">{method.bankName ?? "PromptPay"} · {method.accountName ?? method.promptpayId ?? "Configured by admin"}</p>
-              {method.accountNumber && <p className="txt-mono mt-1">{method.accountNumber}</p>}
-              {method.instructions && <p className="txt-s mt-2">{method.instructions}</p>}
-              <span className="payment-chevron">›</span>
-            </div>
-          )) : <EmptyState title="No payment method" body="Admin settings must add at least one active bank/QR method." />}
+          {paymentMethods.length ? (
+            paymentMethods.map((method) => (
+              <div key={method.id} className="payment-method-card">
+                <span className="payment-icon">
+                  {method.type === "promptpay_qr" ? "▣" : "🏦"}
+                </span>
+                <p className="title-s text-[var(--gold)]">
+                  {method.displayName}
+                </p>
+                <p className="txt-s mt-1">
+                  {method.bankName ?? "PromptPay"} ·{" "}
+                  {method.accountName ??
+                    method.promptpayId ??
+                    "Configured by admin"}
+                </p>
+                {method.accountNumber && (
+                  <p className="txt-mono mt-1">{method.accountNumber}</p>
+                )}
+                {method.instructions && (
+                  <p className="txt-s mt-2">{method.instructions}</p>
+                )}
+                <span className="payment-chevron">›</span>
+              </div>
+            ))
+          ) : (
+            <EmptyState
+              title="No payment method"
+              body="Admin settings must add at least one active bank/QR method."
+            />
+          )}
         </div>
       </section>
       <section className="soft-card wallet-history-card">
@@ -535,68 +1010,108 @@ export function WalletPanel({ wallet, paymentMethods, topUps }: { wallet: YnotWa
   );
 }
 
-export function TopUpTable({ topUps, admin }: { topUps: YnotTopUp[]; admin?: boolean }) {
-  if (!topUps.length) return <EmptyState title="No top-up requests" body="Upload a transfer slip to create the first manual review request." />;
+export function TopUpTable({
+  topUps,
+  admin,
+}: {
+  topUps: YnotTopUp[];
+  admin?: boolean;
+}) {
+  if (!topUps.length)
+    return (
+      <EmptyState
+        title="No top-up requests"
+        body="Upload a transfer slip to create the first manual review request."
+      />
+    );
   return (
     <div className="mt-4 overflow-x-auto">
       <table className="w-full min-w-[640px] text-left text-sm">
-        <thead className="section-label"><tr><th className="py-2">Code</th><th>Coins</th><th>Amount</th><th>Status</th><th>Created</th>{admin && <th>Profile</th>}</tr></thead>
+        <thead className="section-label">
+          <tr>
+            <th className="py-2">Code</th>
+            <th>Coins</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Created</th>
+            {admin && <th>Profile</th>}
+          </tr>
+        </thead>
         <tbody>
-          {topUps.map((topUp) => <tr key={topUp.id} className="border-t border-[var(--border)]"><td className="py-3 font-mono font-bold">{topUp.publicCode}</td><td>{topUp.coinAmount.toLocaleString()}</td><td>฿{topUp.amountThb.toLocaleString()}</td><td><StatusBadge status={topUp.status} /></td><td>{new Date(topUp.createdAt).toLocaleString()}</td>{admin && <td className="font-mono text-xs">{topUp.profileId.slice(0, 8)}</td>}</tr>)}
+          {topUps.map((topUp) => (
+            <tr key={topUp.id} className="border-t border-[var(--border)]">
+              <td className="py-3 font-mono font-bold">{topUp.publicCode}</td>
+              <td>{topUp.coinAmount.toLocaleString()}</td>
+              <td>฿{topUp.amountThb.toLocaleString()}</td>
+              <td>
+                <StatusBadge status={topUp.status} />
+              </td>
+              <td>{new Date(topUp.createdAt).toLocaleString()}</td>
+              {admin && (
+                <td className="font-mono text-xs">
+                  {topUp.profileId.slice(0, 8)}
+                </td>
+              )}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
   );
 }
 
-export function CollectionGrid({ collection }: { collection: YnotCollectionItem[] }) {
+export function CollectionGrid({
+  collection,
+}: {
+  collection: YnotCollectionItem[];
+}) {
   if (!collection.length) {
-    return <div className="collection-list">{sampleCollectionCards.map((item) => <SampleCollectionCard key={item.code} item={item} />)}</div>;
+    return (
+      <EmptyState
+        title="No real collection cards yet"
+        body="Open a live pack first. Demo sample cards are not shown as customer inventory in production-safe mode."
+      />
+    );
   }
-  return <div className="collection-list">{collection.map((item) => <CollectionCard key={item.id} item={item} />)}</div>;
-}
-
-function SampleCollectionCard({ item }: { item: (typeof sampleCollectionCards)[number] }) {
   return (
-    <article className={`collection-card ${item.selected ? "selected" : ""}`}>
-      <div className="collection-art"><span>{item.type}</span></div>
-      <div className="min-w-0 grow">
-        <h3 className="title-s truncate">{item.name}</h3>
-        <div className="collection-tags"><span>{item.selected ? "GRAND" : "3RD"}</span><span>PSA10</span></div>
-        <p className="txt-mono text-xs">{item.code}</p>
-        <p className="title-s text-[13px]"><CoinIcon /> {item.coin}</p>
-        <p className="txt-s text-[var(--gold)]">Deadline 2026/05/10</p>
-      </div>
-      <span className="collection-check">{item.selected ? "✓" : ""}</span>
-    </article>
+    <div className="collection-list">
+      {collection.map((item) => (
+        <CollectionCard key={item.id} item={item} />
+      ))}
+    </div>
   );
 }
 
 function CollectionCard({ item }: { item: YnotCollectionItem }) {
   return (
     <article className="collection-card vertical">
-      <div className="collection-art large"><span>{item.imageUrl ? "Card image" : item.cardCode ?? "YNot Card"}</span></div>
+      <div className="collection-art large">
+        <span>
+          {item.imageUrl ? "Card image" : (item.cardCode ?? "YNot Card")}
+        </span>
+      </div>
       <h3 className="title-s mt-4">{item.cardName}</h3>
-      <p className="txt-mono mt-1 text-xs">{item.serialNo ?? item.id.slice(0, 8)} · {item.status}</p>
+      <p className="txt-mono mt-1 text-xs">
+        {item.serialNo ?? item.id.slice(0, 8)} · {item.status}
+      </p>
     </article>
   );
 }
 
 export function RankingTable({ rankings }: { rankings: YnotRankingRow[] }) {
-  const rows = rankings.length ? rankings : [
-    { rank: 1, displayName: "HUSKY", metric: "yesterday", value: 283420 },
-    { rank: 2, displayName: "TSUYOSHI_CFC", metric: "yesterday", value: 192780 },
-    { rank: 3, displayName: "M", metric: "yesterday", value: 158210 },
-    { rank: 4, displayName: "H", metric: "yesterday", value: 124500 },
-    { rank: 5, displayName: "オリパ中毒", metric: "yesterday", value: 98640 },
-    { rank: 6, displayName: "Nameless Collector", metric: "yesterday", value: 82430 },
-    { rank: 7, displayName: "テンテン", metric: "yesterday", value: 74210 },
-  ];
-  const [top, ...rest] = rows;
+  const [top, ...rest] = rankings;
   return (
     <section className="soft-card ranking-phone phone-surface">
-      <PhoneTopBar title="Ranking" action={<span className="orange-chip">🏆 Reward</span>} />
-      <div className="ranking-tabs"><span className="active">Yesterday</span><span>Week</span><span>Month</span><span>All-time</span></div>
+      <PhoneTopBar
+        title="Ranking"
+        action={<span className="orange-chip">🏆 Reward</span>}
+      />
+      <div className="ranking-tabs">
+        <span className="active">Yesterday</span>
+        <span>Week</span>
+        <span>Month</span>
+        <span>All-time</span>
+      </div>
       {top && (
         <div className="ranking-hero">
           <span className="crown">👑</span>
@@ -606,74 +1121,655 @@ export function RankingTable({ rankings }: { rankings: YnotRankingRow[] }) {
           <strong>★ TOP 1</strong>
         </div>
       )}
-      <div className="ranking-list">
-        {rest.map((row) => (
-          <div className="leader-row" key={`${row.metric}-${row.rank}`}>
-            <span className="leader-rank">{row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : row.rank}</span>
-            <span className="leader-avatar" />
-            <strong>{row.displayName}</strong>
-            <em>{row.value.toLocaleString()}</em>
-          </div>
-        ))}
-      </div>
+      {rankings.length ? (
+        <div className="ranking-list">
+          {rest.map((row) => (
+            <div className="leader-row" key={`${row.metric}-${row.rank}`}>
+              <span className="leader-rank">
+                {row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : row.rank}
+              </span>
+              <span className="leader-avatar" />
+              <strong>{row.displayName}</strong>
+              <em>{row.value.toLocaleString()}</em>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="No ranking data yet"
+          body="Ranking rows will appear after real customer activity is recorded."
+        />
+      )}
     </section>
   );
 }
 
-export function ExchangeCatalogPanel() {
+export function ExchangeCatalogPanel({
+  wallet,
+  collectionCount,
+  requestCount,
+}: {
+  wallet: YnotWallet;
+  collectionCount: number;
+  requestCount: number;
+}) {
   return (
     <section className="market-shell phone-surface">
-      <PhoneTopBar title="Exchange" coin="252,433" />
+      <PhoneTopBar title="Exchange" coin={wallet.balanceCoins} />
       <PhoneRule />
-      <div className="category-strip market-categories" aria-label="Exchange categories">
-        {exchangeCategories.map((category, index) => <a id={navSlug(category)} key={category} className={`category-tab ${index === 0 ? "active" : ""}`} href={`#${navSlug(category)}`}>{category}</a>)}
+      <div
+        className="category-strip market-categories"
+        aria-label="Exchange status"
+      >
+        <span className="category-tab active">Owned {collectionCount}</span>
+        <span className="category-tab">Requests {requestCount}</span>
+        <span className="category-tab">Admin review</span>
       </div>
-      <div className="exchange-bonus-strip">🎁 <strong>BONUS ✦ 4,614</strong> · Trade for real cards below</div>
-      <div className="exchange-grid">
-        {exchangeCatalog.map((card) => (
-          <article key={card.name} className={`exchange-card ${card.sold ? "sold" : ""}`}>
-            <div className="exchange-stock"><span>Stock</span><em>{card.tickets}</em></div>
-            <div className="exchange-art"><span>{card.category}</span>{card.sold && <strong>SOLD OUT</strong>}</div>
-            <h4>{card.name}</h4>
-            <div className="exchange-price"><CoinIcon /> {card.coin}</div>
-          </article>
-        ))}
+      <div className="exchange-bonus-strip">
+        <strong>Real exchange requests only</strong> · Select owned collection
+        cards below; admin review records approved coin value.
       </div>
+      <EmptyState
+        title="No public exchange catalog yet"
+        body="Production exchange value comes from admin-reviewed collection requests until an admin-managed exchange catalog is added."
+      />
     </section>
   );
 }
 
-export function OrderList({ title, orders }: { title: string; orders: Array<YnotExchangeOrder | YnotShippingRequest> }) {
+export function OrderList({
+  title,
+  orders,
+}: {
+  title: string;
+  orders: Array<YnotExchangeOrder | YnotShippingRequest>;
+}) {
   return (
     <section className="soft-card rounded-[28px] p-5">
       <h3 className="title-m">{title}</h3>
-      {!orders.length ? <EmptyState title="No requests" body="Submit a collection request to create one." /> : <div className="mt-4 grid gap-3">{orders.map((order) => <div key={order.id} className="request-card"><div className="flex items-center justify-between gap-3"><p className="font-mono font-bold">{order.publicCode}</p><StatusBadge status={order.status} /></div><p className="txt-mono mt-2 text-xs">Created {new Date(order.createdAt).toLocaleString()}</p></div>)}</div>}
+      {!orders.length ? (
+        <EmptyState
+          title="No requests"
+          body="Submit a collection request to create one."
+        />
+      ) : (
+        <div className="mt-4 grid gap-3">
+          {orders.map((order) => (
+            <div key={order.id} className="request-card">
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-mono font-bold">{order.publicCode}</p>
+                <StatusBadge status={order.status} />
+              </div>
+              <p className="txt-mono mt-2 text-xs">
+                Created {new Date(order.createdAt).toLocaleString()}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
 
-export function AdminGate({ viewer, children }: { viewer: YnotViewer; children: ReactNode }) {
+export function AdminSectionShell({
+  viewer,
+  activeHref,
+  children,
+}: {
+  viewer: YnotViewer;
+  activeHref: string;
+  children: ReactNode;
+}) {
+  return (
+    <AdminGate viewer={viewer}>
+      <YnotShell viewer={viewer}>
+        <div className="admin-workspace admin-redesign-reference">
+          <AdminNav activeHref={activeHref} />
+          <section className="admin-workspace-main">{children}</section>
+        </div>
+      </YnotShell>
+    </AdminGate>
+  );
+}
+
+export function AdminNav({ activeHref }: { activeHref: string }) {
+  const activeItem =
+    adminNavItems.find((item) => item.href === activeHref) ?? adminNavItems[0];
+
+  return (
+    <aside className="admin-side-nav soft-card" aria-label="Admin sections">
+      <div className="admin-side-nav-head">
+        <p className="admin-kicker">Admin menu</p>
+        <strong>Control Panel</strong>
+        <span>{activeItem.label}</span>
+      </div>
+      <div className="admin-side-nav-links">
+        {adminNavItems.map((item) => (
+          <Link
+            key={item.href}
+            className={`admin-side-nav-link ${activeHref === item.href ? "active" : ""}`}
+            href={item.href}
+          >
+            <span>{item.label}</span>
+            <em>{item.kicker}</em>
+          </Link>
+        ))}
+      </div>
+      <Link className="admin-storefront-link" href="/">
+        Back to storefront →
+      </Link>
+    </aside>
+  );
+}
+
+function healthCounts(data: YnotDashboardData) {
+  const checks = data.platformHealth?.checks ?? [];
+  return {
+    total: checks.length,
+    failing: checks.filter((check) => check.status === "fail").length,
+    warnings: checks.filter((check) => check.status === "warn").length,
+    passing: checks.filter((check) => check.status === "pass").length,
+  };
+}
+
+function liveCampaignCount(campaigns: YnotCampaign[]) {
+  return campaigns.filter(
+    (campaign) =>
+      campaign.status === "live" && campaign.visibility === "public",
+  ).length;
+}
+
+export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
+  const health = healthCounts(data);
+  const pendingTopUps = data.adminTopUps.filter(
+    (topUp) =>
+      topUp.status === "pending_review" || topUp.status === "pending_slip",
+  ).length;
+  const pendingExchange = data.exchanges.filter(
+    (order) => order.status === "submitted",
+  ).length;
+  const pendingShipping = data.shipping.filter(
+    (request) => request.status === "submitted" || request.status === "packing",
+  ).length;
+  const livePacks = liveCampaignCount(data.campaigns);
+  const draftPacks = data.campaigns.filter(
+    (campaign) =>
+      campaign.status === "draft" || campaign.visibility !== "public",
+  ).length;
+  const healthTone = health.failing
+    ? "danger"
+    : health.warnings
+      ? "warn"
+      : "ready";
+  const healthLabel = health.failing
+    ? `${health.failing} failing`
+    : health.warnings
+      ? `${health.warnings} warning`
+      : "ready";
+  const quickActions = [
+    {
+      href: "/admin/campaigns",
+      label: "New Random Pack",
+      detail: "Create draft, set price, labels, and publish.",
+    },
+    {
+      href: "/admin/prizes",
+      label: "Add Card / Prize",
+      detail: "Build the card catalog and prize pools.",
+    },
+    {
+      href: "/admin/top-ups",
+      label: "Review Top-ups",
+      detail: `${pendingTopUps} waiting for admin review.`,
+    },
+    {
+      href: "/admin/shipping",
+      label: "Shipping Queue",
+      detail: `${pendingShipping} open customer requests.`,
+    },
+  ];
+  const mainTools = [
+    {
+      href: "/admin/campaigns",
+      title: "Random Pack Studio",
+      body: "Create and update pack drafts, customer tags, price, slot count, visibility, and live status.",
+      meta: `${data.campaigns.length} pack records`,
+    },
+    {
+      href: "/admin/categories",
+      title: "Category Manager",
+      body: "Review the active Pokemon and One Piece storefront categories and the future dynamic category contract.",
+      meta: "2 active now",
+    },
+    {
+      href: "/admin/prizes",
+      title: "Prize / Card Catalog",
+      body: "Create card records and connect them to random pack prize pools before publishing.",
+      meta: "Card records",
+    },
+    {
+      href: "/admin/users",
+      title: "Users & Roles",
+      body: "Review profiles, account merge requests, and owner/admin/staff role assignments.",
+      meta: data.viewer.adminRole ?? "admin",
+    },
+    {
+      href: "/admin/top-ups",
+      title: "Wallet Top-ups",
+      body: "Approve or reject bank transfer and PromptPay slip requests before coins are credited.",
+      meta: `${pendingTopUps} pending`,
+    },
+    {
+      href: "/admin/shipping",
+      title: "Shipping",
+      body: "Move submitted card-shipping requests through packing, shipped, delivered, or cancelled states.",
+      meta: `${pendingShipping} open`,
+    },
+    {
+      href: "/admin/exchange",
+      title: "Exchange",
+      body: "Review card exchange requests and record notes so the customer history stays auditable.",
+      meta: `${pendingExchange} submitted`,
+    },
+    {
+      href: "/admin/settings",
+      title: "Payment Settings",
+      body: "Configure bank transfer and PromptPay methods used by customer wallet top-ups.",
+      meta: `${data.paymentMethods.length} methods`,
+    },
+    {
+      href: "/admin/rankings",
+      title: "Rankings",
+      body: "Inspect ranking snapshots before future public moderation and publishing controls.",
+      meta: `${data.rankings.length} rows`,
+    },
+    {
+      href: "/admin/audit",
+      title: "Audit Log",
+      body: "Trace admin, payment, gacha, exchange, shipping, and account events when debugging operations.",
+      meta: "Trace",
+    },
+  ];
+
+  return (
+    <div className="admin-clean-dashboard">
+      <section className="admin-clean-hero soft-card">
+        <div>
+          <p className="admin-kicker">Admin Control Center</p>
+          <h2>What do you want to manage?</h2>
+          <p>
+            Use this clean dashboard for daily work: open packs, add prize
+            cards, review money, ship cards, and check system readiness only
+            when needed.
+          </p>
+        </div>
+        <div className="admin-clean-status">
+          <span>Signed in as</span>
+          <strong>{data.viewer.displayName}</strong>
+          <p>
+            {data.viewer.adminRole ?? "admin"} · {livePacks} live pack
+            {livePacks === 1 ? "" : "s"} · {draftPacks} draft/private
+          </p>
+        </div>
+      </section>
+
+      <section
+        className="admin-clean-section"
+        aria-labelledby="admin-quick-actions-title"
+      >
+        <div className="admin-section-title">
+          <span id="admin-quick-actions-title">Quick actions</span>
+          <p>The buttons most owners use first.</p>
+        </div>
+        <div className="admin-quick-grid">
+          {quickActions.map((action) => (
+            <Link
+              key={action.href}
+              className="admin-quick-action soft-card"
+              href={action.href}
+            >
+              <strong>{action.label}</strong>
+              <p>{action.detail}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section
+        className="admin-clean-section"
+        aria-labelledby="admin-main-tools-title"
+      >
+        <div className="admin-section-title">
+          <span id="admin-main-tools-title">Main tools</span>
+          <p>
+            All owner/admin pages are grouped by job, not by technical status.
+          </p>
+        </div>
+        <div className="admin-tool-list">
+          {mainTools.map((tool) => (
+            <Link
+              key={tool.href}
+              className="admin-tool-row soft-card"
+              href={tool.href}
+            >
+              <div>
+                <h3>{tool.title}</h3>
+                <p>{tool.body}</p>
+              </div>
+              <strong>{tool.meta}</strong>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="admin-system-strip soft-card">
+        <div>
+          <span>System status</span>
+          <strong>{healthLabel}</strong>
+          <p>
+            {health.passing}/{health.total || 0} readiness checks passing. Open
+            health for migration/provider details when preparing production.
+          </p>
+        </div>
+        <Link className={`status-pill ${healthTone}`} href="/admin/health">
+          Open health
+        </Link>
+      </section>
+    </div>
+  );
+}
+
+export function AdminCategoryManager({
+  campaigns,
+  categories = [],
+}: {
+  campaigns: YnotCampaign[];
+  categories?: YnotCategory[];
+}) {
+  const futureCategories = [
+    {
+      title: "Pop Mart",
+      body: "Add only after the shared categories table exists for website and LIFF.",
+    },
+    {
+      title: "Hobby",
+      body: "Use the same future contract for image, sort order, hide/show, and labels.",
+    },
+  ];
+
+  return (
+    <div className="admin-category-page">
+      <section className="admin-category-intro soft-card">
+        <div>
+          <p className="admin-kicker">Category Manager</p>
+          <h3>Active storefront categories</h3>
+          <p>
+            Categories now come from the shared database when the production
+            readiness migration is applied. Pokemon and One Piece remain
+            backward compatible through <strong>draw_rounds.series</strong>.
+          </p>
+        </div>
+        <Link className="secondary-action compact" href="/admin/campaigns">
+          Open Random Pack Studio
+        </Link>
+      </section>
+
+      <section
+        className="admin-clean-section"
+        aria-labelledby="admin-active-categories-title"
+      >
+        <div className="admin-section-title">
+          <span id="admin-active-categories-title">Active categories</span>
+          <p>These are live-safe now and already used by customer filters.</p>
+        </div>
+        <div className="admin-category-list">
+          {(categories.length ? categories : adminCategoryCards.map((category) => ({
+            id: category.series,
+            slug: category.series,
+            nameTh: category.title,
+            nameEn: category.title,
+            description: category.subtitle,
+            icon: category.accent,
+            legacySeries: category.series,
+            sortOrder: 0,
+            isActive: true,
+            isTest: false,
+          } satisfies YnotCategory))).map((category) => {
+            const categoryCampaigns = campaigns.filter((campaign) =>
+              campaign.categoryIds?.includes(category.id)
+              || campaign.categorySlugs?.includes(category.slug)
+              || (category.legacySeries && campaign.series === category.legacySeries),
+            );
+            const publicLive = categoryCampaigns.filter(
+              (campaign) =>
+                campaign.status === "live" && campaign.visibility === "public",
+            ).length;
+            return (
+              <article
+                key={category.id}
+                className="admin-category-clean-card soft-card"
+              >
+                <div className="admin-category-clean-icon" aria-hidden>
+                  {category.icon ?? "✨"}
+                </div>
+                <div className="admin-category-clean-body">
+                  <span>{category.isActive ? "Active" : "Hidden"}{category.isTest ? " · TEST" : ""}</span>
+                  <h3>{category.nameEn}</h3>
+                  <p>{category.description ?? category.nameTh}</p>
+                  <dl>
+                    <div>
+                      <dt>Total packs</dt>
+                      <dd>{categoryCampaigns.length}</dd>
+                    </div>
+                    <div>
+                      <dt>Live public</dt>
+                      <dd>{publicLive}</dd>
+                    </div>
+                    <div>
+                      <dt>DB value</dt>
+                      <dd>
+                        <code>{category.slug}</code>
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+                <Link
+                  className="secondary-action compact"
+                  href={category.legacySeries ? `/?series=${category.legacySeries}` : `/?category=${category.slug}`}
+                >
+                  Preview storefront
+                </Link>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section
+        className="admin-clean-section"
+        aria-labelledby="admin-future-categories-title"
+      >
+        <div className="admin-section-title">
+          <span id="admin-future-categories-title">Future categories</span>
+          <p>
+            The UI is ready for these, but saving them waits for the shared DB
+            migration.
+          </p>
+        </div>
+        <div className="admin-future-category-grid">
+          {futureCategories.map((category) => (
+            <article
+              key={category.title}
+              className="admin-future-category-card soft-card"
+            >
+              <strong>{category.title}</strong>
+              <span>Coming later</span>
+              <p>{category.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="admin-category-contract soft-card">
+        <h3>Future DB-backed category contract</h3>
+        <div className="admin-roadmap-grid">
+          <div>
+            <strong>1. categories</strong>
+            <p>Create slug, name TH/EN, image/icon, status, sort order.</p>
+          </div>
+          <div>
+            <strong>2. draw_rounds.category_id</strong>
+            <p>
+              Replace fixed enum mapping while keeping Pokemon/One Piece
+              backward compatible.
+            </p>
+          </div>
+          <div>
+            <strong>3. Admin CRUD</strong>
+            <p>
+              Add create/edit/hide/reorder controls after migration is live.
+            </p>
+          </div>
+          <div>
+            <strong>4. Shared frontend</strong>
+            <p>Website and LIFF read the same published categories.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export function AdminGate({
+  viewer,
+  children,
+}: {
+  viewer: YnotViewer;
+  children: ReactNode;
+}) {
   if (!viewer.isAdmin) {
-    return <YnotShell viewer={viewer}><PageHeader eyebrow="Admin denied" title="Admin access is required" description="Your account is signed in, but it is not an active owner/admin/staff account in admin_users." action={<Link className="primary-action" href="/">Back home</Link>} /></YnotShell>;
+    return (
+      <YnotShell viewer={viewer}>
+        <PageHeader
+          eyebrow="Admin denied"
+          title="Admin access is required"
+          description="Your account is signed in, but it is not an active owner/admin/staff account in admin_users."
+          action={
+            <Link className="primary-action" href="/">
+              Back home
+            </Link>
+          }
+        />
+      </YnotShell>
+    );
   }
   return <>{children}</>;
 }
 
 export function AdminSummary({ data }: { data: YnotDashboardData }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Pending top-ups" value={String(data.adminTopUps.filter((topUp) => topUp.status === "pending_review" || topUp.status === "pending_slip").length)} />
-      <Metric label="Campaigns" value={String(data.campaigns.length)} />
-      <Metric label="Exchange requests" value={String(data.exchanges.length)} />
-      <Metric label="Shipping requests" value={String(data.shipping.length)} />
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Metric
+          label="Pending top-ups"
+          value={String(
+            data.adminTopUps.filter(
+              (topUp) =>
+                topUp.status === "pending_review" ||
+                topUp.status === "pending_slip",
+            ).length,
+          )}
+        />
+        <Metric label="Campaigns" value={String(data.campaigns.length)} />
+        <Metric
+          label="Exchange requests"
+          value={String(data.exchanges.length)}
+        />
+        <Metric
+          label="Shipping requests"
+          value={String(data.shipping.length)}
+        />
+      </div>
+      <PlatformHealthPanel health={data.platformHealth} />
     </div>
   );
 }
 
+export function PlatformHealthPanel({
+  health,
+}: {
+  health: YnotDashboardData["platformHealth"];
+}) {
+  const checks = health?.checks ?? [];
+  const failing = checks.filter((check) => check.status === "fail").length;
+  const warnings = checks.filter((check) => check.status === "warn").length;
+  return (
+    <section className="admin-panel admin-health-panel soft-card">
+      <div className="admin-panel-head">
+        <div>
+          <p className="section-label">Operational health</p>
+          <h3 className="title-m">Production readiness signals</h3>
+          <p className="txt-s mt-1">
+            {productionSafetyLabel()}. DB/provider gaps are visible here for
+            admins instead of being hidden as empty storefront state.
+          </p>
+        </div>
+        <span
+          className={`status-pill ${failing ? "danger" : warnings ? "warn" : "ready"}`}
+        >
+          {failing
+            ? `${failing} failing`
+            : warnings
+              ? `${warnings} warning`
+              : "ready"}
+        </span>
+      </div>
+      <div className="admin-health-grid">
+        {checks.length ? (
+          checks.map((check) => (
+            <div key={check.key} className={`health-check-row ${check.status}`}>
+              <span>
+                {check.status === "pass"
+                  ? "✓"
+                  : check.status === "warn"
+                    ? "!"
+                    : "×"}
+              </span>
+              <div>
+                <strong>{check.label}</strong>
+                <p>{check.detail}</p>
+              </div>
+            </div>
+          ))
+        ) : (
+          <EmptyState
+            title="No health checks"
+            body="Sign in as admin with Supabase configured to inspect production readiness signals."
+          />
+        )}
+      </div>
+      {health?.generatedAt && (
+        <p className="txt-mono admin-generated-at">
+          Generated {new Date(health.generatedAt).toLocaleString()}
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function StatusBadge({ status }: { status: string }) {
-  return <span className="status-pill px-3 py-1 text-xs">{status.replaceAll("_", " ")}</span>;
+  return (
+    <span className="status-pill px-3 py-1 text-xs">
+      {status.replaceAll("_", " ")}
+    </span>
+  );
 }
 
 export function EmptyState({ title, body }: { title: string; body: string }) {
-  return <div className="empty-state"><p className="title-s">{title}</p><p className="txt-s mt-2">{body}</p></div>;
+  return (
+    <div className="empty-state">
+      <p className="title-s">{title}</p>
+      <p className="txt-s mt-2">{body}</p>
+    </div>
+  );
 }

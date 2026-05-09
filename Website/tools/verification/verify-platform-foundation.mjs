@@ -35,6 +35,7 @@ const routes = [
   "src/app/admin/page.tsx",
   "src/app/admin/top-ups/page.tsx",
   "src/app/admin/campaigns/page.tsx",
+  "src/app/admin/categories/page.tsx",
   "src/app/admin/prizes/page.tsx",
   "src/app/admin/users/page.tsx",
   "src/app/admin/exchange/page.tsx",
@@ -59,6 +60,7 @@ const apis = [
   "src/app/api/ynot/admin/exchange/route.ts",
   "src/app/api/ynot/admin/shipping/route.ts",
   "src/app/api/ynot/admin/campaigns/route.ts",
+  "src/app/api/ynot/admin/categories/route.ts",
   "src/app/api/ynot/admin/cards/route.ts",
   "src/app/api/ynot/admin/prizes/route.ts",
   "src/app/api/ynot/admin/users/route.ts",
@@ -75,7 +77,7 @@ notCheck("src/app/page.tsx", "root no longer redirects to wireframes", /redirect
 check("src/app/layout.tsx", "production metadata is set", /YNot TCG · Lucky Draw/);
 check("src/features/ynot/components.tsx", "normal web login and signup navigation exist", /href="\/login"[\s\S]*href="\/signup"/);
 check("src/app/page.tsx", "home page reads category, tag, and sort filters from URL search params", /searchParams[\s\S]*normalizeHomeSeries\(params\?\.series\)[\s\S]*normalizeHomeTag\(params\?\.tag\)[\s\S]*normalizeHomeSort\(params\?\.sort\)/);
-check("src/features/ynot/components.tsx", "home category and tag filters are real links that preserve filter state", /homeFilterHref[\s\S]*href=\{homeFilterHref\(\{ series: category\.series, tag: homeFilter\.tag, sort: homeFilter\.sort \}\)\}/);
+check("src/features/ynot/components.tsx", "home category and tag filters are real links that preserve filter state", /homeFilterHref[\s\S]*href=\{homeFilterHref\(\{[\s\S]*series: category\.series,[\s\S]*tag: homeFilter\.tag,[\s\S]*sort: homeFilter\.sort,[\s\S]*\}\)\}/);
 check("src/features/ynot/components.tsx", "home campaigns are sorted by selected sort option", /function sortedCampaigns[\s\S]*sort === "latest"[\s\S]*coins-desc[\s\S]*filteredCampaigns[\s\S]*sortedCampaigns\(filtered, filter\.sort\)/);
 check("src/features/ynot/StorePreferences.tsx", "sort select updates the URL query", /export function StoreSortSelect[\s\S]*router\.replace\(homeSortHref\(\{ \.\.\.homeFilter, sort \}\), \{ scroll: false \}\)/);
 check("src/features/ynot/components.tsx", "customer pack card labels price per pack instead of per random", /coins per pack[\s\S]*\/pack/);
@@ -88,12 +90,13 @@ check("src/app/api/line/login/start/route.ts", "LINE login next path rejects bac
 check("src/app/api/line/callback/route.ts", "LINE callback next path rejects backslash/protocol-relative redirects", /parsed\.origin !== base\.origin[\s\S]*parsed\.pathname/);
 check("src/lib/line/link-identity.ts", "LINE email auto-link only when exactly one active profile matches", /\.limit\(2\)[\s\S]*data\?\.length === 1 \? data\[0\] : null/);
 check("src/features/auth/actions.ts", "logout clears legacy LINE session cookie too", /luckyDrawSessionCookie[\s\S]*maxAge: 0/);
-check("src/features/ynot/client.tsx", "wallet top-up posts slip upload API", /fetch\("\/api\/ynot\/wallet", \{ method: "POST", body: form \}\)/);
+check("src/features/ynot/client.tsx", "wallet top-up posts slip upload API", /fetch\("\/api\/ynot\/wallet", \{[\s\S]*method: "POST",[\s\S]*body: form,[\s\S]*\}\)/);
 check("src/features/ynot/client.tsx", "address form calls address API", /\/api\/ynot\/addresses/);
 check("src/features/ynot/client.tsx", "gacha open button calls API", /\/api\/ynot\/gacha\/open/);
 check("src/features/ynot/client.tsx", "collection actions call exchange and shipping APIs", /\/api\/ynot\/exchange[\s\S]*\/api\/ynot\/shipping/);
 check("src/features/ynot/client.tsx", "admin payment settings call payment method API", /\/api\/ynot\/admin\/payment-methods/);
 check("src/features/ynot/client.tsx", "admin campaign form calls campaign API", /\/api\/ynot\/admin\/campaigns/);
+check("src/features/ynot/client.tsx", "admin category form calls category API", /AdminCategoryForm[\s\S]*\/api\/ynot\/admin\/categories/);
 check("src/features/ynot/client.tsx", "admin campaign form and update rows edit customer card labels", /Customer card labels[\s\S]*displayTags/);
 check("src/features/ynot/client.tsx", "admin campaign action panel publishes and archives campaigns", /\/api\/ynot\/admin\/campaigns[\s\S]*Make live public[\s\S]*Archive private/);
 check("src/features/ynot/client.tsx", "admin card form calls card API", /\/api\/ynot\/admin\/cards/);
@@ -101,12 +104,14 @@ check("src/features/ynot/client.tsx", "admin prize pool form calls prize API", /
 check("src/features/ynot/client.tsx", "admin user role form calls users API", /\/api\/ynot\/admin\/users/);
 check("src/features/ynot/client.tsx", "admin merge review calls merge API", /\/api\/ynot\/admin\/merge-requests/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API is admin gated", /resolveAdminSession[\s\S]*Admin access is required/);
+check("src/app/api/ynot/admin/categories/route.ts", "admin category API is admin gated", /resolveAdminSession[\s\S]*Admin access is required/);
+check("src/app/api/ynot/admin/categories/route.ts", "admin category API persists store categories", /from\("store_categories"\)[\s\S]*upsert/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API persists customer display tags", /displayTags[\s\S]*display_tags/);
 check("src/app/api/ynot/admin/cards/route.ts", "admin card API is admin gated", /resolveAdminSession[\s\S]*Admin access is required/);
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API assigns draw_round_prizes", /resolveAdminSession[\s\S]*from\("draw_round_prizes"\)[\s\S]*onConflict: "draw_round_id,tier,rank"/);
 check("src/app/api/ynot/admin/users/route.ts", "admin users API protects owner changes and self deactivation", /Only an owner can grant owner role[\s\S]*cannot deactivate your own admin access/);
 check("src/app/api/ynot/admin/merge-requests/route.ts", "admin merge API uses service-role merge RPCs", /complete_account_merge_request[\s\S]*reject_account_merge_request/);
-check("src/app/api/ynot/admin/shipping/route.ts", "admin shipping marks delivered cards shipped and cancelled cards owned", /status === "cancelled" \? "owned" : "shipped"/);
+check("src/app/api/ynot/admin/shipping/route.ts", "admin shipping route uses transaction-safe status RPC", /supabase\.rpc\("update_shipping_request_status"[\s\S]*p_shipping_request_id[\s\S]*p_admin_id[\s\S]*p_status/);
 check("src/features/ynot/components.tsx", "admin routes are hidden unless viewer is admin", /viewer\.isAdmin &&[\s\S]*href="\/admin"/);
 check("src/features/ynot/components.tsx", "non-admin admin route gets denial state", /Admin access is required/);
 check("src/features/ynot/data.ts", "public campaign reads filter hidden/private visibility", /query = query\.eq\("visibility", "public"\)\.in\("status", \["live", "closed"\]\)/);

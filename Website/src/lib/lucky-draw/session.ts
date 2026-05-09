@@ -21,6 +21,10 @@ function sessionSecret() {
   const secret = process.env.LINE_SESSION_SECRET;
   if (secret) return secret;
 
+  if (process.env.NODE_ENV !== "production") {
+    return "dev-local-lucky-draw-session-secret";
+  }
+
   console.error("LINE_SESSION_SECRET is required to sign Lucky Draw sessions.");
   return null;
 }

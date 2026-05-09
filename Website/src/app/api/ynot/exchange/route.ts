@@ -1,6 +1,7 @@
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,8 @@ export async function POST(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   const session = await resolveCurrentProfile();
   if (!session?.profileId) return Response.json({ error: "Login is required." }, { status: 401 });
+  const limited = await enforceRateLimit(request, "ynot:exchange:submit", { limit: 20, windowMs: 60_000 }, session.profileId);
+  if (limited) return limited;
   const body = await request.json().catch(() => null) as { collectionItemIds?: unknown; note?: unknown; idempotencyKey?: unknown } | null;
   const collectionItemIds = Array.isArray(body?.collectionItemIds) ? body.collectionItemIds.filter((value): value is string => typeof value === "string") : [];
   const note = typeof body?.note === "string" ? body.note.slice(0, 500) : null;

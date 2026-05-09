@@ -2,6 +2,7 @@ import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,9 @@ type CampaignBody = {
   totalSlots?: unknown;
   displayTags?: unknown;
   sortOrder?: unknown;
+  categoryIds?: unknown;
+  isTest?: unknown;
+  seedRunId?: unknown;
 };
 
 function text(value: unknown, max = 160) {
@@ -54,6 +58,20 @@ function displayTagsValue(value: unknown, series: "one_piece" | "pokemon") {
   return tags.length ? tags : fallback;
 }
 
+function booleanValue(value: unknown) {
+  return value === true || value === "true" || value === 1 || value === "1";
+}
+
+function idArrayValue(value: unknown) {
+  const source = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
+  return source
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => text(item, 80))
+    .filter(Boolean)
+    .filter((item, index, all) => all.indexOf(item) === index)
+    .slice(0, 8);
+}
+
 function campaignPatch(body: CampaignBody): Database["public"]["Tables"]["draw_rounds"]["Update"] {
   const priceThb = Math.max(1, Math.round(numberValue(body.priceThb, 100)));
   const totalSlots = Math.max(1, Math.round(numberValue(body.totalSlots, 100)));
@@ -73,7 +91,26 @@ function campaignPatch(body: CampaignBody): Database["public"]["Tables"]["draw_r
     total_slots: body.totalSlots === undefined ? undefined : totalSlots,
     display_tags: body.displayTags === undefined ? undefined : displayTagsValue(body.displayTags, series ?? "pokemon"),
     sort_order: body.sortOrder === undefined ? undefined : Math.round(numberValue(body.sortOrder, 100)),
+    is_test: body.isTest === undefined ? undefined : booleanValue(body.isTest),
+    seed_run_id: body.seedRunId === undefined ? undefined : text(body.seedRunId, 80) || null,
   };
+}
+
+async function replaceCampaignCategories(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  campaignId: string,
+  categoryIds: string[],
+) {
+  const rows: Database["public"]["Tables"]["draw_round_categories"]["Insert"][] = categoryIds.map((categoryId, index) => ({
+    draw_round_id: campaignId,
+    category_id: categoryId,
+    is_primary: index === 0,
+  }));
+  const { error: deleteError } = await supabase.from("draw_round_categories").delete().eq("draw_round_id", campaignId);
+  if (deleteError) throw deleteError;
+  if (!rows.length) return;
+  const { error: insertError } = await supabase.from("draw_round_categories").insert(rows);
+  if (insertError) throw insertError;
 }
 
 async function bodyJson(request: Request): Promise<CampaignBody | null> {
@@ -84,6 +121,8 @@ export async function POST(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   const admin = await resolveAdminSession();
   if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
+  const limited = await enforceRateLimit(request, "ynot:admin:campaigns", { limit: 40, windowMs: 60_000 }, admin.profileId);
+  if (limited) return limited;
 
   const body = await bodyJson(request);
   if (!body) return Response.json({ error: "Invalid JSON body." }, { status: 400 });
@@ -104,13 +143,22 @@ export async function POST(request: Request) {
     sort_order: patch.sort_order ?? 100,
     order_code_prefix: "YN",
     created_by: admin.adminId,
+    is_test: patch.is_test ?? false,
+    seed_run_id: patch.seed_run_id ?? null,
   };
 
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase.from("draw_rounds").insert(insert).select("id,slug").single();
   if (error) return Response.json({ error: error.message }, { status: 409 });
+  if (body.categoryIds !== undefined) {
+    try {
+      await replaceCampaignCategories(supabase, data.id, idArrayValue(body.categoryIds));
+    } catch (categoryError) {
+      return Response.json({ error: categoryError instanceof Error ? categoryError.message : "Campaign category assignment failed." }, { status: 409 });
+    }
+  }
   await supabase.rpc("create_draw_slots", { p_draw_round_id: data.id });
-  await supabase.from("audit_events").insert({ actor_admin_id: admin.adminId, event_type: "campaign_created", draw_round_id: data.id, metadata: { slug: data.slug } });
+  await supabase.from("audit_events").insert({ actor_admin_id: admin.adminId, event_type: "campaign_created", draw_round_id: data.id, metadata: { slug: data.slug, isTest: insert.is_test } });
   return Response.json({ ok: true, campaign: data });
 }
 
@@ -118,6 +166,8 @@ export async function PATCH(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   const admin = await resolveAdminSession();
   if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
+  const limited = await enforceRateLimit(request, "ynot:admin:campaigns", { limit: 40, windowMs: 60_000 }, admin.profileId);
+  if (limited) return limited;
 
   const body = await bodyJson(request);
   const campaignId = text(body?.campaignId, 80);
@@ -127,6 +177,13 @@ export async function PATCH(request: Request) {
   const supabase = createServiceSupabaseClient();
   const { error } = await supabase.from("draw_rounds").update(patch).eq("id", campaignId);
   if (error) return Response.json({ error: error.message }, { status: 409 });
+  if (body.categoryIds !== undefined) {
+    try {
+      await replaceCampaignCategories(supabase, campaignId, idArrayValue(body.categoryIds));
+    } catch (categoryError) {
+      return Response.json({ error: categoryError instanceof Error ? categoryError.message : "Campaign category assignment failed." }, { status: 409 });
+    }
+  }
   if (patch.total_slots) await supabase.rpc("create_draw_slots", { p_draw_round_id: campaignId });
   await supabase.from("audit_events").insert({ actor_admin_id: admin.adminId, event_type: "campaign_updated", draw_round_id: campaignId, metadata: { patch } });
   return Response.json({ ok: true });
