@@ -856,8 +856,17 @@ export function CampaignDetailPanel({ campaign }: { campaign: YnotCampaign }) {
 function PublicOddsBreakdown({ odds }: { odds: NonNullable<YnotCampaign["publicOdds"]> }) {
   const totalUnits = odds.totalUnits || 1;
   const tierLabel = (tier: string) => (tier === "high" ? "High tier" : tier === "normal" ? "Normal tier" : tier);
+  const lastPrizeLive = odds.lastPrize && odds.lastPrize.status === "available";
   return (
     <div className="public-odds-breakdown">
+      {lastPrizeLive ? (
+        <div style={{ background: "linear-gradient(135deg, rgba(244,183,64,.18), rgba(244,183,64,.04))", border: "1px solid rgba(244,183,64,.4)", borderRadius: 12, padding: "10px 12px", marginBottom: 12 }}>
+          <strong style={{ display: "block", fontSize: 13, letterSpacing: ".04em" }}>🎁 ラストワン賞 · Last-prize guaranteed</strong>
+          <span style={{ fontSize: 12, opacity: 0.85 }}>
+            Whoever pulls when only one unit remains wins the designated last prize automatically.
+          </span>
+        </div>
+      ) : null}
       <p className="section-label" style={{ marginBottom: 8 }}>
         Live odds · {odds.availableUnits} of {odds.totalUnits} prize units remaining
       </p>

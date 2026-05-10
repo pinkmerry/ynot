@@ -85,6 +85,18 @@ function publicOddsFromJson(value: unknown): YnotCampaignOdds | undefined {
         }];
       })
     : [];
+  const lastPrizeRaw = value.lastPrize;
+  const lastPrize = isRecord(lastPrizeRaw) && typeof lastPrizeRaw.unitId === "string"
+    ? {
+        unitId: lastPrizeRaw.unitId,
+        cardId: typeof lastPrizeRaw.cardId === "string" ? lastPrizeRaw.cardId : null,
+        tier: typeof lastPrizeRaw.tier === "string" ? lastPrizeRaw.tier : null,
+        status: lastPrizeRaw.status === "available" || lastPrizeRaw.status === "reserved"
+          || lastPrizeRaw.status === "awarded" || lastPrizeRaw.status === "void"
+          ? lastPrizeRaw.status as "available" | "reserved" | "awarded" | "void"
+          : null,
+      }
+    : null;
   return {
     drawRoundId: typeof value.drawRoundId === "string" ? value.drawRoundId : "",
     totalSlots: Number(value.totalSlots) || 0,
@@ -96,6 +108,7 @@ function publicOddsFromJson(value: unknown): YnotCampaignOdds | undefined {
     rngVersion: Number(value.rngVersion) || 1,
     serverSeedHash: typeof value.serverSeedHash === "string" ? value.serverSeedHash : null,
     serverSeedRevealedAt: typeof value.serverSeedRevealedAt === "string" ? value.serverSeedRevealedAt : null,
+    lastPrize,
   };
 }
 

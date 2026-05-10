@@ -184,6 +184,7 @@ export type Database = {
           server_seed_hash: string;
           server_seed_revealed_at: string | null;
           rng_version: number;
+          last_prize_unit_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -326,8 +327,8 @@ export type Database = {
         Relationships: [];
       };
       draw_round_prize_units: {
-        Row: { id: string; draw_round_id: string; draw_round_prize_id: string; card_id: string; status: "available" | "reserved" | "awarded" | "void"; profile_id: string | null; gacha_open_id: string | null; gacha_open_item_id: string | null; collection_item_id: string | null; seed_run_id: string | null; awarded_at: string | null; voided_at: string | null; metadata: Json; created_at: string; updated_at: string };
-        Insert: { id?: string; draw_round_id: string; draw_round_prize_id: string; card_id: string; status?: "available" | "reserved" | "awarded" | "void"; profile_id?: string | null; gacha_open_id?: string | null; gacha_open_item_id?: string | null; collection_item_id?: string | null; seed_run_id?: string | null; awarded_at?: string | null; voided_at?: string | null; metadata?: Json; created_at?: string; updated_at?: string };
+        Row: { id: string; draw_round_id: string; draw_round_prize_id: string; card_id: string; status: "available" | "reserved" | "awarded" | "void"; profile_id: string | null; gacha_open_id: string | null; gacha_open_item_id: string | null; collection_item_id: string | null; seed_run_id: string | null; awarded_at: string | null; voided_at: string | null; is_last_prize: boolean; metadata: Json; created_at: string; updated_at: string };
+        Insert: { id?: string; draw_round_id: string; draw_round_prize_id: string; card_id: string; status?: "available" | "reserved" | "awarded" | "void"; profile_id?: string | null; gacha_open_id?: string | null; gacha_open_item_id?: string | null; collection_item_id?: string | null; seed_run_id?: string | null; awarded_at?: string | null; voided_at?: string | null; is_last_prize?: boolean; metadata?: Json; created_at?: string; updated_at?: string };
         Update: Partial<Database["public"]["Tables"]["draw_round_prize_units"]["Insert"]>;
         Relationships: [];
       };
@@ -821,6 +822,7 @@ export type Database = {
       get_draw_round_public_rng: { Args: { p_draw_round_id: string }; Returns: Json };
       get_draw_round_public_odds: { Args: { p_draw_round_id: string }; Returns: Json };
       reveal_draw_round_seed: { Args: { p_draw_round_id: string; p_admin_id: string }; Returns: Json };
+      set_draw_round_last_prize_unit: { Args: { p_draw_round_id: string; p_unit_id: string | null; p_admin_id: string }; Returns: Json };
       profile_can_open_test_draw_round: { Args: { p_draw_round_id: string; p_profile_id: string }; Returns: boolean };
       get_draw_round_inventory_summary: { Args: { p_draw_round_id?: string | null; p_profile_id?: string | null }; Returns: Json };
       ensure_draw_round_prize_units: { Args: { p_draw_round_prize_id: string; p_total_units: number; p_admin_id: string; p_seed_run_id?: string | null }; Returns: Json };

@@ -56,6 +56,14 @@ export type YnotCampaignOdds = {
   rngVersion: number;
   serverSeedHash: string | null;
   serverSeedRevealedAt: string | null;
+  lastPrize: YnotCampaignLastPrize | null;
+};
+
+export type YnotCampaignLastPrize = {
+  unitId: string;
+  cardId: string | null;
+  tier: string | null;
+  status: "available" | "reserved" | "awarded" | "void" | null;
 };
 
 export type YnotCategory = {
