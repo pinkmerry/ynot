@@ -8,6 +8,8 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import type {
   YnotCampaign,
+  YnotCampaignOdds,
+  YnotCampaignTierOdds,
   YnotCollectionItem,
   YnotDashboardData,
   YnotDataIssue,
@@ -68,6 +70,33 @@ type DrawRoundRow = Database["public"]["Tables"]["draw_rounds"]["Row"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function publicOddsFromJson(value: unknown): YnotCampaignOdds | undefined {
+  if (!isRecord(value) || value.available !== true) return undefined;
+  const tiers = Array.isArray(value.tiers)
+    ? value.tiers.flatMap((tier): YnotCampaignTierOdds[] => {
+        if (!isRecord(tier) || typeof tier.tier !== "string") return [];
+        return [{
+          tier: tier.tier,
+          totalUnits: Number(tier.totalUnits) || 0,
+          availableUnits: Number(tier.availableUnits) || 0,
+          awardedUnits: Number(tier.awardedUnits) || 0,
+        }];
+      })
+    : [];
+  return {
+    drawRoundId: typeof value.drawRoundId === "string" ? value.drawRoundId : "",
+    totalSlots: Number(value.totalSlots) || 0,
+    availableSlots: Number(value.availableSlots) || 0,
+    totalUnits: Number(value.totalUnits) || 0,
+    availableUnits: Number(value.availableUnits) || 0,
+    awardedUnits: Number(value.awardedUnits) || 0,
+    tiers,
+    rngVersion: Number(value.rngVersion) || 1,
+    serverSeedHash: typeof value.serverSeedHash === "string" ? value.serverSeedHash : null,
+    serverSeedRevealedAt: typeof value.serverSeedRevealedAt === "string" ? value.serverSeedRevealedAt : null,
+  };
 }
 
 function inventorySummariesFromJson(value: unknown): InventorySummary[] {
@@ -296,7 +325,7 @@ export async function getCampaign(
     const viewer = options.viewer ?? await getYnotViewer();
     if (row.is_test && !await canReadTestCampaign(supabase, row.id, viewer)) return [];
 
-    const [categories, categoryLinks, inventoryRows] = await Promise.all([
+    const [categories, categoryLinks, inventoryRows, publicOdds] = await Promise.all([
       getStoreCategories({ includeTest: Boolean(row.is_test || viewer.isAdmin) }),
       readOrEmpty("campaign_detail_categories", async () => {
         const { data: links, error: linksError } = await supabase
@@ -314,12 +343,26 @@ export async function getCampaign(
         if (inventoryError) throw inventoryError;
         return inventorySummariesFromJson(inventory);
       }),
+      (async () => {
+        try {
+          const { data: oddsData, error: oddsError } = await supabase.rpc("get_draw_round_public_odds", {
+            p_draw_round_id: row.id,
+          });
+          if (oddsError) throw oddsError;
+          return publicOddsFromJson(oddsData);
+        } catch (error) {
+          recordDataIssue("campaign_detail_public_odds", error);
+          return undefined;
+        }
+      })(),
     ]);
     const categoriesById = new Map(categories.map((category) => [category.id, category]));
     const linkedCategories = categoryLinks
       .map((link) => categoriesById.get(link.category_id))
       .filter((category): category is YnotCategory => Boolean(category));
-    return [toYnotCampaign(row, linkedCategories, inventoryRows[0])];
+    const campaign = toYnotCampaign(row, linkedCategories, inventoryRows[0]);
+    if (publicOdds) campaign.publicOdds = publicOdds;
+    return [campaign];
   }).then((campaigns) => campaigns[0]
     ?? (allowDemoStorefront() ? featuredCampaigns.find((campaign) => campaign.id === campaignIdOrSlug || campaign.slug === campaignIdOrSlug) : undefined)
     ?? null);

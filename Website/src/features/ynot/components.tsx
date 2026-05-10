@@ -825,7 +825,9 @@ export function CampaignDetailPanel({ campaign }: { campaign: YnotCampaign }) {
             </div>
             <span className="status-pill">{campaign.status}</span>
           </div>
-          {campaign.demo && allowDemoStorefront() ? (
+          {campaign.publicOdds && campaign.publicOdds.totalUnits > 0 ? (
+            <PublicOddsBreakdown odds={campaign.publicOdds} />
+          ) : campaign.demo && allowDemoStorefront() ? (
             <RewardTierList />
           ) : (
             <EmptyState
@@ -838,11 +840,51 @@ export function CampaignDetailPanel({ campaign }: { campaign: YnotCampaign }) {
       <div className="transparent-note">
         <strong>🔒 100% Transparent</strong>
         <span>
-          Production pulls are tracked by database rows after migrations are
-          applied
+          {campaign.publicOdds?.serverSeedHash
+            ? `Server seed committed: ${campaign.publicOdds.serverSeedHash.slice(0, 12)}…${
+                campaign.publicOdds.serverSeedRevealedAt
+                  ? " · revealed for verification"
+                  : " · revealed when campaign closes"
+              }`
+            : "Production pulls are tracked by database rows after migrations are applied"}
         </span>
       </div>
     </section>
+  );
+}
+
+function PublicOddsBreakdown({ odds }: { odds: NonNullable<YnotCampaign["publicOdds"]> }) {
+  const totalUnits = odds.totalUnits || 1;
+  const tierLabel = (tier: string) => (tier === "high" ? "High tier" : tier === "normal" ? "Normal tier" : tier);
+  return (
+    <div className="public-odds-breakdown">
+      <p className="section-label" style={{ marginBottom: 8 }}>
+        Live odds · {odds.availableUnits} of {odds.totalUnits} prize units remaining
+      </p>
+      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 10 }}>
+        {odds.tiers.map((tier) => {
+          const remainingPct = Math.round((tier.availableUnits / Math.max(tier.totalUnits, 1)) * 100);
+          const sharePct = Math.round((tier.totalUnits / totalUnits) * 100);
+          return (
+            <li key={tier.tier} style={{ background: "var(--surface-muted, rgba(255,255,255,0.04))", borderRadius: 12, padding: "10px 12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                <strong style={{ textTransform: "capitalize" }}>{tierLabel(tier.tier)}</strong>
+                <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 13, opacity: 0.85 }}>
+                  {tier.availableUnits}/{tier.totalUnits} left · {sharePct}% of pool
+                </span>
+              </div>
+              <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={remainingPct}
+                style={{ marginTop: 6, height: 6, borderRadius: 6, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                <div style={{ width: `${remainingPct}%`, height: "100%", background: tier.tier === "high" ? "var(--accent-warm, #f4b740)" : "var(--accent-soft, #5cc0ff)", transition: "width .4s ease" }} />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <p style={{ marginTop: 10, fontSize: 12, opacity: 0.7 }}>
+        Odds shift as prizes are awarded — every pick draws from this exact remaining pool.
+      </p>
+    </div>
   );
 }
 

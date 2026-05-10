@@ -35,6 +35,27 @@ export type YnotCampaign = {
   heroLabel?: string;
   displayTags?: string[];
   demo?: boolean;
+  publicOdds?: YnotCampaignOdds;
+};
+
+export type YnotCampaignTierOdds = {
+  tier: string;
+  totalUnits: number;
+  availableUnits: number;
+  awardedUnits: number;
+};
+
+export type YnotCampaignOdds = {
+  drawRoundId: string;
+  totalSlots: number;
+  availableSlots: number;
+  totalUnits: number;
+  availableUnits: number;
+  awardedUnits: number;
+  tiers: YnotCampaignTierOdds[];
+  rngVersion: number;
+  serverSeedHash: string | null;
+  serverSeedRevealedAt: string | null;
 };
 
 export type YnotCategory = {
