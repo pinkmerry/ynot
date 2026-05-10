@@ -429,6 +429,198 @@ export function GachaOpenPanel({
   );
 }
 
+type VerifyItem = {
+  position: number;
+  cardId: string | null;
+  prizeUnitId: string | null;
+  tier: string | null;
+  valueThb: number | null;
+  nonce: number | null;
+  rngInput: string | null;
+  rngOutputHex: string | null;
+  rngPoolSize: number | null;
+  rngPoolIndex: number | null;
+};
+
+type VerifyData = {
+  available: boolean;
+  reason?: string;
+  publicCode?: string;
+  openId?: string;
+  drawRoundId?: string;
+  campaignSlug?: string;
+  campaignTitle?: string;
+  rngVersion?: number;
+  serverSeedHash?: string | null;
+  serverSeedRevealedAt?: string | null;
+  serverSeed?: string | null;
+  clientSeed?: string | null;
+  openedAt?: string;
+  items?: VerifyItem[];
+};
+
+async function hmacSha256Hex(keyHex: string, message: string) {
+  // server_seed is stored as a hex string of random bytes; HMAC keys it as raw bytes.
+  const keyBytes = new Uint8Array(keyHex.length / 2);
+  for (let i = 0; i < keyBytes.length; i++) keyBytes[i] = parseInt(keyHex.substr(i * 2, 2), 16);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyBytes as unknown as ArrayBuffer,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+  return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function indexFromHex(hex: string, poolSize: number) {
+  // Mirror the SQL: take first 14 hex chars (56 bits), parse as bigint, mod pool_size.
+  const slice = hex.slice(0, 14);
+  const value = BigInt("0x" + slice);
+  return Number(value % BigInt(poolSize));
+}
+
+export function VerifyPanel({ initialCode }: { initialCode: string }) {
+  const [code, setCode] = useState(initialCode);
+  const [data, setData] = useState<VerifyData | null>(null);
+  const [error, setError] = useState("");
+  const [recomputed, setRecomputed] = useState<Record<number, { hex: string; index: number; matches: boolean | null }>>({});
+  const [isPending, startTransition] = useTransition();
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  function fetchOpen() {
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    startTransition(async () => {
+      setError("");
+      setRecomputed({});
+      try {
+        const res = await fetch(`/api/ynot/verify/${encodeURIComponent(trimmed)}`, { method: "GET" });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload?.error ?? "Lookup failed.");
+        const verification = payload.verification as VerifyData;
+        if (!verification?.available) {
+          setError(verification?.reason === "open_not_found" ? "No open found for that code." : "Verification not available yet.");
+          setData(null);
+          return;
+        }
+        setData(verification);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "Lookup failed.");
+        setData(null);
+      }
+    });
+  }
+
+  async function recompute() {
+    if (!data?.serverSeed || !data.items) return;
+    setIsVerifying(true);
+    const next: typeof recomputed = {};
+    for (const item of data.items) {
+      if (!item.rngInput || !item.rngPoolSize) continue;
+      try {
+        const hex = await hmacSha256Hex(data.serverSeed, item.rngInput);
+        const index = indexFromHex(hex, item.rngPoolSize);
+        const matches = item.rngOutputHex
+          ? hex.toLowerCase() === item.rngOutputHex.toLowerCase() && index === item.rngPoolIndex
+          : null;
+        next[item.position] = { hex, index, matches };
+      } catch {
+        next[item.position] = { hex: "", index: -1, matches: false };
+      }
+    }
+    setRecomputed(next);
+    setIsVerifying(false);
+  }
+
+  const seedRevealed = Boolean(data?.serverSeed);
+  const allMatch = data?.items && Object.keys(recomputed).length === data.items.length
+    && data.items.every((item) => recomputed[item.position]?.matches === true);
+
+  return (
+    <section className="soft-card phone-surface" style={{ padding: 18 }}>
+      <label style={{ display: "grid", gap: 8, marginBottom: 12 }}>
+        <span className="section-label">Pack receipt code</span>
+        <input
+          className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+          placeholder="GO-1042"
+          value={code}
+          onChange={(event) => setCode(event.target.value)}
+          onKeyDown={(event) => { if (event.key === "Enter") fetchOpen(); }}
+        />
+      </label>
+      <button type="button" className="primary-action" disabled={isPending || code.trim().length === 0} onClick={fetchOpen}>
+        {isPending ? "Loading..." : "Look up"}
+      </button>
+      {error ? <p style={{ marginTop: 12, color: "var(--accent-warm, #f4b740)" }}>{error}</p> : null}
+      {data?.available ? (
+        <div style={{ marginTop: 18, display: "grid", gap: 14 }}>
+          <div>
+            <strong style={{ fontSize: 16 }}>{data.campaignTitle ?? data.campaignSlug ?? "Campaign"}</strong>
+            <div style={{ fontSize: 12, opacity: 0.75 }}>Pack {data.publicCode} · opened {data.openedAt ? new Date(data.openedAt).toLocaleString() : "—"}</div>
+          </div>
+          <dl style={{ display: "grid", gap: 6, fontSize: 13, lineHeight: 1.5, margin: 0 }}>
+            <Row label="RNG version" value={String(data.rngVersion ?? "—")} />
+            <Row label="Server seed (hash)" value={data.serverSeedHash ?? "—"} mono />
+            <Row label="Server seed" value={seedRevealed ? data.serverSeed! : "Not yet revealed — campaign must close first"} mono />
+            <Row label="Client seed" value={data.clientSeed ?? "—"} mono />
+          </dl>
+          <button type="button" className="primary-action" disabled={!seedRevealed || isVerifying} onClick={recompute}>
+            {isVerifying ? "Recomputing..." : seedRevealed ? "Recompute & verify in your browser" : "Awaiting seed reveal"}
+          </button>
+          {allMatch === true ? (
+            <p style={{ color: "#7ce28d", fontWeight: 700 }}>
+              ✓ All {data.items?.length ?? 0} cards match — RNG output is verified.
+            </p>
+          ) : null}
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 10 }}>
+            {(data.items ?? []).map((item) => {
+              const rec = recomputed[item.position];
+              return (
+                <li key={item.position} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 12, padding: "10px 12px", fontSize: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                    <strong>#{item.position} · {item.tier ?? "?"}</strong>
+                    {rec ? (
+                      <span style={{ color: rec.matches ? "#7ce28d" : "#ff8b8b" }}>
+                        {rec.matches ? "match ✓" : "mismatch ✗"}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div style={{ opacity: 0.8, marginTop: 4, wordBreak: "break-all", fontFamily: "monospace" }}>
+                    input: {item.rngInput ?? "—"}
+                  </div>
+                  <div style={{ opacity: 0.6, fontFamily: "monospace" }}>
+                    server output: {item.rngOutputHex?.slice(0, 32) ?? "—"}…
+                  </div>
+                  {rec ? (
+                    <div style={{ opacity: 0.85, fontFamily: "monospace", marginTop: 4 }}>
+                      browser hex: {rec.hex.slice(0, 32)}… · index {rec.index} of {item.rngPoolSize}
+                    </div>
+                  ) : (
+                    <div style={{ opacity: 0.85, marginTop: 4 }}>
+                      pool index: {item.rngPoolIndex} of {item.rngPoolSize}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function Row({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(120px, 0.4fr) 1fr", gap: 12 }}>
+      <dt style={{ opacity: 0.7 }}>{label}</dt>
+      <dd style={{ margin: 0, fontFamily: mono ? "monospace" : undefined, wordBreak: "break-all" }}>{value}</dd>
+    </div>
+  );
+}
+
 export function AddressForm({ addresses }: { addresses: YnotAddress[] }) {
   const [recipientName, setRecipientName] = useState("");
   const [phone, setPhone] = useState("");

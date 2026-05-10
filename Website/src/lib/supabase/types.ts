@@ -823,6 +823,7 @@ export type Database = {
       get_draw_round_public_odds: { Args: { p_draw_round_id: string }; Returns: Json };
       reveal_draw_round_seed: { Args: { p_draw_round_id: string; p_admin_id: string }; Returns: Json };
       set_draw_round_last_prize_unit: { Args: { p_draw_round_id: string; p_unit_id: string | null; p_admin_id: string }; Returns: Json };
+      get_gacha_open_verification: { Args: { p_public_code: string }; Returns: Json };
       profile_can_open_test_draw_round: { Args: { p_draw_round_id: string; p_profile_id: string }; Returns: boolean };
       get_draw_round_inventory_summary: { Args: { p_draw_round_id?: string | null; p_profile_id?: string | null }; Returns: Json };
       ensure_draw_round_prize_units: { Args: { p_draw_round_prize_id: string; p_total_units: number; p_admin_id: string; p_seed_run_id?: string | null }; Returns: Json };
