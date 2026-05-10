@@ -1,0 +1,23 @@
+$ node -e const p=require('./package.json'); console.log(JSON.stringify(p.scripts,null,2))
+started_at=2026-05-10T07:09:49.506065Z
+exit_code=0
+--- stdout ---
+{
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start",
+  "lint": "eslint",
+  "typecheck": "tsc --noEmit",
+  "verify:phase1": "node tools/verification/verify-phase1-auth-db.mjs",
+  "verify:auth": "node tools/verification/verify-auth-foundation.mjs",
+  "verify:platform": "node tools/verification/verify-platform-foundation.mjs",
+  "verify:ynot": "npm run verify:phase1 && npm run verify:auth && npm run verify:platform && npm run verify:phase-readiness && npm run verify:hardening && npm run verify:production-test && node tools/verification/verify-lucky-draw-plan.mjs",
+  "check": "npm run lint && npm run typecheck && npm run verify:ynot && npm run build",
+  "verify:phase-readiness": "node tools/verification/verify-phase-readiness.mjs",
+  "verify:hardening": "node tools/verification/verify-hardening.mjs",
+  "verify:production-test": "node tools/verification/verify-production-test-readiness.mjs",
+  "verify:production-db": "node tools/verification/check-production-supabase-readiness.mjs"
+}
+
+--- stderr ---
+

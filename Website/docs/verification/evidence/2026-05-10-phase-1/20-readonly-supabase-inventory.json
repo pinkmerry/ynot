@@ -1,0 +1,353 @@
+{
+  "generatedAt": "2026-05-10T07:16:03.865Z",
+  "mode": "read-only inventory; no writes/migrations/restores/deploys/storage mutations",
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": true,
+    "SUPABASE_SERVICE_ROLE_KEY": true,
+    "SUPABASE_ACCESS_TOKEN": false,
+    "POSTGRES_URL": false
+  },
+  "supabase": {
+    "projectRef": "szjoarkijeaspazbrchc",
+    "host": "szjoarkijeaspazbrchc.supabase.co"
+  },
+  "tableCounts": {
+    "profiles": {
+      "status": "available",
+      "count": 3
+    },
+    "admin_users": {
+      "status": "available",
+      "count": 3
+    },
+    "draw_rounds": {
+      "status": "available",
+      "count": 1
+    },
+    "draw_slots": {
+      "status": "available",
+      "count": 80
+    },
+    "orders": {
+      "status": "available",
+      "count": 0
+    },
+    "payment_slips": {
+      "status": "available",
+      "count": 0
+    },
+    "order_picks": {
+      "status": "available",
+      "count": 0
+    },
+    "audit_events": {
+      "status": "available",
+      "count": 0
+    },
+    "cards": {
+      "status": "available",
+      "count": 20
+    },
+    "draw_round_prizes": {
+      "status": "available",
+      "count": 20
+    },
+    "lucky_draw_realtime_events": {
+      "status": "available",
+      "count": 35
+    }
+  },
+  "websiteSchemaGaps": {
+    "tables": {
+      "store_categories": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.store_categories' in the schema cache"
+        }
+      },
+      "draw_round_categories": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.draw_round_categories' in the schema cache"
+        }
+      },
+      "draw_round_prize_units": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.draw_round_prize_units' in the schema cache"
+        }
+      },
+      "seed_runs": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.seed_runs' in the schema cache"
+        }
+      },
+      "user_identities": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.user_identities' in the schema cache"
+        }
+      },
+      "user_addresses": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.user_addresses' in the schema cache"
+        }
+      },
+      "app_realtime_events": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.app_realtime_events' in the schema cache"
+        }
+      },
+      "payment_methods": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.payment_methods' in the schema cache"
+        }
+      },
+      "top_up_requests": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.top_up_requests' in the schema cache"
+        }
+      },
+      "wallet_accounts": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.wallet_accounts' in the schema cache"
+        }
+      },
+      "coin_ledger": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.coin_ledger' in the schema cache"
+        }
+      },
+      "gacha_opens": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.gacha_opens' in the schema cache"
+        }
+      },
+      "gacha_open_items": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.gacha_open_items' in the schema cache"
+        }
+      },
+      "collection_items": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.collection_items' in the schema cache"
+        }
+      },
+      "exchange_orders": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.exchange_orders' in the schema cache"
+        }
+      },
+      "exchange_order_items": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.exchange_order_items' in the schema cache"
+        }
+      },
+      "shipping_requests": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.shipping_requests' in the schema cache"
+        }
+      },
+      "shipping_request_items": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.shipping_request_items' in the schema cache"
+        }
+      },
+      "site_settings": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.site_settings' in the schema cache"
+        }
+      },
+      "ranking_snapshots": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST205",
+          "message": "Could not find the table 'public.ranking_snapshots' in the schema cache"
+        }
+      }
+    },
+    "columns": {
+      "profiles.auth_user_id": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "42703",
+          "message": "column profiles.auth_user_id does not exist"
+        }
+      },
+      "profiles.line_user_id": {
+        "status": "available"
+      },
+      "cards.tone": {
+        "status": "available"
+      },
+      "draw_round_prizes.tone": {
+        "status": "available"
+      }
+    },
+    "rpcs": {
+      "get_draw_round_inventory_summary": {
+        "status": "missing_or_unavailable",
+        "error": {
+          "code": "PGRST202",
+          "message": "Could not find the function public.get_draw_round_inventory_summary(p_draw_round_id, p_profile_id) in the schema cache"
+        }
+      },
+      "create_draw_slots": {
+        "status": "not_probed_mutation_sensitive",
+        "note": "Existing mutating RPC; not invoked during Phase 1 read-only inventory."
+      },
+      "claim_order_slots": {
+        "status": "not_probed_mutation_sensitive",
+        "note": "Existing mutating RPC; not invoked during Phase 1 read-only inventory."
+      }
+    }
+  },
+  "adminRoleSummary": {
+    "status": "available",
+    "total": 3,
+    "roles": {
+      "owner": 2,
+      "admin": 1
+    }
+  },
+  "storage": {
+    "buckets": [
+      {
+        "id": "lucky-draw-assets",
+        "name": "lucky-draw-assets",
+        "public": true,
+        "created_at": "2026-05-05T23:49:49.392Z",
+        "updated_at": "2026-05-05T23:49:49.392Z"
+      },
+      {
+        "id": "payment-slips",
+        "name": "payment-slips",
+        "public": false,
+        "created_at": "2026-05-05T23:49:49.177Z",
+        "updated_at": "2026-05-05T23:49:49.177Z"
+      }
+    ],
+    "expectedBuckets": {
+      "payment-slips": {
+        "objects": 0,
+        "folders": 0,
+        "samples": [],
+        "errors": []
+      },
+      "lucky-draw-assets": {
+        "objects": 0,
+        "folders": 0,
+        "samples": [],
+        "errors": []
+      }
+    },
+    "note": "Object names are hashed/redacted; no objects downloaded or modified."
+  },
+  "backup": {
+    "managementApi": {
+      "status": "not_checked_missing_SUPABASE_ACCESS_TOKEN"
+    },
+    "existingLocalRestBackup": {
+      "status": "present_data_only_rest_backup",
+      "path": "/Users/pinkmerry/Project X/Lucky Draw/Database/backups/pre-migration-20260507T090736Z",
+      "fileCount": 12,
+      "totalBytes": 61939,
+      "files": [
+        {
+          "path": "admin_users.json",
+          "bytes": 430,
+          "sha256": "a5916deeffc7e191a7da9bf57949b410b9d8c2dda06fb849c7e8e33b25a9ee58"
+        },
+        {
+          "path": "audit_events.json",
+          "bytes": 2,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "path": "cards.json",
+          "bytes": 12385,
+          "sha256": "58f4c65d6003bc5d80b0171a105f579e6e00b6c7e3199f3e61c42f6074e41188"
+        },
+        {
+          "path": "draw_round_prizes.json",
+          "bytes": 7218,
+          "sha256": "380aa442b4c912acd15ba33bccd2b9091200a9b019a04c8b63def7e2734881d4"
+        },
+        {
+          "path": "draw_rounds.json",
+          "bytes": 11593,
+          "sha256": "bb8c8eef57798c41496e8acc32ff046878b1d700b9b3c1fafc46f5d51e044bdb"
+        },
+        {
+          "path": "draw_slots.json",
+          "bytes": 19673,
+          "sha256": "4dc6235c04620000526cd3fa319b21fd5736103090bf1233a1a4cc6c0798215c"
+        },
+        {
+          "path": "lucky_draw_realtime_events.json",
+          "bytes": 7596,
+          "sha256": "0445e202445ef2f3632df486bcdb148638faa6c41d0cd96614609b12edf1c1cb"
+        },
+        {
+          "path": "manifest.json",
+          "bytes": 1692,
+          "sha256": "e059619631a979e09a36e49f08bf520f82f5d102ce570e232f34e0f942ae9f1f"
+        },
+        {
+          "path": "order_picks.json",
+          "bytes": 2,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "path": "orders.json",
+          "bytes": 2,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "path": "payment_slips.json",
+          "bytes": 2,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "path": "profiles.json",
+          "bytes": 1344,
+          "sha256": "14910bcd3adc8c350bcae4087dd839e03623396edca40488357aa2d970c059c7"
+        }
+      ]
+    }
+  }
+}

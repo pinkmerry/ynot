@@ -1,0 +1,7 @@
+$ which psql; psql --version; which pg_restore; pg_restore --version
+started_at=2026-05-10T07:14:55Z
+--- output ---
+psql not found
+zsh:6: command not found: psql
+pg_restore not found
+zsh:8: command not found: pg_restore

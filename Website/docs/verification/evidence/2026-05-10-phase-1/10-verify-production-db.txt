@@ -1,0 +1,22 @@
+$ npm run verify:production-db
+started_at=2026-05-10T07:10:08.303331Z
+exit_code=1
+--- stdout ---
+
+> lucky-draw-next@0.1.0 verify:production-db
+> node tools/verification/check-production-supabase-readiness.mjs
+
+Supabase project ref: szjoarkijeaspazbrchc
+
+--- stderr ---
+FAIL table store_categories unavailable: PGRST205 Could not find the table 'public.store_categories' in the schema cache
+FAIL table draw_round_categories unavailable: PGRST205 Could not find the table 'public.draw_round_categories' in the schema cache
+FAIL table draw_round_prize_units unavailable: PGRST205 Could not find the table 'public.draw_round_prize_units' in the schema cache
+FAIL table seed_runs unavailable: PGRST205 Could not find the table 'public.seed_runs' in the schema cache
+FAIL rpc get_draw_round_inventory_summary unavailable: PGRST202 Could not find the function public.get_draw_round_inventory_summary(p_draw_round_id, p_profile_id) in the schema cache
+WARN legacy cards.tone column still exists; deploy no-tone app first, then apply 20260509183000_remove_card_tone_fields.sql
+WARN legacy draw_round_prizes.tone column still exists; deploy no-tone app first, then apply 20260509183000_remove_card_tone_fields.sql
+
+Production Supabase readiness failed with 5 blocker(s).
+2 warning(s) also reported.
+

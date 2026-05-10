@@ -1,0 +1,7 @@
+$ npm run typecheck
+started_at=2026-05-10T07:19:19Z
+
+> lucky-draw-next@0.1.0 typecheck
+> tsc --noEmit
+
+exit_code=0

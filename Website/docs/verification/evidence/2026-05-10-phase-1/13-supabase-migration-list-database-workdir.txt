@@ -1,0 +1,10 @@
+$ bash -lc npx supabase migration list --workdir ../Database --linked 2>&1
+started_at=2026-05-10T07:14:30.982209Z
+exit_code=1
+--- stdout ---
+Using workdir ../Database
+Cannot find project ref. Have you run supabase link?
+Try rerunning the command with --debug to troubleshoot the error.
+
+--- stderr ---
+

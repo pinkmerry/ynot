@@ -1,6 +1,6 @@
-# Line LIFF
+# YNOTT Line LIFF
 
-This folder is for the LINE LIFF side of the Lucky Draw project.
+This folder is for the LINE LIFF side of the YNOTT project.
 
 ## Current state
 
@@ -26,7 +26,7 @@ Do not break LIFF compatibility while building the normal website. The website a
 ## Production URL ownership
 
 - Intended LIFF URL: `https://liff.ynottcg.com`
-- Temporary LIFF fallback: `https://lucky-draw-liff.vercel.app`
+- LIFF fallback/project URL: `https://ynott-line-liff.vercel.app` after Vercel rename
 - Normal website URL: `https://www.ynottcg.com`
 
 The LIFF Vercel project owns `liff.ynottcg.com`, but public DNS is still pending. Add this Squarespace DNS record before switching LINE Console/rich-menu URLs to the LIFF subdomain:
@@ -36,3 +36,8 @@ A liff.ynottcg.com 76.76.21.21
 ```
 
 Do not point LINE rich-menu/LIFF endpoint URLs at the normal website domain unless the intended action is normal web login rather than LIFF.
+
+
+## Deployment rule
+
+The LIFF Vercel project is `ynott-line-liff`, but its Root Directory should be `Website` until a separate LIFF app is intentionally extracted. This avoids Vercel build failures from trying to build the repository root `.`.

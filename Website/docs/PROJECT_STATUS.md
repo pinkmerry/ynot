@@ -1,6 +1,6 @@
-# Lucky Draw / YNot Project Status
+# YNOTT Project Status
 
-Updated: 2026-05-09
+Updated: 2026-05-10
 
 ## Current Phase
 
@@ -8,15 +8,26 @@ Phase-by-phase implementation is underway. Backend/Auth Phase 1, website auth, L
 
 ## Current Goal
 
-Build the production YNot/Lucky Draw platform as a normal website, not LIFF-only, while preserving and aligning with the existing LIFF Supabase database.
+Build the production YNOTT platform as a normal website, not LIFF-only, while preserving and aligning with the existing LIFF Supabase database.
 
+
+## Repo and deployment topology
+
+Canonical naming target is **YNOTT**:
+
+- Local/git root: `YNOTT/`
+- GitHub repo target: `pinkmerry/ynott`
+- Website Vercel project target: `ynott-website`, Root Directory `Website`, domains `www.ynottcg.com` / `ynottcg.com`
+- LIFF Vercel project target: `ynott-line-liff`, Root Directory `Website` until LIFF extraction, domain `liff.ynottcg.com`
+
+Future agents should decide lane by product surface: website/admin/customer work goes to `Website/`; LINE rich-menu/LIFF settings go to `Line LIFF/`; schema/backup/migration work goes to `Database/`.
 
 ## Repository Layout Update
 
-- `Lucky Draw/` is the main project folder and git root. It now has three clear project areas: `Website/`, `Database/`, and `Line LIFF/`.
+- `YNOTT/` is the main project folder and git root. It now has three clear project areas: `Website/`, `Database/`, and `Line LIFF/`.
 - `Website/` contains the active Next.js website app, website APIs, website UI, website docs, website plan, website verification scripts, and website-specific references.
 - `Database/` contains the Supabase migration source of truth and database architecture/planning docs. Website verification scripts read migrations directly from `../Database/supabase`; no `Website/supabase` symlink is used because Next/Turbopack dev mode can fail when scanning symlinks outside the app root.
-- `Line LIFF/` contains LIFF integration notes and original Lucky Draw/LIFF design references. The current LIFF-compatible runtime code remains shared inside `Website/src` until/unless a later extraction is planned.
+- `Line LIFF/` contains LIFF integration notes and original YNOTT/LIFF design references. The current LIFF-compatible runtime code remains shared inside `Website/src` until/unless a later extraction is planned.
 - Website alignment document before the next phase: `docs/PROJECT_BRIEF_AND_NEXT_PHASE_PLAN.md`.
 - Website plans are visible in `docs/plans/`; database/LIFF shared-schema plans are visible in `../Database/docs/plans/`.
 - Local run command from the active app root: `cd Website && npm run dev -- -p 3005` when starting from the parent folder, or `npm run dev -- -p 3005` when already inside `Website/`.
@@ -25,9 +36,11 @@ Build the production YNot/Lucky Draw platform as a normal website, not LIFF-only
 - Website folder cleanup completed: verification scripts moved to `tools/verification/`, fixtures moved to `tools/fixtures/`, website references moved to `docs/references/`, older plan moved to `docs/archive/`, and root clutter reduced while keeping Next.js-required root config files. Evidence: `docs/verification/2026-05-07-website-cleanup.md`; `npm run check` and localhost route smoke passed after cleanup.
 - Same-Supabase/LIFF access check completed: Website and LIFF code paths use the shared Supabase client/env, read-only access to project `szjoarkijeaspazbrchc` succeeded, existing LIFF tables/storage were reachable, live bundle/API point to the same ref, and the next phase is gated on applying missing website migrations first. Evidence: `docs/verification/2026-05-07-supabase-liff-access-check.md`.
 
-- Separate production deployment setup completed for online testing: private GitHub repo `https://github.com/pinkmerry/ynot-lucky-draw-platform` was created and pushed, Vercel project `ynot-lucky-draw-platform` was created/connected with root directory `Website`, production env names were configured, and the original stable Vercel alias was `https://ynot-lucky-draw-platform.vercel.app`. Evidence: `docs/verification/2026-05-07-github-vercel-production-deploy.md`.
-- Domain reorganization is live: the normal website owns `https://www.ynottcg.com` and apex `https://ynottcg.com`; the LINE LIFF Vercel project owns `https://liff.ynottcg.com` plus fallback `https://lucky-draw-liff.vercel.app`. Squarespace DNS now resolves `liff.ynottcg.com` to Vercel, a Vercel SSL certificate was issued, and both LIFF URLs return `200`. Evidence: `docs/verification/2026-05-07-domain-reorganization.md`.
+- Separate production deployment setup completed for online testing: private GitHub repo `https://github.com/pinkmerry/ynott` was created and pushed, Vercel project `ynott-website` was created/connected with root directory `Website`, production env names were configured, and the original stable Vercel alias was `https://ynott-website.vercel.app`. Evidence: `docs/verification/2026-05-07-github-vercel-production-deploy.md`.
+- Domain reorganization is live: the normal website owns `https://www.ynottcg.com` and apex `https://ynottcg.com`; the LINE LIFF Vercel project owns `https://liff.ynottcg.com` plus fallback `https://ynott-line-liff.vercel.app`. Squarespace DNS now resolves `liff.ynottcg.com` to Vercel, a Vercel SSL certificate was issued, and both LIFF URLs return `200`. Evidence: `docs/verification/2026-05-07-domain-reorganization.md`.
 - Production DB next-phase gate documented: live Supabase ref `szjoarkijeaspazbrchc` still lacks `profiles.auth_user_id`, `user_identities`, `top_up_requests`, wallet/ledger, gacha, collection, exchange, shipping, and private realtime tables. A REST data-only backup exists at ignored path `../Database/backups/pre-migration-20260507T090736Z/`, but a full Supabase backup plus SQL execution access are still required before applying migrations. Evidence: `../Database/docs/verification/2026-05-07-production-db-next-phase-gate.md`.
+- Phase 1 production data inventory/backup-readiness was refreshed read-only on 2026-05-10. Live ref `szjoarkijeaspazbrchc` is confirmed, LIFF-era table counts/storage bucket inventory were captured, admin roles exist without exposing names, and `npm run verify:production-db` still fails with expected missing category/inventory objects. Gate result remains blocked: no full provider/PITR backup evidence, no `SUPABASE_ACCESS_TOKEN`, no direct Postgres URL/SQL execution path, and no non-production restore drill. Evidence: `docs/verification/2026-05-10-phase-1-production-inventory-backup.md`.
+- Next-step backup refresh completed on 2026-05-10: a fresh ignored service-role REST data-only export was created at `../Database/backups/pre-migration-20260510T072634Z/`, with current counts matching the Phase 1 inventory and zero listed Storage objects. This improves stale data-export evidence but still does not satisfy the full backup/PITR + restore-drill gate. Evidence: `docs/verification/evidence/2026-05-10-phase-1/102-current-rest-backup-refresh.json`.
 - Ralph continuation verification refreshed at 2026-05-07 09:28Z after a stale session-level Ralph hook: Vercel stable alias resolves to a Ready production deployment, production page/API smoke still passes/fails closed as expected, live DB schema gap is unchanged, and `npm run check` passed. Evidence: `docs/verification/2026-05-07-github-vercel-production-deploy.md` and `../Database/docs/verification/2026-05-07-production-db-next-phase-gate.md`.
 
 
@@ -179,7 +192,7 @@ Build the production YNot/Lucky Draw platform as a normal website, not LIFF-only
 | Frontend/platform architecture | Planned and approved | `docs/plans/ralplan-ynot-production-website.md` and PRD/test/ADR exist. |
 | Backend/database architecture | Planned and approved; Phase 1 and Phase 2 platform migration files locally implemented | `../Database/docs/plans/ralplan-liff-database-redesign.md`; `../Database/supabase/migrations/20260507015626_phase1_auth_identity_realtime.sql`; `../Database/supabase/migrations/20260507032000_phase2_platform_wallet_gacha.sql`; `npm run check` passed locally. |
 | Existing modularization slice | Previously verified | Prior status recorded lint/build/static smoke pass. |
-| Full production implementation | Separate GitHub/Vercel production deployment ready for page/navigation smoke; full write-flow validation still DB/provider gated | `https://github.com/pinkmerry/ynot-lucky-draw-platform`; canonical website `https://www.ynottcg.com`; website fallback alias `https://ynot-lucky-draw-platform.vercel.app`; LIFF fallback `https://lucky-draw-liff.vercel.app`; production route/link smoke passed. |
+| Full production implementation | Separate GitHub/Vercel production deployment ready for page/navigation smoke; full write-flow validation still DB/provider gated | `https://github.com/pinkmerry/ynott`; canonical website `https://www.ynottcg.com`; website fallback alias `https://ynott-website.vercel.app`; LIFF fallback `https://ynott-line-liff.vercel.app`; production route/link smoke passed. |
 | Database migration execution | Blocked, not run in production | Phase 1 and Phase 2 migration files exist; live checks show missing schema; requires Supabase SQL access plus full backup. |
 | HTML wireframe UX/UI parity | Locally corrected and smoke-verified | Browser showed the paper/hand-drawn wireframe skin on `localhost:3005`; curl confirmed Pokemon/One Piece/POP MART, exchange category tabs, and `Charizard SAR` reward detail text. |
 | Full browser QA | Basic localhost and production page/link smoke passed; authenticated e2e not run | Production customer/admin pages returned 200; safe unauth API checks returned expected 400/401/403/503/405 responses; full user/payment/gacha journey remains DB/provider gated. |

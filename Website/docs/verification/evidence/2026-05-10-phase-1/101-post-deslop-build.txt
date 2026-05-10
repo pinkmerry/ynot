@@ -1,0 +1,85 @@
+$ npm run build # post-deslop
+started_at=2026-05-10T07:21:17Z
+
+> lucky-draw-next@0.1.0 build
+> next build
+
+▲ Next.js 16.2.5 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 2.6s
+  Running TypeScript ...
+  Finished TypeScript in 3.0s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/14) ...
+  Generating static pages using 7 workers (3/14) 
+  Generating static pages using 7 workers (6/14) 
+  Generating static pages using 7 workers (10/14) 
+✓ Generating static pages using 7 workers (14/14) in 70ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /admin
+├ ƒ /admin/audit
+├ ƒ /admin/campaigns
+├ ƒ /admin/categories
+├ ƒ /admin/exchange
+├ ƒ /admin/health
+├ ƒ /admin/prizes
+├ ƒ /admin/rankings
+├ ƒ /admin/settings
+├ ƒ /admin/shipping
+├ ƒ /admin/top-ups
+├ ƒ /admin/users
+├ ƒ /api/dev/mock-admin-login
+├ ƒ /api/line/callback
+├ ƒ /api/line/login/start
+├ ƒ /api/line/session
+├ ƒ /api/lucky-draw
+├ ƒ /api/lucky-draw/admin/card-image
+├ ƒ /api/lucky-draw/admin/draw
+├ ƒ /api/lucky-draw/admin/draw/lifecycle
+├ ƒ /api/lucky-draw/admin/order
+├ ƒ /api/lucky-draw/admin/qr
+├ ƒ /api/lucky-draw/admin/slip
+├ ƒ /api/lucky-draw/admin/slip/verify-test
+├ ƒ /api/lucky-draw/picks
+├ ƒ /api/lucky-draw/profile
+├ ƒ /api/ynot/addresses
+├ ƒ /api/ynot/admin/campaigns
+├ ƒ /api/ynot/admin/cards
+├ ƒ /api/ynot/admin/categories
+├ ƒ /api/ynot/admin/exchange
+├ ƒ /api/ynot/admin/merge-requests
+├ ƒ /api/ynot/admin/payment-methods
+├ ƒ /api/ynot/admin/prizes
+├ ƒ /api/ynot/admin/shipping
+├ ƒ /api/ynot/admin/top-ups
+├ ƒ /api/ynot/admin/users
+├ ƒ /api/ynot/exchange
+├ ƒ /api/ynot/gacha/open
+├ ƒ /api/ynot/shipping
+├ ƒ /api/ynot/wallet
+├ ƒ /auth/callback
+├ ƒ /collection
+├ ƒ /exchange
+├ ƒ /gacha/[campaignId]
+├ ƒ /gacha/[campaignId]/open
+├ ƒ /local-readiness
+├ ƒ /login
+├ ƒ /profile
+├ ƒ /ranking
+├ ƒ /shipping
+├ ƒ /signup
+└ ƒ /wallet
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+exit_code=0

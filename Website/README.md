@@ -1,4 +1,4 @@
-# YNot / Lucky Draw Website
+# YNOTT Website
 
 This folder is the normal production website app.
 
@@ -45,12 +45,11 @@ Database migrations are organized at project level, outside this app folder:
 The Website verification scripts read those migration files directly.
 
 
-## Production URL map
+## Production/deployment map
 
-- Normal website: `https://www.ynottcg.com`
-- Apex website redirect: `https://ynottcg.com` -> `https://www.ynottcg.com`
-- Website Vercel fallback: `https://ynot-lucky-draw-platform.vercel.app`
-- LINE LIFF intended URL: `https://liff.ynottcg.com`
-- LINE LIFF fallback until DNS is active: `https://lucky-draw-liff.vercel.app`
+| Surface | Vercel project | Root Directory | Domain |
+| --- | --- | --- | --- |
+| YNOTT Website | `ynott-website` | `Website` | `https://www.ynottcg.com` |
+| YNOTT LIFF compatibility deploy | `ynott-line-liff` | `Website` until LIFF extraction | `https://liff.ynottcg.com` |
 
-`liff.ynottcg.com` still needs the Squarespace DNS record documented in `docs/verification/2026-05-07-domain-reorganization.md` before using it in LINE Console/rich menu.
+This folder is the app root for both Vercel projects right now. Do not configure Vercel Root Directory as `.` while the Next.js app remains in `Website/`.

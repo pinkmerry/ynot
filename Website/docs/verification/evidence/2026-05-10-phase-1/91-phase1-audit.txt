@@ -1,0 +1,20 @@
+$ phase1 forbidden-command and secret-redaction audit
+started_at=2026-05-10T07:18:07Z
+--- executed command lines ---
+00-git-status.txt: git status --short --branch
+01-package-scripts.txt: node -e const p=require('./package.json'); console.log(JSON.stringify(p.scripts,null,2))
+02-supabase-cli-version.txt: bash -lc npx supabase --version && npx supabase --help | sed -n "1,160p"
+03-supabase-db-dump-help.txt: bash -lc npx supabase db dump --help | sed -n "1,220p"
+04-supabase-storage-help.txt: bash -lc npx supabase storage --help 2>&1 | sed -n "1,220p"
+05-local-migration-list.txt: bash -lc find ../Database/supabase/migrations -maxdepth 1 -type f -name "*.sql" -print | sort | nl -ba
+06-context-snapshot.txt: bash -lc sed -n "1,220p" .omx/context/phase-1-production-inventory-backup-20260510T024150Z.md 2>/dev/null || true
+10-verify-production-db.txt: npm run verify:production-db
+11-supabase-projects-list.txt: bash -lc npx supabase projects list --output json 2>&1
+12-supabase-migration-list.txt: bash -lc npx supabase migration list --linked 2>&1
+13-supabase-migration-list-database-workdir.txt: bash -lc npx supabase migration list --workdir ../Database --linked 2>&1
+14-postgres-client-tools.txt: which psql; psql --version; which pg_restore; pg_restore --version
+--- forbidden command violations ---
+[]
+--- secret pattern hits ---
+[]
+result=PASS

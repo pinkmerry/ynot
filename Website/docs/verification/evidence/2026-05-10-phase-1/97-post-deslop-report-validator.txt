@@ -1,0 +1,8 @@
+$ phase1 report validator post-deslop
+started_at=2026-05-10T07:20:49Z
+{
+  "missing": [],
+  "secret_hits": [],
+  "result": "PASS"
+}
+exit_code=0

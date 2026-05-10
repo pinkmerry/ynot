@@ -31,6 +31,7 @@ Line LIFF/.env*
 !Line LIFF/.env.example
 
 # Root leftovers / debug
+.claude/
 node_modules/
 .next/
 out/

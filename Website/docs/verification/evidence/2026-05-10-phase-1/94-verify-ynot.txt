@@ -1,0 +1,546 @@
+$ npm run verify:ynot
+started_at=2026-05-10T07:19:31Z
+
+> lucky-draw-next@0.1.0 verify:ynot
+> npm run verify:phase1 && npm run verify:auth && npm run verify:platform && npm run verify:phase-readiness && npm run verify:hardening && npm run verify:production-test && node tools/verification/verify-lucky-draw-plan.mjs
+
+
+> lucky-draw-next@0.1.0 verify:phase1
+> node tools/verification/verify-phase1-auth-db.mjs
+
+Phase 1 auth/database static verification
+PASS migration adds profiles.auth_user_id
+PASS migration makes profiles.line_user_id nullable
+PASS migration creates user_identities bridge
+PASS migration creates user_addresses
+PASS migration creates private app realtime events
+PASS authenticated profile updates are column-scoped
+PASS authenticated users cannot update all profile columns
+PASS identity profile columns are not client-updatable
+PASS migration enables RLS for new public tables
+PASS RLS helper functions stay in app_private
+PASS public realtime policy no longer allows all topics
+PASS public realtime policy hides private order identifiers
+PASS trigger writes private events for order/payment changes
+PASS trigger does not insert private order ids into public realtime events
+PASS types include user_identities
+PASS types include user_addresses
+PASS types include app_realtime_events
+PASS profiles line_user_id type is nullable
+PASS profiles insert line_user_id is optional nullable
+PASS LINE_SESSION_SECRET is required for LINE session signing
+PASS LINE session signing never falls back to service role
+PASS LINE session records user identity bridge
+PASS LINE identity helper upserts user identity bridge
+PASS LINE session uses linked verified LINE sub for cookie
+PASS client subscribes to public and private event tables
+
+> lucky-draw-next@0.1.0 verify:auth
+> node tools/verification/verify-auth-foundation.mjs
+
+Auth foundation static verification
+PASS @supabase/ssr dependency is installed
+PASS src/proxy.ts exists
+PASS src/lib/supabase/proxy.ts exists
+PASS src/lib/supabase/server.ts exists
+PASS src/lib/supabase/client.ts exists
+PASS src/lib/auth/profile.ts exists
+PASS src/lib/auth/resolve-current-profile.ts exists
+PASS src/features/auth/actions.ts exists
+PASS src/features/auth/AuthForm.tsx exists
+PASS src/app/(auth)/login/page.tsx exists
+PASS src/app/(auth)/signup/page.tsx exists
+PASS src/app/auth/callback/route.ts exists
+PASS browser client uses createBrowserClient
+PASS server client uses createServerClient
+PASS server client uses getAll cookie API
+PASS server client uses setAll cookie API
+PASS server client avoids deprecated individual cookie methods
+PASS proxy refreshes Supabase session
+PASS Next 16 proxy convention is used
+PASS email password sign in exists
+PASS email password sign up exists
+PASS Google OAuth starts from server action
+PASS OAuth redirect origin uses configured production site URL
+PASS OAuth callback exchanges code for server session
+PASS OAuth callback sanitizes next redirect path
+PASS OAuth callback rejects protocol-relative open redirects
+PASS auth users bootstrap canonical profile
+PASS auth identities sync to user_identities
+PASS resolver supports Supabase Auth
+PASS resolver preserves LIFF cookie fallback
+PASS order creation uses unified profile resolver
+PASS admin route uses unified admin resolver
+PASS order creation no longer requires LINE-only login text
+PASS deprecated auth helpers are not imported
+
+> lucky-draw-next@0.1.0 verify:platform
+> node tools/verification/verify-platform-foundation.mjs
+
+YNot platform foundation static verification
+PASS src/app/page.tsx exists
+PASS src/app/(store)/gacha/[campaignId]/page.tsx exists
+PASS src/app/(store)/gacha/[campaignId]/open/page.tsx exists
+PASS src/app/(store)/collection/page.tsx exists
+PASS src/app/(store)/ranking/page.tsx exists
+PASS src/app/(store)/exchange/page.tsx exists
+PASS src/app/(store)/shipping/page.tsx exists
+PASS src/app/(store)/wallet/page.tsx exists
+PASS src/app/(store)/profile/page.tsx exists
+PASS src/app/(auth)/login/page.tsx exists
+PASS src/app/(auth)/signup/page.tsx exists
+PASS src/app/admin/page.tsx exists
+PASS src/app/admin/top-ups/page.tsx exists
+PASS src/app/admin/campaigns/page.tsx exists
+PASS src/app/admin/categories/page.tsx exists
+PASS src/app/admin/prizes/page.tsx exists
+PASS src/app/admin/users/page.tsx exists
+PASS src/app/admin/exchange/page.tsx exists
+PASS src/app/admin/shipping/page.tsx exists
+PASS src/app/admin/rankings/page.tsx exists
+PASS src/app/admin/settings/page.tsx exists
+PASS src/app/admin/audit/page.tsx exists
+PASS src/app/api/ynot/wallet/route.ts exists
+PASS src/app/api/ynot/addresses/route.ts exists
+PASS src/app/api/ynot/gacha/open/route.ts exists
+PASS src/app/api/ynot/exchange/route.ts exists
+PASS src/app/api/ynot/shipping/route.ts exists
+PASS src/app/api/ynot/admin/top-ups/route.ts exists
+PASS src/app/api/ynot/admin/payment-methods/route.ts exists
+PASS src/app/api/ynot/admin/exchange/route.ts exists
+PASS src/app/api/ynot/admin/shipping/route.ts exists
+PASS src/app/api/ynot/admin/campaigns/route.ts exists
+PASS src/app/api/ynot/admin/categories/route.ts exists
+PASS src/app/api/ynot/admin/cards/route.ts exists
+PASS src/app/api/ynot/admin/prizes/route.ts exists
+PASS src/app/api/ynot/admin/users/route.ts exists
+PASS src/app/api/ynot/admin/merge-requests/route.ts exists
+PASS src/app/api/line/login/start/route.ts exists
+PASS src/app/api/line/callback/route.ts exists
+PASS root no longer redirects to wireframes
+PASS production metadata is set
+PASS normal web login and signup navigation exist
+PASS home page reads category, tag, and sort filters from URL search params
+PASS home category and tag filters are real links that preserve filter state
+PASS home campaigns are sorted by selected sort option
+PASS sort select updates the URL query
+PASS customer pack card labels price per pack instead of per random
+PASS LINE login is available from auth pages
+PASS profile page exposes LINE connect flow
+PASS LINE callback validates state and links identity
+PASS LINE login requires configured production site origin
+PASS LINE callback exchanges with trusted redirect URI
+PASS LINE login next path rejects backslash/protocol-relative redirects
+PASS LINE callback next path rejects backslash/protocol-relative redirects
+PASS LINE email auto-link only when exactly one active profile matches
+PASS logout clears legacy LINE session cookie too
+PASS wallet top-up posts slip upload API
+PASS address form calls address API
+PASS gacha open button calls API
+PASS collection actions call exchange and shipping APIs
+PASS admin payment settings call payment method API
+PASS admin campaign form calls campaign API
+PASS admin category form calls category API
+PASS admin campaign form and update rows edit customer card labels
+PASS admin campaign action panel publishes and archives campaigns
+PASS admin card form calls card API
+PASS admin prize pool form calls prize API
+PASS admin user role form calls users API
+PASS admin merge review calls merge API
+PASS admin campaign API is admin gated
+PASS admin category API is admin gated
+PASS admin category API persists store categories
+PASS admin campaign API persists customer display tags
+PASS admin card API is admin gated
+PASS admin prize API assigns draw_round_prizes
+PASS admin users API protects owner changes and self deactivation
+PASS admin merge API uses service-role merge RPCs
+PASS admin shipping route uses transaction-safe status RPC
+PASS admin routes are hidden unless viewer is admin
+PASS non-admin admin route gets denial state
+PASS public campaign reads filter hidden/private visibility
+PASS admin dashboard can request private campaigns explicitly
+PASS admin user and audit data readers exist
+PASS admin user reader checks admin before service read
+PASS admin audit reader checks admin before service read
+PASS admin card reader checks admin before service read
+PASS admin prize pool reader checks admin before service read
+PASS admin users page is not a placeholder
+PASS admin prizes page is not a placeholder
+PASS admin rankings page is not a placeholder
+PASS admin audit page is not a placeholder
+PASS campaign label migration adds display_tags
+PASS phase2 migration creates payment_methods
+PASS phase2 migration creates top_up_requests
+PASS phase2 migration generalizes payment_slips with XOR owner
+PASS phase2 migration creates wallet and ledger
+PASS phase2 migration creates idempotency keys
+PASS phase2 migration creates account merge tables
+PASS phase2 migration creates gacha and collection tables
+PASS phase2 migration creates exchange and shipping tables
+PASS phase2 migration creates service-role wallet RPC
+PASS phase2 migration creates atomic gacha RPC
+PASS phase2 migration creates atomic exchange approval RPC
+PASS phase2 migration creates account merge completion RPC
+PASS phase2 migration enables RLS for platform public tables
+PASS phase2 migration grants RPC execute only to service_role
+PASS phase2 migration does not grant table writes to authenticated users
+PASS types include top_up_requests
+PASS types include collection_items
+PASS types include platform RPCs
+PASS admin exchange route uses wallet ledger RPCs
+PASS status docs mention migration-before-deploy gate
+PASS button map covers first-release controls without unsupported/no-op actions
+
+> lucky-draw-next@0.1.0 verify:phase-readiness
+> node tools/verification/verify-phase-readiness.mjs
+
+PASS src/features/ynot/phase-readiness.ts exists
+PASS src/app/(store)/local-readiness/page.tsx exists
+PASS src/app/(store)/gacha/[campaignId]/page.tsx exists
+PASS src/app/(store)/gacha/[campaignId]/open/page.tsx exists
+PASS docs/plans/production-phases/00-index.md exists
+PASS docs/plans/production-phases/README.md exists
+PASS docs/plans/production-phases/appendix-go-no-go-evidence-template.md exists
+PASS docs/plans/admin-content-studio-future-proofing.md exists
+PASS ../Database/supabase/migrations/20260507015626_phase1_auth_identity_realtime.sql exists
+PASS ../Database/supabase/migrations/20260507032000_phase2_platform_wallet_gacha.sql exists
+PASS docs/plans/production-phases/phase-1-production-data-inventory-backup.md exists
+PASS docs/plans/production-phases/phase-2-staging-supabase-preview.md exists
+PASS docs/plans/production-phases/phase-3-provider-identity-owner-admin.md exists
+PASS docs/plans/production-phases/phase-4-wallet-payment-admin-qa.md exists
+PASS docs/plans/production-phases/phase-5-gacha-collection-exchange-shipping-qa.md exists
+PASS docs/plans/production-phases/phase-6-production-preflight.md exists
+PASS docs/plans/production-phases/phase-7-production-smoke-limited-pilot.md exists
+PASS docs/plans/production-phases/phase-1-production-data-inventory-backup.md includes User stories
+PASS docs/plans/production-phases/phase-1-production-data-inventory-backup.md includes Acceptance criteria
+PASS docs/plans/production-phases/phase-1-production-data-inventory-backup.md includes UAT
+PASS docs/plans/production-phases/phase-1-production-data-inventory-backup.md includes Real tests
+PASS docs/plans/production-phases/phase-1-production-data-inventory-backup.md includes Stop rules
+PASS docs/plans/production-phases/phase-2-staging-supabase-preview.md includes User stories
+PASS docs/plans/production-phases/phase-2-staging-supabase-preview.md includes Acceptance criteria
+PASS docs/plans/production-phases/phase-2-staging-supabase-preview.md includes UAT
+PASS docs/plans/production-phases/phase-2-staging-supabase-preview.md includes Real tests
+PASS docs/plans/production-phases/phase-2-staging-supabase-preview.md includes Stop rules
+PASS docs/plans/production-phases/phase-3-provider-identity-owner-admin.md includes User stories
+PASS docs/plans/production-phases/phase-3-provider-identity-owner-admin.md includes Acceptance criteria
+PASS docs/plans/production-phases/phase-3-provider-identity-owner-admin.md includes UAT
+PASS docs/plans/production-phases/phase-3-provider-identity-owner-admin.md includes Real tests
+PASS docs/plans/production-phases/phase-3-provider-identity-owner-admin.md includes Stop rules
+PASS docs/plans/production-phases/phase-4-wallet-payment-admin-qa.md includes User stories
+PASS docs/plans/production-phases/phase-4-wallet-payment-admin-qa.md includes Acceptance criteria
+PASS docs/plans/production-phases/phase-4-wallet-payment-admin-qa.md includes UAT
+PASS docs/plans/production-phases/phase-4-wallet-payment-admin-qa.md includes Real tests
+PASS docs/plans/production-phases/phase-4-wallet-payment-admin-qa.md includes Stop rules
+PASS docs/plans/production-phases/phase-5-gacha-collection-exchange-shipping-qa.md includes User stories
+PASS docs/plans/production-phases/phase-5-gacha-collection-exchange-shipping-qa.md includes Acceptance criteria
+PASS docs/plans/production-phases/phase-5-gacha-collection-exchange-shipping-qa.md includes UAT
+PASS docs/plans/production-phases/phase-5-gacha-collection-exchange-shipping-qa.md includes Real tests
+PASS docs/plans/production-phases/phase-5-gacha-collection-exchange-shipping-qa.md includes Stop rules
+PASS docs/plans/production-phases/phase-6-production-preflight.md includes User stories
+PASS docs/plans/production-phases/phase-6-production-preflight.md includes Acceptance criteria
+PASS docs/plans/production-phases/phase-6-production-preflight.md includes UAT
+PASS docs/plans/production-phases/phase-6-production-preflight.md includes Real tests
+PASS docs/plans/production-phases/phase-6-production-preflight.md includes Stop rules
+PASS docs/plans/production-phases/phase-7-production-smoke-limited-pilot.md includes User stories
+PASS docs/plans/production-phases/phase-7-production-smoke-limited-pilot.md includes Acceptance criteria
+PASS docs/plans/production-phases/phase-7-production-smoke-limited-pilot.md includes UAT
+PASS docs/plans/production-phases/phase-7-production-smoke-limited-pilot.md includes Real tests
+PASS docs/plans/production-phases/phase-7-production-smoke-limited-pilot.md includes Stop rules
+PASS phase-readiness has Phase 1
+PASS phase-readiness has Phase 2
+PASS phase-readiness has Phase 3
+PASS phase-readiness has Phase 4
+PASS phase-readiness has Phase 5
+PASS phase-readiness has Phase 6
+PASS phase-readiness has Phase 7
+PASS readiness route/link covered: /local-readiness
+PASS readiness route/link covered: /login
+PASS readiness route/link covered: /signup
+PASS readiness route/link covered: /profile
+PASS readiness route/link covered: /wallet
+PASS readiness route/link covered: /collection
+PASS readiness route/link covered: /exchange
+PASS readiness route/link covered: /shipping
+PASS readiness route/link covered: /admin
+PASS readiness route/link covered: /admin/campaigns
+PASS readiness route/link covered: /admin/prizes
+PASS readiness route/link covered: /admin/top-ups
+PASS readiness route/link covered: /admin/settings
+PASS readiness avoids hardcoded demo campaign routes
+PASS readiness records external production gates
+PASS local-readiness page has owner-facing title
+PASS local-readiness page states no production mutation
+
+Phase readiness verification passed.
+
+> lucky-draw-next@0.1.0 verify:hardening
+> node tools/verification/verify-hardening.mjs
+
+PASS Ralph context snapshot exists
+PASS Ralph weakness PRD exists
+PASS Ralph weakness test spec exists
+PASS Ralph complete-admin PRD exists
+PASS Ralph complete-admin test spec exists
+PASS Production admin test PRD exists
+PASS Production admin test spec exists
+PASS demo storefront runtime flag exists
+PASS demo storefront defaults off in production
+PASS storefront displayCampaigns helper exists
+PASS storefront demo fallback is production-gated
+PASS campaign detail demo fallback is production-gated
+PASS src/features/ynot/components.tsx has no sample collection cards
+PASS src/features/ynot/client.tsx has no sample collection cards
+PASS src/features/ynot/storefront-content.ts has no sample collection cards
+PASS components avoid demo/live claim: href="/gacha/pokemon-gold-07
+PASS components avoid demo/live claim: "/gacha/pokemon-gold-07/open"
+PASS components avoid demo/live claim: Live Now
+PASS components avoid demo/live claim: Just got
+PASS components avoid demo/live claim: Otto J.
+PASS components avoid demo/live claim: Mint S.
+PASS components avoid demo/live claim: HUSKY
+PASS components avoid demo/live claim: TSUYOSHI_CFC
+PASS components avoid demo/live claim: JOIN OVER 250,000
+PASS components avoid demo/live claim: data.wallet.balanceCoins || 1250
+PASS components avoid demo/live claim: Every pull has a verifiable hash
+PASS phase readiness has no hardcoded demo campaign route
+PASS static reward tiers are demo-gated
+PASS ranking empty state replaces fake rankings
+PASS store status empty state replaces fake live activity
+PASS src/app/(store)/collection/page.tsx avoids fake/static claim: Pending 24
+PASS src/app/(store)/collection/page.tsx avoids fake/static claim: Awaiting ship 3
+PASS src/app/(store)/collection/page.tsx avoids fake/static claim: Shipped 12
+PASS src/app/(store)/collection/page.tsx avoids fake/static claim: ● 4,614
+PASS src/app/(store)/exchange/page.tsx avoids fake/static claim: sold-out overlay
+PASS src/app/(store)/exchange/page.tsx avoids fake/static claim: Trade coin for real cards
+PASS src/app/(store)/gacha/[campaignId]/page.tsx avoids fake/static claim: provably fair
+PASS src/features/ynot/components.tsx avoids fake/static claim: 252,433
+PASS src/features/ynot/components.tsx avoids fake/static claim: BONUS ✦ 4,614
+PASS src/features/ynot/components.tsx avoids fake/static claim: exchangeCatalog
+PASS src/features/ynot/components.tsx avoids fake/static claim: PROVABLY FAIR
+PASS src/features/ynot/components.tsx avoids fake/static claim: provably fair
+PASS src/features/ynot/storefront-content.ts avoids fake/static claim: exchangeCatalog
+PASS src/features/ynot/storefront-content.ts avoids fake/static claim: exchangeCategories
+PASS src/features/ynot/storefront-content.ts avoids fake/static claim: (PSA10) Lucia
+PASS src/features/ynot/storefront-content.ts avoids fake/static claim: SOLD OUT
+PASS collection coin metric is wallet-backed
+PASS collection status counts are collection-backed
+PASS exchange panel receives real wallet data
+PASS exchange panel uses real-request empty state
+PASS gacha artwork uses supported server-recorded claim
+PASS components do not fabricate 42 percent remaining stock
+PASS components contain no hardcoded stock percentage fallback
+PASS components do not directly render fallback remaining counts
+PASS remaining stock requires a finite explicit remainingSlots value
+PASS store status has neutral stock copy when DB count is unavailable
+PASS cards/details avoid fabricated stock counts when DB count is unavailable
+PASS stock rendering branches on unknown remainingSlots
+PASS gacha detail copy avoids claiming a precise stock count
+PASS gacha detail copy uses stock status wording
+PASS admin platform health loader exists
+PASS admin platform health panel exists
+PASS platform health types exist
+PASS admin health checks cards
+PASS admin health checks draw_round_prizes
+PASS admin health checks api_rate_limits
+PASS admin health checks production test table store_categories
+PASS admin health checks production test table draw_round_categories
+PASS admin health checks production test table draw_round_prize_units
+PASS admin health checks production test table seed_runs
+PASS admin health reports rate-limit backend
+PASS dashboard records degraded data reads per request
+PASS admin health surfaces degraded data reads
+PASS dashboard data issue type exists
+PASS dashboard payload includes data issue evidence
+PASS card catalog errors are not silently swallowed by catch fallback
+PASS shared rate-limit helper exists
+PASS rate-limit helper includes RATE_LIMIT_BACKEND
+PASS rate-limit helper includes consume_api_rate_limit
+PASS rate-limit helper includes process.env.NODE_ENV === "production"
+PASS rate-limit helper includes RATE_LIMIT_ALLOW_IN_MEMORY_PRODUCTION
+PASS api_rate_limits migration exists
+PASS rate-limit migration includes create table if not exists public.api_rate_limits
+PASS rate-limit migration includes consume_api_rate_limit
+PASS rate-limit migration includes grant execute on function public.consume_api_rate_limit
+PASS rate-limit migration includes service_role
+PASS Supabase types include api_rate_limits
+PASS Supabase types include consume_api_rate_limit RPC
+PASS admin shipping status RPC migration exists
+PASS admin shipping RPC migration includes create or replace function public.update_shipping_request_status
+PASS admin shipping RPC migration includes security invoker
+PASS admin shipping RPC migration includes for update;
+PASS admin shipping RPC migration includes shipping_request_terminal
+PASS admin shipping RPC migration includes invalid_shipping_transition
+PASS admin shipping RPC migration includes update public.collection_items item
+PASS admin shipping RPC migration includes 'shipping_status_updated'
+PASS admin shipping RPC migration includes revoke all on function public.update_shipping_request_status
+PASS admin shipping RPC migration includes from public, anon, authenticated
+PASS admin shipping RPC migration includes grant execute on function public.update_shipping_request_status
+PASS admin shipping RPC migration includes to service_role
+PASS admin shipping route calls transaction RPC
+PASS admin shipping route does not directly update shipping_requests
+PASS admin shipping route does not directly mutate collection_items
+PASS admin shipping route leaves audit insert to RPC
+PASS Supabase types include update_shipping_request_status RPC
+PASS production admin test migration exists
+PASS production admin test migration includes create table if not exists public.store_categories
+PASS production admin test migration includes create table if not exists public.draw_round_prize_units
+PASS production admin test migration includes create or replace function public.ensure_draw_round_prize_units
+PASS production admin test migration includes create or replace function public.open_gacha_campaign
+PASS production admin test migration includes for update skip locked
+PASS production admin test migration includes coalesce(is_test, false) = false
+PASS card tone removal migration exists
+PASS card tone removal migration includes card - 'tone'
+PASS card tone removal migration includes alter table if exists public.draw_round_prizes drop column if exists tone
+PASS card tone removal migration includes alter table if exists public.cards drop column if exists tone
+PASS production admin test seed script exists
+PASS production admin test asset manifest exists
+PASS production Supabase readiness checker exists
+PASS production seed script requires acknowledgement
+PASS production Supabase readiness checker documents category/table failures
+PASS admin category API persists database categories
+PASS admin category API reports missing production schema clearly
+PASS admin forms render explicit field titles
+PASS admin category form updates with save confirmation
+PASS admin prize form labels inventory quantity field
+PASS admin prize API manages inventory units
+PASS admin card API blocks Japan Toreca test assets
+PASS test campaign detail path checks whitelist
+PASS gacha detail page allows whitelisted test-pack read path
+PASS gacha open page allows whitelisted test-pack read path
+PASS admin workflow matrix document exists
+PASS admin workflow matrix includes Complete current schema
+PASS admin workflow matrix includes store_categories
+PASS admin workflow matrix includes media_assets
+PASS admin workflow matrix includes Production migration guard
+PASS src/features/ynot/client.tsx removed legacy tone field: setTone
+PASS src/features/ynot/client.tsx removed legacy tone field: value={tone}
+PASS src/features/ynot/client.tsx removed legacy tone field: <option value="gold">Gold</option>
+PASS src/app/api/ynot/admin/cards/route.ts removed legacy tone field: tone:
+PASS src/app/api/ynot/admin/prizes/route.ts removed legacy tone field: tone:
+PASS src/app/api/ynot/admin/prizes/route.ts removed legacy tone field: toneValue
+PASS src/features/lucky-draw/admin/AdminView.tsx removed legacy tone field: label="Color"
+PASS src/features/lucky-draw/admin/AdminView.tsx removed legacy tone field: patch.tone
+PASS src/features/lucky-draw/admin/AdminView.tsx removed legacy tone field: tone: "gold"
+PASS src/features/lucky-draw/admin/AdminView.tsx removed legacy tone field: ["red", "gold", "blue", "green", "rose", "violet"]
+PASS src/features/lucky-draw/shared/CardArtwork.tsx removed legacy tone field: card.tone
+PASS src/lib/lucky-draw/data.ts removed legacy tone field: toCardTone
+PASS src/lib/lucky-draw/data.ts removed legacy tone field: row.tone
+PASS src/lib/lucky-draw/data.ts removed legacy tone field: prize.tone
+PASS src/lib/lucky-draw/types.ts removed legacy tone field: tone:
+PASS src/features/ynot/types.ts removed legacy tone field: tone:
+PASS src/lib/supabase/types.ts removed legacy tone field: tone:
+PASS tools/seed/seed-production-admin-test-data.mjs removed legacy tone field: tone:
+PASS tools/seed/seed-production-admin-test-data.mjs removed legacy tone field: tone,
+PASS src/app/api/ynot/wallet/route.ts awaits rate limiting before mutation
+PASS src/app/api/ynot/gacha/open/route.ts awaits rate limiting before mutation
+PASS src/app/api/ynot/exchange/route.ts awaits rate limiting before mutation
+PASS src/app/api/ynot/shipping/route.ts awaits rate limiting before mutation
+PASS src/app/api/ynot/addresses/route.ts awaits rate limiting before mutation
+PASS src/app/api/ynot/admin/campaigns/route.ts awaits rate limiting before mutation
+PASS src/app/api/ynot/admin/categories/route.ts awaits rate limiting before mutation
+PASS src/app/api/ynot/admin/cards/route.ts awaits rate limiting before mutation
+PASS src/app/api/ynot/admin/exchange/route.ts awaits rate limiting before mutation
+PASS src/app/api/ynot/admin/merge-requests/route.ts awaits rate limiting before mutation
+PASS src/app/api/ynot/admin/payment-methods/route.ts awaits rate limiting before mutation
+PASS src/app/api/ynot/admin/prizes/route.ts awaits rate limiting before mutation
+PASS src/app/api/ynot/admin/shipping/route.ts awaits rate limiting before mutation
+PASS src/app/api/ynot/admin/top-ups/route.ts awaits rate limiting before mutation
+PASS src/app/api/ynot/admin/users/route.ts awaits rate limiting before mutation
+PASS API boundary document exists
+PASS API boundary includes /api/lucky-draw
+PASS API boundary includes /api/line
+PASS API boundary includes /api/ynot
+PASS API boundary includes Public storefront should show real published DB campaigns in production
+PASS package has verify:hardening script
+PASS verify:ynot includes hardening verification
+PASS verify:ynot includes production-test verification
+PASS package has optional verify:production-db script
+
+Hardening verification passed.
+
+> lucky-draw-next@0.1.0 verify:production-test
+> node tools/verification/verify-production-test-readiness.mjs
+
+✓ ../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql contains create table if not exists public.store_categories
+✓ ../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql contains create table if not exists public.draw_round_categories
+✓ ../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql contains create table if not exists public.draw_round_testers
+✓ ../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql contains create table if not exists public.draw_round_prize_units
+✓ ../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql contains create table if not exists public.seed_runs
+✓ ../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql contains add column if not exists is_test boolean not null default false
+✓ ../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql contains Public can read active non-test categories
+✓ ../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql contains coalesce(is_test, false) = false
+✓ ../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql contains profile_can_open_test_draw_round
+✓ ../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql contains get_draw_round_inventory_summary
+✓ ../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql contains ensure_draw_round_prize_units
+✓ ../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql contains for update skip locked
+✓ ../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql contains not_enough_prize_inventory
+✓ ../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql contains revoke all on table public.draw_round_prize_units from public, anon, authenticated
+✓ src/app/api/ynot/admin/categories/route.ts contains store_categories
+✓ src/app/api/ynot/admin/categories/route.ts contains resolveAdminSession
+✓ src/app/api/ynot/admin/categories/route.ts contains enforceRateLimit
+✓ src/app/api/ynot/admin/campaigns/route.ts contains categoryIds
+✓ src/app/api/ynot/admin/campaigns/route.ts contains is_test
+✓ src/app/api/ynot/admin/campaigns/route.ts contains draw_round_categories
+✓ src/app/api/ynot/admin/prizes/route.ts contains quantity
+✓ src/app/api/ynot/admin/prizes/route.ts contains ensure_draw_round_prize_units
+✓ src/app/api/ynot/admin/prizes/route.ts contains draw_round_prize_units
+✓ src/app/api/ynot/admin/cards/route.ts contains assetManifestKey
+✓ src/app/api/ynot/admin/cards/route.ts contains japan-toreca
+✓ src/app/api/ynot/admin/cards/route.ts contains is_test
+✓ src/features/ynot/data.ts contains getStoreCategories
+✓ src/features/ynot/data.ts contains get_draw_round_inventory_summary
+✓ src/features/ynot/data.ts contains draw_round_prize_units
+✓ src/features/ynot/data.ts contains canReadTestCampaign
+✓ src/features/ynot/data.ts contains draw_round_testers
+✓ src/features/ynot/data.ts contains allowTestForCurrentViewer
+✓ src/app/(store)/gacha/[campaignId]/page.tsx contains allowTestForCurrentViewer: true
+✓ src/app/(store)/gacha/[campaignId]/open/page.tsx contains allowTestForCurrentViewer: true
+✓ src/features/ynot/client.tsx contains AdminCategoryForm
+✓ src/features/ynot/client.tsx contains Prize quantity
+✓ src/features/ynot/client.tsx contains Production test pack
+✓ tools/seed/seed-production-admin-test-data.mjs contains ALLOW_PRODUCTION_TEST_SEED
+✓ tools/seed/seed-production-admin-test-data.mjs contains --dry-run
+✓ tools/seed/seed-production-admin-test-data.mjs contains --apply
+✓ tools/seed/seed-production-admin-test-data.mjs contains --cleanup
+✓ tools/seed/seed-production-admin-test-data.mjs contains draw_round_testers
+✓ docs/runbooks/production-admin-test-data.md contains Hard gate before production apply
+✓ docs/runbooks/production-admin-test-data.md contains Owner go/no-go
+✓ docs/runbooks/production-admin-test-data.md contains non-destructive
+✓ asset ynot-test-pack-pokemon source policy
+✓ asset ynot-test-pack-pokemon approved path
+✓ asset ynot-test-pack-one-piece source policy
+✓ asset ynot-test-pack-one-piece approved path
+✓ asset ynot-test-card-gold source policy
+✓ asset ynot-test-card-gold approved path
+✓ asset ynot-test-card-blue source policy
+✓ asset ynot-test-card-blue approved path
+Production test readiness verification passed: 53 checks.
+Lucky Draw verification artifact check
+Root: /Users/pinkmerry/Project X/Lucky Draw/Website
+
+PASS  server secret env names are absent from client components
+PASS  client files do not import supabase/server or slip2go/client
+PASS  postgres_changes subscriptions target only safe event tables
+PASS  no realtime subscriptions to raw order/payment/profile/admin tables detected
+PASS  src/app/page.tsx is a thin app-shell entry with no direct fetch or createBrowserSupabaseClient usage
+PASS  src/features/lucky-draw/shell/LuckyDrawShell.tsx has no direct fetch or createBrowserSupabaseClient usage
+PASS  customer/profile/admin views are implemented in feature-owned files, not shell re-export stubs
+PASS  admin smoke route inventory exists, including qr and card-image endpoints
+
+Manual smoke checklist:
+1. Non-admin UI: admin nav, admin panels, slip tools, lifecycle controls, QR/card upload controls are hidden; direct admin view falls back to profile.
+2. Non-admin API rejection: PATCH/POST/GET admin endpoints return 401/403 or safe validation rejection without mutation.
+3. Admin UI: admin dashboard, order controls, lifecycle controls, QR/card upload, card admin, and slip tools render only for active admin/owner session.
+4. Customer order flow: POST /api/lucky-draw returns 401 without authenticated session; Supabase Auth or LIFF session creates order or safe validation error; configured:false does not persist.
+5. Pick flow: POST /api/lucky-draw/picks returns 401 without authenticated session; duplicate slots and non-admin quantity mismatch are rejected; valid approved order pick succeeds.
+6. Realtime: inserting lucky_draw_realtime_events/app_realtime_events or safe state change triggers client refetch of /api/lucky-draw; no raw order/payment/profile payload is streamed.
+7. Dry-run slip: POST /api/lucky-draw/admin/slip/verify-test returns ok=true, dryRun=true, databaseMutated=false for admin; orders/payment_slips/draw_slots stay unchanged.
+8. Profile separation: GET/PATCH /api/lucky-draw/profile is handled from profile UI; checkout/orders do not become profile-management surfaces.
+9. Demo/unconfigured: /api/lucky-draw may return configured:false demo read state; admin/payment/mutation endpoints fail safely with no persistence or bypass claim.
+
+Usage:
+  node tools/verification/verify-lucky-draw-plan.mjs
+  node tools/verification/verify-lucky-draw-plan.mjs --strict-shell
+  node tools/verification/verify-lucky-draw-plan.mjs --base-url=http://localhost:3000
+exit_code=0

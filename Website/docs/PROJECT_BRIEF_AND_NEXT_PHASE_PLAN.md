@@ -1,11 +1,11 @@
-# YNot / Lucky Draw Project Brief And Next Phase Plan
+# YNOTT Project Brief And Next Phase Plan
 
 Updated: 2026-05-07
 Status: **Alignment document plus production deployment/database gate update**
 
 ## 1. What this project is
 
-YNot / Lucky Draw is being built as a **normal production website** for card-pack lucky draw / gacha play. It must not be LIFF-only. LINE remains supported, but users who do not want LINE must still be able to use the website normally.
+YNOTT is being built as a **normal production website** for card-pack lucky draw / gacha play. It must not be LIFF-only. LINE remains supported, but users who do not want LINE must still be able to use the website normally.
 
 The website and the existing LINE LIFF app should share the **same Supabase database** so users, admins, orders, payments, wallet, prizes, and account linking are maintainable from one platform.
 
@@ -26,10 +26,10 @@ Build a production-ready platform where:
 
 ## 3. Current project organization
 
-`Lucky Draw` is the main project folder. It is organized as:
+`YNOTT` is the main project folder. It is organized as:
 
 ```text
-Lucky Draw/
+YNOTT/
 ├── Website/       Normal production website app, website APIs, website UI, and website plan/docs
 ├── Database/      Supabase migrations, database architecture, RLS/RPC plans, and DB runbooks
 ├── Line LIFF/     LINE LIFF integration notes and original LIFF/design references
@@ -130,9 +130,9 @@ Not complete yet:
 
 A separate GitHub/Vercel project has been created for online testing:
 
-- GitHub: `https://github.com/pinkmerry/ynot-lucky-draw-platform`
-- Vercel project: `ynot-lucky-draw-platform`
-- Production URL: `https://ynot-lucky-draw-platform.vercel.app`
+- GitHub: `https://github.com/pinkmerry/ynott`
+- Website Vercel project: `ynott-website`; LIFF Vercel project: `ynott-line-liff`
+- Production URL: `https://www.ynottcg.com`; LIFF URL: `https://liff.ynottcg.com`
 - Deployment evidence: `docs/verification/2026-05-07-github-vercel-production-deploy.md`
 - Database gate evidence: `../Database/docs/verification/2026-05-07-production-db-next-phase-gate.md`
 
@@ -274,3 +274,14 @@ These are the only alignment decisions I recommend confirming before the next ph
 ## 11. Stop condition before implementation continues
 
 Do not start the next deployment/production phase until this document is reviewed for goal alignment or the user explicitly says to continue with the staging/preview phase.
+
+
+## Repo and deployment topology
+
+Canonical repo/folder naming is **YNOTT**. Agents must distinguish:
+
+- **YNOTT Website**: code in `Website/`, Vercel project `ynott-website`, domain `www.ynottcg.com`.
+- **YNOTT LIFF**: LINE/LIFF ownership in `Line LIFF/`, Vercel project `ynott-line-liff`, domain `liff.ynottcg.com`.
+- **Database**: Supabase migrations and verification in `Database/`.
+
+Both Vercel projects should use Root Directory `Website` until a separate LIFF app is intentionally extracted.

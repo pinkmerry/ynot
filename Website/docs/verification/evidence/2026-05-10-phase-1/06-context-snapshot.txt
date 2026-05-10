@@ -1,0 +1,41 @@
+$ bash -lc sed -n "1,220p" .omx/context/phase-1-production-inventory-backup-20260510T024150Z.md 2>/dev/null || true
+started_at=2026-05-10T07:09:53.055895Z
+exit_code=0
+--- stdout ---
+# Context Snapshot — Phase 1 Production Inventory + Backup
+
+Task statement: `$ralplan "phase 1"` for Lucky Draw / YNot Website.
+
+Desired outcome: consensus plan for Phase 1 only: production data inventory, schema gap confirmation, full backup/restore evidence, storage backup plan, and exit artifact. No production writes, migrations, provider changes, seed applies, or deploys.
+
+Known facts/evidence:
+- `docs/plans/production-phases/phase-1-production-data-inventory-backup.md` defines Phase 1 as not complete and production write permission not allowed.
+- `docs/PROJECT_STATUS.md` says production Supabase migrations remain blocked by missing SQL execution access and full-backup evidence.
+- `../Database/docs/verification/2026-05-07-production-db-next-phase-gate.md` records Supabase ref `szjoarkijeaspazbrchc`, a REST data-only backup, missing website schema, and no SQL execution path.
+- Additional local migrations now exist after the original Phase 1/2 pair: display tags, API rate limits, admin test categories/inventory, admin shipping RPC, and tone removal.
+- Current production readiness checker `npm run verify:production-db` should be treated as a read-only live schema probe.
+
+Constraints:
+- Planning only. Do not apply production migrations or seed data.
+- No destructive operations. No provider dashboard changes. No Vercel deploys.
+- Preserve existing LIFF users/data and same Supabase project alignment.
+- Backup must be full Supabase backup or restore-ready equivalent; REST JSON export alone is insufficient.
+- Storage objects need a separate backup/export plan because DB backup metadata alone is not object recovery.
+
+Unknowns/open questions:
+- Exact current Supabase plan/backups/PITR availability and dashboard backup identifier.
+- Whether Supabase CLI token, direct DB URL, SQL editor, or another operator path is available.
+- Whether live migration history table is accessible and which migrations are already recorded/applied.
+- Whether current production LIFF route still smokes cleanly today.
+
+Likely touchpoints:
+- `docs/plans/production-phases/phase-1-production-data-inventory-backup.md`
+- `docs/PROJECT_STATUS.md`
+- `../Database/docs/verification/2026-05-07-production-db-next-phase-gate.md`
+- `docs/runbooks/production-admin-test-data.md`
+- `tools/verification/check-production-supabase-readiness.mjs`
+- `../Database/supabase/migrations/*.sql`
+- Exit artifact: `docs/verification/YYYY-MM-DD-phase-1-production-inventory-backup.md`
+
+--- stderr ---
+

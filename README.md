@@ -1,23 +1,23 @@
-# Lucky Draw / YNot Project
+# YNOTT Project
 
-This is the main project folder. The project is organized into clear areas so it is easy to see what belongs where.
+This repository is the main **YNOTT** project. It keeps the normal website, LINE LIFF integration notes, and Supabase database source of truth together so agents and humans do not split work across the wrong repo.
 
 ## Folder map
 
 ```text
-Lucky Draw/
-├── Website/       Normal production website app, website UI, website APIs, and website plan/docs
-├── Database/      Supabase migrations, database architecture, RLS/RPC plans, and DB runbooks
-├── Line LIFF/     LINE LIFF integration notes and original LIFF/design references
-├── AGENTS.md      Agent/project instructions
+YNOTT/
+├── Website/       YNOTT Website: production Next.js website, admin/customer UI, APIs, docs
+├── Line LIFF/     YNOTT LIFF: LINE Console/rich-menu/LIFF notes and compatibility references
+├── Database/      Supabase migrations, schema docs, backup/restore evidence, RLS/RPC plans
+├── AGENTS.md      Root agent instructions and repo/deployment topology
 └── README.md      This project map
 ```
 
-## Where to work
+## Which folder should an agent use?
 
-### Website
+### YNOTT Website
 
-Use this when building or testing the normal website:
+Use `Website/` for the normal web product:
 
 ```bash
 cd Website
@@ -25,44 +25,50 @@ npm run dev -- -p 3005
 npm run check
 ```
 
-Website plan/status files live in:
+Website docs/status:
 
 - `Website/docs/PROJECT_BRIEF_AND_NEXT_PHASE_PLAN.md`
 - `Website/docs/PROJECT_STATUS.md`
 - `Website/docs/plans/`
+- `Website/docs/verification/`
+
+### YNOTT LIFF
+
+Use `Line LIFF/` for LINE-specific product ownership:
+
+- LINE Console / LIFF settings
+- LINE rich-menu URLs
+- `liff.ynottcg.com`
+- LIFF compatibility notes and original design references
+
+Current LIFF-compatible runtime code is still shared in `Website/src`. Until a separate LIFF app exists, the LIFF Vercel project must also build from `Website/`.
 
 ### Database
 
-Use this for schema/migration planning and Supabase migration files:
+Use `Database/` for Supabase:
 
 - `Database/supabase/migrations/`
 - `Database/docs/DATABASE_ARCHITECTURE.md`
 - `Database/docs/plans/`
+- `Database/docs/verification/`
 
-Website verification scripts read migration files directly from `../Database/supabase`.
+Website verification scripts read migrations directly from `../Database/supabase`.
 
-### Line LIFF
+## Production/deployment topology
 
-Use this for LINE LIFF notes and references:
+| Surface | Vercel project | Root Directory | Domain |
+| --- | --- | --- | --- |
+| YNOTT Website | `ynott-website` | `Website` | `https://www.ynottcg.com` |
+| YNOTT Website apex | `ynott-website` | `Website` | `https://ynottcg.com` -> `www` |
+| YNOTT LIFF | `ynott-line-liff` | `Website` for now | `https://liff.ynottcg.com` |
 
-- `Line LIFF/README.md`
-- `Line LIFF/docs/LIFF_INTEGRATION_MAP.md`
-- `Line LIFF/design-references/`
+Important: do **not** set either Vercel project Root Directory to `.` while the Next.js app lives in `Website/`.
 
-## Production URL map
+## Current production gate
 
-- Normal website: `https://www.ynottcg.com`
-- Apex website redirect: `https://ynottcg.com` -> `https://www.ynottcg.com`
-- Website Vercel project: `ynot-lucky-draw-platform` with root directory `Website`
-- LINE LIFF intended URL: `https://liff.ynottcg.com`
-- Temporary LIFF fallback while DNS is pending: `https://lucky-draw-liff.vercel.app`
+Do not apply production Supabase migrations until Phase 1 backup/PITR and restore-drill gates are satisfied.
 
-The LIFF app should not redirect `liff.ynottcg.com` or `lucky-draw-liff.vercel.app` to the normal website. Add the Squarespace DNS record `A liff.ynottcg.com 76.76.21.21`, then update LINE Console / rich-menu URLs to `https://liff.ynottcg.com`.
+Current status:
 
-## Current next phase
-
-Current online-testing status and next gate:
-
-- `Website/docs/PROJECT_BRIEF_AND_NEXT_PHASE_PLAN.md`
-- `Website/docs/verification/2026-05-07-github-vercel-production-deploy.md`
-- `Database/docs/verification/2026-05-07-production-db-next-phase-gate.md`
+- `Website/docs/PROJECT_STATUS.md`
+- `Website/docs/verification/2026-05-10-phase-1-production-inventory-backup.md`

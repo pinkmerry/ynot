@@ -1,0 +1,9 @@
+$ bash -lc npx supabase projects list --output json 2>&1
+started_at=2026-05-10T07:11:19.902007Z
+exit_code=1
+--- stdout ---
+Access token not provided. Supply an access token by running supabase login or setting the SUPABASE_ACCESS_TOKEN environment variable.
+Try rerunning the command with --debug to troubleshoot the error.
+
+--- stderr ---
+

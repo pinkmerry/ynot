@@ -1,0 +1,36 @@
+$ bash -lc npx supabase storage --help 2>&1 | sed -n "1,220p"
+started_at=2026-05-10T07:09:52.443140Z
+exit_code=0
+--- stdout ---
+Manage Supabase Storage objects
+
+Usage:
+  supabase storage [command]
+
+Available Commands:
+  cp          Copy objects from src to dst path
+  ls          List objects by path prefix
+  mv          Move objects from src to dst path
+  rm          Remove objects by file path
+
+Flags:
+  -h, --help     help for storage
+      --linked   Connects to Storage API of the linked project. (default true)
+      --local    Connects to Storage API of the local database.
+
+Global Flags:
+      --agent [ auto | yes | no ]                      Override agent detection: yes, no, or auto (default auto) (default auto)
+      --create-ticket                                  create a support ticket for any CLI error
+      --debug                                          output debug logs to stderr
+      --dns-resolver [ native | https ]                lookup domain names using the specified resolver (default native)
+      --experimental                                   enable experimental features
+      --network-id string                              use the specified docker network instead of a generated one
+  -o, --output [ env | pretty | json | toml | yaml ]   output format of status variables (default pretty)
+      --profile string                                 use a specific profile for connecting to Supabase API (default "supabase")
+      --workdir string                                 path to a Supabase project directory
+      --yes                                            answer yes to all prompts
+
+Use "supabase storage [command] --help" for more information about a command.
+
+--- stderr ---
+

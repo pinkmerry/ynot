@@ -1,0 +1,32 @@
+{
+  "outDir": "/Users/pinkmerry/Project X/Lucky Draw/Database/backups/pre-migration-20260510T072634Z",
+  "projectRef": "szjoarkijeaspazbrchc",
+  "tableCounts": {
+    "profiles": 3,
+    "admin_users": 3,
+    "draw_rounds": 1,
+    "draw_slots": 80,
+    "orders": 0,
+    "payment_slips": 0,
+    "order_picks": 0,
+    "audit_events": 0,
+    "cards": 20,
+    "draw_round_prizes": 20,
+    "lucky_draw_realtime_events": 35
+  },
+  "storage": [
+    {
+      "name": "lucky-draw-assets",
+      "objects": 0,
+      "folders": 0,
+      "errors": 0
+    },
+    {
+      "name": "payment-slips",
+      "objects": 0,
+      "folders": 0,
+      "errors": 0
+    }
+  ],
+  "manifestSha256": "0478a3fe85f3fb551661272742dd3194572c721e96564ba89a190188a268ae58"
+}

@@ -1,0 +1,26 @@
+$ bash -lc find ../Database/supabase/migrations -maxdepth 1 -type f -name "*.sql" -print | sort | nl -ba
+started_at=2026-05-10T07:09:53.046060Z
+exit_code=0
+--- stdout ---
+     1	../Database/supabase/migrations/202604300001_lucky_draw_core.sql
+     2	../Database/supabase/migrations/202605010001_add_payment_qr_upload.sql
+     3	../Database/supabase/migrations/202605010002_fix_slot_claim_rpc.sql
+     4	../Database/supabase/migrations/202605010003_add_round_card_images.sql
+     5	../Database/supabase/migrations/202605030001_add_draw_order_code_prefix.sql
+     6	../Database/supabase/migrations/202605030002_add_card_catalog.sql
+     7	../Database/supabase/migrations/202605030003_add_card_code.sql
+     8	../Database/supabase/migrations/20260503113848_allow_duplicate_card_names.sql
+     9	../Database/supabase/migrations/20260504095312_add_realtime_events.sql
+    10	../Database/supabase/migrations/20260504100028_fix_realtime_event_delete_support.sql
+    11	../Database/supabase/migrations/20260504173137_add_profile_personal_info.sql
+    12	../Database/supabase/migrations/20260504203000_add_slip2go_verification.sql
+    13	../Database/supabase/migrations/20260507015626_phase1_auth_identity_realtime.sql
+    14	../Database/supabase/migrations/20260507032000_phase2_platform_wallet_gacha.sql
+    15	../Database/supabase/migrations/20260508133000_add_campaign_display_tags.sql
+    16	../Database/supabase/migrations/20260508162000_add_api_rate_limits.sql
+    17	../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql
+    18	../Database/supabase/migrations/20260509162000_add_admin_shipping_status_rpc.sql
+    19	../Database/supabase/migrations/20260509183000_remove_card_tone_fields.sql
+
+--- stderr ---
+
