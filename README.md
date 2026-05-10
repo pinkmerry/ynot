@@ -60,7 +60,9 @@ Website verification scripts read migrations directly from `../Database/supabase
 | --- | --- | --- | --- |
 | YNOTT Website | `ynott-website` | `Website` | `https://www.ynottcg.com` |
 | YNOTT Website apex | `ynott-website` | `Website` | `https://ynottcg.com` -> `www` |
+| YNOTT Website fallback | `ynott-website` | `Website` | `https://ynott-website.vercel.app` |
 | YNOTT LIFF | `ynott-line-liff` | `Website` for now | `https://liff.ynottcg.com` |
+| YNOTT LIFF fallback | `ynott-line-liff` | `Website` for now | `https://ynott-line-liff.vercel.app` |
 
 Important: do **not** set either Vercel project Root Directory to `.` while the Next.js app lives in `Website/`.
 

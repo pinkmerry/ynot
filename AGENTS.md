@@ -27,7 +27,7 @@ YNOTT/
 
 Both Vercel projects are expected to build from repo root with **Root Directory = `Website`** unless/until LIFF is extracted into a separate app.
 
-- **YNOTT Website**: Vercel project `ynott-website`, domains `www.ynottcg.com` and `ynottcg.com`.
+- **YNOTT Website**: Vercel project `ynott-website`, domains `www.ynottcg.com`, `ynottcg.com`, and fallback URL `https://ynott-website.vercel.app`.
 - **YNOTT LIFF**: Vercel project `ynott-line-liff`, domain `liff.ynottcg.com`, fallback URL `https://ynott-line-liff.vercel.app`.
 
 Do not point the LIFF project root at `.`. That causes Vercel build failures because the Next.js app lives in `Website/`.

@@ -25,6 +25,10 @@ The active project is now aligned to YNOTT naming and the old local/repo/Vercel 
   - `lucky-draw-liff.vercel.app`
   - old generated branch/project aliases containing `ynot-lucky-draw-platform`
   - old preview alias `lucky-draw-liff-git-claude-307816-yoonaevilzgmailcoms-projects.vercel.app`
+- The old stable aliases were also removed from Vercel project-domain settings so future production deploys should not auto-reassign them.
+- Aligned Vercel project-domain fallbacks were added:
+  - `ynott-website.vercel.app`
+  - `ynott-line-liff.vercel.app`
 
 ## Current live URLs
 
@@ -32,10 +36,11 @@ The active project is now aligned to YNOTT naming and the old local/repo/Vercel 
 | --- | --- | --- |
 | Website | `https://www.ynottcg.com` | Public production website |
 | Website apex | `https://ynottcg.com` | Redirects/serves through website project |
+| Website fallback | `https://ynott-website.vercel.app` | Aligned Vercel fallback |
 | LINE LIFF | `https://liff.ynottcg.com` | Public LIFF project URL |
 | LIFF fallback | `https://ynott-line-liff.vercel.app` | Public Vercel fallback |
 
-Note: `https://ynott-website.vercel.app` exists but may return Vercel SSO protection (`401`) because this project protects non-custom domains. Use `https://www.ynottcg.com` for public website checks.
+Use `https://www.ynottcg.com` for normal public website checks and `https://liff.ynottcg.com` for LINE LIFF checks.
 
 ## Verification evidence
 
@@ -44,6 +49,7 @@ Note: `https://ynott-website.vercel.app` exists but may return Vercel SSO protec
 - HTTP smoke checks returned `200` for:
   - `https://www.ynottcg.com`
   - `https://ynottcg.com`
+  - `https://ynott-website.vercel.app`
   - `https://liff.ynottcg.com`
   - `https://ynott-line-liff.vercel.app`
 - HTTP checks returned `404` for retired aliases:
