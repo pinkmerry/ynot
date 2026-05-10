@@ -4,12 +4,15 @@ import {
   CampaignGrid,
   PageHeader,
 } from "@/features/ynot/components";
+import { PendingApprovalQueue } from "@/features/ynot/components/PendingApprovalQueue";
 import { getYnotDashboardData } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCampaignsPage() {
   const data = await getYnotDashboardData();
+  const isOwner = data.viewer?.adminRole === "owner";
+
   return (
     <AdminSectionShell viewer={data.viewer} activeHref="/admin/campaigns">
       <PageHeader
@@ -22,33 +25,45 @@ export default async function AdminCampaignsPage() {
         <div className="admin-panel-head">
           <div>
             <p className="section-label">Pack workflow</p>
-            <h3 className="title-m">One clean flow from draft to live</h3>
+            <h3 className="title-m">Draft → Pending → Approved → Live</h3>
           </div>
-          <span className="status-pill ready">Owner tool</span>
+          <span className="status-pill ready">{isOwner ? "Owner tool" : "Admin tool"}</span>
         </div>
         <div className="admin-roadmap-grid">
           <div>
             <strong>1. Draft</strong>
-            <p>Set category, title, price, slots, mode, and customer card labels.</p>
+            <p>Admin: ตั้งค่า category, title, price, spin mode, prizes</p>
           </div>
           <div>
-            <strong>2. Prize pool</strong>
-            <p>Add cards in Prize Catalog before going fully live.</p>
+            <strong>2. Submit for approval</strong>
+            <p>Admin กดส่งให้ owner review</p>
           </div>
           <div>
-            <strong>3. Publish</strong>
-            <p>Switch status to Live and visibility to Public when ready.</p>
+            <strong>3. Approve & Publish</strong>
+            <p>Owner เท่านั้นที่ approve และกด publish (lock spin config)</p>
           </div>
           <div>
-            <strong>4. Operate</strong>
-            <p>Monitor opens, exchange, shipping, and audit evidence from admin tools.</p>
+            <strong>4. Live</strong>
+            <p>Spin config ถูก lock ไม่สามารถแก้ได้แล้ว แก้ได้แค่รูป/label</p>
           </div>
         </div>
       </section>
 
+      {isOwner ? (
+        <section className="admin-panel admin-full-span soft-card">
+          <div className="admin-panel-head">
+            <div>
+              <p className="section-label">Owner inbox</p>
+              <h3 className="title-m">Pending approval</h3>
+            </div>
+          </div>
+          <PendingApprovalQueue />
+        </section>
+      ) : null}
+
       <div className="admin-page-grid admin-page-grid-studio">
         <AdminCampaignForm categories={data.categories} />
-        <AdminCampaignActionPanel campaigns={data.campaigns} />
+        <AdminCampaignActionPanel campaigns={data.campaigns} viewer={data.viewer} />
         <section className="admin-panel admin-full-span soft-card">
           <div className="admin-panel-head">
             <div>

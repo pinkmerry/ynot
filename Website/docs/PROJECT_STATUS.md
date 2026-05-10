@@ -178,9 +178,20 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 - Admin UX redesign Ralph artifacts: `.omx/context/admin-ux-redesign-20260509T083023Z.md`, `.omx/plans/prd-admin-ux-redesign.md`, `.omx/plans/test-spec-admin-ux-redesign.md`.
 - Admin UX redesign verification evidence: `npm run typecheck`, `npm run lint`, `npm run build`, authenticated localhost smoke for `/admin`, `/admin/categories`, `/admin/campaigns`, and `/admin/health` all found expected markers; architect verification approved.
 
+### Campaign spin-mode approval workflow local implementation
+
+- Added local migrations `../Database/supabase/migrations/20260510120000_phase1_campaign_lifecycle.sql` through `../Database/supabase/migrations/20260510120500_phase6_spin_dispatcher.sql`.
+- Adds campaign approval states, `campaign_approvals`, workflow RPCs, `draw_rounds.spin_mode`, `draw_rounds.spin_config`, `draw_round_prizes.weight`, `draw_round_prizes.unlock_at_sold_pct`, publish locking, and a spin-mode-aware `open_gacha_campaign`.
+- Updated admin campaign UI to create/edit spin mode, show locked state, replace direct status changes with submit/approve/reject/publish/cancel/end workflow actions, and show the owner pending-approval queue.
+- Updated admin prize UI/API to save per-prize weight/unlock percentage and bulk-apply the policy model: ranks 1-3 per-prize weights, ranks 4+ tier weights, and unlock bands.
+- Added verification artifacts: `../Database/supabase/tests/verify_spin_modes.sql`, `tools/verification/verify-spin-workflow.mjs`, `npm run verify:spin-workflow`, expanded `tools/verification/check-production-supabase-readiness.mjs`, and `docs/verification/2026-05-10-spin-workflow-ralph-readiness.md`.
+- Ralph review fixes applied before production: inventory-gate no longer falls back to locked prizes, direct status PATCH is disabled, mechanics/prize edits require unlocked draft state, non-owner admins can edit only their own drafts, `campaign_approvals` RLS uses `app_private.current_profile_id()`, and the policy is replay-safe with `drop policy if exists`.
+- Local verification evidence from this slice: `npm run typecheck`, `npm run lint`, `npm run build`, `npm run verify:ynot`, and the combined `npm run check` gate passed on 2026-05-10.
+- Important: these migrations have not been applied to production Supabase yet. Production deploy remains gated by backup/PITR/restore evidence plus a passing Supabase branch/staging run of `verify_spin_modes.sql`.
+
 ## Not Implemented Yet
 
-- Production Supabase migrations have not been applied yet; DB/RLS/runtime behavior for new website tables remains gated by SQL execution access and full backup.
+- Production Supabase migrations have not been applied yet; DB/RLS/runtime behavior for new website tables and the new spin workflow remains gated by SQL execution access and full backup/PITR/restore evidence.
 - Google OAuth and LINE OAuth provider dashboard settings/callback URLs have not been verified live.
 - LINE OAuth start route correctly fails closed locally when `LINE_LOGIN_CHANNEL_SECRET` is missing; production must set it before enabling normal LINE website login.
 - Same-database migration has not been applied yet; live schema checks still show the new website tables/columns missing.
@@ -196,6 +207,7 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 | Existing modularization slice | Previously verified | Prior status recorded lint/build/static smoke pass. |
 | Full production implementation | Separate GitHub/Vercel production deployment ready for page/navigation smoke; full write-flow validation still DB/provider gated | `https://github.com/pinkmerry/ynott`; canonical website `https://www.ynottcg.com`; website fallback alias `https://ynott-website.vercel.app`; LIFF fallback `https://ynott-line-liff.vercel.app`; production route/link smoke passed. |
 | Database migration execution | Blocked, not run in production | Phase 1 and Phase 2 migration files exist; live checks show missing schema; requires Supabase SQL access plus full backup. |
+| Campaign spin workflow | Locally implemented; not production-applied | Six local migrations, UI/API, SQL verifier, and API smoke script exist; `npm run typecheck`, `npm run lint`, `npm run build`, `npm run verify:ynot`, and `npm run check` passed. Needs Supabase branch/staging SQL run before production. |
 | HTML wireframe UX/UI parity | Locally corrected and smoke-verified | Browser showed the paper/hand-drawn wireframe skin on `localhost:3005`; curl confirmed Pokemon/One Piece/POP MART, exchange category tabs, and `Charizard SAR` reward detail text. |
 | Full browser QA | Basic localhost and production page/link smoke passed; authenticated e2e not run | Production customer/admin pages returned 200; safe unauth API checks returned expected 400/401/403/503/405 responses; full user/payment/gacha journey remains DB/provider gated. |
 
@@ -209,7 +221,7 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 
 ## Recommended Next Slice
 
-**Deployment gate: database migration must run before deploying code that writes new columns/tables. Apply/test `../Database/supabase/migrations/20260507015626_phase1_auth_identity_realtime.sql` and then `../Database/supabase/migrations/20260507032000_phase2_platform_wallet_gacha.sql` against local/staging Supabase, then production with backup, before deploying website code that writes `profiles.auth_user_id`, `user_identities`, `top_up_requests`, generalized `payment_slips`, wallet/ledger, gacha, collection, exchange, or shipping tables.**
+**Deployment gate: database migrations must run before deploying code that writes new columns/tables/RPCs. Apply/test the existing website foundation migrations plus `../Database/supabase/migrations/20260510120000_phase1_campaign_lifecycle.sql` through `../Database/supabase/migrations/20260510120500_phase6_spin_dispatcher.sql` against a Supabase branch/staging database, then production with full backup/PITR/restore evidence, before deploying website code that references spin mode, approval workflow, prize weights, or workflow RPCs.**
 
 Completed locally in Phase 1:
 

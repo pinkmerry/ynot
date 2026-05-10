@@ -7,10 +7,42 @@ export type YnotViewer = {
   adminRole?: "owner" | "admin" | "staff" | null;
 };
 
+export type SpinMode = "pure_random" | "weighted" | "inventory_gate";
+
+export type SpinConfigInventoryBand = {
+  rankStart: number;
+  rankEnd: number;
+  unlockAtSoldPct: number;
+};
+
+export type SpinConfig =
+  | { kind: "pure_random" }
+  | { kind: "weighted" }
+  | { kind: "inventory_gate"; bands: SpinConfigInventoryBand[] };
+
+export type CampaignLifecycleStatus =
+  | "draft"
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "live"
+  | "cancelled"
+  | "ended"
+  | "closed"
+  | "archived";
+
 export type YnotCampaign = {
   id: string;
   slug: string;
-  status: "draft" | "live" | "closed" | "archived";
+  status: CampaignLifecycleStatus;
+  spinMode?: SpinMode;
+  spinConfig?: Record<string, unknown>;
+  lockedAt?: string | null;
+  submittedForApprovalAt?: string | null;
+  approvedAt?: string | null;
+  rejectedAt?: string | null;
+  rejectionReason?: string | null;
+  publishedAt?: string | null;
   titleTh: string;
   titleEn: string;
   series: "one_piece" | "pokemon";
@@ -142,6 +174,8 @@ export type YnotPrizePoolItem = {
   tier: "normal" | "high";
   rank: number;
   valueThb?: number | null;
+  weight: number;
+  unlockAtSoldPct: number;
   totalUnits: number;
   availableUnits: number;
   awardedUnits: number;

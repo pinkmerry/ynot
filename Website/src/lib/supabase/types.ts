@@ -151,7 +151,16 @@ export type Database = {
         Row: {
           id: string;
           slug: string;
-          status: "draft" | "live" | "closed" | "archived";
+          status:
+            | "draft"
+            | "pending_approval"
+            | "approved"
+            | "rejected"
+            | "live"
+            | "cancelled"
+            | "ended"
+            | "closed"
+            | "archived";
           series: "one_piece" | "pokemon";
           title_th: string;
           title_en: string;
@@ -180,6 +189,21 @@ export type Database = {
           is_test: boolean;
           seed_run_id: string | null;
           test_metadata: Json;
+          spin_mode: "pure_random" | "weighted" | "inventory_gate";
+          spin_config: Json;
+          submitted_for_approval_at: string | null;
+          submitted_by: string | null;
+          approved_at: string | null;
+          approved_by: string | null;
+          rejected_at: string | null;
+          rejected_by: string | null;
+          rejection_reason: string | null;
+          published_at: string | null;
+          published_by: string | null;
+          locked_at: string | null;
+          ended_at: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -215,6 +239,21 @@ export type Database = {
           is_test?: boolean;
           seed_run_id?: string | null;
           test_metadata?: Json;
+          spin_mode?: "pure_random" | "weighted" | "inventory_gate";
+          spin_config?: Json;
+          submitted_for_approval_at?: string | null;
+          submitted_by?: string | null;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          rejected_at?: string | null;
+          rejected_by?: string | null;
+          rejection_reason?: string | null;
+          published_at?: string | null;
+          published_by?: string | null;
+          locked_at?: string | null;
+          ended_at?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -302,6 +341,8 @@ export type Database = {
           is_test: boolean;
           seed_run_id: string | null;
           metadata: Json;
+          weight: number;
+          unlock_at_sold_pct: number;
           created_at: string;
           updated_at: string;
         };
@@ -315,10 +356,58 @@ export type Database = {
           is_test?: boolean;
           seed_run_id?: string | null;
           metadata?: Json;
+          weight?: number;
+          unlock_at_sold_pct?: number;
           created_at?: string;
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["draw_round_prizes"]["Insert"]>;
+        Relationships: [];
+      };
+      campaign_approvals: {
+        Row: {
+          id: string;
+          draw_round_id: string;
+          action:
+            | "submitted"
+            | "approved"
+            | "rejected"
+            | "published"
+            | "cancelled"
+            | "ended"
+            | "edited_config"
+            | "edited_content"
+            | "reverted_to_draft";
+          actor_admin_id: string | null;
+          actor_role: "owner" | "admin" | "staff" | null;
+          from_status: string | null;
+          to_status: string | null;
+          notes: string | null;
+          payload_diff: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          draw_round_id: string;
+          action:
+            | "submitted"
+            | "approved"
+            | "rejected"
+            | "published"
+            | "cancelled"
+            | "ended"
+            | "edited_config"
+            | "edited_content"
+            | "reverted_to_draft";
+          actor_admin_id?: string | null;
+          actor_role?: "owner" | "admin" | "staff" | null;
+          from_status?: string | null;
+          to_status?: string | null;
+          notes?: string | null;
+          payload_diff?: Json | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["campaign_approvals"]["Insert"]>;
         Relationships: [];
       };
       draw_round_prize_units: {
@@ -814,6 +903,21 @@ export type Database = {
       approve_top_up_request: { Args: { p_top_up_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       reject_top_up_request: { Args: { p_top_up_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       open_gacha_campaign: { Args: { p_profile_id: string; p_draw_round_id: string; p_quantity?: number; p_idempotency_key?: string | null }; Returns: Json };
+      submit_campaign_for_approval: { Args: { p_admin_id: string; p_round_id: string }; Returns: void };
+      approve_campaign: { Args: { p_admin_id: string; p_round_id: string; p_notes?: string | null }; Returns: void };
+      reject_campaign: { Args: { p_admin_id: string; p_round_id: string; p_reason: string }; Returns: void };
+      publish_campaign: { Args: { p_admin_id: string; p_round_id: string }; Returns: void };
+      cancel_campaign: { Args: { p_admin_id: string; p_round_id: string; p_reason?: string | null }; Returns: void };
+      end_campaign: { Args: { p_admin_id: string; p_round_id: string }; Returns: void };
+      update_campaign_spin_config: {
+        Args: {
+          p_admin_id: string;
+          p_round_id: string;
+          p_spin_mode: "pure_random" | "weighted" | "inventory_gate";
+          p_spin_config: Json;
+        };
+        Returns: string;
+      };
       profile_can_open_test_draw_round: { Args: { p_draw_round_id: string; p_profile_id: string }; Returns: boolean };
       get_draw_round_inventory_summary: { Args: { p_draw_round_id?: string | null; p_profile_id?: string | null }; Returns: Json };
       ensure_draw_round_prize_units: { Args: { p_draw_round_prize_id: string; p_total_units: number; p_admin_id: string; p_seed_run_id?: string | null }; Returns: Json };

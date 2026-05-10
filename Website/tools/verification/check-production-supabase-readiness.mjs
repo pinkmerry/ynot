@@ -89,6 +89,34 @@ async function checkRpc(name, args, required = true) {
   return false;
 }
 
+async function checkRpcShape(name, args) {
+  const { error } = await supabase.rpc(name, args);
+  if (!error) {
+    pass(`rpc ${name} is callable`);
+    return true;
+  }
+  const missing = error.code === "PGRST202" || /Could not find the function|schema cache/i.test(error.message);
+  if (missing) {
+    fail(`rpc ${name} unavailable: ${error.code ?? "UNKNOWN"} ${error.message}`);
+    return false;
+  }
+  pass(`rpc ${name} exists (${error.message})`);
+  return true;
+}
+
+async function checkColumn(table, column) {
+  const { error } = await supabase.from(table).select(column).limit(1);
+  if (!error) {
+    pass(`column ${table}.${column} is available`);
+    return true;
+  }
+  const missing = error.code === "42703" || /column .* does not exist/i.test(error.message);
+  const message = `column ${table}.${column} unavailable: ${error.code ?? "UNKNOWN"} ${error.message}`;
+  if (missing) fail(message);
+  else warn(message);
+  return false;
+}
+
 async function checkToneColumn(table) {
   const { error } = await supabase.from(table).select("tone").limit(1);
   if (!error) {
@@ -106,9 +134,36 @@ await checkTable("store_categories");
 await checkTable("draw_round_categories");
 await checkTable("draw_round_prize_units");
 await checkTable("seed_runs");
+await checkTable("campaign_approvals");
+for (const column of [
+  "spin_mode",
+  "spin_config",
+  "locked_at",
+  "submitted_for_approval_at",
+  "approved_at",
+  "rejected_at",
+  "published_at",
+]) {
+  await checkColumn("draw_rounds", column);
+}
+await checkColumn("draw_round_prizes", "weight");
+await checkColumn("draw_round_prizes", "unlock_at_sold_pct");
 await checkRpc("get_draw_round_inventory_summary", {
   p_draw_round_id: "00000000-0000-0000-0000-000000000000",
   p_profile_id: null,
+});
+const zeroId = "00000000-0000-0000-0000-000000000000";
+await checkRpcShape("submit_campaign_for_approval", { p_admin_id: zeroId, p_round_id: zeroId });
+await checkRpcShape("approve_campaign", { p_admin_id: zeroId, p_round_id: zeroId, p_notes: "shape" });
+await checkRpcShape("reject_campaign", { p_admin_id: zeroId, p_round_id: zeroId, p_reason: "shape" });
+await checkRpcShape("publish_campaign", { p_admin_id: zeroId, p_round_id: zeroId });
+await checkRpcShape("cancel_campaign", { p_admin_id: zeroId, p_round_id: zeroId, p_reason: "shape" });
+await checkRpcShape("end_campaign", { p_admin_id: zeroId, p_round_id: zeroId });
+await checkRpcShape("update_campaign_spin_config", {
+  p_admin_id: zeroId,
+  p_round_id: zeroId,
+  p_spin_mode: "pure_random",
+  p_spin_config: {},
 });
 await checkToneColumn("cards");
 await checkToneColumn("draw_round_prizes");

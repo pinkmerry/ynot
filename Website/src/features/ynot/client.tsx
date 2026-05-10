@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { useMemo, useState, useTransition } from "react";
 import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import type {
+  SpinConfigInventoryBand,
+  SpinMode,
   YnotAddress,
   YnotCampaign,
   YnotCategory,
@@ -13,6 +15,11 @@ import type {
   YnotPrizePoolItem,
   YnotShippingRequest,
 } from "./types";
+import { SpinModePicker } from "./components/SpinModePicker";
+import {
+  CampaignStatusBadge,
+  CampaignWorkflowActions,
+} from "./components/CampaignWorkflowActions";
 
 const coinPackages = [
   { label: "Starter", amountThb: 100, coins: 100 },
@@ -53,6 +60,34 @@ function inputToTags(value: string) {
     .map((tag) => tag.trim())
     .filter(Boolean)
     .slice(0, 4);
+}
+
+function bandsFromSpinConfig(config: Record<string, unknown> | undefined): SpinConfigInventoryBand[] {
+  const bands = config?.bands;
+  if (!Array.isArray(bands)) return [];
+  return bands
+    .map((band) => {
+      if (!band || typeof band !== "object") return null;
+      const raw = band as Record<string, unknown>;
+      const rankStart = Number(raw.rankStart);
+      const rankEnd = Number(raw.rankEnd);
+      const unlockAtSoldPct = Number(raw.unlockAtSoldPct);
+      if (
+        !Number.isInteger(rankStart) ||
+        !Number.isInteger(rankEnd) ||
+        rankStart < 1 ||
+        rankEnd < rankStart ||
+        !Number.isFinite(unlockAtSoldPct)
+      ) {
+        return null;
+      }
+      return {
+        rankStart,
+        rankEnd,
+        unlockAtSoldPct: Math.max(0, Math.min(100, unlockAtSoldPct)),
+      };
+    })
+    .filter((band): band is SpinConfigInventoryBand => Boolean(band));
 }
 
 function AdminField({
@@ -844,12 +879,16 @@ export function AdminCampaignForm({ categories = [] }: { categories?: YnotCatego
   const [costCoins, setCostCoins] = useState(1);
   const [totalSlots, setTotalSlots] = useState(100);
   const [displayTags, setDisplayTags] = useState("PSA10, New Exclusive");
+  const [spinMode, setSpinMode] = useState<SpinMode>("pure_random");
+  const [spinBands, setSpinBands] = useState<SpinConfigInventoryBand[]>([]);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
   function submit() {
     startTransition(async () => {
       try {
+        const spinConfig =
+          spinMode === "inventory_gate" && spinBands.length > 0 ? { bands: spinBands } : {};
         const payload = await postJson("/api/ynot/admin/campaigns", {
           slug,
           titleTh,
@@ -864,6 +903,8 @@ export function AdminCampaignForm({ categories = [] }: { categories?: YnotCatego
           isTest,
           status: "draft",
           visibility: "private",
+          spinMode,
+          spinConfig,
         });
         setMessage(
           `Random pack ${payload.campaign?.slug ?? slug} saved as draft.`,
@@ -1008,7 +1049,22 @@ export function AdminCampaignForm({ categories = [] }: { categories?: YnotCatego
         </div>
 
         <div className="admin-form-step">
-          <strong>3. Display labels</strong>
+          <strong>3. Spin mode</strong>
+          <SpinModePicker
+            value={spinMode}
+            bands={spinBands}
+            onChange={(mode, bands) => {
+              setSpinMode(mode);
+              setSpinBands(bands);
+            }}
+          />
+          <p className="text-xs text-zinc-500 mt-2">
+            หลัง publish จะถูก lock — แก้ไม่ได้ ตั้งค่า weight ของรางวัลใน Prize Catalog แยก
+          </p>
+        </div>
+
+        <div className="admin-form-step">
+          <strong>4. Display labels</strong>
           <label className="admin-field">
             <span>Customer card tags</span>
             <input
@@ -1039,9 +1095,12 @@ export function AdminCampaignForm({ categories = [] }: { categories?: YnotCatego
 
 export function AdminCampaignActionPanel({
   campaigns,
+  viewer,
 }: {
   campaigns: YnotCampaign[];
+  viewer?: { adminRole?: "owner" | "admin" | "staff" | null; profileId?: string };
 }) {
+  const role = viewer?.adminRole ?? null;
   if (!campaigns.length) {
     return (
       <section className="admin-pack-list soft-card">
@@ -1069,25 +1128,36 @@ export function AdminCampaignActionPanel({
       </div>
       <div className="admin-pack-row-list">
         {campaigns.map((campaign) => (
-          <AdminCampaignStatusRow key={campaign.id} campaign={campaign} />
+          <AdminCampaignStatusRow key={campaign.id} campaign={campaign} role={role} />
         ))}
       </div>
     </section>
   );
 }
 
-function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
-  const [status, setStatus] = useState<YnotCampaign["status"]>(campaign.status);
+function AdminCampaignStatusRow({
+  campaign,
+  role,
+}: {
+  campaign: YnotCampaign;
+  role: "owner" | "admin" | "staff" | null;
+  viewerProfileId?: string;
+}) {
   const [visibility, setVisibility] = useState<YnotCampaign["visibility"]>(
     campaign.visibility,
   );
   const [displayTags, setDisplayTags] = useState(
     tagsToInput(campaign.displayTags, campaign.series),
   );
+  const [spinMode, setSpinMode] = useState<SpinMode>(campaign.spinMode ?? "pure_random");
+  const [spinBands, setSpinBands] = useState<SpinConfigInventoryBand[]>(
+    bandsFromSpinConfig(campaign.spinConfig),
+  );
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const spinLocked = Boolean(campaign.lockedAt);
 
-  function submit(nextStatus = status, nextVisibility = visibility) {
+  function saveContent(nextVisibility = visibility) {
     startTransition(async () => {
       try {
         setMessage("");
@@ -1095,22 +1165,44 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
           "/api/ynot/admin/campaigns",
           {
             campaignId: campaign.id,
-            status: nextStatus,
             visibility: nextVisibility,
             displayTags: inputToTags(displayTags),
           },
           "PATCH",
         );
-        setStatus(nextStatus);
         setVisibility(nextVisibility);
         setMessage(
-          "Random pack status and customer card labels saved. Refresh to see the updated public page.",
+          "Random pack labels saved. ใช้ปุ่ม workflow ด้านล่างเพื่อเปลี่ยนสถานะ",
         );
       } catch (error) {
         setMessage(
           error instanceof Error
             ? error.message
             : "Random pack status could not be saved.",
+        );
+      }
+    });
+  }
+
+  function saveSpinConfig() {
+    startTransition(async () => {
+      try {
+        setMessage("");
+        const spinConfig =
+          spinMode === "inventory_gate" && spinBands.length > 0 ? { bands: spinBands } : {};
+        const payload = await requestJson(
+          `/api/ynot/admin/campaigns/${campaign.id}/spin-config`,
+          { spinMode, spinConfig },
+          "PUT",
+        );
+        setMessage(
+          `Spin config saved${payload.result ? `; status is now ${payload.result}` : ""}.`,
+        );
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Spin config could not be saved.",
         );
       }
     });
@@ -1128,26 +1220,12 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
           </p>
         </div>
         <div className="admin-pack-badges">
-          <strong>{status}</strong>
+          <CampaignStatusBadge status={campaign.status} />
           <em>{visibility}</em>
         </div>
       </div>
 
       <div className="admin-pack-row-controls">
-        <label className="admin-field">
-          <span>Status</span>
-          <select
-            value={status}
-            onChange={(event) =>
-              setStatus(event.target.value as YnotCampaign["status"])
-            }
-          >
-            <option value="draft">Draft</option>
-            <option value="live">Live</option>
-            <option value="closed">Closed</option>
-            <option value="archived">Archived</option>
-          </select>
-        </label>
         <label className="admin-field">
           <span>Visibility</span>
           <select
@@ -1171,40 +1249,57 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
         </label>
       </div>
 
+      <div className="admin-form-step">
+        <div className="admin-form-head">
+          <span>Spin mode</span>
+          <h3>{campaign.spinMode ?? "pure_random"} {spinLocked ? "· locked" : "· editable before publish"}</h3>
+          <p>
+            Use this for an existing draft. Editing a pending/approved campaign
+            through the workflow route can force it back to draft for re-check.
+          </p>
+        </div>
+        <SpinModePicker
+          value={spinMode}
+          bands={spinBands}
+          disabled={spinLocked || role === "staff" || role === null}
+          onChange={(mode, bands) => {
+            setSpinMode(mode);
+            setSpinBands(bands);
+          }}
+        />
+        <button
+          className="plain-button mt-3 rounded-2xl px-4 py-3 text-sm font-black"
+          disabled={isPending || spinLocked || role === "staff" || role === null}
+          onClick={saveSpinConfig}
+          type="button"
+        >
+          {spinLocked ? "Spin config locked" : isPending ? "Saving..." : "Save spin config"}
+        </button>
+      </div>
+
       <div className="admin-pack-row-actions">
         <button
           className="gold-button"
           disabled={isPending}
-          onClick={() => submit()}
+          onClick={() => saveContent()}
           type="button"
         >
-          Save status
-        </button>
-        <button
-          className="plain-button"
-          disabled={isPending}
-          onClick={() => submit("live", "public")}
-          type="button"
-        >
-          Make live public
-        </button>
-        <button
-          className="plain-button"
-          disabled={isPending}
-          onClick={() => submit("closed", "public")}
-          type="button"
-        >
-          Close public
-        </button>
-        <button
-          className="danger-button"
-          disabled={isPending}
-          onClick={() => submit("archived", "private")}
-          type="button"
-        >
-          Archive private
+          Save labels
         </button>
       </div>
+
+      <div className="mt-3 border-t border-zinc-800 pt-3">
+        <CampaignWorkflowActions
+          campaignId={campaign.id}
+          status={campaign.status}
+          role={role}
+          // Server enforces creator ownership for submit; we show the button
+          // optimistically and surface server errors via the actions component.
+          isCreatedByMe={true}
+          rejectionReason={campaign.rejectionReason ?? null}
+        />
+      </div>
+
       {message && <p className="admin-pack-row-message">{message}</p>}
     </article>
   );
@@ -1368,8 +1463,26 @@ export function AdminPrizePoolForm({
   const [rank, setRank] = useState(1);
   const [valueThb, setValueThb] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [weight, setWeight] = useState(1);
+  const [unlockAtSoldPct, setUnlockAtSoldPct] = useState(0);
+  const [policyCampaignId, setPolicyCampaignId] = useState(campaigns[0]?.id ?? "");
+  const [tierWeights, setTierWeights] = useState({ normal: 100, high: 5 });
+  const [policyBands, setPolicyBands] = useState<SpinConfigInventoryBand[]>([
+    { rankStart: 1, rankEnd: 3, unlockAtSoldPct: 30 },
+    { rankStart: 4, rankEnd: 6, unlockAtSoldPct: 10 },
+    { rankStart: 7, rankEnd: 999, unlockAtSoldPct: 0 },
+  ]);
+  const [individualWeights, setIndividualWeights] = useState<Record<string, number>>({});
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const selectedPolicyPrizes = useMemo(
+    () => prizes.filter((prize) => prize.campaignId === policyCampaignId),
+    [policyCampaignId, prizes],
+  );
+  const topRankPolicyPrizes = useMemo(
+    () => selectedPolicyPrizes.filter((prize) => prize.rank >= 1 && prize.rank <= 3),
+    [selectedPolicyPrizes],
+  );
 
   function savePrize() {
     startTransition(async () => {
@@ -1382,6 +1495,8 @@ export function AdminPrizePoolForm({
           rank,
           valueThb,
           quantity,
+          weight,
+          unlockAtSoldPct,
         });
         setMessage("Prize slot and inventory quantity saved. Refresh to see the updated pool.");
       } catch (error) {
@@ -1392,6 +1507,45 @@ export function AdminPrizePoolForm({
         );
       }
     });
+  }
+
+  function applyPrizePolicy() {
+    startTransition(async () => {
+      try {
+        setMessage("");
+        if (!policyCampaignId) throw new Error("Select a random pack first.");
+        const payload = await requestJson(
+          `/api/ynot/admin/campaigns/${policyCampaignId}/prize-policies`,
+          {
+            individualWeights,
+            tierWeights,
+            unlockBands: policyBands,
+          },
+          "PUT",
+        );
+        setMessage(
+          `Prize policy applied to ${payload.appliedCount ?? 0} prize row(s). Refresh to see the updated weights.`,
+        );
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Prize policy could not be applied.",
+        );
+      }
+    });
+  }
+
+  function updatePolicyBand(index: number, patch: Partial<SpinConfigInventoryBand>) {
+    setPolicyBands((bands) =>
+      bands.map((band, bandIndex) =>
+        bandIndex === index ? { ...band, ...patch } : band,
+      ),
+    );
+  }
+
+  function seededIndividualWeight(prize: YnotPrizePoolItem) {
+    return individualWeights[prize.id] ?? prize.weight ?? 1;
   }
 
   function deletePrize(prizeId: string) {
@@ -1487,6 +1641,30 @@ export function AdminPrizePoolForm({
             placeholder="10"
           />
         </AdminField>
+        <AdminField label="Prize weight" required hint="Used by weighted/inventory-gate spin modes. Higher means easier to pull; 0 disables.">
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            max={1000000}
+            min={0}
+            step="0.01"
+            type="number"
+            value={weight}
+            onChange={(event) => setWeight(Number(event.target.value))}
+            placeholder="1"
+          />
+        </AdminField>
+        <AdminField label="Unlock sold %" hint="For inventory gate: this prize unlocks after this percentage of units are sold.">
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            max={100}
+            min={0}
+            step="0.01"
+            type="number"
+            value={unlockAtSoldPct}
+            onChange={(event) => setUnlockAtSoldPct(Number(event.target.value))}
+            placeholder="0"
+          />
+        </AdminField>
       </div>
       <button
         className="gold-button admin-form-save"
@@ -1501,6 +1679,144 @@ export function AdminPrizePoolForm({
           {message}
         </p>
       )}
+
+      <div className="admin-form-step mt-4">
+        <div className="admin-form-head">
+          <span>Spin prize policy</span>
+          <h3>Bulk weight + unlock bands</h3>
+          <p>
+            Set ranks 1-3 individually, ranks 4+ by tier, and inventory-gate
+            unlock bands before the campaign is approved/published.
+          </p>
+        </div>
+        <div className="admin-form-grid">
+          <AdminField label="Random pack" required>
+            <select
+              className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+              value={policyCampaignId}
+              onChange={(event) => setPolicyCampaignId(event.target.value)}
+            >
+              {campaigns.map((campaign) => (
+                <option key={campaign.id} value={campaign.id}>
+                  {campaign.titleTh || campaign.titleEn}
+                </option>
+              ))}
+            </select>
+          </AdminField>
+          <AdminField label="Normal tier weight" hint="Applied to rank 4+ normal prizes.">
+            <input
+              className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+              max={1000000}
+              min={0}
+              step="0.01"
+              type="number"
+              value={tierWeights.normal}
+              onChange={(event) =>
+                setTierWeights((current) => ({
+                  ...current,
+                  normal: Number(event.target.value),
+                }))
+              }
+            />
+          </AdminField>
+          <AdminField label="High tier weight" hint="Applied to rank 4+ high prizes.">
+            <input
+              className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+              max={1000000}
+              min={0}
+              step="0.01"
+              type="number"
+              value={tierWeights.high}
+              onChange={(event) =>
+                setTierWeights((current) => ({
+                  ...current,
+                  high: Number(event.target.value),
+                }))
+              }
+            />
+          </AdminField>
+        </div>
+
+        <div className="admin-prize-policy-grid">
+          <div className="admin-list-card">
+            <p className="font-black">Rank 1-3 individual weights</p>
+            {topRankPolicyPrizes.length ? (
+              topRankPolicyPrizes.map((prize) => (
+                <label key={prize.id} className="admin-field">
+                  <span>
+                    Rank {prize.rank} · {prize.cardName}
+                  </span>
+                  <input
+                    max={1000000}
+                    min={0}
+                    step="0.01"
+                    type="number"
+                    value={seededIndividualWeight(prize)}
+                    onChange={(event) =>
+                      setIndividualWeights((current) => ({
+                        ...current,
+                        [prize.id]: Number(event.target.value),
+                      }))
+                    }
+                  />
+                </label>
+              ))
+            ) : (
+              <p className="admin-muted-line">No rank 1-3 prizes in this pack yet.</p>
+            )}
+          </div>
+
+          <div className="admin-list-card">
+            <p className="font-black">Unlock bands</p>
+            {policyBands.map((band, index) => (
+              <div key={`${band.rankStart}-${band.rankEnd}-${index}`} className="admin-form-grid admin-form-grid-three">
+                <AdminField label="Rank start">
+                  <input
+                    min={1}
+                    type="number"
+                    value={band.rankStart}
+                    onChange={(event) =>
+                      updatePolicyBand(index, { rankStart: Number(event.target.value) })
+                    }
+                  />
+                </AdminField>
+                <AdminField label="Rank end">
+                  <input
+                    min={1}
+                    type="number"
+                    value={band.rankEnd}
+                    onChange={(event) =>
+                      updatePolicyBand(index, { rankEnd: Number(event.target.value) })
+                    }
+                  />
+                </AdminField>
+                <AdminField label="Sold %">
+                  <input
+                    max={100}
+                    min={0}
+                    step="0.01"
+                    type="number"
+                    value={band.unlockAtSoldPct}
+                    onChange={(event) =>
+                      updatePolicyBand(index, { unlockAtSoldPct: Number(event.target.value) })
+                    }
+                  />
+                </AdminField>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button
+          className="plain-button admin-form-save"
+          disabled={isPending || !policyCampaignId}
+          onClick={applyPrizePolicy}
+          type="button"
+        >
+          {isPending ? "Applying..." : "Apply bulk prize policy"}
+        </button>
+      </div>
+
       <div className="admin-prize-list">
         {prizes.map((prize) => (
           <div
@@ -1514,6 +1830,9 @@ export function AdminPrizePoolForm({
               <p className="text-[var(--muted)]">
                 {prize.cardName} · ฿{(prize.valueThb ?? 0).toLocaleString()} · {prize.availableUnits}/{prize.totalUnits} left
                 {prize.awardedUnits ? ` · ${prize.awardedUnits} awarded` : ""}
+              </p>
+              <p className="text-[var(--muted)]">
+                weight {prize.weight} · unlock at {prize.unlockAtSoldPct}% sold
               </p>
             </div>
             <button

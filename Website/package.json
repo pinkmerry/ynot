@@ -16,7 +16,8 @@
     "verify:phase-readiness": "node tools/verification/verify-phase-readiness.mjs",
     "verify:hardening": "node tools/verification/verify-hardening.mjs",
     "verify:production-test": "node tools/verification/verify-production-test-readiness.mjs",
-    "verify:production-db": "node tools/verification/check-production-supabase-readiness.mjs"
+    "verify:production-db": "node tools/verification/check-production-supabase-readiness.mjs",
+    "verify:spin-workflow": "node tools/verification/verify-spin-workflow.mjs"
   },
   "dependencies": {
     "@line/liff": "^2.28.0",

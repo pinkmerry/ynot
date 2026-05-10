@@ -1,4 +1,4 @@
-import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
+import { authErrorResponse, requireAdminOrOwner } from "@/lib/auth/require-role";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
@@ -16,6 +16,8 @@ type PrizeBody = {
   quantity?: unknown;
   isTest?: unknown;
   seedRunId?: unknown;
+  weight?: unknown;
+  unlockAtSoldPct?: unknown;
 };
 
 type PrizeTier = Database["public"]["Tables"]["draw_round_prizes"]["Row"]["tier"];
@@ -54,8 +56,14 @@ async function bodyJson(request: Request): Promise<PrizeBody | null> {
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
-  const admin = await resolveAdminSession();
-  if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
+  let admin;
+  try {
+    admin = await requireAdminOrOwner();
+  } catch (error) {
+    const response = authErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
   const limited = await enforceRateLimit(request, "ynot:admin:prizes", { limit: 60, windowMs: 60_000 }, admin.profileId);
   if (limited) return limited;
 
@@ -71,12 +79,34 @@ export async function POST(request: Request) {
   if (body.quantity !== undefined && quantity === null) return Response.json({ error: "quantity must be an integer from 0 to 10000." }, { status: 400 });
 
   const supabase = createServiceSupabaseClient();
+  const { data: campaign, error: campaignError } = await supabase
+    .from("draw_rounds")
+    .select("id,status,locked_at,created_by")
+    .eq("id", campaignId)
+    .single();
+  if (campaignError || !campaign) return Response.json({ error: "campaign_not_found" }, { status: 404 });
+  if (campaign.locked_at) return Response.json({ error: "campaign_locked" }, { status: 409 });
+  if (campaign.status !== "draft") {
+    return Response.json({ error: "campaign_requires_draft_for_prize_edit" }, { status: 409 });
+  }
+  if (admin.adminRole === "admin" && campaign.created_by !== admin.adminId) {
+    return Response.json({ error: "not_draft_owner" }, { status: 403 });
+  }
+
+  const weightRaw = Number(body.weight);
+  const weight = Number.isFinite(weightRaw) && weightRaw >= 0 && weightRaw <= 1_000_000 ? weightRaw : undefined;
+  const unlockRaw = Number(body.unlockAtSoldPct);
+  const unlockAtSoldPct =
+    Number.isFinite(unlockRaw) && unlockRaw >= 0 && unlockRaw <= 100 ? unlockRaw : undefined;
+
   const patch: Database["public"]["Tables"]["draw_round_prizes"]["Insert"] = {
     draw_round_id: campaignId,
     card_id: cardId,
     tier,
     rank,
     value_thb: moneyValue(body.valueThb),
+    ...(weight !== undefined ? { weight } : {}),
+    ...(unlockAtSoldPct !== undefined ? { unlock_at_sold_pct: unlockAtSoldPct } : {}),
   };
   if (body.isTest !== undefined || body.seedRunId !== undefined) {
     patch.is_test = booleanValue(body.isTest);
@@ -113,8 +143,14 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
-  const admin = await resolveAdminSession();
-  if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
+  let admin;
+  try {
+    admin = await requireAdminOrOwner();
+  } catch (error) {
+    const response = authErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
   const limited = await enforceRateLimit(request, "ynot:admin:prizes", { limit: 60, windowMs: 60_000 }, admin.profileId);
   if (limited) return limited;
 
@@ -123,12 +159,26 @@ export async function DELETE(request: Request) {
   if (!prizeId) return Response.json({ error: "prizeId is required." }, { status: 400 });
 
   const supabase = createServiceSupabaseClient();
-  const { error: fetchError } = await supabase
+  const { data: prize, error: fetchError } = await supabase
     .from("draw_round_prizes")
     .select("id,draw_round_id,card_id,tier,rank")
     .eq("id", prizeId)
     .single();
   if (fetchError) return Response.json({ error: fetchError.message }, { status: 409 });
+
+  const { data: campaign, error: campaignError } = await supabase
+    .from("draw_rounds")
+    .select("id,status,locked_at,created_by")
+    .eq("id", prize.draw_round_id)
+    .single();
+  if (campaignError || !campaign) return Response.json({ error: "campaign_not_found" }, { status: 404 });
+  if (campaign.locked_at) return Response.json({ error: "campaign_locked" }, { status: 409 });
+  if (campaign.status !== "draft") {
+    return Response.json({ error: "campaign_requires_draft_for_prize_edit" }, { status: 409 });
+  }
+  if (admin.adminRole === "admin" && campaign.created_by !== admin.adminId) {
+    return Response.json({ error: "not_draft_owner" }, { status: 403 });
+  }
 
   await supabase
     .from("draw_round_prize_units")

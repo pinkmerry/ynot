@@ -1,4 +1,4 @@
-import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
+import { authErrorResponse, requireAdminOrOwner } from "@/lib/auth/require-role";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
@@ -23,6 +23,8 @@ type CampaignBody = {
   categoryIds?: unknown;
   isTest?: unknown;
   seedRunId?: unknown;
+  spinMode?: unknown;
+  spinConfig?: unknown;
 };
 
 function text(value: unknown, max = 160) {
@@ -83,7 +85,18 @@ function campaignPatch(body: CampaignBody): Database["public"]["Tables"]["draw_r
     title_th: body.titleTh === undefined ? undefined : text(body.titleTh) || "แคมเปญใหม่",
     title_en: body.titleEn === undefined ? undefined : text(body.titleEn) || text(body.titleTh) || "New campaign",
     series,
-    status: body.status === undefined ? undefined : enumValue(body.status, ["draft", "live", "closed", "archived"] as const, "draft"),
+    // Direct status changes are restricted to non-mechanics transitions only.
+    // Use /api/ynot/admin/campaigns/[id]/{submit,approve,reject,publish,...} to
+    // move through the approval workflow. Allowing 'live' here would bypass
+    // owner approval.
+    status:
+      body.status === undefined
+        ? undefined
+        : enumValue(
+            body.status,
+            ["draft", "closed", "archived"] as const,
+            "draft",
+          ),
     visibility: body.visibility === undefined ? undefined : enumValue(body.visibility, ["public", "hidden", "private"] as const, "private"),
     mode: body.mode === undefined ? undefined : enumValue(body.mode, ["slot_pick", "instant_gacha"] as const, "instant_gacha"),
     price_thb: body.priceThb === undefined ? undefined : priceThb,
@@ -93,6 +106,16 @@ function campaignPatch(body: CampaignBody): Database["public"]["Tables"]["draw_r
     sort_order: body.sortOrder === undefined ? undefined : Math.round(numberValue(body.sortOrder, 100)),
     is_test: body.isTest === undefined ? undefined : booleanValue(body.isTest),
     seed_run_id: body.seedRunId === undefined ? undefined : text(body.seedRunId, 80) || null,
+    spin_mode:
+      body.spinMode === undefined
+        ? undefined
+        : enumValue(body.spinMode, ["pure_random", "weighted", "inventory_gate"] as const, "pure_random"),
+    spin_config:
+      body.spinConfig === undefined
+        ? undefined
+        : ((body.spinConfig && typeof body.spinConfig === "object" && !Array.isArray(body.spinConfig)
+            ? body.spinConfig
+            : {}) as Database["public"]["Tables"]["draw_rounds"]["Insert"]["spin_config"]),
   };
 }
 
@@ -119,8 +142,14 @@ async function bodyJson(request: Request): Promise<CampaignBody | null> {
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
-  const admin = await resolveAdminSession();
-  if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
+  let admin;
+  try {
+    admin = await requireAdminOrOwner();
+  } catch (error) {
+    const response = authErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
   const limited = await enforceRateLimit(request, "ynot:admin:campaigns", { limit: 40, windowMs: 60_000 }, admin.profileId);
   if (limited) return limited;
 
@@ -145,6 +174,8 @@ export async function POST(request: Request) {
     created_by: admin.adminId,
     is_test: patch.is_test ?? false,
     seed_run_id: patch.seed_run_id ?? null,
+    spin_mode: patch.spin_mode ?? "pure_random",
+    spin_config: patch.spin_config ?? {},
   };
 
   const supabase = createServiceSupabaseClient();
@@ -164,8 +195,14 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
-  const admin = await resolveAdminSession();
-  if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
+  let admin;
+  try {
+    admin = await requireAdminOrOwner();
+  } catch (error) {
+    const response = authErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
   const limited = await enforceRateLimit(request, "ynot:admin:campaigns", { limit: 40, windowMs: 60_000 }, admin.profileId);
   if (limited) return limited;
 
@@ -174,7 +211,41 @@ export async function PATCH(request: Request) {
   if (!body || !campaignId) return Response.json({ error: "campaignId is required." }, { status: 400 });
 
   const patch = campaignPatch(body);
+  // PATCH never changes spin_mode/spin_config directly: those go through
+  // /api/ynot/admin/campaigns/[id]/spin-config (which uses the audit-tracked
+  // RPC and respects the lock). Stripping silently keeps the surface
+  // backward-compatible with callers that send the full patch.
+  const mechanicsRequested = [
+    patch.mode,
+    patch.price_thb,
+    patch.cost_coins,
+    patch.total_slots,
+    patch.is_test,
+    patch.seed_run_id,
+  ].some((value) => value !== undefined);
+  // Direct status PATCH is disabled so callers cannot bypass submit/approve/
+  // publish/cancel/end workflow RPCs.
+  delete patch.status;
+  delete patch.spin_mode;
+  delete patch.spin_config;
   const supabase = createServiceSupabaseClient();
+
+  const { data: campaign, error: lookupError } = await supabase
+    .from("draw_rounds")
+    .select("id,status,locked_at,created_by")
+    .eq("id", campaignId)
+    .single();
+  if (lookupError || !campaign) return Response.json({ error: "campaign_not_found" }, { status: 404 });
+  if (admin.adminRole === "admin" && (campaign.status !== "draft" || campaign.created_by !== admin.adminId)) {
+    return Response.json({ error: "not_draft_owner" }, { status: 403 });
+  }
+  if (mechanicsRequested && campaign.status !== "draft") {
+    return Response.json({ error: "campaign_requires_draft_for_mechanics_edit" }, { status: 409 });
+  }
+  if (mechanicsRequested && campaign.locked_at) {
+    return Response.json({ error: "campaign_locked" }, { status: 409 });
+  }
+
   const { error } = await supabase.from("draw_rounds").update(patch).eq("id", campaignId);
   if (error) return Response.json({ error: error.message }, { status: 409 });
   if (body.categoryIds !== undefined) {

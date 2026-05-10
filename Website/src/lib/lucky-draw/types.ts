@@ -1,6 +1,15 @@
 export type Lang = "th" | "en";
 export type OrderStatus = "pending" | "approved" | "picked" | "rejected";
-export type DrawStatus = "draft" | "live" | "closed" | "archived";
+export type DrawStatus =
+  | "draft"
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "live"
+  | "cancelled"
+  | "ended"
+  | "closed"
+  | "archived";
 export type SlipVerificationStatus =
   | "unverified"
   | "valid"

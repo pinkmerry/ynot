@@ -7110,6 +7110,7 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   .admin-tool-row,
   .admin-form-grid,
   .admin-form-grid-three,
+  .admin-prize-policy-grid,
   .admin-pack-row-controls,
   .admin-category-clean-body dl,
   .admin-roadmap-grid {
@@ -7614,6 +7615,12 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   max-height: 460px;
   overflow: auto;
   padding-right: 4px;
+}
+
+.admin-prize-policy-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
 }
 
 .admin-table-panel {
