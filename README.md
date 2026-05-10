@@ -49,15 +49,33 @@ Use this for LINE LIFF notes and references:
 - `Line LIFF/docs/LIFF_INTEGRATION_MAP.md`
 - `Line LIFF/design-references/`
 
-## Production URL map
+## Repository, deployment, and runtime map
 
-- Normal website: `https://www.ynottcg.com`
-- Apex website redirect: `https://ynottcg.com` -> `https://www.ynottcg.com`
-- Website Vercel project: `ynot-lucky-draw-platform` with root directory `Website`
-- LINE LIFF intended URL: `https://liff.ynottcg.com`
-- Temporary LIFF fallback while DNS is pending: `https://lucky-draw-liff.vercel.app`
+This project uses **one** GitHub repo and **two** Vercel projects sharing the same `Website/` Next.js app. Hostname-based middleware (see commit `d951f7e` "Keep LIFF traffic on LIFF domains") switches behavior between the LIFF flow and the normal website flow at runtime.
 
-The LIFF app should not redirect `liff.ynottcg.com` or `lucky-draw-liff.vercel.app` to the normal website. Add the Squarespace DNS record `A liff.ynottcg.com 76.76.21.21`, then update LINE Console / rich-menu URLs to `https://liff.ynottcg.com`.
+### Single source of truth
+
+- **GitHub:** `https://github.com/pinkmerry/lucky-draw-liff` (this repo)
+- Default branch: `main`
+- The repo `pinkmerry/ynot-lucky-draw-platform` is **archived/deprecated** — do not push there. It is kept only as a historical mirror.
+
+### Two independent Vercel projects (same code, different deployments)
+
+| Vercel project | Domain | Purpose | Git config |
+|---|---|---|---|
+| `ynot-lucky-draw-platform` | `https://www.ynottcg.com` (apex `https://ynottcg.com` redirects here) | Normal website | Connected to `pinkmerry/lucky-draw-liff`, branch `main`, root directory `Website` |
+| `lucky-draw-liff` | `https://liff.ynottcg.com`, fallback `https://lucky-draw-liff.vercel.app` | LINE LIFF inside LINE OA | Connected to `pinkmerry/lucky-draw-liff`, branch `main`, root directory `Website` |
+
+A single `git push` to `main` triggers both deploys. They run on independent Vercel infrastructure, so a build failure in one does not roll back the other.
+
+### Why the two projects are not unified
+
+- Different domains, different env vars (LINE LIFF id, redirect URIs).
+- LIFF traffic should never redirect to the normal website (and vice versa). The middleware enforces this per Vercel project via env-driven host allow-lists.
+
+### DNS
+
+Add the Squarespace DNS record `A liff.ynottcg.com 76.76.21.21`, then update LINE Console / rich-menu URLs to `https://liff.ynottcg.com`.
 
 ## Current next phase
 

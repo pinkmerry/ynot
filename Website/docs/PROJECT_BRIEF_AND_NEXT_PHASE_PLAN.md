@@ -130,9 +130,10 @@ Not complete yet:
 
 A separate GitHub/Vercel project has been created for online testing:
 
-- GitHub: `https://github.com/pinkmerry/ynot-lucky-draw-platform`
-- Vercel project: `ynot-lucky-draw-platform`
-- Production URL: `https://ynot-lucky-draw-platform.vercel.app`
+- GitHub: `https://github.com/pinkmerry/lucky-draw-liff` (single source of truth — the older `ynot-lucky-draw-platform` repo is archived)
+- Vercel project deploying `www.ynottcg.com`: `ynot-lucky-draw-platform` (connected to `lucky-draw-liff` repo, root directory `Website`)
+- Vercel project deploying `liff.ynottcg.com`: `lucky-draw-liff` (same repo, same root directory)
+- Production URL fallback: `https://ynot-lucky-draw-platform.vercel.app`
 - Deployment evidence: `docs/verification/2026-05-07-github-vercel-production-deploy.md`
 - Database gate evidence: `../Database/docs/verification/2026-05-07-production-db-next-phase-gate.md`
 

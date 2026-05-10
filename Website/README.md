@@ -47,10 +47,11 @@ The Website verification scripts read those migration files directly.
 
 ## Production URL map
 
-- Normal website: `https://www.ynottcg.com`
-- Apex website redirect: `https://ynottcg.com` -> `https://www.ynottcg.com`
-- Website Vercel fallback: `https://ynot-lucky-draw-platform.vercel.app`
-- LINE LIFF intended URL: `https://liff.ynottcg.com`
-- LINE LIFF fallback until DNS is active: `https://lucky-draw-liff.vercel.app`
+This `Website/` Next.js app is the same code for both Vercel deployments. Hostname middleware switches LIFF vs. normal-website behavior at runtime.
+
+- Normal website (Vercel project `ynot-lucky-draw-platform`): `https://www.ynottcg.com` (apex `https://ynottcg.com` redirects here), fallback `https://ynot-lucky-draw-platform.vercel.app`
+- LINE LIFF (Vercel project `lucky-draw-liff`): `https://liff.ynottcg.com`, fallback `https://lucky-draw-liff.vercel.app`
+
+Both Vercel projects connect to GitHub `pinkmerry/lucky-draw-liff`, branch `main`, root directory `Website`. A single push triggers both deploys but they run independently. The previously separate repo `pinkmerry/ynot-lucky-draw-platform` is archived — do not push there.
 
 `liff.ynottcg.com` still needs the Squarespace DNS record documented in `docs/verification/2026-05-07-domain-reorganization.md` before using it in LINE Console/rich menu.
