@@ -26,16 +26,20 @@ Do not break LIFF compatibility while building the normal website. The website a
 ## Production URL ownership
 
 - Intended LIFF URL: `https://liff.ynottcg.com`
-- LIFF fallback/project URL: `https://ynott-line-liff.vercel.app` after Vercel rename
+- LIFF fallback/project URL: `https://ynott-line-liff.vercel.app`
 - Normal website URL: `https://www.ynottcg.com`
 
-The LIFF Vercel project owns `liff.ynottcg.com`, but public DNS is still pending. Add this Squarespace DNS record before switching LINE Console/rich-menu URLs to the LIFF subdomain:
+The LIFF Vercel project owns `liff.ynottcg.com`; DNS and SSL are live.
+
+Current routing record:
 
 ```text
 A liff.ynottcg.com 76.76.21.21
 ```
 
 Do not point LINE rich-menu/LIFF endpoint URLs at the normal website domain unless the intended action is normal web login rather than LIFF.
+
+Retired alias: do not use `https://lucky-draw-liff.vercel.app`.
 
 
 ## Deployment rule

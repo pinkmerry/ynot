@@ -64,6 +64,16 @@ Website verification scripts read migrations directly from `../Database/supabase
 
 Important: do **not** set either Vercel project Root Directory to `.` while the Next.js app lives in `Website/`.
 
+## Retired names
+
+Do not use the old local folder, old repo names, or old Vercel aliases for new work:
+
+- old local folder: `Lucky Draw/`
+- old repos: `pinkmerry/lucky-draw-liff`, `pinkmerry/ynot-lucky-draw-platform`
+- old Vercel aliases: `lucky-draw-liff.vercel.app`, `ynot-lucky-draw-platform.vercel.app`
+
+Current source of truth is `YNOTT/` + `https://github.com/pinkmerry/ynott`.
+
 ## Current production gate
 
 Do not apply production Supabase migrations until Phase 1 backup/PITR and restore-drill gates are satisfied.

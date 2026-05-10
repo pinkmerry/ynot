@@ -1,5 +1,7 @@
 # Verification: Phase 1 Production Data Inventory + Backup Readiness
 
+> 2026-05-10 YNOTT rename note: this file contains historical backup paths captured before the final local folder rename. Current local root is `/Users/pinkmerry/Project X/YNOTT`; see `2026-05-10-ynott-final-migration-cleanup.md`.
+
 Date: 2026-05-10
 Generated: 2026-05-10 07:17Z
 Mode: read-only Ralph execution

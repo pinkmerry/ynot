@@ -22,6 +22,8 @@ Canonical naming target is **YNOTT**:
 
 Future agents should decide lane by product surface: website/admin/customer work goes to `Website/`; LINE rich-menu/LIFF settings go to `Line LIFF/`; schema/backup/migration work goes to `Database/`.
 
+Retired names are intentionally not active anymore: local folder `Lucky Draw/`, GitHub repos `pinkmerry/lucky-draw-liff` and `pinkmerry/ynot-lucky-draw-platform`, Vercel names `lucky-draw-liff` and `ynot-lucky-draw-platform`, and aliases `lucky-draw-liff.vercel.app` / `ynot-lucky-draw-platform.vercel.app`.
+
 ## Repository Layout Update
 
 - `YNOTT/` is the main project folder and git root. It now has three clear project areas: `Website/`, `Database/`, and `Line LIFF/`.

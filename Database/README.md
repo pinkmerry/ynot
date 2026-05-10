@@ -1,6 +1,6 @@
 # Database
 
-This folder is the database area for the Lucky Draw / YNot project.
+This folder is the database area for the YNOTT project.
 
 ## Source of truth
 

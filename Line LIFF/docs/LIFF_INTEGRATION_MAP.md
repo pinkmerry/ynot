@@ -26,8 +26,8 @@ Keep the LINE LIFF side easy to find while the active implementation remains sha
 ## URL map
 
 - LIFF intended URL: `https://liff.ynottcg.com`
-- LIFF fallback until DNS is live: `https://lucky-draw-liff.vercel.app`
+- LIFF fallback/project URL: `https://ynott-line-liff.vercel.app`
 - Normal website: `https://www.ynottcg.com`
 - Website LINE Login callback: `https://www.ynottcg.com/api/line/callback`
 
-`liff.ynottcg.com` is assigned in Vercel but still needs the Squarespace `A liff.ynottcg.com 76.76.21.21` DNS record before it works in normal browsers/LINE.
+`liff.ynottcg.com` is assigned in Vercel and DNS/SSL are live. Do not use retired alias `https://lucky-draw-liff.vercel.app`.

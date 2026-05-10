@@ -1,5 +1,7 @@
 # Verification: Separate GitHub + Vercel Production Deployment
 
+> 2026-05-10 update: this is historical evidence from before the final YNOTT rename. Current source of truth is `YNOTT/`, GitHub `pinkmerry/ynott`, Vercel projects `ynott-website` and `ynott-line-liff`, and verification note `2026-05-10-ynott-final-migration-cleanup.md`. Do not reuse old repo/project/alias names in this file for new work.
+
 Date: 2026-05-07
 
 ## Claim

@@ -65,7 +65,7 @@ Line LIFF/docs                  LIFF integration map and notes
 Line LIFF/design-references     original Lucky Draw / LIFF design references
 ```
 
-The parent `Lucky Draw` folder remains the git root. `.git` intentionally stays in the parent folder so history covers Website, Database, and Line LIFF together. Database files are intentionally kept outside `Website/` to make the project easy to see.
+The parent `YNOTT` folder is the git root. `.git` intentionally stays in the parent folder so history covers Website, Database, and Line LIFF together. Database files are intentionally kept outside `Website/` to make the project easy to see.
 
 ## 4. What is already built locally
 

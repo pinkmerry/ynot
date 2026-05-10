@@ -1,5 +1,7 @@
 # Verification: Same Supabase Access For Website + LIFF
 
+> 2026-05-10 update: this is historical evidence from before the final YNOTT rename. Current source of truth is `YNOTT/`, GitHub `pinkmerry/ynott`, Vercel projects `ynott-website` and `ynott-line-liff`, and verification note `2026-05-10-ynott-final-migration-cleanup.md`.
+
 Date: 2026-05-07
 
 ## Claim

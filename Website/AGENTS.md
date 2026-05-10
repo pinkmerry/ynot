@@ -24,3 +24,4 @@ Important distinction:
 Vercel expectation:
 - Website project: `ynott-website`, Root Directory `Website`.
 - LIFF project: `ynott-line-liff`, Root Directory `Website` until a separate LIFF app is intentionally extracted.
+- Do not use retired Vercel names/aliases `ynot-lucky-draw-platform`, `lucky-draw-liff`, `ynot-lucky-draw-platform.vercel.app`, or `lucky-draw-liff.vercel.app`.
