@@ -11,14 +11,22 @@ export async function POST(request: Request) {
   if (!session?.profileId) return Response.json({ error: "Login is required." }, { status: 401 });
   const limited = await enforceRateLimit(request, "ynot:gacha:open", { limit: 30, windowMs: 60_000 }, session.profileId);
   if (limited) return limited;
-  const body = await request.json().catch(() => null) as { campaignId?: unknown; quantity?: unknown; idempotencyKey?: unknown } | null;
+  const body = await request.json().catch(() => null) as { campaignId?: unknown; quantity?: unknown; idempotencyKey?: unknown; clientSeed?: unknown } | null;
   const campaignId = typeof body?.campaignId === "string" ? body.campaignId : "";
   const quantity = Number(body?.quantity ?? 1);
   const idempotencyKey = typeof body?.idempotencyKey === "string" ? body.idempotencyKey : crypto.randomUUID();
+  const rawClientSeed = typeof body?.clientSeed === "string" ? body.clientSeed.trim() : "";
+  const clientSeed = rawClientSeed.length > 0 && rawClientSeed.length <= 128 ? rawClientSeed : null;
   if (!campaignId) return Response.json({ error: "Campaign is required." }, { status: 400 });
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) return Response.json({ error: "Quantity must be between 1 and 10." }, { status: 400 });
   const supabase = createServiceSupabaseClient();
-  const { data, error } = await supabase.rpc("open_gacha_campaign", { p_profile_id: session.profileId, p_draw_round_id: campaignId, p_quantity: quantity, p_idempotency_key: idempotencyKey });
+  const { data, error } = await supabase.rpc("open_gacha_campaign", {
+    p_profile_id: session.profileId,
+    p_draw_round_id: campaignId,
+    p_quantity: quantity,
+    p_idempotency_key: idempotencyKey,
+    p_client_seed: clientSeed,
+  });
   if (error) return Response.json({ error: error.message }, { status: 409 });
   return Response.json({ result: data });
 }
