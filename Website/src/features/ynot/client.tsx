@@ -195,6 +195,135 @@ export function TopUpForm({
   );
 }
 
+type RevealItem = {
+  cardId: string;
+  tier: string | null;
+  valueThb: number | null;
+  position: number;
+  isLastPrize: boolean;
+  pickSource?: string;
+  prizeUnitId?: string;
+};
+
+type RevealResult = {
+  publicCode: string;
+  items: RevealItem[];
+  serverSeedHash?: string;
+  clientSeed?: string;
+};
+
+function parseRevealResult(payload: unknown): RevealResult | null {
+  if (!payload || typeof payload !== "object") return null;
+  const result = (payload as { result?: unknown }).result;
+  if (!result || typeof result !== "object") return null;
+  const res = result as Record<string, unknown>;
+  const items = Array.isArray(res.items)
+    ? res.items.flatMap((raw): RevealItem[] => {
+        if (!raw || typeof raw !== "object") return [];
+        const r = raw as Record<string, unknown>;
+        return [{
+          cardId: typeof r.cardId === "string" ? r.cardId : "",
+          tier: typeof r.tier === "string" ? r.tier : null,
+          valueThb: typeof r.valueThb === "number" ? r.valueThb : null,
+          position: typeof r.position === "number" ? r.position : 0,
+          isLastPrize: r.isLastPrize === true,
+          pickSource: typeof r.pickSource === "string" ? r.pickSource : undefined,
+          prizeUnitId: typeof r.prizeUnitId === "string" ? r.prizeUnitId : undefined,
+        }];
+      })
+    : [];
+  return {
+    publicCode: typeof res.publicCode === "string" ? res.publicCode : "",
+    items,
+    serverSeedHash: typeof res.serverSeedHash === "string" ? res.serverSeedHash : undefined,
+    clientSeed: typeof res.clientSeed === "string" ? res.clientSeed : undefined,
+  };
+}
+
+function PackOpenReveal({ result, onClose }: { result: RevealResult; onClose: () => void }) {
+  const total = result.items.length;
+  // result is fresh per open (state lives in parent that mounts/unmounts this),
+  // so we initialize directly rather than resetting in an effect.
+  const [revealedCount, setRevealedCount] = useState(0);
+  const [skipped, setSkipped] = useState(false);
+
+  function flipNext() {
+    if (revealedCount < total) setRevealedCount((n) => n + 1);
+  }
+
+  function skipAll() {
+    setSkipped(true);
+    setRevealedCount(total);
+  }
+
+  const allRevealed = revealedCount >= total;
+  const currentIndex = Math.min(revealedCount, total - 1);
+  const currentItem = result.items[currentIndex];
+  const showCardFlipped = revealedCount > currentIndex || skipped;
+
+  return (
+    <div className="reveal-overlay" role="dialog" aria-modal="true" aria-label="Pack open reveal">
+      <div className="reveal-stage">
+        <p className="reveal-counter">
+          {allRevealed ? `Pack ${result.publicCode}` : `Reveal ${Math.min(revealedCount + 1, total)} / ${total}`}
+        </p>
+        {allRevealed ? (
+          <div className="reveal-summary">
+            <strong style={{ fontSize: 18 }}>All cards revealed</strong>
+            <ul className="reveal-summary-list">
+              {result.items.map((item) => (
+                <li key={item.position}>
+                  #{item.position} · {(item.tier ?? "normal").toUpperCase()}
+                  {item.isLastPrize ? " · 🎁 ラストワン" : ""}
+                  {typeof item.valueThb === "number" ? ` · ฿${item.valueThb.toLocaleString()}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div className={`reveal-card${showCardFlipped ? " flipped" : ""}`} onClick={flipNext} role="button" tabIndex={0}
+            onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") flipNext(); }}>
+            <div className="reveal-card-inner">
+              <div className="reveal-face reveal-face-back">YNOT TCG</div>
+              <div className="reveal-face reveal-face-front" data-tier={currentItem?.tier ?? "normal"} data-last-prize={currentItem?.isLastPrize ? "true" : "false"}>
+                <span className="reveal-tier-pill">
+                  {currentItem?.isLastPrize ? "🎁 ラストワン" : (currentItem?.tier ?? "normal").toUpperCase()}
+                </span>
+                <span className="reveal-card-name">Card #{currentItem?.position}</span>
+                <span className="reveal-card-meta">
+                  {typeof currentItem?.valueThb === "number"
+                    ? `Value ฿${currentItem.valueThb.toLocaleString()}`
+                    : "Added to your collection"}
+                </span>
+                <span className="reveal-card-meta" style={{ fontSize: 10, opacity: 0.65 }}>
+                  {currentItem?.prizeUnitId?.slice(0, 8)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="reveal-actions">
+          {allRevealed ? (
+            <>
+              <a className="primary-action" href="/collection">View collection</a>
+              <button type="button" onClick={onClose}>Close</button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="primary" onClick={flipNext}>
+                {revealedCount === 0 ? "Tap to reveal" : "Next card"}
+              </button>
+              {total > 1 ? (
+                <button type="button" onClick={skipAll}>Skip animation</button>
+              ) : null}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function GachaOpenPanel({
   campaign,
   authenticated,
@@ -204,6 +333,7 @@ export function GachaOpenPanel({
 }) {
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState("");
+  const [reveal, setReveal] = useState<RevealResult | null>(null);
   const [isPending, startTransition] = useTransition();
   function open() {
     startTransition(async () => {
@@ -214,9 +344,13 @@ export function GachaOpenPanel({
           quantity,
           idempotencyKey: crypto.randomUUID(),
         });
-        setMessage(
-          `Opened ${payload.result?.publicCode ?? "gacha"}. Result is now in Collection.`,
-        );
+        const parsed = parseRevealResult(payload);
+        if (parsed && parsed.items.length > 0) {
+          setReveal(parsed);
+          setMessage(`Pack ${parsed.publicCode} opened — tap to reveal.`);
+        } else {
+          setMessage(`Opened ${payload.result?.publicCode ?? "gacha"}. Result is now in Collection.`);
+        }
       } catch (error) {
         setMessage(
           error instanceof Error ? error.message : "Could not open gacha.",
@@ -288,6 +422,9 @@ export function GachaOpenPanel({
           {message}
         </p>
       )}
+      {reveal ? (
+        <PackOpenReveal key={reveal.publicCode || reveal.clientSeed || "reveal"} result={reveal} onClose={() => setReveal(null)} />
+      ) : null}
     </section>
   );
 }
