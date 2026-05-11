@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/resolve-current-profile";
 import { getCardCatalog, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { isMissingColumnError } from "@/lib/supabase/schema-compat";
 import type { Database } from "@/lib/supabase/types";
 import type {
   YnotCampaign,
@@ -15,12 +16,16 @@ import type {
   YnotDashboardData,
   YnotDataIssue,
   YnotAddress,
+  YnotApprovalStatus,
   YnotCategory,
   YnotExchangeOrder,
   YnotGachaOpenHistory,
+  YnotOwnerApprovalRequest,
   YnotPaymentMethod,
   YnotPlatformHealth,
   YnotPrizePoolItem,
+  YnotPrizePreview,
+  YnotRandomLogicMode,
   YnotRankingRow,
   YnotShippingRequest,
   YnotTopUp,
@@ -73,6 +78,46 @@ type InventorySummary = {
 };
 
 type DrawRoundRow = Database["public"]["Tables"]["draw_rounds"]["Row"];
+const approvalStatuses: readonly YnotApprovalStatus[] = [
+  "not_submitted",
+  "pending_review",
+  "approved",
+  "rejected",
+  "changes_requested",
+];
+const randomLogicModes: readonly YnotRandomLogicMode[] = [
+  "pure_random",
+  "weighted_templates",
+  "inventory_gated",
+];
+
+function inferredApprovalStatus(status: YnotCampaign["status"]) {
+  return status === "live" || status === "closed" || status === "archived"
+    ? "approved"
+    : "not_submitted";
+}
+
+function normalizeApprovalStatus(
+  value: unknown,
+  fallback: YnotApprovalStatus,
+): YnotApprovalStatus {
+  return approvalStatuses.includes(value as YnotApprovalStatus)
+    ? (value as YnotApprovalStatus)
+    : fallback;
+}
+
+function normalizeRandomLogicMode(value: unknown): YnotRandomLogicMode {
+  if (randomLogicModes.includes(value as YnotRandomLogicMode)) {
+    return value as YnotRandomLogicMode;
+  }
+  if (isRecord(value)) {
+    const mode = value.mode ?? value.logicMode;
+    if (randomLogicModes.includes(mode as YnotRandomLogicMode)) {
+      return mode as YnotRandomLogicMode;
+    }
+  }
+  return "pure_random";
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -96,15 +141,109 @@ function inventorySummariesFromJson(value: unknown): InventorySummary[] {
   });
 }
 
+function soldPctForCampaign(row: DrawRoundRow, inventory?: InventorySummary) {
+  const remainingSlots =
+    inventory?.remainingSlots ?? row.total_slots;
+  const soldSlots = Math.max(0, row.total_slots - remainingSlots);
+  if (row.total_slots <= 0) return 100;
+  return Math.min(100, (soldSlots / row.total_slots) * 100);
+}
+
+function isAdminHidden(metadata: unknown) {
+  return isRecord(metadata) && metadata.adminHidden === true;
+}
+
+function soldPctForYnotCampaign(campaign: YnotCampaign) {
+  const remainingSlots = campaign.remainingSlots ?? campaign.totalSlots;
+  if (campaign.totalSlots <= 0) return 100;
+  return Math.round(
+    Math.min(
+      100,
+      (Math.max(0, campaign.totalSlots - remainingSlots) /
+        campaign.totalSlots) *
+        100,
+    ),
+  );
+}
+
+async function getPublicPrizeLineup(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  row: DrawRoundRow,
+  inventory?: InventorySummary,
+): Promise<YnotPrizePreview[]> {
+  const soldPct = soldPctForCampaign(row, inventory);
+  const { data: prizes, error } = await supabase
+    .from("draw_round_prizes")
+    .select("*")
+    .eq("draw_round_id", row.id)
+    .order("tier", { ascending: true })
+    .order("rank", { ascending: true });
+  if (error) throw error;
+
+  const visiblePrizes = (prizes ?? []).filter(
+    (prize) =>
+      !isAdminHidden(prize.metadata) &&
+      Number(prize.unlock_at_sold_pct ?? 0) <= soldPct,
+  );
+  if (!visiblePrizes.length) return [];
+
+  const cardIds = [...new Set(visiblePrizes.map((prize) => prize.card_id))];
+  const prizeIds = visiblePrizes.map((prize) => prize.id);
+  const [{ data: cards, error: cardsError }, { data: units, error: unitsError }] =
+    await Promise.all([
+      supabase.from("cards").select("id,name").in("id", cardIds),
+      supabase
+        .from("draw_round_prize_units")
+        .select("draw_round_prize_id,status")
+        .in("draw_round_prize_id", prizeIds)
+        .limit(10000),
+    ]);
+  if (cardsError) throw cardsError;
+  if (unitsError) throw unitsError;
+
+  const cardById = new Map((cards ?? []).map((card) => [card.id, card]));
+  const countsByPrize = new Map<string, { total: number; available: number }>();
+  for (const unit of units ?? []) {
+    const counts = countsByPrize.get(unit.draw_round_prize_id) ?? {
+      total: 0,
+      available: 0,
+    };
+    counts.total += 1;
+    if (unit.status === "available") counts.available += 1;
+    countsByPrize.set(unit.draw_round_prize_id, counts);
+  }
+
+  return visiblePrizes.map((prize) => {
+    const counts = countsByPrize.get(prize.id);
+    return {
+      id: prize.id,
+      cardName: cardById.get(prize.card_id)?.name ?? "Mystery reward",
+      tier: prize.tier,
+      rank: prize.rank,
+      valueThb: prize.value_thb,
+      availableUnits: counts?.available,
+      totalUnits: counts?.total,
+      weight: Number(prize.weight ?? 1),
+      unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
+    };
+  });
+}
+
 function toYnotCampaign(
   row: DrawRoundRow,
   linkedCategories: YnotCategory[] = [],
   inventory?: InventorySummary,
+  prizeLineup?: YnotPrizePreview[],
 ): YnotCampaign {
+  const approvalStatus = normalizeApprovalStatus(
+    row.approval_status,
+    inferredApprovalStatus(row.status),
+  );
   return {
     id: row.id,
     slug: row.slug,
     status: row.status,
+    approvalStatus,
     titleTh: row.title_th,
     titleEn: row.title_en,
     series: row.series,
@@ -122,6 +261,10 @@ function toYnotCampaign(
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     createdAt: row.created_at,
+    approvalRequestedAt: row.approval_requested_at,
+    approvedAt: row.approved_at,
+    approvalNotes: row.approval_notes,
+    logicMode: normalizeRandomLogicMode(row.logic_snapshot),
     isTest: row.is_test,
     categoryIds: linkedCategories.map((category) => category.id),
     categorySlugs: linkedCategories.map((category) => category.slug),
@@ -129,7 +272,175 @@ function toYnotCampaign(
       linkedCategories.map((category) => category.nameEn).join(", ") ||
       (row.series === "pokemon" ? "Pokemon" : "One Piece"),
     displayTags: safeDisplayTags(row),
+    prizeLineup,
   };
+}
+
+function localOwnerMockApprovalRequests(): YnotOwnerApprovalRequest[] {
+  const mockConfigs: Array<{
+    id: string;
+    title: string;
+    logicMode: YnotRandomLogicMode;
+    soldPct: number;
+    totalSlots: number;
+    totalPrizeUnits: number;
+    summary: string[];
+  }> = [
+    {
+      id: "mock-owner-pack-pure-random",
+      title: "Owner Mock Pure Random",
+      logicMode: "pure_random",
+      soldPct: 8,
+      totalSlots: 80,
+      totalPrizeUnits: 80,
+      summary: [
+        "Every unlocked prize unit has equal odds.",
+        "All public-safe rewards are visible immediately.",
+        "Approve keeps the pack draft/private until publish.",
+      ],
+    },
+    {
+      id: "mock-owner-pack-locked-30",
+      title: "Owner Mock 30% Locked Chase",
+      logicMode: "inventory_gated",
+      soldPct: 18,
+      totalSlots: 100,
+      totalPrizeUnits: 100,
+      summary: [
+        "Rank 1-3 chase rewards stay private before 30% sold.",
+        "Locked prize units remain in Postgres but cannot drop.",
+        "Base rewards remain available for early openings.",
+      ],
+    },
+    {
+      id: "mock-owner-pack-unlocked-30",
+      title: "Owner Mock 30% Unlocked",
+      logicMode: "inventory_gated",
+      soldPct: 30,
+      totalSlots: 100,
+      totalPrizeUnits: 100,
+      summary: [
+        "Sold checkpoint is reached, so locked rewards can enter odds.",
+        "High-tier rewards use their configured weights after unlock.",
+        "Customer preview can show only unlocked rewards.",
+      ],
+    },
+    {
+      id: "mock-owner-pack-weighted-high",
+      title: "Owner Mock Weighted High Tier",
+      logicMode: "weighted_templates",
+      soldPct: 64,
+      totalSlots: 120,
+      totalPrizeUnits: 120,
+      summary: [
+        "High-tier and normal rewards can use different weights.",
+        "Weight zero disables a prize from the drop pool.",
+        "Weighted random is enforced in the database RPC.",
+      ],
+    },
+  ];
+
+  return mockConfigs.map((config, index) => {
+    const soldSlots = Math.round(
+      (config.soldPct / 100) * config.totalSlots,
+    );
+    const availableUnits = Math.max(
+      0,
+      config.totalPrizeUnits - soldSlots,
+    );
+    const campaign: YnotCampaign = {
+      id: config.id,
+      slug: config.id,
+      status: "draft",
+      approvalStatus: "pending_review",
+      titleTh: config.title,
+      titleEn: config.title,
+      series: "pokemon",
+      priceThb: 150 + index * 10,
+      costCoins: 150 + index * 10,
+      mode: "instant_gacha",
+      visibility: "private",
+      totalSlots: config.totalSlots,
+      sortOrder: index + 1,
+      startsAt: "2026-05-11T10:00:00.000Z",
+      endsAt: null,
+      createdAt: "2026-05-11T10:00:00.000Z",
+      approvalRequestedAt: `2026-05-11T10:${String(5 + index).padStart(2, "0")}:00.000Z`,
+      approvalNotes: "Local owner approval mock for random logic testing.",
+      logicMode: config.logicMode,
+      remainingSlots: Math.max(0, config.totalSlots - soldSlots),
+      totalPrizeUnits: config.totalPrizeUnits,
+      availablePrizeUnits: availableUnits,
+      awardedPrizeUnits: soldSlots,
+      voidPrizeUnits: 0,
+      categoryLabel: "Pokemon",
+      isTest: true,
+      heroLabel:
+        config.logicMode === "inventory_gated"
+          ? "Mock locked high-tier rewards / base rewards"
+          : "Mock weighted reward setup / base rewards",
+      displayTags: ["Owner review", "Local mock"],
+      demo: true,
+    };
+
+    return {
+      id: `mock-owner-approval-${config.id}`,
+      campaign,
+      approvalStatus: "pending_review",
+      logicMode: config.logicMode,
+      requestedByLabel: "Local Admin Studio",
+      requestedAt: campaign.approvalRequestedAt ?? "2026-05-11T10:05:00.000Z",
+      soldPct: config.soldPct,
+      notificationLabel: "Owner review needed",
+      mock: true,
+      summary: config.summary,
+    };
+  });
+}
+
+function ownerApprovalRequestFromCampaign(
+  campaign: YnotCampaign,
+): YnotOwnerApprovalRequest | null {
+  const approvalStatus =
+    campaign.approvalStatus ?? inferredApprovalStatus(campaign.status);
+  const needsPublish =
+    approvalStatus === "approved" &&
+    (campaign.status === "draft" || campaign.visibility !== "public");
+  if (approvalStatus !== "pending_review" && !needsPublish) return null;
+  return {
+    id: `owner-approval-${campaign.id}`,
+    campaign,
+    approvalStatus,
+    logicMode: campaign.logicMode ?? "pure_random",
+    requestedByLabel: "Admin Studio",
+    requestedAt:
+      campaign.approvalRequestedAt ??
+      campaign.createdAt ??
+      new Date(0).toISOString(),
+    soldPct: soldPctForYnotCampaign(campaign),
+    notificationLabel: needsPublish
+      ? "Owner publish needed"
+      : "Owner review needed",
+    summary: [
+      "Campaign is held from public live status until owner approval.",
+      "Only public-safe status details are shown outside the owner queue.",
+      "Publish must happen through the owner lifecycle route after approval.",
+    ],
+  };
+}
+
+function getOwnerApprovalRequests(
+  viewer: YnotViewer,
+  campaigns: YnotCampaign[],
+): YnotOwnerApprovalRequest[] {
+  if (viewer.adminRole !== "owner") return [];
+  const requests = campaigns.flatMap((campaign) => {
+    const request = ownerApprovalRequestFromCampaign(campaign);
+    return request ? [request] : [];
+  });
+  return allowDemoStorefront()
+    ? [...localOwnerMockApprovalRequests(), ...requests]
+    : requests;
 }
 
 export async function getYnotViewer(): Promise<YnotViewer> {
@@ -174,20 +485,31 @@ export async function getCampaigns(
   if (!isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("campaigns", async () => {
-    let query = supabase
-      .from("draw_rounds")
-      .select("*")
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: false })
-      .limit(24);
+    const loadRows = (requireApproval: boolean) => {
+      let query = supabase
+        .from("draw_rounds")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: false })
+        .limit(24);
 
-    if (options.includePrivate) {
-      query = query.in("status", ["live", "closed", "draft", "archived"]);
-    } else {
+      if (options.includePrivate) {
+        return query.in("status", ["live", "closed", "draft", "archived"]);
+      }
       query = query.eq("visibility", "public").in("status", ["live", "closed"]);
-    }
+      return requireApproval
+        ? query.eq("approval_status", "approved")
+        : query;
+    };
 
-    const { data, error } = await query;
+    let { data, error } = await loadRows(true);
+    if (
+      error &&
+      !options.includePrivate &&
+      isMissingColumnError(error, "approval_status")
+    ) {
+      ({ data, error } = await loadRows(false));
+    }
     if (error) throw error;
     const rows = (data ?? []).filter(
       (row) => options.includePrivate || row.is_test !== true,
@@ -331,15 +653,22 @@ export async function getCampaign(
 
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("campaign_detail", async () => {
-    const query = supabase
-      .from("draw_rounds")
-      .select("*")
-      .in("status", ["live", "closed"])
-      .eq("visibility", "public")
-      .limit(1);
-    const { data, error } = looksLikeUuid(campaignIdOrSlug)
-      ? await query.eq("id", campaignIdOrSlug)
-      : await query.eq("slug", campaignIdOrSlug);
+    const loadRow = (requireApproval: boolean) => {
+      let query = supabase
+        .from("draw_rounds")
+        .select("*")
+        .in("status", ["live", "closed"])
+        .eq("visibility", "public")
+        .limit(1);
+      if (requireApproval) query = query.eq("approval_status", "approved");
+      return looksLikeUuid(campaignIdOrSlug)
+        ? query.eq("id", campaignIdOrSlug)
+        : query.eq("slug", campaignIdOrSlug);
+    };
+    let { data, error } = await loadRow(true);
+    if (error && isMissingColumnError(error, "approval_status")) {
+      ({ data, error } = await loadRow(false));
+    }
     if (error) throw error;
     const row = data?.[0];
     if (!row) return [];
@@ -378,7 +707,9 @@ export async function getCampaign(
     const linkedCategories = categoryLinks
       .map((link) => categoriesById.get(link.category_id))
       .filter((category): category is YnotCategory => Boolean(category));
-    return [toYnotCampaign(row, linkedCategories, inventoryRows[0])];
+    const inventory = inventoryRows[0];
+    const prizeLineup = await getPublicPrizeLineup(supabase, row, inventory);
+    return [toYnotCampaign(row, linkedCategories, inventory, prizeLineup)];
   }).then(
     (campaigns) =>
       campaigns[0] ??
@@ -781,8 +1112,7 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
       .limit(240);
     if (error) throw error;
     const visiblePrizes = (prizes ?? []).filter(
-      (prize) =>
-        !(isRecord(prize.metadata) && prize.metadata.adminHidden === true),
+      (prize) => !isAdminHidden(prize.metadata),
     );
     if (!visiblePrizes.length) return [];
 
@@ -855,6 +1185,8 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         tier: prize.tier,
         rank: prize.rank,
         valueThb: prize.value_thb,
+        weight: Number(prize.weight ?? 1),
+        unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
         totalUnits: counts.total,
         availableUnits: counts.available,
         awardedUnits: counts.awarded,
@@ -1084,6 +1416,7 @@ export async function getYnotDashboardData(): Promise<YnotDashboardData> {
       viewer.isAdmin ? getTopUps(undefined, true) : Promise.resolve([]),
       getPlatformHealth(viewer.isAdmin),
     ]);
+    const ownerApprovalRequests = getOwnerApprovalRequests(viewer, campaigns);
 
     return {
       configured: isSupabaseConfigured(),
@@ -1100,6 +1433,7 @@ export async function getYnotDashboardData(): Promise<YnotDashboardData> {
       addresses,
       rankings,
       adminTopUps,
+      ownerApprovalRequests,
       platformHealth: withDataIssueHealth(platformHealth, dataIssues),
       dataIssues,
     };

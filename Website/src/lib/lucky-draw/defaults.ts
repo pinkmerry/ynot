@@ -2,7 +2,7 @@ import type { DrawConfig, Order } from "./types";
 
 export const defaultDraw: DrawConfig = {
   slug: "demo",
-  status: "live",
+  status: "draft",
   titleTh: "กล่องสุ่ม One Piece Portgas Arc",
   titleEn: "One Piece Portgas Arc Lucky Draw",
   series: "One Piece",

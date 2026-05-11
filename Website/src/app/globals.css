@@ -7142,6 +7142,200 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   padding: 9px 11px;
 }
 
+.owner-approval-queue {
+  border-radius: 24px !important;
+  display: grid;
+  gap: 14px;
+  padding: 18px !important;
+}
+
+.owner-approval-list {
+  display: grid;
+  gap: 14px;
+}
+
+.owner-approval-card {
+  background: var(--admin-card-soft) !important;
+  border: 1px solid var(--admin-line) !important;
+  border-radius: 22px;
+  box-shadow: none;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.owner-approval-card-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.owner-approval-card-head span,
+.owner-approval-grid span,
+.owner-logic-panel > div > span {
+  color: var(--admin-accent-dark);
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.owner-approval-card-head h4 {
+  color: var(--admin-text);
+  font-size: 1.25rem;
+  font-weight: 1000;
+  letter-spacing: -0.035em;
+  margin-top: 4px;
+}
+
+.owner-approval-card-head p,
+.owner-approval-summary {
+  color: var(--admin-muted);
+  font-size: 0.9rem;
+  font-weight: 750;
+  line-height: 1.5;
+  margin-top: 6px;
+}
+
+.owner-logic-panel {
+  background: rgba(226, 163, 0, 0.06);
+  border: 1px solid rgba(226, 163, 0, 0.24);
+  border-radius: 18px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.owner-logic-panel > div > strong {
+  color: var(--admin-text);
+  display: block;
+  font-size: 1rem;
+  margin-top: 3px;
+}
+
+.owner-logic-panel > div > p {
+  color: var(--admin-muted);
+  font-size: 0.88rem;
+  font-weight: 750;
+  line-height: 1.45;
+  margin-top: 5px;
+}
+
+.owner-logic-options,
+.owner-approval-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.owner-approval-actions {
+  align-items: center;
+  gap: 6px;
+}
+
+.owner-logic-options button {
+  background: var(--admin-card);
+  border: 1px solid var(--admin-line-strong);
+  border-radius: 12px;
+  color: var(--admin-text);
+  cursor: pointer;
+  display: grid;
+  flex: 1 1 145px;
+  gap: 2px;
+  font-size: 0.76rem;
+  font-weight: 900;
+  line-height: 1.25;
+  min-height: 54px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.owner-logic-options button strong {
+  color: inherit;
+  font-size: 0.82rem;
+}
+
+.owner-logic-options button span {
+  color: var(--admin-muted);
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-transform: none;
+}
+
+.owner-logic-options button.active {
+  background: var(--admin-card);
+  border-color: var(--admin-accent);
+  box-shadow: inset 0 0 0 1px var(--admin-accent);
+  color: var(--admin-text);
+}
+
+.owner-logic-options button.active span {
+  color: #334155;
+}
+
+.owner-approval-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.owner-approval-grid > div {
+  background: var(--admin-card);
+  border: 1px solid var(--admin-line);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.owner-approval-grid strong {
+  color: var(--admin-text);
+  display: block;
+  font-size: 0.9rem;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.owner-approval-summary {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.owner-approval-actions button {
+  border-radius: 12px;
+  font-size: 0.74rem;
+  font-weight: 950;
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
+.owner-action-note {
+  background: var(--admin-card);
+  border: 1px solid var(--admin-line);
+  border-radius: 12px;
+  display: grid;
+  flex: 0 1 160px;
+  gap: 1px;
+  padding: 7px 9px;
+}
+
+.owner-action-note strong {
+  color: var(--admin-text);
+  font-size: 0.74rem;
+  font-weight: 1000;
+}
+
+.owner-action-note span {
+  color: var(--admin-muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
 @media (max-width: 1180px) {
   .admin-quick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -7184,6 +7378,14 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 
   .admin-roadmap-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .owner-approval-card-head {
+    display: grid;
+  }
+
+  .owner-approval-grid {
+    grid-template-columns: 1fr;
   }
 
   .admin-category-clean-card > a {

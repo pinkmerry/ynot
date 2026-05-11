@@ -11,6 +11,7 @@ export type YnotCampaign = {
   id: string;
   slug: string;
   status: "draft" | "live" | "closed" | "archived";
+  approvalStatus?: YnotApprovalStatus;
   titleTh: string;
   titleEn: string;
   series: "one_piece" | "pokemon";
@@ -23,6 +24,10 @@ export type YnotCampaign = {
   startsAt: string | null;
   endsAt: string | null;
   createdAt?: string;
+  approvalRequestedAt?: string | null;
+  approvedAt?: string | null;
+  approvalNotes?: string | null;
+  logicMode?: YnotRandomLogicMode;
   remainingSlots?: number;
   totalPrizeUnits?: number;
   availablePrizeUnits?: number;
@@ -34,7 +39,33 @@ export type YnotCampaign = {
   isTest?: boolean;
   heroLabel?: string;
   displayTags?: string[];
+  prizeLineup?: YnotPrizePreview[];
   demo?: boolean;
+};
+
+export type YnotApprovalStatus =
+  | "not_submitted"
+  | "pending_review"
+  | "approved"
+  | "rejected"
+  | "changes_requested";
+
+export type YnotRandomLogicMode =
+  | "pure_random"
+  | "weighted_templates"
+  | "inventory_gated";
+
+export type YnotOwnerApprovalRequest = {
+  id: string;
+  campaign: YnotCampaign;
+  approvalStatus: YnotApprovalStatus;
+  logicMode: YnotRandomLogicMode;
+  requestedByLabel: string;
+  requestedAt: string;
+  soldPct: number;
+  notificationLabel: string;
+  summary: string[];
+  mock?: boolean;
 };
 
 export type YnotCategory = {
@@ -161,6 +192,18 @@ export type YnotGachaOpenHistory = {
   rewards: YnotGachaOpenReward[];
 };
 
+export type YnotPrizePreview = {
+  id: string;
+  cardName: string;
+  tier: "normal" | "high";
+  rank: number;
+  valueThb?: number | null;
+  availableUnits?: number;
+  totalUnits?: number;
+  weight?: number;
+  unlockAtSoldPct?: number;
+};
+
 export type YnotAddress = {
   id: string;
   label: string;
@@ -190,6 +233,8 @@ export type YnotPrizePoolItem = {
   tier: "normal" | "high";
   rank: number;
   valueThb?: number | null;
+  weight: number;
+  unlockAtSoldPct: number;
   totalUnits: number;
   availableUnits: number;
   awardedUnits: number;
@@ -229,6 +274,7 @@ export type YnotDashboardData = {
   addresses: YnotAddress[];
   rankings: YnotRankingRow[];
   adminTopUps: YnotTopUp[];
+  ownerApprovalRequests: YnotOwnerApprovalRequest[];
   platformHealth?: YnotPlatformHealth;
   dataIssues: YnotDataIssue[];
 };

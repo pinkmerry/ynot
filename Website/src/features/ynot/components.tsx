@@ -12,6 +12,7 @@ import type {
   YnotDashboardData,
   YnotExchangeOrder,
   YnotPaymentMethod,
+  YnotPrizePreview,
   YnotRankingRow,
   YnotShippingRequest,
   YnotTopUp,
@@ -30,6 +31,7 @@ import {
   StoreSettingsMenu,
   StoreSortSelect,
 } from "./StorePreferences";
+import { OwnerApprovalQueue } from "./client";
 
 const homeCategories = [
   { label: "Pokemon", series: "pokemon" },
@@ -911,12 +913,14 @@ export function CampaignDetailPanel({ campaign }: { campaign: YnotCampaign }) {
             </div>
             <span className="status-pill">{campaign.status}</span>
           </div>
-          {campaign.demo && allowDemoStorefront() ? (
+          {campaign.prizeLineup?.length ? (
+            <PrizeLineup prizes={campaign.prizeLineup} />
+          ) : campaign.demo && allowDemoStorefront() ? (
             <RewardTierList />
           ) : (
             <EmptyState
               title="Real prize pool required"
-              body="Admin-managed prize data must be published for this campaign before public launch."
+              body="Unlocked public rewards will appear here after the prize pool is ready."
             />
           )}
         </div>
@@ -957,6 +961,34 @@ export function RewardTierList({ compact = false }: { compact?: boolean }) {
             ))}
           </div>
           <p className="txt-s">{tier.note}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PrizeLineup({ prizes }: { prizes: YnotPrizePreview[] }) {
+  return (
+    <div className="reward-tier-list">
+      {prizes.map((prize) => (
+        <div className="reward-tier-card" key={prize.id}>
+          <div className="tier-heading">
+            <div>
+              <span className={`tier-rank tier-${prize.tier}`}>
+                #{prize.rank}
+              </span>
+              <strong>{prize.cardName}</strong>
+            </div>
+            <span>{prize.tier === "high" ? "High tier" : "Normal"}</span>
+          </div>
+          <p className="txt-s">
+            {prize.valueThb
+              ? `฿${prize.valueThb.toLocaleString()} value`
+              : "Reward value pending"}
+            {prize.availableUnits !== undefined && prize.totalUnits !== undefined
+              ? ` · ${prize.availableUnits}/${prize.totalUnits} left`
+              : ""}
+          </p>
         </div>
       ))}
     </div>
@@ -1377,6 +1409,9 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
   const pendingShipping = data.shipping.filter(
     (request) => request.status === "submitted" || request.status === "packing",
   ).length;
+  const pendingOwnerApprovals = data.ownerApprovalRequests.filter(
+    (request) => request.approvalStatus === "pending_review",
+  ).length;
   const livePacks = liveCampaignCount(data.campaigns);
   const draftPacks = data.campaigns.filter(
     (campaign) =>
@@ -1396,7 +1431,12 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
     {
       href: "/admin/campaigns",
       label: "New Random Pack",
-      detail: "Create draft, set price, labels, and publish.",
+      detail: "Create draft, set price, labels, and submit owner review.",
+    },
+    {
+      href: "/admin/campaigns",
+      label: "Owner Review",
+      detail: `${pendingOwnerApprovals} random drop request${pendingOwnerApprovals === 1 ? "" : "s"} waiting.`,
     },
     {
       href: "/admin/prizes",
@@ -1418,7 +1458,7 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
     {
       href: "/admin/campaigns",
       title: "Random Pack Studio",
-      body: "Create and update pack drafts, customer tags, price, slot count, visibility, and live status.",
+      body: "Create and update pack drafts, customer tags, price, slot count, and owner approval requests.",
       meta: `${data.campaigns.length} pack records`,
     },
     {
@@ -1494,10 +1534,18 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
           <strong>{data.viewer.displayName}</strong>
           <p>
             {data.viewer.adminRole ?? "admin"} · {livePacks} live pack
-            {livePacks === 1 ? "" : "s"} · {draftPacks} draft/private
+            {livePacks === 1 ? "" : "s"} · {draftPacks} draft/private ·{" "}
+            {pendingOwnerApprovals} owner review
           </p>
         </div>
       </section>
+
+      {data.viewer.adminRole === "owner" && (
+        <OwnerApprovalQueue
+          requests={data.ownerApprovalRequests}
+          viewerRole={data.viewer.adminRole}
+        />
+      )}
 
       <section
         className="admin-clean-section"
@@ -1510,7 +1558,7 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
         <div className="admin-quick-grid">
           {quickActions.map((action) => (
             <Link
-              key={action.href}
+              key={`${action.href}-${action.label}`}
               className="admin-quick-action soft-card"
               href={action.href}
             >

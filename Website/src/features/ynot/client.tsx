@@ -5,12 +5,15 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import type { CardCatalogItem, ProfileInfo } from "@/lib/lucky-draw/types";
 import type {
   YnotAddress,
+  YnotApprovalStatus,
   YnotCampaign,
   YnotCategory,
   YnotCollectionItem,
   YnotExchangeOrder,
+  YnotOwnerApprovalRequest,
   YnotPaymentMethod,
   YnotPrizePoolItem,
+  YnotRandomLogicMode,
   YnotShippingRequest,
 } from "./types";
 
@@ -72,6 +75,83 @@ function inputToTags(value: string) {
     .map((tag) => tag.trim())
     .filter(Boolean)
     .slice(0, 4);
+}
+
+function approvalStatusLabel(status: YnotApprovalStatus) {
+  const labels: Record<YnotApprovalStatus, string> = {
+    not_submitted: "Not submitted",
+    pending_review: "Pending owner review",
+    approved: "Approved",
+    rejected: "Rejected",
+    changes_requested: "Changes requested",
+  };
+  return labels[status];
+}
+
+function inferredApprovalStatus(
+  status: YnotCampaign["status"],
+): YnotApprovalStatus {
+  return status === "live" || status === "closed" || status === "archived"
+    ? "approved"
+    : "not_submitted";
+}
+
+function formatApprovalDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return `${date.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
+const randomLogicChoices: Array<{
+  value: YnotRandomLogicMode;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "pure_random",
+    label: "Pure random",
+    description: "Every available prize unit has the same chance.",
+  },
+  {
+    value: "weighted_templates",
+    label: "Weighted high tier",
+    description: "Owner can favor configured prize templates by weight.",
+  },
+  {
+    value: "inventory_gated",
+    label: "30% sold unlock",
+    description: "High-tier pool starts locked, then opens after the sold checkpoint.",
+  },
+];
+
+function ownerLogicSummary(
+  logicMode: YnotRandomLogicMode,
+  soldPct: number,
+) {
+  const roundedSoldPct = Math.round(soldPct);
+  if (logicMode === "weighted_templates") {
+    return [
+      "Weight changes odds only among prizes that are already eligible to drop.",
+      "Higher weight means more chance; weight 0 removes that prize from the random pool.",
+      "This mode does not add a 30% delay unless that prize also has an unlock checkpoint.",
+    ];
+  }
+  if (logicMode === "inventory_gated") {
+    const unlockStatus =
+      roundedSoldPct >= 30
+        ? `This pack is ${roundedSoldPct}% sold; prizes with unlock checkpoints at or below ${roundedSoldPct}% can now enter the pool.`
+        : `This pack is ${roundedSoldPct}% sold; prizes above this sold percentage stay hidden and cannot drop yet.`;
+    return [
+      unlockStatus,
+      "The sold unlock gate runs before weighting, so locked high-tier prizes stay only in Postgres before the checkpoint.",
+      "After unlock, those prizes join the weighted database pool and their configured weights still control odds.",
+    ];
+  }
+  return [
+    "Every unlocked available prize unit has the same chance.",
+    "There is no high-tier weight boost in pure random mode.",
+    "Prizes with a future sold unlock checkpoint still stay hidden and cannot drop until unlocked.",
+  ];
 }
 
 function AdminField({
@@ -1400,6 +1480,276 @@ export function AdminCampaignForm({
   );
 }
 
+type LocalApprovalQueueItem = YnotOwnerApprovalRequest & {
+  runtimeStatus: YnotCampaign["status"];
+  runtimeVisibility: YnotCampaign["visibility"];
+  selectedLogicMode: YnotRandomLogicMode;
+  localMessage?: string;
+};
+
+type LifecycleAction =
+  | "submit_review"
+  | "approve"
+  | "reject"
+  | "request_changes"
+  | "publish"
+  | "close"
+  | "archive";
+
+export function OwnerApprovalQueue({
+  requests,
+  viewerRole,
+}: {
+  requests: YnotOwnerApprovalRequest[];
+  viewerRole?: "owner" | "admin" | "staff" | null;
+}) {
+  const [items, setItems] = useState<LocalApprovalQueueItem[]>(
+    requests.map((request) => ({
+      ...request,
+      runtimeStatus: request.campaign.status,
+      runtimeVisibility: request.campaign.visibility,
+      selectedLogicMode: request.logicMode,
+    })),
+  );
+  const [isPending, startTransition] = useTransition();
+
+  function applyAction(index: number, action: LifecycleAction) {
+    const item = items[index];
+    if (!item) return;
+    startTransition(async () => {
+      try {
+        const payload = await requestJson(
+          "/api/ynot/admin/campaigns/lifecycle",
+          {
+            campaignId: item.campaign.id,
+            action,
+            logicMode: item.selectedLogicMode,
+          },
+          "POST",
+        );
+        setItems((current) =>
+          current.map((candidate, candidateIndex) =>
+            candidateIndex === index
+              ? {
+                  ...candidate,
+                  approvalStatus:
+                    payload.approvalStatus ?? candidate.approvalStatus,
+                  runtimeStatus: payload.status ?? candidate.runtimeStatus,
+                  runtimeVisibility:
+                    payload.visibility ?? candidate.runtimeVisibility,
+                  selectedLogicMode:
+                    payload.logicMode ?? candidate.selectedLogicMode,
+                  localMessage: payload.message ?? "Owner action saved.",
+                }
+              : candidate,
+          ),
+        );
+      } catch (error) {
+        setItems((current) =>
+          current.map((candidate, candidateIndex) =>
+            candidateIndex === index
+              ? {
+                  ...candidate,
+                  localMessage:
+                    error instanceof Error
+                      ? error.message
+                      : "Owner action could not be saved.",
+                }
+              : candidate,
+          ),
+        );
+      }
+    });
+  }
+
+  function chooseLogicMode(index: number, logicMode: YnotRandomLogicMode) {
+    setItems((current) =>
+      current.map((candidate, candidateIndex) =>
+        candidateIndex === index
+          ? {
+              ...candidate,
+              selectedLogicMode: logicMode,
+              logicMode,
+              localMessage:
+                logicMode === "pure_random"
+                  ? "Pure random selected for this review."
+                  : logicMode === "weighted_templates"
+                    ? "Weighted high tier selected. Eligible prizes use configured weights, but this does not add a sold checkpoint by itself."
+                    : "30% sold unlock selected. Locked prizes stay hidden and cannot drop until their sold checkpoint is reached.",
+            }
+          : candidate,
+      ),
+    );
+  }
+
+  if (!items.length) {
+    return (
+      <section className="owner-approval-queue soft-card">
+        <div className="admin-form-head">
+          <span>Owner review queue</span>
+          <h3>No random drops need owner review</h3>
+          <p>
+            New packs remain draft/private until an owner approves and publishes
+            them.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="owner-approval-queue soft-card">
+      <div className="admin-panel-head">
+        <div>
+          <p className="section-label">Owner review queue</p>
+          <h3 className="title-m">Random drop requests</h3>
+          <p className="txt-s">
+            {items.length} request{items.length === 1 ? "" : "s"} waiting in
+            the owner dashboard.
+          </p>
+        </div>
+        <span className="status-pill warn">Owner notification</span>
+      </div>
+
+      <div className="owner-approval-list">
+        {items.map((item, index) => {
+          const isOwner = viewerRole === "owner";
+          const canPublish = isOwner && item.approvalStatus === "approved";
+          const logicLocked = item.approvalStatus === "approved";
+          const summaryLines = ownerLogicSummary(
+            item.selectedLogicMode,
+            item.soldPct,
+          );
+          return (
+            <article className="owner-approval-card" key={item.id}>
+              <div className="owner-approval-card-head">
+                <div>
+                  <span>{item.notificationLabel}</span>
+                  <h4>{item.campaign.titleTh || item.campaign.titleEn}</h4>
+                  <p>
+                    {item.campaign.slug} · {item.runtimeStatus}/
+                    {item.runtimeVisibility} · {item.soldPct}% sold checkpoint
+                  </p>
+                </div>
+                <div className="admin-pack-badges">
+                  <strong>{approvalStatusLabel(item.approvalStatus)}</strong>
+                  <em>{item.mock ? "localhost mock" : "database request"}</em>
+                </div>
+              </div>
+
+              <div className="owner-logic-panel">
+                <div>
+                  <span>Random logic choice</span>
+                  <strong>
+                    {
+                      randomLogicChoices.find(
+                        (choice) => choice.value === item.selectedLogicMode,
+                      )?.label
+                    }
+                  </strong>
+                  <p>
+                    {logicLocked
+                      ? "Approved logic is locked for publish."
+                      : "Pick the logic first, approve the settings, then publish when it is ready for customers."}
+                  </p>
+                </div>
+                <div className="owner-logic-options" aria-label="Random logic">
+                  {randomLogicChoices.map((choice) => (
+                    <button
+                      className={
+                        item.selectedLogicMode === choice.value
+                          ? "active"
+                          : ""
+                      }
+                      disabled={!isOwner || isPending || logicLocked}
+                      key={choice.value}
+                      onClick={() => chooseLogicMode(index, choice.value)}
+                      type="button"
+                    >
+                      <strong>{choice.label}</strong>
+                      <span>{choice.description}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="owner-approval-grid">
+                <div>
+                  <span>Requested by</span>
+                  <strong>{item.requestedByLabel}</strong>
+                </div>
+                <div>
+                  <span>Requested at</span>
+                  <strong>{formatApprovalDate(item.requestedAt)}</strong>
+                </div>
+                <div>
+                  <span>Prize units</span>
+                  <strong>
+                    {item.campaign.availablePrizeUnits ?? 0}/
+                    {item.campaign.totalPrizeUnits ?? item.campaign.totalSlots}
+                  </strong>
+                </div>
+              </div>
+
+              <ul className="owner-approval-summary">
+                {summaryLines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+
+              <div className="owner-approval-actions">
+                <div className="owner-action-note">
+                  <strong>Approve settings</strong>
+                  <span>Keeps the pack draft/private. Customers still cannot open it.</span>
+                </div>
+                <button
+                  className="gold-button"
+                  disabled={!isOwner || isPending}
+                  onClick={() => applyAction(index, "approve")}
+                  type="button"
+                >
+                  Approve settings
+                </button>
+                <button
+                  className="plain-button"
+                  disabled={!isOwner || isPending}
+                  onClick={() => applyAction(index, "request_changes")}
+                  type="button"
+                >
+                  Request changes
+                </button>
+                <button
+                  className="danger-button"
+                  disabled={!isOwner || isPending}
+                  onClick={() => applyAction(index, "reject")}
+                  type="button"
+                >
+                  Reject
+                </button>
+                <button
+                  className="plain-button"
+                  disabled={!canPublish || isPending}
+                  onClick={() => applyAction(index, "publish")}
+                  type="button"
+                >
+                  Publish live/public
+                </button>
+                <div className="owner-action-note">
+                  <strong>Publish live/public</strong>
+                  <span>Only after approval. This makes the pack visible and openable.</span>
+                </div>
+              </div>
+              {item.localMessage && (
+                <p className="admin-pack-row-message">{item.localMessage}</p>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export function AdminCampaignActionPanel({
   campaigns,
 }: {
@@ -1410,7 +1760,7 @@ export function AdminCampaignActionPanel({
       <section className="admin-pack-list soft-card">
         <div className="admin-form-head">
           <span>Existing packs</span>
-          <h3>Publish, close, or update customer labels</h3>
+          <h3>Submit review or update customer labels</h3>
           <p>
             Create a random pack draft before publishing. Saved drafts will
             appear in this list.
@@ -1424,10 +1774,10 @@ export function AdminCampaignActionPanel({
     <section className="admin-pack-list soft-card">
       <div className="admin-form-head">
         <span>Existing packs</span>
-        <h3>Publish, close, or update customer labels</h3>
+        <h3>Submit review or update customer labels</h3>
         <p>
-          Use this list after creating a draft. The public customer page only
-          shows packs that are live and public.
+          Use this list after creating a draft. Direct live/public publish is
+          held for the owner approval queue.
         </p>
       </div>
       <div className="admin-pack-row-list">
@@ -1444,6 +1794,9 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
   const [visibility, setVisibility] = useState<YnotCampaign["visibility"]>(
     campaign.visibility,
   );
+  const [approvalStatus, setApprovalStatus] = useState<YnotApprovalStatus>(
+    campaign.approvalStatus ?? inferredApprovalStatus(campaign.status),
+  );
   const [displayTags, setDisplayTags] = useState(
     tagsToInput(campaign.displayTags, campaign.series),
   );
@@ -1454,6 +1807,20 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
     startTransition(async () => {
       try {
         setMessage("");
+        if (
+          nextStatus === "live" ||
+          nextVisibility === "public"
+        ) {
+          throw new Error(
+            "Direct live/public publish is locked. Submit the pack for owner review first.",
+          );
+        }
+        if (campaign.demo) {
+          setStatus(nextStatus);
+          setVisibility(nextVisibility);
+          setMessage("Local mock status updated in this browser session.");
+          return;
+        }
         await requestJson(
           "/api/ynot/admin/campaigns",
           {
@@ -1474,6 +1841,27 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
           error instanceof Error
             ? error.message
             : "Random pack status could not be saved.",
+        );
+      }
+    });
+  }
+
+  function submitReview() {
+    startTransition(async () => {
+      try {
+        setMessage("");
+        const payload = await requestJson(
+          "/api/ynot/admin/campaigns/lifecycle",
+          { campaignId: campaign.id, action: "submit_review" },
+          "POST",
+        );
+        setApprovalStatus(payload.approvalStatus ?? "pending_review");
+        setMessage(payload.message ?? "Random pack submitted for owner review.");
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Random pack could not be submitted for owner review.",
         );
       }
     });
@@ -1501,6 +1889,7 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
         <div className="admin-pack-badges">
           <strong>{status}</strong>
           <em>{visibility}</em>
+          <em>{approvalStatusLabel(approvalStatus)}</em>
         </div>
       </div>
 
@@ -1554,18 +1943,18 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
         <button
           className="plain-button"
           disabled={isPending}
-          onClick={() => submit("live", "public")}
+          onClick={submitReview}
           type="button"
         >
-          Make live public
+          Submit owner review
         </button>
         <button
           className="plain-button"
           disabled={isPending}
-          onClick={() => submit("closed", "public")}
+          onClick={() => submit("closed", "private")}
           type="button"
         >
-          Close public
+          Close private
         </button>
         <button
           className="danger-button"
@@ -1749,6 +2138,8 @@ export function AdminPrizePoolForm({
   const [rank, setRank] = useState(1);
   const [valueThb, setValueThb] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [weight, setWeight] = useState(1);
+  const [unlockAtSoldPct, setUnlockAtSoldPct] = useState(0);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -1763,6 +2154,8 @@ export function AdminPrizePoolForm({
           rank,
           valueThb,
           quantity,
+          weight,
+          unlockAtSoldPct,
         });
         setMessage(
           "Prize slot and inventory quantity saved. Refresh to see the updated pool.",
@@ -1883,6 +2276,38 @@ export function AdminPrizePoolForm({
             placeholder="10"
           />
         </AdminField>
+        <AdminField
+          label="Drop weight"
+          required
+          hint="Higher numbers increase this prize's chance after it is unlocked. Use 0 to disable."
+        >
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            min={0}
+            step={0.1}
+            type="number"
+            value={weight}
+            onChange={(event) => setWeight(Number(event.target.value))}
+            placeholder="1"
+          />
+        </AdminField>
+        <AdminField
+          label="Unlock at sold %"
+          hint="Before this checkpoint, customers cannot see or pull this prize."
+        >
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            max={100}
+            min={0}
+            step={1}
+            type="number"
+            value={unlockAtSoldPct}
+            onChange={(event) =>
+              setUnlockAtSoldPct(Number(event.target.value))
+            }
+            placeholder="30"
+          />
+        </AdminField>
       </div>
       <button
         className="gold-button admin-form-save"
@@ -1907,8 +2332,25 @@ export function AdminPrizePoolForm({
                 {prize.cardName} · ฿{(prize.valueThb ?? 0).toLocaleString()} ·{" "}
                 {prize.availableUnits}/{prize.totalUnits} left
                 {prize.awardedUnits ? ` · ${prize.awardedUnits} awarded` : ""}
+                {` · weight ${prize.weight.toLocaleString()} · unlock ${prize.unlockAtSoldPct}% sold`}
               </p>
             </div>
+            <button
+              className="plain-button rounded-xl px-3 py-2 text-xs font-black"
+              disabled={isPending}
+              onClick={() => {
+                setCampaignId(prize.campaignId);
+                setCardId(prize.cardId);
+                setTier(prize.tier);
+                setRank(prize.rank);
+                setValueThb(prize.valueThb ?? 0);
+                setWeight(prize.weight);
+                setUnlockAtSoldPct(prize.unlockAtSoldPct);
+              }}
+              type="button"
+            >
+              Use
+            </button>
             <button
               className="danger-button rounded-xl px-3 py-2 text-xs font-black"
               disabled={isPending}

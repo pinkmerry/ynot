@@ -1,12 +1,21 @@
 import { getActiveDraw, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { isMissingColumnError, randomPackSchemaMissingResponse } from "@/lib/supabase/schema-compat";
 import type { Database, Json } from "@/lib/supabase/types";
 
 type DrawAction = "close_sales" | "create_next" | "publish_next" | "reopen_sales";
 
 type DrawLifecycleBody = {
   action?: unknown;
+};
+type PrizeCopyRow = {
+  card_id: string;
+  tier: "normal" | "high";
+  rank: number;
+  value_thb: number | null;
+  weight?: number;
+  unlock_at_sold_pct?: number;
 };
 
 function uniqueNextSlug(sourceSlug: string) {
@@ -34,23 +43,48 @@ async function countUnsettledOrders(supabase: ReturnType<typeof createServiceSup
 }
 
 async function copyRoundPrizes(supabase: ReturnType<typeof createServiceSupabaseClient>, sourceDrawId: string, nextDrawId: string) {
-  const { data, error } = await supabase
+  const weightedResult = await supabase
     .from("draw_round_prizes")
-    .select("card_id,tier,rank,value_thb")
+    .select("card_id,tier,rank,value_thb,weight,unlock_at_sold_pct")
     .eq("draw_round_id", sourceDrawId);
+  let data = weightedResult.data as PrizeCopyRow[] | null;
+  let error = weightedResult.error;
+  if (error && isMissingColumnError(error)) {
+    const legacyResult = await supabase
+      .from("draw_round_prizes")
+      .select("card_id,tier,rank,value_thb")
+      .eq("draw_round_id", sourceDrawId);
+    data = legacyResult.data as PrizeCopyRow[] | null;
+    error = legacyResult.error;
+  }
 
   if (error) throw error;
   if (!data?.length) return;
 
-  const { error: insertError } = await supabase.from("draw_round_prizes").insert(
+  let { error: insertError } = await supabase.from("draw_round_prizes").insert(
     data.map((prize) => ({
       draw_round_id: nextDrawId,
       card_id: prize.card_id,
       tier: prize.tier,
       rank: prize.rank,
       value_thb: prize.value_thb,
+      ...("weight" in prize ? { weight: prize.weight } : {}),
+      ...("unlock_at_sold_pct" in prize
+        ? { unlock_at_sold_pct: prize.unlock_at_sold_pct }
+        : {}),
     })),
   );
+  if (insertError && isMissingColumnError(insertError)) {
+    ({ error: insertError } = await supabase.from("draw_round_prizes").insert(
+      data.map((prize) => ({
+        draw_round_id: nextDrawId,
+        card_id: prize.card_id,
+        tier: prize.tier,
+        rank: prize.rank,
+        value_thb: prize.value_thb,
+      })),
+    ));
+  }
 
   if (insertError) throw insertError;
 }
@@ -87,6 +121,14 @@ async function closeSales(supabase: ReturnType<typeof createServiceSupabaseClien
 async function reopenSales(supabase: ReturnType<typeof createServiceSupabaseClient>, session: NonNullable<Awaited<ReturnType<typeof resolveAdminSession>>>) {
   const closedDraw = await getActiveDraw(supabase, { statuses: ["closed"], priority: ["closed"] });
   if (!closedDraw) return Response.json({ error: "No closed draw is available to reopen." }, { status: 404 });
+  if (closedDraw.approval_status === undefined) {
+    return randomPackSchemaMissingResponse();
+  }
+  if (
+    closedDraw.approval_status !== "approved"
+  ) {
+    return Response.json({ error: "Owner approval is required before reopening live/public sales." }, { status: 409 });
+  }
 
   const { data: draft } = await supabase
     .from("draw_rounds")
@@ -101,7 +143,7 @@ async function reopenSales(supabase: ReturnType<typeof createServiceSupabaseClie
 
   const { error } = await supabase
     .from("draw_rounds")
-    .update({ status: "live" })
+    .update({ status: "live", visibility: "public" })
     .eq("id", closedDraw.id);
 
   if (error) throw error;
@@ -132,9 +174,20 @@ async function createNextDraw(supabase: ReturnType<typeof createServiceSupabaseC
     return Response.json({ error: "Settle pending payments and picks before creating the next draw." }, { status: 409 });
   }
 
+  const now = new Date().toISOString();
   const nextDraw: Omit<Database["public"]["Tables"]["draw_rounds"]["Insert"], "id" | "created_at" | "updated_at"> = {
     slug: uniqueNextSlug(sourceDraw.slug),
     status: "draft",
+    visibility: "private",
+    approval_status: "pending_review",
+    approval_requested_by: session.adminId,
+    approval_requested_at: now,
+    logic_snapshot: {
+      mode: "pure_random",
+      label: "Copied from previous draw",
+      requestedByAdminId: session.adminId,
+      requestedAt: now,
+    },
     series: sourceDraw.series,
     title_th: sourceDraw.title_th,
     title_en: sourceDraw.title_en,
@@ -154,13 +207,26 @@ async function createNextDraw(supabase: ReturnType<typeof createServiceSupabaseC
     created_by: session.adminId,
   };
 
-  const { data: createdDraw, error } = await supabase
+  let { data: createdDraw, error } = await supabase
     .from("draw_rounds")
     .insert(nextDraw)
     .select("*")
     .single();
+  if (error && isMissingColumnError(error)) {
+    const legacyNextDraw = { ...nextDraw };
+    delete legacyNextDraw.approval_status;
+    delete legacyNextDraw.approval_requested_by;
+    delete legacyNextDraw.approval_requested_at;
+    delete legacyNextDraw.logic_snapshot;
+    ({ data: createdDraw, error } = await supabase
+      .from("draw_rounds")
+      .insert(legacyNextDraw)
+      .select("*")
+      .single());
+  }
 
   if (error) throw error;
+  if (!createdDraw) throw new Error("Next draw could not be created.");
 
   await supabase.rpc("create_draw_slots", { p_draw_round_id: createdDraw.id });
   await copyRoundPrizes(supabase, sourceDraw.id, createdDraw.id);
@@ -173,8 +239,20 @@ async function createNextDraw(supabase: ReturnType<typeof createServiceSupabaseC
 }
 
 async function publishNextDraw(supabase: ReturnType<typeof createServiceSupabaseClient>, session: NonNullable<Awaited<ReturnType<typeof resolveAdminSession>>>) {
+  if (session.adminRole !== "owner") {
+    return Response.json({ error: "Only an owner can publish an approved draw." }, { status: 403 });
+  }
+
   const draftDraw = await getActiveDraw(supabase, { statuses: ["draft"], priority: ["draft"] });
   if (!draftDraw) return Response.json({ error: "No draft draw is ready to publish." }, { status: 404 });
+  if (draftDraw.approval_status === undefined) {
+    return randomPackSchemaMissingResponse();
+  }
+  if (
+    draftDraw.approval_status !== "approved"
+  ) {
+    return Response.json({ error: "Owner approval is required before publishing live/public." }, { status: 409 });
+  }
 
   const { error: archiveError } = await supabase
     .from("draw_rounds")
@@ -186,7 +264,7 @@ async function publishNextDraw(supabase: ReturnType<typeof createServiceSupabase
 
   const { error: publishError } = await supabase
     .from("draw_rounds")
-    .update({ status: "live", starts_at: new Date().toISOString() })
+    .update({ status: "live", visibility: "public", approval_status: "approved", starts_at: new Date().toISOString() })
     .eq("id", draftDraw.id);
 
   if (publishError) throw publishError;

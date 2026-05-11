@@ -71,9 +71,10 @@ async function readCreateOrderRequest(request: Request): Promise<{
 
 export async function GET() {
   if (!isSupabaseConfigured()) {
+    const allowLocalFallback = process.env.NODE_ENV !== "production";
     return jsonNoStore({
       configured: false,
-      state: { draw: defaultDraw, orders: seedOrders },
+      state: { draw: defaultDraw, orders: allowLocalFallback ? seedOrders : [] },
     });
   }
 
@@ -124,8 +125,20 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServiceSupabaseClient();
-  const activeDraw = await getActiveDraw(supabase, { statuses: ["live"], priority: ["live"] });
-  if (!activeDraw || activeDraw.status !== "live") {
+  const activeDraw = await getActiveDraw(supabase, {
+    statuses: ["live"],
+    priority: ["live"],
+    requirePublicApproved: true,
+  });
+  if (
+    !activeDraw ||
+    activeDraw.status !== "live" ||
+    activeDraw.visibility !== "public" ||
+    (
+      activeDraw.approval_status !== undefined &&
+      activeDraw.approval_status !== "approved"
+    )
+  ) {
     return Response.json({ error: "No live draw is accepting orders." }, { status: 409 });
   }
 

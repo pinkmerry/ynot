@@ -1,6 +1,7 @@
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { isMissingColumnError } from "@/lib/supabase/schema-compat";
 import type { Database } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 
@@ -96,6 +97,19 @@ function campaignPatch(body: CampaignBody): Database["public"]["Tables"]["draw_r
   };
 }
 
+function publishAttemptMessage() {
+  return "Direct live/public publish is locked. Submit the random pack for owner review, then publish from the owner approval queue.";
+}
+
+function isDirectPublishPatch(
+  patch: Database["public"]["Tables"]["draw_rounds"]["Update"],
+) {
+  return (
+    patch.status === "live" ||
+    patch.visibility === "public"
+  );
+}
+
 async function replaceCampaignCategories(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   campaignId: string,
@@ -128,13 +142,14 @@ export async function POST(request: Request) {
   if (!body) return Response.json({ error: "Invalid JSON body." }, { status: 400 });
 
   const patch = campaignPatch(body);
+  const requestedPublish = isDirectPublishPatch(patch);
   const insert: Database["public"]["Tables"]["draw_rounds"]["Insert"] = {
     slug: slugValue(body.slug),
     title_th: text(body.titleTh) || "แคมเปญใหม่",
     title_en: text(body.titleEn) || text(body.titleTh) || "New campaign",
     series: patch.series ?? "pokemon",
-    status: patch.status ?? "draft",
-    visibility: patch.visibility ?? "private",
+    status: "draft",
+    visibility: "private",
     mode: patch.mode ?? "instant_gacha",
     price_thb: patch.price_thb ?? 100,
     cost_coins: patch.cost_coins ?? 1,
@@ -158,7 +173,18 @@ export async function POST(request: Request) {
     }
   }
   await supabase.rpc("create_draw_slots", { p_draw_round_id: data.id });
-  await supabase.from("audit_events").insert({ actor_admin_id: admin.adminId, event_type: "campaign_created", draw_round_id: data.id, metadata: { slug: data.slug, isTest: insert.is_test } });
+  await supabase.from("audit_events").insert({
+    actor_admin_id: admin.adminId,
+    event_type: "campaign_created",
+    draw_round_id: data.id,
+    metadata: {
+      slug: data.slug,
+      isTest: insert.is_test,
+      requestedStatus: patch.status ?? null,
+      requestedVisibility: patch.visibility ?? null,
+      ownerReviewRequired: requestedPublish,
+    },
+  });
   return Response.json({ ok: true, campaign: data });
 }
 
@@ -174,8 +200,52 @@ export async function PATCH(request: Request) {
   if (!body || !campaignId) return Response.json({ error: "campaignId is required." }, { status: 400 });
 
   const patch = campaignPatch(body);
+  if (isDirectPublishPatch(patch)) {
+    return Response.json({ error: publishAttemptMessage() }, { status: 409 });
+  }
   const supabase = createServiceSupabaseClient();
-  const { error } = await supabase.from("draw_rounds").update(patch).eq("id", campaignId);
+  const { data: current, error: currentError } = await supabase
+    .from("draw_rounds")
+    .select("id,status")
+    .eq("id", campaignId)
+    .single();
+  if (currentError) return Response.json({ error: currentError.message }, { status: 409 });
+  if (current.status !== "draft") {
+    return Response.json(
+      { error: "Random pack settings can only be changed while the pack is draft/private." },
+      { status: 409 },
+    );
+  }
+
+  const now = new Date().toISOString();
+  const reviewPatch: Database["public"]["Tables"]["draw_rounds"]["Update"] = {
+    ...patch,
+    approval_status: "pending_review",
+    approval_requested_by: admin.adminId,
+    approval_requested_at: now,
+    approved_by: null,
+    approved_at: null,
+    rejected_by: null,
+    rejected_at: null,
+    approval_notes: "Campaign settings changed. Owner review is required before publish.",
+    status: "draft",
+    visibility: "private",
+  };
+  let { error } = await supabase
+    .from("draw_rounds")
+    .update(reviewPatch)
+    .eq("id", campaignId);
+  if (error && isMissingColumnError(error)) {
+    const legacyPatch: Database["public"]["Tables"]["draw_rounds"]["Update"] = {
+      ...patch,
+      status: "draft",
+      visibility: "private",
+    };
+    ({ error } = await supabase
+      .from("draw_rounds")
+      .update(legacyPatch)
+      .eq("id", campaignId));
+  }
   if (error) return Response.json({ error: error.message }, { status: 409 });
   if (body.categoryIds !== undefined) {
     try {
@@ -184,7 +254,12 @@ export async function PATCH(request: Request) {
       return Response.json({ error: categoryError instanceof Error ? categoryError.message : "Campaign category assignment failed." }, { status: 409 });
     }
   }
-  if (patch.total_slots) await supabase.rpc("create_draw_slots", { p_draw_round_id: campaignId });
-  await supabase.from("audit_events").insert({ actor_admin_id: admin.adminId, event_type: "campaign_updated", draw_round_id: campaignId, metadata: { patch } });
+  if (reviewPatch.total_slots) await supabase.rpc("create_draw_slots", { p_draw_round_id: campaignId });
+  await supabase.from("audit_events").insert({
+    actor_admin_id: admin.adminId,
+    event_type: "campaign_updated",
+    draw_round_id: campaignId,
+    metadata: { patch: reviewPatch, approvalStatus: "pending_review" },
+  });
   return Response.json({ ok: true });
 }

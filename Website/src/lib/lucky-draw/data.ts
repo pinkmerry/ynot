@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { isMissingColumnError } from "@/lib/supabase/schema-compat";
 import type { Database } from "@/lib/supabase/types";
 import type { CardCatalogItem, ChaseCard, DrawConfig, DrawStatus, FeaturedCard, LuckyDrawState, Order, OrderStatus, SlipVerificationStatus } from "./types";
 
@@ -174,9 +175,32 @@ function prizeToChaseCard(prize: DrawRoundPrizeRow, card: CardRow): ChaseCard {
   };
 }
 
-async function getRoundPrizeCards(supabase: Supabase, drawRoundId: string): Promise<{
+function isHiddenPrize(prize: DrawRoundPrizeRow) {
+  const metadata = prize.metadata;
+  return (
+    typeof metadata === "object" &&
+    metadata !== null &&
+    !Array.isArray(metadata) &&
+    (metadata as Record<string, unknown>).adminHidden === true
+  );
+}
+
+async function getDrawRoundSoldPct(supabase: Supabase, drawRoundId: string, totalSlots: number) {
+  if (totalSlots <= 0) return 100;
+  const { data, error } = await supabase
+    .from("draw_slots")
+    .select("status")
+    .eq("draw_round_id", drawRoundId)
+    .in("status", ["picked", "opened"])
+    .limit(10000);
+  if (error) throw error;
+  return Math.min(100, ((data?.length ?? 0) / totalSlots) * 100);
+}
+
+async function getRoundPrizeCards(supabase: Supabase, drawRoundId: string, soldPct: number): Promise<{
   featuredCards: FeaturedCard[];
   chaseCards: ChaseCard[];
+  hasConfiguredPrizes: boolean;
 }> {
   const { data: prizes, error } = await supabase
     .from("draw_round_prizes")
@@ -186,9 +210,20 @@ async function getRoundPrizeCards(supabase: Supabase, drawRoundId: string): Prom
     .order("rank", { ascending: true });
 
   if (error) throw error;
-  if (!prizes?.length) return { featuredCards: [], chaseCards: [] };
+  if (!prizes?.length) {
+    return { featuredCards: [], chaseCards: [], hasConfiguredPrizes: false };
+  }
 
-  const cardIds = [...new Set(prizes.map((prize) => prize.card_id))];
+  const visiblePrizes = prizes.filter(
+    (prize) =>
+      !isHiddenPrize(prize) &&
+      Number(prize.unlock_at_sold_pct ?? 0) <= soldPct,
+  );
+  if (!visiblePrizes.length) {
+    return { featuredCards: [], chaseCards: [], hasConfiguredPrizes: true };
+  }
+
+  const cardIds = [...new Set(visiblePrizes.map((prize) => prize.card_id))];
   const { data: cards, error: cardsError } = await supabase
     .from("cards")
     .select("*")
@@ -200,7 +235,7 @@ async function getRoundPrizeCards(supabase: Supabase, drawRoundId: string): Prom
   const featuredCards: FeaturedCard[] = [];
   const chaseCards: ChaseCard[] = [];
 
-  for (const prize of prizes) {
+  for (const prize of visiblePrizes) {
     const card = cardById.get(prize.card_id);
     if (!card) continue;
     if (prize.tier === "high") {
@@ -210,7 +245,7 @@ async function getRoundPrizeCards(supabase: Supabase, drawRoundId: string): Prom
     }
   }
 
-  return { featuredCards, chaseCards };
+  return { featuredCards, chaseCards, hasConfiguredPrizes: true };
 }
 
 export async function getCardCatalog(supabase: Supabase): Promise<CardCatalogItem[]> {
@@ -480,16 +515,33 @@ export async function getActiveDraw(
   options: {
     statuses?: DrawStatus[];
     priority?: DrawStatus[];
+    requirePublicApproved?: boolean;
   } = {},
 ) {
   const statuses = options.statuses ?? ["draft", "live", "closed"];
   const priority = options.priority ?? statuses;
-  const { data, error } = await supabase
-    .from("draw_rounds")
-    .select("*")
-    .in("status", statuses)
-    .order("created_at", { ascending: false })
-    .limit(20);
+  const loadDraws = (requireApproval: boolean) => {
+    let query = supabase
+      .from("draw_rounds")
+      .select("*")
+      .in("status", statuses);
+
+    if (options.requirePublicApproved) {
+      query = query.eq("visibility", "public");
+      if (requireApproval) query = query.eq("approval_status", "approved");
+    }
+
+    return query.order("created_at", { ascending: false }).limit(20);
+  };
+
+  let { data, error } = await loadDraws(Boolean(options.requirePublicApproved));
+  if (
+    error &&
+    options.requirePublicApproved &&
+    isMissingColumnError(error, "approval_status")
+  ) {
+    ({ data, error } = await loadDraws(false));
+  }
 
   if (error) throw error;
   return sortDrawsByPriority(data ?? [], priority)[0] ?? null;
@@ -502,7 +554,7 @@ export async function getLuckyDrawState(options: {
   const supabase = createServiceSupabaseClient();
   const activeDraw = await getActiveDraw(supabase, options.includeAllOrders
     ? { statuses: ["draft", "live", "closed"], priority: ["draft", "live", "closed"] }
-    : { statuses: ["live", "closed"], priority: ["live", "closed"] });
+    : { statuses: ["live", "closed"], priority: ["live", "closed"], requirePublicApproved: true });
   if (!activeDraw) return null;
 
   let query = supabase
@@ -570,9 +622,26 @@ export async function getLuckyDrawState(options: {
     slotNumbersByOrderId.set(pick.order_id, [...(slotNumbersByOrderId.get(pick.order_id) ?? []), slotNumber]);
   }
 
-  const roundPrizeCards = await getRoundPrizeCards(supabase, activeDraw.id);
-  const featuredCards = roundPrizeCards.featuredCards.length ? roundPrizeCards.featuredCards : toFeaturedCards(activeDraw.featured_cards);
-  const chaseCards = roundPrizeCards.chaseCards.length ? roundPrizeCards.chaseCards : toChaseCards(activeDraw.chase_cards);
+  const soldPct = await getDrawRoundSoldPct(
+    supabase,
+    activeDraw.id,
+    activeDraw.total_slots,
+  );
+  const roundPrizeCards = await getRoundPrizeCards(
+    supabase,
+    activeDraw.id,
+    soldPct,
+  );
+  const featuredCards = roundPrizeCards.featuredCards.length
+    ? roundPrizeCards.featuredCards
+    : roundPrizeCards.hasConfiguredPrizes
+      ? []
+      : toFeaturedCards(activeDraw.featured_cards);
+  const chaseCards = roundPrizeCards.chaseCards.length
+    ? roundPrizeCards.chaseCards
+    : roundPrizeCards.hasConfiguredPrizes
+      ? []
+      : toChaseCards(activeDraw.chase_cards);
 
   return {
     draw: toDrawConfig(activeDraw),

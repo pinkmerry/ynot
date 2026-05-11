@@ -11,9 +11,10 @@ function envFlag(name: string): boolean | null {
 }
 
 export function allowDemoStorefront() {
+  if (process.env.NODE_ENV === "production") return false;
   const explicit = envFlag("NEXT_PUBLIC_ENABLE_DEMO_STOREFRONT") ?? envFlag("ENABLE_DEMO_STOREFRONT");
   if (explicit !== null) return explicit;
-  return process.env.NODE_ENV !== "production";
+  return true;
 }
 
 export function productionSafetyLabel() {

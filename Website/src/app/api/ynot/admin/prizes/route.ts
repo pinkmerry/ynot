@@ -1,6 +1,7 @@
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { isMissingColumnError, randomPackSchemaMissingResponse } from "@/lib/supabase/schema-compat";
 import type { Database } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 
@@ -12,6 +13,8 @@ type PrizeBody = {
   tier?: unknown;
   rank?: unknown;
   valueThb?: unknown;
+  weight?: unknown;
+  unlockAtSoldPct?: unknown;
   prizeId?: unknown;
   quantity?: unknown;
   isTest?: unknown;
@@ -19,6 +22,8 @@ type PrizeBody = {
 };
 
 type PrizeTier = Database["public"]["Tables"]["draw_round_prizes"]["Row"]["tier"];
+type AdminSession = NonNullable<Awaited<ReturnType<typeof resolveAdminSession>>>;
+type Supabase = ReturnType<typeof createServiceSupabaseClient>;
 
 function text(value: unknown, max = 120) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -44,12 +49,86 @@ function quantityValue(value: unknown) {
   return Number.isInteger(parsed) && parsed >= 0 && parsed <= 10_000 ? parsed : null;
 }
 
+function weightValue(value: unknown) {
+  if (value === undefined || value === null || value === "") return 1;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 100_000
+    ? Number(parsed.toFixed(4))
+    : null;
+}
+
+function percentValue(value: unknown) {
+  if (value === undefined || value === null || value === "") return 0;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 100
+    ? Number(parsed.toFixed(2))
+    : null;
+}
+
 function booleanValue(value: unknown) {
   return value === true || value === "true" || value === 1 || value === "1";
 }
 
 async function bodyJson(request: Request): Promise<PrizeBody | null> {
   return request.json().catch(() => null) as Promise<PrizeBody | null>;
+}
+
+async function markCampaignNeedsOwnerReview(
+  supabase: Supabase,
+  campaignId: string,
+  admin: AdminSession,
+  reason: string,
+) {
+  const { data: campaign, error: campaignError } = await supabase
+    .from("draw_rounds")
+    .select("id,status,visibility,approval_status")
+    .eq("id", campaignId)
+    .single();
+  if (campaignError && isMissingColumnError(campaignError, "approval_status")) {
+    const { data: legacyCampaign, error: legacyError } = await supabase
+      .from("draw_rounds")
+      .select("id,status,visibility")
+      .eq("id", campaignId)
+      .single();
+    if (legacyError) {
+      return Response.json({ error: legacyError.message }, { status: 409 });
+    }
+    if (legacyCampaign.status !== "draft") {
+      return Response.json(
+        { error: "Prize logic can only be changed while the random pack is draft/private." },
+        { status: 409 },
+      );
+    }
+    return null;
+  }
+  if (campaignError) return Response.json({ error: campaignError.message }, { status: 409 });
+  if (campaign.status !== "draft") {
+    return Response.json(
+      { error: "Prize logic can only be changed while the random pack is draft/private." },
+      { status: 409 },
+    );
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("draw_rounds")
+    .update({
+      approval_status: "pending_review",
+      approval_requested_by: admin.adminId,
+      approval_requested_at: now,
+      approved_by: null,
+      approved_at: null,
+      rejected_by: null,
+      rejected_at: null,
+      approval_notes: reason,
+      status: "draft",
+      visibility: "private",
+    })
+    .eq("id", campaignId);
+  if (error && isMissingColumnError(error)) return null;
+  if (error) return Response.json({ error: error.message }, { status: 409 });
+
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -67,28 +146,68 @@ export async function POST(request: Request) {
   const tier = tierValue(body.tier);
   const rank = rankValue(body.rank);
   const quantity = quantityValue(body.quantity);
+  const weight = weightValue(body.weight);
+  const unlockAtSoldPct = percentValue(body.unlockAtSoldPct);
   if (!campaignId || !cardId || !rank) return Response.json({ error: "campaignId, cardId, and rank are required." }, { status: 400 });
   if (body.quantity !== undefined && quantity === null) return Response.json({ error: "quantity must be an integer from 0 to 10000." }, { status: 400 });
+  if (weight === null) return Response.json({ error: "weight must be a number from 0 to 100000." }, { status: 400 });
+  if (unlockAtSoldPct === null) return Response.json({ error: "unlockAtSoldPct must be a number from 0 to 100." }, { status: 400 });
 
   const supabase = createServiceSupabaseClient();
-  const patch: Database["public"]["Tables"]["draw_round_prizes"]["Insert"] = {
+  const reviewReset = await markCampaignNeedsOwnerReview(
+    supabase,
+    campaignId,
+    admin,
+    "Prize weight, unlock, or inventory changed. Owner review is required before publish.",
+  );
+  if (reviewReset) return reviewReset;
+
+  const basePatch: Database["public"]["Tables"]["draw_round_prizes"]["Insert"] = {
     draw_round_id: campaignId,
     card_id: cardId,
     tier,
     rank,
     value_thb: moneyValue(body.valueThb),
   };
+  const patch: Database["public"]["Tables"]["draw_round_prizes"]["Insert"] = {
+    ...basePatch,
+    weight,
+    unlock_at_sold_pct: unlockAtSoldPct,
+  };
   if (body.isTest !== undefined || body.seedRunId !== undefined) {
     patch.is_test = booleanValue(body.isTest);
     patch.seed_run_id = text(body.seedRunId, 80) || null;
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("draw_round_prizes")
     .upsert(patch, { onConflict: "draw_round_id,tier,rank" })
-    .select("id,draw_round_id,card_id,tier,rank,value_thb")
+    .select("id,draw_round_id,card_id,tier,rank,value_thb,weight,unlock_at_sold_pct")
     .single();
+  if (error && isMissingColumnError(error)) {
+    if (weight !== 1 || unlockAtSoldPct !== 0) {
+      return randomPackSchemaMissingResponse();
+    }
+    ({ data, error } = await supabase
+      .from("draw_round_prizes")
+      .upsert(basePatch, { onConflict: "draw_round_id,tier,rank" })
+      .select("id,draw_round_id,card_id,tier,rank,value_thb")
+      .single());
+    if (data) {
+      data = {
+        ...data,
+        weight: 1,
+        unlock_at_sold_pct: 0,
+      } as typeof data;
+    }
+  }
   if (error) return Response.json({ error: error.message }, { status: 409 });
+  if (!data) {
+    return Response.json(
+      { error: "Prize could not be saved." },
+      { status: 409 },
+    );
+  }
   let inventory = null;
   if (quantity !== null) {
     const { data: inventoryData, error: inventoryError } = await supabase.rpc("ensure_draw_round_prize_units", {
@@ -105,7 +224,7 @@ export async function POST(request: Request) {
     actor_admin_id: admin.adminId,
     event_type: "campaign_prize_saved",
     draw_round_id: campaignId,
-    metadata: { prizeId: data.id, cardId, tier, rank, quantity },
+    metadata: { prizeId: data.id, cardId, tier, rank, quantity, weight, unlockAtSoldPct, approvalStatus: "pending_review" },
   });
 
   return Response.json({ ok: true, prize: data, inventory });
@@ -123,12 +242,20 @@ export async function DELETE(request: Request) {
   if (!prizeId) return Response.json({ error: "prizeId is required." }, { status: 400 });
 
   const supabase = createServiceSupabaseClient();
-  const { error: fetchError } = await supabase
+  const { data: existingPrize, error: fetchError } = await supabase
     .from("draw_round_prizes")
     .select("id,draw_round_id,card_id,tier,rank")
     .eq("id", prizeId)
     .single();
   if (fetchError) return Response.json({ error: fetchError.message }, { status: 409 });
+
+  const reviewReset = await markCampaignNeedsOwnerReview(
+    supabase,
+    existingPrize.draw_round_id,
+    admin,
+    "Prize was removed from the pool. Owner review is required before publish.",
+  );
+  if (reviewReset) return reviewReset;
 
   await supabase
     .from("draw_round_prize_units")
@@ -148,7 +275,7 @@ export async function DELETE(request: Request) {
     actor_admin_id: admin.adminId,
     event_type: "campaign_prize_deleted",
     draw_round_id: data.draw_round_id,
-    metadata: { prizeId: data.id, cardId: data.card_id, tier: data.tier, rank: data.rank },
+    metadata: { prizeId: data.id, cardId: data.card_id, tier: data.tier, rank: data.rank, approvalStatus: "pending_review" },
   });
 
   return Response.json({ ok: true });

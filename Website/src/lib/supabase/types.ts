@@ -152,6 +152,20 @@ export type Database = {
           id: string;
           slug: string;
           status: "draft" | "live" | "closed" | "archived";
+          approval_status:
+            | "not_submitted"
+            | "pending_review"
+            | "approved"
+            | "rejected"
+            | "changes_requested";
+          approval_requested_by: string | null;
+          approval_requested_at: string | null;
+          approved_by: string | null;
+          approved_at: string | null;
+          rejected_by: string | null;
+          rejected_at: string | null;
+          approval_notes: string | null;
+          logic_snapshot: Json;
           series: "one_piece" | "pokemon";
           title_th: string;
           title_en: string;
@@ -187,6 +201,20 @@ export type Database = {
           id?: string;
           slug: string;
           status?: "draft" | "live" | "closed" | "archived";
+          approval_status?:
+            | "not_submitted"
+            | "pending_review"
+            | "approved"
+            | "rejected"
+            | "changes_requested";
+          approval_requested_by?: string | null;
+          approval_requested_at?: string | null;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          rejected_by?: string | null;
+          rejected_at?: string | null;
+          approval_notes?: string | null;
+          logic_snapshot?: Json;
           series: "one_piece" | "pokemon";
           title_th: string;
           title_en: string;
@@ -299,6 +327,8 @@ export type Database = {
           tier: "normal" | "high";
           rank: number;
           value_thb: number | null;
+          weight: number;
+          unlock_at_sold_pct: number;
           is_test: boolean;
           seed_run_id: string | null;
           metadata: Json;
@@ -312,6 +342,8 @@ export type Database = {
           tier: "normal" | "high";
           rank: number;
           value_thb?: number | null;
+          weight?: number;
+          unlock_at_sold_pct?: number;
           is_test?: boolean;
           seed_run_id?: string | null;
           metadata?: Json;

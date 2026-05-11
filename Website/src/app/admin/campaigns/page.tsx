@@ -1,4 +1,8 @@
-import { AdminCampaignActionPanel, AdminCampaignForm } from "@/features/ynot/client";
+import {
+  AdminCampaignActionPanel,
+  AdminCampaignForm,
+  OwnerApprovalQueue,
+} from "@/features/ynot/client";
 import {
   AdminSectionShell,
   CampaignGrid,
@@ -15,7 +19,7 @@ export default async function AdminCampaignsPage() {
       <PageHeader
         eyebrow="Admin random packs"
         title="Random Pack Studio"
-        description="Create, tag, price, publish, close, and archive customer-facing random packs. Website and LIFF should read these same draw_rounds records."
+        description="Create draft random packs, submit owner review, and keep customer-facing publish actions behind the owner approval queue."
       />
 
       <section className="admin-panel admin-workflow-panel soft-card">
@@ -37,7 +41,7 @@ export default async function AdminCampaignsPage() {
           </div>
           <div>
             <strong>3. Publish</strong>
-            <p>Switch status to Live and visibility to Public when ready.</p>
+            <p>Submit owner review; owner approval publishes the pack live.</p>
           </div>
           <div>
             <strong>4. Operate</strong>
@@ -45,6 +49,13 @@ export default async function AdminCampaignsPage() {
           </div>
         </div>
       </section>
+
+      {data.viewer.adminRole === "owner" && (
+        <OwnerApprovalQueue
+          requests={data.ownerApprovalRequests}
+          viewerRole={data.viewer.adminRole}
+        />
+      )}
 
       <div className="admin-page-grid admin-page-grid-studio">
         <AdminCampaignForm categories={data.categories} />
