@@ -31,8 +31,14 @@ export type YnotCampaign = {
   remainingSlots?: number;
   totalPrizeUnits?: number;
   availablePrizeUnits?: number;
+  eligiblePrizeUnits?: number;
+  initialEligiblePrizeUnits?: number;
   awardedPrizeUnits?: number;
   voidPrizeUnits?: number;
+  readinessBlockers?: string[];
+  openable?: boolean;
+  soldOut?: boolean;
+  adminRemoved?: boolean;
   categoryLabel?: string;
   categoryIds?: string[];
   categorySlugs?: string[];

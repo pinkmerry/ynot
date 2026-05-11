@@ -28,6 +28,12 @@ function includes(file, needle, message) {
   else fail(`${message}: missing ${needle}`);
 }
 
+function matches(file, pattern, message) {
+  const text = read(file);
+  if (pattern.test(text)) pass(message);
+  else fail(`${message}: missing ${pattern}`);
+}
+
 function notIncludes(file, needle, message) {
   const text = read(file);
   if (!text.includes(needle)) pass(message);
@@ -48,10 +54,10 @@ fileExists(".omx/plans/prd-production-admin-test-data-readiness.md", "Production
 fileExists(".omx/plans/test-spec-production-admin-test-data-readiness.md", "Production admin test spec exists");
 
 includes("src/features/ynot/runtime-flags.ts", "allowDemoStorefront", "demo storefront runtime flag exists");
-includes("src/features/ynot/runtime-flags.ts", "process.env.NODE_ENV !== \"production\"", "demo storefront defaults off in production");
+matches("src/features/ynot/runtime-flags.ts", /process\.env\.NODE_ENV === "production"[\s\S]*return false/, "demo storefront defaults off in production");
 includes("src/features/ynot/components.tsx", "function displayCampaigns(campaigns: YnotCampaign[])", "storefront displayCampaigns helper exists");
 includes("src/features/ynot/components.tsx", "? featuredCampaigns", "storefront demo fallback is production-gated");
-includes("src/features/ynot/data.ts", "allowDemoStorefront() ? featuredCampaigns", "campaign detail demo fallback is production-gated");
+matches("src/features/ynot/data.ts", /allowDemoStorefront\(\)[\s\S]*featuredCampaigns\.find/, "campaign detail demo fallback is production-gated");
 
 for (const file of [
   "src/features/ynot/components.tsx",
@@ -109,10 +115,10 @@ includes("src/features/ynot/data.ts", "getPlatformHealth", "admin platform healt
 includes("src/features/ynot/components.tsx", "PlatformHealthPanel", "admin platform health panel exists");
 includes("src/features/ynot/types.ts", "YnotPlatformHealth", "platform health types exist");
 for (const table of ["cards", "draw_round_prizes", "api_rate_limits"]) {
-  includes("src/features/ynot/data.ts", `tableHealthCheck(supabase, "${table}"`, `admin health checks ${table}`);
+  matches("src/features/ynot/data.ts", new RegExp(`tableHealthCheck\\([\\s\\S]*"${table}"`), `admin health checks ${table}`);
 }
 for (const table of ["store_categories", "draw_round_categories", "draw_round_prize_units", "seed_runs"]) {
-  includes("src/features/ynot/data.ts", `tableHealthCheck(supabase, "${table}"`, `admin health checks production test table ${table}`);
+  matches("src/features/ynot/data.ts", new RegExp(`tableHealthCheck\\([\\s\\S]*"${table}"`), `admin health checks production test table ${table}`);
 }
 includes("src/features/ynot/data.ts", "RATE_LIMIT_BACKEND", "admin health reports rate-limit backend");
 includes("src/features/ynot/data.ts", "dataIssueStorage", "dashboard records degraded data reads per request");

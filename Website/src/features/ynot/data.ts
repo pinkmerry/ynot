@@ -34,6 +34,10 @@ import type {
 } from "./types";
 import { featuredCampaigns } from "./storefront-content";
 import { allowDemoStorefront } from "./runtime-flags";
+import {
+  getCampaignPrizeReadiness,
+  type CampaignPrizeReadiness,
+} from "./prize-readiness";
 
 const dataIssueStorage = new AsyncLocalStorage<YnotDataIssue[]>();
 
@@ -153,6 +157,10 @@ function isAdminHidden(metadata: unknown) {
   return isRecord(metadata) && metadata.adminHidden === true;
 }
 
+function isOwnerRemoved(metadata: unknown) {
+  return isRecord(metadata) && typeof metadata.ownerRemovedAt === "string";
+}
+
 function soldPctForYnotCampaign(campaign: YnotCampaign) {
   const remainingSlots = campaign.remainingSlots ?? campaign.totalSlots;
   if (campaign.totalSlots <= 0) return 100;
@@ -183,6 +191,7 @@ async function getPublicPrizeLineup(
   const visiblePrizes = (prizes ?? []).filter(
     (prize) =>
       !isAdminHidden(prize.metadata) &&
+      Number(prize.weight ?? 1) > 0 &&
       Number(prize.unlock_at_sold_pct ?? 0) <= soldPct,
   );
   if (!visiblePrizes.length) return [];
@@ -213,20 +222,25 @@ async function getPublicPrizeLineup(
     countsByPrize.set(unit.draw_round_prize_id, counts);
   }
 
-  return visiblePrizes.map((prize) => {
-    const counts = countsByPrize.get(prize.id);
-    return {
-      id: prize.id,
-      cardName: cardById.get(prize.card_id)?.name ?? "Mystery reward",
-      tier: prize.tier,
-      rank: prize.rank,
-      valueThb: prize.value_thb,
-      availableUnits: counts?.available,
-      totalUnits: counts?.total,
-      weight: Number(prize.weight ?? 1),
-      unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
-    };
-  });
+  return visiblePrizes
+    .map((prize) => {
+      const counts = countsByPrize.get(prize.id);
+      return {
+        id: prize.id,
+        cardName: cardById.get(prize.card_id)?.name ?? "Mystery reward",
+        tier: prize.tier,
+        rank: prize.rank,
+        valueThb: prize.value_thb,
+        availableUnits: counts?.available,
+        totalUnits: counts?.total,
+        weight: Number(prize.weight ?? 1),
+        unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
+      };
+    })
+    .sort((left, right) => {
+      if (left.tier !== right.tier) return left.tier === "high" ? -1 : 1;
+      return left.rank - right.rank;
+    });
 }
 
 function toYnotCampaign(
@@ -234,11 +248,30 @@ function toYnotCampaign(
   linkedCategories: YnotCategory[] = [],
   inventory?: InventorySummary,
   prizeLineup?: YnotPrizePreview[],
+  readiness?: CampaignPrizeReadiness | null,
 ): YnotCampaign {
   const approvalStatus = normalizeApprovalStatus(
     row.approval_status,
     inferredApprovalStatus(row.status),
   );
+  const remainingSlots = readiness?.remainingSlots ?? inventory?.remainingSlots;
+  const availablePrizeUnits =
+    readiness?.availablePrizeUnits ?? inventory?.availableUnits;
+  const soldOut =
+    readiness?.soldOut ??
+    Boolean(
+      (remainingSlots !== undefined && remainingSlots <= 0) ||
+        (availablePrizeUnits !== undefined && availablePrizeUnits <= 0),
+    );
+  const adminRemoved = isOwnerRemoved(row.test_metadata);
+  const openable =
+    row.status === "live" &&
+    row.visibility === "public" &&
+    approvalStatus === "approved" &&
+    !adminRemoved &&
+    !soldOut &&
+    (readiness?.eligiblePrizeUnits ?? 0) > 0 &&
+    readiness?.ready !== false;
   return {
     id: row.id,
     slug: row.slug,
@@ -252,11 +285,17 @@ function toYnotCampaign(
     mode: row.mode,
     visibility: row.visibility,
     totalSlots: row.total_slots,
-    remainingSlots: inventory?.remainingSlots,
-    totalPrizeUnits: inventory?.totalUnits,
-    availablePrizeUnits: inventory?.availableUnits,
+    remainingSlots,
+    totalPrizeUnits: readiness?.totalPrizeUnits ?? inventory?.totalUnits,
+    availablePrizeUnits,
+    eligiblePrizeUnits: readiness?.eligiblePrizeUnits,
+    initialEligiblePrizeUnits: readiness?.initialEligiblePrizeUnits,
     awardedPrizeUnits: inventory?.awardedUnits,
     voidPrizeUnits: inventory?.voidUnits,
+    readinessBlockers: readiness?.blockers,
+    openable,
+    soldOut,
+    adminRemoved,
     sortOrder: row.sort_order,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
@@ -407,6 +446,9 @@ function ownerApprovalRequestFromCampaign(
     approvalStatus === "approved" &&
     (campaign.status === "draft" || campaign.visibility !== "public");
   if (approvalStatus !== "pending_review" && !needsPublish) return null;
+  const readinessLine = campaign.readinessBlockers?.length
+    ? `Prize readiness blocked: ${campaign.readinessBlockers[0]}`
+    : "Prize inventory is ready for owner review and publish.";
   return {
     id: `owner-approval-${campaign.id}`,
     campaign,
@@ -425,6 +467,7 @@ function ownerApprovalRequestFromCampaign(
       "Campaign is held from public live status until owner approval.",
       "Only public-safe status details are shown outside the owner queue.",
       "Publish must happen through the owner lifecycle route after approval.",
+      readinessLine,
     ],
   };
 }
@@ -496,7 +539,7 @@ export async function getCampaigns(
       if (options.includePrivate) {
         return query.in("status", ["live", "closed", "draft", "archived"]);
       }
-      query = query.eq("visibility", "public").in("status", ["live", "closed"]);
+      query = query.eq("visibility", "public").eq("status", "live");
       return requireApproval
         ? query.eq("approval_status", "approved")
         : query;
@@ -550,15 +593,42 @@ export async function getCampaigns(
     const inventoryByCampaign = new Map(
       inventoryRows.map((summary) => [summary.drawRoundId, summary]),
     );
+    const readinessRows = await Promise.all(
+      campaignIds.map(async (campaignId) => {
+        try {
+          return await getCampaignPrizeReadiness(supabase, campaignId);
+        } catch (error) {
+          recordDataIssue("campaign_prize_readiness", error);
+          return null;
+        }
+      }),
+    );
+    const readinessByCampaign = new Map(
+      readinessRows
+        .filter(
+          (readiness): readiness is CampaignPrizeReadiness =>
+            readiness !== null,
+        )
+        .map((readiness) => [readiness.campaignId, readiness]),
+    );
 
-    return rows.map((row) => {
+    const campaigns = rows.map((row) => {
       const links = categoryLinksByCampaign.get(row.id) ?? [];
       const linkedCategories = links
         .map((link) => categoriesById.get(link.category_id))
         .filter((category): category is YnotCategory => Boolean(category));
       const inventory = inventoryByCampaign.get(row.id);
-      return toYnotCampaign(row, linkedCategories, inventory);
+      return toYnotCampaign(
+        row,
+        linkedCategories,
+        inventory,
+        undefined,
+        readinessByCampaign.get(row.id),
+      );
     });
+    return options.includePrivate
+      ? campaigns
+      : campaigns.filter((campaign) => campaign.openable);
   });
 }
 
@@ -709,7 +779,21 @@ export async function getCampaign(
       .filter((category): category is YnotCategory => Boolean(category));
     const inventory = inventoryRows[0];
     const prizeLineup = await getPublicPrizeLineup(supabase, row, inventory);
-    return [toYnotCampaign(row, linkedCategories, inventory, prizeLineup)];
+    let readiness: CampaignPrizeReadiness | null = null;
+    try {
+      readiness = await getCampaignPrizeReadiness(supabase, row.id);
+    } catch (error) {
+      recordDataIssue("campaign_detail_prize_readiness", error);
+    }
+    const campaign = toYnotCampaign(
+      row,
+      linkedCategories,
+      inventory,
+      prizeLineup,
+      readiness,
+    );
+    if (!viewer.isAdmin && !campaign.openable) return [];
+    return [campaign];
   }).then(
     (campaigns) =>
       campaigns[0] ??

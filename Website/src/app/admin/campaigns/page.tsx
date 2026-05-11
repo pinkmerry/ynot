@@ -8,12 +8,15 @@ import {
   CampaignGrid,
   PageHeader,
 } from "@/features/ynot/components";
-import { getYnotDashboardData } from "@/features/ynot/data";
+import { getAdminCards, getYnotDashboardData } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCampaignsPage() {
-  const data = await getYnotDashboardData();
+  const [data, cards] = await Promise.all([
+    getYnotDashboardData(),
+    getAdminCards(),
+  ]);
   return (
     <AdminSectionShell viewer={data.viewer} activeHref="/admin/campaigns">
       <PageHeader
@@ -58,8 +61,11 @@ export default async function AdminCampaignsPage() {
       )}
 
       <div className="admin-page-grid admin-page-grid-studio">
-        <AdminCampaignForm categories={data.categories} />
-        <AdminCampaignActionPanel campaigns={data.campaigns} />
+        <AdminCampaignForm categories={data.categories} cards={cards} />
+        <AdminCampaignActionPanel
+          campaigns={data.campaigns}
+          viewerRole={data.viewer.adminRole}
+        />
         <section className="admin-panel admin-full-span soft-card">
           <div className="admin-panel-head">
             <div>

@@ -892,15 +892,27 @@ export function CampaignDetailPanel({ campaign }: { campaign: YnotCampaign }) {
         </div>
         <ProgressTrack campaign={campaign} />
         <div className="detail-actions">
-          <Link
-            className="primary-action"
-            href={`/gacha/${campaign.slug}/open`}
-          >
-            Pull × 1
-          </Link>
-          <Link className="orange-action" href={`/gacha/${campaign.slug}/open`}>
-            Pull × 10
-          </Link>
+          {campaign.demo || campaign.openable ? (
+            <>
+              <Link
+                className="primary-action"
+                href={`/gacha/${campaign.slug}/open`}
+              >
+                Pull × 1
+              </Link>
+              <Link
+                className="orange-action"
+                href={`/gacha/${campaign.slug}/open`}
+              >
+                Pull × 10
+              </Link>
+            </>
+          ) : (
+            <p className="admin-form-message">
+              This pack is not openable because prize inventory is missing,
+              sold out, or awaiting owner approval.
+            </p>
+          )}
           <Link className="secondary-action" href="/wallet">
             Top up wallet
           </Link>

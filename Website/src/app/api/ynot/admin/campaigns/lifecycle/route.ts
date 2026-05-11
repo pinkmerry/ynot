@@ -2,8 +2,12 @@ import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { isMissingColumnError, randomPackSchemaMissingResponse } from "@/lib/supabase/schema-compat";
-import type { Database } from "@/lib/supabase/types";
+import type { Database, Json } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import {
+  getCampaignPrizeReadiness,
+  readinessErrorResponse,
+} from "@/features/ynot/prize-readiness";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +18,8 @@ type LifecycleAction =
   | "request_changes"
   | "publish"
   | "close"
-  | "archive";
+  | "archive"
+  | "delete";
 
 type RandomLogicMode =
   | "pure_random"
@@ -29,6 +34,7 @@ const lifecycleActions: readonly LifecycleAction[] = [
   "publish",
   "close",
   "archive",
+  "delete",
 ];
 const randomLogicModes: readonly RandomLogicMode[] = [
   "pure_random",
@@ -38,6 +44,14 @@ const randomLogicModes: readonly RandomLogicMode[] = [
 
 function text(value: unknown, max = 160) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function jsonRecord(value: Json): Record<string, unknown> {
+  return isRecord(value) ? value : {};
 }
 
 function lifecycleAction(value: unknown): LifecycleAction | null {
@@ -64,7 +78,8 @@ function actionRequiresOwner(action: LifecycleAction) {
     action === "approve" ||
     action === "reject" ||
     action === "request_changes" ||
-    action === "publish"
+    action === "publish" ||
+    action === "delete"
   );
 }
 
@@ -142,6 +157,15 @@ function mockLifecycleResult(
       message: "Mock pack archived locally.",
     };
   }
+  if (action === "delete") {
+    return {
+      approvalStatus: "approved",
+      status: "archived",
+      visibility: "private",
+      logicMode,
+      message: "Mock pack removed locally and kept in history.",
+    };
+  }
   return {
     approvalStatus: "pending_review",
     status: "draft",
@@ -162,6 +186,7 @@ function realLifecycleMessage(action: LifecycleAction, logicMode: RandomLogicMod
   }
   if (action === "close") return "Pack closed.";
   if (action === "archive") return "Pack archived privately.";
+  if (action === "delete") return "Pack removed from active admin/public lists and kept archived for history.";
   return `${randomLogicLabel(logicMode)} submitted for owner review.`;
 }
 
@@ -208,7 +233,7 @@ export async function POST(request: Request) {
   }
   if (actionRequiresOwner(action) && admin.adminRole !== "owner") {
     return Response.json(
-      { error: "Only an owner can approve, reject, request changes, or publish." },
+      { error: "Only an owner can approve, reject, request changes, publish, or delete a pack." },
       { status: 403 },
     );
   }
@@ -226,7 +251,7 @@ export async function POST(request: Request) {
   const supabase = createServiceSupabaseClient();
   const { data: current, error: currentError } = await supabase
     .from("draw_rounds")
-    .select("id,status,visibility,approval_status,logic_snapshot")
+    .select("id,status,visibility,approval_status,logic_snapshot,test_metadata")
     .eq("id", campaignId)
     .single();
   if (currentError) {
@@ -240,6 +265,10 @@ export async function POST(request: Request) {
       { error: "Owner approval is required before publishing live/public." },
       { status: 409 },
     );
+  }
+  if (action === "submit_review" || action === "approve" || action === "publish") {
+    const readiness = await getCampaignPrizeReadiness(supabase, campaignId);
+    if (!readiness.ready) return readinessErrorResponse(readiness);
   }
 
   const now = new Date().toISOString();
@@ -299,6 +328,16 @@ export async function POST(request: Request) {
   if (action === "archive") {
     patch.status = "archived";
     patch.visibility = "private";
+  }
+  if (action === "delete") {
+    patch.status = "archived";
+    patch.visibility = "private";
+    patch.test_metadata = {
+      ...jsonRecord(current.test_metadata),
+      ownerRemovedAt: now,
+      ownerRemovedByAdminId: admin.adminId,
+      ownerRemovedNote: note || null,
+    };
   }
 
   const responseLogicMode =

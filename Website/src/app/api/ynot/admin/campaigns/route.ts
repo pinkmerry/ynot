@@ -4,6 +4,11 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { isMissingColumnError } from "@/lib/supabase/schema-compat";
 import type { Database } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import {
+  normalizePrizeDrafts,
+  validatePrizeDraftsForSave,
+  type PrizeDraftInput,
+} from "@/features/ynot/prize-readiness";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +29,7 @@ type CampaignBody = {
   categoryIds?: unknown;
   isTest?: unknown;
   seedRunId?: unknown;
+  initialPrizes?: unknown;
 };
 
 function text(value: unknown, max = 160) {
@@ -127,6 +133,82 @@ async function replaceCampaignCategories(
   if (insertError) throw insertError;
 }
 
+async function cleanupCreatedCampaign(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  campaignId: string,
+) {
+  await supabase.from("draw_round_prize_units").delete().eq("draw_round_id", campaignId);
+  await supabase.from("draw_round_prizes").delete().eq("draw_round_id", campaignId);
+  await supabase.from("draw_round_categories").delete().eq("draw_round_id", campaignId);
+  await supabase.from("draw_slots").delete().eq("draw_round_id", campaignId);
+  await supabase.from("draw_rounds").delete().eq("id", campaignId);
+}
+
+async function assertPrizeCardsExist(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  prizes: PrizeDraftInput[],
+) {
+  const cardIds = [...new Set(prizes.map((prize) => prize.cardId))];
+  const { data, error } = await supabase
+    .from("cards")
+    .select("id")
+    .in("id", cardIds);
+  if (error) throw error;
+  const existing = new Set((data ?? []).map((card) => card.id));
+  const missing = cardIds.filter((cardId) => !existing.has(cardId));
+  if (missing.length) {
+    throw new Error("One or more selected prize cards no longer exist.");
+  }
+}
+
+async function saveInitialPrizes(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  campaignId: string,
+  adminId: string,
+  prizes: PrizeDraftInput[],
+  isTest: boolean,
+  seedRunId: string | null,
+) {
+  await assertPrizeCardsExist(supabase, prizes);
+  const prizeRows: Database["public"]["Tables"]["draw_round_prizes"]["Insert"][] =
+    prizes.map((prize) => ({
+      draw_round_id: campaignId,
+      card_id: prize.cardId,
+      tier: prize.tier,
+      rank: prize.rank,
+      value_thb: prize.valueThb,
+      weight: prize.weight,
+      unlock_at_sold_pct: prize.unlockAtSoldPct,
+      is_test: isTest,
+      seed_run_id: seedRunId,
+      metadata: prize.metadata ?? {},
+    }));
+
+  const { data, error } = await supabase
+    .from("draw_round_prizes")
+    .upsert(prizeRows, { onConflict: "draw_round_id,tier,rank" })
+    .select("id,tier,rank");
+  if (error) throw error;
+
+  const prizeIdByKey = new Map(
+    (data ?? []).map((prize) => [`${prize.tier}:${prize.rank}`, prize.id]),
+  );
+  for (const prize of prizes) {
+    const prizeId = prizeIdByKey.get(`${prize.tier}:${prize.rank}`);
+    if (!prizeId) throw new Error("Prize inventory could not be linked.");
+    const { error: unitError } = await supabase.rpc(
+      "ensure_draw_round_prize_units",
+      {
+        p_draw_round_prize_id: prizeId,
+        p_total_units: prize.quantity,
+        p_admin_id: adminId,
+        p_seed_run_id: seedRunId,
+      },
+    );
+    if (unitError) throw unitError;
+  }
+}
+
 async function bodyJson(request: Request): Promise<CampaignBody | null> {
   return request.json().catch(() => null) as Promise<CampaignBody | null>;
 }
@@ -161,18 +243,51 @@ export async function POST(request: Request) {
     is_test: patch.is_test ?? false,
     seed_run_id: patch.seed_run_id ?? null,
   };
+  const initialPrizes = normalizePrizeDrafts(body.initialPrizes);
+  const prizeValidation = validatePrizeDraftsForSave(
+    initialPrizes,
+    insert.total_slots,
+  );
+  if (!prizeValidation.ready) {
+    return Response.json(
+      {
+        error: prizeValidation.blockers[0],
+        blockers: prizeValidation.blockers,
+      },
+      { status: 400 },
+    );
+  }
 
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase.from("draw_rounds").insert(insert).select("id,slug").single();
   if (error) return Response.json({ error: error.message }, { status: 409 });
-  if (body.categoryIds !== undefined) {
-    try {
+
+  try {
+    if (body.categoryIds !== undefined) {
       await replaceCampaignCategories(supabase, data.id, idArrayValue(body.categoryIds));
-    } catch (categoryError) {
-      return Response.json({ error: categoryError instanceof Error ? categoryError.message : "Campaign category assignment failed." }, { status: 409 });
     }
+    const { error: slotError } = await supabase.rpc("create_draw_slots", { p_draw_round_id: data.id });
+    if (slotError) throw slotError;
+    await saveInitialPrizes(
+      supabase,
+      data.id,
+      admin.adminId,
+      initialPrizes,
+      insert.is_test ?? false,
+      insert.seed_run_id ?? null,
+    );
+  } catch (setupError) {
+    await cleanupCreatedCampaign(supabase, data.id);
+    return Response.json(
+      {
+        error:
+          setupError instanceof Error
+            ? setupError.message
+            : "Campaign prize setup failed.",
+      },
+      { status: 409 },
+    );
   }
-  await supabase.rpc("create_draw_slots", { p_draw_round_id: data.id });
   await supabase.from("audit_events").insert({
     actor_admin_id: admin.adminId,
     event_type: "campaign_created",
@@ -183,9 +298,11 @@ export async function POST(request: Request) {
       requestedStatus: patch.status ?? null,
       requestedVisibility: patch.visibility ?? null,
       ownerReviewRequired: requestedPublish,
+      initialPrizeRows: initialPrizes.length,
+      initialPrizeUnits: prizeValidation.totalPrizeUnits,
     },
   });
-  return Response.json({ ok: true, campaign: data });
+  return Response.json({ ok: true, campaign: data, prizeValidation });
 }
 
 export async function PATCH(request: Request) {
@@ -261,5 +378,10 @@ export async function PATCH(request: Request) {
     draw_round_id: campaignId,
     metadata: { patch: reviewPatch, approvalStatus: "pending_review" },
   });
-  return Response.json({ ok: true });
+  return Response.json({
+    ok: true,
+    approvalStatus: "pending_review",
+    status: "draft",
+    visibility: "private",
+  });
 }

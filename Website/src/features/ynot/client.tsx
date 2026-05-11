@@ -344,6 +344,27 @@ export function GachaOpenPanel({
       </section>
     );
   }
+  if (!campaign.openable) {
+    return (
+      <section className="soft-card open-sequence-card phone-surface">
+        <p className="sequence-label">{"// PACK NOT OPENABLE"}</p>
+        <div className="open-pack-cube">
+          <span>HOLD</span>
+        </div>
+        <h3>{campaign.titleEn}</h3>
+        <p className="mt-2 text-sm text-[var(--muted)]">
+          This pack is waiting for prize inventory, owner approval, or remaining
+          stock before customers can pull.
+        </p>
+        <a className="primary-action open-start mt-4" href="/wallet">
+          Top up wallet
+        </a>
+        <a className="open-cancel" href={`/gacha/${campaign.slug}`}>
+          [ CANCEL ]
+        </a>
+      </section>
+    );
+  }
   return (
     <section className="soft-card open-sequence-card phone-surface">
       <p className="sequence-label">{"// CONFIRM SEQUENCE"}</p>
@@ -1259,10 +1280,84 @@ export function AdminCategoryForm({
   );
 }
 
+type CampaignPrizeDraft = {
+  localId: string;
+  group: "top" | "high" | "normal";
+  cardId: string;
+  tier: "normal" | "high";
+  rank: number;
+  valueThb: number;
+  quantity: number;
+  weight: number;
+  unlockAtSoldPct: number;
+};
+
+function firstCatalogCardId(cards: CardCatalogItem[]) {
+  return cards[0]?.catalogCardId ?? "";
+}
+
+function createInitialPrizeDrafts(cards: CardCatalogItem[]): CampaignPrizeDraft[] {
+  const cardId = firstCatalogCardId(cards);
+  return [
+    {
+      localId: "top-1",
+      group: "top",
+      cardId,
+      tier: "high",
+      rank: 1,
+      valueThb: 5000,
+      quantity: 1,
+      weight: 0.25,
+      unlockAtSoldPct: 30,
+    },
+    {
+      localId: "top-2",
+      group: "top",
+      cardId,
+      tier: "high",
+      rank: 2,
+      valueThb: 3000,
+      quantity: 1,
+      weight: 0.5,
+      unlockAtSoldPct: 20,
+    },
+    {
+      localId: "top-3",
+      group: "top",
+      cardId,
+      tier: "high",
+      rank: 3,
+      valueThb: 1500,
+      quantity: 1,
+      weight: 1,
+      unlockAtSoldPct: 0,
+    },
+    {
+      localId: "normal-1",
+      group: "normal",
+      cardId,
+      tier: "normal",
+      rank: 1,
+      valueThb: 100,
+      quantity: 97,
+      weight: 10,
+      unlockAtSoldPct: 0,
+    },
+  ];
+}
+
+function prizeDraftGroupLabel(group: CampaignPrizeDraft["group"]) {
+  if (group === "top") return "Top 1-3 showcase";
+  if (group === "high") return "High tier pool";
+  return "Normal/base pool";
+}
+
 export function AdminCampaignForm({
   categories = [],
+  cards = [],
 }: {
   categories?: YnotCategory[];
+  cards?: CardCatalogItem[];
 }) {
   const [slug, setSlug] = useState("new-campaign");
   const [titleTh, setTitleTh] = useState("แคมเปญใหม่");
@@ -1279,12 +1374,99 @@ export function AdminCampaignForm({
   const [costCoins, setCostCoins] = useState(1);
   const [totalSlots, setTotalSlots] = useState(100);
   const [displayTags, setDisplayTags] = useState("PSA10, New Exclusive");
+  const [draftPrizes, setDraftPrizes] = useState<CampaignPrizeDraft[]>(() =>
+    createInitialPrizeDrafts(cards),
+  );
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const activePrizeDrafts = useMemo(
+    () =>
+      draftPrizes.filter(
+        (prize) => prize.cardId && Number(prize.quantity) > 0,
+      ),
+    [draftPrizes],
+  );
+  const configuredPrizeUnits = activePrizeDrafts.reduce(
+    (sum, prize) => sum + Math.max(0, Math.round(Number(prize.quantity) || 0)),
+    0,
+  );
+  const initialUnlockedUnits = activePrizeDrafts
+    .filter(
+      (prize) =>
+        Number(prize.weight) > 0 && Number(prize.unlockAtSoldPct) <= 0,
+    )
+    .reduce((sum, prize) => sum + Math.max(0, Math.round(prize.quantity)), 0);
+  const highPrizeRows = activePrizeDrafts.filter(
+    (prize) => prize.tier === "high",
+  ).length;
+  const topPrizeRows = activePrizeDrafts.filter(
+    (prize) => prize.group === "top",
+  ).length;
+  const rankKeys = activePrizeDrafts.map(
+    (prize) => `${prize.tier}:${prize.rank}`,
+  );
+  const hasDuplicateRank = rankKeys.some(
+    (rankKey, index) => rankKeys.indexOf(rankKey) !== index,
+  );
+  const prizeBlockers = [
+    !cards.length ? "Add at least one card in Card Catalog first." : "",
+    !activePrizeDrafts.length ? "Choose prize inventory before saving." : "",
+    configuredPrizeUnits < totalSlots
+      ? "Prize quantity must cover the total pack quantity."
+      : "",
+    initialUnlockedUnits <= 0
+      ? "At least one prize must unlock at 0% with weight above 0."
+      : "",
+    highPrizeRows <= 0 ? "Choose at least one high-tier/top prize." : "",
+    topPrizeRows <= 0 ? "Keep at least one Top 1-3 showcase prize." : "",
+    hasDuplicateRank ? "Prize ranks must be unique inside each tier." : "",
+  ].filter(Boolean);
+
+  function updatePrizeDraft(
+    localId: string,
+    patch: Partial<CampaignPrizeDraft>,
+  ) {
+    setDraftPrizes((current) =>
+      current.map((prize) =>
+        prize.localId === localId ? { ...prize, ...patch } : prize,
+      ),
+    );
+  }
+
+  function addPrizeDraft(group: "high" | "normal") {
+    const tier = group === "high" ? "high" : "normal";
+    const sameTier = draftPrizes.filter((prize) => prize.tier === tier);
+    const nextRank =
+      group === "high"
+        ? Math.max(4, ...sameTier.map((prize) => prize.rank + 1))
+        : Math.max(1, ...sameTier.map((prize) => prize.rank + 1));
+    const remainingNeed = Math.max(1, totalSlots - configuredPrizeUnits);
+    setDraftPrizes((current) => [
+      ...current,
+      {
+        localId: `${group}-${Date.now().toString(36)}`,
+        group,
+        cardId: firstCatalogCardId(cards),
+        tier,
+        rank: nextRank,
+        valueThb: group === "high" ? 1000 : 100,
+        quantity: group === "high" ? 1 : remainingNeed,
+        weight: group === "high" ? 1 : 10,
+        unlockAtSoldPct: group === "high" ? 30 : 0,
+      },
+    ]);
+  }
+
+  function removePrizeDraft(localId: string) {
+    setDraftPrizes((current) =>
+      current.filter((prize) => prize.localId !== localId),
+    );
+  }
 
   function submit() {
     startTransition(async () => {
       try {
+        if (prizeBlockers.length) throw new Error(prizeBlockers[0]);
         const payload = await postJson("/api/ynot/admin/campaigns", {
           slug,
           titleTh,
@@ -1299,9 +1481,21 @@ export function AdminCampaignForm({
           isTest,
           status: "draft",
           visibility: "private",
+          initialPrizes: activePrizeDrafts.map((prize) => ({
+            cardId: prize.cardId,
+            tier: prize.tier,
+            rank: Math.max(1, Math.round(Number(prize.rank) || 1)),
+            valueThb: Math.max(0, Math.round(Number(prize.valueThb) || 0)),
+            quantity: Math.max(0, Math.round(Number(prize.quantity) || 0)),
+            weight: Math.max(0, Number(prize.weight) || 0),
+            unlockAtSoldPct: Math.min(
+              100,
+              Math.max(0, Math.round(Number(prize.unlockAtSoldPct) || 0)),
+            ),
+          })),
         });
         setMessage(
-          `Random pack ${payload.campaign?.slug ?? slug} saved as draft.`,
+          `Random pack ${payload.campaign?.slug ?? slug} saved as draft with ${configuredPrizeUnits.toLocaleString()} prize units.`,
         );
       } catch (error) {
         setMessage(
@@ -1317,10 +1511,10 @@ export function AdminCampaignForm({
     <section className="admin-pack-form soft-card">
       <div className="admin-form-head">
         <span>New random pack</span>
-        <h3>Create pack draft</h3>
+        <h3>Create pack draft with prizes</h3>
         <p>
-          Fill these three sections, save as draft, then publish from the pack
-          list below when the image, prizes, price, and labels are ready.
+          Choose the pack details and prize inventory together before the draft
+          can enter owner review.
         </p>
       </div>
 
@@ -1465,11 +1659,188 @@ export function AdminCampaignForm({
             New Exclusive, Manga, Few Left, or Event.
           </p>
         </div>
+
+        <div className="admin-form-step">
+          <strong>4. Prize inventory picker</strong>
+          <p>
+            Top 1-3 prizes show first for owner review. Normal/base prizes must
+            cover the remaining pack quantity and unlock at 0% sold.
+          </p>
+          <div className="admin-prize-picker-toolbar">
+            <button
+              className="plain-button rounded-2xl px-4 py-3 text-sm font-black"
+              onClick={() => addPrizeDraft("high")}
+              type="button"
+            >
+              Add high tier
+            </button>
+            <button
+              className="plain-button rounded-2xl px-4 py-3 text-sm font-black"
+              onClick={() => addPrizeDraft("normal")}
+              type="button"
+            >
+              Add normal/base
+            </button>
+          </div>
+          <div className="admin-prize-draft-list">
+            {draftPrizes.map((prize) => (
+              <article className="admin-prize-draft-card" key={prize.localId}>
+                <div className="admin-prize-draft-head">
+                  <div>
+                    <span>{prizeDraftGroupLabel(prize.group)}</span>
+                    <strong>
+                      {prize.tier === "high" ? "High" : "Normal"} #{prize.rank}
+                    </strong>
+                  </div>
+                  {prize.group !== "top" && (
+                    <button
+                      className="danger-button rounded-2xl px-3 py-2 text-xs font-black"
+                      onClick={() => removePrizeDraft(prize.localId)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <div className="admin-form-grid admin-form-grid-three">
+                  <label className="admin-field admin-field-wide">
+                    <span>Prize card</span>
+                    <select
+                      value={prize.cardId}
+                      onChange={(event) =>
+                        updatePrizeDraft(prize.localId, {
+                          cardId: event.target.value,
+                        })
+                      }
+                    >
+                      {cards.map((card) => (
+                        <option
+                          key={card.catalogCardId}
+                          value={card.catalogCardId}
+                        >
+                          {card.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="admin-field">
+                    <span>Rank</span>
+                    <input
+                      min={1}
+                      type="number"
+                      value={prize.rank}
+                      onChange={(event) =>
+                        updatePrizeDraft(prize.localId, {
+                          rank: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="admin-field">
+                    <span>Quantity</span>
+                    <input
+                      min={0}
+                      type="number"
+                      value={prize.quantity}
+                      onChange={(event) =>
+                        updatePrizeDraft(prize.localId, {
+                          quantity: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="admin-field">
+                    <span>Value THB</span>
+                    <input
+                      min={0}
+                      type="number"
+                      value={prize.valueThb}
+                      onChange={(event) =>
+                        updatePrizeDraft(prize.localId, {
+                          valueThb: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="admin-field">
+                    <span>Drop weight</span>
+                    <input
+                      min={0}
+                      step={0.1}
+                      type="number"
+                      value={prize.weight}
+                      onChange={(event) =>
+                        updatePrizeDraft(prize.localId, {
+                          weight: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="admin-field">
+                    <span>Unlock sold %</span>
+                    <input
+                      max={100}
+                      min={0}
+                      type="number"
+                      value={prize.unlockAtSoldPct}
+                      onChange={(event) =>
+                        updatePrizeDraft(prize.localId, {
+                          unlockAtSoldPct: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="admin-field">
+                    <span>Tier</span>
+                    <select
+                      disabled={prize.group === "top"}
+                      value={prize.tier}
+                      onChange={(event) =>
+                        updatePrizeDraft(prize.localId, {
+                          tier: event.target.value as "normal" | "high",
+                        })
+                      }
+                    >
+                      <option value="high">High tier</option>
+                      <option value="normal">Normal/base</option>
+                    </select>
+                  </label>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="admin-prize-summary-grid">
+            <div>
+              <span>Prize units</span>
+              <strong>
+                {configuredPrizeUnits.toLocaleString()}/
+                {totalSlots.toLocaleString()}
+              </strong>
+            </div>
+            <div>
+              <span>Initial openable</span>
+              <strong>{initialUnlockedUnits.toLocaleString()}</strong>
+            </div>
+            <div>
+              <span>Top/high rows</span>
+              <strong>
+                {topPrizeRows}/{highPrizeRows}
+              </strong>
+            </div>
+          </div>
+          {prizeBlockers.length > 0 && (
+            <ul className="admin-prize-blocker-list">
+              {prizeBlockers.map((blocker) => (
+                <li key={blocker}>{blocker}</li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       <button
         className="gold-button admin-form-save"
-        disabled={isPending}
+        disabled={isPending || prizeBlockers.length > 0}
         onClick={submit}
         type="button"
       >
@@ -1494,7 +1865,8 @@ type LifecycleAction =
   | "request_changes"
   | "publish"
   | "close"
-  | "archive";
+  | "archive"
+  | "delete";
 
 export function OwnerApprovalQueue({
   requests,
@@ -1614,7 +1986,10 @@ export function OwnerApprovalQueue({
       <div className="owner-approval-list">
         {items.map((item, index) => {
           const isOwner = viewerRole === "owner";
-          const canPublish = isOwner && item.approvalStatus === "approved";
+          const readinessBlockers = item.campaign.readinessBlockers ?? [];
+          const readinessBlocked = readinessBlockers.length > 0;
+          const canPublish =
+            isOwner && item.approvalStatus === "approved" && !readinessBlocked;
           const logicLocked = item.approvalStatus === "approved";
           const summaryLines = ownerLogicSummary(
             item.selectedLogicMode,
@@ -1689,7 +2064,19 @@ export function OwnerApprovalQueue({
                     {item.campaign.totalPrizeUnits ?? item.campaign.totalSlots}
                   </strong>
                 </div>
+                <div>
+                  <span>Openable now</span>
+                  <strong>{item.campaign.eligiblePrizeUnits ?? 0}</strong>
+                </div>
               </div>
+
+              {readinessBlocked && (
+                <ul className="admin-prize-blocker-list">
+                  {readinessBlockers.map((blocker) => (
+                    <li key={blocker}>{blocker}</li>
+                  ))}
+                </ul>
+              )}
 
               <ul className="owner-approval-summary">
                 {summaryLines.map((line) => (
@@ -1704,7 +2091,7 @@ export function OwnerApprovalQueue({
                 </div>
                 <button
                   className="gold-button"
-                  disabled={!isOwner || isPending}
+                  disabled={!isOwner || isPending || readinessBlocked}
                   onClick={() => applyAction(index, "approve")}
                   type="button"
                 >
@@ -1752,10 +2139,31 @@ export function OwnerApprovalQueue({
 
 export function AdminCampaignActionPanel({
   campaigns,
+  viewerRole,
 }: {
   campaigns: YnotCampaign[];
+  viewerRole?: "owner" | "admin" | "staff" | null;
 }) {
-  if (!campaigns.length) {
+  const [campaignPatches, setCampaignPatches] = useState<
+    Record<string, Partial<YnotCampaign>>
+  >({});
+  const items = useMemo(
+    () =>
+      campaigns.map((campaign) => ({
+        ...campaign,
+        ...(campaignPatches[campaign.id] ?? {}),
+      })),
+    [campaignPatches, campaigns],
+  );
+
+  function updateCampaign(campaignId: string, patch: Partial<YnotCampaign>) {
+    setCampaignPatches((current) => ({
+      ...current,
+      [campaignId]: { ...(current[campaignId] ?? {}), ...patch },
+    }));
+  }
+
+  if (!items.length) {
     return (
       <section className="admin-pack-list soft-card">
         <div className="admin-form-head">
@@ -1769,6 +2177,20 @@ export function AdminCampaignActionPanel({
       </section>
     );
   }
+  const activeCampaigns = items.filter(
+    (campaign) =>
+      !campaign.adminRemoved &&
+      !campaign.soldOut &&
+      campaign.status !== "closed" &&
+      campaign.status !== "archived",
+  );
+  const historyCampaigns = items.filter(
+    (campaign) =>
+      campaign.adminRemoved ||
+      campaign.soldOut ||
+      campaign.status === "closed" ||
+      campaign.status === "archived",
+  );
 
   return (
     <section className="admin-pack-list soft-card">
@@ -1781,15 +2203,48 @@ export function AdminCampaignActionPanel({
         </p>
       </div>
       <div className="admin-pack-row-list">
-        {campaigns.map((campaign) => (
-          <AdminCampaignStatusRow key={campaign.id} campaign={campaign} />
+        {activeCampaigns.map((campaign) => (
+          <AdminCampaignStatusRow
+            key={campaign.id}
+            campaign={campaign}
+            onCampaignChange={updateCampaign}
+            viewerRole={viewerRole}
+          />
         ))}
       </div>
+      {!activeCampaigns.length && (
+        <p className="admin-empty-note">No active draft/live packs.</p>
+      )}
+      <div className="admin-pack-history-head">
+        <span>History</span>
+        <strong>Closed, sold-out, archived, and removed packs</strong>
+      </div>
+      <div className="admin-pack-row-list">
+        {historyCampaigns.map((campaign) => (
+          <AdminCampaignStatusRow
+            key={campaign.id}
+            campaign={campaign}
+            onCampaignChange={updateCampaign}
+            viewerRole={viewerRole}
+          />
+        ))}
+      </div>
+      {!historyCampaigns.length && (
+        <p className="admin-empty-note">No history packs yet.</p>
+      )}
     </section>
   );
 }
 
-function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
+function AdminCampaignStatusRow({
+  campaign,
+  onCampaignChange,
+  viewerRole,
+}: {
+  campaign: YnotCampaign;
+  onCampaignChange: (campaignId: string, patch: Partial<YnotCampaign>) => void;
+  viewerRole?: "owner" | "admin" | "staff" | null;
+}) {
   const [status, setStatus] = useState<YnotCampaign["status"]>(campaign.status);
   const [visibility, setVisibility] = useState<YnotCampaign["visibility"]>(
     campaign.visibility,
@@ -1802,6 +2257,8 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
   );
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const readinessBlockers = campaign.readinessBlockers ?? [];
+  const isOwner = viewerRole === "owner";
 
   function submit(nextStatus = status, nextVisibility = visibility) {
     startTransition(async () => {
@@ -1821,7 +2278,7 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
           setMessage("Local mock status updated in this browser session.");
           return;
         }
-        await requestJson(
+        const payload = await requestJson(
           "/api/ynot/admin/campaigns",
           {
             campaignId: campaign.id,
@@ -1831,8 +2288,19 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
           },
           "PATCH",
         );
-        setStatus(nextStatus);
-        setVisibility(nextVisibility);
+        const updatedStatus = payload.status ?? "draft";
+        const updatedVisibility = payload.visibility ?? "private";
+        const updatedApprovalStatus =
+          payload.approvalStatus ?? "pending_review";
+        setStatus(updatedStatus);
+        setVisibility(updatedVisibility);
+        setApprovalStatus(updatedApprovalStatus);
+        onCampaignChange(campaign.id, {
+          approvalStatus: updatedApprovalStatus,
+          displayTags: inputToTags(displayTags),
+          status: updatedStatus,
+          visibility: updatedVisibility,
+        });
         setMessage(
           "Random pack status and customer card labels saved. Refresh to see the updated public page.",
         );
@@ -1850,18 +2318,86 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
     startTransition(async () => {
       try {
         setMessage("");
+        if (readinessBlockers.length) throw new Error(readinessBlockers[0]);
         const payload = await requestJson(
           "/api/ynot/admin/campaigns/lifecycle",
           { campaignId: campaign.id, action: "submit_review" },
           "POST",
         );
         setApprovalStatus(payload.approvalStatus ?? "pending_review");
+        setStatus(payload.status ?? "draft");
+        setVisibility(payload.visibility ?? "private");
+        onCampaignChange(campaign.id, {
+          approvalStatus: payload.approvalStatus ?? "pending_review",
+          status: payload.status ?? "draft",
+          visibility: payload.visibility ?? "private",
+        });
         setMessage(payload.message ?? "Random pack submitted for owner review.");
       } catch (error) {
         setMessage(
           error instanceof Error
             ? error.message
             : "Random pack could not be submitted for owner review.",
+        );
+      }
+    });
+  }
+
+  function applyLifecycleAction(action: "close" | "archive") {
+    startTransition(async () => {
+      try {
+        setMessage("");
+        const payload = await requestJson(
+          "/api/ynot/admin/campaigns/lifecycle",
+          { campaignId: campaign.id, action },
+          "POST",
+        );
+        const updatedStatus = payload.status ?? status;
+        const updatedVisibility = payload.visibility ?? visibility;
+        const updatedApprovalStatus = payload.approvalStatus ?? approvalStatus;
+        setStatus(updatedStatus);
+        setVisibility(updatedVisibility);
+        setApprovalStatus(updatedApprovalStatus);
+        onCampaignChange(campaign.id, {
+          approvalStatus: updatedApprovalStatus,
+          status: updatedStatus,
+          visibility: updatedVisibility,
+        });
+        setMessage(payload.message ?? "Random pack lifecycle updated.");
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Random pack lifecycle could not be updated.",
+        );
+      }
+    });
+  }
+
+  function removeCampaign() {
+    startTransition(async () => {
+      try {
+        setMessage("");
+        const payload = await requestJson(
+          "/api/ynot/admin/campaigns/lifecycle",
+          { campaignId: campaign.id, action: "delete" },
+          "POST",
+        );
+        setStatus(payload.status ?? "archived");
+        setVisibility(payload.visibility ?? "private");
+        setApprovalStatus(payload.approvalStatus ?? approvalStatus);
+        onCampaignChange(campaign.id, {
+          adminRemoved: true,
+          approvalStatus: payload.approvalStatus ?? approvalStatus,
+          status: payload.status ?? "archived",
+          visibility: payload.visibility ?? "private",
+        });
+        setMessage(payload.message ?? "Pack removed and kept in history.");
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Random pack could not be removed.",
         );
       }
     });
@@ -1884,14 +2420,26 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
             {campaign.totalPrizeUnits !== undefined
               ? ` · ${campaign.availablePrizeUnits ?? 0}/${campaign.totalPrizeUnits} prizes left`
               : ""}
+            {campaign.eligiblePrizeUnits !== undefined
+              ? ` · ${campaign.eligiblePrizeUnits} openable prizes`
+              : ""}
           </p>
         </div>
         <div className="admin-pack-badges">
           <strong>{status}</strong>
           <em>{visibility}</em>
           <em>{approvalStatusLabel(approvalStatus)}</em>
+          {campaign.soldOut && <em>Sold out</em>}
+          {campaign.adminRemoved && <em>Removed</em>}
         </div>
       </div>
+      {readinessBlockers.length > 0 && (
+        <ul className="admin-prize-blocker-list">
+          {readinessBlockers.map((blocker) => (
+            <li key={blocker}>{blocker}</li>
+          ))}
+        </ul>
+      )}
 
       <div className="admin-pack-row-controls">
         <label className="admin-field">
@@ -1942,7 +2490,7 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
         </button>
         <button
           className="plain-button"
-          disabled={isPending}
+          disabled={isPending || readinessBlockers.length > 0}
           onClick={submitReview}
           type="button"
         >
@@ -1951,7 +2499,7 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
         <button
           className="plain-button"
           disabled={isPending}
-          onClick={() => submit("closed", "private")}
+          onClick={() => applyLifecycleAction("close")}
           type="button"
         >
           Close private
@@ -1959,11 +2507,21 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
         <button
           className="danger-button"
           disabled={isPending}
-          onClick={() => submit("archived", "private")}
+          onClick={() => applyLifecycleAction("archive")}
           type="button"
         >
           Archive private
         </button>
+        {isOwner && (
+          <button
+            className="danger-button"
+            disabled={isPending}
+            onClick={removeCampaign}
+            type="button"
+          >
+            Remove pack
+          </button>
+        )}
       </div>
       {message && <p className="admin-pack-row-message">{message}</p>}
     </article>

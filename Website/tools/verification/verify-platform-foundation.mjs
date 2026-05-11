@@ -79,10 +79,11 @@ check("src/features/ynot/components.tsx", "normal web login and signup navigatio
 check("src/app/page.tsx", "home page reads category, tag, and sort filters from URL search params", /searchParams[\s\S]*normalizeHomeSeries\(params\?\.series\)[\s\S]*normalizeHomeTag\(params\?\.tag\)[\s\S]*normalizeHomeSort\(params\?\.sort\)/);
 check("src/features/ynot/components.tsx", "home category and tag filters are real links that preserve filter state", /homeFilterHref[\s\S]*href=\{homeFilterHref\(\{[\s\S]*series: category\.series,[\s\S]*tag: homeFilter\.tag,[\s\S]*sort: homeFilter\.sort,[\s\S]*\}\)\}/);
 check("src/features/ynot/components.tsx", "home campaigns are sorted by selected sort option", /function sortedCampaigns[\s\S]*sort === "latest"[\s\S]*coins-desc[\s\S]*filteredCampaigns[\s\S]*sortedCampaigns\(filtered, filter\.sort\)/);
-check("src/features/ynot/StorePreferences.tsx", "sort select updates the URL query", /export function StoreSortSelect[\s\S]*router\.replace\(homeSortHref\(\{ \.\.\.homeFilter, sort \}\), \{ scroll: false \}\)/);
+check("src/features/ynot/StorePreferences.tsx", "sort select updates the URL query", /export function StoreSortSelect[\s\S]*router\.replace\(\s*homeSortHref\(\{ \.\.\.homeFilter, sort \}\),[\s\S]*scroll: false/);
 check("src/features/ynot/components.tsx", "customer pack card labels price per pack instead of per random", /coins per pack[\s\S]*\/pack/);
 check("src/features/auth/AuthForm.tsx", "LINE login is available from auth pages", /\/api\/line\/login\/start\?mode=login/);
-check("src/app/(store)/profile/page.tsx", "profile page exposes LINE connect flow", /mode=connect[\s\S]*Connect LINE to this account/);
+check("src/app/(store)/profile/personal-info/page.tsx", "personal info page exposes LINE connect flow", /mode=connect[\s\S]*lineHref/);
+check("src/features/ynot/client.tsx", "personal info form renders LINE connect action", /Connect \/ reconnect LINE/);
 check("src/app/api/line/callback/route.ts", "LINE callback validates state and links identity", /state !== storedState\.state[\s\S]*linkLineIdentity/);
 check("src/app/api/line/login/start/route.ts", "LINE login requires configured production site origin", /NEXT_PUBLIC_SITE_URL[\s\S]*NODE_ENV === "production"[\s\S]*NEXT_PUBLIC_SITE_URL is required before production LINE login/);
 check("src/app/api/line/callback/route.ts", "LINE callback exchanges with trusted redirect URI", /NEXT_PUBLIC_SITE_URL[\s\S]*redirect_uri:\s*redirectUri/);
@@ -98,7 +99,9 @@ check("src/features/ynot/client.tsx", "admin payment settings call payment metho
 check("src/features/ynot/client.tsx", "admin campaign form calls campaign API", /\/api\/ynot\/admin\/campaigns/);
 check("src/features/ynot/client.tsx", "admin category form calls category API", /AdminCategoryForm[\s\S]*\/api\/ynot\/admin\/categories/);
 check("src/features/ynot/client.tsx", "admin campaign form and update rows edit customer card labels", /Customer card labels[\s\S]*displayTags/);
-check("src/features/ynot/client.tsx", "admin campaign action panel publishes and archives campaigns", /\/api\/ynot\/admin\/campaigns[\s\S]*Make live public[\s\S]*Archive private/);
+check("src/features/ynot/client.tsx", "admin campaign action panel submits review and archives campaigns", /\/api\/ynot\/admin\/campaigns\/lifecycle[\s\S]*Submit owner review[\s\S]*Archive private/);
+check("src/features/ynot/client.tsx", "admin campaign form includes top and base prize inventory picker", /Top 1-3[\s\S]*Add high tier[\s\S]*Add normal\/base/);
+check("src/features/ynot/client.tsx", "admin campaign form blocks underfilled prize quantities", /Prize quantity must cover the total pack quantity/);
 check("src/features/ynot/client.tsx", "admin card form calls card API", /\/api\/ynot\/admin\/cards/);
 check("src/features/ynot/client.tsx", "admin prize pool form calls prize API", /\/api\/ynot\/admin\/prizes/);
 check("src/features/ynot/client.tsx", "admin user role form calls users API", /\/api\/ynot\/admin\/users/);
@@ -107,6 +110,9 @@ check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API is admin 
 check("src/app/api/ynot/admin/categories/route.ts", "admin category API is admin gated", /resolveAdminSession[\s\S]*Admin access is required/);
 check("src/app/api/ynot/admin/categories/route.ts", "admin category API persists store categories", /from\("store_categories"\)[\s\S]*upsert/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API persists customer display tags", /displayTags[\s\S]*display_tags/);
+check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API requires initial prize inventory on create", /initialPrizes[\s\S]*validatePrizeDraftsForSave[\s\S]*saveInitialPrizes/);
+check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle checks prize readiness before review approve publish", /submit_review[\s\S]*approve[\s\S]*publish[\s\S]*getCampaignPrizeReadiness[\s\S]*readinessErrorResponse/);
+check("src/features/ynot/prize-readiness.ts", "random pack readiness blocks missing or non-openable prize inventory", /Add prize inventory before saving[\s\S]*Available prize units must cover every remaining pack[\s\S]*No available prize is currently unlocked/);
 check("src/app/api/ynot/admin/cards/route.ts", "admin card API is admin gated", /resolveAdminSession[\s\S]*Admin access is required/);
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API assigns draw_round_prizes", /resolveAdminSession[\s\S]*from\("draw_round_prizes"\)[\s\S]*onConflict: "draw_round_id,tier,rank"/);
 check("src/app/api/ynot/admin/users/route.ts", "admin users API protects owner changes and self deactivation", /Only an owner can grant owner role[\s\S]*cannot deactivate your own admin access/);
@@ -114,7 +120,7 @@ check("src/app/api/ynot/admin/merge-requests/route.ts", "admin merge API uses se
 check("src/app/api/ynot/admin/shipping/route.ts", "admin shipping route uses transaction-safe status RPC", /supabase\.rpc\("update_shipping_request_status"[\s\S]*p_shipping_request_id[\s\S]*p_admin_id[\s\S]*p_status/);
 check("src/features/ynot/components.tsx", "admin routes are hidden unless viewer is admin", /viewer\.isAdmin &&[\s\S]*href="\/admin"/);
 check("src/features/ynot/components.tsx", "non-admin admin route gets denial state", /Admin access is required/);
-check("src/features/ynot/data.ts", "public campaign reads filter hidden/private visibility", /query = query\.eq\("visibility", "public"\)\.in\("status", \["live", "closed"\]\)/);
+check("src/features/ynot/data.ts", "public campaign reads filter to live openable packs only", /query = query\.eq\("visibility", "public"\)\.eq\("status", "live"\)[\s\S]*campaigns\.filter\(\(campaign\) => campaign\.openable\)/);
 check("src/features/ynot/data.ts", "admin dashboard can request private campaigns explicitly", /getCampaigns\(\{ includePrivate: viewer\.isAdmin \}\)/);
 check("src/features/ynot/data.ts", "admin user and audit data readers exist", /getAdminUsers[\s\S]*getAdminAuditEvents/);
 check("src/features/ynot/data.ts", "admin user reader checks admin before service read", /export async function getAdminUsers\(\)[\s\S]*const admin = await resolveAdminSession\(\);[\s\S]*if \(!admin\) return \[\];[\s\S]*const supabase = createServiceSupabaseClient\(\);/);

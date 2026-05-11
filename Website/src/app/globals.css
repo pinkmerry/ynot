@@ -7109,6 +7109,111 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   padding: 12px 14px;
 }
 
+.admin-prize-picker-toolbar,
+.admin-pack-history-head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.admin-prize-draft-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-prize-draft-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.admin-prize-draft-head {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.admin-prize-draft-head span,
+.admin-pack-history-head span,
+.admin-prize-summary-grid span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 1000;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.admin-prize-draft-head strong,
+.admin-pack-history-head strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 1000;
+}
+
+.admin-prize-summary-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-prize-summary-grid > div {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.admin-prize-summary-grid strong {
+  font-size: 1rem;
+  font-weight: 1000;
+}
+
+.admin-prize-blocker-list {
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.22);
+  border-radius: 16px;
+  color: #fecdd3;
+  display: grid;
+  font-size: 0.86rem;
+  font-weight: 800;
+  gap: 6px;
+  list-style: disc;
+  margin: 0;
+  padding: 12px 14px 12px 30px;
+}
+
+.admin-redesign-reference .admin-prize-draft-card,
+.admin-redesign-reference .admin-prize-summary-grid > div {
+  background: #ffffff !important;
+  border-color: var(--admin-line) !important;
+}
+
+.admin-redesign-reference .admin-prize-draft-head span,
+.admin-redesign-reference .admin-pack-history-head span,
+.admin-redesign-reference .admin-prize-summary-grid span {
+  color: var(--admin-muted) !important;
+}
+
+.admin-redesign-reference .admin-prize-blocker-list {
+  background: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+  color: #be123c !important;
+}
+
+@media (max-width: 720px) {
+  .admin-prize-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .admin-pack-row-main {
   align-items: start;
   display: flex;
