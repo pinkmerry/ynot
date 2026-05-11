@@ -67,6 +67,10 @@ check("src/features/auth/actions.ts", "email password sign in exists", /signInWi
 check("src/features/auth/actions.ts", "email password sign up exists", /signUp\(/);
 check("src/features/auth/actions.ts", "Google OAuth starts from server action", /signInWithOAuth\([\s\S]*provider:\s*"google"/);
 check("src/features/auth/actions.ts", "OAuth redirect origin uses configured production site URL", /NEXT_PUBLIC_SITE_URL[\s\S]*NODE_ENV === "production"[\s\S]*return null/);
+notCheck("src/features/auth/AuthForm.tsx", "auth form does not show unsupported Apple sign in", /Apple|apple-button/);
+check("src/features/auth/AuthForm.tsx", "auth form still offers Google sign in", /signInWithGoogleAction[\s\S]*Continue[\s\S]*with Google/);
+check("src/features/auth/AuthForm.tsx", "auth form still offers LINE sign in", /\/api\/line\/login\/start\?mode=login/);
+check("src/features/auth/AuthForm.tsx", "auth form still offers email password account creation", /signUpWithPasswordAction[\s\S]*Create account/);
 check("src/app/auth/callback/route.ts", "OAuth callback exchanges code for server session", /exchangeCodeForSession\(code\)/);
 check("src/app/auth/callback/route.ts", "OAuth callback sanitizes next redirect path", /function safeRedirectPath\([\s\S]*value\.startsWith\("\/\/"\)[\s\S]*return `\$\{parsed\.pathname\}\$\{parsed\.search\}\$\{parsed\.hash\}`;/);
 notCheck("src/app/auth/callback/route.ts", "OAuth callback rejects protocol-relative open redirects", /new URL\(next\.startsWith\("\/"\) \? next : "\/", url\.origin\)/);
