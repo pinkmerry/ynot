@@ -182,10 +182,13 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 ### Production auth/random-pack test unblock applied
 
 - On 2026-05-11, by explicit owner request for solo production testing, `main` was updated to commit `87153aa` and deployed to both Vercel production projects.
-- Applied live Supabase migrations through linked Supabase CLI against ref `szjoarkijeaspazbrchc`:
+- Applied live Supabase migrations through linked Supabase CLI against ref `szjoarkijeaspazbrchc` and repaired remote migration history for them:
   - `20260507015626_phase1_auth_identity_realtime.sql`
   - `20260507032000_phase2_platform_wallet_gacha.sql`
+  - `20260508133000_add_campaign_display_tags.sql`
+  - `20260508162000_add_api_rate_limits.sql`
   - `20260509100000_admin_test_categories_inventory.sql`
+  - `20260509162000_add_admin_shipping_status_rpc.sql`
 - Fixed the production readiness verifier so join tables without an `id` column are checked by REST visibility instead of an `id` projection.
 - Verification evidence: production `/login` and `/signup` render Google, LINE, and email/password with Apple removed; email/password signup smoke returned the expected confirmation-email redirect; `npm run verify:production-db` passed with only tone-cleanup warnings.
 - Remaining external blockers: Supabase Google provider is not enabled, LINE Developers is missing/does not accept `https://www.ynottcg.com/api/line/callback`, and leaked Supabase credentials still need rotation.
@@ -212,10 +215,10 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 | --- | --- | --- |
 | Product requirements | Planned | Deep-interview spec exists. |
 | Frontend/platform architecture | Planned and approved | `docs/plans/ralplan-ynot-production-website.md` and PRD/test/ADR exist. |
-| Backend/database architecture | Planned and approved; core production unblock migrations applied on 2026-05-11 | `../Database/supabase/migrations/20260507015626_phase1_auth_identity_realtime.sql`; `../Database/supabase/migrations/20260507032000_phase2_platform_wallet_gacha.sql`; `../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql`; `npm run verify:production-db` passed with only tone-removal warnings. |
+| Backend/database architecture | Planned and approved; core production unblock migrations applied on 2026-05-11 | `../Database/supabase/migrations/20260507015626_phase1_auth_identity_realtime.sql`; `../Database/supabase/migrations/20260507032000_phase2_platform_wallet_gacha.sql`; `../Database/supabase/migrations/20260508133000_add_campaign_display_tags.sql`; `../Database/supabase/migrations/20260508162000_add_api_rate_limits.sql`; `../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql`; `../Database/supabase/migrations/20260509162000_add_admin_shipping_status_rpc.sql`; `npm run verify:production-db` passed with only tone-removal warnings. |
 | Existing modularization slice | Previously verified | Prior status recorded lint/build/static smoke pass. |
 | Full production implementation | Separate GitHub/Vercel production deployment ready for page/navigation smoke; full write-flow validation still DB/provider gated | `https://github.com/pinkmerry/ynott`; canonical website `https://www.ynottcg.com`; website fallback alias `https://ynott-website.vercel.app`; LIFF fallback `https://ynott-line-liff.vercel.app`; production route/link smoke passed. |
-| Database migration execution | Core test unblock applied | Applied Phase 1 auth identity, Phase 2 wallet/gacha, and admin test categories/inventory migrations to live ref `szjoarkijeaspazbrchc`; `npm run verify:production-db` passed with 2 non-blocking tone warnings. |
+| Database migration execution | Core test unblock applied | Applied Phase 1 auth identity, Phase 2 wallet/gacha, display-tag, API rate-limit, admin test categories/inventory, and admin shipping-status RPC migrations to live ref `szjoarkijeaspazbrchc`; remote migration history was repaired; `npm run verify:production-db` passed with 2 non-blocking tone warnings. |
 | HTML wireframe UX/UI parity | Locally corrected and smoke-verified | Browser showed the paper/hand-drawn wireframe skin on `localhost:3005`; curl confirmed Pokemon/One Piece/POP MART, exchange category tabs, and `Charizard SAR` reward detail text. |
 | Full browser QA | Basic localhost and production page/link smoke passed; authenticated e2e not run | Production customer/admin pages returned 200; safe unauth API checks returned expected 400/401/403/503/405 responses; full user/payment/gacha journey remains DB/provider gated. |
 
