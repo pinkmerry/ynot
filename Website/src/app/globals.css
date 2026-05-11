@@ -9287,6 +9287,12 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
 .home-pack-board,
 .product-section,
 .market-shell,
+.phone-surface,
+.phone-page-shell,
+.store-shell > .phone-page-shell,
+.store-shell > .open-sequence-card.phone-surface,
+.open-sequence-card,
+.open-sequence-card.phone-surface,
 .soft-card,
 .metric-card,
 .payment-method-card,
@@ -9315,6 +9321,7 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
 .profile-address-focus,
 .profile-tab-menu,
 .personal-info-form-panel,
+.order-history-card,
 .customer-tabbar,
 .mock-pack-section,
 .mock-pack-card {
@@ -9332,6 +9339,12 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
 .store-hero,
 .product-section,
 .market-shell,
+.phone-surface,
+.phone-page-shell,
+.store-shell > .phone-page-shell,
+.store-shell > .open-sequence-card.phone-surface,
+.open-sequence-card,
+.open-sequence-card.phone-surface,
 .soft-card,
 .metric-card,
 .payment-method-card,
@@ -9360,6 +9373,7 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
 .profile-address-focus,
 .profile-tab-menu,
 .personal-info-form-panel,
+.order-history-card,
 .customer-tabbar,
 .mock-pack-section,
 .mock-pack-card {
@@ -9374,6 +9388,10 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
 .collection-art,
 .collection-mini-art,
 .open-pack-cube,
+.profile-command-avatar,
+.profile-avatar,
+.ranking-avatar,
+.leader-avatar,
 .info-card,
 .showcase-card,
 .promo-qr,
@@ -9381,6 +9399,12 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
 .prize-card,
 .sk-card,
 .sk-img,
+.store-filter-scroll,
+.filter-chip-row,
+.category-strip,
+.ranking-tabs,
+.ranking-tabs span,
+.detail-stat-grid div,
 .profile-command-stats a,
 .profile-attention-grid a,
 .profile-shortcut-card,
@@ -9395,9 +9419,15 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
 .profile-reward-row,
 .personal-info-page .personal-info-summary > div,
 .personal-info-page .profile-form-message,
+.saved-address-card,
+.order-history-card .empty-state,
 .template-promo,
 .exchange-bonus-strip,
 .clean-pack-card .pack-card-bottom,
+.clean-pack-card .pack-price-line,
+.clean-pack-card .pack-remaining-line,
+.progress-track,
+.progress-track span,
 .clean-pack-card .progress-track,
 .mock-progress {
   border-radius: var(--ynot-inner-card-radius) !important;
@@ -9440,6 +9470,11 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
 .personal-info-page .personal-info-actions button,
 .personal-info-page .personal-info-field input,
 .personal-info-page .personal-info-field textarea,
+.topup-slip-card select,
+.topup-slip-card input,
+.topup-slip-card textarea,
+.address-card input,
+.collection-action-bar select,
 .clean-pack-card .pack-info-tags .status-pill,
 .clean-pack-card .pack-info-tags .soft-pill {
   border-radius: var(--ynot-control-radius) !important;
@@ -9465,4 +9500,178 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
 .clean-pack-card .pack-info-tags .status-pill,
 .clean-pack-card .pack-info-tags .soft-pill {
   border-radius: 999px !important;
+}
+
+/* Customer UI comfort pass: bigger gaps, clearer panels, no tight request/history blocks. */
+.store-filter-strip {
+  gap: 12px !important;
+  padding: 12px !important;
+}
+
+.store-filter-scroll,
+.filter-chip-row,
+.category-strip,
+.ranking-tabs,
+.collection-tabs {
+  gap: 8px !important;
+}
+
+.filter-chip,
+.category-tab,
+.ranking-tabs span {
+  min-height: 38px;
+  padding-inline: 14px !important;
+}
+
+.product-card.clean-pack-card,
+.mock-pack-card,
+.open-sequence-card,
+.topup-slip-card,
+.address-card,
+.collection-action-bar,
+.wallet-method-card,
+.wallet-history-card,
+.order-history-card,
+.profile-panel,
+.profile-address-focus,
+.personal-info-form-panel {
+  padding: clamp(18px, 2.2vw, 24px) !important;
+}
+
+.open-sequence-card {
+  gap: 16px !important;
+  justify-items: center;
+}
+
+.open-pack-cube {
+  margin: 8px 0 12px !important;
+}
+
+.clean-pack-card .pack-card-bottom {
+  gap: 10px !important;
+  padding: 10px !important;
+}
+
+.clean-pack-card .pack-price-line,
+.clean-pack-card .pack-remaining-line {
+  min-height: 42px;
+  padding-inline: 12px !important;
+}
+
+.progress-track {
+  height: 10px !important;
+  overflow: hidden;
+}
+
+.profile-command-avatar {
+  border-radius: 30px !important;
+}
+
+.profile-avatar,
+.ranking-avatar,
+.leader-avatar {
+  border-radius: 22px !important;
+}
+
+.wallet-panel-stack,
+.personal-info-page,
+.personal-info-page .personal-info-grid,
+.personal-info-page .personal-info-form-grid,
+.profile-tab-shell,
+.profile-history-list,
+.profile-reward-list,
+.saved-address-list,
+.order-history-card > div,
+.address-card form {
+  gap: 16px !important;
+}
+
+.payment-method-card,
+.request-card,
+.saved-address-card,
+.collection-select-row,
+.personal-info-page .personal-info-summary > div {
+  padding: 16px !important;
+}
+
+.payment-method-card {
+  grid-template-columns: 46px minmax(0, 1fr) 34px !important;
+  min-height: 86px !important;
+}
+
+.payment-icon,
+.payment-chevron {
+  border-radius: 18px !important;
+}
+
+.topup-slip-card label,
+.personal-info-page .personal-info-field {
+  display: grid !important;
+  gap: 9px !important;
+}
+
+.topup-slip-card select,
+.topup-slip-card input,
+.topup-slip-card textarea,
+.address-card input,
+.collection-action-bar select,
+.personal-info-page .personal-info-field input,
+.personal-info-page .personal-info-field textarea {
+  min-height: 50px;
+}
+
+.topup-slip-card input[type="file"] {
+  padding: 11px 14px !important;
+}
+
+.topup-slip-card input[type="file"]::file-selector-button {
+  background: rgba(var(--prototype-cyan-rgb), 0.14);
+  border: 1px solid rgba(var(--prototype-cyan-rgb), 0.36);
+  border-radius: 999px;
+  color: var(--prototype-cyan);
+  font-weight: 900;
+  margin-right: 12px;
+  min-height: 30px;
+  padding: 6px 12px;
+}
+
+.profile-address-focus .address-card {
+  display: grid;
+  gap: 16px !important;
+  padding: 18px !important;
+}
+
+.order-history-card {
+  display: grid;
+  gap: 18px !important;
+}
+
+.order-history-card .empty-state {
+  margin-top: 0 !important;
+  padding: 20px !important;
+}
+
+.order-history-card .request-card + .request-card {
+  margin-top: 4px;
+}
+
+@media (max-width: 640px) {
+  .clean-pack-card .pack-card-bottom {
+    gap: 8px !important;
+  }
+
+  .product-card.clean-pack-card,
+  .mock-pack-card,
+  .open-sequence-card,
+  .topup-slip-card,
+  .address-card,
+  .collection-action-bar,
+  .wallet-method-card,
+  .wallet-history-card,
+  .order-history-card,
+  .profile-panel,
+  .profile-address-focus,
+  .personal-info-form-panel {
+    padding: 16px !important;
+  }
 }

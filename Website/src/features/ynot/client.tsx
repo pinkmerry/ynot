@@ -345,11 +345,11 @@ export function AddressForm({ addresses }: { addresses: YnotAddress[] }) {
   return (
     <section className="soft-card address-card">
       <h3 className="text-lg font-black">Saved shipping address</h3>
-      <div className="mt-4 grid gap-2">
+      <div className="saved-address-list mt-5 grid gap-3">
         {addresses.map((address) => (
           <div
             key={address.id}
-            className="rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-sm"
+            className="saved-address-card rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-sm"
           >
             <p className="font-black">
               {address.label} {address.isDefault ? "· default" : ""}
@@ -361,7 +361,7 @@ export function AddressForm({ addresses }: { addresses: YnotAddress[] }) {
           </div>
         ))}
       </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <input
           className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
           placeholder="Recipient name"

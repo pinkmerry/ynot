@@ -1271,7 +1271,7 @@ export function OrderList({
   orders: Array<YnotExchangeOrder | YnotShippingRequest>;
 }) {
   return (
-    <section className="soft-card rounded-[28px] p-5">
+    <section className="soft-card order-history-card rounded-[28px] p-5">
       <h3 className="title-m">{title}</h3>
       {!orders.length ? (
         <EmptyState
