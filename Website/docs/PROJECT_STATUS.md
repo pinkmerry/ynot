@@ -189,6 +189,13 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 - Local verification evidence from this slice: `npm run typecheck`, `npm run lint`, `npm run build`, `npm run verify:ynot`, and the combined `npm run check` gate passed on 2026-05-10.
 - Important: these migrations have not been applied to production Supabase yet. Production deploy remains gated by backup/PITR/restore evidence plus a passing Supabase branch/staging run of `verify_spin_modes.sql`.
 
+### Auth login v2 local implementation
+
+- Implemented the revised login surface requested on 2026-05-11: Supabase default email/password confirmation remains the create-account path, Google and LINE remain visible provider paths, and unsupported Apple sign-in was removed from login/signup UI and CSS.
+- Added static auth verifier coverage so `npm run verify:auth` now fails if Apple sign-in returns or if Google/LINE/email account creation disappear.
+- Verification evidence: `npm run verify:auth` passed; `npm run check` passed; localhost production-start smoke confirmed `/login` and `/signup` render Google, LINE, and email/password without Apple. Evidence doc: `docs/verification/2026-05-11-auth-login-v2.md`.
+- External/live gates remain: Supabase Auth Site URL/redirect URLs, Google OAuth dashboard settings, LINE channel secret/callbacks, leaked-key rotation, and production DB migration/backup gates.
+
 ## Not Implemented Yet
 
 - Production Supabase migrations have not been applied yet; DB/RLS/runtime behavior for new website tables and the new spin workflow remains gated by SQL execution access and full backup/PITR/restore evidence.
@@ -295,7 +302,7 @@ Yes: we now have approved plans, an implemented website/database foundation, and
   - Exchange uses coin pill, category tabs, bonus strip, three-column sold-out card grid, stock/coin positions.
   - Wallet keeps production manual bank/QR slip upload first while adopting the template Top Up/VIP/payment-row visual system.
   - Profile uses settings-list rows and platform/account controls.
-  - Signup/Login use the template onboarding phone with Apple/Google/LINE/email paths.
+  - Signup/Login use the template onboarding surface with Google/LINE/email paths; unsupported Apple sign-in is intentionally removed.
 - Current project screenshots/audit saved under `.omx/artifacts/visual-ralph/template-10page-audit/current/`:
   - `01-home.png` through `10-signup.png`
   - `ynot-10page-audit.json`
@@ -335,7 +342,7 @@ Yes: we now have approved plans, an implemented website/database foundation, and
   - Mono/uppercase labels.
   - Angular cut-corner cards, panels, chips, auth buttons, CTAs, and bottom tabbar.
   - Prototype-style cyan mobile hero CTA and dark/cyan login/language controls.
-  - Existing page UX details remain intact: playable pack board, Pokemon/One Piece/category tabs, PSA10/MANGA chips, coin pills, pull/open buttons, collection/shipping rows, wallet manual slip upload, profile/settings, login/signup with Apple/Google/LINE/email.
+  - Existing page UX details remain intact: playable pack board, Pokemon/One Piece/category tabs, PSA10/MANGA chips, coin pills, pull/open buttons, collection/shipping rows, wallet manual slip upload, profile/settings, login/signup with Google/LINE/email.
 - Code changes in this slice are theme-only in `src/app/globals.css`; no database, auth, API, or route logic was changed.
 - Current project screenshots/audit saved under `.omx/artifacts/visual-ralph/prototype-theme-responsive/current/`:
   - `desktop/01-home.png` through `desktop/10-signup.png`

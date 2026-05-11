@@ -46,10 +46,6 @@ export function AuthForm({ mode, error, message, next }: AuthFormProps) {
         {error && <p className="rounded-2xl border border-red-300/25 bg-red-400/10 px-3 py-2 text-sm font-bold text-red-100">{error}</p>}
         {message && <p className="rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-3 py-2 text-sm font-bold text-emerald-100">{message}</p>}
 
-        <button type="button" className="auth-social apple-button">
-           {isSignup ? "Sign up" : "Continue"} with Apple
-        </button>
-
         <form action={signInWithGoogleAction}>
           <input type="hidden" name="next" value={nextPath} />
           <button type="submit" className="auth-social google-button">

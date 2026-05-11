@@ -1,0 +1,9 @@
+HTTP/1.1 503 Service Unavailable
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+content-type: application/json
+Date: Mon, 11 May 2026 01:39:19 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"error":"LINE login channel secret is not configured."}
