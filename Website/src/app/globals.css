@@ -9268,3 +9268,201 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
     grid-column: 2;
   }
 }
+
+/* Global customer-page radius alignment.
+   Match the admin redesign language: rounded rectangle panels instead of
+   prototype-style clipped/sharp cyber corners. */
+:root {
+  --ynot-card-radius: 28px;
+  --ynot-panel-radius: 30px;
+  --ynot-inner-card-radius: 22px;
+  --ynot-control-radius: 16px;
+}
+
+.storefront-header,
+.page-intro,
+.store-left-rail,
+.store-filter-strip,
+.store-hero,
+.home-pack-board,
+.product-section,
+.market-shell,
+.soft-card,
+.metric-card,
+.payment-method-card,
+.request-card,
+.collection-card,
+.collection-select-row,
+.detail-visual-card,
+.detail-info-card,
+.live-panel,
+.empty-state,
+.product-card,
+.product-card.clean-pack-card,
+.exchange-card,
+.profile-card,
+.address-card,
+.topup-slip-card,
+.wallet-balance-card,
+.wallet-method-card,
+.wallet-history-card,
+.auth-phone,
+.app-promo-card,
+.ranking-phone,
+.profile-command-card,
+.profile-shortcut-panel,
+.profile-panel,
+.profile-address-focus,
+.profile-tab-menu,
+.personal-info-form-panel,
+.customer-tabbar,
+.mock-pack-section,
+.mock-pack-card {
+  border-radius: var(--ynot-card-radius) !important;
+  clip-path: none !important;
+}
+
+.storefront-header {
+  border-radius: var(--ynot-panel-radius) !important;
+  overflow: visible;
+}
+
+.home-pack-board,
+.page-intro,
+.store-hero,
+.product-section,
+.market-shell,
+.soft-card,
+.metric-card,
+.payment-method-card,
+.request-card,
+.collection-card,
+.collection-select-row,
+.detail-visual-card,
+.detail-info-card,
+.live-panel,
+.empty-state,
+.product-card,
+.product-card.clean-pack-card,
+.exchange-card,
+.profile-card,
+.address-card,
+.topup-slip-card,
+.wallet-balance-card,
+.wallet-method-card,
+.wallet-history-card,
+.auth-phone,
+.app-promo-card,
+.ranking-phone,
+.profile-command-card,
+.profile-shortcut-panel,
+.profile-panel,
+.profile-address-focus,
+.profile-tab-menu,
+.personal-info-form-panel,
+.customer-tabbar,
+.mock-pack-section,
+.mock-pack-card {
+  overflow: hidden;
+}
+
+.campaign-art,
+.campaign-art.clean-art,
+.home-pack-board .campaign-art,
+.home-pack-board .clean-pack-card .campaign-art.clean-art,
+.exchange-art,
+.collection-art,
+.collection-mini-art,
+.open-pack-cube,
+.info-card,
+.showcase-card,
+.promo-qr,
+.reward-tier-card,
+.prize-card,
+.sk-card,
+.sk-img,
+.profile-command-stats a,
+.profile-attention-grid a,
+.profile-shortcut-card,
+.profile-detail-list,
+.profile-line-card,
+.profile-timeline div,
+.profile-empty-note,
+.profile-tab-menu button,
+.profile-pack-card,
+.profile-collection-card,
+.profile-history-row,
+.profile-reward-row,
+.personal-info-page .personal-info-summary > div,
+.personal-info-page .profile-form-message,
+.template-promo,
+.exchange-bonus-strip,
+.clean-pack-card .pack-card-bottom,
+.clean-pack-card .progress-track,
+.mock-progress {
+  border-radius: var(--ynot-inner-card-radius) !important;
+  clip-path: none !important;
+}
+
+.brand-mark,
+.template-icon-button,
+.store-sort-select select,
+.account-chip,
+.language-chip,
+.sort-select,
+.store-balance,
+.store-nav-link,
+.primary-action,
+.secondary-action,
+.gold-button,
+.plain-button,
+.orange-action,
+.sk-btn,
+.filter-chip,
+.category-tab,
+.art-count,
+.art-stock,
+.art-category,
+.art-coin,
+.status-pill,
+.soft-pill,
+.orange-chip,
+.vip-bonus,
+.coin-pill,
+.profile-badge-row span,
+.profile-line-card a,
+.profile-section-head-row a,
+.profile-reward-row > span,
+.auth-social,
+.auth-submit,
+.line-button,
+.personal-info-page .personal-info-actions a,
+.personal-info-page .personal-info-actions button,
+.personal-info-page .personal-info-field input,
+.personal-info-page .personal-info-field textarea,
+.clean-pack-card .pack-info-tags .status-pill,
+.clean-pack-card .pack-info-tags .soft-pill {
+  border-radius: var(--ynot-control-radius) !important;
+  clip-path: none !important;
+}
+
+.status-pill,
+.soft-pill,
+.orange-chip,
+.vip-bonus,
+.coin-pill,
+.filter-chip,
+.category-tab,
+.account-chip,
+.language-chip,
+.sort-select,
+.store-balance,
+.profile-badge-row span,
+.profile-line-card a,
+.profile-section-head-row a,
+.personal-info-page .personal-info-actions a,
+.personal-info-page .personal-info-actions button,
+.clean-pack-card .pack-info-tags .status-pill,
+.clean-pack-card .pack-info-tags .soft-pill {
+  border-radius: 999px !important;
+}
