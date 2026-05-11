@@ -2,7 +2,10 @@ import "server-only";
 
 import { AsyncLocalStorage } from "node:async_hooks";
 
-import { resolveAdminSession, resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
+import {
+  resolveAdminSession,
+  resolveCurrentProfile,
+} from "@/lib/auth/resolve-current-profile";
 import { getCardCatalog, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
@@ -14,6 +17,7 @@ import type {
   YnotAddress,
   YnotCategory,
   YnotExchangeOrder,
+  YnotGachaOpenHistory,
   YnotPaymentMethod,
   YnotPlatformHealth,
   YnotPrizePoolItem,
@@ -35,7 +39,9 @@ const defaultViewer: YnotViewer = {
   adminRole: null,
 };
 
-function safeCostCoins(row: Database["public"]["Tables"]["draw_rounds"]["Row"]) {
+function safeCostCoins(
+  row: Database["public"]["Tables"]["draw_rounds"]["Row"],
+) {
   return row.cost_coins ?? Math.max(1, Math.ceil(row.price_thb / 100));
 }
 
@@ -43,7 +49,9 @@ function defaultCampaignTags(series: "one_piece" | "pokemon") {
   return series === "pokemon" ? ["PSA10"] : ["Manga"];
 }
 
-function safeDisplayTags(row: Database["public"]["Tables"]["draw_rounds"]["Row"]) {
+function safeDisplayTags(
+  row: Database["public"]["Tables"]["draw_rounds"]["Row"],
+) {
   const tags = row.display_tags;
   if (!Array.isArray(tags)) return defaultCampaignTags(row.series);
   const cleaned = tags
@@ -74,15 +82,17 @@ function inventorySummariesFromJson(value: unknown): InventorySummary[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
     if (!isRecord(item) || typeof item.drawRoundId !== "string") return [];
-    return [{
-      drawRoundId: item.drawRoundId,
-      totalSlots: Number(item.totalSlots) || undefined,
-      remainingSlots: Number(item.remainingSlots) || undefined,
-      totalUnits: Number(item.totalUnits) || 0,
-      availableUnits: Number(item.availableUnits) || 0,
-      awardedUnits: Number(item.awardedUnits) || 0,
-      voidUnits: Number(item.voidUnits) || 0,
-    }];
+    return [
+      {
+        drawRoundId: item.drawRoundId,
+        totalSlots: Number(item.totalSlots) || undefined,
+        remainingSlots: Number(item.remainingSlots) || undefined,
+        totalUnits: Number(item.totalUnits) || 0,
+        availableUnits: Number(item.availableUnits) || 0,
+        awardedUnits: Number(item.awardedUnits) || 0,
+        voidUnits: Number(item.voidUnits) || 0,
+      },
+    ];
   });
 }
 
@@ -115,7 +125,9 @@ function toYnotCampaign(
     isTest: row.is_test,
     categoryIds: linkedCategories.map((category) => category.id),
     categorySlugs: linkedCategories.map((category) => category.slug),
-    categoryLabel: linkedCategories.map((category) => category.nameEn).join(", ") || (row.series === "pokemon" ? "Pokemon" : "One Piece"),
+    categoryLabel:
+      linkedCategories.map((category) => category.nameEn).join(", ") ||
+      (row.series === "pokemon" ? "Pokemon" : "One Piece"),
     displayTags: safeDisplayTags(row),
   };
 }
@@ -144,7 +156,10 @@ function recordDataIssue(label: string, error: unknown) {
   console.warn("ynot_data_read_unavailable", issue);
 }
 
-async function readOrEmpty<T>(label: string, fn: () => Promise<T[]>): Promise<T[]> {
+async function readOrEmpty<T>(
+  label: string,
+  fn: () => Promise<T[]>,
+): Promise<T[]> {
   try {
     return await fn();
   } catch (error) {
@@ -153,7 +168,9 @@ async function readOrEmpty<T>(label: string, fn: () => Promise<T[]>): Promise<T[
   }
 }
 
-export async function getCampaigns(options: { includePrivate?: boolean } = {}): Promise<YnotCampaign[]> {
+export async function getCampaigns(
+  options: { includePrivate?: boolean } = {},
+): Promise<YnotCampaign[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("campaigns", async () => {
@@ -172,7 +189,9 @@ export async function getCampaigns(options: { includePrivate?: boolean } = {}): 
 
     const { data, error } = await query;
     if (error) throw error;
-    const rows = (data ?? []).filter((row) => options.includePrivate || row.is_test !== true);
+    const rows = (data ?? []).filter(
+      (row) => options.includePrivate || row.is_test !== true,
+    );
     const campaignIds = rows.map((row) => row.id);
     const [categories, categoryLinks, inventoryRows] = await Promise.all([
       getStoreCategories({ includeTest: Boolean(options.includePrivate) }),
@@ -186,22 +205,29 @@ export async function getCampaigns(options: { includePrivate?: boolean } = {}): 
         return links ?? [];
       }),
       readOrEmpty("campaign_inventory_summary", async () => {
-        const { data: inventory, error: inventoryError } = await supabase.rpc("get_draw_round_inventory_summary", {
-          p_draw_round_id: null,
-          p_profile_id: null,
-        });
+        const { data: inventory, error: inventoryError } = await supabase.rpc(
+          "get_draw_round_inventory_summary",
+          {
+            p_draw_round_id: null,
+            p_profile_id: null,
+          },
+        );
         if (inventoryError) throw inventoryError;
         return inventorySummariesFromJson(inventory);
       }),
     ]);
-    const categoriesById = new Map(categories.map((category) => [category.id, category]));
+    const categoriesById = new Map(
+      categories.map((category) => [category.id, category]),
+    );
     const categoryLinksByCampaign = new Map<string, typeof categoryLinks>();
     for (const link of categoryLinks) {
       const existing = categoryLinksByCampaign.get(link.draw_round_id) ?? [];
       existing.push(link);
       categoryLinksByCampaign.set(link.draw_round_id, existing);
     }
-    const inventoryByCampaign = new Map(inventoryRows.map((summary) => [summary.drawRoundId, summary]));
+    const inventoryByCampaign = new Map(
+      inventoryRows.map((summary) => [summary.drawRoundId, summary]),
+    );
 
     return rows.map((row) => {
       const links = categoryLinksByCampaign.get(row.id) ?? [];
@@ -214,7 +240,9 @@ export async function getCampaigns(options: { includePrivate?: boolean } = {}): 
   });
 }
 
-export async function getStoreCategories(options: { includeTest?: boolean } = {}): Promise<YnotCategory[]> {
+export async function getStoreCategories(
+  options: { includeTest?: boolean } = {},
+): Promise<YnotCategory[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("store_categories", async () => {
@@ -223,7 +251,8 @@ export async function getStoreCategories(options: { includeTest?: boolean } = {}
       .select("*")
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
-    if (!options.includeTest) query = query.eq("is_active", true).eq("is_test", false);
+    if (!options.includeTest)
+      query = query.eq("is_active", true).eq("is_test", false);
     const { data, error } = await query;
     if (error) throw error;
     return (data ?? []).map((row) => ({
@@ -243,7 +272,9 @@ export async function getStoreCategories(options: { includeTest?: boolean } = {}
 }
 
 function looksLikeUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
 }
 
 async function canReadTestCampaign(
@@ -269,13 +300,33 @@ export async function getCampaign(
 ) {
   if (!options.allowTestForCurrentViewer) {
     const campaigns = await getCampaigns();
-    return campaigns.find((campaign) => campaign.id === campaignIdOrSlug || campaign.slug === campaignIdOrSlug)
-      ?? (allowDemoStorefront() ? featuredCampaigns.find((campaign) => campaign.id === campaignIdOrSlug || campaign.slug === campaignIdOrSlug) : undefined)
-      ?? null;
+    return (
+      campaigns.find(
+        (campaign) =>
+          campaign.id === campaignIdOrSlug ||
+          campaign.slug === campaignIdOrSlug,
+      ) ??
+      (allowDemoStorefront()
+        ? featuredCampaigns.find(
+            (campaign) =>
+              campaign.id === campaignIdOrSlug ||
+              campaign.slug === campaignIdOrSlug,
+          )
+        : undefined) ??
+      null
+    );
   }
 
   if (!isSupabaseConfigured()) {
-    return (allowDemoStorefront() ? featuredCampaigns.find((campaign) => campaign.id === campaignIdOrSlug || campaign.slug === campaignIdOrSlug) : undefined) ?? null;
+    return (
+      (allowDemoStorefront()
+        ? featuredCampaigns.find(
+            (campaign) =>
+              campaign.id === campaignIdOrSlug ||
+              campaign.slug === campaignIdOrSlug,
+          )
+        : undefined) ?? null
+    );
   }
 
   const supabase = createServiceSupabaseClient();
@@ -293,11 +344,14 @@ export async function getCampaign(
     const row = data?.[0];
     if (!row) return [];
 
-    const viewer = options.viewer ?? await getYnotViewer();
-    if (row.is_test && !await canReadTestCampaign(supabase, row.id, viewer)) return [];
+    const viewer = options.viewer ?? (await getYnotViewer());
+    if (row.is_test && !(await canReadTestCampaign(supabase, row.id, viewer)))
+      return [];
 
     const [categories, categoryLinks, inventoryRows] = await Promise.all([
-      getStoreCategories({ includeTest: Boolean(row.is_test || viewer.isAdmin) }),
+      getStoreCategories({
+        includeTest: Boolean(row.is_test || viewer.isAdmin),
+      }),
       readOrEmpty("campaign_detail_categories", async () => {
         const { data: links, error: linksError } = await supabase
           .from("draw_round_categories")
@@ -307,22 +361,36 @@ export async function getCampaign(
         return links ?? [];
       }),
       readOrEmpty("campaign_detail_inventory", async () => {
-        const { data: inventory, error: inventoryError } = await supabase.rpc("get_draw_round_inventory_summary", {
-          p_draw_round_id: row.id,
-          p_profile_id: viewer.profileId ?? null,
-        });
+        const { data: inventory, error: inventoryError } = await supabase.rpc(
+          "get_draw_round_inventory_summary",
+          {
+            p_draw_round_id: row.id,
+            p_profile_id: viewer.profileId ?? null,
+          },
+        );
         if (inventoryError) throw inventoryError;
         return inventorySummariesFromJson(inventory);
       }),
     ]);
-    const categoriesById = new Map(categories.map((category) => [category.id, category]));
+    const categoriesById = new Map(
+      categories.map((category) => [category.id, category]),
+    );
     const linkedCategories = categoryLinks
       .map((link) => categoriesById.get(link.category_id))
       .filter((category): category is YnotCategory => Boolean(category));
     return [toYnotCampaign(row, linkedCategories, inventoryRows[0])];
-  }).then((campaigns) => campaigns[0]
-    ?? (allowDemoStorefront() ? featuredCampaigns.find((campaign) => campaign.id === campaignIdOrSlug || campaign.slug === campaignIdOrSlug) : undefined)
-    ?? null);
+  }).then(
+    (campaigns) =>
+      campaigns[0] ??
+      (allowDemoStorefront()
+        ? featuredCampaigns.find(
+            (campaign) =>
+              campaign.id === campaignIdOrSlug ||
+              campaign.slug === campaignIdOrSlug,
+          )
+        : undefined) ??
+      null,
+  );
 }
 
 export async function getPaymentMethods(): Promise<YnotPaymentMethod[]> {
@@ -351,22 +419,37 @@ export async function getPaymentMethods(): Promise<YnotPaymentMethod[]> {
 }
 
 export async function getWallet(profileId?: string): Promise<YnotWallet> {
-  if (!profileId || !isSupabaseConfigured()) return { balanceCoins: 0, version: 0 };
+  if (!profileId || !isSupabaseConfigured())
+    return { balanceCoins: 0, version: 0 };
   const supabase = createServiceSupabaseClient();
   const rows = await readOrEmpty("wallet", async () => {
-    const { data, error } = await supabase.from("wallet_accounts").select("*").eq("profile_id", profileId).limit(1);
+    const { data, error } = await supabase
+      .from("wallet_accounts")
+      .select("*")
+      .eq("profile_id", profileId)
+      .limit(1);
     if (error) throw error;
     return data ?? [];
   });
   const wallet = rows[0];
-  return { balanceCoins: wallet?.balance_coins ?? 0, version: wallet?.version ?? 0 };
+  return {
+    balanceCoins: wallet?.balance_coins ?? 0,
+    version: wallet?.version ?? 0,
+  };
 }
 
-export async function getTopUps(profileId?: string, includeAll = false): Promise<YnotTopUp[]> {
+export async function getTopUps(
+  profileId?: string,
+  includeAll = false,
+): Promise<YnotTopUp[]> {
   if ((!profileId && !includeAll) || !isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("topups", async () => {
-    let query = supabase.from("top_up_requests").select("*").order("created_at", { ascending: false }).limit(80);
+    let query = supabase
+      .from("top_up_requests")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(80);
     if (!includeAll && profileId) query = query.eq("profile_id", profileId);
     const { data, error } = await query;
     if (error) throw error;
@@ -374,7 +457,9 @@ export async function getTopUps(profileId?: string, includeAll = false): Promise
   });
 }
 
-export function toTopUp(row: Database["public"]["Tables"]["top_up_requests"]["Row"]): YnotTopUp {
+export function toTopUp(
+  row: Database["public"]["Tables"]["top_up_requests"]["Row"],
+): YnotTopUp {
   return {
     id: row.id,
     publicCode: row.public_code,
@@ -389,7 +474,9 @@ export function toTopUp(row: Database["public"]["Tables"]["top_up_requests"]["Ro
   };
 }
 
-export async function getCollection(profileId?: string): Promise<YnotCollectionItem[]> {
+export async function getCollection(
+  profileId?: string,
+): Promise<YnotCollectionItem[]> {
   if (!profileId || !isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   const [items, cards] = await Promise.all([
@@ -403,7 +490,9 @@ export async function getCollection(profileId?: string): Promise<YnotCollectionI
       if (error) throw error;
       return data ?? [];
     }),
-    readOrEmpty("collection_card_catalog", async () => getCardCatalog(supabase)),
+    readOrEmpty("collection_card_catalog", async () =>
+      getCardCatalog(supabase),
+    ),
   ]);
   const cardsById = new Map(cards.map((card) => [card.id, card]));
   return items.map((item) => {
@@ -421,11 +510,104 @@ export async function getCollection(profileId?: string): Promise<YnotCollectionI
   });
 }
 
-export async function getExchanges(profileId?: string, includeAll = false): Promise<YnotExchangeOrder[]> {
+export async function getGachaOpenHistory(
+  profileId?: string,
+): Promise<YnotGachaOpenHistory[]> {
+  if (!profileId || !isSupabaseConfigured()) return [];
+  const supabase = createServiceSupabaseClient();
+  const opens = await readOrEmpty("gacha_opens", async () => {
+    const { data, error } = await supabase
+      .from("gacha_opens")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("opened_at", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    return data ?? [];
+  });
+
+  if (!opens.length) return [];
+
+  const openIds = opens.map((open) => open.id);
+  const campaignIds = Array.from(
+    new Set(opens.map((open) => open.draw_round_id)),
+  );
+  const [items, cards, campaigns] = await Promise.all([
+    readOrEmpty("gacha_open_items", async () => {
+      const { data, error } = await supabase
+        .from("gacha_open_items")
+        .select("*")
+        .in("gacha_open_id", openIds)
+        .order("result_position", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    }),
+    readOrEmpty("gacha_history_card_catalog", async () =>
+      getCardCatalog(supabase),
+    ),
+    readOrEmpty("gacha_history_campaigns", async () => {
+      const { data, error } = await supabase
+        .from("draw_rounds")
+        .select("id,slug,title_th,title_en")
+        .in("id", campaignIds);
+      if (error) throw error;
+      return data ?? [];
+    }),
+  ]);
+
+  const cardsById = new Map(cards.map((card) => [card.catalogCardId, card]));
+  const campaignsById = new Map(
+    campaigns.map((campaign) => [campaign.id, campaign]),
+  );
+  const itemsByOpenId = new Map<string, typeof items>();
+  for (const item of items) {
+    const group = itemsByOpenId.get(item.gacha_open_id) ?? [];
+    group.push(item);
+    itemsByOpenId.set(item.gacha_open_id, group);
+  }
+
+  return opens.map((open) => {
+    const campaign = campaignsById.get(open.draw_round_id);
+    const rewards = (itemsByOpenId.get(open.id) ?? []).map((item) => {
+      const card = cardsById.get(item.card_id);
+      return {
+        id: item.id,
+        cardName: card?.name ?? "Mystery reward",
+        cardCode: card?.code,
+        tier: item.tier,
+        valueThb: item.value_thb,
+        resultPosition: item.result_position,
+      };
+    });
+
+    return {
+      id: open.id,
+      publicCode: open.public_code,
+      campaignId: open.draw_round_id,
+      campaignSlug: campaign?.slug,
+      campaignTitle: campaign?.title_en ?? campaign?.title_th ?? "Mystery pack",
+      costCoins: open.cost_coins,
+      quantity: open.quantity,
+      status: open.status,
+      openedAt: open.opened_at,
+      createdAt: open.created_at,
+      rewards,
+    };
+  });
+}
+
+export async function getExchanges(
+  profileId?: string,
+  includeAll = false,
+): Promise<YnotExchangeOrder[]> {
   if ((!profileId && !includeAll) || !isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("exchanges", async () => {
-    let query = supabase.from("exchange_orders").select("*").order("created_at", { ascending: false }).limit(80);
+    let query = supabase
+      .from("exchange_orders")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(80);
     if (!includeAll && profileId) query = query.eq("profile_id", profileId);
     const { data, error } = await query;
     if (error) throw error;
@@ -441,11 +623,18 @@ export async function getExchanges(profileId?: string, includeAll = false): Prom
   });
 }
 
-export async function getShipping(profileId?: string, includeAll = false): Promise<YnotShippingRequest[]> {
+export async function getShipping(
+  profileId?: string,
+  includeAll = false,
+): Promise<YnotShippingRequest[]> {
   if ((!profileId && !includeAll) || !isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("shipping", async () => {
-    let query = supabase.from("shipping_requests").select("*").order("created_at", { ascending: false }).limit(80);
+    let query = supabase
+      .from("shipping_requests")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(80);
     if (!includeAll && profileId) query = query.eq("profile_id", profileId);
     const { data, error } = await query;
     if (error) throw error;
@@ -498,12 +687,15 @@ export async function getRankings(): Promise<YnotRankingRow[]> {
       .limit(50);
     if (error) throw error;
     return (data ?? []).map((row) => {
-      const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+      const profile = Array.isArray(row.profiles)
+        ? row.profiles[0]
+        : row.profiles;
       return {
         rank: row.rank,
         value: row.value,
         metric: row.metric,
-        displayName: profile?.display_name ?? profile?.line_display_name ?? "YNot Player",
+        displayName:
+          profile?.display_name ?? profile?.line_display_name ?? "YNot Player",
       };
     });
   });
@@ -517,22 +709,30 @@ export async function getAdminUsers() {
   return readOrEmpty("admin_users", async () => {
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
-      .select("id,email,display_name,line_display_name,profile_status,created_at")
+      .select(
+        "id,email,display_name,line_display_name,profile_status,created_at",
+      )
       .order("created_at", { ascending: false })
       .limit(200);
     if (profilesError) throw profilesError;
     const profileIds = (profiles ?? []).map((profile) => profile.id);
     const { data: admins, error: adminsError } = profileIds.length
-      ? await supabase.from("admin_users").select("id,profile_id,role,is_active,created_at").in("profile_id", profileIds)
+      ? await supabase
+          .from("admin_users")
+          .select("id,profile_id,role,is_active,created_at")
+          .in("profile_id", profileIds)
       : { data: [], error: null };
     if (adminsError) throw adminsError;
-    const adminByProfile = new Map((admins ?? []).map((admin) => [admin.profile_id, admin]));
+    const adminByProfile = new Map(
+      (admins ?? []).map((admin) => [admin.profile_id, admin]),
+    );
     return (profiles ?? []).map((profile) => {
       const admin = adminByProfile.get(profile.id);
       return {
         id: profile.id,
         email: profile.email,
-        displayName: profile.display_name ?? profile.line_display_name ?? "YNot Customer",
+        displayName:
+          profile.display_name ?? profile.line_display_name ?? "YNot Customer",
         status: profile.profile_status,
         adminRole: admin?.role ?? null,
         adminActive: Boolean(admin?.is_active),
@@ -580,13 +780,24 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
       .order("rank", { ascending: true })
       .limit(240);
     if (error) throw error;
-    const visiblePrizes = (prizes ?? []).filter((prize) => !(isRecord(prize.metadata) && prize.metadata.adminHidden === true));
+    const visiblePrizes = (prizes ?? []).filter(
+      (prize) =>
+        !(isRecord(prize.metadata) && prize.metadata.adminHidden === true),
+    );
     if (!visiblePrizes.length) return [];
 
-    const campaignIds = [...new Set(visiblePrizes.map((prize) => prize.draw_round_id))];
+    const campaignIds = [
+      ...new Set(visiblePrizes.map((prize) => prize.draw_round_id)),
+    ];
     const cardIds = [...new Set(visiblePrizes.map((prize) => prize.card_id))];
-    const [{ data: campaigns, error: campaignsError }, { data: cards, error: cardsError }] = await Promise.all([
-      supabase.from("draw_rounds").select("id,slug,title_th,title_en").in("id", campaignIds),
+    const [
+      { data: campaigns, error: campaignsError },
+      { data: cards, error: cardsError },
+    ] = await Promise.all([
+      supabase
+        .from("draw_rounds")
+        .select("id,slug,title_th,title_en")
+        .in("id", campaignIds),
       supabase.from("cards").select("id,name").in("id", cardIds),
     ]);
     if (campaignsError) throw campaignsError;
@@ -603,9 +814,17 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
       if (unitsError) throw unitsError;
       return units ?? [];
     });
-    const unitCountsByPrize = new Map<string, { total: number; available: number; awarded: number; void: number }>();
+    const unitCountsByPrize = new Map<
+      string,
+      { total: number; available: number; awarded: number; void: number }
+    >();
     for (const unit of unitRows) {
-      const counts = unitCountsByPrize.get(unit.draw_round_prize_id) ?? { total: 0, available: 0, awarded: 0, void: 0 };
+      const counts = unitCountsByPrize.get(unit.draw_round_prize_id) ?? {
+        total: 0,
+        available: 0,
+        awarded: 0,
+        void: 0,
+      };
       counts.total += 1;
       if (unit.status === "available") counts.available += 1;
       if (unit.status === "awarded") counts.awarded += 1;
@@ -613,12 +832,19 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
       unitCountsByPrize.set(unit.draw_round_prize_id, counts);
     }
 
-    const campaignById = new Map((campaigns ?? []).map((campaign) => [campaign.id, campaign]));
+    const campaignById = new Map(
+      (campaigns ?? []).map((campaign) => [campaign.id, campaign]),
+    );
     const cardById = new Map((cards ?? []).map((card) => [card.id, card]));
     return visiblePrizes.map((prize) => {
       const campaign = campaignById.get(prize.draw_round_id);
       const card = cardById.get(prize.card_id);
-      const counts = unitCountsByPrize.get(prize.id) ?? { total: 0, available: 0, awarded: 0, void: 0 };
+      const counts = unitCountsByPrize.get(prize.id) ?? {
+        total: 0,
+        available: 0,
+        awarded: 0,
+        void: 0,
+      };
       return {
         id: prize.id,
         campaignId: prize.draw_round_id,
@@ -654,10 +880,13 @@ export async function getAdminMergeRequests() {
   });
 }
 
-
 type HealthStatus = YnotPlatformHealth["checks"][number]["status"];
 
-function envCheck(key: string, label: string, requiredInProduction = true): YnotPlatformHealth["checks"][number] {
+function envCheck(
+  key: string,
+  label: string,
+  requiredInProduction = true,
+): YnotPlatformHealth["checks"][number] {
   const configured = Boolean(process.env[key]?.trim());
   const production = process.env.NODE_ENV === "production";
   const required = requiredInProduction && production;
@@ -666,7 +895,9 @@ function envCheck(key: string, label: string, requiredInProduction = true): Ynot
     key: `env:${key}`,
     label,
     status,
-    detail: configured ? `${key} is configured.` : `${key} is missing${required ? " and required in production" : " for full live verification"}.`,
+    detail: configured
+      ? `${key} is configured.`
+      : `${key} is missing${required ? " and required in production" : " for full live verification"}.`,
   };
 }
 
@@ -680,7 +911,9 @@ async function tableHealthCheck(
     key: `table:${String(table)}`,
     label,
     status: error ? "fail" : "pass",
-    detail: error ? `${String(table)} unavailable: ${error.message}` : `${String(table)} table is reachable.`,
+    detail: error
+      ? `${String(table)} unavailable: ${error.message}`
+      : `${String(table)} table is reachable.`,
   };
 }
 
@@ -691,25 +924,31 @@ function withDataIssueHealth(
   if (!health) return undefined;
   const dataReadCheck: YnotPlatformHealth["checks"][number] = dataIssues.length
     ? {
-      key: "data-read-issues",
-      label: "Dashboard data reads",
-      status: "warn",
-      detail: `${dataIssues.length} read path(s) degraded to an empty state: ${dataIssues.map((issue) => issue.label).join(", ")}. Check server logs before production launch.`,
-    }
+        key: "data-read-issues",
+        label: "Dashboard data reads",
+        status: "warn",
+        detail: `${dataIssues.length} read path(s) degraded to an empty state: ${dataIssues.map((issue) => issue.label).join(", ")}. Check server logs before production launch.`,
+      }
     : {
-      key: "data-read-issues",
-      label: "Dashboard data reads",
-      status: "pass",
-      detail: "Dashboard reads completed without degraded empty-state fallbacks in this request.",
-    };
+        key: "data-read-issues",
+        label: "Dashboard data reads",
+        status: "pass",
+        detail:
+          "Dashboard reads completed without degraded empty-state fallbacks in this request.",
+      };
   return { ...health, checks: [...health.checks, dataReadCheck] };
 }
 
-export async function getPlatformHealth(isAdmin: boolean): Promise<YnotPlatformHealth | undefined> {
+export async function getPlatformHealth(
+  isAdmin: boolean,
+): Promise<YnotPlatformHealth | undefined> {
   if (!isAdmin) return undefined;
   const checks: YnotPlatformHealth["checks"] = [
     envCheck("NEXT_PUBLIC_SUPABASE_URL", "Supabase URL"),
-    envCheck("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "Supabase publishable key"),
+    envCheck(
+      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+      "Supabase publishable key",
+    ),
     envCheck("SUPABASE_SERVICE_ROLE_KEY", "Supabase service role key"),
     envCheck("NEXT_PUBLIC_SITE_URL", "Public site URL"),
     envCheck("LINE_SESSION_SECRET", "LINE session signing secret"),
@@ -727,15 +966,27 @@ export async function getPlatformHealth(isAdmin: boolean): Promise<YnotPlatformH
     {
       key: "rate-limit-backend",
       label: "Production rate-limit backend",
-      status: process.env.RATE_LIMIT_BACKEND === "supabase" ? "pass" : process.env.NODE_ENV === "production" ? "fail" : "warn",
-      detail: process.env.RATE_LIMIT_BACKEND === "supabase"
-        ? "Durable Supabase-backed API rate limiting is configured."
-        : "Set RATE_LIMIT_BACKEND=supabase after applying the api_rate_limits migration before enabling production wallet/gacha/admin mutations.",
+      status:
+        process.env.RATE_LIMIT_BACKEND === "supabase"
+          ? "pass"
+          : process.env.NODE_ENV === "production"
+            ? "fail"
+            : "warn",
+      detail:
+        process.env.RATE_LIMIT_BACKEND === "supabase"
+          ? "Durable Supabase-backed API rate limiting is configured."
+          : "Set RATE_LIMIT_BACKEND=supabase after applying the api_rate_limits migration before enabling production wallet/gacha/admin mutations.",
     },
   ];
 
   if (!isSupabaseConfigured()) {
-    checks.push({ key: "schema:skipped", label: "Schema checks", status: "fail", detail: "Supabase is not configured, so table readiness cannot be checked." });
+    checks.push({
+      key: "schema:skipped",
+      label: "Schema checks",
+      status: "fail",
+      detail:
+        "Supabase is not configured, so table readiness cannot be checked.",
+    });
     return { generatedAt: new Date().toISOString(), checks };
   }
 
@@ -747,10 +998,22 @@ export async function getPlatformHealth(isAdmin: boolean): Promise<YnotPlatformH
     tableHealthCheck(supabase, "admin_users", "Admin role table"),
     tableHealthCheck(supabase, "draw_rounds", "Campaign table"),
     tableHealthCheck(supabase, "store_categories", "Store category table"),
-    tableHealthCheck(supabase, "draw_round_categories", "Campaign/category join table"),
-    tableHealthCheck(supabase, "draw_round_testers", "Test-pack whitelist table"),
+    tableHealthCheck(
+      supabase,
+      "draw_round_categories",
+      "Campaign/category join table",
+    ),
+    tableHealthCheck(
+      supabase,
+      "draw_round_testers",
+      "Test-pack whitelist table",
+    ),
     tableHealthCheck(supabase, "draw_round_prizes", "Prize pool table"),
-    tableHealthCheck(supabase, "draw_round_prize_units", "Prize inventory units table"),
+    tableHealthCheck(
+      supabase,
+      "draw_round_prize_units",
+      "Prize inventory units table",
+    ),
     tableHealthCheck(supabase, "cards", "Card catalog table"),
     tableHealthCheck(supabase, "payment_methods", "Payment method table"),
     tableHealthCheck(supabase, "payment_slips", "Payment slip table"),
@@ -764,16 +1027,27 @@ export async function getPlatformHealth(isAdmin: boolean): Promise<YnotPlatformH
     tableHealthCheck(supabase, "exchange_orders", "Exchange table"),
     tableHealthCheck(supabase, "exchange_order_items", "Exchange items table"),
     tableHealthCheck(supabase, "shipping_requests", "Shipping table"),
-    tableHealthCheck(supabase, "shipping_request_items", "Shipping items table"),
+    tableHealthCheck(
+      supabase,
+      "shipping_request_items",
+      "Shipping items table",
+    ),
     tableHealthCheck(supabase, "ranking_snapshots", "Ranking table"),
     tableHealthCheck(supabase, "audit_events", "Audit events table"),
     tableHealthCheck(supabase, "app_realtime_events", "Private realtime table"),
     tableHealthCheck(supabase, "api_rate_limits", "API rate limit table"),
     tableHealthCheck(supabase, "seed_runs", "Seed run registry table"),
-    tableHealthCheck(supabase, "seed_run_items", "Seed run item registry table"),
+    tableHealthCheck(
+      supabase,
+      "seed_run_items",
+      "Seed run item registry table",
+    ),
   ]);
 
-  return { generatedAt: new Date().toISOString(), checks: [...checks, ...tableChecks] };
+  return {
+    generatedAt: new Date().toISOString(),
+    checks: [...checks, ...tableChecks],
+  };
 }
 
 export async function getYnotDashboardData(): Promise<YnotDashboardData> {
@@ -781,12 +1055,27 @@ export async function getYnotDashboardData(): Promise<YnotDashboardData> {
   return dataIssueStorage.run(dataIssues, async () => {
     const viewer = await getYnotViewer();
     const profileId = viewer.profileId;
-    const [campaigns, categories, paymentMethods, wallet, topUps, collection, exchanges, shipping, addresses, rankings, adminTopUps, platformHealth] = await Promise.all([
+    const [
+      campaigns,
+      categories,
+      paymentMethods,
+      wallet,
+      topUps,
+      gachaOpens,
+      collection,
+      exchanges,
+      shipping,
+      addresses,
+      rankings,
+      adminTopUps,
+      platformHealth,
+    ] = await Promise.all([
       getCampaigns({ includePrivate: viewer.isAdmin }),
       getStoreCategories({ includeTest: viewer.isAdmin }),
       getPaymentMethods(),
       getWallet(profileId),
       getTopUps(profileId),
+      getGachaOpenHistory(profileId),
       getCollection(profileId),
       getExchanges(profileId),
       getShipping(profileId),
@@ -804,6 +1093,7 @@ export async function getYnotDashboardData(): Promise<YnotDashboardData> {
       paymentMethods,
       wallet,
       topUps,
+      gachaOpens,
       collection,
       exchanges,
       shipping,

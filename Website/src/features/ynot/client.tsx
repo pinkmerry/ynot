@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo, useState, useTransition } from "react";
-import type { CardCatalogItem } from "@/lib/lucky-draw/types";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import type { CardCatalogItem, ProfileInfo } from "@/lib/lucky-draw/types";
 import type {
   YnotAddress,
   YnotCampaign,
@@ -35,6 +35,25 @@ async function requestJson(url: string, body: unknown, method = "POST") {
 async function postJson(url: string, body: unknown) {
   return requestJson(url, body, "POST");
 }
+
+const emptyProfileInfo: ProfileInfo = {
+  fullName: "",
+  phone: "",
+  addressLine1: "",
+  addressLine2: "",
+  subdistrict: "",
+  district: "",
+  province: "",
+  postalCode: "",
+  country: "Thailand",
+  deliveryNote: "",
+};
+
+type ProfilePayload = {
+  error?: string;
+  displayName?: string;
+  profile?: ProfileInfo;
+};
 
 function tagsToInput(
   tags: string[] | undefined,
@@ -304,7 +323,7 @@ export function AddressForm({ addresses }: { addresses: YnotAddress[] }) {
   function submit() {
     startTransition(async () => {
       try {
-        const payload = await postJson("/api/ynot/addresses", {
+        await postJson("/api/ynot/addresses", {
           recipientName,
           phone,
           addressLine1,
@@ -313,9 +332,7 @@ export function AddressForm({ addresses }: { addresses: YnotAddress[] }) {
           postalCode,
           isDefault: !addresses.length,
         });
-        setMessage(
-          `Address saved. Use address ID ${payload.address?.id ?? ""} for shipping.`,
-        );
+        setMessage("Address saved. Refresh to see it in your saved addresses.");
       } catch (error) {
         setMessage(
           error instanceof Error
@@ -341,7 +358,6 @@ export function AddressForm({ addresses }: { addresses: YnotAddress[] }) {
               {address.addressLine1}, {address.district}, {address.province}{" "}
               {address.postalCode}
             </p>
-            <p className="font-mono text-xs text-[var(--gold)]">{address.id}</p>
           </div>
         ))}
       </div>
@@ -398,6 +414,234 @@ export function AddressForm({ addresses }: { addresses: YnotAddress[] }) {
           {message}
         </p>
       )}
+    </section>
+  );
+}
+
+export function PersonalInfoForm({
+  lineHref,
+  googleConnectHref,
+  emailConnectHref,
+  loginMethod,
+  accountType,
+}: {
+  lineHref: string;
+  googleConnectHref?: string;
+  emailConnectHref?: string;
+  loginMethod: string;
+  accountType: string;
+}) {
+  const [draft, setDraft] = useState<ProfileInfo>(emptyProfileInfo);
+  const [displayName, setDisplayName] = useState("YNOTT Customer");
+  const [loaded, setLoaded] = useState(false);
+  const [message, setMessage] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    let active = true;
+    async function loadProfile() {
+      try {
+        const response = await fetch("/api/lucky-draw/profile", {
+          cache: "no-store",
+        });
+        const payload = (await response
+          .json()
+          .catch(() => null)) as ProfilePayload | null;
+        if (!active) return;
+        if (!response.ok) throw new Error(payload?.error ?? "Profile failed.");
+        setDraft({ ...emptyProfileInfo, ...payload?.profile });
+        setDisplayName(payload?.displayName ?? "YNOTT Customer");
+        setLoaded(true);
+      } catch (error) {
+        if (!active) return;
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Profile could not be loaded.",
+        );
+        setLoaded(true);
+      }
+    }
+    void loadProfile();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function updateDraft(patch: Partial<ProfileInfo>) {
+    setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function save() {
+    startTransition(async () => {
+      try {
+        const response = await fetch("/api/lucky-draw/profile", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(draft),
+        });
+        const payload = (await response
+          .json()
+          .catch(() => null)) as ProfilePayload | null;
+        if (!response.ok) throw new Error(payload?.error ?? "Profile failed.");
+        setDraft({ ...emptyProfileInfo, ...payload?.profile });
+        setDisplayName(payload?.displayName ?? displayName);
+        setMessage("Personal info saved.");
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Personal info could not be saved.",
+        );
+      }
+    });
+  }
+
+  return (
+    <section className="profile-panel personal-info-form-panel">
+      <div className="profile-section-head">
+        <span>Personal details</span>
+        <strong>Name, phone, and default delivery info</strong>
+      </div>
+      <div className="personal-info-summary">
+        <div>
+          <span>Display name</span>
+          <strong>{displayName}</strong>
+        </div>
+        <div>
+          <span>Login method</span>
+          <strong>{loginMethod}</strong>
+        </div>
+        <div>
+          <span>Account type</span>
+          <strong>{accountType}</strong>
+        </div>
+      </div>
+      <div className="personal-info-form-grid" aria-busy={!loaded || isPending}>
+        <label className="personal-info-field">
+          <span>Full name</span>
+          <input
+            autoComplete="name"
+            disabled={!loaded}
+            value={draft.fullName}
+            onChange={(event) => updateDraft({ fullName: event.target.value })}
+            placeholder="Your full name"
+          />
+        </label>
+        <label className="personal-info-field">
+          <span>Phone</span>
+          <input
+            autoComplete="tel"
+            disabled={!loaded}
+            inputMode="tel"
+            value={draft.phone}
+            onChange={(event) => updateDraft({ phone: event.target.value })}
+            placeholder="Phone number"
+          />
+        </label>
+        <label className="personal-info-field wide">
+          <span>Address line 1</span>
+          <input
+            autoComplete="address-line1"
+            disabled={!loaded}
+            value={draft.addressLine1}
+            onChange={(event) =>
+              updateDraft({ addressLine1: event.target.value })
+            }
+            placeholder="House, building, street"
+          />
+        </label>
+        <label className="personal-info-field wide">
+          <span>Address line 2</span>
+          <input
+            autoComplete="address-line2"
+            disabled={!loaded}
+            value={draft.addressLine2}
+            onChange={(event) =>
+              updateDraft({ addressLine2: event.target.value })
+            }
+            placeholder="Floor, room, landmark"
+          />
+        </label>
+        <label className="personal-info-field">
+          <span>Subdistrict</span>
+          <input
+            autoComplete="address-level3"
+            disabled={!loaded}
+            value={draft.subdistrict}
+            onChange={(event) =>
+              updateDraft({ subdistrict: event.target.value })
+            }
+            placeholder="Subdistrict"
+          />
+        </label>
+        <label className="personal-info-field">
+          <span>District</span>
+          <input
+            autoComplete="address-level2"
+            disabled={!loaded}
+            value={draft.district}
+            onChange={(event) => updateDraft({ district: event.target.value })}
+            placeholder="District"
+          />
+        </label>
+        <label className="personal-info-field">
+          <span>Province</span>
+          <input
+            autoComplete="address-level1"
+            disabled={!loaded}
+            value={draft.province}
+            onChange={(event) => updateDraft({ province: event.target.value })}
+            placeholder="Province"
+          />
+        </label>
+        <label className="personal-info-field">
+          <span>Postal code</span>
+          <input
+            autoComplete="postal-code"
+            disabled={!loaded}
+            inputMode="numeric"
+            value={draft.postalCode}
+            onChange={(event) =>
+              updateDraft({ postalCode: event.target.value })
+            }
+            placeholder="Postal code"
+          />
+        </label>
+        <label className="personal-info-field">
+          <span>Country</span>
+          <input
+            autoComplete="country-name"
+            disabled={!loaded}
+            value={draft.country}
+            onChange={(event) => updateDraft({ country: event.target.value })}
+            placeholder="Country"
+          />
+        </label>
+        <label className="personal-info-field wide">
+          <span>Delivery note</span>
+          <textarea
+            disabled={!loaded}
+            value={draft.deliveryNote}
+            onChange={(event) =>
+              updateDraft({ deliveryNote: event.target.value })
+            }
+            placeholder="Anything the shipping team should know"
+            rows={4}
+          />
+        </label>
+      </div>
+      <div className="personal-info-actions">
+        <a href={lineHref}>Connect / reconnect LINE</a>
+        {googleConnectHref && (
+          <a href={googleConnectHref}>Connect Google / Gmail</a>
+        )}
+        {emailConnectHref && <a href={emailConnectHref}>Create email login</a>}
+        <button disabled={!loaded || isPending} onClick={save} type="button">
+          {isPending ? "Saving..." : "Save personal info"}
+        </button>
+      </div>
+      {message && <p className="profile-form-message">{message}</p>}
     </section>
   );
 }
@@ -619,7 +863,10 @@ export function AdminPaymentMethodForm() {
       <div className="admin-form-head">
         <span>Payment settings</span>
         <h3>Payment method settings</h3>
-        <p>Manage the bank or PromptPay details customers see before uploading a transfer slip.</p>
+        <p>
+          Manage the bank or PromptPay details customers see before uploading a
+          transfer slip.
+        </p>
       </div>
       <div className="admin-form-grid">
         <input
@@ -691,7 +938,11 @@ export function AdminPaymentMethodForm() {
   );
 }
 
-export function AdminCategoryForm({ categories }: { categories: YnotCategory[] }) {
+export function AdminCategoryForm({
+  categories,
+}: {
+  categories: YnotCategory[];
+}) {
   const [visibleCategories, setVisibleCategories] = useState(categories);
   const [categoryId, setCategoryId] = useState("");
   const [slug, setSlug] = useState("new-category");
@@ -699,7 +950,9 @@ export function AdminCategoryForm({ categories }: { categories: YnotCategory[] }
   const [nameEn, setNameEn] = useState("New Category");
   const [description, setDescription] = useState("");
   const [icon, setIcon] = useState("✨");
-  const [legacySeries, setLegacySeries] = useState<"pokemon" | "one_piece" | "">("");
+  const [legacySeries, setLegacySeries] = useState<
+    "pokemon" | "one_piece" | ""
+  >("");
   const [sortOrder, setSortOrder] = useState(100);
   const [isActive, setIsActive] = useState(true);
   const [isTest, setIsTest] = useState(false);
@@ -725,7 +978,8 @@ export function AdminCategoryForm({ categories }: { categories: YnotCategory[] }
     startTransition(async () => {
       try {
         setMessage("");
-        if (!nameTh.trim() && !nameEn.trim()) throw new Error("Add a Thai or English category name first.");
+        if (!nameTh.trim() && !nameEn.trim())
+          throw new Error("Add a Thai or English category name first.");
         const payload = await requestJson(
           "/api/ynot/admin/categories",
           {
@@ -746,13 +1000,26 @@ export function AdminCategoryForm({ categories }: { categories: YnotCategory[] }
         if (savedCategory) {
           setCategoryId(savedCategory.id);
           setVisibleCategories((current) => {
-            const withoutSaved = current.filter((item) => item.id !== savedCategory.id && item.slug !== savedCategory.slug);
-            return [...withoutSaved, savedCategory].sort((a, b) => a.sortOrder - b.sortOrder || a.nameEn.localeCompare(b.nameEn));
+            const withoutSaved = current.filter(
+              (item) =>
+                item.id !== savedCategory.id &&
+                item.slug !== savedCategory.slug,
+            );
+            return [...withoutSaved, savedCategory].sort(
+              (a, b) =>
+                a.sortOrder - b.sortOrder || a.nameEn.localeCompare(b.nameEn),
+            );
           });
         }
-        setMessage(`Saved category “${savedCategory?.nameEn ?? nameEn}”. It is ready for random packs now.`);
+        setMessage(
+          `Saved category “${savedCategory?.nameEn ?? nameEn}”. It is ready for random packs now.`,
+        );
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Category could not be saved.");
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Category could not be saved.",
+        );
       }
     });
   }
@@ -763,11 +1030,15 @@ export function AdminCategoryForm({ categories }: { categories: YnotCategory[] }
         <span>Category setup</span>
         <h3>Create or edit category</h3>
         <p>
-          Categories now save to Supabase and can be reused by future random packs without a code change.
+          Categories now save to Supabase and can be reused by future random
+          packs without a code change.
         </p>
       </div>
       <div className="admin-form-grid">
-        <AdminField label="Existing category" hint="Choose a category to edit, or keep this as create new.">
+        <AdminField
+          label="Existing category"
+          hint="Choose a category to edit, or keep this as create new."
+        >
           <select
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={categoryId}
@@ -776,52 +1047,130 @@ export function AdminCategoryForm({ categories }: { categories: YnotCategory[] }
             <option value="">Create new category</option>
             {visibleCategories.map((category) => (
               <option key={category.id} value={category.id}>
-                {category.nameEn}{category.isTest ? " [TEST]" : ""}
+                {category.nameEn}
+                {category.isTest ? " [TEST]" : ""}
               </option>
             ))}
           </select>
         </AdminField>
-        <AdminField label="URL slug" required hint="Lowercase URL key, for example pokemon or dragon-ball.">
-          <input className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4" value={slug} onChange={(event) => setSlug(event.target.value)} placeholder="category-slug" />
+        <AdminField
+          label="URL slug"
+          required
+          hint="Lowercase URL key, for example pokemon or dragon-ball."
+        >
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={slug}
+            onChange={(event) => setSlug(event.target.value)}
+            placeholder="category-slug"
+          />
         </AdminField>
         <AdminField label="Thai category name" required>
-          <input className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4" value={nameTh} onChange={(event) => setNameTh(event.target.value)} placeholder="เช่น Pokemon" />
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={nameTh}
+            onChange={(event) => setNameTh(event.target.value)}
+            placeholder="เช่น Pokemon"
+          />
         </AdminField>
         <AdminField label="English category name" required>
-          <input className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4" value={nameEn} onChange={(event) => setNameEn(event.target.value)} placeholder="Example: Pokemon" />
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={nameEn}
+            onChange={(event) => setNameEn(event.target.value)}
+            placeholder="Example: Pokemon"
+          />
         </AdminField>
-        <AdminField label="Icon" hint="Emoji or short text shown in admin/category cards.">
-          <input className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4" value={icon} onChange={(event) => setIcon(event.target.value)} placeholder="✨" />
+        <AdminField
+          label="Icon"
+          hint="Emoji or short text shown in admin/category cards."
+        >
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={icon}
+            onChange={(event) => setIcon(event.target.value)}
+            placeholder="✨"
+          />
         </AdminField>
-        <AdminField label="Legacy compatibility" hint="Only use this for Pokemon/One Piece backfill compatibility.">
-          <select className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4" value={legacySeries} onChange={(event) => setLegacySeries(event.target.value as typeof legacySeries)}>
+        <AdminField
+          label="Legacy compatibility"
+          hint="Only use this for Pokemon/One Piece backfill compatibility."
+        >
+          <select
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={legacySeries}
+            onChange={(event) =>
+              setLegacySeries(event.target.value as typeof legacySeries)
+            }
+          >
             <option value="">No legacy series</option>
             <option value="pokemon">Pokemon compatibility</option>
             <option value="one_piece">One Piece compatibility</option>
           </select>
         </AdminField>
         <AdminField label="Sort order" hint="Lower number appears first.">
-          <input className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4" min={0} type="number" value={sortOrder} onChange={(event) => setSortOrder(Number(event.target.value))} placeholder="100" />
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            min={0}
+            type="number"
+            value={sortOrder}
+            onChange={(event) => setSortOrder(Number(event.target.value))}
+            placeholder="100"
+          />
         </AdminField>
         <AdminField label="Status">
           <div className="flex min-h-12 flex-wrap items-center gap-2">
-            <button className={isActive ? "gold-button rounded-2xl px-4 py-3 text-sm font-black" : "plain-button rounded-2xl px-4 py-3 text-sm font-black"} onClick={() => setIsActive((value) => !value)} type="button">
+            <button
+              className={
+                isActive
+                  ? "gold-button rounded-2xl px-4 py-3 text-sm font-black"
+                  : "plain-button rounded-2xl px-4 py-3 text-sm font-black"
+              }
+              onClick={() => setIsActive((value) => !value)}
+              type="button"
+            >
               {isActive ? "Active" : "Hidden"}
             </button>
-            <button className={isTest ? "gold-button rounded-2xl px-4 py-3 text-sm font-black" : "plain-button rounded-2xl px-4 py-3 text-sm font-black"} onClick={() => setIsTest((value) => !value)} type="button">
+            <button
+              className={
+                isTest
+                  ? "gold-button rounded-2xl px-4 py-3 text-sm font-black"
+                  : "plain-button rounded-2xl px-4 py-3 text-sm font-black"
+              }
+              onClick={() => setIsTest((value) => !value)}
+              type="button"
+            >
               {isTest ? "Test-only" : "Normal"}
             </button>
           </div>
         </AdminField>
-        <AdminField label="Description" hint="Optional customer/admin explanation." >
-          <textarea className="min-h-24 rounded-2xl border border-white/10 bg-black/25 px-4 py-3" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="What this category contains" />
+        <AdminField
+          label="Description"
+          hint="Optional customer/admin explanation."
+        >
+          <textarea
+            className="min-h-24 rounded-2xl border border-white/10 bg-black/25 px-4 py-3"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="What this category contains"
+          />
         </AdminField>
       </div>
       <div className="admin-form-actions">
-        <button className="gold-button rounded-2xl px-4 py-3 text-sm font-black" disabled={isPending || !nameEn.trim()} onClick={() => submit("POST")} type="button">
+        <button
+          className="gold-button rounded-2xl px-4 py-3 text-sm font-black"
+          disabled={isPending || !nameEn.trim()}
+          onClick={() => submit("POST")}
+          type="button"
+        >
           {isPending ? "Saving..." : "Save as new/upsert"}
         </button>
-        <button className="plain-button rounded-2xl px-4 py-3 text-sm font-black" disabled={isPending || !categoryId} onClick={() => submit("PATCH")} type="button">
+        <button
+          className="plain-button rounded-2xl px-4 py-3 text-sm font-black"
+          disabled={isPending || !categoryId}
+          onClick={() => submit("PATCH")}
+          type="button"
+        >
           Update selected
         </button>
       </div>
@@ -830,11 +1179,17 @@ export function AdminCategoryForm({ categories }: { categories: YnotCategory[] }
   );
 }
 
-export function AdminCampaignForm({ categories = [] }: { categories?: YnotCategory[] }) {
+export function AdminCampaignForm({
+  categories = [],
+}: {
+  categories?: YnotCategory[];
+}) {
   const [slug, setSlug] = useState("new-campaign");
   const [titleTh, setTitleTh] = useState("แคมเปญใหม่");
   const [titleEn, setTitleEn] = useState("New campaign");
-  const [series, setSeries] = useState<"pokemon" | "one_piece">(categories[0]?.legacySeries ?? "pokemon");
+  const [series, setSeries] = useState<"pokemon" | "one_piece">(
+    categories[0]?.legacySeries ?? "pokemon",
+  );
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
   const [isTest, setIsTest] = useState(false);
   const [mode, setMode] = useState<"instant_gacha" | "slot_pick">(
@@ -907,14 +1262,18 @@ export function AdminCampaignForm({ categories = [] }: { categories?: YnotCatego
                 <select
                   value={categoryId}
                   onChange={(event) => {
-                    const nextCategory = categories.find((category) => category.id === event.target.value);
+                    const nextCategory = categories.find(
+                      (category) => category.id === event.target.value,
+                    );
                     setCategoryId(event.target.value);
-                    if (nextCategory?.legacySeries) setSeries(nextCategory.legacySeries);
+                    if (nextCategory?.legacySeries)
+                      setSeries(nextCategory.legacySeries);
                   }}
                 >
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
-                      {category.nameEn}{category.isTest ? " [TEST]" : ""}
+                      {category.nameEn}
+                      {category.isTest ? " [TEST]" : ""}
                     </option>
                   ))}
                 </select>
@@ -961,7 +1320,11 @@ export function AdminCampaignForm({ categories = [] }: { categories?: YnotCatego
             <label className="admin-field admin-field-wide">
               <span>Production test pack</span>
               <button
-                className={isTest ? "gold-button rounded-2xl px-4 py-3 text-sm font-black" : "plain-button rounded-2xl px-4 py-3 text-sm font-black"}
+                className={
+                  isTest
+                    ? "gold-button rounded-2xl px-4 py-3 text-sm font-black"
+                    : "plain-button rounded-2xl px-4 py-3 text-sm font-black"
+                }
                 onClick={() => setIsTest((value) => !value)}
                 type="button"
               >
@@ -1120,11 +1483,19 @@ function AdminCampaignStatusRow({ campaign }: { campaign: YnotCampaign }) {
     <article className="admin-pack-row">
       <div className="admin-pack-row-main">
         <div>
-          <span>{campaign.categoryLabel ?? (campaign.series === "pokemon" ? "Pokemon" : "One Piece")}{campaign.isTest ? " · TEST" : ""}</span>
+          <span>
+            {campaign.categoryLabel ??
+              (campaign.series === "pokemon" ? "Pokemon" : "One Piece")}
+            {campaign.isTest ? " · TEST" : ""}
+          </span>
           <h4>{campaign.titleTh || campaign.titleEn}</h4>
           <p>
-            {campaign.slug} · {campaign.mode} · {campaign.remainingSlots ?? campaign.totalSlots}/{campaign.totalSlots} packs left
-            {campaign.totalPrizeUnits !== undefined ? ` · ${campaign.availablePrizeUnits ?? 0}/${campaign.totalPrizeUnits} prizes left` : ""}
+            {campaign.slug} · {campaign.mode} ·{" "}
+            {campaign.remainingSlots ?? campaign.totalSlots}/
+            {campaign.totalSlots} packs left
+            {campaign.totalPrizeUnits !== undefined
+              ? ` · ${campaign.availablePrizeUnits ?? 0}/${campaign.totalPrizeUnits} prizes left`
+              : ""}
           </p>
         </div>
         <div className="admin-pack-badges">
@@ -1217,8 +1588,12 @@ export function AdminCardForm() {
   const [grade, setGrade] = useState("Ungraded");
   const [imageUrl, setImageUrl] = useState("");
   const [isTest, setIsTest] = useState(false);
-  const [assetSource, setAssetSource] = useState("Generated YNot placeholder asset");
-  const [assetLicense, setAssetLicense] = useState("Original generated placeholder");
+  const [assetSource, setAssetSource] = useState(
+    "Generated YNot placeholder asset",
+  );
+  const [assetLicense, setAssetLicense] = useState(
+    "Original generated placeholder",
+  );
   const [assetManifestKey, setAssetManifestKey] = useState("ynot-test-card");
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -1254,7 +1629,10 @@ export function AdminCardForm() {
         <p>Add cards before assigning them into a random pack prize pool.</p>
       </div>
       <div className="admin-form-grid">
-        <AdminField label="Card code" hint="Optional unique code. If blank, the name is used to find/update an existing card.">
+        <AdminField
+          label="Card code"
+          hint="Optional unique code. If blank, the name is used to find/update an existing card."
+        >
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={code}
@@ -1290,7 +1668,10 @@ export function AdminCardForm() {
             placeholder="PSA 10 / Ungraded"
           />
         </AdminField>
-        <AdminField label="Image URL" hint="Use approved storage or /test-assets paths for production test cards.">
+        <AdminField
+          label="Image URL"
+          hint="Use approved storage or /test-assets paths for production test cards."
+        >
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={imageUrl}
@@ -1300,7 +1681,11 @@ export function AdminCardForm() {
         </AdminField>
         <AdminField label="Card mode">
           <button
-            className={isTest ? "gold-button rounded-2xl px-4 py-3 text-sm font-black" : "plain-button rounded-2xl px-4 py-3 text-sm font-black"}
+            className={
+              isTest
+                ? "gold-button rounded-2xl px-4 py-3 text-sm font-black"
+                : "plain-button rounded-2xl px-4 py-3 text-sm font-black"
+            }
             onClick={() => setIsTest((value) => !value)}
             type="button"
           >
@@ -1344,11 +1729,7 @@ export function AdminCardForm() {
       >
         {isPending ? "Saving..." : "Save card"}
       </button>
-      {message && (
-        <p className="admin-form-message">
-          {message}
-        </p>
-      )}
+      {message && <p className="admin-form-message">{message}</p>}
     </section>
   );
 }
@@ -1383,7 +1764,9 @@ export function AdminPrizePoolForm({
           valueThb,
           quantity,
         });
-        setMessage("Prize slot and inventory quantity saved. Refresh to see the updated pool.");
+        setMessage(
+          "Prize slot and inventory quantity saved. Refresh to see the updated pool.",
+        );
       } catch (error) {
         setMessage(
           error instanceof Error
@@ -1451,13 +1834,19 @@ export function AdminPrizePoolForm({
           <select
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={tier}
-            onChange={(event) => setTier(event.target.value as "normal" | "high")}
+            onChange={(event) =>
+              setTier(event.target.value as "normal" | "high")
+            }
           >
             <option value="normal">Normal prize</option>
             <option value="high">High tier prize</option>
           </select>
         </AdminField>
-        <AdminField label="Prize rank" required hint="Rank controls display/order inside this pack.">
+        <AdminField
+          label="Prize rank"
+          required
+          hint="Rank controls display/order inside this pack."
+        >
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             min={1}
@@ -1467,7 +1856,10 @@ export function AdminPrizePoolForm({
             placeholder="1"
           />
         </AdminField>
-        <AdminField label="Value THB" hint="Optional estimated prize value shown to admin.">
+        <AdminField
+          label="Value THB"
+          hint="Optional estimated prize value shown to admin."
+        >
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             min={0}
@@ -1477,7 +1869,11 @@ export function AdminPrizePoolForm({
             placeholder="1500"
           />
         </AdminField>
-        <AdminField label="Prize quantity" required hint="How many units of this prize can be pulled from the pack.">
+        <AdminField
+          label="Prize quantity"
+          required
+          hint="How many units of this prize can be pulled from the pack."
+        >
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             min={0}
@@ -1496,11 +1892,7 @@ export function AdminPrizePoolForm({
       >
         {isPending ? "Saving..." : "Save campaign prize slot"}
       </button>
-      {message && (
-        <p className="admin-form-message">
-          {message}
-        </p>
-      )}
+      {message && <p className="admin-form-message">{message}</p>}
       <div className="admin-prize-list">
         {prizes.map((prize) => (
           <div
@@ -1512,7 +1904,8 @@ export function AdminPrizePoolForm({
                 {prize.campaignTitle} · {prize.tier} #{prize.rank}
               </p>
               <p className="text-[var(--muted)]">
-                {prize.cardName} · ฿{(prize.valueThb ?? 0).toLocaleString()} · {prize.availableUnits}/{prize.totalUnits} left
+                {prize.cardName} · ฿{(prize.valueThb ?? 0).toLocaleString()} ·{" "}
+                {prize.availableUnits}/{prize.totalUnits} left
                 {prize.awardedUnits ? ` · ${prize.awardedUnits} awarded` : ""}
               </p>
             </div>

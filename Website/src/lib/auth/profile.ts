@@ -19,33 +19,38 @@ function displayNameFor(user: User) {
   const primaryIdentity = user.identities?.[0];
   const data = identityData(primaryIdentity);
   return (
-    stringValue(data.full_name)
-    ?? stringValue(data.name)
-    ?? stringValue(data.user_name)
-    ?? stringValue(user.user_metadata?.full_name)
-    ?? stringValue(user.user_metadata?.name)
-    ?? user.email
-    ?? "YNot Customer"
+    stringValue(data.full_name) ??
+    stringValue(data.name) ??
+    stringValue(data.user_name) ??
+    stringValue(user.user_metadata?.full_name) ??
+    stringValue(user.user_metadata?.name) ??
+    user.email ??
+    "YNot Customer"
   );
 }
 
 function avatarUrlFor(user: User) {
   const primaryIdentity = user.identities?.[0];
   const data = identityData(primaryIdentity);
-  return stringValue(data.avatar_url) ?? stringValue(data.picture) ?? stringValue(user.user_metadata?.avatar_url);
+  return (
+    stringValue(data.avatar_url) ??
+    stringValue(data.picture) ??
+    stringValue(user.user_metadata?.avatar_url)
+  );
 }
 
 function providerSubject(identity: UserIdentity, fallbackEmail: string | null) {
   const data = identityData(identity);
   return (
-    stringValue(data.sub)
-    ?? (identity.provider === "email" ? fallbackEmail : null)
-    ?? stringValue(identity.id)
+    stringValue(data.sub) ??
+    (identity.provider === "email" ? fallbackEmail : null) ??
+    stringValue(identity.id)
   );
 }
 
 function supportedProvider(provider: string): SupportedProvider | null {
-  if (provider === "email" || provider === "google" || provider === "line") return provider;
+  if (provider === "email" || provider === "google" || provider === "line")
+    return provider;
   return null;
 }
 
@@ -85,8 +90,14 @@ async function syncUserIdentities(user: User, profileId: string) {
       provider_subject: subject,
       email,
       email_verified: Boolean(user.email_confirmed_at),
-      display_name: stringValue(data.full_name) ?? stringValue(data.name) ?? displayNameFor(user),
-      avatar_url: stringValue(data.avatar_url) ?? stringValue(data.picture) ?? avatarUrlFor(user),
+      display_name:
+        stringValue(data.full_name) ??
+        stringValue(data.name) ??
+        displayNameFor(user),
+      avatar_url:
+        stringValue(data.avatar_url) ??
+        stringValue(data.picture) ??
+        avatarUrlFor(user),
       metadata: {
         source: "supabase_auth_identity",
         identityId: identity.id,
@@ -104,39 +115,153 @@ async function syncUserIdentities(user: User, profileId: string) {
   if (error) throw error;
 }
 
-export async function ensureProfileForUser(user: User): Promise<ProfileRow> {
+async function markProfileIdentitiesForAuthUser(
+  profileId: string,
+  authUserId: string,
+) {
+  const supabase = createServiceSupabaseClient();
+  const { error } = await supabase
+    .from("user_identities")
+    .update({
+      auth_user_id: authUserId,
+      last_seen_at: new Date().toISOString(),
+    })
+    .eq("profile_id", profileId)
+    .is("auth_user_id", null);
+
+  if (error) throw error;
+}
+
+async function profileByAuthUserId(
+  authUserId: string,
+): Promise<ProfileRow | null> {
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("auth_user_id", authUserId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+async function activeProfileById(
+  profileId: string,
+): Promise<ProfileRow | null> {
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", profileId)
+    .neq("profile_status", "disabled")
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+async function profileByVerifiedEmail(
+  email: string | null,
+): Promise<ProfileRow | null> {
+  if (!email) return null;
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("email", email)
+    .eq("profile_status", "active")
+    .limit(2);
+
+  if (error) throw error;
+  return data?.length === 1 ? data[0] : null;
+}
+
+async function createAuthMergeRequest(
+  sourceProfileId: string,
+  targetProfileId: string,
+  requestedByProfileId: string | null,
+  reason: string,
+) {
+  const supabase = createServiceSupabaseClient();
+  const { data: existing, error: existingError } = await supabase
+    .from("account_merge_requests")
+    .select("id")
+    .eq("source_profile_id", sourceProfileId)
+    .eq("target_profile_id", targetProfileId)
+    .eq("status", "pending")
+    .limit(1);
+
+  if (existingError) throw existingError;
+  if (existing?.[0]) return existing[0].id;
+
+  const { data: mergeRequest, error: insertError } = await supabase
+    .from("account_merge_requests")
+    .insert({
+      requested_by_profile_id: requestedByProfileId,
+      source_profile_id: sourceProfileId,
+      target_profile_id: targetProfileId,
+      reason,
+      risk_summary: {
+        conflict: "supabase_auth_already_linked_to_another_profile",
+      } as Json,
+    })
+    .select("id")
+    .single();
+
+  if (insertError) throw insertError;
+
+  await supabase.from("account_merge_events").insert({
+    merge_request_id: mergeRequest.id,
+    event_type: "created",
+    actor_profile_id: requestedByProfileId,
+    metadata: {
+      sourceProfileId,
+      targetProfileId,
+      reason,
+    } as Json,
+  });
+
+  return mergeRequest.id;
+}
+
+async function updateProfileForSupabaseUser(
+  user: User,
+  profile: ProfileRow,
+): Promise<ProfileRow> {
   const supabase = createServiceSupabaseClient();
   const now = new Date().toISOString();
   const email = user.email?.toLowerCase() ?? null;
   const displayName = displayNameFor(user);
   const avatarUrl = avatarUrlFor(user);
 
-  const { data: existing, error: existingError } = await supabase
+  const { data: updated, error: updateError } = await supabase
     .from("profiles")
+    .update({
+      auth_user_id: user.id,
+      email:
+        profile.auth_user_id === user.id ? email : (profile.email ?? email),
+      display_name: profile.display_name ?? displayName,
+      avatar_url: profile.avatar_url ?? avatarUrl,
+      profile_status: "active",
+      last_seen_at: now,
+    })
+    .eq("id", profile.id)
     .select("*")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
+    .single();
 
-  if (existingError) throw existingError;
+  if (updateError) throw updateError;
+  await markProfileIdentitiesForAuthUser(updated.id, user.id);
+  await syncUserIdentities(user, updated.id);
+  return updated;
+}
 
-  if (existing) {
-    const { data: updated, error: updateError } = await supabase
-      .from("profiles")
-      .update({
-        email,
-        display_name: existing.display_name ?? displayName,
-        avatar_url: existing.avatar_url ?? avatarUrl,
-        profile_status: "active",
-        last_seen_at: now,
-      })
-      .eq("id", existing.id)
-      .select("*")
-      .single();
-
-    if (updateError) throw updateError;
-    await syncUserIdentities(user, updated.id);
-    return updated;
-  }
+async function createProfileForSupabaseUser(user: User): Promise<ProfileRow> {
+  const supabase = createServiceSupabaseClient();
+  const now = new Date().toISOString();
+  const email = user.email?.toLowerCase() ?? null;
+  const displayName = displayNameFor(user);
+  const avatarUrl = avatarUrlFor(user);
 
   const { data: inserted, error: insertError } = await supabase
     .from("profiles")
@@ -153,11 +278,8 @@ export async function ensureProfileForUser(user: User): Promise<ProfileRow> {
     .single();
 
   if (insertError) {
-    const { data: raced, error: racedError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
+    const raced = await profileByAuthUserId(user.id);
+    const racedError = raced ? null : insertError;
     if (racedError || !raced) throw insertError;
     await syncUserIdentities(user, raced.id);
     return raced;
@@ -165,4 +287,62 @@ export async function ensureProfileForUser(user: User): Promise<ProfileRow> {
 
   await syncUserIdentities(user, inserted.id);
   return inserted;
+}
+
+export async function ensureProfileForUser(
+  user: User,
+  targetProfileId?: string | null,
+): Promise<ProfileRow> {
+  const existing = await profileByAuthUserId(user.id);
+
+  if (targetProfileId) {
+    const targetProfile = await activeProfileById(targetProfileId);
+
+    if (targetProfile) {
+      if (existing && existing.id !== targetProfile.id) {
+        await createAuthMergeRequest(
+          targetProfile.id,
+          existing.id,
+          targetProfile.id,
+          "Supabase Auth user already belongs to another profile; admin review required before merge.",
+        );
+        return updateProfileForSupabaseUser(user, existing);
+      }
+
+      if (
+        targetProfile.auth_user_id &&
+        targetProfile.auth_user_id !== user.id
+      ) {
+        const newProfile =
+          existing ?? (await createProfileForSupabaseUser(user));
+        if (newProfile.id !== targetProfile.id) {
+          await createAuthMergeRequest(
+            targetProfile.id,
+            newProfile.id,
+            targetProfile.id,
+            "Target LINE profile already has another Supabase Auth user; admin review required before merge.",
+          );
+        }
+        return updateProfileForSupabaseUser(user, newProfile);
+      }
+
+      return updateProfileForSupabaseUser(user, targetProfile);
+    }
+  }
+
+  if (existing) {
+    return updateProfileForSupabaseUser(user, existing);
+  }
+
+  const emailProfile = await profileByVerifiedEmail(
+    user.email?.toLowerCase() ?? null,
+  );
+  if (
+    emailProfile &&
+    (!emailProfile.auth_user_id || emailProfile.auth_user_id === user.id)
+  ) {
+    return updateProfileForSupabaseUser(user, emailProfile);
+  }
+
+  return createProfileForSupabaseUser(user);
 }

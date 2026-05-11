@@ -75,7 +75,13 @@ export type YnotTopUp = {
   profileId: string;
   amountThb: number;
   coinAmount: number;
-  status: "pending_slip" | "pending_review" | "approved" | "rejected" | "cancelled" | "expired";
+  status:
+    | "pending_slip"
+    | "pending_review"
+    | "approved"
+    | "rejected"
+    | "cancelled"
+    | "expired";
   adminNote?: string | null;
   customerNote?: string | null;
   createdAt: string;
@@ -88,7 +94,14 @@ export type YnotCollectionItem = {
   cardName: string;
   cardCode?: string | null;
   imageUrl?: string | null;
-  status: "owned" | "locked" | "exchange_requested" | "exchanged" | "shipping_requested" | "shipped" | "void";
+  status:
+    | "owned"
+    | "locked"
+    | "exchange_requested"
+    | "exchanged"
+    | "shipping_requested"
+    | "shipped"
+    | "void";
   serialNo?: string | null;
   acquiredAt: string;
 };
@@ -96,7 +109,13 @@ export type YnotCollectionItem = {
 export type YnotExchangeOrder = {
   id: string;
   publicCode: string;
-  status: "draft" | "submitted" | "approved" | "rejected" | "completed" | "cancelled";
+  status:
+    | "draft"
+    | "submitted"
+    | "approved"
+    | "rejected"
+    | "completed"
+    | "cancelled";
   requestedCoinValue: number;
   approvedCoinValue?: number | null;
   createdAt: string;
@@ -106,11 +125,40 @@ export type YnotExchangeOrder = {
 export type YnotShippingRequest = {
   id: string;
   publicCode: string;
-  status: "draft" | "submitted" | "packing" | "shipped" | "delivered" | "cancelled";
+  status:
+    | "draft"
+    | "submitted"
+    | "packing"
+    | "shipped"
+    | "delivered"
+    | "cancelled";
   trackingProvider?: string | null;
   trackingNumber?: string | null;
   createdAt: string;
   adminNote?: string | null;
+};
+
+export type YnotGachaOpenReward = {
+  id: string;
+  cardName: string;
+  cardCode?: string | null;
+  tier?: string | null;
+  valueThb?: number | null;
+  resultPosition: number;
+};
+
+export type YnotGachaOpenHistory = {
+  id: string;
+  publicCode: string;
+  campaignId: string;
+  campaignSlug?: string | null;
+  campaignTitle: string;
+  costCoins: number;
+  quantity: number;
+  status: "reserved" | "completed" | "failed" | "refunded";
+  openedAt: string;
+  createdAt: string;
+  rewards: YnotGachaOpenReward[];
 };
 
 export type YnotAddress = {
@@ -148,7 +196,6 @@ export type YnotPrizePoolItem = {
   voidUnits: number;
 };
 
-
 export type YnotDataIssue = {
   label: string;
   message: string;
@@ -175,6 +222,7 @@ export type YnotDashboardData = {
   paymentMethods: YnotPaymentMethod[];
   wallet: YnotWallet;
   topUps: YnotTopUp[];
+  gachaOpens: YnotGachaOpenHistory[];
   collection: YnotCollectionItem[];
   exchanges: YnotExchangeOrder[];
   shipping: YnotShippingRequest[];
@@ -187,7 +235,11 @@ export type YnotDashboardData = {
 
 export type HomeSeriesFilter = "all" | YnotCampaign["series"];
 export type HomeTagFilter = "all" | "new" | "psa10";
-export type HomeSortOption = "recommended" | "latest" | "coins-desc" | "coins-asc";
+export type HomeSortOption =
+  | "recommended"
+  | "latest"
+  | "coins-desc"
+  | "coins-asc";
 export type HomeFilterState = {
   series: HomeSeriesFilter;
   tag: HomeTagFilter;

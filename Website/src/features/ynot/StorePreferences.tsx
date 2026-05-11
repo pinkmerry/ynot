@@ -64,7 +64,7 @@ const customerNav = [
   { key: "main", href: "/", protected: false },
   { key: "profile", href: "/profile", protected: true },
   { key: "wallet", href: "/wallet", protected: true },
-  { key: "personalInfo", href: "/profile#personal-info", protected: true },
+  { key: "personalInfo", href: "/profile/personal-info", protected: true },
 ] as const;
 
 function safeLanguage(value: string | null | undefined): Language {
@@ -136,7 +136,11 @@ function useStorePreferences() {
   };
 }
 
-function protectedHref(href: string, authenticated: boolean, isProtected: boolean) {
+function protectedHref(
+  href: string,
+  authenticated: boolean,
+  isProtected: boolean,
+) {
   if (authenticated || !isProtected) return href;
   return `/login?next=${encodeURIComponent(href)}`;
 }
@@ -161,7 +165,11 @@ function homeSortHref(filter: HomeFilterState) {
   return query ? `/?${query}` : "/";
 }
 
-export function StoreSortSelect({ homeFilter }: { homeFilter: HomeFilterState }) {
+export function StoreSortSelect({
+  homeFilter,
+}: {
+  homeFilter: HomeFilterState;
+}) {
   const router = useRouter();
 
   return (
@@ -172,7 +180,9 @@ export function StoreSortSelect({ homeFilter }: { homeFilter: HomeFilterState })
         onChange={(event) => {
           const sort = event.target.value;
           if (!isHomeSortOption(sort)) return;
-          router.replace(homeSortHref({ ...homeFilter, sort }), { scroll: false });
+          router.replace(homeSortHref({ ...homeFilter, sort }), {
+            scroll: false,
+          });
         }}
         value={homeFilter.sort}
       >
@@ -193,7 +203,11 @@ export function StoreHeaderNav({ authenticated }: { authenticated: boolean }) {
   return (
     <nav className="store-nav" aria-label="Primary navigation">
       {customerNav.map((item) => (
-        <Link className="store-nav-link" href={protectedHref(item.href, authenticated, item.protected)} key={item.href}>
+        <Link
+          className="store-nav-link"
+          href={protectedHref(item.href, authenticated, item.protected)}
+          key={item.href}
+        >
           {labels[item.key]}
         </Link>
       ))}
@@ -235,7 +249,9 @@ export function StoreSettingsMenu() {
         title={copy.button}
         type="button"
       >
-        <span aria-hidden className="settings-menu-icon">⚙</span>
+        <span aria-hidden className="settings-menu-icon">
+          ⚙
+        </span>
         <span className="settings-menu-label">{copy.button}</span>
       </button>
 
@@ -245,10 +261,18 @@ export function StoreSettingsMenu() {
           <div className="settings-menu-group">
             <span>{copy.language}</span>
             <div className="settings-toggle-row">
-              <button className={preferences.language === "en" ? "active" : ""} onClick={() => setLanguage("en")} type="button">
+              <button
+                className={preferences.language === "en" ? "active" : ""}
+                onClick={() => setLanguage("en")}
+                type="button"
+              >
                 {copy.en}
               </button>
-              <button className={preferences.language === "th" ? "active" : ""} onClick={() => setLanguage("th")} type="button">
+              <button
+                className={preferences.language === "th" ? "active" : ""}
+                onClick={() => setLanguage("th")}
+                type="button"
+              >
                 {copy.th}
               </button>
             </div>
@@ -256,10 +280,18 @@ export function StoreSettingsMenu() {
           <div className="settings-menu-group">
             <span>{copy.theme}</span>
             <div className="settings-toggle-row">
-              <button className={preferences.theme === "light" ? "active" : ""} onClick={() => setTheme("light")} type="button">
+              <button
+                className={preferences.theme === "light" ? "active" : ""}
+                onClick={() => setTheme("light")}
+                type="button"
+              >
                 {copy.light}
               </button>
-              <button className={preferences.theme === "dark" ? "active" : ""} onClick={() => setTheme("dark")} type="button">
+              <button
+                className={preferences.theme === "dark" ? "active" : ""}
+                onClick={() => setTheme("dark")}
+                type="button"
+              >
                 {copy.dark}
               </button>
             </div>

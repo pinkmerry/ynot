@@ -18,7 +18,12 @@ import type {
   YnotViewer,
   YnotWallet,
 } from "./types";
-import { featuredCampaigns, rewardTiers } from "./storefront-content";
+import {
+  featuredCampaigns,
+  mockFeaturePacks,
+  rewardTiers,
+} from "./storefront-content";
+import type { MockFeaturePack } from "./storefront-content";
 import { allowDemoStorefront, productionSafetyLabel } from "./runtime-flags";
 import {
   StoreHeaderNav,
@@ -456,6 +461,7 @@ export function YnotHomeExperience({
               emptyTitle="No packs match this filter"
               emptyBody="Try All, switch category, or ask admin to add matching pack labels."
             />
+            <MockFeaturePackSection />
             <section className="live-now-strip">
               <div className="section-heading-row">
                 <h3 className="title-m">Store status</h3>
@@ -494,6 +500,86 @@ export function YnotHomeExperience({
         </aside>
       </div>
     </>
+  );
+}
+
+function MockFeaturePackSection() {
+  return (
+    <section
+      className="mock-pack-section"
+      aria-label="Preview-only featured pack mockups"
+    >
+      <div className="section-heading-row template-section-heading">
+        <div>
+          <p className="section-label">Visual preview</p>
+          <h3 className="title-m">More Featured Pack Mockups</h3>
+        </div>
+        <span className="orange-chip">Preview only</span>
+      </div>
+      <p className="mock-pack-note">
+        These cards are design mockups for production review. They do not open
+        until an admin publishes real campaigns.
+      </p>
+      <div className="mock-pack-grid">
+        {mockFeaturePacks.map((pack) => (
+          <MockFeaturePackCard key={pack.id} pack={pack} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MockFeaturePackCard({ pack }: { pack: MockFeaturePack }) {
+  return (
+    <article
+      className={`product-card clean-pack-card mock-pack-card ${
+        pack.series === "pokemon" ? "pokemon" : "one-piece"
+      }`}
+    >
+      <div className="pack-card-top">
+        <div
+          className="product-tags pack-info-tags"
+          aria-label="Mock pack status and labels"
+        >
+          <span className="status-pill">Preview</span>
+          {pack.tags.map((tag) => (
+            <span key={`${pack.id}-${tag}`} className="soft-pill">
+              {tag}
+            </span>
+          ))}
+        </div>
+        <h3 className="title-m pack-card-title">{pack.title}</h3>
+      </div>
+      <div
+        className={`campaign-art clean-art mock-pack-art ${
+          pack.series === "pokemon" ? "pokemon" : "one-piece"
+        }`}
+        aria-label={`${pack.title} design mockup`}
+      >
+        <span className="art-glow" aria-hidden />
+        <span className="clean-pack-cover" aria-hidden>
+          <span className="clean-cover-kicker">{seriesLabel(pack.series)}</span>
+          <span className="clean-cover-title">{pack.title}</span>
+          <span className="clean-cover-footer">Coming Soon</span>
+        </span>
+      </div>
+      <p className="mock-pack-copy">{pack.heroLabel}</p>
+      <div className="pack-card-bottom" aria-label="Mock pack preview status">
+        <span className="pack-price-line">
+          <CoinIcon /> {formatCoins(pack.costCoins)}/pack
+        </span>
+        <span className="pack-remaining-line">{pack.remainingLabel}</span>
+      </div>
+      <div className="progress-track mock-progress">
+        <span style={{ width: "64%" }} />
+      </div>
+      <div className="product-actions">
+        <span className="secondary-action mock-disabled-action">Mockup</span>
+        <span className="primary-action mock-disabled-action">
+          Not open yet
+        </span>
+      </div>
+    </article>
   );
 }
 
@@ -1523,22 +1609,30 @@ export function AdminCategoryManager({
           <p>These are live-safe now and already used by customer filters.</p>
         </div>
         <div className="admin-category-list">
-          {(categories.length ? categories : adminCategoryCards.map((category) => ({
-            id: category.series,
-            slug: category.series,
-            nameTh: category.title,
-            nameEn: category.title,
-            description: category.subtitle,
-            icon: category.accent,
-            legacySeries: category.series,
-            sortOrder: 0,
-            isActive: true,
-            isTest: false,
-          } satisfies YnotCategory))).map((category) => {
-            const categoryCampaigns = campaigns.filter((campaign) =>
-              campaign.categoryIds?.includes(category.id)
-              || campaign.categorySlugs?.includes(category.slug)
-              || (category.legacySeries && campaign.series === category.legacySeries),
+          {(categories.length
+            ? categories
+            : adminCategoryCards.map(
+                (category) =>
+                  ({
+                    id: category.series,
+                    slug: category.series,
+                    nameTh: category.title,
+                    nameEn: category.title,
+                    description: category.subtitle,
+                    icon: category.accent,
+                    legacySeries: category.series,
+                    sortOrder: 0,
+                    isActive: true,
+                    isTest: false,
+                  }) satisfies YnotCategory,
+              )
+          ).map((category) => {
+            const categoryCampaigns = campaigns.filter(
+              (campaign) =>
+                campaign.categoryIds?.includes(category.id) ||
+                campaign.categorySlugs?.includes(category.slug) ||
+                (category.legacySeries &&
+                  campaign.series === category.legacySeries),
             );
             const publicLive = categoryCampaigns.filter(
               (campaign) =>
@@ -1553,7 +1647,10 @@ export function AdminCategoryManager({
                   {category.icon ?? "✨"}
                 </div>
                 <div className="admin-category-clean-body">
-                  <span>{category.isActive ? "Active" : "Hidden"}{category.isTest ? " · TEST" : ""}</span>
+                  <span>
+                    {category.isActive ? "Active" : "Hidden"}
+                    {category.isTest ? " · TEST" : ""}
+                  </span>
                   <h3>{category.nameEn}</h3>
                   <p>{category.description ?? category.nameTh}</p>
                   <dl>
@@ -1575,7 +1672,11 @@ export function AdminCategoryManager({
                 </div>
                 <Link
                   className="secondary-action compact"
-                  href={category.legacySeries ? `/?series=${category.legacySeries}` : `/?category=${category.slug}`}
+                  href={
+                    category.legacySeries
+                      ? `/?series=${category.legacySeries}`
+                      : `/?category=${category.slug}`
+                  }
                 >
                   Preview storefront
                 </Link>

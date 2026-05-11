@@ -2,6 +2,16 @@ import type { YnotCampaign } from "./types";
 
 export const statusFilters = ["All", "New", "PSA10"] as const;
 
+export type MockFeaturePack = {
+  id: string;
+  title: string;
+  series: YnotCampaign["series"];
+  costCoins: number;
+  remainingLabel: string;
+  heroLabel: string;
+  tags: string[];
+};
+
 export const featuredCampaigns: YnotCampaign[] = [
   {
     id: "storefront-pokemon-gold-07",
@@ -93,10 +103,79 @@ export const featuredCampaigns: YnotCampaign[] = [
   },
 ];
 
+export const mockFeaturePacks: MockFeaturePack[] = [
+  {
+    id: "mock-pokemon-black-label",
+    title: "Pokemon Black Label Chase",
+    series: "pokemon",
+    costCoins: 250,
+    remainingLabel: "Preview stock",
+    heroLabel: "Moonbreon / Charizard / Pikachu trophy concept",
+    tags: ["PSA10", "High hit"],
+  },
+  {
+    id: "mock-onepiece-gear-five",
+    title: "One Piece Gear 5 Vault",
+    series: "one_piece",
+    costCoins: 220,
+    remainingLabel: "Preview stock",
+    heroLabel: "Manga rare, signature leader, treasure box concept",
+    tags: ["Manga", "New"],
+  },
+  {
+    id: "mock-pokemon-terastal",
+    title: "Terastal Festival Burst",
+    series: "pokemon",
+    costCoins: 180,
+    remainingLabel: "Preview stock",
+    heroLabel: "SAR chase, Eevee heroes, trainer support concept",
+    tags: ["SAR", "Foil"],
+  },
+  {
+    id: "mock-onepiece-pirate-king",
+    title: "Pirate King Treasure Box",
+    series: "one_piece",
+    costCoins: 160,
+    remainingLabel: "Preview stock",
+    heroLabel: "OP parallel, sealed booster, coin-back concept",
+    tags: ["OP", "Value"],
+  },
+];
+
 export const rewardTiers = [
-  { rank: "S", name: "Signature hits", remain: "1 / 1", note: "Charizard SAR", cards: ["UR"] },
-  { rank: "A", name: "Premium hits", remain: "2 / 4", note: "SR support cards", cards: ["SSR", "SSR", "SSR"] },
-  { rank: "B", name: "Chase cards", remain: "6 / 12", note: "SR / RR", cards: ["SR", "SR", "SR", "SR"] },
-  { rank: "C", name: "Foil cards", remain: "24 / 40", note: "R foil", cards: ["R", "R", "R", "R", "R"] },
-  { rank: "D", name: "Base rewards", remain: "9 / 43", note: "Can be exchanged for coins", cards: ["N", "N"] },
+  {
+    rank: "S",
+    name: "Signature hits",
+    remain: "1 / 1",
+    note: "Charizard SAR",
+    cards: ["UR"],
+  },
+  {
+    rank: "A",
+    name: "Premium hits",
+    remain: "2 / 4",
+    note: "SR support cards",
+    cards: ["SSR", "SSR", "SSR"],
+  },
+  {
+    rank: "B",
+    name: "Chase cards",
+    remain: "6 / 12",
+    note: "SR / RR",
+    cards: ["SR", "SR", "SR", "SR"],
+  },
+  {
+    rank: "C",
+    name: "Foil cards",
+    remain: "24 / 40",
+    note: "R foil",
+    cards: ["R", "R", "R", "R", "R"],
+  },
+  {
+    rank: "D",
+    name: "Base rewards",
+    remain: "9 / 43",
+    note: "Can be exchanged for coins",
+    cards: ["N", "N"],
+  },
 ] as const;
