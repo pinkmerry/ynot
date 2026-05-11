@@ -65,7 +65,7 @@ const supabase = createClient(url, serviceKey, {
 });
 
 async function checkTable(table, required = true) {
-  const { error } = await supabase.from(table).select("id").limit(1);
+  const { error } = await supabase.from(table).select("*").limit(1);
   if (!error) {
     pass(`table ${table} is available`);
     return true;
