@@ -77,7 +77,7 @@ export async function GET(request: Request) {
   authorizeUrl.searchParams.set("client_id", channelId);
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("state", state);
-  authorizeUrl.searchParams.set("scope", "profile openid email");
+  authorizeUrl.searchParams.set("scope", "profile openid");
   authorizeUrl.searchParams.set("nonce", nonce);
 
   return Response.redirect(authorizeUrl);
