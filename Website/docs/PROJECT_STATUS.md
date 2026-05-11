@@ -1,10 +1,10 @@
 # YNOTT Project Status
 
-Updated: 2026-05-10
+Updated: 2026-05-11
 
 ## Current Phase
 
-Phase-by-phase implementation is underway. Backend/Auth Phase 1, website auth, LINE OAuth/linking, wallet/top-up/gacha/collection/exchange/shipping, admin campaign/prize/user management, account merge review, button-map foundation, Japan-Toreca-style responsive web layout, latest prototype-inspired cyber theme, and local navigation cleanup, and localhost admin control-center redesign are implemented and locally verified. A separate GitHub repo and Vercel production project now exist for online testing, the website domain is being moved to `https://www.ynottcg.com`, and production Supabase migrations are still blocked by missing SQL execution access and full-backup evidence.
+Phase-by-phase implementation is underway. Backend/Auth Phase 1, website auth, LINE OAuth/linking, wallet/top-up/gacha/collection/exchange/shipping, admin campaign/prize/user management, account merge review, button-map foundation, Japan-Toreca-style responsive web layout, latest prototype-inspired cyber theme, and local navigation cleanup, and localhost admin control-center redesign are implemented and locally verified. The canonical GitHub repo and Vercel production projects are live for online testing at `https://www.ynottcg.com` / `https://liff.ynottcg.com`; the first production Supabase unblock migrations have now been applied for auth, wallet/gacha, and random-pack test inventory readiness.
 
 ## Current Goal
 
@@ -40,8 +40,8 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 
 - Separate production deployment setup completed for online testing: private GitHub repo `https://github.com/pinkmerry/ynott` was created and pushed, Vercel project `ynott-website` was created/connected with root directory `Website`, production env names were configured, and the original stable Vercel alias was `https://ynott-website.vercel.app`. Evidence: `docs/verification/2026-05-07-github-vercel-production-deploy.md`.
 - Domain reorganization is live: the normal website owns `https://www.ynottcg.com` and apex `https://ynottcg.com`; the LINE LIFF Vercel project owns `https://liff.ynottcg.com` plus fallback `https://ynott-line-liff.vercel.app`. Squarespace DNS now resolves `liff.ynottcg.com` to Vercel, a Vercel SSL certificate was issued, and both LIFF URLs return `200`. Evidence: `docs/verification/2026-05-07-domain-reorganization.md`.
-- Production DB next-phase gate documented: live Supabase ref `szjoarkijeaspazbrchc` still lacks `profiles.auth_user_id`, `user_identities`, `top_up_requests`, wallet/ledger, gacha, collection, exchange, shipping, and private realtime tables. A REST data-only backup exists at ignored path `../Database/backups/pre-migration-20260507T090736Z/`, but a full Supabase backup plus SQL execution access are still required before applying migrations. Evidence: `../Database/docs/verification/2026-05-07-production-db-next-phase-gate.md`.
-- Phase 1 production data inventory/backup-readiness was refreshed read-only on 2026-05-10. Live ref `szjoarkijeaspazbrchc` is confirmed, LIFF-era table counts/storage bucket inventory were captured, admin roles exist without exposing names, and `npm run verify:production-db` still fails with expected missing category/inventory objects. Gate result remains blocked: no full provider/PITR backup evidence, no `SUPABASE_ACCESS_TOKEN`, no direct Postgres URL/SQL execution path, and no non-production restore drill. Evidence: `docs/verification/2026-05-10-phase-1-production-inventory-backup.md`.
+- Production DB next-phase gate was originally documented on 2026-05-07. On 2026-05-11, SQL execution access was confirmed through Supabase CLI linked mode and the auth/platform/test-inventory unblock migrations were applied directly to live ref `szjoarkijeaspazbrchc`.
+- Phase 1 production data inventory/backup-readiness was refreshed read-only on 2026-05-10. Live ref `szjoarkijeaspazbrchc` is confirmed, LIFF-era table counts/storage bucket inventory were captured, admin roles exist without exposing names, and data-only REST backups exist. The later 2026-05-11 test unblock proceeded by explicit owner request, but a provider/PITR backup and restore drill are still recommended before any broader destructive cleanup.
 - Next-step backup refresh completed on 2026-05-10: a fresh ignored service-role REST data-only export was created at `../Database/backups/pre-migration-20260510T072634Z/`, with current counts matching the Phase 1 inventory and zero listed Storage objects. This improves stale data-export evidence but still does not satisfy the full backup/PITR + restore-drill gate. Evidence: `docs/verification/evidence/2026-05-10-phase-1/102-current-rest-backup-refresh.json`.
 - Ralph continuation verification refreshed at 2026-05-07 09:28Z after a stale session-level Ralph hook: Vercel stable alias resolves to a Ready production deployment, production page/API smoke still passes/fails closed as expected, live DB schema gap is unchanged, and `npm run check` passed. Evidence: `docs/verification/2026-05-07-github-vercel-production-deploy.md` and `../Database/docs/verification/2026-05-07-production-db-next-phase-gate.md`.
 
@@ -111,7 +111,7 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 - Splits realtime invalidation into public safe `lucky_draw_realtime_events` and RLS-scoped `app_realtime_events`; public events no longer expose private order/payment identifiers.
 - Updates `/api/line/session` to record LINE as an identity linked to the saved profile and keep LIFF session creation server-backed.
 - Updates local generated Supabase types and static verification scripts.
-- Important: migration was not applied to the live Supabase project in this local Ralph slice. Deploy/apply sequence must run DB migration before deploying code that writes `user_identities`.
+- Production note: this migration was applied to live Supabase ref `szjoarkijeaspazbrchc` on 2026-05-11 by explicit owner test-unblock request.
 - Broad authenticated profile updates are blocked: `auth_user_id`, `line_user_id`, `email`, and `profile_status` are not client-updatable; only safe non-identity profile/contact columns receive column-level update grants.
 - Verification evidence from this slice: `npm run verify:phase1` passed; `npm run typecheck` passed; `npm run lint` passed after excluding generated `.omx` artifacts; `npm run build` passed; `node tools/verification/verify-lucky-draw-plan.mjs` passed; Ralph architect review initially rejected broad authenticated profile updates, then approved after column-level grants restricted profile updates to safe non-identity fields.
 
@@ -138,7 +138,7 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 - Added admin campaign draft creation, campaign publish/close/archive controls, card catalog create/update, campaign prize-pool assignment/deletion, admin role management with owner/self-deactivation safeguards, and admin account-merge review actions.
 - Added `tools/fixtures/button-map.json`, `npm run verify:ynot`, and `npm run check`.
 - Latest local evidence: `npm run check` passed; `npm audit --omit=dev` found 0 vulnerabilities; localhost:3005 page/API smoke passed for home/login/signup/profile/customer/admin pages, unauthenticated admin API denial, and LINE login fail-closed behavior when `LINE_LOGIN_CHANNEL_SECRET` is missing. Ralph architect final re-review approved after the LINE `next` redirect sanitizer was hardened against backslash/protocol-relative redirects.
-- Important: this is local code/migration foundation only; production Supabase migration execution remains a gated deployment step.
+- Production note: this migration was applied to live Supabase ref `szjoarkijeaspazbrchc` on 2026-05-11 by explicit owner test-unblock request.
 
 ### HTML wireframe UX/UI parity correction
 
@@ -178,21 +178,33 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 - Admin UX redesign Ralph artifacts: `.omx/context/admin-ux-redesign-20260509T083023Z.md`, `.omx/plans/prd-admin-ux-redesign.md`, `.omx/plans/test-spec-admin-ux-redesign.md`.
 - Admin UX redesign verification evidence: `npm run typecheck`, `npm run lint`, `npm run build`, authenticated localhost smoke for `/admin`, `/admin/categories`, `/admin/campaigns`, and `/admin/health` all found expected markers; architect verification approved.
 
+
+### Production auth/random-pack test unblock applied
+
+- On 2026-05-11, by explicit owner request for solo production testing, `main` was updated to commit `87153aa` and deployed to both Vercel production projects.
+- Applied live Supabase migrations through linked Supabase CLI against ref `szjoarkijeaspazbrchc`:
+  - `20260507015626_phase1_auth_identity_realtime.sql`
+  - `20260507032000_phase2_platform_wallet_gacha.sql`
+  - `20260509100000_admin_test_categories_inventory.sql`
+- Fixed the production readiness verifier so join tables without an `id` column are checked by REST visibility instead of an `id` projection.
+- Verification evidence: production `/login` and `/signup` render Google, LINE, and email/password with Apple removed; email/password signup smoke returned the expected confirmation-email redirect; `npm run verify:production-db` passed with only tone-cleanup warnings.
+- Remaining external blockers: Supabase Google provider is not enabled, LINE Developers is missing/does not accept `https://www.ynottcg.com/api/line/callback`, and leaked Supabase credentials still need rotation.
+
 ### Auth login v2 local implementation
 
 - Implemented the revised login surface requested on 2026-05-11: Supabase default email/password confirmation remains the create-account path, Google and LINE remain visible provider paths, and unsupported Apple sign-in was removed from login/signup UI and CSS.
 - Added static auth verifier coverage so `npm run verify:auth` now fails if Apple sign-in returns or if Google/LINE/email account creation disappear.
 - Verification evidence: `npm run verify:auth` passed; `npm run check` passed; localhost production-start smoke confirmed `/login` and `/signup` render Google, LINE, and email/password without Apple. Evidence doc: `docs/verification/2026-05-11-auth-login-v2.md`.
-- External/live gates remain: Supabase Auth Site URL/redirect URLs, Google OAuth dashboard settings, LINE channel secret/callbacks, leaked-key rotation, and production DB migration/backup gates.
+- Live status after 2026-05-11: merged to `main` and deployed to production; `/login` and `/signup` show Google, LINE, and email/password with Apple removed; email/password signup smoke redirected to the expected email-confirmation message; Google remains blocked because the Supabase Google provider is not enabled; LINE remains blocked because the LINE Developers callback URL is missing/invalid.
 
 
 ## Not Implemented Yet
 
-- Production Supabase migrations have not been applied yet; DB/RLS/runtime behavior for new website tables remains gated by SQL execution access and full backup.
-- Google OAuth and LINE OAuth provider dashboard settings/callback URLs have not been verified live.
-- LINE OAuth start route correctly fails closed locally when `LINE_LOGIN_CHANNEL_SECRET` is missing; production must set it before enabling normal LINE website login.
-- Same-database migration has not been applied yet; live schema checks still show the new website tables/columns missing.
+- Google OAuth provider is still not enabled in Supabase Auth; production check returns `Unsupported provider: provider is not enabled`.
+- LINE OAuth still needs the callback URL registered in LINE Developers: `https://www.ynottcg.com/api/line/callback`; production check returns `Invalid redirect_uri value`.
+- Destructive tone cleanup migration `20260509183000_remove_card_tone_fields.sql` has not been applied; current readiness check only reports this as a warning.
 - Full Supabase CLI DB reset/RLS tests and Playwright e2e tests from the original test spec are not installed/run yet.
+- Supabase access/service-role credentials exposed in chat must still be rotated.
 
 ## Verification Status
 
@@ -200,10 +212,10 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 | --- | --- | --- |
 | Product requirements | Planned | Deep-interview spec exists. |
 | Frontend/platform architecture | Planned and approved | `docs/plans/ralplan-ynot-production-website.md` and PRD/test/ADR exist. |
-| Backend/database architecture | Planned and approved; Phase 1 and Phase 2 platform migration files locally implemented | `../Database/docs/plans/ralplan-liff-database-redesign.md`; `../Database/supabase/migrations/20260507015626_phase1_auth_identity_realtime.sql`; `../Database/supabase/migrations/20260507032000_phase2_platform_wallet_gacha.sql`; `npm run check` passed locally. |
+| Backend/database architecture | Planned and approved; core production unblock migrations applied on 2026-05-11 | `../Database/supabase/migrations/20260507015626_phase1_auth_identity_realtime.sql`; `../Database/supabase/migrations/20260507032000_phase2_platform_wallet_gacha.sql`; `../Database/supabase/migrations/20260509100000_admin_test_categories_inventory.sql`; `npm run verify:production-db` passed with only tone-removal warnings. |
 | Existing modularization slice | Previously verified | Prior status recorded lint/build/static smoke pass. |
 | Full production implementation | Separate GitHub/Vercel production deployment ready for page/navigation smoke; full write-flow validation still DB/provider gated | `https://github.com/pinkmerry/ynott`; canonical website `https://www.ynottcg.com`; website fallback alias `https://ynott-website.vercel.app`; LIFF fallback `https://ynott-line-liff.vercel.app`; production route/link smoke passed. |
-| Database migration execution | Blocked, not run in production | Phase 1 and Phase 2 migration files exist; live checks show missing schema; requires Supabase SQL access plus full backup. |
+| Database migration execution | Core test unblock applied | Applied Phase 1 auth identity, Phase 2 wallet/gacha, and admin test categories/inventory migrations to live ref `szjoarkijeaspazbrchc`; `npm run verify:production-db` passed with 2 non-blocking tone warnings. |
 | HTML wireframe UX/UI parity | Locally corrected and smoke-verified | Browser showed the paper/hand-drawn wireframe skin on `localhost:3005`; curl confirmed Pokemon/One Piece/POP MART, exchange category tabs, and `Charizard SAR` reward detail text. |
 | Full browser QA | Basic localhost and production page/link smoke passed; authenticated e2e not run | Production customer/admin pages returned 200; safe unauth API checks returned expected 400/401/403/503/405 responses; full user/payment/gacha journey remains DB/provider gated. |
 
@@ -217,7 +229,7 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 
 ## Recommended Next Slice
 
-**Deployment gate: database migration must run before deploying code that writes new columns/tables. Apply/test `../Database/supabase/migrations/20260507015626_phase1_auth_identity_realtime.sql` and then `../Database/supabase/migrations/20260507032000_phase2_platform_wallet_gacha.sql` against local/staging Supabase, then production with backup, before deploying website code that writes `profiles.auth_user_id`, `user_identities`, `top_up_requests`, generalized `payment_slips`, wallet/ledger, gacha, collection, exchange, or shipping tables.**
+**Next slice: finish external auth dashboard configuration. Enable Google provider in Supabase Auth with Google OAuth credentials, register `https://www.ynottcg.com/api/line/callback` in LINE Developers, rotate leaked Supabase credentials, then run a real account signup/login and random-pack smoke on production.**
 
 Completed locally in Phase 1:
 
