@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "YNot TCG · Lucky Draw",
-  description: "Production YNot Lucky Draw website with wallet, gacha, collection, exchange, shipping, and admin operations.",
+  title: "YNOT · TCG Lucky Draw",
+  description: "YNOT TCG production lucky-draw site with wallet, gacha, collection, exchange, shipping, and admin operations.",
 };
 
 export const viewport: Viewport = {

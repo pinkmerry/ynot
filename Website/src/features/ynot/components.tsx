@@ -1,6 +1,7 @@
+import { cookies } from "next/headers";
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { signOutAction } from "@/features/auth/actions";
 import type {
   HomeFilterState,
   HomeSeriesFilter,
@@ -26,7 +27,6 @@ import {
 import { allowDemoStorefront, productionSafetyLabel } from "./runtime-flags";
 import { normalizeOpenQuantityOptions } from "./open-quantity";
 import {
-  StoreHeaderNav,
   StoreSettingsMenu,
   StoreSortSelect,
 } from "./StorePreferences";
@@ -251,62 +251,143 @@ function formatCoins(value: number) {
   return value.toLocaleString();
 }
 
-export function YnotShell({
+export async function YnotShell({
   viewer,
   children,
   homeFilter = defaultHomeFilter,
+  walletBalance,
 }: {
   viewer: YnotViewer;
   children: ReactNode;
   homeFilter?: HomeFilterState;
+  walletBalance?: number;
 }) {
+  let renderViewer = viewer;
+  let renderBalance = walletBalance;
+  if (process.env.NODE_ENV !== "production") {
+    const cookieStore = await cookies();
+    if (cookieStore.get("ynot-preview-auth")?.value === "1") {
+      renderViewer = {
+        ...viewer,
+        authenticated: true,
+        displayName: viewer.displayName || "Preview User",
+        isAdmin: true,
+        adminRole: viewer.adminRole ?? "owner",
+        authSource: viewer.authSource ?? "supabase",
+      };
+      if (typeof renderBalance !== "number" || renderBalance === 0) {
+        renderBalance = 1250;
+      }
+    }
+  }
   return (
     <main className="app-shell store-shell mobile-safe space-y-7">
-      <header className="storefront-header sticky top-3 z-30">
+      <header className="storefront-header sticky top-0 z-50">
         <div className="store-topbar">
-          <Link href="/" className="brand-lockup" aria-label="YNot TCG home">
-            <span className="brand-mark">Y</span>
-            <span className="min-w-0">
-              <span className="brand-name">YNot TCG</span>
-              <span className="brand-tagline">Official TCG Store</span>
-            </span>
-          </Link>
-          <StoreHeaderNav authenticated={viewer.authenticated} />
-          <div className="store-actions">
-            {viewer.authenticated ? (
-              <>
-                <span className="account-chip">
-                  {viewer.displayName} ·{" "}
-                  {viewer.authSource === "line" ? "LINE" : "Web"}
-                </span>
-                {viewer.isAdmin && (
-                  <Link className="secondary-action compact" href="/admin">
-                    Admin
-                  </Link>
-                )}
-                <form action={signOutAction}>
-                  <button className="secondary-action compact" type="submit">
-                    Logout
-                  </button>
-                </form>
-              </>
+          <div className="store-topbar-left">
+            {renderViewer.authenticated ? (
+              <StoreSettingsMenu
+                authenticated
+                isAdmin={renderViewer.isAdmin}
+              />
             ) : (
-              <>
-                <Link className="secondary-action compact" href="/login">
-                  Login
-                </Link>
-                <Link className="primary-action compact" href="/signup">
-                  Sign Up
-                </Link>
-              </>
+              <StoreSettingsMenu />
             )}
-            <StoreSettingsMenu />
+          </div>
+          <Link href="/" className="brand-lockup" aria-label="YNOT home">
+            <Image
+              src="/ynot-logo.png"
+              alt="YNOT"
+              width={620}
+              height={200}
+              priority
+              className="brand-logo"
+            />
+          </Link>
+          <div className="store-topbar-right">
+            {renderViewer.authenticated && (
+              <Link
+                href="/wallet"
+                className="header-coin-pill"
+                aria-label={`Coin balance ${typeof renderBalance === "number" ? formatCoins(renderBalance) : "0"} · Tap to top up`}
+              >
+                <TopUpCoinIcon />
+                <span className="header-coin-amount">
+                  {typeof renderBalance === "number"
+                    ? formatCoins(renderBalance)
+                    : "—"}
+                </span>
+              </Link>
+            )}
           </div>
         </div>
         <StoreFilterStrip homeFilter={homeFilter} />
       </header>
       {children}
     </main>
+  );
+}
+
+function TopUpCoinIcon() {
+  return (
+    <span aria-hidden className="header-coin-mark">
+      <svg viewBox="0 0 24 24" width="1em" height="1em" focusable="false">
+        <defs>
+          <radialGradient id="coinFace" cx="50%" cy="38%" r="65%">
+            <stop offset="0%" stopColor="#ffd089" />
+            <stop offset="55%" stopColor="#ff8a1f" />
+            <stop offset="100%" stopColor="#b94e00" />
+          </radialGradient>
+          <linearGradient id="coinRim" x1="50%" y1="0%" x2="50%" y2="100%">
+            <stop offset="0%" stopColor="#ffe6c2" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="#7a3000" stopOpacity="0.85" />
+          </linearGradient>
+          <radialGradient id="coinShine" cx="36%" cy="28%" r="32%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle cx="12" cy="12" r="10.5" fill="url(#coinFace)" />
+        <circle
+          cx="12"
+          cy="12"
+          r="10.5"
+          fill="none"
+          stroke="url(#coinRim)"
+          strokeWidth="1"
+        />
+        <circle
+          cx="12"
+          cy="12"
+          r="8.6"
+          fill="none"
+          stroke="#ffffff"
+          strokeOpacity="0.18"
+          strokeWidth="0.6"
+        />
+        <ellipse
+          cx="9.5"
+          cy="8.2"
+          rx="5"
+          ry="2.6"
+          fill="url(#coinShine)"
+        />
+        <path
+          d="M12 7.6 V16.4 M7.6 12 H16.4"
+          stroke="#1a0d00"
+          strokeOpacity="0.92"
+          strokeWidth="1.9"
+          strokeLinecap="round"
+        />
+        <path
+          d="M12 7.6 V16.4 M7.6 12 H16.4"
+          stroke="#fff1d6"
+          strokeOpacity="0.35"
+          strokeWidth="0.6"
+          strokeLinecap="round"
+        />
+      </svg>
+    </span>
   );
 }
 
@@ -471,7 +552,7 @@ export function YnotHomeExperience({
               <div className="section-heading-row">
                 <h3 className="title-m">Store status</h3>
                 <span className="orange-chip">
-                  ● {campaigns.length} visible packs
+                  <CoinIcon /> {campaigns.length} visible packs
                 </span>
               </div>
               {campaigns.length ? (
@@ -1046,10 +1127,27 @@ function PrizeCard({
   );
 }
 
-function CoinIcon() {
+export function CoinIcon() {
   return (
-    <span aria-label="coin" className="coin-icon">
-      ●
+    <span aria-label="coin" className="coin-icon" role="img">
+      <svg
+        viewBox="0 0 24 24"
+        width="1em"
+        height="1em"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="6.5" strokeOpacity="0.65" />
+        <circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none" />
+        <path d="M2.5 12 H5 M19 12 H21.5 M12 2.5 V5 M12 19 V21.5" strokeOpacity="0.55" />
+        <path d="M7.4 7.4 L9 9 M15 9 L16.6 7.4 M7.4 16.6 L9 15 M15 15 L16.6 16.6" strokeOpacity="0.35" />
+      </svg>
     </span>
   );
 }

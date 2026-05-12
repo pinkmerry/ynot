@@ -26,7 +26,7 @@ export default async function PersonalInfoPage() {
       : undefined;
 
   return (
-    <YnotShell viewer={data.viewer}>
+    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
       <PageHeader
         eyebrow="10 · Personal Info"
         title="Personal Info"

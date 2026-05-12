@@ -1,5 +1,5 @@
 import { CollectionActionPanel } from "@/features/ynot/client";
-import { CollectionGrid, PageHeader, YnotShell } from "@/features/ynot/components";
+import { CoinIcon, CollectionGrid, PageHeader, YnotShell } from "@/features/ynot/components";
 import { getYnotDashboardData } from "@/features/ynot/data";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
 
@@ -14,11 +14,11 @@ export default async function CollectionPage() {
   const shippedCount = data.collection.filter((item) => item.status === "shipped").length;
 
   return (
-    <YnotShell viewer={data.viewer}>
+    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
       <PageHeader eyebrow="04 · Collection · Acquisition" title="Collection" description="Real owned cards from your account. Select cards to request coin exchange or shipping." />
       <div className="phone-page-shell collection-phone grid gap-4 xl:grid-cols-[1fr_0.75fr]">
         <div className="inner-phone-header">
-          <div className="template-top-bar"><h2>Collection</h2><span className="coin-pill">● {data.wallet.balanceCoins.toLocaleString()}</span></div>
+          <div className="template-top-bar"><h2>Collection</h2><span className="coin-pill"><CoinIcon /> {data.wallet.balanceCoins.toLocaleString()}</span></div>
           <div className="phone-rule" aria-hidden><span /><span /><span /></div>
           <div className="ranking-tabs collection-tabs"><span className="active">Owned {ownedCount}</span><span>Exchange {exchangeRequestedCount}</span><span>Ship {shippingRequestedCount}</span><span>Shipped {shippedCount}</span></div>
           <div className="collection-toolbar"><span>▾ Filter</span><span>▦ View</span></div>

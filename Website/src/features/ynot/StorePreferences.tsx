@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { signOutAction } from "@/features/auth/actions";
 import type { HomeFilterState, HomeSortOption } from "./types";
 
 type Language = "en" | "th";
@@ -14,7 +15,7 @@ type StorePreferences = {
 };
 
 const defaults: StorePreferences = {
-  language: "en",
+  language: "th",
   theme: "dark",
 };
 
@@ -39,24 +40,38 @@ const navLabels = {
 
 const settingsCopy = {
   en: {
-    button: "Settings",
-    title: "Settings",
+    button: "Menu",
+    title: "Menu",
     language: "Language",
     theme: "Theme",
     en: "EN",
     th: "TH",
     light: "Light",
     dark: "Dark",
+    account: "Account",
+    admin: "Admin Console",
+    logout: "Log out",
+    navigation: "Navigation",
+    signUp: "Create account",
+    login: "Log in",
+    close: "Close",
   },
   th: {
-    button: "ตั้งค่า",
-    title: "ตั้งค่า",
+    button: "เมนู",
+    title: "เมนู",
     language: "ภาษา",
     theme: "ธีม",
     en: "EN",
     th: "TH",
     light: "สว่าง",
     dark: "มืด",
+    account: "บัญชี",
+    admin: "หน้าแอดมิน",
+    logout: "ออกจากระบบ",
+    navigation: "เมนูนำทาง",
+    signUp: "สมัครสมาชิก",
+    login: "เข้าสู่ระบบ",
+    close: "ปิด",
   },
 } as const;
 
@@ -68,7 +83,8 @@ const customerNav = [
 ] as const;
 
 function safeLanguage(value: string | null | undefined): Language {
-  return value === "th" ? "th" : "en";
+  if (value === "th" || value === "en") return value;
+  return defaults.language;
 }
 
 function safeTheme(value: string | null | undefined): Theme {
@@ -215,89 +231,191 @@ export function StoreHeaderNav({ authenticated }: { authenticated: boolean }) {
   );
 }
 
-export function StoreSettingsMenu() {
-  const { preferences, setLanguage, setTheme } = useStorePreferences();
+export function StoreSettingsMenu({
+  authenticated = false,
+  isAdmin = false,
+}: {
+  authenticated?: boolean;
+  isAdmin?: boolean;
+  variant?: "bell" | "language";
+} = {}) {
+  const { preferences, setLanguage } = useStorePreferences();
   const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const copy = settingsCopy[preferences.language];
+  const navStrings = navLabels[preferences.language];
 
   useEffect(() => {
-    function closeOnOutside(event: MouseEvent) {
-      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-
+    if (!open) return;
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(false);
     }
-
-    document.addEventListener("mousedown", closeOnOutside);
     document.addEventListener("keydown", closeOnEscape);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener("mousedown", closeOnOutside);
       document.removeEventListener("keydown", closeOnEscape);
+      document.body.style.overflow = previousOverflow;
     };
-  }, []);
+  }, [open]);
+
+  function closeAfter(action?: () => void) {
+    return () => {
+      action?.();
+      setOpen(false);
+    };
+  }
 
   return (
-    <div className="settings-menu" ref={menuRef}>
+    <div className="settings-menu">
       <button
         aria-expanded={open}
-        aria-haspopup="menu"
+        aria-haspopup="dialog"
         aria-label={copy.button}
-        className="settings-menu-button"
+        className="settings-menu-button hamburger-button"
         onClick={() => setOpen((value) => !value)}
         title={copy.button}
         type="button"
       >
         <span aria-hidden className="settings-menu-icon">
-          ⚙
+          <svg
+            viewBox="0 0 24 24"
+            width="1em"
+            height="1em"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M3.5 5.5 V18.5" strokeOpacity="0.6" strokeWidth="1.2" />
+            <path d="M3.5 7 H18.5" />
+            <path d="M3.5 12 H16" strokeOpacity="0.88" />
+            <path d="M3.5 17 H13" strokeOpacity="0.7" />
+            <rect x="18" y="6" width="2.4" height="2.4" fill="currentColor" stroke="none" />
+            <rect x="15.5" y="11" width="2.4" height="2.4" fill="currentColor" stroke="none" fillOpacity="0.88" />
+            <rect x="12.5" y="16" width="2.4" height="2.4" fill="currentColor" stroke="none" fillOpacity="0.7" />
+          </svg>
         </span>
         <span className="settings-menu-label">{copy.button}</span>
       </button>
 
-      {open && (
-        <div className="settings-menu-panel" role="menu">
-          <strong>{copy.title}</strong>
-          <div className="settings-menu-group">
-            <span>{copy.language}</span>
-            <div className="settings-toggle-row">
-              <button
-                className={preferences.language === "en" ? "active" : ""}
-                onClick={() => setLanguage("en")}
-                type="button"
-              >
-                {copy.en}
-              </button>
-              <button
-                className={preferences.language === "th" ? "active" : ""}
-                onClick={() => setLanguage("th")}
-                type="button"
-              >
-                {copy.th}
-              </button>
+      <div
+        className={`store-drawer-backdrop${open ? " open" : ""}`}
+        onClick={() => setOpen(false)}
+        aria-hidden={!open}
+      />
+      <aside
+        className={`store-drawer${open ? " open" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={copy.button}
+        aria-hidden={!open}
+      >
+        <header className="store-drawer-head">
+          <span className="store-drawer-title">{copy.button}</span>
+          <button
+            aria-label={copy.close}
+            className="store-drawer-close"
+            onClick={() => setOpen(false)}
+            type="button"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="1.2em"
+              height="1.2em"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M6 6 L18 18 M18 6 L6 18" />
+            </svg>
+          </button>
+        </header>
+
+        <nav className="store-drawer-section" aria-label={copy.navigation}>
+          <span className="store-drawer-label">{copy.navigation}</span>
+          <ul className="store-drawer-nav">
+            {customerNav.map((item) => (
+              <li key={item.href}>
+                <Link
+                  className="store-drawer-link"
+                  href={protectedHref(item.href, authenticated, item.protected)}
+                  onClick={closeAfter()}
+                >
+                  {navStrings[item.key]}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div className="store-drawer-section">
+          <span className="store-drawer-label">{copy.account}</span>
+          {authenticated ? (
+            <div className="store-drawer-stack">
+              {isAdmin && (
+                <Link
+                  className="store-drawer-link"
+                  href="/admin"
+                  onClick={closeAfter()}
+                >
+                  {copy.admin}
+                </Link>
+              )}
+              <form action={signOutAction}>
+                <button
+                  className="store-drawer-link store-drawer-link-danger"
+                  type="submit"
+                >
+                  {copy.logout}
+                </button>
+              </form>
             </div>
-          </div>
-          <div className="settings-menu-group">
-            <span>{copy.theme}</span>
-            <div className="settings-toggle-row">
-              <button
-                className={preferences.theme === "light" ? "active" : ""}
-                onClick={() => setTheme("light")}
-                type="button"
+          ) : (
+            <div className="store-drawer-stack">
+              <Link
+                className="store-drawer-link store-drawer-link-primary"
+                href="/signup"
+                onClick={closeAfter()}
               >
-                {copy.light}
-              </button>
-              <button
-                className={preferences.theme === "dark" ? "active" : ""}
-                onClick={() => setTheme("dark")}
-                type="button"
+                {copy.signUp}
+              </Link>
+              <Link
+                className="store-drawer-link"
+                href="/login"
+                onClick={closeAfter()}
               >
-                {copy.dark}
-              </button>
+                {copy.login}
+              </Link>
             </div>
+          )}
+        </div>
+
+        <div className="store-drawer-section">
+          <span className="store-drawer-label">{copy.language}</span>
+          <div className="store-drawer-langgrid">
+            <button
+              className={`store-drawer-langbtn${preferences.language === "th" ? " active" : ""}`}
+              onClick={() => setLanguage("th")}
+              type="button"
+            >
+              {copy.th}
+            </button>
+            <button
+              className={`store-drawer-langbtn${preferences.language === "en" ? " active" : ""}`}
+              onClick={() => setLanguage("en")}
+              type="button"
+            >
+              {copy.en}
+            </button>
           </div>
         </div>
-      )}
+      </aside>
     </div>
   );
 }

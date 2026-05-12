@@ -37,7 +37,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     : "/";
 
   return (
-    <YnotShell viewer={data.viewer}>
+    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
       <PageHeader
         eyebrow="09 · Profile · Packs & Rewards"
         title="My Profile"

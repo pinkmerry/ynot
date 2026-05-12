@@ -16,7 +16,7 @@ export default async function HomePage({
   };
   const data = await getYnotDashboardData();
   return (
-    <YnotShell viewer={data.viewer} homeFilter={homeFilter}>
+    <YnotShell viewer={data.viewer} homeFilter={homeFilter} walletBalance={data.wallet.balanceCoins}>
       <YnotHomeExperience data={data} homeFilter={homeFilter} />
     </YnotShell>
   );
