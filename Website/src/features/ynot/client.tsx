@@ -1605,6 +1605,18 @@ export function AdminCampaignForm({
       ready: initialUnlockedUnits > 0,
     },
   ];
+  const topPrizeDrafts = sortedDraftPrizes.filter(
+    (prize) => prize.group === "top",
+  );
+  const highTierDrafts = sortedDraftPrizes.filter(
+    (prize) => prize.group === "high",
+  );
+  const normalPrizeDrafts = sortedDraftPrizes.filter(
+    (prize) => prize.group === "normal",
+  );
+  const readinessLabel = prizeBlockers.length
+    ? `${prizeBlockers.length} blocker${prizeBlockers.length === 1 ? "" : "s"}`
+    : "Ready to save";
 
   function updatePrizeDraft(
     localId: string,
@@ -1784,19 +1796,33 @@ export function AdminCampaignForm({
   }
 
   return (
-    <section className="admin-pack-form soft-card">
-      <div className="admin-form-head">
-        <span>New random pack</span>
-        <h3>Create pack draft with prizes</h3>
-        <p>
-          Choose the pack details and prize inventory together before the draft
-          can enter owner review.
-        </p>
+    <section className="admin-pack-form admin-pack-form-horizontal soft-card">
+      <div className="admin-pack-builder-head">
+        <div>
+          <span>New random pack</span>
+          <h3>Create pack draft with prizes</h3>
+          <p>
+            Build the campaign, prize list, and owner-review readiness in one
+            horizontal workspace.
+          </p>
+        </div>
+        <strong
+          className={
+            prizeBlockers.length
+              ? "admin-readiness-pill"
+              : "admin-readiness-pill ready"
+          }
+        >
+          {readinessLabel}
+        </strong>
       </div>
 
-      <div className="admin-form-steps">
-        <div className="admin-form-step">
-          <strong>1. Basic info</strong>
+      <div className="admin-pack-builder-layout">
+        <aside className="admin-pack-info-panel" aria-label="Pack information">
+          <div className="admin-panel-compact-head">
+            <span>1. Pack info</span>
+            <strong>Campaign setup</strong>
+          </div>
           <div className="admin-form-grid">
             <label className="admin-field">
               <span>Slug</span>
@@ -1839,7 +1865,7 @@ export function AdminCampaignForm({
                 </select>
               )}
             </label>
-            <label className="admin-field">
+            <label className="admin-field admin-field-wide">
               <span>Thai title</span>
               <input
                 value={titleTh}
@@ -1847,7 +1873,7 @@ export function AdminCampaignForm({
                 placeholder="ชื่อแพ็ก"
               />
             </label>
-            <label className="admin-field">
+            <label className="admin-field admin-field-wide">
               <span>English title</span>
               <input
                 value={titleEn}
@@ -1855,7 +1881,7 @@ export function AdminCampaignForm({
                 placeholder="Pack title"
               />
             </label>
-            <label className="admin-field admin-field-wide">
+            <label className="admin-field">
               <span>Open mode</span>
               <select
                 value={mode}
@@ -1867,26 +1893,6 @@ export function AdminCampaignForm({
                 <option value="slot_pick">Slot pick</option>
               </select>
             </label>
-            <label className="admin-field admin-field-wide">
-              <span>Production test pack</span>
-              <button
-                className={
-                  isTest
-                    ? "gold-button rounded-2xl px-4 py-3 text-sm font-black"
-                    : "plain-button rounded-2xl px-4 py-3 text-sm font-black"
-                }
-                onClick={() => setIsTest((value) => !value)}
-                type="button"
-              >
-                {isTest ? "Test-only ON" : "Normal public pack"}
-              </button>
-            </label>
-          </div>
-        </div>
-
-        <div className="admin-form-step">
-          <strong>2. Price & quantity</strong>
-          <div className="admin-form-grid admin-form-grid-three">
             <label className="admin-field">
               <span>Total packs</span>
               <input
@@ -1919,32 +1925,144 @@ export function AdminCampaignForm({
                 placeholder="1"
               />
             </label>
+            <label className="admin-field admin-field-wide">
+              <span>Customer card tags</span>
+              <input
+                value={displayTags}
+                onChange={(event) => setDisplayTags(event.target.value)}
+                placeholder="PSA10, New Exclusive"
+              />
+            </label>
+            <label className="admin-field admin-field-wide">
+              <span>Production test pack</span>
+              <button
+                className={
+                  isTest
+                    ? "gold-button rounded-2xl px-4 py-3 text-sm font-black"
+                    : "plain-button rounded-2xl px-4 py-3 text-sm font-black"
+                }
+                onClick={() => setIsTest((value) => !value)}
+                type="button"
+              >
+                {isTest ? "Test-only ON" : "Normal public pack"}
+              </button>
+            </label>
           </div>
-        </div>
+        </aside>
 
-        <div className="admin-form-step">
-          <strong>3. Display labels</strong>
-          <label className="admin-field">
-            <span>Customer card tags</span>
-            <input
-              value={displayTags}
-              onChange={(event) => setDisplayTags(event.target.value)}
-              placeholder="PSA10, New Exclusive"
-            />
-          </label>
-          <p>
-            These tags show on the customer pack card. Use labels like PSA10,
-            New Exclusive, Manga, Few Left, or Event.
-          </p>
-        </div>
+        <section className="admin-prize-workspace" aria-label="Prize builder">
+          <div className="admin-panel-compact-head">
+            <span>2. Prize builder</span>
+            <strong>Top 1-3, high tier, normal pool</strong>
+          </div>
 
-        <div className="admin-form-step">
-          <strong>4. Prize inventory picker</strong>
-          <p>
-            Choose the high-tier list count first. Top 1-3 stay fixed for owner
-            review, the high-tier pool fills ranks below them, and normal/base
-            prize categories cover the rest.
-          </p>
+          <div className="admin-top-prize-strip">
+            {topPrizeDrafts.map((prize) => (
+              <article className="admin-top-prize-card" key={prize.localId}>
+                <div className="admin-prize-draft-head">
+                  <div>
+                    <span>Top {prize.rank}</span>
+                    <strong>{prizeCategoryLabel(prize.prizeCategory)}</strong>
+                    <em>{prizeDraftGroupLabel(prize.group)}</em>
+                  </div>
+                </div>
+                <label className="admin-field">
+                  <span>Prize item</span>
+                  <select
+                    value={prize.cardId}
+                    onChange={(event) =>
+                      updatePrizeDraft(prize.localId, {
+                        cardId: event.target.value,
+                      })
+                    }
+                  >
+                    {cards.map((card) => (
+                      <option
+                        key={card.catalogCardId}
+                        value={card.catalogCardId}
+                      >
+                        {card.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="admin-top-prize-controls">
+                  <label className="admin-field">
+                    <span>Category</span>
+                    <select
+                      value={prize.prizeCategory}
+                      onChange={(event) =>
+                        updatePrizeDraft(prize.localId, {
+                          prizeCategory: event.target.value as PrizeCategory,
+                        })
+                      }
+                    >
+                      {prizeCategoryOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="admin-field">
+                    <span>Qty</span>
+                    <input
+                      min={0}
+                      type="number"
+                      value={prize.quantity}
+                      onChange={(event) =>
+                        updatePrizeDraft(prize.localId, {
+                          quantity: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="admin-field">
+                    <span>Value</span>
+                    <input
+                      min={0}
+                      type="number"
+                      value={prize.valueThb}
+                      onChange={(event) =>
+                        updatePrizeDraft(prize.localId, {
+                          valueThb: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="admin-field">
+                    <span>Weight</span>
+                    <input
+                      min={0}
+                      step={0.1}
+                      type="number"
+                      value={prize.weight}
+                      onChange={(event) =>
+                        updatePrizeDraft(prize.localId, {
+                          weight: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="admin-field">
+                    <span>Unlock %</span>
+                    <input
+                      max={100}
+                      min={0}
+                      type="number"
+                      value={prize.unlockAtSoldPct}
+                      onChange={(event) =>
+                        updatePrizeDraft(prize.localId, {
+                          unlockAtSoldPct: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+              </article>
+            ))}
+          </div>
+
           <div className="admin-prize-structure-panel">
             <div>
               <span>High-tier prizes below Top 1-3</span>
@@ -1979,6 +2097,7 @@ export function AdminCampaignForm({
               </label>
             </div>
           </div>
+
           <div className="admin-prize-picker-toolbar">
             <button
               className="plain-button rounded-2xl px-4 py-3 text-sm font-black"
@@ -2017,51 +2136,155 @@ export function AdminCampaignForm({
               High unlock 30%
             </button>
           </div>
-          <div className="admin-prize-draft-list">
-            {sortedDraftPrizes.map((prize) => (
-              <article className="admin-prize-draft-card" key={prize.localId}>
-                <div className="admin-prize-draft-head">
-                  <div>
-                    <span>{prizeDraftGroupLabel(prize.group)}</span>
-                    <strong>
-                      {prize.tier === "high" ? "High" : "Normal"} #
-                      {prize.rank}
-                    </strong>
-                    <em>{prizeCategoryLabel(prize.prizeCategory)}</em>
-                  </div>
-                  {prize.group !== "top" && (
-                    <button
-                      className="danger-button rounded-2xl px-3 py-2 text-xs font-black"
-                      disabled={
-                        prize.group === "high" &&
-                        highTierCount <= minHighTierCount
-                      }
-                      onClick={() => removePrizeDraft(prize.localId)}
-                      type="button"
-                    >
-                      Remove
-                    </button>
-                  )}
+
+          <div className="admin-prize-table-wrap">
+            <div className="admin-prize-table-head">
+              <span>Rank</span>
+              <span>Prize item</span>
+              <span>Category</span>
+              <span>Qty</span>
+              <span>Value</span>
+              <span>Weight</span>
+              <span>Unlock</span>
+              <span>Action</span>
+            </div>
+            {highTierDrafts.map((prize) => (
+              <article className="admin-prize-table-row" key={prize.localId}>
+                <div className="admin-prize-rank-cell">
+                  <strong>#{prize.rank}</strong>
+                  <span>High tier</span>
                 </div>
-                <div className="admin-form-grid admin-form-grid-three">
+                <label className="admin-field">
+                  <span>Prize item</span>
+                  <select
+                    value={prize.cardId}
+                    onChange={(event) =>
+                      updatePrizeDraft(prize.localId, {
+                        cardId: event.target.value,
+                      })
+                    }
+                  >
+                    {cards.map((card) => (
+                      <option
+                        key={card.catalogCardId}
+                        value={card.catalogCardId}
+                      >
+                        {card.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="admin-field">
+                  <span>Category</span>
+                  <select
+                    value={prize.prizeCategory}
+                    onChange={(event) =>
+                      updatePrizeDraft(prize.localId, {
+                        prizeCategory: event.target.value as PrizeCategory,
+                      })
+                    }
+                  >
+                    {prizeCategoryOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="admin-field">
+                  <span>Qty</span>
+                  <input
+                    min={0}
+                    type="number"
+                    value={prize.quantity}
+                    onChange={(event) =>
+                      updatePrizeDraft(prize.localId, {
+                        quantity: Number(event.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label className="admin-field">
+                  <span>Value</span>
+                  <input
+                    min={0}
+                    type="number"
+                    value={prize.valueThb}
+                    onChange={(event) =>
+                      updatePrizeDraft(prize.localId, {
+                        valueThb: Number(event.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label className="admin-field">
+                  <span>Weight</span>
+                  <input
+                    min={0}
+                    step={0.1}
+                    type="number"
+                    value={prize.weight}
+                    onChange={(event) =>
+                      updatePrizeDraft(prize.localId, {
+                        weight: Number(event.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label className="admin-field">
+                  <span>Unlock</span>
+                  <input
+                    max={100}
+                    min={0}
+                    type="number"
+                    value={prize.unlockAtSoldPct}
+                    onChange={(event) =>
+                      updatePrizeDraft(prize.localId, {
+                        unlockAtSoldPct: Number(event.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <button
+                  className="danger-button rounded-2xl px-3 py-2 text-xs font-black"
+                  disabled={highTierCount <= minHighTierCount}
+                  onClick={() => removePrizeDraft(prize.localId)}
+                  type="button"
+                >
+                  Remove
+                </button>
+              </article>
+            ))}
+          </div>
+
+          <div className="admin-normal-pool-panel">
+            <div className="admin-panel-compact-head">
+              <span>Normal/base pool</span>
+              <strong>
+                {normalPrizeRows} row{normalPrizeRows === 1 ? "" : "s"} ready
+              </strong>
+            </div>
+            <div className="admin-prize-table-wrap normal">
+              <div className="admin-prize-table-head">
+                <span>Rank</span>
+                <span>Prize item</span>
+                <span>Category</span>
+                <span>Qty</span>
+                <span>Value</span>
+                <span>Weight</span>
+                <span>Unlock</span>
+                <span>Action</span>
+              </div>
+              {normalPrizeDrafts.map((prize) => (
+                <article
+                  className="admin-prize-table-row normal"
+                  key={prize.localId}
+                >
+                  <div className="admin-prize-rank-cell">
+                    <strong>#{prize.rank}</strong>
+                    <span>Base</span>
+                  </div>
                   <label className="admin-field">
-                    <span>Prize category</span>
-                    <select
-                      value={prize.prizeCategory}
-                      onChange={(event) =>
-                        updatePrizeDraft(prize.localId, {
-                          prizeCategory: event.target.value as PrizeCategory,
-                        })
-                      }
-                    >
-                      {prizeCategoryOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="admin-field admin-field-wide">
                     <span>Prize item</span>
                     <select
                       value={prize.cardId}
@@ -2082,20 +2305,24 @@ export function AdminCampaignForm({
                     </select>
                   </label>
                   <label className="admin-field">
-                    <span>Rank</span>
-                    <input
-                      min={1}
-                      type="number"
-                      value={prize.rank}
+                    <span>Category</span>
+                    <select
+                      value={prize.prizeCategory}
                       onChange={(event) =>
                         updatePrizeDraft(prize.localId, {
-                          rank: Number(event.target.value),
+                          prizeCategory: event.target.value as PrizeCategory,
                         })
                       }
-                    />
+                    >
+                      {prizeCategoryOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <label className="admin-field">
-                    <span>Quantity</span>
+                    <span>Qty</span>
                     <input
                       min={0}
                       type="number"
@@ -2108,7 +2335,7 @@ export function AdminCampaignForm({
                     />
                   </label>
                   <label className="admin-field">
-                    <span>Value THB</span>
+                    <span>Value</span>
                     <input
                       min={0}
                       type="number"
@@ -2121,7 +2348,7 @@ export function AdminCampaignForm({
                     />
                   </label>
                   <label className="admin-field">
-                    <span>Drop weight</span>
+                    <span>Weight</span>
                     <input
                       min={0}
                       step={0.1}
@@ -2135,7 +2362,7 @@ export function AdminCampaignForm({
                     />
                   </label>
                   <label className="admin-field">
-                    <span>Unlock sold %</span>
+                    <span>Unlock</span>
                     <input
                       max={100}
                       min={0}
@@ -2148,24 +2375,23 @@ export function AdminCampaignForm({
                       }
                     />
                   </label>
-                  <label className="admin-field">
-                    <span>Tier</span>
-                    <select
-                      disabled
-                      value={prize.tier}
-                      onChange={(event) =>
-                        updatePrizeDraft(prize.localId, {
-                          tier: event.target.value as "normal" | "high",
-                        })
-                      }
-                    >
-                      <option value="high">High tier</option>
-                      <option value="normal">Normal/base</option>
-                    </select>
-                  </label>
-                </div>
-              </article>
-            ))}
+                  <button
+                    className="danger-button rounded-2xl px-3 py-2 text-xs font-black"
+                    onClick={() => removePrizeDraft(prize.localId)}
+                    type="button"
+                  >
+                    Remove
+                  </button>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <aside className="admin-readiness-panel" aria-label="Pack readiness">
+          <div className="admin-panel-compact-head">
+            <span>3. Readiness</span>
+            <strong>{readinessLabel}</strong>
           </div>
           <div className="admin-prize-summary-grid">
             <div>
@@ -2201,18 +2427,17 @@ export function AdminCampaignForm({
               ))}
             </ul>
           )}
-        </div>
+          <button
+            className="gold-button admin-form-save"
+            disabled={isPending || prizeBlockers.length > 0}
+            onClick={submit}
+            type="button"
+          >
+            {isPending ? "Saving..." : "Save random pack draft"}
+          </button>
+          {message && <p className="admin-form-message">{message}</p>}
+        </aside>
       </div>
-
-      <button
-        className="gold-button admin-form-save"
-        disabled={isPending || prizeBlockers.length > 0}
-        onClick={submit}
-        type="button"
-      >
-        {isPending ? "Saving..." : "Save random pack draft"}
-      </button>
-      {message && <p className="admin-form-message">{message}</p>}
     </section>
   );
 }

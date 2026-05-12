@@ -7281,6 +7281,249 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   padding: 12px 14px 12px 30px;
 }
 
+.admin-pack-form-horizontal {
+  container-type: inline-size;
+  gap: 18px;
+}
+
+.admin-pack-builder-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.admin-pack-builder-head > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-pack-builder-head span,
+.admin-panel-compact-head span,
+.admin-readiness-pill {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 1000;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.admin-pack-builder-head h3 {
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
+  font-weight: 1000;
+}
+
+.admin-pack-builder-head p {
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 760;
+  line-height: 1.5;
+  max-width: 760px;
+}
+
+.admin-readiness-pill {
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.22);
+  border-radius: 999px;
+  color: #fecdd3;
+  flex: 0 0 auto;
+  padding: 9px 12px;
+}
+
+.admin-readiness-pill.ready {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.28);
+  color: #bbf7d0;
+}
+
+.admin-pack-builder-layout {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns:
+    minmax(220px, 0.68fr)
+    minmax(0, 1.55fr)
+    minmax(220px, 0.58fr);
+}
+
+.admin-page-grid-studio > .admin-pack-form-horizontal {
+  grid-column: 1 / -1;
+}
+
+.admin-pack-info-panel,
+.admin-prize-workspace,
+.admin-readiness-panel {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.admin-readiness-panel {
+  position: sticky;
+  top: 94px;
+}
+
+.admin-panel-compact-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.admin-panel-compact-head strong {
+  font-size: 0.94rem;
+  font-weight: 1000;
+}
+
+.admin-top-prize-strip {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-top-prize-card,
+.admin-normal-pool-panel {
+  background: rgba(245, 184, 0, 0.055);
+  border: 1px solid rgba(245, 184, 0, 0.18);
+  border-radius: 18px;
+  display: grid;
+  gap: 11px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.admin-top-prize-controls {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-top-prize-controls .admin-field:first-child {
+  grid-column: 1 / -1;
+}
+
+.admin-prize-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: grid;
+  gap: 0;
+  overflow-x: auto;
+}
+
+.admin-prize-table-wrap.normal {
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.admin-prize-table-head,
+.admin-prize-table-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns:
+    minmax(74px, 0.5fr)
+    minmax(190px, 1.8fr)
+    minmax(140px, 1.1fr)
+    minmax(74px, 0.54fr)
+    minmax(84px, 0.62fr)
+    minmax(84px, 0.62fr)
+    minmax(84px, 0.62fr)
+    minmax(82px, 0.58fr);
+  min-width: 920px;
+  padding: 10px;
+}
+
+.admin-prize-table-head {
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 1000;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.admin-prize-table-row {
+  align-items: end;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.admin-prize-table-row + .admin-prize-table-row {
+  border-top: 1px solid var(--border);
+}
+
+.admin-prize-table-row.normal {
+  background: rgba(16, 185, 129, 0.035);
+}
+
+.admin-prize-rank-cell {
+  align-self: stretch;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: grid;
+  gap: 2px;
+  justify-content: center;
+  min-height: 46px;
+  padding: 8px;
+  text-align: center;
+}
+
+.admin-prize-rank-cell strong {
+  font-size: 0.98rem;
+  font-weight: 1000;
+}
+
+.admin-prize-rank-cell span {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-prize-table-row .admin-field {
+  gap: 4px;
+}
+
+.admin-prize-table-row .admin-field span {
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.admin-prize-table-row .admin-field input,
+.admin-prize-table-row .admin-field select,
+.admin-top-prize-controls .admin-field input,
+.admin-top-prize-controls .admin-field select {
+  border-radius: 12px;
+  height: 40px;
+  padding-inline: 10px;
+}
+
+.admin-readiness-panel .admin-prize-summary-grid,
+.admin-readiness-panel .admin-prize-checklist {
+  grid-template-columns: 1fr;
+}
+
+.admin-readiness-panel .admin-prize-checklist {
+  gap: 8px;
+}
+
+.admin-readiness-panel .admin-prize-checklist > div {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .admin-redesign-reference .admin-prize-draft-card,
 .admin-redesign-reference .admin-prize-summary-grid > div {
   background: #ffffff !important;
@@ -7300,6 +7543,26 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 }
 
 @media (max-width: 720px) {
+  .admin-pack-builder-head {
+    display: grid;
+  }
+
+  .admin-pack-builder-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-readiness-panel {
+    position: static;
+  }
+
+  .admin-top-prize-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-top-prize-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .admin-prize-structure-panel,
   .admin-prize-summary-grid,
   .admin-prize-checklist {
@@ -7312,6 +7575,30 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 
   .admin-prize-count-controls .admin-field {
     grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1240px) {
+  .admin-pack-builder-layout {
+    grid-template-columns: minmax(230px, 0.7fr) minmax(0, 1.3fr);
+  }
+
+  .admin-readiness-panel {
+    grid-column: 1 / -1;
+    position: static;
+  }
+
+  .admin-readiness-panel .admin-prize-summary-grid,
+  .admin-readiness-panel .admin-prize-checklist {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-top-prize-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-top-prize-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
