@@ -200,6 +200,7 @@ export type YnotGachaOpenHistory = {
 
 export type YnotPrizePreview = {
   id: string;
+  cardId?: string;
   cardName: string;
   tier: "normal" | "high";
   rank: number;
@@ -210,6 +211,7 @@ export type YnotPrizePreview = {
   unlockAtSoldPct?: number;
   prizeCategory?: string;
   prizeCategoryLabel?: string;
+  sourceType?: string;
   displayGroup?: string;
 };
 

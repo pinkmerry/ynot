@@ -28,6 +28,7 @@ export default async function AdminPrizesPage() {
           campaigns={data.campaigns}
           cards={cards}
           prizes={prizes}
+          viewerRole={data.viewer.adminRole}
         />
         <section className="admin-panel admin-full-span soft-card">
           <div className="admin-panel-head">

@@ -184,6 +184,7 @@ async function getPublicPrizeLineup(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   row: DrawRoundRow,
   inventory?: InventorySummary,
+  options: { includeLocked?: boolean } = {},
 ): Promise<YnotPrizePreview[]> {
   const soldPct = soldPctForCampaign(row, inventory);
   const { data: prizes, error } = await supabase
@@ -197,8 +198,9 @@ async function getPublicPrizeLineup(
   const visiblePrizes = (prizes ?? []).filter(
     (prize) =>
       !isAdminHidden(prize.metadata) &&
-      Number(prize.weight ?? 1) > 0 &&
-      Number(prize.unlock_at_sold_pct ?? 0) <= soldPct,
+      (options.includeLocked ||
+        (Number(prize.weight ?? 1) > 0 &&
+          Number(prize.unlock_at_sold_pct ?? 0) <= soldPct)),
   );
   if (!visiblePrizes.length) return [];
 
@@ -233,6 +235,7 @@ async function getPublicPrizeLineup(
       const counts = countsByPrize.get(prize.id);
       return {
         id: prize.id,
+        cardId: prize.card_id,
         cardName: cardById.get(prize.card_id)?.name ?? "Mystery reward",
         tier: prize.tier,
         rank: prize.rank,
@@ -243,6 +246,7 @@ async function getPublicPrizeLineup(
         unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
         prizeCategory: metadataString(prize.metadata, "prizeCategory"),
         prizeCategoryLabel: metadataString(prize.metadata, "prizeCategoryLabel"),
+        sourceType: metadataString(prize.metadata, "sourceType"),
         displayGroup: metadataString(prize.metadata, "displayGroup"),
       };
     })
@@ -621,6 +625,31 @@ export async function getCampaigns(
         .map((readiness) => [readiness.campaignId, readiness]),
     );
 
+    const prizeLineupsByCampaign = new Map<string, YnotPrizePreview[]>();
+    if (options.includePrivate) {
+      const prizeLineupRows = await Promise.all(
+        rows.map(async (row) => {
+          try {
+            return [
+              row.id,
+              await getPublicPrizeLineup(
+                supabase,
+                row,
+                inventoryByCampaign.get(row.id),
+                { includeLocked: true },
+              ),
+            ] as const;
+          } catch (error) {
+            recordDataIssue("campaign_owner_prize_lineup", error);
+            return [row.id, [] as YnotPrizePreview[]] as const;
+          }
+        }),
+      );
+      for (const [campaignId, prizeLineup] of prizeLineupRows) {
+        prizeLineupsByCampaign.set(campaignId, prizeLineup);
+      }
+    }
+
     const campaigns = rows.map((row) => {
       const links = categoryLinksByCampaign.get(row.id) ?? [];
       const linkedCategories = links
@@ -631,7 +660,7 @@ export async function getCampaigns(
         row,
         linkedCategories,
         inventory,
-        undefined,
+        prizeLineupsByCampaign.get(row.id),
         readinessByCampaign.get(row.id),
       );
     });

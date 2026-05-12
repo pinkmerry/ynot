@@ -159,14 +159,29 @@ export async function POST(request: Request) {
 
   const body = await bodyJson(request);
   if (!body) return Response.json({ error: "Invalid JSON body." }, { status: 400 });
+  const hasOwnerOnlyOddsFields =
+    body.valueThb !== undefined ||
+    body.weight !== undefined ||
+    body.unlockAtSoldPct !== undefined;
+  if (hasOwnerOnlyOddsFields && admin.adminRole !== "owner") {
+    return Response.json(
+      { error: "Only an owner can set prize value, weight, or sold unlock odds." },
+      { status: 403 },
+    );
+  }
 
   const campaignId = text(body.campaignId, 80);
   const cardId = text(body.cardId, 80);
   const tier = tierValue(body.tier);
   const rank = rankValue(body.rank);
   const quantity = quantityValue(body.quantity);
-  const weight = weightValue(body.weight);
-  const unlockAtSoldPct = percentValue(body.unlockAtSoldPct);
+  const valueThb =
+    body.valueThb === undefined ? undefined : moneyValue(body.valueThb);
+  const weight = body.weight === undefined ? undefined : weightValue(body.weight);
+  const unlockAtSoldPct =
+    body.unlockAtSoldPct === undefined
+      ? undefined
+      : percentValue(body.unlockAtSoldPct);
   const metadata = metadataValue(body);
   if (!campaignId || !cardId || !rank) return Response.json({ error: "campaignId, cardId, and rank are required." }, { status: 400 });
   if (body.quantity !== undefined && quantity === null) return Response.json({ error: "quantity must be an integer from 0 to 10000." }, { status: 400 });
@@ -187,14 +202,14 @@ export async function POST(request: Request) {
     card_id: cardId,
     tier,
     rank,
-    value_thb: moneyValue(body.valueThb),
     metadata,
   };
   const patch: Database["public"]["Tables"]["draw_round_prizes"]["Insert"] = {
     ...basePatch,
-    weight,
-    unlock_at_sold_pct: unlockAtSoldPct,
   };
+  if (valueThb !== undefined) patch.value_thb = valueThb;
+  if (weight !== undefined) patch.weight = weight;
+  if (unlockAtSoldPct !== undefined) patch.unlock_at_sold_pct = unlockAtSoldPct;
   if (body.isTest !== undefined || body.seedRunId !== undefined) {
     patch.is_test = booleanValue(body.isTest);
     patch.seed_run_id = text(body.seedRunId, 80) || null;
@@ -208,7 +223,7 @@ export async function POST(request: Request) {
     )
     .single();
   if (error && isMissingColumnError(error)) {
-    if (weight !== 1 || unlockAtSoldPct !== 0) {
+    if ((weight ?? 1) !== 1 || (unlockAtSoldPct ?? 0) !== 0) {
       return randomPackSchemaMissingResponse();
     }
     ({ data, error } = await supabase
@@ -253,8 +268,8 @@ export async function POST(request: Request) {
       tier,
       rank,
       quantity,
-      weight,
-      unlockAtSoldPct,
+      weight: weight ?? "unchanged",
+      unlockAtSoldPct: unlockAtSoldPct ?? "unchanged",
       prizeMetadata: metadata,
       approvalStatus: "pending_review",
     },

@@ -116,6 +116,19 @@ function isDirectPublishPatch(
   );
 }
 
+function initialPrizesForAdminRole(
+  prizes: PrizeDraftInput[],
+  adminRole: "owner" | "admin" | "staff",
+) {
+  if (adminRole === "owner") return prizes;
+  return prizes.map((prize) => ({
+    ...prize,
+    valueThb: null,
+    weight: 1,
+    unlockAtSoldPct: 0,
+  }));
+}
+
 async function replaceCampaignCategories(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   campaignId: string,
@@ -243,7 +256,10 @@ export async function POST(request: Request) {
     is_test: patch.is_test ?? false,
     seed_run_id: patch.seed_run_id ?? null,
   };
-  const initialPrizes = normalizePrizeDrafts(body.initialPrizes);
+  const initialPrizes = initialPrizesForAdminRole(
+    normalizePrizeDrafts(body.initialPrizes),
+    admin.adminRole,
+  );
   const prizeValidation = validatePrizeDraftsForSave(
     initialPrizes,
     insert.total_slots,

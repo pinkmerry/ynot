@@ -13,6 +13,7 @@ import type {
   YnotOwnerApprovalRequest,
   YnotPaymentMethod,
   YnotPrizePoolItem,
+  YnotPrizePreview,
   YnotRandomLogicMode,
   YnotShippingRequest,
 } from "./types";
@@ -152,6 +153,31 @@ function ownerLogicSummary(
     "There is no high-tier weight boost in pure random mode.",
     "Prizes with a future sold unlock checkpoint still stay hidden and cannot drop until unlocked.",
   ];
+}
+
+function ownerPrizeOddsLabel(
+  prize: YnotPrizePreview,
+  lineup: YnotPrizePreview[],
+  soldPct: number,
+) {
+  const unlockAtSoldPct = Number(prize.unlockAtSoldPct ?? 0);
+  const weight = Number(prize.weight ?? 1);
+  if (unlockAtSoldPct > soldPct) return `Locked until ${unlockAtSoldPct}%`;
+  if (weight <= 0) return "Disabled";
+  const eligibleWeight = lineup
+    .filter(
+      (candidate) =>
+        Number(candidate.weight ?? 1) > 0 &&
+        Number(candidate.unlockAtSoldPct ?? 0) <= soldPct,
+    )
+    .reduce((sum, candidate) => sum + Number(candidate.weight ?? 1), 0);
+  if (eligibleWeight <= 0) return "No eligible pool";
+  return `${((weight / eligibleWeight) * 100).toFixed(1)}%`;
+}
+
+function prizeDisplayGroup(prize: YnotPrizePreview) {
+  if (prize.displayGroup) return prize.displayGroup;
+  return prize.tier === "high" && prize.rank <= 3 ? "top" : prize.tier;
 }
 
 function AdminField({
@@ -1566,7 +1592,7 @@ export function AdminCampaignForm({
       ? "Prize quantity must equal the total pack quantity."
       : "",
     initialUnlockedUnits <= 0
-      ? "At least one prize must unlock at 0% with weight above 0."
+      ? "At least one prize must be available in the launch pool."
       : "",
     topPrizeRows < 3 ? "Choose all Top 1-3 showcase prizes." : "",
     highPoolRows < minHighTierCount || highPoolRows > maxHighTierCount
@@ -1600,7 +1626,7 @@ export function AdminCampaignForm({
       ready: configuredPrizeUnits === totalSlots,
     },
     {
-      label: "Open at launch",
+      label: "Launch pool",
       value: initialUnlockedUnits.toLocaleString(),
       ready: initialUnlockedUnits > 0,
     },
@@ -1803,7 +1829,7 @@ export function AdminCampaignForm({
           <h3>Create pack draft with prizes</h3>
           <p>
             Build the campaign, prize list, and owner-review readiness in one
-            horizontal workspace.
+            full-width workflow.
           </p>
         </div>
         <strong
@@ -2017,47 +2043,6 @@ export function AdminCampaignForm({
                       }
                     />
                   </label>
-                  <label className="admin-field">
-                    <span>Value</span>
-                    <input
-                      min={0}
-                      type="number"
-                      value={prize.valueThb}
-                      onChange={(event) =>
-                        updatePrizeDraft(prize.localId, {
-                          valueThb: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                  <label className="admin-field">
-                    <span>Weight</span>
-                    <input
-                      min={0}
-                      step={0.1}
-                      type="number"
-                      value={prize.weight}
-                      onChange={(event) =>
-                        updatePrizeDraft(prize.localId, {
-                          weight: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                  <label className="admin-field">
-                    <span>Unlock %</span>
-                    <input
-                      max={100}
-                      min={0}
-                      type="number"
-                      value={prize.unlockAtSoldPct}
-                      onChange={(event) =>
-                        updatePrizeDraft(prize.localId, {
-                          unlockAtSoldPct: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
                 </div>
               </article>
             ))}
@@ -2128,13 +2113,6 @@ export function AdminCampaignForm({
             >
               High qty 1
             </button>
-            <button
-              className="plain-button rounded-2xl px-4 py-3 text-sm font-black"
-              onClick={() => updateHighTierRows({ unlockAtSoldPct: 30 })}
-              type="button"
-            >
-              High unlock 30%
-            </button>
           </div>
 
           <div className="admin-prize-table-wrap">
@@ -2143,9 +2121,6 @@ export function AdminCampaignForm({
               <span>Prize item</span>
               <span>Category</span>
               <span>Qty</span>
-              <span>Value</span>
-              <span>Weight</span>
-              <span>Unlock</span>
               <span>Action</span>
             </div>
             {highTierDrafts.map((prize) => (
@@ -2204,47 +2179,6 @@ export function AdminCampaignForm({
                     }
                   />
                 </label>
-                <label className="admin-field">
-                  <span>Value</span>
-                  <input
-                    min={0}
-                    type="number"
-                    value={prize.valueThb}
-                    onChange={(event) =>
-                      updatePrizeDraft(prize.localId, {
-                        valueThb: Number(event.target.value),
-                      })
-                    }
-                  />
-                </label>
-                <label className="admin-field">
-                  <span>Weight</span>
-                  <input
-                    min={0}
-                    step={0.1}
-                    type="number"
-                    value={prize.weight}
-                    onChange={(event) =>
-                      updatePrizeDraft(prize.localId, {
-                        weight: Number(event.target.value),
-                      })
-                    }
-                  />
-                </label>
-                <label className="admin-field">
-                  <span>Unlock</span>
-                  <input
-                    max={100}
-                    min={0}
-                    type="number"
-                    value={prize.unlockAtSoldPct}
-                    onChange={(event) =>
-                      updatePrizeDraft(prize.localId, {
-                        unlockAtSoldPct: Number(event.target.value),
-                      })
-                    }
-                  />
-                </label>
                 <button
                   className="danger-button rounded-2xl px-3 py-2 text-xs font-black"
                   disabled={highTierCount <= minHighTierCount}
@@ -2270,9 +2204,6 @@ export function AdminCampaignForm({
                 <span>Prize item</span>
                 <span>Category</span>
                 <span>Qty</span>
-                <span>Value</span>
-                <span>Weight</span>
-                <span>Unlock</span>
                 <span>Action</span>
               </div>
               {normalPrizeDrafts.map((prize) => (
@@ -2334,47 +2265,6 @@ export function AdminCampaignForm({
                       }
                     />
                   </label>
-                  <label className="admin-field">
-                    <span>Value</span>
-                    <input
-                      min={0}
-                      type="number"
-                      value={prize.valueThb}
-                      onChange={(event) =>
-                        updatePrizeDraft(prize.localId, {
-                          valueThb: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                  <label className="admin-field">
-                    <span>Weight</span>
-                    <input
-                      min={0}
-                      step={0.1}
-                      type="number"
-                      value={prize.weight}
-                      onChange={(event) =>
-                        updatePrizeDraft(prize.localId, {
-                          weight: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                  <label className="admin-field">
-                    <span>Unlock</span>
-                    <input
-                      max={100}
-                      min={0}
-                      type="number"
-                      value={prize.unlockAtSoldPct}
-                      onChange={(event) =>
-                        updatePrizeDraft(prize.localId, {
-                          unlockAtSoldPct: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
                   <button
                     className="danger-button rounded-2xl px-3 py-2 text-xs font-black"
                     onClick={() => removePrizeDraft(prize.localId)}
@@ -2402,7 +2292,7 @@ export function AdminCampaignForm({
               </strong>
             </div>
             <div>
-              <span>Initial openable</span>
+              <span>Launch pool</span>
               <strong>{initialUnlockedUnits.toLocaleString()}</strong>
             </div>
             <div>
@@ -2545,6 +2435,87 @@ export function OwnerApprovalQueue({
     );
   }
 
+  function updateOwnerPrizeOdds(
+    index: number,
+    prizeId: string,
+    patch: Partial<YnotPrizePreview>,
+  ) {
+    setItems((current) =>
+      current.map((candidate, candidateIndex) =>
+        candidateIndex === index
+          ? {
+              ...candidate,
+              campaign: {
+                ...candidate.campaign,
+                prizeLineup: (candidate.campaign.prizeLineup ?? []).map((prize) =>
+                  prize.id === prizeId ? { ...prize, ...patch } : prize,
+                ),
+              },
+              localMessage: undefined,
+            }
+          : candidate,
+      ),
+    );
+  }
+
+  function saveOwnerPrizeOdds(index: number, prize: YnotPrizePreview) {
+    const item = items[index];
+    if (!item || !prize.cardId) return;
+    const prizeCategory = prizeCategoryValue(prize.prizeCategory);
+    const sourceType = prizeSourceType(prizeCategory);
+    const displayGroup = prizeDisplayGroup(prize);
+    startTransition(async () => {
+      try {
+        await postJson("/api/ynot/admin/prizes", {
+          campaignId: item.campaign.id,
+          cardId: prize.cardId,
+          tier: prize.tier,
+          rank: prize.rank,
+          valueThb: Math.max(0, Math.round(Number(prize.valueThb) || 0)),
+          weight: Math.max(0, Number(prize.weight) || 0),
+          unlockAtSoldPct: Math.min(
+            100,
+            Math.max(0, Math.round(Number(prize.unlockAtSoldPct) || 0)),
+          ),
+          prizeCategory,
+          sourceType,
+          displayGroup,
+          metadata: {
+            displayGroup,
+            prizeCategory,
+            prizeCategoryLabel: prizeCategoryLabel(prizeCategory),
+            sourceType,
+          },
+        });
+        setItems((current) =>
+          current.map((candidate, candidateIndex) =>
+            candidateIndex === index
+              ? {
+                  ...candidate,
+                  localMessage:
+                    "Owner prize value, weight, and unlock settings saved.",
+                }
+              : candidate,
+          ),
+        );
+      } catch (error) {
+        setItems((current) =>
+          current.map((candidate, candidateIndex) =>
+            candidateIndex === index
+              ? {
+                  ...candidate,
+                  localMessage:
+                    error instanceof Error
+                      ? error.message
+                      : "Owner prize odds could not be saved.",
+                }
+              : candidate,
+          ),
+        );
+      }
+    });
+  }
+
   if (!items.length) {
     return (
       <section className="owner-approval-queue soft-card">
@@ -2586,6 +2557,7 @@ export function OwnerApprovalQueue({
             item.selectedLogicMode,
             item.soldPct,
           );
+          const ownerPrizeLineup = item.campaign.prizeLineup ?? [];
           return (
             <article className="owner-approval-card" key={item.id}>
               <div className="owner-approval-card-head">
@@ -2660,6 +2632,117 @@ export function OwnerApprovalQueue({
                   <strong>{item.campaign.eligiblePrizeUnits ?? 0}</strong>
                 </div>
               </div>
+
+              {isOwner && (
+                <div className="owner-prize-odds-panel">
+                  <div className="owner-prize-odds-head">
+                    <div>
+                      <span>Owner-only prize odds</span>
+                      <strong>Value, weight, and sold unlock</strong>
+                    </div>
+                    <em>Hidden from draft creation</em>
+                  </div>
+                  {ownerPrizeLineup.length > 0 ? (
+                    <div className="owner-prize-odds-table-wrap">
+                      <div className="owner-prize-odds-table-head">
+                        <span>Prize</span>
+                        <span>Tier</span>
+                        <span>Value</span>
+                        <span>Weight</span>
+                        <span>Unlock %</span>
+                        <span>Current odds</span>
+                        <span>Action</span>
+                      </div>
+                      {ownerPrizeLineup.map((prize) => (
+                        <article
+                          className="owner-prize-odds-row"
+                          key={prize.id}
+                        >
+                          <div className="owner-prize-name-cell">
+                            <strong>{prize.cardName}</strong>
+                            <span>
+                              #{prize.rank} ·{" "}
+                              {prize.prizeCategoryLabel ??
+                                (prize.tier === "high"
+                                  ? "High tier"
+                                  : "Normal")}
+                            </span>
+                          </div>
+                          <div className="owner-prize-tier-cell">
+                            {prizeDisplayGroup(prize)}
+                          </div>
+                          <label className="admin-field">
+                            <span>Value THB</span>
+                            <input
+                              min={0}
+                              type="number"
+                              value={prize.valueThb ?? 0}
+                              onChange={(event) =>
+                                updateOwnerPrizeOdds(index, prize.id, {
+                                  valueThb: Number(event.target.value),
+                                })
+                              }
+                            />
+                          </label>
+                          <label className="admin-field">
+                            <span>Weight</span>
+                            <input
+                              min={0}
+                              step={0.1}
+                              type="number"
+                              value={prize.weight ?? 1}
+                              onChange={(event) =>
+                                updateOwnerPrizeOdds(index, prize.id, {
+                                  weight: Number(event.target.value),
+                                })
+                              }
+                            />
+                          </label>
+                          <label className="admin-field">
+                            <span>Unlock sold percent</span>
+                            <input
+                              max={100}
+                              min={0}
+                              type="number"
+                              value={prize.unlockAtSoldPct ?? 0}
+                              onChange={(event) =>
+                                updateOwnerPrizeOdds(index, prize.id, {
+                                  unlockAtSoldPct: Number(event.target.value),
+                                })
+                              }
+                            />
+                          </label>
+                          <div className="owner-prize-odds-cell">
+                            {ownerPrizeOddsLabel(
+                              prize,
+                              ownerPrizeLineup,
+                              item.soldPct,
+                            )}
+                          </div>
+                          <button
+                            className="plain-button"
+                            disabled={
+                              isPending ||
+                              logicLocked ||
+                              item.mock ||
+                              !prize.cardId
+                            }
+                            onClick={() => saveOwnerPrizeOdds(index, prize)}
+                            type="button"
+                          >
+                            Save
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="admin-empty-note">
+                      Prize odds appear here after the draft has saved prize
+                      inventory.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {readinessBlocked && (
                 <ul className="admin-prize-blocker-list">
@@ -3279,11 +3362,14 @@ export function AdminPrizePoolForm({
   campaigns,
   cards,
   prizes,
+  viewerRole,
 }: {
   campaigns: YnotCampaign[];
   cards: CardCatalogItem[];
   prizes: YnotPrizePoolItem[];
+  viewerRole?: "owner" | "admin" | "staff" | null;
 }) {
+  const isOwner = viewerRole === "owner";
   const [campaignId, setCampaignId] = useState(campaigns[0]?.id ?? "");
   const [cardId, setCardId] = useState(cards[0]?.catalogCardId ?? "");
   const [tier, setTier] = useState<"normal" | "high">("normal");
@@ -3306,10 +3392,14 @@ export function AdminPrizePoolForm({
           cardId,
           tier,
           rank,
-          valueThb,
           quantity,
-          weight,
-          unlockAtSoldPct,
+          ...(isOwner
+            ? {
+                valueThb,
+                weight,
+                unlockAtSoldPct,
+              }
+            : {}),
           prizeCategory,
           sourceType: prizeSourceType(prizeCategory),
           displayGroup: tier === "high" && rank <= 3 ? "top" : tier,
@@ -3427,19 +3517,21 @@ export function AdminPrizePoolForm({
             placeholder="1"
           />
         </AdminField>
-        <AdminField
-          label="Value THB"
-          hint="Optional estimated prize value shown to admin."
-        >
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            min={0}
-            type="number"
-            value={valueThb}
-            onChange={(event) => setValueThb(Number(event.target.value))}
-            placeholder="1500"
-          />
-        </AdminField>
+        {isOwner && (
+          <AdminField
+            label="Value THB"
+            hint="Owner-only estimated prize value for approval."
+          >
+            <input
+              className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+              min={0}
+              type="number"
+              value={valueThb}
+              onChange={(event) => setValueThb(Number(event.target.value))}
+              placeholder="1500"
+            />
+          </AdminField>
+        )}
         <AdminField
           label="Prize quantity"
           required
@@ -3456,38 +3548,42 @@ export function AdminPrizePoolForm({
             placeholder="10"
           />
         </AdminField>
-        <AdminField
-          label="Drop weight"
-          required
-          hint="Higher numbers increase this prize's chance after it is unlocked. Use 0 to disable."
-        >
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            min={0}
-            step={0.1}
-            type="number"
-            value={weight}
-            onChange={(event) => setWeight(Number(event.target.value))}
-            placeholder="1"
-          />
-        </AdminField>
-        <AdminField
-          label="Unlock at sold %"
-          hint="Before this checkpoint, customers cannot see or pull this prize."
-        >
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            max={100}
-            min={0}
-            step={1}
-            type="number"
-            value={unlockAtSoldPct}
-            onChange={(event) =>
-              setUnlockAtSoldPct(Number(event.target.value))
-            }
-            placeholder="30"
-          />
-        </AdminField>
+        {isOwner && (
+          <AdminField
+            label="Drop weight"
+            required
+            hint="Owner-only odds setting. Higher numbers increase this prize's chance after it is unlocked."
+          >
+            <input
+              className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+              min={0}
+              step={0.1}
+              type="number"
+              value={weight}
+              onChange={(event) => setWeight(Number(event.target.value))}
+              placeholder="1"
+            />
+          </AdminField>
+        )}
+        {isOwner && (
+          <AdminField
+            label="Unlock at sold %"
+            hint="Owner-only odds setting. Before this checkpoint, customers cannot see or pull this prize."
+          >
+            <input
+              className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+              max={100}
+              min={0}
+              step={1}
+              type="number"
+              value={unlockAtSoldPct}
+              onChange={(event) =>
+                setUnlockAtSoldPct(Number(event.target.value))
+              }
+              placeholder="30"
+            />
+          </AdminField>
+        )}
       </div>
       <button
         className="gold-button admin-form-save"
@@ -3509,13 +3605,19 @@ export function AdminPrizePoolForm({
                 {prize.campaignTitle} · {prize.tier} #{prize.rank}
               </p>
               <p className="text-[var(--muted)]">
-                {prize.cardName} · ฿{(prize.valueThb ?? 0).toLocaleString()} ·{" "}
+                {prize.cardName}
+                {isOwner
+                  ? ` · ฿${(prize.valueThb ?? 0).toLocaleString()}`
+                  : ""}
+                {" · "}
                 {prize.availableUnits}/{prize.totalUnits} left
                 {prize.awardedUnits ? ` · ${prize.awardedUnits} awarded` : ""}
                 {prize.prizeCategoryLabel
                   ? ` · ${prize.prizeCategoryLabel}`
                   : ""}
-                {` · weight ${prize.weight.toLocaleString()} · unlock ${prize.unlockAtSoldPct}% sold`}
+                {isOwner
+                  ? ` · weight ${prize.weight.toLocaleString()} · unlock ${prize.unlockAtSoldPct}% sold`
+                  : ""}
               </p>
             </div>
             <button

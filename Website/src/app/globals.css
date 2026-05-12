@@ -7341,10 +7341,7 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   align-items: start;
   display: grid;
   gap: 16px;
-  grid-template-columns:
-    minmax(220px, 0.68fr)
-    minmax(0, 1.55fr)
-    minmax(220px, 0.58fr);
+  grid-template-columns: 1fr;
 }
 
 .admin-page-grid-studio > .admin-pack-form-horizontal {
@@ -7363,9 +7360,12 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   padding: 16px;
 }
 
-.admin-readiness-panel {
-  position: sticky;
-  top: 94px;
+.admin-pack-info-panel .admin-form-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.admin-pack-info-panel .admin-field-wide {
+  grid-column: span 2;
 }
 
 .admin-panel-compact-head {
@@ -7403,10 +7403,6 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.admin-top-prize-controls .admin-field:first-child {
-  grid-column: 1 / -1;
-}
-
 .admin-prize-table-wrap {
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -7428,11 +7424,8 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
     minmax(190px, 1.8fr)
     minmax(140px, 1.1fr)
     minmax(74px, 0.54fr)
-    minmax(84px, 0.62fr)
-    minmax(84px, 0.62fr)
-    minmax(84px, 0.62fr)
     minmax(82px, 0.58fr);
-  min-width: 920px;
+  min-width: 620px;
   padding: 10px;
 }
 
@@ -7510,9 +7503,12 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   padding-inline: 10px;
 }
 
-.admin-readiness-panel .admin-prize-summary-grid,
+.admin-readiness-panel .admin-prize-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .admin-readiness-panel .admin-prize-checklist {
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .admin-readiness-panel .admin-prize-checklist {
@@ -7551,16 +7547,18 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
     grid-template-columns: 1fr;
   }
 
-  .admin-readiness-panel {
-    position: static;
-  }
-
   .admin-top-prize-strip {
     grid-template-columns: 1fr;
   }
 
   .admin-top-prize-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-pack-info-panel .admin-form-grid,
+  .admin-pack-info-panel .admin-field-wide {
+    grid-column: auto;
+    grid-template-columns: 1fr;
   }
 
   .admin-prize-structure-panel,
@@ -7579,22 +7577,13 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 }
 
 @media (min-width: 721px) and (max-width: 1240px) {
-  .admin-pack-builder-layout {
-    grid-template-columns: minmax(230px, 0.7fr) minmax(0, 1.3fr);
-  }
-
-  .admin-readiness-panel {
-    grid-column: 1 / -1;
-    position: static;
+  .admin-pack-info-panel .admin-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .admin-readiness-panel .admin-prize-summary-grid,
   .admin-readiness-panel .admin-prize-checklist {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .admin-top-prize-strip {
-    grid-template-columns: 1fr;
   }
 
   .admin-top-prize-controls {
@@ -7789,6 +7778,126 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   font-size: 0.9rem;
   margin-top: 4px;
   overflow-wrap: anywhere;
+}
+
+.owner-prize-odds-panel {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--admin-line);
+  border-radius: 18px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.owner-prize-odds-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.owner-prize-odds-head span,
+.owner-prize-odds-table-head span,
+.owner-prize-name-cell span {
+  color: var(--admin-accent-dark);
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.owner-prize-odds-head strong {
+  color: var(--admin-text);
+  display: block;
+  margin-top: 3px;
+}
+
+.owner-prize-odds-head em {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.owner-prize-odds-table-wrap {
+  border: 1px solid var(--admin-line);
+  border-radius: 16px;
+  display: grid;
+  overflow-x: auto;
+}
+
+.owner-prize-odds-table-head,
+.owner-prize-odds-row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns:
+    minmax(190px, 1.7fr)
+    minmax(78px, 0.58fr)
+    minmax(82px, 0.56fr)
+    minmax(82px, 0.56fr)
+    minmax(82px, 0.56fr)
+    minmax(96px, 0.68fr)
+    minmax(74px, 0.48fr);
+  min-width: 830px;
+  padding: 10px;
+}
+
+.owner-prize-odds-table-head {
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.owner-prize-odds-row + .owner-prize-odds-row {
+  border-top: 1px solid var(--admin-line);
+}
+
+.owner-prize-name-cell strong,
+.owner-prize-tier-cell,
+.owner-prize-odds-cell {
+  color: var(--admin-text);
+  font-size: 0.84rem;
+  font-weight: 950;
+}
+
+.owner-prize-name-cell span {
+  color: var(--admin-muted);
+  letter-spacing: 0;
+  margin-top: 3px;
+  text-transform: none;
+}
+
+.owner-prize-tier-cell,
+.owner-prize-odds-cell {
+  background: var(--admin-card);
+  border: 1px solid var(--admin-line);
+  border-radius: 12px;
+  padding: 10px;
+  text-align: center;
+}
+
+.owner-prize-odds-row .admin-field span {
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.owner-prize-odds-row .admin-field input {
+  border-radius: 12px;
+  height: 40px;
+  padding-inline: 10px;
+}
+
+.owner-prize-odds-row button {
+  border-radius: 12px;
+  min-height: 38px;
 }
 
 .owner-approval-summary {
