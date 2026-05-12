@@ -19,8 +19,8 @@ export default async function AdminPrizesPage() {
     <AdminSectionShell viewer={data.viewer} activeHref="/admin/prizes">
       <PageHeader
         eyebrow="Admin prizes"
-        title="Card and prize catalog"
-        description="Create cards, then assign them into campaign prize pools so website gacha opens can award real collection items."
+        title="Prize catalog"
+        description="Create PSA10 cards, sealed products, electronics, and other prize items, then assign them into campaign prize pools."
       />
       <div className="admin-page-grid admin-page-grid-studio">
         <AdminCardForm />
@@ -32,10 +32,10 @@ export default async function AdminPrizesPage() {
         <section className="admin-panel admin-full-span soft-card">
           <div className="admin-panel-head">
             <div>
-              <p className="section-label">Card catalog</p>
-              <h3 className="title-m">Cards ready for prize pools</h3>
+              <p className="section-label">Prize catalog</p>
+              <h3 className="title-m">Prize items ready for pools</h3>
             </div>
-            <span className="status-pill">{cards.length} cards</span>
+            <span className="status-pill">{cards.length} items</span>
           </div>
           <div className="admin-card-catalog-grid">
             {cards.map((card) => (
@@ -48,7 +48,7 @@ export default async function AdminPrizesPage() {
             ))}
           </div>
           {!cards.length && (
-            <p className="admin-empty-note">No cards loaded yet.</p>
+            <p className="admin-empty-note">No prize items loaded yet.</p>
           )}
         </section>
       </div>

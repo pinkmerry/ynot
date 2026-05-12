@@ -100,10 +100,12 @@ check("src/features/ynot/client.tsx", "admin campaign form calls campaign API", 
 check("src/features/ynot/client.tsx", "admin category form calls category API", /AdminCategoryForm[\s\S]*\/api\/ynot\/admin\/categories/);
 check("src/features/ynot/client.tsx", "admin campaign form and update rows edit customer card labels", /Customer card labels[\s\S]*displayTags/);
 check("src/features/ynot/client.tsx", "admin campaign action panel submits review and archives campaigns", /\/api\/ynot\/admin\/campaigns\/lifecycle[\s\S]*Submit owner review[\s\S]*Archive private/);
-check("src/features/ynot/client.tsx", "admin campaign form includes top and base prize inventory picker", /Top 1-3[\s\S]*Add high tier[\s\S]*Add normal\/base/);
-check("src/features/ynot/client.tsx", "admin campaign form blocks underfilled prize quantities", /Prize quantity must cover the total pack quantity/);
+check("src/features/ynot/client.tsx", "admin campaign form includes top, high-tier count, and base prize inventory picker", /Top 1-3[\s\S]*High-tier prizes below Top 1-3[\s\S]*Add high tier[\s\S]*Add normal\/base/);
+check("src/features/ynot/client.tsx", "admin campaign form stores prize category metadata", /prizeCategoryOptions[\s\S]*prizeCategoryLabel[\s\S]*metadata: \{[\s\S]*prizeCategory/);
+check("src/features/ynot/client.tsx", "admin campaign form blocks mismatched prize quantities", /Prize quantity must equal the total pack quantity/);
 check("src/features/ynot/client.tsx", "admin card form calls card API", /\/api\/ynot\/admin\/cards/);
 check("src/features/ynot/client.tsx", "admin prize pool form calls prize API", /\/api\/ynot\/admin\/prizes/);
+check("src/features/ynot/client.tsx", "admin prize pool edit restores category and quantity", /setPrizeCategory\(prizeCategoryValue\(prize\.prizeCategory\)\)[\s\S]*setQuantity\(prize\.totalUnits\)/);
 check("src/features/ynot/client.tsx", "admin user role form calls users API", /\/api\/ynot\/admin\/users/);
 check("src/features/ynot/client.tsx", "admin merge review calls merge API", /\/api\/ynot\/admin\/merge-requests/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API is admin gated", /resolveAdminSession[\s\S]*Admin access is required/);
@@ -113,8 +115,11 @@ check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API persists 
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API requires initial prize inventory on create", /initialPrizes[\s\S]*validatePrizeDraftsForSave[\s\S]*saveInitialPrizes/);
 check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle checks prize readiness before review approve publish", /submit_review[\s\S]*approve[\s\S]*publish[\s\S]*getCampaignPrizeReadiness[\s\S]*readinessErrorResponse/);
 check("src/features/ynot/prize-readiness.ts", "random pack readiness blocks missing or non-openable prize inventory", /Add prize inventory before saving[\s\S]*Available prize units must cover every remaining pack[\s\S]*No available prize is currently unlocked/);
+check("src/features/ynot/prize-readiness.ts", "random pack readiness enforces prize structure before owner review", /totalPrizeUnits !== input\.totalSlots[\s\S]*topPrizeRows < 3[\s\S]*highPoolRows < 5 \|\| input\.highPoolRows > 20[\s\S]*normalPrizeRows <= 0/);
+check("src/features/ynot/prize-readiness.ts", "random pack structure counts only unit-backed prize rows", /nonVoidUnitsByPrizeId[\s\S]*unitBackedPrizes[\s\S]*highPoolRows: unitBackedPrizes/);
 check("src/app/api/ynot/admin/cards/route.ts", "admin card API is admin gated", /resolveAdminSession[\s\S]*Admin access is required/);
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API assigns draw_round_prizes", /resolveAdminSession[\s\S]*from\("draw_round_prizes"\)[\s\S]*onConflict: "draw_round_id,tier,rank"/);
+check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API persists category metadata", /metadataValue[\s\S]*prizeCategory[\s\S]*sourceType[\s\S]*displayGroup[\s\S]*metadata,/);
 check("src/app/api/ynot/admin/users/route.ts", "admin users API protects owner changes and self deactivation", /Only an owner can grant owner role[\s\S]*cannot deactivate your own admin access/);
 check("src/app/api/ynot/admin/merge-requests/route.ts", "admin merge API uses service-role merge RPCs", /complete_account_merge_request[\s\S]*reject_account_merge_request/);
 check("src/app/api/ynot/admin/shipping/route.ts", "admin shipping route uses transaction-safe status RPC", /supabase\.rpc\("update_shipping_request_status"[\s\S]*p_shipping_request_id[\s\S]*p_admin_id[\s\S]*p_status/);
@@ -127,6 +132,7 @@ check("src/features/ynot/data.ts", "admin user reader checks admin before servic
 check("src/features/ynot/data.ts", "admin audit reader checks admin before service read", /export async function getAdminAuditEvents\(\)[\s\S]*const admin = await resolveAdminSession\(\);[\s\S]*if \(!admin\) return \[\];[\s\S]*const supabase = createServiceSupabaseClient\(\);/);
 check("src/features/ynot/data.ts", "admin card reader checks admin before service read", /export async function getAdminCards\(\)[\s\S]*const admin = await resolveAdminSession\(\);[\s\S]*if \(!admin\) return \[\];[\s\S]*const supabase = createServiceSupabaseClient\(\);/);
 check("src/features/ynot/data.ts", "admin prize pool reader checks admin before service read", /export async function getAdminPrizePool\(\)[\s\S]*const admin = await resolveAdminSession\(\);[\s\S]*if \(!admin\) return \[\];[\s\S]*const supabase = createServiceSupabaseClient\(\);/);
+check("src/features/ynot/data.ts", "admin prize pool reader roundtrips category metadata", /getAdminPrizePool\(\)[\s\S]*prizeCategory: metadataString\(prize\.metadata, "prizeCategory"\)[\s\S]*sourceType: metadataString\(prize\.metadata, "sourceType"\)/);
 notCheck("src/app/admin/users/page.tsx", "admin users page is not a placeholder", /Module status/);
 notCheck("src/app/admin/prizes/page.tsx", "admin prizes page is not a placeholder", /Module status/);
 notCheck("src/app/admin/rankings/page.tsx", "admin rankings page is not a placeholder", /Module status/);

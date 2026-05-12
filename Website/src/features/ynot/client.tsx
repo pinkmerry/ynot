@@ -1285,6 +1285,7 @@ type CampaignPrizeDraft = {
   group: "top" | "high" | "normal";
   cardId: string;
   tier: "normal" | "high";
+  prizeCategory: PrizeCategory;
   rank: number;
   valueThb: number;
   quantity: number;
@@ -1292,18 +1293,162 @@ type CampaignPrizeDraft = {
   unlockAtSoldPct: number;
 };
 
+type PrizeCategory =
+  | "psa10_card"
+  | "sealed_product"
+  | "console_gaming"
+  | "audio_electronics"
+  | "store_credit"
+  | "other";
+
+type PrizeSourceType = "card" | "sealed" | "physical" | "credit" | "other";
+
+const minHighTierCount = 5;
+const maxHighTierCount = 20;
+const defaultHighTierCount = 10;
+const highTierCountChoices = [5, 10, 15, 20] as const;
+
+const prizeCategoryOptions: Array<{
+  value: PrizeCategory;
+  label: string;
+  sourceType: PrizeSourceType;
+}> = [
+  { value: "psa10_card", label: "PSA10 card", sourceType: "card" },
+  { value: "sealed_product", label: "Sealed/card product", sourceType: "sealed" },
+  { value: "console_gaming", label: "Console/gaming", sourceType: "physical" },
+  { value: "audio_electronics", label: "Audio/electronics", sourceType: "physical" },
+  { value: "store_credit", label: "Store credit", sourceType: "credit" },
+  { value: "other", label: "Other prize", sourceType: "other" },
+];
+
 function firstCatalogCardId(cards: CardCatalogItem[]) {
   return cards[0]?.catalogCardId ?? "";
 }
 
-function createInitialPrizeDrafts(cards: CardCatalogItem[]): CampaignPrizeDraft[] {
-  const cardId = firstCatalogCardId(cards);
+function prizeCategoryLabel(category: PrizeCategory) {
+  return (
+    prizeCategoryOptions.find((option) => option.value === category)?.label ??
+    "Other prize"
+  );
+}
+
+function prizeSourceType(category: PrizeCategory) {
+  return (
+    prizeCategoryOptions.find((option) => option.value === category)
+      ?.sourceType ?? "other"
+  );
+}
+
+function prizeCategoryValue(value: string | undefined): PrizeCategory {
+  return prizeCategoryOptions.some((option) => option.value === value)
+    ? (value as PrizeCategory)
+    : "psa10_card";
+}
+
+function clampHighTierCount(value: number) {
+  const parsed = Math.round(Number(value) || defaultHighTierCount);
+  return Math.min(maxHighTierCount, Math.max(minHighTierCount, parsed));
+}
+
+function prizeUnitCount(prize: CampaignPrizeDraft) {
+  return Math.max(0, Math.round(Number(prize.quantity) || 0));
+}
+
+function createHighTierPrizeDraft(
+  index: number,
+  cardId: string,
+  existing?: CampaignPrizeDraft,
+): CampaignPrizeDraft {
+  return {
+    localId: existing?.localId ?? `high-${index + 1}`,
+    group: "high",
+    cardId: existing?.cardId ?? cardId,
+    tier: "high",
+    prizeCategory: existing?.prizeCategory ?? "psa10_card",
+    rank: index + 4,
+    valueThb: existing?.valueThb ?? 750,
+    quantity: Math.max(1, Math.round(Number(existing?.quantity) || 1)),
+    weight: existing?.weight ?? 1,
+    unlockAtSoldPct: existing?.unlockAtSoldPct ?? 20,
+  };
+}
+
+function createNormalPrizeDraft(
+  cardId: string,
+  quantity: number,
+  existing?: CampaignPrizeDraft,
+): CampaignPrizeDraft {
+  return {
+    localId: existing?.localId ?? "normal-1",
+    group: "normal",
+    cardId: existing?.cardId ?? cardId,
+    tier: "normal",
+    prizeCategory: existing?.prizeCategory ?? "psa10_card",
+    rank: existing?.rank ?? 1,
+    valueThb: existing?.valueThb ?? 100,
+    quantity: Math.max(0, Math.round(Number(quantity) || 0)),
+    weight: existing?.weight ?? 10,
+    unlockAtSoldPct: existing?.unlockAtSoldPct ?? 0,
+  };
+}
+
+function withNormalPoolRemainder(
+  rows: CampaignPrizeDraft[],
+  totalSlots: number,
+  cardId: string,
+) {
+  const normalizedTotalSlots = Math.max(1, Math.round(Number(totalSlots) || 1));
+  const normalRows = rows
+    .filter((prize) => prize.group === "normal")
+    .sort((left, right) => left.rank - right.rank);
+  const normalFirst = normalRows[0];
+  const normalRest = normalRows.slice(1);
+  const fixedUnits = rows
+    .filter((prize) => prize.group !== "normal")
+    .reduce((sum, prize) => sum + prizeUnitCount(prize), 0);
+  const normalRestUnits = normalRest.reduce(
+    (sum, prize) => sum + prizeUnitCount(prize),
+    0,
+  );
+  const firstNormalQuantity = Math.max(
+    0,
+    normalizedTotalSlots - fixedUnits - normalRestUnits,
+  );
+  const normalRowsById = new Set(normalRows.map((prize) => prize.localId));
   return [
+    ...rows.filter((prize) => !normalRowsById.has(prize.localId)),
+    createNormalPrizeDraft(cardId, firstNormalQuantity, normalFirst),
+    ...normalRest,
+  ];
+}
+
+function sortPrizeDrafts(rows: CampaignPrizeDraft[]) {
+  const groupOrder: Record<CampaignPrizeDraft["group"], number> = {
+    top: 0,
+    high: 1,
+    normal: 2,
+  };
+  return [...rows].sort((left, right) => {
+    if (left.group !== right.group) {
+      return groupOrder[left.group] - groupOrder[right.group];
+    }
+    return left.rank - right.rank;
+  });
+}
+
+function createInitialPrizeDrafts(
+  cards: CardCatalogItem[],
+  highTierCount = defaultHighTierCount,
+  totalSlots = 100,
+): CampaignPrizeDraft[] {
+  const cardId = firstCatalogCardId(cards);
+  const topRows: CampaignPrizeDraft[] = [
     {
       localId: "top-1",
       group: "top",
       cardId,
       tier: "high",
+      prizeCategory: "psa10_card",
       rank: 1,
       valueThb: 5000,
       quantity: 1,
@@ -1315,6 +1460,7 @@ function createInitialPrizeDrafts(cards: CardCatalogItem[]): CampaignPrizeDraft[
       group: "top",
       cardId,
       tier: "high",
+      prizeCategory: "psa10_card",
       rank: 2,
       valueThb: 3000,
       quantity: 1,
@@ -1326,24 +1472,18 @@ function createInitialPrizeDrafts(cards: CardCatalogItem[]): CampaignPrizeDraft[
       group: "top",
       cardId,
       tier: "high",
+      prizeCategory: "psa10_card",
       rank: 3,
       valueThb: 1500,
       quantity: 1,
       weight: 1,
       unlockAtSoldPct: 0,
     },
-    {
-      localId: "normal-1",
-      group: "normal",
-      cardId,
-      tier: "normal",
-      rank: 1,
-      valueThb: 100,
-      quantity: 97,
-      weight: 10,
-      unlockAtSoldPct: 0,
-    },
   ];
+  const highRows = Array.from({ length: clampHighTierCount(highTierCount) }, (_, index) =>
+    createHighTierPrizeDraft(index, cardId),
+  );
+  return withNormalPoolRemainder([...topRows, ...highRows], totalSlots, cardId);
 }
 
 function prizeDraftGroupLabel(group: CampaignPrizeDraft["group"]) {
@@ -1374,11 +1514,16 @@ export function AdminCampaignForm({
   const [costCoins, setCostCoins] = useState(1);
   const [totalSlots, setTotalSlots] = useState(100);
   const [displayTags, setDisplayTags] = useState("PSA10, New Exclusive");
+  const [highTierCount, setHighTierCount] = useState(defaultHighTierCount);
   const [draftPrizes, setDraftPrizes] = useState<CampaignPrizeDraft[]>(() =>
-    createInitialPrizeDrafts(cards),
+    createInitialPrizeDrafts(cards, defaultHighTierCount, 100),
   );
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const sortedDraftPrizes = useMemo(
+    () => sortPrizeDrafts(draftPrizes),
+    [draftPrizes],
+  );
   const activePrizeDrafts = useMemo(
     () =>
       draftPrizes.filter(
@@ -1399,8 +1544,14 @@ export function AdminCampaignForm({
   const highPrizeRows = activePrizeDrafts.filter(
     (prize) => prize.tier === "high",
   ).length;
+  const highPoolRows = activePrizeDrafts.filter(
+    (prize) => prize.group === "high",
+  ).length;
   const topPrizeRows = activePrizeDrafts.filter(
     (prize) => prize.group === "top",
+  ).length;
+  const normalPrizeRows = activePrizeDrafts.filter(
+    (prize) => prize.group === "normal",
   ).length;
   const rankKeys = activePrizeDrafts.map(
     (prize) => `${prize.tier}:${prize.rank}`,
@@ -1409,18 +1560,51 @@ export function AdminCampaignForm({
     (rankKey, index) => rankKeys.indexOf(rankKey) !== index,
   );
   const prizeBlockers = [
-    !cards.length ? "Add at least one card in Card Catalog first." : "",
+    !cards.length ? "Add at least one item in Prize Catalog first." : "",
     !activePrizeDrafts.length ? "Choose prize inventory before saving." : "",
-    configuredPrizeUnits < totalSlots
-      ? "Prize quantity must cover the total pack quantity."
+    configuredPrizeUnits !== totalSlots
+      ? "Prize quantity must equal the total pack quantity."
       : "",
     initialUnlockedUnits <= 0
       ? "At least one prize must unlock at 0% with weight above 0."
       : "",
-    highPrizeRows <= 0 ? "Choose at least one high-tier/top prize." : "",
-    topPrizeRows <= 0 ? "Keep at least one Top 1-3 showcase prize." : "",
+    topPrizeRows < 3 ? "Choose all Top 1-3 showcase prizes." : "",
+    highPoolRows < minHighTierCount || highPoolRows > maxHighTierCount
+      ? "Choose 5-20 high-tier prizes below Top 1-3."
+      : "",
+    highPoolRows !== highTierCount
+      ? "High-tier list count must match the selected prize count."
+      : "",
+    normalPrizeRows <= 0 ? "Add at least one normal/base prize row." : "",
     hasDuplicateRank ? "Prize ranks must be unique inside each tier." : "",
   ].filter(Boolean);
+  const prizeChecklist = [
+    {
+      label: "Top 1-3",
+      value: `${topPrizeRows}/3`,
+      ready: topPrizeRows >= 3,
+    },
+    {
+      label: "High tier below Top 3",
+      value: `${highPoolRows}/${highTierCount}`,
+      ready: highPoolRows === highTierCount,
+    },
+    {
+      label: "Normal/base rows",
+      value: String(normalPrizeRows),
+      ready: normalPrizeRows > 0,
+    },
+    {
+      label: "Prize unit coverage",
+      value: `${configuredPrizeUnits.toLocaleString()}/${totalSlots.toLocaleString()}`,
+      ready: configuredPrizeUnits === totalSlots,
+    },
+    {
+      label: "Open at launch",
+      value: initialUnlockedUnits.toLocaleString(),
+      ready: initialUnlockedUnits > 0,
+    },
+  ];
 
   function updatePrizeDraft(
     localId: string,
@@ -1433,13 +1617,69 @@ export function AdminCampaignForm({
     );
   }
 
+  function updateTotalSlots(nextTotalSlots: number) {
+    const normalizedTotalSlots = Math.max(
+      1,
+      Math.round(Number(nextTotalSlots) || 1),
+    );
+    setTotalSlots(normalizedTotalSlots);
+    setDraftPrizes((current) =>
+      withNormalPoolRemainder(
+        current,
+        normalizedTotalSlots,
+        firstCatalogCardId(cards),
+      ),
+    );
+  }
+
+  function updateHighTierCount(nextCount: number) {
+    const count = clampHighTierCount(nextCount);
+    const defaultCardId = firstCatalogCardId(cards);
+    setHighTierCount(count);
+    setDraftPrizes((current) => {
+      const highRows = current
+        .filter((prize) => prize.group === "high")
+        .sort((left, right) => left.rank - right.rank);
+      const nextHighRows = Array.from({ length: count }, (_, index) =>
+        createHighTierPrizeDraft(index, defaultCardId, highRows[index]),
+      );
+      const nonHighRows = current.filter((prize) => prize.group !== "high");
+      return withNormalPoolRemainder(
+        [...nonHighRows, ...nextHighRows],
+        totalSlots,
+        defaultCardId,
+      );
+    });
+  }
+
+  function fillNormalPoolRemainder() {
+    const defaultCardId = firstCatalogCardId(cards);
+    setDraftPrizes((current) =>
+      withNormalPoolRemainder(current, totalSlots, defaultCardId),
+    );
+  }
+
+  function updateHighTierRows(patch: Partial<CampaignPrizeDraft>) {
+    const defaultCardId = firstCatalogCardId(cards);
+    setDraftPrizes((current) =>
+      withNormalPoolRemainder(
+        current.map((prize) =>
+          prize.group === "high" ? { ...prize, ...patch } : prize,
+        ),
+        totalSlots,
+        defaultCardId,
+      ),
+    );
+  }
+
   function addPrizeDraft(group: "high" | "normal") {
-    const tier = group === "high" ? "high" : "normal";
+    if (group === "high") {
+      updateHighTierCount(highTierCount + 1);
+      return;
+    }
+    const tier = "normal";
     const sameTier = draftPrizes.filter((prize) => prize.tier === tier);
-    const nextRank =
-      group === "high"
-        ? Math.max(4, ...sameTier.map((prize) => prize.rank + 1))
-        : Math.max(1, ...sameTier.map((prize) => prize.rank + 1));
+    const nextRank = Math.max(1, ...sameTier.map((prize) => prize.rank + 1));
     const remainingNeed = Math.max(1, totalSlots - configuredPrizeUnits);
     setDraftPrizes((current) => [
       ...current,
@@ -1448,16 +1688,45 @@ export function AdminCampaignForm({
         group,
         cardId: firstCatalogCardId(cards),
         tier,
+        prizeCategory: "psa10_card",
         rank: nextRank,
-        valueThb: group === "high" ? 1000 : 100,
-        quantity: group === "high" ? 1 : remainingNeed,
-        weight: group === "high" ? 1 : 10,
-        unlockAtSoldPct: group === "high" ? 30 : 0,
+        valueThb: 100,
+        quantity: remainingNeed,
+        weight: 10,
+        unlockAtSoldPct: 0,
       },
     ]);
   }
 
   function removePrizeDraft(localId: string) {
+    const target = draftPrizes.find((prize) => prize.localId === localId);
+    if (target?.group === "high") {
+      const nextCount = clampHighTierCount(highTierCount - 1);
+      const defaultCardId = firstCatalogCardId(cards);
+      setHighTierCount(nextCount);
+      setDraftPrizes((current) => {
+        const remainingRows = current.filter((prize) => prize.localId !== localId);
+        const remainingHighRows = remainingRows
+          .filter((prize) => prize.group === "high")
+          .sort((left, right) => left.rank - right.rank);
+        const nextHighRows = Array.from({ length: nextCount }, (_, index) =>
+          createHighTierPrizeDraft(
+            index,
+            defaultCardId,
+            remainingHighRows[index],
+          ),
+        );
+        return withNormalPoolRemainder(
+          [
+            ...remainingRows.filter((prize) => prize.group !== "high"),
+            ...nextHighRows,
+          ],
+          totalSlots,
+          defaultCardId,
+        );
+      });
+      return;
+    }
     setDraftPrizes((current) =>
       current.filter((prize) => prize.localId !== localId),
     );
@@ -1492,6 +1761,13 @@ export function AdminCampaignForm({
               100,
               Math.max(0, Math.round(Number(prize.unlockAtSoldPct) || 0)),
             ),
+            metadata: {
+              displayGroup: prize.group,
+              prizeCategory: prize.prizeCategory,
+              prizeCategoryLabel: prizeCategoryLabel(prize.prizeCategory),
+              sourceType: prizeSourceType(prize.prizeCategory),
+              highTierCount,
+            },
           })),
         });
         setMessage(
@@ -1617,7 +1893,9 @@ export function AdminCampaignForm({
                 min={1}
                 type="number"
                 value={totalSlots}
-                onChange={(event) => setTotalSlots(Number(event.target.value))}
+                onChange={(event) =>
+                  updateTotalSlots(Number(event.target.value))
+                }
                 placeholder="100"
               />
             </label>
@@ -1663,16 +1941,52 @@ export function AdminCampaignForm({
         <div className="admin-form-step">
           <strong>4. Prize inventory picker</strong>
           <p>
-            Top 1-3 prizes show first for owner review. Normal/base prizes must
-            cover the remaining pack quantity and unlock at 0% sold.
+            Choose the high-tier list count first. Top 1-3 stay fixed for owner
+            review, the high-tier pool fills ranks below them, and normal/base
+            prize categories cover the rest.
           </p>
+          <div className="admin-prize-structure-panel">
+            <div>
+              <span>High-tier prizes below Top 1-3</span>
+              <strong>{highTierCount} prize rows</strong>
+              <p>
+                Ranks 4-{highTierCount + 3} are generated automatically for
+                PSA10, sealed, console, AirPods, or other premium prizes.
+              </p>
+            </div>
+            <div className="admin-prize-count-controls">
+              {highTierCountChoices.map((choice) => (
+                <button
+                  className={highTierCount === choice ? "active" : ""}
+                  key={choice}
+                  onClick={() => updateHighTierCount(choice)}
+                  type="button"
+                >
+                  {choice}
+                </button>
+              ))}
+              <label className="admin-field">
+                <span>Custom</span>
+                <input
+                  max={maxHighTierCount}
+                  min={minHighTierCount}
+                  type="number"
+                  value={highTierCount}
+                  onChange={(event) =>
+                    updateHighTierCount(Number(event.target.value))
+                  }
+                />
+              </label>
+            </div>
+          </div>
           <div className="admin-prize-picker-toolbar">
             <button
               className="plain-button rounded-2xl px-4 py-3 text-sm font-black"
+              disabled={highTierCount >= maxHighTierCount}
               onClick={() => addPrizeDraft("high")}
               type="button"
             >
-              Add high tier
+              Add high tier row
             </button>
             <button
               className="plain-button rounded-2xl px-4 py-3 text-sm font-black"
@@ -1681,20 +1995,47 @@ export function AdminCampaignForm({
             >
               Add normal/base
             </button>
+            <button
+              className="plain-button rounded-2xl px-4 py-3 text-sm font-black"
+              onClick={fillNormalPoolRemainder}
+              type="button"
+            >
+              Fill normal pool
+            </button>
+            <button
+              className="plain-button rounded-2xl px-4 py-3 text-sm font-black"
+              onClick={() => updateHighTierRows({ quantity: 1 })}
+              type="button"
+            >
+              High qty 1
+            </button>
+            <button
+              className="plain-button rounded-2xl px-4 py-3 text-sm font-black"
+              onClick={() => updateHighTierRows({ unlockAtSoldPct: 30 })}
+              type="button"
+            >
+              High unlock 30%
+            </button>
           </div>
           <div className="admin-prize-draft-list">
-            {draftPrizes.map((prize) => (
+            {sortedDraftPrizes.map((prize) => (
               <article className="admin-prize-draft-card" key={prize.localId}>
                 <div className="admin-prize-draft-head">
                   <div>
                     <span>{prizeDraftGroupLabel(prize.group)}</span>
                     <strong>
-                      {prize.tier === "high" ? "High" : "Normal"} #{prize.rank}
+                      {prize.tier === "high" ? "High" : "Normal"} #
+                      {prize.rank}
                     </strong>
+                    <em>{prizeCategoryLabel(prize.prizeCategory)}</em>
                   </div>
                   {prize.group !== "top" && (
                     <button
                       className="danger-button rounded-2xl px-3 py-2 text-xs font-black"
+                      disabled={
+                        prize.group === "high" &&
+                        highTierCount <= minHighTierCount
+                      }
                       onClick={() => removePrizeDraft(prize.localId)}
                       type="button"
                     >
@@ -1703,8 +2044,25 @@ export function AdminCampaignForm({
                   )}
                 </div>
                 <div className="admin-form-grid admin-form-grid-three">
+                  <label className="admin-field">
+                    <span>Prize category</span>
+                    <select
+                      value={prize.prizeCategory}
+                      onChange={(event) =>
+                        updatePrizeDraft(prize.localId, {
+                          prizeCategory: event.target.value as PrizeCategory,
+                        })
+                      }
+                    >
+                      {prizeCategoryOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label className="admin-field admin-field-wide">
-                    <span>Prize card</span>
+                    <span>Prize item</span>
                     <select
                       value={prize.cardId}
                       onChange={(event) =>
@@ -1793,7 +2151,7 @@ export function AdminCampaignForm({
                   <label className="admin-field">
                     <span>Tier</span>
                     <select
-                      disabled={prize.group === "top"}
+                      disabled
                       value={prize.tier}
                       onChange={(event) =>
                         updatePrizeDraft(prize.localId, {
@@ -1827,6 +2185,14 @@ export function AdminCampaignForm({
                 {topPrizeRows}/{highPrizeRows}
               </strong>
             </div>
+          </div>
+          <div className="admin-prize-checklist">
+            {prizeChecklist.map((item) => (
+              <div className={item.ready ? "ready" : ""} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
+            ))}
           </div>
           {prizeBlockers.length > 0 && (
             <ul className="admin-prize-blocker-list">
@@ -2559,27 +2925,30 @@ export function AdminCardForm() {
           assetLicense: isTest ? assetLicense : undefined,
           assetManifestKey: isTest ? assetManifestKey : undefined,
         });
-        setMessage(`Card ${payload.card?.name ?? name} saved.`);
+        setMessage(`Prize item ${payload.card?.name ?? name} saved.`);
       } catch (error) {
         setMessage(
-          error instanceof Error ? error.message : "Card could not be saved.",
+          error instanceof Error ? error.message : "Prize item could not be saved.",
         );
       }
     });
   }
 
   return (
-    <section className="admin-panel admin-form-panel soft-card">
-      <div className="admin-form-head">
-        <span>Prize catalog</span>
-        <h3>Create or update card</h3>
-        <p>Add cards before assigning them into a random pack prize pool.</p>
-      </div>
-      <div className="admin-form-grid">
-        <AdminField
-          label="Card code"
-          hint="Optional unique code. If blank, the name is used to find/update an existing card."
-        >
+      <section className="admin-panel admin-form-panel soft-card">
+        <div className="admin-form-head">
+          <span>Prize catalog</span>
+          <h3>Create or update prize item</h3>
+          <p>
+            Add PSA10 cards, sealed products, electronics, or other prizes
+            before assigning them into a random pack prize pool.
+          </p>
+        </div>
+        <div className="admin-form-grid">
+          <AdminField
+            label="Prize code"
+            hint="Optional unique code. If blank, the name is used to find/update an existing prize item."
+          >
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={code}
@@ -2587,15 +2956,15 @@ export function AdminCardForm() {
             placeholder="OP-PSA10-001"
           />
         </AdminField>
-        <AdminField label="Card name" required>
+        <AdminField label="Prize item name" required>
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Card name"
+            placeholder="PSA10 card, PlayStation, AirPods, or other prize"
           />
         </AdminField>
-        <AdminField label="Series">
+        <AdminField label="Catalog series">
           <select
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={series}
@@ -2607,17 +2976,17 @@ export function AdminCardForm() {
             <option value="one_piece">One Piece</option>
           </select>
         </AdminField>
-        <AdminField label="Grade">
+        <AdminField label="Grade / model">
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={grade}
             onChange={(event) => setGrade(event.target.value)}
-            placeholder="PSA 10 / Ungraded"
+            placeholder="PSA 10 / PS5 / AirPods Pro"
           />
         </AdminField>
         <AdminField
           label="Image URL"
-          hint="Use approved storage or /test-assets paths for production test cards."
+          hint="Use approved storage or /test-assets paths for production test prize items."
         >
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
@@ -2626,7 +2995,7 @@ export function AdminCardForm() {
             placeholder="/test-assets/ynot-test-card-001.svg"
           />
         </AdminField>
-        <AdminField label="Card mode">
+        <AdminField label="Prize item mode">
           <button
             className={
               isTest
@@ -2636,7 +3005,7 @@ export function AdminCardForm() {
             onClick={() => setIsTest((value) => !value)}
             type="button"
           >
-            {isTest ? "Test card ON" : "Normal card"}
+            {isTest ? "Test prize ON" : "Normal prize"}
           </button>
         </AdminField>
         {isTest && (
@@ -2674,7 +3043,7 @@ export function AdminCardForm() {
         onClick={submit}
         type="button"
       >
-        {isPending ? "Saving..." : "Save card"}
+        {isPending ? "Saving..." : "Save prize item"}
       </button>
       {message && <p className="admin-form-message">{message}</p>}
     </section>
@@ -2693,6 +3062,8 @@ export function AdminPrizePoolForm({
   const [campaignId, setCampaignId] = useState(campaigns[0]?.id ?? "");
   const [cardId, setCardId] = useState(cards[0]?.catalogCardId ?? "");
   const [tier, setTier] = useState<"normal" | "high">("normal");
+  const [prizeCategory, setPrizeCategory] =
+    useState<PrizeCategory>("psa10_card");
   const [rank, setRank] = useState(1);
   const [valueThb, setValueThb] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -2714,6 +3085,15 @@ export function AdminPrizePoolForm({
           quantity,
           weight,
           unlockAtSoldPct,
+          prizeCategory,
+          sourceType: prizeSourceType(prizeCategory),
+          displayGroup: tier === "high" && rank <= 3 ? "top" : tier,
+          metadata: {
+            displayGroup: tier === "high" && rank <= 3 ? "top" : tier,
+            prizeCategory,
+            prizeCategoryLabel: prizeCategoryLabel(prizeCategory),
+            sourceType: prizeSourceType(prizeCategory),
+          },
         });
         setMessage(
           "Prize slot and inventory quantity saved. Refresh to see the updated pool.",
@@ -2750,8 +3130,8 @@ export function AdminPrizePoolForm({
         <span>Prize pool</span>
         <h3>Campaign prize pool</h3>
         <p>
-          Attach catalog cards to campaign ranks so instant gacha can award
-          collection items.
+          Attach catalog prize items to campaign ranks so instant gacha can
+          award cards, electronics, store credit, or other inventory.
         </p>
       </div>
       <div className="admin-form-grid">
@@ -2768,7 +3148,7 @@ export function AdminPrizePoolForm({
             ))}
           </select>
         </AdminField>
-        <AdminField label="Prize card" required>
+        <AdminField label="Prize item" required>
           <select
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={cardId}
@@ -2777,6 +3157,21 @@ export function AdminPrizePoolForm({
             {cards.map((card) => (
               <option key={card.catalogCardId} value={card.catalogCardId}>
                 {card.name}
+              </option>
+            ))}
+          </select>
+        </AdminField>
+        <AdminField label="Prize category">
+          <select
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={prizeCategory}
+            onChange={(event) =>
+              setPrizeCategory(event.target.value as PrizeCategory)
+            }
+          >
+            {prizeCategoryOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
@@ -2827,10 +3222,12 @@ export function AdminPrizePoolForm({
         >
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            min={0}
+            min={1}
             type="number"
             value={quantity}
-            onChange={(event) => setQuantity(Number(event.target.value))}
+            onChange={(event) =>
+              setQuantity(Math.max(1, Math.round(Number(event.target.value) || 1)))
+            }
             placeholder="10"
           />
         </AdminField>
@@ -2890,6 +3287,9 @@ export function AdminPrizePoolForm({
                 {prize.cardName} · ฿{(prize.valueThb ?? 0).toLocaleString()} ·{" "}
                 {prize.availableUnits}/{prize.totalUnits} left
                 {prize.awardedUnits ? ` · ${prize.awardedUnits} awarded` : ""}
+                {prize.prizeCategoryLabel
+                  ? ` · ${prize.prizeCategoryLabel}`
+                  : ""}
                 {` · weight ${prize.weight.toLocaleString()} · unlock ${prize.unlockAtSoldPct}% sold`}
               </p>
             </div>
@@ -2900,8 +3300,10 @@ export function AdminPrizePoolForm({
                 setCampaignId(prize.campaignId);
                 setCardId(prize.cardId);
                 setTier(prize.tier);
+                setPrizeCategory(prizeCategoryValue(prize.prizeCategory));
                 setRank(prize.rank);
                 setValueThb(prize.valueThb ?? 0);
+                setQuantity(prize.totalUnits);
                 setWeight(prize.weight);
                 setUnlockAtSoldPct(prize.unlockAtSoldPct);
               }}

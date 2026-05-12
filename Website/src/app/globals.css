@@ -7118,6 +7118,63 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   justify-content: space-between;
 }
 
+.admin-prize-structure-panel {
+  align-items: center;
+  background: rgba(245, 184, 0, 0.07);
+  border: 1px solid rgba(245, 184, 0, 0.2);
+  border-radius: 18px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 0.7fr);
+  padding: 14px;
+}
+
+.admin-prize-structure-panel span,
+.admin-prize-checklist span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 1000;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.admin-prize-structure-panel strong {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 1000;
+  margin-top: 3px;
+}
+
+.admin-prize-structure-panel p {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 750;
+  margin: 6px 0 0;
+}
+
+.admin-prize-count-controls {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(42px, 1fr)) minmax(86px, 1.2fr);
+}
+
+.admin-prize-count-controls button {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--foreground);
+  cursor: pointer;
+  font-weight: 1000;
+  height: 46px;
+}
+
+.admin-prize-count-controls button.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #140d00;
+}
+
 .admin-prize-draft-list {
   display: grid;
   gap: 12px;
@@ -7156,6 +7213,15 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   font-weight: 1000;
 }
 
+.admin-prize-draft-head em {
+  color: var(--muted);
+  display: block;
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 850;
+  margin-top: 3px;
+}
+
 .admin-prize-summary-grid {
   display: grid;
   gap: 10px;
@@ -7173,6 +7239,31 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 
 .admin-prize-summary-grid strong {
   font-size: 1rem;
+  font-weight: 1000;
+}
+
+.admin-prize-checklist {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.admin-prize-checklist > div {
+  background: rgba(244, 63, 94, 0.06);
+  border: 1px solid rgba(244, 63, 94, 0.18);
+  border-radius: 16px;
+  display: grid;
+  gap: 5px;
+  padding: 11px;
+}
+
+.admin-prize-checklist > div.ready {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.22);
+}
+
+.admin-prize-checklist strong {
+  font-size: 0.95rem;
   font-weight: 1000;
 }
 
@@ -7209,8 +7300,18 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 }
 
 @media (max-width: 720px) {
-  .admin-prize-summary-grid {
+  .admin-prize-structure-panel,
+  .admin-prize-summary-grid,
+  .admin-prize-checklist {
     grid-template-columns: 1fr;
+  }
+
+  .admin-prize-count-controls {
+    grid-template-columns: repeat(4, minmax(42px, 1fr));
+  }
+
+  .admin-prize-count-controls .admin-field {
+    grid-column: 1 / -1;
   }
 }
 

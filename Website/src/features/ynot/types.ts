@@ -208,6 +208,9 @@ export type YnotPrizePreview = {
   totalUnits?: number;
   weight?: number;
   unlockAtSoldPct?: number;
+  prizeCategory?: string;
+  prizeCategoryLabel?: string;
+  displayGroup?: string;
 };
 
 export type YnotAddress = {
@@ -241,6 +244,10 @@ export type YnotPrizePoolItem = {
   valueThb?: number | null;
   weight: number;
   unlockAtSoldPct: number;
+  prizeCategory?: string;
+  prizeCategoryLabel?: string;
+  sourceType?: string;
+  displayGroup?: string;
   totalUnits: number;
   availableUnits: number;
   awardedUnits: number;

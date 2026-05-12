@@ -2,7 +2,7 @@ import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { isMissingColumnError, randomPackSchemaMissingResponse } from "@/lib/supabase/schema-compat";
-import type { Database } from "@/lib/supabase/types";
+import type { Database, Json } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +19,10 @@ type PrizeBody = {
   quantity?: unknown;
   isTest?: unknown;
   seedRunId?: unknown;
+  metadata?: unknown;
+  prizeCategory?: unknown;
+  sourceType?: unknown;
+  displayGroup?: unknown;
 };
 
 type PrizeTier = Database["public"]["Tables"]["draw_round_prizes"]["Row"]["tier"];
@@ -67,6 +71,21 @@ function percentValue(value: unknown) {
 
 function booleanValue(value: unknown) {
   return value === true || value === "true" || value === 1 || value === "1";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function metadataValue(body: PrizeBody): Json {
+  const metadata = isRecord(body.metadata) ? { ...body.metadata } : {};
+  const prizeCategory = text(body.prizeCategory, 40);
+  const sourceType = text(body.sourceType, 40);
+  const displayGroup = text(body.displayGroup, 40);
+  if (prizeCategory) metadata.prizeCategory = prizeCategory;
+  if (sourceType) metadata.sourceType = sourceType;
+  if (displayGroup) metadata.displayGroup = displayGroup;
+  return metadata as Json;
 }
 
 async function bodyJson(request: Request): Promise<PrizeBody | null> {
@@ -148,6 +167,7 @@ export async function POST(request: Request) {
   const quantity = quantityValue(body.quantity);
   const weight = weightValue(body.weight);
   const unlockAtSoldPct = percentValue(body.unlockAtSoldPct);
+  const metadata = metadataValue(body);
   if (!campaignId || !cardId || !rank) return Response.json({ error: "campaignId, cardId, and rank are required." }, { status: 400 });
   if (body.quantity !== undefined && quantity === null) return Response.json({ error: "quantity must be an integer from 0 to 10000." }, { status: 400 });
   if (weight === null) return Response.json({ error: "weight must be a number from 0 to 100000." }, { status: 400 });
@@ -168,6 +188,7 @@ export async function POST(request: Request) {
     tier,
     rank,
     value_thb: moneyValue(body.valueThb),
+    metadata,
   };
   const patch: Database["public"]["Tables"]["draw_round_prizes"]["Insert"] = {
     ...basePatch,
@@ -182,7 +203,9 @@ export async function POST(request: Request) {
   let { data, error } = await supabase
     .from("draw_round_prizes")
     .upsert(patch, { onConflict: "draw_round_id,tier,rank" })
-    .select("id,draw_round_id,card_id,tier,rank,value_thb,weight,unlock_at_sold_pct")
+    .select(
+      "id,draw_round_id,card_id,tier,rank,value_thb,weight,unlock_at_sold_pct,metadata",
+    )
     .single();
   if (error && isMissingColumnError(error)) {
     if (weight !== 1 || unlockAtSoldPct !== 0) {
@@ -191,7 +214,7 @@ export async function POST(request: Request) {
     ({ data, error } = await supabase
       .from("draw_round_prizes")
       .upsert(basePatch, { onConflict: "draw_round_id,tier,rank" })
-      .select("id,draw_round_id,card_id,tier,rank,value_thb")
+      .select("id,draw_round_id,card_id,tier,rank,value_thb,metadata")
       .single());
     if (data) {
       data = {
@@ -224,7 +247,17 @@ export async function POST(request: Request) {
     actor_admin_id: admin.adminId,
     event_type: "campaign_prize_saved",
     draw_round_id: campaignId,
-    metadata: { prizeId: data.id, cardId, tier, rank, quantity, weight, unlockAtSoldPct, approvalStatus: "pending_review" },
+    metadata: {
+      prizeId: data.id,
+      cardId,
+      tier,
+      rank,
+      quantity,
+      weight,
+      unlockAtSoldPct,
+      prizeMetadata: metadata,
+      approvalStatus: "pending_review",
+    },
   });
 
   return Response.json({ ok: true, prize: data, inventory });

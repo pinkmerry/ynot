@@ -161,6 +161,12 @@ function isOwnerRemoved(metadata: unknown) {
   return isRecord(metadata) && typeof metadata.ownerRemovedAt === "string";
 }
 
+function metadataString(metadata: unknown, key: string) {
+  if (!isRecord(metadata)) return undefined;
+  const value = metadata[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 function soldPctForYnotCampaign(campaign: YnotCampaign) {
   const remainingSlots = campaign.remainingSlots ?? campaign.totalSlots;
   if (campaign.totalSlots <= 0) return 100;
@@ -235,6 +241,9 @@ async function getPublicPrizeLineup(
         totalUnits: counts?.total,
         weight: Number(prize.weight ?? 1),
         unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
+        prizeCategory: metadataString(prize.metadata, "prizeCategory"),
+        prizeCategoryLabel: metadataString(prize.metadata, "prizeCategoryLabel"),
+        displayGroup: metadataString(prize.metadata, "displayGroup"),
       };
     })
     .sort((left, right) => {
@@ -1271,6 +1280,10 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         valueThb: prize.value_thb,
         weight: Number(prize.weight ?? 1),
         unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
+        prizeCategory: metadataString(prize.metadata, "prizeCategory"),
+        prizeCategoryLabel: metadataString(prize.metadata, "prizeCategoryLabel"),
+        sourceType: metadataString(prize.metadata, "sourceType"),
+        displayGroup: metadataString(prize.metadata, "displayGroup"),
         totalUnits: counts.total,
         availableUnits: counts.available,
         awardedUnits: counts.awarded,

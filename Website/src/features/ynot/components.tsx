@@ -985,14 +985,17 @@ function PrizeLineup({ prizes }: { prizes: YnotPrizePreview[] }) {
       {prizes.map((prize) => (
         <div className="reward-tier-card" key={prize.id}>
           <div className="tier-heading">
-            <div>
-              <span className={`tier-rank tier-${prize.tier}`}>
-                #{prize.rank}
+              <div>
+                <span className={`tier-rank tier-${prize.tier}`}>
+                  #{prize.rank}
+                </span>
+                <strong>{prize.cardName}</strong>
+              </div>
+              <span>
+                {prize.prizeCategoryLabel ??
+                  (prize.tier === "high" ? "High tier" : "Normal")}
               </span>
-              <strong>{prize.cardName}</strong>
             </div>
-            <span>{prize.tier === "high" ? "High tier" : "Normal"}</span>
-          </div>
           <p className="txt-s">
             {prize.valueThb
               ? `฿${prize.valueThb.toLocaleString()} value`

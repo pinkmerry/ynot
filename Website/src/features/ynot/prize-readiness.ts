@@ -39,6 +39,7 @@ export type CampaignPrizeReadiness = {
   prizeRows: number;
   highPrizeRows: number;
   topPrizeRows: number;
+  highPoolRows: number;
   normalPrizeRows: number;
   totalPrizeUnits: number;
   availablePrizeUnits: number;
@@ -85,8 +86,12 @@ function soldPctForCampaign(row: DrawRoundRow, inventory?: InventorySummary) {
 }
 
 function buildReadinessBlockers(input: {
+  totalSlots: number;
   remainingSlots: number;
   prizeRows: number;
+  topPrizeRows: number;
+  highPoolRows: number;
+  normalPrizeRows: number;
   totalPrizeUnits: number;
   availablePrizeUnits: number;
   eligiblePrizeUnits: number;
@@ -102,6 +107,9 @@ function buildReadinessBlockers(input: {
   if (input.totalPrizeUnits <= 0) {
     blockers.push("Create prize units for the configured prize rows.");
   }
+  if (input.totalPrizeUnits !== input.totalSlots) {
+    blockers.push("Prize quantity must equal the total pack quantity.");
+  }
   if (input.availablePrizeUnits < input.remainingSlots) {
     blockers.push("Available prize units must cover every remaining pack.");
   }
@@ -110,6 +118,15 @@ function buildReadinessBlockers(input: {
   }
   if (input.eligiblePrizeUnits <= 0) {
     blockers.push("No available prize is currently unlocked for customer pulls.");
+  }
+  if (input.topPrizeRows < 3) {
+    blockers.push("Choose all Top 1-3 showcase prizes for owner review.");
+  }
+  if (input.highPoolRows < 5 || input.highPoolRows > 20) {
+    blockers.push("Choose 5-20 high-tier prizes below Top 1-3.");
+  }
+  if (input.normalPrizeRows <= 0) {
+    blockers.push("Add at least one normal/base prize row.");
   }
   return blockers;
 }
@@ -155,18 +172,31 @@ export function validatePrizeDraftsForSave(
     .filter((prize) => prize.weight > 0 && prize.unlockAtSoldPct <= 0)
     .reduce((sum, prize) => sum + prize.quantity, 0);
   const highPrizeRows = prizes.filter((prize) => prize.tier === "high").length;
+  const topPrizeRows = prizes.filter(
+    (prize) => prize.tier === "high" && prize.rank >= 1 && prize.rank <= 3,
+  ).length;
+  const highPoolRows = prizes.filter(
+    (prize) => prize.tier === "high" && prize.rank > 3,
+  ).length;
+  const normalPrizeRows = prizes.filter((prize) => prize.tier === "normal").length;
   const blockers: string[] = [];
   if (!prizes.length) {
     blockers.push("Choose prize inventory before saving the random pack draft.");
   }
-  if (totalPrizeUnits < totalSlots) {
-    blockers.push("Prize quantity must be at least the total pack quantity.");
+  if (totalPrizeUnits !== totalSlots) {
+    blockers.push("Prize quantity must equal the total pack quantity.");
   }
   if (initialEligiblePrizeUnits <= 0) {
     blockers.push("Add at least one base prize that unlocks at 0% and has weight above 0.");
   }
-  if (highPrizeRows <= 0) {
-    blockers.push("Choose at least one high-tier or top prize for owner review.");
+  if (topPrizeRows < 3) {
+    blockers.push("Choose all Top 1-3 showcase prizes for owner review.");
+  }
+  if (highPoolRows < 5 || highPoolRows > 20) {
+    blockers.push("Choose 5-20 high-tier prizes below Top 1-3.");
+  }
+  if (normalPrizeRows <= 0) {
+    blockers.push("Add at least one normal/base prize row.");
   }
   return {
     ready: blockers.length === 0,
@@ -174,6 +204,9 @@ export function validatePrizeDraftsForSave(
     totalPrizeUnits,
     initialEligiblePrizeUnits,
     highPrizeRows,
+    topPrizeRows,
+    highPoolRows,
+    normalPrizeRows,
   };
 }
 
@@ -225,10 +258,15 @@ export async function getCampaignPrizeReadiness(
   let availablePrizeUnits = 0;
   let eligiblePrizeUnits = 0;
   let initialEligiblePrizeUnits = 0;
+  const nonVoidUnitsByPrizeId = new Map<string, number>();
 
   for (const unit of unitRows.data ?? []) {
     if (unit.status === "void") continue;
     totalPrizeUnits += 1;
+    nonVoidUnitsByPrizeId.set(
+      unit.draw_round_prize_id,
+      (nonVoidUnitsByPrizeId.get(unit.draw_round_prize_id) ?? 0) + 1,
+    );
     if (unit.status !== "available") continue;
     availablePrizeUnits += 1;
     const prize = prizeById.get(unit.draw_round_prize_id);
@@ -242,18 +280,24 @@ export async function getCampaignPrizeReadiness(
     0,
     inventory?.remainingSlots ?? row.total_slots,
   );
+  const unitBackedPrizes = visiblePrizes.filter(
+    (prize) => (nonVoidUnitsByPrizeId.get(prize.id) ?? 0) > 0,
+  );
   const readiness = {
     campaignId,
     soldPct,
     soldOut: remainingSlots <= 0 || availablePrizeUnits <= 0,
     totalSlots: row.total_slots,
     remainingSlots,
-    prizeRows: visiblePrizes.length,
-    highPrizeRows: visiblePrizes.filter((prize) => prize.tier === "high").length,
-    topPrizeRows: visiblePrizes.filter(
+    prizeRows: unitBackedPrizes.length,
+    highPrizeRows: unitBackedPrizes.filter((prize) => prize.tier === "high").length,
+    topPrizeRows: unitBackedPrizes.filter(
       (prize) => prize.tier === "high" && prize.rank >= 1 && prize.rank <= 3,
     ).length,
-    normalPrizeRows: visiblePrizes.filter((prize) => prize.tier === "normal").length,
+    highPoolRows: unitBackedPrizes.filter(
+      (prize) => prize.tier === "high" && prize.rank > 3,
+    ).length,
+    normalPrizeRows: unitBackedPrizes.filter((prize) => prize.tier === "normal").length,
     totalPrizeUnits,
     availablePrizeUnits,
     eligiblePrizeUnits,
