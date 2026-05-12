@@ -96,6 +96,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
+function normalizeRandomLogicMode(value: unknown) {
+  if (!isRecord(value)) return "pure_random";
+  const mode = value.mode ?? value.logicMode;
+  return mode === "weighted_templates" || mode === "inventory_gated"
+    ? mode
+    : "pure_random";
+}
+
 function toFeaturedCards(value: unknown): FeaturedCard[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
@@ -149,6 +157,7 @@ function toCatalogItem(row: CardRow): CardCatalogItem {
     name: row.name,
     grade: row.grade,
     series: toAppSeries(row.series),
+    prizeCategory: row.prize_category ?? "psa10_card",
     photoUrl: row.image_url ?? undefined,
     photoStoragePath: row.image_storage_path ?? undefined,
   };
@@ -197,7 +206,7 @@ async function getDrawRoundSoldPct(supabase: Supabase, drawRoundId: string, tota
   return Math.min(100, ((data?.length ?? 0) / totalSlots) * 100);
 }
 
-async function getRoundPrizeCards(supabase: Supabase, drawRoundId: string, soldPct: number): Promise<{
+async function getRoundPrizeCards(supabase: Supabase, drawRoundId: string, soldPct: number, logicSnapshot: unknown): Promise<{
   featuredCards: FeaturedCard[];
   chaseCards: ChaseCard[];
   hasConfiguredPrizes: boolean;
@@ -214,10 +223,13 @@ async function getRoundPrizeCards(supabase: Supabase, drawRoundId: string, soldP
     return { featuredCards: [], chaseCards: [], hasConfiguredPrizes: false };
   }
 
+  const logicMode = normalizeRandomLogicMode(logicSnapshot);
   const visiblePrizes = prizes.filter(
     (prize) =>
       !isHiddenPrize(prize) &&
-      Number(prize.unlock_at_sold_pct ?? 0) <= soldPct,
+      (logicMode !== "inventory_gated" ||
+        Number(prize.unlock_at_sold_pct ?? 0) <= soldPct) &&
+      (logicMode === "pure_random" || Number(prize.weight ?? 1) > 0),
   );
   if (!visiblePrizes.length) {
     return { featuredCards: [], chaseCards: [], hasConfiguredPrizes: true };
@@ -283,6 +295,7 @@ async function upsertCatalogCard(supabase: Supabase, card: FeaturedCard) {
     search_code: cardCode?.toLowerCase() ?? null,
     series: fromAppSeries(card.series),
     grade: card.grade.trim() || "Ungraded",
+    prize_category: card.prizeCategory ?? "psa10_card",
     ...(hasImage
       ? {
           image_url: card.photoUrl || null,
@@ -631,6 +644,7 @@ export async function getLuckyDrawState(options: {
     supabase,
     activeDraw.id,
     soldPct,
+    activeDraw.logic_snapshot,
   );
   const featuredCards = roundPrizeCards.featuredCards.length
     ? roundPrizeCards.featuredCards

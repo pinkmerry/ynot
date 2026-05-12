@@ -2,13 +2,15 @@ import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { isMissingColumnError } from "@/lib/supabase/schema-compat";
-import type { Database } from "@/lib/supabase/types";
+import type { Database, Json } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import {
   normalizePrizeDrafts,
   validatePrizeDraftsForSave,
   type PrizeDraftInput,
 } from "@/features/ynot/prize-readiness";
+import { normalizeOpenQuantityOptions } from "@/features/ynot/open-quantity";
+import { prizeCategoryValue } from "@/features/ynot/prize-category";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,7 @@ type CampaignBody = {
   displayTags?: unknown;
   sortOrder?: unknown;
   categoryIds?: unknown;
+  openQuantityOptions?: unknown;
   isTest?: unknown;
   seedRunId?: unknown;
   initialPrizes?: unknown;
@@ -67,6 +70,22 @@ function displayTagsValue(value: unknown, series: "one_piece" | "pokemon") {
 
 function booleanValue(value: unknown) {
   return value === true || value === "true" || value === 1 || value === "1";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function logicSnapshotWithOpenOptions(
+  current: unknown,
+  openQuantityOptions: unknown,
+): Json {
+  const base = isRecord(current) ? current : { mode: "pure_random" };
+  return {
+    ...base,
+    mode: typeof base.mode === "string" ? base.mode : "pure_random",
+    openQuantityOptions: normalizeOpenQuantityOptions(openQuantityOptions),
+  } as Json;
 }
 
 function idArrayValue(value: unknown) {
@@ -164,13 +183,26 @@ async function assertPrizeCardsExist(
   const cardIds = [...new Set(prizes.map((prize) => prize.cardId))];
   const { data, error } = await supabase
     .from("cards")
-    .select("id")
+    .select("id,prize_category")
     .in("id", cardIds);
   if (error) throw error;
-  const existing = new Set((data ?? []).map((card) => card.id));
+  const cardsById = new Map((data ?? []).map((card) => [card.id, card]));
+  const existing = new Set(cardsById.keys());
   const missing = cardIds.filter((cardId) => !existing.has(cardId));
   if (missing.length) {
     throw new Error("One or more selected prize cards no longer exist.");
+  }
+  const mismatched = prizes.some((prize) => {
+    const card = cardsById.get(prize.cardId);
+    if (!card) return true;
+    const metadata = isRecord(prize.metadata) ? prize.metadata : {};
+    return (
+      prizeCategoryValue(metadata.prizeCategory) !==
+      prizeCategoryValue(card.prize_category)
+    );
+  });
+  if (mismatched) {
+    throw new Error("One or more selected prize items do not match the selected prize category.");
   }
 }
 
@@ -255,6 +287,10 @@ export async function POST(request: Request) {
     created_by: admin.adminId,
     is_test: patch.is_test ?? false,
     seed_run_id: patch.seed_run_id ?? null,
+    logic_snapshot: logicSnapshotWithOpenOptions(
+      { mode: "pure_random" },
+      body.openQuantityOptions,
+    ),
   };
   const initialPrizes = initialPrizesForAdminRole(
     normalizePrizeDrafts(body.initialPrizes),
@@ -339,7 +375,7 @@ export async function PATCH(request: Request) {
   const supabase = createServiceSupabaseClient();
   const { data: current, error: currentError } = await supabase
     .from("draw_rounds")
-    .select("id,status")
+    .select("id,status,logic_snapshot")
     .eq("id", campaignId)
     .single();
   if (currentError) return Response.json({ error: currentError.message }, { status: 409 });
@@ -353,6 +389,14 @@ export async function PATCH(request: Request) {
   const now = new Date().toISOString();
   const reviewPatch: Database["public"]["Tables"]["draw_rounds"]["Update"] = {
     ...patch,
+    ...(body.openQuantityOptions === undefined
+      ? {}
+      : {
+          logic_snapshot: logicSnapshotWithOpenOptions(
+            current.logic_snapshot,
+            body.openQuantityOptions,
+          ),
+        }),
     approval_status: "pending_review",
     approval_requested_by: admin.adminId,
     approval_requested_at: now,

@@ -6,6 +6,7 @@ import type { Database, Json } from "@/lib/supabase/types";
 type SupabaseClient = ReturnType<typeof createServiceSupabaseClient>;
 type DrawRoundRow = Database["public"]["Tables"]["draw_rounds"]["Row"];
 type PrizeRow = Database["public"]["Tables"]["draw_round_prizes"]["Row"];
+type RandomLogicMode = "pure_random" | "weighted_templates" | "inventory_gated";
 
 type InventorySummary = {
   drawRoundId: string;
@@ -58,6 +59,47 @@ function isAdminHidden(metadata: unknown) {
 function numberOrZero(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function randomLogicMode(value: unknown): RandomLogicMode {
+  if (!isRecord(value)) return "pure_random";
+  const mode = value.mode ?? value.logicMode;
+  if (
+    mode === "pure_random" ||
+    mode === "weighted_templates" ||
+    mode === "inventory_gated"
+  ) {
+    return mode;
+  }
+  return "pure_random";
+}
+
+function effectivePrizeWeight(prize: PrizeRow | PrizeDraftInput, logicMode: RandomLogicMode) {
+  if (logicMode === "pure_random") return 1;
+  return Math.max(0, numberOrZero("weight" in prize ? prize.weight : 1));
+}
+
+function effectivePrizeUnlockAtSoldPct(
+  prize: PrizeRow | PrizeDraftInput,
+  logicMode: RandomLogicMode,
+) {
+  if (logicMode !== "inventory_gated") return 0;
+  const rawValue =
+    "unlock_at_sold_pct" in prize
+      ? prize.unlock_at_sold_pct
+      : prize.unlockAtSoldPct;
+  return Math.min(100, Math.max(0, numberOrZero(rawValue)));
+}
+
+function prizeEligibleAtSoldPct(
+  prize: PrizeRow | PrizeDraftInput,
+  logicMode: RandomLogicMode,
+  soldPct: number,
+) {
+  return (
+    effectivePrizeWeight(prize, logicMode) > 0 &&
+    effectivePrizeUnlockAtSoldPct(prize, logicMode) <= soldPct
+  );
 }
 
 function inventorySummariesFromJson(value: unknown): InventorySummary[] {
@@ -114,7 +156,7 @@ function buildReadinessBlockers(input: {
     blockers.push("Available prize units must cover every remaining pack.");
   }
   if (input.initialEligiblePrizeUnits <= 0) {
-    blockers.push("At least one available prize must have weight above 0 and unlock at 0% sold.");
+    blockers.push("At least one available prize must be eligible when the pack launches.");
   }
   if (input.eligiblePrizeUnits <= 0) {
     blockers.push("No available prize is currently unlocked for customer pulls.");
@@ -166,10 +208,11 @@ export function normalizePrizeDrafts(value: unknown): PrizeDraftInput[] {
 export function validatePrizeDraftsForSave(
   prizes: PrizeDraftInput[],
   totalSlots: number,
+  logicMode: RandomLogicMode = "pure_random",
 ) {
   const totalPrizeUnits = prizes.reduce((sum, prize) => sum + prize.quantity, 0);
   const initialEligiblePrizeUnits = prizes
-    .filter((prize) => prize.weight > 0 && prize.unlockAtSoldPct <= 0)
+    .filter((prize) => prizeEligibleAtSoldPct(prize, logicMode, 0))
     .reduce((sum, prize) => sum + prize.quantity, 0);
   const highPrizeRows = prizes.filter((prize) => prize.tier === "high").length;
   const topPrizeRows = prizes.filter(
@@ -187,7 +230,7 @@ export function validatePrizeDraftsForSave(
     blockers.push("Prize quantity must equal the total pack quantity.");
   }
   if (initialEligiblePrizeUnits <= 0) {
-    blockers.push("Add at least one base prize that unlocks at 0% and has weight above 0.");
+    blockers.push("Add at least one prize that is eligible when the pack launches.");
   }
   if (topPrizeRows < 3) {
     blockers.push("Choose all Top 1-3 showcase prizes for owner review.");
@@ -237,6 +280,7 @@ export async function getCampaignPrizeReadiness(
 
   const inventory = inventorySummariesFromJson(inventoryJson)[0];
   const soldPct = soldPctForCampaign(row, inventory);
+  const logicMode = randomLogicMode(row.logic_snapshot);
   const visiblePrizes = (prizes ?? []).filter(
     (prize) => !isAdminHidden(prize.metadata),
   );
@@ -270,10 +314,13 @@ export async function getCampaignPrizeReadiness(
     if (unit.status !== "available") continue;
     availablePrizeUnits += 1;
     const prize = prizeById.get(unit.draw_round_prize_id);
-    if (!prize || Number(prize.weight ?? 1) <= 0) continue;
-    const unlockAtSoldPct = Number(prize.unlock_at_sold_pct ?? 0);
-    if (unlockAtSoldPct <= soldPct) eligiblePrizeUnits += 1;
-    if (unlockAtSoldPct <= 0) initialEligiblePrizeUnits += 1;
+    if (!prize) continue;
+    if (prizeEligibleAtSoldPct(prize, logicMode, soldPct)) {
+      eligiblePrizeUnits += 1;
+    }
+    if (prizeEligibleAtSoldPct(prize, logicMode, 0)) {
+      initialEligiblePrizeUnits += 1;
+    }
   }
 
   const remainingSlots = Math.max(

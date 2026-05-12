@@ -273,6 +273,7 @@ export async function POST(request: Request) {
 
   const now = new Date().toISOString();
   const logicSnapshot = {
+    ...jsonRecord(current.logic_snapshot),
     mode: logicMode,
     label: randomLogicLabel(logicMode),
     selectedByAdminId: admin.adminId,

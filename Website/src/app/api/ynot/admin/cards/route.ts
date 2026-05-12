@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { prizeCategoryValue } from "@/features/ynot/prize-category";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ type CardBody = {
   name?: unknown;
   series?: unknown;
   grade?: unknown;
+  prizeCategory?: unknown;
   imageUrl?: unknown;
   isTest?: unknown;
   assetSource?: unknown;
@@ -82,6 +84,7 @@ function cardPatch(body: CardBody): Database["public"]["Tables"]["cards"]["Inser
     search_code: code?.toLowerCase() ?? null,
     series: enumValue(body.series, ["one_piece", "pokemon"] as const, "pokemon"),
     grade: text(body.grade, 80) || "Ungraded",
+    prize_category: prizeCategoryValue(body.prizeCategory),
     image_url: text(body.imageUrl, 1000) || null,
   };
   if (isTest || body.seedRunId !== undefined || body.assetSource !== undefined || body.assetLicense !== undefined || body.assetManifestKey !== undefined) {
@@ -115,8 +118,8 @@ export async function POST(request: Request) {
   if (existingError) return Response.json({ error: existingError.message }, { status: 409 });
 
   const query = existing?.[0]
-    ? supabase.from("cards").update(patch).eq("id", existing[0].id).select("id,name,card_code").single()
-    : supabase.from("cards").insert(patch).select("id,name,card_code").single();
+    ? supabase.from("cards").update(patch).eq("id", existing[0].id).select("id,name,card_code,prize_category").single()
+    : supabase.from("cards").insert(patch).select("id,name,card_code,prize_category").single();
   const { data, error } = await query;
   if (error) return Response.json({ error: error.message }, { status: 409 });
 
@@ -139,7 +142,7 @@ export async function PATCH(request: Request) {
 
   const patch = cardPatch(body);
   const supabase = createServiceSupabaseClient();
-  const { data, error } = await supabase.from("cards").update(patch).eq("id", cardId).select("id,name,card_code").single();
+  const { data, error } = await supabase.from("cards").update(patch).eq("id", cardId).select("id,name,card_code,prize_category").single();
   if (error) return Response.json({ error: error.message }, { status: 409 });
 
   await supabase.from("audit_events").insert({ actor_admin_id: admin.adminId, event_type: "card_updated", metadata: { cardId: data.id, code: data.card_code } });

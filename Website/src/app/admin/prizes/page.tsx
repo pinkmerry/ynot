@@ -5,6 +5,7 @@ import {
   getAdminPrizePool,
   getYnotDashboardData,
 } from "@/features/ynot/data";
+import { prizeCategoryLabel } from "@/features/ynot/prize-category";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,8 @@ export default async function AdminPrizesPage() {
               <article key={card.id} className="admin-list-card">
                 <p className="font-black">{card.name}</p>
                 <p className="admin-muted-line">
-                  {card.series} · {card.grade} · {card.code ?? "no code"}
+                  {card.series} · {card.grade} · {card.code ?? "no code"} ·{" "}
+                  {prizeCategoryLabel(card.prizeCategory)}
                 </p>
               </article>
             ))}

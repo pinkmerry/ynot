@@ -186,11 +186,7 @@ export function ProfileRewardsTabs({
                         {formatDate(reward.openedAt)}
                       </em>
                     </div>
-                    <b>
-                      {reward.valueThb
-                        ? `฿${reward.valueThb.toLocaleString()}`
-                        : "—"}
-                    </b>
+                    <b>{reward.cardCode ?? "Reward"}</b>
                   </div>
                 ))}
               </div>

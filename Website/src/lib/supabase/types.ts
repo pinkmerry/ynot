@@ -288,6 +288,7 @@ export type Database = {
           search_code: string | null;
           series: "one_piece" | "pokemon";
           grade: string;
+          prize_category: string;
           image_url: string | null;
           image_storage_path: string | null;
           is_test: boolean;
@@ -306,6 +307,7 @@ export type Database = {
           search_code?: string | null;
           series: "one_piece" | "pokemon";
           grade: string;
+          prize_category?: string;
           image_url?: string | null;
           image_storage_path?: string | null;
           is_test?: boolean;

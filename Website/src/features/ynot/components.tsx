@@ -24,6 +24,7 @@ import {
   rewardTiers,
 } from "./storefront-content";
 import { allowDemoStorefront, productionSafetyLabel } from "./runtime-flags";
+import { normalizeOpenQuantityOptions } from "./open-quantity";
 import {
   StoreHeaderNav,
   StoreSettingsMenu,
@@ -763,8 +764,12 @@ export function CampaignCard({ campaign }: { campaign: YnotCampaign }) {
 }
 
 export function CampaignDetailPanel({ campaign }: { campaign: YnotCampaign }) {
+  const detailOpenOptions = normalizeOpenQuantityOptions(
+    campaign.openQuantityOptions,
+  );
+
   return (
-    <section className="product-detail-grid detail-phone phone-surface">
+    <section className="product-detail-grid detail-layout">
       <PhoneTopBar
         title={campaign.titleEn}
         action={
@@ -779,7 +784,7 @@ export function CampaignDetailPanel({ campaign }: { campaign: YnotCampaign }) {
         }
       />
       <PhoneRule />
-      <CampaignArtwork campaign={campaign} large />
+      <CampaignArtwork campaign={campaign} large quiet />
       <section className="detail-info-card">
         <p className="section-label">
           {campaign.categoryLabel ?? seriesLabel(campaign.series)} mystery pack
@@ -796,33 +801,35 @@ export function CampaignDetailPanel({ campaign }: { campaign: YnotCampaign }) {
           <span className="filter-chip">Shipping ready</span>
         </div>
         <div className="detail-stat-grid">
-          <div>
-            <span>Price/pull</span>
+          <div className="detail-stat-card detail-stat-card-price">
+            <span>Price per pull</span>
             <strong>
-              <CoinIcon /> {formatCoins(campaign.costCoins)}
+              <span className="detail-stat-number">
+                <CoinIcon /> {formatCoins(campaign.costCoins)}
+              </span>
+              <small>coins</small>
             </strong>
+            <em>Every pack open</em>
           </div>
-          <div>
+          <div className="detail-stat-card detail-stat-card-stock">
             <span>Stock</span>
             <strong>{remainingRatioText(campaign)}</strong>
+            <em>Remaining</em>
           </div>
         </div>
         <ProgressTrack campaign={campaign} />
         <div className="detail-actions">
           {campaign.demo || campaign.openable ? (
             <>
-              <Link
-                className="primary-action"
-                href={`/gacha/${campaign.slug}/open`}
-              >
-                Pull × 1
-              </Link>
-              <Link
-                className="orange-action"
-                href={`/gacha/${campaign.slug}/open`}
-              >
-                Pull × 10
-              </Link>
+              {detailOpenOptions.map((option, index) => (
+                <Link
+                  className={index === 0 ? "primary-action" : "orange-action"}
+                  href={`/gacha/${campaign.slug}/open?qty=${option}`}
+                  key={option}
+                >
+                  Pull × {option}
+                </Link>
+              ))}
             </>
           ) : (
             <p className="admin-form-message">
@@ -897,44 +904,93 @@ export function RewardTierList({ compact = false }: { compact?: boolean }) {
 }
 
 function PrizeLineup({ prizes }: { prizes: YnotPrizePreview[] }) {
+  const sections = [
+    {
+      key: "top",
+      label: "Top 1-3 rewards",
+      description: "Main chase prizes shown first.",
+      prizes: prizes
+        .filter((prize) => prizeLineupGroup(prize) === "top")
+        .sort((left, right) => left.rank - right.rank),
+    },
+    {
+      key: "high",
+      label: "High tier rewards",
+      description: "Premium cards and special rewards below Top 3.",
+      prizes: prizes
+        .filter((prize) => prizeLineupGroup(prize) === "high")
+        .sort((left, right) => left.rank - right.rank),
+    },
+    {
+      key: "normal",
+      label: "Base reward pool",
+      description: "Regular rewards that keep every pull covered.",
+      prizes: prizes
+        .filter((prize) => prizeLineupGroup(prize) === "normal")
+        .sort((left, right) => left.rank - right.rank),
+    },
+  ].filter((section) => section.prizes.length > 0);
+
   return (
-    <div className="reward-tier-list">
-      {prizes.map((prize) => (
-        <div className="reward-tier-card" key={prize.id}>
-          <div className="tier-heading">
-              <div>
-                <span className={`tier-rank tier-${prize.tier}`}>
-                  #{prize.rank}
-                </span>
-                <strong>{prize.cardName}</strong>
-              </div>
-              <span>
-                {prize.prizeCategoryLabel ??
-                  (prize.tier === "high" ? "High tier" : "Normal")}
-              </span>
+    <div className="reward-lineup-groups">
+      {sections.map((section) => (
+        <section className="reward-lineup-section" key={section.key}>
+          <div className="reward-lineup-section-head">
+            <div>
+              <strong>{section.label}</strong>
+              <span>{section.description}</span>
             </div>
-          <p className="txt-s">
-            {prize.valueThb
-              ? `฿${prize.valueThb.toLocaleString()} value`
-              : "Reward value pending"}
-            {prize.availableUnits !== undefined && prize.totalUnits !== undefined
-              ? ` · ${prize.availableUnits}/${prize.totalUnits} left`
-              : ""}
-          </p>
-        </div>
+            <em>{section.prizes.length} item{section.prizes.length === 1 ? "" : "s"}</em>
+          </div>
+          <div className="reward-tier-list reward-tier-list-structured">
+            {section.prizes.map((prize) => (
+              <div className="reward-tier-card" key={prize.id}>
+                <div className="tier-heading">
+                  <div>
+                    <span className={`tier-rank tier-${prize.tier}`}>
+                      {section.key === "top" ? `Top ${prize.rank}` : `#${prize.rank}`}
+                    </span>
+                    <strong>{prize.cardName}</strong>
+                  </div>
+                  <span>
+                    {prize.prizeCategoryLabel ??
+                      (prize.tier === "high" ? "High tier" : "Normal")}
+                  </span>
+                </div>
+                <p className="reward-prize-meta">
+                  {prize.availableUnits !== undefined && prize.totalUnits !== undefined
+                    ? `${prize.availableUnits}/${prize.totalUnits} left`
+                    : "Inventory preview"}
+                  {Number(prize.unlockAtSoldPct ?? 0) > 0
+                    ? " · preview reward"
+                    : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   );
+}
+
+function prizeLineupGroup(prize: YnotPrizePreview) {
+  if (prize.displayGroup === "top") return "top";
+  if (prize.tier === "high" && prize.rank <= 3) return "top";
+  if (prize.tier === "high") return "high";
+  return "normal";
 }
 
 function CampaignArtwork({
   campaign,
   large = false,
   clean = false,
+  quiet = false,
 }: {
   campaign: YnotCampaign;
   large?: boolean;
   clean?: boolean;
+  quiet?: boolean;
 }) {
   const hasPackAsset = Boolean(
     campaign.demo &&
@@ -943,10 +999,10 @@ function CampaignArtwork({
   );
   return (
     <div
-      className={`campaign-art ${campaign.series === "pokemon" ? "pokemon" : "one-piece"} ${hasPackAsset ? "has-asset" : ""} ${large ? "large" : ""} ${clean ? "clean-art" : ""}`}
+      className={`campaign-art ${campaign.series === "pokemon" ? "pokemon" : "one-piece"} ${hasPackAsset ? "has-asset" : ""} ${large ? "large" : ""} ${clean ? "clean-art" : ""} ${quiet ? "quiet-art" : ""}`}
     >
       <span className="art-glow" aria-hidden />
-      {clean && !hasPackAsset && (
+      {clean && !quiet && !hasPackAsset && (
         <span className="clean-pack-cover" aria-hidden>
           <span className="clean-cover-kicker">
             {campaign.categoryLabel ?? seriesLabel(campaign.series)}
@@ -955,7 +1011,7 @@ function CampaignArtwork({
           <span className="clean-cover-footer">Mystery Pack</span>
         </span>
       )}
-      {!clean && (
+      {!clean && !quiet && (
         <>
           <span className="art-count">
             {large ? "SERVER RECORDED" : `1/${formatCoins(campaign.costCoins)}`}

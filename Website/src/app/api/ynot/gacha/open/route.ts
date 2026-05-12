@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   const quantity = Number(body?.quantity ?? 1);
   const idempotencyKey = typeof body?.idempotencyKey === "string" ? body.idempotencyKey : crypto.randomUUID();
   if (!campaignId) return Response.json({ error: "Campaign is required." }, { status: 400 });
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) return Response.json({ error: "Quantity must be between 1 and 10." }, { status: 400 });
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) return Response.json({ error: "Quantity must be between 1 and 100." }, { status: 400 });
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase.rpc("open_gacha_campaign", { p_profile_id: session.profileId, p_draw_round_id: campaignId, p_quantity: quantity, p_idempotency_key: idempotencyKey });
   if (error) return Response.json({ error: error.message }, { status: 409 });

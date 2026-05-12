@@ -38,6 +38,7 @@ import {
   getCampaignPrizeReadiness,
   type CampaignPrizeReadiness,
 } from "./prize-readiness";
+import { normalizeOpenQuantityOptions } from "./open-quantity";
 
 const dataIssueStorage = new AsyncLocalStorage<YnotDataIssue[]>();
 
@@ -180,6 +181,25 @@ function soldPctForYnotCampaign(campaign: YnotCampaign) {
   );
 }
 
+function effectivePrizeWeight(
+  prize: Database["public"]["Tables"]["draw_round_prizes"]["Row"],
+  logicMode: YnotRandomLogicMode,
+) {
+  if (logicMode === "pure_random") return 1;
+  return Math.max(0, Number(prize.weight ?? 1) || 0);
+}
+
+function effectivePrizeUnlockAtSoldPct(
+  prize: Database["public"]["Tables"]["draw_round_prizes"]["Row"],
+  logicMode: YnotRandomLogicMode,
+) {
+  if (logicMode !== "inventory_gated") return 0;
+  return Math.min(
+    100,
+    Math.max(0, Number(prize.unlock_at_sold_pct ?? 0) || 0),
+  );
+}
+
 async function getPublicPrizeLineup(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   row: DrawRoundRow,
@@ -195,12 +215,13 @@ async function getPublicPrizeLineup(
     .order("rank", { ascending: true });
   if (error) throw error;
 
+  const logicMode = normalizeRandomLogicMode(row.logic_snapshot);
   const visiblePrizes = (prizes ?? []).filter(
     (prize) =>
       !isAdminHidden(prize.metadata) &&
       (options.includeLocked ||
-        (Number(prize.weight ?? 1) > 0 &&
-          Number(prize.unlock_at_sold_pct ?? 0) <= soldPct)),
+        (effectivePrizeWeight(prize, logicMode) > 0 &&
+          effectivePrizeUnlockAtSoldPct(prize, logicMode) <= soldPct)),
   );
   if (!visiblePrizes.length) return [];
 
@@ -324,8 +345,129 @@ function toYnotCampaign(
       linkedCategories.map((category) => category.nameEn).join(", ") ||
       (row.series === "pokemon" ? "Pokemon" : "One Piece"),
     displayTags: safeDisplayTags(row),
+    openQuantityOptions: normalizeOpenQuantityOptions(row.logic_snapshot),
     prizeLineup,
   };
+}
+
+function localOwnerMockPrizeLineup(
+  campaignId: string,
+  logicMode: YnotRandomLogicMode,
+): YnotPrizePreview[] {
+  const usesSoldUnlock = logicMode === "inventory_gated";
+  const usesWeights =
+    logicMode === "weighted_templates" || logicMode === "inventory_gated";
+  const unlockAtSoldPct = usesSoldUnlock ? 30 : 0;
+  const topWeight = usesWeights ? 0.25 : 1;
+  const highWeight = usesWeights ? 0.75 : 1;
+  const normalWeight = usesWeights ? 8 : 1;
+  const prize = (
+    suffix: string,
+    cardName: string,
+    tier: "normal" | "high",
+    rank: number,
+    totalUnits: number,
+    weight: number,
+    displayGroup: "top" | "high" | "normal",
+  ): YnotPrizePreview => ({
+    id: `${campaignId}-${suffix}`,
+    cardId: `mock-card-${campaignId}-${suffix}`,
+    cardName,
+    tier,
+    rank,
+    availableUnits: totalUnits,
+    totalUnits,
+    weight,
+    unlockAtSoldPct: displayGroup === "normal" ? 0 : unlockAtSoldPct,
+    prizeCategory: "psa10_card",
+    prizeCategoryLabel: "PSA10 card",
+    sourceType: "card",
+    displayGroup,
+  });
+
+  return [
+    prize(
+      "top-1",
+      "Charizard ex SAR PSA10",
+      "high",
+      1,
+      1,
+      topWeight,
+      "top",
+    ),
+    prize(
+      "top-2",
+      "Pikachu Master Ball Reverse PSA10",
+      "high",
+      2,
+      1,
+      topWeight,
+      "top",
+    ),
+    prize(
+      "top-3",
+      "Luffy Manga Parallel PSA10",
+      "high",
+      3,
+      1,
+      topWeight,
+      "top",
+    ),
+    prize(
+      "high-4",
+      "Nami Alt Art PSA10",
+      "high",
+      4,
+      2,
+      highWeight,
+      "high",
+    ),
+    prize(
+      "high-5",
+      "Zoro Secret Rare PSA10",
+      "high",
+      5,
+      2,
+      highWeight,
+      "high",
+    ),
+    prize(
+      "high-6",
+      "Pokemon Trainer SAR PSA10",
+      "high",
+      6,
+      3,
+      highWeight,
+      "high",
+    ),
+    prize(
+      "normal-1",
+      "Playable foil card",
+      "normal",
+      1,
+      18,
+      normalWeight,
+      "normal",
+    ),
+    prize(
+      "normal-2",
+      "Booster pack reward",
+      "normal",
+      2,
+      24,
+      normalWeight,
+      "normal",
+    ),
+    prize(
+      "normal-3",
+      "Store credit reward",
+      "normal",
+      3,
+      32,
+      normalWeight,
+      "normal",
+    ),
+  ];
 }
 
 function localOwnerMockApprovalRequests(): YnotOwnerApprovalRequest[] {
@@ -432,6 +574,7 @@ function localOwnerMockApprovalRequests(): YnotOwnerApprovalRequest[] {
           ? "Mock locked high-tier rewards / base rewards"
           : "Mock weighted reward setup / base rewards",
       displayTags: ["Owner review", "Local mock"],
+      prizeLineup: localOwnerMockPrizeLineup(config.id, config.logicMode),
       demo: true,
     };
 

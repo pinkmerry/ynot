@@ -4,6 +4,11 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { isMissingColumnError, randomPackSchemaMissingResponse } from "@/lib/supabase/schema-compat";
 import type { Database, Json } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import {
+  prizeCategoryLabel,
+  prizeCategoryValue,
+  prizeSourceType,
+} from "@/features/ynot/prize-category";
 
 export const dynamic = "force-dynamic";
 
@@ -79,11 +84,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function metadataValue(body: PrizeBody): Json {
   const metadata = isRecord(body.metadata) ? { ...body.metadata } : {};
-  const prizeCategory = text(body.prizeCategory, 40);
-  const sourceType = text(body.sourceType, 40);
+  const prizeCategory = prizeCategoryValue(body.prizeCategory);
+  const sourceType = prizeSourceType(prizeCategory);
   const displayGroup = text(body.displayGroup, 40);
-  if (prizeCategory) metadata.prizeCategory = prizeCategory;
-  if (sourceType) metadata.sourceType = sourceType;
+  metadata.prizeCategory = prizeCategory;
+  metadata.prizeCategoryLabel = prizeCategoryLabel(prizeCategory);
+  metadata.sourceType = sourceType;
   if (displayGroup) metadata.displayGroup = displayGroup;
   return metadata as Json;
 }
@@ -182,6 +188,7 @@ export async function POST(request: Request) {
     body.unlockAtSoldPct === undefined
       ? undefined
       : percentValue(body.unlockAtSoldPct);
+  const prizeCategory = prizeCategoryValue(body.prizeCategory);
   const metadata = metadataValue(body);
   if (!campaignId || !cardId || !rank) return Response.json({ error: "campaignId, cardId, and rank are required." }, { status: 400 });
   if (body.quantity !== undefined && quantity === null) return Response.json({ error: "quantity must be an integer from 0 to 10000." }, { status: 400 });
@@ -189,6 +196,19 @@ export async function POST(request: Request) {
   if (unlockAtSoldPct === null) return Response.json({ error: "unlockAtSoldPct must be a number from 0 to 100." }, { status: 400 });
 
   const supabase = createServiceSupabaseClient();
+  const { data: card, error: cardError } = await supabase
+    .from("cards")
+    .select("id,prize_category")
+    .eq("id", cardId)
+    .single();
+  if (cardError) return Response.json({ error: cardError.message }, { status: 409 });
+  if (prizeCategoryValue(card.prize_category) !== prizeCategory) {
+    return Response.json(
+      { error: "Prize item does not match the selected prize category." },
+      { status: 400 },
+    );
+  }
+
   const reviewReset = await markCampaignNeedsOwnerReview(
     supabase,
     campaignId,

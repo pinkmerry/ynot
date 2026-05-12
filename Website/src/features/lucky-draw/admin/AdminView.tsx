@@ -622,7 +622,7 @@ function AdminCardEditor({
           <div className="flex w-full min-w-0 items-center gap-3">
             <span className="min-w-0 flex-1">
               <span className="block truncate text-xs font-bold uppercase tracking-[0.2em] text-[var(--gold)]">{t.highTierPrize}</span>
-              <span className="mt-1 block truncate text-sm text-[var(--muted)]">{chaseCards.length} cards shown as top value prizes</span>
+              <span className="mt-1 block truncate text-sm text-[var(--muted)]">{chaseCards.length} cards shown as top prizes</span>
             </span>
             <ChevronDown className="tier-chevron h-5 w-5 shrink-0" />
           </div>
@@ -636,7 +636,7 @@ function AdminCardEditor({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-black">#{card.rank} {card.name}</span>
-                  <span className="mt-1 block truncate text-xs text-[var(--muted)]">฿{money(card.value)} / {card.grade}</span>
+                  <span className="mt-1 block truncate text-xs text-[var(--muted)]">{card.grade}</span>
                 </span>
                 <ChevronDown className="tier-chevron h-4 w-4" />
               </summary>
@@ -666,8 +666,7 @@ function AdminCardEditor({
                 <TextField label={t.cardCode} value={card.code ?? ""} onChange={(value) => updateChase(index, { code: value })} />
                 <TextField label="Card" value={card.name} onChange={(value) => updateChase(index, { name: value })} />
               </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-[0.65fr_auto] sm:items-end">
-                <NumberField label="Value THB" value={card.value} onChange={(value) => updateChase(index, { value })} />
+              <div className="mt-3 grid gap-3 sm:grid-cols-[auto] sm:items-end">
                 <button
                   className="danger-button flex h-12 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold"
                   disabled={chaseCards.length <= 1}

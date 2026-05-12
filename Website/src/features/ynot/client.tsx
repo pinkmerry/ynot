@@ -17,6 +17,18 @@ import type {
   YnotRandomLogicMode,
   YnotShippingRequest,
 } from "./types";
+import {
+  defaultOpenQuantityOptions,
+  normalizeOpenQuantityOptions,
+} from "./open-quantity";
+import {
+  prizeCategoryLabel,
+  prizeCategoryOptions,
+  prizeCategoryValue,
+  prizeSourceType,
+  randomPsa10CardCode,
+  type PrizeCategory,
+} from "./prize-category";
 
 const coinPackages = [
   { label: "Starter", amountThb: 100, coins: 100 },
@@ -132,9 +144,9 @@ function ownerLogicSummary(
   const roundedSoldPct = Math.round(soldPct);
   if (logicMode === "weighted_templates") {
     return [
-      "Weight changes odds only among prizes that are already eligible to drop.",
+      "Weight changes odds across the full prize pool immediately.",
       "Higher weight means more chance; weight 0 removes that prize from the random pool.",
-      "This mode does not add a 30% delay unless that prize also has an unlock checkpoint.",
+      "Sold unlock fields are ignored in this mode.",
     ];
   }
   if (logicMode === "inventory_gated") {
@@ -149,30 +161,67 @@ function ownerLogicSummary(
     ];
   }
   return [
-    "Every unlocked available prize unit has the same chance.",
-    "There is no high-tier weight boost in pure random mode.",
-    "Prizes with a future sold unlock checkpoint still stay hidden and cannot drop until unlocked.",
+    "Every available prize unit has the same chance.",
+    "Stored weights are ignored in pure random mode.",
+    "Sold unlock fields are ignored in pure random mode.",
   ];
+}
+
+function prizeAvailableUnitCount(prize: YnotPrizePreview) {
+  return Math.max(
+    0,
+    Math.round(Number(prize.availableUnits ?? prize.totalUnits ?? 1) || 0),
+  );
+}
+
+function effectivePrizeWeight(
+  prize: YnotPrizePreview,
+  logicMode: YnotRandomLogicMode,
+) {
+  if (logicMode === "pure_random") return 1;
+  return Math.max(0, Number(prize.weight ?? 1) || 0);
+}
+
+function effectivePrizeUnlockAtSoldPct(
+  prize: YnotPrizePreview,
+  logicMode: YnotRandomLogicMode,
+) {
+  if (logicMode !== "inventory_gated") return 0;
+  return Math.min(100, Math.max(0, Number(prize.unlockAtSoldPct ?? 0) || 0));
+}
+
+function usesPrizeWeight(logicMode: YnotRandomLogicMode) {
+  return logicMode !== "pure_random";
+}
+
+function usesPrizeUnlock(logicMode: YnotRandomLogicMode) {
+  return logicMode === "inventory_gated";
 }
 
 function ownerPrizeOddsLabel(
   prize: YnotPrizePreview,
   lineup: YnotPrizePreview[],
   soldPct: number,
+  logicMode: YnotRandomLogicMode,
 ) {
-  const unlockAtSoldPct = Number(prize.unlockAtSoldPct ?? 0);
-  const weight = Number(prize.weight ?? 1);
+  const unlockAtSoldPct = effectivePrizeUnlockAtSoldPct(prize, logicMode);
+  const weight = effectivePrizeWeight(prize, logicMode);
+  const availableUnits = prizeAvailableUnitCount(prize);
+  if (availableUnits <= 0) return "Sold out";
   if (unlockAtSoldPct > soldPct) return `Locked until ${unlockAtSoldPct}%`;
   if (weight <= 0) return "Disabled";
-  const eligibleWeight = lineup
-    .filter(
-      (candidate) =>
-        Number(candidate.weight ?? 1) > 0 &&
-        Number(candidate.unlockAtSoldPct ?? 0) <= soldPct,
-    )
-    .reduce((sum, candidate) => sum + Number(candidate.weight ?? 1), 0);
+  const prizeOddsWeight = availableUnits * weight;
+  const eligibleWeight = lineup.reduce((sum, candidate) => {
+    const candidateWeight = effectivePrizeWeight(candidate, logicMode);
+    const candidateUnits = prizeAvailableUnitCount(candidate);
+    if (candidateUnits <= 0 || candidateWeight <= 0) return sum;
+    if (effectivePrizeUnlockAtSoldPct(candidate, logicMode) > soldPct) {
+      return sum;
+    }
+    return sum + candidateUnits * candidateWeight;
+  }, 0);
   if (eligibleWeight <= 0) return "No eligible pool";
-  return `${((weight / eligibleWeight) * 100).toFixed(1)}%`;
+  return `${((prizeOddsWeight / eligibleWeight) * 100).toFixed(1)}%`;
 }
 
 function prizeDisplayGroup(prize: YnotPrizePreview) {
@@ -323,13 +372,31 @@ export function TopUpForm({
 export function GachaOpenPanel({
   campaign,
   authenticated,
+  initialQuantity = 1,
 }: {
   campaign: YnotCampaign;
   authenticated: boolean;
+  initialQuantity?: number;
 }) {
-  const [quantity, setQuantity] = useState(1);
+  const openQuantityOptions = normalizeOpenQuantityOptions(
+    campaign.openQuantityOptions,
+  );
+  const initialOption = openQuantityOptions.includes(initialQuantity)
+    ? initialQuantity
+    : openQuantityOptions[0];
+  const [quantity, setQuantity] = useState(initialOption);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const remainingOpenUnits = Math.min(
+    campaign.remainingSlots ?? Number.POSITIVE_INFINITY,
+    campaign.availablePrizeUnits ?? Number.POSITIVE_INFINITY,
+  );
+  const selectedCost = campaign.costCoins * quantity;
+
+  function quantityDisabled(option: number) {
+    return Number.isFinite(remainingOpenUnits) && option > remainingOpenUnits;
+  }
+
   function open() {
     startTransition(async () => {
       try {
@@ -399,19 +466,27 @@ export function GachaOpenPanel({
       </div>
       <h3>{campaign.titleEn}</h3>
       <p className="mt-2 text-sm text-[var(--muted)]">
-        Cost: {(campaign.costCoins * quantity).toLocaleString()} coins.
+        Choose how many packs to open. Current cost:{" "}
+        {selectedCost.toLocaleString()} coins.
       </p>
-      <label className="mt-4 block text-sm font-bold">
-        Quantity
-        <input
-          className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4"
-          min={1}
-          max={10}
-          type="number"
-          value={quantity}
-          onChange={(event) => setQuantity(Number(event.target.value))}
-        />
-      </label>
+      <div className="open-quantity-grid" role="group" aria-label="Open quantity">
+        {openQuantityOptions.map((option) => {
+          const disabled = quantityDisabled(option);
+          return (
+            <button
+              aria-pressed={quantity === option}
+              className={quantity === option ? "active" : ""}
+              disabled={disabled}
+              key={option}
+              onClick={() => setQuantity(option)}
+              type="button"
+            >
+              <strong>Open {option}</strong>
+              <span>{(campaign.costCoins * option).toLocaleString()} coins</span>
+            </button>
+          );
+        })}
+      </div>
       {!authenticated ? (
         <a className="primary-action open-start mt-4" href="/login">
           &gt;&gt; START PULL
@@ -419,11 +494,11 @@ export function GachaOpenPanel({
       ) : (
         <button
           className="primary-action open-start mt-4 w-full"
-          disabled={isPending}
+          disabled={isPending || quantityDisabled(quantity)}
           onClick={open}
           type="button"
         >
-          {isPending ? "Opening..." : ">> START PULL"}
+          {isPending ? "Opening..." : `>> START ${quantity} PULL${quantity === 1 ? "" : "S"}`}
         </button>
       )}
       <a className="open-cancel" href={`/gacha/${campaign.slug}`}>
@@ -1319,56 +1394,56 @@ type CampaignPrizeDraft = {
   unlockAtSoldPct: number;
 };
 
-type PrizeCategory =
-  | "psa10_card"
-  | "sealed_product"
-  | "console_gaming"
-  | "audio_electronics"
-  | "store_credit"
-  | "other";
-
-type PrizeSourceType = "card" | "sealed" | "physical" | "credit" | "other";
-
 const minHighTierCount = 5;
 const maxHighTierCount = 20;
 const defaultHighTierCount = 10;
 const highTierCountChoices = [5, 10, 15, 20] as const;
 
-const prizeCategoryOptions: Array<{
-  value: PrizeCategory;
-  label: string;
-  sourceType: PrizeSourceType;
-}> = [
-  { value: "psa10_card", label: "PSA10 card", sourceType: "card" },
-  { value: "sealed_product", label: "Sealed/card product", sourceType: "sealed" },
-  { value: "console_gaming", label: "Console/gaming", sourceType: "physical" },
-  { value: "audio_electronics", label: "Audio/electronics", sourceType: "physical" },
-  { value: "store_credit", label: "Store credit", sourceType: "credit" },
-  { value: "other", label: "Other prize", sourceType: "other" },
-];
+function isRandomPsa10Card(card: CardCatalogItem) {
+  const code = card.code?.toUpperCase() ?? "";
+  const name = card.name.toLowerCase();
+  return code === randomPsa10CardCode || name.includes("random psa10");
+}
+
+function cardPrizeCategory(card: CardCatalogItem) {
+  return prizeCategoryValue(card.prizeCategory);
+}
+
+function normalPrizeCatalogCards(cards: CardCatalogItem[]) {
+  return cards.filter(
+    (card) => cardPrizeCategory(card) === "psa10_card" && isRandomPsa10Card(card),
+  );
+}
+
+function premiumPrizeCatalogCards(cards: CardCatalogItem[]) {
+  return cards.filter(
+    (card) => cardPrizeCategory(card) === "psa10_card" && !isRandomPsa10Card(card),
+  );
+}
+
+function prizeCatalogCardsFor(
+  cards: CardCatalogItem[],
+  category: PrizeCategory,
+  group: CampaignPrizeDraft["group"],
+) {
+  const categorizedCards = cards.filter(
+    (card) => cardPrizeCategory(card) === category,
+  );
+  if (category !== "psa10_card") return categorizedCards;
+  if (group === "normal") return categorizedCards.filter(isRandomPsa10Card);
+  return categorizedCards.filter((card) => !isRandomPsa10Card(card));
+}
 
 function firstCatalogCardId(cards: CardCatalogItem[]) {
   return cards[0]?.catalogCardId ?? "";
 }
 
-function prizeCategoryLabel(category: PrizeCategory) {
-  return (
-    prizeCategoryOptions.find((option) => option.value === category)?.label ??
-    "Other prize"
-  );
+function firstPremiumCatalogCardId(cards: CardCatalogItem[]) {
+  return firstCatalogCardId(premiumPrizeCatalogCards(cards));
 }
 
-function prizeSourceType(category: PrizeCategory) {
-  return (
-    prizeCategoryOptions.find((option) => option.value === category)
-      ?.sourceType ?? "other"
-  );
-}
-
-function prizeCategoryValue(value: string | undefined): PrizeCategory {
-  return prizeCategoryOptions.some((option) => option.value === value)
-    ? (value as PrizeCategory)
-    : "psa10_card";
+function firstNormalCatalogCardId(cards: CardCatalogItem[]) {
+  return firstCatalogCardId(normalPrizeCatalogCards(cards));
 }
 
 function clampHighTierCount(value: number) {
@@ -1467,12 +1542,13 @@ function createInitialPrizeDrafts(
   highTierCount = defaultHighTierCount,
   totalSlots = 100,
 ): CampaignPrizeDraft[] {
-  const cardId = firstCatalogCardId(cards);
+  const premiumCardId = firstPremiumCatalogCardId(cards);
+  const normalCardId = firstNormalCatalogCardId(cards);
   const topRows: CampaignPrizeDraft[] = [
     {
       localId: "top-1",
       group: "top",
-      cardId,
+      cardId: premiumCardId,
       tier: "high",
       prizeCategory: "psa10_card",
       rank: 1,
@@ -1484,7 +1560,7 @@ function createInitialPrizeDrafts(
     {
       localId: "top-2",
       group: "top",
-      cardId,
+      cardId: premiumCardId,
       tier: "high",
       prizeCategory: "psa10_card",
       rank: 2,
@@ -1496,7 +1572,7 @@ function createInitialPrizeDrafts(
     {
       localId: "top-3",
       group: "top",
-      cardId,
+      cardId: premiumCardId,
       tier: "high",
       prizeCategory: "psa10_card",
       rank: 3,
@@ -1507,9 +1583,9 @@ function createInitialPrizeDrafts(
     },
   ];
   const highRows = Array.from({ length: clampHighTierCount(highTierCount) }, (_, index) =>
-    createHighTierPrizeDraft(index, cardId),
+    createHighTierPrizeDraft(index, premiumCardId),
   );
-  return withNormalPoolRemainder([...topRows, ...highRows], totalSlots, cardId);
+  return withNormalPoolRemainder([...topRows, ...highRows], totalSlots, normalCardId);
 }
 
 function prizeDraftGroupLabel(group: CampaignPrizeDraft["group"]) {
@@ -1540,6 +1616,9 @@ export function AdminCampaignForm({
   const [costCoins, setCostCoins] = useState(1);
   const [totalSlots, setTotalSlots] = useState(100);
   const [displayTags, setDisplayTags] = useState("PSA10, New Exclusive");
+  const [openQuantityOptions, setOpenQuantityOptions] = useState<number[]>(
+    defaultOpenQuantityOptions,
+  );
   const [highTierCount, setHighTierCount] = useState(defaultHighTierCount);
   const [draftPrizes, setDraftPrizes] = useState<CampaignPrizeDraft[]>(() =>
     createInitialPrizeDrafts(cards, defaultHighTierCount, 100),
@@ -1579,6 +1658,31 @@ export function AdminCampaignForm({
   const normalPrizeRows = activePrizeDrafts.filter(
     (prize) => prize.group === "normal",
   ).length;
+  const unavailablePrizeCategoryRows = draftPrizes.filter(
+    (prize) =>
+      prizeUnitCount(prize) > 0 &&
+      !prizeCatalogCardsFor(cards, prize.prizeCategory, prize.group).length,
+  );
+  const invalidPrizeItemRows = draftPrizes.filter((prize) => {
+    if (prizeUnitCount(prize) <= 0) return false;
+    const itemOptions = prizeCatalogCardsFor(
+      cards,
+      prize.prizeCategory,
+      prize.group,
+    );
+    return (
+      itemOptions.length > 0 &&
+      Boolean(prize.cardId) &&
+      !itemOptions.some((card) => card.catalogCardId === prize.cardId)
+    );
+  });
+  const missingPrizeCategories = [
+    ...new Set(
+      unavailablePrizeCategoryRows.map(
+        (prize) => `${prizeDraftGroupLabel(prize.group)}: ${prizeCategoryLabel(prize.prizeCategory)}`,
+      ),
+    ),
+  ];
   const rankKeys = activePrizeDrafts.map(
     (prize) => `${prize.tier}:${prize.rank}`,
   );
@@ -1593,6 +1697,12 @@ export function AdminCampaignForm({
       : "",
     initialUnlockedUnits <= 0
       ? "At least one prize must be available in the launch pool."
+      : "",
+    missingPrizeCategories.length
+      ? `Add catalog item(s) for ${missingPrizeCategories.join(", ")}.`
+      : "",
+    invalidPrizeItemRows.length
+      ? "Choose a prize item that matches each selected prize category."
       : "",
     topPrizeRows < 3 ? "Choose all Top 1-3 showcase prizes." : "",
     highPoolRows < minHighTierCount || highPoolRows > maxHighTierCount
@@ -1655,6 +1765,18 @@ export function AdminCampaignForm({
     );
   }
 
+  function updatePrizeDraftCategory(
+    prize: CampaignPrizeDraft,
+    nextCategory: PrizeCategory,
+  ) {
+    updatePrizeDraft(prize.localId, {
+      prizeCategory: nextCategory,
+      cardId: firstCatalogCardId(
+        prizeCatalogCardsFor(cards, nextCategory, prize.group),
+      ),
+    });
+  }
+
   function updateTotalSlots(nextTotalSlots: number) {
     const normalizedTotalSlots = Math.max(
       1,
@@ -1665,40 +1787,41 @@ export function AdminCampaignForm({
       withNormalPoolRemainder(
         current,
         normalizedTotalSlots,
-        firstCatalogCardId(cards),
+        firstNormalCatalogCardId(cards),
       ),
     );
   }
 
   function updateHighTierCount(nextCount: number) {
     const count = clampHighTierCount(nextCount);
-    const defaultCardId = firstCatalogCardId(cards);
+    const defaultHighCardId = firstPremiumCatalogCardId(cards);
+    const defaultNormalCardId = firstNormalCatalogCardId(cards);
     setHighTierCount(count);
     setDraftPrizes((current) => {
       const highRows = current
         .filter((prize) => prize.group === "high")
         .sort((left, right) => left.rank - right.rank);
       const nextHighRows = Array.from({ length: count }, (_, index) =>
-        createHighTierPrizeDraft(index, defaultCardId, highRows[index]),
+        createHighTierPrizeDraft(index, defaultHighCardId, highRows[index]),
       );
       const nonHighRows = current.filter((prize) => prize.group !== "high");
       return withNormalPoolRemainder(
         [...nonHighRows, ...nextHighRows],
         totalSlots,
-        defaultCardId,
+        defaultNormalCardId,
       );
     });
   }
 
   function fillNormalPoolRemainder() {
-    const defaultCardId = firstCatalogCardId(cards);
+    const defaultCardId = firstNormalCatalogCardId(cards);
     setDraftPrizes((current) =>
       withNormalPoolRemainder(current, totalSlots, defaultCardId),
     );
   }
 
   function updateHighTierRows(patch: Partial<CampaignPrizeDraft>) {
-    const defaultCardId = firstCatalogCardId(cards);
+    const defaultCardId = firstNormalCatalogCardId(cards);
     setDraftPrizes((current) =>
       withNormalPoolRemainder(
         current.map((prize) =>
@@ -1724,7 +1847,7 @@ export function AdminCampaignForm({
       {
         localId: `${group}-${Date.now().toString(36)}`,
         group,
-        cardId: firstCatalogCardId(cards),
+        cardId: firstNormalCatalogCardId(cards),
         tier,
         prizeCategory: "psa10_card",
         rank: nextRank,
@@ -1740,7 +1863,8 @@ export function AdminCampaignForm({
     const target = draftPrizes.find((prize) => prize.localId === localId);
     if (target?.group === "high") {
       const nextCount = clampHighTierCount(highTierCount - 1);
-      const defaultCardId = firstCatalogCardId(cards);
+      const defaultHighCardId = firstPremiumCatalogCardId(cards);
+      const defaultNormalCardId = firstNormalCatalogCardId(cards);
       setHighTierCount(nextCount);
       setDraftPrizes((current) => {
         const remainingRows = current.filter((prize) => prize.localId !== localId);
@@ -1750,7 +1874,7 @@ export function AdminCampaignForm({
         const nextHighRows = Array.from({ length: nextCount }, (_, index) =>
           createHighTierPrizeDraft(
             index,
-            defaultCardId,
+            defaultHighCardId,
             remainingHighRows[index],
           ),
         );
@@ -1760,7 +1884,7 @@ export function AdminCampaignForm({
             ...nextHighRows,
           ],
           totalSlots,
-          defaultCardId,
+          defaultNormalCardId,
         );
       });
       return;
@@ -1768,6 +1892,17 @@ export function AdminCampaignForm({
     setDraftPrizes((current) =>
       current.filter((prize) => prize.localId !== localId),
     );
+  }
+
+  function toggleOpenQuantityOption(option: number) {
+    setOpenQuantityOptions((current) => {
+      const normalized = normalizeOpenQuantityOptions(current);
+      if (normalized.includes(option)) {
+        const next = normalized.filter((candidate) => candidate !== option);
+        return next.length ? next : normalized;
+      }
+      return normalizeOpenQuantityOptions([...normalized, option]);
+    });
   }
 
   function submit() {
@@ -1784,6 +1919,7 @@ export function AdminCampaignForm({
           costCoins,
           totalSlots,
           displayTags: inputToTags(displayTags),
+          openQuantityOptions,
           categoryIds: categoryId ? [categoryId] : undefined,
           isTest,
           status: "draft",
@@ -1951,6 +2087,30 @@ export function AdminCampaignForm({
                 placeholder="1"
               />
             </label>
+            <div className="admin-field admin-field-wide">
+              <span>Open buttons</span>
+              <div
+                className="admin-open-preset-row"
+                role="group"
+                aria-label="Open quantity buttons"
+              >
+                {defaultOpenQuantityOptions.map((option) => (
+                  <button
+                    className={
+                      openQuantityOptions.includes(option) ? "active" : ""
+                    }
+                    key={option}
+                    onClick={() => toggleOpenQuantityOption(option)}
+                    type="button"
+                  >
+                    Open {option}
+                  </button>
+                ))}
+              </div>
+              <small>
+                These become the customer buttons on the open pack screen.
+              </small>
+            </div>
             <label className="admin-field admin-field-wide">
               <span>Customer card tags</span>
               <input
@@ -1983,69 +2143,86 @@ export function AdminCampaignForm({
           </div>
 
           <div className="admin-top-prize-strip">
-            {topPrizeDrafts.map((prize) => (
-              <article className="admin-top-prize-card" key={prize.localId}>
-                <div className="admin-prize-draft-head">
-                  <div>
-                    <span>Top {prize.rank}</span>
-                    <strong>{prizeCategoryLabel(prize.prizeCategory)}</strong>
-                    <em>{prizeDraftGroupLabel(prize.group)}</em>
+            {topPrizeDrafts.map((prize) => {
+              const itemOptions = prizeCatalogCardsFor(
+                cards,
+                prize.prizeCategory,
+                prize.group,
+              );
+              const selectedCardId = itemOptions.some(
+                (card) => card.catalogCardId === prize.cardId,
+              )
+                ? prize.cardId
+                : itemOptions[0]?.catalogCardId ?? "";
+              return (
+                <article className="admin-top-prize-card" key={prize.localId}>
+                  <div className="admin-prize-draft-head">
+                    <div>
+                      <span>Top {prize.rank}</span>
+                      <strong>{prizeCategoryLabel(prize.prizeCategory)}</strong>
+                      <em>{prizeDraftGroupLabel(prize.group)}</em>
+                    </div>
                   </div>
-                </div>
-                <label className="admin-field">
-                  <span>Prize item</span>
-                  <select
-                    value={prize.cardId}
-                    onChange={(event) =>
-                      updatePrizeDraft(prize.localId, {
-                        cardId: event.target.value,
-                      })
-                    }
-                  >
-                    {cards.map((card) => (
-                      <option
-                        key={card.catalogCardId}
-                        value={card.catalogCardId}
-                      >
-                        {card.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="admin-top-prize-controls">
                   <label className="admin-field">
-                    <span>Category</span>
+                    <span>Prize item</span>
                     <select
-                      value={prize.prizeCategory}
+                      disabled={!itemOptions.length}
+                      value={selectedCardId}
                       onChange={(event) =>
                         updatePrizeDraft(prize.localId, {
-                          prizeCategory: event.target.value as PrizeCategory,
+                          cardId: event.target.value,
                         })
                       }
                     >
-                      {prizeCategoryOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
+                      {itemOptions.map((card) => (
+                        <option
+                          key={card.catalogCardId}
+                          value={card.catalogCardId}
+                        >
+                          {card.name}
                         </option>
                       ))}
                     </select>
+                    {!itemOptions.length && (
+                      <small>Add a {prizeCategoryLabel(prize.prizeCategory)} catalog item first.</small>
+                    )}
                   </label>
-                  <label className="admin-field">
-                    <span>Qty</span>
-                    <input
-                      min={0}
-                      type="number"
-                      value={prize.quantity}
-                      onChange={(event) =>
-                        updatePrizeDraft(prize.localId, {
-                          quantity: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                </div>
-              </article>
-            ))}
+                  <div className="admin-top-prize-controls">
+                    <label className="admin-field">
+                      <span>Category</span>
+                      <select
+                        value={prize.prizeCategory}
+                        onChange={(event) =>
+                          updatePrizeDraftCategory(
+                            prize,
+                            event.target.value as PrizeCategory,
+                          )
+                        }
+                      >
+                        {prizeCategoryOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="admin-field">
+                      <span>Qty</span>
+                      <input
+                        min={0}
+                        type="number"
+                        value={prize.quantity}
+                        onChange={(event) =>
+                          updatePrizeDraft(prize.localId, {
+                            quantity: Number(event.target.value),
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                </article>
+              );
+            })}
           </div>
 
           <div className="admin-prize-structure-panel">
@@ -2123,109 +2300,35 @@ export function AdminCampaignForm({
               <span>Qty</span>
               <span>Action</span>
             </div>
-            {highTierDrafts.map((prize) => (
-              <article className="admin-prize-table-row" key={prize.localId}>
-                <div className="admin-prize-rank-cell">
-                  <strong>#{prize.rank}</strong>
-                  <span>High tier</span>
-                </div>
-                <label className="admin-field">
-                  <span>Prize item</span>
-                  <select
-                    value={prize.cardId}
-                    onChange={(event) =>
-                      updatePrizeDraft(prize.localId, {
-                        cardId: event.target.value,
-                      })
-                    }
-                  >
-                    {cards.map((card) => (
-                      <option
-                        key={card.catalogCardId}
-                        value={card.catalogCardId}
-                      >
-                        {card.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="admin-field">
-                  <span>Category</span>
-                  <select
-                    value={prize.prizeCategory}
-                    onChange={(event) =>
-                      updatePrizeDraft(prize.localId, {
-                        prizeCategory: event.target.value as PrizeCategory,
-                      })
-                    }
-                  >
-                    {prizeCategoryOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="admin-field">
-                  <span>Qty</span>
-                  <input
-                    min={0}
-                    type="number"
-                    value={prize.quantity}
-                    onChange={(event) =>
-                      updatePrizeDraft(prize.localId, {
-                        quantity: Number(event.target.value),
-                      })
-                    }
-                  />
-                </label>
-                <button
-                  className="danger-button rounded-2xl px-3 py-2 text-xs font-black"
-                  disabled={highTierCount <= minHighTierCount}
-                  onClick={() => removePrizeDraft(prize.localId)}
-                  type="button"
-                >
-                  Remove
-                </button>
-              </article>
-            ))}
-          </div>
-
-          <div className="admin-normal-pool-panel">
-            <div className="admin-panel-compact-head">
-              <span>Normal/base pool</span>
-              <strong>
-                {normalPrizeRows} row{normalPrizeRows === 1 ? "" : "s"} ready
-              </strong>
-            </div>
-            <div className="admin-prize-table-wrap normal">
-              <div className="admin-prize-table-head">
-                <span>Rank</span>
-                <span>Prize item</span>
-                <span>Category</span>
-                <span>Qty</span>
-                <span>Action</span>
-              </div>
-              {normalPrizeDrafts.map((prize) => (
-                <article
-                  className="admin-prize-table-row normal"
-                  key={prize.localId}
-                >
+            {highTierDrafts.map((prize) => {
+              const itemOptions = prizeCatalogCardsFor(
+                cards,
+                prize.prizeCategory,
+                prize.group,
+              );
+              const selectedCardId = itemOptions.some(
+                (card) => card.catalogCardId === prize.cardId,
+              )
+                ? prize.cardId
+                : itemOptions[0]?.catalogCardId ?? "";
+              return (
+                <article className="admin-prize-table-row" key={prize.localId}>
                   <div className="admin-prize-rank-cell">
                     <strong>#{prize.rank}</strong>
-                    <span>Base</span>
+                    <span>High tier</span>
                   </div>
                   <label className="admin-field">
                     <span>Prize item</span>
                     <select
-                      value={prize.cardId}
+                      disabled={!itemOptions.length}
+                      value={selectedCardId}
                       onChange={(event) =>
                         updatePrizeDraft(prize.localId, {
                           cardId: event.target.value,
                         })
                       }
                     >
-                      {cards.map((card) => (
+                      {itemOptions.map((card) => (
                         <option
                           key={card.catalogCardId}
                           value={card.catalogCardId}
@@ -2234,15 +2337,19 @@ export function AdminCampaignForm({
                         </option>
                       ))}
                     </select>
+                    {!itemOptions.length && (
+                      <small>Add a {prizeCategoryLabel(prize.prizeCategory)} catalog item first.</small>
+                    )}
                   </label>
                   <label className="admin-field">
                     <span>Category</span>
                     <select
                       value={prize.prizeCategory}
                       onChange={(event) =>
-                        updatePrizeDraft(prize.localId, {
-                          prizeCategory: event.target.value as PrizeCategory,
-                        })
+                        updatePrizeDraftCategory(
+                          prize,
+                          event.target.value as PrizeCategory,
+                        )
                       }
                     >
                       {prizeCategoryOptions.map((option) => (
@@ -2267,13 +2374,117 @@ export function AdminCampaignForm({
                   </label>
                   <button
                     className="danger-button rounded-2xl px-3 py-2 text-xs font-black"
+                    disabled={highTierCount <= minHighTierCount}
                     onClick={() => removePrizeDraft(prize.localId)}
                     type="button"
                   >
                     Remove
                   </button>
                 </article>
-              ))}
+              );
+            })}
+          </div>
+
+          <div className="admin-normal-pool-panel">
+            <div className="admin-panel-compact-head">
+              <span>Normal/base pool</span>
+              <strong>
+                {normalPrizeRows} row{normalPrizeRows === 1 ? "" : "s"} ready
+              </strong>
+            </div>
+            <div className="admin-prize-table-wrap normal">
+              <div className="admin-prize-table-head">
+                <span>Rank</span>
+                <span>Prize item</span>
+                <span>Category</span>
+                <span>Qty</span>
+                <span>Action</span>
+              </div>
+              {normalPrizeDrafts.map((prize) => {
+                const itemOptions = prizeCatalogCardsFor(
+                  cards,
+                  prize.prizeCategory,
+                  prize.group,
+                );
+                const selectedCardId = itemOptions.some(
+                  (card) => card.catalogCardId === prize.cardId,
+                )
+                  ? prize.cardId
+                  : itemOptions[0]?.catalogCardId ?? "";
+                return (
+                  <article
+                    className="admin-prize-table-row normal"
+                    key={prize.localId}
+                  >
+                    <div className="admin-prize-rank-cell">
+                      <strong>#{prize.rank}</strong>
+                      <span>Base</span>
+                    </div>
+                    <label className="admin-field">
+                      <span>Prize item</span>
+                      <select
+                        disabled={!itemOptions.length}
+                        value={selectedCardId}
+                        onChange={(event) =>
+                          updatePrizeDraft(prize.localId, {
+                            cardId: event.target.value,
+                          })
+                        }
+                      >
+                        {itemOptions.map((card) => (
+                          <option
+                            key={card.catalogCardId}
+                            value={card.catalogCardId}
+                          >
+                            {card.name}
+                          </option>
+                        ))}
+                      </select>
+                      {!itemOptions.length && (
+                        <small>Add a {prizeCategoryLabel(prize.prizeCategory)} catalog item first.</small>
+                      )}
+                    </label>
+                    <label className="admin-field">
+                      <span>Category</span>
+                      <select
+                        value={prize.prizeCategory}
+                        onChange={(event) =>
+                          updatePrizeDraftCategory(
+                            prize,
+                            event.target.value as PrizeCategory,
+                          )
+                        }
+                      >
+                        {prizeCategoryOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="admin-field">
+                      <span>Qty</span>
+                      <input
+                        min={0}
+                        type="number"
+                        value={prize.quantity}
+                        onChange={(event) =>
+                          updatePrizeDraft(prize.localId, {
+                            quantity: Number(event.target.value),
+                          })
+                        }
+                      />
+                    </label>
+                    <button
+                      className="danger-button rounded-2xl px-3 py-2 text-xs font-black"
+                      onClick={() => removePrizeDraft(prize.localId)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </article>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -2464,6 +2675,15 @@ export function OwnerApprovalQueue({
     const prizeCategory = prizeCategoryValue(prize.prizeCategory);
     const sourceType = prizeSourceType(prizeCategory);
     const displayGroup = prizeDisplayGroup(prize);
+    const weight = usesPrizeWeight(item.selectedLogicMode)
+      ? Math.max(0, Number(prize.weight) || 0)
+      : 1;
+    const unlockAtSoldPct = usesPrizeUnlock(item.selectedLogicMode)
+      ? Math.min(
+          100,
+          Math.max(0, Math.round(Number(prize.unlockAtSoldPct) || 0)),
+        )
+      : 0;
     startTransition(async () => {
       try {
         await postJson("/api/ynot/admin/prizes", {
@@ -2471,12 +2691,8 @@ export function OwnerApprovalQueue({
           cardId: prize.cardId,
           tier: prize.tier,
           rank: prize.rank,
-          valueThb: Math.max(0, Math.round(Number(prize.valueThb) || 0)),
-          weight: Math.max(0, Number(prize.weight) || 0),
-          unlockAtSoldPct: Math.min(
-            100,
-            Math.max(0, Math.round(Number(prize.unlockAtSoldPct) || 0)),
-          ),
+          weight,
+          unlockAtSoldPct,
           prizeCategory,
           sourceType,
           displayGroup,
@@ -2493,7 +2709,7 @@ export function OwnerApprovalQueue({
               ? {
                   ...candidate,
                   localMessage:
-                    "Owner prize value, weight, and unlock settings saved.",
+                    "Owner prize mode settings saved.",
                 }
               : candidate,
           ),
@@ -2557,7 +2773,38 @@ export function OwnerApprovalQueue({
             item.selectedLogicMode,
             item.soldPct,
           );
+          const weightControlsActive = usesPrizeWeight(item.selectedLogicMode);
+          const unlockControlsActive = usesPrizeUnlock(item.selectedLogicMode);
           const ownerPrizeLineup = item.campaign.prizeLineup ?? [];
+          const ownerPrizeSections = [
+            {
+              key: "top",
+              title: "Top 1-3 prizes",
+              note: "Main showcase rewards reviewed first.",
+              prizes: ownerPrizeLineup
+                .filter((prize) => prizeDisplayGroup(prize) === "top")
+                .sort((left, right) => left.rank - right.rank),
+            },
+            {
+              key: "high",
+              title: "High-tier prizes",
+              note: "Premium rewards below Top 3.",
+              prizes: ownerPrizeLineup
+                .filter(
+                  (prize) =>
+                    prize.tier === "high" && prizeDisplayGroup(prize) !== "top",
+                )
+                .sort((left, right) => left.rank - right.rank),
+            },
+            {
+              key: "normal",
+              title: "Normal/base pool",
+              note: "Base inventory that keeps every pull covered.",
+              prizes: ownerPrizeLineup
+                .filter((prize) => prize.tier === "normal")
+                .sort((left, right) => left.rank - right.rank),
+            },
+          ].filter((section) => section.prizes.length > 0);
           return (
             <article className="owner-approval-card" key={item.id}>
               <div className="owner-approval-card-head">
@@ -2638,101 +2885,125 @@ export function OwnerApprovalQueue({
                   <div className="owner-prize-odds-head">
                     <div>
                       <span>Owner-only prize odds</span>
-                      <strong>Value, weight, and sold unlock</strong>
+                      <strong>
+                        {item.selectedLogicMode === "pure_random"
+                          ? "Top 1-3 and high-tier review, equal odds"
+                          : item.selectedLogicMode === "weighted_templates"
+                            ? "Top 1-3, high tier, and weight review"
+                            : "Top 1-3, high tier, sold unlock, and weight review"}
+                      </strong>
                     </div>
-                    <em>Hidden from draft creation</em>
+                    <em>
+                      {weightControlsActive ? "Weight active" : "Equal chance"}
+                    </em>
                   </div>
                   {ownerPrizeLineup.length > 0 ? (
-                    <div className="owner-prize-odds-table-wrap">
-                      <div className="owner-prize-odds-table-head">
-                        <span>Prize</span>
-                        <span>Tier</span>
-                        <span>Value</span>
-                        <span>Weight</span>
-                        <span>Unlock %</span>
-                        <span>Current odds</span>
-                        <span>Action</span>
-                      </div>
-                      {ownerPrizeLineup.map((prize) => (
-                        <article
-                          className="owner-prize-odds-row"
-                          key={prize.id}
-                        >
-                          <div className="owner-prize-name-cell">
-                            <strong>{prize.cardName}</strong>
-                            <span>
-                              #{prize.rank} ·{" "}
-                              {prize.prizeCategoryLabel ??
-                                (prize.tier === "high"
-                                  ? "High tier"
-                                  : "Normal")}
-                            </span>
+                    <div className="owner-prize-section-stack">
+                      {ownerPrizeSections.map((section) => (
+                        <section className="owner-prize-section" key={section.key}>
+                          <div className="owner-prize-section-head">
+                            <div>
+                              <strong>{section.title}</strong>
+                              <span>{section.note}</span>
+                            </div>
+                            <em>{section.prizes.length} row{section.prizes.length === 1 ? "" : "s"}</em>
                           </div>
-                          <div className="owner-prize-tier-cell">
-                            {prizeDisplayGroup(prize)}
+                          <div className="owner-prize-odds-table-wrap">
+                            <div className="owner-prize-odds-table-head">
+                              <span>Prize</span>
+                              <span>Tier</span>
+                              <span>Weight</span>
+                              <span>Unlock %</span>
+                              <span>Current odds</span>
+                              <span>Action</span>
+                            </div>
+                            {section.prizes.map((prize) => (
+                              <article
+                                className="owner-prize-odds-row"
+                                key={prize.id}
+                              >
+                                <div className="owner-prize-name-cell">
+                                  <strong>
+                                    {section.key === "top"
+                                      ? `Top ${prize.rank}`
+                                      : `#${prize.rank}`}{" "}
+                                    {prize.cardName}
+                                  </strong>
+                                  <span>
+                                    {prize.prizeCategoryLabel ??
+                                      (prize.tier === "high"
+                                        ? "High tier"
+                                        : "Normal")}
+                                  </span>
+                                </div>
+                                <div className="owner-prize-tier-cell">
+                                  {prizeDisplayGroup(prize)}
+                                </div>
+                                {weightControlsActive ? (
+                                  <label className="admin-field">
+                                    <span>Weight</span>
+                                    <input
+                                      min={0}
+                                      step={0.1}
+                                      type="number"
+                                      value={prize.weight ?? 1}
+                                      onChange={(event) =>
+                                        updateOwnerPrizeOdds(index, prize.id, {
+                                          weight: Number(event.target.value),
+                                        })
+                                      }
+                                    />
+                                  </label>
+                                ) : (
+                                  <div className="owner-prize-mode-pill">
+                                    Equal chance
+                                  </div>
+                                )}
+                                {unlockControlsActive ? (
+                                  <label className="admin-field">
+                                    <span>Unlock sold percent</span>
+                                    <input
+                                      max={100}
+                                      min={0}
+                                      type="number"
+                                      value={prize.unlockAtSoldPct ?? 0}
+                                      onChange={(event) =>
+                                        updateOwnerPrizeOdds(index, prize.id, {
+                                          unlockAtSoldPct: Number(event.target.value),
+                                        })
+                                      }
+                                    />
+                                  </label>
+                                ) : (
+                                  <div className="owner-prize-mode-pill">
+                                    Immediate pool
+                                  </div>
+                                )}
+                                <div className="owner-prize-odds-cell">
+                                  {ownerPrizeOddsLabel(
+                                    prize,
+                                    ownerPrizeLineup,
+                                    item.soldPct,
+                                    item.selectedLogicMode,
+                                  )}
+                                </div>
+                                <button
+                                  className="plain-button"
+                                  disabled={
+                                    isPending ||
+                                    logicLocked ||
+                                    item.mock ||
+                                    !prize.cardId
+                                  }
+                                  onClick={() => saveOwnerPrizeOdds(index, prize)}
+                                  type="button"
+                                >
+                                  Save
+                                </button>
+                              </article>
+                            ))}
                           </div>
-                          <label className="admin-field">
-                            <span>Value THB</span>
-                            <input
-                              min={0}
-                              type="number"
-                              value={prize.valueThb ?? 0}
-                              onChange={(event) =>
-                                updateOwnerPrizeOdds(index, prize.id, {
-                                  valueThb: Number(event.target.value),
-                                })
-                              }
-                            />
-                          </label>
-                          <label className="admin-field">
-                            <span>Weight</span>
-                            <input
-                              min={0}
-                              step={0.1}
-                              type="number"
-                              value={prize.weight ?? 1}
-                              onChange={(event) =>
-                                updateOwnerPrizeOdds(index, prize.id, {
-                                  weight: Number(event.target.value),
-                                })
-                              }
-                            />
-                          </label>
-                          <label className="admin-field">
-                            <span>Unlock sold percent</span>
-                            <input
-                              max={100}
-                              min={0}
-                              type="number"
-                              value={prize.unlockAtSoldPct ?? 0}
-                              onChange={(event) =>
-                                updateOwnerPrizeOdds(index, prize.id, {
-                                  unlockAtSoldPct: Number(event.target.value),
-                                })
-                              }
-                            />
-                          </label>
-                          <div className="owner-prize-odds-cell">
-                            {ownerPrizeOddsLabel(
-                              prize,
-                              ownerPrizeLineup,
-                              item.soldPct,
-                            )}
-                          </div>
-                          <button
-                            className="plain-button"
-                            disabled={
-                              isPending ||
-                              logicLocked ||
-                              item.mock ||
-                              !prize.cardId
-                            }
-                            onClick={() => saveOwnerPrizeOdds(index, prize)}
-                            type="button"
-                          >
-                            Save
-                          </button>
-                        </article>
+                        </section>
                       ))}
                     </div>
                   ) : (
@@ -2839,7 +3110,7 @@ export function AdminCampaignActionPanel({
 
   if (!items.length) {
     return (
-      <section className="admin-pack-list soft-card">
+      <section className="admin-pack-list admin-full-span soft-card">
         <div className="admin-form-head">
           <span>Existing packs</span>
           <h3>Submit review or update customer labels</h3>
@@ -2867,7 +3138,7 @@ export function AdminCampaignActionPanel({
   );
 
   return (
-    <section className="admin-pack-list soft-card">
+    <section className="admin-pack-list admin-full-span soft-card">
       <div className="admin-form-head">
         <span>Existing packs</span>
         <h3>Submit review or update customer labels</h3>
@@ -2876,7 +3147,7 @@ export function AdminCampaignActionPanel({
           held for the owner approval queue.
         </p>
       </div>
-      <div className="admin-pack-row-list">
+      <div className="admin-pack-row-list admin-pack-row-list-horizontal">
         {activeCampaigns.map((campaign) => (
           <AdminCampaignStatusRow
             key={campaign.id}
@@ -2893,7 +3164,7 @@ export function AdminCampaignActionPanel({
         <span>History</span>
         <strong>Closed, sold-out, archived, and removed packs</strong>
       </div>
-      <div className="admin-pack-row-list">
+      <div className="admin-pack-row-list admin-pack-row-list-horizontal">
         {historyCampaigns.map((campaign) => (
           <AdminCampaignStatusRow
             key={campaign.id}
@@ -3205,6 +3476,8 @@ function AdminCampaignStatusRow({
 export function AdminCardForm() {
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
+  const [prizeCategory, setPrizeCategory] =
+    useState<PrizeCategory>("psa10_card");
   const [series, setSeries] = useState<"pokemon" | "one_piece">("pokemon");
   const [grade, setGrade] = useState("Ungraded");
   const [imageUrl, setImageUrl] = useState("");
@@ -3227,6 +3500,7 @@ export function AdminCardForm() {
           name,
           series,
           grade,
+          prizeCategory,
           imageUrl,
           isTest,
           assetSource: isTest ? assetSource : undefined,
@@ -3282,6 +3556,21 @@ export function AdminCardForm() {
           >
             <option value="pokemon">Pokémon</option>
             <option value="one_piece">One Piece</option>
+          </select>
+        </AdminField>
+        <AdminField label="Prize category">
+          <select
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={prizeCategory}
+            onChange={(event) =>
+              setPrizeCategory(event.target.value as PrizeCategory)
+            }
+          >
+            {prizeCategoryOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </AdminField>
         <AdminField label="Grade / model">
@@ -3376,12 +3665,22 @@ export function AdminPrizePoolForm({
   const [prizeCategory, setPrizeCategory] =
     useState<PrizeCategory>("psa10_card");
   const [rank, setRank] = useState(1);
-  const [valueThb, setValueThb] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [weight, setWeight] = useState(1);
   const [unlockAtSoldPct, setUnlockAtSoldPct] = useState(0);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const prizeGroup: CampaignPrizeDraft["group"] =
+    tier === "normal" ? "normal" : rank <= 3 ? "top" : "high";
+  const prizeItemOptions = useMemo(
+    () => prizeCatalogCardsFor(cards, prizeCategory, prizeGroup),
+    [cards, prizeCategory, prizeGroup],
+  );
+  const selectedPrizeCardId = prizeItemOptions.some(
+    (card) => card.catalogCardId === cardId,
+  )
+    ? cardId
+    : prizeItemOptions[0]?.catalogCardId ?? "";
 
   function savePrize() {
     startTransition(async () => {
@@ -3389,13 +3688,12 @@ export function AdminPrizePoolForm({
         setMessage("");
         await postJson("/api/ynot/admin/prizes", {
           campaignId,
-          cardId,
+          cardId: selectedPrizeCardId,
           tier,
           rank,
           quantity,
           ...(isOwner
             ? {
-                valueThb,
                 weight,
                 unlockAtSoldPct,
               }
@@ -3466,23 +3764,36 @@ export function AdminPrizePoolForm({
         <AdminField label="Prize item" required>
           <select
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={cardId}
+            disabled={!prizeItemOptions.length}
+            value={selectedPrizeCardId}
             onChange={(event) => setCardId(event.target.value)}
           >
-            {cards.map((card) => (
+            {prizeItemOptions.map((card) => (
               <option key={card.catalogCardId} value={card.catalogCardId}>
                 {card.name}
               </option>
             ))}
           </select>
+          {!prizeItemOptions.length && (
+            <small>Add a {prizeCategoryLabel(prizeCategory)} catalog item first.</small>
+          )}
+          {tier === "normal" && prizeCategory === "psa10_card" && (
+            <small>Normal PSA10 prizes use the generic Random PSA10 card pool.</small>
+          )}
         </AdminField>
         <AdminField label="Prize category">
           <select
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={prizeCategory}
-            onChange={(event) =>
-              setPrizeCategory(event.target.value as PrizeCategory)
-            }
+            onChange={(event) => {
+              const nextCategory = event.target.value as PrizeCategory;
+              setPrizeCategory(nextCategory);
+              setCardId(
+                firstCatalogCardId(
+                  prizeCatalogCardsFor(cards, nextCategory, prizeGroup),
+                ),
+              );
+            }}
           >
             {prizeCategoryOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -3495,9 +3806,16 @@ export function AdminPrizePoolForm({
           <select
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={tier}
-            onChange={(event) =>
-              setTier(event.target.value as "normal" | "high")
-            }
+            onChange={(event) => {
+              const nextTier = event.target.value as "normal" | "high";
+              const nextGroup = nextTier === "normal" ? "normal" : rank <= 3 ? "top" : "high";
+              setTier(nextTier);
+              setCardId(
+                firstCatalogCardId(
+                  prizeCatalogCardsFor(cards, prizeCategory, nextGroup),
+                ),
+              );
+            }}
           >
             <option value="normal">Normal prize</option>
             <option value="high">High tier prize</option>
@@ -3517,21 +3835,6 @@ export function AdminPrizePoolForm({
             placeholder="1"
           />
         </AdminField>
-        {isOwner && (
-          <AdminField
-            label="Value THB"
-            hint="Owner-only estimated prize value for approval."
-          >
-            <input
-              className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-              min={0}
-              type="number"
-              value={valueThb}
-              onChange={(event) => setValueThb(Number(event.target.value))}
-              placeholder="1500"
-            />
-          </AdminField>
-        )}
         <AdminField
           label="Prize quantity"
           required
@@ -3587,7 +3890,7 @@ export function AdminPrizePoolForm({
       </div>
       <button
         className="gold-button admin-form-save"
-        disabled={isPending || !campaignId || !cardId}
+        disabled={isPending || !campaignId || !selectedPrizeCardId}
         onClick={savePrize}
         type="button"
       >
@@ -3606,9 +3909,6 @@ export function AdminPrizePoolForm({
               </p>
               <p className="text-[var(--muted)]">
                 {prize.cardName}
-                {isOwner
-                  ? ` · ฿${(prize.valueThb ?? 0).toLocaleString()}`
-                  : ""}
                 {" · "}
                 {prize.availableUnits}/{prize.totalUnits} left
                 {prize.awardedUnits ? ` · ${prize.awardedUnits} awarded` : ""}
@@ -3629,7 +3929,6 @@ export function AdminPrizePoolForm({
                 setTier(prize.tier);
                 setPrizeCategory(prizeCategoryValue(prize.prizeCategory));
                 setRank(prize.rank);
-                setValueThb(prize.valueThb ?? 0);
                 setQuantity(prize.totalUnits);
                 setWeight(prize.weight);
                 setUnlockAtSoldPct(prize.unlockAtSoldPct);
