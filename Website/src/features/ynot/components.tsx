@@ -31,6 +31,11 @@ import {
   StoreSortSelect,
 } from "./StorePreferences";
 import { OwnerApprovalQueue } from "./client";
+import {
+  prizeDisplayTierLabel,
+  prizeDisplayTierOptions,
+  prizeDisplayTierValue,
+} from "./prize-tier";
 
 const homeCategories = [
   { label: "Pokemon", series: "pokemon" },
@@ -904,32 +909,22 @@ export function RewardTierList({ compact = false }: { compact?: boolean }) {
 }
 
 function PrizeLineup({ prizes }: { prizes: YnotPrizePreview[] }) {
-  const sections = [
-    {
-      key: "top",
-      label: "Top 1-3 rewards",
-      description: "Main chase prizes shown first.",
+  const sections = prizeDisplayTierOptions
+    .map((option) => ({
+      key: option.value,
+      label: `${option.label} rewards`,
+      description:
+        option.value === "bronze"
+          ? "Base rewards and category prizes that cover regular pulls."
+          : `${option.label} chase prizes shown above lower tiers.`,
       prizes: prizes
-        .filter((prize) => prizeLineupGroup(prize) === "top")
-        .sort((left, right) => left.rank - right.rank),
-    },
-    {
-      key: "high",
-      label: "High tier rewards",
-      description: "Premium cards and special rewards below Top 3.",
-      prizes: prizes
-        .filter((prize) => prizeLineupGroup(prize) === "high")
-        .sort((left, right) => left.rank - right.rank),
-    },
-    {
-      key: "normal",
-      label: "Base reward pool",
-      description: "Regular rewards that keep every pull covered.",
-      prizes: prizes
-        .filter((prize) => prizeLineupGroup(prize) === "normal")
-        .sort((left, right) => left.rank - right.rank),
-    },
-  ].filter((section) => section.prizes.length > 0);
+        .filter((prize) => prizeLineupTier(prize) === option.value)
+        .sort(
+          (left, right) =>
+            (left.tierRank ?? left.rank) - (right.tierRank ?? right.rank),
+        ),
+    }))
+    .filter((section) => section.prizes.length > 0);
 
   return (
     <div className="reward-lineup-groups">
@@ -947,8 +942,9 @@ function PrizeLineup({ prizes }: { prizes: YnotPrizePreview[] }) {
               <div className="reward-tier-card" key={prize.id}>
                 <div className="tier-heading">
                   <div>
-                    <span className={`tier-rank tier-${prize.tier}`}>
-                      {section.key === "top" ? `Top ${prize.rank}` : `#${prize.rank}`}
+                    <span className={`tier-rank tier-${section.key}`}>
+                      {prizeDisplayTierLabel(section.key)} #
+                      {prize.tierRank ?? prize.rank}
                     </span>
                     <strong>{prize.cardName}</strong>
                   </div>
@@ -974,11 +970,12 @@ function PrizeLineup({ prizes }: { prizes: YnotPrizePreview[] }) {
   );
 }
 
-function prizeLineupGroup(prize: YnotPrizePreview) {
-  if (prize.displayGroup === "top") return "top";
-  if (prize.tier === "high" && prize.rank <= 3) return "top";
-  if (prize.tier === "high") return "high";
-  return "normal";
+function prizeLineupTier(prize: YnotPrizePreview) {
+  if (prize.displayTier) return prizeDisplayTierValue(prize.displayTier);
+  if (prize.displayGroup) return prizeDisplayTierValue(prize.displayGroup);
+  if (prize.tier === "high" && prize.rank <= 3) return "rainbow";
+  if (prize.tier === "high") return "gold";
+  return "bronze";
 }
 
 function CampaignArtwork({

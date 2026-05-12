@@ -39,6 +39,11 @@ import {
   type CampaignPrizeReadiness,
 } from "./prize-readiness";
 import { normalizeOpenQuantityOptions } from "./open-quantity";
+import {
+  prizeDisplayTierLabel,
+  prizeDisplayTierOrder,
+  prizeDisplayTierValue,
+} from "./prize-tier";
 
 const dataIssueStorage = new AsyncLocalStorage<YnotDataIssue[]>();
 
@@ -168,6 +173,24 @@ function metadataString(metadata: unknown, key: string) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function metadataNumber(metadata: unknown, key: string) {
+  if (!isRecord(metadata)) return undefined;
+  const parsed = Number(metadata[key]);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function displayTierFromPrizeMetadata(
+  prize: Database["public"]["Tables"]["draw_round_prizes"]["Row"],
+) {
+  const displayTier = metadataString(prize.metadata, "displayTier");
+  if (displayTier) return prizeDisplayTierValue(displayTier);
+  const displayGroup = metadataString(prize.metadata, "displayGroup");
+  if (displayGroup) return prizeDisplayTierValue(displayGroup);
+  if (prize.tier === "high" && prize.rank <= 3) return "rainbow";
+  if (prize.tier === "high") return "gold";
+  return "bronze";
+}
+
 function soldPctForYnotCampaign(campaign: YnotCampaign) {
   const remainingSlots = campaign.remainingSlots ?? campaign.totalSlots;
   if (campaign.totalSlots <= 0) return 100;
@@ -254,6 +277,7 @@ async function getPublicPrizeLineup(
   return visiblePrizes
     .map((prize) => {
       const counts = countsByPrize.get(prize.id);
+      const displayTier = displayTierFromPrizeMetadata(prize);
       return {
         id: prize.id,
         cardId: prize.card_id,
@@ -269,11 +293,19 @@ async function getPublicPrizeLineup(
         prizeCategoryLabel: metadataString(prize.metadata, "prizeCategoryLabel"),
         sourceType: metadataString(prize.metadata, "sourceType"),
         displayGroup: metadataString(prize.metadata, "displayGroup"),
+        displayTier,
+        displayTierLabel:
+          metadataString(prize.metadata, "displayTierLabel") ??
+          prizeDisplayTierLabel(displayTier),
+        tierRank: metadataNumber(prize.metadata, "tierRank") ?? prize.rank,
       };
     })
     .sort((left, right) => {
-      if (left.tier !== right.tier) return left.tier === "high" ? -1 : 1;
-      return left.rank - right.rank;
+      const tierOrder =
+        prizeDisplayTierOrder(left.displayTier) -
+        prizeDisplayTierOrder(right.displayTier);
+      if (tierOrder !== 0) return tierOrder;
+      return (left.tierRank ?? left.rank) - (right.tierRank ?? right.rank);
     });
 }
 
@@ -369,21 +401,27 @@ function localOwnerMockPrizeLineup(
     totalUnits: number,
     weight: number,
     displayGroup: "top" | "high" | "normal",
-  ): YnotPrizePreview => ({
-    id: `${campaignId}-${suffix}`,
-    cardId: `mock-card-${campaignId}-${suffix}`,
-    cardName,
-    tier,
-    rank,
-    availableUnits: totalUnits,
-    totalUnits,
-    weight,
-    unlockAtSoldPct: displayGroup === "normal" ? 0 : unlockAtSoldPct,
-    prizeCategory: "psa10_card",
-    prizeCategoryLabel: "PSA10 card",
-    sourceType: "card",
-    displayGroup,
-  });
+  ): YnotPrizePreview => {
+    const displayTier = prizeDisplayTierValue(displayGroup);
+    return {
+      id: `${campaignId}-${suffix}`,
+      cardId: `mock-card-${campaignId}-${suffix}`,
+      cardName,
+      tier,
+      rank,
+      availableUnits: totalUnits,
+      totalUnits,
+      weight,
+      unlockAtSoldPct: displayGroup === "normal" ? 0 : unlockAtSoldPct,
+      prizeCategory: "psa10_card",
+      prizeCategoryLabel: "PSA10 card",
+      sourceType: "card",
+      displayGroup,
+      displayTier,
+      displayTierLabel: prizeDisplayTierLabel(displayTier),
+      tierRank: rank,
+    };
+  };
 
   return [
     prize(
@@ -1440,6 +1478,7 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         awarded: 0,
         void: 0,
       };
+      const displayTier = displayTierFromPrizeMetadata(prize);
       return {
         id: prize.id,
         campaignId: prize.draw_round_id,
@@ -1456,6 +1495,11 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         prizeCategoryLabel: metadataString(prize.metadata, "prizeCategoryLabel"),
         sourceType: metadataString(prize.metadata, "sourceType"),
         displayGroup: metadataString(prize.metadata, "displayGroup"),
+        displayTier,
+        displayTierLabel:
+          metadataString(prize.metadata, "displayTierLabel") ??
+          prizeDisplayTierLabel(displayTier),
+        tierRank: metadataNumber(prize.metadata, "tierRank") ?? prize.rank,
         totalUnits: counts.total,
         availableUnits: counts.available,
         awardedUnits: counts.awarded,

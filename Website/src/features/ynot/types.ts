@@ -214,6 +214,9 @@ export type YnotPrizePreview = {
   prizeCategoryLabel?: string;
   sourceType?: string;
   displayGroup?: string;
+  displayTier?: string;
+  displayTierLabel?: string;
+  tierRank?: number;
 };
 
 export type YnotAddress = {
@@ -251,6 +254,9 @@ export type YnotPrizePoolItem = {
   prizeCategoryLabel?: string;
   sourceType?: string;
   displayGroup?: string;
+  displayTier?: string;
+  displayTierLabel?: string;
+  tierRank?: number;
   totalUnits: number;
   availableUnits: number;
   awardedUnits: number;

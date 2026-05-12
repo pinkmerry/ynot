@@ -10,6 +10,24 @@ export type PrizeSourceType = "card" | "sealed" | "physical" | "credit" | "other
 
 export const randomPsa10CardCode = "RANDOM-PSA10";
 
+type PrizeCardIdentity = {
+  card_code?: string | null;
+  code?: string | null;
+  name?: string | null;
+  search_code?: string | null;
+};
+
+export function isRandomPsa10PrizeCard(card: PrizeCardIdentity) {
+  const code = (card.card_code ?? card.code ?? "").toUpperCase();
+  const searchCode = (card.search_code ?? "").toLowerCase();
+  const name = (card.name ?? "").toLowerCase();
+  return (
+    code === randomPsa10CardCode ||
+    searchCode === randomPsa10CardCode.toLowerCase() ||
+    name.includes("random psa10")
+  );
+}
+
 export const prizeCategoryOptions: Array<{
   value: PrizeCategory;
   label: string;

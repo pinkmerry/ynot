@@ -5,10 +5,16 @@ import { isMissingColumnError, randomPackSchemaMissingResponse } from "@/lib/sup
 import type { Database, Json } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import {
+  isRandomPsa10PrizeCard,
   prizeCategoryLabel,
   prizeCategoryValue,
   prizeSourceType,
 } from "@/features/ynot/prize-category";
+import {
+  canPrizeDisplayTierUseRandomPsa10,
+  prizeDisplayTierLabel,
+  prizeDisplayTierValue,
+} from "@/features/ynot/prize-tier";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +34,23 @@ type PrizeBody = {
   prizeCategory?: unknown;
   sourceType?: unknown;
   displayGroup?: unknown;
+  displayTier?: unknown;
 };
 
 type PrizeTier = Database["public"]["Tables"]["draw_round_prizes"]["Row"]["tier"];
+type PrizeRow = Database["public"]["Tables"]["draw_round_prizes"]["Row"];
+type PrizeSaveRow = Pick<
+  PrizeRow,
+  | "id"
+  | "draw_round_id"
+  | "card_id"
+  | "tier"
+  | "rank"
+  | "value_thb"
+  | "weight"
+  | "unlock_at_sold_pct"
+  | "metadata"
+>;
 type AdminSession = NonNullable<Awaited<ReturnType<typeof resolveAdminSession>>>;
 type Supabase = ReturnType<typeof createServiceSupabaseClient>;
 
@@ -82,16 +102,142 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
+function metadataString(metadata: unknown, key: string) {
+  if (!isRecord(metadata)) return "";
+  const value = metadata[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function metadataPositiveInteger(
+  metadata: unknown,
+  key: string,
+  fallback: number,
+) {
+  if (!isRecord(metadata)) return fallback;
+  const parsed = Number(metadata[key]);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 function metadataValue(body: PrizeBody): Json {
   const metadata = isRecord(body.metadata) ? { ...body.metadata } : {};
   const prizeCategory = prizeCategoryValue(body.prizeCategory);
   const sourceType = prizeSourceType(prizeCategory);
   const displayGroup = text(body.displayGroup, 40);
+  const tierRank = rankValue(metadata.tierRank) ?? rankValue(body.rank) ?? 1;
+  const displayTier = prizeDisplayTierValue(
+    text(body.displayTier, 40) || metadata.displayTier || displayGroup,
+  );
   metadata.prizeCategory = prizeCategory;
   metadata.prizeCategoryLabel = prizeCategoryLabel(prizeCategory);
   metadata.sourceType = sourceType;
-  if (displayGroup) metadata.displayGroup = displayGroup;
+  metadata.displayTier = displayTier;
+  metadata.displayTierLabel = prizeDisplayTierLabel(displayTier);
+  metadata.displayGroup = displayGroup || displayTier;
+  metadata.tierRank = tierRank;
   return metadata as Json;
+}
+
+function displayTierForPrizeRow(row: Pick<PrizeRow, "tier" | "rank" | "metadata">) {
+  const displayTier = metadataString(row.metadata, "displayTier");
+  if (displayTier) return prizeDisplayTierValue(displayTier);
+  const displayGroup = metadataString(row.metadata, "displayGroup");
+  if (displayGroup) return prizeDisplayTierValue(displayGroup);
+  if (row.tier === "high" && row.rank <= 3) return "rainbow";
+  if (row.tier === "high") return "gold";
+  return "bronze";
+}
+
+function tierRankForPrizeRow(row: Pick<PrizeRow, "rank" | "metadata">) {
+  return metadataPositiveInteger(row.metadata, "tierRank", row.rank);
+}
+
+function isUniqueConstraintError(error: { code?: string } | null) {
+  return error?.code === "23505";
+}
+
+async function resolvePrizeRank(
+  supabase: Supabase,
+  campaignId: string,
+  tier: PrizeTier,
+  requestedRank: number,
+  displayTier: string,
+  tierRank: number,
+) {
+  const { data, error } = await supabase
+    .from("draw_round_prizes")
+    .select("id,tier,rank,metadata")
+    .eq("draw_round_id", campaignId)
+    .eq("tier", tier)
+    .order("rank", { ascending: true });
+  if (error) throw error;
+
+  const existingRows = data ?? [];
+  const existingDisplayRow = existingRows.find(
+    (row) =>
+      displayTierForPrizeRow(row) === prizeDisplayTierValue(displayTier) &&
+      tierRankForPrizeRow(row) === tierRank,
+  );
+  if (existingDisplayRow) {
+    return { existingPrizeId: existingDisplayRow.id, rank: existingDisplayRow.rank };
+  }
+
+  const usedRanks = new Set(existingRows.map((row) => row.rank));
+  let rank = requestedRank;
+  while (usedRanks.has(rank)) rank += 1;
+  return { existingPrizeId: null, rank };
+}
+
+async function savePrizeRow(
+  supabase: Supabase,
+  patch: Database["public"]["Tables"]["draw_round_prizes"]["Insert"],
+  basePatch: Database["public"]["Tables"]["draw_round_prizes"]["Insert"],
+  existingPrizeId: string | null,
+  weight: number | undefined,
+  unlockAtSoldPct: number | undefined,
+) {
+  const selectColumns =
+    "id,draw_round_id,card_id,tier,rank,value_thb,weight,unlock_at_sold_pct,metadata";
+  const savePatch = (rowPatch: typeof patch) =>
+    existingPrizeId
+      ? supabase
+          .from("draw_round_prizes")
+          .update(rowPatch)
+          .eq("id", existingPrizeId)
+          .select(selectColumns)
+          .single()
+      : supabase
+          .from("draw_round_prizes")
+          .insert(rowPatch)
+          .select(selectColumns)
+          .single();
+
+  let { data, error } = await savePatch(patch);
+  if (error && isMissingColumnError(error)) {
+    if ((weight ?? 1) !== 1 || (unlockAtSoldPct ?? 0) !== 0) {
+      return { data: null, error, schemaMissing: true };
+    }
+    const fallbackPatch = basePatch;
+    ({ data, error } = existingPrizeId
+      ? await supabase
+          .from("draw_round_prizes")
+          .update(fallbackPatch)
+          .eq("id", existingPrizeId)
+          .select("id,draw_round_id,card_id,tier,rank,value_thb,metadata")
+          .single()
+      : await supabase
+          .from("draw_round_prizes")
+          .insert(fallbackPatch)
+          .select("id,draw_round_id,card_id,tier,rank,value_thb,metadata")
+          .single());
+    if (data) {
+      data = {
+        ...data,
+        weight: 1,
+        unlock_at_sold_pct: 0,
+      } as PrizeSaveRow;
+    }
+  }
+  return { data: data as PrizeSaveRow | null, error, schemaMissing: false };
 }
 
 async function bodyJson(request: Request): Promise<PrizeBody | null> {
@@ -190,6 +336,10 @@ export async function POST(request: Request) {
       : percentValue(body.unlockAtSoldPct);
   const prizeCategory = prizeCategoryValue(body.prizeCategory);
   const metadata = metadataValue(body);
+  const displayTier = prizeDisplayTierValue(
+    isRecord(metadata) ? metadata.displayTier : undefined,
+  );
+  const tierRank = metadataPositiveInteger(metadata, "tierRank", rank ?? 1);
   if (!campaignId || !cardId || !rank) return Response.json({ error: "campaignId, cardId, and rank are required." }, { status: 400 });
   if (body.quantity !== undefined && quantity === null) return Response.json({ error: "quantity must be an integer from 0 to 10000." }, { status: 400 });
   if (weight === null) return Response.json({ error: "weight must be a number from 0 to 100000." }, { status: 400 });
@@ -198,7 +348,7 @@ export async function POST(request: Request) {
   const supabase = createServiceSupabaseClient();
   const { data: card, error: cardError } = await supabase
     .from("cards")
-    .select("id,prize_category")
+    .select("id,name,card_code,search_code,prize_category")
     .eq("id", cardId)
     .single();
   if (cardError) return Response.json({ error: cardError.message }, { status: 409 });
@@ -207,6 +357,21 @@ export async function POST(request: Request) {
       { error: "Prize item does not match the selected prize category." },
       { status: 400 },
     );
+  }
+  if (prizeCategory === "psa10_card") {
+    const isRandomPsa10 = isRandomPsa10PrizeCard(card);
+    const allowedForTier = canPrizeDisplayTierUseRandomPsa10(displayTier)
+      ? isRandomPsa10
+      : !isRandomPsa10;
+    if (!allowedForTier) {
+      return Response.json(
+        {
+          error:
+            "PSA10 prize item does not match the selected display tier. Bronze uses Random PSA10; Rainbow, Gold, and Silver use specific PSA10 cards.",
+        },
+        { status: 400 },
+      );
+    }
   }
 
   const reviewReset = await markCampaignNeedsOwnerReview(
@@ -217,46 +382,53 @@ export async function POST(request: Request) {
   );
   if (reviewReset) return reviewReset;
 
-  const basePatch: Database["public"]["Tables"]["draw_round_prizes"]["Insert"] = {
-    draw_round_id: campaignId,
-    card_id: cardId,
-    tier,
-    rank,
-    metadata,
-  };
-  const patch: Database["public"]["Tables"]["draw_round_prizes"]["Insert"] = {
-    ...basePatch,
-  };
-  if (valueThb !== undefined) patch.value_thb = valueThb;
-  if (weight !== undefined) patch.weight = weight;
-  if (unlockAtSoldPct !== undefined) patch.unlock_at_sold_pct = unlockAtSoldPct;
-  if (body.isTest !== undefined || body.seedRunId !== undefined) {
-    patch.is_test = booleanValue(body.isTest);
-    patch.seed_run_id = text(body.seedRunId, 80) || null;
-  }
-
-  let { data, error } = await supabase
-    .from("draw_round_prizes")
-    .upsert(patch, { onConflict: "draw_round_id,tier,rank" })
-    .select(
-      "id,draw_round_id,card_id,tier,rank,value_thb,weight,unlock_at_sold_pct,metadata",
-    )
-    .single();
-  if (error && isMissingColumnError(error)) {
-    if ((weight ?? 1) !== 1 || (unlockAtSoldPct ?? 0) !== 0) {
-      return randomPackSchemaMissingResponse();
+  let data: PrizeSaveRow | null = null;
+  let error: { message: string; code?: string } | null = null;
+  let savedRank = rank;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const allocation = await resolvePrizeRank(
+      supabase,
+      campaignId,
+      tier,
+      attempt === 0 ? rank : savedRank + 1,
+      displayTier,
+      tierRank,
+    );
+    savedRank = allocation.rank;
+    const basePatch: Database["public"]["Tables"]["draw_round_prizes"]["Insert"] =
+      {
+        draw_round_id: campaignId,
+        card_id: cardId,
+        tier,
+        rank: savedRank,
+        metadata,
+      };
+    const patch: Database["public"]["Tables"]["draw_round_prizes"]["Insert"] = {
+      ...basePatch,
+    };
+    if (valueThb !== undefined) patch.value_thb = valueThb;
+    if (weight !== undefined) patch.weight = weight;
+    if (unlockAtSoldPct !== undefined) {
+      patch.unlock_at_sold_pct = unlockAtSoldPct;
     }
-    ({ data, error } = await supabase
-      .from("draw_round_prizes")
-      .upsert(basePatch, { onConflict: "draw_round_id,tier,rank" })
-      .select("id,draw_round_id,card_id,tier,rank,value_thb,metadata")
-      .single());
-    if (data) {
-      data = {
-        ...data,
-        weight: 1,
-        unlock_at_sold_pct: 0,
-      } as typeof data;
+    if (body.isTest !== undefined || body.seedRunId !== undefined) {
+      patch.is_test = booleanValue(body.isTest);
+      patch.seed_run_id = text(body.seedRunId, 80) || null;
+    }
+
+    const result = await savePrizeRow(
+      supabase,
+      patch,
+      basePatch,
+      allocation.existingPrizeId,
+      weight,
+      unlockAtSoldPct,
+    );
+    if (result.schemaMissing) return randomPackSchemaMissingResponse();
+    data = result.data;
+    error = result.error;
+    if (!error || allocation.existingPrizeId || !isUniqueConstraintError(error)) {
+      break;
     }
   }
   if (error) return Response.json({ error: error.message }, { status: 409 });
@@ -286,7 +458,8 @@ export async function POST(request: Request) {
       prizeId: data.id,
       cardId,
       tier,
-      rank,
+      rank: savedRank,
+      tierRank,
       quantity,
       weight: weight ?? "unchanged",
       unlockAtSoldPct: unlockAtSoldPct ?? "unchanged",

@@ -10,7 +10,14 @@ import {
   type PrizeDraftInput,
 } from "@/features/ynot/prize-readiness";
 import { normalizeOpenQuantityOptions } from "@/features/ynot/open-quantity";
-import { prizeCategoryValue } from "@/features/ynot/prize-category";
+import {
+  isRandomPsa10PrizeCard,
+  prizeCategoryValue,
+} from "@/features/ynot/prize-category";
+import {
+  canPrizeDisplayTierUseRandomPsa10,
+  prizeDisplayTierValue,
+} from "@/features/ynot/prize-tier";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +81,22 @@ function booleanValue(value: unknown) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function metadataString(metadata: unknown, key: string) {
+  if (!isRecord(metadata)) return "";
+  const value = metadata[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function prizeDraftDisplayTier(prize: PrizeDraftInput) {
+  const displayTier = metadataString(prize.metadata, "displayTier");
+  if (displayTier) return prizeDisplayTierValue(displayTier);
+  const displayGroup = metadataString(prize.metadata, "displayGroup");
+  if (displayGroup) return prizeDisplayTierValue(displayGroup);
+  if (prize.tier === "high" && prize.rank <= 3) return "rainbow";
+  if (prize.tier === "high") return "gold";
+  return "bronze";
 }
 
 function logicSnapshotWithOpenOptions(
@@ -183,7 +206,7 @@ async function assertPrizeCardsExist(
   const cardIds = [...new Set(prizes.map((prize) => prize.cardId))];
   const { data, error } = await supabase
     .from("cards")
-    .select("id,prize_category")
+    .select("id,name,card_code,search_code,prize_category")
     .in("id", cardIds);
   if (error) throw error;
   const cardsById = new Map((data ?? []).map((card) => [card.id, card]));
@@ -203,6 +226,23 @@ async function assertPrizeCardsExist(
   });
   if (mismatched) {
     throw new Error("One or more selected prize items do not match the selected prize category.");
+  }
+  const psa10TierMismatched = prizes.some((prize) => {
+    const metadata = isRecord(prize.metadata) ? prize.metadata : {};
+    const prizeCategory = prizeCategoryValue(metadata.prizeCategory);
+    if (prizeCategory !== "psa10_card") return false;
+    const card = cardsById.get(prize.cardId);
+    if (!card) return true;
+    const displayTier = prizeDraftDisplayTier(prize);
+    const isRandomPsa10 = isRandomPsa10PrizeCard(card);
+    return canPrizeDisplayTierUseRandomPsa10(displayTier)
+      ? !isRandomPsa10
+      : isRandomPsa10;
+  });
+  if (psa10TierMismatched) {
+    throw new Error(
+      "PSA10 prize item does not match the selected display tier. Bronze uses Random PSA10; Rainbow, Gold, and Silver use specific PSA10 cards.",
+    );
   }
 }
 

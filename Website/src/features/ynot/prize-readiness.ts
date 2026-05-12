@@ -2,6 +2,11 @@ import "server-only";
 
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database, Json } from "@/lib/supabase/types";
+import {
+  prizeDisplayTierOptions,
+  prizeDisplayTierValue,
+  type PrizeDisplayTier,
+} from "./prize-tier";
 
 type SupabaseClient = ReturnType<typeof createServiceSupabaseClient>;
 type DrawRoundRow = Database["public"]["Tables"]["draw_rounds"]["Row"];
@@ -54,6 +59,34 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isAdminHidden(metadata: unknown) {
   return isRecord(metadata) && metadata.adminHidden === true;
+}
+
+function metadataString(metadata: unknown, key: string) {
+  if (!isRecord(metadata)) return undefined;
+  const value = metadata[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function displayTierForPrize(prize: PrizeRow | PrizeDraftInput) {
+  const displayTier = metadataString(prize.metadata, "displayTier");
+  if (displayTier) return prizeDisplayTierValue(displayTier);
+  const displayGroup = metadataString(prize.metadata, "displayGroup");
+  if (displayGroup) return prizeDisplayTierValue(displayGroup);
+  if (prize.tier === "high" && prize.rank <= 3) return "rainbow";
+  if (prize.tier === "high") return "gold";
+  return "bronze";
+}
+
+function countByDisplayTier(prizes: Array<PrizeRow | PrizeDraftInput>) {
+  return prizeDisplayTierOptions.reduce(
+    (counts, option) => ({
+      ...counts,
+      [option.value]: prizes.filter(
+        (prize) => displayTierForPrize(prize) === option.value,
+      ).length,
+    }),
+    {} as Record<PrizeDisplayTier, number>,
+  );
 }
 
 function numberOrZero(value: unknown) {
@@ -161,15 +194,6 @@ function buildReadinessBlockers(input: {
   if (input.eligiblePrizeUnits <= 0) {
     blockers.push("No available prize is currently unlocked for customer pulls.");
   }
-  if (input.topPrizeRows < 3) {
-    blockers.push("Choose all Top 1-3 showcase prizes for owner review.");
-  }
-  if (input.highPoolRows < 5 || input.highPoolRows > 20) {
-    blockers.push("Choose 5-20 high-tier prizes below Top 1-3.");
-  }
-  if (input.normalPrizeRows <= 0) {
-    blockers.push("Add at least one normal/base prize row.");
-  }
   return blockers;
 }
 
@@ -215,12 +239,9 @@ export function validatePrizeDraftsForSave(
     .filter((prize) => prizeEligibleAtSoldPct(prize, logicMode, 0))
     .reduce((sum, prize) => sum + prize.quantity, 0);
   const highPrizeRows = prizes.filter((prize) => prize.tier === "high").length;
-  const topPrizeRows = prizes.filter(
-    (prize) => prize.tier === "high" && prize.rank >= 1 && prize.rank <= 3,
-  ).length;
-  const highPoolRows = prizes.filter(
-    (prize) => prize.tier === "high" && prize.rank > 3,
-  ).length;
+  const displayTierCounts = countByDisplayTier(prizes);
+  const topPrizeRows = displayTierCounts.rainbow;
+  const highPoolRows = displayTierCounts.gold + displayTierCounts.silver;
   const normalPrizeRows = prizes.filter((prize) => prize.tier === "normal").length;
   const blockers: string[] = [];
   if (!prizes.length) {
@@ -231,15 +252,6 @@ export function validatePrizeDraftsForSave(
   }
   if (initialEligiblePrizeUnits <= 0) {
     blockers.push("Add at least one prize that is eligible when the pack launches.");
-  }
-  if (topPrizeRows < 3) {
-    blockers.push("Choose all Top 1-3 showcase prizes for owner review.");
-  }
-  if (highPoolRows < 5 || highPoolRows > 20) {
-    blockers.push("Choose 5-20 high-tier prizes below Top 1-3.");
-  }
-  if (normalPrizeRows <= 0) {
-    blockers.push("Add at least one normal/base prize row.");
   }
   return {
     ready: blockers.length === 0,
@@ -330,6 +342,7 @@ export async function getCampaignPrizeReadiness(
   const unitBackedPrizes = visiblePrizes.filter(
     (prize) => (nonVoidUnitsByPrizeId.get(prize.id) ?? 0) > 0,
   );
+  const displayTierCounts = countByDisplayTier(unitBackedPrizes);
   const readiness = {
     campaignId,
     soldPct,
@@ -338,12 +351,8 @@ export async function getCampaignPrizeReadiness(
     remainingSlots,
     prizeRows: unitBackedPrizes.length,
     highPrizeRows: unitBackedPrizes.filter((prize) => prize.tier === "high").length,
-    topPrizeRows: unitBackedPrizes.filter(
-      (prize) => prize.tier === "high" && prize.rank >= 1 && prize.rank <= 3,
-    ).length,
-    highPoolRows: unitBackedPrizes.filter(
-      (prize) => prize.tier === "high" && prize.rank > 3,
-    ).length,
+    topPrizeRows: displayTierCounts.rainbow,
+    highPoolRows: displayTierCounts.gold + displayTierCounts.silver,
     normalPrizeRows: unitBackedPrizes.filter((prize) => prize.tier === "normal").length,
     totalPrizeUnits,
     availablePrizeUnits,
