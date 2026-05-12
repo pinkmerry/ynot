@@ -2,16 +2,6 @@ import type { YnotCampaign } from "./types";
 
 export const statusFilters = ["All", "New", "PSA10"] as const;
 
-export type MockFeaturePack = {
-  id: string;
-  title: string;
-  series: YnotCampaign["series"];
-  costCoins: number;
-  remainingLabel: string;
-  heroLabel: string;
-  tags: string[];
-};
-
 export const featuredCampaigns: YnotCampaign[] = [
   {
     id: "storefront-pokemon-gold-07",
@@ -100,45 +90,6 @@ export const featuredCampaigns: YnotCampaign[] = [
     heroLabel: "OP manga / parallel / treasure box",
     displayTags: ["Manga"],
     demo: true,
-  },
-];
-
-export const mockFeaturePacks: MockFeaturePack[] = [
-  {
-    id: "mock-pokemon-black-label",
-    title: "Pokemon Black Label Chase",
-    series: "pokemon",
-    costCoins: 250,
-    remainingLabel: "Preview stock",
-    heroLabel: "Moonbreon / Charizard / Pikachu trophy concept",
-    tags: ["PSA10", "High hit"],
-  },
-  {
-    id: "mock-onepiece-gear-five",
-    title: "One Piece Gear 5 Vault",
-    series: "one_piece",
-    costCoins: 220,
-    remainingLabel: "Preview stock",
-    heroLabel: "Manga rare, signature leader, treasure box concept",
-    tags: ["Manga", "New"],
-  },
-  {
-    id: "mock-pokemon-terastal",
-    title: "Terastal Festival Burst",
-    series: "pokemon",
-    costCoins: 180,
-    remainingLabel: "Preview stock",
-    heroLabel: "SAR chase, Eevee heroes, trainer support concept",
-    tags: ["SAR", "Foil"],
-  },
-  {
-    id: "mock-onepiece-pirate-king",
-    title: "Pirate King Treasure Box",
-    series: "one_piece",
-    costCoins: 160,
-    remainingLabel: "Preview stock",
-    heroLabel: "OP parallel, sealed booster, coin-back concept",
-    tags: ["OP", "Value"],
   },
 ];
 
