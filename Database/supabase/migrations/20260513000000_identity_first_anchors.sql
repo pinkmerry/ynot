@@ -86,6 +86,16 @@ begin
   where id in (p_source_profile_id, p_target_profile_id)
   for update;
 
+  -- Idempotency: if the source has already been merged, the merge is done.
+  -- Skip the wallet transfer, identity moves, and audit-trail inserts.
+  if exists (
+    select 1 from public.profiles
+     where id = p_source_profile_id
+       and profile_status = 'merged'
+  ) then
+    return p_target_profile_id;
+  end if;
+
   -- Move identities. ON CONFLICT keeps the existing target identity (i.e. the
   -- old source identity is dropped if it duplicates one already on target).
   update public.user_identities
@@ -152,7 +162,7 @@ begin
         'reason', p_reason
       )
     )
-    on conflict (profile_id, idempotency_key) do nothing;
+    on conflict (profile_id, idempotency_key) where idempotency_key is not null do nothing;
 
     -- Zero out source wallet so the CHECK + audit trail stay consistent.
     update public.wallet_accounts
