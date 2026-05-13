@@ -234,6 +234,11 @@ async function updateProfileForSupabaseUser(
   const email = user.email?.toLowerCase() ?? null;
   const displayName = displayNameFor(user);
   const avatarUrl = avatarUrlFor(user);
+  // Supabase only sets email_confirmed_at once the OTP/magiclink succeeds, so
+  // we can trust it as the verified-anchor stamp on our profile.
+  const emailVerifiedAt = user.email_confirmed_at
+    ? new Date(user.email_confirmed_at).toISOString()
+    : profile.email_verified_at ?? null;
 
   const { data: updated, error: updateError } = await supabase
     .from("profiles")
@@ -241,6 +246,7 @@ async function updateProfileForSupabaseUser(
       auth_user_id: user.id,
       email:
         profile.auth_user_id === user.id ? email : (profile.email ?? email),
+      email_verified_at: emailVerifiedAt,
       display_name: profile.display_name ?? displayName,
       avatar_url: profile.avatar_url ?? avatarUrl,
       profile_status: "active",
@@ -262,12 +268,16 @@ async function createProfileForSupabaseUser(user: User): Promise<ProfileRow> {
   const email = user.email?.toLowerCase() ?? null;
   const displayName = displayNameFor(user);
   const avatarUrl = avatarUrlFor(user);
+  const emailVerifiedAt = user.email_confirmed_at
+    ? new Date(user.email_confirmed_at).toISOString()
+    : null;
 
   const { data: inserted, error: insertError } = await supabase
     .from("profiles")
     .insert({
       auth_user_id: user.id,
       email,
+      email_verified_at: emailVerifiedAt,
       display_name: displayName,
       avatar_url: avatarUrl,
       profile_status: "active",

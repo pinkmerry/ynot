@@ -11,6 +11,8 @@ export type Database = {
           line_display_name: string | null;
           line_picture_url: string | null;
           email: string | null;
+          email_verified_at: string | null;
+          phone_verified_at: string | null;
           display_name: string | null;
           avatar_url: string | null;
           profile_status: "active" | "disabled" | "merged";
@@ -36,6 +38,8 @@ export type Database = {
           line_display_name?: string | null;
           line_picture_url?: string | null;
           email?: string | null;
+          email_verified_at?: string | null;
+          phone_verified_at?: string | null;
           display_name?: string | null;
           avatar_url?: string | null;
           profile_status?: "active" | "disabled" | "merged";
@@ -870,6 +874,10 @@ export type Database = {
       };
       consume_api_rate_limit: { Args: { p_key: string; p_limit: number; p_window_seconds: number }; Returns: Json };
       purge_expired_api_rate_limits: { Args: Record<string, never>; Returns: number };
+      link_identity_to_existing_profile: {
+        Args: { p_source_profile_id: string; p_target_profile_id: string; p_reason?: string };
+        Returns: string;
+      };
     };
     Views: Record<string, never>;
     Enums: Record<string, never>;

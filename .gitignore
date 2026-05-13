@@ -1,6 +1,9 @@
 # Parent git root guardrails
 .DS_Store
 
+# Local DB snapshots used for one-off rollbacks (not source-of-truth)
+Database/_snapshots/
+
 # Website app ignores
 Website/node_modules/
 Website/.pnp
