@@ -302,8 +302,16 @@ async function createProfileForSupabaseUser(user: User): Promise<ProfileRow> {
 export async function ensureProfileForUser(
   user: User,
   targetProfileId?: string | null,
+  opts?: { readOnly?: boolean },
 ): Promise<ProfileRow> {
   const existing = await profileByAuthUserId(user.id);
+
+  // Read path: page navigations call this on every request. Skip the
+  // last_seen_at UPDATE + identity UPSERT writes here. Real auth events
+  // (login, signup, OAuth callback, OTP verify) pass readOnly=false.
+  if (opts?.readOnly && existing && !targetProfileId) {
+    return existing;
+  }
 
   if (targetProfileId) {
     const targetProfile = await activeProfileById(targetProfileId);

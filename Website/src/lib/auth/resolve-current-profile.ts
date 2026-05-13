@@ -20,32 +20,43 @@ export type ResolvedAdminSession = ResolvedProfileSession & {
   adminRole: "owner" | "admin" | "staff";
 };
 
-export async function resolveCurrentProfile(): Promise<ResolvedProfileSession | null> {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
+function hasSupabaseAuthCookie(cookieStore: Awaited<ReturnType<typeof cookies>>) {
+  // Supabase SSR sets cookies named like `sb-<project-ref>-auth-token`.
+  // If none are present we can skip the GoTrue round-trip entirely.
+  return cookieStore.getAll().some((c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"));
+}
 
-    if (!error && user) {
-      const profile = await ensureProfileForUser(user);
-      return {
-        profileId: profile.id,
-        authUserId: user.id,
-        lineUserId: profile.line_user_id ?? undefined,
-        displayName: profile.display_name ?? profile.line_display_name ?? user.email ?? "YNot Customer",
-        authSource: "supabase",
-      };
+export async function resolveCurrentProfile(): Promise<ResolvedProfileSession | null> {
+  const cookieStore = await cookies();
+  const supabaseCookiePresent = hasSupabaseAuthCookie(cookieStore);
+
+  if (supabaseCookiePresent) {
+    try {
+      const supabase = await createSupabaseServerClient();
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (!error && user) {
+        const profile = await ensureProfileForUser(user, null, { readOnly: true });
+        return {
+          profileId: profile.id,
+          authUserId: user.id,
+          lineUserId: profile.line_user_id ?? undefined,
+          displayName: profile.display_name ?? profile.line_display_name ?? user.email ?? "YNot Customer",
+          authSource: "supabase",
+        };
+      }
+    } catch (error) {
+      console.warn(
+        "supabase_auth_profile_resolution_failed",
+        error instanceof Error ? error.message : String(error),
+      );
     }
-  } catch (error) {
-    console.warn(
-      "supabase_auth_profile_resolution_failed",
-      error instanceof Error ? error.message : String(error),
-    );
   }
 
-  const lineSession = readSessionCookie(await cookies());
+  const lineSession = readSessionCookie(cookieStore);
   if (!lineSession?.profileId) return null;
 
   return {
