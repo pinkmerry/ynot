@@ -9,7 +9,7 @@ export default async function ShippingPage() {
   await requireCurrentProfile("/shipping");
   const data = await getYnotDashboardData();
   return (
-    <YnotShell viewer={data.viewer}>
+    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
       <PageHeader eyebrow="07 · Real Shipping" title="Pick cards to ship" description="4 stages: pick → address → confirm → success." />
       <div className="phone-page-shell shipping-phone grid gap-4 xl:grid-cols-[0.8fr_1fr]">
         <div className="inner-phone-header">
