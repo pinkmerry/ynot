@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
@@ -38,5 +39,6 @@ export async function POST(request: Request) {
     .single();
   if (error) return Response.json({ error: error.message }, { status: 409 });
   await supabase.from("audit_events").insert({ actor_admin_id: admin.adminId, event_type: "payment_method_upserted", metadata: { code, paymentMethodId: data.id } });
+  revalidateTag("payment-methods", "max");
   return Response.json({ paymentMethod: data });
 }

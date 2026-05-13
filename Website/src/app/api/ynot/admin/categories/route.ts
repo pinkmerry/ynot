@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
@@ -177,6 +178,7 @@ export async function POST(request: Request) {
     event_type: "category_saved",
     metadata: { categoryId: data.id, slug: data.slug, isTest: data.is_test },
   });
+  revalidateTag("categories", "max");
   return Response.json({ ok: true, category: toCategory(data) });
 }
 
@@ -204,5 +206,6 @@ export async function PATCH(request: Request) {
     event_type: "category_updated",
     metadata: { categoryId: data.id, slug: data.slug, isTest: data.is_test },
   });
+  revalidateTag("categories", "max");
   return Response.json({ ok: true, category: toCategory(data) });
 }

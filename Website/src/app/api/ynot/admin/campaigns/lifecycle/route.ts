@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
@@ -365,6 +366,7 @@ export async function POST(request: Request) {
     draw_round_id: campaignId,
     metadata: { action, logicMode: responseLogicMode, note: note || null },
   });
+  revalidateTag("campaigns", "max");
 
   return Response.json({
     ok: true,
