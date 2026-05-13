@@ -74,8 +74,8 @@ for (const api of apis) {
 }
 
 notCheck("src/app/page.tsx", "root no longer redirects to wireframes", /redirect\(["']\/ynot-wireframes\.html/);
-check("src/app/layout.tsx", "production metadata is set", /YNot TCG · Lucky Draw/);
-check("src/features/ynot/components.tsx", "normal web login and signup navigation exist", /href="\/login"[\s\S]*href="\/signup"/);
+check("src/app/layout.tsx", "production metadata is set", /YNOT · TCG Lucky Draw/);
+check("src/features/ynot/StorePreferences.tsx", "normal web login and signup navigation exist", /href="\/signup"[\s\S]*href="\/login"|href="\/login"[\s\S]*href="\/signup"/);
 check("src/app/page.tsx", "home page reads category, tag, and sort filters from URL search params", /searchParams[\s\S]*normalizeHomeSeries\(params\?\.series\)[\s\S]*normalizeHomeTag\(params\?\.tag\)[\s\S]*normalizeHomeSort\(params\?\.sort\)/);
 check("src/features/ynot/components.tsx", "home category and tag filters are real links that preserve filter state", /homeFilterHref[\s\S]*href=\{homeFilterHref\(\{[\s\S]*series: category\.series,[\s\S]*tag: homeFilter\.tag,[\s\S]*sort: homeFilter\.sort,[\s\S]*\}\)\}/);
 check("src/features/ynot/components.tsx", "home campaigns are sorted by selected sort option", /function sortedCampaigns[\s\S]*sort === "latest"[\s\S]*coins-desc[\s\S]*filteredCampaigns[\s\S]*sortedCampaigns\(filtered, filter\.sort\)/);
@@ -136,7 +136,8 @@ check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API persists catego
 check("src/app/api/ynot/admin/users/route.ts", "admin users API protects owner changes and self deactivation", /Only an owner can grant owner role[\s\S]*cannot deactivate your own admin access/);
 check("src/app/api/ynot/admin/merge-requests/route.ts", "admin merge API uses service-role merge RPCs", /complete_account_merge_request[\s\S]*reject_account_merge_request/);
 check("src/app/api/ynot/admin/shipping/route.ts", "admin shipping route uses transaction-safe status RPC", /supabase\.rpc\("update_shipping_request_status"[\s\S]*p_shipping_request_id[\s\S]*p_admin_id[\s\S]*p_status/);
-check("src/features/ynot/components.tsx", "admin routes are hidden unless viewer is admin", /viewer\.isAdmin &&[\s\S]*href="\/admin"/);
+check("src/features/ynot/components.tsx", "shell passes admin state into drawer", /isAdmin=\{renderViewer\.isAdmin\}/);
+check("src/features/ynot/StorePreferences.tsx", "admin routes are hidden unless viewer is admin", /isAdmin &&[\s\S]*href="\/admin"/);
 check("src/features/ynot/components.tsx", "non-admin admin route gets denial state", /Admin access is required/);
 check("src/features/ynot/data.ts", "public campaign reads filter to live openable packs only", /query = query\.eq\("visibility", "public"\)\.eq\("status", "live"\)[\s\S]*campaigns\.filter\(\(campaign\) => campaign\.openable\)/);
 check("src/features/ynot/data.ts", "admin dashboard can request private campaigns explicitly", /getCampaigns\(\{ includePrivate: viewer\.isAdmin \}\)/);
