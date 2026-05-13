@@ -4,12 +4,12 @@ import {
   PageHeader,
   StatusBadge,
 } from "@/features/ynot/components";
-import { getYnotDashboardData } from "@/features/ynot/data";
+import { getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminExchangePage() {
-  const data = await getYnotDashboardData();
+  const data = await getYnotDashboardSlice({ exchanges: true });
   const submitted = data.exchanges.filter((order) => order.status === "submitted").length;
 
   return (

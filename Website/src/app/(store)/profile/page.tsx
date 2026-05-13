@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PageHeader, YnotShell } from "@/features/ynot/components";
-import { getYnotDashboardData } from "@/features/ynot/data";
+import { getYnotDashboardSlice } from "@/features/ynot/data";
 import { ProfileRewardsTabs } from "@/features/ynot/ProfileRewardsTabs";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
 
@@ -13,7 +13,11 @@ type ProfilePageProps = {
 export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   await requireCurrentProfile("/profile");
   const params = await searchParams;
-  const data = await getYnotDashboardData();
+  const data = await getYnotDashboardSlice({
+    campaigns: true,
+    collection: true,
+    gachaOpens: true,
+  });
   const liveCampaigns = data.campaigns
     .filter((campaign) => campaign.status === "live")
     .slice(0, 3);

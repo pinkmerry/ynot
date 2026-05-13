@@ -1,13 +1,17 @@
 import { AddressForm, CollectionActionPanel } from "@/features/ynot/client";
 import { OrderList, PageHeader, YnotShell } from "@/features/ynot/components";
-import { getYnotDashboardData } from "@/features/ynot/data";
+import { getYnotDashboardSlice } from "@/features/ynot/data";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
 
 export const dynamic = "force-dynamic";
 
 export default async function ShippingPage() {
   await requireCurrentProfile("/shipping");
-  const data = await getYnotDashboardData();
+  const data = await getYnotDashboardSlice({
+    collection: true,
+    addresses: true,
+    shipping: true,
+  });
   return (
     <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
       <PageHeader eyebrow="07 · Real Shipping" title="Pick cards to ship" description="4 stages: pick → address → confirm → success." />

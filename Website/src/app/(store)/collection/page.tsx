@@ -1,13 +1,17 @@
 import { CollectionActionPanel } from "@/features/ynot/client";
 import { CoinIcon, CollectionGrid, PageHeader, YnotShell } from "@/features/ynot/components";
-import { getYnotDashboardData } from "@/features/ynot/data";
+import { getYnotDashboardSlice } from "@/features/ynot/data";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
 
 export const dynamic = "force-dynamic";
 
 export default async function CollectionPage() {
   await requireCurrentProfile("/collection");
-  const data = await getYnotDashboardData();
+  const data = await getYnotDashboardSlice({
+    wallet: true,
+    collection: true,
+    addresses: true,
+  });
   const ownedCount = data.collection.filter((item) => item.status === "owned").length;
   const exchangeRequestedCount = data.collection.filter((item) => item.status === "exchange_requested").length;
   const shippingRequestedCount = data.collection.filter((item) => item.status === "shipping_requested").length;

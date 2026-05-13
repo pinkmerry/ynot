@@ -3,13 +3,13 @@ import {
   PageHeader,
   StatusBadge,
 } from "@/features/ynot/components";
-import { getAdminAuditEvents, getYnotDashboardData } from "@/features/ynot/data";
+import { getAdminAuditEvents, getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminAuditPage() {
   const [data, events] = await Promise.all([
-    getYnotDashboardData(),
+    getYnotDashboardSlice(),
     getAdminAuditEvents(),
   ]);
 

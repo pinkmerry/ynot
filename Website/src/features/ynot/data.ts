@@ -1904,6 +1904,10 @@ export async function getYnotDashboardSlice(
   const run = async (): Promise<YnotDashboardData> => {
     const viewer = await getYnotViewer();
     const profileId = viewer.profileId;
+    // YnotShell renders walletBalance on every page; always fetch wallet for
+    // authenticated viewers so the header doesn't show 0 coins on pages that
+    // don't otherwise need wallet data.
+    const wantWallet = !!selector.wallet || viewer.authenticated;
     const [
       campaigns,
       categories,
@@ -1928,7 +1932,7 @@ export async function getYnotDashboardSlice(
       selector.paymentMethods
         ? getPaymentMethods()
         : Promise.resolve([] as YnotPaymentMethod[]),
-      selector.wallet
+      wantWallet
         ? getWallet(profileId)
         : Promise.resolve({ ...DEFAULT_WALLET }),
       selector.topUps ? getTopUps(profileId) : Promise.resolve([] as YnotTopUp[]),

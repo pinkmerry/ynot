@@ -1,10 +1,18 @@
 import { AdminControlCenter, AdminSectionShell, PageHeader } from "@/features/ynot/components";
-import { getYnotDashboardData } from "@/features/ynot/data";
+import { getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  const data = await getYnotDashboardData();
+  const data = await getYnotDashboardSlice({
+    campaigns: true,
+    paymentMethods: true,
+    exchanges: true,
+    shipping: true,
+    rankings: true,
+    adminTopUps: true,
+    ownerApprovalRequests: true,
+  });
   return (
     <AdminSectionShell viewer={data.viewer} activeHref="/admin">
       <PageHeader

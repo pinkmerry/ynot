@@ -3,12 +3,12 @@ import {
   PageHeader,
   RankingTable,
 } from "@/features/ynot/components";
-import { getYnotDashboardData } from "@/features/ynot/data";
+import { getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminRankingsPage() {
-  const data = await getYnotDashboardData();
+  const data = await getYnotDashboardSlice({ rankings: true });
   return (
     <AdminSectionShell viewer={data.viewer} activeHref="/admin/rankings">
       <PageHeader

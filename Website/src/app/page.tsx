@@ -1,5 +1,5 @@
 import { normalizeHomeSeries, normalizeHomeSort, normalizeHomeTag, YnotHomeExperience, YnotShell } from "@/features/ynot/components";
-import { getYnotDashboardData } from "@/features/ynot/data";
+import { getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,10 @@ export default async function HomePage({
     tag: normalizeHomeTag(params?.tag),
     sort: normalizeHomeSort(params?.sort),
   };
-  const data = await getYnotDashboardData();
+  const data = await getYnotDashboardSlice({
+    campaigns: true,
+    wallet: true,
+  });
   return (
     <YnotShell viewer={data.viewer} homeFilter={homeFilter} walletBalance={data.wallet.balanceCoins}>
       <YnotHomeExperience data={data} homeFilter={homeFilter} />

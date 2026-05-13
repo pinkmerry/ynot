@@ -1,6 +1,6 @@
 import { EmptyState, PageHeader, YnotShell } from "@/features/ynot/components";
 import { GachaOpenPanel } from "@/features/ynot/client";
-import { getCampaign, getYnotDashboardData } from "@/features/ynot/data";
+import { getCampaign, getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export default async function GachaOpenPage({
   const [{ campaignId }, query, data] = await Promise.all([
     params,
     searchParams ?? Promise.resolve({} as { qty?: string }),
-    getYnotDashboardData(),
+    getYnotDashboardSlice(),
   ]);
   const campaign = await getCampaign(campaignId, { allowTestForCurrentViewer: true, viewer: data.viewer });
   const initialQuantity = Math.max(1, Math.min(100, Math.round(Number(query.qty) || 1)));

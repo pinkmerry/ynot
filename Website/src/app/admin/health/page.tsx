@@ -1,10 +1,10 @@
 import { AdminSectionShell, PageHeader, PlatformHealthPanel } from "@/features/ynot/components";
-import { getYnotDashboardData } from "@/features/ynot/data";
+import { getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminHealthPage() {
-  const data = await getYnotDashboardData();
+  const data = await getYnotDashboardSlice({ platformHealth: true });
   return (
     <AdminSectionShell viewer={data.viewer} activeHref="/admin/health">
       <PageHeader

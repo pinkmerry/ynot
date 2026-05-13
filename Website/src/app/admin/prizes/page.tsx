@@ -3,7 +3,7 @@ import { AdminSectionShell, PageHeader } from "@/features/ynot/components";
 import {
   getAdminCards,
   getAdminPrizePool,
-  getYnotDashboardData,
+  getYnotDashboardSlice,
 } from "@/features/ynot/data";
 import { prizeCategoryLabel } from "@/features/ynot/prize-category";
 
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPrizesPage() {
   const [data, cards, prizes] = await Promise.all([
-    getYnotDashboardData(),
+    getYnotDashboardSlice({ campaigns: true }),
     getAdminCards(),
     getAdminPrizePool(),
   ]);

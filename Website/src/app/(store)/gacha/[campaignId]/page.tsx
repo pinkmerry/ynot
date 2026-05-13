@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { CampaignDetailPanel, EmptyState, PageHeader, YnotShell } from "@/features/ynot/components";
-import { getCampaign, getYnotDashboardData } from "@/features/ynot/data";
+import { getCampaign, getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function GachaDetailPage({ params }: { params: Promise<{ campaignId: string }> }) {
-  const [{ campaignId }, data] = await Promise.all([params, getYnotDashboardData()]);
+  const [{ campaignId }, data] = await Promise.all([params, getYnotDashboardSlice()]);
   const campaign = await getCampaign(campaignId, { allowTestForCurrentViewer: true, viewer: data.viewer });
   return (
     <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
