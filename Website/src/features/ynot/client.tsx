@@ -474,7 +474,7 @@ export function GachaOpenPanel({
 
   function handleRevealClose() {
     setRevealResult(null);
-    router.refresh();
+    router.push("/collection");
   }
 
   function handleOpenAgain() {
