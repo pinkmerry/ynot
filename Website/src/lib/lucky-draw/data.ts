@@ -155,11 +155,20 @@ function toCatalogItem(row: CardRow): CardCatalogItem {
     catalogCardId: row.id,
     code: row.card_code ?? undefined,
     name: row.name,
+    searchName: row.search_name,
+    searchCode: row.search_code,
     grade: row.grade,
     series: toAppSeries(row.series),
     prizeCategory: row.prize_category ?? "psa10_card",
     photoUrl: row.image_url ?? undefined,
     photoStoragePath: row.image_storage_path ?? undefined,
+    isTest: row.is_test,
+    seedRunId: row.seed_run_id,
+    assetSource: row.asset_source,
+    assetLicense: row.asset_license,
+    assetManifestKey: row.asset_manifest_key,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 

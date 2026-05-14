@@ -10147,6 +10147,74 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   padding-right: 4px;
 }
 
+.admin-card-catalog-panel {
+  margin-top: clamp(14px, 1.8vw, 22px);
+}
+
+.admin-card-catalog-toolbar {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(280px, 1fr);
+  margin-top: 14px;
+}
+
+.admin-card-catalog-toolbar input {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  color: inherit;
+  min-height: 42px;
+  min-width: 0;
+  padding: 0 12px;
+}
+
+.admin-card-catalog-summary {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  display: grid;
+  gap: 4px 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 62px;
+  padding: 10px 12px;
+}
+
+.admin-card-catalog-summary strong {
+  color: var(--admin-text);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.admin-card-catalog-summary span {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.admin-card-catalog-row {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns:
+    106px
+    minmax(200px, 0.85fr)
+    minmax(280px, 1.1fr)
+    minmax(250px, 0.85fr);
+  min-height: 148px;
+  padding: 14px;
+}
+
+.admin-card-catalog-row .admin-prize-card-thumb {
+  border-radius: 14px;
+  height: 132px;
+  width: 106px;
+}
+
 .admin-card-catalog-list .admin-card-catalog-item {
   align-items: center;
   gap: 16px;
@@ -10169,6 +10237,72 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 
 .admin-card-catalog-main > strong {
   font-size: 1rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.admin-card-catalog-fields {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.admin-card-catalog-fields div,
+.admin-card-catalog-usage {
+  background: rgba(0, 0, 0, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px;
+}
+
+.admin-card-catalog-fields span,
+.admin-card-catalog-usage span,
+.admin-card-catalog-usage small {
+  color: var(--admin-muted);
+  font-size: 0.7rem;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.admin-card-catalog-fields code {
+  color: var(--admin-text);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  max-height: 36px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.admin-card-catalog-usage {
+  align-content: center;
+  min-height: 118px;
+}
+
+.admin-card-catalog-usage strong {
+  color: var(--admin-text);
+  font-size: 1.1rem;
+  line-height: 1.1;
+}
+
+.admin-card-catalog-slot-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+  max-height: 52px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.admin-card-catalog-slot-list em {
+  color: var(--admin-text);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -10296,6 +10430,11 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   white-space: nowrap;
 }
 
+.admin-card-stock-actions {
+  grid-template-columns: 34px minmax(72px, auto) 34px;
+  margin-top: 4px;
+}
+
 .admin-icon-button {
   align-items: center;
   border-radius: 10px !important;
@@ -10307,6 +10446,19 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 }
 
 @media (max-width: 1180px) {
+  .admin-card-catalog-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-card-catalog-row {
+    grid-template-columns: 106px minmax(0, 1fr);
+  }
+
+  .admin-card-catalog-fields,
+  .admin-card-catalog-usage {
+    grid-column: 1 / -1;
+  }
+
   .admin-card-inventory-row {
     grid-template-columns: 96px minmax(0, 1fr) minmax(130px, 0.4fr);
   }
@@ -10533,6 +10685,15 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   .admin-card-catalog-list .admin-card-catalog-item {
     grid-template-columns: 82px minmax(0, 1fr);
     min-height: 126px;
+  }
+
+  .admin-card-catalog-row {
+    grid-template-columns: 82px minmax(0, 1fr);
+    min-height: 126px;
+  }
+
+  .admin-card-catalog-fields {
+    grid-template-columns: 1fr;
   }
 
   .admin-card-catalog-list .admin-prize-card-thumb {

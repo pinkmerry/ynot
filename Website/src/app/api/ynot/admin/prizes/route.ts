@@ -1,7 +1,11 @@
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { isMissingColumnError, randomPackSchemaMissingResponse } from "@/lib/supabase/schema-compat";
+import {
+  isMissingColumnError,
+  isMissingFunctionError,
+  randomPackSchemaMissingResponse,
+} from "@/lib/supabase/schema-compat";
 import type { Database, Json } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import {
@@ -49,6 +53,7 @@ type PrizeSaveRow = Pick<
   | "value_thb"
   | "weight"
   | "unlock_at_sold_pct"
+  | "planned_quantity"
   | "metadata"
 >;
 type AdminSession = NonNullable<Awaited<ReturnType<typeof resolveAdminSession>>>;
@@ -194,9 +199,10 @@ async function savePrizeRow(
   existingPrizeId: string | null,
   weight: number | undefined,
   unlockAtSoldPct: number | undefined,
+  requiresPlannedQuantity: boolean,
 ) {
   const selectColumns =
-    "id,draw_round_id,card_id,tier,rank,value_thb,weight,unlock_at_sold_pct,metadata";
+    "id,draw_round_id,card_id,tier,rank,value_thb,weight,unlock_at_sold_pct,planned_quantity,metadata";
   const savePatch = (rowPatch: typeof patch) =>
     existingPrizeId
       ? supabase
@@ -213,7 +219,11 @@ async function savePrizeRow(
 
   let { data, error } = await savePatch(patch);
   if (error && isMissingColumnError(error)) {
-    if ((weight ?? 1) !== 1 || (unlockAtSoldPct ?? 0) !== 0) {
+    if (
+      requiresPlannedQuantity ||
+      (weight ?? 1) !== 1 ||
+      (unlockAtSoldPct ?? 0) !== 0
+    ) {
       return { data: null, error, schemaMissing: true };
     }
     const fallbackPatch = basePatch;
@@ -279,14 +289,37 @@ async function markCampaignNeedsOwnerReview(
       { status: 409 },
     );
   }
+  if (campaign.approval_status === "approved") {
+    return Response.json(
+      { error: "Approved pack inventory is locked. Archive it or create a new draft before changing prizes." },
+      { status: 409 },
+    );
+  }
+  if (campaign.approval_status === "pending_review") {
+    const { error: releaseError } = await supabase.rpc(
+      "release_campaign_reservations",
+      {
+        p_draw_round_id: campaignId,
+        p_admin_id: admin.adminId,
+        p_reason: "changes_requested",
+        p_note: reason,
+      },
+    );
+    if (
+      releaseError &&
+      !isMissingColumnError(releaseError) &&
+      !isMissingFunctionError(releaseError, "release_campaign_reservations")
+    ) {
+      return Response.json({ error: releaseError.message }, { status: 409 });
+    }
+  }
 
-  const now = new Date().toISOString();
   const { error } = await supabase
     .from("draw_rounds")
     .update({
-      approval_status: "pending_review",
-      approval_requested_by: admin.adminId,
-      approval_requested_at: now,
+      approval_status: "not_submitted",
+      approval_requested_by: null,
+      approval_requested_at: null,
       approved_by: null,
       approved_at: null,
       rejected_by: null,
@@ -411,6 +444,9 @@ export async function POST(request: Request) {
     if (unlockAtSoldPct !== undefined) {
       patch.unlock_at_sold_pct = unlockAtSoldPct;
     }
+    if (quantity !== null) {
+      patch.planned_quantity = quantity;
+    }
     if (body.isTest !== undefined || body.seedRunId !== undefined) {
       patch.is_test = booleanValue(body.isTest);
       patch.seed_run_id = text(body.seedRunId, 80) || null;
@@ -423,6 +459,7 @@ export async function POST(request: Request) {
       allocation.existingPrizeId,
       weight,
       unlockAtSoldPct,
+      quantity !== null,
     );
     if (result.schemaMissing) return randomPackSchemaMissingResponse();
     data = result.data;
@@ -438,17 +475,13 @@ export async function POST(request: Request) {
       { status: 409 },
     );
   }
-  let inventory = null;
-  if (quantity !== null) {
-    const { data: inventoryData, error: inventoryError } = await supabase.rpc("ensure_draw_round_prize_units", {
-      p_draw_round_prize_id: data.id,
-      p_total_units: quantity,
-      p_admin_id: admin.adminId,
-      p_seed_run_id: text(body.seedRunId, 80) || null,
-    });
-    if (inventoryError) return Response.json({ error: inventoryError.message }, { status: 409 });
-    inventory = inventoryData;
-  }
+  const inventory =
+    quantity === null
+      ? null
+      : {
+          plannedQuantity: data.planned_quantity,
+          materialized: false,
+        };
 
   await supabase.from("audit_events").insert({
     actor_admin_id: admin.adminId,
@@ -464,7 +497,7 @@ export async function POST(request: Request) {
       weight: weight ?? "unchanged",
       unlockAtSoldPct: unlockAtSoldPct ?? "unchanged",
       prizeMetadata: metadata,
-      approvalStatus: "pending_review",
+      approvalStatus: "not_submitted",
     },
   });
 
@@ -506,7 +539,14 @@ export async function DELETE(request: Request) {
 
   const { data, error } = await supabase
     .from("draw_round_prizes")
-    .update({ metadata: { adminHidden: true, hiddenByAdminId: admin.adminId, hiddenAt: new Date().toISOString() } })
+    .update({
+      planned_quantity: 0,
+      metadata: {
+        adminHidden: true,
+        hiddenByAdminId: admin.adminId,
+        hiddenAt: new Date().toISOString(),
+      },
+    })
     .eq("id", prizeId)
     .select("id,draw_round_id,card_id,tier,rank")
     .single();
@@ -516,7 +556,7 @@ export async function DELETE(request: Request) {
     actor_admin_id: admin.adminId,
     event_type: "campaign_prize_deleted",
     draw_round_id: data.draw_round_id,
-    metadata: { prizeId: data.id, cardId: data.card_id, tier: data.tier, rank: data.rank, approvalStatus: "pending_review" },
+    metadata: { prizeId: data.id, cardId: data.card_id, tier: data.tier, rank: data.rank, approvalStatus: "not_submitted" },
   });
 
   return Response.json({ ok: true });

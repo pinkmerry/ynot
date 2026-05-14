@@ -211,6 +211,7 @@ export type YnotPrizePreview = {
   tier: "normal" | "high";
   rank: number;
   valueThb?: number | null;
+  plannedQuantity?: number;
   availableUnits?: number;
   totalUnits?: number;
   weight?: number;
@@ -267,6 +268,7 @@ export type YnotPrizePoolItem = {
   displayTier?: string;
   displayTierLabel?: string;
   tierRank?: number;
+  plannedQuantity: number;
   totalUnits: number;
   availableUnits: number;
   awardedUnits: number;

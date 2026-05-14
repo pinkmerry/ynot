@@ -61,7 +61,23 @@ export type ChaseCard = FeaturedCard & {
   value: number;
 };
 
-export type CardCatalogItem = Required<Pick<FeaturedCard, "catalogCardId">> & Omit<FeaturedCard, "catalogCardId">;
+export type CardCatalogItem = Required<Pick<FeaturedCard, "catalogCardId">> &
+  Omit<FeaturedCard, "catalogCardId"> & {
+    searchName?: string;
+    searchCode?: string | null;
+    isTest?: boolean;
+    seedRunId?: string | null;
+    assetSource?: string | null;
+    assetLicense?: string | null;
+    assetManifestKey?: string | null;
+    stockTotal?: number;
+    stockAvailable?: number;
+    stockReserved?: number;
+    stockAllocated?: number;
+    stockArchived?: number;
+    createdAt?: string;
+    updatedAt?: string;
+  };
 
 export type Order = {
   id: string;

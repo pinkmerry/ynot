@@ -1,4 +1,5 @@
 import {
+  AdminCardCatalogPanel,
   AdminCardForm,
   AdminPrizeInventoryPanel,
   AdminPrizePoolForm,
@@ -33,6 +34,7 @@ export default async function AdminPrizesPage() {
           cards={cards}
         />
       </div>
+      <AdminCardCatalogPanel cards={cards} prizes={prizes} />
       <AdminPrizeInventoryPanel cards={cards} prizes={prizes} />
     </AdminSectionShell>
   );

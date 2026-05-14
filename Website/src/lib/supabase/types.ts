@@ -335,6 +335,7 @@ export type Database = {
           value_thb: number | null;
           weight: number;
           unlock_at_sold_pct: number;
+          planned_quantity: number;
           is_test: boolean;
           seed_run_id: string | null;
           metadata: Json;
@@ -350,6 +351,7 @@ export type Database = {
           value_thb?: number | null;
           weight?: number;
           unlock_at_sold_pct?: number;
+          planned_quantity?: number;
           is_test?: boolean;
           seed_run_id?: string | null;
           metadata?: Json;
@@ -360,9 +362,27 @@ export type Database = {
         Relationships: [];
       };
       draw_round_prize_units: {
-        Row: { id: string; draw_round_id: string; draw_round_prize_id: string; card_id: string; status: "available" | "reserved" | "awarded" | "void"; profile_id: string | null; gacha_open_id: string | null; gacha_open_item_id: string | null; collection_item_id: string | null; seed_run_id: string | null; awarded_at: string | null; voided_at: string | null; metadata: Json; created_at: string; updated_at: string };
-        Insert: { id?: string; draw_round_id: string; draw_round_prize_id: string; card_id: string; status?: "available" | "reserved" | "awarded" | "void"; profile_id?: string | null; gacha_open_id?: string | null; gacha_open_item_id?: string | null; collection_item_id?: string | null; seed_run_id?: string | null; awarded_at?: string | null; voided_at?: string | null; metadata?: Json; created_at?: string; updated_at?: string };
+        Row: { id: string; draw_round_id: string; draw_round_prize_id: string; card_id: string; card_stock_unit_id: string | null; status: "available" | "reserved" | "awarded" | "void"; profile_id: string | null; gacha_open_id: string | null; gacha_open_item_id: string | null; collection_item_id: string | null; seed_run_id: string | null; awarded_at: string | null; voided_at: string | null; metadata: Json; created_at: string; updated_at: string };
+        Insert: { id?: string; draw_round_id: string; draw_round_prize_id: string; card_id: string; card_stock_unit_id?: string | null; status?: "available" | "reserved" | "awarded" | "void"; profile_id?: string | null; gacha_open_id?: string | null; gacha_open_item_id?: string | null; collection_item_id?: string | null; seed_run_id?: string | null; awarded_at?: string | null; voided_at?: string | null; metadata?: Json; created_at?: string; updated_at?: string };
         Update: Partial<Database["public"]["Tables"]["draw_round_prize_units"]["Insert"]>;
+        Relationships: [];
+      };
+      card_stock_units: {
+        Row: { id: string; card_id: string; status: "available" | "reserved" | "allocated" | "archived" | "deleted"; source_type: string; source_id: string | null; created_by_admin_id: string | null; reserved_by_admin_id: string | null; allocated_draw_round_id: string | null; allocated_draw_round_prize_id: string | null; metadata: Json; created_at: string; updated_at: string };
+        Insert: { id?: string; card_id: string; status?: "available" | "reserved" | "allocated" | "archived" | "deleted"; source_type?: string; source_id?: string | null; created_by_admin_id?: string | null; reserved_by_admin_id?: string | null; allocated_draw_round_id?: string | null; allocated_draw_round_prize_id?: string | null; metadata?: Json; created_at?: string; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["card_stock_units"]["Insert"]>;
+        Relationships: [];
+      };
+      card_stock_reservations: {
+        Row: { id: string; stock_unit_id: string; draw_round_id: string; draw_round_prize_id: string; status: "reserved" | "allocated" | "released" | "expired" | "cancelled"; reserved_by_admin_id: string | null; allocated_by_admin_id: string | null; released_by_admin_id: string | null; reserved_at: string; allocated_at: string | null; released_at: string | null; expires_at: string | null; metadata: Json; created_at: string; updated_at: string };
+        Insert: { id?: string; stock_unit_id: string; draw_round_id: string; draw_round_prize_id: string; status?: "reserved" | "allocated" | "released" | "expired" | "cancelled"; reserved_by_admin_id?: string | null; allocated_by_admin_id?: string | null; released_by_admin_id?: string | null; reserved_at?: string; allocated_at?: string | null; released_at?: string | null; expires_at?: string | null; metadata?: Json; created_at?: string; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["card_stock_reservations"]["Insert"]>;
+        Relationships: [];
+      };
+      card_stock_ledger: {
+        Row: { id: string; stock_unit_id: string | null; card_id: string | null; draw_round_id: string | null; draw_round_prize_id: string | null; event_type: "stock_created" | "reserved" | "reservation_released" | "allocated" | "unit_materialized" | "archived" | "deleted" | "approval_failed"; actor_admin_id: string | null; metadata: Json; created_at: string };
+        Insert: { id?: string; stock_unit_id?: string | null; card_id?: string | null; draw_round_id?: string | null; draw_round_prize_id?: string | null; event_type: "stock_created" | "reserved" | "reservation_released" | "allocated" | "unit_materialized" | "archived" | "deleted" | "approval_failed"; actor_admin_id?: string | null; metadata?: Json; created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["card_stock_ledger"]["Insert"]>;
         Relationships: [];
       };
       draw_slots: {
@@ -855,6 +875,15 @@ export type Database = {
       profile_can_open_test_draw_round: { Args: { p_draw_round_id: string; p_profile_id: string }; Returns: boolean };
       get_draw_round_inventory_summary: { Args: { p_draw_round_id?: string | null; p_profile_id?: string | null }; Returns: Json };
       ensure_draw_round_prize_units: { Args: { p_draw_round_prize_id: string; p_total_units: number; p_admin_id: string; p_seed_run_id?: string | null }; Returns: Json };
+      get_card_stock_summary: { Args: { p_card_id?: string | null }; Returns: Json };
+      adjust_card_stock_units: { Args: { p_card_id: string; p_quantity_delta: number; p_admin_id: string; p_source_type?: string | null; p_source_id?: string | null; p_metadata?: Json }; Returns: Json };
+      release_campaign_reservations: { Args: { p_draw_round_id: string; p_admin_id: string; p_reason?: string | null; p_note?: string | null }; Returns: Json };
+      submit_campaign_review: { Args: { p_draw_round_id: string; p_admin_id: string; p_logic_snapshot?: Json | null; p_note?: string | null }; Returns: Json };
+      approve_campaign_inventory: { Args: { p_draw_round_id: string; p_owner_admin_id: string; p_logic_snapshot?: Json | null; p_note?: string | null }; Returns: Json };
+      publish_campaign: { Args: { p_draw_round_id: string; p_owner_admin_id: string; p_note?: string | null }; Returns: Json };
+      cancel_campaign_review: { Args: { p_draw_round_id: string; p_admin_id: string; p_note?: string | null }; Returns: Json };
+      archive_campaign_inventory: { Args: { p_draw_round_id: string; p_admin_id: string; p_note?: string | null }; Returns: Json };
+      delete_campaign_inventory: { Args: { p_draw_round_id: string; p_admin_id: string; p_note?: string | null }; Returns: Json };
       submit_exchange_order: { Args: { p_profile_id: string; p_collection_item_ids: string[]; p_customer_note?: string | null; p_idempotency_key?: string | null }; Returns: Json };
       approve_exchange_order: { Args: { p_exchange_order_id: string; p_admin_id: string; p_approved_coin_value?: number | null; p_admin_note?: string | null }; Returns: Json };
       reject_exchange_order: { Args: { p_exchange_order_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };

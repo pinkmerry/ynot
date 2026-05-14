@@ -185,13 +185,13 @@ function buildReadinessBlockers(input: {
     blockers.push("Add prize inventory before saving, review, approval, or publish.");
   }
   if (input.totalPrizeUnits <= 0) {
-    blockers.push("Create prize units for the configured prize rows.");
+    blockers.push("Set planned prize quantity for the configured prize rows.");
   }
   if (input.totalPrizeUnits !== input.totalSlots) {
     blockers.push("Prize quantity must equal the total pack quantity.");
   }
   if (input.availablePrizeUnits < input.remainingSlots) {
-    blockers.push("Available prize units must cover every remaining pack.");
+    blockers.push("Available or planned prize units must cover every remaining pack.");
   }
   if (input.initialEligiblePrizeUnits <= 0) {
     blockers.push("At least one available prize must be eligible when the pack launches.");
@@ -340,13 +340,41 @@ export async function getCampaignPrizeReadiness(
     }
   }
 
+  const usePlannedInventory =
+    totalPrizeUnits === 0 &&
+    row.status === "draft" &&
+    row.approval_status !== "approved";
+  if (usePlannedInventory) {
+    totalPrizeUnits = visiblePrizes.reduce(
+      (sum, prize) => sum + Math.max(0, Number(prize.planned_quantity ?? 0)),
+      0,
+    );
+    availablePrizeUnits = totalPrizeUnits;
+    eligiblePrizeUnits = visiblePrizes
+      .filter((prize) => prizeEligibleAtSoldPct(prize, logicMode, soldPct))
+      .reduce(
+        (sum, prize) => sum + Math.max(0, Number(prize.planned_quantity ?? 0)),
+        0,
+      );
+    initialEligiblePrizeUnits = visiblePrizes
+      .filter((prize) => prizeEligibleAtSoldPct(prize, logicMode, 0))
+      .reduce(
+        (sum, prize) => sum + Math.max(0, Number(prize.planned_quantity ?? 0)),
+        0,
+      );
+  }
+
   const remainingSlots = Math.max(
     0,
     inventory?.remainingSlots ?? row.total_slots,
   );
-  const unitBackedPrizes = visiblePrizes.filter(
-    (prize) => (nonVoidUnitsByPrizeId.get(prize.id) ?? 0) > 0,
-  );
+  const unitBackedPrizes = usePlannedInventory
+    ? visiblePrizes.filter(
+        (prize) => Math.max(0, Number(prize.planned_quantity ?? 0)) > 0,
+      )
+    : visiblePrizes.filter(
+        (prize) => (nonVoidUnitsByPrizeId.get(prize.id) ?? 0) > 0,
+      );
   const displayTierCounts = countByDisplayTier(unitBackedPrizes);
   const readiness = {
     campaignId,

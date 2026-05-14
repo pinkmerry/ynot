@@ -335,8 +335,11 @@ async function getPublicPrizeLineupsBatch(
           tier: prize.tier,
           rank: prize.rank,
           valueThb: prize.value_thb,
-          availableUnits: counts?.available,
-          totalUnits: counts?.total,
+          plannedQuantity: Number(prize.planned_quantity ?? counts?.total ?? 0) || 0,
+          availableUnits:
+            counts?.available ?? (Number(prize.planned_quantity ?? 0) || undefined),
+          totalUnits:
+            counts?.total ?? (Number(prize.planned_quantity ?? 0) || undefined),
           weight: Number(prize.weight ?? 1),
           unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
           prizeCategory: metadataString(prize.metadata, "prizeCategory"),
@@ -436,8 +439,11 @@ async function getPublicPrizeLineup(
         tier: prize.tier,
         rank: prize.rank,
         valueThb: prize.value_thb,
-        availableUnits: counts?.available,
-        totalUnits: counts?.total,
+        plannedQuantity: Number(prize.planned_quantity ?? counts?.total ?? 0) || 0,
+        availableUnits:
+          counts?.available ?? (Number(prize.planned_quantity ?? 0) || undefined),
+        totalUnits:
+          counts?.total ?? (Number(prize.planned_quantity ?? 0) || undefined),
         weight: Number(prize.weight ?? 1),
         unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
         prizeCategory: metadataString(prize.metadata, "prizeCategory"),
@@ -1586,7 +1592,55 @@ export async function getAdminCards() {
   const admin = await resolveAdminSession();
   if (!admin) return [];
   const supabase = createServiceSupabaseClient();
-  return readOrEmpty("admin_cards", async () => getCardCatalog(supabase));
+  return readOrEmpty("admin_cards", async () => {
+    const cards = await getCardCatalog(supabase);
+    if (!cards.length) return cards;
+    const cardIds = cards.map((card) => card.catalogCardId);
+    const stockRows = await readOrEmpty("card_stock_units", async () => {
+      const { data, error } = await supabase
+        .from("card_stock_units")
+        .select("card_id,status")
+        .in("card_id", cardIds)
+        .limit(50000);
+      if (error) throw error;
+      return data ?? [];
+    });
+    const stockByCard = new Map<
+      string,
+      {
+        stockTotal: number;
+        stockAvailable: number;
+        stockReserved: number;
+        stockAllocated: number;
+        stockArchived: number;
+      }
+    >();
+    for (const stock of stockRows) {
+      const counts = stockByCard.get(stock.card_id) ?? {
+        stockTotal: 0,
+        stockAvailable: 0,
+        stockReserved: 0,
+        stockAllocated: 0,
+        stockArchived: 0,
+      };
+      if (stock.status !== "deleted") counts.stockTotal += 1;
+      if (stock.status === "available") counts.stockAvailable += 1;
+      if (stock.status === "reserved") counts.stockReserved += 1;
+      if (stock.status === "allocated") counts.stockAllocated += 1;
+      if (stock.status === "archived") counts.stockArchived += 1;
+      stockByCard.set(stock.card_id, counts);
+    }
+    return cards.map((card) => ({
+      ...card,
+      ...(stockByCard.get(card.catalogCardId) ?? {
+        stockTotal: 0,
+        stockAvailable: 0,
+        stockReserved: 0,
+        stockAllocated: 0,
+        stockArchived: 0,
+      }),
+    }));
+  });
 }
 
 export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
@@ -1671,6 +1725,9 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         void: 0,
       };
       const displayTier = displayTierFromPrizeMetadata(prize);
+      const plannedQuantity = Number(prize.planned_quantity ?? counts.total) || 0;
+      const displayTotalUnits = counts.total || plannedQuantity;
+      const displayAvailableUnits = counts.total ? counts.available : plannedQuantity;
       return {
         id: prize.id,
         campaignId: prize.draw_round_id,
@@ -1697,8 +1754,9 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
           metadataString(prize.metadata, "displayTierLabel") ??
           prizeDisplayTierLabel(displayTier),
         tierRank: metadataNumber(prize.metadata, "tierRank") ?? prize.rank,
-        totalUnits: counts.total,
-        availableUnits: counts.available,
+        plannedQuantity,
+        totalUnits: displayTotalUnits,
+        availableUnits: displayAvailableUnits,
         awardedUnits: counts.awarded,
         voidUnits: counts.void,
       };

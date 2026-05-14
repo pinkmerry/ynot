@@ -79,6 +79,7 @@ const apis = [
   "src/app/api/ynot/admin/exchange/route.ts",
   "src/app/api/ynot/admin/shipping/route.ts",
   "src/app/api/ynot/admin/campaigns/route.ts",
+  "src/app/api/ynot/admin/card-stock/route.ts",
   "src/app/api/ynot/admin/categories/route.ts",
   "src/app/api/ynot/admin/cards/route.ts",
   "src/app/api/ynot/admin/prizes/route.ts",
@@ -176,6 +177,9 @@ check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API keeps value wei
 check("src/features/ynot/client.tsx", "admin campaign form stores prize category metadata", /prizeCategoryOptions[\s\S]*prizeCategoryLabel[\s\S]*metadata: \{[\s\S]*prizeCategory/);
 check("src/features/ynot/client.tsx", "admin campaign form blocks mismatched prize quantities", /Prize quantity must equal the total pack quantity/);
 check("src/features/ynot/client.tsx", "admin card form calls card API", /\/api\/ynot\/admin\/cards/);
+check("src/features/ynot/client.tsx", "admin card form refreshes catalog data after save", /export function AdminCardForm[\s\S]*const router = useRouter\(\)[\s\S]*\/api\/ynot\/admin\/cards[\s\S]*router\.refresh\(\)/);
+check("src/lib/lucky-draw/types.ts", "card catalog item exposes full card row metadata", /CardCatalogItem[\s\S]*searchName\?:[\s\S]*isTest\?:[\s\S]*assetSource\?:[\s\S]*assetManifestKey\?:[\s\S]*updatedAt\?:/);
+check("src/lib/lucky-draw/data.ts", "card catalog mapper includes cards table metadata", /function toCatalogItem[\s\S]*searchName: row\.search_name[\s\S]*isTest: row\.is_test[\s\S]*assetSource: row\.asset_source[\s\S]*updatedAt: row\.updated_at/);
 check("src/features/ynot/client.tsx", "admin prize pool form calls prize API", /\/api\/ynot\/admin\/prizes/);
 const adminPrizePoolFormSource = sliceBetween(
   "src/features/ynot/client.tsx",
@@ -190,8 +194,12 @@ notCheckText(
   "AdminPrizePoolForm",
 );
 notCheck("src/features/ynot/client.tsx", "admin existing card stock panel removes add-to-pack CTA", /Add to pack|function AdminPrizeCatalogActionList|addCatalogCardToPack/);
+check("src/features/ynot/client.tsx", "admin card catalog panel renders every card from catalog reader", /function buildAdminCardCatalogRows[\s\S]*prizesByCard[\s\S]*return cards[\s\S]*card\.catalogCardId[\s\S]*export function AdminCardCatalogPanel[\s\S]*All cards in database[\s\S]*data-testid="admin-card-catalog-list"/);
+check("src/features/ynot/client.tsx", "admin card catalog separates global stock from pack assignments", /AdminCardCatalogPanel[\s\S]*cards used in packs[\s\S]*cards with global stock[\s\S]*Global stock[\s\S]*No pack assignment/);
+check("src/features/ynot/client.tsx", "admin card catalog adjusts global stock through card stock API", /AdminCardCatalogPanel[\s\S]*adjustCardStock[\s\S]*\/api\/ynot\/admin\/card-stock[\s\S]*Global stock added/);
+check("src/features/ynot/client.tsx", "admin prize inventory panel is labeled as pack planned quantity", /export function AdminPrizeInventoryPanel[\s\S]*Pack prize quantities[\s\S]*owner review reserves global stock/);
 check("src/features/ynot/client.tsx", "admin prize inventory panel is separate and adjusts stock quantity", /export function AdminPrizeInventoryPanel[\s\S]*admin-card-inventory-list[\s\S]*updatePrizeQuantity[\s\S]*<Minus[\s\S]*<Plus/);
-check("src/app/admin/prizes/page.tsx", "admin prize inventory panel renders outside prize pool form", /<AdminPrizePoolForm[\s\S]*\/>[\s\S]*<AdminPrizeInventoryPanel cards=\{cards\} prizes=\{prizes\}/);
+check("src/app/admin/prizes/page.tsx", "admin card catalog renders before pack stock", /<AdminPrizePoolForm[\s\S]*\/>[\s\S]*<AdminCardCatalogPanel cards=\{cards\} prizes=\{prizes\} \/>[\s\S]*<AdminPrizeInventoryPanel cards=\{cards\} prizes=\{prizes\}/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign create sanitizes initial prize odds unless owner", /initialPrizesForAdminRole[\s\S]*adminRole === "owner"[\s\S]*valueThb: null[\s\S]*weight: 1[\s\S]*unlockAtSoldPct: 0[\s\S]*normalizePrizeDrafts\(body\.initialPrizes\)/);
 check("src/features/ynot/prize-readiness.ts", "initial prize normalization defaults omitted admin weight to one", /numberOrDefault[\s\S]*row\.weight,\s*1[\s\S]*numberOrZero\(row\.unlockAtSoldPct\)/);
 check("src/features/ynot/client.tsx", "admin user role form calls users API", /\/api\/ynot\/admin\/users/);
@@ -201,10 +209,16 @@ check("src/app/api/ynot/admin/categories/route.ts", "admin category API is admin
 check("src/app/api/ynot/admin/categories/route.ts", "admin category API persists store categories", /from\("store_categories"\)[\s\S]*upsert/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API persists customer display tags", /displayTags[\s\S]*display_tags/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API requires initial prize inventory on create", /initialPrizes[\s\S]*validatePrizeDraftsForSave[\s\S]*saveInitialPrizes/);
+check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign create stores planned quantities instead of materializing prize units", /saveInitialPrizes[\s\S]*planned_quantity: prize\.quantity[\s\S]*select\("id,tier,rank"\)/);
+notCheck("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign create does not call prize unit materializer", /ensure_draw_round_prize_units/);
+check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API persists planned quantity instead of materializing units", /planned_quantity[\s\S]*plannedQuantity:[\s\S]*materialized: false/);
+notCheck("src/app/api/ynot/admin/prizes/route.ts", "admin prize API does not call prize unit materializer", /ensure_draw_round_prize_units/);
+check("src/app/api/ynot/admin/card-stock/route.ts", "admin card stock API adjusts global card stock through RPC", /adjust_card_stock_units[\s\S]*card_stock_adjusted/);
+check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle uses stock reservation allocation RPCs", /submit_campaign_review[\s\S]*approve_campaign_inventory[\s\S]*publish_campaign[\s\S]*release_campaign_reservations/);
 check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle checks prize readiness before review approve publish", /submit_review[\s\S]*approve[\s\S]*publish[\s\S]*getCampaignPrizeReadiness[\s\S]*readinessErrorResponse/);
-check("src/features/ynot/prize-readiness.ts", "random pack readiness blocks missing or non-openable prize inventory", /Add prize inventory before saving[\s\S]*Available prize units must cover every remaining pack[\s\S]*No available prize is currently unlocked/);
+check("src/features/ynot/prize-readiness.ts", "random pack readiness blocks missing or non-openable planned prize inventory", /Add prize inventory before saving[\s\S]*Available or planned prize units must cover every remaining pack[\s\S]*No available prize is currently unlocked/);
 check("src/features/ynot/prize-readiness.ts", "random pack readiness accepts flexible tiers but enforces inventory coverage", /countByDisplayTier[\s\S]*!prizes\.length[\s\S]*totalPrizeUnits !== totalSlots[\s\S]*initialEligiblePrizeUnits <= 0/);
-check("src/features/ynot/prize-readiness.ts", "random pack structure counts only unit-backed display tier rows", /nonVoidUnitsByPrizeId[\s\S]*unitBackedPrizes[\s\S]*displayTierCounts = countByDisplayTier\(unitBackedPrizes\)[\s\S]*topPrizeRows: displayTierCounts\.rainbow[\s\S]*highPoolRows: displayTierCounts\.gold \+ displayTierCounts\.silver/);
+check("src/features/ynot/prize-readiness.ts", "random pack structure counts planned or unit-backed display tier rows", /nonVoidUnitsByPrizeId[\s\S]*usePlannedInventory[\s\S]*unitBackedPrizes[\s\S]*displayTierCounts = countByDisplayTier\(unitBackedPrizes\)[\s\S]*topPrizeRows: displayTierCounts\.rainbow[\s\S]*highPoolRows: displayTierCounts\.gold \+ displayTierCounts\.silver/);
 check("src/app/api/ynot/admin/cards/route.ts", "admin card API is admin gated", /resolveAdminSession[\s\S]*Admin access is required/);
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API assigns draw_round_prizes through live rank allocation", /resolveAdminSession[\s\S]*resolvePrizeRank[\s\S]*from\("draw_round_prizes"\)[\s\S]*(?:insert|update)\(rowPatch\)/);
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API persists category metadata", /metadataValue[\s\S]*prizeCategory[\s\S]*sourceType[\s\S]*displayGroup[\s\S]*metadata,/);
@@ -228,6 +242,7 @@ notCheck("src/app/admin/rankings/page.tsx", "admin rankings page is not a placeh
 notCheck("src/app/admin/audit/page.tsx", "admin audit page is not a placeholder", /Module status/);
 
 const migration = "../Database/supabase/migrations/20260507032000_phase2_platform_wallet_gacha.sql";
+const globalInventoryMigration = "../Database/supabase/migrations/20260514045933_global_card_inventory_owner_approval.sql";
 check("../Database/supabase/migrations/20260508133000_add_campaign_display_tags.sql", "campaign label migration adds display_tags", /add column if not exists display_tags text\[\]/);
 check(migration, "phase2 migration creates payment_methods", /create table if not exists public\.payment_methods/);
 check(migration, "phase2 migration creates top_up_requests", /create table if not exists public\.top_up_requests/);
@@ -244,6 +259,13 @@ check(migration, "phase2 migration creates account merge completion RPC", /creat
 check(migration, "phase2 migration enables RLS for platform public tables", /alter table public\.top_up_requests enable row level security;[\s\S]*alter table public\.ranking_snapshots enable row level security;/);
 check(migration, "phase2 migration grants RPC execute only to service_role", /revoke all on function public\.open_gacha_campaign[\s\S]*grant execute on function public\.open_gacha_campaign[\s\S]*to service_role/);
 notCheck(migration, "phase2 migration does not grant table writes to authenticated users", /grant (?:insert|update|delete|all)[\s\S]* to authenticated/i);
+
+check(globalInventoryMigration, "global inventory migration adds draw round planned quantity", /add column if not exists planned_quantity integer not null default 0[\s\S]*draw_round_prizes_planned_quantity_check/);
+check(globalInventoryMigration, "global inventory migration creates stock units reservations and ledger", /create table if not exists public\.card_stock_units[\s\S]*create table if not exists public\.card_stock_reservations[\s\S]*create table if not exists public\.card_stock_ledger/);
+check(globalInventoryMigration, "global inventory migration links prize units to card stock units", /add column if not exists card_stock_unit_id uuid references public\.card_stock_units[\s\S]*draw_round_prize_units_one_active_stock_unit_idx/);
+check(globalInventoryMigration, "global inventory migration creates review reservation RPCs", /create or replace function public\.submit_campaign_review[\s\S]*create or replace function public\.approve_campaign_inventory[\s\S]*create or replace function public\.publish_campaign/);
+check(globalInventoryMigration, "global inventory migration creates stock adjustment RPC", /create or replace function public\.adjust_card_stock_units[\s\S]*stock_created[\s\S]*insufficient_available_card_stock/);
+notCheck(globalInventoryMigration, "global inventory migration keeps cards catalog-only", /alter table (?:if exists )?public\.cards[\s\S]*quantity/i);
 
 check("src/lib/supabase/types.ts", "types include top_up_requests", /top_up_requests:\s*{[\s\S]*coin_amount: number;/);
 check("src/lib/supabase/types.ts", "types include collection_items", /collection_items:\s*{[\s\S]*source_type: "gacha_open"/);

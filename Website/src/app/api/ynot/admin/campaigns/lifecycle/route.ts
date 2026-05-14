@@ -2,8 +2,12 @@ import { revalidateTag } from "next/cache";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { isMissingColumnError, randomPackSchemaMissingResponse } from "@/lib/supabase/schema-compat";
-import type { Database, Json } from "@/lib/supabase/types";
+import {
+  isMissingColumnError,
+  isMissingFunctionError,
+  randomPackSchemaMissingResponse,
+} from "@/lib/supabase/schema-compat";
+import type { Json } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import {
   getCampaignPrizeReadiness,
@@ -191,6 +195,24 @@ function realLifecycleMessage(action: LifecycleAction, logicMode: RandomLogicMod
   return `${randomLogicLabel(logicMode)} submitted for owner review.`;
 }
 
+function lifecycleRpcName(action: LifecycleAction) {
+  if (action === "submit_review") return "submit_campaign_review";
+  if (action === "approve") return "approve_campaign_inventory";
+  if (action === "publish") return "publish_campaign";
+  if (action === "reject" || action === "request_changes") {
+    return "release_campaign_reservations";
+  }
+  if (action === "archive") return "archive_campaign_inventory";
+  if (action === "delete") return "delete_campaign_inventory";
+  return null;
+}
+
+function releaseReason(action: LifecycleAction) {
+  if (action === "reject") return "rejected";
+  if (action === "request_changes") return "changes_requested";
+  return "released";
+}
+
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
     return Response.json(
@@ -252,7 +274,7 @@ export async function POST(request: Request) {
   const supabase = createServiceSupabaseClient();
   const { data: current, error: currentError } = await supabase
     .from("draw_rounds")
-    .select("id,status,visibility,approval_status,logic_snapshot,test_metadata")
+    .select("id,status,visibility,approval_status,logic_snapshot")
     .eq("id", campaignId)
     .single();
   if (currentError) {
@@ -280,84 +302,93 @@ export async function POST(request: Request) {
     selectedByAdminId: admin.adminId,
     selectedAt: now,
   };
-  const patch: Database["public"]["Tables"]["draw_rounds"]["Update"] = {};
-
-  if (action === "submit_review") {
-    patch.logic_snapshot = logicSnapshot;
-    patch.approval_status = "pending_review";
-    patch.approval_requested_by = admin.adminId;
-    patch.approval_requested_at = now;
-    patch.approval_notes = note || null;
-    patch.status = "draft";
-    patch.visibility = "private";
-  }
-  if (action === "approve") {
-    patch.logic_snapshot = logicSnapshot;
-    patch.approval_status = "approved";
-    patch.approved_by = admin.adminId;
-    patch.approved_at = now;
-    patch.rejected_by = null;
-    patch.rejected_at = null;
-    patch.approval_notes = note || null;
-    patch.status = "draft";
-    patch.visibility = "private";
-  }
-  if (action === "reject") {
-    patch.approval_status = "rejected";
-    patch.rejected_by = admin.adminId;
-    patch.rejected_at = now;
-    patch.approval_notes = note || null;
-    patch.status = "draft";
-    patch.visibility = "private";
-  }
-  if (action === "request_changes") {
-    patch.approval_status = "changes_requested";
-    patch.rejected_by = admin.adminId;
-    patch.rejected_at = now;
-    patch.approval_notes = note || null;
-    patch.status = "draft";
-    patch.visibility = "private";
-  }
-  if (action === "publish") {
-    patch.approval_status = "approved";
-    patch.status = "live";
-    patch.visibility = "public";
-  }
-  if (action === "close") {
-    patch.status = "closed";
-    patch.visibility = current.visibility === "public" ? "public" : "private";
-  }
-  if (action === "archive") {
-    patch.status = "archived";
-    patch.visibility = "private";
-  }
-  if (action === "delete") {
-    patch.status = "archived";
-    patch.visibility = "private";
-    patch.test_metadata = {
-      ...jsonRecord(current.test_metadata),
-      ownerRemovedAt: now,
-      ownerRemovedByAdminId: admin.adminId,
-      ownerRemovedNote: note || null,
-    };
-  }
-
   const responseLogicMode =
     action === "publish"
       ? logicModeFromSnapshot(current.logic_snapshot) ?? logicMode
       : logicMode;
 
-  const { data: updated, error: updateError } = await supabase
+  if (action === "close") {
+    const { error: updateError } = await supabase
+      .from("draw_rounds")
+      .update({
+        status: "closed",
+        visibility: current.visibility === "public" ? "public" : "private",
+      })
+      .eq("id", campaignId);
+    if (updateError) {
+      if (isMissingColumnError(updateError)) {
+        return randomPackSchemaMissingResponse();
+      }
+      return Response.json({ error: updateError.message }, { status: 409 });
+    }
+  } else {
+    const rpcName = lifecycleRpcName(action);
+    if (!rpcName) {
+      return Response.json({ error: "Unsupported lifecycle action." }, { status: 400 });
+    }
+    let rpcPayload: Record<string, unknown>;
+    if (action === "submit_review") {
+      rpcPayload = {
+        p_draw_round_id: campaignId,
+        p_admin_id: admin.adminId,
+        p_logic_snapshot: logicSnapshot,
+        p_note: note || null,
+      };
+    } else if (action === "approve") {
+      rpcPayload = {
+        p_draw_round_id: campaignId,
+        p_owner_admin_id: admin.adminId,
+        p_logic_snapshot: logicSnapshot,
+        p_note: note || null,
+      };
+    } else if (action === "publish") {
+      rpcPayload = {
+        p_draw_round_id: campaignId,
+        p_owner_admin_id: admin.adminId,
+        p_note: note || null,
+      };
+    } else if (action === "reject" || action === "request_changes") {
+      rpcPayload = {
+        p_draw_round_id: campaignId,
+        p_admin_id: admin.adminId,
+        p_reason: releaseReason(action),
+        p_note: note || null,
+      };
+    } else {
+      rpcPayload = {
+        p_draw_round_id: campaignId,
+        p_admin_id: admin.adminId,
+        p_note: note || null,
+      };
+    }
+    const callLifecycleRpc = supabase.rpc as unknown as (
+      name: string,
+      args: Record<string, unknown>,
+    ) => Promise<{
+      error: { message: string; code?: string; details?: string; hint?: string } | null;
+    }>;
+    const { error: rpcError } = await callLifecycleRpc(rpcName, rpcPayload);
+    if (rpcError) {
+      if (
+        isMissingFunctionError(rpcError, rpcName) ||
+        isMissingColumnError(rpcError)
+      ) {
+        return randomPackSchemaMissingResponse();
+      }
+      return Response.json({ error: rpcError.message }, { status: 409 });
+    }
+  }
+
+  const { data: updated, error: fetchUpdatedError } = await supabase
     .from("draw_rounds")
-    .update(patch)
-    .eq("id", campaignId)
     .select("status,visibility,approval_status")
+    .eq("id", campaignId)
     .single();
-  if (updateError) {
-    if (isMissingColumnError(updateError)) {
+  if (fetchUpdatedError) {
+    if (isMissingColumnError(fetchUpdatedError)) {
       return randomPackSchemaMissingResponse();
     }
-    return Response.json({ error: updateError.message }, { status: 409 });
+    return Response.json({ error: fetchUpdatedError.message }, { status: 409 });
   }
 
   await supabase.from("audit_events").insert({

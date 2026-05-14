@@ -3323,7 +3323,7 @@ function AdminCampaignStatusRow({
         const updatedStatus = payload.status ?? "draft";
         const updatedVisibility = payload.visibility ?? "private";
         const updatedApprovalStatus =
-          payload.approvalStatus ?? "pending_review";
+          payload.approvalStatus ?? "not_submitted";
         setStatus(updatedStatus);
         setVisibility(updatedVisibility);
         setApprovalStatus(updatedApprovalStatus);
@@ -3334,7 +3334,7 @@ function AdminCampaignStatusRow({
           visibility: updatedVisibility,
         });
         setMessage(
-          "Random pack status and customer card labels saved. Refresh to see the updated public page.",
+          "Random pack settings saved. Submit owner review to reserve stock before publish.",
         );
       } catch (error) {
         setMessage(
@@ -3588,6 +3588,7 @@ function AdminCampaignStatusRow({
 }
 
 export function AdminCardForm() {
+  const router = useRouter();
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [prizeCategory, setPrizeCategory] =
@@ -3622,6 +3623,7 @@ export function AdminCardForm() {
           assetManifestKey: isTest ? assetManifestKey : undefined,
         });
         setMessage(`Prize item ${payload.card?.name ?? name} saved.`);
+        router.refresh();
       } catch (error) {
         setMessage(
           error instanceof Error ? error.message : "Prize item could not be saved.",
@@ -3841,7 +3843,7 @@ export function AdminPrizePoolForm({
           },
         });
         setMessage(
-          "Prize slot and inventory quantity saved. Refresh to see the updated pool.",
+          "Prize slot and planned quantity saved. Owner review will reserve global stock before approval.",
         );
       } catch (error) {
         setMessage(
@@ -3941,9 +3943,9 @@ export function AdminPrizePoolForm({
           />
         </AdminField>
         <AdminField
-          label="Prize quantity"
+          label="Planned pack quantity"
           required
-          hint="How many units of this prize can be pulled from the pack."
+          hint="How many copies this pack should reserve from global stock during owner review."
         >
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
@@ -3973,6 +3975,304 @@ export function AdminPrizePoolForm({
           {selectedPrizeCard.grade} · {prizeCategoryLabel(selectedPrizeCard.prizeCategory)}
         </p>
       )}
+    </section>
+  );
+}
+
+type AdminCardCatalogRow = {
+  card: CardCatalogItem;
+  prizes: YnotPrizePoolItem[];
+  stockTotal: number;
+  stockAvailable: number;
+  stockReserved: number;
+  stockAllocated: number;
+  stockArchived: number;
+  packTotalUnits: number;
+  packAvailableUnits: number;
+  packAwardedUnits: number;
+  packVoidUnits: number;
+};
+
+function buildAdminCardCatalogRows(
+  cards: CardCatalogItem[],
+  prizes: YnotPrizePoolItem[],
+) {
+  const prizesByCard = new Map<string, YnotPrizePoolItem[]>();
+  for (const prize of prizes) {
+    const current = prizesByCard.get(prize.cardId) ?? [];
+    current.push(prize);
+    prizesByCard.set(prize.cardId, current);
+  }
+
+  return cards
+    .map((card) => {
+      const cardPrizes = prizesByCard.get(card.catalogCardId) ?? [];
+      return {
+        card,
+        prizes: cardPrizes,
+        stockTotal: card.stockTotal ?? 0,
+        stockAvailable: card.stockAvailable ?? 0,
+        stockReserved: card.stockReserved ?? 0,
+        stockAllocated: card.stockAllocated ?? 0,
+        stockArchived: card.stockArchived ?? 0,
+        packTotalUnits: cardPrizes.reduce(
+          (sum, prize) => sum + prize.totalUnits,
+          0,
+        ),
+        packAvailableUnits: cardPrizes.reduce(
+          (sum, prize) => sum + prize.availableUnits,
+          0,
+        ),
+        packAwardedUnits: cardPrizes.reduce(
+          (sum, prize) => sum + prize.awardedUnits,
+          0,
+        ),
+        packVoidUnits: cardPrizes.reduce((sum, prize) => sum + prize.voidUnits, 0),
+      };
+    })
+    .sort((left, right) => {
+      const categoryCompare = prizeCategoryLabel(
+        left.card.prizeCategory,
+      ).localeCompare(prizeCategoryLabel(right.card.prizeCategory));
+      if (categoryCompare) return categoryCompare;
+      const seriesCompare = left.card.series.localeCompare(right.card.series);
+      if (seriesCompare) return seriesCompare;
+      return left.card.name.localeCompare(right.card.name);
+    });
+}
+
+function adminCardCatalogRowSearchText(row: AdminCardCatalogRow) {
+  const card = row.card;
+  return [
+    card.code,
+    card.name,
+    card.grade,
+    card.series,
+    prizeCategoryLabel(card.prizeCategory),
+    card.catalogCardId,
+    card.searchName,
+    card.searchCode,
+    card.photoUrl,
+    card.photoStoragePath,
+    card.assetSource,
+    card.assetLicense,
+    card.assetManifestKey,
+    card.seedRunId,
+    card.isTest ? "test" : "normal",
+    ...row.prizes.map((prize) => prize.campaignTitle),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function formatAdminCatalogDate(value?: string | null) {
+  if (!value) return "Unknown";
+  return formatApprovalDate(value);
+}
+
+export function AdminCardCatalogPanel({
+  cards,
+  prizes,
+}: {
+  cards: CardCatalogItem[];
+  prizes: YnotPrizePoolItem[];
+}) {
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [message, setMessage] = useState("");
+  const [pendingCardId, setPendingCardId] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const rows = useMemo(
+    () => buildAdminCardCatalogRows(cards, prizes),
+    [cards, prizes],
+  );
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleRows = useMemo(() => {
+    if (!normalizedQuery) return rows;
+    return rows.filter((row) =>
+      adminCardCatalogRowSearchText(row).includes(normalizedQuery),
+    );
+  }, [normalizedQuery, rows]);
+  const assignedCount = rows.filter((row) => row.prizes.length > 0).length;
+  const stockedCount = rows.filter((row) => row.stockTotal > 0).length;
+
+  function adjustCardStock(card: CardCatalogItem, quantityDelta: number) {
+    startTransition(async () => {
+      try {
+        setMessage("");
+        setPendingCardId(card.catalogCardId);
+        await postJson("/api/ynot/admin/card-stock", {
+          cardId: card.catalogCardId,
+          quantityDelta,
+          reason: quantityDelta > 0 ? "admin_stock_added" : "admin_stock_removed",
+        });
+        setMessage(
+          quantityDelta > 0
+            ? "Global stock added. Draft packs can reserve it during owner review."
+            : "One available global stock unit was removed.",
+        );
+        router.refresh();
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Global stock could not be adjusted.",
+        );
+      } finally {
+        setPendingCardId("");
+      }
+    });
+  }
+
+  return (
+    <section className="admin-panel admin-full-span admin-card-catalog-panel soft-card">
+      <div className="admin-panel-head">
+        <div>
+          <p className="section-label">Card catalog</p>
+          <h3 className="title-m">All cards in database</h3>
+          <p className="admin-muted-line">
+            This list comes from the cards table. Pack stock is shown in the
+            separate section below.
+          </p>
+        </div>
+        <span className="status-pill">
+          {visibleRows.length}/{cards.length} cards
+        </span>
+      </div>
+
+      <div className="admin-card-catalog-toolbar">
+        <label className="admin-field">
+          <span>Search catalog</span>
+          <input
+            aria-label="Search catalog cards"
+            placeholder="Search code, name, grade, category, pack"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        <div className="admin-card-catalog-summary">
+          <strong>{assignedCount.toLocaleString()}</strong>
+          <span>cards used in packs</span>
+          <strong>{stockedCount.toLocaleString()}</strong>
+          <span>cards with global stock</span>
+        </div>
+      </div>
+
+      <div className="admin-card-catalog-list" data-testid="admin-card-catalog-list">
+        {visibleRows.map((row) => {
+          const card = row.card;
+          return (
+            <article className="admin-card-catalog-row" key={card.catalogCardId}>
+              <AdminPrizeCardImage
+                code={card.code}
+                imageUrl={card.photoUrl}
+                name={card.name}
+              />
+              <div className="admin-card-catalog-main">
+                <strong>{card.name}</strong>
+                <p className="admin-muted-line">
+                  {[card.code ?? "no code", card.grade, prizeCategoryLabel(card.prizeCategory)]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                <p className="admin-muted-line">
+                  {card.series} · {card.isTest ? "Test item" : "Normal item"}
+                </p>
+                <p className="admin-id-line">{card.catalogCardId}</p>
+              </div>
+              <div className="admin-card-catalog-fields">
+                <div>
+                  <span>Image URL</span>
+                  <code>{card.photoUrl ?? "No image URL"}</code>
+                </div>
+                <div>
+                  <span>Storage path</span>
+                  <code>{card.photoStoragePath ?? "No storage path"}</code>
+                </div>
+                <div>
+                  <span>Asset source</span>
+                  <code>{card.assetSource ?? "No source"}</code>
+                </div>
+                <div>
+                  <span>Manifest</span>
+                  <code>{card.assetManifestKey ?? "No manifest key"}</code>
+                </div>
+                <div>
+                  <span>Updated</span>
+                  <code>{formatAdminCatalogDate(card.updatedAt)}</code>
+                </div>
+              </div>
+              <div className="admin-card-catalog-usage">
+                <span>Global stock</span>
+                <strong>
+                  {row.stockAvailable.toLocaleString()}/
+                  {row.stockTotal.toLocaleString()}
+                </strong>
+                <small>
+                  {row.stockReserved.toLocaleString()} reserved ·{" "}
+                  {row.stockAllocated.toLocaleString()} allocated
+                  {row.stockArchived ? ` · ${row.stockArchived.toLocaleString()} archived` : ""}
+                </small>
+                <div className="admin-stock-stepper admin-card-stock-actions">
+                  <button
+                    aria-label={`Remove one stock unit from ${card.name}`}
+                    className="plain-button admin-icon-button"
+                    disabled={isPending || row.stockAvailable <= 0}
+                    title="Remove one available global stock unit"
+                    type="button"
+                    onClick={() => adjustCardStock(card, -1)}
+                  >
+                    <Minus aria-hidden="true" size={16} />
+                  </button>
+                  <strong>
+                    {isPending && pendingCardId === card.catalogCardId
+                      ? "Updating"
+                      : "Adjust"}
+                  </strong>
+                  <button
+                    aria-label={`Add one stock unit to ${card.name}`}
+                    className="plain-button admin-icon-button"
+                    disabled={isPending}
+                    title="Add one global stock unit"
+                    type="button"
+                    onClick={() => adjustCardStock(card, 1)}
+                  >
+                    <Plus aria-hidden="true" size={16} />
+                  </button>
+                </div>
+                <small>
+                  {row.prizes.length.toLocaleString()} pack slot
+                  {row.prizes.length === 1 ? "" : "s"} ·{" "}
+                  {row.packAvailableUnits.toLocaleString()}/
+                  {row.packTotalUnits.toLocaleString()} pack units ·{" "}
+                  {row.packAwardedUnits.toLocaleString()} awarded
+                  {row.packVoidUnits ? ` · ${row.packVoidUnits.toLocaleString()} void` : ""}
+                </small>
+                <div className="admin-card-catalog-slot-list">
+                  {row.prizes.length ? (
+                    row.prizes.map((prize) => (
+                      <em key={prize.id}>
+                        {prize.campaignTitle} ·{" "}
+                        {prizeDisplayTierLabel(
+                          prize.displayTier ?? prize.displayGroup ?? prize.tier,
+                        )}{" "}
+                        #{prize.tierRank ?? prize.rank}
+                      </em>
+                    ))
+                  ) : (
+                    <em>No pack assignment</em>
+                  )}
+                </div>
+              </div>
+            </article>
+          );
+        })}
+        {!visibleRows.length && (
+          <p className="admin-empty-note">No catalog cards match this search.</p>
+        )}
+      </div>
+      {message && <p className="admin-form-message">{message}</p>}
     </section>
   );
 }
@@ -4074,7 +4374,7 @@ export function AdminPrizeInventoryPanel({
           "/api/ynot/admin/prizes",
           prizeQuantityPayload(prize, nextQuantity),
         );
-        setMessage("Prize quantity updated. Owner review is required before publish.");
+        setMessage("Planned pack quantity updated. Owner review will reserve stock before publish.");
         router.refresh();
       } catch (error) {
         setMessage(
@@ -4092,11 +4392,11 @@ export function AdminPrizeInventoryPanel({
     <section className="admin-panel admin-full-span admin-inventory-panel soft-card">
       <div className="admin-panel-head">
         <div>
-          <p className="section-label">Existing card stock</p>
-          <h3 className="title-m">Cards already in prize pools</h3>
+          <p className="section-label">Pack prize quantities</p>
+          <h3 className="title-m">Cards assigned to random packs</h3>
           <p className="admin-muted-line">
-            Stock is counted from campaign prize units. Add or remove available
-            quantity on the exact pack slot below.
+            These quantities belong to each random pack. Draft packs store a
+            plan first; owner review reserves global stock.
           </p>
         </div>
         <span className="status-pill">{inventoryCards.length} cards</span>
@@ -4132,7 +4432,7 @@ export function AdminPrizeInventoryPanel({
                 <p className="admin-id-line">{item.cardId}</p>
               </div>
               <div className="admin-card-inventory-stock">
-                <span>Stock left</span>
+                <span>Pack units / plan</span>
                 <strong>
                   {item.availableUnits.toLocaleString()}/
                   {item.totalUnits.toLocaleString()}
@@ -4144,7 +4444,7 @@ export function AdminPrizeInventoryPanel({
               </div>
               <div className="admin-card-inventory-slots">
                 {item.prizes.map((prize) => {
-                  const canDecrease = prize.totalUnits > prize.awardedUnits;
+                  const canDecrease = prize.plannedQuantity > prize.awardedUnits;
                   const isThisPending = isPending && pendingPrizeId === prize.id;
                   return (
                     <div className="admin-card-inventory-slot" key={prize.id}>
@@ -4165,7 +4465,7 @@ export function AdminPrizeInventoryPanel({
                           onClick={() =>
                             updatePrizeQuantity(
                               prize,
-                              Math.max(prize.awardedUnits, prize.totalUnits - 1),
+                              Math.max(prize.awardedUnits, prize.plannedQuantity - 1),
                             )
                           }
                         >
@@ -4173,7 +4473,7 @@ export function AdminPrizeInventoryPanel({
                         </button>
                         <strong>
                           {prize.availableUnits.toLocaleString()}/
-                          {prize.totalUnits.toLocaleString()}
+                          {prize.plannedQuantity.toLocaleString()}
                         </strong>
                         <button
                           aria-label={`Add one ${cardName} to ${prize.campaignTitle}`}
@@ -4182,7 +4482,7 @@ export function AdminPrizeInventoryPanel({
                           title="Add one unit"
                           type="button"
                           onClick={() =>
-                            updatePrizeQuantity(prize, prize.totalUnits + 1)
+                            updatePrizeQuantity(prize, prize.plannedQuantity + 1)
                           }
                         >
                           <Plus aria-hidden="true" size={16} />
@@ -4198,7 +4498,7 @@ export function AdminPrizeInventoryPanel({
         })}
         {!inventoryCards.length && (
           <p className="admin-empty-note">
-            No prize cards have been assigned to a random pack yet.
+            No cards have been assigned to a random pack prize slot yet.
           </p>
         )}
       </div>
