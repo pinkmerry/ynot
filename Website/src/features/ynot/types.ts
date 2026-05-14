@@ -202,6 +202,11 @@ export type YnotGachaOpenHistory = {
 export type YnotPrizePreview = {
   id: string;
   cardId?: string;
+  cardCode?: string | null;
+  cardGrade?: string | null;
+  cardImageUrl?: string | null;
+  cardImageStoragePath?: string | null;
+  cardPrizeCategory?: string | null;
   cardName: string;
   tier: "normal" | "high";
   rank: number;
@@ -245,6 +250,11 @@ export type YnotPrizePoolItem = {
   campaignTitle: string;
   cardId: string;
   cardName: string;
+  cardCode?: string | null;
+  cardGrade?: string | null;
+  cardImageUrl?: string | null;
+  cardImageStoragePath?: string | null;
+  cardPrizeCategory?: string | null;
   tier: "normal" | "high";
   rank: number;
   valueThb?: number | null;

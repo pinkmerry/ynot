@@ -14,6 +14,15 @@ function requestCookieNames(cookieHeader: string | null) {
     .filter(Boolean);
 }
 
+function devRedirectUrl(request: Request) {
+  const redirectTo = new URL("/admin", request.url);
+  const host = request.headers.get("host");
+  if (host) {
+    redirectTo.host = host;
+  }
+  return redirectTo;
+}
+
 export async function GET(request: Request) {
   if (process.env.NODE_ENV === "production") {
     return NextResponse.json({ error: "Dev admin login is disabled in production." }, { status: 404 });
@@ -86,8 +95,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "LINE_SESSION_SECRET is required for dev admin login." }, { status: 500 });
   }
 
-  const redirectTo = new URL("/admin", request.url);
-  const response = NextResponse.redirect(redirectTo);
+  const response = NextResponse.redirect(devRedirectUrl(request));
   for (const cookieName of requestCookieNames(request.headers.get("cookie"))) {
     if (cookieName.startsWith("sb-")) {
       response.cookies.set(cookieName, "", { path: "/", maxAge: 0 });

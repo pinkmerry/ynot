@@ -272,9 +272,22 @@ async function getPublicPrizeLineupsBatch(
   const [{ data: cards, error: cardsError }, { data: units, error: unitsError }] =
     await Promise.all([
       cardIds.length
-        ? supabase.from("cards").select("id,name").in("id", cardIds)
+        ? supabase
+            .from("cards")
+            .select("id,name,card_code,grade,image_url,image_storage_path,prize_category")
+            .in("id", cardIds)
         : Promise.resolve({ data: [], error: null } as {
-            data: { id: string; name: string }[] | null;
+            data:
+              | {
+                  id: string;
+                  name: string;
+                  card_code?: string | null;
+                  grade?: string | null;
+                  image_url?: string | null;
+                  image_storage_path?: string | null;
+                  prize_category?: string | null;
+                }[]
+              | null;
             error: null;
           }),
       prizeIds.length
@@ -309,10 +322,16 @@ async function getPublicPrizeLineupsBatch(
       .map((prize) => {
         const counts = countsByPrize.get(prize.id);
         const displayTier = displayTierFromPrizeMetadata(prize);
+        const card = cardById.get(prize.card_id);
         return {
           id: prize.id,
           cardId: prize.card_id,
-          cardName: cardById.get(prize.card_id)?.name ?? "Mystery reward",
+          cardCode: card?.card_code ?? null,
+          cardGrade: card?.grade ?? null,
+          cardImageUrl: card?.image_url ?? null,
+          cardImageStoragePath: card?.image_storage_path ?? null,
+          cardPrizeCategory: card?.prize_category ?? null,
+          cardName: card?.name ?? "Mystery reward",
           tier: prize.tier,
           rank: prize.rank,
           valueThb: prize.value_thb,
@@ -375,7 +394,10 @@ async function getPublicPrizeLineup(
   const prizeIds = visiblePrizes.map((prize) => prize.id);
   const [{ data: cards, error: cardsError }, { data: units, error: unitsError }] =
     await Promise.all([
-      supabase.from("cards").select("id,name").in("id", cardIds),
+      supabase
+        .from("cards")
+        .select("id,name,card_code,grade,image_url,image_storage_path,prize_category")
+        .in("id", cardIds),
       supabase
         .from("draw_round_prize_units")
         .select("draw_round_prize_id,status")
@@ -401,10 +423,16 @@ async function getPublicPrizeLineup(
     .map((prize) => {
       const counts = countsByPrize.get(prize.id);
       const displayTier = displayTierFromPrizeMetadata(prize);
+      const card = cardById.get(prize.card_id);
       return {
         id: prize.id,
         cardId: prize.card_id,
-        cardName: cardById.get(prize.card_id)?.name ?? "Mystery reward",
+        cardCode: card?.card_code ?? null,
+        cardGrade: card?.grade ?? null,
+        cardImageUrl: card?.image_url ?? null,
+        cardImageStoragePath: card?.image_storage_path ?? null,
+        cardPrizeCategory: card?.prize_category ?? null,
+        cardName: card?.name ?? "Mystery reward",
         tier: prize.tier,
         rank: prize.rank,
         valueThb: prize.value_thb,
@@ -1592,7 +1620,10 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         .from("draw_rounds")
         .select("id,slug,title_th,title_en")
         .in("id", campaignIds),
-      supabase.from("cards").select("id,name").in("id", cardIds),
+      supabase
+        .from("cards")
+        .select("id,name,card_code,grade,image_url,image_storage_path,prize_category")
+        .in("id", cardIds),
     ]);
     if (campaignsError) throw campaignsError;
     if (cardsError) throw cardsError;
@@ -1647,6 +1678,11 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         campaignTitle: campaign?.title_th ?? campaign?.title_en ?? "Campaign",
         cardId: prize.card_id,
         cardName: card?.name ?? "Card",
+        cardCode: card?.card_code ?? null,
+        cardGrade: card?.grade ?? null,
+        cardImageUrl: card?.image_url ?? null,
+        cardImageStoragePath: card?.image_storage_path ?? null,
+        cardPrizeCategory: card?.prize_category ?? null,
         tier: prize.tier,
         rank: prize.rank,
         valueThb: prize.value_thb,

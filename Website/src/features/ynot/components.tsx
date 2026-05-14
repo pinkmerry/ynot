@@ -989,6 +989,23 @@ export function RewardTierList({ compact = false }: { compact?: boolean }) {
   );
 }
 
+function PrizeLineupImage({ prize }: { prize: YnotPrizePreview }) {
+  const fallbackLabel = (prize.cardCode ?? prize.cardName)
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <div className="reward-prize-image" aria-hidden="true">
+      {prize.cardImageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- Catalog prize URLs are Supabase/storage assets already managed outside Next image config.
+        <img src={prize.cardImageUrl} alt="" loading="lazy" />
+      ) : (
+        <span>{fallbackLabel}</span>
+      )}
+    </div>
+  );
+}
+
 function PrizeLineup({ prizes }: { prizes: YnotPrizePreview[] }) {
   const sections = prizeDisplayTierOptions
     .map((option) => ({
@@ -1021,6 +1038,7 @@ function PrizeLineup({ prizes }: { prizes: YnotPrizePreview[] }) {
           <div className="reward-tier-list reward-tier-list-structured">
             {section.prizes.map((prize) => (
               <div className="reward-tier-card" key={prize.id}>
+                <PrizeLineupImage prize={prize} />
                 <div className="tier-heading">
                   <div>
                     <span className={`tier-rank tier-${section.key}`}>
@@ -1038,6 +1056,8 @@ function PrizeLineup({ prizes }: { prizes: YnotPrizePreview[] }) {
                   {prize.availableUnits !== undefined && prize.totalUnits !== undefined
                     ? `${prize.availableUnits}/${prize.totalUnits} left`
                     : "Inventory preview"}
+                  {prize.cardCode ? ` · ${prize.cardCode}` : ""}
+                  {prize.cardGrade ? ` · ${prize.cardGrade}` : ""}
                   {Number(prize.unlockAtSoldPct ?? 0) > 0
                     ? " · preview reward"
                     : ""}

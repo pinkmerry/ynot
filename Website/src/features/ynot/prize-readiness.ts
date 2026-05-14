@@ -94,6 +94,11 @@ function numberOrZero(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function numberOrDefault(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function randomLogicMode(value: unknown): RandomLogicMode {
   if (!isRecord(value)) return "pure_random";
   const mode = value.mode ?? value.logicMode;
@@ -206,7 +211,7 @@ export function normalizePrizeDrafts(value: unknown): PrizeDraftInput[] {
     const tier = row.tier === "high" ? "high" : "normal";
     const rank = Math.max(1, Math.round(numberOrZero(row.rank)));
     const quantity = Math.max(0, Math.round(numberOrZero(row.quantity)));
-    const weight = Math.max(0, numberOrZero(row.weight));
+    const weight = Math.max(0, numberOrDefault(row.weight, 1));
     const unlockAtSoldPct = Math.min(
       100,
       Math.max(0, Math.round(numberOrZero(row.unlockAtSoldPct))),

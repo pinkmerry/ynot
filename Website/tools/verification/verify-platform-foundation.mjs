@@ -19,6 +19,25 @@ function notCheck(rel, label, pattern) {
   if (!pattern.test(read(rel))) pass(label);
   else fail(`${label} (${rel})`);
 }
+function sliceBetween(rel, start, end, label) {
+  const source = read(rel);
+  const startIndex = source.indexOf(start);
+  const endIndex =
+    startIndex >= 0 && end ? source.indexOf(end, startIndex + start.length) : -1;
+  if (startIndex < 0 || (end && endIndex < 0)) {
+    fail(`${label} (${rel})`);
+    return "";
+  }
+  return source.slice(startIndex, endIndex >= 0 ? endIndex : undefined);
+}
+function checkText(label, text, pattern, scope) {
+  if (pattern.test(text)) pass(label);
+  else fail(`${label} (${scope})`);
+}
+function notCheckText(label, text, pattern, scope) {
+  if (!pattern.test(text)) pass(label);
+  else fail(`${label} (${scope})`);
+}
 
 const routes = [
   "src/app/page.tsx",
@@ -97,6 +116,7 @@ check("src/features/ynot/client.tsx", "gacha open button calls API", /\/api\/yno
 check("src/features/ynot/client.tsx", "collection actions call exchange and shipping APIs", /\/api\/ynot\/exchange[\s\S]*\/api\/ynot\/shipping/);
 check("src/features/ynot/client.tsx", "admin payment settings call payment method API", /\/api\/ynot\/admin\/payment-methods/);
 check("src/features/ynot/client.tsx", "admin campaign form calls campaign API", /\/api\/ynot\/admin\/campaigns/);
+check("src/features/ynot/client.tsx", "admin campaign create refreshes server data after save", /import \{ useRouter \} from "next\/navigation"[\s\S]*AdminCampaignForm[\s\S]*const router = useRouter\(\)[\s\S]*\/api\/ynot\/admin\/campaigns[\s\S]*router\.refresh\(\)/);
 check("src/features/ynot/client.tsx", "admin category form calls category API", /AdminCategoryForm[\s\S]*\/api\/ynot\/admin\/categories/);
 check("src/features/ynot/client.tsx", "admin campaign form and update rows edit customer card labels", /Customer card labels[\s\S]*displayTags/);
 check("src/features/ynot/client.tsx", "admin campaign action panel submits review and archives campaigns", /\/api\/ynot\/admin\/campaigns\/lifecycle[\s\S]*Submit owner review[\s\S]*Archive private/);
@@ -107,18 +127,73 @@ check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API enforces 
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API enforces PSA10 item against display tier", /isRandomPsa10PrizeCard[\s\S]*canPrizeDisplayTierUseRandomPsa10[\s\S]*PSA10 prize item does not match the selected display tier/);
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API allocates DB rank from live rows while preserving display tier rank", /async function resolvePrizeRank[\s\S]*existingDisplayRow[\s\S]*usedRanks[\s\S]*while \(usedRanks\.has\(rank\)\) rank \+= 1[\s\S]*async function savePrizeRow[\s\S]*insert\(rowPatch\)[\s\S]*isUniqueConstraintError/);
 check("src/features/ynot/client.tsx", "admin prize pool form sends visible tier rank metadata", /AdminPrizePoolForm[\s\S]*rank,[\s\S]*displayTier,[\s\S]*metadata: \{[\s\S]*tierRank: rank/);
+check("src/features/ynot/client.tsx", "admin prize pool campaign dropdown follows refreshed campaign props", /AdminPrizePoolForm[\s\S]*const selectedCampaignId = campaigns\.some[\s\S]*campaigns\[0\]\?\.id \?\? ""[\s\S]*campaignId: selectedCampaignId[\s\S]*value=\{selectedCampaignId\}[\s\S]*disabled=\{isPending \|\| !selectedCampaignId \|\| !selectedPrizeCardId\}/);
+check("src/features/ynot/types.ts", "public prize preview carries card image metadata", /YnotPrizePreview[\s\S]*cardCode\?:[\s\S]*cardGrade\?:[\s\S]*cardImageUrl\?:[\s\S]*cardImageStoragePath\?:[\s\S]*cardPrizeCategory\?:/);
+check("src/features/ynot/data.ts", "public prize lineup selects card image metadata", /getPublicPrizeLineupsBatch[\s\S]*select\("id,name,card_code,grade,image_url,image_storage_path,prize_category"\)[\s\S]*getPublicPrizeLineup[\s\S]*select\("id,name,card_code,grade,image_url,image_storage_path,prize_category"\)/);
+check("src/features/ynot/data.ts", "public prize lineup maps card image metadata", /getPublicPrizeLineupsBatch[\s\S]*cardImageUrl:[\s\S]*cardImageStoragePath:[\s\S]*getPublicPrizeLineup[\s\S]*cardImageUrl:[\s\S]*cardImageStoragePath:/);
+check("src/features/ynot/components.tsx", "public pack detail renders prize images in lineup", /function PrizeLineupImage[\s\S]*prize\.cardImageUrl[\s\S]*<img[\s\S]*function PrizeLineup[\s\S]*<PrizeLineupImage prize=\{prize\}/);
+check("src/app/globals.css", "public prize lineup images keep stable card thumbnail layout", /reward-prize-image[\s\S]*aspect-ratio: 3 \/ 4[\s\S]*object-fit: contain/);
+check("src/features/ynot/types.ts", "admin prize pool item carries card image metadata", /YnotPrizePoolItem[\s\S]*cardCode\?:[\s\S]*cardGrade\?:[\s\S]*cardImageUrl\?:[\s\S]*cardImageStoragePath\?:/);
+check("src/features/ynot/data.ts", "admin prize pool reader selects card image metadata", /getAdminPrizePool\(\)[\s\S]*from\("cards"\)[\s\S]*select\("id,name,card_code,grade,image_url,image_storage_path,prize_category"\)/);
+check("src/features/ynot/data.ts", "admin prize pool reader maps card image metadata", /cardCode:[\s\S]*cardGrade:[\s\S]*cardImageUrl:[\s\S]*cardImageStoragePath:[\s\S]*cardPrizeCategory:/);
+check("src/features/ynot/client.tsx", "admin prize picker exposes selected card preview identity", /function AdminPrizeCardPicker[\s\S]*data-selected-card-id[\s\S]*catalogCardId[\s\S]*selected-card-preview/);
+check("src/features/ynot/client.tsx", "admin prize picker renders image with stable fallback", /function AdminPrizeCardImage[\s\S]*photoUrl|function AdminPrizeCardImage[\s\S]*imageUrl[\s\S]*admin-prize-card-placeholder/);
+check("src/features/ynot/client.tsx", "admin campaign prize rows use image-backed picker", /AdminPrizeCardPicker[\s\S]*value=\{selectedCardId\}[\s\S]*testIdPrefix=\{`campaign-prize-\$\{prize\.localId\}`\}/);
+check("src/features/ynot/client.tsx", "admin prize pool form uses image-backed picker", /AdminPrizeCardPicker[\s\S]*value=\{selectedPrizeCardId\}[\s\S]*testIdPrefix="admin-prize-pool-card"/);
+notCheck("src/features/ynot/client.tsx", "campaign prize draft does not silently fallback invalid selected card to first option", /cardId:\s*existingCardId\s*\|\|\s*firstCatalogCardId/);
+notCheck("src/features/ynot/client.tsx", "campaign row selected card does not mask invalid card with first option", /const selectedCardId =[\s\S]{0,260}:\s*itemOptions\[0\]\?\.catalogCardId/);
+notCheck("src/features/ynot/client.tsx", "admin prize pool selected card does not mask invalid card with first option", /const selectedPrizeCardId =[\s\S]{0,260}:\s*prizeItemOptions\[0\]\?\.catalogCardId/);
 check("src/features/ynot/client.tsx", "admin campaign form uses a horizontal info prize readiness builder", /admin-pack-builder-layout[\s\S]*admin-pack-info-panel[\s\S]*admin-prize-workspace[\s\S]*admin-readiness-panel/);
 check("src/app/globals.css", "admin campaign builder stacks pack info prize builder and readiness as full-width sections", /admin-pack-builder-layout[\s\S]*grid-template-columns: 1fr[\s\S]*admin-pack-info-panel[\s\S]*admin-prize-workspace[\s\S]*admin-readiness-panel/);
 check("src/app/globals.css", "admin campaign builder keeps pack info and prize tiers responsive", /admin-pack-info-panel \.admin-form-grid[\s\S]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)[\s\S]*admin-prize-tier-head[\s\S]*grid-template-columns: minmax\(0, 1fr\) minmax\(260px, 0\.82fr\)[\s\S]*@media \(max-width: 720px\)[\s\S]*admin-prize-tier-head[\s\S]*grid-template-columns: 1fr/);
 notCheck("src/features/ynot/client.tsx", "admin campaign create form hides value weight unlock fields from draft prize builder", /admin-top-prize-controls[\s\S]{0,900}<span>Value<\/span>|className="admin-prize-table-head"[\s\S]{0,260}<span>Value<\/span>|className="admin-prize-table-head"[\s\S]{0,320}<span>Weight<\/span>|High unlock 30%/);
+const adminCampaignInitialPrizePayload = sliceBetween(
+  "src/features/ynot/client.tsx",
+  "initialPrizes: activePrizeDrafts.map((prize) => ({",
+  "metadata: {",
+  "admin campaign initial prize payload slice",
+);
+notCheckText(
+  "admin campaign initial prize payload omits owner odds fields",
+  adminCampaignInitialPrizePayload,
+  /(?:valueThb|weight|unlockAtSoldPct)\s*:/,
+  "AdminCampaignForm initialPrizes",
+);
 check("src/features/ynot/client.tsx", "owner approval queue exposes collapsible tier and logic review", /owner-review-details[\s\S]*Random logic[\s\S]*Overview[\s\S]*Prize tiers[\s\S]*owner-prize-section-stack[\s\S]*saveOwnerPrizeOdds/);
+const ownerApprovalQueueSource = sliceBetween(
+  "src/features/ynot/client.tsx",
+  "export function OwnerApprovalQueue",
+  "export function AdminCardForm",
+  "owner approval queue source slice",
+);
+checkText(
+  "owner approval queue remains the owner odds surface",
+  ownerApprovalQueueSource,
+  /saveOwnerPrizeOdds[\s\S]*weight[\s\S]*unlockAtSoldPct[\s\S]*selectedLogicMode/,
+  "OwnerApprovalQueue",
+);
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API keeps value weight unlock owner-only", /hasOwnerOnlyOddsFields[\s\S]*admin\.adminRole !== "owner"[\s\S]*Only an owner can set prize value, weight, or sold unlock odds/);
 check("src/features/ynot/client.tsx", "admin campaign form stores prize category metadata", /prizeCategoryOptions[\s\S]*prizeCategoryLabel[\s\S]*metadata: \{[\s\S]*prizeCategory/);
 check("src/features/ynot/client.tsx", "admin campaign form blocks mismatched prize quantities", /Prize quantity must equal the total pack quantity/);
 check("src/features/ynot/client.tsx", "admin card form calls card API", /\/api\/ynot\/admin\/cards/);
 check("src/features/ynot/client.tsx", "admin prize pool form calls prize API", /\/api\/ynot\/admin\/prizes/);
-check("src/features/ynot/client.tsx", "admin prize pool edit restores category and quantity", /setPrizeCategory\(prizeCategoryValue\(prize\.prizeCategory\)\)[\s\S]*setQuantity\(prize\.totalUnits\)/);
+const adminPrizePoolFormSource = sliceBetween(
+  "src/features/ynot/client.tsx",
+  "export function AdminPrizePoolForm",
+  "type AdminPrizeInventoryCard",
+  "admin prize pool form source slice",
+);
+notCheckText(
+  "admin prize pool form removes owner odds controls",
+  adminPrizePoolFormSource,
+  /Drop weight|Unlock at sold|setWeight|setUnlockAtSoldPct|\bweight\s*[,}]|unlockAtSoldPct/,
+  "AdminPrizePoolForm",
+);
+notCheck("src/features/ynot/client.tsx", "admin existing card stock panel removes add-to-pack CTA", /Add to pack|function AdminPrizeCatalogActionList|addCatalogCardToPack/);
+check("src/features/ynot/client.tsx", "admin prize inventory panel is separate and adjusts stock quantity", /export function AdminPrizeInventoryPanel[\s\S]*admin-card-inventory-list[\s\S]*updatePrizeQuantity[\s\S]*<Minus[\s\S]*<Plus/);
+check("src/app/admin/prizes/page.tsx", "admin prize inventory panel renders outside prize pool form", /<AdminPrizePoolForm[\s\S]*\/>[\s\S]*<AdminPrizeInventoryPanel cards=\{cards\} prizes=\{prizes\}/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign create sanitizes initial prize odds unless owner", /initialPrizesForAdminRole[\s\S]*adminRole === "owner"[\s\S]*valueThb: null[\s\S]*weight: 1[\s\S]*unlockAtSoldPct: 0[\s\S]*normalizePrizeDrafts\(body\.initialPrizes\)/);
+check("src/features/ynot/prize-readiness.ts", "initial prize normalization defaults omitted admin weight to one", /numberOrDefault[\s\S]*row\.weight,\s*1[\s\S]*numberOrZero\(row\.unlockAtSoldPct\)/);
 check("src/features/ynot/client.tsx", "admin user role form calls users API", /\/api\/ynot\/admin\/users/);
 check("src/features/ynot/client.tsx", "admin merge review calls merge API", /\/api\/ynot\/admin\/merge-requests/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API is admin gated", /resolveAdminSession[\s\S]*Admin access is required/);

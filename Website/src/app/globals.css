@@ -7526,6 +7526,51 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   margin-top: 6px;
 }
 
+.reward-tier-list-structured .reward-tier-card {
+  align-items: center;
+  display: grid !important;
+  gap: 10px !important;
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.reward-tier-list-structured .reward-tier-card .tier-heading,
+.reward-tier-list-structured .reward-tier-card .reward-prize-meta {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.reward-prize-image {
+  align-items: center;
+  aspect-ratio: 3 / 4;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(var(--prototype-cyan-rgb), 0.16),
+      rgba(255, 255, 255, 0.04)
+    );
+  border: 1px solid rgba(var(--prototype-cyan-rgb), 0.24);
+  border-radius: 8px;
+  display: flex;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  justify-content: center;
+  overflow: hidden;
+  width: 64px;
+}
+
+.reward-prize-image img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.reward-prize-image span {
+  color: var(--prototype-muted);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
 .tier-rank.tier-rainbow {
   background: #f472b6 !important;
 }
@@ -8839,11 +8884,11 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   gap: 8px;
   grid-template-columns:
     minmax(74px, 0.5fr)
-    minmax(190px, 1.8fr)
+    minmax(260px, 2fr)
     minmax(140px, 1.1fr)
     minmax(74px, 0.54fr)
     minmax(82px, 0.58fr);
-  min-width: 620px;
+  min-width: 760px;
   padding: 10px;
 }
 
@@ -8881,6 +8926,113 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   min-height: 46px;
   padding: 8px;
   text-align: center;
+}
+
+.admin-prize-card-field {
+  min-width: 0;
+}
+
+.admin-prize-card-picker {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-prize-card-preview {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 56px minmax(0, 1fr);
+  min-height: 70px;
+  padding: 8px;
+}
+
+.admin-prize-card-preview.is-empty {
+  border-style: dashed;
+}
+
+.admin-prize-card-preview > span:last-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-prize-card-preview strong,
+.admin-prize-pool-card strong {
+  overflow-wrap: anywhere;
+}
+
+.admin-prize-card-preview small,
+.admin-prize-pool-card p:last-child {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.admin-prize-card-preview code {
+  color: var(--admin-muted);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.66rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-prize-card-thumb,
+.admin-card-catalog-thumb {
+  aspect-ratio: 4 / 5;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: block;
+  height: 64px;
+  object-fit: cover;
+  overflow: hidden;
+  width: 52px;
+}
+
+.admin-prize-card-placeholder,
+.admin-card-catalog-placeholder {
+  align-content: center;
+  color: var(--admin-text);
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 5px;
+  text-align: center;
+}
+
+.admin-prize-card-placeholder strong,
+.admin-card-catalog-placeholder strong {
+  font-size: 0.68rem;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+
+.admin-prize-card-placeholder small,
+.admin-card-catalog-placeholder small {
+  color: var(--admin-muted);
+  font-size: 0.58rem;
+  font-weight: 800;
+}
+
+.admin-prize-card-controls {
+  display: grid;
+  gap: 7px;
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1fr);
+}
+
+.admin-prize-card-controls input,
+.admin-prize-card-controls select {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  color: inherit;
+  min-height: 40px;
+  min-width: 0;
+  padding: 0 10px;
 }
 
 .admin-prize-rank-cell strong {
@@ -8971,6 +9123,15 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 
   .admin-top-prize-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-prize-card-controls,
+  .admin-prize-pool-card {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-prize-pool-actions {
+    justify-content: stretch;
   }
 
   .admin-pack-info-panel .admin-form-grid,
@@ -9936,6 +10097,16 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   gap: 12px;
 }
 
+.admin-card-catalog-item {
+  align-items: center;
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.admin-card-catalog-thumb {
+  height: 74px;
+  width: 60px;
+}
+
 .admin-id-line {
   color: var(--admin-muted) !important;
   font-family: var(--font-mono), ui-monospace, monospace;
@@ -9967,6 +10138,184 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.admin-card-catalog-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  max-height: 680px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.admin-card-catalog-list .admin-card-catalog-item {
+  align-items: center;
+  gap: 16px;
+  grid-template-columns: 112px minmax(0, 1fr) auto;
+  min-height: 150px;
+  padding: 14px;
+}
+
+.admin-card-catalog-list .admin-prize-card-thumb {
+  border-radius: 14px;
+  height: 132px;
+  width: 106px;
+}
+
+.admin-card-catalog-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-card-catalog-main > strong {
+  font-size: 1rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.admin-card-catalog-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 10px;
+}
+
+.admin-card-catalog-list .admin-card-catalog-actions {
+  align-self: center;
+  justify-content: flex-end;
+  margin-top: 0;
+}
+
+.admin-card-catalog-item.is-selected {
+  border-color: rgba(245, 158, 11, 0.45);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.18);
+}
+
+.admin-inventory-panel {
+  margin-top: clamp(14px, 1.8vw, 22px);
+}
+
+.admin-card-inventory-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-card-inventory-row {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 96px minmax(210px, 1.1fr) minmax(130px, 0.45fr) minmax(320px, 1.25fr);
+  min-height: 124px;
+  padding: 14px;
+}
+
+.admin-card-inventory-row .admin-prize-card-thumb {
+  border-radius: 14px;
+  height: 118px;
+  width: 94px;
+}
+
+.admin-card-inventory-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-card-inventory-main > strong {
+  font-size: 1rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.admin-card-inventory-stock {
+  align-content: center;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  display: grid;
+  gap: 2px;
+  min-height: 74px;
+  padding: 10px 12px;
+}
+
+.admin-card-inventory-stock span,
+.admin-card-inventory-stock small,
+.admin-card-inventory-slot small {
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.admin-card-inventory-stock strong {
+  color: var(--admin-text);
+  font-size: 1.2rem;
+  line-height: 1.15;
+}
+
+.admin-card-inventory-slots {
+  display: grid;
+  gap: 8px;
+  max-height: 164px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.admin-card-inventory-slot {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 46px;
+  padding: 8px 10px;
+}
+
+.admin-card-inventory-slot > span {
+  color: var(--admin-text);
+  font-size: 0.82rem;
+  font-weight: 850;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-stock-stepper {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 34px minmax(58px, auto) 34px;
+  justify-items: center;
+}
+
+.admin-stock-stepper strong {
+  color: var(--admin-text);
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.admin-icon-button {
+  align-items: center;
+  border-radius: 10px !important;
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  padding: 0 !important;
+  width: 34px;
+}
+
+@media (max-width: 1180px) {
+  .admin-card-inventory-row {
+    grid-template-columns: 96px minmax(0, 1fr) minmax(130px, 0.4fr);
+  }
+
+  .admin-card-inventory-slots {
+    grid-column: 1 / -1;
+  }
+}
+
 .admin-prize-list {
   display: grid;
   gap: 10px;
@@ -9974,6 +10323,41 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   max-height: 460px;
   overflow: auto;
   padding-right: 4px;
+}
+
+.admin-selected-card-note {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  border-radius: 16px;
+  color: var(--admin-text);
+  font-size: 0.86rem;
+  font-weight: 800;
+  margin-top: 12px;
+  padding: 10px 12px;
+}
+
+.admin-prize-pool-card {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  padding: 11px;
+}
+
+.admin-prize-pool-card-body {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-prize-pool-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .admin-table-panel {
@@ -10144,6 +10528,44 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   .admin-card-catalog-grid,
   .admin-redesign-reference .campaign-grid {
     grid-template-columns: 1fr !important;
+  }
+
+  .admin-card-catalog-list .admin-card-catalog-item {
+    grid-template-columns: 82px minmax(0, 1fr);
+    min-height: 126px;
+  }
+
+  .admin-card-catalog-list .admin-prize-card-thumb {
+    height: 104px;
+    width: 82px;
+  }
+
+  .admin-card-catalog-list .admin-card-catalog-actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+
+  .admin-card-catalog-list .admin-card-catalog-actions .plain-button {
+    width: 100%;
+  }
+
+  .admin-card-inventory-row {
+    grid-template-columns: 82px minmax(0, 1fr);
+    min-height: 126px;
+  }
+
+  .admin-card-inventory-row .admin-prize-card-thumb {
+    height: 104px;
+    width: 82px;
+  }
+
+  .admin-card-inventory-stock,
+  .admin-card-inventory-slots {
+    grid-column: 1 / -1;
+  }
+
+  .admin-card-inventory-slot {
+    grid-template-columns: 1fr;
   }
 
   .admin-redesign-reference table,
