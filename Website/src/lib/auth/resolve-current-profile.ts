@@ -20,10 +20,15 @@ export type ResolvedAdminSession = ResolvedProfileSession & {
   adminRole: "owner" | "admin" | "staff";
 };
 
+export function isSupabaseAuthCookieName(name: string) {
+  return name.startsWith("sb-") && /-auth-token(?:\.\d+)?$/.test(name);
+}
+
 function hasSupabaseAuthCookie(cookieStore: Awaited<ReturnType<typeof cookies>>) {
   // Supabase SSR sets cookies named like `sb-<project-ref>-auth-token`.
+  // Larger sessions are chunked as `sb-<project-ref>-auth-token.0`, `.1`, etc.
   // If none are present we can skip the GoTrue round-trip entirely.
-  return cookieStore.getAll().some((c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"));
+  return cookieStore.getAll().some((c) => isSupabaseAuthCookieName(c.name));
 }
 
 export async function resolveCurrentProfile(): Promise<ResolvedProfileSession | null> {

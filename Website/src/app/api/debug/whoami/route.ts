@@ -1,6 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
+import { isSupabaseAuthCookieName, resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +14,7 @@ export async function GET() {
     valuePrefix: c.value.slice(0, 12),
   }));
 
-  const sbAuthCookies = allCookies.filter(
-    (c) => c.name.startsWith("sb-") && c.name.includes("auth-token"),
-  );
+  const sbAuthCookies = allCookies.filter((c) => isSupabaseAuthCookieName(c.name));
 
   const profile = await resolveCurrentProfile();
 
