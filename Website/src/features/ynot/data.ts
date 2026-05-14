@@ -29,6 +29,7 @@ import type {
   YnotRandomLogicMode,
   YnotRankingRow,
   YnotShippingRequest,
+  YnotTierAnimation,
   YnotTopUp,
   YnotViewer,
   YnotWallet,
@@ -1528,6 +1529,49 @@ const getRankingsCached = unstable_cache(
 
 export async function getRankings(): Promise<YnotRankingRow[]> {
   return getRankingsCached();
+}
+
+type TierAnimationRow = {
+  tier: string;
+  video_url: string | null;
+  poster_url: string | null;
+  sound_url: string | null;
+  duration_ms: number;
+  is_active: boolean;
+};
+
+export async function getTierAnimations(): Promise<YnotTierAnimation[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createServiceSupabaseClient();
+  try {
+    const { data, error } = await (supabase.from as unknown as (
+      name: string,
+    ) => {
+      select: (columns: string) => {
+        eq: (
+          column: string,
+          value: unknown,
+        ) => Promise<{ data: TierAnimationRow[] | null; error: unknown }>;
+      };
+    })("tier_animations")
+      .select("tier,video_url,poster_url,sound_url,duration_ms,is_active")
+      .eq("is_active", true);
+    if (error || !data) return [];
+    return data
+      .filter((row) =>
+        ["bronze", "silver", "gold", "rainbow"].includes(row.tier),
+      )
+      .map((row) => ({
+        tier: row.tier as YnotTierAnimation["tier"],
+        videoUrl: row.video_url,
+        posterUrl: row.poster_url,
+        soundUrl: row.sound_url,
+        durationMs: row.duration_ms,
+        isActive: row.is_active,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 export async function getAdminUsers() {

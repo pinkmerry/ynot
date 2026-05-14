@@ -199,6 +199,37 @@ export type YnotGachaOpenHistory = {
   rewards: YnotGachaOpenReward[];
 };
 
+export type YnotGachaOpenItem = {
+  cardId: string;
+  name: string;
+  imageUrl: string | null;
+  tier: "normal" | "high" | string;
+  displayTier: "rainbow" | "gold" | "silver" | "bronze";
+  valueThb: number | null;
+  position: number;
+  prizeUnitId?: string | null;
+};
+
+export type YnotGachaOpenResult = {
+  status: "completed" | "reserved" | "failed" | string;
+  openId: string;
+  publicCode: string;
+  costCoins?: number;
+  logicMode?: string;
+  items: YnotGachaOpenItem[];
+  replayed?: boolean;
+  remaining?: Record<string, unknown> | null;
+};
+
+export type YnotTierAnimation = {
+  tier: "bronze" | "silver" | "gold" | "rainbow";
+  videoUrl: string | null;
+  posterUrl: string | null;
+  soundUrl: string | null;
+  durationMs: number;
+  isActive: boolean;
+};
+
 export type YnotPrizePreview = {
   id: string;
   cardId?: string;

@@ -12,13 +12,16 @@ import type {
   YnotCategory,
   YnotCollectionItem,
   YnotExchangeOrder,
+  YnotGachaOpenResult,
   YnotOwnerApprovalRequest,
   YnotPaymentMethod,
   YnotPrizePoolItem,
   YnotPrizePreview,
   YnotRandomLogicMode,
   YnotShippingRequest,
+  YnotTierAnimation,
 } from "./types";
+import { GachaRevealOverlay } from "./GachaRevealOverlay";
 import {
   defaultOpenQuantityOptions,
   normalizeOpenQuantityOptions,
@@ -412,11 +415,14 @@ export function GachaOpenPanel({
   campaign,
   authenticated,
   initialQuantity = 1,
+  tierAnimations,
 }: {
   campaign: YnotCampaign;
   authenticated: boolean;
   initialQuantity?: number;
+  tierAnimations?: YnotTierAnimation[];
 }) {
+  const router = useRouter();
   const openQuantityOptions = normalizeOpenQuantityOptions(
     campaign.openQuantityOptions,
   );
@@ -425,6 +431,9 @@ export function GachaOpenPanel({
     : openQuantityOptions[0];
   const [quantity, setQuantity] = useState(initialOption);
   const [message, setMessage] = useState("");
+  const [revealResult, setRevealResult] = useState<YnotGachaOpenResult | null>(
+    null,
+  );
   const [isPending, startTransition] = useTransition();
   const remainingOpenUnits = Math.min(
     campaign.remainingSlots ?? Number.POSITIVE_INFINITY,
@@ -436,24 +445,41 @@ export function GachaOpenPanel({
     return Number.isFinite(remainingOpenUnits) && option > remainingOpenUnits;
   }
 
-  function open() {
+  function fireOpen(targetQuantity: number) {
     startTransition(async () => {
       try {
         setMessage("");
         const payload = await postJson("/api/ynot/gacha/open", {
           campaignId: campaign.id,
-          quantity,
+          quantity: targetQuantity,
           idempotencyKey: crypto.randomUUID(),
         });
-        setMessage(
-          `Opened ${payload.result?.publicCode ?? "gacha"}. Result is now in Collection.`,
-        );
+        const result = (payload?.result ?? null) as YnotGachaOpenResult | null;
+        if (result && Array.isArray(result.items)) {
+          setRevealResult(result);
+        } else {
+          setMessage("Open succeeded but no items were returned.");
+        }
       } catch (error) {
         setMessage(
           error instanceof Error ? error.message : "Could not open gacha.",
         );
       }
     });
+  }
+
+  function open() {
+    fireOpen(quantity);
+  }
+
+  function handleRevealClose() {
+    setRevealResult(null);
+    router.refresh();
+  }
+
+  function handleOpenAgain() {
+    setRevealResult(null);
+    fireOpen(quantity);
   }
   if (campaign.demo) {
     return (
@@ -547,6 +573,17 @@ export function GachaOpenPanel({
         <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-bold">
           {message}
         </p>
+      )}
+      {revealResult && (
+        <GachaRevealOverlay
+          key={revealResult.openId}
+          result={revealResult}
+          quantity={quantity}
+          tierAnimations={tierAnimations}
+          isPending={isPending}
+          onClose={handleRevealClose}
+          onOpenAgain={handleOpenAgain}
+        />
       )}
     </section>
   );
