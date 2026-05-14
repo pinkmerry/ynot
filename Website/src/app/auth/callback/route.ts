@@ -8,6 +8,9 @@ import {
 } from "@/lib/lucky-draw/session";
 import type { Database } from "@/lib/supabase/types";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function safeRedirectPath(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
 
@@ -34,6 +37,10 @@ export async function GET(request: Request) {
   // cookies directly onto it. Next.js 16 does not reliably attach cookies
   // set via cookies().set() to a separately-constructed NextResponse.redirect.
   const response = NextResponse.redirect(new URL(next, url.origin));
+  // Vercel's edge CDN strips Set-Cookie from responses it considers
+  // publicly cacheable. Force-private so the auth-token cookies actually
+  // reach the browser.
+  response.headers.set("cache-control", "private, no-store");
   const cookieStore = await cookies();
 
   const supabase = createServerClient<Database>(
