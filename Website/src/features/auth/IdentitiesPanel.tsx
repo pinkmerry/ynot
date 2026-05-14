@@ -154,7 +154,7 @@ export function IdentitiesPanel({ profile, identities }: Props) {
             G Link Google
           </button>
         </form>
-        {!profile.hasLine && (
+        {!profile.hasLine && process.env.NEXT_PUBLIC_ENABLE_LINE_LOGIN === "true" && (
           <a className="auth-social line-button block w-full" href="/api/line/login/start?mode=login&next=/account/identities">
             LINE Link LINE
           </a>

@@ -910,7 +910,9 @@ export function PersonalInfoForm({
         </label>
       </div>
       <div className="personal-info-actions">
-        <a href={lineHref}>Connect / reconnect LINE</a>
+        {process.env.NEXT_PUBLIC_ENABLE_LINE_LOGIN === "true" && (
+          <a href={lineHref}>Connect / reconnect LINE</a>
+        )}
         {googleConnectHref && (
           <a href={googleConnectHref}>Connect Google / Gmail</a>
         )}

@@ -53,12 +53,14 @@ export function AuthForm({ mode, error, message, next }: AuthFormProps) {
           </button>
         </form>
 
-        <a
-          className="auth-social line-button"
-          href={`/api/line/login/start?mode=login&next=${encodeURIComponent(nextPath)}`}
-        >
-          LINE {isSignup ? "Sign up" : "Continue"} with LINE
-        </a>
+        {process.env.NEXT_PUBLIC_ENABLE_LINE_LOGIN === "true" && (
+          <a
+            className="auth-social line-button"
+            href={`/api/line/login/start?mode=login&next=${encodeURIComponent(nextPath)}`}
+          >
+            LINE {isSignup ? "Sign up" : "Continue"} with LINE
+          </a>
+        )}
 
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[var(--muted)]">
           <span className="h-px bg-white/10" />
