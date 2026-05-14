@@ -6796,7 +6796,8 @@ html[data-ynot-theme="light"] {
   --prototype-text: #000000;
   --prototype-muted: #5e6e5e;
   --prototype-success: #05a66b;
-  --jt-bg: #ebf8eb;
+  /* Page bg = pure white; header bar uses #EBF8EB (mint). */
+  --jt-bg: #ffffff;
   --jt-paper: #ffffff;
   --jt-paper-2: #f7fbf7;
   --jt-text: #000000;
@@ -12249,10 +12250,10 @@ html[data-ynot-theme="light"] .storefront-header::after {
   display: none !important;
 }
 
-/* Topbar (row 1) — solid #1A1A1A black bar with white text/icons. */
+/* Topbar (row 1) — monochromatic mint matching page bg, black text. */
 html[data-ynot-theme="light"] .store-topbar {
-  background: #1a1a1a !important;
-  color: #f5f5f5 !important;
+  background: #ebf8eb !important;
+  color: #1a1a1a !important;
 }
 
 /* Hamburger button — bare 2-line mark on DARK topbar (white icon).
@@ -12261,7 +12262,7 @@ html[data-ynot-theme="light"] .hamburger-button {
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
-  color: #f5f5f5 !important;
+  color: #1a1a1a !important;
   clip-path: none !important;
   padding: 6px 4px !important;
   min-height: 22px !important;
@@ -12309,7 +12310,7 @@ html[data-ynot-theme="light"] .store-nav {
   html[data-ynot-theme="light"] .store-nav .store-nav-link {
     background: transparent !important;
     border: 0 !important;
-    color: #f5f5f5 !important;
+    color: #1a1a1a !important;
     box-shadow: none !important;
     font-size: 10px !important;
     font-weight: 500 !important;
@@ -12335,7 +12336,7 @@ html[data-ynot-theme="light"] .header-coin-pill {
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
-  color: #f5f5f5 !important;
+  color: #1a1a1a !important;
   clip-path: none !important;
   padding: 6px 4px !important;
   min-height: 22px !important;
@@ -12354,7 +12355,7 @@ html[data-ynot-theme="light"] .header-coin-pill::after {
   display: none !important;
 }
 html[data-ynot-theme="light"] .header-coin-amount {
-  color: #f5f5f5 !important;
+  color: #1a1a1a !important;
   text-shadow: none !important;
   font-variant-numeric: tabular-nums lining-nums;
   font-weight: 500 !important;
@@ -12371,11 +12372,11 @@ html[data-ynot-theme="light"] .header-coin-pill:hover .header-coin-amount {
   color: var(--jt-green) !important;
 }
 
-/* Header coin icon — neutralize to clean white line for dark topbar. */
+/* Header coin icon — outline gold/black line on mint topbar. */
 html[data-ynot-theme="light"] .header-coin-mark {
   filter: none !important;
   font-size: 1.25em !important;
-  color: #f5f5f5;
+  color: #1a1a1a;
 }
 html[data-ynot-theme="light"] .header-coin-mark svg circle:nth-of-type(1) {
   fill: transparent !important;
@@ -12423,14 +12424,16 @@ html[data-ynot-theme="light"] .store-topbar {
     visibility 0s linear 0s;
   opacity: 1;
   visibility: visible;
-  background: #1a1a1a !important;
-  color: #f5f5f5 !important;
+  background: #ebf8eb !important;
+  color: #1a1a1a !important;
 }
 @media (max-width: 640px) {
   html[data-ynot-theme="light"] .store-topbar {
     padding: 0 22.93px !important;
     min-height: 71px !important;
     max-height: 71px !important;
+    background: #ebf8eb !important;
+    color: #1a1a1a !important;
   }
 }
 
@@ -13433,7 +13436,7 @@ html[data-ynot-theme="light"] .home-nav-rail {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 8px 24px -12px rgba(0, 0, 0, 0.35) !important;
-  color: #f5f5f5 !important;
+  color: #1a1a1a !important;
 }
 
 html[data-ynot-theme="light"] .rail-link,
@@ -13897,10 +13900,11 @@ html[data-ynot-theme="light"] .header-balance-pill {
   }
 }
 
-/* Light theme override (already on by default but keep explicit) */
-html[data-ynot-theme="light"] .ynot-footer {
-  background: var(--jt-bg, #ebf8eb);
-  color: var(--jt-text, #000000);
+/* Light theme override — explicit mint to match header bar (independent of --jt-bg). */
+html[data-ynot-theme="light"] .ynot-footer,
+html[data-ynot-theme="light"] .ynot-footer-topbar {
+  background: #ebf8eb !important;
+  color: #1a1a1a !important;
 }
 /* Higher-specificity override to defeat .app-shell input cyber-dark style */
 .app-shell .ynot-newsletter-input,
@@ -13979,7 +13983,7 @@ html[data-ynot-theme="light"] .store-topbar-left {
     letter-spacing: 0.15em !important;
     line-height: 1.5em !important;
     text-transform: uppercase !important;
-    color: #f5f5f5 !important;
+    color: #1a1a1a !important;
     background: transparent !important;
     border: 0 !important;
     box-shadow: none !important;
@@ -14046,7 +14050,7 @@ html[data-ynot-theme="light"] .store-topbar-left {
     letter-spacing: 0.15em !important;
     line-height: 1.5em !important;
     text-transform: uppercase !important;
-    color: #f5f5f5 !important;
+    color: #1a1a1a !important;
     background: transparent !important;
     border: 0 !important;
     box-shadow: none !important;
@@ -14084,7 +14088,7 @@ html[data-ynot-theme="light"] .store-topbar-left {
     letter-spacing: 0.15em !important;
     line-height: 1.5em !important;
     text-transform: uppercase !important;
-    color: #f5f5f5 !important;
+    color: #1a1a1a !important;
     background: transparent !important;
     border: 0 !important;
     box-shadow: none !important;
@@ -14115,8 +14119,9 @@ html[data-ynot-theme="light"] .store-topbar-left {
     margin: 0 0 0 1.875vw !important;
     padding: 0 !important;
     border-radius: 9999px !important;
-    background: #b8a4f5 !important; /* soft purple like reference */
-    color: #ffffff !important;
+    /* Editorial default avatar — soft gray panel, SVG provides outer ring. */
+    background: #f0f0f0 !important;
+    color: #666666 !important;
     overflow: hidden !important;
     border: 0 !important;
     box-shadow: none !important;
@@ -14128,9 +14133,9 @@ html[data-ynot-theme="light"] .store-topbar-left {
   }
   html[data-ynot-theme="light"] .store-topbar-right .store-profile-avatar-icon {
     display: inline-flex !important;
-    width: 22px !important;
-    height: 22px !important;
-    color: #ffffff !important;
+    width: 100% !important;
+    height: 100% !important;
+    color: #666666 !important;
   }
 }
 
@@ -14249,16 +14254,18 @@ html[data-ynot-theme="light"] .store-topbar-left {
   width: 48px;
   height: 48px;
   border-radius: 9999px;
-  background: #b8a4f5;
-  color: #ffffff;
+  /* Editorial default — soft gray panel; SVG provides outer ring. */
+  background: #f0f0f0;
+  color: #666666;
+  border: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
 }
 .store-profile-avatar-large svg {
-  width: 30px;
-  height: 30px;
+  width: 100%;
+  height: 100%;
 }
 .store-profile-edit {
   font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
@@ -14367,7 +14374,7 @@ html[data-ynot-theme="light"] .store-topbar-left {
     text-decoration-thickness: 1px !important;
     text-underline-offset: 6px !important;
     text-decoration-skip-ink: none !important;
-    color: #f5f5f5 !important;
+    color: #1a1a1a !important;
     opacity: 1 !important;
   }
   /* When user is hovering ANY link in the nav, remove the underline from the
@@ -14397,7 +14404,73 @@ html[data-ynot-theme="light"] .store-topbar-left {
     text-decoration-thickness: 1px !important;
     text-underline-offset: 6px !important;
     text-decoration-skip-ink: none !important;
-    color: #f5f5f5 !important;
+    color: #1a1a1a !important;
     opacity: 1 !important;
   }
+}
+
+/* Profile drawer language switcher — TH/EN toggle. */
+.store-profile-langgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.store-profile-langbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 16px;
+  background: #ffffff;
+  border: 1px solid rgba(26, 26, 26, 0.16);
+  border-radius: 4px;
+  color: #1a1a1a;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+.store-profile-langbtn:hover {
+  border-color: var(--jt-green, #05a66b);
+  color: var(--jt-green, #05a66b);
+}
+.store-profile-langbtn.active {
+  background: var(--jt-green, #05a66b);
+  border-color: var(--jt-green, #05a66b);
+  color: #ffffff;
+}
+
+/* Profile drawer language switcher — TH/EN toggle. */
+.store-profile-langgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.store-profile-langbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 16px;
+  background: #ffffff;
+  border: 1px solid rgba(26, 26, 26, 0.16);
+  border-radius: 4px;
+  color: #1a1a1a;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+.store-profile-langbtn:hover {
+  border-color: var(--jt-green, #05a66b);
+  color: var(--jt-green, #05a66b);
+}
+.store-profile-langbtn.active {
+  background: var(--jt-green, #05a66b);
+  border-color: var(--jt-green, #05a66b);
+  color: #ffffff;
 }

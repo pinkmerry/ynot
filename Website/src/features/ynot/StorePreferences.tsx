@@ -259,6 +259,9 @@ const accountCopy = {
     coupon: "Enter coupon code",
     buyCoins: "Buy coins",
     setting: "Settings",
+    language: "Language",
+    en: "EN",
+    th: "TH",
     close: "Close",
   },
   th: {
@@ -272,6 +275,9 @@ const accountCopy = {
     coupon: "ใส่โค้ดคูปอง",
     buyCoins: "ซื้อเหรียญ",
     setting: "ตั้งค่า",
+    language: "ภาษา",
+    en: "EN",
+    th: "TH",
     close: "ปิด",
   },
 } as const;
@@ -282,7 +288,7 @@ export function StoreHeaderRightNav({
 }: {
   authenticated: boolean;
 }) {
-  const { preferences } = useStorePreferences();
+  const { preferences, setLanguage } = useStorePreferences();
   const copy = settingsCopy[preferences.language];
   const account = accountCopy[preferences.language];
   const [profileOpen, setProfileOpen] = useState(false);
@@ -358,9 +364,19 @@ export function StoreHeaderRightNav({
 
         <div className="store-profile-section store-profile-identity">
           <span className="store-profile-avatar-large" aria-hidden>
-            <svg viewBox="0 0 32 32" width="100%" height="100%" fill="currentColor">
-              <circle cx="16" cy="11.5" r="5" />
-              <path d="M5 28c1.6-6 6-9.5 11-9.5s9.4 3.5 11 9.5z" />
+            <svg
+              viewBox="0 0 24 24"
+              width="100%"
+              height="100%"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.1"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="11" />
+              <circle cx="12" cy="10" r="3" />
+              <path d="M5.5 19c1.6-3 4-4.5 6.5-4.5s4.9 1.5 6.5 4.5" />
             </svg>
           </span>
           <Link
@@ -442,6 +458,26 @@ export function StoreHeaderRightNav({
             </li>
           </ul>
         </nav>
+
+        <div className="store-profile-section">
+          <span className="store-profile-section-label">{account.language}</span>
+          <div className="store-profile-langgrid">
+            <button
+              type="button"
+              className={`store-profile-langbtn${preferences.language === "th" ? " active" : ""}`}
+              onClick={() => setLanguage("th")}
+            >
+              {account.th}
+            </button>
+            <button
+              type="button"
+              className={`store-profile-langbtn${preferences.language === "en" ? " active" : ""}`}
+              onClick={() => setLanguage("en")}
+            >
+              {account.en}
+            </button>
+          </div>
+        </div>
       </aside>
     </>
   );
@@ -458,14 +494,22 @@ export function StoreHeaderRightNav({
       >
         <span aria-hidden className="store-profile-avatar-icon">
           <svg
-            viewBox="0 0 32 32"
+            viewBox="0 0 24 24"
             width="100%"
             height="100%"
-            fill="currentColor"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.1"
+            strokeLinecap="round"
+            strokeLinejoin="round"
             focusable="false"
           >
-            <circle cx="16" cy="11.5" r="5" />
-            <path d="M5 28c1.6-6 6-9.5 11-9.5s9.4 3.5 11 9.5z" />
+            {/* Outer ring fills the avatar circle */}
+            <circle cx="12" cy="12" r="11" />
+            {/* Head */}
+            <circle cx="12" cy="10" r="3" />
+            {/* Shoulders / body curve */}
+            <path d="M5.5 19c1.6-3 4-4.5 6.5-4.5s4.9 1.5 6.5 4.5" />
           </svg>
         </span>
       </button>
