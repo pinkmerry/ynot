@@ -21,14 +21,17 @@ export async function requireVerifiedAnchor(
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("email_verified_at,phone_verified_at")
+    .select("email_verified_at,phone_verified_at,line_user_id")
     .eq("id", session.profileId)
     .maybeSingle();
 
   // Pre-migration schema returns 42703 — fail open so paid actions don't break
   // before Phase 1 has been applied to the database.
   if (error && error.code !== "42703") throw error;
-  const verified = data?.email_verified_at || data?.phone_verified_at;
+  // LINE accounts are SMS-verified by LINE itself at signup time, so a linked
+  // line_user_id is treated as a sufficient anchor for paid actions.
+  const verified =
+    data?.email_verified_at || data?.phone_verified_at || data?.line_user_id;
   if (verified) return null;
 
   return Response.json(
