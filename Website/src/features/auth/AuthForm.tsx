@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { signInWithGoogleAction, signInWithPasswordAction, signUpWithPasswordAction } from "./actions";
+import { signInWithPasswordAction, signUpWithPasswordAction } from "./actions";
 
 type AuthFormProps = {
   mode: "login" | "signup";
@@ -46,12 +46,12 @@ export function AuthForm({ mode, error, message, next }: AuthFormProps) {
         {error && <p className="rounded-2xl border border-red-300/25 bg-red-400/10 px-3 py-2 text-sm font-bold text-red-100">{error}</p>}
         {message && <p className="rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-3 py-2 text-sm font-bold text-emerald-100">{message}</p>}
 
-        <form action={signInWithGoogleAction}>
-          <input type="hidden" name="next" value={nextPath} />
-          <button type="submit" className="auth-social google-button">
-            G {isSignup ? "Sign up" : "Continue"} with Google
-          </button>
-        </form>
+        <a
+          className="auth-social google-button"
+          href={`/api/auth/google/start?next=${encodeURIComponent(nextPath)}`}
+        >
+          G {isSignup ? "Sign up" : "Continue"} with Google
+        </a>
 
         {process.env.NEXT_PUBLIC_ENABLE_LINE_LOGIN === "true" && (
           <a
