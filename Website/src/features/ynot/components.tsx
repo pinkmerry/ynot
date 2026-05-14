@@ -25,10 +25,12 @@ import {
   rewardTiers,
 } from "./storefront-content";
 import { allowDemoStorefront, productionSafetyLabel } from "./runtime-flags";
+import { HeaderScrollEffect } from "./HeaderScrollEffect";
 import { normalizeOpenQuantityOptions } from "./open-quantity";
 import {
+  StoreHeaderNav,
+  StoreHeaderRightNav,
   StoreSettingsMenu,
-  StoreSortSelect,
 } from "./StorePreferences";
 import { OwnerApprovalQueue } from "./client";
 import {
@@ -254,7 +256,7 @@ function formatCoins(value: number) {
 export async function YnotShell({
   viewer,
   children,
-  homeFilter = defaultHomeFilter,
+  homeFilter,
   walletBalance,
 }: {
   viewer: YnotViewer;
@@ -293,6 +295,7 @@ export async function YnotShell({
             ) : (
               <StoreSettingsMenu />
             )}
+            <StoreHeaderNav authenticated={renderViewer.authenticated} />
           </div>
           <Link href="/" className="brand-lockup" aria-label="YNOT home">
             <Image
@@ -319,12 +322,108 @@ export async function YnotShell({
                 </span>
               </Link>
             )}
+            <StoreHeaderRightNav authenticated={renderViewer.authenticated} />
           </div>
         </div>
-        <StoreFilterStrip homeFilter={homeFilter} />
+        {homeFilter && <StoreFilterStrip homeFilter={homeFilter} />}
       </header>
+      <HeaderScrollEffect />
       {children}
+      <YnotFooter />
     </main>
+  );
+}
+
+function YnotFooter() {
+  return (
+    <footer className="ynot-footer" aria-label="Site footer">
+      <div className="ynot-footer-topbar" aria-hidden="true" />
+      <div className="ynot-footer-interior">
+        <div className="ynot-newsletter">
+          <h4 className="ynot-newsletter-title">Join the Conversation</h4>
+          <form
+            className="ynot-newsletter-form"
+            action="#"
+            method="post"
+            noValidate
+          >
+            <div className="ynot-newsletter-wrap">
+              <input
+                type="email"
+                name="email"
+                id="ynot-newsletter-email"
+                autoComplete="email"
+                placeholder=" "
+                required
+                className="ynot-newsletter-input"
+              />
+              <label
+                htmlFor="ynot-newsletter-email"
+                className="ynot-newsletter-label"
+              >
+                EMAIL ADDRESS
+              </label>
+              <button
+                type="submit"
+                className="ynot-newsletter-submit"
+                aria-label="Subscribe"
+              >
+                <svg
+                  viewBox="0 0 24 12"
+                  width="18"
+                  height="12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M0 6 H22" />
+                  <path d="M16 1 L23 6 L16 11" />
+                </svg>
+              </button>
+            </div>
+          </form>
+        </div>
+        <nav className="ynot-footer-nav" aria-label="Footer navigation">
+          <ul className="ynot-footer-list">
+            <li className="ynot-footer-item">
+              <span className="ynot-footer-locale">Thailand (THB ฿)</span>
+            </li>
+            <li className="ynot-footer-item">
+              <Link href="/contact" className="ynot-footer-link">
+                Contact
+              </Link>
+            </li>
+            <li className="ynot-footer-item">
+              <Link href="/faq" className="ynot-footer-link">
+                Client Services
+              </Link>
+            </li>
+            <li className="ynot-footer-item">
+              <Link href="/terms" className="ynot-footer-link">
+                Legal Notices
+              </Link>
+            </li>
+            <li className="ynot-footer-item">
+              <Link href="/privacy" className="ynot-footer-link">
+                Privacy
+              </Link>
+            </li>
+            <li className="ynot-footer-item">
+              <a
+                href="https://instagram.com/ynot"
+                target="_blank"
+                rel="noreferrer"
+                className="ynot-footer-link"
+              >
+                Social
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </footer>
   );
 }
 
@@ -414,7 +513,6 @@ function StoreFilterStrip({ homeFilter }: { homeFilter: HomeFilterState }) {
           );
         })}
       </div>
-      <StoreSortSelect homeFilter={homeFilter} />
     </div>
   );
 }

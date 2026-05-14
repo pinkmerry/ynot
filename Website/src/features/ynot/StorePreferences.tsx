@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { signOutAction } from "@/features/auth/actions";
 import type { HomeFilterState, HomeSortOption } from "./types";
 
@@ -16,11 +17,11 @@ type StorePreferences = {
 
 const defaults: StorePreferences = {
   language: "th",
-  theme: "dark",
+  theme: "light",
 };
 
-const languageStorageKey = "ynot-language";
-const themeStorageKey = "ynot-theme";
+const languageStorageKey = "ynot-language-v2";
+const themeStorageKey = "ynot-theme-v2";
 const preferenceEvent = "ynot-preferences-change";
 
 const navLabels = {
@@ -88,7 +89,8 @@ function safeLanguage(value: string | null | undefined): Language {
 }
 
 function safeTheme(value: string | null | undefined): Theme {
-  return value === "light" ? "light" : "dark";
+  if (value === "light" || value === "dark") return value;
+  return defaults.theme;
 }
 
 function readPreferences(): StorePreferences {
@@ -212,22 +214,263 @@ export function StoreSortSelect({
   );
 }
 
+function isNavActive(pathname: string | null, href: string): boolean {
+  if (!pathname) return false;
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function StoreHeaderNav({ authenticated }: { authenticated: boolean }) {
   const { preferences } = useStorePreferences();
   const labels = navLabels[preferences.language];
+  const pathname = usePathname();
+
+  // Profile is rendered on the RIGHT side of the topbar (see StoreHeaderRightNav).
+  const leftNav = customerNav.filter((item) => item.key !== "profile");
 
   return (
     <nav className="store-nav" aria-label="Primary navigation">
-      {customerNav.map((item) => (
-        <Link
-          className="store-nav-link"
-          href={protectedHref(item.href, authenticated, item.protected)}
-          key={item.href}
-        >
-          {labels[item.key]}
-        </Link>
-      ))}
+      {leftNav.map((item) => {
+        const active = isNavActive(pathname, item.href);
+        return (
+          <Link
+            className={`store-nav-link${active ? " active" : ""}`}
+            href={protectedHref(item.href, authenticated, item.protected)}
+            key={item.href}
+            aria-current={active ? "page" : undefined}
+          >
+            {labels[item.key]}
+          </Link>
+        );
+      })}
     </nav>
+  );
+}
+
+const accountCopy = {
+  en: {
+    title: "Account",
+    edit: "Edit profile",
+    balance: "Balance",
+    coins: "Coins",
+    cardHistory: "Card history",
+    notifications: "Notifications",
+    address: "Add or change delivery address",
+    coupon: "Enter coupon code",
+    buyCoins: "Buy coins",
+    setting: "Settings",
+    close: "Close",
+  },
+  th: {
+    title: "บัญชี",
+    edit: "แก้ไขโปรไฟล์",
+    balance: "ยอดคงเหลือ",
+    coins: "เหรียญ",
+    cardHistory: "ประวัติการ์ด",
+    notifications: "การแจ้งเตือน",
+    address: "เพิ่ม/แก้ไขที่อยู่จัดส่ง",
+    coupon: "ใส่โค้ดคูปอง",
+    buyCoins: "ซื้อเหรียญ",
+    setting: "ตั้งค่า",
+    close: "ปิด",
+  },
+} as const;
+
+/** Right-side account: shows "Login" link when signed out, profile avatar when signed in. */
+export function StoreHeaderRightNav({
+  authenticated,
+}: {
+  authenticated: boolean;
+}) {
+  const { preferences } = useStorePreferences();
+  const copy = settingsCopy[preferences.language];
+  const account = accountCopy[preferences.language];
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setProfileOpen(false);
+    }
+    document.addEventListener("keydown", closeOnEscape);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [profileOpen]);
+
+  if (!authenticated) {
+    return (
+      <Link
+        className="store-nav-link store-nav-link--right"
+        href="/login"
+        aria-current={undefined}
+      >
+        {copy.login}
+      </Link>
+    );
+  }
+
+  const profileDrawer = (
+    <>
+      <div
+        className={`store-profile-backdrop${profileOpen ? " open" : ""}`}
+        onClick={() => setProfileOpen(false)}
+        aria-hidden={!profileOpen}
+      />
+      <aside
+        className={`store-profile-drawer${profileOpen ? " open" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={account.title}
+        aria-hidden={!profileOpen}
+      >
+        <header className="store-profile-head">
+          <span className="store-profile-title">{account.title}</span>
+          <button
+            aria-label={account.close}
+            className="store-profile-close"
+            onClick={() => setProfileOpen(false)}
+            type="button"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="1.2em"
+              height="1.2em"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M6 6 L18 18 M18 6 L6 18" />
+            </svg>
+          </button>
+        </header>
+
+        <div className="store-profile-section store-profile-identity">
+          <span className="store-profile-avatar-large" aria-hidden>
+            <svg viewBox="0 0 32 32" width="100%" height="100%" fill="currentColor">
+              <circle cx="16" cy="11.5" r="5" />
+              <path d="M5 28c1.6-6 6-9.5 11-9.5s9.4 3.5 11 9.5z" />
+            </svg>
+          </span>
+          <Link
+            className="store-profile-edit"
+            href="/profile"
+            onClick={() => setProfileOpen(false)}
+          >
+            {account.edit}
+          </Link>
+        </div>
+
+        <div className="store-profile-section">
+          <span className="store-profile-section-label">{account.balance}</span>
+          <Link
+            className="store-profile-balance-row"
+            href="/wallet"
+            onClick={() => setProfileOpen(false)}
+          >
+            <span>{account.coins}</span>
+            <span className="store-profile-balance-value">— +</span>
+          </Link>
+          <Link
+            className="store-profile-cta"
+            href="/wallet"
+            onClick={() => setProfileOpen(false)}
+          >
+            {account.buyCoins}
+          </Link>
+        </div>
+
+        <nav className="store-profile-section" aria-label={account.title}>
+          <span className="store-profile-section-label">{account.title}</span>
+          <ul className="store-profile-list">
+            <li>
+              <Link
+                className="store-profile-link"
+                href="/notifications"
+                onClick={() => setProfileOpen(false)}
+              >
+                {account.notifications}
+              </Link>
+            </li>
+            <li>
+              <Link
+                className="store-profile-link"
+                href="/profile/personal-info"
+                onClick={() => setProfileOpen(false)}
+              >
+                {account.address}
+              </Link>
+            </li>
+            <li>
+              <Link
+                className="store-profile-link"
+                href="/collection"
+                onClick={() => setProfileOpen(false)}
+              >
+                {account.cardHistory}
+              </Link>
+            </li>
+            <li>
+              <Link
+                className="store-profile-link"
+                href="/wallet"
+                onClick={() => setProfileOpen(false)}
+              >
+                {account.coupon}
+              </Link>
+            </li>
+            <li>
+              <form action={signOutAction}>
+                <button
+                  className="store-profile-link store-profile-link-danger"
+                  type="submit"
+                >
+                  {copy.logout}
+                </button>
+              </form>
+            </li>
+          </ul>
+        </nav>
+      </aside>
+    </>
+  );
+
+  return (
+    <>
+      <button
+        type="button"
+        className="store-profile-avatar"
+        onClick={() => setProfileOpen(true)}
+        aria-label={navLabels[preferences.language].profile}
+        aria-expanded={profileOpen}
+        aria-haspopup="dialog"
+      >
+        <span aria-hidden className="store-profile-avatar-icon">
+          <svg
+            viewBox="0 0 32 32"
+            width="100%"
+            height="100%"
+            fill="currentColor"
+            focusable="false"
+          >
+            <circle cx="16" cy="11.5" r="5" />
+            <path d="M5 28c1.6-6 6-9.5 11-9.5s9.4 3.5 11 9.5z" />
+          </svg>
+        </span>
+      </button>
+      {mounted ? createPortal(profileDrawer, document.body) : null}
+    </>
   );
 }
 
@@ -241,8 +484,13 @@ export function StoreSettingsMenu({
 } = {}) {
   const { preferences, setLanguage } = useStorePreferences();
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const copy = settingsCopy[preferences.language];
   const navStrings = navLabels[preferences.language];
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -265,42 +513,8 @@ export function StoreSettingsMenu({
     };
   }
 
-  return (
-    <div className="settings-menu">
-      <button
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        aria-label={copy.button}
-        className="settings-menu-button hamburger-button"
-        onClick={() => setOpen((value) => !value)}
-        title={copy.button}
-        type="button"
-      >
-        <span aria-hidden className="settings-menu-icon">
-          <svg
-            viewBox="0 0 24 24"
-            width="1em"
-            height="1em"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="square"
-            strokeLinejoin="miter"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path d="M3.5 5.5 V18.5" strokeOpacity="0.6" strokeWidth="1.2" />
-            <path d="M3.5 7 H18.5" />
-            <path d="M3.5 12 H16" strokeOpacity="0.88" />
-            <path d="M3.5 17 H13" strokeOpacity="0.7" />
-            <rect x="18" y="6" width="2.4" height="2.4" fill="currentColor" stroke="none" />
-            <rect x="15.5" y="11" width="2.4" height="2.4" fill="currentColor" stroke="none" fillOpacity="0.88" />
-            <rect x="12.5" y="16" width="2.4" height="2.4" fill="currentColor" stroke="none" fillOpacity="0.7" />
-          </svg>
-        </span>
-        <span className="settings-menu-label">{copy.button}</span>
-      </button>
-
+  const drawerMarkup = (
+    <>
       <div
         className={`store-drawer-backdrop${open ? " open" : ""}`}
         onClick={() => setOpen(false)}
@@ -416,6 +630,42 @@ export function StoreSettingsMenu({
           </div>
         </div>
       </aside>
+    </>
+  );
+
+  return (
+    <div className="settings-menu">
+      <button
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label={copy.button}
+        className="settings-menu-button hamburger-button"
+        onClick={() => setOpen((value) => !value)}
+        title={copy.button}
+        type="button"
+      >
+        <span aria-hidden className="settings-menu-icon">
+          <svg
+            viewBox="0 0 24 24"
+            width="1em"
+            height="1em"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.1"
+            strokeLinecap="square"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M4 10 H20" />
+            <path d="M4 14 H20" />
+          </svg>
+        </span>
+        <span className="settings-menu-label">{copy.button}</span>
+      </button>
+
+      {/* Portal drawer + backdrop to document.body so it escapes the header's
+          transformed containing block (will-change: transform on .storefront-header). */}
+      {mounted ? createPortal(drawerMarkup, document.body) : null}
     </div>
   );
 }
