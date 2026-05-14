@@ -12948,3 +12948,110 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
     animation: none !important;
   }
 }
+
+/* === Admin tier animations page === */
+.admin-tier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+.admin-tier-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.25rem;
+}
+.admin-tier-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.admin-tier-form-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.admin-tier-form-state {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.admin-tier-form-state[data-active="1"] { color: #22c55e; }
+.admin-tier-form-state[data-active="0"] { color: #94a3b8; }
+.admin-tier-form-current {
+  font-size: 0.78rem;
+  background: rgba(15, 23, 42, 0.35);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+.admin-tier-form-current dt {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  font-size: 0.65rem;
+}
+.admin-tier-form-current dd {
+  margin: 0.1rem 0 0;
+  word-break: break-all;
+}
+.admin-tier-form-current a {
+  color: #67e8f9;
+  text-decoration: underline;
+}
+.admin-tier-form-current em {
+  color: #64748b;
+}
+.admin-tier-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+}
+.admin-tier-form-field span {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.admin-tier-form-field input[type="file"],
+.admin-tier-form-field input[type="number"] {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: inherit;
+  padding: 0.5rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+.admin-tier-form-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+.admin-tier-form-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+.admin-tier-form-message {
+  color: #22c55e;
+  font-size: 0.8rem;
+}
+.admin-tier-form-error {
+  color: #f87171;
+  font-size: 0.8rem;
+}
+.admin-empty {
+  padding: 2rem;
+  text-align: center;
+  color: #94a3b8;
+}

@@ -1574,6 +1574,43 @@ export async function getTierAnimations(): Promise<YnotTierAnimation[]> {
   }
 }
 
+export async function getAllTierAnimationsForAdmin(): Promise<
+  YnotTierAnimation[]
+> {
+  if (!isSupabaseConfigured()) return [];
+  const admin = await resolveAdminSession();
+  if (!admin) return [];
+  const supabase = createServiceSupabaseClient();
+  try {
+    const { data, error } = await (supabase.from as unknown as (
+      name: string,
+    ) => {
+      select: (columns: string) => {
+        order: (
+          column: string,
+        ) => Promise<{ data: TierAnimationRow[] | null; error: unknown }>;
+      };
+    })("tier_animations")
+      .select("tier,video_url,poster_url,sound_url,duration_ms,is_active")
+      .order("tier");
+    if (error || !data) return [];
+    const order = ["rainbow", "gold", "silver", "bronze"];
+    return data
+      .filter((row) => order.includes(row.tier))
+      .sort((a, b) => order.indexOf(a.tier) - order.indexOf(b.tier))
+      .map((row) => ({
+        tier: row.tier as YnotTierAnimation["tier"],
+        videoUrl: row.video_url,
+        posterUrl: row.poster_url,
+        soundUrl: row.sound_url,
+        durationMs: row.duration_ms,
+        isActive: row.is_active,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export async function getAdminUsers() {
   if (!isSupabaseConfigured()) return [];
   const admin = await resolveAdminSession();

@@ -61,6 +61,7 @@ const adminNavItems = [
   { href: "/admin/shipping", label: "Shipping", kicker: "Fulfill" },
   { href: "/admin/exchange", label: "Exchange", kicker: "Review" },
   { href: "/admin/settings", label: "Settings", kicker: "Payments" },
+  { href: "/admin/tier-animations", label: "Reveal Videos", kicker: "Gacha" },
   { href: "/admin/audit", label: "Audit", kicker: "Log" },
   { href: "/admin/health", label: "Health", kicker: "System" },
 ] as const;
