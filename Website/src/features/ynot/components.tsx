@@ -718,12 +718,6 @@ function MobileTorecaHero({ campaign }: { campaign?: YnotCampaign }) {
           {campaign ? "Rip Mystery Pack" : "View Readiness"}
         </Link>
       </div>
-      <Link
-        className="hero-see-more"
-        href={homeFilterHref({ series: "pokemon" })}
-      >
-        ⌄ See more packs ⌄
-      </Link>
     </section>
   );
 }

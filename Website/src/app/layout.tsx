@@ -72,6 +72,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-ynot-theme="light"
+      data-ynot-language="th"
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${plexThai.variable} ${plexSans.variable} ${notoThai.variable} ${prompt.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

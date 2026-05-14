@@ -14095,7 +14095,7 @@ html[data-ynot-theme="light"] .toreca-mobile-hero {
   html[data-ynot-theme="light"] .toreca-mobile-hero .hero-rip-button {
     /* Pin button to the bottom-center of the hero (yfifteen.com style). */
     position: absolute !important;
-    bottom: 72px !important;
+    bottom: 48px !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     background: #ffffff !important;
@@ -15577,4 +15577,307 @@ html[data-ynot-theme="light"] .store-topbar-left {
   background: var(--jt-green, #05a66b);
   border-color: var(--jt-green, #05a66b);
   color: #ffffff;
+}
+
+/* ============================================================
+ * FOG MINT THEME — Auth pages (/login, /signup, /complete-profile)
+ * ============================================================ */
+html[data-ynot-theme="light"] .auth-template-shell {
+  background: #ffffff !important;
+  color: #1a1a1a !important;
+  min-height: 100dvh !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 60px 24px !important;
+}
+
+html[data-ynot-theme="light"] .glass.auth-phone,
+html[data-ynot-theme="light"] .auth-phone {
+  background: #ffffff !important;
+  border: 1px solid rgba(26, 26, 26, 0.10) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.10) !important;
+  color: #1a1a1a !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  padding: 40px 32px !important;
+  max-width: 440px !important;
+  width: 100% !important;
+}
+
+html[data-ynot-theme="light"] .auth-top-bar {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: baseline !important;
+  margin-bottom: 28px !important;
+  padding-bottom: 16px !important;
+  border-bottom: 1px solid rgba(26, 26, 26, 0.08) !important;
+}
+html[data-ynot-theme="light"] .auth-top-bar h1 {
+  color: #1a1a1a !important;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+}
+html[data-ynot-theme="light"] .auth-top-bar a {
+  color: #1a1a1a !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  text-decoration: underline !important;
+  text-decoration-thickness: 1px !important;
+  text-underline-offset: 4px !important;
+}
+html[data-ynot-theme="light"] .auth-top-bar a:hover {
+  opacity: 0.65 !important;
+}
+
+html[data-ynot-theme="light"] .auth-hero-mark {
+  font-size: 48px !important;
+  text-align: center !important;
+  margin: 16px 0 8px !important;
+}
+html[data-ynot-theme="light"] .sequence-label {
+  color: rgba(26, 26, 26, 0.55) !important;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-size: 10px !important;
+  letter-spacing: 0.22em !important;
+  text-transform: uppercase !important;
+  margin-bottom: 24px !important;
+}
+
+html[data-ynot-theme="light"] .auth-social {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 14px 20px !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(26, 26, 26, 0.16) !important;
+  border-radius: 4px !important;
+  color: #1a1a1a !important;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  text-decoration: none !important;
+  width: 100% !important;
+  margin-bottom: 12px !important;
+  transition: border-color 0.18s ease, background 0.18s ease !important;
+}
+html[data-ynot-theme="light"] .auth-social:hover {
+  border-color: var(--jt-green, #05a66b) !important;
+  background: rgba(5, 166, 107, 0.04) !important;
+}
+html[data-ynot-theme="light"] .auth-social.line-button {
+  background: #06c755 !important;
+  border-color: #06c755 !important;
+  color: #ffffff !important;
+}
+html[data-ynot-theme="light"] .auth-social.line-button:hover {
+  background: #05b14a !important;
+  border-color: #05b14a !important;
+}
+
+html[data-ynot-theme="light"] .auth-phone .grid {
+  color: rgba(26, 26, 26, 0.55) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.22em !important;
+  margin: 20px 0 !important;
+}
+html[data-ynot-theme="light"] .auth-phone span[class*="h-px"] {
+  background: rgba(26, 26, 26, 0.16) !important;
+}
+
+html[data-ynot-theme="light"] .auth-phone form label {
+  color: #1a1a1a !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  display: block !important;
+  margin-bottom: 8px !important;
+}
+html[data-ynot-theme="light"] .auth-phone form input[type="email"],
+html[data-ynot-theme="light"] .auth-phone form input[type="password"],
+html[data-ynot-theme="light"] .auth-phone form input[type="text"] {
+  width: 100% !important;
+  padding: 12px 14px !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(26, 26, 26, 0.16) !important;
+  border-radius: 4px !important;
+  color: #1a1a1a !important;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-size: 14px !important;
+  letter-spacing: 0.02em !important;
+  outline: none !important;
+  box-shadow: none !important;
+  margin-top: 4px !important;
+}
+html[data-ynot-theme="light"] .auth-phone form input:focus {
+  border-color: var(--jt-green, #05a66b) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(5, 166, 107, 0.15) !important;
+}
+
+html[data-ynot-theme="light"] .auth-phone form button[type="submit"],
+html[data-ynot-theme="light"] .auth-phone .gold-button {
+  width: 100% !important;
+  padding: 14px 20px !important;
+  background: #1a1a1a !important;
+  border: 1px solid #1a1a1a !important;
+  border-radius: 4px !important;
+  color: #ffffff !important;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  margin-top: 8px !important;
+  transition: background 0.18s ease, border-color 0.18s ease !important;
+}
+html[data-ynot-theme="light"] .auth-phone form button[type="submit"]:hover,
+html[data-ynot-theme="light"] .auth-phone .gold-button:hover {
+  background: var(--jt-green, #05a66b) !important;
+  border-color: var(--jt-green, #05a66b) !important;
+}
+
+html[data-ynot-theme="light"] .auth-phone p[class*="border-red"] {
+  background: rgba(209, 67, 67, 0.06) !important;
+  border: 1px solid rgba(209, 67, 67, 0.30) !important;
+  color: #b02929 !important;
+}
+html[data-ynot-theme="light"] .auth-phone p[class*="border-emerald"] {
+  background: rgba(5, 166, 107, 0.06) !important;
+  border: 1px solid rgba(5, 166, 107, 0.30) !important;
+  color: #05a66b !important;
+}
+
+/* ============================================================
+ * FOG MINT THEME — Admin pages (/admin and subpaths)
+ * ============================================================ */
+html[data-ynot-theme="light"] .admin-list-card,
+html[data-ynot-theme="light"] .admin-panel,
+html[data-ynot-theme="light"] .admin-table-panel,
+html[data-ynot-theme="light"] .admin-section,
+html[data-ynot-theme="light"] .admin-stack-card,
+html[data-ynot-theme="light"] .admin-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(26, 26, 26, 0.08) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  color: #1a1a1a !important;
+}
+
+html[data-ynot-theme="light"] .admin-panel-head,
+html[data-ynot-theme="light"] .admin-list-card-head,
+html[data-ynot-theme="light"] .admin-section-head {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(26, 26, 26, 0.06) !important;
+  color: #1a1a1a !important;
+  padding: 16px 20px !important;
+}
+html[data-ynot-theme="light"] .admin-panel-head h2,
+html[data-ynot-theme="light"] .admin-panel-head h3,
+html[data-ynot-theme="light"] .admin-section-head h2 {
+  color: #1a1a1a !important;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  font-size: 14px !important;
+}
+
+html[data-ynot-theme="light"] .admin-code-block,
+html[data-ynot-theme="light"] pre,
+html[data-ynot-theme="light"] code {
+  background: rgba(26, 26, 26, 0.04) !important;
+  border: 1px solid rgba(26, 26, 26, 0.08) !important;
+  color: #1a1a1a !important;
+}
+
+html[data-ynot-theme="light"] .admin-nav-link,
+html[data-ynot-theme="light"] .admin-nav-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(26, 26, 26, 0.08) !important;
+  color: #1a1a1a !important;
+}
+html[data-ynot-theme="light"] .admin-nav-link:hover,
+html[data-ynot-theme="light"] .admin-nav-card:hover {
+  border-color: var(--jt-green, #05a66b) !important;
+  background: rgba(5, 166, 107, 0.03) !important;
+}
+html[data-ynot-theme="light"] .admin-nav-link.active,
+html[data-ynot-theme="light"] .admin-nav-card.active {
+  background: var(--jt-green, #05a66b) !important;
+  border-color: var(--jt-green, #05a66b) !important;
+  color: #ffffff !important;
+}
+
+/* Admin tables */
+html[data-ynot-theme="light"] .admin-table,
+html[data-ynot-theme="light"] table.admin-table th,
+html[data-ynot-theme="light"] table.admin-table td {
+  background: #ffffff !important;
+  border-color: rgba(26, 26, 26, 0.06) !important;
+  color: #1a1a1a !important;
+}
+html[data-ynot-theme="light"] table.admin-table th {
+  color: rgba(26, 26, 26, 0.55) !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  font-size: 11px !important;
+  background: #fafafa !important;
+}
+html[data-ynot-theme="light"] table.admin-table tr:hover td {
+  background: rgba(5, 166, 107, 0.03) !important;
+}
+
+/* Generic form controls inside store / admin */
+html[data-ynot-theme="light"] .store-shell select,
+html[data-ynot-theme="light"] .store-shell textarea,
+html[data-ynot-theme="light"] .app-shell select:not(.ynot-newsletter-input),
+html[data-ynot-theme="light"] .app-shell textarea:not(.ynot-newsletter-input) {
+  background: #ffffff !important;
+  border: 1px solid rgba(26, 26, 26, 0.16) !important;
+  border-radius: 4px !important;
+  color: #1a1a1a !important;
+  padding: 10px 14px !important;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+}
+html[data-ynot-theme="light"] .store-shell input:not(.ynot-newsletter-input):not([type="checkbox"]):not([type="radio"]),
+html[data-ynot-theme="light"] .app-shell input:not(.ynot-newsletter-input):not([type="checkbox"]):not([type="radio"]) {
+  background: #ffffff !important;
+  border: 1px solid rgba(26, 26, 26, 0.16) !important;
+  border-radius: 4px !important;
+  color: #1a1a1a !important;
+  padding: 10px 14px !important;
+}
+
+/* Soft pills, status indicators */
+html[data-ynot-theme="light"] .soft-pill,
+html[data-ynot-theme="light"] .status-pill {
+  background: rgba(5, 166, 107, 0.08) !important;
+  border: 1px solid rgba(5, 166, 107, 0.20) !important;
+  color: #05a66b !important;
+}
+
+/* Gold/yellow accent buttons across admin & store — keep but darker on light bg */
+html[data-ynot-theme="light"] .gold-button {
+  background: #1a1a1a !important;
+  color: #ffffff !important;
+  border: 1px solid #1a1a1a !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+html[data-ynot-theme="light"] .gold-button:hover {
+  background: var(--jt-green, #05a66b) !important;
+  border-color: var(--jt-green, #05a66b) !important;
 }
