@@ -199,13 +199,50 @@ export type YnotGachaOpenHistory = {
   rewards: YnotGachaOpenReward[];
 };
 
+export type YnotGachaOpenItem = {
+  cardId: string;
+  name: string;
+  imageUrl: string | null;
+  tier: "normal" | "high" | string;
+  displayTier: "rainbow" | "gold" | "silver" | "bronze";
+  valueThb: number | null;
+  position: number;
+  prizeUnitId?: string | null;
+};
+
+export type YnotGachaOpenResult = {
+  status: "completed" | "reserved" | "failed" | string;
+  openId: string;
+  publicCode: string;
+  costCoins?: number;
+  logicMode?: string;
+  items: YnotGachaOpenItem[];
+  replayed?: boolean;
+  remaining?: Record<string, unknown> | null;
+};
+
+export type YnotTierAnimation = {
+  tier: "bronze" | "silver" | "gold" | "rainbow";
+  videoUrl: string | null;
+  posterUrl: string | null;
+  soundUrl: string | null;
+  durationMs: number;
+  isActive: boolean;
+};
+
 export type YnotPrizePreview = {
   id: string;
   cardId?: string;
+  cardCode?: string | null;
+  cardGrade?: string | null;
+  cardImageUrl?: string | null;
+  cardImageStoragePath?: string | null;
+  cardPrizeCategory?: string | null;
   cardName: string;
   tier: "normal" | "high";
   rank: number;
   valueThb?: number | null;
+  plannedQuantity?: number;
   availableUnits?: number;
   totalUnits?: number;
   weight?: number;
@@ -245,6 +282,11 @@ export type YnotPrizePoolItem = {
   campaignTitle: string;
   cardId: string;
   cardName: string;
+  cardCode?: string | null;
+  cardGrade?: string | null;
+  cardImageUrl?: string | null;
+  cardImageStoragePath?: string | null;
+  cardPrizeCategory?: string | null;
   tier: "normal" | "high";
   rank: number;
   valueThb?: number | null;
@@ -257,6 +299,7 @@ export type YnotPrizePoolItem = {
   displayTier?: string;
   displayTierLabel?: string;
   tierRank?: number;
+  plannedQuantity: number;
   totalUnits: number;
   availableUnits: number;
   awardedUnits: number;

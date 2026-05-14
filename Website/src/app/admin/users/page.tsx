@@ -7,14 +7,14 @@ import {
 import {
   getAdminMergeRequests,
   getAdminUsers,
-  getYnotDashboardData,
+  getYnotDashboardSlice,
 } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
   const [data, users, mergeRequests] = await Promise.all([
-    getYnotDashboardData(),
+    getYnotDashboardSlice(),
     getAdminUsers(),
     getAdminMergeRequests(),
   ]);

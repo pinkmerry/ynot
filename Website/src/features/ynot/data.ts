@@ -1,6 +1,7 @@
 import "server-only";
 
 import { AsyncLocalStorage } from "node:async_hooks";
+import { unstable_cache } from "next/cache";
 
 import {
   resolveAdminSession,
@@ -28,6 +29,7 @@ import type {
   YnotRandomLogicMode,
   YnotRankingRow,
   YnotShippingRequest,
+  YnotTierAnimation,
   YnotTopUp,
   YnotViewer,
   YnotWallet,
@@ -223,6 +225,150 @@ function effectivePrizeUnlockAtSoldPct(
   );
 }
 
+async function getPublicPrizeLineupsBatch(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  rows: DrawRoundRow[],
+  inventoryByCampaign: Map<string, InventorySummary>,
+  options: { includeLocked?: boolean } = {},
+): Promise<Map<string, YnotPrizePreview[]>> {
+  const out = new Map<string, YnotPrizePreview[]>();
+  if (!rows.length) return out;
+
+  const campaignIds = rows.map((row) => row.id);
+  const { data: prizes, error: prizesError } = await supabase
+    .from("draw_round_prizes")
+    .select("*")
+    .in("draw_round_id", campaignIds)
+    .order("tier", { ascending: true })
+    .order("rank", { ascending: true });
+  if (prizesError) throw prizesError;
+  const prizeRows = prizes ?? [];
+
+  const visiblePrizesByCampaign = new Map<string, typeof prizeRows>();
+  for (const row of rows) {
+    const inventory = inventoryByCampaign.get(row.id);
+    const soldPct = soldPctForCampaign(row, inventory);
+    const logicMode = normalizeRandomLogicMode(row.logic_snapshot);
+    const visible = prizeRows
+      .filter((prize) => prize.draw_round_id === row.id)
+      .filter(
+        (prize) =>
+          !isAdminHidden(prize.metadata) &&
+          (options.includeLocked ||
+            (effectivePrizeWeight(prize, logicMode) > 0 &&
+              effectivePrizeUnlockAtSoldPct(prize, logicMode) <= soldPct)),
+      );
+    if (visible.length) visiblePrizesByCampaign.set(row.id, visible);
+  }
+
+  if (!visiblePrizesByCampaign.size) {
+    for (const row of rows) out.set(row.id, []);
+    return out;
+  }
+
+  const allVisible = Array.from(visiblePrizesByCampaign.values()).flat();
+  const cardIds = [...new Set(allVisible.map((prize) => prize.card_id))];
+  const prizeIds = allVisible.map((prize) => prize.id);
+
+  const [{ data: cards, error: cardsError }, { data: units, error: unitsError }] =
+    await Promise.all([
+      cardIds.length
+        ? supabase
+            .from("cards")
+            .select("id,name,card_code,grade,image_url,image_storage_path,prize_category")
+            .in("id", cardIds)
+        : Promise.resolve({ data: [], error: null } as {
+            data:
+              | {
+                  id: string;
+                  name: string;
+                  card_code?: string | null;
+                  grade?: string | null;
+                  image_url?: string | null;
+                  image_storage_path?: string | null;
+                  prize_category?: string | null;
+                }[]
+              | null;
+            error: null;
+          }),
+      prizeIds.length
+        ? supabase
+            .from("draw_round_prize_units")
+            .select("draw_round_prize_id,status")
+            .in("draw_round_prize_id", prizeIds)
+            .limit(10000)
+        : Promise.resolve({ data: [], error: null } as {
+            data: { draw_round_prize_id: string; status: string }[] | null;
+            error: null;
+          }),
+    ]);
+  if (cardsError) throw cardsError;
+  if (unitsError) throw unitsError;
+
+  const cardById = new Map((cards ?? []).map((card) => [card.id, card]));
+  const countsByPrize = new Map<string, { total: number; available: number }>();
+  for (const unit of units ?? []) {
+    const counts = countsByPrize.get(unit.draw_round_prize_id) ?? {
+      total: 0,
+      available: 0,
+    };
+    counts.total += 1;
+    if (unit.status === "available") counts.available += 1;
+    countsByPrize.set(unit.draw_round_prize_id, counts);
+  }
+
+  for (const row of rows) {
+    const visible = visiblePrizesByCampaign.get(row.id) ?? [];
+    const previews: YnotPrizePreview[] = visible
+      .map((prize) => {
+        const counts = countsByPrize.get(prize.id);
+        const displayTier = displayTierFromPrizeMetadata(prize);
+        const card = cardById.get(prize.card_id);
+        return {
+          id: prize.id,
+          cardId: prize.card_id,
+          cardCode: card?.card_code ?? null,
+          cardGrade: card?.grade ?? null,
+          cardImageUrl: card?.image_url ?? null,
+          cardImageStoragePath: card?.image_storage_path ?? null,
+          cardPrizeCategory: card?.prize_category ?? null,
+          cardName: card?.name ?? "Mystery reward",
+          tier: prize.tier,
+          rank: prize.rank,
+          valueThb: prize.value_thb,
+          plannedQuantity: Number(prize.planned_quantity ?? counts?.total ?? 0) || 0,
+          availableUnits:
+            counts?.available ?? (Number(prize.planned_quantity ?? 0) || undefined),
+          totalUnits:
+            counts?.total ?? (Number(prize.planned_quantity ?? 0) || undefined),
+          weight: Number(prize.weight ?? 1),
+          unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
+          prizeCategory: metadataString(prize.metadata, "prizeCategory"),
+          prizeCategoryLabel: metadataString(
+            prize.metadata,
+            "prizeCategoryLabel",
+          ),
+          sourceType: metadataString(prize.metadata, "sourceType"),
+          displayGroup: metadataString(prize.metadata, "displayGroup"),
+          displayTier,
+          displayTierLabel:
+            metadataString(prize.metadata, "displayTierLabel") ??
+            prizeDisplayTierLabel(displayTier),
+          tierRank: metadataNumber(prize.metadata, "tierRank") ?? prize.rank,
+        };
+      })
+      .sort((left, right) => {
+        const tierOrder =
+          prizeDisplayTierOrder(left.displayTier) -
+          prizeDisplayTierOrder(right.displayTier);
+        if (tierOrder !== 0) return tierOrder;
+        return (left.tierRank ?? left.rank) - (right.tierRank ?? right.rank);
+      });
+    out.set(row.id, previews);
+  }
+  return out;
+}
+
 async function getPublicPrizeLineup(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   row: DrawRoundRow,
@@ -252,7 +398,10 @@ async function getPublicPrizeLineup(
   const prizeIds = visiblePrizes.map((prize) => prize.id);
   const [{ data: cards, error: cardsError }, { data: units, error: unitsError }] =
     await Promise.all([
-      supabase.from("cards").select("id,name").in("id", cardIds),
+      supabase
+        .from("cards")
+        .select("id,name,card_code,grade,image_url,image_storage_path,prize_category")
+        .in("id", cardIds),
       supabase
         .from("draw_round_prize_units")
         .select("draw_round_prize_id,status")
@@ -278,15 +427,24 @@ async function getPublicPrizeLineup(
     .map((prize) => {
       const counts = countsByPrize.get(prize.id);
       const displayTier = displayTierFromPrizeMetadata(prize);
+      const card = cardById.get(prize.card_id);
       return {
         id: prize.id,
         cardId: prize.card_id,
-        cardName: cardById.get(prize.card_id)?.name ?? "Mystery reward",
+        cardCode: card?.card_code ?? null,
+        cardGrade: card?.grade ?? null,
+        cardImageUrl: card?.image_url ?? null,
+        cardImageStoragePath: card?.image_storage_path ?? null,
+        cardPrizeCategory: card?.prize_category ?? null,
+        cardName: card?.name ?? "Mystery reward",
         tier: prize.tier,
         rank: prize.rank,
         valueThb: prize.value_thb,
-        availableUnits: counts?.available,
-        totalUnits: counts?.total,
+        plannedQuantity: Number(prize.planned_quantity ?? counts?.total ?? 0) || 0,
+        availableUnits:
+          counts?.available ?? (Number(prize.planned_quantity ?? 0) || undefined),
+        totalUnits:
+          counts?.total ?? (Number(prize.planned_quantity ?? 0) || undefined),
         weight: Number(prize.weight ?? 1),
         unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
         prizeCategory: metadataString(prize.metadata, "prizeCategory"),
@@ -716,7 +874,7 @@ async function readOrEmpty<T>(
   }
 }
 
-export async function getCampaigns(
+async function getCampaignsImpl(
   options: { includePrivate?: boolean } = {},
 ): Promise<YnotCampaign[]> {
   if (!isSupabaseConfigured()) return [];
@@ -806,28 +964,20 @@ export async function getCampaigns(
         .map((readiness) => [readiness.campaignId, readiness]),
     );
 
-    const prizeLineupsByCampaign = new Map<string, YnotPrizePreview[]>();
+    let prizeLineupsByCampaign = new Map<string, YnotPrizePreview[]>();
     if (options.includePrivate) {
-      const prizeLineupRows = await Promise.all(
-        rows.map(async (row) => {
-          try {
-            return [
-              row.id,
-              await getPublicPrizeLineup(
-                supabase,
-                row,
-                inventoryByCampaign.get(row.id),
-                { includeLocked: true },
-              ),
-            ] as const;
-          } catch (error) {
-            recordDataIssue("campaign_owner_prize_lineup", error);
-            return [row.id, [] as YnotPrizePreview[]] as const;
-          }
-        }),
-      );
-      for (const [campaignId, prizeLineup] of prizeLineupRows) {
-        prizeLineupsByCampaign.set(campaignId, prizeLineup);
+      try {
+        prizeLineupsByCampaign = await getPublicPrizeLineupsBatch(
+          supabase,
+          rows,
+          inventoryByCampaign,
+          { includeLocked: true },
+        );
+      } catch (error) {
+        recordDataIssue("campaign_owner_prize_lineup", error);
+        prizeLineupsByCampaign = new Map(
+          rows.map((row) => [row.id, [] as YnotPrizePreview[]]),
+        );
       }
     }
 
@@ -851,8 +1001,21 @@ export async function getCampaigns(
   });
 }
 
-export async function getStoreCategories(
-  options: { includeTest?: boolean } = {},
+const getPublicCampaignsCached = unstable_cache(
+  () => getCampaignsImpl({ includePrivate: false }),
+  ["ynot-campaigns-public-v1"],
+  { tags: ["campaigns"], revalidate: 60 },
+);
+
+export async function getCampaigns(
+  options: { includePrivate?: boolean } = {},
+): Promise<YnotCampaign[]> {
+  if (options.includePrivate) return getCampaignsImpl(options);
+  return getPublicCampaignsCached();
+}
+
+async function getStoreCategoriesImpl(
+  includeTest: boolean,
 ): Promise<YnotCategory[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
@@ -862,7 +1025,7 @@ export async function getStoreCategories(
       .select("*")
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
-    if (!options.includeTest)
+    if (!includeTest)
       query = query.eq("is_active", true).eq("is_test", false);
     const { data, error } = await query;
     if (error) throw error;
@@ -880,6 +1043,19 @@ export async function getStoreCategories(
       isTest: row.is_test,
     }));
   });
+}
+
+const getPublicStoreCategoriesCached = unstable_cache(
+  () => getStoreCategoriesImpl(false),
+  ["ynot-store-categories-public-v1"],
+  { tags: ["categories"], revalidate: 300 },
+);
+
+export async function getStoreCategories(
+  options: { includeTest?: boolean } = {},
+): Promise<YnotCategory[]> {
+  if (options.includeTest) return getStoreCategoriesImpl(true);
+  return getPublicStoreCategoriesCached();
 }
 
 function looksLikeUuid(value: string) {
@@ -1027,7 +1203,7 @@ export async function getCampaign(
   );
 }
 
-export async function getPaymentMethods(): Promise<YnotPaymentMethod[]> {
+async function getPaymentMethodsImpl(): Promise<YnotPaymentMethod[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("payment_methods", async () => {
@@ -1050,6 +1226,16 @@ export async function getPaymentMethods(): Promise<YnotPaymentMethod[]> {
       instructions: row.instructions,
     }));
   });
+}
+
+const getPaymentMethodsCached = unstable_cache(
+  getPaymentMethodsImpl,
+  ["ynot-payment-methods-v1"],
+  { tags: ["payment-methods"], revalidate: 300 },
+);
+
+export async function getPaymentMethods(): Promise<YnotPaymentMethod[]> {
+  return getPaymentMethodsCached();
 }
 
 export async function getWallet(profileId?: string): Promise<YnotWallet> {
@@ -1310,7 +1496,7 @@ export async function getAddresses(profileId?: string): Promise<YnotAddress[]> {
   });
 }
 
-export async function getRankings(): Promise<YnotRankingRow[]> {
+async function getRankingsImpl(): Promise<YnotRankingRow[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("rankings", async () => {
@@ -1333,6 +1519,96 @@ export async function getRankings(): Promise<YnotRankingRow[]> {
       };
     });
   });
+}
+
+const getRankingsCached = unstable_cache(
+  getRankingsImpl,
+  ["ynot-rankings-v1"],
+  { tags: ["rankings"], revalidate: 60 },
+);
+
+export async function getRankings(): Promise<YnotRankingRow[]> {
+  return getRankingsCached();
+}
+
+type TierAnimationRow = {
+  tier: string;
+  video_url: string | null;
+  poster_url: string | null;
+  sound_url: string | null;
+  duration_ms: number;
+  is_active: boolean;
+};
+
+export async function getTierAnimations(): Promise<YnotTierAnimation[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createServiceSupabaseClient();
+  try {
+    const { data, error } = await (supabase.from as unknown as (
+      name: string,
+    ) => {
+      select: (columns: string) => {
+        eq: (
+          column: string,
+          value: unknown,
+        ) => Promise<{ data: TierAnimationRow[] | null; error: unknown }>;
+      };
+    })("tier_animations")
+      .select("tier,video_url,poster_url,sound_url,duration_ms,is_active")
+      .eq("is_active", true);
+    if (error || !data) return [];
+    return data
+      .filter((row) =>
+        ["bronze", "silver", "gold", "rainbow"].includes(row.tier),
+      )
+      .map((row) => ({
+        tier: row.tier as YnotTierAnimation["tier"],
+        videoUrl: row.video_url,
+        posterUrl: row.poster_url,
+        soundUrl: row.sound_url,
+        durationMs: row.duration_ms,
+        isActive: row.is_active,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getAllTierAnimationsForAdmin(): Promise<
+  YnotTierAnimation[]
+> {
+  if (!isSupabaseConfigured()) return [];
+  const admin = await resolveAdminSession();
+  if (!admin) return [];
+  const supabase = createServiceSupabaseClient();
+  try {
+    const { data, error } = await (supabase.from as unknown as (
+      name: string,
+    ) => {
+      select: (columns: string) => {
+        order: (
+          column: string,
+        ) => Promise<{ data: TierAnimationRow[] | null; error: unknown }>;
+      };
+    })("tier_animations")
+      .select("tier,video_url,poster_url,sound_url,duration_ms,is_active")
+      .order("tier");
+    if (error || !data) return [];
+    const order = ["rainbow", "gold", "silver", "bronze"];
+    return data
+      .filter((row) => order.includes(row.tier))
+      .sort((a, b) => order.indexOf(a.tier) - order.indexOf(b.tier))
+      .map((row) => ({
+        tier: row.tier as YnotTierAnimation["tier"],
+        videoUrl: row.video_url,
+        posterUrl: row.poster_url,
+        soundUrl: row.sound_url,
+        durationMs: row.duration_ms,
+        isActive: row.is_active,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 export async function getAdminUsers() {
@@ -1397,7 +1673,55 @@ export async function getAdminCards() {
   const admin = await resolveAdminSession();
   if (!admin) return [];
   const supabase = createServiceSupabaseClient();
-  return readOrEmpty("admin_cards", async () => getCardCatalog(supabase));
+  return readOrEmpty("admin_cards", async () => {
+    const cards = await getCardCatalog(supabase);
+    if (!cards.length) return cards;
+    const cardIds = cards.map((card) => card.catalogCardId);
+    const stockRows = await readOrEmpty("card_stock_units", async () => {
+      const { data, error } = await supabase
+        .from("card_stock_units")
+        .select("card_id,status")
+        .in("card_id", cardIds)
+        .limit(50000);
+      if (error) throw error;
+      return data ?? [];
+    });
+    const stockByCard = new Map<
+      string,
+      {
+        stockTotal: number;
+        stockAvailable: number;
+        stockReserved: number;
+        stockAllocated: number;
+        stockArchived: number;
+      }
+    >();
+    for (const stock of stockRows) {
+      const counts = stockByCard.get(stock.card_id) ?? {
+        stockTotal: 0,
+        stockAvailable: 0,
+        stockReserved: 0,
+        stockAllocated: 0,
+        stockArchived: 0,
+      };
+      if (stock.status !== "deleted") counts.stockTotal += 1;
+      if (stock.status === "available") counts.stockAvailable += 1;
+      if (stock.status === "reserved") counts.stockReserved += 1;
+      if (stock.status === "allocated") counts.stockAllocated += 1;
+      if (stock.status === "archived") counts.stockArchived += 1;
+      stockByCard.set(stock.card_id, counts);
+    }
+    return cards.map((card) => ({
+      ...card,
+      ...(stockByCard.get(card.catalogCardId) ?? {
+        stockTotal: 0,
+        stockAvailable: 0,
+        stockReserved: 0,
+        stockAllocated: 0,
+        stockArchived: 0,
+      }),
+    }));
+  });
 }
 
 export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
@@ -1431,7 +1755,10 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         .from("draw_rounds")
         .select("id,slug,title_th,title_en")
         .in("id", campaignIds),
-      supabase.from("cards").select("id,name").in("id", cardIds),
+      supabase
+        .from("cards")
+        .select("id,name,card_code,grade,image_url,image_storage_path,prize_category")
+        .in("id", cardIds),
     ]);
     if (campaignsError) throw campaignsError;
     if (cardsError) throw cardsError;
@@ -1479,6 +1806,9 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         void: 0,
       };
       const displayTier = displayTierFromPrizeMetadata(prize);
+      const plannedQuantity = Number(prize.planned_quantity ?? counts.total) || 0;
+      const displayTotalUnits = counts.total || plannedQuantity;
+      const displayAvailableUnits = counts.total ? counts.available : plannedQuantity;
       return {
         id: prize.id,
         campaignId: prize.draw_round_id,
@@ -1486,6 +1816,11 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         campaignTitle: campaign?.title_th ?? campaign?.title_en ?? "Campaign",
         cardId: prize.card_id,
         cardName: card?.name ?? "Card",
+        cardCode: card?.card_code ?? null,
+        cardGrade: card?.grade ?? null,
+        cardImageUrl: card?.image_url ?? null,
+        cardImageStoragePath: card?.image_storage_path ?? null,
+        cardPrizeCategory: card?.prize_category ?? null,
         tier: prize.tier,
         rank: prize.rank,
         valueThb: prize.value_thb,
@@ -1500,8 +1835,9 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
           metadataString(prize.metadata, "displayTierLabel") ??
           prizeDisplayTierLabel(displayTier),
         tierRank: metadataNumber(prize.metadata, "tierRank") ?? prize.rank,
-        totalUnits: counts.total,
-        availableUnits: counts.available,
+        plannedQuantity,
+        totalUnits: displayTotalUnits,
+        availableUnits: displayAvailableUnits,
         awardedUnits: counts.awarded,
         voidUnits: counts.void,
       };
@@ -1695,11 +2031,58 @@ export async function getPlatformHealth(
   };
 }
 
-export async function getYnotDashboardData(): Promise<YnotDashboardData> {
+const DEFAULT_WALLET = { balanceCoins: 0, version: 0 } as const;
+
+export type YnotDashboardSelector = {
+  campaigns?: boolean;
+  categories?: boolean;
+  paymentMethods?: boolean;
+  wallet?: boolean;
+  topUps?: boolean;
+  gachaOpens?: boolean;
+  collection?: boolean;
+  exchanges?: boolean;
+  shipping?: boolean;
+  addresses?: boolean;
+  rankings?: boolean;
+  adminTopUps?: boolean;
+  ownerApprovalRequests?: boolean;
+  platformHealth?: boolean;
+};
+
+const DASHBOARD_SELECTOR_ALL: YnotDashboardSelector = {
+  campaigns: true,
+  categories: true,
+  paymentMethods: true,
+  wallet: true,
+  topUps: true,
+  gachaOpens: true,
+  collection: true,
+  exchanges: true,
+  shipping: true,
+  addresses: true,
+  rankings: true,
+  adminTopUps: true,
+  ownerApprovalRequests: true,
+  platformHealth: true,
+};
+
+export async function getYnotDashboardSlice(
+  selector: YnotDashboardSelector = {},
+): Promise<YnotDashboardData> {
+  const wantHealth = !!selector.platformHealth;
+  // Owner approvals are derived from campaigns; auto-pull campaigns if needed.
+  const needCampaigns = !!selector.campaigns || !!selector.ownerApprovalRequests;
+
   const dataIssues: YnotDataIssue[] = [];
-  return dataIssueStorage.run(dataIssues, async () => {
+
+  const run = async (): Promise<YnotDashboardData> => {
     const viewer = await getYnotViewer();
     const profileId = viewer.profileId;
+    // YnotShell renders walletBalance on every page; always fetch wallet for
+    // authenticated viewers so the header doesn't show 0 coins on pages that
+    // don't otherwise need wallet data.
+    const wantWallet = !!selector.wallet || viewer.authenticated;
     const [
       campaigns,
       categories,
@@ -1715,21 +2098,48 @@ export async function getYnotDashboardData(): Promise<YnotDashboardData> {
       adminTopUps,
       platformHealth,
     ] = await Promise.all([
-      getCampaigns({ includePrivate: viewer.isAdmin }),
-      getStoreCategories({ includeTest: viewer.isAdmin }),
-      getPaymentMethods(),
-      getWallet(profileId),
-      getTopUps(profileId),
-      getGachaOpenHistory(profileId),
-      getCollection(profileId),
-      getExchanges(profileId),
-      getShipping(profileId),
-      getAddresses(profileId),
-      getRankings(),
-      viewer.isAdmin ? getTopUps(undefined, true) : Promise.resolve([]),
-      getPlatformHealth(viewer.isAdmin),
+      needCampaigns
+        ? getCampaigns({ includePrivate: viewer.isAdmin })
+        : Promise.resolve([] as YnotCampaign[]),
+      selector.categories
+        ? getStoreCategories({ includeTest: viewer.isAdmin })
+        : Promise.resolve([] as YnotCategory[]),
+      selector.paymentMethods
+        ? getPaymentMethods()
+        : Promise.resolve([] as YnotPaymentMethod[]),
+      wantWallet
+        ? getWallet(profileId)
+        : Promise.resolve({ ...DEFAULT_WALLET }),
+      selector.topUps ? getTopUps(profileId) : Promise.resolve([] as YnotTopUp[]),
+      selector.gachaOpens
+        ? getGachaOpenHistory(profileId)
+        : Promise.resolve([] as YnotGachaOpenHistory[]),
+      selector.collection
+        ? getCollection(profileId)
+        : Promise.resolve([] as YnotCollectionItem[]),
+      selector.exchanges
+        ? getExchanges(profileId)
+        : Promise.resolve([] as YnotExchangeOrder[]),
+      selector.shipping
+        ? getShipping(profileId)
+        : Promise.resolve([] as YnotShippingRequest[]),
+      selector.addresses
+        ? getAddresses(profileId)
+        : Promise.resolve([] as YnotAddress[]),
+      selector.rankings
+        ? getRankings()
+        : Promise.resolve([] as YnotRankingRow[]),
+      selector.adminTopUps && viewer.isAdmin
+        ? getTopUps(undefined, true)
+        : Promise.resolve([] as YnotTopUp[]),
+      wantHealth
+        ? getPlatformHealth(viewer.isAdmin)
+        : Promise.resolve(undefined as YnotPlatformHealth | undefined),
     ]);
-    const ownerApprovalRequests = getOwnerApprovalRequests(viewer, campaigns);
+
+    const ownerApprovalRequests = selector.ownerApprovalRequests
+      ? getOwnerApprovalRequests(viewer, campaigns)
+      : [];
 
     return {
       configured: isSupabaseConfigured(),
@@ -1747,8 +2157,16 @@ export async function getYnotDashboardData(): Promise<YnotDashboardData> {
       rankings,
       adminTopUps,
       ownerApprovalRequests,
-      platformHealth: withDataIssueHealth(platformHealth, dataIssues),
+      platformHealth: wantHealth
+        ? withDataIssueHealth(platformHealth, dataIssues)
+        : undefined,
       dataIssues,
     };
-  });
+  };
+
+  return wantHealth ? dataIssueStorage.run(dataIssues, run) : run();
+}
+
+export function getYnotDashboardData(): Promise<YnotDashboardData> {
+  return getYnotDashboardSlice(DASHBOARD_SELECTOR_ALL);
 }

@@ -1,13 +1,17 @@
 import { PageHeader, WalletPanel, YnotShell } from "@/features/ynot/components";
 import { TopUpForm } from "@/features/ynot/client";
-import { getYnotDashboardData } from "@/features/ynot/data";
+import { getYnotDashboardSlice } from "@/features/ynot/data";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
 
 export const dynamic = "force-dynamic";
 
 export default async function WalletPage() {
   await requireCurrentProfile("/wallet");
-  const data = await getYnotDashboardData();
+  const data = await getYnotDashboardSlice({
+    wallet: true,
+    paymentMethods: true,
+    topUps: true,
+  });
   return (
     <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
       <PageHeader eyebrow="08 · Wallet" title="Top Up" description="2 stages: payment method → coin pack + VIP bonus. Manual bank/QR slip upload remains first for production." />

@@ -7535,6 +7535,51 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   margin-top: 6px;
 }
 
+.reward-tier-list-structured .reward-tier-card {
+  align-items: center;
+  display: grid !important;
+  gap: 10px !important;
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.reward-tier-list-structured .reward-tier-card .tier-heading,
+.reward-tier-list-structured .reward-tier-card .reward-prize-meta {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.reward-prize-image {
+  align-items: center;
+  aspect-ratio: 3 / 4;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(var(--prototype-cyan-rgb), 0.16),
+      rgba(255, 255, 255, 0.04)
+    );
+  border: 1px solid rgba(var(--prototype-cyan-rgb), 0.24);
+  border-radius: 8px;
+  display: flex;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  justify-content: center;
+  overflow: hidden;
+  width: 64px;
+}
+
+.reward-prize-image img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.reward-prize-image span {
+  color: var(--prototype-muted);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
 .tier-rank.tier-rainbow {
   background: #f472b6 !important;
 }
@@ -8848,11 +8893,11 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   gap: 8px;
   grid-template-columns:
     minmax(74px, 0.5fr)
-    minmax(190px, 1.8fr)
+    minmax(260px, 2fr)
     minmax(140px, 1.1fr)
     minmax(74px, 0.54fr)
     minmax(82px, 0.58fr);
-  min-width: 620px;
+  min-width: 760px;
   padding: 10px;
 }
 
@@ -8890,6 +8935,113 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   min-height: 46px;
   padding: 8px;
   text-align: center;
+}
+
+.admin-prize-card-field {
+  min-width: 0;
+}
+
+.admin-prize-card-picker {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-prize-card-preview {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 56px minmax(0, 1fr);
+  min-height: 70px;
+  padding: 8px;
+}
+
+.admin-prize-card-preview.is-empty {
+  border-style: dashed;
+}
+
+.admin-prize-card-preview > span:last-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-prize-card-preview strong,
+.admin-prize-pool-card strong {
+  overflow-wrap: anywhere;
+}
+
+.admin-prize-card-preview small,
+.admin-prize-pool-card p:last-child {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.admin-prize-card-preview code {
+  color: var(--admin-muted);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.66rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-prize-card-thumb,
+.admin-card-catalog-thumb {
+  aspect-ratio: 4 / 5;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: block;
+  height: 64px;
+  object-fit: cover;
+  overflow: hidden;
+  width: 52px;
+}
+
+.admin-prize-card-placeholder,
+.admin-card-catalog-placeholder {
+  align-content: center;
+  color: var(--admin-text);
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 5px;
+  text-align: center;
+}
+
+.admin-prize-card-placeholder strong,
+.admin-card-catalog-placeholder strong {
+  font-size: 0.68rem;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+
+.admin-prize-card-placeholder small,
+.admin-card-catalog-placeholder small {
+  color: var(--admin-muted);
+  font-size: 0.58rem;
+  font-weight: 800;
+}
+
+.admin-prize-card-controls {
+  display: grid;
+  gap: 7px;
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1fr);
+}
+
+.admin-prize-card-controls input,
+.admin-prize-card-controls select {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  color: inherit;
+  min-height: 40px;
+  min-width: 0;
+  padding: 0 10px;
 }
 
 .admin-prize-rank-cell strong {
@@ -8980,6 +9132,15 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 
   .admin-top-prize-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-prize-card-controls,
+  .admin-prize-pool-card {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-prize-pool-actions {
+    justify-content: stretch;
   }
 
   .admin-pack-info-panel .admin-form-grid,
@@ -9945,6 +10106,16 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   gap: 12px;
 }
 
+.admin-card-catalog-item {
+  align-items: center;
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.admin-card-catalog-thumb {
+  height: 74px;
+  width: 60px;
+}
+
 .admin-id-line {
   color: var(--admin-muted) !important;
   font-family: var(--font-mono), ui-monospace, monospace;
@@ -9976,6 +10147,336 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.admin-card-catalog-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  max-height: 680px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.admin-card-catalog-panel {
+  margin-top: clamp(14px, 1.8vw, 22px);
+}
+
+.admin-card-catalog-toolbar {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(280px, 1fr);
+  margin-top: 14px;
+}
+
+.admin-card-catalog-toolbar input {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  color: inherit;
+  min-height: 42px;
+  min-width: 0;
+  padding: 0 12px;
+}
+
+.admin-card-catalog-summary {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  display: grid;
+  gap: 4px 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 62px;
+  padding: 10px 12px;
+}
+
+.admin-card-catalog-summary strong {
+  color: var(--admin-text);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.admin-card-catalog-summary span {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.admin-card-catalog-row {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns:
+    106px
+    minmax(200px, 0.85fr)
+    minmax(280px, 1.1fr)
+    minmax(250px, 0.85fr);
+  min-height: 148px;
+  padding: 14px;
+}
+
+.admin-card-catalog-row .admin-prize-card-thumb {
+  border-radius: 14px;
+  height: 132px;
+  width: 106px;
+}
+
+.admin-card-catalog-list .admin-card-catalog-item {
+  align-items: center;
+  gap: 16px;
+  grid-template-columns: 112px minmax(0, 1fr) auto;
+  min-height: 150px;
+  padding: 14px;
+}
+
+.admin-card-catalog-list .admin-prize-card-thumb {
+  border-radius: 14px;
+  height: 132px;
+  width: 106px;
+}
+
+.admin-card-catalog-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-card-catalog-main > strong {
+  font-size: 1rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.admin-card-catalog-fields {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.admin-card-catalog-fields div,
+.admin-card-catalog-usage {
+  background: rgba(0, 0, 0, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px;
+}
+
+.admin-card-catalog-fields span,
+.admin-card-catalog-usage span,
+.admin-card-catalog-usage small {
+  color: var(--admin-muted);
+  font-size: 0.7rem;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.admin-card-catalog-fields code {
+  color: var(--admin-text);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  max-height: 36px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.admin-card-catalog-usage {
+  align-content: center;
+  min-height: 118px;
+}
+
+.admin-card-catalog-usage strong {
+  color: var(--admin-text);
+  font-size: 1.1rem;
+  line-height: 1.1;
+}
+
+.admin-card-catalog-slot-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+  max-height: 52px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.admin-card-catalog-slot-list em {
+  color: var(--admin-text);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.admin-card-catalog-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 10px;
+}
+
+.admin-card-catalog-list .admin-card-catalog-actions {
+  align-self: center;
+  justify-content: flex-end;
+  margin-top: 0;
+}
+
+.admin-card-catalog-item.is-selected {
+  border-color: rgba(245, 158, 11, 0.45);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.18);
+}
+
+.admin-inventory-panel {
+  margin-top: clamp(14px, 1.8vw, 22px);
+}
+
+.admin-card-inventory-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-card-inventory-row {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 96px minmax(210px, 1.1fr) minmax(130px, 0.45fr) minmax(320px, 1.25fr);
+  min-height: 124px;
+  padding: 14px;
+}
+
+.admin-card-inventory-row .admin-prize-card-thumb {
+  border-radius: 14px;
+  height: 118px;
+  width: 94px;
+}
+
+.admin-card-inventory-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-card-inventory-main > strong {
+  font-size: 1rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.admin-card-inventory-stock {
+  align-content: center;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  display: grid;
+  gap: 2px;
+  min-height: 74px;
+  padding: 10px 12px;
+}
+
+.admin-card-inventory-stock span,
+.admin-card-inventory-stock small,
+.admin-card-inventory-slot small {
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.admin-card-inventory-stock strong {
+  color: var(--admin-text);
+  font-size: 1.2rem;
+  line-height: 1.15;
+}
+
+.admin-card-inventory-slots {
+  display: grid;
+  gap: 8px;
+  max-height: 164px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.admin-card-inventory-slot {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 46px;
+  padding: 8px 10px;
+}
+
+.admin-card-inventory-slot > span {
+  color: var(--admin-text);
+  font-size: 0.82rem;
+  font-weight: 850;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-stock-stepper {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 34px minmax(58px, auto) 34px;
+  justify-items: center;
+}
+
+.admin-stock-stepper strong {
+  color: var(--admin-text);
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.admin-card-stock-actions {
+  grid-template-columns: 34px minmax(72px, auto) 34px;
+  margin-top: 4px;
+}
+
+.admin-icon-button {
+  align-items: center;
+  border-radius: 10px !important;
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  padding: 0 !important;
+  width: 34px;
+}
+
+@media (max-width: 1180px) {
+  .admin-card-catalog-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-card-catalog-row {
+    grid-template-columns: 106px minmax(0, 1fr);
+  }
+
+  .admin-card-catalog-fields,
+  .admin-card-catalog-usage {
+    grid-column: 1 / -1;
+  }
+
+  .admin-card-inventory-row {
+    grid-template-columns: 96px minmax(0, 1fr) minmax(130px, 0.4fr);
+  }
+
+  .admin-card-inventory-slots {
+    grid-column: 1 / -1;
+  }
+}
+
 .admin-prize-list {
   display: grid;
   gap: 10px;
@@ -9983,6 +10484,41 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   max-height: 460px;
   overflow: auto;
   padding-right: 4px;
+}
+
+.admin-selected-card-note {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  border-radius: 16px;
+  color: var(--admin-text);
+  font-size: 0.86rem;
+  font-weight: 800;
+  margin-top: 12px;
+  padding: 10px 12px;
+}
+
+.admin-prize-pool-card {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  padding: 11px;
+}
+
+.admin-prize-pool-card-body {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-prize-pool-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .admin-table-panel {
@@ -10155,6 +10691,53 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
     grid-template-columns: 1fr !important;
   }
 
+  .admin-card-catalog-list .admin-card-catalog-item {
+    grid-template-columns: 82px minmax(0, 1fr);
+    min-height: 126px;
+  }
+
+  .admin-card-catalog-row {
+    grid-template-columns: 82px minmax(0, 1fr);
+    min-height: 126px;
+  }
+
+  .admin-card-catalog-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-card-catalog-list .admin-prize-card-thumb {
+    height: 104px;
+    width: 82px;
+  }
+
+  .admin-card-catalog-list .admin-card-catalog-actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+
+  .admin-card-catalog-list .admin-card-catalog-actions .plain-button {
+    width: 100%;
+  }
+
+  .admin-card-inventory-row {
+    grid-template-columns: 82px minmax(0, 1fr);
+    min-height: 126px;
+  }
+
+  .admin-card-inventory-row .admin-prize-card-thumb {
+    height: 104px;
+    width: 82px;
+  }
+
+  .admin-card-inventory-stock,
+  .admin-card-inventory-slots {
+    grid-column: 1 / -1;
+  }
+
+  .admin-card-inventory-slot {
+    grid-template-columns: 1fr;
+  }
+
   .admin-redesign-reference table,
   .admin-data-table {
     min-width: 680px;
@@ -10180,7 +10763,7 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   text-transform: none;
 }
 
-/* FOG-style symmetric 3-column split: left (1fr) / center (auto, logo) / right (1fr). */
+/* Keep the desktop customer/admin header from colliding with account actions. */
 @media (min-width: 901px) {
   .store-shell .storefront-header .store-topbar {
     grid-template-columns: 1fr auto 1fr !important;
@@ -11974,6 +12557,512 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
   .personal-info-form-panel {
     padding: 16px !important;
   }
+}
+
+/* ---------- Gacha reveal overlay ---------- */
+.gacha-reveal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(7, 7, 15, 0.97);
+  color: var(--foreground);
+  padding: 32px 20px calc(env(safe-area-inset-bottom, 0px) + 96px);
+  overflow: hidden;
+  animation: gacha-overlay-in 200ms ease-out;
+}
+
+.gacha-reveal-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(255, 217, 61, 0.05) 0%, transparent 55%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.018) 0px,
+      rgba(255, 255, 255, 0.018) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  pointer-events: none;
+}
+
+.gacha-reveal-overlay[data-tier="rainbow"] .gacha-reveal-backdrop {
+  background:
+    radial-gradient(circle at 50% 35%, rgba(255, 217, 61, 0.18) 0%, transparent 60%),
+    radial-gradient(circle at 30% 65%, rgba(61, 177, 255, 0.12) 0%, transparent 55%),
+    radial-gradient(circle at 70% 65%, rgba(255, 61, 240, 0.12) 0%, transparent 55%);
+}
+
+.gacha-reveal-overlay[data-tier="gold"] .gacha-reveal-backdrop {
+  background: radial-gradient(circle at 50% 40%, rgba(255, 184, 77, 0.18) 0%, transparent 55%);
+}
+
+.gacha-reveal-stage {
+  position: relative;
+  width: min(560px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  z-index: 1;
+}
+
+/* Skip + mute buttons */
+.gacha-reveal-skip {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 10px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(15, 15, 26, 0.7);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  border-radius: 999px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: color 150ms ease, border-color 150ms ease;
+}
+.gacha-reveal-skip:hover {
+  color: var(--foreground);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+.gacha-reveal-mute {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 18px);
+  right: 18px;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 15, 26, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: 18px;
+  backdrop-filter: blur(6px);
+}
+
+/* Tension stage */
+.gacha-reveal-pack {
+  width: 200px;
+  height: 280px;
+  border-radius: 24px;
+  background: linear-gradient(160deg, #1a1c30 0%, #0c0d18 100%);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: gacha-pack-shake 0.18s ease-in-out infinite alternate;
+  box-shadow:
+    0 0 60px var(--tier-glow, rgba(244, 197, 66, 0.35)),
+    0 30px 60px rgba(0, 0, 0, 0.6);
+}
+.gacha-reveal-pack::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 26px;
+  padding: 3px;
+  background: var(--tier-ring, linear-gradient(135deg, #f4c542, #df9824));
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: gacha-pack-spin 4s linear infinite;
+}
+.gacha-reveal-pack-core {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.2em;
+  z-index: 1;
+}
+.gacha-reveal-pack-label {
+  font-size: 11px;
+  color: var(--muted);
+}
+.gacha-reveal-pack-count {
+  font-size: 36px;
+  font-weight: 900;
+  color: var(--gold);
+  text-shadow: 0 0 24px var(--tier-glow, rgba(244, 197, 66, 0.6));
+}
+.gacha-reveal-tagline {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* Reveal stage (CSS mockup when no video) */
+.gacha-reveal-stage[data-shake="1"].gacha-reveal-show {
+  animation: gacha-screen-shake 0.4s ease-in-out;
+}
+.gacha-reveal-video {
+  width: min(560px, 92vw);
+  max-height: 70vh;
+  border-radius: 24px;
+  background: #000;
+}
+.gacha-reveal-mock {
+  position: relative;
+  width: min(420px, 88vw);
+  aspect-ratio: 4 / 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 32px;
+  overflow: hidden;
+  background: #0a0a14;
+  animation: gacha-mock-pop var(--tier-duration, 2500ms) cubic-bezier(0.16, 1, 0.3, 1);
+}
+.gacha-reveal-mock-ring {
+  position: absolute;
+  inset: 6%;
+  border-radius: 28px;
+  padding: 4px;
+  background: var(--tier-ring);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: gacha-pack-spin 8s linear infinite;
+}
+.gacha-reveal-mock-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, var(--tier-glow) 0%, transparent 70%);
+  opacity: 0;
+  animation: gacha-mock-flash var(--tier-duration, 2500ms) ease-out;
+}
+.gacha-reveal-mock-label {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  font-family: var(--font-mono);
+}
+.gacha-reveal-mock-label span {
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  background: var(--tier-ring);
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 14px var(--tier-glow));
+}
+.gacha-reveal-mock-label small {
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  color: var(--muted);
+}
+.gacha-reveal-continue {
+  margin-top: 8px;
+  padding: 12px 24px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
+  color: var(--foreground);
+  border-radius: 999px;
+  cursor: pointer;
+  animation: gacha-pulse 1.2s ease-in-out infinite;
+}
+
+/* Summary stage */
+.gacha-reveal-summary-header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gacha-reveal-summary-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  color: var(--muted);
+}
+.gacha-reveal-summary-header h2 {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+.gacha-reveal-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-height: 60vh;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.gacha-reveal-grid[data-quantity="1"] {
+  grid-template-columns: 1fr;
+  max-width: 280px;
+  margin: 0 auto;
+}
+.gacha-reveal-card {
+  animation: gacha-card-in 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.gacha-reveal-card:nth-child(2) { animation-delay: 60ms; }
+.gacha-reveal-card:nth-child(3) { animation-delay: 120ms; }
+.gacha-reveal-card:nth-child(4) { animation-delay: 180ms; }
+.gacha-reveal-card:nth-child(5) { animation-delay: 240ms; }
+.gacha-reveal-card:nth-child(6) { animation-delay: 300ms; }
+.gacha-reveal-card:nth-child(7) { animation-delay: 360ms; }
+.gacha-reveal-card:nth-child(8) { animation-delay: 420ms; }
+.gacha-reveal-card:nth-child(9) { animation-delay: 480ms; }
+.gacha-reveal-card:nth-child(10) { animation-delay: 540ms; }
+.gacha-reveal-card-frame {
+  position: relative;
+  aspect-ratio: 5 / 7;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #0a0a14;
+  box-shadow: 0 0 32px var(--card-glow, rgba(0, 0, 0, 0.5));
+}
+.gacha-reveal-card-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  padding: 2px;
+  background: var(--card-ring);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+.gacha-reveal-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.gacha-reveal-card-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--muted);
+}
+.gacha-reveal-summary-footer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 8px;
+}
+.gacha-reveal-cta {
+  width: 100%;
+  text-align: center;
+}
+.gacha-reveal-secondary {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--foreground);
+  padding: 12px;
+  border-radius: 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+}
+.gacha-reveal-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  justify-content: center;
+}
+.gacha-reveal-toggle input {
+  accent-color: var(--gold);
+}
+
+/* Keyframes */
+@keyframes gacha-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes gacha-pack-shake {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  100% { transform: translate(1.5px, -1px) rotate(0.4deg); }
+}
+@keyframes gacha-pack-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes gacha-mock-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  35% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes gacha-mock-flash {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes gacha-screen-shake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-6px, 4px); }
+  40% { transform: translate(6px, -4px); }
+  60% { transform: translate(-4px, -2px); }
+  80% { transform: translate(4px, 2px); }
+}
+@keyframes gacha-card-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes gacha-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gacha-reveal-overlay,
+  .gacha-reveal-pack,
+  .gacha-reveal-pack::before,
+  .gacha-reveal-mock,
+  .gacha-reveal-mock-ring,
+  .gacha-reveal-mock-flash,
+  .gacha-reveal-card,
+  .gacha-reveal-continue {
+    animation: none !important;
+  }
+}
+
+/* === Admin tier animations page === */
+.admin-tier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+.admin-tier-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.25rem;
+}
+.admin-tier-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.admin-tier-form-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.admin-tier-form-state {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.admin-tier-form-state[data-active="1"] { color: #22c55e; }
+.admin-tier-form-state[data-active="0"] { color: #94a3b8; }
+.admin-tier-form-current {
+  font-size: 0.78rem;
+  background: rgba(15, 23, 42, 0.35);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+.admin-tier-form-current dt {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  font-size: 0.65rem;
+}
+.admin-tier-form-current dd {
+  margin: 0.1rem 0 0;
+  word-break: break-all;
+}
+.admin-tier-form-current a {
+  color: #67e8f9;
+  text-decoration: underline;
+}
+.admin-tier-form-current em {
+  color: #64748b;
+}
+.admin-tier-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+}
+.admin-tier-form-field span {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.admin-tier-form-field input[type="file"],
+.admin-tier-form-field input[type="number"] {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: inherit;
+  padding: 0.5rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+.admin-tier-form-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+.admin-tier-form-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+.admin-tier-form-message {
+  color: #22c55e;
+  font-size: 0.8rem;
+}
+.admin-tier-form-error {
+  color: #f87171;
+  font-size: 0.8rem;
+}
+.admin-empty {
+  padding: 2rem;
+  text-align: center;
+  color: #94a3b8;
 }
 
 /* =====================================================================

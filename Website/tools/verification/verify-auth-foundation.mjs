@@ -51,6 +51,7 @@ for (const rel of [
   "src/app/(auth)/login/page.tsx",
   "src/app/(auth)/signup/page.tsx",
   "src/app/auth/callback/route.ts",
+  "src/app/api/auth/google/start/route.ts",
 ]) {
   if (exists(rel)) pass(`${rel} exists`);
   else fail(`${rel} is missing`);
@@ -65,10 +66,10 @@ check("src/lib/supabase/proxy.ts", "proxy refreshes Supabase session", /await su
 check("src/proxy.ts", "Next 16 proxy convention is used", /export async function proxy/);
 check("src/features/auth/actions.ts", "email password sign in exists", /signInWithPassword/);
 check("src/features/auth/actions.ts", "email password sign up exists", /signUp\(/);
-check("src/features/auth/actions.ts", "Google OAuth starts from server action", /signInWithOAuth\([\s\S]*provider:\s*"google"/);
+check("src/app/api/auth/google/start/route.ts", "Google OAuth starts from route handler", /signInWithOAuth\([\s\S]*provider:\s*"google"/);
 check("src/features/auth/actions.ts", "OAuth redirect origin uses configured production site URL", /NEXT_PUBLIC_SITE_URL[\s\S]*NODE_ENV === "production"[\s\S]*return null/);
 notCheck("src/features/auth/AuthForm.tsx", "auth form does not show unsupported Apple sign in", /Apple|apple-button/);
-check("src/features/auth/AuthForm.tsx", "auth form still offers Google sign in", /signInWithGoogleAction[\s\S]*Continue[\s\S]*with Google/);
+check("src/features/auth/AuthForm.tsx", "auth form still offers Google sign in", /\/api\/auth\/google\/start[\s\S]*Continue[\s\S]*with Google/);
 check("src/features/auth/AuthForm.tsx", "auth form still offers LINE sign in", /\/api\/line\/login\/start\?mode=login/);
 check("src/features/auth/AuthForm.tsx", "auth form still offers email password account creation", /signUpWithPasswordAction[\s\S]*Create account/);
 check("src/app/auth/callback/route.ts", "OAuth callback exchanges code for server session", /exchangeCodeForSession\(code\)/);
@@ -77,7 +78,10 @@ notCheck("src/app/auth/callback/route.ts", "OAuth callback rejects protocol-rela
 check("src/lib/auth/profile.ts", "auth users bootstrap canonical profile", /auth_user_id:\s*user\.id/);
 check("src/lib/auth/profile.ts", "auth identities sync to user_identities", /from\("user_identities"\)\.upsert/);
 check("src/lib/auth/resolve-current-profile.ts", "resolver supports Supabase Auth", /authSource:\s*"supabase"/);
+check("src/lib/auth/resolve-current-profile.ts", "resolver detects chunked Supabase Auth cookies", /-auth-token\(\?:\\\.\\d\+\)\?\$/);
 check("src/lib/auth/resolve-current-profile.ts", "resolver preserves LIFF cookie fallback", /readSessionCookie/);
+check("src/app/api/debug/whoami/route.ts", "whoami debug uses canonical Supabase auth-cookie detection", /isSupabaseAuthCookieName/);
+notCheck("src/app/api/debug/whoami/route.ts", "whoami debug ignores auth-token code verifier cookies", /includes\("auth-token"\)/);
 check("src/app/api/lucky-draw/route.ts", "order creation uses unified profile resolver", /resolveCurrentProfile\(\)/);
 check("src/app/api/lucky-draw/admin/order/route.ts", "admin route uses unified admin resolver", /resolveAdminSession\(\)/);
 notCheck("src/app/api/lucky-draw/route.ts", "order creation no longer requires LINE-only login text", /LINE login is required before creating an order/);

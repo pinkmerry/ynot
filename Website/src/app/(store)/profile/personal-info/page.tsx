@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { AddressForm, PersonalInfoForm } from "@/features/ynot/client";
 import { OrderList, PageHeader, YnotShell } from "@/features/ynot/components";
-import { getYnotDashboardData } from "@/features/ynot/data";
+import { getYnotDashboardSlice } from "@/features/ynot/data";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
 
 export const dynamic = "force-dynamic";
 
 export default async function PersonalInfoPage() {
   await requireCurrentProfile("/profile/personal-info");
-  const data = await getYnotDashboardData();
+  const data = await getYnotDashboardSlice({
+    addresses: true,
+    shipping: true,
+  });
   const authLabel = data.viewer.authSource === "line" ? "LINE" : "Supabase";
   const adminLabel = data.viewer.adminRole
     ? data.viewer.adminRole.toUpperCase()

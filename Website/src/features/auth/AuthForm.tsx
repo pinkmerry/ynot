@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { signInWithGoogleAction, signInWithPasswordAction, signUpWithPasswordAction } from "./actions";
+import { signInWithPasswordAction, signUpWithPasswordAction } from "./actions";
 
 type AuthFormProps = {
   mode: "login" | "signup";
@@ -46,19 +46,21 @@ export function AuthForm({ mode, error, message, next }: AuthFormProps) {
         {error && <p className="rounded-2xl border border-red-300/25 bg-red-400/10 px-3 py-2 text-sm font-bold text-red-100">{error}</p>}
         {message && <p className="rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-3 py-2 text-sm font-bold text-emerald-100">{message}</p>}
 
-        <form action={signInWithGoogleAction}>
-          <input type="hidden" name="next" value={nextPath} />
-          <button type="submit" className="auth-social google-button">
-            G {isSignup ? "Sign up" : "Continue"} with Google
-          </button>
-        </form>
-
         <a
-          className="auth-social line-button"
-          href={`/api/line/login/start?mode=login&next=${encodeURIComponent(nextPath)}`}
+          className="auth-social google-button"
+          href={`/api/auth/google/start?next=${encodeURIComponent(nextPath)}`}
         >
-          LINE {isSignup ? "Sign up" : "Continue"} with LINE
+          G {isSignup ? "Sign up" : "Continue"} with Google
         </a>
+
+        {process.env.NEXT_PUBLIC_ENABLE_LINE_LOGIN === "true" && (
+          <a
+            className="auth-social line-button"
+            href={`/api/line/login/start?mode=login&next=${encodeURIComponent(nextPath)}`}
+          >
+            LINE {isSignup ? "Sign up" : "Continue"} with LINE
+          </a>
+        )}
 
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[var(--muted)]">
           <span className="h-px bg-white/10" />

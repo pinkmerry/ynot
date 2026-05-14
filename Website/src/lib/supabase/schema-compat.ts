@@ -21,6 +21,15 @@ export function isMissingColumnError(error: unknown, column?: string) {
   return column ? text.includes(column) : true;
 }
 
+export function isMissingFunctionError(error: unknown, functionName?: string) {
+  const maybe = error as SupabaseErrorLike;
+  const text = errorText(error);
+  if (maybe?.code !== "42883" && !/function .* does not exist/i.test(text)) {
+    return false;
+  }
+  return functionName ? text.includes(functionName) : true;
+}
+
 export function randomPackSchemaMissingResponse() {
   return Response.json(
     {

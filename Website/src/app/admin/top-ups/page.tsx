@@ -5,12 +5,12 @@ import {
   StatusBadge,
   TopUpTable,
 } from "@/features/ynot/components";
-import { getYnotDashboardData } from "@/features/ynot/data";
+import { getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminTopUpsPage() {
-  const data = await getYnotDashboardData();
+  const data = await getYnotDashboardSlice({ adminTopUps: true });
   const pending = data.adminTopUps.filter(
     (topUp) =>
       topUp.status === "pending_review" || topUp.status === "pending_slip",

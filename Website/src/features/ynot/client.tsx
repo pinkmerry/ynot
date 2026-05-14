@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Minus, Plus } from "lucide-react";
 import type { CardCatalogItem, ProfileInfo } from "@/lib/lucky-draw/types";
 import type {
   YnotAddress,
@@ -10,13 +12,16 @@ import type {
   YnotCategory,
   YnotCollectionItem,
   YnotExchangeOrder,
+  YnotGachaOpenResult,
   YnotOwnerApprovalRequest,
   YnotPaymentMethod,
   YnotPrizePoolItem,
   YnotPrizePreview,
   YnotRandomLogicMode,
   YnotShippingRequest,
+  YnotTierAnimation,
 } from "./types";
+import { GachaRevealOverlay } from "./GachaRevealOverlay";
 import {
   defaultOpenQuantityOptions,
   normalizeOpenQuantityOptions,
@@ -410,11 +415,14 @@ export function GachaOpenPanel({
   campaign,
   authenticated,
   initialQuantity = 1,
+  tierAnimations,
 }: {
   campaign: YnotCampaign;
   authenticated: boolean;
   initialQuantity?: number;
+  tierAnimations?: YnotTierAnimation[];
 }) {
+  const router = useRouter();
   const openQuantityOptions = normalizeOpenQuantityOptions(
     campaign.openQuantityOptions,
   );
@@ -423,6 +431,9 @@ export function GachaOpenPanel({
     : openQuantityOptions[0];
   const [quantity, setQuantity] = useState(initialOption);
   const [message, setMessage] = useState("");
+  const [revealResult, setRevealResult] = useState<YnotGachaOpenResult | null>(
+    null,
+  );
   const [isPending, startTransition] = useTransition();
   const remainingOpenUnits = Math.min(
     campaign.remainingSlots ?? Number.POSITIVE_INFINITY,
@@ -434,24 +445,41 @@ export function GachaOpenPanel({
     return Number.isFinite(remainingOpenUnits) && option > remainingOpenUnits;
   }
 
-  function open() {
+  function fireOpen(targetQuantity: number) {
     startTransition(async () => {
       try {
         setMessage("");
         const payload = await postJson("/api/ynot/gacha/open", {
           campaignId: campaign.id,
-          quantity,
+          quantity: targetQuantity,
           idempotencyKey: crypto.randomUUID(),
         });
-        setMessage(
-          `Opened ${payload.result?.publicCode ?? "gacha"}. Result is now in Collection.`,
-        );
+        const result = (payload?.result ?? null) as YnotGachaOpenResult | null;
+        if (result && Array.isArray(result.items)) {
+          setRevealResult(result);
+        } else {
+          setMessage("Open succeeded but no items were returned.");
+        }
       } catch (error) {
         setMessage(
           error instanceof Error ? error.message : "Could not open gacha.",
         );
       }
     });
+  }
+
+  function open() {
+    fireOpen(quantity);
+  }
+
+  function handleRevealClose() {
+    setRevealResult(null);
+    router.push("/collection");
+  }
+
+  function handleOpenAgain() {
+    setRevealResult(null);
+    fireOpen(quantity);
   }
   if (campaign.demo) {
     return (
@@ -545,6 +573,17 @@ export function GachaOpenPanel({
         <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-bold">
           {message}
         </p>
+      )}
+      {revealResult && (
+        <GachaRevealOverlay
+          key={revealResult.openId}
+          result={revealResult}
+          quantity={quantity}
+          tierAnimations={tierAnimations}
+          isPending={isPending}
+          onClose={handleRevealClose}
+          onOpenAgain={handleOpenAgain}
+        />
       )}
     </section>
   );
@@ -871,7 +910,9 @@ export function PersonalInfoForm({
         </label>
       </div>
       <div className="personal-info-actions">
-        <a href={lineHref}>Connect / reconnect LINE</a>
+        {process.env.NEXT_PUBLIC_ENABLE_LINE_LOGIN === "true" && (
+          <a href={lineHref}>Connect / reconnect LINE</a>
+        )}
         {googleConnectHref && (
           <a href={googleConnectHref}>Connect Google / Gmail</a>
         )}
@@ -1463,6 +1504,169 @@ function firstCatalogCardId(cards: CardCatalogItem[]) {
   return cards[0]?.catalogCardId ?? "";
 }
 
+function adminPrizeCardIdentity(card: CardCatalogItem) {
+  return [
+    card.code ?? "no code",
+    card.grade,
+    prizeCategoryLabel(card.prizeCategory),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function adminPrizeCardSearchText(card: CardCatalogItem) {
+  return [
+    card.code,
+    card.name,
+    card.grade,
+    card.series,
+    prizeCategoryLabel(card.prizeCategory),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function AdminPrizeCardImage({
+  imageUrl,
+  name,
+  code,
+}: {
+  imageUrl?: string | null;
+  name: string;
+  code?: string | null;
+}) {
+  const [hasImageError, setHasImageError] = useState(false);
+  const fallback = (code?.trim() || name.trim() || "Prize").slice(0, 12);
+
+  if (!imageUrl || hasImageError) {
+    return (
+      <span className="admin-prize-card-thumb admin-prize-card-placeholder">
+        <strong>{fallback}</strong>
+        <small>No image</small>
+      </span>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- Catalog URLs can be arbitrary Supabase/storage paths, so this thumbnail intentionally avoids Next remote image config.
+    <img
+      alt={`${code ? `${code} ` : ""}${name}`}
+      className="admin-prize-card-thumb"
+      loading="lazy"
+      onError={() => setHasImageError(true)}
+      src={imageUrl}
+    />
+  );
+}
+
+function AdminPrizeCardPicker({
+  cards,
+  value,
+  onChange,
+  disabled,
+  emptyLabel = "Select prize item",
+  missingLabel = "No catalog items match this tier and category.",
+  testIdPrefix,
+}: {
+  cards: CardCatalogItem[];
+  value: string;
+  onChange: (cardId: string) => void;
+  disabled?: boolean;
+  emptyLabel?: string;
+  missingLabel?: string;
+  testIdPrefix: string;
+}) {
+  const [query, setQuery] = useState("");
+  const selectedCard =
+    cards.find((card) => card.catalogCardId === value) ?? null;
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleCards = useMemo(() => {
+    if (!normalizedQuery) return cards;
+    return cards.filter((card) =>
+      adminPrizeCardSearchText(card).includes(normalizedQuery),
+    );
+  }, [cards, normalizedQuery]);
+  const selectCards =
+    selectedCard &&
+    !visibleCards.some((card) => card.catalogCardId === selectedCard.catalogCardId)
+      ? [selectedCard, ...visibleCards]
+      : visibleCards;
+  const selectedValue = selectedCard?.catalogCardId ?? "";
+
+  return (
+    <div
+      className="admin-prize-card-picker"
+      data-selected-card-code={selectedCard?.code ?? ""}
+      data-selected-card-id={selectedCard?.catalogCardId ?? ""}
+      data-testid={`${testIdPrefix}-picker`}
+    >
+      <div
+        className={`admin-prize-card-preview${selectedCard ? "" : " is-empty"}`}
+        data-testid={`${testIdPrefix}-selected-card-preview`}
+      >
+        {selectedCard ? (
+          <>
+            <AdminPrizeCardImage
+              code={selectedCard.code}
+              imageUrl={selectedCard.photoUrl}
+              name={selectedCard.name}
+            />
+            <span>
+              <strong>{selectedCard.name}</strong>
+              <small>{adminPrizeCardIdentity(selectedCard)}</small>
+              <code>{selectedCard.catalogCardId}</code>
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="admin-prize-card-thumb admin-prize-card-placeholder">
+              <strong>Pick</strong>
+              <small>No image</small>
+            </span>
+            <span>
+              <strong>{cards.length ? emptyLabel : "No item available"}</strong>
+              <small>{cards.length ? "Choose a visible card before saving." : missingLabel}</small>
+            </span>
+          </>
+        )}
+      </div>
+      <div className="admin-prize-card-controls">
+        <input
+          aria-label="Search prize item by code or name"
+          disabled={disabled || !cards.length}
+          placeholder="Search code or name"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <select
+          aria-label="Prize item"
+          data-testid={`${testIdPrefix}-select`}
+          disabled={disabled || !cards.length || !selectCards.length}
+          value={selectedValue}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          <option value="">{cards.length ? emptyLabel : missingLabel}</option>
+          {selectCards.map((card) => (
+            <option key={card.catalogCardId} value={card.catalogCardId}>
+              {[card.code ?? "no code", card.name, card.grade, prizeCategoryLabel(card.prizeCategory)].join(" · ")}
+            </option>
+          ))}
+        </select>
+      </div>
+      {cards.length > 0 && !selectCards.length && (
+        <small>No catalog item matches that search.</small>
+      )}
+    </div>
+  );
+}
+
+function initialAdminPrizeCardId(cards: CardCatalogItem[]) {
+  return firstCatalogCardId(
+    prizeCatalogCardsFor(cards, "psa10_card", "bronze"),
+  );
+}
+
 function clampTierPrizeRows(value: number) {
   const parsed = Math.round(Number(value) || minTierPrizeRows);
   return Math.min(maxTierPrizeRows, Math.max(minTierPrizeRows, parsed));
@@ -1493,10 +1697,11 @@ function createPrizeDraft(
     cardOptions.some((card) => card.catalogCardId === existing.cardId)
       ? existing.cardId
       : "";
+  const defaultCardId = existing ? "" : firstCatalogCardId(cardOptions);
   return {
     localId: existing?.localId ?? `${displayTier}-${index + 1}`,
     displayTier,
-    cardId: existingCardId || firstCatalogCardId(cardOptions),
+    cardId: existingCardId || defaultCardId,
     tier: config.dbTier,
     prizeCategory,
     rank: existing?.rank ?? index + 1,
@@ -1579,7 +1784,7 @@ function withLowestTierRemainder(
         prize.cardId &&
         cardOptions.some((card) => card.catalogCardId === prize.cardId)
           ? prize.cardId
-          : firstCatalogCardId(cardOptions),
+          : "",
       quantity: Math.max(0, normalizedTotalSlots - fixedUnits),
     };
   });
@@ -1609,6 +1814,7 @@ export function AdminCampaignForm({
   categories?: YnotCategory[];
   cards?: CardCatalogItem[];
 }) {
+  const router = useRouter();
   const [slug, setSlug] = useState("new-campaign");
   const [titleTh, setTitleTh] = useState("แคมเปญใหม่");
   const [titleEn, setTitleEn] = useState("New campaign");
@@ -1649,12 +1855,10 @@ export function AdminCampaignForm({
     (sum, prize) => sum + Math.max(0, Math.round(Number(prize.quantity) || 0)),
     0,
   );
-  const initialUnlockedUnits = activePrizeDrafts
-    .filter(
-      (prize) =>
-        Number(prize.weight) > 0 && Number(prize.unlockAtSoldPct) <= 0,
-    )
-    .reduce((sum, prize) => sum + Math.max(0, Math.round(prize.quantity)), 0);
+  const initialUnlockedUnits = activePrizeDrafts.reduce(
+    (sum, prize) => sum + Math.max(0, Math.round(Number(prize.quantity) || 0)),
+    0,
+  );
   const draftPrizesByTier = prizeDisplayTierOptions.reduce(
     (groups, option) => ({
       ...groups,
@@ -1704,6 +1908,15 @@ export function AdminCampaignForm({
       !itemOptions.some((card) => card.catalogCardId === prize.cardId)
     );
   });
+  const missingPrizeItemRows = draftPrizes.filter((prize) => {
+    if (prizeUnitCount(prize) <= 0) return false;
+    const itemOptions = prizeCatalogCardsFor(
+      cards,
+      prize.prizeCategory,
+      prize.displayTier,
+    );
+    return itemOptions.length > 0 && !prize.cardId;
+  });
   const missingPrizeCategories = [
     ...new Set(
       unavailablePrizeCategoryRows.map(
@@ -1732,6 +1945,9 @@ export function AdminCampaignForm({
       : "",
     invalidPrizeItemRows.length
       ? "Choose a prize item that matches each selected prize category."
+      : "",
+    missingPrizeItemRows.length
+      ? "Choose a prize item for every active prize row."
       : "",
     !activeDisplayTierOptions.length
       ? "Turn on at least one prize tier."
@@ -1787,9 +2003,7 @@ export function AdminCampaignForm({
   ) {
     updatePrizeDraft(prize.localId, {
       prizeCategory: nextCategory,
-      cardId: firstCatalogCardId(
-        prizeCatalogCardsFor(cards, nextCategory, prize.displayTier),
-      ),
+      cardId: "",
     });
   }
 
@@ -1932,13 +2146,7 @@ export function AdminCampaignForm({
             cardId: prize.cardId,
             tier: dbTierForPrizeDisplayTier(prize.displayTier),
             rank: Math.max(1, Math.round(Number(prize.rank) || 1)),
-            valueThb: Math.max(0, Math.round(Number(prize.valueThb) || 0)),
             quantity: Math.max(0, Math.round(Number(prize.quantity) || 0)),
-            weight: Math.max(0, Number(prize.weight) || 0),
-            unlockAtSoldPct: Math.min(
-              100,
-              Math.max(0, Math.round(Number(prize.unlockAtSoldPct) || 0)),
-            ),
             metadata: {
               displayTier: prize.displayTier,
               displayTierLabel: prizeDisplayTierLabel(prize.displayTier),
@@ -1954,6 +2162,7 @@ export function AdminCampaignForm({
         setMessage(
           `Random pack ${payload.campaign?.slug ?? slug} saved as draft with ${configuredPrizeUnits.toLocaleString()} prize units.`,
         );
+        router.refresh();
       } catch (error) {
         setMessage(
           error instanceof Error
@@ -2315,7 +2524,7 @@ export function AdminCampaignForm({
                         (card) => card.catalogCardId === prize.cardId,
                       )
                         ? prize.cardId
-                        : itemOptions[0]?.catalogCardId ?? "";
+                        : "";
                       return (
                         <article
                           className={`admin-prize-table-row tier-${option.value}`}
@@ -2325,33 +2534,26 @@ export function AdminCampaignForm({
                             <strong>#{prize.tierRank}</strong>
                             <span>{option.shortLabel}</span>
                           </div>
-                          <label className="admin-field">
+                          <div className="admin-field admin-prize-card-field">
                             <span>Prize item</span>
-                            <select
+                            <AdminPrizeCardPicker
+                              cards={itemOptions}
                               disabled={!itemOptions.length}
                               value={selectedCardId}
-                              onChange={(event) =>
+                              onChange={(cardId) =>
                                 updatePrizeDraft(prize.localId, {
-                                  cardId: event.target.value,
+                                  cardId,
                                 })
                               }
-                            >
-                              {itemOptions.map((card) => (
-                                <option
-                                  key={card.catalogCardId}
-                                  value={card.catalogCardId}
-                                >
-                                  {card.name}
-                                </option>
-                              ))}
-                            </select>
+                              testIdPrefix={`campaign-prize-${prize.localId}`}
+                            />
                             {!itemOptions.length && (
                               <small>
                                 Add a {prizeCategoryLabel(prize.prizeCategory)}{" "}
                                 catalog item first.
                               </small>
                             )}
-                          </label>
+                          </div>
                           <label className="admin-field">
                             <span>Category</span>
                             <select
@@ -3160,7 +3362,7 @@ function AdminCampaignStatusRow({
         const updatedStatus = payload.status ?? "draft";
         const updatedVisibility = payload.visibility ?? "private";
         const updatedApprovalStatus =
-          payload.approvalStatus ?? "pending_review";
+          payload.approvalStatus ?? "not_submitted";
         setStatus(updatedStatus);
         setVisibility(updatedVisibility);
         setApprovalStatus(updatedApprovalStatus);
@@ -3171,7 +3373,7 @@ function AdminCampaignStatusRow({
           visibility: updatedVisibility,
         });
         setMessage(
-          "Random pack status and customer card labels saved. Refresh to see the updated public page.",
+          "Random pack settings saved. Submit owner review to reserve stock before publish.",
         );
       } catch (error) {
         setMessage(
@@ -3425,6 +3627,7 @@ function AdminCampaignStatusRow({
 }
 
 export function AdminCardForm() {
+  const router = useRouter();
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [prizeCategory, setPrizeCategory] =
@@ -3459,6 +3662,7 @@ export function AdminCardForm() {
           assetManifestKey: isTest ? assetManifestKey : undefined,
         });
         setMessage(`Prize item ${payload.card?.name ?? name} saved.`);
+        router.refresh();
       } catch (error) {
         setMessage(
           error instanceof Error ? error.message : "Prize item could not be saved.",
@@ -3613,28 +3817,27 @@ function prizePoolTierRank(prize: YnotPrizePoolItem) {
 export function AdminPrizePoolForm({
   campaigns,
   cards,
-  prizes,
-  viewerRole,
 }: {
   campaigns: YnotCampaign[];
   cards: CardCatalogItem[];
-  prizes: YnotPrizePoolItem[];
-  viewerRole?: "owner" | "admin" | "staff" | null;
 }) {
-  const isOwner = viewerRole === "owner";
   const [campaignId, setCampaignId] = useState(campaigns[0]?.id ?? "");
-  const [cardId, setCardId] = useState(cards[0]?.catalogCardId ?? "");
+  const [cardId, setCardId] = useState(() => initialAdminPrizeCardId(cards));
   const [displayTier, setDisplayTier] =
     useState<PrizeDisplayTier>("bronze");
   const [prizeCategory, setPrizeCategory] =
     useState<PrizeCategory>("psa10_card");
   const [rank, setRank] = useState(1);
   const [quantity, setQuantity] = useState(1);
-  const [weight, setWeight] = useState(1);
-  const [unlockAtSoldPct, setUnlockAtSoldPct] = useState(0);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const tier = dbTierForPrizeDisplayTier(displayTier);
+  const selectedCampaignId = campaigns.some(
+    (campaign) => campaign.id === campaignId,
+  )
+    ? campaignId
+    : campaigns[0]?.id ?? "";
+
   const prizeItemOptions = useMemo(
     () => prizeCatalogCardsFor(cards, prizeCategory, displayTier),
     [cards, displayTier, prizeCategory],
@@ -3643,24 +3846,27 @@ export function AdminPrizePoolForm({
     (card) => card.catalogCardId === cardId,
   )
     ? cardId
-    : prizeItemOptions[0]?.catalogCardId ?? "";
+    : "";
+  const selectedPrizeCard =
+    prizeItemOptions.find((card) => card.catalogCardId === selectedPrizeCardId) ??
+    null;
 
   function savePrize() {
     startTransition(async () => {
       try {
         setMessage("");
+        if (!selectedPrizeCardId) {
+          throw new Error("Choose a visible prize item before saving.");
+        }
+        if (!selectedCampaignId) {
+          throw new Error("Create a random pack before adding prize slots.");
+        }
         await postJson("/api/ynot/admin/prizes", {
-          campaignId,
+          campaignId: selectedCampaignId,
           cardId: selectedPrizeCardId,
           tier,
           rank,
           quantity,
-          ...(isOwner
-            ? {
-                weight,
-                unlockAtSoldPct,
-              }
-            : {}),
           prizeCategory,
           sourceType: prizeSourceType(prizeCategory),
           displayTier,
@@ -3676,29 +3882,13 @@ export function AdminPrizePoolForm({
           },
         });
         setMessage(
-          "Prize slot and inventory quantity saved. Refresh to see the updated pool.",
+          "Prize slot and planned quantity saved. Owner review will reserve global stock before approval.",
         );
       } catch (error) {
         setMessage(
           error instanceof Error
             ? error.message
             : "Prize slot could not be saved.",
-        );
-      }
-    });
-  }
-
-  function deletePrize(prizeId: string) {
-    startTransition(async () => {
-      try {
-        setMessage("");
-        await requestJson("/api/ynot/admin/prizes", { prizeId }, "DELETE");
-        setMessage("Prize slot deleted. Refresh to see the updated pool.");
-      } catch (error) {
-        setMessage(
-          error instanceof Error
-            ? error.message
-            : "Prize slot could not be deleted.",
         );
       }
     });
@@ -3718,7 +3908,7 @@ export function AdminPrizePoolForm({
         <AdminField label="Random pack" required>
           <select
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={campaignId}
+            value={selectedCampaignId}
             onChange={(event) => setCampaignId(event.target.value)}
           >
             {campaigns.map((campaign) => (
@@ -3729,18 +3919,13 @@ export function AdminPrizePoolForm({
           </select>
         </AdminField>
         <AdminField label="Prize item" required>
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+          <AdminPrizeCardPicker
+            cards={prizeItemOptions}
             disabled={!prizeItemOptions.length}
             value={selectedPrizeCardId}
-            onChange={(event) => setCardId(event.target.value)}
-          >
-            {prizeItemOptions.map((card) => (
-              <option key={card.catalogCardId} value={card.catalogCardId}>
-                {card.name}
-              </option>
-            ))}
-          </select>
+            onChange={setCardId}
+            testIdPrefix="admin-prize-pool-card"
+          />
           {!prizeItemOptions.length && (
             <small>Add a {prizeCategoryLabel(prizeCategory)} catalog item first.</small>
           )}
@@ -3755,11 +3940,7 @@ export function AdminPrizePoolForm({
             onChange={(event) => {
               const nextCategory = event.target.value as PrizeCategory;
               setPrizeCategory(nextCategory);
-              setCardId(
-                firstCatalogCardId(
-                  prizeCatalogCardsFor(cards, nextCategory, displayTier),
-                ),
-              );
+              setCardId("");
             }}
           >
             {prizeCategoryOptions.map((option) => (
@@ -3776,11 +3957,7 @@ export function AdminPrizePoolForm({
             onChange={(event) => {
               const nextDisplayTier = prizeDisplayTierValue(event.target.value);
               setDisplayTier(nextDisplayTier);
-              setCardId(
-                firstCatalogCardId(
-                  prizeCatalogCardsFor(cards, prizeCategory, nextDisplayTier),
-                ),
-              );
+              setCardId("");
             }}
           >
             {prizeDisplayTierOptions.map((option) => (
@@ -3805,9 +3982,9 @@ export function AdminPrizePoolForm({
           />
         </AdminField>
         <AdminField
-          label="Prize quantity"
+          label="Planned pack quantity"
           required
-          hint="How many units of this prize can be pulled from the pack."
+          hint="How many copies this pack should reserve from global stock during owner review."
         >
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
@@ -3820,112 +3997,551 @@ export function AdminPrizePoolForm({
             placeholder="10"
           />
         </AdminField>
-        {isOwner && (
-          <AdminField
-            label="Drop weight"
-            required
-            hint="Owner-only odds setting. Higher numbers increase this prize's chance after it is unlocked."
-          >
-            <input
-              className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-              min={0}
-              step={0.1}
-              type="number"
-              value={weight}
-              onChange={(event) => setWeight(Number(event.target.value))}
-              placeholder="1"
-            />
-          </AdminField>
-        )}
-        {isOwner && (
-          <AdminField
-            label="Unlock at sold %"
-            hint="Owner-only odds setting. Before this checkpoint, customers cannot see or pull this prize."
-          >
-            <input
-              className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-              max={100}
-              min={0}
-              step={1}
-              type="number"
-              value={unlockAtSoldPct}
-              onChange={(event) =>
-                setUnlockAtSoldPct(Number(event.target.value))
-              }
-              placeholder="30"
-            />
-          </AdminField>
-        )}
       </div>
       <button
         className="gold-button admin-form-save"
-        disabled={isPending || !campaignId || !selectedPrizeCardId}
+        disabled={isPending || !selectedCampaignId || !selectedPrizeCardId}
         onClick={savePrize}
         type="button"
       >
         {isPending ? "Saving..." : "Save campaign prize slot"}
       </button>
       {message && <p className="admin-form-message">{message}</p>}
-      <div className="admin-prize-list">
-        {prizes.map((prize) => (
-          <div
-            key={prize.id}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-sm"
-          >
-            <div>
-              <p className="font-black">
-                {prize.campaignTitle} ·{" "}
-                {prizeDisplayTierLabel(
-                  prize.displayTier ?? prize.displayGroup ?? prize.tier,
-                )}{" "}
-                #{prize.tierRank ?? prize.rank}
-              </p>
-              <p className="text-[var(--muted)]">
-                {prize.cardName}
-                {" · "}
-                {prize.availableUnits}/{prize.totalUnits} left
-                {prize.awardedUnits ? ` · ${prize.awardedUnits} awarded` : ""}
-                {prize.prizeCategoryLabel
-                  ? ` · ${prize.prizeCategoryLabel}`
-                  : ""}
-                {isOwner
-                  ? ` · weight ${prize.weight.toLocaleString()} · unlock ${prize.unlockAtSoldPct}% sold`
-                  : ""}
-              </p>
-            </div>
-            <button
-              className="plain-button rounded-xl px-3 py-2 text-xs font-black"
-              disabled={isPending}
-              onClick={() => {
-                setCampaignId(prize.campaignId);
-                setCardId(prize.cardId);
-                setDisplayTier(prizePoolDisplayTier(prize));
-                setPrizeCategory(prizeCategoryValue(prize.prizeCategory));
-                setRank(prizePoolTierRank(prize));
-                setQuantity(prize.totalUnits);
-                setWeight(prize.weight);
-                setUnlockAtSoldPct(prize.unlockAtSoldPct);
-              }}
-              type="button"
-            >
-              Use
-            </button>
-            <button
-              className="danger-button rounded-xl px-3 py-2 text-xs font-black"
-              disabled={isPending}
-              onClick={() => deletePrize(prize.id)}
-              type="button"
-            >
-              Delete
-            </button>
-          </div>
-        ))}
-        {!prizes.length && (
-          <p className="text-sm text-[var(--muted)]">
-            No prize slots assigned yet.
+      {selectedPrizeCard && (
+        <p className="admin-selected-card-note">
+          Selected: {selectedPrizeCard.code ?? "no code"} · {selectedPrizeCard.name}
+          {" · "}
+          {selectedPrizeCard.grade} · {prizeCategoryLabel(selectedPrizeCard.prizeCategory)}
+        </p>
+      )}
+    </section>
+  );
+}
+
+type AdminCardCatalogRow = {
+  card: CardCatalogItem;
+  prizes: YnotPrizePoolItem[];
+  stockTotal: number;
+  stockAvailable: number;
+  stockReserved: number;
+  stockAllocated: number;
+  stockArchived: number;
+  packTotalUnits: number;
+  packAvailableUnits: number;
+  packAwardedUnits: number;
+  packVoidUnits: number;
+};
+
+function buildAdminCardCatalogRows(
+  cards: CardCatalogItem[],
+  prizes: YnotPrizePoolItem[],
+) {
+  const prizesByCard = new Map<string, YnotPrizePoolItem[]>();
+  for (const prize of prizes) {
+    const current = prizesByCard.get(prize.cardId) ?? [];
+    current.push(prize);
+    prizesByCard.set(prize.cardId, current);
+  }
+
+  return cards
+    .map((card) => {
+      const cardPrizes = prizesByCard.get(card.catalogCardId) ?? [];
+      return {
+        card,
+        prizes: cardPrizes,
+        stockTotal: card.stockTotal ?? 0,
+        stockAvailable: card.stockAvailable ?? 0,
+        stockReserved: card.stockReserved ?? 0,
+        stockAllocated: card.stockAllocated ?? 0,
+        stockArchived: card.stockArchived ?? 0,
+        packTotalUnits: cardPrizes.reduce(
+          (sum, prize) => sum + prize.totalUnits,
+          0,
+        ),
+        packAvailableUnits: cardPrizes.reduce(
+          (sum, prize) => sum + prize.availableUnits,
+          0,
+        ),
+        packAwardedUnits: cardPrizes.reduce(
+          (sum, prize) => sum + prize.awardedUnits,
+          0,
+        ),
+        packVoidUnits: cardPrizes.reduce((sum, prize) => sum + prize.voidUnits, 0),
+      };
+    })
+    .sort((left, right) => {
+      const categoryCompare = prizeCategoryLabel(
+        left.card.prizeCategory,
+      ).localeCompare(prizeCategoryLabel(right.card.prizeCategory));
+      if (categoryCompare) return categoryCompare;
+      const seriesCompare = left.card.series.localeCompare(right.card.series);
+      if (seriesCompare) return seriesCompare;
+      return left.card.name.localeCompare(right.card.name);
+    });
+}
+
+function adminCardCatalogRowSearchText(row: AdminCardCatalogRow) {
+  const card = row.card;
+  return [
+    card.code,
+    card.name,
+    card.grade,
+    card.series,
+    prizeCategoryLabel(card.prizeCategory),
+    card.catalogCardId,
+    card.searchName,
+    card.searchCode,
+    card.photoUrl,
+    card.photoStoragePath,
+    card.assetSource,
+    card.assetLicense,
+    card.assetManifestKey,
+    card.seedRunId,
+    card.isTest ? "test" : "normal",
+    ...row.prizes.map((prize) => prize.campaignTitle),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function formatAdminCatalogDate(value?: string | null) {
+  if (!value) return "Unknown";
+  return formatApprovalDate(value);
+}
+
+export function AdminCardCatalogPanel({
+  cards,
+  prizes,
+}: {
+  cards: CardCatalogItem[];
+  prizes: YnotPrizePoolItem[];
+}) {
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [message, setMessage] = useState("");
+  const [pendingCardId, setPendingCardId] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const rows = useMemo(
+    () => buildAdminCardCatalogRows(cards, prizes),
+    [cards, prizes],
+  );
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleRows = useMemo(() => {
+    if (!normalizedQuery) return rows;
+    return rows.filter((row) =>
+      adminCardCatalogRowSearchText(row).includes(normalizedQuery),
+    );
+  }, [normalizedQuery, rows]);
+  const assignedCount = rows.filter((row) => row.prizes.length > 0).length;
+  const stockedCount = rows.filter((row) => row.stockTotal > 0).length;
+
+  function adjustCardStock(card: CardCatalogItem, quantityDelta: number) {
+    startTransition(async () => {
+      try {
+        setMessage("");
+        setPendingCardId(card.catalogCardId);
+        await postJson("/api/ynot/admin/card-stock", {
+          cardId: card.catalogCardId,
+          quantityDelta,
+          reason: quantityDelta > 0 ? "admin_stock_added" : "admin_stock_removed",
+        });
+        setMessage(
+          quantityDelta > 0
+            ? "Global stock added. Draft packs can reserve it during owner review."
+            : "One available global stock unit was removed.",
+        );
+        router.refresh();
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Global stock could not be adjusted.",
+        );
+      } finally {
+        setPendingCardId("");
+      }
+    });
+  }
+
+  return (
+    <section className="admin-panel admin-full-span admin-card-catalog-panel soft-card">
+      <div className="admin-panel-head">
+        <div>
+          <p className="section-label">Card catalog</p>
+          <h3 className="title-m">All cards in database</h3>
+          <p className="admin-muted-line">
+            This list comes from the cards table. Pack stock is shown in the
+            separate section below.
+          </p>
+        </div>
+        <span className="status-pill">
+          {visibleRows.length}/{cards.length} cards
+        </span>
+      </div>
+
+      <div className="admin-card-catalog-toolbar">
+        <label className="admin-field">
+          <span>Search catalog</span>
+          <input
+            aria-label="Search catalog cards"
+            placeholder="Search code, name, grade, category, pack"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        <div className="admin-card-catalog-summary">
+          <strong>{assignedCount.toLocaleString()}</strong>
+          <span>cards used in packs</span>
+          <strong>{stockedCount.toLocaleString()}</strong>
+          <span>cards with global stock</span>
+        </div>
+      </div>
+
+      <div className="admin-card-catalog-list" data-testid="admin-card-catalog-list">
+        {visibleRows.map((row) => {
+          const card = row.card;
+          return (
+            <article className="admin-card-catalog-row" key={card.catalogCardId}>
+              <AdminPrizeCardImage
+                code={card.code}
+                imageUrl={card.photoUrl}
+                name={card.name}
+              />
+              <div className="admin-card-catalog-main">
+                <strong>{card.name}</strong>
+                <p className="admin-muted-line">
+                  {[card.code ?? "no code", card.grade, prizeCategoryLabel(card.prizeCategory)]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                <p className="admin-muted-line">
+                  {card.series} · {card.isTest ? "Test item" : "Normal item"}
+                </p>
+                <p className="admin-id-line">{card.catalogCardId}</p>
+              </div>
+              <div className="admin-card-catalog-fields">
+                <div>
+                  <span>Image URL</span>
+                  <code>{card.photoUrl ?? "No image URL"}</code>
+                </div>
+                <div>
+                  <span>Storage path</span>
+                  <code>{card.photoStoragePath ?? "No storage path"}</code>
+                </div>
+                <div>
+                  <span>Asset source</span>
+                  <code>{card.assetSource ?? "No source"}</code>
+                </div>
+                <div>
+                  <span>Manifest</span>
+                  <code>{card.assetManifestKey ?? "No manifest key"}</code>
+                </div>
+                <div>
+                  <span>Updated</span>
+                  <code>{formatAdminCatalogDate(card.updatedAt)}</code>
+                </div>
+              </div>
+              <div className="admin-card-catalog-usage">
+                <span>Global stock</span>
+                <strong>
+                  {row.stockAvailable.toLocaleString()}/
+                  {row.stockTotal.toLocaleString()}
+                </strong>
+                <small>
+                  {row.stockReserved.toLocaleString()} reserved ·{" "}
+                  {row.stockAllocated.toLocaleString()} allocated
+                  {row.stockArchived ? ` · ${row.stockArchived.toLocaleString()} archived` : ""}
+                </small>
+                <div className="admin-stock-stepper admin-card-stock-actions">
+                  <button
+                    aria-label={`Remove one stock unit from ${card.name}`}
+                    className="plain-button admin-icon-button"
+                    disabled={isPending || row.stockAvailable <= 0}
+                    title="Remove one available global stock unit"
+                    type="button"
+                    onClick={() => adjustCardStock(card, -1)}
+                  >
+                    <Minus aria-hidden="true" size={16} />
+                  </button>
+                  <strong>
+                    {isPending && pendingCardId === card.catalogCardId
+                      ? "Updating"
+                      : "Adjust"}
+                  </strong>
+                  <button
+                    aria-label={`Add one stock unit to ${card.name}`}
+                    className="plain-button admin-icon-button"
+                    disabled={isPending}
+                    title="Add one global stock unit"
+                    type="button"
+                    onClick={() => adjustCardStock(card, 1)}
+                  >
+                    <Plus aria-hidden="true" size={16} />
+                  </button>
+                </div>
+                <small>
+                  {row.prizes.length.toLocaleString()} pack slot
+                  {row.prizes.length === 1 ? "" : "s"} ·{" "}
+                  {row.packAvailableUnits.toLocaleString()}/
+                  {row.packTotalUnits.toLocaleString()} pack units ·{" "}
+                  {row.packAwardedUnits.toLocaleString()} awarded
+                  {row.packVoidUnits ? ` · ${row.packVoidUnits.toLocaleString()} void` : ""}
+                </small>
+                <div className="admin-card-catalog-slot-list">
+                  {row.prizes.length ? (
+                    row.prizes.map((prize) => (
+                      <em key={prize.id}>
+                        {prize.campaignTitle} ·{" "}
+                        {prizeDisplayTierLabel(
+                          prize.displayTier ?? prize.displayGroup ?? prize.tier,
+                        )}{" "}
+                        #{prize.tierRank ?? prize.rank}
+                      </em>
+                    ))
+                  ) : (
+                    <em>No pack assignment</em>
+                  )}
+                </div>
+              </div>
+            </article>
+          );
+        })}
+        {!visibleRows.length && (
+          <p className="admin-empty-note">No catalog cards match this search.</p>
+        )}
+      </div>
+      {message && <p className="admin-form-message">{message}</p>}
+    </section>
+  );
+}
+
+type AdminPrizeInventoryCard = {
+  cardId: string;
+  card: CardCatalogItem | null;
+  prizes: YnotPrizePoolItem[];
+  totalUnits: number;
+  availableUnits: number;
+  awardedUnits: number;
+  voidUnits: number;
+};
+
+function buildAdminPrizeInventoryCards(
+  cards: CardCatalogItem[],
+  prizes: YnotPrizePoolItem[],
+) {
+  const cardById = new Map(cards.map((card) => [card.catalogCardId, card]));
+  const inventoryByCard = new Map<string, AdminPrizeInventoryCard>();
+
+  for (const prize of prizes) {
+    const current =
+      inventoryByCard.get(prize.cardId) ??
+      {
+        cardId: prize.cardId,
+        card: cardById.get(prize.cardId) ?? null,
+        prizes: [],
+        totalUnits: 0,
+        availableUnits: 0,
+        awardedUnits: 0,
+        voidUnits: 0,
+      };
+    current.prizes.push(prize);
+    current.totalUnits += prize.totalUnits;
+    current.availableUnits += prize.availableUnits;
+    current.awardedUnits += prize.awardedUnits;
+    current.voidUnits += prize.voidUnits;
+    inventoryByCard.set(prize.cardId, current);
+  }
+
+  return [...inventoryByCard.values()].sort((left, right) => {
+    const leftName = left.card?.name ?? left.prizes[0]?.cardName ?? "";
+    const rightName = right.card?.name ?? right.prizes[0]?.cardName ?? "";
+    return leftName.localeCompare(rightName);
+  });
+}
+
+function prizeQuantityPayload(prize: YnotPrizePoolItem, quantity: number) {
+  const displayTier = prizePoolDisplayTier(prize);
+  const tierRank = prizePoolTierRank(prize);
+  const prizeCategory = prizeCategoryValue(
+    prize.prizeCategory ?? prize.cardPrizeCategory,
+  );
+  return {
+    campaignId: prize.campaignId,
+    cardId: prize.cardId,
+    tier: prize.tier,
+    rank: prize.rank,
+    quantity,
+    prizeCategory,
+    sourceType: prizeSourceType(prizeCategory),
+    displayTier,
+    displayGroup: displayTier,
+    metadata: {
+      displayTier,
+      displayTierLabel: prizeDisplayTierLabel(displayTier),
+      displayGroup: displayTier,
+      tierRank,
+      prizeCategory,
+      prizeCategoryLabel: prizeCategoryLabel(prizeCategory),
+      sourceType: prizeSourceType(prizeCategory),
+    },
+  };
+}
+
+export function AdminPrizeInventoryPanel({
+  cards,
+  prizes,
+}: {
+  cards: CardCatalogItem[];
+  prizes: YnotPrizePoolItem[];
+}) {
+  const router = useRouter();
+  const [message, setMessage] = useState("");
+  const [pendingPrizeId, setPendingPrizeId] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const inventoryCards = useMemo(
+    () => buildAdminPrizeInventoryCards(cards, prizes),
+    [cards, prizes],
+  );
+
+  function updatePrizeQuantity(prize: YnotPrizePoolItem, nextQuantity: number) {
+    startTransition(async () => {
+      try {
+        setMessage("");
+        setPendingPrizeId(prize.id);
+        await postJson(
+          "/api/ynot/admin/prizes",
+          prizeQuantityPayload(prize, nextQuantity),
+        );
+        setMessage("Planned pack quantity updated. Owner review will reserve stock before publish.");
+        router.refresh();
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Prize quantity could not be updated.",
+        );
+      } finally {
+        setPendingPrizeId("");
+      }
+    });
+  }
+
+  return (
+    <section className="admin-panel admin-full-span admin-inventory-panel soft-card">
+      <div className="admin-panel-head">
+        <div>
+          <p className="section-label">Pack prize quantities</p>
+          <h3 className="title-m">Cards assigned to random packs</h3>
+          <p className="admin-muted-line">
+            These quantities belong to each random pack. Draft packs store a
+            plan first; owner review reserves global stock.
+          </p>
+        </div>
+        <span className="status-pill">{inventoryCards.length} cards</span>
+      </div>
+
+      <div className="admin-card-inventory-list">
+        {inventoryCards.map((item) => {
+          const firstPrize = item.prizes[0];
+          const cardName = item.card?.name ?? firstPrize?.cardName ?? "Card";
+          const cardCode = item.card?.code ?? firstPrize?.cardCode ?? null;
+          const cardGrade = item.card?.grade ?? firstPrize?.cardGrade ?? "";
+          const cardImageUrl =
+            item.card?.photoUrl ?? firstPrize?.cardImageUrl ?? null;
+          const cardCategory =
+            item.card?.prizeCategory ?? firstPrize?.cardPrizeCategory;
+          return (
+            <article className="admin-card-inventory-row" key={item.cardId}>
+              <AdminPrizeCardImage
+                code={cardCode}
+                imageUrl={cardImageUrl}
+                name={cardName}
+              />
+              <div className="admin-card-inventory-main">
+                <strong>{cardName}</strong>
+                <p className="admin-muted-line">
+                  {[cardCode ?? "no code", cardGrade, prizeCategoryLabel(cardCategory)]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                {item.card?.series && (
+                  <p className="admin-muted-line">{item.card.series}</p>
+                )}
+                <p className="admin-id-line">{item.cardId}</p>
+              </div>
+              <div className="admin-card-inventory-stock">
+                <span>Pack units / plan</span>
+                <strong>
+                  {item.availableUnits.toLocaleString()}/
+                  {item.totalUnits.toLocaleString()}
+                </strong>
+                <small>
+                  {item.awardedUnits.toLocaleString()} awarded
+                  {item.voidUnits ? ` · ${item.voidUnits.toLocaleString()} void` : ""}
+                </small>
+              </div>
+              <div className="admin-card-inventory-slots">
+                {item.prizes.map((prize) => {
+                  const canDecrease = prize.plannedQuantity > prize.awardedUnits;
+                  const isThisPending = isPending && pendingPrizeId === prize.id;
+                  return (
+                    <div className="admin-card-inventory-slot" key={prize.id}>
+                      <span>
+                        {prize.campaignTitle} ·{" "}
+                        {prizeDisplayTierLabel(
+                          prize.displayTier ?? prize.displayGroup ?? prize.tier,
+                        )}{" "}
+                        #{prize.tierRank ?? prize.rank}
+                      </span>
+                      <div className="admin-stock-stepper">
+                        <button
+                          aria-label={`Remove one ${cardName} from ${prize.campaignTitle}`}
+                          className="plain-button admin-icon-button"
+                          disabled={isPending || !canDecrease}
+                          title="Remove one available unit"
+                          type="button"
+                          onClick={() =>
+                            updatePrizeQuantity(
+                              prize,
+                              Math.max(prize.awardedUnits, prize.plannedQuantity - 1),
+                            )
+                          }
+                        >
+                          <Minus aria-hidden="true" size={16} />
+                        </button>
+                        <strong>
+                          {prize.availableUnits.toLocaleString()}/
+                          {prize.plannedQuantity.toLocaleString()}
+                        </strong>
+                        <button
+                          aria-label={`Add one ${cardName} to ${prize.campaignTitle}`}
+                          className="plain-button admin-icon-button"
+                          disabled={isPending}
+                          title="Add one unit"
+                          type="button"
+                          onClick={() =>
+                            updatePrizeQuantity(prize, prize.plannedQuantity + 1)
+                          }
+                        >
+                          <Plus aria-hidden="true" size={16} />
+                        </button>
+                      </div>
+                      {isThisPending && <small>Updating...</small>}
+                    </div>
+                  );
+                })}
+              </div>
+            </article>
+          );
+        })}
+        {!inventoryCards.length && (
+          <p className="admin-empty-note">
+            No cards have been assigned to a random pack prize slot yet.
           </p>
         )}
       </div>
+      {message && <p className="admin-form-message">{message}</p>}
     </section>
   );
 }

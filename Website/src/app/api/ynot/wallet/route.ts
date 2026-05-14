@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
+import { requireVerifiedAnchor } from "@/lib/auth/verified-anchor";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { sha256Hex } from "@/lib/slip2go/client";
 import { getPaymentMethods, getTopUps, getWallet } from "@/features/ynot/data";
@@ -39,6 +40,8 @@ export async function POST(request: Request) {
   if (!isSupabaseConfigured()) return jsonNoStore({ error: "Supabase is not configured." }, { status: 503 });
   const session = await resolveCurrentProfile();
   if (!session?.profileId) return jsonNoStore({ error: "Login is required." }, { status: 401 });
+  const blocked = await requireVerifiedAnchor(session);
+  if (blocked) return blocked;
   const limited = await enforceRateLimit(request, "ynot:wallet:top-up", { limit: 6, windowMs: 60_000 }, session.profileId);
   if (limited) return limited;
 

@@ -200,8 +200,9 @@ includes("src/app/api/ynot/admin/categories/route.ts", "store_categories", "admi
 includes("src/app/api/ynot/admin/categories/route.ts", "CATEGORY_SCHEMA_MISSING", "admin category API reports missing production schema clearly");
 includes("src/features/ynot/client.tsx", "function AdminField", "admin forms render explicit field titles");
 includes("src/features/ynot/client.tsx", "Saved category", "admin category form updates with save confirmation");
-includes("src/features/ynot/client.tsx", "Prize quantity", "admin prize form labels inventory quantity field");
-includes("src/app/api/ynot/admin/prizes/route.ts", "ensure_draw_round_prize_units", "admin prize API manages inventory units");
+includes("src/features/ynot/client.tsx", "Planned pack quantity", "admin prize form labels planned pack quantity field");
+includes("src/app/api/ynot/admin/prizes/route.ts", "planned_quantity", "admin prize API stores planned pack quantity");
+notIncludes("src/app/api/ynot/admin/prizes/route.ts", "ensure_draw_round_prize_units", "admin prize API does not materialize pack units before owner approval");
 includes("src/app/api/ynot/admin/cards/route.ts", "japan-toreca", "admin card API blocks Japan Toreca test assets");
 includes("src/features/ynot/data.ts", "canReadTestCampaign", "test campaign detail path checks whitelist");
 includes("src/app/(store)/gacha/[campaignId]/page.tsx", "allowTestForCurrentViewer: true", "gacha detail page allows whitelisted test-pack read path");

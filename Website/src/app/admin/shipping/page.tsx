@@ -4,12 +4,12 @@ import {
   PageHeader,
   StatusBadge,
 } from "@/features/ynot/components";
-import { getYnotDashboardData } from "@/features/ynot/data";
+import { getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminShippingPage() {
-  const data = await getYnotDashboardData();
+  const data = await getYnotDashboardSlice({ shipping: true });
   const active = data.shipping.filter(
     (request) => request.status === "submitted" || request.status === "packing",
   ).length;

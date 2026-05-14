@@ -1,5 +1,14 @@
 export type PrizeDisplayTier = "rainbow" | "gold" | "silver" | "bronze";
 
+export type PrizeTierAnimationConfig = {
+  durationMs: number;
+  ringColor: string;
+  glowColor: string;
+  particleCount: number;
+  screenShake: boolean;
+  holdToContinue: boolean;
+};
+
 export const prizeDisplayTierOptions: Array<{
   value: PrizeDisplayTier;
   label: string;
@@ -10,6 +19,7 @@ export const prizeDisplayTierOptions: Array<{
   defaultWeight: number;
   defaultUnlockAtSoldPct: number;
   allowsRandomPsa10: boolean;
+  animation: PrizeTierAnimationConfig;
 }> = [
   {
     value: "rainbow",
@@ -21,6 +31,14 @@ export const prizeDisplayTierOptions: Array<{
     defaultWeight: 0.25,
     defaultUnlockAtSoldPct: 30,
     allowsRandomPsa10: false,
+    animation: {
+      durationMs: 4500,
+      ringColor: "linear-gradient(135deg,#ff3df0 0%,#ffd93d 25%,#3dffb1 50%,#3db1ff 75%,#a23dff 100%)",
+      glowColor: "rgba(255,217,61,0.9)",
+      particleCount: 60,
+      screenShake: true,
+      holdToContinue: true,
+    },
   },
   {
     value: "gold",
@@ -32,6 +50,14 @@ export const prizeDisplayTierOptions: Array<{
     defaultWeight: 0.5,
     defaultUnlockAtSoldPct: 20,
     allowsRandomPsa10: false,
+    animation: {
+      durationMs: 3000,
+      ringColor: "linear-gradient(135deg,#ffe66e 0%,#ffb84d 50%,#ff8c1a 100%)",
+      glowColor: "rgba(255,184,77,0.85)",
+      particleCount: 30,
+      screenShake: true,
+      holdToContinue: false,
+    },
   },
   {
     value: "silver",
@@ -43,6 +69,14 @@ export const prizeDisplayTierOptions: Array<{
     defaultWeight: 1,
     defaultUnlockAtSoldPct: 0,
     allowsRandomPsa10: false,
+    animation: {
+      durationMs: 2000,
+      ringColor: "linear-gradient(135deg,#e8eef2 0%,#a8b3bd 100%)",
+      glowColor: "rgba(232,238,242,0.7)",
+      particleCount: 12,
+      screenShake: false,
+      holdToContinue: false,
+    },
   },
   {
     value: "bronze",
@@ -54,6 +88,14 @@ export const prizeDisplayTierOptions: Array<{
     defaultWeight: 10,
     defaultUnlockAtSoldPct: 0,
     allowsRandomPsa10: true,
+    animation: {
+      durationMs: 1500,
+      ringColor: "linear-gradient(135deg,#c98e5c 0%,#8a5a36 100%)",
+      glowColor: "rgba(201,142,92,0.55)",
+      particleCount: 0,
+      screenShake: false,
+      holdToContinue: false,
+    },
   },
 ];
 
@@ -101,4 +143,20 @@ export function dbTierForPrizeDisplayTier(value: unknown) {
 
 export function canPrizeDisplayTierUseRandomPsa10(value: unknown) {
   return prizeDisplayTierConfig(value).allowsRandomPsa10;
+}
+
+export function prizeTierAnimationConfig(value: unknown) {
+  return prizeDisplayTierConfig(value).animation;
+}
+
+export function highestPrizeDisplayTier(
+  values: ReadonlyArray<unknown>,
+): PrizeDisplayTier {
+  if (!values.length) return "bronze";
+  return values.reduce<PrizeDisplayTier>((best, candidate) => {
+    const candidateTier = prizeDisplayTierValue(candidate);
+    return prizeDisplayTierOrder(candidateTier) < prizeDisplayTierOrder(best)
+      ? candidateTier
+      : best;
+  }, "bronze");
 }

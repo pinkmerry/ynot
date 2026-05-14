@@ -1,7 +1,11 @@
+import { revalidateTag } from "next/cache";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { isMissingColumnError } from "@/lib/supabase/schema-compat";
+import {
+  isMissingColumnError,
+  isMissingFunctionError,
+} from "@/lib/supabase/schema-compat";
 import type { Database, Json } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import {
@@ -264,9 +268,13 @@ async function saveInitialPrizes(
       value_thb: prize.valueThb,
       weight: prize.weight,
       unlock_at_sold_pct: prize.unlockAtSoldPct,
+      planned_quantity: prize.quantity,
       is_test: isTest,
       seed_run_id: seedRunId,
-      metadata: prize.metadata ?? {},
+      metadata: {
+        ...(isRecord(prize.metadata) ? prize.metadata : {}),
+        plannedByAdminId: adminId,
+      } as Json,
     }));
 
   const { data, error } = await supabase
@@ -275,22 +283,8 @@ async function saveInitialPrizes(
     .select("id,tier,rank");
   if (error) throw error;
 
-  const prizeIdByKey = new Map(
-    (data ?? []).map((prize) => [`${prize.tier}:${prize.rank}`, prize.id]),
-  );
-  for (const prize of prizes) {
-    const prizeId = prizeIdByKey.get(`${prize.tier}:${prize.rank}`);
-    if (!prizeId) throw new Error("Prize inventory could not be linked.");
-    const { error: unitError } = await supabase.rpc(
-      "ensure_draw_round_prize_units",
-      {
-        p_draw_round_prize_id: prizeId,
-        p_total_units: prize.quantity,
-        p_admin_id: adminId,
-        p_seed_run_id: seedRunId,
-      },
-    );
-    if (unitError) throw unitError;
+  if ((data ?? []).length !== prizes.length) {
+    throw new Error("Prize inventory could not be linked.");
   }
 }
 
@@ -394,6 +388,7 @@ export async function POST(request: Request) {
       initialPrizeUnits: prizeValidation.totalPrizeUnits,
     },
   });
+  revalidateTag("campaigns", "max");
   return Response.json({ ok: true, campaign: data, prizeValidation });
 }
 
@@ -415,7 +410,7 @@ export async function PATCH(request: Request) {
   const supabase = createServiceSupabaseClient();
   const { data: current, error: currentError } = await supabase
     .from("draw_rounds")
-    .select("id,status,logic_snapshot")
+    .select("id,status,approval_status,logic_snapshot")
     .eq("id", campaignId)
     .single();
   if (currentError) return Response.json({ error: currentError.message }, { status: 409 });
@@ -425,8 +420,31 @@ export async function PATCH(request: Request) {
       { status: 409 },
     );
   }
+  if (current.approval_status === "approved") {
+    return Response.json(
+      { error: "Approved pack inventory is locked. Archive it or create a new draft before changing settings." },
+      { status: 409 },
+    );
+  }
+  if (current.approval_status === "pending_review") {
+    const { error: releaseError } = await supabase.rpc(
+      "release_campaign_reservations",
+      {
+        p_draw_round_id: campaignId,
+        p_admin_id: admin.adminId,
+        p_reason: "settings_changed",
+        p_note: "Campaign settings changed before owner approval.",
+      },
+    );
+    if (
+      releaseError &&
+      !isMissingColumnError(releaseError) &&
+      !isMissingFunctionError(releaseError, "release_campaign_reservations")
+    ) {
+      return Response.json({ error: releaseError.message }, { status: 409 });
+    }
+  }
 
-  const now = new Date().toISOString();
   const reviewPatch: Database["public"]["Tables"]["draw_rounds"]["Update"] = {
     ...patch,
     ...(body.openQuantityOptions === undefined
@@ -437,14 +455,14 @@ export async function PATCH(request: Request) {
             body.openQuantityOptions,
           ),
         }),
-    approval_status: "pending_review",
-    approval_requested_by: admin.adminId,
-    approval_requested_at: now,
+    approval_status: "not_submitted",
+    approval_requested_by: null,
+    approval_requested_at: null,
     approved_by: null,
     approved_at: null,
     rejected_by: null,
     rejected_at: null,
-    approval_notes: "Campaign settings changed. Owner review is required before publish.",
+    approval_notes: "Campaign settings changed. Submit owner review to reserve stock before publish.",
     status: "draft",
     visibility: "private",
   };
@@ -476,11 +494,12 @@ export async function PATCH(request: Request) {
     actor_admin_id: admin.adminId,
     event_type: "campaign_updated",
     draw_round_id: campaignId,
-    metadata: { patch: reviewPatch, approvalStatus: "pending_review" },
+    metadata: { patch: reviewPatch, approvalStatus: "not_submitted" },
   });
+  revalidateTag("campaigns", "max");
   return Response.json({
     ok: true,
-    approvalStatus: "pending_review",
+    approvalStatus: "not_submitted",
     status: "draft",
     visibility: "private",
   });

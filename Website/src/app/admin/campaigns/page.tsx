@@ -8,13 +8,17 @@ import {
   CampaignGrid,
   PageHeader,
 } from "@/features/ynot/components";
-import { getAdminCards, getYnotDashboardData } from "@/features/ynot/data";
+import { getAdminCards, getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCampaignsPage() {
   const [data, cards] = await Promise.all([
-    getYnotDashboardData(),
+    getYnotDashboardSlice({
+      campaigns: true,
+      categories: true,
+      ownerApprovalRequests: true,
+    }),
     getAdminCards(),
   ]);
   return (

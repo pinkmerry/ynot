@@ -1,6 +1,6 @@
 import { EmptyState, PageHeader, YnotShell } from "@/features/ynot/components";
 import { GachaOpenPanel } from "@/features/ynot/client";
-import { getCampaign, getYnotDashboardData } from "@/features/ynot/data";
+import { getCampaign, getTierAnimations, getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
@@ -11,17 +11,18 @@ export default async function GachaOpenPage({
   params: Promise<{ campaignId: string }>;
   searchParams?: Promise<{ qty?: string }>;
 }) {
-  const [{ campaignId }, query, data] = await Promise.all([
+  const [{ campaignId }, query, data, tierAnimations] = await Promise.all([
     params,
     searchParams ?? Promise.resolve({} as { qty?: string }),
-    getYnotDashboardData(),
+    getYnotDashboardSlice(),
+    getTierAnimations(),
   ]);
   const campaign = await getCampaign(campaignId, { allowTestForCurrentViewer: true, viewer: data.viewer });
   const initialQuantity = Math.max(1, Math.min(100, Math.round(Number(query.qty) || 1)));
   return (
     <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
-      <PageHeader eyebrow="03 · Open Pack (Cinematic)" title={campaign ? `Open ${campaign.titleTh}` : "Open gacha"} description="5 stages: confirm → fade → tension → reveal → result · click to start." />
-      {campaign ? <GachaOpenPanel campaign={campaign} authenticated={data.viewer.authenticated} initialQuantity={initialQuantity} /> : <EmptyState title="No campaign" body="Pick a live campaign before opening." />}
+      <PageHeader eyebrow="03 · Open Pack (Cinematic)" title={campaign ? `Open ${campaign.titleTh}` : "Open gacha"} description="Confirm · tension · reveal · summary · skip available." />
+      {campaign ? <GachaOpenPanel campaign={campaign} authenticated={data.viewer.authenticated} initialQuantity={initialQuantity} tierAnimations={tierAnimations} /> : <EmptyState title="No campaign" body="Pick a live campaign before opening." />}
     </YnotShell>
   );
 }
