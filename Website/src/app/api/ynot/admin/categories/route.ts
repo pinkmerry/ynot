@@ -49,7 +49,24 @@ function slugValue(value: unknown, fallback: string) {
 
 function apiError(error: unknown, fallback = "Category request failed.") {
   const maybe = error as { code?: string; message?: string; details?: string | null; hint?: string | null };
-  if (maybe?.code === "PGRST205" || maybe?.code === "42P01" || /store_categories|schema cache|does not exist/i.test(maybe?.message ?? "")) {
+  if (maybe?.code === "23505") {
+    return Response.json(
+      {
+        ok: false,
+        code: "CATEGORY_DUPLICATE_SLUG",
+        error: "This category slug is already used. Choose another slug or update the existing category.",
+        detail: maybe.message,
+      },
+      { status: 409 },
+    );
+  }
+  if (
+    maybe?.code === "PGRST205" ||
+    maybe?.code === "42P01" ||
+    /schema cache|relation "store_categories" does not exist|table "store_categories" does not exist/i.test(
+      maybe?.message ?? "",
+    )
+  ) {
     return Response.json(
       {
         ok: false,
@@ -60,12 +77,12 @@ function apiError(error: unknown, fallback = "Category request failed.") {
       { status: 424 },
     );
   }
-  if (maybe?.code === "23505") {
+  if (maybe?.code === "23503") {
     return Response.json(
       {
         ok: false,
-        code: "CATEGORY_DUPLICATE_SLUG",
-        error: "This category slug is already used. Choose another slug or update the existing category.",
+        code: "CATEGORY_INVALID_REFERENCE",
+        error: "One category reference is invalid. Refresh the admin page and try again.",
         detail: maybe.message,
       },
       { status: 409 },

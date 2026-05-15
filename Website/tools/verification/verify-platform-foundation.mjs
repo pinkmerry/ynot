@@ -255,6 +255,7 @@ check("src/app/api/ynot/admin/categories/route.ts", "admin category API is admin
 check("src/app/api/ynot/admin/categories/route.ts", "admin category API persists store categories", /from\("store_categories"\)[\s\S]*insert/);
 notCheck("src/app/api/ynot/admin/categories/route.ts", "admin category create does not upsert duplicate slugs", /upsert\([\s\S]*onConflict:\s*"slug"/);
 check("src/app/api/ynot/admin/categories/route.ts", "admin category duplicate slug maps to a structured conflict", /CATEGORY_DUPLICATE_SLUG[\s\S]*status:\s*409/);
+check("src/app/api/ynot/admin/categories/route.ts", "admin category duplicate errors take priority over schema wording", /code === "23505"[\s\S]*CATEGORY_DUPLICATE_SLUG[\s\S]*code === "PGRST205"/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API persists customer display tags", /displayTags[\s\S]*display_tags/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign create and title patch reject blank titles", /validateCampaignTitle[\s\S]*CAMPAIGN_TITLE_REQUIRED[\s\S]*validateCampaignTitle\(body, false\)/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API requires initial prize inventory on create", /initialPrizes[\s\S]*validatePrizeDraftsForSave[\s\S]*saveInitialPrizes/);
