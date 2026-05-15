@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { CardCatalogItem, ProfileInfo } from "@/lib/lucky-draw/types";
@@ -51,6 +51,55 @@ const coinPackages = [
   { label: "Whale", amountThb: 3000, coins: 3600 },
 ];
 
+export class AdminRequestError extends Error {
+  code?: string;
+  detail?: string | null;
+  blockers?: string[];
+  status: number;
+
+  constructor(
+    message: string,
+    options: {
+      blockers?: string[];
+      code?: string;
+      detail?: string | null;
+      status: number;
+    },
+  ) {
+    super(message);
+    this.name = "AdminRequestError";
+    this.blockers = options.blockers;
+    this.code = options.code;
+    this.detail = options.detail;
+    this.status = options.status;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function stringArrayValue(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : undefined;
+}
+
+function requestErrorMessage(payload: unknown) {
+  if (!isRecord(payload)) return "Request failed.";
+  return (
+    stringValue(payload.error) ||
+    stringArrayValue(payload.blockers)?.[0] ||
+    stringValue(payload.detail) ||
+    stringValue(payload.code) ||
+    "Request failed."
+  );
+}
+
 async function requestJson(url: string, body: unknown, method = "POST") {
   const response = await fetch(url, {
     method,
@@ -58,12 +107,66 @@ async function requestJson(url: string, body: unknown, method = "POST") {
     body: JSON.stringify(body),
   });
   const payload = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(payload?.error ?? "Request failed.");
+  if (!response.ok) {
+    throw new AdminRequestError(requestErrorMessage(payload), {
+      blockers: isRecord(payload) ? stringArrayValue(payload.blockers) : undefined,
+      code: isRecord(payload) ? stringValue(payload.code) || undefined : undefined,
+      detail: isRecord(payload) ? stringValue(payload.detail) || null : null,
+      status: response.status,
+    });
+  }
   return payload;
 }
 
 async function postJson(url: string, body: unknown) {
   return requestJson(url, body, "POST");
+}
+
+export function AdminRouteLink({
+  children,
+  className,
+  href,
+}: {
+  children: ReactNode;
+  className?: string;
+  href: string;
+}) {
+  const router = useRouter();
+
+  function navigate(event: MouseEvent<HTMLAnchorElement>) {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    router.push(href);
+
+    window.setTimeout(() => {
+      // Production admin click probes saw route interception without navigation; keep a hard same-origin fallback.
+      const target = new URL(href, window.location.href);
+      const current = new URL(window.location.href);
+      if (
+        target.pathname !== current.pathname ||
+        target.search !== current.search ||
+        target.hash !== current.hash
+      ) {
+        window.location.assign(target.href);
+      }
+    }, 350);
+  }
+
+  return (
+    <a className={className} href={href} onClick={navigate}>
+      {children}
+    </a>
+  );
 }
 
 const emptyProfileInfo: ProfileInfo = {
@@ -2715,6 +2818,19 @@ type LifecycleAction =
   | "archive"
   | "delete";
 
+function toLocalApprovalQueueItem(
+  request: YnotOwnerApprovalRequest,
+  current?: LocalApprovalQueueItem,
+): LocalApprovalQueueItem {
+  return {
+    ...request,
+    runtimeStatus: request.campaign.status,
+    runtimeVisibility: request.campaign.visibility,
+    selectedLogicMode: current?.selectedLogicMode ?? request.logicMode,
+    localMessage: current?.localMessage,
+  };
+}
+
 export function OwnerApprovalQueue({
   requests,
   viewerRole,
@@ -2723,14 +2839,18 @@ export function OwnerApprovalQueue({
   viewerRole?: "owner" | "admin" | "staff" | null;
 }) {
   const [items, setItems] = useState<LocalApprovalQueueItem[]>(
-    requests.map((request) => ({
-      ...request,
-      runtimeStatus: request.campaign.status,
-      runtimeVisibility: request.campaign.visibility,
-      selectedLogicMode: request.logicMode,
-    })),
+    requests.map((request) => toLocalApprovalQueueItem(request)),
   );
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setItems((current) => {
+      const currentById = new Map(current.map((item) => [item.id, item]));
+      return requests.map((request) =>
+        toLocalApprovalQueueItem(request, currentById.get(request.id)),
+      );
+    });
+  }, [requests]);
 
   function applyAction(index: number, action: LifecycleAction) {
     const item = items[index];
@@ -3350,6 +3470,7 @@ function AdminCampaignStatusRow({
   onCampaignChange: (campaignId: string, patch: Partial<YnotCampaign>) => void;
   viewerRole?: "owner" | "admin" | "staff" | null;
 }) {
+  const router = useRouter();
   const [status, setStatus] = useState<YnotCampaign["status"]>(campaign.status);
   const [visibility, setVisibility] = useState<YnotCampaign["visibility"]>(
     campaign.visibility,
@@ -3438,6 +3559,7 @@ function AdminCampaignStatusRow({
           visibility: payload.visibility ?? "private",
         });
         setMessage(payload.message ?? "Random pack submitted for owner review.");
+        router.refresh();
       } catch (error) {
         setMessage(
           error instanceof Error
@@ -4192,17 +4314,14 @@ export function AdminCardCatalogPanel({
   function confirmStockAdjustment(card: CardCatalogItem, row: AdminCardCatalogRow) {
     if (!stockDraft || stockDraft.cardId !== card.catalogCardId) return;
     const requestedQuantity = Math.max(1, Math.round(Number(stockDraft.quantity) || 0));
-    const quantity =
-      stockDraft.mode === "remove"
-        ? Math.min(requestedQuantity, row.stockAvailable)
-        : requestedQuantity;
 
-    if (stockDraft.mode === "remove" && quantity <= 0) {
+    if (stockDraft.mode === "remove" && row.stockAvailable <= 0) {
       setMessage("No available global stock can be removed for this card.");
       return;
     }
 
-    const quantityDelta = stockDraft.mode === "remove" ? -quantity : quantity;
+    const quantityDelta =
+      stockDraft.mode === "remove" ? -requestedQuantity : requestedQuantity;
     startTransition(async () => {
       try {
         setMessage("");
@@ -4214,8 +4333,8 @@ export function AdminCardCatalogPanel({
         });
         setMessage(
           quantityDelta > 0
-            ? `${countLabel(quantity, "global stock unit")} added. Draft packs can reserve it during owner review.`
-            : `${countLabel(quantity, "available global stock unit")} removed.`,
+            ? `${countLabel(requestedQuantity, "global stock unit")} added. Draft packs can reserve it during owner review.`
+            : `${countLabel(requestedQuantity, "available global stock unit")} removed.`,
         );
         setStockDraft(null);
         router.refresh();

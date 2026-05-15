@@ -22,6 +22,7 @@ import {
   canPrizeDisplayTierUseRandomPsa10,
   prizeDisplayTierValue,
 } from "@/features/ynot/prize-tier";
+import { adminErrorResponse } from "@/lib/ynot/admin-api-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,27 @@ function slugValue(value: unknown) {
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return slug || `campaign-${Date.now().toString(36)}`;
+}
+
+function campaignTitleValues(body: CampaignBody) {
+  const titleTh = text(body.titleTh);
+  const titleEn = text(body.titleEn);
+  const fallback = titleTh || titleEn;
+  return {
+    titleTh: titleTh || fallback,
+    titleEn: titleEn || fallback,
+  };
+}
+
+function validateCampaignTitle(body: CampaignBody, required: boolean) {
+  const hasTitleInput =
+    body.titleTh !== undefined || body.titleEn !== undefined;
+  if (!required && !hasTitleInput) return null;
+  const { titleTh, titleEn } = campaignTitleValues(body);
+  if (!titleTh && !titleEn) {
+    return "Thai title or English title is required.";
+  }
+  return null;
 }
 
 function enumValue<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -130,11 +152,12 @@ function campaignPatch(body: CampaignBody): Database["public"]["Tables"]["draw_r
   const totalSlots = Math.max(1, Math.round(numberValue(body.totalSlots, 100)));
   const costCoins = Math.max(1, Math.round(numberValue(body.costCoins, Math.ceil(priceThb / 100))));
   const series = body.series === undefined ? undefined : enumValue(body.series, ["one_piece", "pokemon"] as const, "pokemon");
+  const titles = campaignTitleValues(body);
 
   return {
     slug: body.slug === undefined ? undefined : slugValue(body.slug),
-    title_th: body.titleTh === undefined ? undefined : text(body.titleTh) || "แคมเปญใหม่",
-    title_en: body.titleEn === undefined ? undefined : text(body.titleEn) || text(body.titleTh) || "New campaign",
+    title_th: body.titleTh === undefined ? undefined : titles.titleTh,
+    title_en: body.titleEn === undefined ? undefined : titles.titleEn,
     series,
     status: body.status === undefined ? undefined : enumValue(body.status, ["draft", "live", "closed", "archived"] as const, "draft"),
     visibility: body.visibility === undefined ? undefined : enumValue(body.visibility, ["public", "hidden", "private"] as const, "private"),
@@ -293,21 +316,44 @@ async function bodyJson(request: Request): Promise<CampaignBody | null> {
 }
 
 export async function POST(request: Request) {
-  if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  if (!isSupabaseConfigured()) {
+    return adminErrorResponse(
+      "SUPABASE_NOT_CONFIGURED",
+      "Supabase is not configured.",
+      503,
+    );
+  }
   const admin = await resolveAdminSession();
-  if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
+  if (!admin) {
+    return adminErrorResponse(
+      "ADMIN_ACCESS_REQUIRED",
+      "Admin access is required.",
+      403,
+    );
+  }
   const limited = await enforceRateLimit(request, "ynot:admin:campaigns", { limit: 40, windowMs: 60_000 }, admin.profileId);
   if (limited) return limited;
 
   const body = await bodyJson(request);
-  if (!body) return Response.json({ error: "Invalid JSON body." }, { status: 400 });
+  if (!body) {
+    return adminErrorResponse(
+      "CAMPAIGN_INVALID_JSON",
+      "Invalid JSON body.",
+      400,
+    );
+  }
+  const titleError = validateCampaignTitle(body, true);
+  if (titleError) {
+    return adminErrorResponse("CAMPAIGN_TITLE_REQUIRED", titleError, 400);
+  }
 
   const patch = campaignPatch(body);
+  const titles = campaignTitleValues(body);
   const requestedPublish = isDirectPublishPatch(patch);
   const insert: Database["public"]["Tables"]["draw_rounds"]["Insert"] = {
     slug: slugValue(body.slug),
-    title_th: text(body.titleTh) || "แคมเปญใหม่",
-    title_en: text(body.titleEn) || text(body.titleTh) || "New campaign",
+    title_th: titles.titleTh,
+    title_en: titles.titleEn,
     series: patch.series ?? "pokemon",
     status: "draft",
     visibility: "private",
@@ -335,18 +381,24 @@ export async function POST(request: Request) {
     insert.total_slots,
   );
   if (!prizeValidation.ready) {
-    return Response.json(
-      {
-        error: prizeValidation.blockers[0],
-        blockers: prizeValidation.blockers,
-      },
-      { status: 400 },
+    return adminErrorResponse(
+      "CAMPAIGN_PRIZE_INVALID",
+      prizeValidation.blockers[0] ?? "Prize inventory is not ready.",
+      400,
+      { blockers: prizeValidation.blockers },
     );
   }
 
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase.from("draw_rounds").insert(insert).select("id,slug").single();
-  if (error) return Response.json({ error: error.message }, { status: 409 });
+  if (error) {
+    return adminErrorResponse(
+      error.code ?? "CAMPAIGN_CREATE_FAILED",
+      error.message,
+      409,
+      { detail: error.details ?? null, hint: error.hint ?? null },
+    );
+  }
 
   try {
     if (body.categoryIds !== undefined) {
@@ -364,14 +416,12 @@ export async function POST(request: Request) {
     );
   } catch (setupError) {
     await cleanupCreatedCampaign(supabase, data.id);
-    return Response.json(
-      {
-        error:
-          setupError instanceof Error
-            ? setupError.message
-            : "Campaign prize setup failed.",
-      },
-      { status: 409 },
+    return adminErrorResponse(
+      "CAMPAIGN_PRIZE_SETUP_FAILED",
+      setupError instanceof Error
+        ? setupError.message
+        : "Campaign prize setup failed.",
+      409,
     );
   }
   await supabase.from("audit_events").insert({
@@ -393,19 +443,45 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  if (!isSupabaseConfigured()) {
+    return adminErrorResponse(
+      "SUPABASE_NOT_CONFIGURED",
+      "Supabase is not configured.",
+      503,
+    );
+  }
   const admin = await resolveAdminSession();
-  if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
+  if (!admin) {
+    return adminErrorResponse(
+      "ADMIN_ACCESS_REQUIRED",
+      "Admin access is required.",
+      403,
+    );
+  }
   const limited = await enforceRateLimit(request, "ynot:admin:campaigns", { limit: 40, windowMs: 60_000 }, admin.profileId);
   if (limited) return limited;
 
   const body = await bodyJson(request);
   const campaignId = text(body?.campaignId, 80);
-  if (!body || !campaignId) return Response.json({ error: "campaignId is required." }, { status: 400 });
+  if (!body || !campaignId) {
+    return adminErrorResponse(
+      "CAMPAIGN_ID_REQUIRED",
+      "campaignId is required.",
+      400,
+    );
+  }
+  const titleError = validateCampaignTitle(body, false);
+  if (titleError) {
+    return adminErrorResponse("CAMPAIGN_TITLE_REQUIRED", titleError, 400);
+  }
 
   const patch = campaignPatch(body);
   if (isDirectPublishPatch(patch)) {
-    return Response.json({ error: publishAttemptMessage() }, { status: 409 });
+    return adminErrorResponse(
+      "CAMPAIGN_DIRECT_PUBLISH_LOCKED",
+      publishAttemptMessage(),
+      409,
+    );
   }
   const supabase = createServiceSupabaseClient();
   const { data: current, error: currentError } = await supabase
@@ -413,17 +489,29 @@ export async function PATCH(request: Request) {
     .select("id,status,approval_status,logic_snapshot")
     .eq("id", campaignId)
     .single();
-  if (currentError) return Response.json({ error: currentError.message }, { status: 409 });
+  if (currentError) {
+    return adminErrorResponse(
+      currentError.code ?? "CAMPAIGN_LOAD_FAILED",
+      currentError.message,
+      409,
+      {
+        detail: currentError.details ?? null,
+        hint: currentError.hint ?? null,
+      },
+    );
+  }
   if (current.status !== "draft") {
-    return Response.json(
-      { error: "Random pack settings can only be changed while the pack is draft/private." },
-      { status: 409 },
+    return adminErrorResponse(
+      "CAMPAIGN_MUST_BE_DRAFT",
+      "Random pack settings can only be changed while the pack is draft/private.",
+      409,
     );
   }
   if (current.approval_status === "approved") {
-    return Response.json(
-      { error: "Approved pack inventory is locked. Archive it or create a new draft before changing settings." },
-      { status: 409 },
+    return adminErrorResponse(
+      "CAMPAIGN_INVENTORY_LOCKED",
+      "Approved pack inventory is locked. Archive it or create a new draft before changing settings.",
+      409,
     );
   }
   if (current.approval_status === "pending_review") {
@@ -441,7 +529,12 @@ export async function PATCH(request: Request) {
       !isMissingColumnError(releaseError) &&
       !isMissingFunctionError(releaseError, "release_campaign_reservations")
     ) {
-      return Response.json({ error: releaseError.message }, { status: 409 });
+      return adminErrorResponse(
+        releaseError.code ?? "CAMPAIGN_RESERVATION_RELEASE_FAILED",
+        releaseError.message,
+        409,
+        { detail: releaseError.details ?? null, hint: releaseError.hint ?? null },
+      );
     }
   }
 
@@ -481,12 +574,25 @@ export async function PATCH(request: Request) {
       .update(legacyPatch)
       .eq("id", campaignId));
   }
-  if (error) return Response.json({ error: error.message }, { status: 409 });
+  if (error) {
+    return adminErrorResponse(
+      error.code ?? "CAMPAIGN_UPDATE_FAILED",
+      error.message,
+      409,
+      { detail: error.details ?? null, hint: error.hint ?? null },
+    );
+  }
   if (body.categoryIds !== undefined) {
     try {
       await replaceCampaignCategories(supabase, campaignId, idArrayValue(body.categoryIds));
     } catch (categoryError) {
-      return Response.json({ error: categoryError instanceof Error ? categoryError.message : "Campaign category assignment failed." }, { status: 409 });
+      return adminErrorResponse(
+        "CAMPAIGN_CATEGORY_ASSIGNMENT_FAILED",
+        categoryError instanceof Error
+          ? categoryError.message
+          : "Campaign category assignment failed.",
+        409,
+      );
     }
   }
   if (reviewPatch.total_slots) await supabase.rpc("create_draw_slots", { p_draw_round_id: campaignId });

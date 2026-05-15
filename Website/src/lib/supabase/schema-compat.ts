@@ -33,6 +33,7 @@ export function isMissingFunctionError(error: unknown, functionName?: string) {
 export function randomPackSchemaMissingResponse() {
   return Response.json(
     {
+      ok: false,
       code: "RANDOM_PACK_SCHEMA_MISSING",
       error:
         "Random pack owner approval schema is not applied yet. Apply the Supabase migration after the backup/PITR gate before using this action in production.",

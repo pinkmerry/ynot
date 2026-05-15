@@ -252,16 +252,65 @@ check("src/features/ynot/client.tsx", "admin user role form calls users API", /\
 check("src/features/ynot/client.tsx", "admin merge review calls merge API", /\/api\/ynot\/admin\/merge-requests/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API is admin gated", /resolveAdminSession[\s\S]*Admin access is required/);
 check("src/app/api/ynot/admin/categories/route.ts", "admin category API is admin gated", /resolveAdminSession[\s\S]*Admin access is required/);
-check("src/app/api/ynot/admin/categories/route.ts", "admin category API persists store categories", /from\("store_categories"\)[\s\S]*upsert/);
+check("src/app/api/ynot/admin/categories/route.ts", "admin category API persists store categories", /from\("store_categories"\)[\s\S]*insert/);
+notCheck("src/app/api/ynot/admin/categories/route.ts", "admin category create does not upsert duplicate slugs", /upsert\([\s\S]*onConflict:\s*"slug"/);
+check("src/app/api/ynot/admin/categories/route.ts", "admin category duplicate slug maps to a structured conflict", /CATEGORY_DUPLICATE_SLUG[\s\S]*status:\s*409/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API persists customer display tags", /displayTags[\s\S]*display_tags/);
+check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign create and title patch reject blank titles", /validateCampaignTitle[\s\S]*CAMPAIGN_TITLE_REQUIRED[\s\S]*validateCampaignTitle\(body, false\)/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API requires initial prize inventory on create", /initialPrizes[\s\S]*validatePrizeDraftsForSave[\s\S]*saveInitialPrizes/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign create stores planned quantities instead of materializing prize units", /saveInitialPrizes[\s\S]*planned_quantity: prize\.quantity[\s\S]*select\("id,tier,rank"\)/);
 notCheck("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign create does not call prize unit materializer", /ensure_draw_round_prize_units/);
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API persists planned quantity instead of materializing units", /planned_quantity[\s\S]*plannedQuantity:[\s\S]*materialized: false/);
 notCheck("src/app/api/ynot/admin/prizes/route.ts", "admin prize API does not call prize unit materializer", /ensure_draw_round_prize_units/);
 check("src/app/api/ynot/admin/card-stock/route.ts", "admin card stock API adjusts global card stock through RPC", /adjust_card_stock_units[\s\S]*card_stock_adjusted/);
+check("src/app/api/ynot/admin/card-stock/route.ts", "admin card stock API maps over-remove failures", /cardStockErrorMap[\s\S]*CARD_STOCK_ADJUST_FAILED/);
+const adminCardCatalogStockSource = sliceBetween(
+  "src/features/ynot/client.tsx",
+  "function confirmStockAdjustment",
+  "return (",
+  "admin card catalog stock adjustment source slice",
+);
+notCheckText(
+  "admin card catalog remove path does not silently clamp over-removal",
+  adminCardCatalogStockSource,
+  /Math\.min\(requestedQuantity,\s*row\.stockAvailable\)/,
+  "AdminCardCatalogPanel confirmStockAdjustment",
+);
+checkText(
+  "admin card catalog sends requested remove quantity to stock API",
+  adminCardCatalogStockSource,
+  /quantityDelta =[\s\S]*\? -requestedQuantity : requestedQuantity/,
+  "AdminCardCatalogPanel confirmStockAdjustment",
+);
 check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle uses stock reservation allocation RPCs", /submit_campaign_review[\s\S]*approve_campaign_inventory[\s\S]*publish_campaign[\s\S]*release_campaign_reservations/);
+check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle maps symbolic RPC errors", /campaignLifecycleErrorMap[\s\S]*mappedAdminErrorResponse[\s\S]*CAMPAIGN_LIFECYCLE_FAILED/);
 check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle checks prize readiness before review approve publish", /submit_review[\s\S]*approve[\s\S]*publish[\s\S]*getCampaignPrizeReadiness[\s\S]*readinessErrorResponse/);
+const adminCampaignStatusRowSource = sliceBetween(
+  "src/features/ynot/client.tsx",
+  "function AdminCampaignStatusRow",
+  "function applyLifecycleAction",
+  "admin campaign status row source slice",
+);
+checkText(
+  "admin submit review refreshes server owner queue",
+  adminCampaignStatusRowSource,
+  /const router = useRouter\(\)[\s\S]*function submitReview[\s\S]*router\.refresh\(\)/,
+  "AdminCampaignStatusRow submitReview",
+);
+const ownerApprovalQueueSourceForSync = sliceBetween(
+  "src/features/ynot/client.tsx",
+  "export function OwnerApprovalQueue",
+  "function applyAction",
+  "owner approval queue state sync source slice",
+);
+checkText(
+  "owner approval queue reconciles refreshed server requests",
+  ownerApprovalQueueSourceForSync,
+  /useEffect\(\(\) => \{[\s\S]*setItems[\s\S]*currentById[\s\S]*requests\.map[\s\S]*toLocalApprovalQueueItem/,
+  "OwnerApprovalQueue",
+);
+check("src/features/ynot/client.tsx", "admin request helper preserves structured error data", /class AdminRequestError[\s\S]*code\?: string[\s\S]*blockers\?: string\[\][\s\S]*requestErrorMessage/);
+check("src/features/ynot/components.tsx", "admin dashboard and nav use hard admin route links", /AdminRouteLink[\s\S]*admin-side-nav-link[\s\S]*admin-quick-action[\s\S]*admin-tool-row[\s\S]*\/admin\/health/);
 check("src/features/ynot/prize-readiness.ts", "random pack readiness blocks missing or non-openable planned prize inventory", /Add prize inventory before saving[\s\S]*Available or planned prize units must cover every remaining pack[\s\S]*No available prize is currently unlocked/);
 check("src/features/ynot/prize-readiness.ts", "random pack readiness accepts flexible tiers but enforces inventory coverage", /countByDisplayTier[\s\S]*!prizes\.length[\s\S]*totalPrizeUnits !== totalSlots[\s\S]*initialEligiblePrizeUnits <= 0/);
 check("src/features/ynot/prize-readiness.ts", "random pack structure counts planned or unit-backed display tier rows", /nonVoidUnitsByPrizeId[\s\S]*usePlannedInventory[\s\S]*unitBackedPrizes[\s\S]*displayTierCounts = countByDisplayTier\(unitBackedPrizes\)[\s\S]*topPrizeRows: displayTierCounts\.rainbow[\s\S]*highPoolRows: displayTierCounts\.gold \+ displayTierCounts\.silver/);

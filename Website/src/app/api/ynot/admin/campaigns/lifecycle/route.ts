@@ -13,6 +13,11 @@ import {
   getCampaignPrizeReadiness,
   readinessErrorResponse,
 } from "@/features/ynot/prize-readiness";
+import {
+  adminErrorResponse,
+  campaignLifecycleErrorMap,
+  mappedAdminErrorResponse,
+} from "@/lib/ynot/admin-api-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -215,16 +220,18 @@ function releaseReason(action: LifecycleAction) {
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
-    return Response.json(
-      { error: "Supabase is not configured." },
-      { status: 503 },
+    return adminErrorResponse(
+      "SUPABASE_NOT_CONFIGURED",
+      "Supabase is not configured.",
+      503,
     );
   }
   const admin = await resolveAdminSession();
   if (!admin) {
-    return Response.json(
-      { error: "Admin access is required." },
-      { status: 403 },
+    return adminErrorResponse(
+      "ADMIN_ACCESS_REQUIRED",
+      "Admin access is required.",
+      403,
     );
   }
   const limited = await enforceRateLimit(
@@ -249,15 +256,17 @@ export async function POST(request: Request) {
   const note = text(body?.note, 500);
 
   if (!campaignId || !action) {
-    return Response.json(
-      { error: "campaignId and valid action are required." },
-      { status: 400 },
+    return adminErrorResponse(
+      "CAMPAIGN_LIFECYCLE_INVALID_INPUT",
+      "campaignId and valid action are required.",
+      400,
     );
   }
   if (actionRequiresOwner(action) && admin.adminRole !== "owner") {
-    return Response.json(
-      { error: "Only an owner can approve, reject, request changes, publish, or delete a pack." },
-      { status: 403 },
+    return adminErrorResponse(
+      "OWNER_ROLE_REQUIRED",
+      "Only an owner can approve, reject, request changes, publish, or delete a pack.",
+      403,
     );
   }
   if (isLocalMockCampaign(campaignId)) {
@@ -281,12 +290,17 @@ export async function POST(request: Request) {
     if (isMissingColumnError(currentError)) {
       return randomPackSchemaMissingResponse();
     }
-    return Response.json({ error: currentError.message }, { status: 409 });
+    return mappedAdminErrorResponse(currentError, campaignLifecycleErrorMap, {
+      code: "CAMPAIGN_LOAD_FAILED",
+      error: "Random pack could not be loaded.",
+      status: 409,
+    });
   }
   if (action === "publish" && current.approval_status !== "approved") {
-    return Response.json(
-      { error: "Owner approval is required before publishing live/public." },
-      { status: 409 },
+    return adminErrorResponse(
+      "CAMPAIGN_MUST_BE_APPROVED",
+      "Owner approval is required before publishing live/public.",
+      409,
     );
   }
   if (action === "submit_review" || action === "approve" || action === "publish") {
@@ -319,12 +333,20 @@ export async function POST(request: Request) {
       if (isMissingColumnError(updateError)) {
         return randomPackSchemaMissingResponse();
       }
-      return Response.json({ error: updateError.message }, { status: 409 });
+      return mappedAdminErrorResponse(updateError, campaignLifecycleErrorMap, {
+        code: "CAMPAIGN_CLOSE_FAILED",
+        error: "Random pack could not be closed.",
+        status: 409,
+      });
     }
   } else {
     const rpcName = lifecycleRpcName(action);
     if (!rpcName) {
-      return Response.json({ error: "Unsupported lifecycle action." }, { status: 400 });
+      return adminErrorResponse(
+        "CAMPAIGN_LIFECYCLE_UNSUPPORTED_ACTION",
+        "Unsupported lifecycle action.",
+        400,
+      );
     }
     let rpcPayload: Record<string, unknown>;
     if (action === "submit_review") {
@@ -375,7 +397,11 @@ export async function POST(request: Request) {
       ) {
         return randomPackSchemaMissingResponse();
       }
-      return Response.json({ error: rpcError.message }, { status: 409 });
+      return mappedAdminErrorResponse(rpcError, campaignLifecycleErrorMap, {
+        code: "CAMPAIGN_LIFECYCLE_FAILED",
+        error: "Random pack lifecycle action failed.",
+        status: 409,
+      });
     }
   }
 
@@ -388,7 +414,11 @@ export async function POST(request: Request) {
     if (isMissingColumnError(fetchUpdatedError)) {
       return randomPackSchemaMissingResponse();
     }
-    return Response.json({ error: fetchUpdatedError.message }, { status: 409 });
+    return mappedAdminErrorResponse(fetchUpdatedError, campaignLifecycleErrorMap, {
+      code: "CAMPAIGN_REFRESH_FAILED",
+      error: "Random pack was updated but the latest state could not be refreshed.",
+      status: 409,
+    });
   }
 
   await supabase.from("audit_events").insert({

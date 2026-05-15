@@ -32,7 +32,7 @@ import {
   StoreHeaderRightNav,
   StoreSettingsMenu,
 } from "./StorePreferences";
-import { OwnerApprovalQueue } from "./client";
+import { AdminRouteLink, OwnerApprovalQueue } from "./client";
 import {
   prizeDisplayTierLabel,
   prizeDisplayTierOptions,
@@ -1562,14 +1562,14 @@ export function AdminNav({ activeHref }: { activeHref: string }) {
       </div>
       <div className="admin-side-nav-links">
         {adminNavItems.map((item) => (
-          <Link
+          <AdminRouteLink
             key={item.href}
             className={`admin-side-nav-link ${activeHref === item.href ? "active" : ""}`}
             href={item.href}
           >
             <span>{item.label}</span>
             <em>{item.kicker}</em>
-          </Link>
+          </AdminRouteLink>
         ))}
       </div>
       <Link className="admin-storefront-link" href="/">
@@ -1756,14 +1756,14 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
         </div>
         <div className="admin-quick-grid">
           {quickActions.map((action) => (
-            <Link
+            <AdminRouteLink
               key={`${action.href}-${action.label}`}
               className="admin-quick-action soft-card"
               href={action.href}
             >
               <strong>{action.label}</strong>
               <p>{action.detail}</p>
-            </Link>
+            </AdminRouteLink>
           ))}
         </div>
       </section>
@@ -1780,7 +1780,7 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
         </div>
         <div className="admin-tool-list">
           {mainTools.map((tool) => (
-            <Link
+            <AdminRouteLink
               key={tool.href}
               className="admin-tool-row soft-card"
               href={tool.href}
@@ -1790,7 +1790,7 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
                 <p>{tool.body}</p>
               </div>
               <strong>{tool.meta}</strong>
-            </Link>
+            </AdminRouteLink>
           ))}
         </div>
       </section>
@@ -1804,9 +1804,9 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
             health for migration/provider details when preparing production.
           </p>
         </div>
-        <Link className={`status-pill ${healthTone}`} href="/admin/health">
+        <AdminRouteLink className={`status-pill ${healthTone}`} href="/admin/health">
           Open health
-        </Link>
+        </AdminRouteLink>
       </section>
     </div>
   );
@@ -1842,9 +1842,9 @@ export function AdminCategoryManager({
             backward compatible through <strong>draw_rounds.series</strong>.
           </p>
         </div>
-        <Link className="secondary-action compact" href="/admin/campaigns">
+        <AdminRouteLink className="secondary-action compact" href="/admin/campaigns">
           Open Random Pack Studio
-        </Link>
+        </AdminRouteLink>
       </section>
 
       <section
@@ -1917,7 +1917,7 @@ export function AdminCategoryManager({
                     </div>
                   </dl>
                 </div>
-                <Link
+                <AdminRouteLink
                   className="secondary-action compact"
                   href={
                     category.legacySeries
@@ -1926,7 +1926,7 @@ export function AdminCategoryManager({
                   }
                 >
                   Preview storefront
-                </Link>
+                </AdminRouteLink>
               </article>
             );
           })}

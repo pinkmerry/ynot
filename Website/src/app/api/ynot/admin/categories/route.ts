@@ -4,6 +4,7 @@ import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { adminErrorResponse } from "@/lib/ynot/admin-api-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -135,9 +136,25 @@ function validateCategoryBody(body: CategoryBody) {
 }
 
 async function requireAdmin(request: Request) {
-  if (!isSupabaseConfigured()) return { response: Response.json({ error: "Supabase is not configured." }, { status: 503 }) };
+  if (!isSupabaseConfigured()) {
+    return {
+      response: adminErrorResponse(
+        "SUPABASE_NOT_CONFIGURED",
+        "Supabase is not configured.",
+        503,
+      ),
+    };
+  }
   const admin = await resolveAdminSession();
-  if (!admin) return { response: Response.json({ error: "Admin access is required." }, { status: 403 }) };
+  if (!admin) {
+    return {
+      response: adminErrorResponse(
+        "ADMIN_ACCESS_REQUIRED",
+        "Admin access is required.",
+        403,
+      ),
+    };
+  }
   const limited = await enforceRateLimit(request, "ynot:admin:categories", { limit: 60, windowMs: 60_000 }, admin.profileId);
   if (limited) return { response: limited };
   return { admin };
@@ -160,7 +177,7 @@ export async function POST(request: Request) {
   const guard = await requireAdmin(request);
   if (guard.response) return guard.response;
   const body = await bodyJson(request);
-  if (!body) return Response.json({ error: "Invalid JSON body." }, { status: 400 });
+  if (!body) return adminErrorResponse("CATEGORY_INVALID_JSON", "Invalid JSON body.", 400);
   const validation = validateCategoryBody(body);
   if (validation) return Response.json({ ok: false, code: "CATEGORY_INVALID_INPUT", error: validation }, { status: 400 });
 
@@ -168,7 +185,7 @@ export async function POST(request: Request) {
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase
     .from("store_categories")
-    .upsert({ ...patch, created_by_admin_id: guard.admin.adminId }, { onConflict: "slug" })
+    .insert({ ...patch, created_by_admin_id: guard.admin.adminId })
     .select("*")
     .single();
   if (error) return apiError(error);
@@ -187,7 +204,7 @@ export async function PATCH(request: Request) {
   if (guard.response) return guard.response;
   const body = await bodyJson(request);
   const categoryId = text(body?.categoryId, 80);
-  if (!body || !categoryId) return Response.json({ error: "categoryId is required." }, { status: 400 });
+  if (!body || !categoryId) return adminErrorResponse("CATEGORY_ID_REQUIRED", "categoryId is required.", 400);
   const validation = validateCategoryBody(body);
   if (validation) return Response.json({ ok: false, code: "CATEGORY_INVALID_INPUT", error: validation }, { status: 400 });
 
