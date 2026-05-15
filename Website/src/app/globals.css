@@ -8807,6 +8807,11 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   grid-template-columns: minmax(0, 1fr) minmax(260px, 0.82fr);
 }
 
+.admin-prize-tier-head > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
 .admin-tier-count-controls {
   align-items: end;
   display: grid;
@@ -8892,12 +8897,12 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   display: grid;
   gap: 8px;
   grid-template-columns:
-    minmax(74px, 0.5fr)
-    minmax(260px, 2fr)
+    minmax(148px, 0.7fr)
+    minmax(292px, 2fr)
     minmax(140px, 1.1fr)
     minmax(74px, 0.54fr)
     minmax(82px, 0.58fr);
-  min-width: 760px;
+  min-width: 888px;
   padding: 10px;
 }
 
@@ -8930,11 +8935,24 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   border: 1px solid var(--border);
   border-radius: 14px;
   display: grid;
-  gap: 2px;
-  justify-content: center;
-  min-height: 46px;
-  padding: 8px;
+  gap: 9px;
+  justify-items: center;
+  min-height: 166px;
+  padding: 10px;
   text-align: center;
+}
+
+.admin-prize-rank-label {
+  align-items: baseline;
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+}
+
+.admin-prize-rank-cell .admin-prize-card-thumb {
+  border-radius: 12px;
+  height: 124px;
+  width: 98px;
 }
 
 .admin-prize-card-field {
@@ -9033,6 +9051,10 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   grid-template-columns: minmax(0, 0.78fr) minmax(0, 1fr);
 }
 
+.admin-prize-card-controls.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .admin-prize-card-controls input,
 .admin-prize-card-controls select {
   background: rgba(0, 0, 0, 0.25);
@@ -9044,12 +9066,12 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   padding: 0 10px;
 }
 
-.admin-prize-rank-cell strong {
+.admin-prize-rank-label strong {
   font-size: 0.98rem;
   font-weight: 1000;
 }
 
-.admin-prize-rank-cell span {
+.admin-prize-rank-label span {
   color: var(--muted);
   font-size: 0.66rem;
   font-weight: 900;
@@ -9087,16 +9109,23 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 }
 
 .admin-readiness-panel .admin-prize-checklist {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.admin-readiness-panel .admin-prize-checklist {
   gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .admin-readiness-panel .admin-prize-checklist > div {
-  align-items: center;
-  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 1fr;
+}
+
+.admin-readiness-panel .admin-prize-checklist > div em {
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.25;
 }
 
 .admin-redesign-reference .admin-prize-draft-card,
@@ -10211,9 +10240,8 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   gap: 16px;
   grid-template-columns:
     106px
-    minmax(200px, 0.85fr)
-    minmax(280px, 1.1fr)
-    minmax(250px, 0.85fr);
+    minmax(220px, 0.9fr)
+    minmax(320px, 1.15fr);
   min-height: 148px;
   padding: 14px;
 }
@@ -10250,25 +10278,18 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   overflow-wrap: anywhere;
 }
 
-.admin-card-catalog-fields {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  min-width: 0;
-}
-
-.admin-card-catalog-fields div,
 .admin-card-catalog-usage {
+  align-content: center;
   background: rgba(0, 0, 0, 0.16);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
   display: grid;
   gap: 3px;
+  min-height: 118px;
   min-width: 0;
   padding: 9px 10px;
 }
 
-.admin-card-catalog-fields span,
 .admin-card-catalog-usage span,
 .admin-card-catalog-usage small {
   color: var(--admin-muted);
@@ -10277,25 +10298,67 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   line-height: 1.25;
 }
 
-.admin-card-catalog-fields code {
-  color: var(--admin-text);
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.68rem;
-  line-height: 1.35;
-  max-height: 36px;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-}
-
-.admin-card-catalog-usage {
-  align-content: center;
-  min-height: 118px;
-}
-
 .admin-card-catalog-usage strong {
   color: var(--admin-text);
   font-size: 1.1rem;
   line-height: 1.1;
+}
+
+.admin-card-stock-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.admin-stock-action-row,
+.admin-stock-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-stock-action-row .plain-button,
+.admin-stock-confirm-actions .gold-button,
+.admin-stock-confirm-actions .danger-button,
+.admin-stock-confirm-actions .plain-button {
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
+.admin-stock-confirm {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+}
+
+.admin-stock-confirm-head {
+  align-items: start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.admin-stock-confirm-head strong {
+  color: var(--admin-text);
+  font-size: 0.76rem;
+  text-align: right;
+}
+
+.admin-stock-confirm-field {
+  display: grid;
+  gap: 5px;
+}
+
+.admin-stock-confirm-field input {
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: var(--admin-text);
+  min-height: 36px;
+  padding: 0 10px;
 }
 
 .admin-card-catalog-slot-list {
@@ -10425,33 +10488,14 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   overflow-wrap: anywhere;
 }
 
-.admin-stock-stepper {
-  align-items: center;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 34px minmax(58px, auto) 34px;
-  justify-items: center;
-}
-
-.admin-stock-stepper strong {
+.admin-card-inventory-slot > strong {
   color: var(--admin-text);
   font-size: 0.86rem;
   white-space: nowrap;
 }
 
-.admin-card-stock-actions {
-  grid-template-columns: 34px minmax(72px, auto) 34px;
-  margin-top: 4px;
-}
-
-.admin-icon-button {
-  align-items: center;
-  border-radius: 10px !important;
-  display: inline-flex;
-  height: 34px;
-  justify-content: center;
-  padding: 0 !important;
-  width: 34px;
+.admin-card-inventory-slot > small {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 1180px) {
@@ -10463,7 +10507,6 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
     grid-template-columns: 106px minmax(0, 1fr);
   }
 
-  .admin-card-catalog-fields,
   .admin-card-catalog-usage {
     grid-column: 1 / -1;
   }
@@ -10699,10 +10742,6 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   .admin-card-catalog-row {
     grid-template-columns: 82px minmax(0, 1fr);
     min-height: 126px;
-  }
-
-  .admin-card-catalog-fields {
-    grid-template-columns: 1fr;
   }
 
   .admin-card-catalog-list .admin-prize-card-thumb {

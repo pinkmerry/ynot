@@ -290,7 +290,10 @@ export async function YnotShell({
             ) : (
               <StoreSettingsMenu />
             )}
-            <StoreHeaderNav authenticated={renderViewer.authenticated} />
+            <StoreHeaderNav
+              authenticated={renderViewer.authenticated}
+              isAdmin={renderViewer.isAdmin}
+            />
           </div>
           <Link href="/" className="brand-lockup" aria-label="YNOT home">
             <Image

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { signOutAction } from "@/features/auth/actions";
 import type { HomeFilterState, HomeSortOption } from "./types";
@@ -24,6 +24,27 @@ const languageStorageKey = "ynot-language-v2";
 const themeStorageKey = "ynot-theme-v2";
 const preferenceEvent = "ynot-preferences-change";
 
+function subscribeToHydration(onStoreChange: () => void) {
+  const timeoutId = window.setTimeout(onStoreChange, 0);
+  return () => window.clearTimeout(timeoutId);
+}
+
+function getHydratedSnapshot() {
+  return true;
+}
+
+function getServerHydrationSnapshot() {
+  return false;
+}
+
+function useHydrated() {
+  return useSyncExternalStore(
+    subscribeToHydration,
+    getHydratedSnapshot,
+    getServerHydrationSnapshot,
+  );
+}
+
 const navLabels = {
   en: {
     main: "Home",
@@ -32,6 +53,7 @@ const navLabels = {
     profile: "Profile",
     wallet: "Wallet",
     personalInfo: "Personal Info",
+    admin: "Admin",
   },
   th: {
     main: "หน้าหลัก",
@@ -40,6 +62,7 @@ const navLabels = {
     profile: "โปรไฟล์",
     wallet: "วอลเล็ต",
     personalInfo: "ข้อมูลส่วนตัว",
+    admin: "หน้าแอดมิน",
   },
 } as const;
 
@@ -93,6 +116,12 @@ const customerNav = [
   { key: "personalInfo", href: "/profile/personal-info", protected: true, placement: ["drawer"] },
 ] as const;
 
+const adminHeaderNavItem = {
+  key: "admin",
+  href: "/admin",
+  protected: true,
+} as const;
+
 function safeLanguage(value: string | null | undefined): Language {
   if (value === "th" || value === "en") return value;
   return defaults.language;
@@ -130,7 +159,11 @@ function useStorePreferences() {
   useEffect(() => {
     const sync = () => {
       const next = readPreferences();
-      setPreferences(next);
+      setPreferences((current) =>
+        current.language === next.language && current.theme === next.theme
+          ? current
+          : next,
+      );
       if (document.documentElement.dataset.ynotLanguage !== next.language) {
         document.documentElement.dataset.ynotLanguage = next.language;
       }
@@ -150,11 +183,9 @@ function useStorePreferences() {
   }, []);
 
   function update(next: Partial<StorePreferences>) {
-    setPreferences((current) => {
-      const merged = { ...current, ...next };
-      applyPreferences(merged);
-      return merged;
-    });
+    const merged = { ...preferences, ...next };
+    setPreferences(merged);
+    applyPreferences(merged);
   }
 
   return {
@@ -230,7 +261,13 @@ function isNavActive(pathname: string | null, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function StoreHeaderNav({ authenticated }: { authenticated: boolean }) {
+export function StoreHeaderNav({
+  authenticated,
+  isAdmin = false,
+}: {
+  authenticated: boolean;
+  isAdmin?: boolean;
+}) {
   const { preferences } = useStorePreferences();
   const labels = navLabels[preferences.language];
   const pathname = usePathname();
@@ -238,10 +275,12 @@ export function StoreHeaderNav({ authenticated }: { authenticated: boolean }) {
   const leftNav = customerNav.filter((item) =>
     (item.placement as readonly string[]).includes("left"),
   );
+  const visibleNav =
+    authenticated && isAdmin ? [...leftNav, adminHeaderNavItem] : leftNav;
 
   return (
     <nav className="store-nav" aria-label="Primary navigation">
-      {leftNav.map((item) => {
+      {visibleNav.map((item) => {
         const active = isNavActive(pathname, item.href);
         return (
           <Link
@@ -303,11 +342,7 @@ export function StoreHeaderRightNav({
   const copy = settingsCopy[preferences.language];
   const account = accountCopy[preferences.language];
   const [profileOpen, setProfileOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const hydrated = useHydrated();
 
   useEffect(() => {
     if (!profileOpen) return;
@@ -524,7 +559,7 @@ export function StoreHeaderRightNav({
           </svg>
         </span>
       </button>
-      {mounted ? createPortal(profileDrawer, document.body) : null}
+      {hydrated ? createPortal(profileDrawer, document.body) : null}
     </>
   );
 }
@@ -539,13 +574,9 @@ export function StoreSettingsMenu({
 } = {}) {
   const { preferences, setLanguage } = useStorePreferences();
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const copy = settingsCopy[preferences.language];
   const navStrings = navLabels[preferences.language];
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const hydrated = useHydrated();
 
   useEffect(() => {
     if (!open) return;
@@ -724,7 +755,7 @@ export function StoreSettingsMenu({
 
       {/* Portal drawer + backdrop to document.body so it escapes the header's
           transformed containing block (will-change: transform on .storefront-header). */}
-      {mounted ? createPortal(drawerMarkup, document.body) : null}
+      {hydrated ? createPortal(drawerMarkup, document.body) : null}
     </div>
   );
 }

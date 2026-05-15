@@ -139,7 +139,8 @@ check("src/features/ynot/data.ts", "admin prize pool reader selects card image m
 check("src/features/ynot/data.ts", "admin prize pool reader maps card image metadata", /cardCode:[\s\S]*cardGrade:[\s\S]*cardImageUrl:[\s\S]*cardImageStoragePath:[\s\S]*cardPrizeCategory:/);
 check("src/features/ynot/client.tsx", "admin prize picker exposes selected card preview identity", /function AdminPrizeCardPicker[\s\S]*data-selected-card-id[\s\S]*catalogCardId[\s\S]*selected-card-preview/);
 check("src/features/ynot/client.tsx", "admin prize picker renders image with stable fallback", /function AdminPrizeCardImage[\s\S]*photoUrl|function AdminPrizeCardImage[\s\S]*imageUrl[\s\S]*admin-prize-card-placeholder/);
-check("src/features/ynot/client.tsx", "admin campaign prize rows use image-backed picker", /AdminPrizeCardPicker[\s\S]*value=\{selectedCardId\}[\s\S]*testIdPrefix=\{`campaign-prize-\$\{prize\.localId\}`\}/);
+check("src/features/ynot/client.tsx", "admin campaign prize rows show selected card image in rank tile", /admin-prize-rank-cell[\s\S]*AdminPrizeCardImage[\s\S]*AdminPrizeCardPicker[\s\S]*showPreview=\{false\}[\s\S]*showSearch=\{false\}[\s\S]*testIdPrefix=\{`campaign-prize-\$\{prize\.localId\}`\}/);
+check("src/app/globals.css", "admin campaign prize rank tile uses a larger card image", /admin-prize-rank-cell[\s\S]*min-height: 166px[\s\S]*admin-prize-rank-cell \.admin-prize-card-thumb[\s\S]*height: 124px[\s\S]*width: 98px/);
 check("src/features/ynot/client.tsx", "admin prize pool form uses image-backed picker", /AdminPrizeCardPicker[\s\S]*value=\{selectedPrizeCardId\}[\s\S]*testIdPrefix="admin-prize-pool-card"/);
 notCheck("src/features/ynot/client.tsx", "campaign prize draft does not silently fallback invalid selected card to first option", /cardId:\s*existingCardId\s*\|\|\s*firstCatalogCardId/);
 notCheck("src/features/ynot/client.tsx", "campaign row selected card does not mask invalid card with first option", /const selectedCardId =[\s\S]{0,260}:\s*itemOptions\[0\]\?\.catalogCardId/);
@@ -195,10 +196,55 @@ notCheckText(
 );
 notCheck("src/features/ynot/client.tsx", "admin existing card stock panel removes add-to-pack CTA", /Add to pack|function AdminPrizeCatalogActionList|addCatalogCardToPack/);
 check("src/features/ynot/client.tsx", "admin card catalog panel renders every card from catalog reader", /function buildAdminCardCatalogRows[\s\S]*prizesByCard[\s\S]*return cards[\s\S]*card\.catalogCardId[\s\S]*export function AdminCardCatalogPanel[\s\S]*All cards in database[\s\S]*data-testid="admin-card-catalog-list"/);
-check("src/features/ynot/client.tsx", "admin card catalog separates global stock from pack assignments", /AdminCardCatalogPanel[\s\S]*cards used in packs[\s\S]*cards with global stock[\s\S]*Global stock[\s\S]*No pack assignment/);
-check("src/features/ynot/client.tsx", "admin card catalog adjusts global stock through card stock API", /AdminCardCatalogPanel[\s\S]*adjustCardStock[\s\S]*\/api\/ynot\/admin\/card-stock[\s\S]*Global stock added/);
-check("src/features/ynot/client.tsx", "admin prize inventory panel is labeled as pack planned quantity", /export function AdminPrizeInventoryPanel[\s\S]*Pack prize quantities[\s\S]*owner review reserves global stock/);
-check("src/features/ynot/client.tsx", "admin prize inventory panel is separate and adjusts stock quantity", /export function AdminPrizeInventoryPanel[\s\S]*admin-card-inventory-list[\s\S]*updatePrizeQuantity[\s\S]*<Minus[\s\S]*<Plus/);
+const adminCardCatalogPanelSource = sliceBetween(
+  "src/features/ynot/client.tsx",
+  "export function AdminCardCatalogPanel",
+  "type AdminPrizeInventoryCard",
+  "admin card catalog panel source slice",
+);
+checkText(
+  "admin card catalog separates global stock from pack assignments",
+  adminCardCatalogPanelSource,
+  /cards used in packs[\s\S]*cards with global stock[\s\S]*Global stock[\s\S]*No pack assignment/,
+  "AdminCardCatalogPanel",
+);
+checkText(
+  "admin card catalog confirms stock adjustment before calling card stock API",
+  adminCardCatalogPanelSource,
+  /openStockAdjustment[\s\S]*confirmStockAdjustment[\s\S]*\/api\/ynot\/admin\/card-stock[\s\S]*(?:Confirm add[\s\S]*Confirm remove|Confirm remove[\s\S]*Confirm add)[\s\S]*Cancel/,
+  "AdminCardCatalogPanel",
+);
+notCheckText(
+  "admin card catalog row hides technical source fields by default",
+  adminCardCatalogPanelSource,
+  />Image URL<|>Storage path<|>Manifest<|>Asset source</,
+  "AdminCardCatalogPanel",
+);
+check("src/features/ynot/client.tsx", "admin card form still captures technical card asset metadata", /AdminCardForm[\s\S]*Image URL[\s\S]*Asset source[\s\S]*Asset license/);
+const adminPrizeInventoryPanelSource = sliceBetween(
+  "src/features/ynot/client.tsx",
+  "export function AdminPrizeInventoryPanel",
+  "export function AdminUserRoleForm",
+  "admin prize inventory panel source slice",
+);
+checkText(
+  "admin prize inventory panel is labeled as pack planned quantity",
+  adminPrizeInventoryPanelSource,
+  /Pack prize quantities[\s\S]*owner review reserves global stock/,
+  "AdminPrizeInventoryPanel",
+);
+checkText(
+  "admin prize inventory panel renders read-only pack quantities",
+  adminPrizeInventoryPanelSource,
+  /admin-card-inventory-list[\s\S]*availableUnits[\s\S]*plannedQuantity[\s\S]*Read-only plan/,
+  "AdminPrizeInventoryPanel",
+);
+notCheckText(
+  "admin prize inventory panel does not directly mutate pack quantities",
+  adminPrizeInventoryPanelSource,
+  /\/api\/ynot\/admin\/prizes|updatePrizeQuantity|<Minus|<Plus|admin-stock-stepper/,
+  "AdminPrizeInventoryPanel",
+);
 check("src/app/admin/prizes/page.tsx", "admin card catalog renders before pack stock", /<AdminPrizePoolForm[\s\S]*\/>[\s\S]*<AdminCardCatalogPanel cards=\{cards\} prizes=\{prizes\} \/>[\s\S]*<AdminPrizeInventoryPanel cards=\{cards\} prizes=\{prizes\}/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign create sanitizes initial prize odds unless owner", /initialPrizesForAdminRole[\s\S]*adminRole === "owner"[\s\S]*valueThb: null[\s\S]*weight: 1[\s\S]*unlockAtSoldPct: 0[\s\S]*normalizePrizeDrafts\(body\.initialPrizes\)/);
 check("src/features/ynot/prize-readiness.ts", "initial prize normalization defaults omitted admin weight to one", /numberOrDefault[\s\S]*row\.weight,\s*1[\s\S]*numberOrZero\(row\.unlockAtSoldPct\)/);
