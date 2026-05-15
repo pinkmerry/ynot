@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { signOutAction } from "@/features/auth/actions";
 import type { HomeFilterState, HomeSortOption } from "./types";
@@ -23,6 +23,27 @@ const defaults: StorePreferences = {
 const languageStorageKey = "ynot-language-v2";
 const themeStorageKey = "ynot-theme-v2";
 const preferenceEvent = "ynot-preferences-change";
+
+function subscribeToHydration(onStoreChange: () => void) {
+  const timeoutId = window.setTimeout(onStoreChange, 0);
+  return () => window.clearTimeout(timeoutId);
+}
+
+function getHydratedSnapshot() {
+  return true;
+}
+
+function getServerHydrationSnapshot() {
+  return false;
+}
+
+function useHydrated() {
+  return useSyncExternalStore(
+    subscribeToHydration,
+    getHydratedSnapshot,
+    getServerHydrationSnapshot,
+  );
+}
 
 const navLabels = {
   en: {
@@ -292,11 +313,7 @@ export function StoreHeaderRightNav({
   const copy = settingsCopy[preferences.language];
   const account = accountCopy[preferences.language];
   const [profileOpen, setProfileOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const hydrated = useHydrated();
 
   useEffect(() => {
     if (!profileOpen) return;
@@ -513,7 +530,7 @@ export function StoreHeaderRightNav({
           </svg>
         </span>
       </button>
-      {mounted ? createPortal(profileDrawer, document.body) : null}
+      {hydrated ? createPortal(profileDrawer, document.body) : null}
     </>
   );
 }
@@ -528,13 +545,9 @@ export function StoreSettingsMenu({
 } = {}) {
   const { preferences, setLanguage } = useStorePreferences();
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const copy = settingsCopy[preferences.language];
   const navStrings = navLabels[preferences.language];
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const hydrated = useHydrated();
 
   useEffect(() => {
     if (!open) return;
@@ -709,7 +722,7 @@ export function StoreSettingsMenu({
 
       {/* Portal drawer + backdrop to document.body so it escapes the header's
           transformed containing block (will-change: transform on .storefront-header). */}
-      {mounted ? createPortal(drawerMarkup, document.body) : null}
+      {hydrated ? createPortal(drawerMarkup, document.body) : null}
     </div>
   );
 }
