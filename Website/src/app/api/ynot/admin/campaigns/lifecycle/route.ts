@@ -383,7 +383,7 @@ export async function POST(request: Request) {
         p_note: note || null,
       };
     }
-    const callLifecycleRpc = supabase.rpc as unknown as (
+    const callLifecycleRpc = supabase.rpc.bind(supabase) as unknown as (
       name: string,
       args: Record<string, unknown>,
     ) => Promise<{

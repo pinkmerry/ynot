@@ -285,6 +285,7 @@ checkText(
 );
 check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle uses stock reservation allocation RPCs", /submit_campaign_review[\s\S]*approve_campaign_inventory[\s\S]*publish_campaign[\s\S]*release_campaign_reservations/);
 check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle maps symbolic RPC errors", /campaignLifecycleErrorMap[\s\S]*mappedAdminErrorResponse[\s\S]*CAMPAIGN_LIFECYCLE_FAILED/);
+check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle keeps Supabase RPC bound", /supabase\.rpc\.bind\(supabase\)/);
 check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle checks prize readiness before review approve publish", /submit_review[\s\S]*approve[\s\S]*publish[\s\S]*getCampaignPrizeReadiness[\s\S]*readinessErrorResponse/);
 const adminCampaignStatusRowSource = sliceBetween(
   "src/features/ynot/client.tsx",
