@@ -149,7 +149,11 @@ function useStorePreferences() {
   useEffect(() => {
     const sync = () => {
       const next = readPreferences();
-      setPreferences(next);
+      setPreferences((current) =>
+        current.language === next.language && current.theme === next.theme
+          ? current
+          : next,
+      );
       if (document.documentElement.dataset.ynotLanguage !== next.language) {
         document.documentElement.dataset.ynotLanguage = next.language;
       }
@@ -169,11 +173,9 @@ function useStorePreferences() {
   }, []);
 
   function update(next: Partial<StorePreferences>) {
-    setPreferences((current) => {
-      const merged = { ...current, ...next };
-      applyPreferences(merged);
-      return merged;
-    });
+    const merged = { ...preferences, ...next };
+    setPreferences(merged);
+    applyPreferences(merged);
   }
 
   return {
