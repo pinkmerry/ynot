@@ -11,6 +11,8 @@ export const dynamic = "force-dynamic";
 export default async function AdminCategoriesPage() {
   const data = await getYnotDashboardSlice({
     campaigns: true,
+    campaignVisibility: "admin",
+    campaignLimit: null,
     categories: true,
   });
   return (

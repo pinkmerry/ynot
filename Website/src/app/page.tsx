@@ -16,6 +16,8 @@ export default async function HomePage({
   };
   const data = await getYnotDashboardSlice({
     campaigns: true,
+    campaignVisibility: "public",
+    campaignLimit: 24,
     wallet: true,
   });
   return (

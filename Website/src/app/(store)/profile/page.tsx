@@ -15,6 +15,8 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const params = await searchParams;
   const data = await getYnotDashboardSlice({
     campaigns: true,
+    campaignVisibility: "public",
+    campaignLimit: 24,
     collection: true,
     gachaOpens: true,
   });

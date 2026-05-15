@@ -122,14 +122,17 @@ function seriesLabel(series: YnotCampaign["series"]) {
   return series === "pokemon" ? "Pokemon" : "One Piece";
 }
 
-function homeFilterHref(nextFilter: Partial<HomeFilterState>) {
+function homeFilterHref(
+  nextFilter: Partial<HomeFilterState>,
+  baseHref = "/",
+) {
   const filter = { ...defaultHomeFilter, ...nextFilter };
   const params = new URLSearchParams();
   if (filter.series !== "all") params.set("series", filter.series);
   if (filter.tag !== "all") params.set("tag", filter.tag);
   if (filter.sort !== "recommended") params.set("sort", filter.sort);
   const query = params.toString();
-  return query ? `/?${query}` : "/";
+  return query ? `${baseHref}?${query}` : baseHref;
 }
 
 function campaignTagSearchText(campaign: YnotCampaign) {
@@ -258,11 +261,13 @@ export async function YnotShell({
   viewer,
   children,
   homeFilter,
+  homeFilterBaseHref = "/",
   walletBalance,
 }: {
   viewer: YnotViewer;
   children: ReactNode;
   homeFilter?: HomeFilterState;
+  homeFilterBaseHref?: string;
   walletBalance?: number;
 }) {
   let renderViewer = viewer;
@@ -329,7 +334,12 @@ export async function YnotShell({
             <StoreHeaderRightNav authenticated={renderViewer.authenticated} />
           </div>
         </div>
-        {homeFilter && <StoreFilterStrip homeFilter={homeFilter} />}
+        {homeFilter && (
+          <StoreFilterStrip
+            homeFilter={homeFilter}
+            baseHref={homeFilterBaseHref}
+          />
+        )}
       </header>
       <HeaderScrollEffect />
       {children}
@@ -494,7 +504,13 @@ function TopUpCoinIcon() {
   );
 }
 
-function StoreFilterStrip({ homeFilter }: { homeFilter: HomeFilterState }) {
+function StoreFilterStrip({
+  homeFilter,
+  baseHref = "/",
+}: {
+  homeFilter: HomeFilterState;
+  baseHref?: string;
+}) {
   return (
     <div className="store-filter-strip" aria-label="Mystery pack filters">
       <div className="store-filter-scroll">
@@ -506,11 +522,14 @@ function StoreFilterStrip({ homeFilter }: { homeFilter: HomeFilterState }) {
               key={tag}
               aria-current={homeFilter.tag === tagKey ? "page" : undefined}
               className={`filter-chip ${homeFilter.tag === tagKey ? "active" : ""}`}
-              href={homeFilterHref({
-                series: homeFilter.series,
-                tag: tagKey,
-                sort: homeFilter.sort,
-              })}
+              href={homeFilterHref(
+                {
+                  series: homeFilter.series,
+                  tag: tagKey,
+                  sort: homeFilter.sort,
+                },
+                baseHref,
+              )}
             >
               {tag}
             </Link>
@@ -586,6 +605,7 @@ export function YnotHomeExperience({
   homeFilter?: HomeFilterState;
 }) {
   const campaigns = filteredCampaigns(data.campaigns, homeFilter);
+  const seeAllHref = homeFilterHref(homeFilter, "/packs");
 
   return (
     <>
@@ -600,7 +620,7 @@ export function YnotHomeExperience({
         <div className="store-main-stack">
           <div className="catalog-toolbar">
             <h1>List of Mystery Packs for {homeFilterHeading(homeFilter)}</h1>
-            <Link className="mini-link" href="/exchange">
+            <Link className="mini-link" href={seeAllHref}>
               See all →
             </Link>
           </div>
@@ -641,7 +661,7 @@ export function YnotHomeExperience({
             </section>
             <div className="section-heading-row template-section-heading">
               <h3 className="title-m">Featured Today</h3>
-              <Link className="mini-link" href="/exchange">
+              <Link className="mini-link" href={seeAllHref}>
                 See all →
               </Link>
             </div>
@@ -688,6 +708,51 @@ export function YnotHomeExperience({
         </aside>
       </div>
     </>
+  );
+}
+
+export function PackCatalogExperience({
+  data,
+  homeFilter = defaultHomeFilter,
+}: {
+  data: YnotDashboardData;
+  homeFilter?: HomeFilterState;
+}) {
+  const campaigns = filteredCampaigns(data.campaigns, homeFilter);
+
+  return (
+    <div className="store-home-grid">
+      <aside className="store-left-rail" aria-label="Store sections">
+        <RailLink icon="◆" label="Mystery Packs" href="/packs" active />
+        <RailLink icon="♕" label="Ranking" href="/ranking" />
+        <RailLink icon="⇄" label="Exchange" href="/exchange" />
+      </aside>
+      <section className="home-pack-board product-section">
+        <PhoneTopBar
+          title="All Mystery Packs"
+          coin={data.wallet.balanceCoins}
+          action={<span className="template-icon-button">♧</span>}
+        />
+        <PhoneRule />
+        <CategoryStrip homeFilter={homeFilter} baseHref="/packs" />
+        <div className="section-heading-row template-section-heading">
+          <div>
+            <p className="section-label">
+              {homeFilterHeading(homeFilter)} · {campaigns.length} packs
+            </p>
+            <h3 className="title-m">All available packs</h3>
+          </div>
+          <Link className="mini-link" href="/">
+            Back home →
+          </Link>
+        </div>
+        <CampaignGrid
+          campaigns={campaigns}
+          emptyTitle="No packs match this filter"
+          emptyBody="Try All, switch category, or ask admin to publish matching packs."
+        />
+      </section>
+    </div>
   );
 }
 
@@ -745,7 +810,13 @@ function RailLink({
   );
 }
 
-function CategoryStrip({ homeFilter }: { homeFilter: HomeFilterState }) {
+function CategoryStrip({
+  homeFilter,
+  baseHref = "/",
+}: {
+  homeFilter: HomeFilterState;
+  baseHref?: string;
+}) {
   return (
     <section className="category-strip" aria-label="Categories">
       {homeCategories.map((category) => (
@@ -755,11 +826,14 @@ function CategoryStrip({ homeFilter }: { homeFilter: HomeFilterState }) {
             homeFilter.series === category.series ? "page" : undefined
           }
           className={`category-tab ${homeFilter.series === category.series ? "active" : ""}`}
-          href={homeFilterHref({
-            series: category.series,
-            tag: homeFilter.tag,
-            sort: homeFilter.sort,
-          })}
+          href={homeFilterHref(
+            {
+              series: category.series,
+              tag: homeFilter.tag,
+              sort: homeFilter.sort,
+            },
+            baseHref,
+          )}
         >
           {category.label}
         </Link>
