@@ -349,6 +349,47 @@ Observed access-gate text on `/admin` and `/admin/campaigns`: `Admin denied`, `A
 - `npm run typecheck`: pass.
 - `npm run verify:production-test`: pass, 53 readiness checks.
 
+## Post-Fix Production Validation Addendum
+
+Date: 2026-05-15
+
+Fix commit validated on production: `ecf3058`
+
+Deployment validated: `https://ynott-website-936iall9m-yoonaevilzgmailcoms-projects.vercel.app`
+
+Production aliases on the validated deployment: `https://www.ynottcg.com`, `https://ynottcg.com`, `https://ynott-website.vercel.app`
+
+Chrome session: user's logged-in production Chrome session through CDP at `127.0.0.1:9222`.
+
+RUN_ID: `E2E-20260515-FIX-ECF3058`
+
+Result: PASS 34 / FAIL 0.
+
+Navigation and sub-button rerun:
+
+- Trusted admin clicks: PASS 24 / FAIL 0.
+- Covered side navigation, dashboard action cards, category `Open Random Pack Studio`, and category `Preview storefront`.
+- Summary evidence: `NAV_SUMMARY {"commit":"ecf3058","total":24,"passed":24,"failed":0}`.
+
+Functional rerun:
+
+- TC-034 hidden/test category create: PASS, category `25011881-d964-453d-b3ee-065a741e6a0f`, slug `e2e-fix-ecf3058-42raix`.
+- TC-035 duplicate category slug: PASS, returned `409 CATEGORY_DUPLICATE_SLUG`.
+- TC-052 test card create: PASS, card `5b38ddc3-a4f4-4780-a575-f0b41253a986`, code `E2E-FIX-42RAIX`.
+- TC-061 test stock add: PASS, +2 available test units.
+- TC-062 stock over-remove: PASS, returned `409 CARD_STOCK_INSUFFICIENT_AVAILABLE`.
+- TC-064 blank campaign create and patch: PASS, both returned `400 CAMPAIGN_TITLE_REQUIRED` before mutation.
+- TC-085 test campaign create with prize plan: PASS, campaign `b129b92d-159b-42b9-b4ca-495b3228598c`, readiness `ready=true`.
+- TC-087 submit owner review: PASS, returned `approvalStatus=pending_review`.
+- TC-089 owner queue pending item: PASS, admin campaigns page showed `[E2E] Admin smoke ecf3058 42RAIX`.
+
+Cleanup evidence:
+
+- Owner review was returned for changes through `request_changes`: PASS, `approvalStatus=changes_requested`.
+- Test pack was closed private: PASS, `status=closed`, `visibility=private`.
+- Test stock cleanup removed the +2 available units: PASS, `availableUnits=0`, `reservedUnits=0`, `allocatedUnits=0`, `archivedUnits=2`.
+- No fake slip approval, real-user role change, real-data approval, publish, delete, or remove action was executed.
+
 ## Ralph Architect Verification
 
 Verdict: APPROVED WITH EXECUTION BOUNDARY, UPDATED AFTER MASTER-ACCOUNT UNBLOCK RERUN. The report now distinguishes authenticated page-load passes, trusted-click passes, trusted-click failures, RUN_ID-scoped production mutations, functional failures, and remaining blocked financial/owner-gated cases. The execution boundary remains conservative: money, fulfillment, real-user roles, fake-slip approval, approve/publish/reject/remove/delete owner actions, and non-test data were not mutated.
