@@ -51,12 +51,14 @@ const navLabels = {
     profile: "Profile",
     wallet: "Wallet",
     personalInfo: "Personal Info",
+    admin: "Admin",
   },
   th: {
     main: "หน้าหลัก",
     profile: "โปรไฟล์",
     wallet: "วอลเล็ต",
     personalInfo: "ข้อมูลส่วนตัว",
+    admin: "หน้าแอดมิน",
   },
 } as const;
 
@@ -103,6 +105,12 @@ const customerNav = [
   { key: "wallet", href: "/wallet", protected: true },
   { key: "personalInfo", href: "/profile/personal-info", protected: true },
 ] as const;
+
+const adminHeaderNavItem = {
+  key: "admin",
+  href: "/admin",
+  protected: true,
+} as const;
 
 function safeLanguage(value: string | null | undefined): Language {
   if (value === "th" || value === "en") return value;
@@ -241,17 +249,25 @@ function isNavActive(pathname: string | null, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function StoreHeaderNav({ authenticated }: { authenticated: boolean }) {
+export function StoreHeaderNav({
+  authenticated,
+  isAdmin = false,
+}: {
+  authenticated: boolean;
+  isAdmin?: boolean;
+}) {
   const { preferences } = useStorePreferences();
   const labels = navLabels[preferences.language];
   const pathname = usePathname();
 
   // Profile is rendered on the RIGHT side of the topbar (see StoreHeaderRightNav).
   const leftNav = customerNav.filter((item) => item.key !== "profile");
+  const visibleNav =
+    authenticated && isAdmin ? [...leftNav, adminHeaderNavItem] : leftNav;
 
   return (
     <nav className="store-nav" aria-label="Primary navigation">
-      {leftNav.map((item) => {
+      {visibleNav.map((item) => {
         const active = isNavActive(pathname, item.href);
         return (
           <Link

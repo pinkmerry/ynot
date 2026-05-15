@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Minus, Plus } from "lucide-react";
 import type { CardCatalogItem, ProfileInfo } from "@/lib/lucky-draw/types";
 import type {
   YnotAddress,
@@ -148,6 +147,10 @@ function formatApprovalDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return `${date.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
+function countLabel(value: number, singular: string, plural = `${singular}s`) {
+  return `${value.toLocaleString()} ${value === 1 ? singular : plural}`;
 }
 
 const randomLogicChoices: Array<{
@@ -1565,6 +1568,8 @@ function AdminPrizeCardPicker({
   value,
   onChange,
   disabled,
+  showPreview = true,
+  showSearch = true,
   emptyLabel = "Select prize item",
   missingLabel = "No catalog items match this tier and category.",
   testIdPrefix,
@@ -1573,6 +1578,8 @@ function AdminPrizeCardPicker({
   value: string;
   onChange: (cardId: string) => void;
   disabled?: boolean;
+  showPreview?: boolean;
+  showSearch?: boolean;
   emptyLabel?: string;
   missingLabel?: string;
   testIdPrefix: string;
@@ -1601,44 +1608,48 @@ function AdminPrizeCardPicker({
       data-selected-card-id={selectedCard?.catalogCardId ?? ""}
       data-testid={`${testIdPrefix}-picker`}
     >
-      <div
-        className={`admin-prize-card-preview${selectedCard ? "" : " is-empty"}`}
-        data-testid={`${testIdPrefix}-selected-card-preview`}
-      >
-        {selectedCard ? (
-          <>
-            <AdminPrizeCardImage
-              code={selectedCard.code}
-              imageUrl={selectedCard.photoUrl}
-              name={selectedCard.name}
-            />
-            <span>
-              <strong>{selectedCard.name}</strong>
-              <small>{adminPrizeCardIdentity(selectedCard)}</small>
-              <code>{selectedCard.catalogCardId}</code>
-            </span>
-          </>
-        ) : (
-          <>
-            <span className="admin-prize-card-thumb admin-prize-card-placeholder">
-              <strong>Pick</strong>
-              <small>No image</small>
-            </span>
-            <span>
-              <strong>{cards.length ? emptyLabel : "No item available"}</strong>
-              <small>{cards.length ? "Choose a visible card before saving." : missingLabel}</small>
-            </span>
-          </>
+      {showPreview && (
+        <div
+          className={`admin-prize-card-preview${selectedCard ? "" : " is-empty"}`}
+          data-testid={`${testIdPrefix}-selected-card-preview`}
+        >
+          {selectedCard ? (
+            <>
+              <AdminPrizeCardImage
+                code={selectedCard.code}
+                imageUrl={selectedCard.photoUrl}
+                name={selectedCard.name}
+              />
+              <span>
+                <strong>{selectedCard.name}</strong>
+                <small>{adminPrizeCardIdentity(selectedCard)}</small>
+                <code>{selectedCard.catalogCardId}</code>
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="admin-prize-card-thumb admin-prize-card-placeholder">
+                <strong>Pick</strong>
+                <small>No image</small>
+              </span>
+              <span>
+                <strong>{cards.length ? emptyLabel : "No item available"}</strong>
+                <small>{cards.length ? "Choose a visible card before saving." : missingLabel}</small>
+              </span>
+            </>
+          )}
+        </div>
+      )}
+      <div className={`admin-prize-card-controls${showSearch ? "" : " is-single"}`}>
+        {showSearch && (
+          <input
+            aria-label="Search prize item by code or name"
+            disabled={disabled || !cards.length}
+            placeholder="Search code or name"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
         )}
-      </div>
-      <div className="admin-prize-card-controls">
-        <input
-          aria-label="Search prize item by code or name"
-          disabled={disabled || !cards.length}
-          placeholder="Search code or name"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
         <select
           aria-label="Prize item"
           data-testid={`${testIdPrefix}-select`}
@@ -1960,21 +1971,26 @@ export function AdminCampaignForm({
     hasDuplicateRank ? "Prize ranks must be unique inside each tier." : "",
   ].filter(Boolean);
   const prizeChecklist = [
-    ...activeDisplayTierOptions.map((option) => ({
-      label: option.label,
-      value: `${draftPrizesByTier[option.value].length} row${
-        draftPrizesByTier[option.value].length === 1 ? "" : "s"
-      } / ${activeTierUnitCounts[option.value].toLocaleString()} units`,
-      ready: draftPrizesByTier[option.value].length > 0,
-    })),
+    ...activeDisplayTierOptions.map((option) => {
+      const rowCount = draftPrizesByTier[option.value].length;
+      const unitCount = activeTierUnitCounts[option.value];
+      return {
+        label: option.label,
+        primary: countLabel(rowCount, "row"),
+        secondary: countLabel(unitCount, "unit"),
+        ready: rowCount > 0,
+      };
+    }),
     {
       label: "Prize unit coverage",
-      value: `${configuredPrizeUnits.toLocaleString()}/${totalSlots.toLocaleString()}`,
+      primary: `${configuredPrizeUnits.toLocaleString()}/${totalSlots.toLocaleString()}`,
+      secondary: "units configured",
       ready: configuredPrizeUnits === totalSlots,
     },
     {
       label: "Launch pool",
-      value: initialUnlockedUnits.toLocaleString(),
+      primary: countLabel(initialUnlockedUnits, "unit"),
+      secondary: "unlocked at launch",
       ready: initialUnlockedUnits > 0,
     },
   ];
@@ -2441,11 +2457,8 @@ export function AdminCampaignForm({
                     <div>
                       <span>{option.label} tier</span>
                       <strong>
-                        {rows.length} row{rows.length === 1 ? "" : "s"} /{" "}
-                        {activeTierUnitCounts[
-                          option.value
-                        ].toLocaleString()}{" "}
-                        units
+                        {countLabel(rows.length, "row")} /{" "}
+                        {countLabel(activeTierUnitCounts[option.value], "unit")}
                       </strong>
                       <p>
                         {option.value === "bronze"
@@ -2525,20 +2538,40 @@ export function AdminCampaignForm({
                       )
                         ? prize.cardId
                         : "";
+                      const selectedCard =
+                        itemOptions.find(
+                          (card) => card.catalogCardId === selectedCardId,
+                        ) ?? null;
                       return (
                         <article
                           className={`admin-prize-table-row tier-${option.value}`}
                           key={prize.localId}
                         >
                           <div className="admin-prize-rank-cell">
-                            <strong>#{prize.tierRank}</strong>
-                            <span>{option.shortLabel}</span>
+                            <div className="admin-prize-rank-label">
+                              <strong>#{prize.tierRank}</strong>
+                              <span>{option.shortLabel}</span>
+                            </div>
+                            {selectedCard ? (
+                              <AdminPrizeCardImage
+                                code={selectedCard.code}
+                                imageUrl={selectedCard.photoUrl}
+                                name={selectedCard.name}
+                              />
+                            ) : (
+                              <span className="admin-prize-card-thumb admin-prize-card-placeholder">
+                                <strong>Pick</strong>
+                                <small>No image</small>
+                              </span>
+                            )}
                           </div>
                           <div className="admin-field admin-prize-card-field">
                             <span>Prize item</span>
                             <AdminPrizeCardPicker
                               cards={itemOptions}
                               disabled={!itemOptions.length}
+                              showPreview={false}
+                              showSearch={false}
                               value={selectedCardId}
                               onChange={(cardId) =>
                                 updatePrizeDraft(prize.localId, {
@@ -2638,7 +2671,8 @@ export function AdminCampaignForm({
             {prizeChecklist.map((item) => (
               <div className={item.ready ? "ready" : ""} key={item.label}>
                 <span>{item.label}</span>
-                <strong>{item.value}</strong>
+                <strong>{item.primary}</strong>
+                <em>{item.secondary}</em>
               </div>
             ))}
           </div>
@@ -3802,18 +3836,6 @@ export function AdminCardForm() {
   );
 }
 
-function prizePoolDisplayTier(prize: YnotPrizePoolItem) {
-  if (prize.displayTier) return prizeDisplayTierValue(prize.displayTier);
-  if (prize.displayGroup) return prizeDisplayTierValue(prize.displayGroup);
-  if (prize.tier === "high" && prize.rank <= 3) return "rainbow";
-  if (prize.tier === "high") return "gold";
-  return "bronze";
-}
-
-function prizePoolTierRank(prize: YnotPrizePoolItem) {
-  return Math.max(1, Math.round(Number(prize.tierRank ?? prize.rank) || 1));
-}
-
 export function AdminPrizePoolForm({
   campaigns,
   cards,
@@ -4110,6 +4132,14 @@ function formatAdminCatalogDate(value?: string | null) {
   return formatApprovalDate(value);
 }
 
+type StockAdjustmentMode = "add" | "remove";
+
+type StockAdjustmentDraft = {
+  cardId: string;
+  mode: StockAdjustmentMode;
+  quantity: string;
+};
+
 export function AdminCardCatalogPanel({
   cards,
   prizes,
@@ -4121,6 +4151,7 @@ export function AdminCardCatalogPanel({
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
   const [pendingCardId, setPendingCardId] = useState("");
+  const [stockDraft, setStockDraft] = useState<StockAdjustmentDraft | null>(null);
   const [isPending, startTransition] = useTransition();
   const rows = useMemo(
     () => buildAdminCardCatalogRows(cards, prizes),
@@ -4136,7 +4167,42 @@ export function AdminCardCatalogPanel({
   const assignedCount = rows.filter((row) => row.prizes.length > 0).length;
   const stockedCount = rows.filter((row) => row.stockTotal > 0).length;
 
-  function adjustCardStock(card: CardCatalogItem, quantityDelta: number) {
+  function openStockAdjustment(
+    card: CardCatalogItem,
+    row: AdminCardCatalogRow,
+    mode: StockAdjustmentMode,
+  ) {
+    setMessage("");
+    setStockDraft({
+      cardId: card.catalogCardId,
+      mode,
+      quantity: mode === "remove" ? String(Math.min(1, row.stockAvailable)) : "1",
+    });
+  }
+
+  function updateStockDraftQuantity(quantity: string) {
+    setStockDraft((current) => (current ? { ...current, quantity } : current));
+  }
+
+  function cancelStockAdjustment() {
+    setStockDraft(null);
+    setMessage("");
+  }
+
+  function confirmStockAdjustment(card: CardCatalogItem, row: AdminCardCatalogRow) {
+    if (!stockDraft || stockDraft.cardId !== card.catalogCardId) return;
+    const requestedQuantity = Math.max(1, Math.round(Number(stockDraft.quantity) || 0));
+    const quantity =
+      stockDraft.mode === "remove"
+        ? Math.min(requestedQuantity, row.stockAvailable)
+        : requestedQuantity;
+
+    if (stockDraft.mode === "remove" && quantity <= 0) {
+      setMessage("No available global stock can be removed for this card.");
+      return;
+    }
+
+    const quantityDelta = stockDraft.mode === "remove" ? -quantity : quantity;
     startTransition(async () => {
       try {
         setMessage("");
@@ -4148,9 +4214,10 @@ export function AdminCardCatalogPanel({
         });
         setMessage(
           quantityDelta > 0
-            ? "Global stock added. Draft packs can reserve it during owner review."
-            : "One available global stock unit was removed.",
+            ? `${countLabel(quantity, "global stock unit")} added. Draft packs can reserve it during owner review.`
+            : `${countLabel(quantity, "available global stock unit")} removed.`,
         );
+        setStockDraft(null);
         router.refresh();
       } catch (error) {
         setMessage(
@@ -4201,6 +4268,9 @@ export function AdminCardCatalogPanel({
       <div className="admin-card-catalog-list" data-testid="admin-card-catalog-list">
         {visibleRows.map((row) => {
           const card = row.card;
+          const currentStockDraft =
+            stockDraft?.cardId === card.catalogCardId ? stockDraft : null;
+          const stockPending = isPending && pendingCardId === card.catalogCardId;
           return (
             <article className="admin-card-catalog-row" key={card.catalogCardId}>
               <AdminPrizeCardImage
@@ -4218,29 +4288,10 @@ export function AdminCardCatalogPanel({
                 <p className="admin-muted-line">
                   {card.series} · {card.isTest ? "Test item" : "Normal item"}
                 </p>
+                <p className="admin-muted-line">
+                  Updated {formatAdminCatalogDate(card.updatedAt)}
+                </p>
                 <p className="admin-id-line">{card.catalogCardId}</p>
-              </div>
-              <div className="admin-card-catalog-fields">
-                <div>
-                  <span>Image URL</span>
-                  <code>{card.photoUrl ?? "No image URL"}</code>
-                </div>
-                <div>
-                  <span>Storage path</span>
-                  <code>{card.photoStoragePath ?? "No storage path"}</code>
-                </div>
-                <div>
-                  <span>Asset source</span>
-                  <code>{card.assetSource ?? "No source"}</code>
-                </div>
-                <div>
-                  <span>Manifest</span>
-                  <code>{card.assetManifestKey ?? "No manifest key"}</code>
-                </div>
-                <div>
-                  <span>Updated</span>
-                  <code>{formatAdminCatalogDate(card.updatedAt)}</code>
-                </div>
               </div>
               <div className="admin-card-catalog-usage">
                 <span>Global stock</span>
@@ -4253,32 +4304,102 @@ export function AdminCardCatalogPanel({
                   {row.stockAllocated.toLocaleString()} allocated
                   {row.stockArchived ? ` · ${row.stockArchived.toLocaleString()} archived` : ""}
                 </small>
-                <div className="admin-stock-stepper admin-card-stock-actions">
-                  <button
-                    aria-label={`Remove one stock unit from ${card.name}`}
-                    className="plain-button admin-icon-button"
-                    disabled={isPending || row.stockAvailable <= 0}
-                    title="Remove one available global stock unit"
-                    type="button"
-                    onClick={() => adjustCardStock(card, -1)}
-                  >
-                    <Minus aria-hidden="true" size={16} />
-                  </button>
-                  <strong>
-                    {isPending && pendingCardId === card.catalogCardId
-                      ? "Updating"
-                      : "Adjust"}
-                  </strong>
-                  <button
-                    aria-label={`Add one stock unit to ${card.name}`}
-                    className="plain-button admin-icon-button"
-                    disabled={isPending}
-                    title="Add one global stock unit"
-                    type="button"
-                    onClick={() => adjustCardStock(card, 1)}
-                  >
-                    <Plus aria-hidden="true" size={16} />
-                  </button>
+                <div className="admin-card-stock-actions">
+                  {currentStockDraft ? (
+                    <div className="admin-stock-confirm">
+                      <div className="admin-stock-confirm-head">
+                        <span>
+                          {currentStockDraft.mode === "remove"
+                            ? "Remove stock"
+                            : "Add stock"}
+                        </span>
+                        <strong>
+                          {currentStockDraft.mode === "remove"
+                            ? `${row.stockAvailable.toLocaleString()} available`
+                            : "Global stock"}
+                        </strong>
+                      </div>
+                      <label className="admin-stock-confirm-field">
+                        <span>Quantity</span>
+                        <input
+                          aria-label={`Stock quantity for ${card.name}`}
+                          disabled={stockPending}
+                          max={
+                            currentStockDraft.mode === "remove"
+                              ? row.stockAvailable
+                              : 10000
+                          }
+                          min={1}
+                          type="number"
+                          value={currentStockDraft.quantity}
+                          onChange={(event) =>
+                            updateStockDraftQuantity(
+                              currentStockDraft.mode === "remove"
+                                ? String(
+                                    Math.min(
+                                      Math.max(
+                                        1,
+                                        Math.round(Number(event.target.value) || 1),
+                                      ),
+                                      Math.max(1, row.stockAvailable),
+                                    ),
+                                  )
+                                : event.target.value,
+                            )
+                          }
+                        />
+                      </label>
+                      <div className="admin-stock-confirm-actions">
+                        <button
+                          className={
+                            currentStockDraft.mode === "remove"
+                              ? "danger-button"
+                              : "gold-button"
+                          }
+                          disabled={
+                            stockPending ||
+                            (currentStockDraft.mode === "remove" &&
+                              row.stockAvailable <= 0)
+                          }
+                          type="button"
+                          onClick={() => confirmStockAdjustment(card, row)}
+                        >
+                          {stockPending
+                            ? "Saving..."
+                            : currentStockDraft.mode === "remove"
+                              ? "Confirm remove"
+                              : "Confirm add"}
+                        </button>
+                        <button
+                          className="plain-button"
+                          disabled={stockPending}
+                          type="button"
+                          onClick={cancelStockAdjustment}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="admin-stock-action-row">
+                      <button
+                        className="plain-button"
+                        disabled={isPending}
+                        type="button"
+                        onClick={() => openStockAdjustment(card, row, "add")}
+                      >
+                        Add stock
+                      </button>
+                      <button
+                        className="plain-button"
+                        disabled={isPending || row.stockAvailable <= 0}
+                        type="button"
+                        onClick={() => openStockAdjustment(card, row, "remove")}
+                      >
+                        Remove stock
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <small>
                   {row.prizes.length.toLocaleString()} pack slot
@@ -4360,34 +4481,6 @@ function buildAdminPrizeInventoryCards(
   });
 }
 
-function prizeQuantityPayload(prize: YnotPrizePoolItem, quantity: number) {
-  const displayTier = prizePoolDisplayTier(prize);
-  const tierRank = prizePoolTierRank(prize);
-  const prizeCategory = prizeCategoryValue(
-    prize.prizeCategory ?? prize.cardPrizeCategory,
-  );
-  return {
-    campaignId: prize.campaignId,
-    cardId: prize.cardId,
-    tier: prize.tier,
-    rank: prize.rank,
-    quantity,
-    prizeCategory,
-    sourceType: prizeSourceType(prizeCategory),
-    displayTier,
-    displayGroup: displayTier,
-    metadata: {
-      displayTier,
-      displayTierLabel: prizeDisplayTierLabel(displayTier),
-      displayGroup: displayTier,
-      tierRank,
-      prizeCategory,
-      prizeCategoryLabel: prizeCategoryLabel(prizeCategory),
-      sourceType: prizeSourceType(prizeCategory),
-    },
-  };
-}
-
 export function AdminPrizeInventoryPanel({
   cards,
   prizes,
@@ -4395,37 +4488,10 @@ export function AdminPrizeInventoryPanel({
   cards: CardCatalogItem[];
   prizes: YnotPrizePoolItem[];
 }) {
-  const router = useRouter();
-  const [message, setMessage] = useState("");
-  const [pendingPrizeId, setPendingPrizeId] = useState("");
-  const [isPending, startTransition] = useTransition();
   const inventoryCards = useMemo(
     () => buildAdminPrizeInventoryCards(cards, prizes),
     [cards, prizes],
   );
-
-  function updatePrizeQuantity(prize: YnotPrizePoolItem, nextQuantity: number) {
-    startTransition(async () => {
-      try {
-        setMessage("");
-        setPendingPrizeId(prize.id);
-        await postJson(
-          "/api/ynot/admin/prizes",
-          prizeQuantityPayload(prize, nextQuantity),
-        );
-        setMessage("Planned pack quantity updated. Owner review will reserve stock before publish.");
-        router.refresh();
-      } catch (error) {
-        setMessage(
-          error instanceof Error
-            ? error.message
-            : "Prize quantity could not be updated.",
-        );
-      } finally {
-        setPendingPrizeId("");
-      }
-    });
-  }
 
   return (
     <section className="admin-panel admin-full-span admin-inventory-panel soft-card">
@@ -4483,8 +4549,6 @@ export function AdminPrizeInventoryPanel({
               </div>
               <div className="admin-card-inventory-slots">
                 {item.prizes.map((prize) => {
-                  const canDecrease = prize.plannedQuantity > prize.awardedUnits;
-                  const isThisPending = isPending && pendingPrizeId === prize.id;
                   return (
                     <div className="admin-card-inventory-slot" key={prize.id}>
                       <span>
@@ -4494,40 +4558,16 @@ export function AdminPrizeInventoryPanel({
                         )}{" "}
                         #{prize.tierRank ?? prize.rank}
                       </span>
-                      <div className="admin-stock-stepper">
-                        <button
-                          aria-label={`Remove one ${cardName} from ${prize.campaignTitle}`}
-                          className="plain-button admin-icon-button"
-                          disabled={isPending || !canDecrease}
-                          title="Remove one available unit"
-                          type="button"
-                          onClick={() =>
-                            updatePrizeQuantity(
-                              prize,
-                              Math.max(prize.awardedUnits, prize.plannedQuantity - 1),
-                            )
-                          }
-                        >
-                          <Minus aria-hidden="true" size={16} />
-                        </button>
-                        <strong>
-                          {prize.availableUnits.toLocaleString()}/
-                          {prize.plannedQuantity.toLocaleString()}
-                        </strong>
-                        <button
-                          aria-label={`Add one ${cardName} to ${prize.campaignTitle}`}
-                          className="plain-button admin-icon-button"
-                          disabled={isPending}
-                          title="Add one unit"
-                          type="button"
-                          onClick={() =>
-                            updatePrizeQuantity(prize, prize.plannedQuantity + 1)
-                          }
-                        >
-                          <Plus aria-hidden="true" size={16} />
-                        </button>
-                      </div>
-                      {isThisPending && <small>Updating...</small>}
+                      <strong>
+                        {prize.availableUnits.toLocaleString()}/
+                        {prize.plannedQuantity.toLocaleString()}
+                      </strong>
+                      <small>
+                        Read-only plan · {prize.awardedUnits.toLocaleString()} awarded
+                        {prize.voidUnits
+                          ? ` · ${prize.voidUnits.toLocaleString()} void`
+                          : ""}
+                      </small>
                     </div>
                   );
                 })}
@@ -4541,7 +4581,6 @@ export function AdminPrizeInventoryPanel({
           </p>
         )}
       </div>
-      {message && <p className="admin-form-message">{message}</p>}
     </section>
   );
 }
