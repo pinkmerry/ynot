@@ -33,6 +33,24 @@ function hasSupabaseAuthCookie(cookieStore: Awaited<ReturnType<typeof cookies>>)
 
 export async function resolveCurrentProfile(): Promise<ResolvedProfileSession | null> {
   const cookieStore = await cookies();
+
+  // Dev-only preview bypass: when ynot-preview-auth=1 is set (via
+  // /api/dev/preview-auth?mode=on), return a stub session so protected
+  // routes don't redirect to /login during local testing. Disabled in prod.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    cookieStore.get("ynot-preview-auth")?.value === "1"
+  ) {
+    return {
+      profileId: "00000000-0000-0000-0000-000000000001",
+      authUserId: "preview-user",
+      displayName: "Preview User",
+      adminId: "00000000-0000-0000-0000-000000000001",
+      adminRole: "owner",
+      authSource: "supabase",
+    };
+  }
+
   const supabaseCookiePresent = hasSupabaseAuthCookie(cookieStore);
 
   if (supabaseCookiePresent) {
@@ -77,6 +95,20 @@ export async function resolveCurrentProfile(): Promise<ResolvedProfileSession | 
 export async function resolveAdminSession(baseSession?: ResolvedProfileSession | null): Promise<ResolvedAdminSession | null> {
   const session = baseSession === undefined ? await resolveCurrentProfile() : baseSession;
   if (!session?.profileId) return null;
+
+  // Dev-only preview bypass: preview session already carries admin role.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    session.authUserId === "preview-user" &&
+    session.adminId &&
+    session.adminRole
+  ) {
+    return {
+      ...session,
+      adminId: session.adminId,
+      adminRole: session.adminRole,
+    };
+  }
 
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase

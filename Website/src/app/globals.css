@@ -13571,11 +13571,12 @@ html[data-ynot-theme="light"] .store-filter-strip .filter-chip {
   border: 1px solid transparent !important;
   color: #000000 !important;
   box-shadow: none !important;
-  font-size: 10px !important;
+  /* Compact FOG-style chip — 25px tall, smaller text inside. */
+  font-size: 9px !important;
   font-weight: 500 !important;
-  letter-spacing: 0.18em !important;
+  letter-spacing: 0.15em !important;
   text-transform: uppercase !important;
-  padding: 6px 12px !important;
+  padding: 6px 10px !important;
   min-height: 25px !important;
   line-height: 1.1 !important;
   white-space: nowrap !important;
@@ -13586,9 +13587,6 @@ html[data-ynot-theme="light"] .store-filter-strip .filter-chip {
   box-sizing: border-box !important;
 }
 html[data-ynot-theme="light"] .store-filter-strip .filter-chip:hover {
-  background: transparent !important;
-  border-color: transparent !important;
-  color: #000000 !important;
   opacity: 0.75 !important;
 }
 html[data-ynot-theme="light"] .store-filter-strip .filter-chip.active:hover,
@@ -14178,12 +14176,8 @@ html[data-ynot-theme="light"] .catalog-toolbar h1::after,
 html[data-ynot-theme="light"] .catalog-toolbar h2::after,
 html[data-ynot-theme="light"] .section-heading-row h3::after,
 html[data-ynot-theme="light"] .template-section-heading h3::after {
-  content: "›";
-  font-size: 18px;
-  font-weight: 400;
-  letter-spacing: 0;
-  line-height: 1;
-  transform: translateY(-1px);
+  content: none !important;
+  display: none !important;
 }
 html[data-ynot-theme="light"] .catalog-toolbar .mini-link,
 html[data-ynot-theme="light"] .section-heading-row .mini-link,
@@ -15881,3 +15875,438 @@ html[data-ynot-theme="light"] .gold-button:hover {
   background: var(--jt-green, #05a66b) !important;
   border-color: var(--jt-green, #05a66b) !important;
 }
+
+
+/* ============================================================
+ * FOG MINT THEME — /packs (Mystery Packs page, arenaclub-inspired)
+ * ============================================================ */
+html[data-ynot-theme="light"] .packs-page {
+  display: block !important;
+  max-width: var(--arena-max, 1500px) !important;
+  margin: 32px auto 60px !important;
+  padding: 0 var(--arena-pad, 24px) !important;
+}
+html[data-ynot-theme="light"] .packs-toolbar {
+  display: flex !important;
+  align-items: baseline !important;
+  justify-content: space-between !important;
+  margin-bottom: 24px !important;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+html[data-ynot-theme="light"] .packs-toolbar h1 {
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: #1a1a1a !important;
+  margin: 0 !important;
+}
+html[data-ynot-theme="light"] .packs-toolbar p {
+  font-size: 11px !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: rgba(26, 26, 26, 0.55) !important;
+  margin: 0 !important;
+}
+
+.packs-feature-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+@media (max-width: 768px) {
+  .packs-feature-row { grid-template-columns: 1fr; }
+}
+.packs-feature-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 36px 32px 28px;
+  min-height: 280px;
+  border-radius: 8px;
+  text-decoration: none;
+  overflow: hidden;
+  color: #ffffff;
+  transition: transform 0.28s ease, box-shadow 0.28s ease;
+}
+.packs-feature-card--blue { background: linear-gradient(135deg, #2780d6 0%, #1561a3 100%); }
+.packs-feature-card--amber { background: linear-gradient(135deg, #d68a27 0%, #a35e15 100%); }
+.packs-feature-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px -16px rgba(0, 0, 0, 0.25);
+}
+.packs-feature-eyebrow {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.20);
+  border-radius: 4px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+.packs-feature-title {
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 28px;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+  color: #ffffff;
+}
+.packs-feature-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+.packs-feature-cta {
+  margin-top: 12px;
+  align-self: flex-start;
+  background: #ffffff;
+  color: #1a1a1a;
+  padding: 10px 22px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  border-radius: 4px;
+}
+
+/* ============================================================
+ * FOG MINT THEME — /marketplace
+ * ============================================================ */
+html[data-ynot-theme="light"] .marketplace-page {
+  display: block !important;
+  max-width: var(--arena-max, 1500px) !important;
+  margin: 32px auto 60px !important;
+  padding: 0 var(--arena-pad, 24px) !important;
+}
+html[data-ynot-theme="light"] .marketplace-toolbar {
+  display: flex !important;
+  align-items: baseline !important;
+  justify-content: space-between !important;
+  margin-bottom: 20px !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+}
+html[data-ynot-theme="light"] .marketplace-toolbar h1 {
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: #1a1a1a !important;
+  margin: 0 !important;
+}
+html[data-ynot-theme="light"] .marketplace-toolbar p {
+  font-size: 11px !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: rgba(26, 26, 26, 0.55) !important;
+  margin: 0 !important;
+}
+.marketplace-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.marketplace-filters { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.marketplace-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  background: #ffffff;
+  border: 1px solid rgba(26, 26, 26, 0.16);
+  border-radius: 9999px;
+  color: #1a1a1a;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+.marketplace-chip:hover { border-color: var(--jt-green, #05a66b); }
+.marketplace-chip.active { background: #1a1a1a; border-color: #1a1a1a; color: #ffffff; }
+.marketplace-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(26, 26, 26, 0.55);
+}
+.marketplace-sort select {
+  background: #ffffff;
+  border: 1px solid rgba(26, 26, 26, 0.16);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: #1a1a1a;
+  cursor: pointer;
+  text-transform: none;
+}
+.marketplace-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+}
+.marketplace-card {
+  background: #ffffff;
+  border: 1px solid rgba(26, 26, 26, 0.08);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+.marketplace-card:hover { border-color: var(--jt-green, #05a66b); transform: translateY(-2px); }
+.marketplace-card-art {
+  aspect-ratio: 3 / 4;
+  background: linear-gradient(135deg, #ebf8eb 0%, #d4ecd6 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 56px;
+  font-weight: 700;
+  color: rgba(26, 26, 26, 0.20);
+}
+.marketplace-card-body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.marketplace-card-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(26, 26, 26, 0.55);
+}
+.marketplace-card-title {
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #1a1a1a;
+}
+.marketplace-card-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--jt-green, #05a66b);
+  margin-top: 4px;
+}
+.marketplace-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 24px;
+  background: #ffffff;
+  border: 1px solid rgba(26, 26, 26, 0.08);
+  border-radius: 8px;
+  color: rgba(26, 26, 26, 0.55);
+}
+.marketplace-empty strong {
+  display: block;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #1a1a1a;
+  margin-bottom: 6px;
+}
+.marketplace-empty p { font-size: 13px; margin: 0; }
+
+/* ============================================================
+ * FOG-style "Featured Series" section — 2-column image grid
+ * with outlined CTA buttons, under the hero on the home page.
+ * Matches fearofgod.com/en-jp Spring Essentials layout.
+ * ============================================================ */
+.series-essentials {
+  width: 100%;
+  max-width: var(--arena-max, 1500px);
+  margin: 60px auto 80px;
+  padding: 0 var(--arena-pad, 24px);
+}
+.series-essentials-heading {
+  /* FOG "Spring Essentials" — 239.2 × 37.5px. line-height 1.5 keeps 25px text
+     in a 37.5px box (matches FOG exactly). */
+  text-align: center;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 25px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: #000000;
+  margin: 0 auto 60px;
+  width: max-content;
+  max-width: 100%;
+}
+.series-essentials-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 640px) {
+  .series-essentials-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .series-essentials {
+    margin: 40px auto 60px;
+  }
+}
+.series-essentials-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.28s ease;
+}
+.series-essentials-card:hover {
+  opacity: 0.92;
+}
+.series-essentials-art {
+  aspect-ratio: 4 / 5;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: #f0f0f0;
+}
+.series-essentials-card--pokemon .series-essentials-art {
+  background-image:
+    linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.32) 100%),
+    url("/ynot-pack-psa-cards.jpg");
+}
+.series-essentials-card--one-piece .series-essentials-art {
+  background-image:
+    linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.32) 100%),
+    url("/ynot-pack-psa-cards-mobile.jpg");
+}
+.series-essentials-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  margin-top: 32px;
+  padding: 14px 56px;
+  border: 1px solid #1a1a1a;
+  background: transparent;
+  color: #1a1a1a;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.series-essentials-card:hover .series-essentials-cta {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+
+/* ============================================================
+ * Featured Drop full-width banner (FOG Cinder III style)
+ * ============================================================ */
+.featured-drop {
+  position: relative;
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  margin-top: 0;
+  margin-bottom: 0;
+  height: clamp(480px, 56vw, 760px);
+  overflow: hidden;
+  isolation: isolate;
+}
+.featured-drop-art {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.50) 100%),
+    url("/ynot-pack-psa-cards.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 1;
+}
+.featured-drop-overlay {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 28px;
+  padding: 0 24px;
+  text-align: center;
+}
+.featured-drop-title {
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: clamp(36px, 7vw, 96px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #ffffff;
+  margin: 0;
+  line-height: 1.05;
+  text-shadow: 0 4px 32px rgba(0, 0, 0, 0.35);
+}
+.featured-drop-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 200px;
+  padding: 18px 64px;
+  background: #1a1a1a;
+  border: 1px solid #1a1a1a;
+  color: #ffffff;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.featured-drop-cta:hover {
+  background: var(--jt-green, #05a66b);
+  border-color: var(--jt-green, #05a66b);
+}
+@media (max-width: 640px) {
+  .featured-drop {
+    height: 420px;
+  }
+  .featured-drop-overlay {
+    gap: 20px;
+  }
+  .featured-drop-cta {
+    min-width: 160px;
+    padding: 14px 48px;
+  }
+}
+
+

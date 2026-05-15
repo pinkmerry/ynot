@@ -26,13 +26,17 @@ const preferenceEvent = "ynot-preferences-change";
 
 const navLabels = {
   en: {
-    main: "Main",
+    main: "Home",
+    mysteryPacks: "Mystery Packs",
+    marketplace: "Marketplace",
     profile: "Profile",
     wallet: "Wallet",
     personalInfo: "Personal Info",
   },
   th: {
     main: "หน้าหลัก",
+    mysteryPacks: "Mystery Packs",
+    marketplace: "Marketplace",
     profile: "โปรไฟล์",
     wallet: "วอลเล็ต",
     personalInfo: "ข้อมูลส่วนตัว",
@@ -76,11 +80,17 @@ const settingsCopy = {
   },
 } as const;
 
+/** Placement: where the nav item should render.
+ *  - "left"   = inline links on the left side of the topbar
+ *  - "drawer" = inside the profile drawer (right side) or mobile hamburger
+ */
 const customerNav = [
-  { key: "main", href: "/", protected: false },
-  { key: "profile", href: "/profile", protected: true },
-  { key: "wallet", href: "/wallet", protected: true },
-  { key: "personalInfo", href: "/profile/personal-info", protected: true },
+  { key: "main", href: "/", protected: false, placement: ["left", "drawer"] },
+  { key: "mysteryPacks", href: "/packs", protected: false, placement: ["left", "drawer"] },
+  { key: "marketplace", href: "/marketplace", protected: false, placement: ["left", "drawer"] },
+  { key: "profile", href: "/profile", protected: true, placement: ["drawer"] },
+  { key: "wallet", href: "/wallet", protected: true, placement: ["drawer"] },
+  { key: "personalInfo", href: "/profile/personal-info", protected: true, placement: ["drawer"] },
 ] as const;
 
 function safeLanguage(value: string | null | undefined): Language {
@@ -225,8 +235,9 @@ export function StoreHeaderNav({ authenticated }: { authenticated: boolean }) {
   const labels = navLabels[preferences.language];
   const pathname = usePathname();
 
-  // Profile is rendered on the RIGHT side of the topbar (see StoreHeaderRightNav).
-  const leftNav = customerNav.filter((item) => item.key !== "profile");
+  const leftNav = customerNav.filter((item) =>
+    (item.placement as readonly string[]).includes("left"),
+  );
 
   return (
     <nav className="store-nav" aria-label="Primary navigation">
@@ -413,10 +424,10 @@ export function StoreHeaderRightNav({
             <li>
               <Link
                 className="store-profile-link"
-                href="/notifications"
+                href="/wallet"
                 onClick={() => setProfileOpen(false)}
               >
-                {account.notifications}
+                {navLabels[preferences.language].wallet}
               </Link>
             </li>
             <li>
@@ -425,7 +436,7 @@ export function StoreHeaderRightNav({
                 href="/profile/personal-info"
                 onClick={() => setProfileOpen(false)}
               >
-                {account.address}
+                {navLabels[preferences.language].personalInfo}
               </Link>
             </li>
             <li>
@@ -440,10 +451,10 @@ export function StoreHeaderRightNav({
             <li>
               <Link
                 className="store-profile-link"
-                href="/wallet"
+                href="/notifications"
                 onClick={() => setProfileOpen(false)}
               >
-                {account.coupon}
+                {account.notifications}
               </Link>
             </li>
             <li>
@@ -598,17 +609,21 @@ export function StoreSettingsMenu({
         <nav className="store-drawer-section" aria-label={copy.navigation}>
           <span className="store-drawer-label">{copy.navigation}</span>
           <ul className="store-drawer-nav">
-            {customerNav.map((item) => (
-              <li key={item.href}>
-                <Link
-                  className="store-drawer-link"
-                  href={protectedHref(item.href, authenticated, item.protected)}
-                  onClick={closeAfter()}
-                >
-                  {navStrings[item.key]}
-                </Link>
-              </li>
-            ))}
+            {customerNav
+              .filter((item) =>
+                (item.placement as readonly string[]).includes("drawer"),
+              )
+              .map((item) => (
+                <li key={item.href}>
+                  <Link
+                    className="store-drawer-link"
+                    href={protectedHref(item.href, authenticated, item.protected)}
+                    onClick={closeAfter()}
+                  >
+                    {navStrings[item.key]}
+                  </Link>
+                </li>
+              ))}
           </ul>
         </nav>
 

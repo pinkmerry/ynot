@@ -25,6 +25,7 @@ import {
   rewardTiers,
 } from "./storefront-content";
 import { allowDemoStorefront, productionSafetyLabel } from "./runtime-flags";
+import { FilterScrollGuard } from "./FilterScrollGuard";
 import { HeaderScrollEffect } from "./HeaderScrollEffect";
 import { normalizeOpenQuantityOptions } from "./open-quantity";
 import {
@@ -38,13 +39,6 @@ import {
   prizeDisplayTierOptions,
   prizeDisplayTierValue,
 } from "./prize-tier";
-
-const homeCategories = [
-  { label: "Pokemon", series: "pokemon" },
-  { label: "One Piece", series: "one_piece" },
-] as const;
-
-const filterTags = ["All", "New", "PSA10"] as const;
 
 const defaultHomeFilter: HomeFilterState = {
   series: "all",
@@ -329,6 +323,7 @@ export async function YnotShell({
         {homeFilter && <StoreFilterStrip homeFilter={homeFilter} />}
       </header>
       <HeaderScrollEffect />
+      {homeFilter && <FilterScrollGuard />}
       {children}
       <YnotFooter />
     </main>
@@ -491,25 +486,33 @@ function TopUpCoinIcon() {
   );
 }
 
+type StoreFilterChip = { label: string; series: HomeSeriesFilter };
+
+const storeFilterChips: readonly StoreFilterChip[] = [
+  { label: "All", series: "all" },
+  { label: "Pokemon", series: "pokemon" },
+  { label: "One Piece", series: "one_piece" },
+];
+
 function StoreFilterStrip({ homeFilter }: { homeFilter: HomeFilterState }) {
   return (
     <div className="store-filter-strip" aria-label="Mystery pack filters">
       <div className="store-filter-scroll">
-        {filterTags.map((tag) => {
-          const tagKey: HomeTagFilter =
-            tag === "All" ? "all" : tag === "New" ? "new" : "psa10";
+        {storeFilterChips.map((chip) => {
+          const isActive = homeFilter.series === chip.series;
           return (
             <Link
-              key={tag}
-              aria-current={homeFilter.tag === tagKey ? "page" : undefined}
-              className={`filter-chip ${homeFilter.tag === tagKey ? "active" : ""}`}
+              key={chip.series}
+              aria-current={isActive ? "page" : undefined}
+              className={`filter-chip ${isActive ? "active" : ""}`}
               href={homeFilterHref({
-                series: homeFilter.series,
-                tag: tagKey,
+                series: chip.series,
+                tag: homeFilter.tag,
                 sort: homeFilter.sort,
               })}
+              scroll={false}
             >
-              {tag}
+              {chip.label}
             </Link>
           );
         })}
@@ -587,6 +590,7 @@ export function YnotHomeExperience({
   return (
     <>
       <MobileTorecaHero campaign={campaigns[0]} />
+      <SeriesEssentialsSection />
       <div className="store-home-grid">
         <aside className="store-left-rail" aria-label="Store sections">
           <RailLink icon="◆" label="Mystery Packs" href="/" active />
@@ -595,12 +599,6 @@ export function YnotHomeExperience({
         </aside>
 
         <div className="store-main-stack">
-          <div className="catalog-toolbar">
-            <h1>List of Mystery Packs for {homeFilterHeading(homeFilter)}</h1>
-            <Link className="mini-link" href="/exchange">
-              See all →
-            </Link>
-          </div>
           <section className="home-pack-board product-section">
             <PhoneTopBar
               title="YNOT."
@@ -608,74 +606,11 @@ export function YnotHomeExperience({
               action={<span className="template-icon-button">♧</span>}
             />
             <PhoneRule />
-            <CategoryStrip homeFilter={homeFilter} />
-            <section className="template-promo">
-              {campaigns[0] ? (
-                <>
-                  <span>
-                    {seriesLabel(campaigns[0].series)} · {campaigns[0].status}
-                  </span>
-                  <strong>
-                    {campaigns[0].titleTh || campaigns[0].titleEn}
-                  </strong>
-                  <p>
-                    {campaigns[0].heroLabel ?? "Admin-published mystery pack"}
-                  </p>
-                  <Link href={`/gacha/${campaigns[0].slug}`}>
-                    VIEW DETAILS →
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <span>Store setup</span>
-                  <strong>No live packs yet</strong>
-                  <p>
-                    Admin must publish real packs before customers can open.
-                  </p>
-                  <Link href="/local-readiness">VIEW READINESS →</Link>
-                </>
-              )}
-            </section>
-            <div className="section-heading-row template-section-heading">
-              <h3 className="title-m">Featured Today</h3>
-              <Link className="mini-link" href="/exchange">
-                See all →
-              </Link>
-            </div>
             <CampaignGrid
               campaigns={campaigns}
               emptyTitle="No packs match this filter"
               emptyBody="Try All, switch category, or ask admin to add matching pack labels."
             />
-            <section className="live-now-strip">
-              <div className="section-heading-row">
-                <h3 className="title-m">Store status</h3>
-                <span className="orange-chip">
-                  <CoinIcon /> {campaigns.length} visible packs
-                </span>
-              </div>
-              {campaigns.length ? (
-                campaigns.slice(0, 2).map((campaign) => (
-                  <div
-                    className="live-now-row"
-                    key={`store-status-${campaign.id}`}
-                  >
-                    <span>{seriesLabel(campaign.series)}</span>
-                    <p>
-                      {campaign.titleTh || campaign.titleEn} ·{" "}
-                      {remainingStatusText(campaign)}
-                    </p>
-                    <strong>›</strong>
-                  </div>
-                ))
-              ) : (
-                <div className="live-now-row">
-                  <span>Admin</span>
-                  <p>No real live packs are published yet.</p>
-                  <strong>!</strong>
-                </div>
-              )}
-            </section>
           </section>
         </div>
 
@@ -685,6 +620,211 @@ export function YnotHomeExperience({
         </aside>
       </div>
     </>
+  );
+}
+
+/** Mystery Packs page — arenaclub.com/slab-packs inspired layout in FOG mint theme.
+ *  Two-up promo banners on top, category filter (from header), then pack card grid. */
+export function PacksExperience({
+  data,
+  homeFilter = defaultHomeFilter,
+}: {
+  data: YnotDashboardData;
+  homeFilter?: HomeFilterState;
+}) {
+  const campaigns = filteredCampaigns(data.campaigns, homeFilter);
+  const [primary, secondary, ...rest] = campaigns;
+
+  return (
+    <div className="store-home-grid packs-page">
+      <div className="store-main-stack">
+        <div className="catalog-toolbar packs-toolbar">
+          <h1>Mystery Packs</h1>
+          <p>{`${campaigns.length} slab pack${campaigns.length === 1 ? "" : "s"}`}</p>
+        </div>
+
+        {(primary || secondary) && (
+          <section
+            className="packs-feature-row"
+            aria-label="Featured mystery packs"
+          >
+            {[primary, secondary].filter(Boolean).map((campaign, index) => (
+              <Link
+                key={campaign!.id}
+                href={`/gacha/${campaign!.slug}`}
+                className={`packs-feature-card packs-feature-card--${index === 0 ? "blue" : "amber"}`}
+              >
+                <span className="packs-feature-eyebrow">
+                  {seriesLabel(campaign!.series)} · Series
+                </span>
+                <strong className="packs-feature-title">
+                  {campaign!.titleTh || campaign!.titleEn}
+                </strong>
+                <span className="packs-feature-price">
+                  <CoinIcon /> {formatCoins(campaign!.costCoins)} / pack
+                </span>
+                <span className="packs-feature-cta">Buy now</span>
+              </Link>
+            ))}
+          </section>
+        )}
+
+        <section
+          className="home-pack-board product-section"
+          aria-label="Mystery pack catalog"
+        >
+          <CampaignGrid
+            campaigns={rest.length || campaigns.length > 2 ? rest : campaigns}
+            emptyTitle="No packs match this filter"
+            emptyBody="Try All, switch category, or ask admin to add matching pack labels."
+          />
+        </section>
+      </div>
+    </div>
+  );
+}
+
+const marketplaceFilters = [
+  { label: "All", key: "all" },
+  { label: "Pokemon", key: "pokemon" },
+  { label: "One Piece", key: "one_piece" },
+  { label: "PSA10", key: "psa10" },
+  { label: "Holo", key: "holo" },
+  { label: "Promo", key: "promo" },
+] as const;
+
+const marketplaceSort = [
+  { label: "Recommended", key: "recommended" },
+  { label: "Lowest price", key: "price-asc" },
+  { label: "Highest price", key: "price-desc" },
+  { label: "Newest", key: "newest" },
+] as const;
+
+/** Marketplace page — arenaclub.com/marketplace inspired in FOG mint theme.
+ *  Filter pills on top, sort dropdown, then card listing grid. Reuses the
+ *  user's collection items as for-sale placeholders until a real marketplace
+ *  catalog exists. */
+export function MarketplaceExperience({
+  data,
+}: {
+  data: YnotDashboardData;
+}) {
+  const items = data.collection;
+
+  return (
+    <div className="store-home-grid marketplace-page">
+      <div className="store-main-stack">
+        <div className="catalog-toolbar marketplace-toolbar">
+          <h1>Marketplace</h1>
+          <p>{`${items.length} listing${items.length === 1 ? "" : "s"}`}</p>
+        </div>
+
+        <div
+          className="marketplace-controls"
+          aria-label="Marketplace filters"
+        >
+          <div className="marketplace-filters">
+            {marketplaceFilters.map((f, index) => (
+              <button
+                key={f.key}
+                type="button"
+                className={`marketplace-chip${index === 0 ? " active" : ""}`}
+                aria-current={index === 0 ? "page" : undefined}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <label className="marketplace-sort">
+            <span>Sort</span>
+            <select aria-label="Sort marketplace listings">
+              {marketplaceSort.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <section
+          className="marketplace-grid"
+          aria-label="Marketplace listings"
+        >
+          {items.length ? (
+            items.map((item) => (
+              <article key={item.id} className="marketplace-card">
+                <div className="marketplace-card-art" aria-hidden>
+                  <span>{(item.cardName || "?").slice(0, 1)}</span>
+                </div>
+                <div className="marketplace-card-body">
+                  <span className="marketplace-card-eyebrow">
+                    {item.cardCode ?? "Card"}
+                  </span>
+                  <strong className="marketplace-card-title">
+                    {item.cardName}
+                  </strong>
+                  <span className="marketplace-card-price">
+                    <CoinIcon /> 0
+                  </span>
+                </div>
+              </article>
+            ))
+          ) : (
+            <div className="marketplace-empty">
+              <strong>No listings yet</strong>
+              <p>
+                Marketplace listings will appear once collectors put their
+                cards up for sale.
+              </p>
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/** Single full-width banner with centered title + CTA — FOG "Cinder III" style. */
+function FeaturedDropBanner() {
+  return (
+    <section className="featured-drop" aria-label="Featured drop">
+      <div className="featured-drop-art" aria-hidden />
+      <div className="featured-drop-overlay">
+        <h2 className="featured-drop-title">The PSA 10 Vault</h2>
+        <Link href="/packs" className="featured-drop-cta">
+          Shop
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+/** Series essentials section — FOG-style 2-column image cards with CTA. */
+function SeriesEssentialsSection() {
+  return (
+    <section
+      className="series-essentials"
+      aria-label="Featured series"
+    >
+      <h2 className="series-essentials-heading">Featured Series</h2>
+      <div className="series-essentials-grid">
+        <Link
+          href="/?series=pokemon"
+          className="series-essentials-card series-essentials-card--pokemon"
+        >
+          <div className="series-essentials-art" aria-hidden />
+          <span className="series-essentials-cta">Shop Pokemon</span>
+        </Link>
+        <Link
+          href="/?series=one_piece"
+          className="series-essentials-card series-essentials-card--one-piece"
+        >
+          <div className="series-essentials-art" aria-hidden />
+          <span className="series-essentials-cta">Shop One Piece</span>
+        </Link>
+      </div>
+    </section>
   );
 }
 
@@ -739,29 +879,6 @@ function RailLink({
       {label}
       <span aria-hidden>›</span>
     </Link>
-  );
-}
-
-function CategoryStrip({ homeFilter }: { homeFilter: HomeFilterState }) {
-  return (
-    <section className="category-strip" aria-label="Categories">
-      {homeCategories.map((category) => (
-        <Link
-          key={category.series}
-          aria-current={
-            homeFilter.series === category.series ? "page" : undefined
-          }
-          className={`category-tab ${homeFilter.series === category.series ? "active" : ""}`}
-          href={homeFilterHref({
-            series: category.series,
-            tag: homeFilter.tag,
-            sort: homeFilter.sort,
-          })}
-        >
-          {category.label}
-        </Link>
-      ))}
-    </section>
   );
 }
 
