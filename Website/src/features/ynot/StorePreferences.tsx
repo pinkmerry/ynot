@@ -477,16 +477,6 @@ export function StoreHeaderNav({
             <Link
               className={`store-nav-link${active ? " active" : ""}`}
               href={protectedHref(item.href, authenticated, item.protected)}
-              onClick={(event) => {
-                if (
-                  item.href === "/" &&
-                  pathname === "/" &&
-                  isPlainPrimaryClick(event)
-                ) {
-                  event.preventDefault();
-                  scrollHomeToTop();
-                }
-              }}
               aria-controls={mega ? megaId : undefined}
               aria-current={active ? "page" : undefined}
               aria-expanded={mega ? isMegaOpen : undefined}
