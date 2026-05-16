@@ -125,6 +125,6 @@ export async function POST(request: Request) {
     }
   }
 
-  revalidateTag("ynot:campaigns", "max");
+  revalidateTag("campaigns", "max");
   return Response.json({ ok: true, updated: normalised.length });
 }

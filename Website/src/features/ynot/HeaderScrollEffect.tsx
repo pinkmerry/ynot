@@ -68,8 +68,35 @@ export function HeaderScrollEffect() {
 
     apply();
     window.addEventListener("scroll", onScroll, { passive: true });
+
+    // Measure the storefront header height and publish it as a CSS custom
+    // property so the mobile drawer can anchor itself directly below the
+    // brand bar. Re-measure whenever the header resizes (e.g. collapses on
+    // scroll) using a ResizeObserver.
+    const header = document.querySelector<HTMLElement>(".storefront-header");
+    let resizeObserver: ResizeObserver | null = null;
+    const publishHeight = () => {
+      if (!header) return;
+      const rect = header.getBoundingClientRect();
+      document.documentElement.style.setProperty(
+        "--ynot-header-height",
+        `${Math.round(rect.height)}px`,
+      );
+    };
+    if (header) {
+      publishHeight();
+      if (typeof ResizeObserver !== "undefined") {
+        resizeObserver = new ResizeObserver(publishHeight);
+        resizeObserver.observe(header);
+      }
+      window.addEventListener("resize", publishHeight);
+    }
+
     return () => {
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", publishHeight);
+      resizeObserver?.disconnect();
+      document.documentElement.style.removeProperty("--ynot-header-height");
       delete document.documentElement.dataset.headerCollapsed;
       delete document.documentElement.dataset.headerAtTop;
       delete document.documentElement.dataset.ynotRouteHome;

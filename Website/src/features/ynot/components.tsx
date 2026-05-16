@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type {
@@ -30,6 +29,7 @@ import { HeaderScrollEffect } from "./HeaderScrollEffect";
 import { normalizeOpenQuantityOptions } from "./open-quantity";
 import {
   StoreAdminLink,
+  StoreBrandHomeLink,
   StoreHeaderNav,
   StoreHeaderRightNav,
   StoreLanguageToggle,
@@ -379,27 +379,7 @@ export async function YnotShell({
               isAdmin={renderViewer.isAdmin}
             />
           </div>
-          <Link href="/" className="brand-lockup" aria-label="YNOT home">
-            <Image
-              src="/ynot-logo-black.png?v=1"
-              alt="YNOT"
-              width={1896}
-              height={596}
-              priority
-              unoptimized
-              className="brand-logo brand-logo--black"
-            />
-            <Image
-              src="/ynot-logo-white.png?v=1"
-              alt=""
-              width={1896}
-              height={596}
-              priority
-              unoptimized
-              aria-hidden="true"
-              className="brand-logo brand-logo--white"
-            />
-          </Link>
+          <StoreBrandHomeLink />
           <div className="store-topbar-right">
             <StoreAdminLink
               authenticated={renderViewer.authenticated}
