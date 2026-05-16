@@ -1,6 +1,9 @@
 import { cookies, headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
+import {
+  isSupabaseAuthCookieName,
+  resolveCurrentProfile,
+} from "@/lib/auth/resolve-current-profile";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +15,9 @@ export async function GET() {
   const cookieStore = await cookies();
   const headerStore = await headers();
   const allCookies = cookieStore.getAll();
+  const supabaseAuthCookieNames = allCookies
+    .map((cookie) => cookie.name)
+    .filter(isSupabaseAuthCookieName);
   const profile = await resolveCurrentProfile();
 
   return NextResponse.json(
@@ -22,6 +28,8 @@ export async function GET() {
       userAgent: headerStore.get("user-agent")?.slice(0, 80),
       cookieCount: allCookies.length,
       cookieNames: allCookies.map((c) => c.name),
+      supabaseAuthCookieCount: supabaseAuthCookieNames.length,
+      supabaseAuthCookieNames,
       resolvedProfile: profile
         ? {
             profileId: profile.profileId,

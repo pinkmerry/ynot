@@ -123,14 +123,17 @@ function seriesLabel(series: YnotCampaign["series"]) {
   return series === "pokemon" ? "Pokemon" : "One Piece";
 }
 
-function homeFilterHref(nextFilter: Partial<HomeFilterState>) {
+function homeFilterHref(
+  nextFilter: Partial<HomeFilterState> & { baseHref?: string },
+) {
+  const baseHref = nextFilter.baseHref ?? "/";
   const filter = { ...defaultHomeFilter, ...nextFilter };
   const params = new URLSearchParams();
   if (filter.series !== "all") params.set("series", filter.series);
   if (filter.tag !== "all") params.set("tag", filter.tag);
   if (filter.sort !== "recommended") params.set("sort", filter.sort);
   const query = params.toString();
-  return query ? `/?${query}` : "/";
+  return query ? `${baseHref}?${query}` : baseHref;
 }
 
 function campaignTagSearchText(campaign: YnotCampaign) {
@@ -278,12 +281,6 @@ function duplicatePacksForDisplay(
   return expanded;
 }
 
-function homeFilterHeading(filter: HomeFilterState) {
-  if (filter.series === "pokemon") return "Pokemon";
-  if (filter.series === "one_piece") return "One Piece";
-  return "All Categories";
-}
-
 function remaining(campaign: YnotCampaign) {
   const remainingSlots = campaign.remainingSlots;
   if (typeof remainingSlots !== "number" || !Number.isFinite(remainingSlots))
@@ -298,12 +295,6 @@ function remainingPercent(campaign: YnotCampaign) {
     3,
     Math.min(100, (remainingSlots / Math.max(campaign.totalSlots, 1)) * 100),
   );
-}
-
-function remainingStatusText(campaign: YnotCampaign) {
-  const remainingSlots = remaining(campaign);
-  if (remainingSlots === null) return "Stock tracked by server";
-  return `${remainingSlots.toLocaleString()} left`;
 }
 
 function remainingRatioText(campaign: YnotCampaign) {
@@ -343,11 +334,13 @@ export async function YnotShell({
   viewer,
   children,
   homeFilter,
+  homeFilterBaseHref = "/",
   walletBalance,
 }: {
   viewer: YnotViewer;
   children: ReactNode;
   homeFilter?: HomeFilterState;
+  homeFilterBaseHref?: string;
   walletBalance?: number;
 }) {
   let renderViewer = viewer;
@@ -432,7 +425,12 @@ export async function YnotShell({
             />
           </div>
         </div>
-        {homeFilter && <StoreFilterStrip homeFilter={homeFilter} />}
+        {homeFilter && (
+          <StoreFilterStrip
+            homeFilter={homeFilter}
+            baseHref={homeFilterBaseHref}
+          />
+        )}
       </header>
       <HeaderScrollEffect />
       {homeFilter && <FilterScrollGuard />}
@@ -568,25 +566,32 @@ const storeFilterChips: readonly StoreFilterChip[] = [
   { label: "One Piece", series: "one_piece" },
 ];
 
-function StoreFilterStrip({ homeFilter }: { homeFilter: HomeFilterState }) {
+function StoreFilterStrip({
+  homeFilter,
+  baseHref,
+}: {
+  homeFilter: HomeFilterState;
+  baseHref: string;
+}) {
   return (
     <div className="store-filter-strip" aria-label="Mystery pack filters">
       <div className="store-filter-scroll">
-        {storeFilterChips.map((chip) => {
-          const isActive = homeFilter.series === chip.series;
+        {storeFilterChips.map((category) => {
+          const isActive = homeFilter.series === category.series;
           return (
             <Link
-              key={chip.series}
+              key={category.series}
               aria-current={isActive ? "page" : undefined}
               className={`filter-chip ${isActive ? "active" : ""}`}
               href={homeFilterHref({
-                series: chip.series,
+                series: category.series,
                 tag: homeFilter.tag,
                 sort: homeFilter.sort,
+                baseHref,
               })}
               scroll={false}
             >
-              {chip.label}
+              {category.label}
             </Link>
           );
         })}
@@ -665,6 +670,12 @@ export function YnotHomeExperience({
     <>
       <MobileTorecaHero campaign={campaigns[0]} />
       <SeriesEssentialsSection />
+      {campaigns.length === 0 && (
+        <section className="empty-state store-empty-state" aria-live="polite">
+          <h2>No real live packs are published yet</h2>
+          <p>Stock tracked by server when an admin publishes pack inventory.</p>
+        </section>
+      )}
     </>
   );
 }
@@ -900,21 +911,6 @@ export function MarketplaceExperience({
   );
 }
 
-/** Single full-width banner with centered title + CTA — FOG "Cinder III" style. */
-function FeaturedDropBanner() {
-  return (
-    <section className="featured-drop" aria-label="Featured drop">
-      <div className="featured-drop-art" aria-hidden />
-      <div className="featured-drop-overlay">
-        <h2 className="featured-drop-title">The PSA 10 Vault</h2>
-        <Link href="/packs" className="featured-drop-cta">
-          Shop
-        </Link>
-      </div>
-    </section>
-  );
-}
-
 /** Series essentials section — FOG-style 2-column image cards with CTA. */
 function SeriesEssentialsSection() {
   return (
@@ -996,73 +992,6 @@ function MobileTorecaHero({ campaign }: { campaign?: YnotCampaign }) {
           <span className="i18n-en">{campaign ? "Rip Mystery Pack" : "View Readiness"}</span>
           <span className="i18n-th">{campaign ? "เปิด Mystery Pack" : "ดูสถานะ"}</span>
         </Link>
-      </div>
-    </section>
-  );
-}
-
-function RailLink({
-  icon,
-  label,
-  href,
-  active,
-}: {
-  icon: string;
-  label: string;
-  href: string;
-  active?: boolean;
-}) {
-  return (
-    <Link className={`rail-link ${active ? "active" : ""}`} href={href}>
-      <span>{icon}</span>
-      {label}
-      <span aria-hidden>›</span>
-    </Link>
-  );
-}
-
-function PromoCard() {
-  return (
-    <section className="app-promo-card">
-      <p className="section-label">YNot Trading Card Center</p>
-      <h3>Now available as a web + LINE experience!</h3>
-      <p>
-        Top up by bank transfer or QR, open packs, exchange cards, and request
-        shipping from one account.
-      </p>
-      <div className="promo-qr" aria-label="Wallet QR configured by admin">
-        QR
-      </div>
-      <Link className="primary-action w-full justify-center" href="/wallet">
-        Top up wallet
-      </Link>
-    </section>
-  );
-}
-
-function LiveActivity({ campaigns }: { campaigns: YnotCampaign[] }) {
-  return (
-    <section className="live-panel">
-      <div className="section-heading-row">
-        <div>
-          <p className="section-label">Store activity</p>
-          <h3 className="title-m">Published packs</h3>
-        </div>
-        <span className="live-dot" />
-      </div>
-      <div className="live-list">
-        {campaigns.length ? (
-          campaigns.slice(0, 4).map((campaign) => (
-            <p key={`activity-${campaign.id}`}>
-              {campaign.titleTh || campaign.titleEn}
-              <span>{campaign.status}</span>
-            </p>
-          ))
-        ) : (
-          <p>
-            No public pack activity yet<span>setup</span>
-          </p>
-        )}
       </div>
     </section>
   );
@@ -1160,7 +1089,7 @@ export function CampaignCard({
   const remainingSlots = remaining(campaign);
   const remainingLabel =
     remainingSlots === null
-      ? "Server-tracked stock"
+      ? "Stock tracked by server"
       : `Remaining ${remainingSlots.toLocaleString()}/${campaign.totalSlots.toLocaleString()}`;
   return (
     <article className="product-card clean-pack-card">
@@ -1857,6 +1786,22 @@ export function AdminSectionShell({
   );
 }
 
+function AdminRouteLink({
+  href,
+  className,
+  children,
+}: {
+  href: string;
+  className: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link className={className} href={href}>
+      {children}
+    </Link>
+  );
+}
+
 export function AdminNav({ activeHref }: { activeHref: string }) {
   const activeItem =
     adminNavItems.find((item) => item.href === activeHref) ?? adminNavItems[0];
@@ -1870,14 +1815,14 @@ export function AdminNav({ activeHref }: { activeHref: string }) {
       </div>
       <div className="admin-side-nav-links">
         {adminNavItems.map((item) => (
-          <Link
+          <AdminRouteLink
             key={item.href}
             className={`admin-side-nav-link ${activeHref === item.href ? "active" : ""}`}
             href={item.href}
           >
             <span>{item.label}</span>
             <em>{item.kicker}</em>
-          </Link>
+          </AdminRouteLink>
         ))}
       </div>
       <Link className="admin-storefront-link" href="/">
@@ -2064,14 +2009,14 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
         </div>
         <div className="admin-quick-grid">
           {quickActions.map((action) => (
-            <Link
+            <AdminRouteLink
               key={`${action.href}-${action.label}`}
               className="admin-quick-action soft-card"
               href={action.href}
             >
               <strong>{action.label}</strong>
               <p>{action.detail}</p>
-            </Link>
+            </AdminRouteLink>
           ))}
         </div>
       </section>
@@ -2088,7 +2033,7 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
         </div>
         <div className="admin-tool-list">
           {mainTools.map((tool) => (
-            <Link
+            <AdminRouteLink
               key={tool.href}
               className="admin-tool-row soft-card"
               href={tool.href}
@@ -2098,7 +2043,7 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
                 <p>{tool.body}</p>
               </div>
               <strong>{tool.meta}</strong>
-            </Link>
+            </AdminRouteLink>
           ))}
         </div>
       </section>
@@ -2112,9 +2057,12 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
             health for migration/provider details when preparing production.
           </p>
         </div>
-        <Link className={`status-pill ${healthTone}`} href="/admin/health">
+        <AdminRouteLink
+          className={`status-pill ${healthTone}`}
+          href="/admin/health"
+        >
           Open health
-        </Link>
+        </AdminRouteLink>
       </section>
     </div>
   );
