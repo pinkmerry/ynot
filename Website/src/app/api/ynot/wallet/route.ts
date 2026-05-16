@@ -7,12 +7,11 @@ import { sha256Hex } from "@/lib/slip2go/client";
 import { getPaymentMethods, getTopUps, getWallet } from "@/features/ynot/data";
 import { toTopUp } from "@/features/ynot/data";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { allowedSlipTypes, maxSlipBytes, verifyImageMagicBytes } from "@/lib/uploads/magic-bytes";
 
 export const dynamic = "force-dynamic";
 
 const slipBucketName = "payment-slips";
-const maxSlipBytes = 10 * 1024 * 1024;
-const allowedSlipTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function jsonNoStore(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
@@ -59,6 +58,8 @@ export async function POST(request: Request) {
   if (!slipFile) return jsonNoStore({ error: "Transfer slip upload is required." }, { status: 400 });
   if (!allowedSlipTypes.has(slipFile.type)) return jsonNoStore({ error: "Slip must be JPG, PNG, or WEBP." }, { status: 400 });
   if (slipFile.size > maxSlipBytes) return jsonNoStore({ error: "Slip must be 10 MB or smaller." }, { status: 400 });
+  const magicCheck = await verifyImageMagicBytes(slipFile);
+  if (!magicCheck.ok) return jsonNoStore({ error: magicCheck.error }, { status: 400 });
 
   const supabase = createServiceSupabaseClient();
   const { data: paymentMethod, error: methodError } = await supabase
@@ -90,7 +91,7 @@ export async function POST(request: Request) {
   const slipBuffer = await slipFile.arrayBuffer();
   const slipHash = sha256Hex(slipBuffer);
   const filePath = `topups/${session.profileId}/${topUp.id}/${Date.now()}-${cleanFileName(slipFile.name)}`;
-  const { error: uploadError } = await supabase.storage.from(slipBucketName).upload(filePath, slipFile, { contentType: slipFile.type, upsert: false });
+  const { error: uploadError } = await supabase.storage.from(slipBucketName).upload(filePath, slipFile, { contentType: magicCheck.contentType, upsert: false });
   if (uploadError) {
     await supabase.from("top_up_requests").delete().eq("id", topUp.id);
     return jsonNoStore({ error: uploadError.message }, { status: 500 });

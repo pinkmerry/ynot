@@ -14,7 +14,8 @@
     "verify:ynot": "npm run verify:phase1 && npm run verify:auth && npm run verify:platform && npm run verify:phase-readiness && npm run verify:hardening && npm run verify:production-test && node tools/verification/verify-lucky-draw-plan.mjs",
     "check": "npm run lint && npm run typecheck && npm run verify:ynot && npm run build",
     "verify:phase-readiness": "node tools/verification/verify-phase-readiness.mjs",
-    "verify:hardening": "node tools/verification/verify-hardening.mjs",
+    "test:uploads": "node --test scripts/test-magic-bytes.mjs",
+    "verify:hardening": "npm run test:uploads && node tools/verification/verify-hardening.mjs",
     "verify:production-test": "node tools/verification/verify-production-test-readiness.mjs",
     "verify:production-db": "node tools/verification/check-production-supabase-readiness.mjs"
   },

@@ -403,6 +403,8 @@ export async function getCampaignPrizeReadiness(
 export function readinessErrorResponse(readiness: CampaignPrizeReadiness) {
   return Response.json(
     {
+      ok: false,
+      code: "CAMPAIGN_PRIZE_READINESS_BLOCKED",
       error: readiness.blockers[0] ?? "Prize inventory is not ready.",
       blockers: readiness.blockers,
       readiness,

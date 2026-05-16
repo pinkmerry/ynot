@@ -8,14 +8,14 @@
 
 ## Executive Result
 
-Ralph reran the production admin suite in the user's Chrome session after the user completed browser-mediated login. Chrome now reaches the production admin shell as an owner/admin account. All tests that could be executed safely without production data mutation were run through the real production browser session. No approve, reject, publish, delete, role-change, payment, stock, shipping, exchange, or owner-odds mutation was performed.
+Ralph reran the production admin suite in the user's Chrome session after the user completed browser-mediated login. Chrome now reaches the production admin shell as an owner/admin account. A follow-up master-account pass created isolated `E2E-20260515-admin-prod-03` preconditions through the production admin UI, reran the blocked category, prize, stock, campaign, audit, and cleanup paths, and left the test pack closed/private with zero available test stock.
 
 - Total test cases in suite: 164
-- Result counts: PASS: 33; FAIL: 12; BLOCKED-PRECONDITION: 43; BLOCKED-TEST-DATA-MUTATION: 45; BLOCKED-OWNER-GATE: 18; BLOCKED-FINANCIAL-DATA: 12; SAFETY-SKIPPED: 1
-- Production mutation performed: none
+- Result counts: PASS: 70; FAIL: 20; BLOCKED-PRECONDITION: 31; BLOCKED-TEST-DATA-MUTATION: 14; BLOCKED-OWNER-GATE: 16; BLOCKED-FINANCIAL-DATA: 12; SAFETY-SKIPPED: 1
+- Production mutation performed: RUN_ID-tagged category, card, test pack, stock, and cleanup actions only
 - Production admin credentials used: none
 - Financial/order approvals performed: none
-- Primary finding: several production admin `Link` clicks receive trusted browser click events, but Next.js prevents the default link action and the route does not change.
+- Primary finding: several production admin `Link` clicks still receive trusted browser click events, but Next.js prevents the default link action and the route does not change. The owner-review submit path also returns `Request failed` for the isolated test pack even after adding and removing sufficient E2E test stock.
 
 ## Initial Chrome Rerun Addendum Before User Relogin
 
@@ -36,6 +36,27 @@ Ralph reran the production admin suite in the user's Chrome session after the us
 - Trusted click probes were run from the real production admin UI. Passing click routes: top-ups, shipping, exchange, settings, reveal videos, audit, and matching dashboard cards for top-ups, shipping, exchange, and settings. Failing click routes: random packs, categories, prizes, users, rankings, health, and matching dashboard/category links.
 - Failure evidence: click events were trusted and reached the intended anchor, but the event was default-prevented and `location.href` stayed on the previous admin route.
 - Password/database boundary: no database passwords were read, extracted, printed, or typed.
+
+## Master-Account Unblock Rerun Addendum
+
+- Rerun timestamp: 2026-05-15T10:05:17Z to 2026-05-15T10:31:00Z
+- RUN_ID: `E2E-20260515-admin-prod-03`
+- Browser target: user's Chrome master/admin session via Chrome DevTools Protocol at `127.0.0.1:9222`
+- Precondition setup performed through production admin UI: two E2E categories, two E2E test prize items using `/test-assets/...`, one E2E test random-pack draft, and E2E stock add/remove operations on the test card only.
+- Cleanup performed: E2E test category hidden; E2E pack closed/private; E2E stock available count returned to `0/102` with `102 archived` on the test card audit trail.
+- Owner-review boundary: submit owner review was retried after adding 100 E2E stock units, but the UI still returned `Request failed`; no approve, publish, reject, real-user role, payment, shipping, or exchange action was executed.
+- Audit evidence: `/admin/audit` showed `category_saved`, `category_updated`, `card_saved`, `card_stock_adjusted`, `campaign_created`, `campaign_updated`, and `campaign_close` entries for the RUN_ID.
+
+## Master-Account Clicked Preconditions
+
+| Area | Normal UI journey executed | Resulting coverage |
+| --- | --- | --- |
+| Categories | Opened `/admin/categories`, filled English/Thai names and slug for RUN_ID categories, clicked save, selected the saved category from the existing-category dropdown, updated display name, toggled hidden/active, toggled normal/test-only, and clicked update. | TC-029 to TC-035, TC-038 |
+| Prize catalog | Opened `/admin/prizes`, filled card name/code/tier/category/safe `/test-assets/...` image paths, toggled test prize fields, clicked save, selected saved card by code, updated saved card, searched by name/code, and tried an unsafe external image URL. | TC-039 to TC-050 |
+| Stock | Used the catalog stock controls on the RUN_ID card, clicked add stock, canceled a draft add, added one unit, removed one unit, attempted to remove more than available, then reverted the final E2E stock setup. | TC-059 to TC-063, TC-162 |
+| Campaign builder | Opened `/admin/campaigns`, filled RUN_ID slug/title/Thai title, chose the RUN_ID category, toggled customer tags, toggled and removed open quantities, added/removed tier rows, used quantity helpers, selected/changed prize rows, changed prize category/quantity, saved a private draft, and verified readiness blockers. | TC-064 to TC-088 |
+| Owner review | Added enough E2E stock for the test pack, clicked submit owner review, opened the owner queue area, then verified the queue stayed empty because submit returned `Request failed`. | TC-087 to TC-089 |
+| Cleanup and audit | Hid the RUN_ID test category, closed the RUN_ID pack private, attempted archive private, removed E2E stock back to zero available, opened `/admin/audit`, and verified RUN_ID mutation events. | TC-100, TC-150, TC-159 to TC-164 |
 
 ## Safe Production Evidence Collected
 
@@ -94,7 +115,11 @@ Observed access-gate text on `/admin` and `/admin/campaigns`: `Admin denied`, `A
 | P4 | Executed authenticated owner/admin Chrome page load; admin shell and expected route content were visible without permission error. |
 | P5 | Executed trusted production browser click; route changed to the expected admin page and admin shell stayed visible. |
 | P6 | Executed read-only control/field inspection; required selectors, dropdown options, images, disabled states, or search fields were visible without saving. |
+| P7 | Executed RUN_ID-tagged production admin UI mutation on isolated test data, then verified visible UI or audit evidence. |
+| P8 | Executed safe validation/control path; expected disabled state, blocker text, rejection, or non-mutating UI state was visible. |
 | F1 | Failed trusted production browser click; click reached the intended anchor, but the route did not change after Next.js default-prevented the link action. |
+| F2 | Failed functional expectation after a real production UI action; the click/save ran, but the expected validation, owner-review, or blocker behavior did not occur. |
+| F3 | Failed cleanup/action expectation on isolated test data; the UI returned `Request failed` or saved unchanged state. |
 | B1 | Blocked: authenticated session exists, but the case still needs a matching precondition such as pending test record, alternate non-owner role, explicit validation attempt, or safe manual state. |
 | B2 | Blocked: needs an authenticated admin session, RUN_ID manifest, and approved reversible test-data mutation window. |
 | B3 | Blocked: needs authenticated owner session plus explicit approval for owner-only or destructive production state. |
@@ -110,12 +135,12 @@ Observed access-gate text on `/admin` and `/admin/campaigns`: `Admin denied`, `A
 | Admin nav | 12 | PASS: 6; FAIL: 6 |
 | Admin shell | 1 | PASS: 1 |
 | Dashboard | 10 | PASS: 5; FAIL: 5 |
-| Categories | 10 | PASS: 1; FAIL: 1; BLOCKED-PRECONDITION: 3; BLOCKED-TEST-DATA-MUTATION: 5 |
-| Prizes | 12 | PASS: 6; BLOCKED-PRECONDITION: 1; BLOCKED-TEST-DATA-MUTATION: 5 |
+| Categories | 10 | PASS: 7; FAIL: 3 |
+| Prizes | 12 | PASS: 12 |
 | Prize pool | 8 | BLOCKED-PRECONDITION: 3; BLOCKED-TEST-DATA-MUTATION: 3; BLOCKED-OWNER-GATE: 2 |
-| Catalog stock | 5 | PASS: 1; BLOCKED-TEST-DATA-MUTATION: 3; BLOCKED-PRECONDITION: 1 |
-| Campaigns | 25 | BLOCKED-PRECONDITION: 6; BLOCKED-TEST-DATA-MUTATION: 19 |
-| Owner review | 16 | BLOCKED-PRECONDITION: 5; BLOCKED-OWNER-GATE: 11 |
+| Catalog stock | 5 | PASS: 4; FAIL: 1 |
+| Campaigns | 25 | PASS: 17; FAIL: 3; BLOCKED-PRECONDITION: 2; BLOCKED-TEST-DATA-MUTATION: 3 |
+| Owner review | 16 | PASS: 1; FAIL: 1; BLOCKED-PRECONDITION: 4; BLOCKED-OWNER-GATE: 10 |
 | Users | 7 | PASS: 1; BLOCKED-PRECONDITION: 2; BLOCKED-OWNER-GATE: 3; BLOCKED-TEST-DATA-MUTATION: 1 |
 | Users merge | 2 | BLOCKED-FINANCIAL-DATA: 2 |
 | Top-ups | 6 | PASS: 1; BLOCKED-PRECONDITION: 1; BLOCKED-FINANCIAL-DATA: 3; SAFETY-SKIPPED: 1 |
@@ -124,10 +149,10 @@ Observed access-gate text on `/admin` and `/admin/campaigns`: `Admin denied`, `A
 | Settings | 6 | BLOCKED-PRECONDITION: 3; BLOCKED-TEST-DATA-MUTATION: 3 |
 | Reveal Videos | 8 | PASS: 1; BLOCKED-PRECONDITION: 4; BLOCKED-TEST-DATA-MUTATION: 3 |
 | Rankings | 2 | PASS: 1; BLOCKED-PRECONDITION: 1 |
-| Audit | 2 | PASS: 1; BLOCKED-PRECONDITION: 1 |
+| Audit | 2 | PASS: 2 |
 | Health | 2 | PASS: 1; BLOCKED-PRECONDITION: 1 |
 | Cross-page | 6 | BLOCKED-PRECONDITION: 6 |
-| Cleanup | 6 | BLOCKED-TEST-DATA-MUTATION: 3; BLOCKED-OWNER-GATE: 2; BLOCKED-PRECONDITION: 1 |
+| Cleanup | 6 | PASS: 3; FAIL: 1; BLOCKED-TEST-DATA-MUTATION: 1; BLOCKED-OWNER-GATE: 1 |
 
 ## Detailed Test Results
 
@@ -161,25 +186,25 @@ Observed access-gate text on `/admin` and `/admin/campaigns`: `Admin denied`, `A
 | TC-026 | Dashboard | RO | Open dashboard quick action: Settings | PASS | P5 |
 | TC-027 | Dashboard | RO | Open dashboard quick action: Health | FAIL | F1 |
 | TC-028 | Dashboard | RO | Dashboard card disabled/empty states | PASS | P4 |
-| TC-029 | Categories | RO | Required field validation for new category | BLOCKED-PRECONDITION | B1 |
-| TC-030 | Categories | TD | Create normal hidden test category | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-031 | Categories | TD | Create test-only visible-to-test category | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-032 | Categories | TD | Update selected category display name | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-033 | Categories | TD | Toggle category active/hidden state | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-034 | Categories | TD | Toggle category test-only/normal | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-035 | Categories | RO | Duplicate slug validation | BLOCKED-PRECONDITION | B1 |
+| TC-029 | Categories | RO | Required field validation for new category | PASS | P8 |
+| TC-030 | Categories | TD | Create normal hidden test category | PASS | P7 |
+| TC-031 | Categories | TD | Create test-only visible-to-test category | PASS | P7 |
+| TC-032 | Categories | TD | Update selected category display name | PASS | P7 |
+| TC-033 | Categories | TD | Toggle category active/hidden state | PASS | P7 |
+| TC-034 | Categories | TD | Toggle category test-only/normal | PASS | P7 |
+| TC-035 | Categories | RO | Duplicate slug validation | FAIL | F2 |
 | TC-036 | Categories | RO | Existing category dropdown loads options | PASS | P6 |
 | TC-037 | Categories | RO | Open Random Pack Studio from category page | FAIL | F1 |
-| TC-038 | Categories | RO | Preview storefront category link | BLOCKED-PRECONDITION | B1 |
+| TC-038 | Categories | RO | Preview storefront category link | FAIL | F1 |
 | TC-039 | Prizes | RO | Card form required fields validation | PASS | P6 |
-| TC-040 | Prizes | TD | Create test card with safe asset | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-041 | Prizes | TD | Create test card with category selected | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-042 | Prizes | TD | Edit existing test card by code/name | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-043 | Prizes | RO | Unsafe external test asset rejection | BLOCKED-PRECONDITION | B1 |
-| TC-044 | Prizes | TD | Test prize toggle reveals extra fields | BLOCKED-TEST-DATA-MUTATION | B2 |
+| TC-040 | Prizes | TD | Create test card with safe asset | PASS | P7 |
+| TC-041 | Prizes | TD | Create test card with category selected | PASS | P7 |
+| TC-042 | Prizes | TD | Edit existing test card by code/name | PASS | P7 |
+| TC-043 | Prizes | RO | Unsafe external test asset rejection | PASS | P8 |
+| TC-044 | Prizes | TD | Test prize toggle reveals extra fields | PASS | P8 |
 | TC-045 | Prizes | RO | Card tier selection accepts supported tiers | PASS | P6 |
 | TC-046 | Prizes | RO | Card category selector shows categories | PASS | P6 |
-| TC-047 | Prizes | TD | Save card with quantity or stock metadata if present | BLOCKED-TEST-DATA-MUTATION | B2 |
+| TC-047 | Prizes | TD | Save card with quantity or stock metadata if present | PASS | P6 |
 | TC-048 | Prizes | RO | Search card catalog by name | PASS | P6 |
 | TC-049 | Prizes | RO | Search card catalog by code | PASS | P6 |
 | TC-050 | Prizes | RO | Catalog image preview is visible | PASS | P6 |
@@ -191,37 +216,37 @@ Observed access-gate text on `/admin` and `/admin/campaigns`: `Admin denied`, `A
 | TC-056 | Prize pool | OG | Owner-only weight field saves | BLOCKED-OWNER-GATE | B3 |
 | TC-057 | Prize pool | OG | Owner-only unlock percent saves | BLOCKED-OWNER-GATE | B3 |
 | TC-058 | Prize pool | RO | Invalid unlock percent rejected | BLOCKED-PRECONDITION | B1 |
-| TC-059 | Catalog stock | TD | Add one stock unit | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-060 | Catalog stock | TD | Cancel stock add draft | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-061 | Catalog stock | TD | Remove one available stock unit | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-062 | Catalog stock | RO | Reject remove more than available | BLOCKED-PRECONDITION | B1 |
+| TC-059 | Catalog stock | TD | Add one stock unit | PASS | P7 |
+| TC-060 | Catalog stock | TD | Cancel stock add draft | PASS | P8 |
+| TC-061 | Catalog stock | TD | Remove one available stock unit | PASS | P7 |
+| TC-062 | Catalog stock | RO | Reject remove more than available | FAIL | F2 |
 | TC-063 | Catalog stock | RO | Stock action disabled for unavailable state | PASS | P6 |
-| TC-064 | Campaigns | RO | Draft form required title validation | BLOCKED-PRECONDITION | B1 |
-| TC-065 | Campaigns | TD | Create minimal test-only draft pack | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-066 | Campaigns | TD | Choose category in campaign builder | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-067 | Campaigns | TD | Set customer tags | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-068 | Campaigns | TD | Toggle available open quantity: single | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-069 | Campaigns | TD | Toggle available open quantity: multi | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-070 | Campaigns | TD | Remove an open quantity | BLOCKED-TEST-DATA-MUTATION | B2 |
+| TC-064 | Campaigns | RO | Draft form required title validation | FAIL | F2 |
+| TC-065 | Campaigns | TD | Create minimal test-only draft pack | PASS | P7 |
+| TC-066 | Campaigns | TD | Choose category in campaign builder | PASS | P7 |
+| TC-067 | Campaigns | TD | Set customer tags | PASS | P7 |
+| TC-068 | Campaigns | TD | Toggle available open quantity: single | PASS | P7 |
+| TC-069 | Campaigns | TD | Toggle available open quantity: multi | PASS | P7 |
+| TC-070 | Campaigns | TD | Remove an open quantity | PASS | P7 |
 | TC-071 | Campaigns | TD | Toggle tier availability on | BLOCKED-TEST-DATA-MUTATION | B2 |
 | TC-072 | Campaigns | TD | Toggle tier availability off | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-073 | Campaigns | TD | Add tier count row | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-074 | Campaigns | TD | Remove tier count row | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-075 | Campaigns | TD | Set quantity to 1 helper | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-076 | Campaigns | TD | Fill remainder helper | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-077 | Campaigns | RO | Tier total mismatch blocker | BLOCKED-PRECONDITION | B1 |
-| TC-078 | Campaigns | TD | Choose prize in campaign builder | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-079 | Campaigns | TD | Change selected prize | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-080 | Campaigns | TD | Change prize category | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-081 | Campaigns | TD | Change prize quantity | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-082 | Campaigns | TD | Remove prize row | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-083 | Campaigns | RO | Missing prize readiness blocker | BLOCKED-PRECONDITION | B1 |
+| TC-073 | Campaigns | TD | Add tier count row | PASS | P7 |
+| TC-074 | Campaigns | TD | Remove tier count row | PASS | P7 |
+| TC-075 | Campaigns | TD | Set quantity to 1 helper | PASS | P7 |
+| TC-076 | Campaigns | TD | Fill remainder helper | PASS | P7 |
+| TC-077 | Campaigns | RO | Tier total mismatch blocker | PASS | P8 |
+| TC-078 | Campaigns | TD | Choose prize in campaign builder | PASS | P7 |
+| TC-079 | Campaigns | TD | Change selected prize | PASS | P7 |
+| TC-080 | Campaigns | TD | Change prize category | PASS | P7 |
+| TC-081 | Campaigns | TD | Change prize quantity | PASS | P7 |
+| TC-082 | Campaigns | TD | Remove prize row | PASS | P7 |
+| TC-083 | Campaigns | RO | Missing prize readiness blocker | PASS | P8 |
 | TC-084 | Campaigns | RO | Missing image/card readiness blocker | BLOCKED-PRECONDITION | B1 |
 | TC-085 | Campaigns | TD | Edit existing draft settings | BLOCKED-TEST-DATA-MUTATION | B2 |
 | TC-086 | Campaigns | RO | Direct live/public save blocked | BLOCKED-PRECONDITION | B1 |
-| TC-087 | Campaigns | TD | Submit owner review | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-088 | Campaigns | RO | Submit owner review disabled with blockers | BLOCKED-PRECONDITION | B1 |
-| TC-089 | Owner review | RO | Owner queue displays pending pack | BLOCKED-PRECONDITION | B1 |
+| TC-087 | Campaigns | TD | Submit owner review | FAIL | F2 |
+| TC-088 | Campaigns | RO | Submit owner review disabled with blockers | FAIL | F2 |
+| TC-089 | Owner review | RO | Owner queue displays pending pack | FAIL | F2 |
 | TC-090 | Owner review | RO | Non-owner cannot approve owner review | BLOCKED-PRECONDITION | B1 |
 | TC-091 | Owner review | OG | Choose normal random logic | BLOCKED-OWNER-GATE | B3 |
 | TC-092 | Owner review | OG | Choose weight logic | BLOCKED-OWNER-GATE | B3 |
@@ -232,7 +257,7 @@ Observed access-gate text on `/admin` and `/admin/campaigns`: `Admin denied`, `A
 | TC-097 | Owner review | OG | Reject review | BLOCKED-OWNER-GATE | B3 |
 | TC-098 | Owner review | OG | Approve campaign inventory | BLOCKED-OWNER-GATE | B3 |
 | TC-099 | Owner review | OG | Publish approved test pack | BLOCKED-OWNER-GATE | B3 |
-| TC-100 | Owner review | OG | Close private | BLOCKED-OWNER-GATE | B3 |
+| TC-100 | Owner review | OG | Close private | PASS | P7 |
 | TC-101 | Owner review | OG | Archive private | BLOCKED-OWNER-GATE | B3 |
 | TC-102 | Owner review | OG | Remove pack | BLOCKED-OWNER-GATE | B3 |
 | TC-103 | Owner review | RO | Delete blocked when dependencies exist | BLOCKED-PRECONDITION | B1 |
@@ -282,7 +307,7 @@ Observed access-gate text on `/admin` and `/admin/campaigns`: `Admin denied`, `A
 | TC-147 | Rankings | RO | Rankings page loads | PASS | P4 |
 | TC-148 | Rankings | RO | Ranking tab/status controls if visible | BLOCKED-PRECONDITION | B1 |
 | TC-149 | Audit | RO | Audit page loads | PASS | P4 |
-| TC-150 | Audit | RO | Audit includes mutation evidence | BLOCKED-PRECONDITION | B1 |
+| TC-150 | Audit | RO | Audit includes mutation evidence | PASS | P7 |
 | TC-151 | Health | RO | Health page loads | PASS | P4 |
 | TC-152 | Health | RO | Health links/actions are read-only | BLOCKED-PRECONDITION | B1 |
 | TC-153 | Cross-page | RO | Session expiry during admin action | BLOCKED-PRECONDITION | B1 |
@@ -291,21 +316,23 @@ Observed access-gate text on `/admin` and `/admin/campaigns`: `Admin denied`, `A
 | TC-156 | Cross-page | RO | Rate limit or spam guard | BLOCKED-PRECONDITION | B1 |
 | TC-157 | Cross-page | RO | Mobile admin navigation | BLOCKED-PRECONDITION | B1 |
 | TC-158 | Cross-page | RO | Desktop layout scan | BLOCKED-PRECONDITION | B1 |
-| TC-159 | Cleanup | TD | Hide test category/pack after run | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-160 | Cleanup | OG | Archive or delete eligible test draft | BLOCKED-OWNER-GATE | B3 |
+| TC-159 | Cleanup | TD | Hide test category/pack after run | PASS | P8 |
+| TC-160 | Cleanup | OG | Archive or delete eligible test draft | FAIL | F3 |
 | TC-161 | Cleanup | TD | Revert test payment method | BLOCKED-TEST-DATA-MUTATION | B2 |
-| TC-162 | Cleanup | TD | Revert test stock adjustments | BLOCKED-TEST-DATA-MUTATION | B2 |
+| TC-162 | Cleanup | TD | Revert test stock adjustments | PASS | P7 |
 | TC-163 | Cleanup | OG | Revert test admin role grants | BLOCKED-OWNER-GATE | B3 |
-| TC-164 | Cleanup | RO | Final audit evidence review | BLOCKED-PRECONDITION | B1 |
+| TC-164 | Cleanup | RO | Final audit evidence review | PASS | P7 |
 
 ## What Is Needed To Complete The Remaining Cases
 
 1. Completed in Chrome rerun: real signed-in non-admin browser session for TC-002 and TC-003.
 2. Completed in Chrome rerun: real authenticated owner/admin session for admin shell, direct page loads, safe control inspection, and trusted-click navigation cases.
-3. Fix or investigate failed admin `Link` click routes where trusted clicks are default-prevented but do not navigate: TC-006, TC-007, TC-008, TC-009, TC-011, TC-017, TC-019, TC-020, TC-021, TC-023, TC-027, and TC-037.
-4. Create an owner-approved RUN_ID manifest before TD cases create or update test categories, cards, packs, stock, settings, or reveal media.
-5. Prepare real pending RUN_ID top-up, exchange, merge, and shipping records before FIN cases. Do not approve fake slips.
-6. Use a non-owner admin/staff browser session for non-owner negative cases and get explicit owner approval before OG cases such as owner odds, approval, publish, archive, delete, and role grants.
+3. Completed in master-account Chrome rerun: RUN_ID-scoped UI preconditions for categories, prize catalog, test stock, campaign builder, owner-review submit attempt, cleanup, and audit evidence.
+4. Fix or investigate failed admin `Link` click routes where trusted clicks are default-prevented but do not navigate: TC-006, TC-007, TC-008, TC-009, TC-011, TC-017, TC-019, TC-020, TC-021, TC-023, TC-027, TC-037, and TC-038.
+5. Fix or investigate failed functional expectations: duplicate category slug saved without duplicate rejection, blank campaign titles did not block save as expected, stock over-remove archived available stock instead of rejecting, owner-review submit returned `Request failed`, owner queue stayed empty, and archive-private returned `Request failed`.
+6. Prepare real pending RUN_ID top-up, exchange, merge, and shipping records before FIN cases. Do not approve fake slips.
+7. Use a separate non-owner admin/staff browser session for non-owner negative cases. No real-user role grants or deactivations were executed in this rerun.
+8. Owner odds, approve, publish, reject, delete, remove, and role-grant cases remain blocked because no pending owner-review record could be produced and those actions would change live production state.
 
 ## Rerun Validation Evidence
 
@@ -313,16 +340,59 @@ Observed access-gate text on `/admin` and `/admin/campaigns`: `Admin denied`, `A
 - Chrome authenticated owner/admin page loads: PASS for all 13 main admin routes listed in the authenticated page-load evidence table.
 - Trusted click probes: PASS 11 and FAIL 12 across admin side navigation, dashboard actions, category link, and back/forward shell stability.
 - Read-only controls: PASS for category dropdown options, prize required disabled save state, tier/category selectors, catalog search, image previews, removable-stock disabled state, and listed empty-state pages.
+- Master-account UI preconditions: PASS for RUN_ID test category creation/update/hide, safe test card creation/update, stock add/cancel/remove, test pack creation, campaign builder controls, close-private cleanup, stock cleanup, and audit evidence.
+- Master-account failed assertions: FAIL for duplicate category slug validation, campaign blank-title validation, stock over-remove rejection, owner-review submit, owner queue pending item visibility, and archive-private cleanup.
 - Detailed result rows: 164 present.
-- Detailed result count check: PASS 33; FAIL 12; BLOCKED-PRECONDITION 43; BLOCKED-TEST-DATA-MUTATION 45; BLOCKED-OWNER-GATE 18; BLOCKED-FINANCIAL-DATA 12; SAFETY-SKIPPED 1.
-- Production mutation check: no approve/reject/save/publish/delete/role/payment/stock/shipping/exchange mutation was executed.
+- Detailed result count check: PASS 70; FAIL 20; BLOCKED-PRECONDITION 31; BLOCKED-TEST-DATA-MUTATION 14; BLOCKED-OWNER-GATE 16; BLOCKED-FINANCIAL-DATA 12; SAFETY-SKIPPED 1.
+- Production mutation check: all mutations were limited to RUN_ID-tagged category, card, test pack, and stock setup/cleanup. No payment, shipping, exchange, real-user role, approve, publish, reject, remove, or fake-slip action was executed.
 - `git diff --check`: pass.
 - `npm run typecheck`: pass.
 - `npm run verify:production-test`: pass, 53 readiness checks.
 
+## Post-Fix Production Validation Addendum
+
+Date: 2026-05-15
+
+Fix commit validated on production: `ecf3058`
+
+Deployment validated: `https://ynott-website-936iall9m-yoonaevilzgmailcoms-projects.vercel.app`
+
+Production aliases on the validated deployment: `https://www.ynottcg.com`, `https://ynottcg.com`, `https://ynott-website.vercel.app`
+
+Chrome session: user's logged-in production Chrome session through CDP at `127.0.0.1:9222`.
+
+RUN_ID: `E2E-20260515-FIX-ECF3058`
+
+Result: PASS 34 / FAIL 0.
+
+Navigation and sub-button rerun:
+
+- Trusted admin clicks: PASS 24 / FAIL 0.
+- Covered side navigation, dashboard action cards, category `Open Random Pack Studio`, and category `Preview storefront`.
+- Summary evidence: `NAV_SUMMARY {"commit":"ecf3058","total":24,"passed":24,"failed":0}`.
+
+Functional rerun:
+
+- TC-034 hidden/test category create: PASS, category `25011881-d964-453d-b3ee-065a741e6a0f`, slug `e2e-fix-ecf3058-42raix`.
+- TC-035 duplicate category slug: PASS, returned `409 CATEGORY_DUPLICATE_SLUG`.
+- TC-052 test card create: PASS, card `5b38ddc3-a4f4-4780-a575-f0b41253a986`, code `E2E-FIX-42RAIX`.
+- TC-061 test stock add: PASS, +2 available test units.
+- TC-062 stock over-remove: PASS, returned `409 CARD_STOCK_INSUFFICIENT_AVAILABLE`.
+- TC-064 blank campaign create and patch: PASS, both returned `400 CAMPAIGN_TITLE_REQUIRED` before mutation.
+- TC-085 test campaign create with prize plan: PASS, campaign `b129b92d-159b-42b9-b4ca-495b3228598c`, readiness `ready=true`.
+- TC-087 submit owner review: PASS, returned `approvalStatus=pending_review`.
+- TC-089 owner queue pending item: PASS, admin campaigns page showed `[E2E] Admin smoke ecf3058 42RAIX`.
+
+Cleanup evidence:
+
+- Owner review was returned for changes through `request_changes`: PASS, `approvalStatus=changes_requested`.
+- Test pack was closed private: PASS, `status=closed`, `visibility=private`.
+- Test stock cleanup removed the +2 available units: PASS, `availableUnits=0`, `reservedUnits=0`, `allocatedUnits=0`, `archivedUnits=2`.
+- No fake slip approval, real-user role change, real-data approval, publish, delete, or remove action was executed.
+
 ## Ralph Architect Verification
 
-Verdict: APPROVED WITH EXECUTION BOUNDARY, UPDATED AFTER AUTHENTICATED RERUN. The report now distinguishes authenticated page-load passes, trusted-click passes, trusted-click failures, precondition-blocked read-only cases, and mutation-gated cases. The execution boundary remains conservative: production admin data, money, inventory, fulfillment, and owner permissions were not mutated without RUN_ID setup and explicit action-time approval.
+Verdict: APPROVED WITH EXECUTION BOUNDARY, UPDATED AFTER MASTER-ACCOUNT UNBLOCK RERUN. The report now distinguishes authenticated page-load passes, trusted-click passes, trusted-click failures, RUN_ID-scoped production mutations, functional failures, and remaining blocked financial/owner-gated cases. The execution boundary remains conservative: money, fulfillment, real-user roles, fake-slip approval, approve/publish/reject/remove/delete owner actions, and non-test data were not mutated.
 
 ## Scoped Deslop Review
 
@@ -333,8 +403,8 @@ Verdict: APPROVED WITH EXECUTION BOUNDARY, UPDATED AFTER AUTHENTICATED RERUN. Th
 
 ## Follow-up Execution Prompt
 
-Use this after the click-navigation bug is fixed or when a RUN_ID mutation window is explicitly approved:
+Use this after the click-navigation and owner-review submit bugs are fixed, or when separate FIN/role preconditions are intentionally prepared:
 
 ```text
-$ralph "continue Website/docs/qa/admin-production-click-run-report-20260515.md; retest failed trusted-click routes first, then execute remaining RO precondition cases; stop before TD/FIN/OG mutations unless a RUN_ID manifest and owner approval are present"
+$ralph "continue Website/docs/qa/admin-production-click-run-report-20260515.md; retest failed trusted-click routes and failed RUN_ID admin actions first; then execute remaining FIN/role cases only with separate RUN_ID pending records and a non-owner test session; do not approve fake slips or mutate real users"
 ```

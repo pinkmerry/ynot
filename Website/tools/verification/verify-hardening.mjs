@@ -253,14 +253,82 @@ for (const needle of ["/api/lucky-draw", "/api/line", "/api/ynot", "Public store
 }
 
 const pkg = JSON.parse(read("package.json"));
-if (pkg.scripts?.["verify:hardening"] === "node tools/verification/verify-hardening.mjs") pass("package has verify:hardening script");
+if (
+  pkg.scripts?.["verify:hardening"] === "npm run test:uploads && node tools/verification/verify-hardening.mjs"
+  || pkg.scripts?.["verify:hardening"] === "node tools/verification/verify-hardening.mjs"
+) pass("package has verify:hardening script");
 else fail("package missing verify:hardening script");
+if (pkg.scripts?.["test:uploads"] === "node --test scripts/test-magic-bytes.mjs") pass("package has test:uploads script");
+else fail("package missing test:uploads script");
 if (pkg.scripts?.["verify:ynot"]?.includes("verify:hardening")) pass("verify:ynot includes hardening verification");
 else fail("verify:ynot does not include hardening verification");
 if (pkg.scripts?.["verify:ynot"]?.includes("verify:production-test")) pass("verify:ynot includes production-test verification");
 else fail("verify:ynot does not include production-test verification");
 if (pkg.scripts?.["verify:production-db"] === "node tools/verification/check-production-supabase-readiness.mjs") pass("package has optional verify:production-db script");
 else fail("package missing optional verify:production-db script");
+
+function envCheck(name, expected, message) {
+  const actual = process.env[name];
+  if (actual === expected) pass(message);
+  else fail(`${message}: expected process.env.${name}="${expected}", got "${actual ?? "(unset)"}"`);
+}
+
+// --- Security review remediation assertions (2026-05) ---
+
+// Finding 1: /api/debug/whoami production gate + drop fingerprintable fields
+includes(
+  "src/app/api/debug/whoami/route.ts",
+  'process.env.NODE_ENV === "production" && process.env.ENABLE_DEBUG_ENDPOINTS !== "true"',
+  "whoami has layered production gate (NODE_ENV + ENABLE_DEBUG_ENDPOINTS)",
+);
+notIncludes("src/app/api/debug/whoami/route.ts", "valuePrefix", "whoami does not expose cookie valuePrefix");
+notIncludes("src/app/api/debug/whoami/route.ts", "valueLength", "whoami does not expose cookie valueLength");
+notIncludes("src/app/api/debug/whoami/route.ts", "sbAuthCookies", "whoami does not expose sbAuthCookies");
+
+// Finding 2 (partial): five non-CSP security headers in next.config.ts
+// CSP intentionally deferred to a follow-up PR
+includes("next.config.ts", "Strict-Transport-Security", "HSTS header declared in next.config.ts");
+notIncludes("next.config.ts", "preload", "HSTS preload deferred to follow-up PR after soak");
+includes("next.config.ts", "X-Frame-Options", "X-Frame-Options declared in next.config.ts");
+includes("next.config.ts", "X-Content-Type-Options", "X-Content-Type-Options declared in next.config.ts");
+includes("next.config.ts", "Referrer-Policy", "Referrer-Policy declared in next.config.ts");
+includes("next.config.ts", "Permissions-Policy", "Permissions-Policy declared in next.config.ts");
+includes("next.config.ts", "browsing-topics=()", "Permissions-Policy includes browsing-topics opt-out");
+
+// Finding 3: shared magic-byte helper + four upload routes adopt it
+fileExists("src/lib/uploads/magic-bytes.ts", "magic-bytes helper exists");
+includes("src/lib/uploads/magic-bytes.ts", "server-only", "magic-bytes helper is server-only");
+includes("src/lib/uploads/magic-bytes.ts", "verifyImageMagicBytes", "magic-bytes helper exports verifyImageMagicBytes");
+includes("src/lib/uploads/magic-bytes.ts", "0xff, 0xd8, 0xff", "magic-bytes helper has JPEG signature");
+includes("src/lib/uploads/magic-bytes.ts", "0x89, 0x50, 0x4e, 0x47", "magic-bytes helper has PNG signature");
+includes("src/lib/uploads/magic-bytes.ts", "0x57, 0x45, 0x42, 0x50", "magic-bytes helper has WEBP marker");
+
+// Drift guard: the test file must use the SAME byte literals as the helper
+fileExists("scripts/test-magic-bytes.mjs", "magic-bytes test runner exists");
+includes("scripts/test-magic-bytes.mjs", "0xff, 0xd8, 0xff", "test runner uses same JPEG signature");
+includes("scripts/test-magic-bytes.mjs", "0x89, 0x50, 0x4e, 0x47", "test runner uses same PNG signature");
+includes("scripts/test-magic-bytes.mjs", "0x57, 0x45, 0x42, 0x50", "test runner uses same WEBP marker");
+
+for (const routeFile of [
+  "src/app/api/lucky-draw/route.ts",
+  "src/app/api/ynot/wallet/route.ts",
+  "src/app/api/lucky-draw/admin/card-image/route.ts",
+  "src/app/api/lucky-draw/admin/qr/route.ts",
+]) {
+  includes(routeFile, "verifyImageMagicBytes", `${routeFile} imports verifyImageMagicBytes`);
+  notIncludes(routeFile, "contentType: slipFile.type", `${routeFile} no longer trusts slipFile.type for storage`);
+  notIncludes(routeFile, "contentType: file.type", `${routeFile} no longer trusts file.type for storage`);
+}
+
+// Finding 4: sign-up password floor raised to 12 + Supabase dashboard policy attested
+includes("src/features/auth/actions.ts", "password.length < 12", "sign-up enforces 12-char password minimum");
+notIncludes("src/features/auth/actions.ts", "password.length < 8", "sign-up no longer uses 8-char minimum");
+includes("src/features/auth/actions.ts", "at least 12 characters", "sign-up error message says at least 12 characters");
+envCheck(
+  "SUPABASE_AUTH_PASSWORD_MIN_VERIFIED",
+  "12",
+  "operator has attested Supabase Auth dashboard minimum password length is 12 (set SUPABASE_AUTH_PASSWORD_MIN_VERIFIED=12 after updating dashboard)",
+);
 
 if (failures.length) {
   console.error(`\n${failures.length} hardening verification failure(s).`);

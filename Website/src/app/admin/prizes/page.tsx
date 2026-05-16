@@ -15,7 +15,11 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPrizesPage() {
   const [data, cards, prizes] = await Promise.all([
-    getYnotDashboardSlice({ campaigns: true }),
+    getYnotDashboardSlice({
+      campaigns: true,
+      campaignVisibility: "admin",
+      campaignLimit: null,
+    }),
     getAdminCards(),
     getAdminPrizePool(),
   ]);

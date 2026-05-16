@@ -875,18 +875,19 @@ async function readOrEmpty<T>(
 }
 
 async function getCampaignsImpl(
-  options: { includePrivate?: boolean } = {},
+  options: { includePrivate?: boolean; limit?: number | null } = {},
 ): Promise<YnotCampaign[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("campaigns", async () => {
+    const limit = options.limit ?? null;
     const loadRows = (requireApproval: boolean) => {
       let query = supabase
         .from("draw_rounds")
         .select("*")
         .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: false })
-        .limit(24);
+        .order("created_at", { ascending: false });
+      if (typeof limit === "number") query = query.limit(limit);
 
       if (options.includePrivate) {
         return query.in("status", ["live", "closed", "draft", "archived"]);
@@ -1002,16 +1003,19 @@ async function getCampaignsImpl(
 }
 
 const getPublicCampaignsCached = unstable_cache(
-  () => getCampaignsImpl({ includePrivate: false }),
-  ["ynot-campaigns-public-v1"],
+  () => getCampaignsImpl({ includePrivate: false, limit: null }),
+  ["ynot-campaigns-public-v2-all"],
   { tags: ["campaigns"], revalidate: 60 },
 );
 
 export async function getCampaigns(
-  options: { includePrivate?: boolean } = {},
+  options: { includePrivate?: boolean; limit?: number | null } = {},
 ): Promise<YnotCampaign[]> {
   if (options.includePrivate) return getCampaignsImpl(options);
-  return getPublicCampaignsCached();
+  const campaigns = await getPublicCampaignsCached();
+  return typeof options.limit === "number"
+    ? campaigns.slice(0, options.limit)
+    : campaigns;
 }
 
 async function getStoreCategoriesImpl(
@@ -2035,6 +2039,8 @@ const DEFAULT_WALLET = { balanceCoins: 0, version: 0 } as const;
 
 export type YnotDashboardSelector = {
   campaigns?: boolean;
+  campaignVisibility?: "public" | "admin";
+  campaignLimit?: number | null;
   categories?: boolean;
   paymentMethods?: boolean;
   wallet?: boolean;
@@ -2079,6 +2085,11 @@ export async function getYnotDashboardSlice(
   const run = async (): Promise<YnotDashboardData> => {
     const viewer = await getYnotViewer();
     const profileId = viewer.profileId;
+    const campaignVisibility =
+      selector.campaignVisibility ??
+      (selector.ownerApprovalRequests ? "admin" : "public");
+    const includePrivateCampaigns =
+      campaignVisibility === "admin" && viewer.isAdmin;
     // YnotShell renders walletBalance on every page; always fetch wallet for
     // authenticated viewers so the header doesn't show 0 coins on pages that
     // don't otherwise need wallet data.
@@ -2099,7 +2110,10 @@ export async function getYnotDashboardSlice(
       platformHealth,
     ] = await Promise.all([
       needCampaigns
-        ? getCampaigns({ includePrivate: viewer.isAdmin })
+        ? getCampaigns({
+            includePrivate: includePrivateCampaigns,
+            limit: selector.campaignLimit,
+          })
         : Promise.resolve([] as YnotCampaign[]),
       selector.categories
         ? getStoreCategories({ includeTest: viewer.isAdmin })

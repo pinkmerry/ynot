@@ -16,6 +16,8 @@ export default async function AdminCampaignsPage() {
   const [data, cards] = await Promise.all([
     getYnotDashboardSlice({
       campaigns: true,
+      campaignVisibility: "admin",
+      campaignLimit: null,
       categories: true,
       ownerApprovalRequests: true,
     }),

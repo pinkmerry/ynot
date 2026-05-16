@@ -22,12 +22,15 @@ export default async function PacksPage({
   };
   const data = await getYnotDashboardSlice({
     campaigns: true,
+    campaignVisibility: "public",
+    campaignLimit: null,
     wallet: true,
   });
   return (
     <YnotShell
       viewer={data.viewer}
       homeFilter={homeFilter}
+      homeFilterBaseHref="/packs"
       walletBalance={data.wallet.balanceCoins}
     >
       <PacksExperience data={data} homeFilter={homeFilter} />

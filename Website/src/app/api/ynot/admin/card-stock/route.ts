@@ -8,6 +8,10 @@ import {
 } from "@/lib/supabase/schema-compat";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/types";
+import {
+  cardStockErrorMap,
+  mappedAdminErrorResponse,
+} from "@/lib/ynot/admin-api-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +85,11 @@ export async function POST(request: Request) {
     if (isMissingFunctionError(error, "adjust_card_stock_units")) {
       return randomPackSchemaMissingResponse();
     }
-    return Response.json({ error: error.message }, { status: 409 });
+    return mappedAdminErrorResponse(error, cardStockErrorMap, {
+      code: "CARD_STOCK_ADJUST_FAILED",
+      error: "Global stock could not be adjusted.",
+      status: 409,
+    });
   }
 
   await supabase.from("audit_events").insert({

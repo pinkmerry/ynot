@@ -4,6 +4,7 @@ import { resolveAdminSession, resolveCurrentProfile } from "@/lib/auth/resolve-c
 import { createSlip2GoProviderError, sha256Hex, verifySlipWithSlip2Go } from "@/lib/slip2go/client";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/types";
+import { allowedSlipTypes, maxSlipBytes, verifyImageMagicBytes } from "@/lib/uploads/magic-bytes";
 
 type CreateOrderBody = {
   quantity?: unknown;
@@ -12,8 +13,6 @@ type CreateOrderBody = {
 };
 
 const slipBucketName = "payment-slips";
-const maxSlipBytes = 10 * 1024 * 1024;
-const allowedSlipTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export const dynamic = "force-dynamic";
 
@@ -124,6 +123,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "Slip must be 10 MB or smaller." }, { status: 400 });
   }
 
+  const magicCheck = slipFile ? await verifyImageMagicBytes(slipFile) : null;
+  if (magicCheck && !magicCheck.ok) {
+    return Response.json({ error: magicCheck.error }, { status: 400 });
+  }
+
   const supabase = createServiceSupabaseClient();
   const activeDraw = await getActiveDraw(supabase, {
     statuses: ["live"],
@@ -174,11 +178,11 @@ export async function POST(request: Request) {
   let storageProvider: "supabase" | "manual_line" = "manual_line";
   let filePath: string | null = null;
 
-  if (slipFile) {
+  if (slipFile && magicCheck?.ok) {
     storageProvider = "supabase";
     filePath = `${activeDraw.id}/${order.id}/${Date.now()}-${cleanFileName(slipFile.name)}`;
     const { error: uploadError } = await supabase.storage.from(slipBucketName).upload(filePath, slipFile, {
-      contentType: slipFile.type,
+      contentType: magicCheck.contentType,
       upsert: false,
     });
 
@@ -223,8 +227,9 @@ export async function POST(request: Request) {
       hasBankAccount: Boolean(activeDraw.bank_account_number?.replace(/\D+/g, "")),
     });
 
+    const verifiedContentType = magicCheck?.ok ? magicCheck.contentType : slipFile.type;
     const verificationFile = slipFileBuffer
-      ? new File([slipFileBuffer], slipFile.name, { type: slipFile.type })
+      ? new File([slipFileBuffer], slipFile.name, { type: verifiedContentType })
       : slipFile;
     const verification = await verifySlipWithSlip2Go(verificationFile, {
       amountThb: order.amount_thb,
