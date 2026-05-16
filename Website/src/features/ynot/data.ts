@@ -2088,8 +2088,6 @@ export async function getYnotDashboardSlice(
     const campaignVisibility =
       selector.campaignVisibility ??
       (selector.ownerApprovalRequests ? "admin" : "public");
-    const includePrivateCampaigns =
-      campaignVisibility === "admin" && viewer.isAdmin;
     // YnotShell renders walletBalance on every page; always fetch wallet for
     // authenticated viewers so the header doesn't show 0 coins on pages that
     // don't otherwise need wallet data.
@@ -2110,10 +2108,12 @@ export async function getYnotDashboardSlice(
       platformHealth,
     ] = await Promise.all([
       needCampaigns
-        ? getCampaigns({
-            includePrivate: includePrivateCampaigns,
-            limit: selector.campaignLimit,
-          })
+        ? campaignVisibility === "admin"
+          ? getCampaigns({ includePrivate: viewer.isAdmin })
+          : getCampaigns({
+              includePrivate: false,
+              limit: selector.campaignLimit,
+            })
         : Promise.resolve([] as YnotCampaign[]),
       selector.categories
         ? getStoreCategories({ includeTest: viewer.isAdmin })
