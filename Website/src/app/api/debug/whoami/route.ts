@@ -1,21 +1,17 @@
 import { cookies, headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { isSupabaseAuthCookieName, resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
+import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (process.env.NODE_ENV === "production" && process.env.ENABLE_DEBUG_ENDPOINTS !== "true") {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
+
   const cookieStore = await cookies();
   const headerStore = await headers();
-
-  const allCookies = cookieStore.getAll().map((c) => ({
-    name: c.name,
-    valueLength: c.value.length,
-    valuePrefix: c.value.slice(0, 12),
-  }));
-
-  const sbAuthCookies = allCookies.filter((c) => isSupabaseAuthCookieName(c.name));
-
+  const allCookies = cookieStore.getAll();
   const profile = await resolveCurrentProfile();
 
   return NextResponse.json(
@@ -25,9 +21,7 @@ export async function GET() {
       xForwardedHost: headerStore.get("x-forwarded-host"),
       userAgent: headerStore.get("user-agent")?.slice(0, 80),
       cookieCount: allCookies.length,
-      allCookies,
-      sbAuthCookies,
-      sbAuthCookieCount: sbAuthCookies.length,
+      cookieNames: allCookies.map((c) => c.name),
       resolvedProfile: profile
         ? {
             profileId: profile.profileId,

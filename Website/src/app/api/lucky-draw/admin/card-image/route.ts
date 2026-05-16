@@ -1,12 +1,11 @@
 import { getActiveDraw, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { allowedSlipTypes, maxSlipBytes, verifyImageMagicBytes, type VerifiedImageContentType } from "@/lib/uploads/magic-bytes";
 
 const bucketName = "lucky-draw-assets";
-const maxCardImageBytes = 10 * 1024 * 1024;
-const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-function extensionFor(type: string) {
+function extensionFor(type: VerifiedImageContentType) {
   if (type === "image/png") return "png";
   if (type === "image/webp") return "webp";
   return "jpg";
@@ -28,12 +27,17 @@ export async function POST(request: Request) {
     return Response.json({ error: "Card image file is required." }, { status: 400 });
   }
 
-  if (!allowedTypes.has(file.type)) {
+  if (!allowedSlipTypes.has(file.type)) {
     return Response.json({ error: "Card image must be JPG, PNG, or WEBP." }, { status: 400 });
   }
 
-  if (file.size > maxCardImageBytes) {
+  if (file.size > maxSlipBytes) {
     return Response.json({ error: "Card image must be 10 MB or smaller." }, { status: 400 });
+  }
+
+  const magicCheck = await verifyImageMagicBytes(file);
+  if (!magicCheck.ok) {
+    return Response.json({ error: magicCheck.error }, { status: 400 });
   }
 
   const supabase = createServiceSupabaseClient();
@@ -42,9 +46,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "No draw round exists yet." }, { status: 404 });
   }
 
-  const path = `card-images/${activeDraw.id}/${Date.now()}.${extensionFor(file.type)}`;
+  const path = `card-images/${activeDraw.id}/${Date.now()}.${extensionFor(magicCheck.contentType)}`;
   const { error: uploadError } = await supabase.storage.from(bucketName).upload(path, file, {
-    contentType: file.type,
+    contentType: magicCheck.contentType,
     upsert: false,
   });
 

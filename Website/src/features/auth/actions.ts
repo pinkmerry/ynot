@@ -117,12 +117,12 @@ export async function signUpWithPasswordAction(formData: FormData) {
     );
   }
 
-  if (password.length < 8) {
+  if (password.length < 12) {
     redirect(
       withMessage(
         "/signup",
         "error",
-        "Password must be at least 8 characters.",
+        "Password must be at least 12 characters.",
         nextPath,
       ),
     );
