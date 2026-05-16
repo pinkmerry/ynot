@@ -16875,9 +16875,15 @@ html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"] * {
     background: transparent !important;
     border: 0 !important;
     box-shadow: none !important;
+    font-family:
+      var(--font-prompt),
+      var(--font-noto-thai),
+      "Prompt Fallback",
+      system-ui,
+      sans-serif !important;
     font-size: 10px !important;
     font-weight: 500 !important;
-    letter-spacing: 0.16em !important;
+    letter-spacing: 0.1em !important;
     line-height: 1.45 !important;
     text-transform: uppercase !important;
     text-decoration: none !important;
@@ -16927,9 +16933,15 @@ html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"] * {
   html[data-ynot-theme="light"] .ynot-mega-card-title {
     display: block !important;
     color: currentColor !important;
+    font-family:
+      var(--font-prompt),
+      var(--font-noto-thai),
+      "Prompt Fallback",
+      system-ui,
+      sans-serif !important;
     font-size: 10px !important;
     font-weight: 500 !important;
-    letter-spacing: 0.14em !important;
+    letter-spacing: 0.1em !important;
     line-height: 1.35 !important;
     text-transform: uppercase !important;
   }
@@ -16993,8 +17005,8 @@ html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"] * {
   }
 
   html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .ynot-mega-panel {
-    height: clamp(420px, 32vw, 540px) !important;
-    min-height: clamp(420px, 32vw, 540px) !important;
+    height: auto !important;
+    min-height: 286px !important;
     background: #000000 !important;
     color: #ffffff !important;
     border-top-color: rgba(255, 255, 255, 0.12) !important;
@@ -17304,6 +17316,245 @@ html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"] * {
     background-color: #000000 !important;
     color: #ffffff !important;
     border-color: rgba(255, 255, 255, 0.14) !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--light,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--dark {
+    min-width: 76px !important;
+    padding: 14px 0 12px !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--light {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border-color: rgba(0, 0, 0, 0.12) !important;
+    color: #000000 !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--dark {
+    background: #000000 !important;
+    background-color: #000000 !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: #ffffff !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu .store-language-toggle-item {
+    justify-content: flex-start !important;
+    gap: 0 !important;
+    padding: 7px 14px !important;
+    min-height: 0 !important;
+    font-family:
+      var(--font-prompt),
+      var(--font-noto-thai),
+      "Prompt Fallback",
+      system-ui,
+      sans-serif !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.1em !important;
+    line-height: 1.45 !important;
+    opacity: 0.62 !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu .store-language-toggle-item:hover,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu .store-language-toggle-item:focus-visible,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu .store-language-toggle-item.is-active {
+    opacity: 1 !important;
+    text-decoration: underline !important;
+    text-decoration-thickness: 1px !important;
+    text-underline-offset: 6px !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu .store-language-toggle-title {
+    font-family: inherit !important;
+    font-size: inherit !important;
+    font-weight: inherit !important;
+    letter-spacing: inherit !important;
+    line-height: inherit !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--full {
+    left: 0 !important;
+    right: auto !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    min-width: 100vw !important;
+    min-height: 286px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    gap: 13px !important;
+    box-sizing: border-box !important;
+    padding: 31px 2.60417vw 34px !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.12) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12) !important;
+    transform: translateY(-1px) !important;
+    transition:
+      opacity 0.16s ease,
+      visibility 0s linear 0.16s,
+      transform 0.16s ease !important;
+    visibility: hidden !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--full.is-open {
+    transform: translateY(0) !important;
+    visibility: visible !important;
+    transition:
+      opacity 0.16s ease,
+      visibility 0s linear 0s,
+      transform 0.16s ease !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--full.store-language-toggle-menu--dark {
+    border-top-color: rgba(255, 255, 255, 0.12) !important;
+    border-bottom-color: transparent !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--full li {
+    width: auto !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--full .store-language-toggle-item {
+    width: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 10px !important;
+    letter-spacing: 0.1em !important;
+    text-align: left !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"].has-language-open .storefront-header,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"].has-language-open .store-topbar {
+    background: #000000 !important;
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"].has-language-open .brand-logo--black {
+    opacity: 0 !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"].has-language-open .brand-logo--white {
+    opacity: 1 !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--full {
+    top: 3.5412vw !important;
+    min-height: 88px !important;
+    height: 88px !important;
+    padding: 24px 2.60417vw !important;
+    gap: 28px !important;
+    z-index: 49 !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    justify-content: flex-end !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--full .store-language-toggle-item,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--full .store-language-toggle-title {
+    display: inline-flex !important;
+    width: auto !important;
+    min-width: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    color: currentColor !important;
+    font-family:
+      var(--font-prompt),
+      var(--font-noto-thai),
+      "Prompt Fallback",
+      system-ui,
+      sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.12em !important;
+    line-height: 1.45 !important;
+    text-transform: uppercase !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--full .store-language-toggle-item {
+    opacity: 0.72 !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--full .store-language-toggle-item:hover,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--full .store-language-toggle-item:focus-visible,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--full .store-language-toggle-item.is-active {
+    opacity: 1 !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--compact {
+    left: auto !important;
+    right: var(--language-menu-right, auto);
+    width: auto !important;
+    min-width: 142px !important;
+    max-width: max-content !important;
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 12px 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 0 !important;
+    border-radius: 0 !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    box-shadow: none !important;
+    transform: translateY(-2px) !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--compact.is-open {
+    transform: translateY(0) !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--compact.store-language-toggle-menu--dark {
+    border-color: rgba(255, 255, 255, 0.14) !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--compact .store-language-toggle-item,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--compact .store-language-toggle-title {
+    display: inline-flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color: currentColor !important;
+    font-family:
+      var(--font-prompt),
+      var(--font-noto-thai),
+      "Prompt Fallback",
+      system-ui,
+      sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.08em !important;
+    line-height: 1.45 !important;
+    text-transform: none !important;
+    white-space: nowrap !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--compact .store-language-toggle-item {
+    justify-content: flex-start !important;
+    padding: 7px 14px !important;
+    opacity: 0.72 !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--compact .store-language-toggle-item:hover,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--compact .store-language-toggle-item:focus-visible,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu.store-language-toggle-menu--compact .store-language-toggle-item.is-active {
+    opacity: 1 !important;
+    text-decoration: none !important;
   }
 }
 
@@ -18176,3 +18427,515 @@ html[lang][data-ynot-theme][data-ynot-language][class] .product-card.clean-pack-
 html[lang][data-ynot-theme][data-ynot-language][class] .product-card.clean-pack-card .pack-info-tags:has(.pack-admin-edit, .pack-order-controls) .soft-pill {
   display: none !important;
 }
+
+/* Editorial mobile menu trigger.
+   Mobile-only 36×36 transparent button with a small centred two-line glyph.
+   Default colour is black against the white storefront header; flips to white
+   when the header overlays the mobile hero image (home route, before scroll).
+   Hidden entirely on tablet/desktop where the inline nav is shown instead. */
+html[lang][data-ynot-theme][data-ynot-language][class] .hamburger-button {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  padding: 11px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+  color: #000000 !important;
+  transition: color 0.18s ease !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .hamburger-button:hover,
+html[lang][data-ynot-theme][data-ynot-language][class] .hamburger-button:focus-visible {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: #000000 !important;
+  outline: none !important;
+  transform: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .hamburger-button .settings-menu-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 14px !important;
+  height: 14px !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  filter: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .hamburger-button .settings-menu-icon svg {
+  width: 14px !important;
+  height: 14px !important;
+  display: block !important;
+  shape-rendering: geometricPrecision !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .hamburger-button .settings-menu-label {
+  display: none !important;
+}
+/* Dark variant: white icon when the storefront header overlays the mobile
+   hero image (home route at top of page, before scroll). */
+html[data-ynot-route-home="true"][data-header-at-top="true"][lang][data-ynot-theme][data-ynot-language][class] .hamburger-button,
+html[data-ynot-route-home="true"][data-header-at-top="true"][lang][data-ynot-theme][data-ynot-language][class] .hamburger-button:hover,
+html[data-ynot-route-home="true"][data-header-at-top="true"][lang][data-ynot-theme][data-ynot-language][class] .hamburger-button:focus-visible {
+  color: #ffffff !important;
+}
+/* Hide the mobile trigger once the inline desktop nav takes over. */
+@media (min-width: 641px) {
+  html[lang][data-ynot-theme][data-ynot-language][class] .hamburger-button,
+  html[lang][data-ynot-theme][data-ynot-language][class] .settings-menu {
+    display: none !important;
+  }
+}
+/* hmr-bump 1778946383 */
+
+/* ============================================================
+ * Mobile menu drawer — editorial drill-down redesign.
+ * Sits BELOW the sticky header so the brand bar stays visible while the
+ * drawer is open. Main panel lists the top-level items; a second panel
+ * slides in from the right when a category is drilled into.
+ * ============================================================ */
+
+/* Drawer + backdrop only ever cover the area below the header. */
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-backdrop {
+  position: fixed !important;
+  top: var(--ynot-header-height, 60px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.22s ease !important;
+  z-index: 45 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-backdrop.open {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer {
+  position: fixed !important;
+  top: var(--ynot-header-height, 60px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  max-width: none !important;
+  height: calc(100dvh - var(--ynot-header-height, 60px)) !important;
+  max-height: calc(100dvh - var(--ynot-header-height, 60px)) !important;
+  clip-path: none !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+  border: 0 !important;
+  border-right: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  transform: translateX(-100%) !important;
+  transition:
+    transform 0.3s ease-in-out,
+    visibility 0s linear 0.3s !important;
+  visibility: hidden !important;
+  z-index: 46 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  backface-visibility: hidden !important;
+  will-change: transform !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer.open {
+  transform: translateX(0) !important;
+  visibility: visible !important;
+  transition:
+    transform 0.3s ease-in-out,
+    visibility 0s linear 0s !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer::before {
+  display: none !important;
+}
+
+/* Hide the legacy head/title/close — the header's ☰↔✕ button drives state. */
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer .store-drawer-head {
+  display: none !important;
+}
+
+/* Main panel — primary nav + bottom group, stacked. Scroll is locked: the
+   menu always fits the viewport, so internal scrolling is disabled to match
+   the storefront's body-level scroll lock. */
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer .store-drawer-main {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  padding: 18px 0 28px !important;
+  overflow: hidden !important;
+  overscroll-behavior: contain !important;
+  background: #ffffff !important;
+  transform: translateX(0) !important;
+  transition: transform 0.3s ease-in-out !important;
+  backface-visibility: hidden !important;
+  will-change: transform !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer.drilled .store-drawer-main {
+  transform: translateX(-100%) !important;
+}
+
+/* Primary nav list — uppercase rows separated by hairlines, chevron right. */
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-primary {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-primary ul {
+  list-style: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-primary li {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-primary .store-drawer-link {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  min-height: 38px !important;
+  padding: 0 24px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  clip-path: none !important;
+  color: #000000 !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  text-align: left !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-bottom-link {
+  clip-path: none !important;
+  transform: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-primary .store-drawer-link:hover,
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-primary .store-drawer-link:focus-visible {
+  background: transparent !important;
+  color: #000000 !important;
+  outline: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-chev {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 7px !important;
+  height: 12px !important;
+  color: #000000 !important;
+  margin-left: 12px !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-chev svg {
+  width: 7px !important;
+  height: 12px !important;
+  display: block !important;
+  shape-rendering: geometricPrecision !important;
+}
+
+/* Bottom group — admin/logout + inline language. Smaller text, no chevrons. */
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-bottom {
+  margin-top: auto !important;
+  padding: 28px 24px 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  background: transparent !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-bottom-stack {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-bottom-link {
+  display: inline-block !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  color: #000000 !important;
+  font-family: inherit !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  text-decoration: none !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-bottom-link:hover,
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-bottom-link:focus-visible {
+  background: transparent !important;
+  color: #000000 !important;
+  outline: none !important;
+  text-decoration: underline !important;
+}
+
+/* Language — inline "TH / EN" with the active locale bolded. */
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-lang-inline {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-family: inherit !important;
+  font-size: 11px !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: #000000 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-lang-link {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  color: #000000 !important;
+  font: inherit !important;
+  letter-spacing: inherit !important;
+  text-transform: inherit !important;
+  cursor: pointer !important;
+  opacity: 0.5 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-lang-link.active {
+  font-weight: 700 !important;
+  opacity: 1 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-lang-sep {
+  opacity: 0.4 !important;
+}
+
+/* Sub-panel — slides over the main panel from the right when drilled in. */
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-sub {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  background: #ffffff !important;
+  padding: 18px 0 28px !important;
+  overflow: hidden !important;
+  overscroll-behavior: contain !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateX(100%) !important;
+  transition:
+    transform 0.3s ease-in-out,
+    opacity 0.3s ease-in-out !important;
+  display: flex !important;
+  flex-direction: column !important;
+  z-index: 1 !important;
+  backface-visibility: hidden !important;
+  will-change: transform, opacity !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-sub.open {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: translateX(0) !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-back {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  min-height: 38px !important;
+  padding: 0 24px !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  color: #000000 !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  text-align: left !important;
+  width: 100% !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-back:hover,
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-back:focus-visible {
+  background: transparent !important;
+  color: #000000 !important;
+  outline: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-back-arrow {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 7px !important;
+  height: 12px !important;
+  line-height: 0 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-back-arrow svg {
+  display: block !important;
+  width: 7px !important;
+  height: 12px !important;
+  shape-rendering: geometricPrecision !important;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-feature-rail {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  flex: 0 0 auto !important;
+  gap: 2rem !important;
+  margin-top: auto !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  overscroll-behavior-x: contain !important;
+  scroll-snap-type: x proximity !important;
+  scroll-padding-left: 16px !important;
+  touch-action: pan-x !important;
+  -webkit-overflow-scrolling: touch !important;
+  cursor: grab !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-feature-rail::-webkit-scrollbar {
+  display: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-feature-card {
+  display: flex !important;
+  flex: 0 0 266px !important;
+  width: 266px !important;
+  min-width: 266px !important;
+  max-width: 266px !important;
+  flex-shrink: 0 !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  padding: 0 !important;
+  color: #000000 !important;
+  text-decoration: none !important;
+  text-transform: uppercase !important;
+  scroll-snap-align: start !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-feature-card:first-child {
+  margin-left: 16px !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-feature-card:last-child {
+  margin-right: 16px !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-feature-image-wrap {
+  display: block !important;
+  width: 266px !important;
+  height: 355px !important;
+  aspect-ratio: auto !important;
+  overflow: hidden !important;
+  background: #f4f4f4 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-feature-image {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-feature-title {
+  display: block !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.12em !important;
+  line-height: 1.25 !important;
+  color: #000000 !important;
+}
+
+/* Hide drawer on desktop where inline nav takes over. */
+@media (min-width: 641px) {
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-backdrop,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer {
+    display: none !important;
+  }
+}
+/* hmr-bump-1778950369 */
+
+/* Drawer open lock — keep the storefront header glued to the top of the
+   viewport while the menu drawer is open. Body overflow:hidden suppresses
+   position:sticky, and the collapse-on-scroll state translates the header
+   up by its own height, so we promote it to fixed AND zero out the
+   translateY for the duration of the open state. While open we also force
+   the header to its solid-white look so it visually matches the drawer
+   regardless of route/scroll state. */
+html[data-ynot-menu-open="true"] .storefront-header,
+html[data-ynot-menu-open="true"][data-header-collapsed][data-ynot-theme] .storefront-header,
+html[data-ynot-menu-open="true"][data-ynot-route-home][data-header-at-top][data-ynot-theme] .storefront-header,
+html[data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header,
+html[data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="false"][data-ynot-theme="light"] .storefront-header,
+html[data-ynot-menu-open="true"][data-ynot-route-home="false"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header,
+html[data-ynot-menu-open="true"][data-ynot-route-home="false"][data-header-at-top="false"][data-ynot-theme="light"] .storefront-header,
+html[data-ynot-menu-open="true"][data-header-collapsed="true"][data-ynot-theme="light"] .storefront-header,
+html[data-ynot-menu-open="true"][data-header-collapsed="false"][data-ynot-theme="light"] .storefront-header {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  transform: none !important;
+  z-index: 50 !important;
+  background: #ffffff !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+html[data-ynot-menu-open="true"] .store-topbar,
+html[data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar {
+  background: #ffffff !important;
+  background-image: none !important;
+  border-bottom: 1px solid rgba(26, 26, 26, 0.08) !important;
+  box-shadow: none !important;
+}
+/* Strip any pseudo-element borders/shadows that legacy themed states
+   layer on top of the header (e.g. cyan glow or extra hairlines). */
+html[data-ynot-menu-open="true"] .storefront-header::before,
+html[data-ynot-menu-open="true"] .storefront-header::after {
+  display: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+/* Logo + topbar text on the open-state white header must use the black
+   variants regardless of route/scroll. */
+html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data-ynot-route-home][data-header-at-top][class] .brand-logo--white {
+  opacity: 0 !important;
+}
+html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data-ynot-route-home][data-header-at-top][class] .brand-logo--black {
+  opacity: 1 !important;
+}
+html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data-ynot-route-home][data-header-at-top][class] .hamburger-button,
+html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data-ynot-route-home][data-header-at-top][class] .header-coin-pill,
+html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data-ynot-route-home][data-header-at-top][class] .header-coin-pill *,
+html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data-ynot-route-home][data-header-at-top][class] .header-coin-mark,
+html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data-ynot-route-home][data-header-at-top][class] .store-language-toggle-trigger,
+html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data-ynot-route-home][data-header-at-top][class] .account-chip,
+html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data-ynot-route-home][data-header-at-top][class] .store-admin-link {
+  color: #000000 !important;
+}
+/* hmr-1778952219 */
+/* hmr-1778961624 */

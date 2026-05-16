@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { signOutAction } from "@/features/auth/actions";
 import type { HomeFilterState, HomeSortOption } from "./types";
@@ -17,13 +18,28 @@ type StorePreferences = {
 };
 
 const defaults: StorePreferences = {
-  language: "th",
+  language: "en",
   theme: "light",
 };
 
 const languageStorageKey = "ynot-language-v2";
 const themeStorageKey = "ynot-theme-v2";
 const preferenceEvent = "ynot-preferences-change";
+
+function isPlainPrimaryClick(event: ReactMouseEvent<HTMLElement>) {
+  return (
+    !event.defaultPrevented &&
+    event.button === 0 &&
+    !event.metaKey &&
+    !event.altKey &&
+    !event.ctrlKey &&
+    !event.shiftKey
+  );
+}
+
+function scrollHomeToTop() {
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+}
 
 function subscribeToHydration(onStoreChange: () => void) {
   const timeoutId = window.setTimeout(onStoreChange, 0);
@@ -109,7 +125,9 @@ const settingsCopy = {
  *  - "drawer" = inside the profile drawer (right side) or mobile hamburger
  */
 const customerNav = [
-  { key: "main", href: "/", protected: false, placement: ["left", "drawer"] },
+  // "Home" is intentionally omitted — both the YNOT logo lockup and the
+  // browser back affordance take users home, so duplicating it in the nav
+  // adds noise without informational value.
   { key: "mysteryPacks", href: "/packs", protected: false, placement: ["left", "drawer"] },
   { key: "marketplace", href: "/marketplace", protected: false, placement: ["left", "drawer"] },
   { key: "profile", href: "/profile", protected: true, placement: ["drawer"] },
@@ -162,7 +180,7 @@ const headerMegaMenus: Record<
         {
           title: "Pokemon",
           href: "/?series=pokemon",
-          image: "/ynot-pack-psa-cards.jpg",
+          image: "/ynot-pack-psa-cards-mobile.jpg",
           alt: "Pokemon card mystery pack",
         },
         {
@@ -229,7 +247,7 @@ const headerMegaMenus: Record<
         {
           title: "Pokemon",
           href: "/?series=pokemon",
-          image: "/ynot-pack-psa-cards.jpg",
+          image: "/ynot-pack-psa-cards-mobile.jpg",
           alt: "กล่องสุ่มการ์ด Pokemon",
         },
         {
@@ -459,6 +477,16 @@ export function StoreHeaderNav({
             <Link
               className={`store-nav-link${active ? " active" : ""}`}
               href={protectedHref(item.href, authenticated, item.protected)}
+              onClick={(event) => {
+                if (
+                  item.href === "/" &&
+                  pathname === "/" &&
+                  isPlainPrimaryClick(event)
+                ) {
+                  event.preventDefault();
+                  scrollHomeToTop();
+                }
+              }}
               aria-controls={mega ? megaId : undefined}
               aria-current={active ? "page" : undefined}
               aria-expanded={mega ? isMegaOpen : undefined}
@@ -508,6 +536,48 @@ export function StoreHeaderNav({
   );
 }
 
+export function StoreBrandHomeLink() {
+  const pathname = usePathname();
+
+  function handleClick(event: ReactMouseEvent<HTMLAnchorElement>) {
+    if (!isPlainPrimaryClick(event)) return;
+
+    if (pathname !== "/") return;
+
+    event.preventDefault();
+    scrollHomeToTop();
+  }
+
+  return (
+    <Link
+      href="/"
+      className="brand-lockup"
+      aria-label="YNOT home"
+      onClick={handleClick}
+    >
+      <Image
+        src="/ynot-logo-black.png?v=1"
+        alt="YNOT"
+        width={1896}
+        height={596}
+        priority
+        unoptimized
+        className="brand-logo brand-logo--black"
+      />
+      <Image
+        src="/ynot-logo-white.png?v=1"
+        alt=""
+        width={1896}
+        height={596}
+        priority
+        unoptimized
+        aria-hidden="true"
+        className="brand-logo brand-logo--white"
+      />
+    </Link>
+  );
+}
+
 const accountCopy = {
   en: {
     title: "Account",
@@ -547,11 +617,12 @@ type LanguageOption = {
   value: Language;
   code: string;
   title: string;
+  label: string;
 };
 
 const languageOptions: ReadonlyArray<LanguageOption> = [
-  { value: "th", code: "TH", title: "ไทย" },
-  { value: "en", code: "EN", title: "English" },
+  { value: "en", code: "EN", title: "English", label: "(EN) English" },
+  { value: "th", code: "TH", title: "ไทย", label: "(TH) ไทย" },
 ];
 
 /** Topbar language picker — compact FOG-style text menu.
@@ -562,9 +633,12 @@ export function StoreLanguageToggle() {
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(
     null,
   );
+  const [menuSurface, setMenuSurface] = useState<"light" | "dark">("light");
   const containerRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLUListElement | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
   const hydrated = useHydrated();
+  const pathname = usePathname();
   const current = preferences.language;
   const currentLabel = current.toUpperCase();
 
@@ -572,15 +646,40 @@ export function StoreLanguageToggle() {
     const trigger = containerRef.current;
     if (!trigger) return;
     const rect = trigger.getBoundingClientRect();
+    const isDarkHeader =
+      pathname === "/" &&
+      document.documentElement.dataset.headerAtTop === "true";
     setMenuPos({
-      top: rect.bottom + 8,
+      top: rect.bottom + 10,
       right: Math.max(8, window.innerWidth - rect.right),
     });
+    setMenuSurface(isDarkHeader ? "dark" : "light");
+  }
+
+  function clearCloseTimer() {
+    if (closeTimerRef.current === null) return;
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+  }
+
+  function openMenu() {
+    clearCloseTimer();
+    updateMenuPosition();
+    setOpen(true);
+  }
+
+  function scheduleCloseMenu() {
+    clearCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => {
+      setOpen(false);
+      closeTimerRef.current = null;
+    }, 120);
   }
 
   useEffect(() => {
     if (!open) return;
     updateMenuPosition();
+    document.documentElement.classList.add("has-language-open");
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node;
       if (containerRef.current?.contains(target)) return;
@@ -598,6 +697,8 @@ export function StoreLanguageToggle() {
     window.addEventListener("resize", handleReposition);
     window.addEventListener("scroll", handleReposition, true);
     return () => {
+      clearCloseTimer();
+      document.documentElement.classList.remove("has-language-open");
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKey);
       window.removeEventListener("resize", handleReposition);
@@ -615,9 +716,11 @@ export function StoreLanguageToggle() {
       ? createPortal(
           <ul
             ref={menuRef}
-            className={`store-language-toggle-menu${open ? " is-open" : ""}`}
+            className={`store-language-toggle-menu store-language-toggle-menu--compact store-language-toggle-menu--${menuSurface}${open ? " is-open" : ""}`}
             role="listbox"
             aria-label="Language options"
+            onMouseEnter={clearCloseTimer}
+            onMouseLeave={scheduleCloseMenu}
             style={{
               top: `${menuPos.top}px`,
               right: `${menuPos.right}px`,
@@ -634,11 +737,8 @@ export function StoreLanguageToggle() {
                     className={`store-language-toggle-item${isActive ? " is-active" : ""}`}
                     onClick={() => pickLanguage(option.value)}
                   >
-                    <span className="store-language-toggle-icon" aria-hidden>
-                      {option.code}
-                    </span>
                     <span className="store-language-toggle-title">
-                      {option.title}
+                      {option.label}
                     </span>
                   </button>
                 </li>
@@ -653,31 +753,28 @@ export function StoreLanguageToggle() {
     <div
       ref={containerRef}
       className={`store-language-toggle${open ? " is-open" : ""}`}
+      onMouseEnter={openMenu}
+      onMouseLeave={scheduleCloseMenu}
+      onFocus={openMenu}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          scheduleCloseMenu();
+        }
+      }}
     >
       <button
         type="button"
         className="store-language-toggle-trigger"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          clearCloseTimer();
+          updateMenuPosition();
+          setOpen((value) => !value);
+        }}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label="Language"
       >
         <span className="store-language-toggle-current">{currentLabel}</span>
-        <svg
-          className="store-language-toggle-caret"
-          viewBox="0 0 10 6"
-          width="10"
-          height="6"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-          focusable="false"
-        >
-          <path d="M1 1 L5 5 L9 1" />
-        </svg>
       </button>
       {menu}
     </div>
@@ -949,6 +1046,10 @@ export function StoreSettingsMenu({
 } = {}) {
   const { preferences, setLanguage } = useStorePreferences();
   const [open, setOpen] = useState(false);
+  // Drill-down state — null means the main level is showing.
+  const [activeSubMenu, setActiveSubMenu] = useState<HeaderMegaKey | null>(null);
+  const [renderedSubMenu, setRenderedSubMenu] = useState<HeaderMegaKey | null>(null);
+  const featureRailRef = useRef<HTMLDivElement | null>(null);
   const copy = settingsCopy[preferences.language];
   const navStrings = navLabels[preferences.language];
   const hydrated = useHydrated();
@@ -959,13 +1060,53 @@ export function StoreSettingsMenu({
       if (event.key === "Escape") setOpen(false);
     }
     document.addEventListener("keydown", closeOnEscape);
-    const previousOverflow = document.body.style.overflow;
+    // Lock the page scroll while the drawer is open. Setting overflow:hidden
+    // on <body> breaks position:sticky on the storefront header (sticky
+    // requires a scrollable ancestor), so we publish a data-attribute on
+    // <html> that the CSS uses to swap the header to position:fixed for the
+    // duration of the drawer open state. We also lock the <html> element so
+    // touch scrolling / wheel events cannot escape the drawer.
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyTouchAction = document.body.style.touchAction;
     document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+    document.documentElement.dataset.ynotMenuOpen = "true";
     return () => {
       document.removeEventListener("keydown", closeOnEscape);
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.touchAction = previousBodyTouchAction;
+      delete document.documentElement.dataset.ynotMenuOpen;
     };
   }, [open]);
+
+  // Reset the drill-down level whenever the drawer closes so the next open
+  // always lands on the main level.
+  useEffect(() => {
+    if (!open) setActiveSubMenu(null);
+  }, [open]);
+
+  useEffect(() => {
+    if (activeSubMenu) {
+      setRenderedSubMenu(activeSubMenu);
+      return;
+    }
+
+    const clearSubMenu = window.setTimeout(() => {
+      setRenderedSubMenu(null);
+    }, 330);
+
+    return () => window.clearTimeout(clearSubMenu);
+  }, [activeSubMenu]);
+
+  useEffect(() => {
+    if (!activeSubMenu) return;
+    window.requestAnimationFrame(() => {
+      if (featureRailRef.current) featureRailRef.current.scrollLeft = 0;
+    });
+  }, [activeSubMenu]);
 
   function closeAfter(action?: () => void) {
     return () => {
@@ -974,6 +1115,13 @@ export function StoreSettingsMenu({
     };
   }
 
+  const megaForLang = headerMegaMenus[preferences.language] ?? {};
+  const activeMega = renderedSubMenu ? megaForLang[renderedSubMenu] : null;
+  const subMenuTitle = renderedSubMenu ? navStrings[renderedSubMenu] : "";
+
+  // FoG/Justin Reed-style drill-down mobile drawer. Main panel lists every
+  // top-level item; categories with submenus (mysteryPacks / marketplace)
+  // open a sub-panel that slides in from the right with a back affordance.
   const drawerMarkup = (
     <>
       <div
@@ -982,117 +1130,219 @@ export function StoreSettingsMenu({
         aria-hidden={!open}
       />
       <aside
-        className={`store-drawer${open ? " open" : ""}`}
+        className={`store-drawer${open ? " open" : ""}${activeSubMenu ? " drilled" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={copy.button}
         aria-hidden={!open}
       >
-        <header className="store-drawer-head">
-          <span className="store-drawer-title">{copy.button}</span>
-          <button
-            aria-label={copy.close}
-            className="store-drawer-close"
-            onClick={() => setOpen(false)}
-            type="button"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="1.2em"
-              height="1.2em"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path d="M6 6 L18 18 M18 6 L6 18" />
-            </svg>
-          </button>
-        </header>
+        {/* Main panel — primary nav + bottom group */}
+        <div className="store-drawer-main">
+          <nav className="store-drawer-primary" aria-label={copy.navigation}>
+            <ul>
+              {customerNav
+                .filter((item) =>
+                  (item.placement as readonly string[]).includes("drawer"),
+                )
+                .map((item) => {
+                  const hasSubmenu =
+                    item.key === "mysteryPacks" || item.key === "marketplace";
+                  if (hasSubmenu) {
+                    return (
+                      <li key={item.href}>
+                        <button
+                          type="button"
+                          className="store-drawer-link store-drawer-link-drill"
+                          aria-haspopup="true"
+                          aria-expanded={activeSubMenu === item.key}
+                          onClick={() =>
+                            setActiveSubMenu(item.key as HeaderMegaKey)
+                          }
+                        >
+                          <span>{navStrings[item.key]}</span>
+                          <span className="store-drawer-chev" aria-hidden>
+                            {/* Thin geometric chevron, fixed at 7×12 so the
+                                stroke stays hairline-thin no matter the
+                                surrounding font-size. */}
+                            <svg
+                              viewBox="0 0 7 12"
+                              width="7"
+                              height="12"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1"
+                              strokeLinecap="square"
+                              strokeLinejoin="miter"
+                              aria-hidden="true"
+                              focusable="false"
+                            >
+                              <polyline points="0.5 0.5 6 6 0.5 11.5" />
+                            </svg>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  }
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        className="store-drawer-link"
+                        href={protectedHref(
+                          item.href,
+                          authenticated,
+                          item.protected,
+                        )}
+                        onClick={closeAfter()}
+                      >
+                        {navStrings[item.key]}
+                      </Link>
+                    </li>
+                  );
+                })}
+            </ul>
+          </nav>
 
-        <nav className="store-drawer-section" aria-label={copy.navigation}>
-          <span className="store-drawer-label">{copy.navigation}</span>
-          <ul className="store-drawer-nav">
-            {customerNav
-              .filter((item) =>
-                (item.placement as readonly string[]).includes("drawer"),
-              )
-              .map((item) => (
-                <li key={item.href}>
+          <div className="store-drawer-bottom">
+            {authenticated ? (
+              <div className="store-drawer-bottom-stack">
+                {isAdmin && (
                   <Link
-                    className="store-drawer-link"
-                    href={protectedHref(item.href, authenticated, item.protected)}
+                    className="store-drawer-bottom-link"
+                    href="/admin"
                     onClick={closeAfter()}
                   >
-                    {navStrings[item.key]}
+                    {copy.admin}
                   </Link>
-                </li>
-              ))}
-          </ul>
-        </nav>
-
-        <div className="store-drawer-section">
-          <span className="store-drawer-label">{copy.account}</span>
-          {authenticated ? (
-            <div className="store-drawer-stack">
-              {isAdmin && (
+                )}
+                <form action={signOutAction}>
+                  <button
+                    className="store-drawer-bottom-link"
+                    type="submit"
+                  >
+                    {copy.logout}
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <div className="store-drawer-bottom-stack">
                 <Link
-                  className="store-drawer-link"
-                  href="/admin"
+                  className="store-drawer-bottom-link"
+                  href="/signup"
                   onClick={closeAfter()}
                 >
-                  {copy.admin}
+                  {copy.signUp}
                 </Link>
-              )}
-              <form action={signOutAction}>
-                <button
-                  className="store-drawer-link store-drawer-link-danger"
-                  type="submit"
+                <Link
+                  className="store-drawer-bottom-link"
+                  href="/login"
+                  onClick={closeAfter()}
                 >
-                  {copy.logout}
-                </button>
-              </form>
-            </div>
-          ) : (
-            <div className="store-drawer-stack">
-              <Link
-                className="store-drawer-link store-drawer-link-primary"
-                href="/signup"
-                onClick={closeAfter()}
+                  {copy.login}
+                </Link>
+              </div>
+            )}
+
+            <div className="store-drawer-lang-inline" role="group" aria-label={copy.language}>
+              <button
+                type="button"
+                className={`store-drawer-lang-link${preferences.language === "th" ? " active" : ""}`}
+                onClick={() => setLanguage("th")}
+                aria-pressed={preferences.language === "th"}
               >
-                {copy.signUp}
-              </Link>
-              <Link
-                className="store-drawer-link"
-                href="/login"
-                onClick={closeAfter()}
+                {copy.th}
+              </button>
+              <span aria-hidden className="store-drawer-lang-sep">/</span>
+              <button
+                type="button"
+                className={`store-drawer-lang-link${preferences.language === "en" ? " active" : ""}`}
+                onClick={() => setLanguage("en")}
+                aria-pressed={preferences.language === "en"}
               >
-                {copy.login}
-              </Link>
+                {copy.en}
+              </button>
             </div>
-          )}
+          </div>
         </div>
 
-        <div className="store-drawer-section">
-          <span className="store-drawer-label">{copy.language}</span>
-          <div className="store-drawer-langgrid">
-            <button
-              className={`store-drawer-langbtn${preferences.language === "th" ? " active" : ""}`}
-              onClick={() => setLanguage("th")}
-              type="button"
-            >
-              {copy.th}
-            </button>
-            <button
-              className={`store-drawer-langbtn${preferences.language === "en" ? " active" : ""}`}
-              onClick={() => setLanguage("en")}
-              type="button"
-            >
-              {copy.en}
-            </button>
-          </div>
+        {/* Sub-panel — slides in from right when a category is drilled into */}
+        <div
+          className={`store-drawer-sub${activeSubMenu ? " open" : ""}`}
+          aria-hidden={!activeSubMenu}
+        >
+          <button
+            type="button"
+            className="store-drawer-back"
+            onClick={() => setActiveSubMenu(null)}
+            aria-label="Back"
+          >
+            <span className="store-drawer-back-arrow" aria-hidden>
+              <svg
+                viewBox="0 0 7 12"
+                width="7"
+                height="12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1"
+                strokeLinecap="square"
+                strokeLinejoin="miter"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <polyline points="6.5 0.5 1 6 6.5 11.5" />
+              </svg>
+            </span>
+            <span>{subMenuTitle}</span>
+          </button>
+          {activeMega && (
+            <>
+              <nav
+                className="store-drawer-primary"
+                aria-label={subMenuTitle}
+              >
+                <ul>
+                  {activeMega.links.map((link) => (
+                    <li key={link.href}>
+                      <Link
+                        className="store-drawer-link"
+                        href={link.href}
+                        onClick={closeAfter()}
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+              <div
+                ref={featureRailRef}
+                className="store-drawer-feature-rail"
+                aria-label={`${subMenuTitle} featured`}
+              >
+                {activeMega.features.map((feature) => (
+                  <Link
+                    key={feature.href}
+                    className="store-drawer-feature-card"
+                    href={feature.href}
+                    onClick={closeAfter()}
+                  >
+                    <span className="store-drawer-feature-image-wrap">
+                      <Image
+                        src={feature.image}
+                        alt={feature.alt}
+                        width={266}
+                        height={355}
+                        sizes="266px"
+                        className="store-drawer-feature-image"
+                      />
+                    </span>
+                    <span className="store-drawer-feature-title">
+                      {feature.title}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </aside>
     </>
@@ -1110,19 +1360,32 @@ export function StoreSettingsMenu({
         type="button"
       >
         <span aria-hidden className="settings-menu-icon">
+          {/* Editorial menu glyph. 14×14 box centres the burger lines in the
+              same spot the close cross uses so swapping between states does
+              not shift the icon's apparent centre. */}
           <svg
-            viewBox="0 0 24 24"
-            width="1em"
-            height="1em"
+            viewBox="0 0 14 14"
+            width="14"
+            height="14"
             fill="none"
             stroke="currentColor"
-            strokeWidth="1.1"
-            strokeLinecap="square"
+            strokeWidth={open ? "0.6" : "1"}
+            strokeLinecap="butt"
+            strokeLinejoin="round"
             aria-hidden="true"
             focusable="false"
           >
-            <path d="M4 10 H20" />
-            <path d="M4 14 H20" />
+            {open ? (
+              <>
+                <path d="M13 1 L1 13" />
+                <path d="M1 1 L13 13" />
+              </>
+            ) : (
+              <>
+                <path d="M0 4.68 H14" />
+                <path d="M0 9.68 H14" />
+              </>
+            )}
           </svg>
         </span>
         <span className="settings-menu-label">{copy.button}</span>
