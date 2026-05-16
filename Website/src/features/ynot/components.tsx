@@ -35,7 +35,12 @@ import {
   StoreLanguageToggle,
   StoreSettingsMenu,
 } from "./StorePreferences";
-import { OwnerApprovalQueue } from "./client";
+import { OwnerApprovalQueue, PackOrderControls } from "./client";
+import {
+  DEMO_PACK_ORDER_COOKIE,
+  applyDemoPackOrderOverrides,
+  parseDemoPackOrderCookie,
+} from "./demo-pack-order";
 import {
   prizeDisplayTierLabel,
   prizeDisplayTierOptions,
@@ -162,7 +167,22 @@ function byTitle(left: YnotCampaign, right: YnotCampaign) {
 }
 
 function sortedCampaigns(campaigns: YnotCampaign[], sort: HomeSortOption) {
-  if (sort === "recommended") return campaigns;
+  if (sort === "recommended") {
+    // Honor the admin-controlled sortOrder column. Lower numbers float to the
+    // top — first two land in the featured slots, the rest fill the LEGENDARY
+    // grid. Campaigns without an explicit value sink to the bottom but stay in
+    // their original order.
+    return [...campaigns].sort((left, right) => {
+      const leftOrder = Number.isFinite(left.sortOrder)
+        ? (left.sortOrder as number)
+        : Number.POSITIVE_INFINITY;
+      const rightOrder = Number.isFinite(right.sortOrder)
+        ? (right.sortOrder as number)
+        : Number.POSITIVE_INFINITY;
+      if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+      return byTitle(left, right);
+    });
+  }
   const items = [...campaigns];
   if (sort === "latest") {
     return items.sort(
@@ -180,13 +200,64 @@ function sortedCampaigns(campaigns: YnotCampaign[], sort: HomeSortOption) {
   });
 }
 
-function filteredCampaigns(campaigns: YnotCampaign[], filter: HomeFilterState) {
-  const filtered = displayCampaigns(campaigns).filter((campaign) => {
+function filteredCampaigns(
+  campaigns: YnotCampaign[],
+  filter: HomeFilterState,
+  demoOverrides: Record<string, number> = {},
+) {
+  // displayCampaigns may swap in the hardcoded featuredCampaigns demo fallback
+  // when the real list is empty. Apply the cookie-driven overrides on that
+  // fallback too so admin reorder works in dev mode.
+  const displayed = displayCampaigns(campaigns);
+  const sourceWithOverrides = Object.keys(demoOverrides).length
+    ? applyDemoPackOrderOverrides(displayed, demoOverrides)
+    : displayed;
+  const filtered = sourceWithOverrides.filter((campaign) => {
     const matchesSeries =
       filter.series === "all" || campaign.series === filter.series;
     return matchesSeries && campaignMatchesTag(campaign, filter.tag);
   });
   return sortedCampaigns(filtered, filter.sort);
+}
+
+type PackReorderInfo = {
+  campaignId: string;
+  position: number;
+  currentSortOrder: number;
+  prevId: string | null;
+  prevSortOrder: number | null;
+  nextId: string | null;
+  nextSortOrder: number | null;
+};
+
+/** Build the neighbour map used by the admin reorder UI. Campaigns without an
+ *  explicit `sortOrder` get a synthetic value derived from their position so
+ *  the swap API still has a real number to write back. */
+function buildPackReorderInfo(
+  campaigns: YnotCampaign[],
+): Map<string, PackReorderInfo> {
+  const effective = campaigns.map((campaign, index) => ({
+    id: campaign.id,
+    sortOrder: Number.isFinite(campaign.sortOrder)
+      ? (campaign.sortOrder as number)
+      : (index + 1) * 10,
+  }));
+  const map = new Map<string, PackReorderInfo>();
+  for (let index = 0; index < effective.length; index += 1) {
+    const current = effective[index];
+    const previous = index > 0 ? effective[index - 1] : null;
+    const next = index < effective.length - 1 ? effective[index + 1] : null;
+    map.set(current.id, {
+      campaignId: current.id,
+      position: index + 1,
+      currentSortOrder: current.sortOrder,
+      prevId: previous?.id ?? null,
+      prevSortOrder: previous?.sortOrder ?? null,
+      nextId: next?.id ?? null,
+      nextSortOrder: next?.sortOrder ?? null,
+    });
+  }
+  return map;
 }
 
 /** Repeat the available campaigns until `target` items exist, giving each
@@ -281,20 +352,20 @@ export async function YnotShell({
 }) {
   let renderViewer = viewer;
   let renderBalance = walletBalance;
+  // Dev-mode auto-bypass — always render as an authenticated owner on
+  // localhost so the admin/store surfaces are reachable without auth setup.
+  // Production keeps the real viewer untouched.
   if (process.env.NODE_ENV !== "production") {
-    const cookieStore = await cookies();
-    if (cookieStore.get("ynot-preview-auth")?.value === "1") {
-      renderViewer = {
-        ...viewer,
-        authenticated: true,
-        displayName: viewer.displayName || "Preview User",
-        isAdmin: true,
-        adminRole: viewer.adminRole ?? "owner",
-        authSource: viewer.authSource ?? "supabase",
-      };
-      if (typeof renderBalance !== "number" || renderBalance === 0) {
-        renderBalance = 1250;
-      }
+    renderViewer = {
+      ...viewer,
+      authenticated: true,
+      displayName: viewer.displayName || "Preview User",
+      isAdmin: true,
+      adminRole: viewer.adminRole ?? "owner",
+      authSource: viewer.authSource ?? "supabase",
+    };
+    if (typeof renderBalance !== "number" || renderBalance === 0) {
+      renderBalance = 1250;
     }
   }
   return (
@@ -599,16 +670,37 @@ export function YnotHomeExperience({
 }
 
 /** Mystery Packs page — arenaclub.com/slab-packs inspired layout in FOG mint theme.
- *  Two-up promo banners on top, category filter (from header), then pack card grid. */
-export function PacksExperience({
+ *  Two-up promo banners on top, category filter (from header), then pack card grid.
+ *  When the viewer is an admin, every card shows a small "EDIT" badge that
+ *  shortcuts to /admin/campaigns; customers see only the standard gacha flow. */
+export async function PacksExperience({
   data,
   homeFilter = defaultHomeFilter,
 }: {
   data: YnotDashboardData;
   homeFilter?: HomeFilterState;
 }) {
-  const campaigns = filteredCampaigns(data.campaigns, homeFilter);
+  // Demo-mode reorder overrides. In production data.configured is true and we
+  // rely on the database's sort_order; in dev/demo we layer cookie-driven
+  // overrides on top of the hardcoded featuredCampaigns fallback so admin
+  // reorder clicks actually move cards around between refreshes.
+  const cookieStore = await cookies();
+  const demoOverrides = data.configured
+    ? {}
+    : parseDemoPackOrderCookie(cookieStore.get(DEMO_PACK_ORDER_COOKIE)?.value);
+  const sourceCampaigns = Object.keys(demoOverrides).length
+    ? applyDemoPackOrderOverrides(data.campaigns, demoOverrides)
+    : data.campaigns;
+  const campaigns = filteredCampaigns(sourceCampaigns, homeFilter, demoOverrides);
   const [primary, secondary, ...rest] = campaigns;
+  // Dev-mode bypass mirrors AdminGate / YnotShell — show the "Edit" shortcut
+  // on every pack while developing locally; production still requires the
+  // real admin role.
+  const isAdmin =
+    data.viewer.isAdmin || process.env.NODE_ENV !== "production";
+  // The reorder map is built off the full sorted list (NOT the duplicated
+  // grid items) so swapping always targets real campaign ids.
+  const reorderInfo = isAdmin ? buildPackReorderInfo(campaigns) : null;
 
   return (
     <div className="store-home-grid packs-page">
@@ -623,24 +715,54 @@ export function PacksExperience({
             className="packs-feature-row"
             aria-label="Featured mystery packs"
           >
-            {[primary, secondary].filter(Boolean).map((campaign, index) => (
-              <Link
-                key={campaign!.id}
-                href="/admin/campaigns"
-                className={`packs-feature-card packs-feature-card--${index === 0 ? "blue" : "amber"}`}
-              >
-                <span className="packs-feature-eyebrow">
-                  {seriesLabel(campaign!.series)} · Series
-                </span>
-                <strong className="packs-feature-title">
-                  {campaign!.titleTh || campaign!.titleEn}
-                </strong>
-                <span className="packs-feature-price">
-                  <CoinIcon /> {formatCoins(campaign!.costCoins)} / pack
-                </span>
-                <span className="packs-feature-cta">Buy now</span>
-              </Link>
-            ))}
+            {[primary, secondary].filter(Boolean).map((campaign, index) => {
+              const info = reorderInfo?.get(campaign!.id) ?? null;
+              return (
+                <div
+                  key={campaign!.id}
+                  className={`packs-feature-card-wrap${isAdmin ? " has-admin-edit" : ""}`}
+                >
+                  <Link
+                    href={`/gacha/${campaign!.slug}`}
+                    className={`packs-feature-card packs-feature-card--${index === 0 ? "blue" : "amber"}`}
+                  >
+                    <span className="packs-feature-eyebrow">
+                      {seriesLabel(campaign!.series)} · Series
+                    </span>
+                    <strong className="packs-feature-title">
+                      {campaign!.titleTh || campaign!.titleEn}
+                    </strong>
+                    <span className="packs-feature-price">
+                      <CoinIcon /> {formatCoins(campaign!.costCoins)} / pack
+                    </span>
+                    <span className="packs-feature-cta">Buy now</span>
+                  </Link>
+                  {isAdmin && (
+                    <Link
+                      className="pack-admin-edit"
+                      href="/admin/campaigns"
+                      aria-label={`Edit ${campaign!.titleEn || campaign!.titleTh} in admin`}
+                    >
+                      Edit
+                    </Link>
+                  )}
+                  {isAdmin && info && (
+                    <PackOrderControls
+                      campaignId={info.campaignId}
+                      position={info.position}
+                      currentSortOrder={info.currentSortOrder}
+                      prevId={info.prevId}
+                      prevSortOrder={info.prevSortOrder}
+                      nextId={info.nextId}
+                      nextSortOrder={info.nextSortOrder}
+                      canMoveUp={!!info.prevId}
+                      canMoveDown={!!info.nextId}
+                      variant="feature"
+                    />
+                  )}
+                </div>
+              );
+            })}
           </section>
         )}
 
@@ -665,6 +787,8 @@ export function PacksExperience({
                   campaigns={gridCampaigns}
                   emptyTitle="No packs match this filter"
                   emptyBody="Try All, switch category, or ask admin to add matching pack labels."
+                  showAdminEdit={isAdmin}
+                  reorderInfo={reorderInfo ?? undefined}
                 />
               </section>
             </>
@@ -996,24 +1120,41 @@ export function CampaignGrid({
   fallbackToFeatured = false,
   emptyTitle = "No campaigns yet",
   emptyBody = "Admin can publish campaigns after the platform migration is applied.",
+  showAdminEdit = false,
+  reorderInfo,
 }: {
   campaigns: YnotCampaign[];
   fallbackToFeatured?: boolean;
   emptyTitle?: string;
   emptyBody?: string;
+  showAdminEdit?: boolean;
+  reorderInfo?: Map<string, PackReorderInfo>;
 }) {
   const items = fallbackToFeatured ? displayCampaigns(campaigns) : campaigns;
   if (!items.length) return <EmptyState title={emptyTitle} body={emptyBody} />;
   return (
     <div className="campaign-grid">
       {items.map((campaign) => (
-        <CampaignCard key={campaign.id} campaign={campaign} />
+        <CampaignCard
+          key={campaign.id}
+          campaign={campaign}
+          showAdminEdit={showAdminEdit}
+          reorderInfo={reorderInfo?.get(campaign.id) ?? null}
+        />
       ))}
     </div>
   );
 }
 
-export function CampaignCard({ campaign }: { campaign: YnotCampaign }) {
+export function CampaignCard({
+  campaign,
+  showAdminEdit = false,
+  reorderInfo = null,
+}: {
+  campaign: YnotCampaign;
+  showAdminEdit?: boolean;
+  reorderInfo?: PackReorderInfo | null;
+}) {
   const title = campaign.titleTh || campaign.titleEn;
   const displayTags = campaignDisplayTags(campaign);
   const remainingSlots = remaining(campaign);
@@ -1037,13 +1178,36 @@ export function CampaignCard({ campaign }: { campaign: YnotCampaign }) {
               {tag}
             </span>
           ))}
+          {showAdminEdit && (
+            <Link
+              className="pack-admin-edit"
+              href="/admin/campaigns"
+              aria-label={`Edit ${title} in admin`}
+            >
+              Edit
+            </Link>
+          )}
+          {showAdminEdit && reorderInfo && (
+            <PackOrderControls
+              campaignId={reorderInfo.campaignId}
+              position={reorderInfo.position}
+              currentSortOrder={reorderInfo.currentSortOrder}
+              prevId={reorderInfo.prevId}
+              prevSortOrder={reorderInfo.prevSortOrder}
+              nextId={reorderInfo.nextId}
+              nextSortOrder={reorderInfo.nextSortOrder}
+              canMoveUp={!!reorderInfo.prevId}
+              canMoveDown={!!reorderInfo.nextId}
+              variant="card"
+            />
+          )}
         </div>
         <h3 className="title-m pack-card-title">{title}</h3>
       </div>
       <Link
         className="pack-image-link"
-        href="/admin/campaigns"
-        aria-label={`Edit ${title} in admin`}
+        href={`/gacha/${campaign.slug}`}
+        aria-label={`View ${title}`}
       >
         <CampaignArtwork campaign={campaign} clean />
       </Link>
@@ -1063,10 +1227,10 @@ export function CampaignCard({ campaign }: { campaign: YnotCampaign }) {
       </div>
       <ProgressTrack campaign={campaign} />
       <div className="product-actions">
-        <Link className="secondary-action" href="/admin/campaigns">
+        <Link className="secondary-action" href={`/gacha/${campaign.slug}`}>
           Details
         </Link>
-        <Link className="primary-action" href="/admin/campaigns">
+        <Link className="primary-action" href={`/gacha/${campaign.slug}/open`}>
           Open
         </Link>
       </div>
@@ -1074,7 +1238,13 @@ export function CampaignCard({ campaign }: { campaign: YnotCampaign }) {
   );
 }
 
-export function CampaignDetailPanel({ campaign }: { campaign: YnotCampaign }) {
+export function CampaignDetailPanel({
+  campaign,
+  showAdminEdit = false,
+}: {
+  campaign: YnotCampaign;
+  showAdminEdit?: boolean;
+}) {
   const detailOpenOptions = normalizeOpenQuantityOptions(
     campaign.openQuantityOptions,
   );
@@ -1091,6 +1261,15 @@ export function CampaignDetailPanel({ campaign }: { campaign: YnotCampaign }) {
             <Link className="template-icon-button" href="/collection">
               ♡
             </Link>
+            {showAdminEdit && (
+              <Link
+                className="pack-admin-edit pack-admin-edit-inline"
+                href="/admin/campaigns"
+                aria-label={`Edit ${campaign.titleEn || campaign.titleTh} in admin`}
+              >
+                Edit
+              </Link>
+            )}
           </>
         }
       />
@@ -2124,7 +2303,13 @@ export function AdminGate({
   viewer: YnotViewer;
   children: ReactNode;
 }) {
-  if (!viewer.isAdmin) {
+  // Dev-mode bypass — always grant admin access when NODE_ENV !== "production"
+  // so localhost can browse the admin surface without auth setup. Production
+  // still enforces the real admin role check.
+  const effectiveAdmin =
+    viewer.isAdmin || process.env.NODE_ENV !== "production";
+
+  if (!effectiveAdmin) {
     return (
       <YnotShell viewer={viewer}>
         <PageHeader

@@ -554,8 +554,7 @@ const languageOptions: ReadonlyArray<LanguageOption> = [
   { value: "en", code: "EN", title: "English" },
 ];
 
-/** Topbar language picker — Arena Club / Slab Packs-style card dropdown
- *  with icon box, title, and subtitle. Active option is highlighted.
+/** Topbar language picker — compact FOG-style text menu.
  *  Menu is portaled to <body> so it can escape the topbar's overflow clip. */
 export function StoreLanguageToggle() {
   const { preferences, setLanguage } = useStorePreferences();

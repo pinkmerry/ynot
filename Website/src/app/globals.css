@@ -16993,8 +16993,8 @@ html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"] * {
   }
 
   html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .ynot-mega-panel {
-    height: clamp(360px, 26vw, 430px) !important;
-    min-height: clamp(360px, 26vw, 430px) !important;
+    height: clamp(420px, 32vw, 540px) !important;
+    min-height: clamp(420px, 32vw, 540px) !important;
     background: #000000 !important;
     color: #ffffff !important;
     border-top-color: rgba(255, 255, 255, 0.12) !important;
@@ -17010,6 +17010,300 @@ html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"] * {
   html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .toreca-mobile-hero {
     height: 100vh !important;
     min-height: 100vh !important;
+  }
+}
+
+/* Final desktop header polish: keep the mega hover panel and language menu in
+   the same FOG-like monochrome system, after the global Prompt override. */
+@media (min-width: 641px) {
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-trigger,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-trigger *,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu * {
+    font-family:
+      var(--font-inter),
+      var(--font-noto-thai),
+      "Helvetica Neue",
+      Helvetica,
+      Arial,
+      system-ui,
+      sans-serif !important;
+    font-weight: 500 !important;
+    text-transform: uppercase !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-trigger {
+    font-size: 10px !important;
+    letter-spacing: 0.16em !important;
+    line-height: 1.5 !important;
+    gap: 5px !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-caret {
+    width: 7px !important;
+    height: 5px !important;
+    stroke-width: 1.2 !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu {
+    min-width: 118px !important;
+    padding: 11px 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid rgba(0, 0, 0, 0.14) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    gap: 0 !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 12px !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    padding: 7px 13px !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    color: currentColor !important;
+    font-size: 10px !important;
+    letter-spacing: 0.16em !important;
+    line-height: 1.45 !important;
+    opacity: 0.62 !important;
+    transition: opacity 0.14s ease !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item:hover,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item:focus-visible,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item.is-active {
+    background: transparent !important;
+    color: currentColor !important;
+    opacity: 1 !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-icon,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-title {
+    display: inline-flex !important;
+    align-items: center !important;
+    width: auto !important;
+    height: auto !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    color: currentColor !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.16em !important;
+    line-height: 1.45 !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item.is-mega-open),
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:hover),
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:focus-within),
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item.is-mega-open) .store-topbar,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:hover) .store-topbar,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:focus-within) .store-topbar {
+    background: #000000 !important;
+    color: #ffffff !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item.is-mega-open) .store-topbar,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:hover) .store-topbar,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:focus-within) .store-topbar {
+    border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-language-toggle-menu {
+    background: #000000 !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+  }
+}
+
+/* Last-mile desktop nav hardening: the mega panel must cover the full viewport,
+   and the language menu must share the same monochrome treatment as the nav. */
+@media (min-width: 641px) {
+  html[lang][data-ynot-theme][data-ynot-language][class] .ynot-mega-panel {
+    left: 0 !important;
+    right: auto !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item.is-mega-open),
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:hover),
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:focus-within),
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-mega-panel:hover),
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item.is-mega-open) .store-topbar,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:hover) .store-topbar,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:focus-within) .store-topbar,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-mega-panel:hover) .store-topbar {
+    background: #000000 !important;
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item.is-mega-open) .store-topbar,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:hover) .store-topbar,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:focus-within) .store-topbar,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-mega-panel:hover) .store-topbar {
+    border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item.is-mega-open) .ynot-mega-panel,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:hover) .ynot-mega-panel,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:focus-within) .ynot-mega-panel,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-mega-panel:hover) .ynot-mega-panel {
+    top: calc(3.5412vw - 1px) !important;
+    background: #000000 !important;
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border-top-color: rgba(255, 255, 255, 0.12) !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-topbar-right .store-language-toggle {
+    color: currentColor !important;
+    margin-left: 1.875vw !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-trigger {
+    height: 100% !important;
+    min-height: 0 !important;
+    padding: 0.5208vw 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    color: currentColor !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.16em !important;
+    line-height: 1.5 !important;
+    text-transform: uppercase !important;
+    text-decoration-color: currentColor !important;
+    text-decoration-thickness: 1px !important;
+    text-underline-offset: 6px !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-trigger:hover,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-trigger:focus-visible,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle.is-open .store-language-toggle-trigger {
+    background: transparent !important;
+    color: currentColor !important;
+    text-decoration: underline !important;
+    text-decoration-color: currentColor !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu {
+    min-width: 118px !important;
+    padding: 11px 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid rgba(0, 0, 0, 0.14) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    list-style: none !important;
+    gap: 0 !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-menu li {
+    margin: 0 !important;
+    padding: 0 !important;
+    list-style: none !important;
+    background: transparent !important;
+    border: 0 !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item[aria-selected="true"],
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item.is-active,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item:hover,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item:focus-visible {
+    width: 100% !important;
+    min-height: 0 !important;
+    padding: 7px 13px !important;
+    gap: 12px !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    color: currentColor !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.16em !important;
+    line-height: 1.45 !important;
+    text-transform: uppercase !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item {
+    opacity: 0.62 !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item[aria-selected="true"],
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item.is-active,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item:hover,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item:focus-visible {
+    opacity: 1 !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item::before,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item::after {
+    display: none !important;
+    content: none !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-icon,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item[aria-selected="true"] .store-language-toggle-icon,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item.is-active .store-language-toggle-icon,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-title,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item[aria-selected="true"] .store-language-toggle-title,
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-item.is-active .store-language-toggle-title {
+    display: inline-flex !important;
+    align-items: center !important;
+    width: auto !important;
+    height: auto !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    color: currentColor !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.16em !important;
+    line-height: 1.45 !important;
+    text-transform: uppercase !important;
+  }
+
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-subtitle {
+    display: none !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-language-toggle-menu,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item.is-mega-open) .store-language-toggle-menu,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:hover) .store-language-toggle-menu,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header:has(.ynot-nav-item:focus-within) .store-language-toggle-menu {
+    background: #000000 !important;
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
   }
 }
 
@@ -17624,4 +17918,261 @@ html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading + .ho
   html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-subtitle {
     font-size: 12px !important;
   }
+}
+
+/* ============================================================
+ * Sticky footer — keep .ynot-footer pinned to the viewport bottom
+ * when page content is shorter than the viewport (e.g. empty
+ * marketplace state). Main grows to fill space; the footer that
+ * sits inside main is pushed down with margin-top: auto.
+ * ============================================================ */
+html[lang][data-ynot-theme][data-ynot-language][class] body.min-h-full {
+  min-height: 100vh !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] body > main.app-shell {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 100vh !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] body > main.app-shell > .ynot-footer {
+  margin-top: auto !important;
+}
+
+/* ============================================================
+ * Admin dark theme — additional text/element overrides found while
+ * browsing /admin/campaigns. Title/description were rendering black on
+ * a #0a0a0a background; form inputs were defaulting to white.
+ * ============================================================ */
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .page-intro,
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .page-header {
+  background: transparent !important;
+  color: #f5f5f5 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .page-title,
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .page-intro h1,
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .page-intro h2,
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .page-header h1,
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .page-header h2 {
+  color: #ffffff !important;
+  text-shadow: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .page-description,
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .page-intro p,
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .page-header p {
+  color: rgba(255, 255, 255, 0.7) !important;
+  text-shadow: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .section-label,
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .page-intro .section-label,
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .page-header .section-label {
+  color: rgba(255, 255, 255, 0.55) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.18em !important;
+}
+
+/* All form inputs / selects / textareas in admin — dark surface */
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace input,
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace select,
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace textarea {
+  background: #141414 !important;
+  background-color: #141414 !important;
+  color: #f5f5f5 !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 0 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace option {
+  background: #141414 !important;
+  color: #f5f5f5 !important;
+}
+
+/* The 4-card workflow row cells often render with light background. */
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .admin-roadmap-grid > div,
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .admin-page-grid > * {
+  background: #141414 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #f5f5f5 !important;
+}
+
+/* Catch-all for any element relying on .panel / .panel-* / .surface */
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .admin-panel,
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace [class*="admin-panel"],
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .admin-workflow-panel,
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .admin-clean-hero {
+  background: #141414 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #f5f5f5 !important;
+}
+
+/* Force any white-background descendant inside admin to dark */
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace [style*="background: #fff"],
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace [style*="background:#fff"],
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace [style*="background: white"] {
+  background: #141414 !important;
+  color: #f5f5f5 !important;
+}
+
+/* Admin clean status card — was rendering with a light/green grid pattern
+   on top of the dark workspace, making the text unreadable. Replace it
+   with a flat dark surface. */
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .admin-clean-status {
+  background: #141414 !important;
+  background-image: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #f5f5f5 !important;
+  padding: 18px 22px !important;
+  border-radius: 0 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .admin-clean-status * {
+  color: #f5f5f5 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-workspace .admin-clean-status strong {
+  color: #ffffff !important;
+}
+
+/* ============================================================
+ * Admin "Edit" shortcut — small badge on each pack card visible only
+ * when the viewer is an admin. Wraps the featured card and sits inside
+ * the pack info tags row of the grid card.
+ * ============================================================ */
+.packs-feature-card-wrap {
+  position: relative;
+  display: contents;
+}
+.packs-feature-card-wrap.has-admin-edit {
+  display: block;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-admin-edit {
+  position: absolute !important;
+  top: 12px !important;
+  right: 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 6px 12px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid #000000 !important;
+  border-radius: 999px !important;
+  color: #000000 !important;
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  text-decoration: none !important;
+  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.25) !important;
+  z-index: 5 !important;
+  transition: background 0.14s ease, color 0.14s ease !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-admin-edit:hover {
+  background: var(--jt-green, #05a66b) !important;
+  border-color: var(--jt-green, #05a66b) !important;
+  color: #ffffff !important;
+}
+
+/* On grid cards, the edit badge sits in the tags row inline */
+html[lang][data-ynot-theme][data-ynot-language][class] .product-card .pack-admin-edit {
+  position: static !important;
+  margin-left: auto !important;
+  padding: 3px 8px !important;
+  font-size: 9px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Edit shortcut inline next to ♡ heart in the gacha detail top-bar. */
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-admin-edit-inline {
+  position: static !important;
+  margin-left: 8px !important;
+  padding: 6px 12px !important;
+  background: transparent !important;
+  border: 1px solid #000000 !important;
+  color: #000000 !important;
+  font-size: 10px !important;
+  letter-spacing: 0.18em !important;
+  box-shadow: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-admin-edit-inline:hover {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border-color: #000000 !important;
+}
+
+/* Admin-only reorder widget shown next to the "Edit" badge on every pack card.
+   Lower position numbers float to the top, where positions #1 and #2 become
+   the featured slots and the rest fall through to the LEGENDARY grid. */
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-order-controls {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 3px 6px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid #000000 !important;
+  border-radius: 999px !important;
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-size: 10px !important;
+  letter-spacing: 0.08em !important;
+  line-height: 1 !important;
+  color: #000000 !important;
+  box-shadow: 0 2px 6px -3px rgba(0, 0, 0, 0.25) !important;
+  z-index: 6 !important;
+  user-select: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-order-controls--feature {
+  position: absolute !important;
+  top: 12px !important;
+  left: 12px !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-order-controls--card {
+  position: static !important;
+  margin-left: 4px !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-order-controls-position {
+  font-weight: 700 !important;
+  padding: 0 2px !important;
+  color: #000000 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-order-controls-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 18px !important;
+  height: 18px !important;
+  padding: 0 !important;
+  border: 1px solid #000000 !important;
+  background: transparent !important;
+  color: #000000 !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: background 0.12s ease, color 0.12s ease !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-order-controls-button:hover:not(:disabled) {
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-order-controls-button:disabled {
+  opacity: 0.3 !important;
+  cursor: not-allowed !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-order-controls-error {
+  margin-left: 4px !important;
+  color: #c2410c !important;
+  font-size: 9px !important;
+}
+
+/* Re-enable the tags row when admin-only elements (Edit shortcut or position
+   controls) are present — but keep the customer-facing status/soft pills
+   hidden so the LEGENDARY grid stays minimal for shoppers. */
+html[lang][data-ynot-theme][data-ynot-language][class] .product-card.clean-pack-card .pack-info-tags:has(.pack-admin-edit, .pack-order-controls) {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 8px 12px 0 !important;
+  position: relative !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .product-card.clean-pack-card .pack-info-tags:has(.pack-admin-edit, .pack-order-controls) .status-pill,
+html[lang][data-ynot-theme][data-ynot-language][class] .product-card.clean-pack-card .pack-info-tags:has(.pack-admin-edit, .pack-order-controls) .soft-pill {
+  display: none !important;
 }

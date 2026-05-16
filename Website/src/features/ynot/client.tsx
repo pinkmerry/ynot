@@ -4991,3 +4991,109 @@ export function AdminShippingActions({
     </div>
   );
 }
+
+/**
+ * Admin-only inline reorder widget rendered on each pack card. Lets the owner
+ * swap a card with its previous/next neighbour without leaving the storefront
+ * view. The first two positions become the featured slots at the top of the
+ * /packs page; everything else cascades into the LEGENDARY grid below.
+ */
+export function PackOrderControls({
+  campaignId,
+  position,
+  canMoveUp,
+  canMoveDown,
+  prevId,
+  prevSortOrder,
+  nextId,
+  nextSortOrder,
+  currentSortOrder,
+  variant = "card",
+}: {
+  campaignId: string;
+  position: number;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  prevId?: string | null;
+  prevSortOrder?: number | null;
+  nextId?: string | null;
+  nextSortOrder?: number | null;
+  currentSortOrder: number;
+  variant?: "card" | "feature";
+}) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function moveTo(
+    neighborId: string | null | undefined,
+    neighborOrder: number | null | undefined,
+  ) {
+    if (!neighborId || neighborOrder === null || neighborOrder === undefined) {
+      return;
+    }
+    if (pending) return;
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/ynot/admin/campaigns/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          swaps: [
+            { id: campaignId, sortOrder: neighborOrder },
+            { id: neighborId, sortOrder: currentSortOrder },
+          ],
+        }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; message?: string }
+          | null;
+        throw new Error(payload?.message || payload?.error || "Reorder failed");
+      }
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Reorder failed");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div
+      className={`pack-order-controls pack-order-controls--${variant}`}
+      aria-label="Reorder pack"
+    >
+      <span
+        className="pack-order-controls-position"
+        aria-label={`Position ${position}`}
+      >
+        #{position}
+      </span>
+      <button
+        type="button"
+        className="pack-order-controls-button"
+        onClick={() => moveTo(prevId, prevSortOrder)}
+        disabled={!canMoveUp || pending}
+        aria-label="Move pack up"
+      >
+        ↑
+      </button>
+      <button
+        type="button"
+        className="pack-order-controls-button"
+        onClick={() => moveTo(nextId, nextSortOrder)}
+        disabled={!canMoveDown || pending}
+        aria-label="Move pack down"
+      >
+        ↓
+      </button>
+      {error && (
+        <span className="pack-order-controls-error" role="alert">
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
