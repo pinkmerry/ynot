@@ -1,8 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { signOutAction } from "@/features/auth/actions";
 import type { HomeFilterState, HomeSortOption } from "./types";
@@ -57,8 +58,8 @@ const navLabels = {
   },
   th: {
     main: "หน้าหลัก",
-    mysteryPacks: "Mystery Packs",
-    marketplace: "Marketplace",
+    mysteryPacks: "กล่องสุ่ม",
+    marketplace: "ตลาด",
     profile: "โปรไฟล์",
     wallet: "วอลเล็ต",
     personalInfo: "ข้อมูลส่วนตัว",
@@ -116,11 +117,152 @@ const customerNav = [
   { key: "personalInfo", href: "/profile/personal-info", protected: true, placement: ["drawer"] },
 ] as const;
 
-const adminHeaderNavItem = {
-  key: "admin",
-  href: "/admin",
-  protected: true,
-} as const;
+type HeaderMegaMenu = {
+  links: Array<{ label: string; href: string }>;
+  features: Array<{ title: string; href: string; image: string; alt: string }>;
+};
+
+type HeaderMegaKey = "main" | "mysteryPacks" | "marketplace";
+
+const headerMegaMenus: Record<
+  Language,
+  Partial<Record<HeaderMegaKey, HeaderMegaMenu>>
+> = {
+  en: {
+    main: {
+      links: [
+        { label: "New Mystery Packs", href: "/packs" },
+        { label: "Marketplace", href: "/marketplace" },
+        { label: "Pokemon", href: "/?series=pokemon" },
+        { label: "One Piece", href: "/?series=one_piece" },
+      ],
+      features: [
+        {
+          title: "Mystery Packs",
+          href: "/packs",
+          image: "/ynot-pack-psa-cards.jpg",
+          alt: "PSA graded Pokemon cards",
+        },
+        {
+          title: "Marketplace",
+          href: "/marketplace",
+          image: "/ynot-pack-pokemon.jpg",
+          alt: "Pokemon cards",
+        },
+      ],
+    },
+    mysteryPacks: {
+      links: [
+        { label: "All Packs", href: "/packs" },
+        { label: "Pokemon", href: "/?series=pokemon" },
+        { label: "One Piece", href: "/?series=one_piece" },
+        { label: "PSA 10", href: "/?tag=psa10" },
+      ],
+      features: [
+        {
+          title: "Pokemon",
+          href: "/?series=pokemon",
+          image: "/ynot-pack-psa-cards.jpg",
+          alt: "Pokemon card mystery pack",
+        },
+        {
+          title: "One Piece",
+          href: "/?series=one_piece",
+          image: "/ynot-pack-psa-cards-mobile.jpg",
+          alt: "One Piece card mystery pack",
+        },
+      ],
+    },
+    marketplace: {
+      links: [
+        { label: "Shop Marketplace", href: "/marketplace" },
+        { label: "My Collection", href: "/collection" },
+        { label: "Wallet", href: "/wallet" },
+      ],
+      features: [
+        {
+          title: "Marketplace",
+          href: "/marketplace",
+          image: "/ynot-pack-pokemon.jpg",
+          alt: "Trading card marketplace",
+        },
+        {
+          title: "My Collection",
+          href: "/collection",
+          image: "/ynot-pack-psa-cards-mobile.jpg",
+          alt: "Card collection",
+        },
+      ],
+    },
+  },
+  th: {
+    main: {
+      links: [
+        { label: "กล่องสุ่มใหม่", href: "/packs" },
+        { label: "ตลาด", href: "/marketplace" },
+        { label: "Pokemon", href: "/?series=pokemon" },
+        { label: "One Piece", href: "/?series=one_piece" },
+      ],
+      features: [
+        {
+          title: "กล่องสุ่ม",
+          href: "/packs",
+          image: "/ynot-pack-psa-cards.jpg",
+          alt: "การ์ด Pokemon เกรด PSA",
+        },
+        {
+          title: "ตลาด",
+          href: "/marketplace",
+          image: "/ynot-pack-pokemon.jpg",
+          alt: "การ์ด Pokemon",
+        },
+      ],
+    },
+    mysteryPacks: {
+      links: [
+        { label: "กล่องสุ่มทั้งหมด", href: "/packs" },
+        { label: "Pokemon", href: "/?series=pokemon" },
+        { label: "One Piece", href: "/?series=one_piece" },
+        { label: "PSA 10", href: "/?tag=psa10" },
+      ],
+      features: [
+        {
+          title: "Pokemon",
+          href: "/?series=pokemon",
+          image: "/ynot-pack-psa-cards.jpg",
+          alt: "กล่องสุ่มการ์ด Pokemon",
+        },
+        {
+          title: "One Piece",
+          href: "/?series=one_piece",
+          image: "/ynot-pack-psa-cards-mobile.jpg",
+          alt: "กล่องสุ่มการ์ด One Piece",
+        },
+      ],
+    },
+    marketplace: {
+      links: [
+        { label: "ตลาดทั้งหมด", href: "/marketplace" },
+        { label: "คอลเลกชันของฉัน", href: "/collection" },
+        { label: "วอลเล็ต", href: "/wallet" },
+      ],
+      features: [
+        {
+          title: "ตลาด",
+          href: "/marketplace",
+          image: "/ynot-pack-pokemon.jpg",
+          alt: "ตลาดการ์ดสะสม",
+        },
+        {
+          title: "คอลเลกชัน",
+          href: "/collection",
+          image: "/ynot-pack-psa-cards-mobile.jpg",
+          alt: "คอลเลกชันการ์ด",
+        },
+      ],
+    },
+  },
+};
 
 function safeLanguage(value: string | null | undefined): Language {
   if (value === "th" || value === "en") return value;
@@ -263,34 +405,103 @@ function isNavActive(pathname: string | null, href: string): boolean {
 
 export function StoreHeaderNav({
   authenticated,
-  isAdmin = false,
 }: {
   authenticated: boolean;
+  /** Kept for compatibility — admin nav now renders on the right side. */
   isAdmin?: boolean;
 }) {
   const { preferences } = useStorePreferences();
   const labels = navLabels[preferences.language];
   const pathname = usePathname();
+  const [openMegaKey, setOpenMegaKey] = useState<string | null>(null);
 
   const leftNav = customerNav.filter((item) =>
     (item.placement as readonly string[]).includes("left"),
   );
-  const visibleNav =
-    authenticated && isAdmin ? [...leftNav, adminHeaderNavItem] : leftNav;
 
   return (
     <nav className="store-nav" aria-label="Primary navigation">
-      {visibleNav.map((item) => {
+      {leftNav.map((item) => {
         const active = isNavActive(pathname, item.href);
+        const mega =
+          headerMegaMenus[preferences.language][item.key as HeaderMegaKey];
+        const isMegaOpen = openMegaKey === item.key;
+        const megaId = `ynot-mega-${item.key}`;
+
         return (
-          <Link
-            className={`store-nav-link${active ? " active" : ""}`}
-            href={protectedHref(item.href, authenticated, item.protected)}
+          <div
+            className={`ynot-nav-item${isMegaOpen ? " is-mega-open" : ""}`}
             key={item.href}
-            aria-current={active ? "page" : undefined}
+            onBlur={(event) => {
+              if (
+                mega &&
+                !event.currentTarget.contains(event.relatedTarget as Node | null)
+              ) {
+                setOpenMegaKey((current) =>
+                  current === item.key ? null : current,
+                );
+              }
+            }}
+            onFocus={() => {
+              if (mega) setOpenMegaKey(item.key);
+            }}
+            onMouseEnter={() => {
+              if (mega) setOpenMegaKey(item.key);
+            }}
+            onMouseLeave={() => {
+              if (mega) {
+                setOpenMegaKey((current) =>
+                  current === item.key ? null : current,
+                );
+              }
+            }}
           >
-            {labels[item.key]}
-          </Link>
+            <Link
+              className={`store-nav-link${active ? " active" : ""}`}
+              href={protectedHref(item.href, authenticated, item.protected)}
+              aria-controls={mega ? megaId : undefined}
+              aria-current={active ? "page" : undefined}
+              aria-expanded={mega ? isMegaOpen : undefined}
+            >
+              {labels[item.key]}
+            </Link>
+            {mega && (
+              <div className="ynot-mega-panel" id={megaId}>
+                <div className="ynot-mega-links">
+                  {mega.links.map((link) => (
+                    <Link
+                      className="ynot-mega-link"
+                      href={link.href}
+                      key={`${item.key}-${link.href}`}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+                <div className="ynot-mega-media">
+                  {mega.features.map((feature) => (
+                    <Link
+                      className="ynot-mega-card"
+                      href={feature.href}
+                      key={`${item.key}-${feature.href}-${feature.title}`}
+                    >
+                      <Image
+                        src={feature.image}
+                        alt={feature.alt}
+                        width={480}
+                        height={640}
+                        sizes="(min-width: 1024px) 180px, 0px"
+                        className="ynot-mega-card-image"
+                      />
+                      <span className="ynot-mega-card-title">
+                        {feature.title}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         );
       })}
     </nav>
@@ -332,11 +543,176 @@ const accountCopy = {
   },
 } as const;
 
+type LanguageOption = {
+  value: Language;
+  code: string;
+  title: string;
+};
+
+const languageOptions: ReadonlyArray<LanguageOption> = [
+  { value: "th", code: "TH", title: "ไทย" },
+  { value: "en", code: "EN", title: "English" },
+];
+
+/** Topbar language picker — Arena Club / Slab Packs-style card dropdown
+ *  with icon box, title, and subtitle. Active option is highlighted.
+ *  Menu is portaled to <body> so it can escape the topbar's overflow clip. */
+export function StoreLanguageToggle() {
+  const { preferences, setLanguage } = useStorePreferences();
+  const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(
+    null,
+  );
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLUListElement | null>(null);
+  const hydrated = useHydrated();
+  const current = preferences.language;
+  const currentLabel = current.toUpperCase();
+
+  function updateMenuPosition() {
+    const trigger = containerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    setMenuPos({
+      top: rect.bottom + 8,
+      right: Math.max(8, window.innerWidth - rect.right),
+    });
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    updateMenuPosition();
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (containerRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    function handleReposition() {
+      updateMenuPosition();
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKey);
+    window.addEventListener("resize", handleReposition);
+    window.addEventListener("scroll", handleReposition, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKey);
+      window.removeEventListener("resize", handleReposition);
+      window.removeEventListener("scroll", handleReposition, true);
+    };
+  }, [open]);
+
+  function pickLanguage(value: Language) {
+    setLanguage(value);
+    setOpen(false);
+  }
+
+  const menu =
+    hydrated && menuPos
+      ? createPortal(
+          <ul
+            ref={menuRef}
+            className={`store-language-toggle-menu${open ? " is-open" : ""}`}
+            role="listbox"
+            aria-label="Language options"
+            style={{
+              top: `${menuPos.top}px`,
+              right: `${menuPos.right}px`,
+            }}
+          >
+            {languageOptions.map((option) => {
+              const isActive = current === option.value;
+              return (
+                <li key={option.value} role="none">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={isActive}
+                    className={`store-language-toggle-item${isActive ? " is-active" : ""}`}
+                    onClick={() => pickLanguage(option.value)}
+                  >
+                    <span className="store-language-toggle-icon" aria-hidden>
+                      {option.code}
+                    </span>
+                    <span className="store-language-toggle-title">
+                      {option.title}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <div
+      ref={containerRef}
+      className={`store-language-toggle${open ? " is-open" : ""}`}
+    >
+      <button
+        type="button"
+        className="store-language-toggle-trigger"
+        onClick={() => setOpen((value) => !value)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Language"
+      >
+        <span className="store-language-toggle-current">{currentLabel}</span>
+        <svg
+          className="store-language-toggle-caret"
+          viewBox="0 0 10 6"
+          width="10"
+          height="6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+          focusable="false"
+        >
+          <path d="M1 1 L5 5 L9 1" />
+        </svg>
+      </button>
+      {menu}
+    </div>
+  );
+}
+
+/** Inline admin shortcut shown in the topbar's right section.
+ *  Renders nothing when the viewer isn't an authenticated admin. */
+export function StoreAdminLink({
+  authenticated,
+  isAdmin = false,
+}: {
+  authenticated: boolean;
+  isAdmin?: boolean;
+}) {
+  const { preferences } = useStorePreferences();
+  if (!authenticated || !isAdmin) return null;
+  return (
+    <Link
+      className="store-nav-link store-nav-link--right store-admin-link"
+      href="/admin"
+    >
+      {navLabels[preferences.language].admin}
+    </Link>
+  );
+}
+
 /** Right-side account: shows "Login" link when signed out, profile avatar when signed in. */
 export function StoreHeaderRightNav({
   authenticated,
 }: {
   authenticated: boolean;
+  /** Kept for compatibility — admin link now renders via {@link StoreAdminLink}. */
+  isAdmin?: boolean;
 }) {
   const { preferences, setLanguage } = useStorePreferences();
   const copy = settingsCopy[preferences.language];

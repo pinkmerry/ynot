@@ -29,8 +29,10 @@ import { FilterScrollGuard } from "./FilterScrollGuard";
 import { HeaderScrollEffect } from "./HeaderScrollEffect";
 import { normalizeOpenQuantityOptions } from "./open-quantity";
 import {
+  StoreAdminLink,
   StoreHeaderNav,
   StoreHeaderRightNav,
+  StoreLanguageToggle,
   StoreSettingsMenu,
 } from "./StorePreferences";
 import { OwnerApprovalQueue } from "./client";
@@ -187,6 +189,24 @@ function filteredCampaigns(campaigns: YnotCampaign[], filter: HomeFilterState) {
   return sortedCampaigns(filtered, filter.sort);
 }
 
+/** Repeat the available campaigns until `target` items exist, giving each
+ *  duplicate a unique id so React keys stay stable. Used on the Mystery Packs
+ *  page to fill the grid while only a few real campaigns are published. */
+function duplicatePacksForDisplay(
+  campaigns: YnotCampaign[],
+  target: number,
+): YnotCampaign[] {
+  if (!campaigns.length || campaigns.length >= target) return campaigns;
+  const expanded: YnotCampaign[] = [...campaigns];
+  let cycle = 1;
+  while (expanded.length < target) {
+    const source = campaigns[(expanded.length - campaigns.length) % campaigns.length];
+    expanded.push({ ...source, id: `${source.id}-copy-${cycle}` });
+    if (expanded.length % campaigns.length === 0) cycle += 1;
+  }
+  return expanded;
+}
+
 function homeFilterHeading(filter: HomeFilterState) {
   if (filter.series === "pokemon") return "Pokemon";
   if (filter.series === "one_piece") return "One Piece";
@@ -297,15 +317,30 @@ export async function YnotShell({
           </div>
           <Link href="/" className="brand-lockup" aria-label="YNOT home">
             <Image
-              src="/ynot-logo.png"
+              src="/ynot-logo-black.png?v=1"
               alt="YNOT"
-              width={620}
-              height={200}
+              width={1896}
+              height={596}
               priority
-              className="brand-logo"
+              unoptimized
+              className="brand-logo brand-logo--black"
+            />
+            <Image
+              src="/ynot-logo-white.png?v=1"
+              alt=""
+              width={1896}
+              height={596}
+              priority
+              unoptimized
+              aria-hidden="true"
+              className="brand-logo brand-logo--white"
             />
           </Link>
           <div className="store-topbar-right">
+            <StoreAdminLink
+              authenticated={renderViewer.authenticated}
+              isAdmin={renderViewer.isAdmin}
+            />
             {renderViewer.authenticated && (
               <Link
                 href="/wallet"
@@ -320,7 +355,10 @@ export async function YnotShell({
                 </span>
               </Link>
             )}
-            <StoreHeaderRightNav authenticated={renderViewer.authenticated} />
+            <StoreLanguageToggle />
+            <StoreHeaderRightNav
+              authenticated={renderViewer.authenticated}
+            />
           </div>
         </div>
         {homeFilter && <StoreFilterStrip homeFilter={homeFilter} />}
@@ -336,77 +374,38 @@ export async function YnotShell({
 function YnotFooter() {
   return (
     <footer className="ynot-footer" aria-label="Site footer">
-      <div className="ynot-footer-topbar" aria-hidden="true" />
       <div className="ynot-footer-interior">
-        <div className="ynot-newsletter">
-          <h4 className="ynot-newsletter-title">Join the Conversation</h4>
-          <form
-            className="ynot-newsletter-form"
-            action="#"
-            method="post"
-            noValidate
-          >
-            <div className="ynot-newsletter-wrap">
-              <input
-                type="email"
-                name="email"
-                id="ynot-newsletter-email"
-                autoComplete="email"
-                placeholder=" "
-                required
-                className="ynot-newsletter-input"
-              />
-              <label
-                htmlFor="ynot-newsletter-email"
-                className="ynot-newsletter-label"
-              >
-                EMAIL ADDRESS
-              </label>
-              <button
-                type="submit"
-                className="ynot-newsletter-submit"
-                aria-label="Subscribe"
-              >
-                <svg
-                  viewBox="0 0 24 12"
-                  width="18"
-                  height="12"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <path d="M0 6 H22" />
-                  <path d="M16 1 L23 6 L16 11" />
-                </svg>
-              </button>
-            </div>
-          </form>
-        </div>
+        <p className="ynot-footer-copyright">
+          <span className="ynot-copy-symbol">©</span> 2026 YNOT
+        </p>
         <nav className="ynot-footer-nav" aria-label="Footer navigation">
           <ul className="ynot-footer-list">
             <li className="ynot-footer-item">
-              <span className="ynot-footer-locale">Thailand (THB ฿)</span>
+              <span
+                className="ynot-footer-link is-disabled"
+                aria-disabled="true"
+                role="link"
+                tabIndex={-1}
+              >
+                <span className="i18n-en">How It Works</span>
+                <span className="i18n-th">วิธีใช้งาน</span>
+              </span>
+            </li>
+            <li className="ynot-footer-item">
+              <span
+                className="ynot-footer-link is-disabled"
+                aria-disabled="true"
+                role="link"
+                tabIndex={-1}
+              >
+                <span className="i18n-en">Terms &amp; Conditions</span>
+                <span className="i18n-th">ข้อกำหนดและเงื่อนไข</span>
+              </span>
             </li>
             <li className="ynot-footer-item">
               <Link href="/contact" className="ynot-footer-link">
-                Contact
-              </Link>
-            </li>
-            <li className="ynot-footer-item">
-              <Link href="/faq" className="ynot-footer-link">
-                Client Services
-              </Link>
-            </li>
-            <li className="ynot-footer-item">
-              <Link href="/terms" className="ynot-footer-link">
-                Legal Notices
-              </Link>
-            </li>
-            <li className="ynot-footer-item">
-              <Link href="/privacy" className="ynot-footer-link">
-                Privacy
+                <span className="i18n-en">Contact</span>
+                <span className="i18n-th">ติดต่อเรา</span>
               </Link>
             </li>
             <li className="ynot-footer-item">
@@ -416,7 +415,8 @@ function YnotFooter() {
                 rel="noreferrer"
                 className="ynot-footer-link"
               >
-                Social
+                <span className="i18n-en">Social</span>
+                <span className="i18n-th">โซเชียล</span>
               </a>
             </li>
           </ul>
@@ -594,34 +594,6 @@ export function YnotHomeExperience({
     <>
       <MobileTorecaHero campaign={campaigns[0]} />
       <SeriesEssentialsSection />
-      <div className="store-home-grid">
-        <aside className="store-left-rail" aria-label="Store sections">
-          <RailLink icon="◆" label="Mystery Packs" href="/" active />
-          <RailLink icon="♕" label="Ranking" href="/ranking" />
-          <RailLink icon="⇄" label="Exchange" href="/exchange" />
-        </aside>
-
-        <div className="store-main-stack">
-          <section className="home-pack-board product-section">
-            <PhoneTopBar
-              title="YNOT."
-              coin={data.wallet.balanceCoins}
-              action={<span className="template-icon-button">♧</span>}
-            />
-            <PhoneRule />
-            <CampaignGrid
-              campaigns={campaigns}
-              emptyTitle="No packs match this filter"
-              emptyBody="Try All, switch category, or ask admin to add matching pack labels."
-            />
-          </section>
-        </div>
-
-        <aside className="store-right-rail">
-          <PromoCard />
-          <LiveActivity campaigns={campaigns} />
-        </aside>
-      </div>
     </>
   );
 }
@@ -654,7 +626,7 @@ export function PacksExperience({
             {[primary, secondary].filter(Boolean).map((campaign, index) => (
               <Link
                 key={campaign!.id}
-                href={`/gacha/${campaign!.slug}`}
+                href="/admin/campaigns"
                 className={`packs-feature-card packs-feature-card--${index === 0 ? "blue" : "amber"}`}
               >
                 <span className="packs-feature-eyebrow">
@@ -672,16 +644,32 @@ export function PacksExperience({
           </section>
         )}
 
-        <section
-          className="home-pack-board product-section"
-          aria-label="Mystery pack catalog"
-        >
-          <CampaignGrid
-            campaigns={rest.length || campaigns.length > 2 ? rest : campaigns}
-            emptyTitle="No packs match this filter"
-            emptyBody="Try All, switch category, or ask admin to add matching pack labels."
-          />
-        </section>
+        {(() => {
+          const gridCampaigns = duplicatePacksForDisplay(
+            rest.length || campaigns.length > 2 ? rest : campaigns,
+            6,
+          );
+          return (
+            <>
+              <header className="packs-tier-heading">
+                <h2 className="packs-tier-title">LEGENDARY</h2>
+                <p className="packs-tier-subtitle">
+                  {gridCampaigns.length} slab{gridCampaigns.length === 1 ? "" : "s"}/pack
+                </p>
+              </header>
+              <section
+                className="home-pack-board product-section"
+                aria-label="Mystery pack catalog"
+              >
+                <CampaignGrid
+                  campaigns={gridCampaigns}
+                  emptyTitle="No packs match this filter"
+                  emptyBody="Try All, switch category, or ask admin to add matching pack labels."
+                />
+              </section>
+            </>
+          );
+        })()}
       </div>
     </div>
   );
@@ -810,21 +798,30 @@ function SeriesEssentialsSection() {
       className="series-essentials"
       aria-label="Featured series"
     >
-      <h2 className="series-essentials-heading">Featured Series</h2>
+      <h2 className="series-essentials-heading">
+        <span className="i18n-en">Featured Series</span>
+        <span className="i18n-th">ซีรีส์เด่น</span>
+      </h2>
       <div className="series-essentials-grid">
         <Link
-          href="/?series=pokemon"
+          href="/packs"
           className="series-essentials-card series-essentials-card--pokemon"
         >
           <div className="series-essentials-art" aria-hidden />
-          <span className="series-essentials-cta">Shop Pokemon</span>
+          <span className="series-essentials-cta">
+            <span className="i18n-en">Mystery Packs</span>
+            <span className="i18n-th">กล่องสุ่ม</span>
+          </span>
         </Link>
         <Link
-          href="/?series=one_piece"
+          href="/marketplace"
           className="series-essentials-card series-essentials-card--one-piece"
         >
           <div className="series-essentials-art" aria-hidden />
-          <span className="series-essentials-cta">Shop One Piece</span>
+          <span className="series-essentials-cta">
+            <span className="i18n-en">Marketplace</span>
+            <span className="i18n-th">ตลาด</span>
+          </span>
         </Link>
       </div>
     </section>
@@ -844,21 +841,36 @@ function MobileTorecaHero({ campaign }: { campaign?: YnotCampaign }) {
       </div>
       <div className="hero-copy">
         <h1>
-          RIP PACKS
-          <br />
-          SHIP CARDS
-          <br />
-          COLLECT AND
-          <br />
-          REPEAT
+          <span className="i18n-en">
+            RIP PACKS
+            <br />
+            SHIP CARDS
+            <br />
+            COLLECT AND
+            <br />
+            REPEAT
+          </span>
+          <span className="i18n-th">
+            เปิดแพค
+            <br />
+            ส่งการ์ด
+            <br />
+            สะสม
+            <br />
+            และทำซ้ำ
+          </span>
         </h1>
         <p>
-          {campaign
-            ? "OPEN LIVE ADMIN-PUBLISHED PACKS"
-            : "AWAITING FIRST LIVE PACK"}
+          <span className="i18n-en">
+            {campaign ? "OPEN LIVE ADMIN-PUBLISHED PACKS" : "AWAITING FIRST LIVE PACK"}
+          </span>
+          <span className="i18n-th">
+            {campaign ? "เปิดแพคจริงที่แอดมินเผยแพร่" : "รอแพคจริงตัวแรก"}
+          </span>
         </p>
         <Link className="hero-rip-button" href={openHref}>
-          {campaign ? "Rip Mystery Pack" : "View Readiness"}
+          <span className="i18n-en">{campaign ? "Rip Mystery Pack" : "View Readiness"}</span>
+          <span className="i18n-th">{campaign ? "เปิด Mystery Pack" : "ดูสถานะ"}</span>
         </Link>
       </div>
     </section>
@@ -1030,8 +1042,8 @@ export function CampaignCard({ campaign }: { campaign: YnotCampaign }) {
       </div>
       <Link
         className="pack-image-link"
-        href={`/gacha/${campaign.slug}`}
-        aria-label={`View ${title}`}
+        href="/admin/campaigns"
+        aria-label={`Edit ${title} in admin`}
       >
         <CampaignArtwork campaign={campaign} clean />
       </Link>
@@ -1051,10 +1063,10 @@ export function CampaignCard({ campaign }: { campaign: YnotCampaign }) {
       </div>
       <ProgressTrack campaign={campaign} />
       <div className="product-actions">
-        <Link className="secondary-action" href={`/gacha/${campaign.slug}`}>
+        <Link className="secondary-action" href="/admin/campaigns">
           Details
         </Link>
-        <Link className="primary-action" href={`/gacha/${campaign.slug}/open`}>
+        <Link className="primary-action" href="/admin/campaigns">
           Open
         </Link>
       </div>

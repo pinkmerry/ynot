@@ -914,12 +914,27 @@ body::before {
   display: inline-flex;
   gap: 12px;
   min-width: 0;
+  position: relative;
 }
 
 .brand-logo {
   height: 28px;
   width: auto;
   display: block;
+  filter: none;
+  transition: opacity 0.16s ease;
+}
+
+.brand-logo--black {
+  opacity: 1;
+}
+
+.brand-logo--white {
+  left: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
 }
 
 .header-coin-pill,
@@ -13378,10 +13393,13 @@ html[data-ynot-theme="light"] .storefront-header::after {
   display: none !important;
 }
 
-/* Topbar (row 1) — monochromatic mint matching page bg, black text. */
+/* Topbar (row 1) — clean white surface so the green YNOT logo reads with
+   strong contrast against the header. Hairline bottom border separates it
+   from page content. */
 html[data-ynot-theme="light"] .store-topbar {
-  background: #ebf8eb !important;
+  background: #ffffff !important;
   color: #1a1a1a !important;
+  border-bottom: 1px solid rgba(26, 26, 26, 0.08) !important;
 }
 
 /* Hamburger button — bare 2-line mark on DARK topbar (white icon).
@@ -13527,17 +13545,18 @@ html[data-ynot-theme="light"] .header-coin-pill:focus-visible .header-coin-mark 
   color: var(--jt-green);
 }
 
-/* Brand logo + tagline on white header — FOG thin sizing.
-   Strip the neon green glow on white bg. */
+/* Brand logo + tagline on white header — sized for the YNOT wordmark to be legible. */
 html[data-ynot-theme="light"] .brand-logo {
-  height: 22px !important;
+  height: 40px !important;
+  width: auto !important;
   filter: none !important;
 }
 html[data-ynot-theme="light"] .brand-tagline {
   display: none !important;
 }
 
-/* Topbar — desktop 3.5412vw / mobile 71px (FOG header-bar spec, padding 0 2.60417vw = 2.60417vw at 1687). */
+/* Topbar — desktop 3.5412vw / mobile 71px (FOG header-bar spec, padding 0 2.60417vw = 2.60417vw at 1687).
+   White surface for max contrast with the green YNOT logo. */
 html[data-ynot-theme="light"] .store-topbar {
   padding: 0 2.60417vw !important;
   min-height: 3.5412vw !important;
@@ -13552,15 +13571,16 @@ html[data-ynot-theme="light"] .store-topbar {
     visibility 0s linear 0s;
   opacity: 1;
   visibility: visible;
-  background: #ebf8eb !important;
+  background: #ffffff !important;
   color: #1a1a1a !important;
+  border-bottom: 1px solid rgba(26, 26, 26, 0.08) !important;
 }
 @media (max-width: 640px) {
   html[data-ynot-theme="light"] .store-topbar {
     padding: 0 22.93px !important;
     min-height: 71px !important;
     max-height: 71px !important;
-    background: #ebf8eb !important;
+    background: #ffffff !important;
     color: #1a1a1a !important;
   }
 }
@@ -13791,9 +13811,9 @@ html[data-ynot-theme="light"] .store-drawer-langbtn.active {
   text-shadow: none !important;
 }
 
-/* Brand logo glow → tone down on light bg, dark fallback color. */
+/* Brand logo glow → minimal, keep the circuit logo crisp. */
 html[data-ynot-theme="light"] .brand-logo {
-  filter: drop-shadow(0 1px 2px rgba(15, 31, 18, 0.1)) !important;
+  filter: none !important;
 }
 html[data-ynot-theme="light"] .brand-tagline {
   color: var(--jt-muted) !important;
@@ -14068,8 +14088,8 @@ html[data-ynot-theme="light"] .store-shell > .market-shell {
   margin-right: auto !important;
 }
 
-/* === Hero hero image — full viewport on ALL viewports (mobile + desktop)
-   Image extends UP behind dark header (negative margin-top = total header height). === */
+/* === Hero hero image — full viewport behind the overlaid header.
+   Header spacing stays constant separately, so fast scroll-to-top does not reflow. === */
 html[data-ynot-theme="light"] .toreca-mobile-hero {
     display: flex !important;
     flex-direction: column !important;
@@ -14078,8 +14098,7 @@ html[data-ynot-theme="light"] .toreca-mobile-hero {
     position: relative !important;
     width: 100% !important;
     max-width: none !important;
-    /* Hero extends behind topbar (3.5412vw scales) + filter strip (fixed 55px). */
-    margin: calc(-3.5412vw - 55px) 0 0 !important;
+    margin: 0 !important;
     padding: 0 !important;
     height: 100vh !important;
     min-height: 100vh !important;
@@ -14129,31 +14148,49 @@ html[data-ynot-theme="light"] .toreca-mobile-hero {
     text-transform: uppercase !important;
     margin: 0 0 36px !important;
   }
+  /* Hero CTA — exact Fear of God `.bottom-cta` specs:
+       - position absolute, bottom 7% of hero
+       - 310 x 56 desktop / 262 x 47 mobile
+       - white 1px outline, white text, transparent bg
+       - font 16px / 14px, letter-spacing 0.05em, uppercase
+       - square corners, no shadow */
   html[data-ynot-theme="light"] .toreca-mobile-hero .hero-rip-button {
-    /* Pin button to the bottom-center of the hero (yfifteen.com style). */
     position: absolute !important;
-    bottom: 48px !important;
+    bottom: 7% !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
-    background: #ffffff !important;
-    color: #000000 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 310px !important;
+    height: 56px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    color: #ffffff !important;
     border: 1px solid #ffffff !important;
     border-radius: 0 !important;
     clip-path: none !important;
-    padding: 16px 72px !important;
-    font-size: 12px !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.22em !important;
+    font-size: 16px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0.05em !important;
     text-transform: uppercase !important;
-    box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.35) !important;
+    box-shadow: none !important;
     text-shadow: none !important;
     min-height: 0 !important;
     margin: 0 !important;
+    transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease !important;
+  }
+  @media screen and (max-width: 767px) {
+    html[data-ynot-theme="light"] .toreca-mobile-hero .hero-rip-button {
+      width: 262px !important;
+      height: 47px !important;
+      font-size: 14px !important;
+    }
   }
   html[data-ynot-theme="light"] .toreca-mobile-hero .hero-rip-button:hover {
-    background: var(--jt-green) !important;
-    border-color: var(--jt-green) !important;
-    color: #ffffff !important;
+    background: #ffffff !important;
+    border-color: #ffffff !important;
+    color: #000000 !important;
     transform: translateX(-50%) !important;
   }
   html[data-ynot-theme="light"] .toreca-mobile-hero .hero-see-more {
@@ -14167,11 +14204,11 @@ html[data-ynot-theme="light"] .toreca-mobile-hero {
     text-transform: uppercase !important;
   }
 
-/* Mobile: hero extends up behind topbar (71px) + filter strip (36px) = -107px.
+/* Mobile: hero sits BELOW the topbar (no negative margin).
    Swap to the portrait crop on mobile so the subject reads better on tall screens. */
 @media (max-width: 640px) {
   html[data-ynot-theme="light"] .toreca-mobile-hero {
-    margin-top: -107px !important;
+    margin-top: 0 !important;
     z-index: 0 !important;
     background:
       linear-gradient(
@@ -14331,15 +14368,10 @@ html[data-ynot-theme="light"] .live-now-row > strong {
 /* Grid: 5 columns on wide desktop (Arena Club), responsive down. */
 html[data-ynot-theme="light"] .campaign-grid {
   display: grid !important;
-  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   gap: 32px 16px !important;
   margin: 0 !important;
   padding: 0 !important;
-}
-@media (max-width: 1280px) {
-  html[data-ynot-theme="light"] .campaign-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-  }
 }
 @media (max-width: 1024px) {
   html[data-ynot-theme="light"] .campaign-grid {
@@ -14847,14 +14879,55 @@ html[data-ynot-theme="light"] .header-balance-pill {
 .ynot-footer-interior {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   width: 100%;
-  /* FOG body padding (matches 45.6895 / 43.9323 / 26.3594 at 1687px viewport) */
   padding: 2.70833vw 2.60417vw 1.5625vw;
   box-sizing: border-box;
-  /* FOG exact total height at 1687px = 128.42px */
-  height: 128.42px;
-  min-height: 128.42px;
+  height: 107.27px;
+  min-height: 107.27px;
+}
+
+/* Copyright — same row as nav, matches nav link typography. */
+.ynot-footer-copyright {
+  margin: 0 !important;
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
+  line-height: 1.5em !important;
+  color: #000000 !important;
+}
+
+/* © symbol — use a system font that renders it cleaner than Prompt.
+   Specificity matches the universal Prompt override (html[lang][...][...][class]) so this wins. */
+html[lang][data-ynot-theme][data-ynot-language][class] .ynot-copy-symbol {
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Helvetica Neue",
+    Helvetica,
+    Arial,
+    sans-serif !important;
+  font-size: 1.1em;
+  letter-spacing: 0;
+  margin-right: 1px;
+  vertical-align: -1px;
+}
+@media only screen and (max-width: 1366px) {
+  .ynot-footer-copyright {
+    font-size: 10px !important;
+  }
+}
+@media only screen and (max-width: 767px) and (orientation: portrait) {
+  .ynot-footer-interior {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .ynot-footer-copyright {
+    font-size: 12px !important;
+  }
 }
 
 /* Newsletter (left) */
@@ -14957,7 +15030,7 @@ html[data-ynot-theme="light"] .header-balance-pill {
   font-size: 12px;
   line-height: 1.5em;
   letter-spacing: 0.15em;
-  font-weight: 500;
+  font-weight: 400;
   text-transform: uppercase;
 }
 .ynot-footer-item:first-child {
@@ -14977,6 +15050,13 @@ html[data-ynot-theme="light"] .header-balance-pill {
 .ynot-footer-link:hover {
   opacity: 0.65;
 }
+.ynot-footer-link.is-disabled {
+  pointer-events: none;
+  cursor: default;
+}
+.ynot-footer-link.is-disabled:hover {
+  opacity: 1;
+}
 
 /* Tablet / smaller desktop */
 @media only screen and (max-width: 1366px) {
@@ -14990,17 +15070,45 @@ html[data-ynot-theme="light"] .header-balance-pill {
   }
 }
 
-/* Mobile portrait — FOG: column layout, newsletter full width, nav stacked */
+/* Mobile portrait — compact footer: everything (© + nav) in a single row,
+   smaller font so the labels fit. */
 @media only screen and (max-width: 767px) and (orientation: portrait) {
   .ynot-footer {
     padding: 0;
   }
   .ynot-footer-interior {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 5.86667vw 5.33333vw 16vw;
-    height: 482.59px;
-    min-height: 482.59px;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 28px 5.33333vw 22px;
+    height: auto;
+    min-height: 0;
+    flex-wrap: nowrap;
+  }
+  .ynot-footer-nav {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .ynot-footer-list {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    width: 100%;
+  }
+  .ynot-footer-item {
+    margin: 0 !important;
+    padding-bottom: 0 !important;
+    font-size: 8px !important;
+    letter-spacing: 0.1em !important;
+  }
+  .ynot-footer-copyright {
+    font-size: 8px !important;
+    letter-spacing: 0.1em !important;
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
   .ynot-newsletter {
     width: 100%;
@@ -15021,19 +15129,23 @@ html[data-ynot-theme="light"] .header-balance-pill {
   .ynot-newsletter-submit {
     height: 32px;
   }
+  /* Single-row nav — all items inline, smaller font to fit. */
   .ynot-footer-list {
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: flex-start;
-    width: 100%;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 10px !important;
+    width: 100% !important;
   }
   .ynot-footer-item {
-    margin: 0;
-    padding-bottom: 1.3em;
-    font-size: 12px;
+    margin: 0 !important;
+    padding-bottom: 0 !important;
+    font-size: 8px !important;
+    letter-spacing: 0.1em !important;
   }
   .ynot-footer-item:last-child {
-    padding-bottom: 0;
+    padding-bottom: 0 !important;
   }
 }
 
@@ -15277,11 +15389,221 @@ html[data-ynot-theme="light"] .store-topbar-left {
 }
 
 
+/* ============================================
+ * Topbar language picker — FOG-style compact text menu.
+ * ============================================ */
+@media (min-width: 641px) {
+  html[data-ynot-theme="light"] .store-topbar-right .store-language-toggle {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    height: 3.5412vw !important;
+    margin: 0 0 0 1.875vw !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle-trigger {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    height: 100% !important;
+    padding: 0.5208vw 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    font-family:
+      var(--font-inter), var(--font-noto-thai),
+      "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0.15em !important;
+    line-height: 1.5em !important;
+    text-transform: uppercase !important;
+    color: #1a1a1a !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    text-decoration-thickness: 1px !important;
+    text-underline-offset: 6px !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle-trigger:hover,
+  html[data-ynot-theme="light"] .store-language-toggle-trigger:focus-visible,
+  html[data-ynot-theme="light"] .store-language-toggle.is-open .store-language-toggle-trigger {
+    color: #1a1a1a !important;
+    text-decoration: underline !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle-caret {
+    transition: transform 0.18s ease !important;
+    transform-origin: center !important;
+    color: currentColor !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle.is-open .store-language-toggle-caret {
+    transform: rotate(180deg) !important;
+  }
+
+  /* Menu is portaled to <body>, so it uses position:fixed with inline top/right. */
+  html[data-ynot-theme="light"] .store-language-toggle-menu {
+    position: fixed !important;
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 10px 0 !important;
+    min-width: 132px !important;
+    background: #ffffff !important;
+    border: 1px solid rgba(26, 26, 26, 0.14) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    z-index: 200 !important;
+    opacity: 0 !important;
+    transform: translateY(-4px) !important;
+    pointer-events: none !important;
+    transition:
+      opacity 0.18s ease,
+      transform 0.18s ease !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle-menu.is-open {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+    pointer-events: auto !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle-menu li {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle-menu li + li {
+    border-top: 0 !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle-item {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 10px !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 7px 13px !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    font-family:
+      var(--font-inter), var(--font-noto-thai),
+      "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif !important;
+    color: #1a1a1a !important;
+    cursor: pointer !important;
+    text-align: left !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.14em !important;
+    opacity: 0.72 !important;
+    transition:
+      opacity 0.14s ease,
+      color 0.14s ease !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle-item::before {
+    display: none !important;
+    content: none !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle-item:hover,
+  html[data-ynot-theme="light"] .store-language-toggle-item:focus-visible,
+  html[data-ynot-theme="light"] .store-language-toggle-item.is-active {
+    background: transparent !important;
+    color: #1a1a1a !important;
+    opacity: 1 !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle-icon {
+    flex: 0 0 auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: auto !important;
+    height: auto !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    font-family:
+      var(--font-inter), var(--font-noto-thai),
+      "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.16em !important;
+    line-height: 1.45 !important;
+    color: currentColor !important;
+    transition: color 0.14s ease !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle-item.is-active .store-language-toggle-icon {
+    background: transparent !important;
+    border-color: transparent !important;
+    color: currentColor !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle-text {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1px !important;
+    min-width: 0 !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle-title {
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    line-height: 1.45 !important;
+    letter-spacing: 0.14em !important;
+    text-transform: uppercase !important;
+    color: currentColor !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle-item.is-active .store-language-toggle-title {
+    color: currentColor !important;
+  }
+  html[data-ynot-theme="light"] .store-language-toggle-subtitle {
+    font-size: 10px !important;
+    font-weight: 400 !important;
+    line-height: 1.2 !important;
+    color: rgba(26, 26, 26, 0.55) !important;
+  }
+
+  @media (max-width: 1366px) {
+    html[data-ynot-theme="light"] .store-language-toggle-trigger {
+      font-size: 12px !important;
+    }
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-language-toggle-trigger:hover,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-language-toggle-trigger:focus-visible,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-language-toggle.is-open .store-language-toggle-trigger {
+    color: #ffffff !important;
+    text-decoration-color: #ffffff !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-language-toggle-menu {
+    background: #000000 !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-language-toggle-item,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-language-toggle-item:hover,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-language-toggle-item:focus-visible,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-language-toggle-item.is-active {
+    color: #ffffff !important;
+    background: transparent !important;
+  }
+}
+
 /* Mobile: hide right-side profile avatar AND login text — keep only coin pill (if logged in).
    Hamburger drawer (left) provides Login/Profile/Wallet access on mobile. */
 @media (max-width: 640px) {
   html[data-ynot-theme="light"] .store-topbar-right .store-profile-avatar,
-  html[data-ynot-theme="light"] .store-topbar-right .store-nav-link--right {
+  html[data-ynot-theme="light"] .store-topbar-right .store-nav-link--right,
+  html[data-ynot-theme="light"] .store-topbar-right .store-language-toggle {
     display: none !important;
   }
 }
@@ -15967,12 +16289,18 @@ html[data-ynot-theme="light"] .packs-toolbar p {
   justify-content: flex-end;
   gap: 6px;
   padding: 36px 32px 28px;
-  min-height: 280px;
+  min-height: 383.99px;
   border-radius: 8px;
   text-decoration: none;
   overflow: hidden;
   color: #ffffff;
   transition: transform 0.28s ease, box-shadow 0.28s ease;
+}
+@media (max-width: 768px) {
+  .packs-feature-card {
+    min-height: 232px;
+    padding: 16px;
+  }
 }
 .packs-feature-card--blue { background: linear-gradient(135deg, #2780d6 0%, #1561a3 100%); }
 .packs-feature-card--amber { background: linear-gradient(135deg, #d68a27 0%, #a35e15 100%); }
@@ -16177,58 +16505,78 @@ html[data-ynot-theme="light"] .marketplace-toolbar p {
 .marketplace-empty p { font-size: 13px; margin: 0; }
 
 /* ============================================================
- * FOG-style "Featured Series" section — 2-column image grid
- * with outlined CTA buttons, under the hero on the home page.
- * Matches fearofgod.com/en-jp Spring Essentials layout.
+ * FOG "Spring Essentials" section — 2-column image grid with
+ * centred heading and outlined CTA buttons. Mirrors fearofgod.com
+ * /en-jp `.two-column` specs EXACTLY (taken from their styles.css).
+ *   - Section: 60/60 desktop, 58/25 mobile (top/bottom padding)
+ *   - Heading: 25px, letter-spacing 0.03em, 60px below
+ *   - Columns: gap 32px desktop, stacked 30px gap at 80% width on mobile
+ *   - Image:   max-width 800px each, natural 3:4 portrait
+ *   - CTA:     310 x 56 (16px / ls 0.05em / 40px above) on desktop,
+ *              262 x 47 (14px / 30px above) on mobile
  * ============================================================ */
 .series-essentials {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
   width: 100%;
-  max-width: var(--arena-max, 1500px);
-  margin: 60px auto 80px;
-  padding: 0 var(--arena-pad, 24px);
+  max-width: none;
+  margin: 0;
+  padding: 60px 0;
+}
+@media (max-width: 768px) {
+  .series-essentials {
+    padding: 58px 0 25px;
+  }
 }
 .series-essentials-heading {
-  /* FOG "Spring Essentials" — 239.2 × 37.5px. line-height 1.5 keeps 25px text
-     in a 37.5px box (matches FOG exactly). */
   text-align: center;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: var(--font-prompt), "Optima", "Noto Sans Thai", system-ui, sans-serif;
   font-size: 25px;
   font-weight: 400;
   line-height: 1.5;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-transform: none;
   color: #000000;
   margin: 0 auto 60px;
   width: max-content;
   max-width: 100%;
 }
 .series-essentials-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  display: flex;
+  width: 100%;
+  max-width: 1632px; /* 800 + 32 + 800 */
+  margin: 0 auto;
+  gap: 2rem; /* 32px desktop */
 }
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .series-essentials-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-  .series-essentials {
-    margin: 40px auto 60px;
+    flex-direction: column;
+    width: 80%;
+    gap: 30px;
   }
 }
 .series-essentials-card {
-  position: relative;
+  flex: 0 1 800px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  align-items: center;
   text-decoration: none;
   color: inherit;
-  transition: opacity 0.28s ease;
 }
-.series-essentials-card:hover {
-  opacity: 0.92;
+@media (max-width: 768px) {
+  .series-essentials-card {
+    flex: 1 1 auto;
+    width: 100%;
+  }
 }
 .series-essentials-art {
-  aspect-ratio: 4 / 5;
+  width: 100%;
+  max-width: 800px;
+  aspect-ratio: 3 / 4;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -16245,25 +16593,35 @@ html[data-ynot-theme="light"] .marketplace-toolbar p {
     url("/ynot-pack-psa-cards-mobile.jpg");
 }
 .series-essentials-cta {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  align-self: center;
-  margin-top: 32px;
-  padding: 14px 56px;
-  border: 1px solid #1a1a1a;
+  width: 310px;
+  height: 56px;
+  margin-top: 2.5rem; /* 40px */
+  padding: 0;
+  border: 1px solid #000;
   background: transparent;
   color: #1a1a1a;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.18em;
+  font-family: var(--font-prompt), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  text-align: center;
   text-transform: uppercase;
-  transition: background 0.18s ease, color 0.18s ease;
+  transition: color 0.18s ease;
 }
-.series-essentials-card:hover .series-essentials-cta {
-  background: #1a1a1a;
-  color: #ffffff;
+@media screen and (max-width: 767px) {
+  .series-essentials-cta {
+    width: 262px;
+    height: 47px;
+    margin-top: 30px;
+    font-size: 14px;
+  }
+}
+/* Hover on CTA directly — change only text color (background stays). */
+.series-essentials-cta:hover {
+  color: rgba(0, 0, 0, 0.55);
 }
 
 
@@ -16348,4 +16706,922 @@ html[data-ynot-theme="light"] .marketplace-toolbar p {
   }
 }
 
+/* ============================================
+ * i18n visibility — render both languages inline,
+ * hide the inactive one via html[data-ynot-language].
+ * `display: contents` keeps inline / line-break layout intact.
+ * ============================================ */
+.i18n-en,
+.i18n-th {
+  display: contents !important;
+}
+html[data-ynot-language="th"] .i18n-en,
+html[data-ynot-language="en"] .i18n-th {
+  display: none !important;
+}
 
+/* ============================================
+ * Unified typography — Prompt for every script (TH + EN).
+ * Specificity boosted via html[lang][data-ynot-theme][data-ynot-language]
+ * to beat earlier per-component rules that use !important.
+ * Monospace (code, hashes, tokens) is preserved with a follow-up rule.
+ * ============================================ */
+html[lang][data-ynot-theme][data-ynot-language][class] *,
+html[lang][data-ynot-theme][data-ynot-language][class] *::before,
+html[lang][data-ynot-theme][data-ynot-language][class] *::after {
+  font-family:
+    var(--font-prompt),
+    "Prompt Fallback",
+    "Noto Sans Thai",
+    "Sukhumvit Set",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Helvetica Neue",
+    Helvetica,
+    Arial,
+    system-ui,
+    sans-serif !important;
+}
+
+/* Preserve monospace where it's intentionally used (code, IDs, timestamps). */
+html[lang][data-ynot-theme][data-ynot-language][class] code,
+html[lang][data-ynot-theme][data-ynot-language][class] code *,
+html[lang][data-ynot-theme][data-ynot-language][class] kbd,
+html[lang][data-ynot-theme][data-ynot-language][class] kbd *,
+html[lang][data-ynot-theme][data-ynot-language][class] pre,
+html[lang][data-ynot-theme][data-ynot-language][class] pre *,
+html[lang][data-ynot-theme][data-ynot-language][class] samp,
+html[lang][data-ynot-theme][data-ynot-language][class] samp *,
+html[lang][data-ynot-theme][data-ynot-language][class] .font-mono,
+html[lang][data-ynot-theme][data-ynot-language][class] .font-mono *,
+html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"],
+html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"] * {
+  font-family:
+    var(--font-geist-mono),
+    var(--font-mono),
+    "Geist Mono",
+    ui-monospace,
+    "SF Mono",
+    Menlo,
+    Consolas,
+    monospace !important;
+}
+
+/* ============================================================
+ * YFIFTEEN/Fear header transfer layer for YNOT
+ * Home at top uses the dark editorial header; after scroll and all other
+ * routes keep the current white storefront header.
+ * ============================================================ */
+@media (min-width: 641px) {
+  html[data-ynot-theme="light"] .storefront-header,
+  html[data-ynot-theme="light"] .store-topbar,
+  html[data-ynot-theme="light"] .store-topbar a,
+  html[data-ynot-theme="light"] .store-topbar button,
+  html[data-ynot-theme="light"] .store-topbar .store-nav-link,
+  html[data-ynot-theme="light"] .store-topbar .store-language-toggle-trigger,
+  html[data-ynot-theme="light"] .store-topbar .header-coin-pill {
+    font-family:
+      var(--font-inter),
+      var(--font-noto-thai),
+      "Helvetica Neue",
+      Helvetica,
+      Arial,
+      system-ui,
+      sans-serif !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.16em !important;
+  }
+
+  html[data-ynot-theme="light"] .storefront-header,
+  html[data-ynot-theme="light"] .store-topbar,
+  html[data-ynot-theme="light"] .store-topbar-left,
+  html[data-ynot-theme="light"] .store-topbar-right,
+  html[data-ynot-theme="light"] .store-nav {
+    overflow: visible !important;
+  }
+
+  html[data-ynot-theme="light"] .store-nav {
+    position: static !important;
+  }
+
+  html[data-ynot-theme="light"] .ynot-nav-item {
+    display: inline-flex !important;
+    align-items: stretch !important;
+    height: 3.5412vw !important;
+    min-height: 3.5412vw !important;
+    position: static !important;
+  }
+
+  html[data-ynot-theme="light"] .ynot-nav-item .store-nav-link {
+    margin-right: 1.875vw !important;
+  }
+
+  html[data-ynot-theme="light"] .ynot-mega-panel {
+    position: fixed !important;
+    top: 3.5412vw !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 49 !important;
+    display: grid !important;
+    grid-template-columns: minmax(180px, 1fr) auto !important;
+    align-items: start !important;
+    gap: clamp(32px, 6vw, 120px) !important;
+    min-height: 286px !important;
+    padding: 31px 2.60417vw 34px !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.12) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12) !important;
+    box-shadow: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: translateY(-1px) !important;
+    transition:
+      opacity 0.16s ease,
+      visibility 0s linear 0.16s,
+      transform 0.16s ease !important;
+  }
+
+  html[data-ynot-theme="light"] .ynot-nav-item.is-mega-open .ynot-mega-panel,
+  html[data-ynot-theme="light"] .ynot-nav-item:hover .ynot-mega-panel,
+  html[data-ynot-theme="light"] .ynot-nav-item:focus-within .ynot-mega-panel {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: translateY(0) !important;
+    transition:
+      opacity 0.16s ease,
+      visibility 0s linear 0s,
+      transform 0.16s ease !important;
+  }
+
+  html[data-ynot-theme="light"] .ynot-mega-links {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 13px !important;
+    padding-top: 2px !important;
+  }
+
+  html[data-ynot-theme="light"] .ynot-mega-link {
+    display: inline-flex !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color: currentColor !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.16em !important;
+    line-height: 1.45 !important;
+    text-transform: uppercase !important;
+    text-decoration: none !important;
+    opacity: 0.72 !important;
+    transition: opacity 0.15s ease !important;
+  }
+
+  html[data-ynot-theme="light"] .ynot-mega-link:hover,
+  html[data-ynot-theme="light"] .ynot-mega-link:focus-visible {
+    opacity: 1 !important;
+    text-decoration: underline !important;
+    text-decoration-thickness: 1px !important;
+    text-underline-offset: 6px !important;
+  }
+
+  html[data-ynot-theme="light"] .ynot-mega-media {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(120px, 180px)) !important;
+    gap: 12px !important;
+    justify-content: end !important;
+    align-items: start !important;
+  }
+
+  html[data-ynot-theme="light"] .ynot-mega-card {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    width: 180px !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: currentColor !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+  }
+
+  html[data-ynot-theme="light"] .ynot-mega-card-image {
+    display: block !important;
+    width: 180px !important;
+    height: 220px !important;
+    object-fit: cover !important;
+    background: #f2f2f2 !important;
+  }
+
+  html[data-ynot-theme="light"] .ynot-mega-card-title {
+    display: block !important;
+    color: currentColor !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.14em !important;
+    line-height: 1.35 !important;
+    text-transform: uppercase !important;
+  }
+
+  html[data-ynot-route-home="true"][data-ynot-theme="light"] .storefront-header {
+    margin-bottom: calc(-1 * 3.5412vw) !important;
+  }
+
+  html[data-ynot-route-home="true"][data-ynot-theme="light"] .store-home-grid {
+    margin-top: 0 !important;
+  }
+
+  html[data-ynot-route-home="true"][data-ynot-theme="light"] .toreca-mobile-hero {
+    height: 100vh !important;
+    min-height: 100vh !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header {
+    background: transparent !important;
+    color: #ffffff !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    border-bottom: 0 !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar {
+    background: transparent !important;
+    color: #ffffff !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.55) !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar .store-nav-link,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar .store-nav-link--right,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar .store-language-toggle-trigger,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar .header-coin-pill,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar .header-coin-amount,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar a,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar button {
+    color: #ffffff !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .brand-logo {
+    filter: none !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .brand-logo--black {
+    opacity: 0 !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .brand-logo--white {
+    opacity: 1 !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar-left .store-nav .store-nav-link.active,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar-left .store-nav .store-nav-link[aria-current="page"],
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar-left .store-nav .store-nav-link:hover,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar-left .store-nav .store-nav-link:focus-visible,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar-right .store-nav-link--right:hover,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar-right .store-nav-link--right:focus-visible {
+    color: #ffffff !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .ynot-mega-panel {
+    height: clamp(360px, 26vw, 430px) !important;
+    min-height: clamp(360px, 26vw, 430px) !important;
+    background: #000000 !important;
+    color: #ffffff !important;
+    border-top-color: rgba(255, 255, 255, 0.12) !important;
+    border-bottom-color: transparent !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-home-grid {
+    margin-top: 0 !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .toreca-mobile-hero {
+    height: 100vh !important;
+    min-height: 100vh !important;
+  }
+}
+
+@media (max-width: 640px) {
+  html[data-ynot-theme="light"] .ynot-mega-panel {
+    display: none !important;
+  }
+
+  html[data-ynot-route-home="true"][data-ynot-theme="light"] .storefront-header {
+    margin-bottom: -71px !important;
+  }
+
+  html[data-ynot-route-home="true"][data-ynot-theme="light"] .store-home-grid {
+    margin-top: 0 !important;
+  }
+
+  html[data-ynot-route-home="true"][data-ynot-theme="light"] .toreca-mobile-hero {
+    height: 100vh !important;
+    min-height: 100vh !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header {
+    background: transparent !important;
+    border-bottom: 0 !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar {
+    background: transparent !important;
+    color: #ffffff !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.55) !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .hamburger-button,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar a,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar button,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar .header-coin-pill,
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar .header-coin-amount {
+    color: #ffffff !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .brand-logo {
+    filter: none !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .brand-logo--black {
+    opacity: 0 !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .brand-logo--white {
+    opacity: 1 !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-home-grid {
+    margin-top: 0 !important;
+  }
+
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .toreca-mobile-hero {
+    height: 100vh !important;
+    min-height: 100vh !important;
+  }
+}
+
+
+/* ============================================================
+ * Admin theme — DARK editorial (separate from the light storefront).
+ *   - Page bg #0a0a0a, card bg #141414, elevated #1f1f1f
+ *   - Off-white text (#f5f5f5) for low-eye-strain reading
+ *   - rgba(255,255,255,0.16) hairline borders, square corners
+ *   - jt-green (#05a66b) accents kept consistent with the brand
+ *   - Header switches to dark on admin routes via html:has() guard
+ *   - Prompt font everywhere, consistent type scale
+ * ============================================================ */
+
+/* When the admin workspace is in the DOM, switch the whole page to dark. */
+html:has(.admin-workspace),
+html:has(.admin-workspace) body {
+  background: #0a0a0a !important;
+  color: #f5f5f5 !important;
+}
+
+/* Header / topbar — slightly elevated dark surface with bottom hairline. */
+html:has(.admin-workspace) .store-topbar,
+html[data-ynot-theme="light"]:has(.admin-workspace) .store-topbar {
+  background: #0f0f0f !important;
+  color: #f5f5f5 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+html:has(.admin-workspace) .store-nav-link,
+html:has(.admin-workspace) .store-nav-link--right,
+html:has(.admin-workspace) .store-language-toggle-trigger {
+  color: #f5f5f5 !important;
+}
+html:has(.admin-workspace) .store-nav-link:hover,
+html:has(.admin-workspace) .store-language-toggle-trigger:hover {
+  color: #7eecc4 !important;
+}
+html:has(.admin-workspace) .store-nav-link.active {
+  color: #ffffff !important;
+}
+html:has(.admin-workspace) .header-coin-pill,
+html:has(.admin-workspace) .store-admin-link,
+html:has(.admin-workspace) .store-profile-avatar {
+  color: #f5f5f5 !important;
+}
+html:has(.admin-workspace) .store-profile-avatar {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+/* Admin workspace shell */
+html[data-ynot-theme="light"] .admin-workspace {
+  background: #0a0a0a !important;
+  color: #f5f5f5 !important;
+  padding: 32px !important;
+  gap: 32px !important;
+}
+@media (max-width: 768px) {
+  html[data-ynot-theme="light"] .admin-workspace {
+    padding: 20px 16px !important;
+    gap: 20px !important;
+  }
+}
+html[data-ynot-theme="light"] .admin-workspace-main {
+  background: transparent !important;
+  color: #f5f5f5 !important;
+}
+
+/* Side navigation — elevated dark card, hairline border. */
+html[data-ynot-theme="light"] .admin-side-nav,
+html[data-ynot-theme="light"] .admin-side-nav.soft-card {
+  background: #141414 !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: #f5f5f5 !important;
+  padding: 20px !important;
+  filter: none !important;
+}
+html[data-ynot-theme="light"] .admin-side-nav-head {
+  color: #ffffff !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  padding-bottom: 14px !important;
+  margin-bottom: 14px !important;
+}
+html[data-ynot-theme="light"] .admin-side-nav-head .admin-kicker,
+html[data-ynot-theme="light"] .admin-kicker {
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  text-shadow: none !important;
+}
+html[data-ynot-theme="light"] .admin-side-nav-head strong {
+  color: #ffffff !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  text-shadow: none !important;
+}
+html[data-ynot-theme="light"] .admin-side-nav-head span {
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 12px !important;
+  text-shadow: none !important;
+}
+
+/* Side nav links — jt-green wash for active, brighter green text */
+html[data-ynot-theme="light"] .admin-side-nav-link {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 10px 12px !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  color: rgba(245, 245, 245, 0.85) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+  transition: background 0.14s ease, color 0.14s ease !important;
+}
+html[data-ynot-theme="light"] .admin-side-nav-link::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 2px !important;
+  background: transparent !important;
+  transition: background 0.14s ease !important;
+}
+html[data-ynot-theme="light"] .admin-side-nav-link:hover {
+  background: rgba(5, 166, 107, 0.12) !important;
+  color: #7eecc4 !important;
+}
+html[data-ynot-theme="light"] .admin-side-nav-link.active {
+  background: rgba(5, 166, 107, 0.18) !important;
+  color: #7eecc4 !important;
+  font-weight: 600 !important;
+}
+html[data-ynot-theme="light"] .admin-side-nav-link.active::before {
+  background: #05a66b !important;
+}
+html[data-ynot-theme="light"] .admin-side-nav-link em {
+  color: rgba(255, 255, 255, 0.4) !important;
+  font-style: normal !important;
+  font-size: 11px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+}
+html[data-ynot-theme="light"] .admin-side-nav-link.active em {
+  color: rgba(126, 236, 196, 0.8) !important;
+}
+
+/* Buttons — outlined dark with white-ish text → invert to filled on hover */
+html[data-ynot-theme="light"] .admin-storefront-link,
+html[data-ynot-theme="light"] .admin-workspace button:not([class*="danger"]):not([class*="primary"]),
+html[data-ynot-theme="light"] .admin-workspace .button,
+html[data-ynot-theme="light"] .admin-workspace .btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 10px 18px !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.32) !important;
+  border-radius: 0 !important;
+  color: #f5f5f5 !important;
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+  cursor: pointer !important;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease !important;
+}
+html[data-ynot-theme="light"] .admin-storefront-link {
+  margin-top: 16px !important;
+}
+html[data-ynot-theme="light"] .admin-storefront-link:hover,
+html[data-ynot-theme="light"] .admin-workspace button:not([class*="danger"]):not([class*="primary"]):hover,
+html[data-ynot-theme="light"] .admin-workspace .button:hover,
+html[data-ynot-theme="light"] .admin-workspace .btn:hover {
+  background: #ffffff !important;
+  border-color: #ffffff !important;
+  color: #0a0a0a !important;
+}
+
+/* Primary buttons — filled jt-green */
+html[data-ynot-theme="light"] .admin-workspace button[class*="primary"] {
+  background: #05a66b !important;
+  border: 1px solid #05a66b !important;
+  border-radius: 0 !important;
+  color: #ffffff !important;
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  padding: 10px 18px !important;
+  clip-path: none !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+html[data-ynot-theme="light"] .admin-workspace button[class*="primary"]:hover {
+  background: #06bb78 !important;
+  border-color: #06bb78 !important;
+}
+
+/* Danger buttons — keep destructive red even in dark */
+html[data-ynot-theme="light"] .admin-workspace button[class*="danger"] {
+  background: transparent !important;
+  border: 1px solid #ef4444 !important;
+  border-radius: 0 !important;
+  color: #f87171 !important;
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  padding: 10px 18px !important;
+  clip-path: none !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+html[data-ynot-theme="light"] .admin-workspace button[class*="danger"]:hover {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+/* Inputs — dark surface, light text, hairline border */
+html[data-ynot-theme="light"] .admin-workspace input,
+html[data-ynot-theme="light"] .admin-workspace select,
+html[data-ynot-theme="light"] .admin-workspace textarea {
+  background: #141414 !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 0 !important;
+  color: #f5f5f5 !important;
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-size: 14px !important;
+  padding: 10px 12px !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+}
+html[data-ynot-theme="light"] .admin-workspace input::placeholder,
+html[data-ynot-theme="light"] .admin-workspace textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+html[data-ynot-theme="light"] .admin-workspace input:focus,
+html[data-ynot-theme="light"] .admin-workspace select:focus,
+html[data-ynot-theme="light"] .admin-workspace textarea:focus {
+  outline: 0 !important;
+  border-color: #05a66b !important;
+  box-shadow: 0 0 0 2px rgba(5, 166, 107, 0.28) !important;
+}
+
+/* Page header inside admin */
+html[data-ynot-theme="light"] .admin-workspace .page-header,
+html[data-ynot-theme="light"] .admin-workspace .page-intro {
+  background: transparent !important;
+  color: #f5f5f5 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .page-header h1,
+html[data-ynot-theme="light"] .admin-workspace .page-intro h1 {
+  color: #ffffff !important;
+  font-size: 25px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.03em !important;
+  text-shadow: none !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .page-header > p,
+html[data-ynot-theme="light"] .admin-workspace .page-intro > p {
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 14px !important;
+  text-shadow: none !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .page-eyebrow,
+html[data-ynot-theme="light"] .admin-workspace .page-header > span,
+html[data-ynot-theme="light"] .admin-workspace .page-intro > span {
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  text-shadow: none !important;
+}
+
+/* Cards / panels — dark elevated surface */
+html[data-ynot-theme="light"] .admin-workspace .soft-card,
+html[data-ynot-theme="light"] .admin-workspace .admin-control-card,
+html[data-ynot-theme="light"] .admin-workspace .admin-tier-panel,
+html[data-ynot-theme="light"] .admin-workspace .card-edit-panel,
+html[data-ynot-theme="light"] .admin-workspace .glass,
+html[data-ynot-theme="light"] .admin-workspace .empty-state {
+  background: #141414 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: #f5f5f5 !important;
+  clip-path: none !important;
+  filter: none !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .admin-control-card h2,
+html[data-ynot-theme="light"] .admin-workspace .soft-card h2,
+html[data-ynot-theme="light"] .admin-workspace .admin-tier-panel h2 {
+  color: #ffffff !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  text-shadow: none !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .admin-control-card h3,
+html[data-ynot-theme="light"] .admin-workspace .soft-card h3,
+html[data-ynot-theme="light"] .admin-workspace .admin-tier-panel h3 {
+  color: #ffffff !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  text-shadow: none !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .admin-control-card strong,
+html[data-ynot-theme="light"] .admin-workspace .soft-card strong {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  text-shadow: none !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .admin-control-card p,
+html[data-ynot-theme="light"] .admin-workspace .admin-control-card span,
+html[data-ynot-theme="light"] .admin-workspace .admin-control-card li,
+html[data-ynot-theme="light"] .admin-workspace .soft-card p,
+html[data-ynot-theme="light"] .admin-workspace .soft-card span,
+html[data-ynot-theme="light"] .admin-workspace .soft-card li {
+  color: rgba(255, 255, 255, 0.78) !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  text-shadow: none !important;
+}
+
+/* Tables — dark surface with hairline rows */
+html[data-ynot-theme="light"] .admin-workspace table {
+  border-collapse: collapse !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 0 !important;
+  width: 100% !important;
+  background: #141414 !important;
+}
+html[data-ynot-theme="light"] .admin-workspace th,
+html[data-ynot-theme="light"] .admin-workspace td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  padding: 10px 12px !important;
+  color: #f5f5f5 !important;
+  font-size: 13px !important;
+  text-align: left !important;
+}
+html[data-ynot-theme="light"] .admin-workspace th {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+html[data-ynot-theme="light"] .admin-workspace tr:hover td {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Chips / tags / pills — outlined hairline */
+html[data-ynot-theme="light"] .admin-workspace .chip,
+html[data-ynot-theme="light"] .admin-workspace [class*="-chip"],
+html[data-ynot-theme="light"] .admin-workspace [class*="-pill"]:not([class*="coin-pill"]),
+html[data-ynot-theme="light"] .admin-workspace [class*="-tag"] {
+  border-radius: 0 !important;
+  clip-path: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  background: transparent !important;
+  color: #f5f5f5 !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  padding: 4px 10px !important;
+  box-shadow: none !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .orange-chip {
+  border-color: rgba(255, 173, 51, 0.6) !important;
+  color: #ffad33 !important;
+}
+
+/* Owner approval queue cards + prize tier cells — dark theme override */
+html[data-ynot-theme="light"] .admin-workspace .owner-approval-card,
+html[data-ynot-theme="light"] .admin-workspace [class*="owner-approval"],
+html[data-ynot-theme="light"] .admin-workspace [class*="owner-prize"] {
+  background: #141414 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #f5f5f5 !important;
+  text-shadow: none !important;
+}
+html[data-ynot-theme="light"] .admin-workspace [class*="owner-prize-tier-cell"],
+html[data-ynot-theme="light"] .admin-workspace [class*="owner-prize-odds-cell"] {
+  background: #1a1a1a !important;
+  color: #f5f5f5 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Catch-all for any explicit white-background div inside admin */
+html[data-ynot-theme="light"] .admin-workspace [style*="background: white"],
+html[data-ynot-theme="light"] .admin-workspace [style*="background:#fff"],
+html[data-ynot-theme="light"] .admin-workspace [style*="background: #fff"] {
+  background: #141414 !important;
+  color: #f5f5f5 !important;
+}
+
+/* Hero title / page intro — clean white text (kill leftover glow) */
+html[data-ynot-theme="light"] .admin-workspace h1,
+html[data-ynot-theme="light"] .admin-workspace h2,
+html[data-ynot-theme="light"] .admin-workspace h3 {
+  text-shadow: none !important;
+}
+
+/* Owner approval grid + nested cells — dark theme */
+html[data-ynot-theme="light"] .admin-workspace .owner-approval-grid,
+html[data-ynot-theme="light"] .admin-workspace .owner-approval-grid > div,
+html[data-ynot-theme="light"] .admin-workspace .owner-action-note,
+html[data-ynot-theme="light"] .admin-workspace [class*="owner-action"],
+html[data-ynot-theme="light"] .admin-workspace [class*="owner-status"] {
+  background: #1a1a1a !important;
+  color: #f5f5f5 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  text-shadow: none !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .owner-approval-grid > div span,
+html[data-ynot-theme="light"] .admin-workspace .owner-approval-grid > div strong {
+  color: #f5f5f5 !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .owner-approval-grid > div span:first-child {
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+}
+
+/* Admin clean dashboard variants — dark theme text rescue */
+html[data-ynot-theme="light"] .admin-workspace .admin-clean-dashboard,
+html[data-ynot-theme="light"] .admin-workspace .admin-clean-dashboard *,
+html[data-ynot-theme="light"] .admin-workspace [class*="admin-clean"] {
+  color: #f5f5f5 !important;
+  text-shadow: none !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .admin-clean-status,
+html[data-ynot-theme="light"] .admin-workspace .admin-clean-status * {
+  color: rgba(245, 245, 245, 0.8) !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .admin-clean-hero,
+html[data-ynot-theme="light"] .admin-workspace .admin-clean-hero.soft-card {
+  background: #141414 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .admin-clean-hero h1,
+html[data-ynot-theme="light"] .admin-workspace .admin-clean-hero h2,
+html[data-ynot-theme="light"] .admin-workspace .admin-clean-hero strong {
+  color: #ffffff !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .admin-clean-hero p {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* All admin-field inputs — make sure dark theme applies */
+html[data-ynot-theme="light"] .admin-workspace .admin-field,
+html[data-ynot-theme="light"] .admin-workspace .admin-field input,
+html[data-ynot-theme="light"] .admin-workspace .admin-field select,
+html[data-ynot-theme="light"] .admin-workspace .admin-field textarea {
+  background: #141414 !important;
+  color: #f5f5f5 !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .admin-field label {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Header mega menu — dark theme override on admin */
+html:has(.admin-workspace) .ynot-mega-panel {
+  background: #0f0f0f !important;
+  color: #f5f5f5 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+html:has(.admin-workspace) .ynot-mega-panel a,
+html:has(.admin-workspace) .ynot-mega-panel button,
+html:has(.admin-workspace) .ynot-mega-panel span {
+  color: #f5f5f5 !important;
+}
+html:has(.admin-workspace) .ynot-mega-panel a:hover {
+  color: #7eecc4 !important;
+}
+
+/* ============================================================
+ * Pack tier heading (LEGENDARY / N slabs/pack) — Arena Club spec.
+ *   - Container padding: 64px top + 0 bottom (tight to subtitle)
+ *   - Title: 24px / margin-bottom 4px
+ *   - Subtitle: 14px / margin-bottom 16px (gap to grid)
+ *   - Colors: title #000, subtitle #667085 (matches arenaclub.com)
+ * ============================================================ */
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading {
+  display: block !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
+  margin: 0 0 4px !important;
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.2 !important;
+  color: #000000 !important;
+  text-transform: uppercase !important;
+  text-shadow: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-subtitle {
+  margin: 0 0 16px !important;
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.4 !important;
+  color: #667085 !important;
+  text-transform: none !important;
+  text-shadow: none !important;
+}
+/* Kill the .store-main-stack 32px gap between the heading and the grid
+   so the LEGENDARY subtitle's 16px margin is the only spacing. */
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading + .home-pack-board {
+  margin-top: -32px !important;
+}
+@media (max-width: 767px) {
+  html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading {
+    padding: 0 !important;
+  }
+  html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
+    font-size: 20px !important;
+  }
+  html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-subtitle {
+    font-size: 12px !important;
+  }
+}

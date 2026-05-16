@@ -1,22 +1,37 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 const COLLAPSE_AFTER_PX = 80;
 const SCROLL_DOWN_TRIGGER_PX = 1;
 const SCROLL_UP_TRIGGER_PX = 1;
 const BOTTOM_GUARD_PX = 120;
+const AT_TOP_ENTER_PX = 2;
+const AT_TOP_EXIT_PX = 14;
 
 export function HeaderScrollEffect() {
+  const pathname = usePathname();
+
   useEffect(() => {
+    const isHome = pathname === "/";
+    document.documentElement.dataset.ynotRouteHome = isHome ? "true" : "false";
+
     let lastY = Math.max(0, window.scrollY);
     let ticking = false;
     let collapsed = false;
+    let atTop = false;
 
     const setCollapsed = (value: boolean) => {
       if (collapsed === value) return;
       collapsed = value;
       document.documentElement.dataset.headerCollapsed = value ? "true" : "false";
+    };
+
+    const setAtTop = (value: boolean) => {
+      if (atTop === value) return;
+      atTop = value;
+      document.documentElement.dataset.headerAtTop = value ? "true" : "false";
     };
 
     const apply = () => {
@@ -28,6 +43,8 @@ export function HeaderScrollEffect() {
       );
       const nearBottom = max > 0 && y >= max - BOTTOM_GUARD_PX;
       const diff = y - lastY;
+
+      setAtTop(atTop ? y <= AT_TOP_EXIT_PX : y <= AT_TOP_ENTER_PX);
 
       if (y < COLLAPSE_AFTER_PX) {
         setCollapsed(false);
@@ -54,8 +71,10 @@ export function HeaderScrollEffect() {
     return () => {
       window.removeEventListener("scroll", onScroll);
       delete document.documentElement.dataset.headerCollapsed;
+      delete document.documentElement.dataset.headerAtTop;
+      delete document.documentElement.dataset.ynotRouteHome;
     };
-  }, []);
+  }, [pathname]);
 
   return null;
 }
