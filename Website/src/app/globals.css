@@ -19178,7 +19178,9 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 .pack-open-slot,
 .pack-open-burst,
-.pack-open-rarity-ring {
+.pack-open-rarity-ring,
+.pack-open-scanline,
+.pack-open-flash {
   position: absolute;
   z-index: 3;
   pointer-events: none;
@@ -19213,6 +19215,29 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   transform: scale(0.68) rotate(0deg);
+}
+
+.pack-open-scanline {
+  z-index: 4;
+  width: min(86%, 380px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.86), transparent);
+  box-shadow:
+    0 0 18px rgba(255, 255, 255, 0.62),
+    0 0 44px rgba(204, 216, 190, 0.38);
+  transform: translateY(-190px) scaleX(0.2);
+}
+
+.pack-open-flash {
+  z-index: 2;
+  width: min(96%, 460px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.24) 32%, transparent 68%),
+    radial-gradient(circle, rgba(202, 215, 187, 0.48), transparent 72%);
+  filter: blur(10px);
+  transform: scale(0.4);
 }
 
 .pack-open-card-wrap {
@@ -19292,8 +19317,10 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.1em;
+  opacity: 0;
   text-align: center;
   text-transform: uppercase;
+  transform: translateY(14px) scale(0.96);
 }
 
 .pack-open-mini-card.rarity-rare,
@@ -19317,25 +19344,25 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 .pack-open-prototype.rarity-rare.charging::before,
 .pack-open-prototype.rarity-blackout.charging::before,
 .pack-open-prototype.rarity-jackpot.charging::before {
-  animation: rareScreenWash 4.1s ease forwards;
+  animation: rareScreenWash 5.8s ease forwards;
 }
 
 .pack-open-prototype.rarity-blackout.charging::before {
-  animation-duration: 4.7s;
+  animation-duration: 6.8s;
   animation-name: blackoutScreenWash;
 }
 
 .pack-open-prototype.rarity-jackpot.charging::before {
-  animation-duration: 5.2s;
+  animation-duration: 7.6s;
   animation-name: jackpotScreenWash;
 }
 
 .pack-open-prototype.charging .pack-open-pack-base {
-  animation: packCharge 3.2s cubic-bezier(0.2, 0.82, 0.16, 1) forwards;
+  animation: packCharge 4.4s cubic-bezier(0.2, 0.82, 0.16, 1) forwards;
 }
 
 .pack-open-prototype.charging .pack-open-pack-split {
-  animation: packSplitShow 3.2s cubic-bezier(0.2, 0.82, 0.16, 1) forwards;
+  animation: packSplitShow 4.4s cubic-bezier(0.2, 0.82, 0.16, 1) forwards;
 }
 
 .pack-open-prototype.charging .pack-open-pack-left {
@@ -19347,26 +19374,34 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 }
 
 .pack-open-prototype.charging .pack-open-tear {
-  animation: tearLine 2.7s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
+  animation: tearLine 4.05s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
 }
 
 .pack-open-prototype.charging .pack-open-slot {
-  animation: packSlot 3.2s cubic-bezier(0.16, 0.92, 0.18, 1) forwards;
+  animation: packSlot 4.4s cubic-bezier(0.16, 0.92, 0.18, 1) forwards;
 }
 
 .pack-open-prototype.charging .pack-open-burst {
-  animation: packBurst 3.2s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
+  animation: packBurst 4.4s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
+}
+
+.pack-open-prototype.charging .pack-open-scanline {
+  animation: packScan 4.4s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
+}
+
+.pack-open-prototype.charging .pack-open-flash {
+  animation: packRevealFlash 4.4s cubic-bezier(0.16, 0.92, 0.18, 1) forwards;
 }
 
 .pack-open-prototype.rarity-rare.charging .pack-open-burst {
-  animation-duration: 4.1s;
+  animation-duration: 5.8s;
   box-shadow:
     inset 0 0 54px rgba(255, 255, 255, 0.52),
     0 0 76px rgba(219, 225, 207, 0.76);
 }
 
 .pack-open-prototype.rarity-blackout.charging .pack-open-burst {
-  animation-duration: 4.7s;
+  animation-duration: 6.8s;
   border-color: rgba(255, 255, 255, 0.74);
   box-shadow:
     inset 0 0 44px rgba(255, 255, 255, 0.46),
@@ -19375,7 +19410,7 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 }
 
 .pack-open-prototype.rarity-jackpot.charging .pack-open-burst {
-  animation-duration: 5.2s;
+  animation-duration: 7.6s;
   border-color: rgba(255, 255, 255, 0.95);
   box-shadow:
     inset 0 0 68px rgba(255, 255, 255, 0.7),
@@ -19386,11 +19421,11 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 .pack-open-prototype.rarity-rare.charging .pack-open-rarity-ring,
 .pack-open-prototype.rarity-blackout.charging .pack-open-rarity-ring,
 .pack-open-prototype.rarity-jackpot.charging .pack-open-rarity-ring {
-  animation: rarityRing 4.1s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
+  animation: rarityRing 5.8s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
 }
 
 .pack-open-prototype.rarity-blackout.charging .pack-open-rarity-ring {
-  animation-duration: 4.7s;
+  animation-duration: 6.8s;
   border-color: rgba(17, 17, 17, 0.42);
   box-shadow:
     0 0 26px rgba(17, 17, 17, 0.28),
@@ -19399,7 +19434,7 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 }
 
 .pack-open-prototype.rarity-jackpot.charging .pack-open-rarity-ring {
-  animation-duration: 5.2s;
+  animation-duration: 7.6s;
   border-color: rgba(255, 255, 255, 0.74);
   box-shadow:
     0 0 38px rgba(255, 255, 255, 0.44),
@@ -19414,49 +19449,70 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 }
 
 .pack-open-prototype.charging .pack-open-card-wrap {
-  animation: cardPreview 3.2s cubic-bezier(0.15, 0.9, 0.2, 1) forwards;
+  animation: cardPreview 4.4s cubic-bezier(0.15, 0.9, 0.2, 1) forwards;
 }
 
 .pack-open-prototype.rarity-rare.charging .pack-open-pack-base,
 .pack-open-prototype.rarity-rare.charging .pack-open-pack-split,
-.pack-open-prototype.rarity-rare.charging .pack-open-slot {
-  animation-duration: 4.1s;
+.pack-open-prototype.rarity-rare.charging .pack-open-slot,
+.pack-open-prototype.rarity-rare.charging .pack-open-scanline,
+.pack-open-prototype.rarity-rare.charging .pack-open-flash {
+  animation-duration: 5.8s;
 }
 
 .pack-open-prototype.rarity-rare.charging .pack-open-tear {
-  animation-duration: 3.6s;
+  animation-duration: 5.2s;
 }
 
 .pack-open-prototype.rarity-blackout.charging .pack-open-pack-base,
 .pack-open-prototype.rarity-blackout.charging .pack-open-pack-split,
-.pack-open-prototype.rarity-blackout.charging .pack-open-slot {
-  animation-duration: 4.7s;
+.pack-open-prototype.rarity-blackout.charging .pack-open-slot,
+.pack-open-prototype.rarity-blackout.charging .pack-open-scanline,
+.pack-open-prototype.rarity-blackout.charging .pack-open-flash {
+  animation-duration: 6.8s;
 }
 
 .pack-open-prototype.rarity-blackout.charging .pack-open-tear {
-  animation-duration: 4.1s;
+  animation-duration: 6.1s;
 }
 
 .pack-open-prototype.rarity-jackpot.charging .pack-open-pack-base,
 .pack-open-prototype.rarity-jackpot.charging .pack-open-pack-split,
-.pack-open-prototype.rarity-jackpot.charging .pack-open-slot {
-  animation-duration: 5.2s;
+.pack-open-prototype.rarity-jackpot.charging .pack-open-slot,
+.pack-open-prototype.rarity-jackpot.charging .pack-open-scanline,
+.pack-open-prototype.rarity-jackpot.charging .pack-open-flash {
+  animation-duration: 7.6s;
 }
 
 .pack-open-prototype.rarity-jackpot.charging .pack-open-tear {
-  animation-duration: 4.6s;
+  animation-duration: 6.8s;
 }
 
 .pack-open-prototype.rarity-rare.charging .pack-open-card-wrap {
-  animation: rareCardPreview 4.1s cubic-bezier(0.15, 0.9, 0.2, 1) forwards;
+  animation: rareCardPreview 5.8s cubic-bezier(0.15, 0.9, 0.2, 1) forwards;
 }
 
 .pack-open-prototype.rarity-blackout.charging .pack-open-card-wrap {
-  animation: blackoutCardPreview 4.7s cubic-bezier(0.12, 0.9, 0.18, 1) forwards;
+  animation: blackoutCardPreview 6.8s cubic-bezier(0.12, 0.9, 0.18, 1) forwards;
 }
 
 .pack-open-prototype.rarity-jackpot.charging .pack-open-card-wrap {
-  animation: jackpotCardPreview 5.2s cubic-bezier(0.12, 0.9, 0.16, 1) forwards;
+  animation: jackpotCardPreview 7.6s cubic-bezier(0.12, 0.9, 0.16, 1) forwards;
+}
+
+.pack-open-prototype.batch.charging .pack-open-pack-base,
+.pack-open-prototype.batch.charging .pack-open-pack-split,
+.pack-open-prototype.batch.charging .pack-open-slot,
+.pack-open-prototype.batch.charging .pack-open-burst,
+.pack-open-prototype.batch.charging .pack-open-rarity-ring,
+.pack-open-prototype.batch.charging .pack-open-scanline,
+.pack-open-prototype.batch.charging .pack-open-flash,
+.pack-open-prototype.batch.charging .pack-open-card-wrap {
+  animation-duration: 5.2s;
+}
+
+.pack-open-prototype.batch.charging .pack-open-tear {
+  animation-duration: 4.7s;
 }
 
 .pack-open-prototype.revealed .pack-open-pack-shell {
@@ -19506,6 +19562,11 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
   transition:
     opacity 0.36s ease 0.12s,
     transform 0.42s ease 0.12s;
+}
+
+.pack-open-prototype.batch.revealed .pack-open-mini-card {
+  animation: miniCardReveal 0.54s cubic-bezier(0.16, 0.9, 0.2, 1) forwards;
+  animation-delay: calc(0.08s + (var(--mini-index) * 0.045s));
 }
 
 @keyframes packIdle {
@@ -19781,6 +19842,51 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
   }
 }
 
+@keyframes packScan {
+  0%,
+  18% {
+    opacity: 0;
+    transform: translateY(-190px) scaleX(0.2);
+  }
+  26% {
+    opacity: 0.86;
+    transform: translateY(-156px) scaleX(0.72);
+  }
+  42% {
+    opacity: 0.72;
+    transform: translateY(24px) scaleX(1);
+  }
+  58% {
+    opacity: 0.34;
+    transform: translateY(176px) scaleX(0.82);
+  }
+  66%,
+  100% {
+    opacity: 0;
+    transform: translateY(204px) scaleX(0.42);
+  }
+}
+
+@keyframes packRevealFlash {
+  0%,
+  54% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  64% {
+    opacity: 0.42;
+    transform: scale(0.76);
+  }
+  78% {
+    opacity: 0.24;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.24);
+  }
+}
+
 @keyframes cardPreview {
   0%,
   56% {
@@ -19862,6 +19968,21 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
   100% {
     opacity: 1;
     transform: translateY(0) scale(1) rotateX(0);
+  }
+}
+
+@keyframes miniCardReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  72% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.015);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 

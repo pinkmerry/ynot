@@ -1,10 +1,12 @@
 "use client";
 
 import Image from "next/image";
+import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 
 type OpenMode = "single" | "batch";
 type OpenStage = "idle" | "charging" | "revealed";
+type OpenPhase = "ready" | "seal" | "scan" | "tear" | "pull";
 type PullRarity = "normal" | "rare" | "blackout" | "jackpot";
 
 const sampleResults = Array.from({ length: 10 }, (_, index) => ({
@@ -22,22 +24,49 @@ function rollRarity(): PullRarity {
 }
 
 function getOpenDuration(mode: OpenMode, rarity: PullRarity) {
-  if (mode === "batch") return 2600;
-  if (rarity === "jackpot") return 5200;
-  if (rarity === "blackout") return 4700;
-  if (rarity === "rare") return 4100;
-  return 3200;
+  if (mode === "batch") return 5200;
+  if (rarity === "jackpot") return 7600;
+  if (rarity === "blackout") return 6800;
+  if (rarity === "rare") return 5800;
+  return 4400;
+}
+
+function getPhaseLabel(stage: OpenStage, phase: OpenPhase, mode: OpenMode, rarity: PullRarity) {
+  if (stage === "idle") return "Ready";
+  if (stage === "revealed") {
+    if (mode === "batch") return "Results";
+    if (rarity === "jackpot") return "Museum jackpot";
+    if (rarity === "blackout") return "Blackout hit";
+    if (rarity === "rare") return "Rare pull";
+    return "You pulled";
+  }
+
+  if (phase === "seal") return "Sealing chamber";
+  if (phase === "scan") return mode === "batch" ? "Scanning 10 packs" : "Scanning slab";
+  if (phase === "tear") return "Breaking seal";
+  if (phase === "pull") return mode === "batch" ? "Revealing results" : "Pulling card";
+  return mode === "batch" ? "Opening 10 packs" : "Opening pack";
 }
 
 export function PackOpenPrototype() {
   const [stage, setStage] = useState<OpenStage>("idle");
+  const [phase, setPhase] = useState<OpenPhase>("ready");
   const [mode, setMode] = useState<OpenMode>("single");
   const [rarity, setRarity] = useState<PullRarity>("normal");
 
   useEffect(() => {
     if (stage !== "charging") return;
-    const timer = window.setTimeout(() => setStage("revealed"), getOpenDuration(mode, rarity));
-    return () => window.clearTimeout(timer);
+    const duration = getOpenDuration(mode, rarity);
+    setPhase("seal");
+
+    const timers = [
+      window.setTimeout(() => setPhase("scan"), duration * 0.2),
+      window.setTimeout(() => setPhase("tear"), duration * 0.48),
+      window.setTimeout(() => setPhase("pull"), duration * 0.72),
+      window.setTimeout(() => setStage("revealed"), duration),
+    ];
+
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, [mode, rarity, stage]);
 
   function startOpen(nextMode: OpenMode, forcedRarity?: PullRarity) {
@@ -48,13 +77,15 @@ export function PackOpenPrototype() {
 
   function reset() {
     setStage("idle");
+    setPhase("ready");
   }
 
   const isOpening = stage === "charging";
   const isRevealed = stage === "revealed";
+  const status = getPhaseLabel(stage, phase, mode, rarity);
 
   return (
-    <main className={`pack-open-prototype ${stage} ${mode} rarity-${rarity}`}>
+    <main className={`pack-open-prototype ${stage} ${mode} phase-${phase} rarity-${rarity}`}>
       <div className="pack-open-grain" aria-hidden />
       <header className="pack-open-header">
         <a href="/packs" className="pack-open-link">
@@ -75,6 +106,8 @@ export function PackOpenPrototype() {
 
         <div className="pack-open-visual" aria-live="polite">
           <div className="pack-open-aura" aria-hidden />
+          <span className="pack-open-scanline" aria-hidden />
+          <span className="pack-open-flash" aria-hidden />
           <div className="pack-open-pack-shell" aria-hidden={isRevealed}>
             <div className="pack-open-pack pack-open-pack-base">
               <Image
@@ -122,10 +155,11 @@ export function PackOpenPrototype() {
 
           {mode === "batch" && (
             <div className="pack-open-batch-grid" aria-hidden={!isRevealed}>
-              {sampleResults.map((result) => (
+              {sampleResults.map((result, index) => (
                 <span
                   key={result.id}
                   className={`pack-open-mini-card rarity-${result.rarity}`}
+                  style={{ "--mini-index": index } as CSSProperties}
                 >
                   {result.label}
                 </span>
@@ -135,20 +169,7 @@ export function PackOpenPrototype() {
         </div>
 
         <div className="pack-open-controls">
-          <div className="pack-open-status">
-            {stage === "idle" && "Ready"}
-            {stage === "charging" && (mode === "single" ? "Opening pack" : "Opening 10 packs")}
-            {stage === "revealed" &&
-              (mode === "single"
-                ? rarity === "jackpot"
-                  ? "Museum jackpot"
-                  : rarity === "blackout"
-                    ? "Blackout hit"
-                    : rarity === "rare"
-                    ? "Rare pull"
-                    : "You pulled"
-                : "Results")}
-          </div>
+          <div className="pack-open-status">{status}</div>
 
           {stage === "idle" ? (
             <div className="pack-open-actions">
