@@ -118,7 +118,7 @@ export function PackOpenPrototype() {
                 priority
               />
             </div>
-            <div className="pack-open-pack-split pack-open-pack-left">
+            <div className="pack-open-pack-split pack-open-pack-top">
               <Image
                 src="/ynot-open-pack-tight.png"
                 alt=""
@@ -127,7 +127,7 @@ export function PackOpenPrototype() {
                 priority
               />
             </div>
-            <div className="pack-open-pack-split pack-open-pack-right">
+            <div className="pack-open-pack-split pack-open-pack-body">
               <Image
                 src="/ynot-open-pack-tight.png"
                 alt=""
