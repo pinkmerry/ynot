@@ -111,28 +111,28 @@ export function PackOpenPrototype() {
           <div className="pack-open-pack-shell" aria-hidden={isRevealed}>
             <div className="pack-open-pack pack-open-pack-base">
               <Image
-                src="/ynot-open-pack-tight.png"
+                src="/ynot-open-pack-bg-removed.png"
                 alt="YNOT sealed slab pack"
-                width={720}
-                height={1146}
+                width={896}
+                height={1200}
                 priority
               />
             </div>
             <div className="pack-open-pack-split pack-open-pack-top">
               <Image
-                src="/ynot-open-pack-tight.png"
+                src="/ynot-open-pack-bg-removed.png"
                 alt=""
-                width={720}
-                height={1146}
+                width={896}
+                height={1200}
                 priority
               />
             </div>
             <div className="pack-open-pack-split pack-open-pack-body">
               <Image
-                src="/ynot-open-pack-tight.png"
+                src="/ynot-open-pack-bg-removed.png"
                 alt=""
-                width={720}
-                height={1146}
+                width={896}
+                height={1200}
                 priority
               />
             </div>

@@ -19099,7 +19099,7 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 .pack-open-card-wrap {
   position: absolute;
   width: min(82%, 360px);
-  aspect-ratio: 720 / 1146;
+  aspect-ratio: 896 / 1200;
   transform-style: preserve-3d;
 }
 
