@@ -50,8 +50,8 @@ Captured on 2026-05-17 after switching away from R2/Durable Objects/Images bindi
 
 | Surface | Worker route | Preview URL | Version evidence |
 | --- | --- | --- | --- |
-| Website | `ynottcg.com/*`, `www.ynottcg.com/*` | `https://ynott-website.puppeteer-55b.workers.dev` | `fd754724-dfe5-4701-9ec7-232f1a7730f7` |
-| LIFF | `liff.ynottcg.com/*` | `https://ynott-line-liff.puppeteer-55b.workers.dev` | `626b16ef-dcf4-4d8f-af7f-7179cadd5d3c` |
+| Website | `ynottcg.com/*`, `www.ynottcg.com/*` | `https://ynott-website.puppeteer-55b.workers.dev` | `56c0dd4d-4c6f-4893-a292-4ee9c187e97f` |
+| LIFF | `liff.ynottcg.com/*` | `https://ynott-line-liff.puppeteer-55b.workers.dev` | `d776a1ac-3178-41ab-9efa-ad8b658af044` |
 
 Both preview URLs returned `HTTP/2 200` with `server: cloudflare`. `SUPABASE_SERVICE_ROLE_KEY` and `LINE_SESSION_SECRET` are configured as Worker secrets for both Workers. `LINE_LOGIN_CHANNEL_SECRET`, `SLIP2GO_API_URL`, and `SLIP2GO_SECRET_KEY` were not available locally and still need real production values before those flows can be fully verified on Cloudflare.
 
