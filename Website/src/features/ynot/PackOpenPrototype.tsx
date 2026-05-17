@@ -137,6 +137,12 @@ export function PackOpenPrototype() {
               />
             </div>
             <span className="pack-open-tear" />
+            <span className="pack-open-mouth-shadow" aria-hidden />
+            <span className="pack-open-crinkles" aria-hidden>
+              <span />
+              <span />
+              <span />
+            </span>
             <span className="pack-open-sheen" />
           </div>
           <span className="pack-open-slot" aria-hidden />
