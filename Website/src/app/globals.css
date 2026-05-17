@@ -18944,6 +18944,1015 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data-ynot-route-home][data-header-at-top][class] .store-admin-link {
   color: #000000 !important;
 }
+
+/* Pack open prototype — luxury editorial motion sandbox. */
+.pack-open-prototype {
+  min-height: 100dvh;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(212, 222, 208, 0.34), transparent 34%),
+    linear-gradient(180deg, #f7f7f4 0%, #eeeeea 46%, #d9ddd4 100%);
+  color: #111111;
+  font-family:
+    var(--font-prompt),
+    var(--font-noto-thai),
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  letter-spacing: 0;
+}
+
+.pack-open-prototype::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.54), transparent 18%, transparent 82%, rgba(255, 255, 255, 0.46)),
+    radial-gradient(circle at 50% 115%, rgba(0, 0, 0, 0.15), transparent 42%);
+  opacity: 0.78;
+}
+
+.pack-open-grain {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.018) 1px, transparent 1px);
+  background-size: 4px 4px;
+  opacity: 0.22;
+  transform: rotate(2deg);
+  mix-blend-mode: multiply;
+}
+
+.pack-open-header {
+  position: fixed;
+  z-index: 5;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 clamp(18px, 4vw, 48px);
+  border-bottom: 1px solid rgba(17, 17, 17, 0.1);
+  color: rgba(17, 17, 17, 0.74);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.pack-open-header span {
+  color: #111111;
+}
+
+.pack-open-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.pack-open-link:last-child {
+  justify-self: end;
+}
+
+.pack-open-stage {
+  position: relative;
+  z-index: 1;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(320px, 520px) minmax(220px, 0.7fr);
+  align-items: center;
+  gap: clamp(24px, 5vw, 76px);
+  padding: 88px clamp(20px, 5vw, 86px) 34px;
+}
+
+.pack-open-copy {
+  align-self: end;
+  padding-bottom: 8vh;
+  max-width: 320px;
+}
+
+.pack-open-copy span,
+.pack-open-status {
+  display: block;
+  color: rgba(17, 17, 17, 0.54);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.pack-open-copy h1 {
+  margin: 18px 0 16px;
+  color: #111111;
+  font-size: clamp(32px, 5vw, 72px);
+  font-weight: 500;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.pack-open-copy p {
+  margin: 0;
+  max-width: 260px;
+  color: rgba(17, 17, 17, 0.55);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.pack-open-visual {
+  position: relative;
+  width: min(70vw, 420px);
+  height: min(76dvh, 620px);
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  perspective: 1200px;
+}
+
+.pack-open-aura {
+  position: absolute;
+  width: 86%;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: rgba(210, 222, 204, 0.56);
+  filter: blur(34px);
+  transform: translateY(18%);
+  transition:
+    opacity 0.42s ease,
+    transform 0.42s ease,
+    filter 0.42s ease;
+}
+
+.pack-open-pack-shell,
+.pack-open-card-wrap {
+  position: absolute;
+  width: min(82%, 360px);
+  aspect-ratio: 720 / 1146;
+  transform-style: preserve-3d;
+}
+
+.pack-open-pack-shell {
+  z-index: 2;
+}
+
+.pack-open-pack,
+.pack-open-pack-split,
+.pack-open-card-wrap {
+  filter: drop-shadow(0 30px 52px rgba(42, 52, 39, 0.18));
+}
+
+.pack-open-pack img,
+.pack-open-pack-split img,
+.pack-open-card-wrap img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.pack-open-pack-base {
+  opacity: 1;
+  transform: translateZ(0);
+  animation: packIdle 5.6s ease-in-out infinite;
+}
+
+.pack-open-pack-split {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.pack-open-pack-left {
+  clip-path: inset(0 50% 0 0);
+}
+
+.pack-open-pack-right {
+  clip-path: inset(0 0 0 50%);
+}
+
+.pack-open-sheen {
+  position: absolute;
+  inset: 2% 4%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pack-open-sheen::before {
+  content: "";
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  width: 28%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.42), transparent);
+  transform: translateX(-160%) rotate(13deg);
+  animation: packSheen 4.8s ease-in-out infinite;
+}
+
+.pack-open-tear {
+  position: absolute;
+  top: 14%;
+  bottom: 14%;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%) scaleY(0);
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.96) 18%, rgba(255, 255, 255, 0.84) 72%, transparent);
+  box-shadow:
+    0 0 14px rgba(255, 255, 255, 0.72),
+    0 0 44px rgba(198, 212, 185, 0.76);
+  opacity: 0;
+}
+
+.pack-open-slot,
+.pack-open-burst,
+.pack-open-rarity-ring {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.pack-open-slot {
+  width: min(42%, 170px);
+  height: min(66%, 410px);
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(ellipse at center, rgba(236, 241, 230, 0.82), transparent 64%);
+  filter: blur(18px);
+  transform: scaleX(0.16) scaleY(0.72);
+}
+
+.pack-open-burst {
+  width: min(86%, 390px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  box-shadow:
+    inset 0 0 44px rgba(255, 255, 255, 0.4),
+    0 0 54px rgba(200, 213, 187, 0.5);
+  transform: scale(0.48);
+}
+
+.pack-open-rarity-ring {
+  width: min(84%, 390px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  transform: scale(0.68) rotate(0deg);
+}
+
+.pack-open-card-wrap {
+  z-index: 1;
+  width: min(72%, 320px);
+  aspect-ratio: 1058 / 1474;
+  opacity: 0;
+  transform: translateY(86px) scale(0.72) rotateX(16deg);
+}
+
+.pack-open-card-wrap img {
+  border-radius: 18px;
+}
+
+.pack-open-controls {
+  align-self: end;
+  padding-bottom: 8vh;
+  justify-self: end;
+  min-width: min(100%, 280px);
+}
+
+.pack-open-status {
+  margin-bottom: 18px;
+}
+
+.pack-open-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.pack-open-actions button {
+  min-height: 48px;
+  padding: 0 22px;
+  border: 1px solid rgba(17, 17, 17, 0.28);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.24);
+  color: #111111;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.pack-open-actions button:hover,
+.pack-open-actions button:focus-visible {
+  background: #111111;
+  border-color: #111111;
+  color: #ffffff;
+  outline: none;
+}
+
+.pack-open-batch-grid {
+  position: absolute;
+  left: 50%;
+  bottom: 2%;
+  width: min(92vw, 430px);
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  opacity: 0;
+  transform: translate(-50%, 20px);
+}
+
+.pack-open-mini-card {
+  display: grid;
+  place-items: center;
+  min-height: 74px;
+  border: 1px solid rgba(17, 17, 17, 0.13);
+  background: rgba(255, 255, 255, 0.52);
+  color: rgba(17, 17, 17, 0.72);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.pack-open-mini-card.rarity-rare,
+.pack-open-mini-card.rarity-blackout,
+.pack-open-mini-card.rarity-jackpot {
+  border-color: rgba(17, 17, 17, 0.42);
+  background: rgba(236, 239, 227, 0.85);
+  color: #111111;
+}
+
+.pack-open-mini-card.rarity-blackout {
+  background: rgba(17, 17, 17, 0.78);
+  color: #ffffff;
+}
+
+.pack-open-mini-card.rarity-jackpot {
+  background: #111111;
+  color: #ffffff;
+}
+
+.pack-open-prototype.rarity-rare.charging::before,
+.pack-open-prototype.rarity-blackout.charging::before,
+.pack-open-prototype.rarity-jackpot.charging::before {
+  animation: rareScreenWash 4.1s ease forwards;
+}
+
+.pack-open-prototype.rarity-blackout.charging::before {
+  animation-duration: 4.7s;
+  animation-name: blackoutScreenWash;
+}
+
+.pack-open-prototype.rarity-jackpot.charging::before {
+  animation-duration: 5.2s;
+  animation-name: jackpotScreenWash;
+}
+
+.pack-open-prototype.charging .pack-open-pack-base {
+  animation: packCharge 3.2s cubic-bezier(0.2, 0.82, 0.16, 1) forwards;
+}
+
+.pack-open-prototype.charging .pack-open-pack-split {
+  animation: packSplitShow 3.2s cubic-bezier(0.2, 0.82, 0.16, 1) forwards;
+}
+
+.pack-open-prototype.charging .pack-open-pack-left {
+  animation-name: packLeftOpen;
+}
+
+.pack-open-prototype.charging .pack-open-pack-right {
+  animation-name: packRightOpen;
+}
+
+.pack-open-prototype.charging .pack-open-tear {
+  animation: tearLine 2.7s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
+}
+
+.pack-open-prototype.charging .pack-open-slot {
+  animation: packSlot 3.2s cubic-bezier(0.16, 0.92, 0.18, 1) forwards;
+}
+
+.pack-open-prototype.charging .pack-open-burst {
+  animation: packBurst 3.2s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
+}
+
+.pack-open-prototype.rarity-rare.charging .pack-open-burst {
+  animation-duration: 4.1s;
+  box-shadow:
+    inset 0 0 54px rgba(255, 255, 255, 0.52),
+    0 0 76px rgba(219, 225, 207, 0.76);
+}
+
+.pack-open-prototype.rarity-blackout.charging .pack-open-burst {
+  animation-duration: 4.7s;
+  border-color: rgba(255, 255, 255, 0.74);
+  box-shadow:
+    inset 0 0 44px rgba(255, 255, 255, 0.46),
+    0 0 72px rgba(255, 255, 255, 0.36),
+    0 0 128px rgba(22, 26, 21, 0.44);
+}
+
+.pack-open-prototype.rarity-jackpot.charging .pack-open-burst {
+  animation-duration: 5.2s;
+  border-color: rgba(255, 255, 255, 0.95);
+  box-shadow:
+    inset 0 0 68px rgba(255, 255, 255, 0.7),
+    0 0 110px rgba(255, 255, 255, 0.84),
+    0 0 150px rgba(202, 215, 187, 0.9);
+}
+
+.pack-open-prototype.rarity-rare.charging .pack-open-rarity-ring,
+.pack-open-prototype.rarity-blackout.charging .pack-open-rarity-ring,
+.pack-open-prototype.rarity-jackpot.charging .pack-open-rarity-ring {
+  animation: rarityRing 4.1s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
+}
+
+.pack-open-prototype.rarity-blackout.charging .pack-open-rarity-ring {
+  animation-duration: 4.7s;
+  border-color: rgba(17, 17, 17, 0.42);
+  box-shadow:
+    0 0 26px rgba(17, 17, 17, 0.28),
+    inset 0 0 24px rgba(255, 255, 255, 0.22);
+  animation-name: blackoutRing;
+}
+
+.pack-open-prototype.rarity-jackpot.charging .pack-open-rarity-ring {
+  animation-duration: 5.2s;
+  border-color: rgba(255, 255, 255, 0.74);
+  box-shadow:
+    0 0 38px rgba(255, 255, 255, 0.44),
+    inset 0 0 28px rgba(255, 255, 255, 0.28);
+  animation-name: jackpotRing;
+}
+
+.pack-open-prototype.charging .pack-open-aura {
+  opacity: 0.86;
+  filter: blur(44px);
+  transform: translateY(20%) scale(1.12);
+}
+
+.pack-open-prototype.charging .pack-open-card-wrap {
+  animation: cardPreview 3.2s cubic-bezier(0.15, 0.9, 0.2, 1) forwards;
+}
+
+.pack-open-prototype.rarity-rare.charging .pack-open-pack-base,
+.pack-open-prototype.rarity-rare.charging .pack-open-pack-split,
+.pack-open-prototype.rarity-rare.charging .pack-open-slot {
+  animation-duration: 4.1s;
+}
+
+.pack-open-prototype.rarity-rare.charging .pack-open-tear {
+  animation-duration: 3.6s;
+}
+
+.pack-open-prototype.rarity-blackout.charging .pack-open-pack-base,
+.pack-open-prototype.rarity-blackout.charging .pack-open-pack-split,
+.pack-open-prototype.rarity-blackout.charging .pack-open-slot {
+  animation-duration: 4.7s;
+}
+
+.pack-open-prototype.rarity-blackout.charging .pack-open-tear {
+  animation-duration: 4.1s;
+}
+
+.pack-open-prototype.rarity-jackpot.charging .pack-open-pack-base,
+.pack-open-prototype.rarity-jackpot.charging .pack-open-pack-split,
+.pack-open-prototype.rarity-jackpot.charging .pack-open-slot {
+  animation-duration: 5.2s;
+}
+
+.pack-open-prototype.rarity-jackpot.charging .pack-open-tear {
+  animation-duration: 4.6s;
+}
+
+.pack-open-prototype.rarity-rare.charging .pack-open-card-wrap {
+  animation: rareCardPreview 4.1s cubic-bezier(0.15, 0.9, 0.2, 1) forwards;
+}
+
+.pack-open-prototype.rarity-blackout.charging .pack-open-card-wrap {
+  animation: blackoutCardPreview 4.7s cubic-bezier(0.12, 0.9, 0.18, 1) forwards;
+}
+
+.pack-open-prototype.rarity-jackpot.charging .pack-open-card-wrap {
+  animation: jackpotCardPreview 5.2s cubic-bezier(0.12, 0.9, 0.16, 1) forwards;
+}
+
+.pack-open-prototype.revealed .pack-open-pack-shell {
+  opacity: 0;
+  transform: scale(0.86);
+  transition:
+    opacity 0.42s ease,
+    transform 0.42s ease;
+}
+
+.pack-open-prototype.revealed .pack-open-card-wrap {
+  z-index: 3;
+  opacity: 1;
+  transform: translateY(0) scale(1) rotateX(0);
+  transition:
+    opacity 0.46s ease,
+    transform 0.64s cubic-bezier(0.16, 0.9, 0.2, 1);
+}
+
+.pack-open-prototype.rarity-rare.revealed .pack-open-card-wrap {
+  filter:
+    drop-shadow(0 30px 52px rgba(42, 52, 39, 0.18))
+    drop-shadow(0 0 32px rgba(220, 227, 206, 0.7));
+}
+
+.pack-open-prototype.rarity-blackout.revealed .pack-open-card-wrap {
+  filter:
+    drop-shadow(0 30px 52px rgba(42, 52, 39, 0.18))
+    drop-shadow(0 0 42px rgba(17, 17, 17, 0.32));
+}
+
+.pack-open-prototype.rarity-jackpot.revealed .pack-open-card-wrap {
+  filter:
+    drop-shadow(0 30px 52px rgba(42, 52, 39, 0.18))
+    drop-shadow(0 0 54px rgba(255, 255, 255, 0.82))
+    drop-shadow(0 0 94px rgba(198, 211, 186, 0.75));
+}
+
+.pack-open-prototype.batch.revealed .pack-open-card-wrap {
+  opacity: 0.2;
+  transform: translateY(-82px) scale(0.62);
+}
+
+.pack-open-prototype.batch.revealed .pack-open-batch-grid {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  transition:
+    opacity 0.36s ease 0.12s,
+    transform 0.42s ease 0.12s;
+}
+
+@keyframes packIdle {
+  0%,
+  100% {
+    transform: translateY(0) rotateX(0deg);
+  }
+  50% {
+    transform: translateY(-10px) rotateX(2deg);
+  }
+}
+
+@keyframes packSheen {
+  0%,
+  48% {
+    transform: translateX(-160%) rotate(13deg);
+  }
+  72%,
+  100% {
+    transform: translateX(470%) rotate(13deg);
+  }
+}
+
+@keyframes rareScreenWash {
+  0%,
+  44% {
+    opacity: 0.78;
+  }
+  56% {
+    opacity: 0.96;
+  }
+  100% {
+    opacity: 0.82;
+  }
+}
+
+@keyframes jackpotScreenWash {
+  0%,
+  34% {
+    opacity: 0.78;
+    filter: brightness(1);
+  }
+  48% {
+    opacity: 1;
+    filter: brightness(1.12);
+  }
+  58% {
+    opacity: 0.58;
+    filter: brightness(1.28);
+  }
+  100% {
+    opacity: 0.86;
+    filter: brightness(1);
+  }
+}
+
+@keyframes blackoutScreenWash {
+  0%,
+  26% {
+    opacity: 0.78;
+    filter: brightness(1);
+  }
+  44%,
+  66% {
+    opacity: 1;
+    filter: brightness(0.72) contrast(1.12);
+  }
+  76% {
+    opacity: 0.62;
+    filter: brightness(1.2);
+  }
+  100% {
+    opacity: 0.84;
+    filter: brightness(1);
+  }
+}
+
+@keyframes packCharge {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateX(0deg);
+    filter: blur(0);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(16px) scale(0.985) rotateX(-2deg);
+    filter: blur(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-16px) scale(1.035) rotateX(3deg);
+    filter: blur(0);
+  }
+  50% {
+    opacity: 0.82;
+    transform: translateY(-20px) scale(1.055) rotateX(5deg);
+    filter: blur(1px);
+  }
+  62%,
+  100% {
+    opacity: 0;
+    transform: translateY(-22px) scale(1.08) rotateX(7deg);
+    filter: blur(8px);
+  }
+}
+
+@keyframes packSplitShow {
+  0%,
+  45% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 0.68;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes rarityRing {
+  0%,
+  48% {
+    opacity: 0;
+    transform: scale(0.68) rotate(0deg);
+  }
+  62% {
+    opacity: 0.74;
+    transform: scale(0.96) rotate(10deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.22) rotate(24deg);
+  }
+}
+
+@keyframes jackpotRing {
+  0%,
+  42% {
+    opacity: 0;
+    transform: scale(0.58) rotate(0deg);
+  }
+  54% {
+    opacity: 1;
+    transform: scale(0.86) rotate(18deg);
+  }
+  74% {
+    opacity: 0.82;
+    transform: scale(1.08) rotate(42deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.34) rotate(72deg);
+  }
+}
+
+@keyframes blackoutRing {
+  0%,
+  44% {
+    opacity: 0;
+    transform: scale(0.7) rotate(0deg);
+  }
+  58% {
+    opacity: 0.82;
+    transform: scale(0.92) rotate(-8deg);
+  }
+  76% {
+    opacity: 0.58;
+    transform: scale(1.08) rotate(-20deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.22) rotate(-34deg);
+  }
+}
+
+@keyframes packLeftOpen {
+  0%,
+  45% {
+    opacity: 0;
+    transform: translateX(0) translateY(0) rotateY(0deg) rotateZ(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(0) translateY(-8px) rotateY(0deg) rotateZ(0deg);
+  }
+  72% {
+    opacity: 0.86;
+    transform: translateX(-54px) translateY(-26px) rotateY(-23deg) rotateZ(-3deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-92px) translateY(-46px) rotateY(-34deg) rotateZ(-6deg);
+  }
+}
+
+@keyframes packRightOpen {
+  0%,
+  45% {
+    opacity: 0;
+    transform: translateX(0) translateY(0) rotateY(0deg) rotateZ(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(0) translateY(-8px) rotateY(0deg) rotateZ(0deg);
+  }
+  72% {
+    opacity: 0.86;
+    transform: translateX(54px) translateY(-26px) rotateY(23deg) rotateZ(3deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(92px) translateY(-46px) rotateY(34deg) rotateZ(6deg);
+  }
+}
+
+@keyframes tearLine {
+  0%,
+  22% {
+    opacity: 0;
+    transform: translateX(-50%) scaleY(0);
+  }
+  36% {
+    opacity: 0.64;
+    transform: translateX(-50%) scaleY(0.52);
+  }
+  52%,
+  70% {
+    opacity: 1;
+    transform: translateX(-50%) scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scaleY(1.22);
+  }
+}
+
+@keyframes packSlot {
+  0%,
+  34% {
+    opacity: 0;
+    transform: scaleX(0.16) scaleY(0.72);
+  }
+  52% {
+    opacity: 0.94;
+    transform: scaleX(0.34) scaleY(0.9);
+  }
+  76% {
+    opacity: 0.62;
+    transform: scaleX(0.74) scaleY(1.03);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1.2) scaleY(1.08);
+  }
+}
+
+@keyframes packBurst {
+  0%,
+  48% {
+    opacity: 0;
+    transform: scale(0.48);
+  }
+  60% {
+    opacity: 0.76;
+    transform: scale(0.74);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes cardPreview {
+  0%,
+  56% {
+    opacity: 0;
+    transform: translateY(86px) scale(0.72) rotateX(16deg);
+  }
+  72% {
+    opacity: 0.54;
+    transform: translateY(10px) scale(0.92) rotateX(6deg);
+  }
+  86% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1.025) rotateX(-1deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateX(0);
+  }
+}
+
+@keyframes rareCardPreview {
+  0%,
+  62% {
+    opacity: 0;
+    transform: translateY(92px) scale(0.7) rotateX(18deg);
+  }
+  76% {
+    opacity: 0.66;
+    transform: translateY(8px) scale(0.92) rotateX(6deg);
+  }
+  90% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1.03) rotateX(-1deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateX(0);
+  }
+}
+
+@keyframes jackpotCardPreview {
+  0%,
+  68% {
+    opacity: 0;
+    transform: translateY(110px) scale(0.62) rotateX(22deg);
+  }
+  78% {
+    opacity: 0.38;
+    transform: translateY(34px) scale(0.82) rotateX(10deg);
+  }
+  88% {
+    opacity: 0.92;
+    transform: translateY(-16px) scale(1.06) rotateX(-2deg);
+  }
+  94% {
+    opacity: 1;
+    transform: translateY(4px) scale(0.99) rotateX(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateX(0);
+  }
+}
+
+@keyframes blackoutCardPreview {
+  0%,
+  66% {
+    opacity: 0;
+    transform: translateY(104px) scale(0.66) rotateX(20deg);
+  }
+  74% {
+    opacity: 0.28;
+    transform: translateY(50px) scale(0.78) rotateX(12deg);
+  }
+  84% {
+    opacity: 0.9;
+    transform: translateY(-20px) scale(1.05) rotateX(-2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateX(0);
+  }
+}
+
+@media (max-width: 760px) {
+  .pack-open-header {
+    height: 58px;
+    padding: 0 18px;
+    font-size: 10px;
+  }
+
+  .pack-open-stage {
+    min-height: 100dvh;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    gap: 0;
+    padding: 72px 18px 18px;
+  }
+
+  .pack-open-copy {
+    align-self: start;
+    padding: 0;
+    max-width: 100%;
+  }
+
+  .pack-open-copy span {
+    font-size: 10px;
+  }
+
+  .pack-open-copy h1 {
+    max-width: 320px;
+    margin: 12px 0 8px;
+    font-size: 34px;
+  }
+
+  .pack-open-copy p {
+    display: none;
+  }
+
+  .pack-open-visual {
+    width: 100%;
+    height: 100%;
+    min-height: 440px;
+  }
+
+  .pack-open-pack-shell {
+    width: min(76vw, 312px);
+  }
+
+  .pack-open-card-wrap {
+    width: min(72vw, 292px);
+  }
+
+  .pack-open-controls {
+    justify-self: stretch;
+    align-self: end;
+    padding: 0;
+    min-width: 0;
+  }
+
+  .pack-open-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pack-open-actions button {
+    min-height: 52px;
+    padding: 0 14px;
+    font-size: 11px;
+  }
+
+  .pack-open-batch-grid {
+    bottom: 1%;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .pack-open-mini-card {
+    min-height: 58px;
+    font-size: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pack-open-prototype *,
+  .pack-open-prototype *::before,
+  .pack-open-prototype *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 /* hmr-1778952219 */
 /* hmr-1778961624 */
 
@@ -19463,3 +20472,49 @@ html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-empty {
   letter-spacing: 0.16em !important;
   text-transform: uppercase !important;
 }
+
+/* Admin route header — match the solid-white storefront header used on
+   /packs and /marketplace. The default storefront-header is transparent
+   so on the dark admin workspace it would visually read as a dark bar;
+   force the white surface explicitly here. */
+html[lang][data-ynot-theme][data-ynot-language][class] body:has(.admin-workspace) .storefront-header,
+html[lang][data-ynot-theme][data-ynot-language][class] body:has(.admin-workspace) .storefront-header .store-topbar {
+  background: #ffffff !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] body:has(.admin-workspace) .storefront-header {
+  border-bottom: 1px solid #000000 !important;
+  box-shadow: 0 4px 16px -8px rgba(0, 0, 0, 0.55) !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] body:has(.admin-workspace) .storefront-header::before,
+html[lang][data-ynot-theme][data-ynot-language][class] body:has(.admin-workspace) .storefront-header::after {
+  display: none !important;
+}
+/* Breathing room between the white admin header and the dark workspace
+   panel below — mirrors the footer spacing on storefront pages. */
+html[lang][data-ynot-theme][data-ynot-language][class] body:has(.admin-workspace) .admin-workspace {
+  margin-top: 32px !important;
+}
+
+/* Match ADMIN + EN to the desktop primary-nav metrics exactly —
+   MARKETPLACE renders with padding 6.66624px 0 (vertical only). The old
+   override added 10px horizontal padding which pushed ADMIN/EN out of
+   alignment with the left-side nav items. */
+html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-trigger,
+html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
+  font-family: inherit !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
+  padding: 6.66624px 0 !important;
+  line-height: 1.22 !important;
+  opacity: 1 !important;
+  color: inherit !important;
+}
+/* hmr-1779028846 */
+/* hmr-1779034546 */
