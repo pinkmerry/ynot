@@ -2,6 +2,7 @@
 
 import type { MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { CardCatalogItem, ProfileInfo } from "@/lib/lucky-draw/types";
 import type {
@@ -5103,5 +5104,655 @@ export function PackOrderControls({
         </span>
       )}
     </div>
+  );
+}
+
+/**
+ * Admin-only delete button. Archives the campaign via the lifecycle API
+ * (which any admin can call, unlike the owner-gated "delete" action). The
+ * archived campaign is kept in the database for history but disappears from
+ * the public storefront and active admin lists.
+ */
+export function PackDeleteButton({
+  campaignId,
+  campaignTitle,
+  variant = "card",
+}: {
+  campaignId: string;
+  campaignTitle: string;
+  variant?: "card" | "feature";
+}) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function archive() {
+    if (pending) return;
+    const confirmed = window.confirm(
+      `Archive "${campaignTitle}"?\n\nThis hides it from the storefront and active admin lists. The pack stays archived in the database — you can restore it later via the admin lifecycle queue.`,
+    );
+    if (!confirmed) return;
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/ynot/admin/campaigns/lifecycle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId, action: "archive" }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; message?: string }
+          | null;
+        throw new Error(payload?.message || payload?.error || "Archive failed");
+      }
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Archive failed");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className={`pack-admin-delete pack-admin-delete--${variant}`}
+        onClick={archive}
+        disabled={pending}
+        aria-label={`Archive ${campaignTitle}`}
+        title="Archive this pack"
+      >
+        {/* Bin icon — 12×14 thin stroke matches the chevron / close glyphs. */}
+        <svg
+          viewBox="0 0 12 14"
+          width="12"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1"
+          strokeLinecap="square"
+          strokeLinejoin="miter"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M0 3 H12" />
+          <path d="M4 3 V1 H8 V3" />
+          <path d="M1.5 3 V13 H10.5 V3" />
+          <path d="M5 6 V11" />
+          <path d="M7 6 V11" />
+        </svg>
+      </button>
+      {error && (
+        <span className="pack-admin-delete-error" role="alert">
+          {error}
+        </span>
+      )}
+    </>
+  );
+}
+
+type AdminCampaignSummary = {
+  id: string;
+  slug: string;
+  titleTh: string;
+  titleEn: string;
+  series: "pokemon" | "one_piece";
+  status: "draft" | "live" | "closed" | "archived";
+  visibility: "public" | "hidden" | "private";
+  sortOrder: number | null;
+  costCoins: number;
+  totalSlots: number;
+  isTest: boolean;
+};
+
+/**
+ * Admin-only pack picker. Opens an editorial overlay (white backdrop, thin
+ * black hairlines — matching the FOG menu drawer) listing every campaign
+ * the admin can see, with a "+ Create new" tile at the end. Selecting an
+ * existing pack promotes it to the top of the featured row by writing
+ * sortOrder = 1 via the reorder endpoint.
+ */
+export function PackPickerModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [campaigns, setCampaigns] = useState<AdminCampaignSummary[] | null>(
+    null,
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [promotingId, setPromotingId] = useState<string | null>(null);
+
+  // Fetch the campaign list whenever the modal is opened. We deliberately
+  // refetch on every open so newly archived/published packs show up
+  // immediately without a hard refresh.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetch("/api/ynot/admin/campaigns", { method: "GET" })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as
+          | { ok?: boolean; campaigns?: AdminCampaignSummary[]; error?: string; message?: string }
+          | null;
+        if (!response.ok || !payload?.ok) {
+          throw new Error(
+            payload?.message || payload?.error || "Failed to load packs",
+          );
+        }
+        if (!cancelled) setCampaigns(payload.campaigns ?? []);
+      })
+      .catch((caught) => {
+        if (!cancelled) {
+          setError(caught instanceof Error ? caught.message : "Load failed");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  // Esc + body scroll lock while open.
+  useEffect(() => {
+    if (!open) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open, onClose]);
+
+  async function promote(campaign: AdminCampaignSummary) {
+    if (promotingId) return;
+    setPromotingId(campaign.id);
+    setError(null);
+    try {
+      const response = await fetch("/api/ynot/admin/campaigns/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          swaps: [{ id: campaign.id, sortOrder: 1 }],
+        }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; message?: string }
+          | null;
+        throw new Error(
+          payload?.message || payload?.error || "Promote failed",
+        );
+      }
+      onClose();
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Promote failed");
+    } finally {
+      setPromotingId(null);
+    }
+  }
+
+  if (!open) return null;
+
+  const hydrated = typeof window !== "undefined";
+  if (!hydrated) return null;
+
+  const overlay = (
+    <div className="pack-picker-overlay" role="dialog" aria-modal="true" aria-label="Choose a pack">
+      <div
+        className="pack-picker-backdrop"
+        aria-hidden
+        onClick={onClose}
+      />
+      <div className="pack-picker-panel">
+        <header className="pack-picker-head">
+          <span className="pack-picker-eyebrow">Featured slot</span>
+          <h2 className="pack-picker-title">Pick an existing pack</h2>
+          <button
+            type="button"
+            className="pack-picker-close"
+            onClick={onClose}
+            aria-label="Close picker"
+          >
+            <svg
+              viewBox="0 0 14 14"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="0.6"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M13 1 L1 13" />
+              <path d="M1 1 L13 13" />
+            </svg>
+          </button>
+        </header>
+
+        <div className="pack-picker-body">
+          {loading && (
+            <p className="pack-picker-message">Loading…</p>
+          )}
+          {error && !loading && (
+            <p className="pack-picker-message pack-picker-message-error" role="alert">
+              {error}
+            </p>
+          )}
+          {!loading && campaigns && (
+            <ul className="pack-picker-grid">
+              {campaigns.map((campaign) => {
+                const archived = campaign.status === "archived";
+                const isPromoting = promotingId === campaign.id;
+                return (
+                  <li key={campaign.id}>
+                    <button
+                      type="button"
+                      className={`pack-picker-tile pack-picker-tile--${campaign.series}${archived ? " is-archived" : ""}`}
+                      onClick={() => promote(campaign)}
+                      disabled={archived || isPromoting}
+                      aria-label={`Promote ${campaign.titleEn || campaign.titleTh}`}
+                    >
+                      <span className="pack-picker-tile-series">
+                        {campaign.series === "pokemon" ? "Pokemon" : "One Piece"}
+                      </span>
+                      <strong className="pack-picker-tile-title">
+                        {campaign.titleTh || campaign.titleEn}
+                      </strong>
+                      <span className="pack-picker-tile-meta">
+                        {campaign.status}
+                        {campaign.isTest ? " · test" : ""}
+                      </span>
+                      {isPromoting && (
+                        <span className="pack-picker-tile-pending">
+                          Promoting…
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+              <li>
+                <a
+                  href="/admin/campaigns"
+                  className="pack-picker-tile pack-picker-tile--create"
+                  aria-label="Create a new pack"
+                >
+                  <span className="pack-picker-tile-plus" aria-hidden>
+                    +
+                  </span>
+                  <span className="pack-picker-tile-title">
+                    Create new pack
+                  </span>
+                  <span className="pack-picker-tile-meta">
+                    Opens admin form
+                  </span>
+                </a>
+              </li>
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  return createPortal(overlay, document.body);
+}
+
+/**
+ * Client wrapper that pairs the "+ Add new pack" placeholder card with the
+ * PackPickerModal so a server component (PacksExperience) can drop a single
+ * element in for the admin shortcut without managing modal state itself.
+ */
+export function PackPickerLauncher() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        className="packs-feature-card packs-feature-card--placeholder"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label="Add or pick a mystery pack"
+      >
+        <span className="packs-feature-placeholder-plus" aria-hidden>
+          +
+        </span>
+        <span className="packs-feature-placeholder-label">Add or pick pack</span>
+      </button>
+      <PackPickerModal open={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
+/**
+ * Shopify-inspired campaign list for /admin/campaigns. Status tabs + search
+ * + per-row actions. Replaces the old AdminCampaignActionPanel for a denser
+ * editorial layout. Bulk-select + bulk actions are handled inline.
+ */
+const STATUS_TABS = [
+  { key: "all", label: "All" },
+  { key: "live", label: "Active" },
+  { key: "draft", label: "Draft" },
+  { key: "closed", label: "Closed" },
+  { key: "archived", label: "Archived" },
+] as const;
+
+type AdminTableStatus = (typeof STATUS_TABS)[number]["key"];
+
+export function AdminCampaignTable({
+  campaigns,
+}: {
+  campaigns: YnotCampaign[];
+}) {
+  const router = useRouter();
+  const [activeStatus, setActiveStatus] = useState<AdminTableStatus>("all");
+  const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pending, setPending] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Counts per status so the tabs show a Shopify-style number badge.
+  const counts = useMemo(() => {
+    const map: Record<AdminTableStatus, number> = {
+      all: campaigns.length,
+      live: 0,
+      draft: 0,
+      closed: 0,
+      archived: 0,
+    };
+    for (const campaign of campaigns) {
+      const status = campaign.status as AdminTableStatus;
+      if (status === "live" || status === "draft" || status === "closed" || status === "archived") {
+        map[status] += 1;
+      }
+    }
+    return map;
+  }, [campaigns]);
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return campaigns.filter((campaign) => {
+      const matchesStatus =
+        activeStatus === "all" || campaign.status === activeStatus;
+      if (!matchesStatus) return false;
+      if (!term) return true;
+      const haystack = [
+        campaign.titleTh,
+        campaign.titleEn,
+        campaign.slug,
+        campaign.series,
+        campaign.categoryLabel,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [activeStatus, campaigns, search]);
+
+  function toggleSelect(id: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((current) => {
+      if (current.size === filtered.length) return new Set();
+      return new Set(filtered.map((campaign) => campaign.id));
+    });
+  }
+
+  async function bulkArchive() {
+    if (!selectedIds.size) return;
+    const confirmed = window.confirm(
+      `Archive ${selectedIds.size} selected pack${selectedIds.size === 1 ? "" : "s"}? Each one is hidden from the storefront and active admin lists but kept in the database for history.`,
+    );
+    if (!confirmed) return;
+    setError(null);
+    for (const id of selectedIds) {
+      setPending(id);
+      try {
+        const response = await fetch(
+          "/api/ynot/admin/campaigns/lifecycle",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ campaignId: id, action: "archive" }),
+          },
+        );
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as
+            | { error?: string; message?: string }
+            | null;
+          throw new Error(
+            payload?.message || payload?.error || "Archive failed",
+          );
+        }
+      } catch (caught) {
+        setError(
+          caught instanceof Error ? caught.message : "Archive failed",
+        );
+        break;
+      }
+    }
+    setPending(null);
+    setSelectedIds(new Set());
+    router.refresh();
+  }
+
+  async function archiveOne(id: string, title: string) {
+    const confirmed = window.confirm(
+      `Archive "${title}"?\n\nThis hides it from the storefront. You can restore archived packs via the admin lifecycle queue.`,
+    );
+    if (!confirmed) return;
+    setPending(id);
+    setError(null);
+    try {
+      const response = await fetch("/api/ynot/admin/campaigns/lifecycle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId: id, action: "archive" }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; message?: string }
+          | null;
+        throw new Error(payload?.message || payload?.error || "Archive failed");
+      }
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Archive failed");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  const allChecked = filtered.length > 0 && selectedIds.size === filtered.length;
+
+  return (
+    <section className="admin-pack-table">
+      <header className="admin-pack-table-head">
+        <div className="admin-pack-table-title-row">
+          <div>
+            <span className="section-label">All packs</span>
+            <h3 className="title-m">{campaigns.length} total</h3>
+          </div>
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search packs by title, slug, series…"
+            className="admin-pack-table-search"
+            aria-label="Search packs"
+          />
+        </div>
+        <nav className="admin-pack-table-tabs" aria-label="Status filter">
+          {STATUS_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              className={`admin-pack-table-tab${activeStatus === tab.key ? " is-active" : ""}`}
+              onClick={() => setActiveStatus(tab.key)}
+            >
+              <span>{tab.label}</span>
+              <span className="admin-pack-table-tab-count">
+                {counts[tab.key]}
+              </span>
+            </button>
+          ))}
+        </nav>
+      </header>
+
+      {error && (
+        <p className="admin-pack-table-error" role="alert">
+          {error}
+        </p>
+      )}
+
+      {selectedIds.size > 0 && (
+        <div className="admin-pack-table-bulkbar" role="status">
+          <span>
+            {selectedIds.size} selected
+          </span>
+          <button
+            type="button"
+            className="admin-pack-table-bulk-action"
+            onClick={bulkArchive}
+            disabled={pending !== null}
+          >
+            Archive selected
+          </button>
+          <button
+            type="button"
+            className="admin-pack-table-bulk-action admin-pack-table-bulk-clear"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      <div className="admin-pack-table-scroll">
+        <table className="admin-pack-table-grid">
+          <thead>
+            <tr>
+              <th className="admin-pack-table-checkbox-col">
+                <input
+                  type="checkbox"
+                  checked={allChecked}
+                  onChange={toggleSelectAll}
+                  aria-label="Select all packs"
+                />
+              </th>
+              <th>Pack</th>
+              <th>Series</th>
+              <th>Status</th>
+              <th>Price</th>
+              <th>Slots</th>
+              <th>Order</th>
+              <th className="admin-pack-table-actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={8} className="admin-pack-table-empty">
+                  No packs match this view.
+                </td>
+              </tr>
+            )}
+            {filtered.map((campaign) => {
+              const checked = selectedIds.has(campaign.id);
+              const isPending = pending === campaign.id;
+              return (
+                <tr
+                  key={campaign.id}
+                  className={`admin-pack-table-row${checked ? " is-selected" : ""}${isPending ? " is-pending" : ""}`}
+                >
+                  <td className="admin-pack-table-checkbox-col">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleSelect(campaign.id)}
+                      aria-label={`Select ${campaign.titleEn || campaign.titleTh}`}
+                    />
+                  </td>
+                  <td>
+                    <a
+                      href={`/gacha/${campaign.slug}`}
+                      className="admin-pack-table-title-link"
+                    >
+                      {campaign.titleTh || campaign.titleEn}
+                    </a>
+                    <span className="admin-pack-table-slug">
+                      /{campaign.slug}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="admin-pack-table-series">
+                      {campaign.series === "pokemon" ? "Pokemon" : "One Piece"}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      className={`admin-pack-table-status admin-pack-table-status-${campaign.status}`}
+                    >
+                      {campaign.status}
+                    </span>
+                  </td>
+                  <td>{campaign.costCoins}</td>
+                  <td>{campaign.totalSlots}</td>
+                  <td>{campaign.sortOrder ?? "—"}</td>
+                  <td className="admin-pack-table-actions-col">
+                    <a
+                      href={`/gacha/${campaign.slug}`}
+                      className="admin-pack-table-action"
+                    >
+                      View
+                    </a>
+                    {campaign.status !== "archived" && (
+                      <button
+                        type="button"
+                        className="admin-pack-table-action admin-pack-table-action-danger"
+                        onClick={() =>
+                          archiveOne(
+                            campaign.id,
+                            campaign.titleEn || campaign.titleTh,
+                          )
+                        }
+                        disabled={isPending}
+                      >
+                        {isPending ? "…" : "Archive"}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

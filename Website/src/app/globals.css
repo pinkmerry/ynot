@@ -18911,6 +18911,13 @@ html[data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top
   border-bottom: 1px solid rgba(26, 26, 26, 0.08) !important;
   box-shadow: none !important;
 }
+
+html[data-ynot-menu-open="true"] .store-filter-strip {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 /* Strip any pseudo-element borders/shadows that legacy themed states
    layer on top of the header (e.g. cyan glow or extra hairlines). */
 html[data-ynot-menu-open="true"] .storefront-header::before,
@@ -18939,3 +18946,520 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 }
 /* hmr-1778952219 */
 /* hmr-1778961624 */
+
+/* ============================================================
+ * Admin pack-card controls: delete + add-new placeholder.
+ * Both pieces are admin-only — guests never see these classes.
+ * ============================================================ */
+
+/* Delete button sits to the left of the Edit shortcut on featured cards
+   (absolute) and inline within the tag row on grid cards. */
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-admin-delete {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid #000000 !important;
+  border-radius: 999px !important;
+  color: #000000 !important;
+  cursor: pointer !important;
+  padding: 6px 8px !important;
+  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.25) !important;
+  transition: background 0.14s ease, color 0.14s ease !important;
+  z-index: 5 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-admin-delete--feature {
+  position: absolute !important;
+  top: 12px !important;
+  right: 64px !important; /* sits to the left of the Edit pill */
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-admin-delete--card {
+  position: static !important;
+  margin-left: 4px !important;
+  padding: 3px 6px !important;
+  border-radius: 4px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-admin-delete:hover:not(:disabled),
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-admin-delete:focus-visible:not(:disabled) {
+  background: #c2410c !important;
+  border-color: #c2410c !important;
+  color: #ffffff !important;
+  outline: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-admin-delete:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-admin-delete svg {
+  display: block !important;
+  shape-rendering: geometricPrecision !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-admin-delete-error {
+  display: block !important;
+  margin-top: 4px !important;
+  color: #c2410c !important;
+  font-size: 10px !important;
+  letter-spacing: 0.08em !important;
+}
+
+/* "+ Add new pack" placeholder featured card — dashed black outline so it
+   stands apart from real coloured cards. */
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-feature-card--placeholder {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  min-height: 232px !important;
+  background: rgba(0, 0, 0, 0.02) !important;
+  border: 1.5px dashed #000000 !important;
+  color: #000000 !important;
+  text-decoration: none !important;
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  transition: background 0.14s ease, transform 0.14s ease !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-feature-card--placeholder:hover {
+  background: rgba(0, 0, 0, 0.06) !important;
+  transform: translateY(-1px) !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-feature-placeholder-plus {
+  font-size: 48px !important;
+  font-weight: 200 !important;
+  line-height: 1 !important;
+  color: #000000 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-feature-placeholder-label {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.18em !important;
+}
+
+/* ============================================================
+ * Pack picker overlay — admin shortcut surfaced from the
+ * "+ Add or pick pack" placeholder card on /packs.
+ * Editorial: white panel, hairline black, uppercase labels.
+ * ============================================================ */
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 80 !important;
+  display: flex !important;
+  align-items: stretch !important;
+  justify-content: center !important;
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-backdrop {
+  position: absolute !important;
+  inset: 0 !important;
+  background: rgba(0, 0, 0, 0.55) !important;
+  cursor: pointer !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-panel {
+  position: relative !important;
+  z-index: 1 !important;
+  width: min(960px, 100%) !important;
+  margin: 5vh auto !important;
+  max-height: 90vh !important;
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-head {
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  align-items: end !important;
+  gap: 8px !important;
+  padding: 24px 28px 18px !important;
+  border-bottom: 1px solid #000000 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-eyebrow {
+  grid-column: 1 / 2 !important;
+  font-size: 10px !important;
+  letter-spacing: 0.22em !important;
+  text-transform: uppercase !important;
+  color: #666666 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-title {
+  grid-column: 1 / 2 !important;
+  margin: 0 !important;
+  font-size: 22px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: #000000 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-close {
+  grid-column: 2 / 3 !important;
+  grid-row: 1 / 3 !important;
+  align-self: start !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 8px !important;
+  color: #000000 !important;
+  cursor: pointer !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-body {
+  padding: 20px 28px 28px !important;
+  overflow-y: auto !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-message {
+  margin: 24px 0 !important;
+  font-size: 13px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: #666666 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-message-error {
+  color: #c2410c !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-grid {
+  list-style: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+  gap: 14px !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-tile {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  width: 100% !important;
+  min-height: 140px !important;
+  padding: 18px !important;
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  border-radius: 0 !important;
+  color: #000000 !important;
+  font-family: inherit !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  transition: background 0.14s ease, transform 0.14s ease !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-tile:hover:not(:disabled) {
+  background: #000000 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-tile:disabled,
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-tile.is-archived {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-tile-series {
+  font-size: 10px !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: inherit !important;
+  opacity: 0.6 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-tile-title {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.03em !important;
+  text-transform: uppercase !important;
+  color: inherit !important;
+  line-height: 1.2 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-tile-meta {
+  margin-top: auto !important;
+  font-size: 11px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: inherit !important;
+  opacity: 0.7 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-tile-pending {
+  font-size: 10px !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: inherit !important;
+  opacity: 0.85 !important;
+}
+/* "Create new" tile uses dashed outline so it visually reads as an action,
+   not a real pack. */
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-tile--create {
+  border-style: dashed !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  gap: 8px !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-tile-plus {
+  font-size: 36px !important;
+  font-weight: 200 !important;
+  line-height: 1 !important;
+  color: inherit !important;
+}
+
+/* ============================================================
+ * Shopify-inspired admin campaign table.
+ * Status tabs + search + bulk actions + dense rows.
+ * Lives on the dark admin workspace, so colours use the same
+ * palette as other admin-panel surfaces.
+ * ============================================================ */
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table {
+  background: #141414 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #f5f5f5 !important;
+  padding: 24px 28px !important;
+  margin: 24px 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 18px !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-head {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 18px !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-title-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: end !important;
+  gap: 16px !important;
+  flex-wrap: wrap !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-search {
+  flex: 1 1 280px !important;
+  max-width: 360px !important;
+  padding: 10px 14px !important;
+  background: #0a0a0a !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 0 !important;
+  color: #f5f5f5 !important;
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-size: 13px !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-search:focus {
+  outline: none !important;
+  border-color: rgba(255, 255, 255, 0.55) !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-tabs {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 2px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18) !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-tab {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 10px 16px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  color: rgba(245, 245, 245, 0.6) !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  margin-bottom: -1px !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-tab:hover {
+  color: #f5f5f5 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-tab.is-active {
+  color: #ffffff !important;
+  border-bottom-color: #ffffff !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-tab-count {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 22px !important;
+  padding: 2px 6px !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-radius: 999px !important;
+  font-size: 10px !important;
+  letter-spacing: 0.04em !important;
+  color: #f5f5f5 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-tab.is-active .admin-pack-table-tab-count {
+  background: #ffffff !important;
+  color: #141414 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-error {
+  margin: 0 !important;
+  padding: 10px 14px !important;
+  border: 1px solid #c2410c !important;
+  color: #fda380 !important;
+  font-size: 13px !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-bulkbar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 12px 16px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  color: #f5f5f5 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-bulk-action {
+  background: #ffffff !important;
+  color: #141414 !important;
+  border: 0 !important;
+  padding: 8px 14px !important;
+  font-family: inherit !important;
+  font-size: 11px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-bulk-action:hover:not(:disabled) {
+  background: #c2410c !important;
+  color: #ffffff !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-bulk-clear {
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  color: #f5f5f5 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-bulk-clear:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-scroll {
+  overflow-x: auto !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-grid {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  background: #0a0a0a !important;
+  color: #f5f5f5 !important;
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-size: 13px !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-grid thead th {
+  text-align: left !important;
+  padding: 12px 14px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16) !important;
+  font-weight: 500 !important;
+  font-size: 10px !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: rgba(245, 245, 245, 0.7) !important;
+  white-space: nowrap !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-grid tbody td {
+  padding: 14px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: inherit !important;
+  vertical-align: top !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-row:hover td {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-row.is-selected td {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-row.is-pending td {
+  opacity: 0.5 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-checkbox-col {
+  width: 32px !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-title-link {
+  display: block !important;
+  color: #ffffff !important;
+  text-decoration: none !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-title-link:hover {
+  text-decoration: underline !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-slug {
+  display: block !important;
+  margin-top: 2px !important;
+  color: rgba(245, 245, 245, 0.45) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.04em !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-series {
+  font-size: 11px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: rgba(245, 245, 245, 0.7) !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-status {
+  display: inline-flex !important;
+  padding: 4px 10px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: 999px !important;
+  font-size: 10px !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: #f5f5f5 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-status-live {
+  background: rgba(34, 197, 94, 0.18) !important;
+  border-color: rgba(34, 197, 94, 0.5) !important;
+  color: #86efac !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-status-draft {
+  background: rgba(234, 179, 8, 0.18) !important;
+  border-color: rgba(234, 179, 8, 0.5) !important;
+  color: #fde047 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-status-closed {
+  background: rgba(148, 163, 184, 0.15) !important;
+  border-color: rgba(148, 163, 184, 0.4) !important;
+  color: #cbd5e1 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-status-archived {
+  background: rgba(220, 38, 38, 0.15) !important;
+  border-color: rgba(220, 38, 38, 0.45) !important;
+  color: #fca5a5 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-actions-col {
+  white-space: nowrap !important;
+  text-align: right !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-action {
+  display: inline-block !important;
+  margin-left: 8px !important;
+  padding: 6px 10px !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  border-radius: 0 !important;
+  color: #f5f5f5 !important;
+  font-family: inherit !important;
+  font-size: 10px !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-action:hover:not(:disabled) {
+  background: #ffffff !important;
+  color: #141414 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-action-danger:hover:not(:disabled) {
+  background: #c2410c !important;
+  color: #ffffff !important;
+  border-color: #c2410c !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-empty {
+  padding: 24px !important;
+  text-align: center !important;
+  color: rgba(245, 245, 245, 0.55) !important;
+  font-size: 12px !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+}

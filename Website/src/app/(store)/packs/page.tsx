@@ -31,6 +31,7 @@ export default async function PacksPage({
       viewer={data.viewer}
       homeFilter={homeFilter}
       walletBalance={data.wallet.balanceCoins}
+      showHeaderCoin
     >
       <PacksExperience data={data} homeFilter={homeFilter} />
     </YnotShell>

@@ -315,6 +315,71 @@ async function bodyJson(request: Request): Promise<CampaignBody | null> {
   return request.json().catch(() => null) as Promise<CampaignBody | null>;
 }
 
+/**
+ * Lightweight admin campaign list. Used by the storefront "+ Add new pack"
+ * picker so admins can promote an existing draft / archived / closed pack
+ * into a featured slot without leaving the storefront.
+ */
+export async function GET(request: Request) {
+  if (!isSupabaseConfigured()) {
+    return Response.json({ ok: true, campaigns: [] });
+  }
+  // Dev-mode bypass mirrors the storefront isAdmin shortcut: on non-prod
+  // builds the API trusts the caller so the admin UI can be exercised
+  // without a real Supabase auth cookie. Production always enforces the
+  // admin session.
+  const isDev = process.env.NODE_ENV !== "production";
+  const admin = await resolveAdminSession();
+  if (!admin && !isDev) {
+    return adminErrorResponse(
+      "ADMIN_ACCESS_REQUIRED",
+      "Admin access is required.",
+      403,
+    );
+  }
+  if (admin) {
+    const limited = await enforceRateLimit(
+      request,
+      "ynot:admin:campaigns-list",
+      { limit: 60, windowMs: 60_000 },
+      admin.profileId,
+    );
+    if (limited) return limited;
+  }
+
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("draw_rounds")
+    .select(
+      "id,slug,title_th,title_en,series,status,visibility,sort_order,cost_coins,total_slots,is_test",
+    )
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false });
+  if (error) {
+    return adminErrorResponse(
+      error.code ?? "CAMPAIGN_LIST_FAILED",
+      error.message,
+      500,
+    );
+  }
+  return Response.json({
+    ok: true,
+    campaigns: (data ?? []).map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      titleTh: row.title_th,
+      titleEn: row.title_en,
+      series: row.series,
+      status: row.status,
+      visibility: row.visibility,
+      sortOrder: row.sort_order,
+      costCoins: row.cost_coins,
+      totalSlots: row.total_slots,
+      isTest: row.is_test,
+    })),
+  });
+}
+
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
     return adminErrorResponse(

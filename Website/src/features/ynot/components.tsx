@@ -35,7 +35,12 @@ import {
   StoreLanguageToggle,
   StoreSettingsMenu,
 } from "./StorePreferences";
-import { OwnerApprovalQueue, PackOrderControls } from "./client";
+import {
+  OwnerApprovalQueue,
+  PackDeleteButton,
+  PackOrderControls,
+  PackPickerLauncher,
+} from "./client";
 import {
   DEMO_PACK_ORDER_COOKIE,
   applyDemoPackOrderOverrides,
@@ -336,12 +341,14 @@ export async function YnotShell({
   homeFilter,
   homeFilterBaseHref = "/",
   walletBalance,
+  showHeaderCoin = false,
 }: {
   viewer: YnotViewer;
   children: ReactNode;
   homeFilter?: HomeFilterState;
   homeFilterBaseHref?: string;
   walletBalance?: number;
+  showHeaderCoin?: boolean;
 }) {
   let renderViewer = viewer;
   let renderBalance = walletBalance;
@@ -385,7 +392,7 @@ export async function YnotShell({
               authenticated={renderViewer.authenticated}
               isAdmin={renderViewer.isAdmin}
             />
-            {renderViewer.authenticated && (
+            {showHeaderCoin && renderViewer.authenticated && (
               <Link
                 href="/wallet"
                 className="header-coin-pill"
@@ -701,7 +708,7 @@ export async function PacksExperience({
           <p>{`${campaigns.length} slab pack${campaigns.length === 1 ? "" : "s"}`}</p>
         </div>
 
-        {(primary || secondary) && (
+        {(primary || secondary || isAdmin) && (
           <section
             className="packs-feature-row"
             aria-label="Featured mystery packs"
@@ -737,6 +744,13 @@ export async function PacksExperience({
                       Edit
                     </Link>
                   )}
+                  {isAdmin && (
+                    <PackDeleteButton
+                      campaignId={campaign!.id}
+                      campaignTitle={campaign!.titleEn || campaign!.titleTh}
+                      variant="feature"
+                    />
+                  )}
                   {isAdmin && info && (
                     <PackOrderControls
                       campaignId={info.campaignId}
@@ -754,6 +768,10 @@ export async function PacksExperience({
                 </div>
               );
             })}
+            {/* Admin-only "+" placeholder. Opens an editorial picker
+                overlay listing every existing pack plus a "create new"
+                shortcut. */}
+            {isAdmin && !secondary && <PackPickerLauncher />}
           </section>
         )}
 
@@ -1095,6 +1113,13 @@ export function CampaignCard({
             >
               Edit
             </Link>
+          )}
+          {showAdminEdit && reorderInfo && (
+            <PackDeleteButton
+              campaignId={reorderInfo.campaignId}
+              campaignTitle={title}
+              variant="card"
+            />
           )}
           {showAdminEdit && reorderInfo && (
             <PackOrderControls

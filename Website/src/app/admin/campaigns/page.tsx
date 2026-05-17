@@ -1,11 +1,10 @@
 import {
-  AdminCampaignActionPanel,
   AdminCampaignForm,
+  AdminCampaignTable,
   OwnerApprovalQueue,
 } from "@/features/ynot/client";
 import {
   AdminSectionShell,
-  CampaignGrid,
   PageHeader,
 } from "@/features/ynot/components";
 import { getAdminCards, getYnotDashboardSlice } from "@/features/ynot/data";
@@ -66,21 +65,10 @@ export default async function AdminCampaignsPage() {
         />
       )}
 
+      <AdminCampaignTable campaigns={data.campaigns} />
+
       <div className="admin-page-grid admin-page-grid-studio">
         <AdminCampaignForm categories={data.categories} cards={cards} />
-        <AdminCampaignActionPanel
-          campaigns={data.campaigns}
-          viewerRole={data.viewer.adminRole}
-        />
-        <section className="admin-panel admin-full-span soft-card">
-          <div className="admin-panel-head">
-            <div>
-              <p className="section-label">Customer preview</p>
-              <h3 className="title-m">Current random packs</h3>
-            </div>
-          </div>
-          <CampaignGrid campaigns={data.campaigns} />
-        </section>
       </div>
     </AdminSectionShell>
   );
