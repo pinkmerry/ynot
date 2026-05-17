@@ -44,3 +44,9 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+import("@opennextjs/cloudflare").then((m) =>
+  m.initOpenNextCloudflareForDev({
+    configPath: process.env.NEXT_DEV_WRANGLER_CONFIG ?? "wrangler.website.jsonc",
+  }),
+);

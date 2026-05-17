@@ -3,7 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { signOutAction } from "@/features/auth/actions";
@@ -632,7 +638,7 @@ export function StoreLanguageToggle() {
   const current = preferences.language;
   const currentLabel = current.toUpperCase();
 
-  function updateMenuPosition() {
+  const updateMenuPosition = useCallback(() => {
     const trigger = containerRef.current;
     if (!trigger) return;
     const rect = trigger.getBoundingClientRect();
@@ -644,13 +650,13 @@ export function StoreLanguageToggle() {
       right: Math.max(8, window.innerWidth - rect.right),
     });
     setMenuSurface(isDarkHeader ? "dark" : "light");
-  }
+  }, [pathname]);
 
-  function clearCloseTimer() {
+  const clearCloseTimer = useCallback(() => {
     if (closeTimerRef.current === null) return;
     window.clearTimeout(closeTimerRef.current);
     closeTimerRef.current = null;
-  }
+  }, []);
 
   function openMenu() {
     clearCloseTimer();
@@ -694,7 +700,7 @@ export function StoreLanguageToggle() {
       window.removeEventListener("resize", handleReposition);
       window.removeEventListener("scroll", handleReposition, true);
     };
-  }, [open]);
+  }, [clearCloseTimer, open, updateMenuPosition]);
 
   function pickLanguage(value: Language) {
     setLanguage(value);
@@ -1075,13 +1081,19 @@ export function StoreSettingsMenu({
   // Reset the drill-down level whenever the drawer closes so the next open
   // always lands on the main level.
   useEffect(() => {
-    if (!open) setActiveSubMenu(null);
+    if (open) return;
+    const resetSubMenu = window.setTimeout(() => {
+      setActiveSubMenu(null);
+    }, 0);
+    return () => window.clearTimeout(resetSubMenu);
   }, [open]);
 
   useEffect(() => {
     if (activeSubMenu) {
-      setRenderedSubMenu(activeSubMenu);
-      return;
+      const renderSubMenu = window.setTimeout(() => {
+        setRenderedSubMenu(activeSubMenu);
+      }, 0);
+      return () => window.clearTimeout(renderSubMenu);
     }
 
     const clearSubMenu = window.setTimeout(() => {

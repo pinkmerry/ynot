@@ -1939,7 +1939,7 @@ export async function getPlatformHealth(
     envCheck("LINE_SESSION_SECRET", "LINE session signing secret"),
     envCheck("LINE_LOGIN_CHANNEL_ID", "LINE login channel ID", false),
     envCheck("LINE_LOGIN_CHANNEL_SECRET", "LINE login channel secret", false),
-    envCheck("SLIP2GO_API_KEY", "Slip2Go API key", false),
+    envCheck("SLIP2GO_SECRET_KEY", "Slip2Go secret key", false),
     {
       key: "demo-storefront",
       label: "Demo storefront fallback",

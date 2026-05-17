@@ -16,6 +16,11 @@ const eslintConfig = defineConfig([
     "docs/archive/**",
     ".omx/**",
     "Website/.omx/**",
+    ".open-next/**",
+    ".wrangler/**",
+    ".wrangler-dry-run-*/**",
+    "cloudflare-env*.d.ts",
+    "worker-configuration.d.ts",
   ]),
 ]);
 

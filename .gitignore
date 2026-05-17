@@ -15,11 +15,18 @@ Website/.yarn/*
 !Website/.yarn/versions
 Website/coverage/
 Website/.next/
+Website/.open-next/
 Website/out/
 Website/build/
 Website/.env*
 !Website/.env.example
 Website/.vercel/
+Website/.wrangler/
+Website/.wrangler-dry-run-*/
+Website/.dev.vars*
+!Website/.dev.vars.example
+Website/cloudflare-env*.d.ts
+Website/worker-configuration.d.ts
 Website/*.tsbuildinfo
 Website/next-env.d.ts
 

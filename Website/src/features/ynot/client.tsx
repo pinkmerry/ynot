@@ -430,11 +430,19 @@ export function TopUpForm({
           method: "POST",
           body: form,
         });
-        const payload = await response.json().catch(() => null);
+        const payload: unknown = await response.json().catch(() => null);
         if (!response.ok)
-          throw new Error(payload?.error ?? "Top-up request failed.");
+          throw new Error(
+            isRecord(payload)
+              ? stringValue(payload.error) || "Top-up request failed."
+              : "Top-up request failed.",
+          );
+        const topUp = isRecord(payload) && isRecord(payload.topUp)
+          ? payload.topUp
+          : null;
+        const publicCode = topUp ? stringValue(topUp.publicCode) : "";
         setMessage(
-          `Top-up ${payload.topUp?.publicCode ?? "request"} created for admin review.`,
+          `Top-up ${publicCode || "request"} created for admin review.`,
         );
         setSlip(null);
       } catch (error) {

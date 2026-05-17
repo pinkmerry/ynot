@@ -40,7 +40,7 @@ if (packageJson.dependencies?.["@supabase/ssr"]) pass("@supabase/ssr dependency 
 else fail("@supabase/ssr dependency is missing");
 
 for (const rel of [
-  "src/proxy.ts",
+  "src/middleware.ts",
   "src/lib/supabase/proxy.ts",
   "src/lib/supabase/server.ts",
   "src/lib/supabase/client.ts",
@@ -63,7 +63,7 @@ check("src/lib/supabase/server.ts", "server client uses getAll cookie API", /get
 check("src/lib/supabase/server.ts", "server client uses setAll cookie API", /setAll\(cookiesToSet\)/);
 notCheck("src/lib/supabase/server.ts", "server client avoids deprecated individual cookie methods", /cookies:\s*{[\s\S]*(?:\bget\(|\bremove\()/);
 check("src/lib/supabase/proxy.ts", "proxy refreshes Supabase session", /await supabase\.auth\.getUser\(\)/);
-check("src/proxy.ts", "Next 16 proxy convention is used", /export async function proxy/);
+check("src/middleware.ts", "Cloudflare edge middleware convention is used", /export async function middleware/);
 check("src/features/auth/actions.ts", "email password sign in exists", /signInWithPassword/);
 check("src/features/auth/actions.ts", "email password sign up exists", /signUp\(/);
 check("src/app/api/auth/google/start/route.ts", "Google OAuth starts from route handler", /signInWithOAuth\([\s\S]*provider:\s*"google"/);
@@ -90,7 +90,7 @@ const allSource = [
   "src/lib/supabase/server.ts",
   "src/lib/supabase/client.ts",
   "src/lib/supabase/proxy.ts",
-  "src/proxy.ts",
+  "src/middleware.ts",
 ].map(read).join("\n");
 if (!/@supabase\/auth-helpers-nextjs/.test(allSource)) pass("deprecated auth helpers are not imported");
 else fail("deprecated auth helpers are imported");
