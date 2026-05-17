@@ -1,7 +1,13 @@
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
 
 export async function middleware(request: NextRequest) {
+  if (request.nextUrl.hostname === "ynottcg.com") {
+    const url = request.nextUrl.clone();
+    url.hostname = "www.ynottcg.com";
+    return NextResponse.redirect(url, 308);
+  }
+
   return updateSession(request);
 }
 

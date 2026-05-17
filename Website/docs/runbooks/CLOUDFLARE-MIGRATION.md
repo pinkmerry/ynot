@@ -50,25 +50,24 @@ Captured on 2026-05-17 after switching away from R2/Durable Objects/Images bindi
 
 | Surface | Worker route | Preview URL | Version evidence |
 | --- | --- | --- | --- |
-| Website | `ynottcg.com/*`, `www.ynottcg.com/*` | `https://ynott-website.puppeteer-55b.workers.dev` | `56c0dd4d-4c6f-4893-a292-4ee9c187e97f` |
-| LIFF | `liff.ynottcg.com/*` | `https://ynott-line-liff.puppeteer-55b.workers.dev` | `d776a1ac-3178-41ab-9efa-ad8b658af044` |
+| Website | `ynottcg.com/*`, `www.ynottcg.com/*` | `https://ynott-website.puppeteer-55b.workers.dev` | `cbfa9ac7-231d-4e5f-81c6-e360d5bae3bc` |
+| LIFF | `liff.ynottcg.com/*` | `https://ynott-line-liff.puppeteer-55b.workers.dev` | `5ceef28f-edbb-4d61-8045-4203848d75ad` |
 
 Both preview URLs returned `HTTP/2 200` with `server: cloudflare`. `SUPABASE_SERVICE_ROLE_KEY` and `LINE_SESSION_SECRET` are configured as Worker secrets for both Workers. `LINE_LOGIN_CHANNEL_SECRET`, `SLIP2GO_API_URL`, and `SLIP2GO_SECRET_KEY` were not available locally and still need real production values before those flows can be fully verified on Cloudflare.
 
-Current production DNS still resolves through Squarespace nameservers:
-
-```text
-nsa1.squarespacedns.com
-nsa2.squarespacedns.com
-nsa3.squarespacedns.com
-nsa4.squarespacedns.com
-```
-
-The production domains still return `server: Vercel` until the registrar/Squarespace nameservers are changed to Cloudflare's assigned nameservers:
+Production nameservers were switched in Squarespace on 2026-05-17. Public DNS now resolves through Cloudflare:
 
 ```text
 daisy.ns.cloudflare.com
 elliot.ns.cloudflare.com
+```
+
+Post-cutover edge checks forced through Cloudflare returned:
+
+```text
+https://www.ynottcg.com/        HTTP/2 200, server: cloudflare, x-opennext: 1
+https://ynottcg.com/cards?x=1  HTTP/2 308 -> https://www.ynottcg.com/cards?x=1
+https://liff.ynottcg.com/       HTTP/2 200, server: cloudflare, x-opennext: 1
 ```
 
 ## Tier Recommendation
