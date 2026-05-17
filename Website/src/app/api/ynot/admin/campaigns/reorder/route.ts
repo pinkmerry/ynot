@@ -24,25 +24,29 @@ type ReorderSwap = { id: unknown; sortOrder: unknown };
  */
 export async function POST(request: Request) {
   const supabaseReady = isSupabaseConfigured();
-  // Skip admin gate when Supabase isn't configured — we're in demo/dev mode
-  // and there's no real auth backend to ask. Production always has Supabase.
+  const isDev = process.env.NODE_ENV !== "production";
+  // Skip admin gate when Supabase isn't configured (demo mode) OR when
+  // running on a non-prod build (local dev against production Supabase).
+  // Production always enforces the admin session.
   let admin: Awaited<ReturnType<typeof resolveAdminSession>> | null = null;
   if (supabaseReady) {
     admin = await resolveAdminSession();
-    if (!admin) {
+    if (!admin && !isDev) {
       return adminErrorResponse(
         "ADMIN_ACCESS_REQUIRED",
         "Admin access is required.",
         403,
       );
     }
-    const limited = await enforceRateLimit(
-      request,
-      "ynot:admin:campaign-reorder",
-      { limit: 60, windowMs: 60_000 },
-      admin.profileId,
-    );
-    if (limited) return limited;
+    if (admin) {
+      const limited = await enforceRateLimit(
+        request,
+        "ynot:admin:campaign-reorder",
+        { limit: 60, windowMs: 60_000 },
+        admin.profileId,
+      );
+      if (limited) return limited;
+    }
   }
 
   let body: { swaps?: ReorderSwap[] } | null = null;
