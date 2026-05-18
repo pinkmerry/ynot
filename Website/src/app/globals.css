@@ -18405,6 +18405,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading + .ho
   text-transform: uppercase;
   color: #111111;
   cursor: pointer;
+  text-decoration: none;
   transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
 }
 .packs-toolbar-add-btn:hover {
@@ -18470,6 +18471,83 @@ html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading + .ho
   opacity: 0.92 !important;
   transform: rotate(1deg);
   box-shadow: 0 16px 32px rgba(15, 23, 42, 0.25) !important;
+}
+
+/* ============================================================
+ * FOG editorial polish — restrained admin chrome and roomier
+ * section rhythm. Admin controls fade in on hover so the default
+ * storefront keeps its clean "look-book" feel; the heading band
+ * gets a hairline divider above each tier section so the page
+ * reads as a sequence of editorial chapters.
+ * ============================================================ */
+html[data-ynot-theme="light"] .packs-feature-card-wrap .pack-drag-handle,
+html[data-ynot-theme="light"] .packs-feature-card-wrap .pack-admin-edit,
+html[data-ynot-theme="light"] .packs-feature-card-wrap .pack-admin-delete,
+html[data-ynot-theme="light"] .packs-feature-card-wrap .pack-order-controls,
+html[data-ynot-theme="light"] .product-card .pack-drag-handle,
+html[data-ynot-theme="light"] .product-card .pack-admin-edit,
+html[data-ynot-theme="light"] .product-card .pack-admin-delete,
+html[data-ynot-theme="light"] .product-card .pack-order-controls {
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+html[data-ynot-theme="light"] .packs-feature-card-wrap:hover .pack-drag-handle,
+html[data-ynot-theme="light"] .packs-feature-card-wrap:hover .pack-admin-edit,
+html[data-ynot-theme="light"] .packs-feature-card-wrap:hover .pack-admin-delete,
+html[data-ynot-theme="light"] .packs-feature-card-wrap:hover .pack-order-controls,
+html[data-ynot-theme="light"] .packs-feature-card-wrap:focus-within .pack-drag-handle,
+html[data-ynot-theme="light"] .packs-feature-card-wrap:focus-within .pack-admin-edit,
+html[data-ynot-theme="light"] .packs-feature-card-wrap:focus-within .pack-admin-delete,
+html[data-ynot-theme="light"] .packs-feature-card-wrap:focus-within .pack-order-controls,
+html[data-ynot-theme="light"] .product-card:hover .pack-drag-handle,
+html[data-ynot-theme="light"] .product-card:hover .pack-admin-edit,
+html[data-ynot-theme="light"] .product-card:hover .pack-admin-delete,
+html[data-ynot-theme="light"] .product-card:hover .pack-order-controls,
+html[data-ynot-theme="light"] .product-card:focus-within .pack-drag-handle,
+html[data-ynot-theme="light"] .product-card:focus-within .pack-admin-edit,
+html[data-ynot-theme="light"] .product-card:focus-within .pack-admin-delete,
+html[data-ynot-theme="light"] .product-card:focus-within .pack-order-controls {
+  opacity: 1;
+}
+
+/* Compact section rhythm — heading sits flush with its grid. Hero
+   row hugs the toolbar above it, but each tier block gets a larger
+   editorial gap so COMMON / GOLD / etc. read as a distinct chapter. */
+html[data-ynot-theme="light"] .store-home-grid.packs-page .store-main-stack {
+  gap: 16px !important;
+}
+html[data-ynot-theme="light"] .store-home-grid.packs-page .store-main-stack > .packs-feature-row {
+  margin-top: 8px !important;
+}
+html[data-ynot-theme="light"] .store-home-grid.packs-page .store-main-stack > .packs-tier-block {
+  margin-top: 48px !important;
+}
+
+/* Tier blocks sit flush — no divider above; the heading typography +
+   section spacing is enough separation on its own. */
+html[data-ynot-theme="light"] .packs-tier-block {
+  position: relative;
+}
+
+/* Hide the count subtitles ("5 SLAB PACKS" / "5 slabs/pack"). The
+   headings and grids stand on their own without the count metadata. */
+html[data-ynot-theme="light"] .packs-toolbar > p,
+html[data-ynot-theme="light"] .packs-tier-subtitle {
+  display: none !important;
+}
+
+/* Heading typography — bigger, looser, more editorial. */
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-toolbar h1,
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
+  font-size: 32px !important;
+  letter-spacing: 0.04em !important;
+  font-weight: 800 !important;
+}
+@media (max-width: 767px) {
+  html[lang][data-ynot-theme][data-ynot-language][class] .packs-toolbar h1,
+  html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
+    font-size: 24px !important;
+  }
 }
 
 /* ============================================================

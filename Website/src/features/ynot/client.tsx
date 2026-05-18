@@ -5310,12 +5310,28 @@ type AdminCampaignSummary = {
  * existing pack promotes it to the top of the featured row by writing
  * sortOrder = 1 via the reorder endpoint.
  */
+/** Default cost in coins for each tier — pick a value comfortably inside
+ *  the range so the pack lands in the right bucket without flirting with
+ *  boundaries. Cost ranges (see components.tsx packTier):
+ *    Legendary ≥ 200, Gold 100–199, Silver 50–99, Common < 50. */
+const TIER_TARGET_COST: Record<string, number> = {
+  legendary: 250,
+  gold: 150,
+  silver: 75,
+  common: 25,
+};
+
 export function PackPickerModal({
   open,
   onClose,
+  targetTier,
 }: {
   open: boolean;
   onClose: () => void;
+  /** When set, the picker shifts from "promote to hero" mode into "move
+   *  pack into this tier" mode — each tile becomes a one-click cost
+   *  rewrite that re-buckets the pack. */
+  targetTier?: string;
 }) {
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<AdminCampaignSummary[] | null>(
@@ -5402,25 +5418,61 @@ export function PackPickerModal({
           );
         }
       }
-      // Adding to the hero list lives in its own cookie endpoint so the
-      // pack's tier-section sortOrder is left untouched.
-      const response = await fetch("/api/ynot/admin/featured-packs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "add", id: campaign.id }),
-      });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as
-          | { error?: string; message?: string }
-          | null;
-        throw new Error(
-          payload?.message || payload?.error || "Promote failed",
-        );
+      if (targetTier) {
+        // "Move to tier" mode — rewrite the pack's cost so it lands in
+        // the target tier's bucket, and quietly evict it from the hero
+        // cookie if it happened to be featured. This keeps the
+        // "buttons aren't connected" promise: clicking + Add on COMMON
+        // should never make a pack appear in Mystery Packs and vice
+        // versa.
+        const costCoins = TIER_TARGET_COST[targetTier] ?? 25;
+        const response = await fetch("/api/ynot/admin/campaigns/cost", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ campaignId: campaign.id, costCoins }),
+        });
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as
+            | { error?: string; message?: string }
+            | null;
+          throw new Error(
+            payload?.message || payload?.error || "Move failed",
+          );
+        }
+        // Best-effort hero eviction. If the pack wasn't featured this is
+        // a no-op; we don't surface its failure to the user.
+        await fetch("/api/ynot/admin/featured-packs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "remove", id: campaign.id }),
+        }).catch(() => {});
+      } else {
+        // Default mode — add the pack to the hero/featured cookie list
+        // without touching its tier-section sortOrder.
+        const response = await fetch("/api/ynot/admin/featured-packs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "add", id: campaign.id }),
+        });
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as
+            | { error?: string; message?: string }
+            | null;
+          throw new Error(
+            payload?.message || payload?.error || "Promote failed",
+          );
+        }
       }
       onClose();
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Promote failed");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : targetTier
+            ? "Move failed"
+            : "Promote failed",
+      );
     } finally {
       setPromotingId(null);
     }
@@ -5440,8 +5492,14 @@ export function PackPickerModal({
       />
       <div className="pack-picker-panel">
         <header className="pack-picker-head">
-          <span className="pack-picker-eyebrow">Featured slot</span>
-          <h2 className="pack-picker-title">Pick an existing pack</h2>
+          <span className="pack-picker-eyebrow">
+            {targetTier ? `Move into ${targetTier}` : "Featured slot"}
+          </span>
+          <h2 className="pack-picker-title">
+            {targetTier
+              ? `Move a pack into the ${targetTier} tier`
+              : "Pick an existing pack"}
+          </h2>
           <button
             type="button"
             className="pack-picker-close"
@@ -5487,9 +5545,11 @@ export function PackPickerModal({
                       onClick={() => promote(campaign)}
                       disabled={isPromoting}
                       aria-label={
-                        isArchived
-                          ? `Restore and promote ${campaign.titleEn || campaign.titleTh}`
-                          : `Promote ${campaign.titleEn || campaign.titleTh}`
+                        targetTier
+                          ? `Move ${campaign.titleEn || campaign.titleTh} into ${targetTier}`
+                          : isArchived
+                            ? `Restore and promote ${campaign.titleEn || campaign.titleTh}`
+                            : `Promote ${campaign.titleEn || campaign.titleTh}`
                       }
                     >
                       <span className="pack-picker-tile-series">
@@ -5501,11 +5561,19 @@ export function PackPickerModal({
                       <span className="pack-picker-tile-meta">
                         {campaign.status}
                         {campaign.isTest ? " · test" : ""}
-                        {isArchived ? " · click to restore" : ""}
+                        {targetTier
+                          ? ` · click to move into ${targetTier}`
+                          : isArchived
+                            ? " · click to restore"
+                            : ""}
                       </span>
                       {isPromoting && (
                         <span className="pack-picker-tile-pending">
-                          {isArchived ? "Restoring…" : "Promoting…"}
+                          {targetTier
+                            ? "Moving…"
+                            : isArchived
+                              ? "Restoring…"
+                              : "Promoting…"}
                         </span>
                       )}
                     </button>
@@ -5546,10 +5614,18 @@ export function PackPickerModal({
  */
 export function PackPickerLauncher({
   variant = "card",
+  targetTier,
 }: {
   variant?: "card" | "button";
+  /** When set, opens the picker in "move into tier" mode instead of
+   *  "promote to hero" — clicking a pack rewrites its cost so it lands
+   *  in the chosen tier bucket. */
+  targetTier?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const label = targetTier
+    ? `Move a pack into ${targetTier}`
+    : "Add or pick a mystery pack";
   if (variant === "button") {
     return (
       <>
@@ -5559,12 +5635,16 @@ export function PackPickerLauncher({
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
           aria-expanded={open}
-          aria-label="Add or pick a mystery pack"
+          aria-label={label}
         >
           <span aria-hidden>+</span>
           <span>Add pack</span>
         </button>
-        <PackPickerModal open={open} onClose={() => setOpen(false)} />
+        <PackPickerModal
+          open={open}
+          onClose={() => setOpen(false)}
+          targetTier={targetTier}
+        />
       </>
     );
   }
@@ -5576,14 +5656,18 @@ export function PackPickerLauncher({
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label="Add or pick a mystery pack"
+        aria-label={label}
       >
         <span className="packs-feature-placeholder-plus" aria-hidden>
           +
         </span>
         <span className="packs-feature-placeholder-label">Add or pick pack</span>
       </button>
-      <PackPickerModal open={open} onClose={() => setOpen(false)} />
+      <PackPickerModal
+        open={open}
+        onClose={() => setOpen(false)}
+        targetTier={targetTier}
+      />
     </>
   );
 }

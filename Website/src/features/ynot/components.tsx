@@ -894,7 +894,12 @@ export async function PacksExperience({
                       <p className="packs-tier-subtitle">
                         {tierCampaigns.length} slab{tierCampaigns.length === 1 ? "" : "s"}/pack
                       </p>
-                      {isAdmin && <PackPickerLauncher variant="button" />}
+                      {isAdmin && (
+                        <PackPickerLauncher
+                          variant="button"
+                          targetTier={tier}
+                        />
+                      )}
                     </header>
                     <section
                       className="home-pack-board product-section"
