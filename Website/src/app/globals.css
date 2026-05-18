@@ -19287,14 +19287,40 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 }
 
 .pack-open-slot {
-  width: min(42%, 170px);
-  height: min(66%, 410px);
+  z-index: 4;
+  width: min(16%, 58px);
+  height: min(72%, 450px);
   border-radius: 999px;
+  overflow: hidden;
   background:
-    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent),
-    radial-gradient(ellipse at center, rgba(236, 241, 230, 0.82), transparent 64%);
-  filter: blur(18px);
-  transform: scaleX(0.16) scaleY(0.72);
+    linear-gradient(90deg, rgba(0, 0, 0, 0.9), #000000 46%, #000000 54%, rgba(0, 0, 0, 0.88)),
+    radial-gradient(ellipse at center, rgba(0, 0, 0, 0.96), transparent 68%);
+  box-shadow:
+    inset 10px 0 18px rgba(255, 255, 255, 0.12),
+    inset -10px 0 18px rgba(255, 255, 255, 0.1),
+    0 0 16px rgba(0, 0, 0, 0.42);
+  filter: blur(0.2px);
+  transform: scaleX(0.02) scaleY(0.68);
+}
+
+.pack-open-slot::before,
+.pack-open-slot::after {
+  content: "";
+  position: absolute;
+  top: 1%;
+  bottom: 1%;
+  width: 34%;
+  opacity: 0.68;
+}
+
+.pack-open-slot::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.2), transparent);
+}
+
+.pack-open-slot::after {
+  right: 0;
+  background: linear-gradient(270deg, rgba(255, 255, 255, 0.16), transparent);
 }
 
 .pack-open-burst {
@@ -20163,21 +20189,29 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes packSlot {
   0%,
-  34% {
+  30% {
     opacity: 0;
-    transform: scaleX(0.16) scaleY(0.72);
+    transform: scaleX(0.02) scaleY(0.68);
   }
-  52% {
-    opacity: 0.94;
-    transform: scaleX(0.34) scaleY(0.9);
+  42% {
+    opacity: 0.22;
+    transform: scaleX(0.04) scaleY(0.78);
   }
-  76% {
-    opacity: 0.62;
-    transform: scaleX(0.74) scaleY(1.03);
+  55% {
+    opacity: 0.74;
+    transform: scaleX(0.24) scaleY(0.92);
+  }
+  70% {
+    opacity: 0.92;
+    transform: scaleX(0.66) scaleY(1.02);
+  }
+  84% {
+    opacity: 0.42;
+    transform: scaleX(0.9) scaleY(1.05);
   }
   100% {
     opacity: 0;
-    transform: scaleX(1.2) scaleY(1.08);
+    transform: scaleX(1.04) scaleY(1.04);
   }
 }
 
@@ -20244,30 +20278,35 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes cardPreview {
   0%,
-  84% {
+  66% {
     z-index: 1;
     opacity: 0;
-    transform: translateY(138px) translateX(0) scale(0.56) rotateX(18deg) rotateZ(0deg);
+    transform: translateY(152px) translateX(0) scale(0.5) rotateX(20deg) rotateZ(0deg);
   }
-  89% {
+  74% {
     z-index: 1;
-    opacity: 0.22;
-    transform: translateY(96px) translateX(0) scale(0.64) rotateX(12deg) rotateZ(-0.08deg);
+    opacity: 0.12;
+    transform: translateY(122px) translateX(0) scale(0.56) rotateX(16deg) rotateZ(-0.04deg);
   }
-  94% {
+  84% {
+    z-index: 1;
+    opacity: 0.36;
+    transform: translateY(70px) translateX(0) scale(0.7) rotateX(10deg) rotateZ(-0.03deg);
+  }
+  90% {
     z-index: 6;
     opacity: 0.62;
-    transform: translateY(44px) translateX(0) scale(0.8) rotateX(6deg) rotateZ(-0.04deg);
+    transform: translateY(28px) translateX(0) scale(0.84) rotateX(5deg) rotateZ(0.02deg);
   }
-  97% {
+  95% {
     z-index: 6;
-    opacity: 0.92;
-    transform: translateY(8px) translateX(0) scale(0.92) rotateX(2deg) rotateZ(0.03deg);
+    opacity: 0.9;
+    transform: translateY(6px) translateX(0) scale(0.94) rotateX(2deg) rotateZ(0.02deg);
   }
-  99% {
+  98.5% {
     z-index: 6;
     opacity: 1;
-    transform: translateY(-5px) translateX(0) scale(1.01) rotateX(-0.4deg) rotateZ(0.04deg);
+    transform: translateY(-4px) translateX(0) scale(1.01) rotateX(-0.3deg) rotateZ(0.03deg);
   }
   100% {
     z-index: 6;
@@ -20278,20 +20317,20 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes cardImageLightUp {
   0%,
-  92% {
+  91% {
     filter:
-      brightness(0.44)
-      saturate(0.46)
-      contrast(0.88)
-      sepia(0.1)
+      brightness(0.5)
+      saturate(0.52)
+      contrast(0.9)
+      sepia(0.12)
       hue-rotate(6deg)
       drop-shadow(0 26px 32px rgba(40, 47, 36, 0.28));
   }
-  96% {
+  95% {
     filter:
-      brightness(0.58)
-      saturate(0.58)
-      contrast(0.92)
+      brightness(0.62)
+      saturate(0.62)
+      contrast(0.94)
       sepia(0.08)
       hue-rotate(4deg)
       drop-shadow(0 30px 36px rgba(42, 52, 39, 0.26));
@@ -20323,14 +20362,15 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes cardFearToneWash {
   0%,
-  84% {
+  66% {
     opacity: 0;
   }
-  89% {
-    opacity: 0.62;
+  74%,
+  91% {
+    opacity: 0.58;
   }
   96% {
-    opacity: 0.48;
+    opacity: 0.38;
   }
   99.4% {
     opacity: 0.16;
@@ -20342,30 +20382,35 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes rareCardPreview {
   0%,
-  84% {
+  66% {
     z-index: 1;
     opacity: 0;
-    transform: translateY(142px) translateX(0) scale(0.54) rotateX(19deg) rotateZ(0deg);
+    transform: translateY(154px) translateX(0) scale(0.5) rotateX(20deg) rotateZ(0deg);
   }
-  89% {
+  74% {
     z-index: 1;
-    opacity: 0.24;
-    transform: translateY(98px) translateX(0) scale(0.64) rotateX(12deg) rotateZ(-0.08deg);
+    opacity: 0.14;
+    transform: translateY(124px) translateX(0) scale(0.56) rotateX(16deg) rotateZ(-0.04deg);
   }
-  94% {
+  84% {
+    z-index: 1;
+    opacity: 0.38;
+    transform: translateY(68px) translateX(0) scale(0.7) rotateX(10deg) rotateZ(-0.03deg);
+  }
+  90% {
     z-index: 6;
     opacity: 0.64;
-    transform: translateY(40px) translateX(0) scale(0.8) rotateX(6deg) rotateZ(-0.04deg);
+    transform: translateY(26px) translateX(0) scale(0.84) rotateX(5deg) rotateZ(0.02deg);
   }
-  97% {
+  95% {
     z-index: 6;
     opacity: 0.88;
-    transform: translateY(9px) translateX(0) scale(0.91) rotateX(2deg) rotateZ(0.03deg);
+    transform: translateY(6px) translateX(0) scale(0.94) rotateX(2deg) rotateZ(0.03deg);
   }
-  99% {
+  98.5% {
     z-index: 6;
     opacity: 1;
-    transform: translateY(-6px) translateX(0) scale(1.01) rotateX(-0.4deg) rotateZ(0.05deg);
+    transform: translateY(-5px) translateX(0) scale(1.01) rotateX(-0.4deg) rotateZ(0.05deg);
   }
   100% {
     z-index: 6;
@@ -20376,30 +20421,35 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes jackpotCardPreview {
   0%,
-  86% {
+  68% {
     z-index: 1;
     opacity: 0;
-    transform: translateY(146px) translateX(0) scale(0.52) rotateX(21deg) rotateZ(0deg);
+    transform: translateY(156px) translateX(0) scale(0.48) rotateX(22deg) rotateZ(0deg);
   }
-  90% {
+  76% {
     z-index: 1;
-    opacity: 0.26;
-    transform: translateY(98px) translateX(0) scale(0.62) rotateX(12deg) rotateZ(-0.08deg);
+    opacity: 0.16;
+    transform: translateY(122px) translateX(0) scale(0.56) rotateX(16deg) rotateZ(-0.04deg);
   }
-  94% {
+  85% {
+    z-index: 1;
+    opacity: 0.4;
+    transform: translateY(66px) translateX(0) scale(0.7) rotateX(10deg) rotateZ(-0.03deg);
+  }
+  91% {
     z-index: 6;
-    opacity: 0.64;
-    transform: translateY(42px) translateX(0) scale(0.79) rotateX(6deg) rotateZ(-0.04deg);
+    opacity: 0.66;
+    transform: translateY(25px) translateX(0) scale(0.84) rotateX(5deg) rotateZ(0.03deg);
   }
-  97% {
+  95.5% {
     z-index: 6;
     opacity: 0.9;
-    transform: translateY(9px) translateX(0) scale(0.91) rotateX(1.5deg) rotateZ(0.04deg);
+    transform: translateY(6px) translateX(0) scale(0.94) rotateX(1.5deg) rotateZ(0.04deg);
   }
-  99% {
+  98.5% {
     z-index: 6;
     opacity: 0.92;
-    transform: translateY(-9px) translateX(0) scale(1.018) rotateX(-0.8deg) rotateZ(0.08deg);
+    transform: translateY(-8px) translateX(0) scale(1.018) rotateX(-0.8deg) rotateZ(0.08deg);
   }
   100% {
     z-index: 6;
@@ -20410,30 +20460,35 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes blackoutCardPreview {
   0%,
-  84% {
+  66% {
     z-index: 1;
     opacity: 0;
-    transform: translateY(142px) translateX(0) scale(0.54) rotateX(19deg) rotateZ(0deg);
+    transform: translateY(154px) translateX(0) scale(0.5) rotateX(20deg) rotateZ(0deg);
   }
-  89% {
+  74% {
     z-index: 1;
-    opacity: 0.22;
-    transform: translateY(98px) translateX(0) scale(0.62) rotateX(12deg) rotateZ(-0.08deg);
+    opacity: 0.12;
+    transform: translateY(124px) translateX(0) scale(0.55) rotateX(16deg) rotateZ(-0.04deg);
   }
-  94% {
+  84% {
+    z-index: 1;
+    opacity: 0.34;
+    transform: translateY(70px) translateX(0) scale(0.69) rotateX(10deg) rotateZ(-0.03deg);
+  }
+  90% {
     z-index: 6;
-    opacity: 0.6;
-    transform: translateY(44px) translateX(0) scale(0.78) rotateX(6deg) rotateZ(-0.04deg);
+    opacity: 0.58;
+    transform: translateY(28px) translateX(0) scale(0.82) rotateX(5deg) rotateZ(0.02deg);
   }
-  97% {
+  95% {
     z-index: 6;
     opacity: 0.84;
-    transform: translateY(10px) translateX(0) scale(0.9) rotateX(2deg) rotateZ(0.03deg);
+    transform: translateY(6px) translateX(0) scale(0.93) rotateX(2deg) rotateZ(0.03deg);
   }
-  99% {
+  98.5% {
     z-index: 6;
     opacity: 0.9;
-    transform: translateY(-8px) translateX(0) scale(1.012) rotateX(-0.6deg) rotateZ(0.06deg);
+    transform: translateY(-7px) translateX(0) scale(1.012) rotateX(-0.6deg) rotateZ(0.06deg);
   }
   100% {
     z-index: 6;
