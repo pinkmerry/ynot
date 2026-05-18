@@ -24,11 +24,11 @@ function rollRarity(): PullRarity {
 }
 
 function getOpenDuration(mode: OpenMode, rarity: PullRarity) {
-  if (mode === "batch") return 5200;
+  if (mode === "batch") return 6800;
   if (rarity === "jackpot") return 7600;
   if (rarity === "blackout") return 6800;
-  if (rarity === "rare") return 5800;
-  return 5200;
+  if (rarity === "rare") return 6800;
+  return 6600;
 }
 
 function getPhaseLabel(stage: OpenStage, phase: OpenPhase, mode: OpenMode, rarity: PullRarity) {
