@@ -160,10 +160,10 @@ export function PackOpenPrototype() {
 
           <div className="pack-open-card-wrap" aria-hidden={!isRevealed && !isOpening}>
             <Image
-              src="/ynot-open-card-sample.png"
+              src="/ynot-open-card-sample-cropped.png"
               alt="Sample PSA card reveal"
-              width={1058}
-              height={1474}
+              width={727}
+              height={1217}
               priority
             />
           </div>

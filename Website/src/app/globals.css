@@ -19124,10 +19124,6 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 .pack-open-card-wrap {
   filter: drop-shadow(0 30px 52px rgba(42, 52, 39, 0.18));
-  --psa-card-top: 8.82%;
-  --psa-card-right: 15.88%;
-  --psa-card-bottom: 8.62%;
-  --psa-card-left: 15.4%;
 }
 
 .pack-open-pack,
@@ -19321,8 +19317,8 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 .pack-open-card-wrap {
   z-index: 1;
-  width: min(72%, 320px);
-  aspect-ratio: 1058 / 1474;
+  width: min(56%, 250px);
+  aspect-ratio: 727 / 1217;
   opacity: 0;
   transform: translateY(86px) scale(0.72) rotateX(16deg);
 }
@@ -19339,23 +19335,22 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
   content: "";
   position: absolute;
   z-index: 2;
-  left: var(--psa-card-left);
-  right: var(--psa-card-right);
   border-radius: 18px;
   pointer-events: none;
   opacity: 0;
 }
 
 .pack-open-card-wrap::before {
-  top: var(--psa-card-top);
-  bottom: var(--psa-card-bottom);
+  inset: 0;
   background:
     linear-gradient(180deg, rgba(5, 5, 5, 0.82), rgba(10, 10, 10, 0.68)),
     radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.1), transparent 42%);
 }
 
 .pack-open-card-wrap::after {
-  top: var(--psa-card-top);
+  top: 0;
+  left: 0;
+  right: 0;
   height: 34%;
   background:
     linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.52), transparent),
