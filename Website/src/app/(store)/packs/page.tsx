@@ -20,9 +20,13 @@ export default async function PacksPage({
     tag: normalizeHomeTag(params?.tag),
     sort: normalizeHomeSort(params?.sort),
   };
+  // Use "admin" visibility so that when an admin promotes a draft/closed/test
+  // pack into the featured slot it actually surfaces here. Non-admin viewers
+  // still see only public packs because getCampaigns falls back to
+  // includePrivate: viewer.isAdmin inside this branch.
   const data = await getYnotDashboardSlice({
     campaigns: true,
-    campaignVisibility: "public",
+    campaignVisibility: "admin",
     campaignLimit: null,
     wallet: true,
   });

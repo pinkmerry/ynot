@@ -5193,6 +5193,102 @@ export function PackDeleteButton({
   );
 }
 
+/**
+ * Star toggle that promotes / demotes a pack between the featured tier and
+ * the regular collection. Featured packs have sortOrder ≤ 2 (slot 1 + 2 on
+ * the storefront); everything else floats to the bottom with sortOrder 1000.
+ * The button shows a filled star when featured and an outline otherwise so
+ * admins can see the current state at a glance.
+ */
+export function PackFeatureToggle({
+  campaignId,
+  campaignTitle,
+  isFeatured,
+}: {
+  campaignId: string;
+  campaignTitle: string;
+  isFeatured: boolean;
+}) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function toggle() {
+    if (pending) return;
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        "/api/ynot/admin/campaigns/reorder",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            swaps: [
+              { id: campaignId, sortOrder: isFeatured ? 1000 : 1 },
+            ],
+          }),
+        },
+      );
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; message?: string }
+          | null;
+        throw new Error(
+          payload?.message || payload?.error || "Feature toggle failed",
+        );
+      }
+      router.refresh();
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Feature toggle failed",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className={`pack-feature-toggle${isFeatured ? " is-featured" : ""}`}
+        onClick={toggle}
+        disabled={pending}
+        aria-pressed={isFeatured}
+        aria-label={
+          isFeatured
+            ? `Remove ${campaignTitle} from featured`
+            : `Feature ${campaignTitle}`
+        }
+        title={isFeatured ? "Unfeature pack" : "Feature pack"}
+      >
+        <svg
+          viewBox="0 0 16 16"
+          width="16"
+          height="16"
+          fill={isFeatured ? "currentColor" : "none"}
+          stroke="currentColor"
+          strokeWidth="1.2"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M8 1.5 L10 6 L15 6.5 L11 10 L12 14.5 L8 12 L4 14.5 L5 10 L1 6.5 L6 6 Z" />
+        </svg>
+        <span className="pack-feature-toggle-label">
+          {isFeatured ? "Featured" : "Feature"}
+        </span>
+      </button>
+      {error && (
+        <span className="pack-feature-toggle-error" role="alert">
+          {error}
+        </span>
+      )}
+    </>
+  );
+}
+
 type AdminCampaignSummary = {
   id: string;
   slug: string;
@@ -5282,12 +5378,36 @@ export function PackPickerModal({
     setPromotingId(campaign.id);
     setError(null);
     try {
-      const response = await fetch("/api/ynot/admin/campaigns/reorder", {
+      // If the picked pack is archived, first restore it via the close
+      // lifecycle action so it re-enters the storefront's visible status
+      // set.
+      if (campaign.status === "archived") {
+        const restoreRes = await fetch(
+          "/api/ynot/admin/campaigns/lifecycle",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              campaignId: campaign.id,
+              action: "close",
+            }),
+          },
+        );
+        if (!restoreRes.ok) {
+          const payload = (await restoreRes.json().catch(() => null)) as
+            | { error?: string; message?: string }
+            | null;
+          throw new Error(
+            payload?.message || payload?.error || "Restore failed",
+          );
+        }
+      }
+      // Adding to the hero list lives in its own cookie endpoint so the
+      // pack's tier-section sortOrder is left untouched.
+      const response = await fetch("/api/ynot/admin/featured-packs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          swaps: [{ id: campaign.id, sortOrder: 1 }],
-        }),
+        body: JSON.stringify({ action: "add", id: campaign.id }),
       });
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as
@@ -5357,16 +5477,20 @@ export function PackPickerModal({
           {!loading && campaigns && (
             <ul className="pack-picker-grid">
               {campaigns.map((campaign) => {
-                const archived = campaign.status === "archived";
+                const isArchived = campaign.status === "archived";
                 const isPromoting = promotingId === campaign.id;
                 return (
                   <li key={campaign.id}>
                     <button
                       type="button"
-                      className={`pack-picker-tile pack-picker-tile--${campaign.series}${archived ? " is-archived" : ""}`}
+                      className={`pack-picker-tile pack-picker-tile--${campaign.series}${isArchived ? " is-archived" : ""}`}
                       onClick={() => promote(campaign)}
-                      disabled={archived || isPromoting}
-                      aria-label={`Promote ${campaign.titleEn || campaign.titleTh}`}
+                      disabled={isPromoting}
+                      aria-label={
+                        isArchived
+                          ? `Restore and promote ${campaign.titleEn || campaign.titleTh}`
+                          : `Promote ${campaign.titleEn || campaign.titleTh}`
+                      }
                     >
                       <span className="pack-picker-tile-series">
                         {campaign.series === "pokemon" ? "Pokemon" : "One Piece"}
@@ -5377,10 +5501,11 @@ export function PackPickerModal({
                       <span className="pack-picker-tile-meta">
                         {campaign.status}
                         {campaign.isTest ? " · test" : ""}
+                        {isArchived ? " · click to restore" : ""}
                       </span>
                       {isPromoting && (
                         <span className="pack-picker-tile-pending">
-                          Promoting…
+                          {isArchived ? "Restoring…" : "Promoting…"}
                         </span>
                       )}
                     </button>
@@ -5419,8 +5544,30 @@ export function PackPickerModal({
  * PackPickerModal so a server component (PacksExperience) can drop a single
  * element in for the admin shortcut without managing modal state itself.
  */
-export function PackPickerLauncher() {
+export function PackPickerLauncher({
+  variant = "card",
+}: {
+  variant?: "card" | "button";
+}) {
   const [open, setOpen] = useState(false);
+  if (variant === "button") {
+    return (
+      <>
+        <button
+          type="button"
+          className="packs-toolbar-add-btn"
+          onClick={() => setOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label="Add or pick a mystery pack"
+        >
+          <span aria-hidden>+</span>
+          <span>Add pack</span>
+        </button>
+        <PackPickerModal open={open} onClose={() => setOpen(false)} />
+      </>
+    );
+  }
   return (
     <>
       <button

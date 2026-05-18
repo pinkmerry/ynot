@@ -41,10 +41,13 @@ import {
   PackOrderControls,
   PackPickerLauncher,
 } from "./client";
+import { PackDragDrop } from "./PackDragDrop";
 import {
   DEMO_PACK_ORDER_COOKIE,
+  HERO_PACKS_COOKIE,
   applyDemoPackOrderOverrides,
   parseDemoPackOrderCookie,
+  parseHeroPacksCookie,
 } from "./demo-pack-order";
 import {
   prizeDisplayTierLabel,
@@ -117,11 +120,32 @@ export function normalizeHomeSort(
 }
 
 function displayCampaigns(campaigns: YnotCampaign[]) {
-  return campaigns.length
-    ? campaigns
-    : allowDemoStorefront()
-      ? featuredCampaigns
-      : [];
+  if (campaigns.length) return campaigns;
+  if (!allowDemoStorefront()) return [];
+  return featuredCampaigns;
+}
+
+type PackTier = "legendary" | "gold" | "silver" | "common";
+
+const PACK_TIER_ORDER: PackTier[] = ["legendary", "gold", "silver", "common"];
+const PACK_TIER_COPY: Record<PackTier, string> = {
+  legendary: "Legendary",
+  gold: "Gold",
+  silver: "Silver",
+  common: "Common",
+};
+
+/** Assign a tier bucket based on coin cost. Lets the storefront mirror
+ *  arenaclub.com's tiered slab-pack sections (Legendary / Gold / Silver…)
+ *  without requiring a separate tier column on the campaigns table. */
+function packTier(campaign: YnotCampaign): PackTier {
+  const cost = Number.isFinite(campaign.costCoins)
+    ? Number(campaign.costCoins)
+    : 0;
+  if (cost >= 200) return "legendary";
+  if (cost >= 100) return "gold";
+  if (cost >= 50) return "silver";
+  return "common";
 }
 
 function seriesLabel(series: YnotCampaign["series"]) {
@@ -392,6 +416,7 @@ export async function YnotShell({
               authenticated={renderViewer.authenticated}
               isAdmin={renderViewer.isAdmin}
             />
+            <StoreLanguageToggle />
             {showHeaderCoin && renderViewer.authenticated && (
               <Link
                 href="/wallet"
@@ -406,7 +431,6 @@ export async function YnotShell({
                 </span>
               </Link>
             )}
-            <StoreLanguageToggle />
             <StoreHeaderRightNav
               authenticated={renderViewer.authenticated}
             />
@@ -686,11 +710,25 @@ export async function PacksExperience({
   const demoOverrides = data.configured
     ? {}
     : parseDemoPackOrderCookie(cookieStore.get(DEMO_PACK_ORDER_COOKIE)?.value);
+  // Demo packs (id prefix "storefront-") are hardcoded fallbacks and can't
+  // be archived by admins — their archive controls are hidden in the JSX
+  // below — so we always render the full demo set when the DB is empty.
   const sourceCampaigns = Object.keys(demoOverrides).length
     ? applyDemoPackOrderOverrides(data.campaigns, demoOverrides)
     : data.campaigns;
   const campaigns = filteredCampaigns(sourceCampaigns, homeFilter, demoOverrides);
-  const [primary, secondary, ...rest] = campaigns;
+  // "Featured" packs are tracked in an independent cookie so reordering
+  // inside tier sections never promotes / demotes anything. The cookie
+  // stores the explicit hero order; campaigns missing from `campaigns`
+  // (filtered out by series / tag) are skipped without disturbing the
+  // cookie state.
+  const heroIds = parseHeroPacksCookie(
+    cookieStore.get(HERO_PACKS_COOKIE)?.value,
+  );
+  const campaignsById = new Map(campaigns.map((c) => [c.id, c]));
+  const featuredCampaignsList = heroIds
+    .map((id) => campaignsById.get(id))
+    .filter((c): c is YnotCampaign => !!c);
   // Dev-mode bypass mirrors AdminGate / YnotShell — show the "Edit" shortcut
   // on every pack while developing locally; production still requires the
   // real admin role.
@@ -702,36 +740,71 @@ export async function PacksExperience({
 
   return (
     <div className="store-home-grid packs-page">
+      <PackDragDrop enabled={isAdmin} />
       <div className="store-main-stack">
         <div className="catalog-toolbar packs-toolbar">
           <h1>Mystery Packs</h1>
           <p>{`${campaigns.length} slab pack${campaigns.length === 1 ? "" : "s"}`}</p>
+          {isAdmin && <PackPickerLauncher variant="button" />}
         </div>
 
-        {(primary || secondary || isAdmin) && (
+        {(featuredCampaignsList.length > 0 || isAdmin) && (
           <section
             className="packs-feature-row"
+            data-hero-count={featuredCampaignsList.length}
             aria-label="Featured mystery packs"
           >
-            {[primary, secondary].filter(Boolean).map((campaign, index) => {
-              const info = reorderInfo?.get(campaign!.id) ?? null;
+            {featuredCampaignsList.map((campaign, index) => {
+              const info = reorderInfo?.get(campaign.id) ?? null;
+              // Alternate blue / amber for visual contrast in the hero — the
+              // exact palette doesn't carry meaning, it's just FoG/arenaclub
+              // style "two-tone hero" banding.
+              const palette = index % 2 === 0 ? "blue" : "amber";
               return (
                 <div
-                  key={campaign!.id}
+                  key={campaign.id}
+                  data-pack-id={campaign.id}
+                  data-pack-sort-order={
+                    info?.currentSortOrder ?? campaign.sortOrder ?? ""
+                  }
                   className={`packs-feature-card-wrap${isAdmin ? " has-admin-edit" : ""}`}
                 >
+                  {isAdmin && (
+                    <span
+                      className="pack-drag-handle"
+                      data-pack-drag-handle="true"
+                      title="Drag to reorder"
+                      aria-label="Drag to reorder this pack"
+                    >
+                      <svg
+                        viewBox="0 0 12 16"
+                        width="14"
+                        height="14"
+                        fill="currentColor"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
+                        <circle cx="3.5" cy="3" r="1.2" />
+                        <circle cx="3.5" cy="8" r="1.2" />
+                        <circle cx="3.5" cy="13" r="1.2" />
+                        <circle cx="8.5" cy="3" r="1.2" />
+                        <circle cx="8.5" cy="8" r="1.2" />
+                        <circle cx="8.5" cy="13" r="1.2" />
+                      </svg>
+                    </span>
+                  )}
                   <Link
-                    href={`/gacha/${campaign!.slug}`}
-                    className={`packs-feature-card packs-feature-card--${index === 0 ? "blue" : "amber"}`}
+                    href={`/gacha/${campaign.slug}`}
+                    className={`packs-feature-card packs-feature-card--${palette}`}
                   >
                     <span className="packs-feature-eyebrow">
-                      {seriesLabel(campaign!.series)} · Series
+                      {seriesLabel(campaign.series)} · Series
                     </span>
                     <strong className="packs-feature-title">
-                      {campaign!.titleTh || campaign!.titleEn}
+                      {campaign.titleTh || campaign.titleEn}
                     </strong>
                     <span className="packs-feature-price">
-                      <CoinIcon /> {formatCoins(campaign!.costCoins)} / pack
+                      <CoinIcon /> {formatCoins(campaign.costCoins)} / pack
                     </span>
                     <span className="packs-feature-cta">Buy now</span>
                   </Link>
@@ -739,15 +812,15 @@ export async function PacksExperience({
                     <Link
                       className="pack-admin-edit"
                       href="/admin/campaigns"
-                      aria-label={`Edit ${campaign!.titleEn || campaign!.titleTh} in admin`}
+                      aria-label={`Edit ${campaign.titleEn || campaign.titleTh} in admin`}
                     >
                       Edit
                     </Link>
                   )}
                   {isAdmin && (
                     <PackDeleteButton
-                      campaignId={campaign!.id}
-                      campaignTitle={campaign!.titleEn || campaign!.titleTh}
+                      campaignId={campaign.id}
+                      campaignTitle={campaign.titleEn || campaign.titleTh}
                       variant="feature"
                     />
                   )}
@@ -768,38 +841,76 @@ export async function PacksExperience({
                 </div>
               );
             })}
-            {/* Admin-only "+" placeholder. Opens an editorial picker
-                overlay listing every existing pack plus a "create new"
-                shortcut. */}
-            {isAdmin && !secondary && <PackPickerLauncher />}
+            {/* Empty-state placeholder — only shown when zero packs are
+                featured. Once at least one card is in the hero row the
+                grid distributes cards evenly (1/1, 1/2, 1/3 …) without
+                an empty slot stealing a column. Admin can still add more
+                packs via the "+ Add pack" button near the heading. */}
+            {isAdmin && featuredCampaignsList.length === 0 && (
+              <PackPickerLauncher />
+            )}
           </section>
         )}
 
         {(() => {
-          const gridCampaigns = duplicatePacksForDisplay(
-            rest.length || campaigns.length > 2 ? rest : campaigns,
-            6,
-          );
-          return (
-            <>
-              <header className="packs-tier-heading">
-                <h2 className="packs-tier-title">LEGENDARY</h2>
-                <p className="packs-tier-subtitle">
-                  {gridCampaigns.length} slab{gridCampaigns.length === 1 ? "" : "s"}/pack
-                </p>
-              </header>
-              <section
-                className="home-pack-board product-section"
-                aria-label="Mystery pack catalog"
-              >
+          // Group every pack (including the featured ones, so customers can
+          // also see them in their tier shelves) by computed tier and render
+          // a separate section per non-empty tier — mirroring the way
+          // arenaclub.com lays out "Legendary / Gold / Silver / Misc" rows.
+          const sourceForTiers = campaigns.length ? campaigns : [];
+          const grouped = new Map<PackTier, YnotCampaign[]>();
+          for (const campaign of sourceForTiers) {
+            const tier = packTier(campaign);
+            const bucket = grouped.get(tier) ?? [];
+            bucket.push(campaign);
+            grouped.set(tier, bucket);
+          }
+          const nonEmptyTiers = PACK_TIER_ORDER.filter((tier) => {
+            const list = grouped.get(tier);
+            return list && list.length > 0;
+          });
+          if (!nonEmptyTiers.length) {
+            return (
+              <section className="home-pack-board product-section" aria-label="Mystery pack catalog">
                 <CampaignGrid
-                  campaigns={gridCampaigns}
+                  campaigns={[]}
                   emptyTitle="No packs match this filter"
                   emptyBody="Try All, switch category, or ask admin to add matching pack labels."
                   showAdminEdit={isAdmin}
-                  reorderInfo={reorderInfo ?? undefined}
                 />
               </section>
+            );
+          }
+          return (
+            <>
+              {nonEmptyTiers.map((tier) => {
+                const tierCampaigns = grouped.get(tier) ?? [];
+                return (
+                  <div key={tier} className={`packs-tier-block packs-tier-block--${tier}`}>
+                    <header className="packs-tier-heading">
+                      <h2 className="packs-tier-title">
+                        {PACK_TIER_COPY[tier].toUpperCase()}
+                      </h2>
+                      <p className="packs-tier-subtitle">
+                        {tierCampaigns.length} slab{tierCampaigns.length === 1 ? "" : "s"}/pack
+                      </p>
+                      {isAdmin && <PackPickerLauncher variant="button" />}
+                    </header>
+                    <section
+                      className="home-pack-board product-section"
+                      aria-label={`${PACK_TIER_COPY[tier]} mystery packs`}
+                    >
+                      <CampaignGrid
+                        campaigns={tierCampaigns}
+                        emptyTitle="No packs match this filter"
+                        emptyBody="Try All, switch category, or ask admin to add matching pack labels."
+                        showAdminEdit={isAdmin}
+                        reorderInfo={reorderInfo ?? undefined}
+                      />
+                    </section>
+                  </div>
+                );
+              })}
             </>
           );
         })()}
@@ -1089,8 +1200,41 @@ export function CampaignCard({
     remainingSlots === null
       ? "Stock tracked by server"
       : `Remaining ${remainingSlots.toLocaleString()}/${campaign.totalSlots.toLocaleString()}`;
+  const sortOrderForAttr =
+    reorderInfo?.currentSortOrder ?? campaign.sortOrder ?? "";
+  const tier = packTier(campaign);
   return (
-    <article className="product-card clean-pack-card">
+    <article
+      className={`product-card clean-pack-card pack-card-tier-${tier}`}
+      data-pack-id={campaign.id}
+      data-pack-sort-order={sortOrderForAttr}
+      data-pack-tier={tier}
+    >
+      <div className="pack-card-tier-pill">{PACK_TIER_COPY[tier]}</div>
+      {showAdminEdit && (
+        <span
+          className="pack-drag-handle pack-drag-handle--card"
+          data-pack-drag-handle="true"
+          title="Drag to reorder"
+          aria-label="Drag to reorder this pack"
+        >
+          <svg
+            viewBox="0 0 12 16"
+            width="14"
+            height="14"
+            fill="currentColor"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <circle cx="3.5" cy="3" r="1.2" />
+            <circle cx="3.5" cy="8" r="1.2" />
+            <circle cx="3.5" cy="13" r="1.2" />
+            <circle cx="8.5" cy="3" r="1.2" />
+            <circle cx="8.5" cy="8" r="1.2" />
+            <circle cx="8.5" cy="13" r="1.2" />
+          </svg>
+        </span>
+      )}
       <div className="pack-card-top">
         <div
           className="product-tags pack-info-tags"
