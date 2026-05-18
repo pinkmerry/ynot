@@ -20141,17 +20141,21 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes cardPreview {
   0%,
-  66% {
+  48% {
     opacity: 0;
-    transform: translateY(112px) translateX(5px) scale(0.66) rotateX(21deg) rotateZ(1.4deg);
+    transform: translateY(96px) translateX(4px) scale(0.68) rotateX(18deg) rotateZ(1.2deg);
+  }
+  60% {
+    opacity: 0.36;
+    transform: translateY(56px) translateX(-3px) scale(0.78) rotateX(10deg) rotateZ(-0.65deg);
   }
   76% {
-    opacity: 0.34;
-    transform: translateY(50px) translateX(-4px) scale(0.8) rotateX(12deg) rotateZ(-0.9deg);
+    opacity: 0.86;
+    transform: translateY(8px) translateX(1px) scale(0.96) rotateX(2deg) rotateZ(0.2deg);
   }
-  88% {
+  90% {
     opacity: 1;
-    transform: translateY(-14px) translateX(1px) scale(1.035) rotateX(-1deg) rotateZ(0.35deg);
+    transform: translateY(-8px) translateX(1px) scale(1.018) rotateX(-0.5deg) rotateZ(0.18deg);
   }
   100% {
     opacity: 1;
@@ -20161,23 +20165,23 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes cardImageLightUp {
   0%,
-  68% {
+  60% {
     filter:
       brightness(0.08)
       saturate(0.58)
       contrast(1.18)
       drop-shadow(0 26px 32px rgba(0, 0, 0, 0.42));
   }
-  78% {
+  74% {
     filter:
-      brightness(0.14)
-      saturate(0.66)
+      brightness(0.16)
+      saturate(0.68)
       contrast(1.16)
       drop-shadow(0 30px 36px rgba(0, 0, 0, 0.38));
   }
-  88% {
+  86% {
     filter:
-      brightness(0.58)
+      brightness(0.62)
       saturate(0.9)
       contrast(1.08)
       drop-shadow(0 26px 34px rgba(42, 52, 39, 0.26));
@@ -20200,17 +20204,21 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes rareCardPreview {
   0%,
-  66% {
+  48% {
     opacity: 0;
-    transform: translateY(116px) translateX(6px) scale(0.64) rotateX(22deg) rotateZ(1.5deg);
+    transform: translateY(100px) translateX(5px) scale(0.66) rotateX(19deg) rotateZ(1.3deg);
+  }
+  60% {
+    opacity: 0.4;
+    transform: translateY(54px) translateX(-4px) scale(0.8) rotateX(10deg) rotateZ(-0.7deg);
   }
   76% {
-    opacity: 0.38;
-    transform: translateY(48px) translateX(-5px) scale(0.82) rotateX(12deg) rotateZ(-0.9deg);
+    opacity: 0.88;
+    transform: translateY(7px) translateX(1px) scale(0.97) rotateX(2deg) rotateZ(0.22deg);
   }
-  88% {
+  90% {
     opacity: 1;
-    transform: translateY(-16px) translateX(1px) scale(1.04) rotateX(-1deg) rotateZ(0.4deg);
+    transform: translateY(-9px) translateX(1px) scale(1.02) rotateX(-0.5deg) rotateZ(0.2deg);
   }
   100% {
     opacity: 1;
@@ -20220,17 +20228,21 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes jackpotCardPreview {
   0%,
-  68% {
+  50% {
     opacity: 0;
-    transform: translateY(120px) translateX(7px) scale(0.6) rotateX(24deg) rotateZ(1.8deg);
+    transform: translateY(106px) translateX(6px) scale(0.62) rotateX(21deg) rotateZ(1.5deg);
+  }
+  62% {
+    opacity: 0.38;
+    transform: translateY(50px) translateX(-4px) scale(0.8) rotateX(10deg) rotateZ(-0.8deg);
   }
   78% {
-    opacity: 0.38;
-    transform: translateY(40px) translateX(-5px) scale(0.82) rotateX(11deg) rotateZ(-1deg);
+    opacity: 0.84;
+    transform: translateY(5px) translateX(1px) scale(0.97) rotateX(1.5deg) rotateZ(0.28deg);
   }
-  88% {
+  90% {
     opacity: 0.92;
-    transform: translateY(-17px) translateX(2px) scale(1.06) rotateX(-2deg) rotateZ(0.5deg);
+    transform: translateY(-12px) translateX(2px) scale(1.035) rotateX(-1deg) rotateZ(0.36deg);
   }
   94% {
     opacity: 1;
@@ -20244,17 +20256,21 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes blackoutCardPreview {
   0%,
-  66% {
+  46% {
     opacity: 0;
-    transform: translateY(114px) translateX(6px) scale(0.64) rotateX(22deg) rotateZ(1.6deg);
+    transform: translateY(98px) translateX(5px) scale(0.66) rotateX(19deg) rotateZ(1.35deg);
+  }
+  58% {
+    opacity: 0.34;
+    transform: translateY(58px) translateX(-4px) scale(0.78) rotateX(11deg) rotateZ(-0.8deg);
   }
   74% {
-    opacity: 0.28;
-    transform: translateY(56px) translateX(-5px) scale(0.78) rotateX(13deg) rotateZ(-1deg);
+    opacity: 0.82;
+    transform: translateY(8px) translateX(1px) scale(0.96) rotateX(2deg) rotateZ(0.26deg);
   }
-  84% {
+  88% {
     opacity: 0.9;
-    transform: translateY(-21px) translateX(2px) scale(1.05) rotateX(-2deg) rotateZ(0.45deg);
+    transform: translateY(-12px) translateX(2px) scale(1.025) rotateX(-0.8deg) rotateZ(0.26deg);
   }
   100% {
     opacity: 1;
