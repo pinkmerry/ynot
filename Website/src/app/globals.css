@@ -19330,35 +19330,6 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
   will-change: filter;
 }
 
-.pack-open-card-wrap::before,
-.pack-open-card-wrap::after {
-  content: "";
-  position: absolute;
-  z-index: 2;
-  border-radius: 18px;
-  pointer-events: none;
-  opacity: 0;
-}
-
-.pack-open-card-wrap::before {
-  inset: 0;
-  background:
-    linear-gradient(180deg, rgba(5, 5, 5, 0.82), rgba(10, 10, 10, 0.68)),
-    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.1), transparent 42%);
-}
-
-.pack-open-card-wrap::after {
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 34%;
-  background:
-    linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.52), transparent),
-    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
-  filter: blur(6px);
-  transform: translateY(-130%);
-}
-
 .pack-open-controls {
   align-self: end;
   padding-bottom: 8vh;
@@ -19587,14 +19558,6 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
   animation: cardImageLightUp 6.6s cubic-bezier(0.13, 0.9, 0.18, 1) forwards;
 }
 
-.pack-open-prototype.charging .pack-open-card-wrap::before {
-  animation: cardDarkHold 6.6s cubic-bezier(0.13, 0.9, 0.18, 1) forwards;
-}
-
-.pack-open-prototype.charging .pack-open-card-wrap::after {
-  animation: cardRevealScan 6.6s cubic-bezier(0.2, 0.84, 0.18, 1) forwards;
-}
-
 .pack-open-prototype.rarity-rare.charging .pack-open-pack-base,
 .pack-open-prototype.rarity-rare.charging .pack-open-pack-split,
 .pack-open-prototype.rarity-rare.charging .pack-open-cutout-motion,
@@ -19656,30 +19619,12 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 }
 
 .pack-open-prototype.rarity-rare.charging .pack-open-card-wrap img,
-.pack-open-prototype.rarity-rare.charging .pack-open-card-wrap::before,
-.pack-open-prototype.rarity-rare.charging .pack-open-card-wrap::after,
-.pack-open-prototype.rarity-blackout.charging .pack-open-card-wrap img,
-.pack-open-prototype.rarity-blackout.charging .pack-open-card-wrap::before,
-.pack-open-prototype.rarity-blackout.charging .pack-open-card-wrap::after {
+.pack-open-prototype.rarity-blackout.charging .pack-open-card-wrap img {
   animation-duration: 6.8s;
 }
 
-.pack-open-prototype.rarity-jackpot.charging .pack-open-card-wrap img,
-.pack-open-prototype.rarity-jackpot.charging .pack-open-card-wrap::before,
-.pack-open-prototype.rarity-jackpot.charging .pack-open-card-wrap::after {
+.pack-open-prototype.rarity-jackpot.charging .pack-open-card-wrap img {
   animation-duration: 7.6s;
-}
-
-.pack-open-prototype.rarity-blackout.charging .pack-open-card-wrap::before {
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.94), rgba(5, 5, 5, 0.8)),
-    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.08), transparent 40%);
-}
-
-.pack-open-prototype.rarity-blackout.charging .pack-open-card-wrap::after {
-  background:
-    linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.68), transparent),
-    linear-gradient(90deg, transparent, rgba(17, 17, 17, 0.28), transparent);
 }
 
 .pack-open-prototype.batch.charging .pack-open-pack-base,
@@ -20216,56 +20161,40 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes cardImageLightUp {
   0%,
-  66% {
-    filter: brightness(0.2) saturate(0.78) contrast(1.08);
+  68% {
+    filter:
+      brightness(0.08)
+      saturate(0.58)
+      contrast(1.18)
+      drop-shadow(0 26px 32px rgba(0, 0, 0, 0.42));
   }
-  76% {
-    filter: brightness(0.24) saturate(0.82) contrast(1.1);
+  78% {
+    filter:
+      brightness(0.14)
+      saturate(0.66)
+      contrast(1.16)
+      drop-shadow(0 30px 36px rgba(0, 0, 0, 0.38));
   }
-  87% {
-    filter: brightness(0.68) saturate(0.94) contrast(1.04);
-  }
-  100% {
-    filter: brightness(1) saturate(1) contrast(1);
-  }
-}
-
-@keyframes cardDarkHold {
-  0%,
-  66% {
-    opacity: 0;
-  }
-  72% {
-    opacity: 0.92;
-  }
-  84% {
-    opacity: 0.82;
+  88% {
+    filter:
+      brightness(0.58)
+      saturate(0.9)
+      contrast(1.08)
+      drop-shadow(0 26px 34px rgba(42, 52, 39, 0.26));
   }
   94% {
-    opacity: 0.2;
+    filter:
+      brightness(1.08)
+      saturate(1.02)
+      contrast(1.02)
+      drop-shadow(0 30px 42px rgba(42, 52, 39, 0.2));
   }
   100% {
-    opacity: 0;
-  }
-}
-
-@keyframes cardRevealScan {
-  0%,
-  74% {
-    opacity: 0;
-    transform: translateY(-130%);
-  }
-  82% {
-    opacity: 0.78;
-    transform: translateY(12%);
-  }
-  92% {
-    opacity: 0.36;
-    transform: translateY(112%);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(140%);
+    filter:
+      brightness(1)
+      saturate(1)
+      contrast(1)
+      drop-shadow(0 30px 42px rgba(42, 52, 39, 0.18));
   }
 }
 
