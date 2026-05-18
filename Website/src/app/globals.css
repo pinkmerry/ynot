@@ -19103,19 +19103,6 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
   transform-style: preserve-3d;
 }
 
-.pack-open-video {
-  position: absolute;
-  z-index: 5;
-  width: min(82%, 360px);
-  aspect-ratio: 1244 / 1664;
-  object-fit: contain;
-  opacity: 0;
-  mix-blend-mode: screen;
-  pointer-events: none;
-  transform: translateY(0) scale(1.01);
-  filter: saturate(0.92) contrast(1.04);
-}
-
 .pack-open-pack-shell {
   z-index: 2;
   will-change: transform, opacity, filter;
@@ -19432,11 +19419,11 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 }
 
 .pack-open-prototype.charging .pack-open-pack-base {
-  animation: packCharge 5.2s cubic-bezier(0.2, 0.82, 0.16, 1) forwards;
+  animation: packCharge 4.4s cubic-bezier(0.2, 0.82, 0.16, 1) forwards;
 }
 
 .pack-open-prototype.charging .pack-open-pack-split {
-  animation: packSplitShow 5.2s cubic-bezier(0.2, 0.82, 0.16, 1) forwards;
+  animation: packSplitShow 4.4s cubic-bezier(0.2, 0.82, 0.16, 1) forwards;
 }
 
 .pack-open-prototype.charging .pack-open-pack-top {
@@ -19448,19 +19435,19 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 }
 
 .pack-open-prototype.charging .pack-open-tear {
-  animation: tearLine 4.9s cubic-bezier(0.28, 0.68, 0.16, 1) forwards;
+  animation: tearLine 4.05s cubic-bezier(0.28, 0.68, 0.16, 1) forwards;
 }
 
 .pack-open-prototype.charging .pack-open-mouth-shadow {
-  animation: mouthShadow 5.2s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
+  animation: mouthShadow 4.4s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
 }
 
 .pack-open-prototype.charging .pack-open-crinkles {
-  animation: crinkleGroup 5.2s ease forwards;
+  animation: crinkleGroup 4.4s ease forwards;
 }
 
 .pack-open-prototype.charging .pack-open-crinkles span {
-  animation: crinkleLine 5.2s cubic-bezier(0.2, 0.82, 0.16, 1) forwards;
+  animation: crinkleLine 4.4s cubic-bezier(0.2, 0.82, 0.16, 1) forwards;
 }
 
 .pack-open-prototype.charging .pack-open-crinkles span:nth-child(2) {
@@ -19472,23 +19459,19 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 }
 
 .pack-open-prototype.charging .pack-open-slot {
-  animation: packSlot 5.2s cubic-bezier(0.16, 0.92, 0.18, 1) forwards;
+  animation: packSlot 4.4s cubic-bezier(0.16, 0.92, 0.18, 1) forwards;
 }
 
 .pack-open-prototype.charging .pack-open-burst {
-  animation: packBurst 5.2s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
+  animation: packBurst 4.4s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
 }
 
 .pack-open-prototype.charging .pack-open-scanline {
-  animation: packScan 5.2s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
+  animation: packScan 4.4s cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
 }
 
 .pack-open-prototype.charging .pack-open-flash {
-  animation: packRevealFlash 5.2s cubic-bezier(0.16, 0.92, 0.18, 1) forwards;
-}
-
-.pack-open-prototype.charging .pack-open-video {
-  animation: packOpeningVideo 5.2s linear forwards;
+  animation: packRevealFlash 4.4s cubic-bezier(0.16, 0.92, 0.18, 1) forwards;
 }
 
 .pack-open-prototype.rarity-rare.charging .pack-open-burst {
@@ -19547,12 +19530,11 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 }
 
 .pack-open-prototype.charging .pack-open-card-wrap {
-  animation: cardPreview 5.2s cubic-bezier(0.15, 0.9, 0.2, 1) forwards;
+  animation: cardPreview 4.4s cubic-bezier(0.15, 0.9, 0.2, 1) forwards;
 }
 
 .pack-open-prototype.rarity-rare.charging .pack-open-pack-base,
 .pack-open-prototype.rarity-rare.charging .pack-open-pack-split,
-.pack-open-prototype.rarity-rare.charging .pack-open-video,
 .pack-open-prototype.rarity-rare.charging .pack-open-slot,
 .pack-open-prototype.rarity-rare.charging .pack-open-scanline,
 .pack-open-prototype.rarity-rare.charging .pack-open-flash,
@@ -19568,7 +19550,6 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 .pack-open-prototype.rarity-blackout.charging .pack-open-pack-base,
 .pack-open-prototype.rarity-blackout.charging .pack-open-pack-split,
-.pack-open-prototype.rarity-blackout.charging .pack-open-video,
 .pack-open-prototype.rarity-blackout.charging .pack-open-slot,
 .pack-open-prototype.rarity-blackout.charging .pack-open-scanline,
 .pack-open-prototype.rarity-blackout.charging .pack-open-flash,
@@ -19584,7 +19565,6 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 .pack-open-prototype.rarity-jackpot.charging .pack-open-pack-base,
 .pack-open-prototype.rarity-jackpot.charging .pack-open-pack-split,
-.pack-open-prototype.rarity-jackpot.charging .pack-open-video,
 .pack-open-prototype.rarity-jackpot.charging .pack-open-slot,
 .pack-open-prototype.rarity-jackpot.charging .pack-open-scanline,
 .pack-open-prototype.rarity-jackpot.charging .pack-open-flash,
@@ -19612,7 +19592,6 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 .pack-open-prototype.batch.charging .pack-open-pack-base,
 .pack-open-prototype.batch.charging .pack-open-pack-split,
-.pack-open-prototype.batch.charging .pack-open-video,
 .pack-open-prototype.batch.charging .pack-open-slot,
 .pack-open-prototype.batch.charging .pack-open-burst,
 .pack-open-prototype.batch.charging .pack-open-rarity-ring,
@@ -19755,30 +19734,6 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
   100% {
     opacity: 0.84;
     filter: brightness(1);
-  }
-}
-
-@keyframes packOpeningVideo {
-  0% {
-    opacity: 0;
-    transform: translateY(6px) scale(0.992);
-    filter: saturate(0.9) contrast(1.02) blur(0);
-  }
-  6%,
-  64% {
-    opacity: 1;
-    transform: translateY(0) scale(1.01);
-    filter: saturate(0.92) contrast(1.04) blur(0);
-  }
-  78% {
-    opacity: 0.56;
-    transform: translateY(-8px) scale(1.022);
-    filter: saturate(0.86) contrast(1.08) blur(1px);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-16px) scale(1.035);
-    filter: saturate(0.82) contrast(1.12) blur(5px);
   }
 }
 

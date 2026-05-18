@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import type { CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 type OpenMode = "single" | "batch";
 type OpenStage = "idle" | "charging" | "revealed";
@@ -28,7 +28,7 @@ function getOpenDuration(mode: OpenMode, rarity: PullRarity) {
   if (rarity === "jackpot") return 7600;
   if (rarity === "blackout") return 6800;
   if (rarity === "rare") return 5800;
-  return 5200;
+  return 4400;
 }
 
 function getPhaseLabel(stage: OpenStage, phase: OpenPhase, mode: OpenMode, rarity: PullRarity) {
@@ -53,7 +53,6 @@ export function PackOpenPrototype() {
   const [phase, setPhase] = useState<OpenPhase>("ready");
   const [mode, setMode] = useState<OpenMode>("single");
   const [rarity, setRarity] = useState<PullRarity>("normal");
-  const openingVideoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     if (stage !== "charging") return;
@@ -70,21 +69,9 @@ export function PackOpenPrototype() {
     return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, [mode, rarity, stage]);
 
-  useEffect(() => {
-    if (stage !== "charging") return;
-    const video = openingVideoRef.current;
-    if (!video) return;
-
-    video.currentTime = 0;
-    void video.play().catch(() => {
-      // Mobile browsers can still block programmatic playback in some modes.
-    });
-  }, [mode, rarity, stage]);
-
   function startOpen(nextMode: OpenMode, forcedRarity?: PullRarity) {
     setMode(nextMode);
     setRarity(forcedRarity ?? (nextMode === "batch" ? "rare" : rollRarity()));
-    setPhase("ready");
     setStage("charging");
   }
 
@@ -121,15 +108,6 @@ export function PackOpenPrototype() {
           <div className="pack-open-aura" aria-hidden />
           <span className="pack-open-scanline" aria-hidden />
           <span className="pack-open-flash" aria-hidden />
-          <video
-            ref={openingVideoRef}
-            className="pack-open-video"
-            src="/ynot-pack-open-test.mp4"
-            muted
-            playsInline
-            preload="auto"
-            aria-hidden
-          />
           <div className="pack-open-pack-shell" aria-hidden={isRevealed}>
             <div className="pack-open-pack pack-open-pack-base">
               <Image
