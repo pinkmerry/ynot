@@ -24,11 +24,11 @@ function rollRarity(): PullRarity {
 }
 
 function getOpenDuration(mode: OpenMode, rarity: PullRarity) {
-  if (mode === "batch") return 6800;
-  if (rarity === "jackpot") return 7600;
-  if (rarity === "blackout") return 6800;
-  if (rarity === "rare") return 6800;
-  return 6600;
+  if (mode === "batch") return 7600;
+  if (rarity === "jackpot") return 8400;
+  if (rarity === "blackout") return 7600;
+  if (rarity === "rare") return 7600;
+  return 7200;
 }
 
 function getPhaseLabel(stage: OpenStage, phase: OpenPhase, mode: OpenMode, rarity: PullRarity) {
@@ -57,12 +57,11 @@ export function PackOpenPrototype() {
   useEffect(() => {
     if (stage !== "charging") return;
     const duration = getOpenDuration(mode, rarity);
-    setPhase("seal");
 
     const timers = [
       window.setTimeout(() => setPhase("scan"), duration * 0.2),
-      window.setTimeout(() => setPhase("tear"), duration * 0.48),
-      window.setTimeout(() => setPhase("pull"), duration * 0.72),
+      window.setTimeout(() => setPhase("tear"), duration * 0.5),
+      window.setTimeout(() => setPhase("pull"), duration * 0.78),
       window.setTimeout(() => setStage("revealed"), duration),
     ];
 
@@ -72,7 +71,7 @@ export function PackOpenPrototype() {
   function startOpen(nextMode: OpenMode, forcedRarity?: PullRarity) {
     setMode(nextMode);
     setRarity(forcedRarity ?? (nextMode === "batch" ? "rare" : rollRarity()));
-    setPhase("ready");
+    setPhase("seal");
     setStage("charging");
   }
 
