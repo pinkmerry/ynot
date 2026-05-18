@@ -18510,14 +18510,14 @@ html[data-ynot-theme="light"] .product-card:focus-within .pack-order-controls {
   opacity: 1;
 }
 
-/* Compact section rhythm — heading sits flush with its grid. Hero
-   row hugs the toolbar above it, but each tier block gets a larger
-   editorial gap so COMMON / GOLD / etc. read as a distinct chapter. */
+/* Compact section rhythm — heading sits flush against its grid with no
+   visible gap, so each section reads as one editorial block. Different
+   sections still get breathing room between them. */
 html[data-ynot-theme="light"] .store-home-grid.packs-page .store-main-stack {
-  gap: 16px !important;
+  gap: 0 !important;
 }
 html[data-ynot-theme="light"] .store-home-grid.packs-page .store-main-stack > .packs-feature-row {
-  margin-top: 8px !important;
+  margin-top: 0 !important;
 }
 html[data-ynot-theme="light"] .store-home-grid.packs-page .store-main-stack > .packs-tier-block {
   margin-top: 48px !important;
