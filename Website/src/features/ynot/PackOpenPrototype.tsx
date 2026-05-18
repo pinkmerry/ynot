@@ -8,6 +8,9 @@ type OpenMode = "single" | "batch";
 type OpenStage = "idle" | "charging" | "revealed";
 type OpenPhase = "ready" | "seal" | "scan" | "tear" | "pull";
 type PullRarity = "normal" | "rare" | "blackout" | "jackpot";
+type PreviewSpeed = 1 | 2 | 4;
+
+const previewSpeeds: PreviewSpeed[] = [1, 2, 4];
 
 const sampleResults = Array.from({ length: 10 }, (_, index) => ({
   id: `sample-${index + 1}`,
@@ -53,20 +56,21 @@ export function PackOpenPrototype() {
   const [phase, setPhase] = useState<OpenPhase>("ready");
   const [mode, setMode] = useState<OpenMode>("single");
   const [rarity, setRarity] = useState<PullRarity>("normal");
+  const [previewSpeed, setPreviewSpeed] = useState<PreviewSpeed>(1);
 
   useEffect(() => {
     if (stage !== "charging") return;
-    const duration = getOpenDuration(mode, rarity);
+    const duration = getOpenDuration(mode, rarity) / previewSpeed;
 
     const timers = [
       window.setTimeout(() => setPhase("scan"), duration * 0.2),
       window.setTimeout(() => setPhase("tear"), duration * 0.5),
-      window.setTimeout(() => setPhase("pull"), duration * 0.78),
+      window.setTimeout(() => setPhase("pull"), duration * 0.88),
       window.setTimeout(() => setStage("revealed"), duration),
     ];
 
     return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [mode, rarity, stage]);
+  }, [mode, previewSpeed, rarity, stage]);
 
   function startOpen(nextMode: OpenMode, forcedRarity?: PullRarity) {
     setMode(nextMode);
@@ -85,7 +89,9 @@ export function PackOpenPrototype() {
   const status = getPhaseLabel(stage, phase, mode, rarity);
 
   return (
-    <main className={`pack-open-prototype ${stage} ${mode} phase-${phase} rarity-${rarity}`}>
+    <main
+      className={`pack-open-prototype ${stage} ${mode} phase-${phase} rarity-${rarity} speed-${previewSpeed}`}
+    >
       <div className="pack-open-grain" aria-hidden />
       <header className="pack-open-header">
         <a href="/packs" className="pack-open-link">
@@ -184,6 +190,22 @@ export function PackOpenPrototype() {
 
         <div className="pack-open-controls">
           <div className="pack-open-status">{status}</div>
+          <div className="pack-open-speed-control" aria-label="Preview speed">
+            <span>Preview speed</span>
+            <div>
+              {previewSpeeds.map((speed) => (
+                <button
+                  key={speed}
+                  type="button"
+                  className={previewSpeed === speed ? "is-active" : undefined}
+                  onClick={() => setPreviewSpeed(speed)}
+                  aria-pressed={previewSpeed === speed}
+                >
+                  {speed}x
+                </button>
+              ))}
+            </div>
+          </div>
 
           {stage === "idle" ? (
             <div className="pack-open-actions">
