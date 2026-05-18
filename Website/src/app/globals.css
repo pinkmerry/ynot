@@ -19316,7 +19316,7 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 }
 
 .pack-open-card-wrap {
-  z-index: 1;
+  z-index: 6;
   width: min(56%, 250px);
   aspect-ratio: 727 / 1217;
   opacity: 0;
@@ -19326,7 +19326,7 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 .pack-open-card-wrap img {
   border-radius: 18px;
   position: relative;
-  z-index: 1;
+  z-index: 6;
   will-change: filter;
 }
 
