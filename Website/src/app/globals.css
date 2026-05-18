@@ -16282,7 +16282,7 @@ html[data-ynot-theme="light"] .packs-toolbar p {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
-  margin-bottom: 32px;
+  margin-bottom: 0;
 }
 /* Count-based column layout: 1 featured = full width, 2 = halves,
    3+ = thirds. Falls back to single column on narrow screens. */
@@ -18296,7 +18296,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading .pack
   margin-left: auto !important;
 }
 html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
-  margin: 0 0 4px !important;
+  margin: 0 !important;
   font-family: var(--font-prompt), system-ui, sans-serif !important;
   font-size: 24px !important;
   font-weight: 800 !important;
@@ -18518,9 +18518,13 @@ html[data-ynot-theme="light"] .store-home-grid.packs-page .store-main-stack {
 }
 html[data-ynot-theme="light"] .store-home-grid.packs-page .store-main-stack > .packs-feature-row {
   margin-top: 0 !important;
+  margin-bottom: 0 !important;
 }
 html[data-ynot-theme="light"] .store-home-grid.packs-page .store-main-stack > .packs-tier-block {
   margin-top: 48px !important;
+}
+html[data-ynot-theme="light"] .packs-tier-heading + .home-pack-board {
+  margin-top: 0 !important;
 }
 
 /* Tier blocks sit flush — no divider above; the heading typography +
@@ -18536,18 +18540,34 @@ html[data-ynot-theme="light"] .packs-tier-subtitle {
   display: none !important;
 }
 
-/* Heading typography — bigger, looser, more editorial. */
+/* Heading typography — bigger, looser, more editorial. Both the page
+   <h1> ("Mystery Packs") and the tier <h2> ("COMMON", "GOLD"…) share
+   exactly the same font, size, weight, and tracking so the page
+   reads as one consistent editorial system. */
 html[lang][data-ynot-theme][data-ynot-language][class] .packs-toolbar h1,
 html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
   font-size: 32px !important;
-  letter-spacing: 0.04em !important;
   font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  line-height: 1.2 !important;
+  color: #000000 !important;
+  text-transform: uppercase !important;
+  margin: 0 !important;
 }
 @media (max-width: 767px) {
   html[lang][data-ynot-theme][data-ynot-language][class] .packs-toolbar h1,
   html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
     font-size: 24px !important;
   }
+}
+
+/* Page toolbar + tier heading share the same breathing room beneath
+   them so the gap between the heading and its grid is visually
+   identical in both Mystery Packs and tier sections. */
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-toolbar,
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading {
+  margin-bottom: 24px !important;
 }
 
 /* ============================================================
