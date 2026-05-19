@@ -51,6 +51,7 @@ const prompt = Prompt({
   weight: ["400", "500", "600", "700", "800"],
 });
 
+
 export const metadata: Metadata = {
   title: "YNOT · TCG Lucky Draw",
   description: "YNOT TCG production lucky-draw site with wallet, gacha, collection, exchange, shipping, and admin operations.",

@@ -71,7 +71,7 @@ function useHydrated() {
 const navLabels = {
   en: {
     main: "Home",
-    mysteryPacks: "Mystery Packs",
+    mysteryPacks: "Y-Packs",
     marketplace: "Marketplace",
     profile: "Profile",
     wallet: "Wallet",
@@ -80,7 +80,7 @@ const navLabels = {
   },
   th: {
     main: "หน้าหลัก",
-    mysteryPacks: "กล่องสุ่ม",
+    mysteryPacks: "Y-Packs",
     marketplace: "ตลาด",
     profile: "โปรไฟล์",
     wallet: "วอลเล็ต",
@@ -155,14 +155,14 @@ const headerMegaMenus: Record<
   en: {
     main: {
       links: [
-        { label: "New Mystery Packs", href: "/packs" },
+        { label: "New Y-Packs", href: "/packs" },
         { label: "Marketplace", href: "/marketplace" },
         { label: "Pokemon", href: "/?series=pokemon" },
         { label: "One Piece", href: "/?series=one_piece" },
       ],
       features: [
         {
-          title: "Mystery Packs",
+          title: "Y-Packs",
           href: "/packs",
           image: "/ynot-pack-psa-cards.jpg",
           alt: "PSA graded Pokemon cards",
@@ -222,14 +222,14 @@ const headerMegaMenus: Record<
   th: {
     main: {
       links: [
-        { label: "กล่องสุ่มใหม่", href: "/packs" },
+        { label: "Y-Packs ใหม่", href: "/packs" },
         { label: "ตลาด", href: "/marketplace" },
         { label: "Pokemon", href: "/?series=pokemon" },
         { label: "One Piece", href: "/?series=one_piece" },
       ],
       features: [
         {
-          title: "กล่องสุ่ม",
+          title: "Y-Packs",
           href: "/packs",
           image: "/ynot-pack-psa-cards.jpg",
           alt: "การ์ด Pokemon เกรด PSA",
@@ -244,7 +244,7 @@ const headerMegaMenus: Record<
     },
     mysteryPacks: {
       links: [
-        { label: "กล่องสุ่มทั้งหมด", href: "/packs" },
+        { label: "Y-Packs ทั้งหมด", href: "/packs" },
         { label: "Pokemon", href: "/?series=pokemon" },
         { label: "One Piece", href: "/?series=one_piece" },
         { label: "PSA 10", href: "/?tag=psa10" },
@@ -1317,20 +1317,20 @@ export function StoreSettingsMenu({
             <div className="store-drawer-lang-inline" role="group" aria-label={copy.language}>
               <button
                 type="button"
-                className={`store-drawer-lang-link${preferences.language === "th" ? " active" : ""}`}
-                onClick={() => setLanguage("th")}
-                aria-pressed={preferences.language === "th"}
-              >
-                {copy.th}
-              </button>
-              <span aria-hidden className="store-drawer-lang-sep">/</span>
-              <button
-                type="button"
                 className={`store-drawer-lang-link${preferences.language === "en" ? " active" : ""}`}
                 onClick={() => setLanguage("en")}
                 aria-pressed={preferences.language === "en"}
               >
                 {copy.en}
+              </button>
+              <span aria-hidden className="store-drawer-lang-sep">/</span>
+              <button
+                type="button"
+                className={`store-drawer-lang-link${preferences.language === "th" ? " active" : ""}`}
+                onClick={() => setLanguage("th")}
+                aria-pressed={preferences.language === "th"}
+              >
+                {copy.th}
               </button>
             </div>
           </div>

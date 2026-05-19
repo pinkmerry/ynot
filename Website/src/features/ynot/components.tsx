@@ -739,7 +739,7 @@ export async function PacksExperience({
       <PackDragDrop enabled={isAdmin} />
       <div className="store-main-stack">
         <div className="catalog-toolbar packs-toolbar">
-          <h1>Mystery Packs</h1>
+          <h1>Y-Packs</h1>
           <p>{`${campaigns.length} slab pack${campaigns.length === 1 ? "" : "s"}`}</p>
           {isAdmin && <PackPickerLauncher variant="button" />}
         </div>
@@ -1026,11 +1026,11 @@ function SeriesEssentialsSection() {
   return (
     <section
       className="series-essentials"
-      aria-label="Featured series"
+      aria-label="Where to begin"
     >
       <h2 className="series-essentials-heading">
-        <span className="i18n-en">Featured Series</span>
-        <span className="i18n-th">ซีรีส์เด่น</span>
+        <span className="i18n-en">Where to Begin</span>
+        <span className="i18n-th">เริ่มต้นที่นี่</span>
       </h2>
       <div className="series-essentials-grid">
         <Link
@@ -1039,8 +1039,8 @@ function SeriesEssentialsSection() {
         >
           <div className="series-essentials-art" aria-hidden />
           <span className="series-essentials-cta">
-            <span className="i18n-en">Mystery Packs</span>
-            <span className="i18n-th">กล่องสุ่ม</span>
+            <span className="i18n-en">Y-Packs</span>
+            <span className="i18n-th">Y-Packs</span>
           </span>
         </Link>
         <Link
@@ -1071,36 +1071,16 @@ function MobileTorecaHero({ campaign }: { campaign?: YnotCampaign }) {
       </div>
       <div className="hero-copy">
         <h1>
-          <span className="i18n-en">
-            RIP PACKS
-            <br />
-            SHIP CARDS
-            <br />
-            COLLECT AND
-            <br />
-            REPEAT
-          </span>
-          <span className="i18n-th">
-            เปิดแพค
-            <br />
-            ส่งการ์ด
-            <br />
-            สะสม
-            <br />
-            และทำซ้ำ
-          </span>
+          <span className="i18n-en">YNOT</span>
+          <span className="i18n-th">YNOT</span>
         </h1>
         <p>
-          <span className="i18n-en">
-            {campaign ? "OPEN LIVE ADMIN-PUBLISHED PACKS" : "AWAITING FIRST LIVE PACK"}
-          </span>
-          <span className="i18n-th">
-            {campaign ? "เปิดแพคจริงที่แอดมินเผยแพร่" : "รอแพคจริงตัวแรก"}
-          </span>
+          <span className="i18n-en">WHY NOT OPEN?</span>
+          <span className="i18n-th">WHY NOT OPEN?</span>
         </p>
         <Link className="hero-rip-button" href={openHref}>
-          <span className="i18n-en">{campaign ? "Rip Mystery Pack" : "View Readiness"}</span>
-          <span className="i18n-th">{campaign ? "เปิด Mystery Pack" : "ดูสถานะ"}</span>
+          <span className="i18n-en">{campaign ? "Y-Pack" : "View Readiness"}</span>
+          <span className="i18n-th">{campaign ? "Y-Pack" : "ดูสถานะ"}</span>
         </Link>
       </div>
     </section>
@@ -1589,7 +1569,7 @@ function CampaignArtwork({
             {campaign.categoryLabel ?? seriesLabel(campaign.series)}
           </span>
           <span className="clean-cover-title">{campaign.titleEn}</span>
-          <span className="clean-cover-footer">Mystery Pack</span>
+          <span className="clean-cover-footer">Y-Pack</span>
         </span>
       )}
       {!clean && !quiet && (
