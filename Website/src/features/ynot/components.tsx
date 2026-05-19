@@ -455,9 +455,6 @@ function YnotFooter() {
   return (
     <footer className="ynot-footer" aria-label="Site footer">
       <div className="ynot-footer-interior">
-        <p className="ynot-footer-copyright">
-          <span className="ynot-copy-symbol">©</span> 2026 YNOT
-        </p>
         <nav className="ynot-footer-nav" aria-label="Footer navigation">
           <ul className="ynot-footer-list">
             <li className="ynot-footer-item">
@@ -501,6 +498,11 @@ function YnotFooter() {
             </li>
           </ul>
         </nav>
+      </div>
+      <div className="ynot-footer-copyright-row">
+        <p className="ynot-footer-copyright">
+          <span className="ynot-copy-symbol">©</span> 2026 YNOT
+        </p>
       </div>
     </footer>
   );
