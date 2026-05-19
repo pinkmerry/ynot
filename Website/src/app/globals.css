@@ -19685,20 +19685,7 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 }
 
 .pack-open-slot {
-  z-index: 4;
-  width: min(16%, 58px);
-  height: min(72%, 450px);
-  border-radius: 999px;
-  overflow: hidden;
-  background:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.9), #000000 46%, #000000 54%, rgba(0, 0, 0, 0.88)),
-    radial-gradient(ellipse at center, rgba(0, 0, 0, 0.96), transparent 68%);
-  box-shadow:
-    inset 10px 0 18px rgba(255, 255, 255, 0.12),
-    inset -10px 0 18px rgba(255, 255, 255, 0.1),
-    0 0 16px rgba(0, 0, 0, 0.42);
-  filter: blur(0.2px);
-  transform: scaleX(0.02) scaleY(0.68);
+  display: none;
 }
 
 .pack-open-slot::before,
@@ -19984,7 +19971,7 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 }
 
 .pack-open-prototype.charging .pack-open-slot {
-  animation: packSlot var(--open-duration-base) cubic-bezier(0.16, 0.92, 0.18, 1) forwards;
+  animation: none;
 }
 
 .pack-open-prototype.charging .pack-open-burst {
@@ -20676,30 +20663,35 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes cardPreview {
   0%,
-  66% {
+  58% {
     z-index: 1;
     opacity: 0;
-    transform: translateY(152px) translateX(0) scale(0.5) rotateX(20deg) rotateZ(0deg);
+    transform: translateY(166px) translateX(0) scale(0.48) rotateX(20deg) rotateZ(0deg);
   }
-  74% {
+  66% {
     z-index: 1;
-    opacity: 0.12;
-    transform: translateY(122px) translateX(0) scale(0.56) rotateX(16deg) rotateZ(-0.04deg);
+    opacity: 0.08;
+    transform: translateY(146px) translateX(0) scale(0.52) rotateX(17deg) rotateZ(-0.03deg);
+  }
+  76% {
+    z-index: 1;
+    opacity: 0.22;
+    transform: translateY(104px) translateX(0) scale(0.62) rotateX(12deg) rotateZ(-0.03deg);
   }
   84% {
     z-index: 1;
-    opacity: 0.36;
-    transform: translateY(70px) translateX(0) scale(0.7) rotateX(10deg) rotateZ(-0.03deg);
+    opacity: 0.42;
+    transform: translateY(58px) translateX(0) scale(0.76) rotateX(7deg) rotateZ(0.01deg);
   }
   90% {
     z-index: 6;
-    opacity: 0.62;
-    transform: translateY(28px) translateX(0) scale(0.84) rotateX(5deg) rotateZ(0.02deg);
+    opacity: 0.74;
+    transform: translateY(24px) translateX(0) scale(0.88) rotateX(4deg) rotateZ(0.02deg);
   }
   95% {
     z-index: 6;
-    opacity: 0.9;
-    transform: translateY(6px) translateX(0) scale(0.94) rotateX(2deg) rotateZ(0.02deg);
+    opacity: 0.92;
+    transform: translateY(5px) translateX(0) scale(0.97) rotateX(1.4deg) rotateZ(0.02deg);
   }
   98.5% {
     z-index: 6;
@@ -20760,10 +20752,13 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes cardFearToneWash {
   0%,
-  66% {
+  58% {
     opacity: 0;
   }
-  74%,
+  66% {
+    opacity: 0.18;
+  }
+  76%,
   91% {
     opacity: 0.58;
   }
@@ -20780,30 +20775,35 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes rareCardPreview {
   0%,
-  66% {
+  58% {
     z-index: 1;
     opacity: 0;
-    transform: translateY(154px) translateX(0) scale(0.5) rotateX(20deg) rotateZ(0deg);
+    transform: translateY(168px) translateX(0) scale(0.48) rotateX(20deg) rotateZ(0deg);
   }
-  74% {
+  66% {
     z-index: 1;
-    opacity: 0.14;
-    transform: translateY(124px) translateX(0) scale(0.56) rotateX(16deg) rotateZ(-0.04deg);
+    opacity: 0.1;
+    transform: translateY(148px) translateX(0) scale(0.52) rotateX(17deg) rotateZ(-0.03deg);
+  }
+  76% {
+    z-index: 1;
+    opacity: 0.24;
+    transform: translateY(104px) translateX(0) scale(0.62) rotateX(12deg) rotateZ(-0.03deg);
   }
   84% {
     z-index: 1;
-    opacity: 0.38;
-    transform: translateY(68px) translateX(0) scale(0.7) rotateX(10deg) rotateZ(-0.03deg);
+    opacity: 0.44;
+    transform: translateY(56px) translateX(0) scale(0.76) rotateX(7deg) rotateZ(0.01deg);
   }
   90% {
     z-index: 6;
-    opacity: 0.64;
-    transform: translateY(26px) translateX(0) scale(0.84) rotateX(5deg) rotateZ(0.02deg);
+    opacity: 0.76;
+    transform: translateY(22px) translateX(0) scale(0.88) rotateX(4deg) rotateZ(0.02deg);
   }
   95% {
     z-index: 6;
-    opacity: 0.88;
-    transform: translateY(6px) translateX(0) scale(0.94) rotateX(2deg) rotateZ(0.03deg);
+    opacity: 0.92;
+    transform: translateY(5px) translateX(0) scale(0.97) rotateX(1.4deg) rotateZ(0.03deg);
   }
   98.5% {
     z-index: 6;
@@ -20819,30 +20819,35 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes jackpotCardPreview {
   0%,
-  68% {
+  60% {
     z-index: 1;
     opacity: 0;
-    transform: translateY(156px) translateX(0) scale(0.48) rotateX(22deg) rotateZ(0deg);
+    transform: translateY(170px) translateX(0) scale(0.46) rotateX(22deg) rotateZ(0deg);
   }
-  76% {
+  68% {
     z-index: 1;
-    opacity: 0.16;
-    transform: translateY(122px) translateX(0) scale(0.56) rotateX(16deg) rotateZ(-0.04deg);
+    opacity: 0.1;
+    transform: translateY(148px) translateX(0) scale(0.52) rotateX(17deg) rotateZ(-0.03deg);
+  }
+  78% {
+    z-index: 1;
+    opacity: 0.24;
+    transform: translateY(102px) translateX(0) scale(0.62) rotateX(12deg) rotateZ(-0.03deg);
   }
   85% {
     z-index: 1;
-    opacity: 0.4;
-    transform: translateY(66px) translateX(0) scale(0.7) rotateX(10deg) rotateZ(-0.03deg);
+    opacity: 0.46;
+    transform: translateY(54px) translateX(0) scale(0.76) rotateX(7deg) rotateZ(0.01deg);
   }
   91% {
     z-index: 6;
-    opacity: 0.66;
-    transform: translateY(25px) translateX(0) scale(0.84) rotateX(5deg) rotateZ(0.03deg);
+    opacity: 0.78;
+    transform: translateY(22px) translateX(0) scale(0.88) rotateX(4deg) rotateZ(0.03deg);
   }
   95.5% {
     z-index: 6;
-    opacity: 0.9;
-    transform: translateY(6px) translateX(0) scale(0.94) rotateX(1.5deg) rotateZ(0.04deg);
+    opacity: 0.92;
+    transform: translateY(5px) translateX(0) scale(0.97) rotateX(1.2deg) rotateZ(0.04deg);
   }
   98.5% {
     z-index: 6;
@@ -20858,30 +20863,35 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 
 @keyframes blackoutCardPreview {
   0%,
-  66% {
+  58% {
     z-index: 1;
     opacity: 0;
-    transform: translateY(154px) translateX(0) scale(0.5) rotateX(20deg) rotateZ(0deg);
+    transform: translateY(168px) translateX(0) scale(0.48) rotateX(20deg) rotateZ(0deg);
   }
-  74% {
+  66% {
     z-index: 1;
-    opacity: 0.12;
-    transform: translateY(124px) translateX(0) scale(0.55) rotateX(16deg) rotateZ(-0.04deg);
+    opacity: 0.08;
+    transform: translateY(148px) translateX(0) scale(0.51) rotateX(17deg) rotateZ(-0.03deg);
+  }
+  76% {
+    z-index: 1;
+    opacity: 0.2;
+    transform: translateY(106px) translateX(0) scale(0.61) rotateX(12deg) rotateZ(-0.03deg);
   }
   84% {
     z-index: 1;
-    opacity: 0.34;
-    transform: translateY(70px) translateX(0) scale(0.69) rotateX(10deg) rotateZ(-0.03deg);
+    opacity: 0.4;
+    transform: translateY(58px) translateX(0) scale(0.75) rotateX(7deg) rotateZ(0.01deg);
   }
   90% {
     z-index: 6;
-    opacity: 0.58;
-    transform: translateY(28px) translateX(0) scale(0.82) rotateX(5deg) rotateZ(0.02deg);
+    opacity: 0.7;
+    transform: translateY(24px) translateX(0) scale(0.86) rotateX(4deg) rotateZ(0.02deg);
   }
   95% {
     z-index: 6;
-    opacity: 0.84;
-    transform: translateY(6px) translateX(0) scale(0.93) rotateX(2deg) rotateZ(0.03deg);
+    opacity: 0.88;
+    transform: translateY(5px) translateX(0) scale(0.96) rotateX(1.4deg) rotateZ(0.03deg);
   }
   98.5% {
     z-index: 6;
