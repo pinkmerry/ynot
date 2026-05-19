@@ -4137,6 +4137,42 @@ body::before {
   }
 }
 
+/* Mobile pack grid — YFIFTEEN-style edge-to-edge 2-col grid with thin gridlines. */
+@media (max-width: 767px) {
+  .store-shell .packs-page[class] {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  .store-shell .home-pack-board[class] {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  .store-shell .home-pack-board .campaign-grid[class] {
+    gap: 0 !important;
+    background: #e5e5e5;
+    border-top: 1px solid #e5e5e5;
+    border-bottom: 1px solid #e5e5e5;
+  }
+  .store-shell .home-pack-board .campaign-grid > .product-card[class] {
+    background: #ffffff;
+    border-right: 1px solid #e5e5e5;
+    margin: 0;
+    border-radius: 0 !important;
+  }
+  /* Remove right border on the last column to avoid double-edge */
+  .store-shell .home-pack-board .campaign-grid > .product-card:nth-child(2n) {
+    border-right: 0;
+  }
+  /* Bottom border on all rows except the last */
+  .store-shell .home-pack-board .campaign-grid > .product-card {
+    border-bottom: 1px solid #e5e5e5;
+  }
+  .store-shell .home-pack-board .campaign-grid > .product-card:nth-last-child(-n + 2):nth-child(2n + 1),
+  .store-shell .home-pack-board .campaign-grid > .product-card:nth-last-child(1) {
+    border-bottom: 0;
+  }
+}
+
 /* Small corrective pass after visual audit */
 .inner-phone-header {
   display: grid;
@@ -14121,32 +14157,33 @@ html[data-ynot-theme="light"] .toreca-mobile-hero {
   html[data-ynot-theme="light"] .toreca-mobile-hero .hero-card-fan {
     display: none !important;
   }
-  html[data-ynot-theme="light"] .toreca-mobile-hero .hero-copy {
+  html[data-ynot-theme="light"] .toreca-mobile-hero .hero-copy[class] {
     position: absolute !important;
     inset: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    justify-content: center !important;
+    justify-content: flex-end !important;
     text-align: center !important;
-    padding: 0 var(--arena-pad) !important;
+    padding: 48px var(--arena-pad) calc(7vh + 64px) !important;
   }
   html[data-ynot-theme="light"] .toreca-mobile-hero .hero-copy h1 {
     color: #ffffff !important;
     text-shadow: 0 4px 32px rgba(0, 0, 0, 0.45) !important;
-    font-size: clamp(2.4rem, 5vw, 4rem) !important;
+    font-size: 80px !important;
     line-height: 1.05 !important;
     letter-spacing: -0.01em !important;
-    font-weight: 700 !important;
-    margin: 0 0 18px !important;
+    font-weight: 800 !important;
+    margin: 0 0 16px !important;
   }
   html[data-ynot-theme="light"] .toreca-mobile-hero .hero-copy p {
-    color: rgba(255, 255, 255, 0.92) !important;
-    font-size: 11px !important;
+    color: #ffffff !important;
+    font-size: 26px !important;
+    font-style: normal !important;
     font-weight: 500 !important;
-    letter-spacing: 0.22em !important;
+    letter-spacing: 0.15em !important;
     text-transform: uppercase !important;
-    margin: 0 0 36px !important;
+    margin: 0 0 24px !important;
   }
   /* Hero CTA — exact Fear of God `.bottom-cta` specs:
        - position absolute, bottom 7% of hero
@@ -14881,7 +14918,7 @@ html[data-ynot-theme="light"] .header-balance-pill {
   justify-content: flex-end;
   align-items: center;
   width: 100%;
-  padding: 2.70833vw 2.60417vw 1.5625vw;
+  padding: 16px 2.60417vw 13.81px;
   box-sizing: border-box;
   height: 89.8px;
   min-height: 89.8px;
@@ -14895,17 +14932,19 @@ html[data-ynot-theme="light"] .header-balance-pill {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  min-height: 43.68px;
 }
 
-/* Copyright — same row as nav, matches nav link typography. */
-.ynot-footer-copyright {
+/* Copyright — same row as nav, matches nav link typography.
+   Selector specificity matches the universal Prompt override (line ~16899). */
+html[lang][data-ynot-theme][data-ynot-language][class] p.ynot-footer-copyright {
   margin: 0 !important;
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, sans-serif !important;
   font-size: 11.2px !important;
   font-weight: 400 !important;
   letter-spacing: 0.15em !important;
   text-transform: uppercase !important;
-  line-height: 1.5em !important;
+  line-height: 1.4 !important;
   color: #000000 !important;
 }
 
@@ -15038,6 +15077,12 @@ html[lang][data-ynot-theme][data-ynot-language][class] .ynot-copy-symbol {
   font-weight: 400;
   text-transform: uppercase;
 }
+html[lang][data-ynot-theme][data-ynot-language][class] .ynot-footer-item,
+html[lang][data-ynot-theme][data-ynot-language][class] .ynot-footer-item .ynot-footer-link,
+html[lang][data-ynot-theme][data-ynot-language][class] .ynot-footer-item .ynot-footer-link span {
+  font-family: Helvetica, Arial, sans-serif !important;
+  font-size: 12px !important;
+}
 .ynot-footer-item:first-child {
   margin-left: 0;
 }
@@ -15075,43 +15120,45 @@ html[lang][data-ynot-theme][data-ynot-language][class] .ynot-copy-symbol {
   }
 }
 
-/* Mobile portrait — compact footer: everything (© + nav) in a single row,
-   smaller font so the labels fit. */
+/* Mobile portrait — nav stacks vertically, all items left-aligned, in line
+   with YFIFTEEN's mobile footer. © sits on its own row below. */
 @media only screen and (max-width: 767px) and (orientation: portrait) {
   .ynot-footer {
     padding: 0;
   }
   .ynot-footer-interior {
-    flex-direction: row;
-    align-items: flex-end;
+    flex-direction: column;
+    align-items: flex-start;
     justify-content: flex-start;
-    gap: 12px;
+    gap: 0;
     padding: 28px 5.33333vw 22px;
     height: auto;
     min-height: 0;
-    flex-wrap: nowrap;
+  }
+  .ynot-footer-copyright-row {
+    padding-left: 5.33333vw;
+    padding-right: 5.33333vw;
   }
   .ynot-footer-nav {
     flex: 1 1 auto;
     min-width: 0;
+    width: 100%;
   }
   .ynot-footer-list {
-    flex-direction: row !important;
+    flex-direction: column !important;
     flex-wrap: nowrap !important;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 16px;
     width: 100%;
   }
   .ynot-footer-item {
     margin: 0 !important;
     padding-bottom: 0 !important;
-    font-size: 8px !important;
-    letter-spacing: 0.1em !important;
+    letter-spacing: 0.15em !important;
   }
   .ynot-footer-copyright {
-    font-size: 8px !important;
-    letter-spacing: 0.1em !important;
+    letter-spacing: 0.15em !important;
     flex: 0 0 auto;
     white-space: nowrap;
   }
@@ -15133,21 +15180,6 @@ html[lang][data-ynot-theme][data-ynot-language][class] .ynot-copy-symbol {
   }
   .ynot-newsletter-submit {
     height: 32px;
-  }
-  /* Single-row nav — all items inline, smaller font to fit. */
-  .ynot-footer-list {
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
-    gap: 10px !important;
-    width: 100% !important;
-  }
-  .ynot-footer-item {
-    margin: 0 !important;
-    padding-bottom: 0 !important;
-    font-size: 8px !important;
-    letter-spacing: 0.1em !important;
   }
   .ynot-footer-item:last-child {
     padding-bottom: 0 !important;
@@ -16748,17 +16780,13 @@ html[lang][data-ynot-theme][data-ynot-language][class] .series-essentials-headin
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  background-color: #f0f0f0;
+  background-color: #d8e8d4;
 }
 .series-essentials-card--pokemon .series-essentials-art {
-  background-image:
-    linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.32) 100%),
-    url("/ynot-pack-psa-cards.jpg");
+  background-image: url("/Y%20Pack.png");
 }
 .series-essentials-card--one-piece .series-essentials-art {
-  background-image:
-    linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.32) 100%),
-    url("/ynot-pack-psa-cards-mobile.jpg");
+  background-image: url("/Marketplace.png");
 }
 .series-essentials-cta {
   display: flex;
