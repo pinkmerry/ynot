@@ -34,6 +34,7 @@ export default async function PacksPage({
     <YnotShell
       viewer={data.viewer}
       homeFilter={homeFilter}
+      homeFilterBaseHref="/packs"
       walletBalance={data.wallet.balanceCoins}
       showHeaderCoin
     >

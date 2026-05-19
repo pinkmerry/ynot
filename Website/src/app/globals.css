@@ -18540,15 +18540,14 @@ html[data-ynot-theme="light"] .packs-tier-subtitle {
   display: none !important;
 }
 
-/* Heading typography — bigger, looser, more editorial. Both the page
-   <h1> ("Mystery Packs") and the tier <h2> ("COMMON", "GOLD"…) share
-   exactly the same font, size, weight, and tracking so the page
-   reads as one consistent editorial system. */
+/* Heading typography — mirrors fearofgod.com's section h2 (25px Optima,
+   light editorial weight, black). We keep YNOT's Prompt font so the
+   brand voice stays intact while the proportions match FoG. */
 html[lang][data-ynot-theme][data-ynot-language][class] .packs-toolbar h1,
 html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
   font-family: var(--font-prompt), system-ui, sans-serif !important;
-  font-size: 32px !important;
-  font-weight: 800 !important;
+  font-size: 25px !important;
+  font-weight: 400 !important;
   letter-spacing: 0.04em !important;
   line-height: 1.2 !important;
   color: #000000 !important;
@@ -18558,7 +18557,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
 @media (max-width: 767px) {
   html[lang][data-ynot-theme][data-ynot-language][class] .packs-toolbar h1,
   html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
-    font-size: 24px !important;
+    font-size: 20px !important;
   }
 }
 
