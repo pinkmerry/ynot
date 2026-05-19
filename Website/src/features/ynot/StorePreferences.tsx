@@ -439,6 +439,53 @@ export function StoreHeaderNav({
   const pathname = usePathname();
   const [openMegaKey, setOpenMegaKey] = useState<string | null>(null);
 
+  // Publish a data attribute on <html> describing what kind of element the
+  // pointer is currently over inside the storefront header — "active" when
+  // on the current-page link, "other" when on another link/button, absent
+  // when on whitespace or outside the header. CSS uses this to fade the
+  // active underline only when an interactive peer is hovered.
+  useEffect(() => {
+    const header = document.querySelector<HTMLElement>(".storefront-header");
+    if (!header) return;
+
+    function resolve(target: EventTarget | null): "active" | "other" | null {
+      if (!(target instanceof Element)) return null;
+      // Submenu items live inside an open megamenu. Treat hovering anything
+      // in there as if the user is still on the current page so the header's
+      // active underline does not flicker off while exploring submenus.
+      if (target.closest(".ynot-mega-panel")) return "active";
+      const interactive = target.closest("a, button");
+      if (!interactive || !header!.contains(interactive)) return null;
+      const isActive = interactive.matches(
+        '.store-nav-link.active, .store-nav-link[aria-current="page"]',
+      );
+      return isActive ? "active" : "other";
+    }
+
+    function apply(state: "active" | "other" | null) {
+      if (state) {
+        document.documentElement.dataset.headerHoverTarget = state;
+      } else {
+        delete document.documentElement.dataset.headerHoverTarget;
+      }
+    }
+
+    function onPointerMove(event: PointerEvent) {
+      apply(resolve(event.target));
+    }
+    function onPointerLeave() {
+      apply(null);
+    }
+
+    header.addEventListener("pointermove", onPointerMove);
+    header.addEventListener("pointerleave", onPointerLeave);
+    return () => {
+      header.removeEventListener("pointermove", onPointerMove);
+      header.removeEventListener("pointerleave", onPointerLeave);
+      apply(null);
+    };
+  }, []);
+
   const leftNav = customerNav.filter((item) =>
     (item.placement as readonly string[]).includes("left"),
   );
@@ -537,6 +584,10 @@ export function StoreBrandHomeLink() {
 
   function handleClick(event: ReactMouseEvent<HTMLAnchorElement>) {
     if (!isPlainPrimaryClick(event)) return;
+
+    // Always tell the drawer to close — covers the on-home case where
+    // pathname doesn't change so the drawer's pathname effect won't fire.
+    window.dispatchEvent(new Event("ynot:close-drawer"));
 
     if (pathname !== "/") return;
 
@@ -1041,6 +1092,7 @@ export function StoreSettingsMenu({
   variant?: "bell" | "language";
 } = {}) {
   const { preferences, setLanguage } = useStorePreferences();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   // Drill-down state — null means the main level is showing.
   const [activeSubMenu, setActiveSubMenu] = useState<HeaderMegaKey | null>(null);
@@ -1049,6 +1101,24 @@ export function StoreSettingsMenu({
   const copy = settingsCopy[preferences.language];
   const navStrings = navLabels[preferences.language];
   const hydrated = useHydrated();
+
+  // Close the drawer whenever the route changes — covers tapping the brand
+  // logo, in-drawer links, and browser back navigation.
+  useEffect(() => {
+    setOpen(false);
+    setActiveSubMenu(null);
+  }, [pathname]);
+
+  // Same-page logo taps don't trigger the pathname effect, so the brand link
+  // also dispatches an explicit close signal we listen for here.
+  useEffect(() => {
+    function handleClose() {
+      setOpen(false);
+      setActiveSubMenu(null);
+    }
+    window.addEventListener("ynot:close-drawer", handleClose);
+    return () => window.removeEventListener("ynot:close-drawer", handleClose);
+  }, []);
 
   useEffect(() => {
     if (!open) return;

@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { revalidateTag } from "next/cache";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
@@ -18,6 +19,10 @@ import {
   campaignLifecycleErrorMap,
   mappedAdminErrorResponse,
 } from "@/lib/ynot/admin-api-errors";
+import {
+  DEMO_PACK_ARCHIVED_COOKIE,
+  parseDemoPackArchivedCookie,
+} from "@/features/ynot/demo-pack-order";
 
 export const dynamic = "force-dynamic";
 
@@ -77,9 +82,13 @@ function randomLogicMode(value: unknown): RandomLogicMode {
 }
 
 function isLocalMockCampaign(campaignId: string) {
+  if (process.env.NODE_ENV === "production") return false;
+  // "mock-owner-pack-*" — synthetic ids used by owner-review fixtures.
+  // "storefront-*"     — ids from the hardcoded demo storefront fallback in
+  //                       storefront-content.ts (Pokemon Gold #07 etc.).
   return (
-    process.env.NODE_ENV !== "production" &&
-    campaignId.startsWith("mock-owner-pack-")
+    campaignId.startsWith("mock-owner-pack-") ||
+    campaignId.startsWith("storefront-")
   );
 }
 
@@ -229,17 +238,36 @@ export async function POST(request: Request) {
   const isDev = process.env.NODE_ENV !== "production";
   // Dev-mode bypass: when no real admin session is present we still want
   // local lifecycle actions (e.g. archiving from the storefront delete
-  // button) to work. Substitute a synthetic admin record so the downstream
-  // code that needs admin.adminId / adminRole keeps functioning. Production
-  // always enforces the real admin gate.
+  // button) to work. Look up the first owner profile in the database so the
+  // RPC receives a valid UUID; fall back to the well-known nil UUID if
+  // there is no admin row yet. Production always enforces the real admin
+  // gate.
   const realAdmin = await resolveAdminSession();
-  const admin = realAdmin ?? (isDev
-    ? {
-        adminId: "dev-admin",
-        profileId: "dev-admin",
-        adminRole: "owner" as const,
+  let admin: Awaited<ReturnType<typeof resolveAdminSession>> = realAdmin;
+  if (!admin && isDev) {
+    let devAdminId = "00000000-0000-0000-0000-000000000000";
+    try {
+      const supabaseProbe = createServiceSupabaseClient();
+      const probe = (await supabaseProbe
+        .from("ynot_admins")
+        .select("profile_id")
+        .eq("role", "owner")
+        .limit(1)
+        .maybeSingle()) as { data: { profile_id?: string | null } | null };
+      const candidate = probe.data?.profile_id;
+      if (typeof candidate === "string" && candidate.length > 0) {
+        devAdminId = candidate;
       }
-    : null);
+    } catch {
+      // best-effort lookup — fall back to the nil UUID if the probe fails
+    }
+    admin = {
+      adminId: devAdminId,
+      profileId: devAdminId,
+      adminRole: "owner",
+      authSource: "supabase",
+    } as Awaited<ReturnType<typeof resolveAdminSession>>;
+  }
   if (!admin) {
     return adminErrorResponse(
       "ADMIN_ACCESS_REQUIRED",
@@ -285,6 +313,25 @@ export async function POST(request: Request) {
     );
   }
   if (isLocalMockCampaign(campaignId)) {
+    // For demo storefront packs, persist the archive in a cookie so the
+    // storefront can hide them on the next render. Other lifecycle actions
+    // on demo packs are still no-ops.
+    if (action === "archive" && campaignId.startsWith("storefront-")) {
+      const cookieStore = await cookies();
+      const existing = parseDemoPackArchivedCookie(
+        cookieStore.get(DEMO_PACK_ARCHIVED_COOKIE)?.value,
+      );
+      existing.add(campaignId);
+      cookieStore.set(
+        DEMO_PACK_ARCHIVED_COOKIE,
+        JSON.stringify([...existing]),
+        {
+          path: "/",
+          maxAge: 60 * 60 * 24 * 30,
+          sameSite: "lax",
+        },
+      );
+    }
     return Response.json({
       ok: true,
       campaignId,

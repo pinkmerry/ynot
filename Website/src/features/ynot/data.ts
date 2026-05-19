@@ -890,7 +890,11 @@ async function getCampaignsImpl(
       if (typeof limit === "number") query = query.limit(limit);
 
       if (options.includePrivate) {
-        return query.in("status", ["live", "closed", "draft", "archived"]);
+        // Exclude archived packs even from the admin storefront view so the
+        // delete/archive button visibly removes the card. Archived rows
+        // remain in the database and can be restored via the lifecycle
+        // queue.
+        return query.in("status", ["live", "closed", "draft"]);
       }
       query = query.eq("visibility", "public").eq("status", "live");
       return requireApproval
@@ -2109,7 +2113,13 @@ export async function getYnotDashboardSlice(
     ] = await Promise.all([
       needCampaigns
         ? campaignVisibility === "admin"
-          ? getCampaigns({ includePrivate: viewer.isAdmin })
+          ? // Dev mirrors the YnotShell admin-bypass so promoted closed/test
+            // packs surface locally even without a Supabase admin session.
+            // Production still gates on the real viewer.isAdmin.
+            getCampaigns({
+              includePrivate:
+                viewer.isAdmin || process.env.NODE_ENV !== "production",
+            })
           : getCampaigns({
               includePrivate: false,
               limit: selector.campaignLimit,
