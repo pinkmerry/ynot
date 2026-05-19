@@ -40,3 +40,62 @@ export function applyDemoPackOrderOverrides(
       : campaign,
   );
 }
+
+/** Cookie name used to persist archive operations on demo storefront packs
+ *  (the hardcoded `featuredCampaigns` array). Archiving a real DB pack uses
+ *  the Supabase row, but demo packs have synthetic ids that Postgres can't
+ *  store — so we keep a client-side "hidden" list instead. */
+export const DEMO_PACK_ARCHIVED_COOKIE = "ynot_demo_pack_archived";
+
+/** Parse the archived-demo-id cookie. Accepts a JSON array of strings. */
+export function parseDemoPackArchivedCookie(
+  raw: string | undefined | null,
+): Set<string> {
+  if (!raw) return new Set();
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return new Set(
+        parsed.filter((value): value is string => typeof value === "string"),
+      );
+    }
+  } catch {
+    /* fall through */
+  }
+  return new Set();
+}
+
+/** Remove campaigns whose id is listed in the archived set. */
+export function filterArchivedDemoCampaigns(
+  campaigns: YnotCampaign[],
+  archived: Set<string>,
+): YnotCampaign[] {
+  if (!archived.size) return campaigns;
+  return campaigns.filter((campaign) => !archived.has(campaign.id));
+}
+
+/** Cookie name that holds the ordered list of campaign ids the admin has
+ *  promoted to the storefront "hero" row. Stored as a JSON array of
+ *  strings so it doubles as both a membership set and an explicit order.
+ *  This is intentionally separate from the database `sort_order` column
+ *  so reordering packs inside a tier section never moves them in/out of
+ *  the hero shelf. */
+export const HERO_PACKS_COOKIE = "ynot_hero_packs";
+
+export function parseHeroPacksCookie(
+  raw: string | undefined | null,
+): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter(
+        (value): value is string =>
+          typeof value === "string" && value.length > 0,
+      );
+    }
+  } catch {
+    /* fall through */
+  }
+  return [];
+}

@@ -15227,7 +15227,7 @@ html[data-ynot-theme="light"] .store-topbar-left {
     font-family:
       var(--font-inter), var(--font-noto-thai),
       "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif !important;
-    font-size: 14px !important;
+    font-size: 12px !important;
     font-weight: 400 !important;
     letter-spacing: 0.15em !important;
     line-height: 1.5em !important;
@@ -15332,7 +15332,7 @@ html[data-ynot-theme="light"] .store-topbar-left {
     font-family:
       var(--font-inter), var(--font-noto-thai),
       "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif !important;
-    font-size: 14px !important;
+    font-size: 12px !important;
     font-weight: 400 !important;
     letter-spacing: 0.15em !important;
     line-height: 1.5em !important;
@@ -15420,7 +15420,7 @@ html[data-ynot-theme="light"] .store-topbar-left {
     font-family:
       var(--font-inter), var(--font-noto-thai),
       "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif !important;
-    font-size: 14px !important;
+    font-size: 12px !important;
     font-weight: 400 !important;
     letter-spacing: 0.15em !important;
     line-height: 1.5em !important;
@@ -15836,11 +15836,16 @@ html[data-ynot-theme="light"] .store-topbar-left {
     color: #1a1a1a !important;
     opacity: 1 !important;
   }
-  /* When user is hovering ANY link in the nav, remove the underline from the
-     active link (unless the active link itself is being hovered). FOG behavior:
-     pointer steals the underline focus from current page while exploring. */
-  html[data-ynot-theme="light"] .store-topbar-left .store-nav:hover .store-nav-link.active:not(:hover),
-  html[data-ynot-theme="light"] .store-topbar-left .store-nav:hover .store-nav-link[aria-current="page"]:not(:hover) {
+  /* Pointer steals the underline from the active link whenever the user is
+     hovering an interactive element elsewhere in the header — links or
+     buttons (siblings in the left nav, right-side links, logo, language
+     toggle, coin pill, hamburger). Empty whitespace in the header bar does
+     NOT trigger this. The [data-header-hover-target="other"] attribute is
+     published by StoreHeaderNav's pointermove handler. */
+  html[data-ynot-theme="light"][data-header-hover-target="other"]
+    .store-topbar-left .store-nav .store-nav-link.active,
+  html[data-ynot-theme="light"][data-header-hover-target="other"]
+    .store-topbar-left .store-nav .store-nav-link[aria-current="page"] {
     text-decoration: none !important;
   }
   /* Smooth hover-in/out without jump. */
@@ -16275,12 +16280,166 @@ html[data-ynot-theme="light"] .packs-toolbar p {
 
 .packs-feature-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-bottom: 0;
+}
+/* Count-based column layout: 1 featured = full width, 2 = halves,
+   3+ = thirds. Falls back to single column on narrow screens. */
+.packs-feature-row[data-hero-count="2"] {
+  grid-template-columns: repeat(2, 1fr);
+}
+.packs-feature-row[data-hero-count="3"],
+.packs-feature-row[data-hero-count="4"],
+.packs-feature-row[data-hero-count="5"],
+.packs-feature-row[data-hero-count="6"] {
+  grid-template-columns: repeat(3, 1fr);
+}
+.packs-feature-row[data-hero-count]:not([data-hero-count="0"]):not([data-hero-count="1"]):not([data-hero-count="2"]):not([data-hero-count="3"]):not([data-hero-count="4"]):not([data-hero-count="5"]):not([data-hero-count="6"]) {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+@media (max-width: 768px) {
+  .packs-feature-row,
+  .packs-feature-row[data-hero-count] {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+ * Admin "Manage Packs" collection view — uniform card grid with a
+ * star toggle that promotes / demotes each pack between the featured
+ * tier (sortOrder ≤ 2) and the regular catalog (sortOrder ≥ 1000).
+ * ============================================================ */
+.packs-collection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 16px;
   margin-bottom: 32px;
 }
-@media (max-width: 768px) {
-  .packs-feature-row { grid-template-columns: 1fr; }
+.pack-collection-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.pack-collection-card:hover {
+  border-color: rgba(15, 23, 42, 0.32);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+}
+.pack-collection-card.is-featured {
+  border-color: #c79a2c;
+  box-shadow: 0 0 0 1px #c79a2c, 0 6px 16px rgba(199, 154, 44, 0.16);
+}
+.pack-collection-card.is-featured::before {
+  content: "FEATURED";
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #c79a2c;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+}
+.pack-collection-card-link {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  flex: 1 1 auto;
+}
+.pack-collection-card-art {
+  height: 140px;
+  background: linear-gradient(135deg, #e8e8e3, #f3f3ef);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+.pack-collection-card.is-featured .pack-collection-card-art {
+  background: linear-gradient(135deg, #1f3a6a, #2456a8);
+}
+.pack-collection-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+}
+.pack-collection-card-eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(15, 23, 42, 0.62);
+}
+.pack-collection-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #111111;
+  line-height: 1.3;
+}
+.pack-collection-card-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(15, 23, 42, 0.72);
+}
+.pack-collection-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px 14px;
+  flex-wrap: wrap;
+}
+.pack-feature-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  background: #ffffff;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(15, 23, 42, 0.7);
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+.pack-feature-toggle:hover {
+  border-color: rgba(15, 23, 42, 0.5);
+  color: #111111;
+}
+.pack-feature-toggle.is-featured {
+  border-color: #c79a2c;
+  color: #c79a2c;
+  background: rgba(199, 154, 44, 0.08);
+}
+.pack-feature-toggle:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.pack-feature-toggle-error {
+  color: #b02929;
+  font-size: 11px;
+}
+.pack-admin-edit--collection {
+  position: static !important;
+  padding: 6px 10px !important;
+  border-radius: 999px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  text-decoration: none !important;
 }
 .packs-feature-card {
   position: relative;
@@ -16530,15 +16689,19 @@ html[data-ynot-theme="light"] .marketplace-toolbar p {
     padding: 58px 0 25px;
   }
 }
-.series-essentials-heading {
+html[lang][data-ynot-theme][data-ynot-language][class] .series-essentials-heading,
+html[lang][data-ynot-theme][data-ynot-language][class] .series-essentials-heading .i18n-en,
+html[lang][data-ynot-theme][data-ynot-language][class] .series-essentials-heading .i18n-th {
   text-align: center;
-  font-family: var(--font-prompt), "Optima", "Noto Sans Thai", system-ui, sans-serif;
-  font-size: 25px;
-  font-weight: 400;
-  line-height: 1.5;
-  letter-spacing: 0.03em;
-  text-transform: none;
-  color: #000000;
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-size: 25px !important;
+  font-weight: 400 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: #000000 !important;
+}
+.series-essentials-heading {
   margin: 0 auto 60px;
   width: max-content;
   max-width: 100%;
@@ -16864,7 +17027,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"] * {
     padding-top: 2px !important;
   }
 
-  html[data-ynot-theme="light"] .ynot-mega-link {
+  html[data-ynot-theme="light"] .store-topbar .ynot-mega-link {
     display: inline-flex !important;
     width: auto !important;
     height: auto !important;
@@ -16881,8 +17044,8 @@ html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"] * {
       "Prompt Fallback",
       system-ui,
       sans-serif !important;
-    font-size: 10px !important;
-    font-weight: 500 !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
     letter-spacing: 0.1em !important;
     line-height: 1.45 !important;
     text-transform: uppercase !important;
@@ -16894,9 +17057,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"] * {
   html[data-ynot-theme="light"] .ynot-mega-link:hover,
   html[data-ynot-theme="light"] .ynot-mega-link:focus-visible {
     opacity: 1 !important;
-    text-decoration: underline !important;
-    text-decoration-thickness: 1px !important;
-    text-underline-offset: 6px !important;
+    text-decoration: none !important;
   }
 
   html[data-ynot-theme="light"] .ynot-mega-media {
@@ -18128,12 +18289,18 @@ html:has(.admin-workspace) .ynot-mega-panel a:hover {
  *   - Colors: title #000, subtitle #667085 (matches arenaclub.com)
  * ============================================================ */
 html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading {
-  display: block !important;
+  display: flex !important;
+  align-items: baseline !important;
+  flex-wrap: wrap !important;
+  gap: 16px !important;
   padding: 0 !important;
   margin: 0 !important;
 }
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading .packs-toolbar-add-btn {
+  margin-left: auto !important;
+}
 html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
-  margin: 0 0 4px !important;
+  margin: 0 !important;
   font-family: var(--font-prompt), system-ui, sans-serif !important;
   font-size: 24px !important;
   font-weight: 800 !important;
@@ -18154,10 +18321,12 @@ html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-subtitle {
   text-transform: none !important;
   text-shadow: none !important;
 }
-/* Kill the .store-main-stack 32px gap between the heading and the grid
-   so the LEGENDARY subtitle's 16px margin is the only spacing. */
+/* Spacing inside a tier block — heading sits directly above its grid
+   with only the subtitle's own bottom margin separating them. The
+   .store-main-stack 32px gap applies BETWEEN .packs-tier-block siblings,
+   not within them, so no negative margin compensation is needed. */
 html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading + .home-pack-board {
-  margin-top: -32px !important;
+  margin-top: 0 !important;
 }
 @media (max-width: 767px) {
   html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading {
@@ -18169,6 +18338,239 @@ html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading + .ho
   html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-subtitle {
     font-size: 12px !important;
   }
+}
+
+/* ============================================================
+ * Per-card tier pill — small badge in the top-left corner of each
+ * pack card, matching arenaclub.com's "Legendary / Diamond / Emerald
+ * / Ruby" overlay. The pill colour is tier-themed so the card reads
+ * its rarity at a glance.
+ * ============================================================ */
+.pack-card-tier-pill {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: var(--font-prompt), system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: #1a1a1a;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+}
+.pack-card-tier-legendary .pack-card-tier-pill {
+  color: #c79a2c;
+  background: rgba(199, 154, 44, 0.12);
+  border-color: rgba(199, 154, 44, 0.55);
+}
+.pack-card-tier-gold .pack-card-tier-pill {
+  color: #b8860b;
+  background: rgba(184, 134, 11, 0.1);
+  border-color: rgba(184, 134, 11, 0.5);
+}
+.pack-card-tier-silver .pack-card-tier-pill {
+  color: #5b6b7c;
+  background: rgba(91, 107, 124, 0.1);
+  border-color: rgba(91, 107, 124, 0.45);
+}
+.pack-card-tier-common .pack-card-tier-pill {
+  color: #2c8a4a;
+  background: rgba(44, 138, 74, 0.1);
+  border-color: rgba(44, 138, 74, 0.5);
+}
+.product-card.clean-pack-card {
+  position: relative;
+}
+.packs-tier-block + .packs-tier-block {
+  margin-top: 16px;
+}
+
+/* "+ Add pack" admin button rendered inline in the catalog toolbar. */
+.packs-toolbar-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 16px;
+  padding: 8px 14px;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  border-radius: 999px;
+  background: #ffffff;
+  font-family: var(--font-prompt), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #111111;
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+.packs-toolbar-add-btn:hover {
+  border-color: #111111;
+  background: #111111;
+  color: #ffffff;
+}
+.packs-toolbar-add-btn > span:first-child {
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 600;
+}
+
+/* ============================================================
+ * Drag handle — small grip dots in the top-right of each admin
+ * pack card. Only the handle is draggable; the rest of the card
+ * keeps its normal click-to-navigate / button behaviour.
+ * ============================================================ */
+.pack-drag-handle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  color: rgba(15, 23, 42, 0.7);
+  cursor: grab;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.pack-drag-handle:hover {
+  background: #111111;
+  color: #ffffff;
+  border-color: #111111;
+}
+.pack-drag-handle:active {
+  cursor: grabbing;
+}
+.pack-drag-handle--card {
+  top: 8px;
+  right: 8px;
+}
+.packs-feature-card-wrap .pack-drag-handle {
+  top: 12px;
+  right: 12px;
+}
+
+/* SortableJS state classes — apply when a card is being dragged. */
+.pack-sortable-ghost {
+  opacity: 0.3 !important;
+  background: rgba(15, 23, 42, 0.06) !important;
+}
+.pack-sortable-chosen {
+  cursor: grabbing !important;
+}
+.pack-sortable-drag {
+  opacity: 0.92 !important;
+  transform: rotate(1deg);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.25) !important;
+}
+
+/* ============================================================
+ * FOG editorial polish — restrained admin chrome and roomier
+ * section rhythm. Admin controls fade in on hover so the default
+ * storefront keeps its clean "look-book" feel; the heading band
+ * gets a hairline divider above each tier section so the page
+ * reads as a sequence of editorial chapters.
+ * ============================================================ */
+html[data-ynot-theme="light"] .packs-feature-card-wrap .pack-drag-handle,
+html[data-ynot-theme="light"] .packs-feature-card-wrap .pack-admin-edit,
+html[data-ynot-theme="light"] .packs-feature-card-wrap .pack-admin-delete,
+html[data-ynot-theme="light"] .packs-feature-card-wrap .pack-order-controls,
+html[data-ynot-theme="light"] .product-card .pack-drag-handle,
+html[data-ynot-theme="light"] .product-card .pack-admin-edit,
+html[data-ynot-theme="light"] .product-card .pack-admin-delete,
+html[data-ynot-theme="light"] .product-card .pack-order-controls {
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+html[data-ynot-theme="light"] .packs-feature-card-wrap:hover .pack-drag-handle,
+html[data-ynot-theme="light"] .packs-feature-card-wrap:hover .pack-admin-edit,
+html[data-ynot-theme="light"] .packs-feature-card-wrap:hover .pack-admin-delete,
+html[data-ynot-theme="light"] .packs-feature-card-wrap:hover .pack-order-controls,
+html[data-ynot-theme="light"] .packs-feature-card-wrap:focus-within .pack-drag-handle,
+html[data-ynot-theme="light"] .packs-feature-card-wrap:focus-within .pack-admin-edit,
+html[data-ynot-theme="light"] .packs-feature-card-wrap:focus-within .pack-admin-delete,
+html[data-ynot-theme="light"] .packs-feature-card-wrap:focus-within .pack-order-controls,
+html[data-ynot-theme="light"] .product-card:hover .pack-drag-handle,
+html[data-ynot-theme="light"] .product-card:hover .pack-admin-edit,
+html[data-ynot-theme="light"] .product-card:hover .pack-admin-delete,
+html[data-ynot-theme="light"] .product-card:hover .pack-order-controls,
+html[data-ynot-theme="light"] .product-card:focus-within .pack-drag-handle,
+html[data-ynot-theme="light"] .product-card:focus-within .pack-admin-edit,
+html[data-ynot-theme="light"] .product-card:focus-within .pack-admin-delete,
+html[data-ynot-theme="light"] .product-card:focus-within .pack-order-controls {
+  opacity: 1;
+}
+
+/* Compact section rhythm — heading sits flush against its grid with no
+   visible gap, so each section reads as one editorial block. Different
+   sections still get breathing room between them. */
+html[data-ynot-theme="light"] .store-home-grid.packs-page .store-main-stack {
+  gap: 0 !important;
+}
+html[data-ynot-theme="light"] .store-home-grid.packs-page .store-main-stack > .packs-feature-row {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+html[data-ynot-theme="light"] .store-home-grid.packs-page .store-main-stack > .packs-tier-block {
+  margin-top: 48px !important;
+}
+html[data-ynot-theme="light"] .packs-tier-heading + .home-pack-board {
+  margin-top: 0 !important;
+}
+
+/* Tier blocks sit flush — no divider above; the heading typography +
+   section spacing is enough separation on its own. */
+html[data-ynot-theme="light"] .packs-tier-block {
+  position: relative;
+}
+
+/* Hide the count subtitles ("5 SLAB PACKS" / "5 slabs/pack"). The
+   headings and grids stand on their own without the count metadata. */
+html[data-ynot-theme="light"] .packs-toolbar > p,
+html[data-ynot-theme="light"] .packs-tier-subtitle {
+  display: none !important;
+}
+
+/* Heading typography — mirrors fearofgod.com's section h2 (25px Optima,
+   light editorial weight, black). We keep YNOT's Prompt font so the
+   brand voice stays intact while the proportions match FoG. */
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-toolbar h1,
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
+  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-size: 25px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.04em !important;
+  line-height: 1.2 !important;
+  color: #000000 !important;
+  text-transform: uppercase !important;
+  margin: 0 !important;
+}
+@media (max-width: 767px) {
+  html[lang][data-ynot-theme][data-ynot-language][class] .packs-toolbar h1,
+  html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
+    font-size: 20px !important;
+  }
+}
+
+/* Page toolbar + tier heading share the same breathing room beneath
+   them so the gap between the heading and its grid is visually
+   identical in both Mystery Packs and tier sections. */
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-toolbar,
+html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading {
+  margin-bottom: 24px !important;
 }
 
 /* ============================================================
@@ -18620,7 +19022,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-primary .st
   font-family: inherit !important;
   font-size: 14px !important;
   font-weight: 400 !important;
-  letter-spacing: 0.08em !important;
+  letter-spacing: 0.18em !important;
   text-transform: uppercase !important;
   text-decoration: none !important;
   cursor: pointer !important;
@@ -18678,7 +19080,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-bottom-link
   border-radius: 0 !important;
   color: #000000 !important;
   font-family: inherit !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
   font-weight: 400 !important;
   letter-spacing: 0.18em !important;
   text-transform: uppercase !important;
@@ -18701,7 +19103,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-lang-inline
   align-items: center !important;
   gap: 6px !important;
   font-family: inherit !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
   letter-spacing: 0.18em !important;
   text-transform: uppercase !important;
   color: #000000 !important;
@@ -18943,6 +19345,1661 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data-ynot-route-home][data-header-at-top][class] .account-chip,
 html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data-ynot-route-home][data-header-at-top][class] .store-admin-link {
   color: #000000 !important;
+}
+
+/* Pack open prototype — luxury editorial motion sandbox. */
+.pack-open-prototype {
+  min-height: 100dvh;
+  position: relative;
+  overflow: hidden;
+  --open-duration-base: 7.2s;
+  --open-duration-rare: 7.6s;
+  --open-duration-jackpot: 8.4s;
+  --open-duration-tear: 6.8s;
+  --open-duration-tear-rare: 7s;
+  --open-duration-tear-jackpot: 7.7s;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(212, 222, 208, 0.34), transparent 34%),
+    linear-gradient(180deg, #f7f7f4 0%, #eeeeea 46%, #d9ddd4 100%);
+  color: #111111;
+  font-family:
+    var(--font-prompt),
+    var(--font-noto-thai),
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  letter-spacing: 0;
+}
+
+.pack-open-prototype.speed-2 {
+  --open-duration-base: 3.6s;
+  --open-duration-rare: 3.8s;
+  --open-duration-jackpot: 4.2s;
+  --open-duration-tear: 3.4s;
+  --open-duration-tear-rare: 3.5s;
+  --open-duration-tear-jackpot: 3.85s;
+}
+
+.pack-open-prototype.speed-4 {
+  --open-duration-base: 1.8s;
+  --open-duration-rare: 1.9s;
+  --open-duration-jackpot: 2.1s;
+  --open-duration-tear: 1.7s;
+  --open-duration-tear-rare: 1.75s;
+  --open-duration-tear-jackpot: 1.925s;
+}
+
+.pack-open-prototype::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.54), transparent 18%, transparent 82%, rgba(255, 255, 255, 0.46)),
+    radial-gradient(circle at 50% 115%, rgba(0, 0, 0, 0.15), transparent 42%);
+  opacity: 0.78;
+}
+
+.pack-open-grain {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.018) 1px, transparent 1px);
+  background-size: 4px 4px;
+  opacity: 0.22;
+  transform: rotate(2deg);
+  mix-blend-mode: multiply;
+}
+
+.pack-open-header {
+  position: fixed;
+  z-index: 5;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 clamp(18px, 4vw, 48px);
+  border-bottom: 1px solid rgba(17, 17, 17, 0.1);
+  color: rgba(17, 17, 17, 0.74);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.pack-open-header span {
+  color: #111111;
+}
+
+.pack-open-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.pack-open-link:last-child {
+  justify-self: end;
+}
+
+.pack-open-stage {
+  position: relative;
+  z-index: 1;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(320px, 520px) minmax(220px, 0.7fr);
+  align-items: center;
+  gap: clamp(24px, 5vw, 76px);
+  padding: 88px clamp(20px, 5vw, 86px) 34px;
+}
+
+.pack-open-copy {
+  align-self: end;
+  padding-bottom: 8vh;
+  max-width: 320px;
+}
+
+.pack-open-copy span,
+.pack-open-status {
+  display: block;
+  color: rgba(17, 17, 17, 0.54);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.pack-open-copy h1 {
+  margin: 18px 0 16px;
+  color: #111111;
+  font-size: clamp(32px, 5vw, 72px);
+  font-weight: 500;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.pack-open-copy p {
+  margin: 0;
+  max-width: 260px;
+  color: rgba(17, 17, 17, 0.55);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.pack-open-visual {
+  position: relative;
+  width: min(70vw, 420px);
+  height: min(76dvh, 620px);
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  perspective: 1200px;
+}
+
+.pack-open-aura {
+  position: absolute;
+  width: 86%;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: rgba(210, 222, 204, 0.56);
+  filter: blur(34px);
+  transform: translateY(18%);
+  transition:
+    opacity 0.42s ease,
+    transform 0.42s ease,
+    filter 0.42s ease;
+}
+
+.pack-open-pack-shell,
+.pack-open-card-wrap {
+  position: absolute;
+  width: min(82%, 360px);
+  aspect-ratio: 896 / 1200;
+  transform-style: preserve-3d;
+}
+
+.pack-open-cutout-motion {
+  position: absolute;
+  z-index: 5;
+  width: min(82%, 360px);
+  aspect-ratio: 830 / 1110;
+  display: block;
+  object-fit: contain;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
+  animation: packCutoutMotion var(--open-duration-base) linear forwards;
+}
+
+.pack-open-pack-shell {
+  z-index: 2;
+  backface-visibility: hidden;
+  will-change: transform, opacity, filter;
+}
+
+.pack-open-card-wrap {
+  z-index: 4;
+  backface-visibility: hidden;
+  filter: drop-shadow(0 30px 52px rgba(42, 52, 39, 0.18));
+}
+
+.pack-open-pack,
+.pack-open-pack-split {
+  filter: none;
+}
+
+.pack-open-pack img,
+.pack-open-pack-split img,
+.pack-open-card-wrap img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.pack-open-pack-base {
+  opacity: 1;
+  transform: translateZ(0);
+  animation: packIdle 5.6s ease-in-out infinite;
+}
+
+.pack-open-pack-split {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.pack-open-pack-top {
+  clip-path: inset(0 0 78% 0);
+  transform-origin: 50% 18%;
+}
+
+.pack-open-pack-body {
+  clip-path: inset(15% 0 0 0);
+  transform-origin: 50% 24%;
+}
+
+.pack-open-sheen {
+  position: absolute;
+  inset: 2% 4%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pack-open-sheen::before {
+  content: "";
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  width: 28%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.42), transparent);
+  transform: translateX(-160%) rotate(13deg);
+  animation: packSheen 4.8s ease-in-out infinite;
+}
+
+.pack-open-tear {
+  position: absolute;
+  top: 16.5%;
+  left: 13%;
+  right: 13%;
+  height: 3px;
+  transform: translateY(-50%) scaleX(0);
+  transform-origin: 8% 50%;
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.96) 18%, rgba(255, 255, 255, 0.84) 72%, transparent),
+    repeating-linear-gradient(100deg, transparent 0 9px, rgba(17, 17, 17, 0.18) 9px 11px, transparent 11px 19px);
+  box-shadow:
+    0 0 14px rgba(255, 255, 255, 0.72),
+    0 0 44px rgba(198, 212, 185, 0.76);
+  opacity: 0;
+}
+
+.pack-open-mouth-shadow {
+  position: absolute;
+  z-index: 3;
+  top: 17.4%;
+  left: 16%;
+  right: 16%;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(17, 17, 17, 0.3), transparent);
+  filter: blur(8px);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px) scaleX(0.72);
+}
+
+.pack-open-crinkles {
+  position: absolute;
+  z-index: 4;
+  top: 12%;
+  left: 16%;
+  right: 16%;
+  height: 42px;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.pack-open-crinkles span {
+  position: absolute;
+  top: 50%;
+  height: 1px;
+  width: 34%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.82), transparent);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.4);
+  transform: translateY(-50%) rotate(-4deg) scaleX(0.2);
+}
+
+.pack-open-crinkles span:nth-child(1) {
+  left: 0;
+}
+
+.pack-open-crinkles span:nth-child(2) {
+  left: 33%;
+  top: 58%;
+  transform: translateY(-50%) rotate(3deg) scaleX(0.2);
+}
+
+.pack-open-crinkles span:nth-child(3) {
+  right: 0;
+  top: 44%;
+  transform: translateY(-50%) rotate(-2deg) scaleX(0.2);
+}
+
+.pack-open-slot,
+.pack-open-burst,
+.pack-open-rarity-ring,
+.pack-open-scanline,
+.pack-open-flash {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.pack-open-slot {
+  display: none;
+}
+
+.pack-open-slot::before,
+.pack-open-slot::after {
+  content: "";
+  position: absolute;
+  top: 1%;
+  bottom: 1%;
+  width: 34%;
+  opacity: 0.68;
+}
+
+.pack-open-slot::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.2), transparent);
+}
+
+.pack-open-slot::after {
+  right: 0;
+  background: linear-gradient(270deg, rgba(255, 255, 255, 0.16), transparent);
+}
+
+.pack-open-burst {
+  width: min(86%, 390px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  box-shadow:
+    inset 0 0 44px rgba(255, 255, 255, 0.4),
+    0 0 54px rgba(200, 213, 187, 0.5);
+  transform: scale(0.48);
+}
+
+.pack-open-rarity-ring {
+  width: min(84%, 390px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  transform: scale(0.68) rotate(0deg);
+}
+
+.pack-open-scanline {
+  z-index: 4;
+  width: min(86%, 380px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.86), transparent);
+  box-shadow:
+    0 0 18px rgba(255, 255, 255, 0.62),
+    0 0 44px rgba(204, 216, 190, 0.38);
+  transform: translateY(-190px) scaleX(0.2);
+}
+
+.pack-open-flash {
+  z-index: 2;
+  width: min(96%, 460px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.24) 32%, transparent 68%),
+    radial-gradient(circle, rgba(202, 215, 187, 0.48), transparent 72%);
+  filter: blur(10px);
+  transform: scale(0.4);
+}
+
+.pack-open-card-wrap {
+  z-index: 1;
+  width: min(56%, 250px);
+  aspect-ratio: 727 / 1217;
+  opacity: 0;
+  transform: translateY(86px) translateX(0) scale(0.72) rotateX(16deg) rotateZ(0deg);
+  will-change: transform, opacity, filter;
+}
+
+.pack-open-card-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(246, 241, 229, 0.28), rgba(172, 187, 161, 0.34)),
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.18), transparent 48%);
+  mix-blend-mode: multiply;
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity;
+}
+
+.pack-open-card-wrap img {
+  border-radius: 18px;
+  position: relative;
+  z-index: 1;
+  will-change: filter;
+}
+
+.pack-open-controls {
+  align-self: end;
+  padding-bottom: 8vh;
+  justify-self: end;
+  min-width: min(100%, 280px);
+}
+
+.pack-open-status {
+  margin-bottom: 18px;
+}
+
+.pack-open-speed-control {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.pack-open-speed-control > span {
+  color: rgba(17, 17, 17, 0.45);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.pack-open-speed-control div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.pack-open-speed-control button {
+  min-height: 30px;
+  border: 1px solid rgba(17, 17, 17, 0.22);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(17, 17, 17, 0.72);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.pack-open-speed-control button.is-active,
+.pack-open-speed-control button:hover,
+.pack-open-speed-control button:focus-visible {
+  background: #111111;
+  border-color: #111111;
+  color: #ffffff;
+  outline: none;
+}
+
+.pack-open-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.pack-open-actions button {
+  min-height: 48px;
+  padding: 0 22px;
+  border: 1px solid rgba(17, 17, 17, 0.28);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.24);
+  color: #111111;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.pack-open-actions button:hover,
+.pack-open-actions button:focus-visible {
+  background: #111111;
+  border-color: #111111;
+  color: #ffffff;
+  outline: none;
+}
+
+.pack-open-batch-grid {
+  position: absolute;
+  left: 50%;
+  bottom: 2%;
+  width: min(92vw, 430px);
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  opacity: 0;
+  transform: translate(-50%, 20px);
+}
+
+.pack-open-mini-card {
+  display: grid;
+  place-items: center;
+  min-height: 74px;
+  border: 1px solid rgba(17, 17, 17, 0.13);
+  background: rgba(255, 255, 255, 0.52);
+  color: rgba(17, 17, 17, 0.72);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  opacity: 0;
+  text-align: center;
+  text-transform: uppercase;
+  transform: translateY(14px) scale(0.96);
+}
+
+.pack-open-mini-card.rarity-rare,
+.pack-open-mini-card.rarity-blackout,
+.pack-open-mini-card.rarity-jackpot {
+  border-color: rgba(17, 17, 17, 0.42);
+  background: rgba(236, 239, 227, 0.85);
+  color: #111111;
+}
+
+.pack-open-mini-card.rarity-blackout {
+  background: rgba(17, 17, 17, 0.78);
+  color: #ffffff;
+}
+
+.pack-open-mini-card.rarity-jackpot {
+  background: #111111;
+  color: #ffffff;
+}
+
+.pack-open-prototype.rarity-rare.charging::before,
+.pack-open-prototype.rarity-blackout.charging::before,
+.pack-open-prototype.rarity-jackpot.charging::before {
+  animation: rareScreenWash var(--open-duration-rare) ease forwards;
+}
+
+.pack-open-prototype.rarity-blackout.charging::before {
+  animation-duration: var(--open-duration-rare);
+  animation-name: blackoutScreenWash;
+}
+
+.pack-open-prototype.rarity-jackpot.charging::before {
+  animation-duration: var(--open-duration-jackpot);
+  animation-name: jackpotScreenWash;
+}
+
+.pack-open-prototype.charging .pack-open-pack-base {
+  animation: packCharge var(--open-duration-base) cubic-bezier(0.2, 0.82, 0.16, 1) forwards;
+}
+
+.pack-open-prototype.charging .pack-open-pack-split {
+  animation: packSplitShow var(--open-duration-base) cubic-bezier(0.2, 0.82, 0.16, 1) forwards;
+}
+
+.pack-open-prototype.charging .pack-open-pack-top {
+  animation-name: packTopOpen;
+}
+
+.pack-open-prototype.charging .pack-open-pack-body {
+  animation-name: packBodyOpen;
+}
+
+.pack-open-prototype.charging .pack-open-tear {
+  animation: tearLine var(--open-duration-tear) cubic-bezier(0.28, 0.68, 0.16, 1) forwards;
+}
+
+.pack-open-prototype.charging .pack-open-mouth-shadow {
+  animation: mouthShadow var(--open-duration-base) cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
+}
+
+.pack-open-prototype.charging .pack-open-crinkles {
+  animation: crinkleGroup var(--open-duration-base) ease forwards;
+}
+
+.pack-open-prototype.charging .pack-open-crinkles span {
+  animation: crinkleLine var(--open-duration-base) cubic-bezier(0.2, 0.82, 0.16, 1) forwards;
+}
+
+.pack-open-prototype.charging .pack-open-crinkles span:nth-child(2) {
+  animation-name: crinkleLineAlt;
+}
+
+.pack-open-prototype.charging .pack-open-crinkles span:nth-child(3) {
+  animation-delay: 0.08s;
+}
+
+.pack-open-prototype.charging .pack-open-slot {
+  animation: none;
+}
+
+.pack-open-prototype.charging .pack-open-burst {
+  animation: packBurst var(--open-duration-base) cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
+}
+
+.pack-open-prototype.charging .pack-open-scanline {
+  animation: packScan var(--open-duration-base) cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
+}
+
+.pack-open-prototype.charging .pack-open-flash {
+  animation: packRevealFlash var(--open-duration-base) cubic-bezier(0.16, 0.92, 0.18, 1) forwards;
+}
+
+.pack-open-prototype.rarity-rare.charging .pack-open-burst {
+  animation-duration: var(--open-duration-rare);
+  box-shadow:
+    inset 0 0 54px rgba(255, 255, 255, 0.52),
+    0 0 76px rgba(219, 225, 207, 0.76);
+}
+
+.pack-open-prototype.rarity-blackout.charging .pack-open-burst {
+  animation-duration: var(--open-duration-rare);
+  border-color: rgba(255, 255, 255, 0.74);
+  box-shadow:
+    inset 0 0 44px rgba(255, 255, 255, 0.46),
+    0 0 72px rgba(255, 255, 255, 0.36),
+    0 0 128px rgba(22, 26, 21, 0.44);
+}
+
+.pack-open-prototype.rarity-jackpot.charging .pack-open-burst {
+  animation-duration: var(--open-duration-jackpot);
+  border-color: rgba(255, 255, 255, 0.95);
+  box-shadow:
+    inset 0 0 68px rgba(255, 255, 255, 0.7),
+    0 0 110px rgba(255, 255, 255, 0.84),
+    0 0 150px rgba(202, 215, 187, 0.9);
+}
+
+.pack-open-prototype.rarity-rare.charging .pack-open-rarity-ring,
+.pack-open-prototype.rarity-blackout.charging .pack-open-rarity-ring,
+.pack-open-prototype.rarity-jackpot.charging .pack-open-rarity-ring {
+  animation: rarityRing var(--open-duration-rare) cubic-bezier(0.18, 0.86, 0.2, 1) forwards;
+}
+
+.pack-open-prototype.rarity-blackout.charging .pack-open-rarity-ring {
+  animation-duration: var(--open-duration-rare);
+  border-color: rgba(17, 17, 17, 0.42);
+  box-shadow:
+    0 0 26px rgba(17, 17, 17, 0.28),
+    inset 0 0 24px rgba(255, 255, 255, 0.22);
+  animation-name: blackoutRing;
+}
+
+.pack-open-prototype.rarity-jackpot.charging .pack-open-rarity-ring {
+  animation-duration: var(--open-duration-jackpot);
+  border-color: rgba(255, 255, 255, 0.74);
+  box-shadow:
+    0 0 38px rgba(255, 255, 255, 0.44),
+    inset 0 0 28px rgba(255, 255, 255, 0.28);
+  animation-name: jackpotRing;
+}
+
+.pack-open-prototype.charging .pack-open-aura {
+  opacity: 0.86;
+  filter: blur(44px);
+  transform: translateY(20%) scale(1.12);
+}
+
+.pack-open-prototype.charging .pack-open-pack-shell {
+  animation: packShellHandOff var(--open-duration-base) linear forwards;
+}
+
+.pack-open-prototype.charging .pack-open-card-wrap {
+  animation: cardPreview var(--open-duration-base) cubic-bezier(0.13, 0.9, 0.18, 1) forwards;
+}
+
+.pack-open-prototype.charging .pack-open-card-wrap img {
+  animation: cardImageLightUp var(--open-duration-base) cubic-bezier(0.13, 0.9, 0.18, 1) forwards;
+}
+
+.pack-open-prototype.charging .pack-open-card-wrap::before {
+  animation: cardFearToneWash var(--open-duration-base) cubic-bezier(0.13, 0.9, 0.18, 1) forwards;
+}
+
+.pack-open-prototype.rarity-rare.charging .pack-open-pack-base,
+.pack-open-prototype.rarity-rare.charging .pack-open-pack-split,
+.pack-open-prototype.rarity-rare.charging .pack-open-cutout-motion,
+.pack-open-prototype.rarity-rare.charging .pack-open-slot,
+.pack-open-prototype.rarity-rare.charging .pack-open-scanline,
+.pack-open-prototype.rarity-rare.charging .pack-open-flash,
+.pack-open-prototype.rarity-rare.charging .pack-open-mouth-shadow,
+.pack-open-prototype.rarity-rare.charging .pack-open-crinkles,
+.pack-open-prototype.rarity-rare.charging .pack-open-crinkles span {
+  animation-duration: var(--open-duration-rare);
+}
+
+.pack-open-prototype.rarity-rare.charging .pack-open-tear {
+  animation-duration: var(--open-duration-tear-rare);
+}
+
+.pack-open-prototype.rarity-blackout.charging .pack-open-pack-base,
+.pack-open-prototype.rarity-blackout.charging .pack-open-pack-split,
+.pack-open-prototype.rarity-blackout.charging .pack-open-cutout-motion,
+.pack-open-prototype.rarity-blackout.charging .pack-open-slot,
+.pack-open-prototype.rarity-blackout.charging .pack-open-scanline,
+.pack-open-prototype.rarity-blackout.charging .pack-open-flash,
+.pack-open-prototype.rarity-blackout.charging .pack-open-mouth-shadow,
+.pack-open-prototype.rarity-blackout.charging .pack-open-crinkles,
+.pack-open-prototype.rarity-blackout.charging .pack-open-crinkles span {
+  animation-duration: var(--open-duration-rare);
+}
+
+.pack-open-prototype.rarity-blackout.charging .pack-open-tear {
+  animation-duration: var(--open-duration-tear-rare);
+}
+
+.pack-open-prototype.rarity-jackpot.charging .pack-open-pack-base,
+.pack-open-prototype.rarity-jackpot.charging .pack-open-pack-split,
+.pack-open-prototype.rarity-jackpot.charging .pack-open-cutout-motion,
+.pack-open-prototype.rarity-jackpot.charging .pack-open-slot,
+.pack-open-prototype.rarity-jackpot.charging .pack-open-scanline,
+.pack-open-prototype.rarity-jackpot.charging .pack-open-flash,
+.pack-open-prototype.rarity-jackpot.charging .pack-open-mouth-shadow,
+.pack-open-prototype.rarity-jackpot.charging .pack-open-crinkles,
+.pack-open-prototype.rarity-jackpot.charging .pack-open-crinkles span {
+  animation-duration: var(--open-duration-jackpot);
+}
+
+.pack-open-prototype.rarity-jackpot.charging .pack-open-tear {
+  animation-duration: var(--open-duration-tear-jackpot);
+}
+
+.pack-open-prototype.rarity-rare.charging .pack-open-card-wrap {
+  animation: rareCardPreview var(--open-duration-rare) cubic-bezier(0.13, 0.9, 0.18, 1) forwards;
+}
+
+.pack-open-prototype.rarity-blackout.charging .pack-open-card-wrap {
+  animation: blackoutCardPreview var(--open-duration-rare) cubic-bezier(0.12, 0.9, 0.18, 1) forwards;
+}
+
+.pack-open-prototype.rarity-jackpot.charging .pack-open-card-wrap {
+  animation: jackpotCardPreview var(--open-duration-jackpot) cubic-bezier(0.12, 0.9, 0.16, 1) forwards;
+}
+
+.pack-open-prototype.rarity-rare.charging .pack-open-card-wrap img,
+.pack-open-prototype.rarity-blackout.charging .pack-open-card-wrap img {
+  animation-duration: var(--open-duration-rare);
+}
+
+.pack-open-prototype.rarity-rare.charging .pack-open-card-wrap::before,
+.pack-open-prototype.rarity-blackout.charging .pack-open-card-wrap::before {
+  animation-duration: var(--open-duration-rare);
+}
+
+.pack-open-prototype.rarity-jackpot.charging .pack-open-card-wrap img {
+  animation-duration: var(--open-duration-jackpot);
+}
+
+.pack-open-prototype.rarity-jackpot.charging .pack-open-card-wrap::before {
+  animation-duration: var(--open-duration-jackpot);
+}
+
+.pack-open-prototype.batch.charging .pack-open-pack-base,
+.pack-open-prototype.batch.charging .pack-open-pack-split,
+.pack-open-prototype.batch.charging .pack-open-cutout-motion,
+.pack-open-prototype.batch.charging .pack-open-slot,
+.pack-open-prototype.batch.charging .pack-open-burst,
+.pack-open-prototype.batch.charging .pack-open-rarity-ring,
+.pack-open-prototype.batch.charging .pack-open-scanline,
+.pack-open-prototype.batch.charging .pack-open-flash,
+.pack-open-prototype.batch.charging .pack-open-mouth-shadow,
+.pack-open-prototype.batch.charging .pack-open-crinkles,
+.pack-open-prototype.batch.charging .pack-open-crinkles span,
+.pack-open-prototype.batch.charging .pack-open-card-wrap,
+.pack-open-prototype.batch.charging .pack-open-card-wrap::before,
+.pack-open-prototype.batch.charging .pack-open-card-wrap img {
+  animation-duration: var(--open-duration-rare);
+}
+
+.pack-open-prototype.batch.charging .pack-open-tear {
+  animation-duration: var(--open-duration-tear-rare);
+}
+
+.pack-open-prototype.revealed .pack-open-pack-shell {
+  opacity: 0;
+  transform: scale(0.86);
+  transition:
+    opacity 0.42s ease,
+    transform 0.42s ease;
+}
+
+.pack-open-prototype.revealed .pack-open-card-wrap {
+  z-index: 6;
+  opacity: 1;
+  transform: translateY(0) translateX(0) scale(1) rotateX(0) rotateZ(0);
+  transition:
+    opacity 0.46s ease,
+    transform 0.64s cubic-bezier(0.16, 0.9, 0.2, 1);
+}
+
+.pack-open-prototype.revealed .pack-open-card-wrap::before {
+  opacity: 0;
+}
+
+.pack-open-prototype.rarity-rare.revealed .pack-open-card-wrap {
+  filter:
+    drop-shadow(0 30px 52px rgba(42, 52, 39, 0.18))
+    drop-shadow(0 0 32px rgba(220, 227, 206, 0.7));
+}
+
+.pack-open-prototype.rarity-blackout.revealed .pack-open-card-wrap {
+  filter:
+    drop-shadow(0 30px 52px rgba(42, 52, 39, 0.18))
+    drop-shadow(0 0 42px rgba(17, 17, 17, 0.32));
+}
+
+.pack-open-prototype.rarity-jackpot.revealed .pack-open-card-wrap {
+  filter:
+    drop-shadow(0 30px 52px rgba(42, 52, 39, 0.18))
+    drop-shadow(0 0 54px rgba(255, 255, 255, 0.82))
+    drop-shadow(0 0 94px rgba(198, 211, 186, 0.75));
+}
+
+.pack-open-prototype.batch.revealed .pack-open-card-wrap {
+  opacity: 0.2;
+  transform: translateY(-82px) scale(0.62);
+}
+
+.pack-open-prototype.batch.revealed .pack-open-batch-grid {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  transition:
+    opacity 0.36s ease 0.12s,
+    transform 0.42s ease 0.12s;
+}
+
+.pack-open-prototype.batch.revealed .pack-open-mini-card {
+  animation: miniCardReveal 0.54s cubic-bezier(0.16, 0.9, 0.2, 1) forwards;
+  animation-delay: calc(0.08s + (var(--mini-index) * 0.045s));
+}
+
+@keyframes packIdle {
+  0%,
+  100% {
+    transform: translateY(0) rotateX(0deg);
+  }
+  50% {
+    transform: translateY(-10px) rotateX(2deg);
+  }
+}
+
+@keyframes packSheen {
+  0%,
+  48% {
+    transform: translateX(-160%) rotate(13deg);
+  }
+  72%,
+  100% {
+    transform: translateX(470%) rotate(13deg);
+  }
+}
+
+@keyframes rareScreenWash {
+  0%,
+  44% {
+    opacity: 0.78;
+  }
+  56% {
+    opacity: 0.96;
+  }
+  100% {
+    opacity: 0.82;
+  }
+}
+
+@keyframes jackpotScreenWash {
+  0%,
+  34% {
+    opacity: 0.78;
+    filter: brightness(1);
+  }
+  48% {
+    opacity: 1;
+    filter: brightness(1.12);
+  }
+  58% {
+    opacity: 0.58;
+    filter: brightness(1.28);
+  }
+  100% {
+    opacity: 0.86;
+    filter: brightness(1);
+  }
+}
+
+@keyframes blackoutScreenWash {
+  0%,
+  26% {
+    opacity: 0.78;
+    filter: brightness(1);
+  }
+  44%,
+  66% {
+    opacity: 1;
+    filter: brightness(0.72) contrast(1.12);
+  }
+  76% {
+    opacity: 0.62;
+    filter: brightness(1.2);
+  }
+  100% {
+    opacity: 0.84;
+    filter: brightness(1);
+  }
+}
+
+@keyframes packCutoutMotion {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.994);
+  }
+  4%,
+  86% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  95% {
+    opacity: 0.54;
+    transform: translate3d(0, -3px, 0) scale(1.006);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -8px, 0) scale(1.014);
+  }
+}
+
+@keyframes packShellHandOff {
+  0%,
+  4% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: none;
+  }
+  10% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(1.004);
+    filter: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(1.004);
+    filter: none;
+  }
+}
+
+@keyframes packCharge {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateX(0deg) rotateZ(0deg) skewX(0deg);
+    filter: blur(0);
+  }
+  14% {
+    opacity: 1;
+    transform: translateY(13px) scale(0.988, 1.006) rotateX(-2deg) rotateZ(-0.7deg) skewX(0.5deg);
+    filter: blur(0);
+  }
+  28% {
+    opacity: 1;
+    transform: translateY(-7px) scale(1.018, 0.994) rotateX(1deg) rotateZ(0.9deg) skewX(-0.8deg);
+    filter: blur(0);
+  }
+  41% {
+    opacity: 1;
+    transform: translateY(-18px) scale(1.04, 0.99) rotateX(3deg) rotateZ(-0.4deg) skewX(0.7deg);
+    filter: blur(0);
+  }
+  50% {
+    opacity: 0.82;
+    transform: translateY(-20px) scale(1.055, 0.985) rotateX(5deg) rotateZ(0.5deg) skewX(-0.4deg);
+    filter: blur(1px);
+  }
+  62%,
+  100% {
+    opacity: 0;
+    transform: translateY(-22px) scale(1.08, 0.98) rotateX(7deg) rotateZ(0deg) skewX(0deg);
+    filter: blur(8px);
+  }
+}
+
+@keyframes packSplitShow {
+  0%,
+  42% {
+    opacity: 0;
+  }
+  48% {
+    opacity: 0.42;
+  }
+  54% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 0.68;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes rarityRing {
+  0%,
+  48% {
+    opacity: 0;
+    transform: scale(0.68) rotate(0deg);
+  }
+  62% {
+    opacity: 0.74;
+    transform: scale(0.96) rotate(10deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.22) rotate(24deg);
+  }
+}
+
+@keyframes jackpotRing {
+  0%,
+  42% {
+    opacity: 0;
+    transform: scale(0.58) rotate(0deg);
+  }
+  54% {
+    opacity: 1;
+    transform: scale(0.86) rotate(18deg);
+  }
+  74% {
+    opacity: 0.82;
+    transform: scale(1.08) rotate(42deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.34) rotate(72deg);
+  }
+}
+
+@keyframes blackoutRing {
+  0%,
+  44% {
+    opacity: 0;
+    transform: scale(0.7) rotate(0deg);
+  }
+  58% {
+    opacity: 0.82;
+    transform: scale(0.92) rotate(-8deg);
+  }
+  76% {
+    opacity: 0.58;
+    transform: scale(1.08) rotate(-20deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.22) rotate(-34deg);
+  }
+}
+
+@keyframes packTopOpen {
+  0%,
+  44% {
+    opacity: 0;
+    transform: translateY(0) rotateX(0deg) rotateZ(0deg) skewX(0deg) scaleY(1);
+  }
+  49% {
+    opacity: 1;
+    transform: translateY(-4px) rotateX(-6deg) rotateZ(0.6deg) skewX(-1.6deg) scaleY(1.02);
+  }
+  58% {
+    opacity: 1;
+    transform: translateY(-18px) rotateX(-28deg) rotateZ(-1.8deg) skewX(2.4deg) scaleY(0.98);
+  }
+  72% {
+    opacity: 0.94;
+    transform: translateY(-48px) rotateX(-64deg) rotateZ(2.2deg) skewX(-3deg) scaleY(0.94);
+  }
+  86% {
+    opacity: 0.58;
+    transform: translateY(-68px) rotateX(-78deg) rotateZ(-1.2deg) skewX(2deg) scaleY(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-96px) rotateX(-88deg) rotateZ(-2.8deg) skewX(-1deg) scaleY(0.86);
+  }
+}
+
+@keyframes packBodyOpen {
+  0%,
+  44% {
+    opacity: 0;
+    transform: translateY(0) scale(1) rotateX(0deg) skewX(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(2px) scale(1.004, 0.997) rotateX(0deg) skewX(0.4deg);
+  }
+  62% {
+    opacity: 0.96;
+    transform: translateY(11px) scale(0.996, 1.006) rotateX(1deg) skewX(-0.7deg);
+  }
+  72% {
+    opacity: 0.84;
+    transform: translateY(22px) scale(0.982, 1.012) rotateX(2deg) skewX(0.8deg);
+  }
+  86% {
+    opacity: 0.36;
+    transform: translateY(32px) scale(0.968, 1.018) rotateX(3deg) skewX(-0.4deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(46px) scale(0.956, 1.02) rotateX(4deg) skewX(0deg);
+  }
+}
+
+@keyframes tearLine {
+  0%,
+  24% {
+    opacity: 0;
+    transform: translateY(-50%) scaleX(0) skewX(0deg);
+  }
+  36% {
+    opacity: 0.42;
+    transform: translateY(-50%) scaleX(0.18) skewX(-8deg);
+  }
+  44% {
+    opacity: 0.86;
+    transform: translateY(-50%) scaleX(0.48) skewX(4deg);
+  }
+  58% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(0.86) skewX(-2deg);
+  }
+  72% {
+    opacity: 0.72;
+    transform: translateY(-50%) scaleX(1) skewX(1deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1.08) skewX(0deg);
+  }
+}
+
+@keyframes mouthShadow {
+  0%,
+  46% {
+    opacity: 0;
+    transform: translateY(-8px) scaleX(0.72);
+  }
+  58% {
+    opacity: 0.34;
+    transform: translateY(0) scaleX(0.92);
+  }
+  78% {
+    opacity: 0.22;
+    transform: translateY(5px) scaleX(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(14px) scaleX(1.18);
+  }
+}
+
+@keyframes crinkleGroup {
+  0%,
+  34% {
+    opacity: 0;
+  }
+  46%,
+  76% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes crinkleLine {
+  0%,
+  40% {
+    transform: translateY(-50%) rotate(-4deg) scaleX(0.2);
+  }
+  54% {
+    transform: translateY(-50%) rotate(2deg) scaleX(0.86);
+  }
+  74% {
+    transform: translateY(-50%) rotate(-7deg) scaleX(1);
+  }
+  100% {
+    transform: translateY(-50%) rotate(-2deg) scaleX(0.4);
+  }
+}
+
+@keyframes crinkleLineAlt {
+  0%,
+  40% {
+    transform: translateY(-50%) rotate(3deg) scaleX(0.2);
+  }
+  56% {
+    transform: translateY(-50%) rotate(-3deg) scaleX(0.82);
+  }
+  78% {
+    transform: translateY(-50%) rotate(5deg) scaleX(1);
+  }
+  100% {
+    transform: translateY(-50%) rotate(1deg) scaleX(0.4);
+  }
+}
+
+@keyframes packSlot {
+  0%,
+  30% {
+    opacity: 0;
+    transform: scaleX(0.02) scaleY(0.68);
+  }
+  42% {
+    opacity: 0.22;
+    transform: scaleX(0.04) scaleY(0.78);
+  }
+  55% {
+    opacity: 0.74;
+    transform: scaleX(0.24) scaleY(0.92);
+  }
+  70% {
+    opacity: 0.92;
+    transform: scaleX(0.66) scaleY(1.02);
+  }
+  84% {
+    opacity: 0.42;
+    transform: scaleX(0.9) scaleY(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1.04) scaleY(1.04);
+  }
+}
+
+@keyframes packBurst {
+  0%,
+  48% {
+    opacity: 0;
+    transform: scale(0.48);
+  }
+  60% {
+    opacity: 0.76;
+    transform: scale(0.74);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes packScan {
+  0%,
+  18% {
+    opacity: 0;
+    transform: translateY(-190px) scaleX(0.2);
+  }
+  26% {
+    opacity: 0.86;
+    transform: translateY(-156px) scaleX(0.72);
+  }
+  42% {
+    opacity: 0.72;
+    transform: translateY(24px) scaleX(1);
+  }
+  58% {
+    opacity: 0.34;
+    transform: translateY(176px) scaleX(0.82);
+  }
+  66%,
+  100% {
+    opacity: 0;
+    transform: translateY(204px) scaleX(0.42);
+  }
+}
+
+@keyframes packRevealFlash {
+  0%,
+  60% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  76% {
+    opacity: 0.42;
+    transform: scale(0.76);
+  }
+  88% {
+    opacity: 0.24;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.24);
+  }
+}
+
+@keyframes cardPreview {
+  0%,
+  58% {
+    opacity: 0;
+    transform: translate3d(0, 166px, 0) scale(0.48) rotateX(20deg) rotateZ(0deg);
+  }
+  66% {
+    opacity: 0.08;
+    transform: translate3d(0, 146px, 0) scale(0.52) rotateX(17deg) rotateZ(-0.03deg);
+  }
+  76% {
+    opacity: 0.22;
+    transform: translate3d(0, 104px, 0) scale(0.62) rotateX(12deg) rotateZ(-0.03deg);
+  }
+  84% {
+    opacity: 0.42;
+    transform: translate3d(0, 58px, 0) scale(0.76) rotateX(7deg) rotateZ(0.01deg);
+  }
+  90% {
+    opacity: 0.74;
+    transform: translate3d(0, 24px, 0) scale(0.88) rotateX(4deg) rotateZ(0.02deg);
+  }
+  95% {
+    opacity: 0.92;
+    transform: translate3d(0, 5px, 0) scale(0.97) rotateX(1.4deg) rotateZ(0.02deg);
+  }
+  98.5% {
+    opacity: 1;
+    transform: translate3d(0, -2px, 0) scale(1.004) rotateX(-0.2deg) rotateZ(0.02deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotateX(0) rotateZ(0);
+  }
+}
+
+@keyframes cardImageLightUp {
+  0%,
+  74% {
+    filter:
+      brightness(0.56)
+      saturate(0.58)
+      contrast(0.92)
+      sepia(0.12)
+      hue-rotate(6deg);
+  }
+  86% {
+    filter:
+      brightness(0.66)
+      saturate(0.68)
+      contrast(0.95)
+      sepia(0.1)
+      hue-rotate(4deg);
+  }
+  95% {
+    filter:
+      brightness(0.82)
+      saturate(0.82)
+      contrast(0.98)
+      sepia(0.05)
+      hue-rotate(2deg);
+  }
+  98.8% {
+    filter:
+      brightness(0.98)
+      saturate(0.98)
+      contrast(1.01);
+  }
+  99.6% {
+    filter:
+      brightness(1.04)
+      saturate(1.02)
+      contrast(1.02);
+  }
+  100% {
+    filter:
+      brightness(1)
+      saturate(1)
+      contrast(1);
+  }
+}
+
+@keyframes cardFearToneWash {
+  0%,
+  58% {
+    opacity: 0;
+  }
+  66% {
+    opacity: 0.18;
+  }
+  76%,
+  91% {
+    opacity: 0.58;
+  }
+  96% {
+    opacity: 0.38;
+  }
+  99.4% {
+    opacity: 0.16;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes rareCardPreview {
+  0%,
+  58% {
+    opacity: 0;
+    transform: translate3d(0, 168px, 0) scale(0.48) rotateX(20deg) rotateZ(0deg);
+  }
+  66% {
+    opacity: 0.1;
+    transform: translate3d(0, 148px, 0) scale(0.52) rotateX(17deg) rotateZ(-0.03deg);
+  }
+  76% {
+    opacity: 0.24;
+    transform: translate3d(0, 104px, 0) scale(0.62) rotateX(12deg) rotateZ(-0.03deg);
+  }
+  84% {
+    opacity: 0.44;
+    transform: translate3d(0, 56px, 0) scale(0.76) rotateX(7deg) rotateZ(0.01deg);
+  }
+  90% {
+    opacity: 0.76;
+    transform: translate3d(0, 22px, 0) scale(0.88) rotateX(4deg) rotateZ(0.02deg);
+  }
+  95% {
+    opacity: 0.92;
+    transform: translate3d(0, 5px, 0) scale(0.97) rotateX(1.4deg) rotateZ(0.03deg);
+  }
+  98.5% {
+    opacity: 1;
+    transform: translate3d(0, -2px, 0) scale(1.004) rotateX(-0.2deg) rotateZ(0.03deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotateX(0) rotateZ(0);
+  }
+}
+
+@keyframes jackpotCardPreview {
+  0%,
+  60% {
+    opacity: 0;
+    transform: translate3d(0, 170px, 0) scale(0.46) rotateX(22deg) rotateZ(0deg);
+  }
+  68% {
+    opacity: 0.1;
+    transform: translate3d(0, 148px, 0) scale(0.52) rotateX(17deg) rotateZ(-0.03deg);
+  }
+  78% {
+    opacity: 0.24;
+    transform: translate3d(0, 102px, 0) scale(0.62) rotateX(12deg) rotateZ(-0.03deg);
+  }
+  85% {
+    opacity: 0.46;
+    transform: translate3d(0, 54px, 0) scale(0.76) rotateX(7deg) rotateZ(0.01deg);
+  }
+  91% {
+    opacity: 0.78;
+    transform: translate3d(0, 22px, 0) scale(0.88) rotateX(4deg) rotateZ(0.03deg);
+  }
+  95.5% {
+    opacity: 0.92;
+    transform: translate3d(0, 5px, 0) scale(0.97) rotateX(1.2deg) rotateZ(0.04deg);
+  }
+  98.5% {
+    opacity: 0.92;
+    transform: translate3d(0, -3px, 0) scale(1.006) rotateX(-0.3deg) rotateZ(0.04deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotateX(0) rotateZ(0);
+  }
+}
+
+@keyframes blackoutCardPreview {
+  0%,
+  58% {
+    opacity: 0;
+    transform: translate3d(0, 168px, 0) scale(0.48) rotateX(20deg) rotateZ(0deg);
+  }
+  66% {
+    opacity: 0.08;
+    transform: translate3d(0, 148px, 0) scale(0.51) rotateX(17deg) rotateZ(-0.03deg);
+  }
+  76% {
+    opacity: 0.2;
+    transform: translate3d(0, 106px, 0) scale(0.61) rotateX(12deg) rotateZ(-0.03deg);
+  }
+  84% {
+    opacity: 0.4;
+    transform: translate3d(0, 58px, 0) scale(0.75) rotateX(7deg) rotateZ(0.01deg);
+  }
+  90% {
+    opacity: 0.7;
+    transform: translate3d(0, 24px, 0) scale(0.86) rotateX(4deg) rotateZ(0.02deg);
+  }
+  95% {
+    opacity: 0.88;
+    transform: translate3d(0, 5px, 0) scale(0.96) rotateX(1.4deg) rotateZ(0.03deg);
+  }
+  98.5% {
+    opacity: 0.9;
+    transform: translate3d(0, -3px, 0) scale(1.004) rotateX(-0.25deg) rotateZ(0.04deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotateX(0) rotateZ(0);
+  }
+}
+
+@keyframes miniCardReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  72% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.015);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 760px) {
+  .pack-open-header {
+    height: 58px;
+    padding: 0 18px;
+    font-size: 10px;
+  }
+
+  .pack-open-stage {
+    min-height: 100dvh;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    gap: 0;
+    padding: 72px 18px 18px;
+  }
+
+  .pack-open-copy {
+    align-self: start;
+    padding: 0;
+    max-width: 100%;
+  }
+
+  .pack-open-copy span {
+    font-size: 10px;
+  }
+
+  .pack-open-copy h1 {
+    max-width: 320px;
+    margin: 12px 0 8px;
+    font-size: 34px;
+  }
+
+  .pack-open-copy p {
+    display: none;
+  }
+
+  .pack-open-visual {
+    width: 100%;
+    height: 100%;
+    min-height: 440px;
+  }
+
+  .pack-open-pack-shell {
+    width: min(76vw, 312px);
+  }
+
+  .pack-open-card-wrap {
+    width: min(72vw, 292px);
+  }
+
+  .pack-open-controls {
+    justify-self: stretch;
+    align-self: end;
+    padding: 0;
+    min-width: 0;
+  }
+
+  .pack-open-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pack-open-actions button {
+    min-height: 52px;
+    padding: 0 14px;
+    font-size: 11px;
+  }
+
+  .pack-open-batch-grid {
+    bottom: 1%;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .pack-open-mini-card {
+    min-height: 58px;
+    font-size: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pack-open-prototype *,
+  .pack-open-prototype *::before,
+  .pack-open-prototype *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 /* hmr-1778952219 */
 /* hmr-1778961624 */
@@ -19463,3 +21520,49 @@ html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-empty {
   letter-spacing: 0.16em !important;
   text-transform: uppercase !important;
 }
+
+/* Admin route header — match the solid-white storefront header used on
+   /packs and /marketplace. The default storefront-header is transparent
+   so on the dark admin workspace it would visually read as a dark bar;
+   force the white surface explicitly here. */
+html[lang][data-ynot-theme][data-ynot-language][class] body:has(.admin-workspace) .storefront-header,
+html[lang][data-ynot-theme][data-ynot-language][class] body:has(.admin-workspace) .storefront-header .store-topbar {
+  background: #ffffff !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] body:has(.admin-workspace) .storefront-header {
+  border-bottom: 1px solid #000000 !important;
+  box-shadow: 0 4px 16px -8px rgba(0, 0, 0, 0.55) !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] body:has(.admin-workspace) .storefront-header::before,
+html[lang][data-ynot-theme][data-ynot-language][class] body:has(.admin-workspace) .storefront-header::after {
+  display: none !important;
+}
+/* Breathing room between the white admin header and the dark workspace
+   panel below — mirrors the footer spacing on storefront pages. */
+html[lang][data-ynot-theme][data-ynot-language][class] body:has(.admin-workspace) .admin-workspace {
+  margin-top: 32px !important;
+}
+
+/* Match ADMIN + EN to the desktop primary-nav metrics exactly —
+   MARKETPLACE renders with padding 6.66624px 0 (vertical only). The old
+   override added 10px horizontal padding which pushed ADMIN/EN out of
+   alignment with the left-side nav items. */
+html[lang][data-ynot-theme][data-ynot-language][class] .store-language-toggle-trigger,
+html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
+  font-family: inherit !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
+  padding: 6.66624px 0 !important;
+  line-height: 1.22 !important;
+  opacity: 1 !important;
+  color: inherit !important;
+}
+/* hmr-1779028846 */
+/* hmr-1779034546 */

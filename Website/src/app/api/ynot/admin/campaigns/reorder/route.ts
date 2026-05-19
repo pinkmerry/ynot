@@ -113,22 +113,32 @@ export async function POST(request: Request) {
     });
   }
 
-  const supabase = createServiceSupabaseClient();
-  for (const entry of normalised) {
-    const { error } = await supabase
-      .from("draw_rounds")
-      .update({ sort_order: entry.sortOrder })
-      .eq("id", entry.id);
-    if (error) {
-      return adminErrorResponse(
-        error.code ?? "CAMPAIGN_REORDER_FAILED",
-        error.message,
-        409,
-        { detail: error.details ?? null, hint: error.hint ?? null },
-      );
+  // Filter out dev/demo mock campaign ids — they aren't real UUIDs and
+  // Postgres rejects the update. We still report them as "applied" so the
+  // client UI updates optimistically.
+  const isDevMockId = (id: string) =>
+    process.env.NODE_ENV !== "production" &&
+    (id.startsWith("mock-owner-pack-") || id.startsWith("storefront-"));
+  const persistable = normalised.filter((entry) => !isDevMockId(entry.id));
+
+  if (persistable.length) {
+    const supabase = createServiceSupabaseClient();
+    for (const entry of persistable) {
+      const { error } = await supabase
+        .from("draw_rounds")
+        .update({ sort_order: entry.sortOrder })
+        .eq("id", entry.id);
+      if (error) {
+        return adminErrorResponse(
+          error.code ?? "CAMPAIGN_REORDER_FAILED",
+          error.message,
+          409,
+          { detail: error.details ?? null, hint: error.hint ?? null },
+        );
+      }
     }
+    revalidateTag("campaigns", "max");
   }
 
-  revalidateTag("campaigns", "max");
   return Response.json({ ok: true, updated: normalised.length });
 }
