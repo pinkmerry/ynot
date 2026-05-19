@@ -681,12 +681,6 @@ export function YnotHomeExperience({
     <>
       <MobileTorecaHero campaign={campaigns[0]} />
       <SeriesEssentialsSection />
-      {campaigns.length === 0 && (
-        <section className="empty-state store-empty-state" aria-live="polite">
-          <h2>No real live packs are published yet</h2>
-          <p>Stock tracked by server when an admin publishes pack inventory.</p>
-        </section>
-      )}
     </>
   );
 }
