@@ -609,12 +609,17 @@ const storeFilterChips: readonly StoreFilterChip[] = [
 function StoreFilterStrip({
   homeFilter,
   baseHref,
+  variant = "topbar",
 }: {
   homeFilter: HomeFilterState;
   baseHref: string;
+  variant?: "topbar" | "inline";
 }) {
   return (
-    <div className="store-filter-strip" aria-label="Mystery pack filters">
+    <div
+      className={`store-filter-strip${variant === "inline" ? " store-filter-strip--inline" : ""}`}
+      aria-label="Mystery pack filters"
+    >
       <div className="store-filter-scroll">
         {storeFilterChips.map((category) => {
           const isActive = homeFilter.series === category.series;
@@ -874,6 +879,12 @@ export async function PacksExperience({
             )}
           </section>
         )}
+
+        <StoreFilterStrip
+          homeFilter={homeFilter}
+          baseHref="/packs"
+          variant="inline"
+        />
 
         {(() => {
           // Group every pack (including the featured ones, so customers can

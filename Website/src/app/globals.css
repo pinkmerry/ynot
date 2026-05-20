@@ -4462,6 +4462,18 @@ body::before {
   padding: 6px max(12px, calc((100% - var(--ynot-content-width)) / 2));
 }
 
+/* Inline variant — same chip styling but lives inside content, not in
+   the sticky header. Used on /packs above the tier sections. */
+.store-filter-strip.store-filter-strip--inline {
+  background: transparent;
+  border-bottom: 0;
+  margin: 4px 0 8px;
+  padding: 0;
+}
+.store-filter-strip.store-filter-strip--inline .store-filter-scroll {
+  padding-inline: 0;
+}
+
 .store-filter-scroll {
   display: flex;
   gap: 6px;
