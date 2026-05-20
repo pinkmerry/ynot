@@ -21760,3 +21760,56 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
 .admin-edit-save:hover {
   background: #059669 !important;
 }
+
+/* Edit modal — chip row for tags / open options */
+.admin-edit-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-edit-chip {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #d4d4d4;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-edit-chip:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.admin-edit-chip.is-active {
+  background: #10b981;
+  border-color: #10b981;
+  color: #ffffff;
+}
+
+.admin-edit-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-edit-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.admin-edit-checkbox span {
+  font-size: 13px;
+  color: #d4d4d4;
+}
+
+.admin-edit-row-2 {
+  grid-template-columns: 1fr 1fr !important;
+}
