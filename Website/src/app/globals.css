@@ -9191,6 +9191,11 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   color: var(--admin-muted) !important;
 }
 
+.admin-redesign-reference .admin-prize-summary-grid strong,
+.admin-redesign-reference .admin-prize-summary-grid > div {
+  color: #1a1a1a !important;
+}
+
 .admin-redesign-reference .admin-prize-blocker-list {
   background: #fff1f2 !important;
   border-color: #fecdd3 !important;
