@@ -50,6 +50,12 @@ const NAV: { group: string; items: NavItem[] }[] = [
   },
 ];
 
+const PUBLIC_TOP_MENU = [
+  { href: "/", label: "Home page", primary: true },
+  { href: "/packs", label: "Y-Packs", primary: false },
+  { href: "/marketplace", label: "Marketplace", primary: false },
+] as const;
+
 function Sidebar({
   active,
   viewer,
@@ -140,6 +146,18 @@ function Breadcrumbs({ trail }: { trail: string[] }) {
 function TopBar({ trail }: { trail: string[] }) {
   return (
     <div className="a-top">
+      <nav className="a-top-menu" aria-label="Public site shortcuts">
+        {PUBLIC_TOP_MENU.map((item) => (
+          <Link
+            href={item.href}
+            key={item.href}
+            className={item.primary ? "home" : undefined}
+          >
+            {item.primary && <AdminIcon name="globe" size={13} />}
+            <span>{item.label}</span>
+          </Link>
+        ))}
+      </nav>
       <Breadcrumbs trail={trail} />
       <div className="a-search">
         <AdminIcon name="search" size={13} />
