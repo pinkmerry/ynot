@@ -9195,7 +9195,10 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 .admin-redesign-reference .admin-prize-summary-grid > div *,
 .admin-redesign-reference .admin-prize-summary-grid > div span,
 .admin-redesign-reference .admin-prize-summary-grid > div strong {
-  color: #1a1a1a !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  text-shadow: none !important;
   opacity: 1 !important;
   visibility: visible !important;
 }
@@ -9210,6 +9213,10 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   color: #0a0a0a !important;
   font-size: 18px !important;
   font-weight: 800 !important;
+}
+.admin-redesign-reference .admin-prize-summary-grid > div {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
 }
 
 .admin-redesign-reference .admin-prize-blocker-list {
