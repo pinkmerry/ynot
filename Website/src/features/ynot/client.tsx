@@ -5698,6 +5698,7 @@ export function AdminCampaignTable({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingCampaign, setEditingCampaign] = useState<YnotCampaign | null>(null);
 
   // Counts per status so the tabs show a Shopify-style number badge.
   const counts = useMemo(() => {
@@ -5962,6 +5963,15 @@ export function AdminCampaignTable({
                     >
                       View
                     </a>
+                    {campaign.status === "draft" && (
+                      <button
+                        type="button"
+                        className="admin-pack-table-action"
+                        onClick={() => setEditingCampaign(campaign)}
+                      >
+                        Edit
+                      </button>
+                    )}
                     {campaign.status !== "archived" && (
                       <button
                         type="button"
@@ -5984,6 +5994,178 @@ export function AdminCampaignTable({
           </tbody>
         </table>
       </div>
+      {editingCampaign && (
+        <EditCampaignModal
+          campaign={editingCampaign}
+          onClose={() => setEditingCampaign(null)}
+          onSaved={() => {
+            setEditingCampaign(null);
+            router.refresh();
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+function EditCampaignModal({
+  campaign,
+  onClose,
+  onSaved,
+}: {
+  campaign: YnotCampaign;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [titleTh, setTitleTh] = useState(campaign.titleTh);
+  const [titleEn, setTitleEn] = useState(campaign.titleEn);
+  const [priceThb, setPriceThb] = useState(campaign.priceThb);
+  const [costCoins, setCostCoins] = useState(campaign.costCoins);
+  const [totalSlots, setTotalSlots] = useState(campaign.totalSlots);
+  const [series, setSeries] = useState<"one_piece" | "pokemon">(campaign.series);
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  async function handleSave() {
+    setSaving(true);
+    setErrorMsg(null);
+    try {
+      const response = await fetch("/api/ynot/admin/campaigns", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          campaignId: campaign.id,
+          titleTh,
+          titleEn,
+          priceThb,
+          costCoins,
+          totalSlots,
+          series,
+        }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; message?: string }
+          | null;
+        throw new Error(payload?.message || payload?.error || "Update failed");
+      }
+      onSaved();
+    } catch (caught) {
+      setErrorMsg(caught instanceof Error ? caught.message : "Update failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="admin-edit-modal-backdrop"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="admin-edit-modal"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit pack"
+      >
+        <header className="admin-edit-modal-head">
+          <h3>Edit pack</h3>
+          <button
+            type="button"
+            className="admin-edit-modal-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </header>
+        <div className="admin-edit-modal-body">
+          <label className="admin-edit-field">
+            <span>Thai title</span>
+            <input
+              type="text"
+              value={titleTh}
+              onChange={(event) => setTitleTh(event.target.value)}
+            />
+          </label>
+          <label className="admin-edit-field">
+            <span>English title</span>
+            <input
+              type="text"
+              value={titleEn}
+              onChange={(event) => setTitleEn(event.target.value)}
+            />
+          </label>
+          <label className="admin-edit-field">
+            <span>Series</span>
+            <select
+              value={series}
+              onChange={(event) =>
+                setSeries(event.target.value as "one_piece" | "pokemon")
+              }
+            >
+              <option value="pokemon">Pokemon</option>
+              <option value="one_piece">One Piece</option>
+            </select>
+          </label>
+          <div className="admin-edit-row">
+            <label className="admin-edit-field">
+              <span>Price (THB)</span>
+              <input
+                type="number"
+                min={1}
+                value={priceThb}
+                onChange={(event) =>
+                  setPriceThb(Math.max(1, Number(event.target.value) || 0))
+                }
+              />
+            </label>
+            <label className="admin-edit-field">
+              <span>Cost (coins)</span>
+              <input
+                type="number"
+                min={1}
+                value={costCoins}
+                onChange={(event) =>
+                  setCostCoins(Math.max(1, Number(event.target.value) || 0))
+                }
+              />
+            </label>
+            <label className="admin-edit-field">
+              <span>Total slots</span>
+              <input
+                type="number"
+                min={1}
+                value={totalSlots}
+                onChange={(event) =>
+                  setTotalSlots(Math.max(1, Number(event.target.value) || 0))
+                }
+              />
+            </label>
+          </div>
+          {errorMsg && <p className="admin-edit-error">{errorMsg}</p>}
+        </div>
+        <footer className="admin-edit-modal-foot">
+          <button
+            type="button"
+            className="admin-pack-table-action"
+            onClick={onClose}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="admin-pack-table-action admin-edit-save"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Save changes"}
+          </button>
+        </footer>
+      </div>
+    </div>
   );
 }
