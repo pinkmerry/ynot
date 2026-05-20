@@ -6017,14 +6017,45 @@ function EditCampaignModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const [slug, setSlug] = useState(campaign.slug);
   const [titleTh, setTitleTh] = useState(campaign.titleTh);
   const [titleEn, setTitleEn] = useState(campaign.titleEn);
   const [priceThb, setPriceThb] = useState(campaign.priceThb);
   const [costCoins, setCostCoins] = useState(campaign.costCoins);
   const [totalSlots, setTotalSlots] = useState(campaign.totalSlots);
   const [series, setSeries] = useState<"one_piece" | "pokemon">(campaign.series);
+  const [mode, setMode] = useState<"instant_gacha" | "slot_pick">(campaign.mode);
+  const [sortOrder, setSortOrder] = useState<number>(campaign.sortOrder ?? 100);
+  const [isTest, setIsTest] = useState<boolean>(Boolean(campaign.isTest));
+  const [displayTags, setDisplayTags] = useState<string[]>(
+    normalizeCustomerTags(campaign.displayTags, campaign.series),
+  );
+  const [openQuantityOptions, setOpenQuantityOptions] = useState<number[]>(
+    normalizeOpenQuantityOptions(campaign.openQuantityOptions),
+  );
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  function toggleTag(tag: string) {
+    setDisplayTags((current) => {
+      if (current.includes(tag)) {
+        return current.filter((existing) => existing !== tag);
+      }
+      if (current.length >= 4) return current;
+      return [...current, tag];
+    });
+  }
+
+  function toggleOpenOption(option: number) {
+    setOpenQuantityOptions((current) => {
+      const normalized = normalizeOpenQuantityOptions(current);
+      if (normalized.includes(option)) {
+        const next = normalized.filter((existing) => existing !== option);
+        return next.length ? next : normalized;
+      }
+      return normalizeOpenQuantityOptions([...normalized, option]);
+    });
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -6035,12 +6066,18 @@ function EditCampaignModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           campaignId: campaign.id,
+          slug,
           titleTh,
           titleEn,
           priceThb,
           costCoins,
           totalSlots,
           series,
+          mode,
+          sortOrder,
+          isTest,
+          displayTags,
+          openQuantityOptions,
         }),
       });
       if (!response.ok) {
@@ -6083,6 +6120,15 @@ function EditCampaignModal({
         </header>
         <div className="admin-edit-modal-body">
           <label className="admin-edit-field">
+            <span>Slug (URL)</span>
+            <input
+              type="text"
+              value={slug}
+              onChange={(event) => setSlug(event.target.value)}
+              placeholder="e.g. one-piece-wano-arc"
+            />
+          </label>
+          <label className="admin-edit-field">
             <span>Thai title</span>
             <input
               type="text"
@@ -6098,18 +6144,32 @@ function EditCampaignModal({
               onChange={(event) => setTitleEn(event.target.value)}
             />
           </label>
-          <label className="admin-edit-field">
-            <span>Series</span>
-            <select
-              value={series}
-              onChange={(event) =>
-                setSeries(event.target.value as "one_piece" | "pokemon")
-              }
-            >
-              <option value="pokemon">Pokemon</option>
-              <option value="one_piece">One Piece</option>
-            </select>
-          </label>
+          <div className="admin-edit-row admin-edit-row-2">
+            <label className="admin-edit-field">
+              <span>Series</span>
+              <select
+                value={series}
+                onChange={(event) =>
+                  setSeries(event.target.value as "one_piece" | "pokemon")
+                }
+              >
+                <option value="pokemon">Pokemon</option>
+                <option value="one_piece">One Piece</option>
+              </select>
+            </label>
+            <label className="admin-edit-field">
+              <span>Open mode</span>
+              <select
+                value={mode}
+                onChange={(event) =>
+                  setMode(event.target.value as "instant_gacha" | "slot_pick")
+                }
+              >
+                <option value="instant_gacha">Instant gacha</option>
+                <option value="slot_pick">Slot pick</option>
+              </select>
+            </label>
+          </div>
           <div className="admin-edit-row">
             <label className="admin-edit-field">
               <span>Price (THB)</span>
@@ -6145,6 +6205,60 @@ function EditCampaignModal({
               />
             </label>
           </div>
+          <label className="admin-edit-field">
+            <span>Sort order (lower = first on storefront)</span>
+            <input
+              type="number"
+              value={sortOrder}
+              onChange={(event) =>
+                setSortOrder(Number(event.target.value) || 0)
+              }
+            />
+          </label>
+          <div className="admin-edit-field">
+            <span>Customer card tags (max 4)</span>
+            <div className="admin-edit-chip-row">
+              {customerTagOptions.map((tag) => {
+                const active = displayTags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    className={`admin-edit-chip${active ? " is-active" : ""}`}
+                    onClick={() => toggleTag(tag)}
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="admin-edit-field">
+            <span>Open buttons (customer-facing batch options)</span>
+            <div className="admin-edit-chip-row">
+              {[1, 5, 10, 100].map((option) => {
+                const active = openQuantityOptions.includes(option);
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`admin-edit-chip${active ? " is-active" : ""}`}
+                    onClick={() => toggleOpenOption(option)}
+                  >
+                    Open {option}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <label className="admin-edit-checkbox">
+            <input
+              type="checkbox"
+              checked={isTest}
+              onChange={(event) => setIsTest(event.target.checked)}
+            />
+            <span>Production test pack (hidden from normal customer browsing)</span>
+          </label>
           {errorMsg && <p className="admin-edit-error">{errorMsg}</p>}
         </div>
         <footer className="admin-edit-modal-foot">
