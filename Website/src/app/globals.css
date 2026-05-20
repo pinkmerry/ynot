@@ -22451,3 +22451,522 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   border-color: var(--admin-accent) !important;
   color: var(--admin-accent) !important;
 }
+
+/* ============================================================
+ * FOG ADMIN — PACK BUILDER + DETAIL COMPONENTS
+ * Page-level refinements that complement the base FOG admin
+ * theme. Targets the random pack builder form and all the
+ * sub-panels (pack info, prize workspace, readiness).
+ * ============================================================ */
+
+.admin-redesign-reference .admin-pack-form,
+.admin-redesign-reference .admin-pack-form-horizontal {
+  background: var(--admin-card) !important;
+  border: 1px solid var(--admin-line) !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  padding: 32px !important;
+}
+
+.admin-redesign-reference .admin-pack-builder-head {
+  border-bottom: 1px solid var(--admin-line) !important;
+  padding-bottom: 24px !important;
+  margin-bottom: 28px !important;
+}
+
+.admin-redesign-reference .admin-pack-builder-head h3 {
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.admin-redesign-reference .admin-pack-builder-head > div span {
+  color: var(--admin-accent) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+}
+
+.admin-redesign-reference .admin-pack-builder-head p {
+  color: var(--admin-muted) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+/* Builder layout grid */
+.admin-redesign-reference .admin-pack-builder-layout {
+  gap: 24px !important;
+}
+
+/* Sub-panels: Pack info, Prize workspace, Readiness */
+.admin-redesign-reference .admin-pack-info-panel,
+.admin-redesign-reference .admin-prize-workspace,
+.admin-redesign-reference .admin-readiness-panel {
+  background: var(--admin-card-soft) !important;
+  border: 1px solid var(--admin-line) !important;
+  border-radius: 4px !important;
+  padding: 24px !important;
+  gap: 18px !important;
+}
+
+.admin-redesign-reference .admin-panel-compact-head {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: baseline !important;
+  border-bottom: 1px solid var(--admin-line) !important;
+  padding-bottom: 14px !important;
+  margin-bottom: 8px !important;
+}
+
+.admin-redesign-reference .admin-panel-compact-head > span:first-child {
+  color: var(--admin-accent) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+}
+
+.admin-redesign-reference .admin-panel-compact-head > strong {
+  color: var(--admin-text) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+}
+
+/* Form grids */
+.admin-redesign-reference .admin-form-grid {
+  display: grid !important;
+  gap: 18px !important;
+}
+
+.admin-redesign-reference .admin-form-field {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+}
+
+.admin-redesign-reference .admin-form-field > span:first-child,
+.admin-redesign-reference .admin-form-field > label {
+  color: var(--admin-muted) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  margin-bottom: 6px !important;
+}
+
+/* Prize tier section blocks (Rainbow / Gold / Silver / Bronze) */
+.admin-redesign-reference .admin-prize-tier-block,
+.admin-redesign-reference .admin-prize-tier-card {
+  background: transparent !important;
+  border: 1px solid var(--admin-line) !important;
+  border-radius: 4px !important;
+  padding: 20px !important;
+  margin-bottom: 16px !important;
+}
+
+.admin-redesign-reference .admin-prize-tier-block-head,
+.admin-redesign-reference .admin-prize-tier-head {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 16px !important;
+  padding-bottom: 12px !important;
+  border-bottom: 1px solid var(--admin-line) !important;
+}
+
+.admin-redesign-reference .admin-prize-tier-block-title,
+.admin-redesign-reference .admin-prize-tier-title {
+  color: var(--admin-text) !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
+}
+
+.admin-redesign-reference .admin-prize-tier-block-meta,
+.admin-redesign-reference .admin-prize-tier-meta {
+  color: var(--admin-muted) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+}
+
+/* Tier count picker buttons — 1/2/3/5/10/15/20 */
+.admin-redesign-reference .admin-tier-count-buttons,
+.admin-redesign-reference .admin-tier-row-controls {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+}
+
+.admin-redesign-reference .admin-tier-count-buttons button,
+.admin-redesign-reference .admin-tier-row-controls button {
+  background: transparent !important;
+  border: 1px solid var(--admin-line-strong) !important;
+  border-radius: 0 !important;
+  color: var(--admin-muted) !important;
+  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  padding: 8px 14px !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+  min-width: 38px !important;
+}
+
+.admin-redesign-reference .admin-tier-count-buttons button:hover,
+.admin-redesign-reference .admin-tier-row-controls button:hover {
+  border-color: var(--admin-accent) !important;
+  color: var(--admin-accent) !important;
+}
+
+.admin-redesign-reference .admin-tier-count-buttons button.is-active,
+.admin-redesign-reference .admin-tier-row-controls button.is-active,
+.admin-redesign-reference .admin-tier-count-buttons button[aria-pressed="true"],
+.admin-redesign-reference .admin-tier-row-controls button[aria-pressed="true"] {
+  background: var(--admin-accent) !important;
+  border-color: var(--admin-accent) !important;
+  color: #14110d !important;
+}
+
+/* Prize tier item rows (each prize in tier) */
+.admin-redesign-reference .admin-prize-row,
+.admin-redesign-reference .admin-pack-row {
+  background: transparent !important;
+  border: 1px solid var(--admin-line) !important;
+  border-radius: 4px !important;
+  padding: 14px 16px !important;
+  margin-bottom: 8px !important;
+  display: grid !important;
+  gap: 12px !important;
+}
+
+.admin-redesign-reference .admin-prize-row:hover,
+.admin-redesign-reference .admin-pack-row:hover {
+  border-color: var(--admin-line-strong) !important;
+}
+
+/* Prize picker / dropdown */
+.admin-redesign-reference .admin-prize-picker-select {
+  background: transparent !important;
+  border: 1px solid var(--admin-line-strong) !important;
+  border-radius: 0 !important;
+  color: var(--admin-text) !important;
+  padding: 10px 14px !important;
+  font-size: 13px !important;
+}
+
+.admin-redesign-reference .admin-prize-picker-search {
+  background: var(--admin-bg-soft) !important;
+  border: 1px solid var(--admin-line-strong) !important;
+  border-radius: 0 !important;
+  padding: 12px 14px !important;
+}
+
+/* Customer card tags chips */
+.admin-redesign-reference .admin-tag-button,
+.admin-redesign-reference .customer-tag-chip,
+.admin-redesign-reference [data-tag-chip],
+.admin-redesign-reference .admin-tag-chip {
+  background: transparent !important;
+  border: 1px solid var(--admin-line-strong) !important;
+  border-radius: 0 !important;
+  color: var(--admin-muted) !important;
+  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  padding: 8px 14px !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+}
+
+.admin-redesign-reference .admin-tag-button:hover,
+.admin-redesign-reference .customer-tag-chip:hover,
+.admin-redesign-reference .admin-tag-chip:hover {
+  border-color: var(--admin-accent) !important;
+  color: var(--admin-accent) !important;
+}
+
+.admin-redesign-reference .admin-tag-button.is-active,
+.admin-redesign-reference .customer-tag-chip.is-active,
+.admin-redesign-reference .admin-tag-chip.is-active,
+.admin-redesign-reference .admin-tag-button[aria-pressed="true"],
+.admin-redesign-reference .customer-tag-chip[aria-pressed="true"] {
+  background: var(--admin-accent) !important;
+  border-color: var(--admin-accent) !important;
+  color: #14110d !important;
+}
+
+/* Open quantity buttons section */
+.admin-redesign-reference .admin-open-buttons,
+.admin-redesign-reference .admin-open-quantity-buttons {
+  display: flex !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+}
+
+.admin-redesign-reference .admin-open-buttons button,
+.admin-redesign-reference .admin-open-quantity-buttons button {
+  background: transparent !important;
+  border: 1px solid var(--admin-line-strong) !important;
+  border-radius: 0 !important;
+  color: var(--admin-text) !important;
+  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  padding: 18px 28px !important;
+  flex: 1 1 0 !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+}
+
+.admin-redesign-reference .admin-open-buttons button:hover,
+.admin-redesign-reference .admin-open-quantity-buttons button:hover {
+  border-color: var(--admin-accent) !important;
+  color: var(--admin-accent) !important;
+}
+
+.admin-redesign-reference .admin-open-buttons button.is-active,
+.admin-redesign-reference .admin-open-buttons button[aria-pressed="true"] {
+  background: var(--admin-accent) !important;
+  border-color: var(--admin-accent) !important;
+  color: #14110d !important;
+}
+
+/* Form message (success / error feedback) */
+.admin-redesign-reference .admin-form-message {
+  background: transparent !important;
+  border: 1px solid var(--admin-line-strong) !important;
+  border-radius: 4px !important;
+  color: var(--admin-text) !important;
+  font-size: 13px !important;
+  padding: 14px 16px !important;
+  margin-top: 16px !important;
+}
+
+/* Prize blocker list (errors before save) */
+.admin-redesign-reference .admin-prize-blocker-list {
+  background: rgba(201, 122, 114, 0.06) !important;
+  border: 1px solid rgba(201, 122, 114, 0.3) !important;
+  border-radius: 4px !important;
+  color: var(--admin-danger) !important;
+  font-size: 13px !important;
+  padding: 14px 18px !important;
+  list-style: none !important;
+}
+
+.admin-redesign-reference .admin-prize-blocker-list li {
+  padding: 4px 0 !important;
+}
+
+/* Production test pack toggle area */
+.admin-redesign-reference .admin-test-pack-toggle,
+.admin-redesign-reference .admin-production-test-pack {
+  background: transparent !important;
+  border: 1px solid var(--admin-line) !important;
+  border-radius: 4px !important;
+  padding: 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+}
+
+/* Checkbox + radio polish */
+.admin-redesign-reference input[type="checkbox"],
+.admin-redesign-reference input[type="radio"] {
+  accent-color: var(--admin-accent) !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* Search input in tables */
+.admin-redesign-reference .admin-pack-table-search,
+.admin-redesign-reference .admin-table-search,
+.admin-redesign-reference input[placeholder*="earch"] {
+  background: var(--admin-card-soft) !important;
+  border: 1px solid var(--admin-line-strong) !important;
+  border-radius: 4px !important;
+  color: var(--admin-text) !important;
+  padding: 12px 16px !important;
+  width: 100% !important;
+  max-width: 360px !important;
+  font-size: 13px !important;
+}
+
+.admin-redesign-reference .admin-pack-table-search:focus {
+  border-color: var(--admin-accent) !important;
+  outline: none !important;
+}
+
+/* All packs section heading */
+.admin-redesign-reference .admin-pack-table-wrapper {
+  background: var(--admin-card) !important;
+  border: 1px solid var(--admin-line) !important;
+  border-radius: 4px !important;
+  padding: 24px !important;
+}
+
+.admin-redesign-reference .admin-pack-table-head {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: baseline !important;
+  margin-bottom: 16px !important;
+  padding-bottom: 16px !important;
+  border-bottom: 1px solid var(--admin-line) !important;
+}
+
+.admin-redesign-reference .admin-pack-table-head h3 {
+  font-size: 18px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.admin-redesign-reference .admin-pack-table-head .admin-pack-table-count {
+  color: var(--admin-muted) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+}
+
+/* All section headers across admin */
+.admin-redesign-reference .admin-section-title {
+  display: block !important;
+  margin-bottom: 24px !important;
+}
+
+.admin-redesign-reference .admin-section-title strong,
+.admin-redesign-reference .admin-section-title h3 {
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.01em !important;
+  color: var(--admin-text) !important;
+}
+
+.admin-redesign-reference .admin-section-title span {
+  color: var(--admin-accent) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  display: block !important;
+  margin-bottom: 6px !important;
+}
+
+/* Soft-pill / campaign label pill */
+.admin-redesign-reference .soft-pill,
+.admin-redesign-reference .campaign-label-pill {
+  background: transparent !important;
+  border: 1px solid var(--admin-line-strong) !important;
+  border-radius: 0 !important;
+  color: var(--admin-muted) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
+  padding: 4px 10px !important;
+}
+
+/* Owner approval queue cards */
+.admin-redesign-reference .owner-approval-card,
+.admin-redesign-reference .admin-approval-card {
+  background: var(--admin-card-soft) !important;
+  border: 1px solid var(--admin-line) !important;
+  border-radius: 4px !important;
+  padding: 20px !important;
+  margin-bottom: 12px !important;
+}
+
+/* Filter strip */
+.admin-redesign-reference .admin-filter-strip {
+  border: 1px solid var(--admin-line) !important;
+  border-radius: 4px !important;
+  padding: 16px !important;
+  background: transparent !important;
+  display: flex !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+}
+
+/* Workflow roadmap layout */
+.admin-redesign-reference .admin-roadmap-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+  gap: 16px !important;
+}
+
+/* Page header polish across all admin pages */
+.admin-redesign-reference .admin-page-header {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--admin-line) !important;
+  border-radius: 0 !important;
+  padding: 0 0 24px !important;
+  margin-bottom: 32px !important;
+  box-shadow: none !important;
+}
+
+.admin-redesign-reference .admin-page-header h1 {
+  font-size: clamp(28px, 3.4vw, 40px) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+  margin: 6px 0 8px !important;
+}
+
+.admin-redesign-reference .admin-page-header > span,
+.admin-redesign-reference .admin-page-header .admin-page-eyebrow {
+  color: var(--admin-accent) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+}
+
+.admin-redesign-reference .admin-page-header p {
+  color: var(--admin-muted) !important;
+  font-size: 14px !important;
+  max-width: 720px !important;
+  margin: 0 !important;
+}
+
+/* PSA-cards style admin card thumbnails (prize select dropdown) */
+.admin-redesign-reference .admin-prize-card-thumb,
+.admin-redesign-reference .admin-prize-tile {
+  border: 1px solid var(--admin-line) !important;
+  border-radius: 4px !important;
+  background: var(--admin-card-soft) !important;
+}
+
+/* Generic admin link */
+.admin-redesign-reference a:not(.admin-pack-table-action):not(.admin-side-nav-link):not(.admin-storefront-link):not([href="/"]) {
+  color: var(--admin-accent) !important;
+  text-decoration: none !important;
+  border-bottom: 1px solid transparent !important;
+  transition: border-color 0.18s ease !important;
+}
+
+.admin-redesign-reference a:not(.admin-pack-table-action):not(.admin-side-nav-link):not(.admin-storefront-link):not([href="/"]):hover {
+  border-bottom-color: var(--admin-accent) !important;
+}
+
+/* Tighten generic spacing */
+.admin-redesign-reference .admin-workspace-main {
+  gap: 32px !important;
+}
+
+/* Numbers in coin amounts, prices */
+.admin-redesign-reference .admin-pack-table tbody td:nth-child(5),
+.admin-redesign-reference .admin-pack-table tbody td:nth-child(6),
+.admin-redesign-reference .admin-pack-table tbody td:nth-child(7) {
+  font-family: var(--font-geist-mono), ui-monospace, "SF Mono", monospace !important;
+  font-size: 13px !important;
+  color: var(--admin-text) !important;
+}
