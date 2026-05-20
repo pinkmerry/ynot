@@ -94,11 +94,26 @@ const adminCategoryCards = [
   },
 ] as const;
 
+const VALID_HOME_SERIES: ReadonlySet<HomeSeriesFilter> = new Set<HomeSeriesFilter>([
+  "all",
+  "pokemon",
+  "one_piece",
+  "football",
+  "basketball",
+  "soccer",
+  "baseball",
+  "magical",
+  "super",
+  "multi_sport",
+]);
+
 export function normalizeHomeSeries(
   value: string | string[] | undefined,
 ): HomeSeriesFilter {
   const rawValue = Array.isArray(value) ? value[0] : value;
-  return rawValue === "pokemon" || rawValue === "one_piece" ? rawValue : "all";
+  return rawValue && VALID_HOME_SERIES.has(rawValue as HomeSeriesFilter)
+    ? (rawValue as HomeSeriesFilter)
+    : "all";
 }
 
 export function normalizeHomeTag(
@@ -248,7 +263,8 @@ function filteredCampaigns(
     : displayed;
   const filtered = sourceWithOverrides.filter((campaign) => {
     const matchesSeries =
-      filter.series === "all" || campaign.series === filter.series;
+      filter.series === "all" ||
+      (campaign.series as string) === (filter.series as string);
     return matchesSeries && campaignMatchesTag(campaign, filter.tag);
   });
   return sortedCampaigns(filtered, filter.sort);
@@ -579,8 +595,15 @@ type StoreFilterChip = { label: string; series: HomeSeriesFilter };
 
 const storeFilterChips: readonly StoreFilterChip[] = [
   { label: "All", series: "all" },
+  { label: "Football", series: "football" },
   { label: "Pokemon", series: "pokemon" },
   { label: "One Piece", series: "one_piece" },
+  { label: "Basketball", series: "basketball" },
+  { label: "Soccer", series: "soccer" },
+  { label: "Baseball", series: "baseball" },
+  { label: "Magical", series: "magical" },
+  { label: "Super", series: "super" },
+  { label: "Multi-Sport", series: "multi_sport" },
 ];
 
 function StoreFilterStrip({

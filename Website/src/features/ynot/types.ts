@@ -344,7 +344,16 @@ export type YnotDashboardData = {
   dataIssues: YnotDataIssue[];
 };
 
-export type HomeSeriesFilter = "all" | YnotCampaign["series"];
+export type HomeSeriesFilter =
+  | "all"
+  | YnotCampaign["series"]
+  | "football"
+  | "basketball"
+  | "soccer"
+  | "baseball"
+  | "magical"
+  | "super"
+  | "multi_sport";
 export type HomeTagFilter = "all" | "new" | "psa10";
 export type HomeSortOption =
   | "recommended"
