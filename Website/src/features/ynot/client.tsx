@@ -1,7 +1,7 @@
 "use client";
 
 import type { MouseEvent, ReactNode } from "react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { CardCatalogItem, ProfileInfo } from "@/lib/lucky-draw/types";
@@ -1357,21 +1357,38 @@ export function AdminCategoryForm({
   const [isTest, setIsTest] = useState(false);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const formRef = useRef<HTMLElement | null>(null);
 
-  function loadCategory(nextId: string) {
-    setCategoryId(nextId);
-    const category = visibleCategories.find((item) => item.id === nextId);
-    if (!category) return;
-    setSlug(category.slug);
-    setNameTh(category.nameTh);
-    setNameEn(category.nameEn);
-    setDescription(category.description ?? "");
-    setIcon(category.icon ?? "");
-    setLegacySeries(category.legacySeries ?? "");
-    setSortOrder(category.sortOrder);
-    setIsActive(category.isActive);
-    setIsTest(category.isTest);
-  }
+  const loadCategory = useCallback(
+    (nextId: string) => {
+      setCategoryId(nextId);
+      const category = visibleCategories.find((item) => item.id === nextId);
+      if (!category) return;
+      setSlug(category.slug);
+      setNameTh(category.nameTh);
+      setNameEn(category.nameEn);
+      setDescription(category.description ?? "");
+      setIcon(category.icon ?? "");
+      setLegacySeries(category.legacySeries ?? "");
+      setSortOrder(category.sortOrder);
+      setIsActive(category.isActive);
+      setIsTest(category.isTest);
+    },
+    [visibleCategories],
+  );
+
+  // Listen for row-level Edit clicks dispatched from AdminCategoryRowActions.
+  // Pre-fills the form and scrolls it into view so the admin can keep editing.
+  useEffect(() => {
+    function handle(event: Event) {
+      const id = (event as CustomEvent<{ categoryId: string }>).detail?.categoryId;
+      if (!id) return;
+      loadCategory(id);
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    window.addEventListener("admin-category-edit", handle);
+    return () => window.removeEventListener("admin-category-edit", handle);
+  }, [loadCategory]);
 
   function submit(method: "POST" | "PATCH") {
     startTransition(async () => {
@@ -1424,7 +1441,11 @@ export function AdminCategoryForm({
   }
 
   return (
-    <section className="admin-panel admin-form-panel soft-card">
+    <section
+      ref={formRef}
+      id="admin-category-form"
+      className="admin-panel admin-form-panel soft-card"
+    >
       <div className="admin-form-head">
         <span>Category setup</span>
         <h3>Create or edit category</h3>
@@ -1575,6 +1596,180 @@ export function AdminCategoryForm({
       </div>
       {message && <p className="admin-form-message">{message}</p>}
     </section>
+  );
+}
+
+/** Row-level Edit + Delete buttons on /admin/categories. Edit broadcasts a
+ *  custom event that AdminCategoryForm above listens for and scrolls into.
+ *  Delete is hard-gated on `packCount`: categories that are still linked
+ *  to packs cannot be deleted (matches the server-side eligibility check). */
+export function AdminCategoryRowActions({
+  categoryId,
+  categorySlug,
+  categoryName,
+  packCount,
+  isLegacySeries,
+}: {
+  categoryId: string;
+  categorySlug: string;
+  categoryName: string;
+  packCount: number;
+  /** Legacy "pokemon" / "one_piece" rows derive from draw_rounds.series and
+   *  aren't real store_categories rows — Edit/Delete don't apply. */
+  isLegacySeries?: boolean;
+}) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [typed, setTyped] = useState("");
+
+  if (isLegacySeries) {
+    return (
+      <span className="admin-category-row-legacy" title="Built-in series, managed via draw_rounds">
+        Built-in
+      </span>
+    );
+  }
+
+  const canDelete = packCount === 0;
+  const expectedPhrase = categorySlug;
+  const matches = typed.trim() === expectedPhrase;
+
+  function emitEdit() {
+    window.dispatchEvent(
+      new CustomEvent("admin-category-edit", { detail: { categoryId } }),
+    );
+  }
+
+  async function runDelete() {
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/ynot/admin/categories", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryId }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; message?: string }
+          | null;
+        throw new Error(payload?.message || payload?.error || "Delete failed");
+      }
+      setShowModal(false);
+      setTyped("");
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Delete failed");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="admin-category-row-actions">
+      <button
+        type="button"
+        className="secondary-action compact"
+        onClick={emitEdit}
+      >
+        Edit
+      </button>
+      <button
+        type="button"
+        className="secondary-action compact admin-category-delete-btn"
+        onClick={() => {
+          setError(null);
+          setShowModal(true);
+        }}
+        disabled={!canDelete || pending}
+        title={
+          canDelete
+            ? `Delete "${categoryName}" permanently`
+            : `Cannot delete — ${packCount} pack${packCount === 1 ? "" : "s"} still use this category`
+        }
+      >
+        Delete
+      </button>
+      {error && (
+        <p className="admin-category-row-error" role="alert">
+          {error}
+        </p>
+      )}
+      {showModal && (
+        <div
+          className="admin-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={`delete-category-title-${categoryId}`}
+          onClick={(event) => {
+            if (event.target === event.currentTarget && !pending) {
+              setShowModal(false);
+            }
+          }}
+        >
+          <div className="admin-modal admin-modal-danger" role="document">
+            <header className="admin-modal-head">
+              <h2
+                id={`delete-category-title-${categoryId}`}
+                className="admin-modal-title"
+              >
+                Delete category &quot;{categoryName}&quot; permanently?
+              </h2>
+              <p className="admin-modal-subtitle">
+                This removes the category row from the catalog. Packs are
+                unaffected because no packs are currently linked. The action
+                is logged to the audit trail.
+              </p>
+            </header>
+            <label className="admin-modal-confirm-row">
+              <span>
+                Type <code>{expectedPhrase}</code> to confirm
+              </span>
+              <input
+                type="text"
+                value={typed}
+                onChange={(event) => setTyped(event.target.value)}
+                disabled={pending}
+                autoFocus
+                spellCheck={false}
+                autoComplete="off"
+                className="admin-modal-confirm-input"
+                placeholder={expectedPhrase}
+              />
+            </label>
+            {error && (
+              <p className="admin-category-row-error" role="alert">
+                {error}
+              </p>
+            )}
+            <footer className="admin-modal-foot">
+              <button
+                type="button"
+                className="admin-modal-secondary"
+                onClick={() => {
+                  setShowModal(false);
+                  setTyped("");
+                  setError(null);
+                }}
+                disabled={pending}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-modal-primary admin-modal-primary-danger"
+                onClick={runDelete}
+                disabled={!matches || pending}
+              >
+                {pending ? "Deleting…" : "Delete category"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

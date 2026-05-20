@@ -36,6 +36,7 @@ import {
   StoreSettingsMenu,
 } from "./StorePreferences";
 import {
+  AdminCategoryRowActions,
   OwnerApprovalQueue,
   PackDeleteButton,
   PackOrderControls,
@@ -2330,16 +2331,25 @@ export function AdminCategoryManager({
                     </div>
                   </dl>
                 </div>
-                <Link
-                  className="secondary-action compact"
-                  href={
-                    category.legacySeries
-                      ? `/?series=${category.legacySeries}`
-                      : `/?category=${category.slug}`
-                  }
-                >
-                  Preview storefront
-                </Link>
+                <div className="admin-category-clean-actions">
+                  <Link
+                    className="secondary-action compact"
+                    href={
+                      category.legacySeries
+                        ? `/?series=${category.legacySeries}`
+                        : `/?category=${category.slug}`
+                    }
+                  >
+                    Preview storefront
+                  </Link>
+                  <AdminCategoryRowActions
+                    categoryId={category.id}
+                    categorySlug={category.slug}
+                    categoryName={category.nameEn || category.nameTh}
+                    packCount={categoryCampaigns.length}
+                    isLegacySeries={Boolean(category.legacySeries)}
+                  />
+                </div>
               </article>
             );
           })}
