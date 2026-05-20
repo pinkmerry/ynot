@@ -22970,3 +22970,83 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   font-size: 13px !important;
   color: var(--admin-text) !important;
 }
+
+/* ============================================================
+ * FOG ADMIN — FINAL TEXT-COLOR SAFETY NET
+ * Some legacy storefront rules paint text dark (#1a1a1a) and
+ * leak into admin scope. Force cream text on every text-bearing
+ * element inside .admin-redesign-reference. Buttons and chips
+ * keep their own colors via the rules above (those use higher
+ * specificity than this universal sweep).
+ * ============================================================ */
+.admin-redesign-reference,
+.admin-redesign-reference h1,
+.admin-redesign-reference h2,
+.admin-redesign-reference h3,
+.admin-redesign-reference h4,
+.admin-redesign-reference h5,
+.admin-redesign-reference h6,
+.admin-redesign-reference p,
+.admin-redesign-reference li,
+.admin-redesign-reference td,
+.admin-redesign-reference th,
+.admin-redesign-reference div,
+.admin-redesign-reference strong,
+.admin-redesign-reference span:not(.admin-pack-table-status):not(.admin-side-nav-tag):not(.admin-tab-count):not(.admin-readiness-pill):not(.status-pill):not(.soft-pill):not(.campaign-label-pill):not(.section-label):not(.admin-kicker):not(.admin-page-eyebrow),
+.admin-redesign-reference dt,
+.admin-redesign-reference dd,
+.admin-redesign-reference small,
+.admin-redesign-reference label,
+.admin-redesign-reference legend {
+  color: var(--admin-text) !important;
+}
+
+/* Muted text — captions / hint / paragraph copy / nav meta */
+.admin-redesign-reference p,
+.admin-redesign-reference small,
+.admin-redesign-reference .admin-help-text,
+.admin-redesign-reference .admin-muted,
+.admin-redesign-reference .admin-form-message,
+.admin-redesign-reference .admin-page-header p,
+.admin-redesign-reference .admin-pack-builder-head p,
+.admin-redesign-reference .admin-side-nav-link .admin-side-nav-tag,
+.admin-redesign-reference .admin-pack-row-message,
+.admin-redesign-reference .admin-prize-tier-meta,
+.admin-redesign-reference .admin-prize-tier-block-meta {
+  color: var(--admin-muted) !important;
+}
+
+/* Accent text — section eyebrows, callouts */
+.admin-redesign-reference .section-label,
+.admin-redesign-reference .admin-kicker,
+.admin-redesign-reference .admin-page-eyebrow,
+.admin-redesign-reference .admin-panel-compact-head > span:first-child,
+.admin-redesign-reference .admin-pack-builder-head > div > span,
+.admin-redesign-reference .admin-section-title > span:first-child,
+.admin-redesign-reference .admin-roadmap-grid > div > strong:first-child {
+  color: var(--admin-accent) !important;
+}
+
+/* Primary buttons keep dark text (cream button bg, dark label) */
+.admin-redesign-reference .gold-button,
+.admin-redesign-reference .gold-button *,
+.admin-redesign-reference .gold-button strong,
+.admin-redesign-reference .gold-button span,
+.admin-redesign-reference .primary-action,
+.admin-redesign-reference .primary-action *,
+.admin-redesign-reference .admin-form-save,
+.admin-redesign-reference .admin-form-save *,
+.admin-redesign-reference .admin-pack-table-tab.is-active .admin-pack-table-tab-count,
+.admin-redesign-reference .admin-tier-count-buttons button.is-active,
+.admin-redesign-reference .admin-tier-row-controls button.is-active,
+.admin-redesign-reference .admin-tier-count-buttons button[aria-pressed="true"],
+.admin-redesign-reference .admin-tier-row-controls button[aria-pressed="true"],
+.admin-redesign-reference .admin-tag-button.is-active,
+.admin-redesign-reference .customer-tag-chip.is-active,
+.admin-redesign-reference .admin-tag-chip.is-active,
+.admin-redesign-reference .admin-open-buttons button.is-active,
+.admin-redesign-reference .admin-tag-button[aria-pressed="true"],
+.admin-redesign-reference .customer-tag-chip[aria-pressed="true"],
+.admin-redesign-reference .admin-open-buttons button[aria-pressed="true"] {
+  color: #14110d !important;
+}
