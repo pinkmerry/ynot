@@ -1105,8 +1105,11 @@ export function StoreSettingsMenu({
   // Close the drawer whenever the route changes — covers tapping the brand
   // logo, in-drawer links, and browser back navigation.
   useEffect(() => {
-    setOpen(false);
-    setActiveSubMenu(null);
+    const closeRouteDrawer = window.setTimeout(() => {
+      setOpen(false);
+      setActiveSubMenu(null);
+    }, 0);
+    return () => window.clearTimeout(closeRouteDrawer);
   }, [pathname]);
 
   // Same-page logo taps don't trigger the pathname effect, so the brand link

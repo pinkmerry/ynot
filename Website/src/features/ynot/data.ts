@@ -2116,10 +2116,9 @@ export async function getYnotDashboardSlice(
           ? // Dev mirrors the YnotShell admin-bypass so promoted closed/test
             // packs surface locally even without a Supabase admin session.
             // Production still gates on the real viewer.isAdmin.
-            getCampaigns({
-              includePrivate:
-                viewer.isAdmin || process.env.NODE_ENV !== "production",
-            })
+            process.env.NODE_ENV === "production"
+              ? getCampaigns({ includePrivate: viewer.isAdmin })
+              : getCampaigns({ includePrivate: true })
           : getCampaigns({
               includePrivate: false,
               limit: selector.campaignLimit,

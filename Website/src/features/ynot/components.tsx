@@ -120,9 +120,11 @@ export function normalizeHomeSort(
 }
 
 function displayCampaigns(campaigns: YnotCampaign[]) {
-  if (campaigns.length) return campaigns;
-  if (!allowDemoStorefront()) return [];
-  return featuredCampaigns;
+  return campaigns.length
+    ? campaigns
+    : allowDemoStorefront()
+      ? featuredCampaigns
+      : [];
 }
 
 type PackTier = "legendary" | "gold" | "silver" | "common";
@@ -870,8 +872,8 @@ export async function PacksExperience({
               <section className="home-pack-board product-section" aria-label="Mystery pack catalog">
                 <CampaignGrid
                   campaigns={[]}
-                  emptyTitle="No packs match this filter"
-                  emptyBody="Try All, switch category, or ask admin to add matching pack labels."
+                  emptyTitle="No real live packs are published yet"
+                  emptyBody="Published Supabase campaigns will appear here after an owner makes them live and public."
                   showAdminEdit={isAdmin}
                 />
               </section>

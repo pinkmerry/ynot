@@ -1,9 +1,15 @@
-import { AdminSectionShell, PageHeader } from "@/features/ynot/components";
+import { AdminGate } from "@/features/ynot/components";
 import {
   getAllTierAnimationsForAdmin,
   getYnotDashboardSlice,
 } from "@/features/ynot/data";
 import { AdminTierAnimationForm } from "./AdminTierAnimationForm";
+import {
+  AdminCard,
+  AdminCardHead,
+  AdminFrame,
+  AdminIcon,
+} from "@/features/ynot/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -14,23 +20,43 @@ export default async function AdminTierAnimationsPage() {
   ]);
 
   return (
-    <AdminSectionShell viewer={data.viewer} activeHref="/admin/tier-animations">
-      <PageHeader
+    <AdminGate viewer={data.viewer}>
+      <AdminFrame
+        viewer={data.viewer}
+        active="/admin/tier-animations"
+        trail={["Admin", "Pack studio", "Tier animations"]}
         eyebrow="Reveal videos"
-        title="Pack Opening Animations"
-        description="Upload the four tier reveal videos that play when a player opens a pack. The highest tier in a multi-pull decides which video plays."
-      />
-      <div className="admin-tier-grid">
+        title="Reveal animations"
+        desc="Upload reveal video + poster + audio per tier. These play during instant-gacha reveals on customer devices."
+        actions={
+          <span className="btn">
+            <AdminIcon name="upload" />
+            Upload assets
+          </span>
+        }
+      >
         {tiers.length === 0 ? (
-          <p className="admin-empty">
-            No tier rows found. Apply the gacha reveal migration first.
-          </p>
+          <AdminCard>
+            <div className="card-pad text-mute">
+              No tier rows found. Apply the gacha reveal migration first.
+            </div>
+          </AdminCard>
         ) : (
-          tiers.map((tier) => (
-            <AdminTierAnimationForm key={tier.tier} tier={tier} />
-          ))
+          <div className="split-2">
+            {tiers.map((tier) => (
+              <AdminCard key={tier.tier}>
+                <AdminCardHead
+                  label={tier.tier}
+                  title={`${tier.tier} reveal`}
+                />
+                <div className="card-pad">
+                  <AdminTierAnimationForm tier={tier} />
+                </div>
+              </AdminCard>
+            ))}
+          </div>
         )}
-      </div>
-    </AdminSectionShell>
+      </AdminFrame>
+    </AdminGate>
   );
 }

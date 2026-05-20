@@ -22083,7 +22083,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
 }
 
 .admin-redesign-reference .secondary-action,
-.admin-redesign-reference button:not(.gold-button):not(.primary-action):not(.admin-form-save):not(.admin-pack-table-action):not(.admin-side-nav-link):not(.admin-edit-modal-close):not(.admin-edit-chip):not(.preview_*),
+.admin-redesign-reference button:not(.gold-button):not(.primary-action):not(.admin-form-save):not(.admin-pack-table-action):not(.admin-side-nav-link):not(.admin-edit-modal-close):not(.admin-edit-chip):not([class*="preview_"]),
 .admin-redesign-reference .admin-pack-table-action {
   background: transparent !important;
   border: 1px solid var(--admin-line-strong) !important;
@@ -23049,4 +23049,838 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
 .admin-redesign-reference .customer-tag-chip[aria-pressed="true"],
 .admin-redesign-reference .admin-open-buttons button[aria-pressed="true"] {
   color: #14110d !important;
+}
+
+/* ============================================================
+   YNOTT Admin design (Claude Design handoff, May 2026)
+   Dense Linear/Stripe-style on YNOTT dark + gold.
+   Scoped to `.admin-frame` so it never bleeds into the public site.
+   ============================================================ */
+.admin-frame {
+  --a-bg: #07070f;
+  --a-bg-2: #0b0c18;
+  --a-surface: #10111f;
+  --a-surface-2: #17182a;
+  --a-surface-3: #202239;
+  --a-border: #2b2d45;
+  --a-border-soft: rgba(255, 255, 255, 0.06);
+  --a-border-strong: rgba(255, 255, 255, 0.12);
+  --a-fg: #f4efe1;
+  --a-fg-dim: #c8c8d8;
+  --a-muted: #9b9daf;
+  --a-muted-2: #6b6d82;
+  --a-gold: #f4c542;
+  --a-gold-2: #df9824;
+  --a-mint: #44d17e;
+  --a-sky: #6ca6ff;
+  --a-rose: #f05a6c;
+  --a-amber: #f4a142;
+
+  --a-radius-sm: 6px;
+  --a-radius: 8px;
+  --a-radius-lg: 12px;
+
+  --a-shadow-card: 0 1px 0 rgba(255,255,255,0.04) inset, 0 12px 40px rgba(0,0,0,0.32);
+
+  font-family: "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  background: radial-gradient(circle at top left, rgba(244,197,66,0.06), transparent 36rem),
+              linear-gradient(135deg, #07070f 0%, #0d1220 52%, #150b18 100%);
+  color: var(--a-fg);
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 224px 1fr;
+  letter-spacing: -0.005em;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.admin-frame *,
+.admin-frame *::before,
+.admin-frame *::after { box-sizing: border-box; }
+
+.admin-frame .mono { font-family: "Geist Mono", ui-monospace, "SF Mono", monospace; }
+
+/* Sidebar */
+.admin-frame .a-side {
+  background: linear-gradient(180deg, rgba(16,17,31,0.92), rgba(11,12,24,0.92));
+  border-right: 1px solid var(--a-border-soft);
+  padding: 16px 12px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  overflow-y: auto;
+}
+.admin-frame .a-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 14px;
+  border-bottom: 1px solid var(--a-border-soft);
+  text-decoration: none;
+  color: inherit;
+}
+.admin-frame .a-brand-mark {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, var(--a-gold), var(--a-gold-2));
+  color: #161616;
+  font-weight: 700;
+  font-size: 13px;
+  display: grid; place-items: center;
+  letter-spacing: -0.02em;
+}
+.admin-frame .a-brand-name { font-weight: 600; font-size: 14px; letter-spacing: -0.01em; }
+.admin-frame .a-brand-env  { font-size: 10px; color: var(--a-muted); margin-top: 1px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+.admin-frame .a-side-section { display: flex; flex-direction: column; gap: 2px; }
+.admin-frame .a-side-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--a-muted-2);
+  padding: 8px 10px 4px;
+}
+.admin-frame .a-side a,
+.admin-frame .a-side .a-nav {
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--a-fg-dim);
+  cursor: pointer;
+  line-height: 1.2;
+  text-decoration: none;
+}
+.admin-frame .a-side a:hover,
+.admin-frame .a-side .a-nav:hover { background: rgba(255,255,255,0.03); color: var(--a-fg); }
+.admin-frame .a-side .a-nav.active {
+  background: rgba(244,197,66,0.10);
+  color: var(--a-fg);
+  box-shadow: inset 0 0 0 1px rgba(244,197,66,0.16);
+}
+.admin-frame .a-side .a-nav.active .a-nav-ico { color: var(--a-gold); }
+.admin-frame .a-nav-ico { width: 14px; height: 14px; display: inline-block; color: var(--a-muted); flex: none; }
+.admin-frame .a-nav-badge {
+  margin-left: auto;
+  font-size: 10px;
+  background: rgba(244,90,108,0.18);
+  color: var(--a-rose);
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-weight: 600;
+}
+.admin-frame .a-nav-kbd {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--a-muted-2);
+  font-family: "Geist Mono", monospace;
+}
+
+.admin-frame .a-side-foot {
+  margin-top: auto;
+  padding: 10px;
+  display: flex; gap: 9px; align-items: center;
+  border: 1px solid var(--a-border-soft);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.02);
+}
+.admin-frame .a-side-foot .av {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: linear-gradient(135deg, #4b3da1, #b452c7);
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 600;
+  color: #fff;
+}
+.admin-frame .a-side-foot .nm { font-size: 12px; font-weight: 500; }
+.admin-frame .a-side-foot .rl { font-size: 10px; color: var(--a-muted); }
+
+/* Topbar */
+.admin-frame .a-main { display: flex; flex-direction: column; min-width: 0; }
+.admin-frame .a-top {
+  height: 52px;
+  border-bottom: 1px solid var(--a-border-soft);
+  display: flex; align-items: center;
+  padding: 0 20px;
+  gap: 14px;
+  background: rgba(7,7,15,0.55);
+  backdrop-filter: blur(10px);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.admin-frame .a-breadcrumbs { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--a-muted); }
+.admin-frame .a-breadcrumbs .sep { color: var(--a-muted-2); }
+.admin-frame .a-breadcrumbs .now { color: var(--a-fg); font-weight: 500; }
+
+.admin-frame .a-search {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--a-border-soft);
+  border-radius: 7px;
+  padding: 5px 10px;
+  width: 280px;
+  color: var(--a-muted);
+  font-size: 12px;
+}
+.admin-frame .a-search .kbd { margin-left: auto; font-size: 10px; color: var(--a-muted-2); }
+
+.admin-frame .a-top-actions { display: flex; align-items: center; gap: 6px; }
+.admin-frame .a-icon-btn {
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  border-radius: 7px;
+  border: 1px solid var(--a-border-soft);
+  background: rgba(255,255,255,0.02);
+  color: var(--a-fg-dim);
+  position: relative;
+  cursor: pointer;
+}
+.admin-frame .a-icon-btn .dot {
+  position: absolute; top: 6px; right: 6px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--a-rose);
+  box-shadow: 0 0 0 2px var(--a-bg);
+}
+
+/* Content */
+.admin-frame .a-content { padding: 20px 24px 40px; display: flex; flex-direction: column; gap: 16px; }
+
+.admin-frame .a-page-head { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.admin-frame .a-eyebrow { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--a-gold); font-weight: 600; }
+.admin-frame .a-page-title { font-size: 22px; font-weight: 600; letter-spacing: -0.015em; margin: 2px 0 0; color: var(--a-fg); }
+.admin-frame .a-page-desc { font-size: 12px; color: var(--a-muted); max-width: 640px; margin-top: 4px; line-height: 1.5; }
+.admin-frame .a-page-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* Buttons */
+.admin-frame .btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--a-border-soft);
+  background: rgba(255,255,255,0.03);
+  color: var(--a-fg);
+  cursor: pointer;
+  line-height: 1.2;
+  text-decoration: none;
+  font-family: inherit;
+}
+.admin-frame .btn:hover { background: rgba(255,255,255,0.06); }
+.admin-frame .btn-primary {
+  background: linear-gradient(135deg, var(--a-gold), var(--a-gold-2));
+  color: #161616;
+  border-color: rgba(0,0,0,0.2);
+  font-weight: 600;
+}
+.admin-frame .btn-primary:hover { filter: brightness(1.05); background: linear-gradient(135deg, var(--a-gold), var(--a-gold-2)); }
+.admin-frame .btn-ghost { background: transparent; border-color: transparent; color: var(--a-muted); }
+.admin-frame .btn-ghost:hover { color: var(--a-fg); background: rgba(255,255,255,0.04); }
+.admin-frame .btn-danger { background: rgba(240,90,108,0.14); border-color: rgba(240,90,108,0.32); color: #ff8a98; }
+.admin-frame .btn-sm { padding: 4px 8px; font-size: 11px; border-radius: 6px; }
+
+/* Cards */
+.admin-frame .card {
+  background: linear-gradient(180deg, rgba(23,24,42,0.85), rgba(16,17,31,0.92));
+  border: 1px solid var(--a-border-soft);
+  border-radius: 10px;
+  box-shadow: var(--a-shadow-card);
+  overflow: hidden;
+}
+.admin-frame .card-pad { padding: 14px 16px; }
+.admin-frame .card-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--a-border-soft);
+}
+.admin-frame .card-head h3 { font-size: 13px; font-weight: 600; letter-spacing: -0.005em; margin: 0; }
+.admin-frame .card-head .section-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--a-muted); margin: 0; }
+.admin-frame .card-head .actions { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+/* KPI tiles */
+.admin-frame .kpi-grid { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.admin-frame .kpi {
+  padding: 12px 14px;
+  border: 1px solid var(--a-border-soft);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(23,24,42,0.6), rgba(16,17,31,0.6));
+}
+.admin-frame .kpi .label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--a-muted); }
+.admin-frame .kpi .value { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin-top: 4px; font-feature-settings: "tnum"; color: var(--a-fg); }
+.admin-frame .kpi .delta { font-size: 11px; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+.admin-frame .kpi .delta.up { color: var(--a-mint); }
+.admin-frame .kpi .delta.down { color: var(--a-rose); }
+.admin-frame .kpi .spark { height: 26px; margin-top: 8px; width: 100%; }
+
+/* Pills/badges */
+.admin-frame .pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: rgba(255,255,255,0.05);
+  color: var(--a-fg-dim);
+  border: 1px solid var(--a-border-soft);
+  white-space: nowrap;
+}
+.admin-frame .pill .d { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.admin-frame .pill.live   { color: var(--a-mint); background: rgba(68,209,126,0.10); border-color: rgba(68,209,126,0.28); }
+.admin-frame .pill.draft  { color: var(--a-muted); background: rgba(155,157,175,0.10); border-color: rgba(155,157,175,0.22); }
+.admin-frame .pill.review { color: var(--a-amber); background: rgba(244,161,66,0.10); border-color: rgba(244,161,66,0.28); }
+.admin-frame .pill.closed { color: var(--a-sky); background: rgba(108,166,255,0.10); border-color: rgba(108,166,255,0.28); }
+.admin-frame .pill.warn   { color: var(--a-amber); background: rgba(244,161,66,0.10); border-color: rgba(244,161,66,0.28); }
+.admin-frame .pill.fail   { color: var(--a-rose); background: rgba(240,90,108,0.10); border-color: rgba(240,90,108,0.30); }
+.admin-frame .pill.archived { color: var(--a-muted-2); background: rgba(255,255,255,0.02); }
+
+/* Tables */
+.admin-frame .tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.admin-frame .tbl thead th {
+  text-align: left;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--a-muted);
+  font-weight: 600;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--a-border-soft);
+  background: rgba(255,255,255,0.015);
+}
+.admin-frame .tbl tbody td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--a-border-soft);
+  vertical-align: middle;
+  font-feature-settings: "tnum";
+  color: var(--a-fg);
+}
+.admin-frame .tbl tbody tr:hover { background: rgba(255,255,255,0.025); }
+.admin-frame .tbl tbody tr:last-child td { border-bottom: none; }
+.admin-frame .tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
+.admin-frame .tbl .check { width: 28px; }
+.admin-frame .tbl .check input { width: 13px; height: 13px; accent-color: var(--a-gold); }
+.admin-frame .tbl td.muted { color: var(--a-muted); }
+.admin-frame .tbl td .row-title { font-weight: 500; color: var(--a-fg); }
+.admin-frame .tbl td .row-sub { font-size: 11px; color: var(--a-muted); margin-top: 1px; }
+
+/* Filter chips / tabs */
+.admin-frame .tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--a-border-soft);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.02);
+  width: max-content;
+  flex-wrap: wrap;
+}
+.admin-frame .tabs .t {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: var(--a-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.admin-frame .tabs .t.active { background: rgba(244,197,66,0.12); color: var(--a-fg); box-shadow: inset 0 0 0 1px rgba(244,197,66,0.16); }
+
+.admin-frame .chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--a-border-soft);
+  font-size: 11px;
+  color: var(--a-fg-dim);
+}
+
+/* Inputs */
+.admin-frame .field { display: flex; flex-direction: column; gap: 4px; }
+.admin-frame .field label { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--a-muted); }
+.admin-frame .input,
+.admin-frame .select,
+.admin-frame .textarea {
+  background: rgba(7,7,15,0.6);
+  border: 1px solid var(--a-border-soft);
+  color: var(--a-fg);
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-family: inherit;
+  width: 100%;
+}
+.admin-frame .input:focus,
+.admin-frame .select:focus,
+.admin-frame .textarea:focus { outline: none; border-color: rgba(244,197,66,0.5); }
+.admin-frame .textarea { min-height: 70px; resize: vertical; }
+.admin-frame .input::placeholder { color: var(--a-muted-2); }
+
+.admin-frame .input-row { display: grid; gap: 8px; }
+.admin-frame .input-row.cols-2 { grid-template-columns: 1fr 1fr; }
+.admin-frame .input-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.admin-frame .input-row.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* Progress + meters */
+.admin-frame .bar { height: 6px; border-radius: 4px; background: rgba(255,255,255,0.05); overflow: hidden; }
+.admin-frame .bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--a-gold-2), var(--a-gold)); border-radius: 4px; }
+.admin-frame .bar.mint > i { background: linear-gradient(90deg, #1e7c45, var(--a-mint)); }
+.admin-frame .bar.sky  > i { background: linear-gradient(90deg, #2d59a9, var(--a-sky)); }
+
+.admin-frame .dot-status { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.admin-frame .dot-status.pass { background: var(--a-mint); box-shadow: 0 0 6px rgba(68,209,126,0.6); }
+.admin-frame .dot-status.warn { background: var(--a-amber); }
+.admin-frame .dot-status.fail { background: var(--a-rose); }
+
+/* Divider */
+.admin-frame .hr { border: 0; border-top: 1px solid var(--a-border-soft); margin: 0; }
+
+/* Empty thumb */
+.admin-frame .thumb {
+  width: 36px; height: 48px; border-radius: 5px;
+  background: linear-gradient(135deg, #1b1c2d, #2a1d33);
+  border: 1px solid var(--a-border-soft);
+  display: grid; place-items: center;
+  font-family: "Geist Mono", monospace;
+  font-size: 9px;
+  color: var(--a-muted-2);
+  flex: none;
+}
+.admin-frame .thumb.sq { width: 36px; height: 36px; }
+.admin-frame .thumb.lg { width: 56px; height: 76px; }
+
+/* Two column main layout */
+.admin-frame .split-2 { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+.admin-frame .split-3 { display: grid; gap: 16px; grid-template-columns: 1fr 1fr 1fr; }
+.admin-frame .split-aside { display: grid; gap: 16px; grid-template-columns: 1.6fr 1fr; }
+.admin-frame .split-aside-r { display: grid; gap: 16px; grid-template-columns: 1fr 1.6fr; }
+
+/* List rows */
+.admin-frame .list { display: flex; flex-direction: column; }
+.admin-frame .list-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--a-border-soft);
+}
+.admin-frame .list-row:last-child { border-bottom: none; }
+
+/* tier pill */
+.admin-frame .tier-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.admin-frame .tier-pill.rainbow { background: linear-gradient(90deg, rgba(244,90,108,0.15), rgba(108,166,255,0.15)); color: #f4efe1; border: 1px solid rgba(255,255,255,0.18); }
+.admin-frame .tier-pill.gold    { background: rgba(244,197,66,0.14); color: var(--a-gold); border: 1px solid rgba(244,197,66,0.28); }
+.admin-frame .tier-pill.silver  { background: rgba(200,200,216,0.10); color: #c8c8d8; border: 1px solid rgba(200,200,216,0.18); }
+.admin-frame .tier-pill.bronze  { background: rgba(207,135,80,0.10); color: #d9a075; border: 1px solid rgba(207,135,80,0.22); }
+
+/* misc */
+.admin-frame .text-mono { font-family: "Geist Mono", monospace; }
+.admin-frame .text-mute { color: var(--a-muted); }
+.admin-frame .text-dim  { color: var(--a-fg-dim); }
+.admin-frame .tnum { font-variant-numeric: tabular-nums; }
+
+/* Section label */
+.admin-frame .section-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--a-muted); font-weight: 600; margin: 0; }
+.admin-frame .title-m { font-size: 14px; font-weight: 600; letter-spacing: -0.005em; }
+
+/* Tag cluster */
+.admin-frame .tag-cluster { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* admin row card */
+.admin-frame .row-card {
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--a-border-soft);
+  border-radius: 8px;
+  display: flex; align-items: center; gap: 12px;
+}
+.admin-frame .row-card:hover { background: rgba(255,255,255,0.04); }
+
+/* Mini bar chart bars */
+.admin-frame .minibars { display: flex; align-items: end; gap: 3px; height: 38px; }
+.admin-frame .minibars i { display: block; width: 6px; background: rgba(108,166,255,0.35); border-radius: 2px 2px 0 0; }
+.admin-frame .minibars i.hi { background: var(--a-sky); }
+
+/* Avatars cluster */
+.admin-frame .av-stack { display: inline-flex; }
+.admin-frame .av-stack .av {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--a-surface);
+  font-size: 10px; font-weight: 600; display: grid; place-items: center;
+  margin-left: -7px;
+}
+.admin-frame .av-stack .av:first-child { margin-left: 0; }
+
+/* link-like text */
+.admin-frame .link { color: var(--a-sky); text-decoration: none; }
+.admin-frame .link:hover { text-decoration: underline; }
+
+/* Toggle */
+.admin-frame .toggle {
+  width: 28px; height: 16px; border-radius: 999px;
+  background: rgba(255,255,255,0.08); position: relative; flex: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.admin-frame .toggle::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--a-muted);
+  transition: all .15s ease;
+}
+.admin-frame .toggle.on { background: rgba(244,197,66,0.32); }
+.admin-frame .toggle.on::after { left: 14px; background: var(--a-gold); }
+
+/* Responsive: collapse sidebar on tablet, stack on mobile */
+@media (max-width: 1024px) {
+  .admin-frame { grid-template-columns: 1fr; }
+  .admin-frame .a-side {
+    grid-column: 1 / -1;
+    position: relative;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+  .admin-frame .a-side-foot { margin-top: 0; }
+  .admin-frame .a-side-section { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+  .admin-frame .a-side-label { display: none; }
+  .admin-frame .a-brand { border-bottom: none; padding: 0; flex: 1 1 100%; }
+  .admin-frame .split-aside,
+  .admin-frame .split-aside-r,
+  .admin-frame .split-2,
+  .admin-frame .split-3 { grid-template-columns: 1fr; }
+  .admin-frame .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .admin-frame .kpi-grid { grid-template-columns: 1fr; }
+  .admin-frame .input-row.cols-2,
+  .admin-frame .input-row.cols-3,
+  .admin-frame .input-row.cols-4 { grid-template-columns: 1fr; }
+  .admin-frame .a-content { padding: 16px 14px 32px; }
+  .admin-frame .a-search { width: 100%; }
+}
+
+.admin-frame .tbl-wrap { overflow-x: auto; }
+.admin-frame .pre-block {
+  font-family: "Geist Mono", monospace;
+  font-size: 11px;
+  background: rgba(7,7,15,0.5);
+  border: 1px solid var(--a-border-soft);
+  padding: 12px;
+  border-radius: 6px;
+  white-space: pre-wrap;
+  margin: 0;
+  line-height: 1.7;
+  color: var(--a-fg-dim);
+  overflow-x: auto;
+}
+
+/* ============================================================
+   Neutralise legacy storefront-light theme inside the admin frame.
+
+   The whole site sets `html[data-ynot-theme="light"]`, which gives
+   `.soft-card` / `.admin-panel` / `.admin-pack-form` a white paper
+   background. Inside the new admin shell we always want the dark
+   YNOTT admin look, so we force the dark surface + cream text on
+   every container the legacy admin components emit.
+   ============================================================ */
+.admin-frame .soft-card,
+.admin-frame .admin-panel,
+.admin-frame .admin-form-panel,
+.admin-frame .admin-pack-form,
+.admin-frame .admin-pack-form-horizontal,
+.admin-frame .admin-pack-list,
+.admin-frame .admin-table-panel,
+.admin-frame .admin-card-catalog-panel,
+.admin-frame .admin-inventory-panel,
+.admin-frame .admin-clean-hero,
+.admin-frame .admin-category-intro,
+.admin-frame .admin-category-contract,
+.admin-frame .admin-category-clean-card,
+.admin-frame .owner-approval-queue,
+.admin-frame .admin-prize-workspace,
+.admin-frame .admin-form-step,
+.admin-frame .admin-form-grid,
+.admin-frame .admin-form-grid-three,
+.admin-frame .admin-prize-tier-stack,
+.admin-frame .admin-prize-summary-grid,
+.admin-frame .admin-prize-tier-row,
+.admin-frame .admin-prize-table-wrap,
+.admin-frame .admin-prize-rank-cell,
+.admin-frame .wallet-balance-card,
+.admin-frame .wallet-method-card,
+.admin-frame .wallet-history-card,
+.admin-frame .topup-slip-card,
+.admin-frame .empty-state,
+.admin-frame .metric-card,
+.admin-frame .payment-method-card,
+.admin-frame .ranking-phone,
+.admin-frame .page-intro {
+  background: linear-gradient(180deg, rgba(23,24,42,0.85), rgba(16,17,31,0.92)) !important;
+  background-image: linear-gradient(180deg, rgba(23,24,42,0.85), rgba(16,17,31,0.92)) !important;
+  border: 1px solid var(--a-border-soft) !important;
+  border-radius: 10px !important;
+  box-shadow: var(--a-shadow-card) !important;
+  color: var(--a-fg) !important;
+  clip-path: none !important;
+  padding: 14px 16px !important;
+}
+
+/* When the new AdminCard wraps a legacy panel as its child, drop the inner panel chrome
+   so we don't render a card-inside-a-card visual. */
+.admin-frame .card .soft-card,
+.admin-frame .card .admin-panel,
+.admin-frame .card .admin-form-panel,
+.admin-frame .card .admin-pack-form,
+.admin-frame .card .admin-pack-form-horizontal,
+.admin-frame .card .admin-pack-list,
+.admin-frame .card .admin-table-panel,
+.admin-frame .card .admin-card-catalog-panel,
+.admin-frame .card .admin-inventory-panel,
+.admin-frame .card .owner-approval-queue,
+.admin-frame .card .admin-prize-workspace,
+.admin-frame .card .wallet-balance-card,
+.admin-frame .card .wallet-method-card,
+.admin-frame .card .wallet-history-card {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+/* Headings inside legacy admin panels — switch back to cream so they read on dark. */
+.admin-frame .soft-card h1,
+.admin-frame .soft-card h2,
+.admin-frame .soft-card h3,
+.admin-frame .soft-card h4,
+.admin-frame .soft-card strong,
+.admin-frame .admin-panel h1,
+.admin-frame .admin-panel h2,
+.admin-frame .admin-panel h3,
+.admin-frame .admin-panel h4,
+.admin-frame .admin-panel strong,
+.admin-frame .admin-pack-form h1,
+.admin-frame .admin-pack-form h2,
+.admin-frame .admin-pack-form h3,
+.admin-frame .admin-pack-form h4,
+.admin-frame .admin-pack-form strong,
+.admin-frame .admin-form-head h1,
+.admin-frame .admin-form-head h2,
+.admin-frame .admin-form-head h3,
+.admin-frame .admin-form-head h4,
+.admin-frame .admin-form-head strong,
+.admin-frame .admin-panel-compact-head strong,
+.admin-frame .admin-pack-builder-head h3,
+.admin-frame .admin-clean-hero h2,
+.admin-frame .admin-category-intro h3 {
+  color: var(--a-fg) !important;
+}
+
+.admin-frame .soft-card p,
+.admin-frame .soft-card label,
+.admin-frame .soft-card span,
+.admin-frame .soft-card li,
+.admin-frame .soft-card dd,
+.admin-frame .soft-card dt,
+.admin-frame .admin-panel p,
+.admin-frame .admin-panel label,
+.admin-frame .admin-panel li,
+.admin-frame .admin-pack-form p,
+.admin-frame .admin-pack-form label,
+.admin-frame .admin-pack-form li,
+.admin-frame .admin-form-head p,
+.admin-frame .admin-form-step p,
+.admin-frame .admin-form-step label,
+.admin-frame .admin-panel-compact-head p,
+.admin-frame .admin-clean-hero p,
+.admin-frame .admin-category-intro p {
+  color: var(--a-fg-dim) !important;
+}
+
+/* Form inputs inside legacy admin components — use the new dark input style. */
+.admin-frame .soft-card input,
+.admin-frame .soft-card select,
+.admin-frame .soft-card textarea,
+.admin-frame .admin-panel input,
+.admin-frame .admin-panel select,
+.admin-frame .admin-panel textarea,
+.admin-frame .admin-pack-form input,
+.admin-frame .admin-pack-form select,
+.admin-frame .admin-pack-form textarea {
+  background: rgba(7,7,15,0.6) !important;
+  border: 1px solid var(--a-border-soft) !important;
+  color: var(--a-fg) !important;
+  border-radius: 7px !important;
+}
+.admin-frame .soft-card input:focus,
+.admin-frame .soft-card select:focus,
+.admin-frame .soft-card textarea:focus,
+.admin-frame .admin-panel input:focus,
+.admin-frame .admin-panel select:focus,
+.admin-frame .admin-panel textarea:focus,
+.admin-frame .admin-pack-form input:focus,
+.admin-frame .admin-pack-form select:focus,
+.admin-frame .admin-pack-form textarea:focus {
+  outline: none !important;
+  border-color: rgba(244,197,66,0.5) !important;
+}
+
+/* Buttons inside legacy admin components — keep the gold primary, ghost the rest. */
+.admin-frame .soft-card button:not(.btn):not(.btn-primary):not(.btn-ghost):not(.btn-danger):not(.btn-sm):not(.toggle),
+.admin-frame .admin-panel button:not(.btn):not(.btn-primary):not(.btn-ghost):not(.btn-danger):not(.btn-sm):not(.toggle),
+.admin-frame .admin-pack-form button:not(.btn):not(.btn-primary):not(.btn-ghost):not(.btn-danger):not(.btn-sm):not(.toggle) {
+  background: rgba(255,255,255,0.03) !important;
+  border: 1px solid var(--a-border-soft) !important;
+  color: var(--a-fg) !important;
+  border-radius: 7px !important;
+}
+.admin-frame .gold-button,
+.admin-frame .primary-action,
+.admin-frame .admin-form-save {
+  background: linear-gradient(135deg, var(--a-gold), var(--a-gold-2)) !important;
+  color: #161616 !important;
+  border: 1px solid rgba(0,0,0,0.2) !important;
+  box-shadow: none !important;
+}
+
+/* Status pills the legacy components emit — colour-match our admin pills. */
+.admin-frame .status-pill {
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid var(--a-border-soft) !important;
+  color: var(--a-fg-dim) !important;
+  border-radius: 999px !important;
+  padding: 2px 8px !important;
+  font-weight: 600 !important;
+  font-size: 10.5px !important;
+  min-height: 0 !important;
+}
+.admin-frame .status-pill.warn,
+.admin-frame .status-pill.pending,
+.admin-frame .status-pill.changes_requested,
+.admin-frame .status-pill.pending_slip {
+  background: rgba(244,161,66,0.10) !important;
+  border-color: rgba(244,161,66,0.28) !important;
+  color: var(--a-amber) !important;
+}
+.admin-frame .status-pill.ready,
+.admin-frame .status-pill.live,
+.admin-frame .status-pill.approved,
+.admin-frame .status-pill.delivered,
+.admin-frame .status-pill.active,
+.admin-frame .status-pill.completed {
+  background: rgba(68,209,126,0.10) !important;
+  border-color: rgba(68,209,126,0.28) !important;
+  color: var(--a-mint) !important;
+}
+.admin-frame .status-pill.fail,
+.admin-frame .status-pill.rejected,
+.admin-frame .status-pill.error {
+  background: rgba(240,90,108,0.10) !important;
+  border-color: rgba(240,90,108,0.30) !important;
+  color: var(--a-rose) !important;
+}
+
+/* Legacy data tables inside the new admin shell. */
+.admin-frame .admin-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  color: var(--a-fg);
+}
+.admin-frame .admin-data-table thead th {
+  text-align: left;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--a-muted) !important;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--a-border-soft);
+  background: rgba(255,255,255,0.015) !important;
+}
+.admin-frame .admin-data-table tbody td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--a-border-soft);
+  vertical-align: middle;
+  color: var(--a-fg) !important;
+}
+.admin-frame .admin-table-scroll { overflow-x: auto; }
+.admin-frame .admin-list-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.admin-frame .admin-list-card {
+  background: rgba(255,255,255,0.02) !important;
+  border: 1px solid var(--a-border-soft) !important;
+  border-radius: 8px !important;
+  padding: 11px 14px !important;
+  color: var(--a-fg) !important;
+}
+.admin-frame .admin-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.admin-frame .admin-id-line,
+.admin-frame .admin-muted-line { color: var(--a-muted) !important; font-size: 11px; }
+.admin-frame .admin-empty-note { color: var(--a-muted); font-size: 12px; padding: 12px 0; }
+.admin-frame .admin-code-block {
+  font-family: "Geist Mono", monospace;
+  font-size: 11px;
+  background: rgba(7,7,15,0.5) !important;
+  border: 1px solid var(--a-border-soft) !important;
+  color: var(--a-fg-dim) !important;
+  padding: 10px !important;
+  border-radius: 6px !important;
+  white-space: pre-wrap;
+  margin-top: 6px;
+}
+
+/* Workflow/roadmap grid blocks (campaigns page) — dark surface. */
+.admin-frame .admin-roadmap-grid > div,
+.admin-frame .admin-workflow-panel {
+  background: rgba(255,255,255,0.02) !important;
+  border-color: var(--a-border-soft) !important;
+  color: var(--a-fg) !important;
+}
+.admin-frame .admin-roadmap-grid strong { color: var(--a-fg) !important; }
+.admin-frame .admin-roadmap-grid p { color: var(--a-muted) !important; }
+
+/* "Section label" + small headings used in legacy components. */
+.admin-frame .section-label,
+.admin-frame .admin-kicker,
+.admin-frame .admin-form-head span,
+.admin-frame .admin-section-title span {
+  color: var(--a-muted) !important;
+}
+
+/* Owner approval queue layout overrides */
+.admin-frame .owner-approval-queue { padding: 0 !important; }
+.admin-frame .owner-approval-queue .admin-panel-head {
+  padding: 11px 16px !important;
+  border-bottom: 1px solid var(--a-border-soft) !important;
+}
+
+/* Stop legacy "admin-edit-page-back" link from rendering chunky */
+.admin-frame .admin-edit-page-back a {
+  color: var(--a-sky) !important;
+  text-decoration: none !important;
+  font-size: 12px !important;
 }

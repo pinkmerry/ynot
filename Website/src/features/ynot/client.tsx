@@ -5421,30 +5421,33 @@ export function PackPickerModal({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    fetch("/api/ynot/admin/campaigns", { method: "GET" })
-      .then(async (response) => {
-        const payload = (await response.json().catch(() => null)) as
-          | { ok?: boolean; campaigns?: AdminCampaignSummary[]; error?: string; message?: string }
-          | null;
-        if (!response.ok || !payload?.ok) {
-          throw new Error(
-            payload?.message || payload?.error || "Failed to load packs",
-          );
-        }
-        if (!cancelled) setCampaigns(payload.campaigns ?? []);
-      })
-      .catch((caught) => {
-        if (!cancelled) {
-          setError(caught instanceof Error ? caught.message : "Load failed");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    const loadCampaigns = window.setTimeout(() => {
+      setLoading(true);
+      setError(null);
+      fetch("/api/ynot/admin/campaigns", { method: "GET" })
+        .then(async (response) => {
+          const payload = (await response.json().catch(() => null)) as
+            | { ok?: boolean; campaigns?: AdminCampaignSummary[]; error?: string; message?: string }
+            | null;
+          if (!response.ok || !payload?.ok) {
+            throw new Error(
+              payload?.message || payload?.error || "Failed to load packs",
+            );
+          }
+          if (!cancelled) setCampaigns(payload.campaigns ?? []);
+        })
+        .catch((caught) => {
+          if (!cancelled) {
+            setError(caught instanceof Error ? caught.message : "Load failed");
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, 0);
     return () => {
       cancelled = true;
+      window.clearTimeout(loadCampaigns);
     };
   }, [open]);
 
