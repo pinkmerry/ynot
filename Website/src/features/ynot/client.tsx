@@ -5776,6 +5776,11 @@ export function AdminCampaignTable({
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingCampaign, setEditingCampaign] = useState<YnotCampaign | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { mode: "single"; campaign: YnotCampaign }
+    | { mode: "bulk"; campaigns: YnotCampaign[] }
+    | null
+  >(null);
 
   // Counts per status so the tabs show a Shopify-style number badge.
   const counts = useMemo(() => {
@@ -5897,6 +5902,35 @@ export function AdminCampaignTable({
     }
   }
 
+  async function runDelete(targets: YnotCampaign[]) {
+    if (!targets.length) return;
+    setError(null);
+    for (const target of targets) {
+      setPending(target.id);
+      try {
+        const response = await fetch("/api/ynot/admin/campaigns/lifecycle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ campaignId: target.id, action: "delete" }),
+        });
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as
+            | { error?: string; message?: string }
+            | null;
+          throw new Error(payload?.message || payload?.error || "Delete failed");
+        }
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "Delete failed");
+        setPending(null);
+        return;
+      }
+    }
+    setPending(null);
+    setSelectedIds(new Set());
+    setDeleteTarget(null);
+    router.refresh();
+  }
+
   const allChecked = filtered.length > 0 && selectedIds.size === filtered.length;
 
   return (
@@ -5951,6 +5985,21 @@ export function AdminCampaignTable({
             disabled={pending !== null}
           >
             Archive selected
+          </button>
+          <button
+            type="button"
+            className="admin-pack-table-bulk-action admin-pack-table-bulk-action-danger"
+            onClick={() => {
+              const targets = campaigns.filter((campaign) =>
+                selectedIds.has(campaign.id),
+              );
+              if (targets.length) {
+                setDeleteTarget({ mode: "bulk", campaigns: targets });
+              }
+            }}
+            disabled={pending !== null}
+          >
+            Delete selected
           </button>
           <button
             type="button"
@@ -6074,6 +6123,17 @@ export function AdminCampaignTable({
                         {isPending ? "…" : "Archive"}
                       </button>
                     )}
+                    <button
+                      type="button"
+                      className="admin-pack-table-action admin-pack-table-action-delete"
+                      onClick={() =>
+                        setDeleteTarget({ mode: "single", campaign })
+                      }
+                      disabled={isPending}
+                      title="Permanently remove this pack from admin and storefront. Customer card history stays in the database."
+                    >
+                      {isPending ? "…" : "Delete"}
+                    </button>
                   </td>
                 </tr>
               );
@@ -6081,6 +6141,20 @@ export function AdminCampaignTable({
           </tbody>
         </table>
       </div>
+      {deleteTarget && (
+        <DeletePackConfirmModal
+          target={deleteTarget}
+          pending={pending !== null}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() =>
+            runDelete(
+              deleteTarget.mode === "single"
+                ? [deleteTarget.campaign]
+                : deleteTarget.campaigns,
+            )
+          }
+        />
+      )}
       {editingCampaign && (
         <EditCampaignModal
           campaign={editingCampaign}
@@ -6092,6 +6166,111 @@ export function AdminCampaignTable({
         />
       )}
     </section>
+  );
+}
+
+function DeletePackConfirmModal({
+  target,
+  pending,
+  onCancel,
+  onConfirm,
+}: {
+  target:
+    | { mode: "single"; campaign: YnotCampaign }
+    | { mode: "bulk"; campaigns: YnotCampaign[] };
+  pending: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const isBulk = target.mode === "bulk";
+  const campaigns = isBulk ? target.campaigns : [target.campaign];
+  const expectedPhrase = isBulk ? `delete ${campaigns.length} packs` : campaigns[0].slug;
+  const [typed, setTyped] = useState("");
+  const matches = typed.trim() === expectedPhrase;
+  const liveCount = campaigns.filter((c) => c.status === "live").length;
+  const closedCount = campaigns.filter((c) => c.status === "closed").length;
+
+  return (
+    <div
+      className="admin-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-pack-title"
+      onClick={(event) => {
+        if (event.target === event.currentTarget && !pending) onCancel();
+      }}
+    >
+      <div className="admin-modal admin-modal-danger" role="document">
+        <header className="admin-modal-head">
+          <h2 id="delete-pack-title" className="admin-modal-title">
+            {isBulk
+              ? `Delete ${campaigns.length} packs permanently?`
+              : `Delete "${target.campaign.titleEn || target.campaign.titleTh}" permanently?`}
+          </h2>
+          <p className="admin-modal-subtitle">
+            This removes the pack from the admin list and the storefront. Customer card history, orders, and rankings stay intact in the database. The pack cannot be restored from the lifecycle queue.
+          </p>
+        </header>
+        {(liveCount > 0 || closedCount > 0) && (
+          <ul className="admin-modal-warning-list">
+            {liveCount > 0 && (
+              <li>
+                <strong>{liveCount}</strong> pack{liveCount === 1 ? " is" : "s are"} currently live — customers will lose access immediately.
+              </li>
+            )}
+            {closedCount > 0 && (
+              <li>
+                <strong>{closedCount}</strong> closed pack{closedCount === 1 ? "" : "s"} may have customer opens — their cards stay but the pack page is gone.
+              </li>
+            )}
+          </ul>
+        )}
+        {isBulk && (
+          <ol className="admin-modal-target-list">
+            {campaigns.map((c) => (
+              <li key={c.id}>
+                <span>{c.titleEn || c.titleTh}</span>
+                <span className="mono admin-modal-target-slug">/{c.slug}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+        <label className="admin-modal-confirm-row">
+          <span>
+            Type <code>{expectedPhrase}</code> to confirm
+          </span>
+          <input
+            type="text"
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+            disabled={pending}
+            autoFocus
+            spellCheck={false}
+            autoComplete="off"
+            className="admin-modal-confirm-input"
+            placeholder={expectedPhrase}
+          />
+        </label>
+        <footer className="admin-modal-foot">
+          <button
+            type="button"
+            className="admin-modal-secondary"
+            onClick={onCancel}
+            disabled={pending}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="admin-modal-primary admin-modal-primary-danger"
+            onClick={onConfirm}
+            disabled={!matches || pending}
+          >
+            {pending ? "Deleting…" : isBulk ? `Delete ${campaigns.length} packs` : "Delete pack"}
+          </button>
+        </footer>
+      </div>
+    </div>
   );
 }
 

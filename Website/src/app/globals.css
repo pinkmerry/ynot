@@ -21590,6 +21590,169 @@ html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-action-
   color: #ffffff !important;
   border-color: #c2410c !important;
 }
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-action-delete {
+  border-color: rgba(220, 38, 38, 0.55) !important;
+  color: #fca5a5 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-action-delete:hover:not(:disabled) {
+  background: #b91c1c !important;
+  color: #ffffff !important;
+  border-color: #b91c1c !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-bulk-action-danger {
+  background: rgba(185, 28, 28, 0.18) !important;
+  border-color: rgba(220, 38, 38, 0.55) !important;
+  color: #fca5a5 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-bulk-action-danger:hover:not(:disabled) {
+  background: #b91c1c !important;
+  color: #ffffff !important;
+  border-color: #b91c1c !important;
+}
+
+/* Delete-pack confirm modal — dark danger surface with type-to-confirm */
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 5, 8, 0.72);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.admin-modal {
+  width: min(520px, 100%);
+  background: #141416;
+  border: 1px solid rgba(245, 245, 245, 0.12);
+  color: #f5f5f5;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  font-family: inherit;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+.admin-modal-danger {
+  border-color: rgba(220, 38, 38, 0.45);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(220, 38, 38, 0.18) inset;
+}
+.admin-modal-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.admin-modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fca5a5;
+}
+.admin-modal-subtitle {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(245, 245, 245, 0.7);
+}
+.admin-modal-warning-list {
+  margin: 0;
+  padding: 12px 14px 12px 30px;
+  background: rgba(185, 28, 28, 0.14);
+  border-left: 2px solid rgba(220, 38, 38, 0.6);
+  font-size: 12px;
+  line-height: 1.6;
+  color: #fee2e2;
+}
+.admin-modal-warning-list strong {
+  color: #fff;
+}
+.admin-modal-target-list {
+  margin: 0;
+  padding: 0 0 0 18px;
+  max-height: 180px;
+  overflow-y: auto;
+  font-size: 12px;
+  color: rgba(245, 245, 245, 0.78);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.admin-modal-target-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.admin-modal-target-slug {
+  font-size: 10px;
+  color: rgba(245, 245, 245, 0.45);
+}
+.admin-modal-confirm-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(245, 245, 245, 0.78);
+}
+.admin-modal-confirm-row code {
+  background: rgba(245, 245, 245, 0.08);
+  padding: 2px 6px;
+  font-family: inherit;
+  color: #fca5a5;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+}
+.admin-modal-confirm-input {
+  background: #0a0a0c;
+  border: 1px solid rgba(245, 245, 245, 0.18);
+  color: #f5f5f5;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+.admin-modal-confirm-input:focus {
+  outline: none;
+  border-color: rgba(220, 38, 38, 0.7);
+}
+.admin-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 4px;
+}
+.admin-modal-secondary,
+.admin-modal-primary {
+  padding: 10px 18px;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid rgba(245, 245, 245, 0.18);
+  background: transparent;
+  color: #f5f5f5;
+}
+.admin-modal-secondary:hover:not(:disabled) {
+  background: rgba(245, 245, 245, 0.08);
+}
+.admin-modal-primary-danger {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #fff;
+}
+.admin-modal-primary-danger:hover:not(:disabled) {
+  background: #991b1b;
+  border-color: #991b1b;
+}
+.admin-modal-primary:disabled,
+.admin-modal-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-empty {
   padding: 24px !important;
   text-align: center !important;
