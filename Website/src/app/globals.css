@@ -21830,3 +21830,624 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
 .admin-edit-page-back a:hover {
   color: #ffffff;
 }
+
+/* ============================================================
+ * FOG-INSPIRED ADMIN OVERHAUL
+ * Editorial dark theme — warm matte background, cream text,
+ * hairline dividers, sharp typography hierarchy, generous space.
+ * All selectors target .admin-redesign-reference to override the
+ * earlier light/round theme without touching the storefront.
+ * ============================================================ */
+
+.admin-redesign-reference {
+  /* Palette */
+  --admin-bg: #14110d;
+  --admin-bg-soft: #1a1614;
+  --admin-card: #1c1815;
+  --admin-card-soft: #221d18;
+  --admin-text: #f3eee2;
+  --admin-muted: #8c8377;
+  --admin-line: rgba(243, 238, 226, 0.08);
+  --admin-line-strong: rgba(243, 238, 226, 0.18);
+  --admin-accent: #c9b58c;
+  --admin-accent-dark: #9c8a64;
+  --admin-success: #93a984;
+  --admin-warning: #d4b896;
+  --admin-danger: #c97a72;
+  --admin-sidebar: #110e0a;
+  --admin-sidebar-2: #181410;
+  --foreground: var(--admin-text);
+  --muted: var(--admin-muted);
+  --border: var(--admin-line);
+  --gold: var(--admin-accent);
+  --gold-2: #d8c5a0;
+
+  background: var(--admin-bg) !important;
+  background-image: none !important;
+  color: var(--admin-text) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 32px !important;
+  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+}
+
+/* All typography is sans editorial — no Prompt round corners in the admin. */
+.admin-redesign-reference,
+.admin-redesign-reference *,
+.admin-redesign-reference h1,
+.admin-redesign-reference h2,
+.admin-redesign-reference h3,
+.admin-redesign-reference h4,
+.admin-redesign-reference h5,
+.admin-redesign-reference h6,
+.admin-redesign-reference p,
+.admin-redesign-reference span,
+.admin-redesign-reference label,
+.admin-redesign-reference button,
+.admin-redesign-reference input,
+.admin-redesign-reference select,
+.admin-redesign-reference textarea,
+.admin-redesign-reference strong,
+.admin-redesign-reference em {
+  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+}
+
+/* Headings */
+.admin-redesign-reference h1,
+.admin-redesign-reference h2,
+.admin-redesign-reference h3 {
+  color: var(--admin-text) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.015em !important;
+  line-height: 1.18 !important;
+  margin: 0 0 8px !important;
+}
+
+.admin-redesign-reference h1 {
+  font-size: clamp(28px, 3.4vw, 44px) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.admin-redesign-reference h2 {
+  font-size: clamp(22px, 2.4vw, 30px) !important;
+}
+
+.admin-redesign-reference h3 {
+  font-size: 18px !important;
+}
+
+.admin-redesign-reference p {
+  color: var(--admin-muted) !important;
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+}
+
+/* Eyebrow / section labels — tracked uppercase */
+.admin-redesign-reference .section-label,
+.admin-redesign-reference .admin-kicker,
+.admin-redesign-reference .admin-form-head span,
+.admin-redesign-reference .admin-section-title span,
+.admin-redesign-reference .admin-panel-head span:first-child,
+.admin-redesign-reference .admin-page-eyebrow,
+.admin-redesign-reference .admin-panel-compact-head > span:first-child {
+  color: var(--admin-accent) !important;
+  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  text-shadow: none !important;
+  display: inline-block !important;
+  margin-bottom: 6px !important;
+}
+
+/* Cards — sharp, hairline, no shadows */
+.admin-redesign-reference .page-intro,
+.admin-redesign-reference .soft-card,
+.admin-redesign-reference .admin-panel,
+.admin-redesign-reference .metric-card,
+.admin-redesign-reference .payment-method-card,
+.admin-redesign-reference .request-card,
+.admin-redesign-reference .empty-state,
+.admin-redesign-reference .product-card,
+.admin-redesign-reference .ranking-phone {
+  background: var(--admin-card) !important;
+  border: 1px solid var(--admin-line) !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  color: var(--admin-text) !important;
+  padding: 24px !important;
+}
+
+/* Side navigation */
+.admin-redesign-reference .admin-side-nav,
+.admin-redesign-reference .admin-side-nav.soft-card {
+  background: var(--admin-sidebar) !important;
+  border: 1px solid var(--admin-line) !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  padding: 24px 0 !important;
+}
+
+.admin-redesign-reference .admin-side-nav-head {
+  padding: 0 24px 20px !important;
+  border-bottom: 1px solid var(--admin-line) !important;
+  margin-bottom: 16px !important;
+}
+
+.admin-redesign-reference .admin-side-nav-head strong {
+  color: var(--admin-text) !important;
+  font-size: 18px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.admin-redesign-reference .admin-side-nav-head span {
+  color: var(--admin-muted) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
+}
+
+.admin-redesign-reference .admin-side-nav-link {
+  background: transparent !important;
+  border: 0 !important;
+  border-left: 2px solid transparent !important;
+  border-radius: 0 !important;
+  padding: 12px 24px !important;
+  color: var(--admin-muted) !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  transition: all 0.18s ease !important;
+}
+
+.admin-redesign-reference .admin-side-nav-link:hover {
+  color: var(--admin-text) !important;
+  background: rgba(243, 238, 226, 0.03) !important;
+}
+
+.admin-redesign-reference .admin-side-nav-link.is-active,
+.admin-redesign-reference .admin-side-nav-link[aria-current="page"] {
+  color: var(--admin-text) !important;
+  background: rgba(201, 181, 140, 0.06) !important;
+  border-left-color: var(--admin-accent) !important;
+}
+
+.admin-redesign-reference .admin-side-nav-link span {
+  color: inherit !important;
+  font-size: 13px !important;
+  font-weight: inherit !important;
+  letter-spacing: 0.04em !important;
+  text-transform: none !important;
+  display: inline !important;
+}
+
+.admin-redesign-reference .admin-side-nav-link .admin-side-nav-tag,
+.admin-redesign-reference .admin-side-nav-link em {
+  color: var(--admin-muted) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
+  font-style: normal !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+/* Page header */
+.admin-redesign-reference .page-intro {
+  padding: 32px !important;
+}
+
+/* Buttons — outline, sharp, uppercase tracked */
+.admin-redesign-reference .gold-button,
+.admin-redesign-reference .primary-action,
+.admin-redesign-reference .admin-form-save {
+  background: var(--admin-accent) !important;
+  border: 1px solid var(--admin-accent) !important;
+  border-radius: 0 !important;
+  color: #14110d !important;
+  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  padding: 14px 28px !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+  box-shadow: none !important;
+}
+
+.admin-redesign-reference .gold-button:hover,
+.admin-redesign-reference .primary-action:hover,
+.admin-redesign-reference .admin-form-save:hover {
+  background: var(--admin-accent-dark) !important;
+  border-color: var(--admin-accent-dark) !important;
+  color: var(--admin-text) !important;
+}
+
+.admin-redesign-reference .gold-button:disabled,
+.admin-redesign-reference .primary-action:disabled,
+.admin-redesign-reference .admin-form-save:disabled {
+  background: transparent !important;
+  border-color: var(--admin-line-strong) !important;
+  color: var(--admin-muted) !important;
+  cursor: not-allowed !important;
+}
+
+.admin-redesign-reference .secondary-action,
+.admin-redesign-reference button:not(.gold-button):not(.primary-action):not(.admin-form-save):not(.admin-pack-table-action):not(.admin-side-nav-link):not(.admin-edit-modal-close):not(.admin-edit-chip):not(.preview_*),
+.admin-redesign-reference .admin-pack-table-action {
+  background: transparent !important;
+  border: 1px solid var(--admin-line-strong) !important;
+  border-radius: 0 !important;
+  color: var(--admin-text) !important;
+  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
+  padding: 10px 18px !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+  box-shadow: none !important;
+}
+
+.admin-redesign-reference .secondary-action:hover,
+.admin-redesign-reference .admin-pack-table-action:hover {
+  border-color: var(--admin-accent) !important;
+  color: var(--admin-accent) !important;
+}
+
+.admin-redesign-reference .admin-pack-table-action-danger {
+  border-color: rgba(201, 122, 114, 0.4) !important;
+  color: var(--admin-danger) !important;
+}
+
+.admin-redesign-reference .admin-pack-table-action-danger:hover {
+  border-color: var(--admin-danger) !important;
+  background: rgba(201, 122, 114, 0.08) !important;
+  color: var(--admin-danger) !important;
+}
+
+/* Form fields */
+.admin-redesign-reference input[type="text"],
+.admin-redesign-reference input[type="number"],
+.admin-redesign-reference input[type="email"],
+.admin-redesign-reference input[type="search"],
+.admin-redesign-reference textarea,
+.admin-redesign-reference select {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--admin-line-strong) !important;
+  border-radius: 0 !important;
+  color: var(--admin-text) !important;
+  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.005em !important;
+  padding: 10px 0 !important;
+  width: 100% !important;
+  box-shadow: none !important;
+  transition: border-color 0.18s ease !important;
+}
+
+.admin-redesign-reference input:focus,
+.admin-redesign-reference textarea:focus,
+.admin-redesign-reference select:focus {
+  outline: none !important;
+  border-bottom-color: var(--admin-accent) !important;
+}
+
+.admin-redesign-reference label,
+.admin-redesign-reference .admin-form-field label,
+.admin-redesign-reference .admin-form-field > span:first-child {
+  color: var(--admin-muted) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  margin-bottom: 8px !important;
+  display: block !important;
+}
+
+/* Tables */
+.admin-redesign-reference .admin-pack-table,
+.admin-redesign-reference table {
+  background: transparent !important;
+  border: 0 !important;
+  border-collapse: collapse !important;
+  width: 100% !important;
+}
+
+.admin-redesign-reference .admin-pack-table thead th,
+.admin-redesign-reference table thead th {
+  background: transparent !important;
+  border-bottom: 1px solid var(--admin-line-strong) !important;
+  border-top: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  color: var(--admin-muted) !important;
+  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  padding: 16px 12px !important;
+  text-align: left !important;
+}
+
+.admin-redesign-reference .admin-pack-table tbody tr,
+.admin-redesign-reference table tbody tr {
+  border-bottom: 1px solid var(--admin-line) !important;
+  background: transparent !important;
+}
+
+.admin-redesign-reference .admin-pack-table tbody tr:hover,
+.admin-redesign-reference table tbody tr:hover {
+  background: rgba(243, 238, 226, 0.02) !important;
+}
+
+.admin-redesign-reference .admin-pack-table tbody td,
+.admin-redesign-reference table tbody td {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--admin-text) !important;
+  font-size: 14px !important;
+  padding: 18px 12px !important;
+}
+
+.admin-redesign-reference .admin-pack-table-title-link {
+  color: var(--admin-text) !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  border-bottom: 1px solid transparent !important;
+  transition: border-color 0.18s ease !important;
+}
+
+.admin-redesign-reference .admin-pack-table-title-link:hover {
+  border-bottom-color: var(--admin-accent) !important;
+}
+
+.admin-redesign-reference .admin-pack-table-slug {
+  color: var(--admin-muted) !important;
+  font-family: var(--font-geist-mono), ui-monospace, "SF Mono", monospace !important;
+  font-size: 12px !important;
+  display: block !important;
+  margin-top: 2px !important;
+  letter-spacing: 0 !important;
+}
+
+/* Status pills */
+.admin-redesign-reference .admin-pack-table-status,
+.admin-redesign-reference .status-pill {
+  display: inline-block !important;
+  background: transparent !important;
+  border: 1px solid var(--admin-line-strong) !important;
+  border-radius: 0 !important;
+  color: var(--admin-muted) !important;
+  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
+  padding: 5px 10px !important;
+}
+
+.admin-redesign-reference .admin-pack-table-status-live,
+.admin-redesign-reference .admin-pack-table-status-active,
+.admin-redesign-reference .status-pill.ready {
+  border-color: rgba(147, 169, 132, 0.5) !important;
+  color: var(--admin-success) !important;
+}
+
+.admin-redesign-reference .admin-pack-table-status-draft {
+  border-color: rgba(212, 184, 150, 0.5) !important;
+  color: var(--admin-warning) !important;
+}
+
+.admin-redesign-reference .admin-pack-table-status-archived,
+.admin-redesign-reference .admin-pack-table-status-closed {
+  border-color: var(--admin-line) !important;
+  color: var(--admin-muted) !important;
+}
+
+/* Tabs */
+.admin-redesign-reference .admin-pack-table-tabs,
+.admin-redesign-reference .admin-tabs {
+  border-bottom: 1px solid var(--admin-line) !important;
+  display: flex !important;
+  gap: 24px !important;
+  padding: 0 !important;
+  margin-bottom: 24px !important;
+}
+
+.admin-redesign-reference .admin-pack-table-tab {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  color: var(--admin-muted) !important;
+  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
+  padding: 14px 0 !important;
+  cursor: pointer !important;
+  margin-bottom: -1px !important;
+  transition: all 0.18s ease !important;
+}
+
+.admin-redesign-reference .admin-pack-table-tab:hover {
+  color: var(--admin-text) !important;
+}
+
+.admin-redesign-reference .admin-pack-table-tab.is-active {
+  color: var(--admin-text) !important;
+  border-bottom-color: var(--admin-accent) !important;
+}
+
+.admin-redesign-reference .admin-pack-table-tab-count {
+  background: var(--admin-line) !important;
+  color: var(--admin-muted) !important;
+  padding: 2px 8px !important;
+  border-radius: 0 !important;
+  margin-left: 6px !important;
+  font-size: 10px !important;
+}
+
+.admin-redesign-reference .admin-pack-table-tab.is-active .admin-pack-table-tab-count {
+  background: var(--admin-accent) !important;
+  color: #14110d !important;
+}
+
+/* Readiness pills + chips inside readiness panel */
+.admin-redesign-reference .admin-readiness-pill {
+  background: transparent !important;
+  border: 1px solid var(--admin-warning) !important;
+  border-radius: 0 !important;
+  color: var(--admin-warning) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  padding: 6px 12px !important;
+}
+
+.admin-redesign-reference .admin-readiness-pill.ready {
+  border-color: var(--admin-success) !important;
+  color: var(--admin-success) !important;
+}
+
+/* Readiness summary boxes — refine on top of earlier override */
+.admin-redesign-reference .admin-prize-summary-grid > div {
+  background: var(--admin-card-soft) !important;
+  border: 1px solid var(--admin-line) !important;
+  border-radius: 0 !important;
+  padding: 18px !important;
+}
+
+.admin-redesign-reference .admin-prize-summary-grid > div span {
+  color: var(--admin-muted) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+}
+
+.admin-redesign-reference .admin-prize-summary-grid > div strong {
+  color: var(--admin-text) !important;
+  font-size: 24px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.01em !important;
+  margin-top: 4px !important;
+  display: block !important;
+}
+
+/* Prize checklist tiles */
+.admin-redesign-reference .admin-prize-checklist > div {
+  background: var(--admin-card-soft) !important;
+  border: 1px solid var(--admin-line) !important;
+  border-radius: 0 !important;
+  padding: 14px 16px !important;
+}
+
+.admin-redesign-reference .admin-prize-checklist > div span {
+  color: var(--admin-muted) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+}
+
+.admin-redesign-reference .admin-prize-checklist > div strong {
+  color: var(--admin-text) !important;
+  font-size: 18px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.admin-redesign-reference .admin-prize-checklist > div em {
+  color: var(--admin-muted) !important;
+  font-style: normal !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+
+/* Section dividers + hr */
+.admin-redesign-reference hr {
+  border: 0 !important;
+  border-top: 1px solid var(--admin-line) !important;
+  margin: 32px 0 !important;
+}
+
+/* Searches */
+.admin-redesign-reference input[type="search"],
+.admin-redesign-reference input[type="text"][placeholder*="earch"] {
+  border-bottom: 1px solid var(--admin-line-strong) !important;
+  font-size: 14px !important;
+  padding: 12px 0 !important;
+}
+
+/* Counts/numbers callouts */
+.admin-redesign-reference .metric-card strong {
+  font-size: 32px !important;
+  font-weight: 800 !important;
+  color: var(--admin-text) !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* Workflow roadmap cards (numbered steps) */
+.admin-redesign-reference .admin-roadmap-grid > div {
+  background: var(--admin-card-soft) !important;
+  border: 1px solid var(--admin-line) !important;
+  border-radius: 0 !important;
+  padding: 24px !important;
+}
+
+.admin-redesign-reference .admin-roadmap-grid > div strong {
+  color: var(--admin-accent) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  display: block !important;
+  margin-bottom: 12px !important;
+}
+
+.admin-redesign-reference .admin-roadmap-grid > div p {
+  color: var(--admin-text) !important;
+  font-size: 14px !important;
+  margin: 0 !important;
+}
+
+/* Back to storefront link */
+.admin-redesign-reference .admin-storefront-link,
+.admin-redesign-reference a[href="/"] {
+  color: var(--admin-muted) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  text-decoration: none !important;
+  border: 1px solid var(--admin-line-strong) !important;
+  padding: 14px 20px !important;
+  display: block !important;
+  text-align: center !important;
+  margin: 24px !important;
+  transition: all 0.18s ease !important;
+}
+
+.admin-redesign-reference .admin-storefront-link:hover,
+.admin-redesign-reference a[href="/"]:hover {
+  border-color: var(--admin-accent) !important;
+  color: var(--admin-accent) !important;
+}
