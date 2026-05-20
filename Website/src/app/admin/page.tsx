@@ -8,7 +8,6 @@ import {
   AdminFrame,
   AdminIcon,
   AdminKPI,
-  AdminPill,
   AdminStatusPill,
   fmtTHB,
 } from "@/features/ynot/admin";
@@ -43,7 +42,6 @@ export default async function AdminPage() {
     rankings: true,
     adminTopUps: true,
     ownerApprovalRequests: true,
-    platformHealth: true,
   });
 
   const liveCampaigns = data.campaigns.filter((c) => c.status === "live");
@@ -363,21 +361,14 @@ export default async function AdminPage() {
                 </span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 500 }}>
-                    Platform health ·{" "}
-                    {(() => {
-                      const checks = data.platformHealth?.checks ?? [];
-                      if (checks.some((c) => c.status === "fail")) return "fail";
-                      if (checks.some((c) => c.status === "warn")) return "warn";
-                      return "ok";
-                    })()}
+                    Platform health checks
                   </div>
                   <div className="row-sub">
-                    {(data.platformHealth?.checks?.length ?? 0)} checks
-                    monitored
+                    Open diagnostics only when needed to keep dashboard fast.
                   </div>
                 </div>
                 <Link href="/admin/health" className="btn btn-sm">
-                  Open
+                  Open health
                 </Link>
               </div>
             </div>
@@ -388,55 +379,34 @@ export default async function AdminPage() {
           <AdminCard>
             <AdminCardHead
               label="Health"
-              title="Platform checks"
+              title="On-demand checks"
               actions={
-                <span className="text-mute" style={{ fontSize: 11 }}>
-                  {data.platformHealth?.checks?.length ?? 0} checks
-                </span>
+                <Link href="/admin/health" className="btn btn-sm">
+                  Open health
+                </Link>
               }
             />
             <div className="list">
-              {(data.platformHealth?.checks ?? []).slice(0, 5).map((check) => (
-                <div className="list-row" key={check.key}>
-                  <span
-                    className={`dot-status ${
-                      check.status === "pass"
-                        ? "pass"
-                        : check.status === "warn"
-                          ? "warn"
-                          : "fail"
-                    }`}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 500 }}>{check.label}</div>
-                    <div className="row-sub">{check.detail ?? "—"}</div>
+              <div className="list-row">
+                <span
+                  className="thumb sq"
+                  style={{
+                    background: "rgba(108,166,255,0.12)",
+                    color: "var(--a-sky)",
+                  }}
+                >
+                  <AdminIcon name="pulse" size={16} />
+                </span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 500 }}>
+                    Full diagnostics load on the health page
                   </div>
-                  <AdminPill
-                    kind={
-                      check.status === "pass"
-                        ? "live"
-                        : check.status === "warn"
-                          ? "warn"
-                          : "fail"
-                    }
-                  >
-                    {check.status}
-                  </AdminPill>
-                </div>
-              ))}
-              {!data.platformHealth?.checks?.length && (
-                <div className="list-row">
-                  <span className="dot-status pass" />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 500 }}>
-                      Platform health pending
-                    </div>
-                    <div className="row-sub">
-                      Health checks will appear once configured.
-                    </div>
+                  <div className="row-sub">
+                    Use this dashboard for daily queues; open health when you
+                    need platform, database, or configuration checks.
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           </AdminCard>
 

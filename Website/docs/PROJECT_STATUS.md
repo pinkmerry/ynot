@@ -169,7 +169,7 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 
 - Reworked `/admin` from a readiness-first page into an owner-facing Admin Control Center with cards for Random Packs, Categories, Prize/Card Catalog, Users, Top-ups, Shipping, Exchange, Rankings, Settings, Audit, and System Health.
 - Added shared admin section navigation through `AdminSectionShell`/`AdminNav` so admin pages are discoverable from desktop/mobile localhost testing.
-- Added `/admin/health` for production readiness signals so failures remain visible without burying daily operations.
+- Added `/admin/health` for production readiness signals so failures remain visible without burying daily operations; the main `/admin` dashboard links to it instead of preloading full diagnostics.
 - Added `/admin/categories` first-version Category Manager for current fixed `draw_rounds.series` categories (`pokemon`, `one_piece`) and documented the future dynamic `categories` table path.
 - Updated `/admin/campaigns` copy and flow into Random Pack Studio while preserving existing create/update/publish controls.
 - Ralph artifacts: `.omx/context/implement-admin-20260509T031304Z.md`, `.omx/plans/prd-implement-admin.md`, `.omx/plans/test-spec-implement-admin.md`.
@@ -450,7 +450,7 @@ Yes: we now have approved plans, an implemented website/database foundation, and
   - Fabricated remaining-stock fallback was removed; production campaigns without a real `remainingSlots` value now show neutral server-tracked stock copy instead of invented counts.
   - Phase readiness links no longer point at the hardcoded demo campaign; they use stable real pages/admin/readiness surfaces.
 - Admin operational visibility improved:
-  - Admin dashboard now includes platform health checks for key env vars, demo mode, durable rate-limit backend config, and core Supabase platform tables including `cards`, `draw_round_prizes`, and `api_rate_limits`.
+  - `/admin/health` now includes platform health checks for key env vars, demo mode, durable rate-limit backend config, and core Supabase platform tables including `cards`, `draw_round_prizes`, and `api_rate_limits`; the main admin dashboard keeps a lightweight link to those on-demand checks.
   - Dashboard data-read fallbacks are recorded per request and surfaced in admin health as warnings instead of being hidden as empty UI only.
 - Sensitive website mutations now use a shared server-only rate-limit helper across wallet top-up, gacha open, exchange, shipping, address save, and key admin mutation routes.
   - Local/dev can use bounded in-memory limiting.
