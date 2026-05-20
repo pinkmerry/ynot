@@ -661,11 +661,55 @@ export async function PATCH(request: Request) {
     }
   }
   if (reviewPatch.total_slots) await supabase.rpc("create_draw_slots", { p_draw_round_id: campaignId });
+
+  // Replace prize list if caller supplied initialPrizes. Approval state is
+  // already enforced above (must be draft / not approved), so it's safe to
+  // delete + reinsert here without risking a published pack.
+  if (Array.isArray(body.initialPrizes)) {
+    const normalizedPrizes = normalizePrizeDrafts(body.initialPrizes);
+    const initialPrizes = initialPrizesForAdminRole(
+      normalizedPrizes,
+      admin.adminRole,
+    );
+    try {
+      await supabase
+        .from("draw_round_prize_units")
+        .delete()
+        .eq("draw_round_id", campaignId);
+      await supabase
+        .from("draw_round_prizes")
+        .delete()
+        .eq("draw_round_id", campaignId);
+      if (initialPrizes.length) {
+        await saveInitialPrizes(
+          supabase,
+          campaignId,
+          admin.adminId,
+          initialPrizes,
+          Boolean(body.isTest),
+          text(body.seedRunId, 80) || null,
+        );
+      }
+    } catch (prizeError) {
+      return adminErrorResponse(
+        "CAMPAIGN_PRIZE_UPDATE_FAILED",
+        prizeError instanceof Error
+          ? prizeError.message
+          : "Prize list could not be saved.",
+        409,
+      );
+    }
+  }
+
   await supabase.from("audit_events").insert({
     actor_admin_id: admin.adminId,
     event_type: "campaign_updated",
     draw_round_id: campaignId,
-    metadata: { patch: reviewPatch, approvalStatus: "not_submitted" },
+    metadata: {
+      patch: reviewPatch,
+      approvalStatus: "not_submitted",
+      replacedPrizes: Array.isArray(body.initialPrizes),
+    },
   });
   revalidateTag("campaigns", "max");
   return Response.json({

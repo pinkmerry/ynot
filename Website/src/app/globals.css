@@ -21813,3 +21813,20 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
 .admin-edit-row-2 {
   grid-template-columns: 1fr 1fr !important;
 }
+
+/* Edit page — back link */
+.admin-edit-page-back {
+  margin: -8px 0 24px;
+}
+
+.admin-edit-page-back a {
+  color: var(--admin-muted, #9ca3af);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.admin-edit-page-back a:hover {
+  color: #ffffff;
+}

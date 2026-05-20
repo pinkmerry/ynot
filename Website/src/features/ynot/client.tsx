@@ -123,6 +123,10 @@ async function postJson(url: string, body: unknown) {
   return requestJson(url, body, "POST");
 }
 
+async function patchJson(url: string, body: unknown) {
+  return requestJson(url, body, "PATCH");
+}
+
 export function AdminRouteLink({
   children,
   className,
@@ -1926,6 +1930,42 @@ function createInitialPrizeDrafts(
   return withLowestTierRemainder(rows, totalSlots, cards);
 }
 
+/** Convert an existing campaign's prize lineup into the editor's draft format
+ *  so the AdminCampaignForm can load and reshape an existing draft pack. */
+function prizeLineupToDrafts(
+  prizes: YnotPrizePreview[],
+  cards: CardCatalogItem[],
+  totalSlots: number,
+): CampaignPrizeDraft[] {
+  if (!prizes.length) {
+    return createInitialPrizeDrafts(cards, totalSlots);
+  }
+  const drafts = prizes.map((prize, index): CampaignPrizeDraft => {
+    const displayTier = prizeDisplayTierValueFromPreview(prize);
+    const prizeCategory = prizeCategoryValue(prize.prizeCategory);
+    return {
+      localId: `existing-${prize.id || index}`,
+      displayTier,
+      cardId: prize.cardId ?? "",
+      tier: (prize.tier === "high" ? "high" : "normal") as "normal" | "high",
+      prizeCategory,
+      rank: Math.max(1, Math.round(prize.rank || index + 1)),
+      tierRank: Math.max(1, Math.round(prize.tierRank || 1)),
+      valueThb: Math.max(0, Math.round(prize.valueThb ?? 0)),
+      quantity: Math.max(0, Math.round(prize.plannedQuantity ?? 0)),
+      weight: Math.max(0, prize.weight ?? 1),
+      unlockAtSoldPct: Math.max(0, Math.min(100, prize.unlockAtSoldPct ?? 0)),
+    };
+  });
+  return withLowestTierRemainder(drafts, totalSlots, cards);
+}
+
+function prizeDisplayTierValueFromPreview(prize: YnotPrizePreview): PrizeDisplayTier {
+  if (prize.displayTier) return prizeDisplayTierValue(prize.displayTier);
+  if (prize.displayGroup) return prizeDisplayTierValue(prize.displayGroup);
+  return prizeDisplayTierValue("bronze");
+}
+
 function prizeDraftTierLabel(displayTier: PrizeDisplayTier) {
   return `${prizeDisplayTierLabel(displayTier)} tier`;
 }
@@ -1933,33 +1973,45 @@ function prizeDraftTierLabel(displayTier: PrizeDisplayTier) {
 export function AdminCampaignForm({
   categories = [],
   cards = [],
+  editingCampaign,
+  editingPrizes,
+  editingCategoryId,
 }: {
   categories?: YnotCategory[];
   cards?: CardCatalogItem[];
+  editingCampaign?: YnotCampaign;
+  editingPrizes?: YnotPrizePreview[];
+  editingCategoryId?: string;
 }) {
   const router = useRouter();
-  const [slug, setSlug] = useState("new-campaign");
-  const [titleTh, setTitleTh] = useState("แคมเปญใหม่");
-  const [titleEn, setTitleEn] = useState("New campaign");
-  const [series, setSeries] = useState<"pokemon" | "one_piece">(
-    categories[0]?.legacySeries ?? "pokemon",
+  const editMode = Boolean(editingCampaign);
+  const defaultSeries: "pokemon" | "one_piece" =
+    editingCampaign?.series ?? categories[0]?.legacySeries ?? "pokemon";
+  const defaultTotalSlots = editingCampaign?.totalSlots ?? 100;
+  const [slug, setSlug] = useState(editingCampaign?.slug ?? "new-campaign");
+  const [titleTh, setTitleTh] = useState(editingCampaign?.titleTh ?? "แคมเปญใหม่");
+  const [titleEn, setTitleEn] = useState(editingCampaign?.titleEn ?? "New campaign");
+  const [series, setSeries] = useState<"pokemon" | "one_piece">(defaultSeries);
+  const [categoryId, setCategoryId] = useState(
+    editingCategoryId ?? editingCampaign?.categoryIds?.[0] ?? categories[0]?.id ?? "",
   );
-  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
-  const [isTest, setIsTest] = useState(false);
+  const [isTest, setIsTest] = useState(Boolean(editingCampaign?.isTest));
   const [mode, setMode] = useState<"instant_gacha" | "slot_pick">(
-    "instant_gacha",
+    editingCampaign?.mode ?? "instant_gacha",
   );
-  const [priceThb, setPriceThb] = useState(100);
-  const [costCoins, setCostCoins] = useState(1);
-  const [totalSlots, setTotalSlots] = useState(100);
+  const [priceThb, setPriceThb] = useState(editingCampaign?.priceThb ?? 100);
+  const [costCoins, setCostCoins] = useState(editingCampaign?.costCoins ?? 1);
+  const [totalSlots, setTotalSlots] = useState(defaultTotalSlots);
   const [displayTags, setDisplayTags] = useState<string[]>(
-    defaultCustomerTags(series),
+    normalizeCustomerTags(editingCampaign?.displayTags, defaultSeries),
   );
   const [openQuantityOptions, setOpenQuantityOptions] = useState<number[]>(
-    defaultOpenQuantityOptions,
+    normalizeOpenQuantityOptions(editingCampaign?.openQuantityOptions),
   );
   const [draftPrizes, setDraftPrizes] = useState<CampaignPrizeDraft[]>(() =>
-    createInitialPrizeDrafts(cards, 100),
+    editingPrizes && editingPrizes.length
+      ? prizeLineupToDrafts(editingPrizes, cards, defaultTotalSlots)
+      : createInitialPrizeDrafts(cards, defaultTotalSlots),
   );
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -2255,7 +2307,7 @@ export function AdminCampaignForm({
     startTransition(async () => {
       try {
         if (prizeBlockers.length) throw new Error(prizeBlockers[0]);
-        const payload = await postJson("/api/ynot/admin/campaigns", {
+        const basePayload = {
           slug,
           titleTh,
           titleEn,
@@ -2268,8 +2320,6 @@ export function AdminCampaignForm({
           openQuantityOptions,
           categoryIds: categoryId ? [categoryId] : undefined,
           isTest,
-          status: "draft",
-          visibility: "private",
           initialPrizes: activePrizeDrafts.map((prize) => ({
             cardId: prize.cardId,
             tier: dbTierForPrizeDisplayTier(prize.displayTier),
@@ -2286,10 +2336,25 @@ export function AdminCampaignForm({
               sourceType: prizeSourceType(prize.prizeCategory),
             },
           })),
-        });
-        setMessage(
-          `Random pack ${payload.campaign?.slug ?? slug} saved as draft with ${configuredPrizeUnits.toLocaleString()} prize units.`,
-        );
+        };
+        if (editMode && editingCampaign) {
+          await patchJson("/api/ynot/admin/campaigns", {
+            campaignId: editingCampaign.id,
+            ...basePayload,
+          });
+          setMessage(
+            `Pack "${editingCampaign.titleEn || editingCampaign.titleTh}" updated with ${configuredPrizeUnits.toLocaleString()} prize units. Submit owner review to re-publish.`,
+          );
+        } else {
+          const payload = await postJson("/api/ynot/admin/campaigns", {
+            ...basePayload,
+            status: "draft",
+            visibility: "private",
+          });
+          setMessage(
+            `Random pack ${payload.campaign?.slug ?? slug} saved as draft with ${configuredPrizeUnits.toLocaleString()} prize units.`,
+          );
+        }
         router.refresh();
       } catch (error) {
         setMessage(
@@ -2305,11 +2370,16 @@ export function AdminCampaignForm({
     <section className="admin-pack-form admin-pack-form-horizontal soft-card">
       <div className="admin-pack-builder-head">
         <div>
-          <span>New random pack</span>
-          <h3>Create pack draft with prizes</h3>
+          <span>{editMode ? "Edit random pack" : "New random pack"}</span>
+          <h3>
+            {editMode
+              ? `Edit "${editingCampaign?.titleEn || editingCampaign?.titleTh || "pack"}"`
+              : "Create pack draft with prizes"}
+          </h3>
           <p>
-            Build the campaign, prize list, and owner-review readiness in one
-            full-width workflow.
+            {editMode
+              ? "Update campaign fields and prize list. Saving puts the pack back to draft/private and requires fresh owner review."
+              : "Build the campaign, prize list, and owner-review readiness in one full-width workflow."}
           </p>
         </div>
         <strong
@@ -2801,7 +2871,11 @@ export function AdminCampaignForm({
             onClick={submit}
             type="button"
           >
-            {isPending ? "Saving..." : "Save random pack draft"}
+            {isPending
+              ? "Saving..."
+              : editMode
+                ? "Save pack changes"
+                : "Save random pack draft"}
           </button>
           {message && <p className="admin-form-message">{message}</p>}
         </aside>
@@ -5964,13 +6038,23 @@ export function AdminCampaignTable({
                       View
                     </a>
                     {campaign.status === "draft" && (
-                      <button
-                        type="button"
-                        className="admin-pack-table-action"
-                        onClick={() => setEditingCampaign(campaign)}
-                      >
-                        Edit
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="admin-pack-table-action"
+                          onClick={() => setEditingCampaign(campaign)}
+                          title="Quick edit campaign fields"
+                        >
+                          Quick edit
+                        </button>
+                        <a
+                          href={`/admin/campaigns/${campaign.id}/edit`}
+                          className="admin-pack-table-action"
+                          title="Full editor (prize list + every field)"
+                        >
+                          Edit all
+                        </a>
+                      </>
                     )}
                     {campaign.status !== "archived" && (
                       <button
