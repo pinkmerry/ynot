@@ -9202,21 +9202,22 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   opacity: 1 !important;
   visibility: visible !important;
 }
+.admin-redesign-reference .admin-prize-summary-grid > div {
+  background: #1a2e22 !important;
+  background-color: #1a2e22 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
 .admin-redesign-reference .admin-prize-summary-grid > div span {
-  color: #4b5563 !important;
+  color: #9ca3af !important;
   font-size: 11px !important;
   font-weight: 600 !important;
   letter-spacing: 0.1em !important;
   text-transform: uppercase !important;
 }
 .admin-redesign-reference .admin-prize-summary-grid > div strong {
-  color: #0a0a0a !important;
+  color: #ffffff !important;
   font-size: 18px !important;
   font-weight: 800 !important;
-}
-.admin-redesign-reference .admin-prize-summary-grid > div {
-  background: #ffffff !important;
-  background-color: #ffffff !important;
 }
 
 .admin-redesign-reference .admin-prize-blocker-list {
