@@ -216,6 +216,73 @@ export async function POST(request: Request) {
   return Response.json({ ok: true, category: toCategory(data) });
 }
 
+export async function DELETE(request: Request) {
+  const guard = await requireAdmin(request);
+  if (guard.response) return guard.response;
+  const body = await bodyJson(request);
+  const categoryId = text(body?.categoryId, 80);
+  if (!categoryId)
+    return adminErrorResponse(
+      "CATEGORY_ID_REQUIRED",
+      "categoryId is required.",
+      400,
+    );
+
+  const supabase = createServiceSupabaseClient();
+
+  // Eligibility check: refuse delete when any campaign links to this category.
+  // The UI also disables Delete in that case, but we re-check on the server in
+  // case the page is stale.
+  const { count: linkedPackCount, error: linkError } = await supabase
+    .from("draw_round_categories")
+    .select("draw_round_id", { count: "exact", head: true })
+    .eq("category_id", categoryId);
+  if (linkError) return apiError(linkError);
+  if ((linkedPackCount ?? 0) > 0) {
+    return Response.json(
+      {
+        ok: false,
+        code: "CATEGORY_IN_USE",
+        error: `Cannot delete: ${linkedPackCount} pack${linkedPackCount === 1 ? "" : "s"} still assigned to this category.`,
+        packCount: linkedPackCount,
+      },
+      { status: 409 },
+    );
+  }
+
+  const { data: current, error: fetchError } = await supabase
+    .from("store_categories")
+    .select("slug,name_en,is_test")
+    .eq("id", categoryId)
+    .maybeSingle();
+  if (fetchError) return apiError(fetchError);
+  if (!current)
+    return adminErrorResponse(
+      "CATEGORY_NOT_FOUND",
+      "Category not found.",
+      404,
+    );
+
+  const { error: deleteError } = await supabase
+    .from("store_categories")
+    .delete()
+    .eq("id", categoryId);
+  if (deleteError) return apiError(deleteError);
+
+  await supabase.from("audit_events").insert({
+    actor_admin_id: guard.admin.adminId,
+    event_type: "category_deleted",
+    metadata: {
+      categoryId,
+      slug: current.slug,
+      nameEn: current.name_en,
+      isTest: current.is_test,
+    },
+  });
+  revalidateTag("categories", "max");
+  return Response.json({ ok: true, categoryId });
+}
+
 export async function PATCH(request: Request) {
   const guard = await requireAdmin(request);
   if (guard.response) return guard.response;

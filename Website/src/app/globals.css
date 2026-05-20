@@ -8341,6 +8341,49 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   justify-self: start;
 }
 
+.admin-category-clean-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  grid-column: 2;
+}
+.admin-category-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.admin-category-row-actions .admin-category-delete-btn {
+  border-color: rgba(220, 38, 38, 0.55);
+  color: #b91c1c;
+}
+.admin-category-row-actions .admin-category-delete-btn:hover:not(:disabled) {
+  background: #b91c1c;
+  color: #fff;
+  border-color: #b91c1c;
+}
+.admin-category-row-actions .admin-category-delete-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.admin-category-row-legacy {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(245, 245, 245, 0.55);
+  padding: 4px 8px;
+  border: 1px dashed rgba(245, 245, 245, 0.25);
+  border-radius: 999px;
+}
+.admin-category-row-error {
+  flex-basis: 100%;
+  color: #fca5a5;
+  font-size: 11px;
+  margin: 4px 0 0;
+}
+
 .admin-future-category-card,
 .admin-category-contract,
 .admin-pack-form,
