@@ -368,6 +368,7 @@ export async function YnotShell({
   homeFilterBaseHref = "/",
   walletBalance,
   showHeaderCoin = false,
+  shellClassName,
 }: {
   viewer: YnotViewer;
   children: ReactNode;
@@ -375,6 +376,7 @@ export async function YnotShell({
   homeFilterBaseHref?: string;
   walletBalance?: number;
   showHeaderCoin?: boolean;
+  shellClassName?: string;
 }) {
   let renderViewer = viewer;
   let renderBalance = walletBalance;
@@ -395,7 +397,7 @@ export async function YnotShell({
     }
   }
   return (
-    <main className="app-shell store-shell mobile-safe space-y-7">
+    <main className={`app-shell store-shell mobile-safe space-y-7${shellClassName ? ` ${shellClassName}` : ""}`}>
       <header className="storefront-header sticky top-0 z-50">
         <div className="store-topbar">
           <div className="store-topbar-left">

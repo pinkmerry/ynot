@@ -14927,6 +14927,22 @@ html[data-ynot-theme="light"] .header-balance-pill {
  *   - type-a: 12px / 0.15em letter-spacing / 500 weight (10px on <=1366)
  *   - type-b: 0.78125vw / Optima italic-like for newsletter title
  * ============================================ */
+/* Home page mint surface — matches footer #ebf8eb across the full shell */
+.ynot-home-mint {
+  background: #ebf8eb;
+  flex: 1 1 auto;
+  min-height: 100dvh;
+}
+html:has(body > .ynot-home-mint),
+html[data-ynot-theme="light"]:has(body > .ynot-home-mint) {
+  background: #ebf8eb !important;
+}
+html[data-ynot-theme="light"] body:has(> .ynot-home-mint),
+body:has(> .ynot-home-mint) {
+  background: #ebf8eb !important;
+  min-height: 100dvh;
+}
+
 /* FOG structure: nav.pagination (50px strip) + footer.footer (128px body)
  * — pagination = empty mint divider 50px tall
  * — body padding 45.6895 / 43.9323 / 26.3594 = 2.70833vw / 2.60417vw / 1.5625vw at 1687px */

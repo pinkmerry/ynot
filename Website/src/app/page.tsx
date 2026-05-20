@@ -21,7 +21,11 @@ export default async function HomePage({
     wallet: true,
   });
   return (
-    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
+    <YnotShell
+      viewer={data.viewer}
+      walletBalance={data.wallet.balanceCoins}
+      shellClassName="ynot-home-mint"
+    >
       <YnotHomeExperience data={data} homeFilter={homeFilter} />
     </YnotShell>
   );
