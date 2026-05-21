@@ -1949,12 +1949,6 @@ function AdminPrizeCardPicker({
   );
 }
 
-function initialAdminPrizeCardId(cards: CardCatalogItem[]) {
-  return firstCatalogCardId(
-    prizeCatalogCardsFor(cards, "psa10_card", "bronze"),
-  );
-}
-
 function clampTierPrizeRows(value: number) {
   const parsed = Math.round(Number(value) || minTierPrizeRows);
   return Math.min(maxTierPrizeRows, Math.max(minTierPrizeRows, parsed));
@@ -2156,7 +2150,7 @@ export function AdminCampaignForm({
   const [categoryId, setCategoryId] = useState(
     editingCategoryId ?? editingCampaign?.categoryIds?.[0] ?? categories[0]?.id ?? "",
   );
-  const [isTest, setIsTest] = useState(Boolean(editingCampaign?.isTest));
+  const [isTest] = useState(Boolean(editingCampaign?.isTest));
   const [mode, setMode] = useState<"instant_gacha" | "slot_pick">(
     editingCampaign?.mode ?? "instant_gacha",
   );
@@ -2680,18 +2674,20 @@ export function AdminCampaignForm({
                 role="group"
                 aria-label="Open quantity buttons"
               >
-                {defaultOpenQuantityOptions.map((option) => (
-                  <button
-                    className={
-                      openQuantityOptions.includes(option) ? "active" : ""
-                    }
-                    key={option}
-                    onClick={() => toggleOpenQuantityOption(option)}
-                    type="button"
-                  >
-                    Open {option}
-                  </button>
-                ))}
+                {defaultOpenQuantityOptions.map((option) => {
+                  const selected = openQuantityOptions.includes(option);
+                  return (
+                    <button
+                      aria-pressed={selected}
+                      className={`admin-open-preset-button${selected ? " active is-selected" : ""}`}
+                      key={option}
+                      onClick={() => toggleOpenQuantityOption(option)}
+                      type="button"
+                    >
+                      Open {option}
+                    </button>
+                  );
+                })}
               </div>
               <small>
                 These become the customer buttons on the open pack screen.
@@ -2735,20 +2731,6 @@ export function AdminCampaignForm({
               </select>
               <small>Choose up to 4 customer-facing pack labels.</small>
             </div>
-            <label className="admin-field admin-field-wide">
-              <span>Production test pack</span>
-              <button
-                className={
-                  isTest
-                    ? "gold-button rounded-2xl px-4 py-3 text-sm font-black"
-                    : "plain-button rounded-2xl px-4 py-3 text-sm font-black"
-                }
-                onClick={() => setIsTest((value) => !value)}
-                type="button"
-              >
-                {isTest ? "Test-only ON" : "Normal public pack"}
-              </button>
-            </label>
           </div>
         </aside>
 
@@ -4078,7 +4060,7 @@ export function AdminCardForm() {
           <h3>Create or update prize item</h3>
           <p>
             Add PSA10 cards, sealed products, electronics, or other prizes
-            before assigning them into a random pack prize pool.
+            before using them in the random pack prize builder.
           </p>
         </div>
         <div className="admin-form-grid">
@@ -4198,210 +4180,6 @@ export function AdminCardForm() {
         {isPending ? "Saving..." : "Save prize item"}
       </button>
       {message && <p className="admin-form-message">{message}</p>}
-    </section>
-  );
-}
-
-export function AdminPrizePoolForm({
-  campaigns,
-  cards,
-}: {
-  campaigns: YnotCampaign[];
-  cards: CardCatalogItem[];
-}) {
-  const [campaignId, setCampaignId] = useState(campaigns[0]?.id ?? "");
-  const [cardId, setCardId] = useState(() => initialAdminPrizeCardId(cards));
-  const [displayTier, setDisplayTier] =
-    useState<PrizeDisplayTier>("bronze");
-  const [prizeCategory, setPrizeCategory] =
-    useState<PrizeCategory>("psa10_card");
-  const [rank, setRank] = useState(1);
-  const [quantity, setQuantity] = useState(1);
-  const [message, setMessage] = useState("");
-  const [isPending, startTransition] = useTransition();
-  const tier = dbTierForPrizeDisplayTier(displayTier);
-  const selectedCampaignId = campaigns.some(
-    (campaign) => campaign.id === campaignId,
-  )
-    ? campaignId
-    : campaigns[0]?.id ?? "";
-
-  const prizeItemOptions = useMemo(
-    () => prizeCatalogCardsFor(cards, prizeCategory, displayTier),
-    [cards, displayTier, prizeCategory],
-  );
-  const selectedPrizeCardId = prizeItemOptions.some(
-    (card) => card.catalogCardId === cardId,
-  )
-    ? cardId
-    : "";
-  const selectedPrizeCard =
-    prizeItemOptions.find((card) => card.catalogCardId === selectedPrizeCardId) ??
-    null;
-
-  function savePrize() {
-    startTransition(async () => {
-      try {
-        setMessage("");
-        if (!selectedPrizeCardId) {
-          throw new Error("Choose a visible prize item before saving.");
-        }
-        if (!selectedCampaignId) {
-          throw new Error("Create a random pack before adding prize slots.");
-        }
-        await postJson("/api/ynot/admin/prizes", {
-          campaignId: selectedCampaignId,
-          cardId: selectedPrizeCardId,
-          tier,
-          rank,
-          quantity,
-          prizeCategory,
-          sourceType: prizeSourceType(prizeCategory),
-          displayTier,
-          displayGroup: displayTier,
-          metadata: {
-            displayTier,
-            displayTierLabel: prizeDisplayTierLabel(displayTier),
-            displayGroup: displayTier,
-            tierRank: rank,
-            prizeCategory,
-            prizeCategoryLabel: prizeCategoryLabel(prizeCategory),
-            sourceType: prizeSourceType(prizeCategory),
-          },
-        });
-        setMessage(
-          "Prize slot and planned quantity saved. Owner review will reserve global stock before approval.",
-        );
-      } catch (error) {
-        setMessage(
-          error instanceof Error
-            ? error.message
-            : "Prize slot could not be saved.",
-        );
-      }
-    });
-  }
-
-  return (
-    <section className="admin-panel admin-form-panel soft-card">
-      <div className="admin-form-head">
-        <span>Prize pool</span>
-        <h3>Campaign prize pool</h3>
-        <p>
-          Attach catalog prize items to campaign ranks so instant gacha can
-          award cards, electronics, store credit, or other inventory.
-        </p>
-      </div>
-      <div className="admin-form-grid">
-        <AdminField label="Random pack" required>
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={selectedCampaignId}
-            onChange={(event) => setCampaignId(event.target.value)}
-          >
-            {campaigns.map((campaign) => (
-              <option key={campaign.id} value={campaign.id}>
-                {campaign.titleTh || campaign.titleEn}
-              </option>
-            ))}
-          </select>
-        </AdminField>
-        <AdminField label="Prize item" required>
-          <AdminPrizeCardPicker
-            cards={prizeItemOptions}
-            disabled={!prizeItemOptions.length}
-            value={selectedPrizeCardId}
-            onChange={setCardId}
-            testIdPrefix="admin-prize-pool-card"
-          />
-          {!prizeItemOptions.length && (
-            <small>Add a {prizeCategoryLabel(prizeCategory)} catalog item first.</small>
-          )}
-          {displayTier === "bronze" && prizeCategory === "psa10_card" && (
-            <small>Bronze PSA10 prizes use the generic Random PSA10 card pool.</small>
-          )}
-        </AdminField>
-        <AdminField label="Prize category">
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={prizeCategory}
-            onChange={(event) => {
-              const nextCategory = event.target.value as PrizeCategory;
-              setPrizeCategory(nextCategory);
-              setCardId("");
-            }}
-          >
-            {prizeCategoryOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </AdminField>
-        <AdminField label="Prize tier">
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={displayTier}
-            onChange={(event) => {
-              const nextDisplayTier = prizeDisplayTierValue(event.target.value);
-              setDisplayTier(nextDisplayTier);
-              setCardId("");
-            }}
-          >
-            {prizeDisplayTierOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </AdminField>
-        <AdminField
-          label="Prize rank"
-          required
-          hint="Rank controls display order inside the selected Rainbow, Gold, Silver, or Bronze tier."
-        >
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            min={1}
-            type="number"
-            value={rank}
-            onChange={(event) => setRank(Number(event.target.value))}
-            placeholder="1"
-          />
-        </AdminField>
-        <AdminField
-          label="Planned pack quantity"
-          required
-          hint="How many copies this pack should reserve from global stock during owner review."
-        >
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            min={1}
-            type="number"
-            value={quantity}
-            onChange={(event) =>
-              setQuantity(Math.max(1, Math.round(Number(event.target.value) || 1)))
-            }
-            placeholder="10"
-          />
-        </AdminField>
-      </div>
-      <button
-        className="gold-button admin-form-save"
-        disabled={isPending || !selectedCampaignId || !selectedPrizeCardId}
-        onClick={savePrize}
-        type="button"
-      >
-        {isPending ? "Saving..." : "Save campaign prize slot"}
-      </button>
-      {message && <p className="admin-form-message">{message}</p>}
-      {selectedPrizeCard && (
-        <p className="admin-selected-card-note">
-          Selected: {selectedPrizeCard.code ?? "no code"} · {selectedPrizeCard.name}
-          {" · "}
-          {selectedPrizeCard.grade} · {prizeCategoryLabel(selectedPrizeCard.prizeCategory)}
-        </p>
-      )}
     </section>
   );
 }
@@ -6316,6 +6094,54 @@ export function AdminCampaignTable({
     }
   }
 
+  async function submitForOwnerReview(campaign: YnotCampaign) {
+    if (
+      campaign.approvalStatus === "pending_review" ||
+      campaign.approvalStatus === "approved"
+    ) {
+      return;
+    }
+
+    const blocker = campaign.readinessBlockers?.[0];
+    if (blocker) {
+      setError(
+        `Cannot submit "${campaign.titleEn || campaign.titleTh}": ${blocker}`,
+      );
+      return;
+    }
+
+    setPending(campaign.id);
+    setError(null);
+    try {
+      const response = await fetch("/api/ynot/admin/campaigns/lifecycle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          campaignId: campaign.id,
+          action: "submit_review",
+        }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { blockers?: string[]; error?: string; message?: string }
+          | null;
+        throw new Error(
+          payload?.blockers?.[0] ||
+            payload?.message ||
+            payload?.error ||
+            "Submit owner review failed",
+        );
+      }
+      router.refresh();
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Submit owner review failed",
+      );
+    } finally {
+      setPending(null);
+    }
+  }
+
   async function runDelete(targets: YnotCampaign[]) {
     if (!targets.length) return;
     setError(null);
@@ -6457,6 +6283,10 @@ export function AdminCampaignTable({
             {filtered.map((campaign) => {
               const checked = selectedIds.has(campaign.id);
               const isPending = pending === campaign.id;
+              const alreadySubmitted =
+                campaign.approvalStatus === "pending_review";
+              const alreadyApproved = campaign.approvalStatus === "approved";
+              const reviewBlocker = campaign.readinessBlockers?.[0];
               return (
                 <tr
                   key={campaign.id}
@@ -6520,6 +6350,33 @@ export function AdminCampaignTable({
                         >
                           Edit all
                         </a>
+                        <button
+                          type="button"
+                          className="admin-pack-table-action admin-pack-table-action-review"
+                          onClick={() => submitForOwnerReview(campaign)}
+                          disabled={
+                            isPending ||
+                            pending !== null ||
+                            alreadySubmitted ||
+                            alreadyApproved
+                          }
+                          title={
+                            alreadySubmitted
+                              ? "Pack is already waiting for owner review."
+                              : alreadyApproved
+                                ? "Pack is already approved."
+                                : reviewBlocker ||
+                                  "Send this draft to owner review"
+                          }
+                        >
+                          {isPending
+                            ? "…"
+                            : alreadySubmitted
+                              ? "In review"
+                              : alreadyApproved
+                                ? "Approved"
+                                : "Submit owner review"}
+                        </button>
                       </>
                     )}
                     {campaign.status !== "archived" && (

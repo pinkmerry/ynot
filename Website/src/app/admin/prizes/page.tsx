@@ -2,7 +2,6 @@ import {
   AdminCardCatalogPanel,
   AdminCardForm,
   AdminPrizeInventoryPanel,
-  AdminPrizePoolForm,
 } from "@/features/ynot/client";
 import { AdminGate } from "@/features/ynot/components";
 import {
@@ -22,11 +21,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPrizesPage() {
   const [data, cards, prizes] = await Promise.all([
-    getYnotDashboardSlice({
-      campaigns: true,
-      campaignVisibility: "admin",
-      campaignLimit: null,
-    }),
+    getYnotDashboardSlice(),
     getAdminCards(),
     getAdminPrizePool(),
   ]);
@@ -49,7 +44,7 @@ export default async function AdminPrizesPage() {
         trail={["Admin", "Pack studio", "Prize catalog"]}
         eyebrow="Admin prizes"
         title="Prize catalog"
-        desc="Create PSA10 cards, sealed products, electronics, and other prize items, then assign them into campaign prize pools."
+        desc="Create PSA10 cards, sealed products, electronics, and other prize items for the random pack editor."
       >
         <div className="kpi-grid">
           <AdminKPI
@@ -74,24 +69,12 @@ export default async function AdminPrizesPage() {
           />
         </div>
 
-        <div className="split-aside">
-          <AdminCard>
-            <AdminCardHead label="Add card" title="Create catalog item" />
-            <div className="card-pad">
-              <AdminCardForm />
-            </div>
-          </AdminCard>
-          <AdminCard>
-            <AdminCardHead
-              label="Assign to pack"
-              title="Prize pool composition"
-              actions={<button type="button" className="btn btn-sm">Switch pack</button>}
-            />
-            <div className="card-pad">
-              <AdminPrizePoolForm campaigns={data.campaigns} cards={cards} />
-            </div>
-          </AdminCard>
-        </div>
+        <AdminCard className="admin-prize-create-card">
+          <AdminCardHead label="Add card" title="Create catalog item" />
+          <div className="card-pad">
+            <AdminCardForm />
+          </div>
+        </AdminCard>
 
         <AdminCard>
           <AdminCardHead
@@ -111,7 +94,7 @@ export default async function AdminPrizesPage() {
         <AdminCard>
           <AdminCardHead
             label="Prize pool inventory"
-            title="Per-pack assignments · tier set here"
+            title="Per-pack assignments · edited in packs"
           />
           <div className="card-pad">
             <AdminPrizeInventoryPanel cards={cards} prizes={prizes} />
