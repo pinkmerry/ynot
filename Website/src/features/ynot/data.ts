@@ -256,6 +256,61 @@ function effectivePrizeUnlockAtSoldPct(
   );
 }
 
+type PrizeLineupCardRow = {
+  id: string;
+  name: string;
+  card_code?: string | null;
+  grade?: string | null;
+  image_url?: string | null;
+  image_storage_path?: string | null;
+  prize_category?: string | null;
+};
+
+type PrizeUnitStatusRow = {
+  draw_round_prize_id: string;
+  status: string;
+};
+
+async function readSupabaseRows<T>(
+  label: string,
+  query: () => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  try {
+    const { data, error } = await query();
+    if (error) {
+      recordDataIssue(label, error);
+      return [];
+    }
+    return data ?? [];
+  } catch (error) {
+    recordDataIssue(label, error);
+    return [];
+  }
+}
+
+function shouldQueryPrizeUnits(
+  row: DrawRoundRow,
+  inventory?: InventorySummary,
+) {
+  const approvalStatus = normalizeApprovalStatus(
+    row.approval_status,
+    inferredApprovalStatus(row.status),
+  );
+  return !(approvalStatus === "pending_review" && inventory?.totalUnits === 0);
+}
+
+function isOwnerReviewLineupRow(row: DrawRoundRow) {
+  const approvalStatus = normalizeApprovalStatus(
+    row.approval_status,
+    inferredApprovalStatus(row.status),
+  );
+  return (
+    approvalStatus === "pending_review" ||
+    (approvalStatus === "approved" &&
+      (row.status === "draft" || row.visibility !== "public"))
+  );
+}
+
 async function getPublicPrizeLineupsBatch(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   rows: DrawRoundRow[],
@@ -300,51 +355,38 @@ async function getPublicPrizeLineupsBatch(
   const allVisible = Array.from(visiblePrizesByCampaign.values()).flat();
   const cardIds = [...new Set(allVisible.map((prize) => prize.card_id))];
   const prizeIds = allVisible.map((prize) => prize.id);
-
-  const [{ data: cards, error: cardsError }, { data: units, error: unitsError }] =
-    await Promise.all([
-      cardIds.length
-        ? supabase
-            .from("cards")
-            .select("id,name,card_code,grade,image_url,image_storage_path,prize_category")
-            .in("id", cardIds)
-        : Promise.resolve({ data: [], error: null } as {
-            data:
-              | {
-                  id: string;
-                  name: string;
-                  card_code?: string | null;
-                  grade?: string | null;
-                  image_url?: string | null;
-                  image_storage_path?: string | null;
-                  prize_category?: string | null;
-                }[]
-              | null;
-            error: null;
-          }),
-      prizeIds.length
-        ? supabase
-            .from("draw_round_prize_units")
-            .select("draw_round_prize_id,status")
-            .in("draw_round_prize_id", prizeIds)
-            .limit(10000)
-        : Promise.resolve({ data: [], error: null } as {
-            data: { draw_round_prize_id: string; status: string }[] | null;
-            error: null;
-          }),
-    ]);
-  if (cardsError) {
-    recordDataIssue("campaign_prize_lineup_cards", cardsError);
-  }
-  if (unitsError) {
-    recordDataIssue("campaign_prize_lineup_units", unitsError);
-  }
-
-  const cardById = new Map(
-    (cardsError ? [] : (cards ?? [])).map((card) => [card.id, card]),
+  const loadPrizeUnits = rows.some((row) =>
+    shouldQueryPrizeUnits(row, inventoryByCampaign.get(row.id)),
   );
+
+  const cards = cardIds.length
+    ? await readSupabaseRows<PrizeLineupCardRow>(
+        "campaign_prize_lineup_cards",
+        () =>
+          supabase
+            .from("cards")
+            .select(
+              "id,name,card_code,grade,image_url,image_storage_path,prize_category",
+            )
+            .in("id", cardIds),
+      )
+    : [];
+  const units =
+    loadPrizeUnits && prizeIds.length
+      ? await readSupabaseRows<PrizeUnitStatusRow>(
+          "campaign_prize_lineup_units",
+          () =>
+            supabase
+              .from("draw_round_prize_units")
+              .select("draw_round_prize_id,status")
+              .in("draw_round_prize_id", prizeIds)
+              .limit(10000),
+        )
+      : [];
+
+  const cardById = new Map(cards.map((card) => [card.id, card]));
   const countsByPrize = new Map<string, { total: number; available: number }>();
-  for (const unit of unitsError ? [] : (units ?? [])) {
+  for (const unit of units) {
     const counts = countsByPrize.get(unit.draw_round_prize_id) ?? {
       total: 0,
       available: 0,
@@ -433,30 +475,34 @@ async function getPublicPrizeLineup(
 
   const cardIds = [...new Set(visiblePrizes.map((prize) => prize.card_id))];
   const prizeIds = visiblePrizes.map((prize) => prize.id);
-  const [{ data: cards, error: cardsError }, { data: units, error: unitsError }] =
-    await Promise.all([
-      supabase
-        .from("cards")
-        .select("id,name,card_code,grade,image_url,image_storage_path,prize_category")
-        .in("id", cardIds),
-      supabase
-        .from("draw_round_prize_units")
-        .select("draw_round_prize_id,status")
-        .in("draw_round_prize_id", prizeIds)
-        .limit(10000),
-    ]);
-  if (cardsError) {
-    recordDataIssue("campaign_detail_prize_lineup_cards", cardsError);
-  }
-  if (unitsError) {
-    recordDataIssue("campaign_detail_prize_lineup_units", unitsError);
-  }
+  const cards = cardIds.length
+    ? await readSupabaseRows<PrizeLineupCardRow>(
+        "campaign_detail_prize_lineup_cards",
+        () =>
+          supabase
+            .from("cards")
+            .select(
+              "id,name,card_code,grade,image_url,image_storage_path,prize_category",
+            )
+            .in("id", cardIds),
+      )
+    : [];
+  const units =
+    shouldQueryPrizeUnits(row, inventory) && prizeIds.length
+      ? await readSupabaseRows<PrizeUnitStatusRow>(
+          "campaign_detail_prize_lineup_units",
+          () =>
+            supabase
+              .from("draw_round_prize_units")
+              .select("draw_round_prize_id,status")
+              .in("draw_round_prize_id", prizeIds)
+              .limit(10000),
+        )
+      : [];
 
-  const cardById = new Map(
-    (cardsError ? [] : (cards ?? [])).map((card) => [card.id, card]),
-  );
+  const cardById = new Map(cards.map((card) => [card.id, card]));
   const countsByPrize = new Map<string, { total: number; available: number }>();
-  for (const unit of unitsError ? [] : (units ?? [])) {
+  for (const unit of units) {
     const counts = countsByPrize.get(unit.draw_round_prize_id) ?? {
       total: 0,
       available: 0,
@@ -508,6 +554,32 @@ async function getPublicPrizeLineup(
       if (tierOrder !== 0) return tierOrder;
       return (left.tierRank ?? left.rank) - (right.tierRank ?? right.rank);
     });
+}
+
+async function getPublicPrizeLineupsIndividually(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  rows: DrawRoundRow[],
+  inventoryByCampaign: Map<string, InventorySummary>,
+  options: { includeLocked?: boolean } = {},
+): Promise<Map<string, YnotPrizePreview[]>> {
+  const out = new Map<string, YnotPrizePreview[]>();
+  for (const row of rows) {
+    try {
+      out.set(
+        row.id,
+        await getPublicPrizeLineup(
+          supabase,
+          row,
+          inventoryByCampaign.get(row.id),
+          options,
+        ),
+      );
+    } catch (error) {
+      recordDataIssue(`campaign_owner_prize_lineup_${row.slug}`, error);
+      out.set(row.id, []);
+    }
+  }
+  return out;
 }
 
 function toYnotCampaign(
@@ -923,10 +995,40 @@ export async function getYnotViewer(): Promise<YnotViewer> {
   };
 }
 
+function dataIssueMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    const parts = [
+      "message",
+      "details",
+      "hint",
+      "code",
+      "name",
+      "status",
+      "statusText",
+    ]
+      .map((key) => {
+        const value = record[key];
+        return typeof value === "string" || typeof value === "number"
+          ? `${key}=${value}`
+          : null;
+      })
+      .filter((part): part is string => Boolean(part));
+    if (parts.length) return parts.join(" | ");
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
+  }
+  return String(error);
+}
+
 function recordDataIssue(label: string, error: unknown) {
   const issue: YnotDataIssue = {
     label,
-    message: error instanceof Error ? error.message : String(error),
+    message: dataIssueMessage(error),
     recordedAt: new Date().toISOString(),
   };
   dataIssueStorage.getStore()?.push(issue);
@@ -1054,17 +1156,21 @@ async function getCampaignsImpl(
 
     let prizeLineupsByCampaign = new Map<string, YnotPrizePreview[]>();
     if (options.includePrivate && includePrizeLineups) {
+      const prizeLineupRows = rows.filter(isOwnerReviewLineupRow);
       try {
         prizeLineupsByCampaign = await getPublicPrizeLineupsBatch(
           supabase,
-          rows,
+          prizeLineupRows,
           inventoryByCampaign,
           { includeLocked: true },
         );
       } catch (error) {
         recordDataIssue("campaign_owner_prize_lineup", error);
-        prizeLineupsByCampaign = new Map(
-          rows.map((row) => [row.id, [] as YnotPrizePreview[]]),
+        prizeLineupsByCampaign = await getPublicPrizeLineupsIndividually(
+          supabase,
+          prizeLineupRows,
+          inventoryByCampaign,
+          { includeLocked: true },
         );
       }
     }
