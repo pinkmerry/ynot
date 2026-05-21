@@ -4535,6 +4535,11 @@ export function AdminCardCatalogPanel({
   const [pendingCardId, setPendingCardId] = useState("");
   const [stockDraft, setStockDraft] = useState<StockAdjustmentDraft | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [editingCard, setEditingCard] = useState<CardCatalogItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { card: CardCatalogItem; row: AdminCardCatalogRow }
+    | null
+  >(null);
   const rows = useMemo(
     () => buildAdminCardCatalogRows(cards, prizes),
     [cards, prizes],
@@ -4777,6 +4782,29 @@ export function AdminCardCatalogPanel({
                       >
                         Remove stock
                       </button>
+                      <button
+                        className="plain-button"
+                        disabled={isPending}
+                        type="button"
+                        onClick={() => setEditingCard(card)}
+                      >
+                        Edit card
+                      </button>
+                      <button
+                        className="plain-button admin-card-catalog-delete-btn"
+                        disabled={isPending || row.prizes.length > 0 || row.stockTotal - row.stockArchived > 0}
+                        type="button"
+                        title={
+                          row.prizes.length > 0
+                            ? `Cannot delete — ${row.prizes.length} pack prize slot${row.prizes.length === 1 ? "" : "s"} still reference this card.`
+                            : row.stockTotal - row.stockArchived > 0
+                              ? `Cannot delete — ${row.stockTotal - row.stockArchived} active stock unit${row.stockTotal - row.stockArchived === 1 ? "" : "s"} still exist. Use "Remove stock" until 0/${row.stockTotal} first.`
+                              : `Delete "${card.name}" permanently`
+                        }
+                        onClick={() => setDeleteTarget({ card, row })}
+                      >
+                        Delete card
+                      </button>
                     </div>
                   )}
                 </div>
@@ -4812,7 +4840,250 @@ export function AdminCardCatalogPanel({
         )}
       </div>
       {message && <p className="admin-form-message">{message}</p>}
+      {editingCard && (
+        <AdminCardEditModal
+          card={editingCard}
+          onClose={() => setEditingCard(null)}
+          onSaved={() => {
+            setEditingCard(null);
+            router.refresh();
+          }}
+        />
+      )}
+      {deleteTarget && (
+        <AdminCardDeleteModal
+          card={deleteTarget.card}
+          onCancel={() => setDeleteTarget(null)}
+          onDeleted={() => {
+            setDeleteTarget(null);
+            router.refresh();
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+function AdminCardEditModal({
+  card,
+  onClose,
+  onSaved,
+}: {
+  card: CardCatalogItem;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(card.name);
+  const [code, setCode] = useState(card.code ?? "");
+  const [series, setSeries] = useState<"pokemon" | "one_piece">(
+    (card.series as "pokemon" | "one_piece") ?? "pokemon",
+  );
+  const [grade, setGrade] = useState(card.grade ?? "");
+  const [imageUrl, setImageUrl] = useState(card.photoUrl ?? "");
+  const [isTest, setIsTest] = useState(card.isTest ?? false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/ynot/admin/cards", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cardId: card.catalogCardId,
+          name: name.trim() || card.name,
+          code: code.trim() || null,
+          series,
+          grade: grade.trim() || "Ungraded",
+          prizeCategory: card.prizeCategory,
+          imageUrl: imageUrl.trim() || null,
+          isTest,
+        }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; message?: string }
+          | null;
+        throw new Error(payload?.error || payload?.message || "Save failed");
+      }
+      onSaved();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Save failed");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div
+      className="admin-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      onClick={(event) => {
+        if (event.target === event.currentTarget && !pending) onClose();
+      }}
+    >
+      <div className="admin-modal" role="document">
+        <header className="admin-modal-head">
+          <h2 className="admin-modal-title" style={{ color: "#fff" }}>
+            Edit card
+          </h2>
+          <p className="admin-modal-subtitle">
+            Updates apply immediately. Customer collection rows that already
+            reference this card keep the new name + image after refresh.
+          </p>
+        </header>
+        <div className="admin-form-grid">
+          <label className="admin-field">
+            <span>Name</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} disabled={pending} />
+          </label>
+          <label className="admin-field">
+            <span>Code</span>
+            <input value={code} onChange={(e) => setCode(e.target.value)} disabled={pending} />
+          </label>
+          <label className="admin-field">
+            <span>Series</span>
+            <select
+              value={series}
+              onChange={(e) => setSeries(e.target.value as "pokemon" | "one_piece")}
+              disabled={pending}
+            >
+              <option value="pokemon">Pokemon</option>
+              <option value="one_piece">One Piece</option>
+            </select>
+          </label>
+          <label className="admin-field">
+            <span>Grade</span>
+            <input value={grade} onChange={(e) => setGrade(e.target.value)} disabled={pending} />
+          </label>
+          <label className="admin-field" style={{ gridColumn: "span 2" }}>
+            <span>Image URL</span>
+            <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} disabled={pending} />
+          </label>
+          <label className="admin-field" style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} disabled={pending} />
+            <span>Test-only card (hidden from public catalog)</span>
+          </label>
+        </div>
+        {error && (
+          <p className="admin-category-row-error" role="alert">
+            {error}
+          </p>
+        )}
+        <footer className="admin-modal-foot">
+          <button type="button" className="admin-modal-secondary" onClick={onClose} disabled={pending}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="admin-modal-primary"
+            onClick={save}
+            disabled={pending || !name.trim()}
+            style={{ background: "linear-gradient(135deg, #f4c542, #df9824)", color: "#161616" }}
+          >
+            {pending ? "Saving…" : "Save card"}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function AdminCardDeleteModal({
+  card,
+  onCancel,
+  onDeleted,
+}: {
+  card: CardCatalogItem;
+  onCancel: () => void;
+  onDeleted: () => void;
+}) {
+  const expectedPhrase = card.code ?? card.name;
+  const [typed, setTyped] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const matches = typed.trim() === expectedPhrase;
+
+  async function runDelete() {
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/ynot/admin/cards", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardId: card.catalogCardId }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; message?: string }
+          | null;
+        throw new Error(payload?.error || payload?.message || "Delete failed");
+      }
+      onDeleted();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Delete failed");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div
+      className="admin-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      onClick={(event) => {
+        if (event.target === event.currentTarget && !pending) onCancel();
+      }}
+    >
+      <div className="admin-modal admin-modal-danger" role="document">
+        <header className="admin-modal-head">
+          <h2 className="admin-modal-title">Delete card &quot;{card.name}&quot; permanently?</h2>
+          <p className="admin-modal-subtitle">
+            This removes the card from the catalog forever. Eligibility is
+            re-checked on the server — if any pack prize slot or active stock
+            unit still references this card, the delete will be refused.
+          </p>
+        </header>
+        <label className="admin-modal-confirm-row">
+          <span>
+            Type <code>{expectedPhrase}</code> to confirm
+          </span>
+          <input
+            type="text"
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+            disabled={pending}
+            autoFocus
+            spellCheck={false}
+            autoComplete="off"
+            className="admin-modal-confirm-input"
+            placeholder={expectedPhrase}
+          />
+        </label>
+        {error && (
+          <p className="admin-category-row-error" role="alert">
+            {error}
+          </p>
+        )}
+        <footer className="admin-modal-foot">
+          <button type="button" className="admin-modal-secondary" onClick={onCancel} disabled={pending}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="admin-modal-primary admin-modal-primary-danger"
+            onClick={runDelete}
+            disabled={!matches || pending}
+          >
+            {pending ? "Deleting…" : "Delete card"}
+          </button>
+        </footer>
+      </div>
+    </div>
   );
 }
 

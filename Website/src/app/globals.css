@@ -10448,6 +10448,20 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   padding: 7px 10px;
 }
 
+.admin-stock-action-row .admin-card-catalog-delete-btn {
+  border-color: rgba(220, 38, 38, 0.55) !important;
+  color: #fca5a5 !important;
+}
+.admin-stock-action-row .admin-card-catalog-delete-btn:hover:not(:disabled) {
+  background: #b91c1c !important;
+  color: #ffffff !important;
+  border-color: #b91c1c !important;
+}
+.admin-stock-action-row .admin-card-catalog-delete-btn:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.5 !important;
+}
+
 .admin-stock-confirm {
   background: rgba(255, 255, 255, 0.045);
   border: 1px solid rgba(255, 255, 255, 0.1);
