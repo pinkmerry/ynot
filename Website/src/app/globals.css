@@ -24430,3 +24430,1527 @@ html[data-ynot-theme] .admin-frame .owner-approval-card :where(.owner-approval-c
   text-decoration: none !important;
   font-size: 12px !important;
 }
+
+/* ============================================================
+   Inventory-inspired admin theme
+   Matches inventory.yfifteen.com's quieter operations UI:
+   sage paper background, thin borders, compact typography, and
+   restrained black primary actions. Scoped to admin only.
+   ============================================================ */
+.admin-frame {
+  --a-bg: #f5f7f1;
+  --a-bg-2: #eef2ea;
+  --a-surface: #ffffff;
+  --a-surface-2: #f8faf5;
+  --a-surface-3: #edf1e8;
+  --a-sidebar: #eef2ea;
+  --a-sidebar-active: #e3e9df;
+  --a-border: rgba(24, 28, 22, 0.12);
+  --a-border-soft: rgba(24, 28, 22, 0.10);
+  --a-border-strong: rgba(24, 28, 22, 0.18);
+  --a-fg: #151715;
+  --a-fg-dim: #3d413c;
+  --a-muted: #6f776b;
+  --a-muted-2: #9aa394;
+  --a-primary: #151715;
+  --a-primary-fg: #f7f8f3;
+  --a-gold: #b78b28;
+  --a-gold-2: #d0ad55;
+  --a-mint: #05a66b;
+  --a-sky: #496f96;
+  --a-rose: #bd4854;
+  --a-amber: #b8732e;
+  --a-shadow-card: 0 1px 2px rgba(24, 28, 22, 0.04);
+
+  grid-template-columns: 256px minmax(0, 1fr);
+  background: var(--a-bg);
+  color: var(--a-fg);
+  font-family: "Inter", "Noto Sans Thai", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  font-feature-settings: "cv11", "tnum";
+  letter-spacing: -0.011em;
+}
+
+.admin-frame .mono,
+.admin-frame .text-mono,
+.admin-frame .pre-block,
+.admin-frame .admin-code-block,
+.admin-frame .a-nav-kbd {
+  font-family: "JetBrains Mono", "Geist Mono", ui-monospace, "SF Mono", monospace;
+}
+
+.admin-frame .a-side {
+  background: var(--a-sidebar);
+  border-right: 1px solid var(--a-border);
+  box-shadow: none;
+  padding: 18px 14px 20px;
+}
+
+.admin-frame .a-brand {
+  border-bottom: 1px solid var(--a-border);
+  padding: 4px 8px 16px;
+}
+
+.admin-frame .a-brand-mark {
+  background: var(--a-primary);
+  color: var(--a-primary-fg);
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.admin-frame .a-brand-name {
+  display: block;
+  color: var(--a-fg);
+  font-weight: 650;
+}
+
+.admin-frame .a-brand-env {
+  display: block;
+}
+
+.admin-frame .a-brand-env,
+.admin-frame .a-side-label {
+  color: var(--a-muted);
+  letter-spacing: 0.12em;
+}
+
+.admin-frame .a-side a,
+.admin-frame .a-side .a-nav {
+  color: var(--a-fg-dim);
+  border-radius: 9px;
+  font-weight: 500;
+}
+
+.admin-frame .a-side a:hover,
+.admin-frame .a-side .a-nav:hover {
+  background: rgba(21, 23, 21, 0.045);
+  color: var(--a-fg);
+}
+
+.admin-frame .a-side .a-nav.active {
+  background: var(--a-sidebar-active);
+  color: var(--a-fg);
+  box-shadow: inset 0 0 0 1px var(--a-border);
+}
+
+.admin-frame .a-side .a-nav.active .a-nav-ico,
+.admin-frame .a-nav-ico {
+  color: var(--a-fg);
+}
+
+.admin-frame .a-nav-kbd {
+  color: var(--a-muted-2);
+}
+
+.admin-frame .a-nav-badge {
+  background: rgba(189, 72, 84, 0.10);
+  color: var(--a-rose);
+}
+
+.admin-frame .a-side-foot {
+  background: rgba(255, 255, 255, 0.52);
+  border-color: var(--a-border);
+  border-radius: 12px;
+}
+
+.admin-frame .a-side-foot .av {
+  background: var(--a-primary);
+  color: var(--a-primary-fg);
+}
+
+.admin-frame .a-side-foot .nm {
+  color: var(--a-fg);
+}
+
+.admin-frame .a-side-foot .rl {
+  color: var(--a-muted);
+}
+
+.admin-frame .a-main {
+  background: var(--a-bg);
+}
+
+.admin-frame .a-top {
+  height: 58px;
+  background: rgba(245, 247, 241, 0.88);
+  border-bottom: 1px solid var(--a-border);
+  backdrop-filter: blur(14px);
+}
+
+.admin-frame .a-top-menu {
+  background: rgba(255, 255, 255, 0.62);
+  border-color: var(--a-border);
+  border-radius: 11px;
+}
+
+.admin-frame .a-top-menu a {
+  color: var(--a-muted);
+  border-radius: 8px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.admin-frame .a-top-menu a:hover,
+.admin-frame .a-top-menu a:focus-visible {
+  background: var(--a-sidebar-active);
+  color: var(--a-fg);
+}
+
+.admin-frame .a-top-menu a.home,
+.admin-frame .a-top-menu a.home:hover,
+.admin-frame .a-top-menu a.home:focus-visible {
+  background: var(--a-primary);
+  color: var(--a-primary-fg);
+  filter: none;
+}
+
+.admin-frame .a-breadcrumbs {
+  color: var(--a-muted);
+}
+
+.admin-frame .a-breadcrumbs .now,
+.admin-frame .a-page-title,
+.admin-frame .card-head h3,
+.admin-frame .tbl td .row-title {
+  color: var(--a-fg);
+}
+
+.admin-frame .a-search {
+  background: rgba(255, 255, 255, 0.66);
+  border-color: var(--a-border);
+  border-radius: 10px;
+  color: var(--a-muted);
+}
+
+.admin-frame .a-icon-btn {
+  background: rgba(255, 255, 255, 0.62);
+  border-color: var(--a-border);
+  border-radius: 10px;
+  color: var(--a-fg-dim);
+}
+
+.admin-frame .a-icon-btn:hover {
+  background: #fff;
+  color: var(--a-fg);
+}
+
+.admin-frame .a-content {
+  padding: 26px 28px 44px;
+  gap: 18px;
+}
+
+.admin-frame .a-eyebrow,
+.admin-frame .section-label,
+.admin-frame .admin-kicker,
+.admin-frame .admin-form-head span,
+.admin-frame .admin-section-title span {
+  color: var(--a-muted) !important;
+  letter-spacing: 0.12em;
+}
+
+.admin-frame .a-page-title {
+  font-size: 24px;
+  letter-spacing: -0.022em;
+  font-weight: 650;
+}
+
+.admin-frame .a-page-desc,
+.admin-frame .text-mute,
+.admin-frame .text-dim,
+.admin-frame .tbl td .row-sub,
+.admin-frame .tbl td.muted,
+.admin-frame .admin-id-line,
+.admin-frame .admin-muted-line,
+.admin-frame .admin-empty-note {
+  color: var(--a-muted) !important;
+}
+
+.admin-frame .card,
+.admin-frame .kpi {
+  background: var(--a-surface);
+  border: 1px solid var(--a-border);
+  border-radius: 12px;
+  box-shadow: var(--a-shadow-card);
+}
+
+.admin-frame .card {
+  overflow: hidden;
+}
+
+.admin-frame .card-head {
+  background: var(--a-surface-2);
+  border-bottom: 1px solid var(--a-border);
+  padding: 12px 16px;
+}
+
+.admin-frame .card-pad {
+  padding: 16px;
+}
+
+.admin-frame .kpi {
+  padding: 14px 16px;
+}
+
+.admin-frame .kpi .label {
+  color: var(--a-muted);
+  letter-spacing: 0.11em;
+}
+
+.admin-frame .kpi .value {
+  color: var(--a-fg);
+  font-size: 23px;
+}
+
+.admin-frame .btn {
+  background: #fff;
+  border-color: var(--a-border);
+  border-radius: 10px;
+  color: var(--a-fg);
+  box-shadow: none;
+}
+
+.admin-frame .btn:hover {
+  background: var(--a-surface-3);
+}
+
+.admin-frame .btn-primary,
+.admin-frame .btn-primary:hover,
+.admin-frame .gold-button,
+.admin-frame .primary-action,
+.admin-frame .admin-form-save {
+  background: var(--a-primary) !important;
+  border-color: var(--a-primary) !important;
+  color: var(--a-primary-fg) !important;
+  filter: none;
+}
+
+.admin-frame .btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--a-muted);
+}
+
+.admin-frame .btn-ghost:hover {
+  background: var(--a-surface-3);
+  color: var(--a-fg);
+}
+
+.admin-frame .tabs {
+  background: #fff;
+  border-color: var(--a-border);
+  border-radius: 11px;
+}
+
+.admin-frame .tabs .t {
+  color: var(--a-muted);
+  border-radius: 8px;
+}
+
+.admin-frame .tabs .t.active {
+  background: var(--a-primary);
+  color: var(--a-primary-fg);
+  box-shadow: none;
+}
+
+.admin-frame .chip,
+.admin-frame .pill,
+.admin-frame .tier-pill,
+.admin-frame .row-card,
+.admin-frame .admin-list-card {
+  background: var(--a-surface-2) !important;
+  border-color: var(--a-border) !important;
+  color: var(--a-fg-dim) !important;
+}
+
+.admin-frame .pill.live,
+.admin-frame .status-pill.ready,
+.admin-frame .status-pill.live,
+.admin-frame .status-pill.approved,
+.admin-frame .status-pill.delivered,
+.admin-frame .status-pill.active,
+.admin-frame .status-pill.completed {
+  background: rgba(5, 166, 107, 0.10) !important;
+  border-color: rgba(5, 166, 107, 0.24) !important;
+  color: #05734d !important;
+}
+
+.admin-frame .pill.review,
+.admin-frame .pill.warn,
+.admin-frame .status-pill.warn,
+.admin-frame .status-pill.pending,
+.admin-frame .status-pill.changes_requested,
+.admin-frame .status-pill.pending_slip {
+  background: rgba(184, 115, 46, 0.10) !important;
+  border-color: rgba(184, 115, 46, 0.24) !important;
+  color: #925719 !important;
+}
+
+.admin-frame .pill.fail,
+.admin-frame .status-pill.fail,
+.admin-frame .status-pill.rejected,
+.admin-frame .status-pill.error {
+  background: rgba(189, 72, 84, 0.10) !important;
+  border-color: rgba(189, 72, 84, 0.24) !important;
+  color: var(--a-rose) !important;
+}
+
+.admin-frame .pill.closed,
+.admin-frame .pill.draft,
+.admin-frame .pill.archived {
+  background: rgba(73, 111, 150, 0.08) !important;
+  border-color: rgba(73, 111, 150, 0.18) !important;
+  color: var(--a-sky) !important;
+}
+
+.admin-frame .tbl thead th,
+.admin-frame .admin-data-table thead th {
+  background: var(--a-surface-2) !important;
+  border-bottom: 1px solid var(--a-border);
+  color: var(--a-muted) !important;
+}
+
+.admin-frame .tbl tbody td,
+.admin-frame .admin-data-table tbody td {
+  border-bottom: 1px solid var(--a-border);
+  color: var(--a-fg) !important;
+}
+
+.admin-frame .tbl tbody tr:hover {
+  background: var(--a-surface-2);
+}
+
+.admin-frame .input,
+.admin-frame .select,
+.admin-frame .textarea,
+.admin-frame .soft-card input,
+.admin-frame .soft-card select,
+.admin-frame .soft-card textarea,
+.admin-frame .admin-panel input,
+.admin-frame .admin-panel select,
+.admin-frame .admin-panel textarea,
+.admin-frame .admin-pack-form input,
+.admin-frame .admin-pack-form select,
+.admin-frame .admin-pack-form textarea {
+  background: #fff !important;
+  border-color: var(--a-border) !important;
+  border-radius: 10px !important;
+  color: var(--a-fg) !important;
+}
+
+.admin-frame .input:focus,
+.admin-frame .select:focus,
+.admin-frame .textarea:focus,
+.admin-frame .soft-card input:focus,
+.admin-frame .soft-card select:focus,
+.admin-frame .soft-card textarea:focus,
+.admin-frame .admin-panel input:focus,
+.admin-frame .admin-panel select:focus,
+.admin-frame .admin-panel textarea:focus,
+.admin-frame .admin-pack-form input:focus,
+.admin-frame .admin-pack-form select:focus,
+.admin-frame .admin-pack-form textarea:focus {
+  border-color: rgba(5, 166, 107, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(5, 166, 107, 0.08) !important;
+}
+
+.admin-frame .pre-block,
+.admin-frame .admin-code-block {
+  background: var(--a-surface-2) !important;
+  border-color: var(--a-border) !important;
+  color: var(--a-fg-dim) !important;
+}
+
+.admin-frame .soft-card,
+.admin-frame .admin-panel,
+.admin-frame .admin-form-panel,
+.admin-frame .admin-pack-form,
+.admin-frame .admin-pack-form-horizontal,
+.admin-frame .admin-pack-list,
+.admin-frame .admin-table-panel,
+.admin-frame .admin-card-catalog-panel,
+.admin-frame .admin-inventory-panel,
+.admin-frame .admin-clean-hero,
+.admin-frame .admin-category-intro,
+.admin-frame .admin-category-contract,
+.admin-frame .admin-category-clean-card,
+.admin-frame .owner-approval-queue,
+.admin-frame .admin-prize-workspace,
+.admin-frame .admin-form-step,
+.admin-frame .admin-form-grid,
+.admin-frame .admin-form-grid-three,
+.admin-frame .admin-prize-tier-stack,
+.admin-frame .admin-prize-summary-grid,
+.admin-frame .admin-prize-tier-row,
+.admin-frame .admin-prize-table-wrap,
+.admin-frame .admin-prize-rank-cell,
+.admin-frame .wallet-balance-card,
+.admin-frame .wallet-method-card,
+.admin-frame .wallet-history-card,
+.admin-frame .topup-slip-card,
+.admin-frame .empty-state,
+.admin-frame .metric-card,
+.admin-frame .payment-method-card,
+.admin-frame .ranking-phone,
+.admin-frame .page-intro {
+  background: var(--a-surface) !important;
+  background-image: none !important;
+  border-color: var(--a-border) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--a-shadow-card) !important;
+  color: var(--a-fg) !important;
+}
+
+.admin-frame .card .soft-card,
+.admin-frame .card .admin-panel,
+.admin-frame .card .admin-form-panel,
+.admin-frame .card .admin-pack-form,
+.admin-frame .card .admin-pack-form-horizontal,
+.admin-frame .card .admin-pack-list,
+.admin-frame .card .admin-table-panel,
+.admin-frame .card .admin-card-catalog-panel,
+.admin-frame .card .admin-inventory-panel,
+.admin-frame .card .owner-approval-queue,
+.admin-frame .card .admin-prize-workspace,
+.admin-frame .card .wallet-balance-card,
+.admin-frame .card .wallet-method-card,
+.admin-frame .card .wallet-history-card {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.admin-frame .soft-card h1,
+.admin-frame .soft-card h2,
+.admin-frame .soft-card h3,
+.admin-frame .soft-card h4,
+.admin-frame .soft-card strong,
+.admin-frame .admin-panel h1,
+.admin-frame .admin-panel h2,
+.admin-frame .admin-panel h3,
+.admin-frame .admin-panel h4,
+.admin-frame .admin-panel strong,
+.admin-frame .admin-pack-form h1,
+.admin-frame .admin-pack-form h2,
+.admin-frame .admin-pack-form h3,
+.admin-frame .admin-pack-form h4,
+.admin-frame .admin-pack-form strong,
+.admin-frame .admin-form-head h1,
+.admin-frame .admin-form-head h2,
+.admin-frame .admin-form-head h3,
+.admin-frame .admin-form-head h4,
+.admin-frame .admin-form-head strong,
+.admin-frame .admin-panel-compact-head strong,
+.admin-frame .admin-pack-builder-head h3,
+.admin-frame .admin-clean-hero h2,
+.admin-frame .admin-category-intro h3 {
+  color: var(--a-fg) !important;
+}
+
+.admin-frame .soft-card p,
+.admin-frame .soft-card label,
+.admin-frame .soft-card span,
+.admin-frame .soft-card li,
+.admin-frame .soft-card dd,
+.admin-frame .soft-card dt,
+.admin-frame .admin-panel p,
+.admin-frame .admin-panel label,
+.admin-frame .admin-panel li,
+.admin-frame .admin-pack-form p,
+.admin-frame .admin-pack-form label,
+.admin-frame .admin-pack-form li,
+.admin-frame .admin-form-head p,
+.admin-frame .admin-form-step p,
+.admin-frame .admin-form-step label,
+.admin-frame .admin-panel-compact-head p,
+.admin-frame .admin-clean-hero p,
+.admin-frame .admin-category-intro p {
+  color: var(--a-muted) !important;
+}
+
+.admin-frame .thumb {
+  background: var(--a-surface-3);
+  border-color: var(--a-border);
+  color: var(--a-muted);
+}
+
+.admin-frame .bar {
+  background: var(--a-surface-3);
+}
+
+.admin-frame .toggle {
+  background: var(--a-surface-3);
+}
+
+.admin-frame .toggle::after {
+  background: var(--a-muted);
+}
+
+.admin-frame .toggle.on {
+  background: rgba(5, 166, 107, 0.22);
+}
+
+.admin-frame .toggle.on::after {
+  background: var(--a-mint);
+}
+
+@media (max-width: 1024px) {
+  .admin-frame {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-frame .a-side {
+    background: var(--a-sidebar);
+    border-bottom: 1px solid var(--a-border);
+    border-right: 0;
+  }
+
+  .admin-frame .a-side-section {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .admin-frame .a-side-section::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-frame .a-side .a-nav {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-frame .a-side {
+    align-items: stretch;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .admin-frame .a-brand {
+    width: 100%;
+  }
+
+  .admin-frame .a-side-section {
+    width: 100%;
+    flex-wrap: nowrap;
+  }
+
+  .admin-frame .a-side-foot {
+    display: none;
+  }
+
+  .admin-frame .a-top {
+    height: auto;
+    min-height: 0;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+
+  .admin-frame .a-top-menu {
+    width: 100%;
+    order: 1;
+  }
+
+  .admin-frame .a-breadcrumbs {
+    width: 100%;
+    order: 2;
+  }
+
+  .admin-frame .a-search {
+    width: 100%;
+    margin-left: 0;
+    order: 3;
+  }
+
+  .admin-frame .a-top-actions {
+    order: 4;
+  }
+
+  .admin-frame .a-content {
+    padding: 18px 14px 32px;
+  }
+
+  .admin-frame .a-page-head {
+    align-items: flex-start;
+  }
+
+  .admin-frame .a-page-title {
+    font-size: 22px;
+  }
+
+  .admin-frame .a-page-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+}
+
+/* ============================================================
+   Inventory dark correction
+   inventory.yfifteen.com uses this charcoal/sage dark theme by
+   default. Keep it after the light experiment so it wins.
+   ============================================================ */
+.admin-frame {
+  --a-bg: oklch(18% 0.004 150);
+  --a-bg-2: oklch(19.5% 0.004 150);
+  --a-surface: oklch(21.5% 0.005 150);
+  --a-surface-2: oklch(24% 0.005 150);
+  --a-surface-3: oklch(26% 0.005 150);
+  --a-sidebar: oklch(15.5% 0.004 150);
+  --a-sidebar-active: oklch(23% 0.005 150);
+  --a-border: oklch(96% 0.008 130 / 0.08);
+  --a-border-soft: oklch(96% 0.008 130 / 0.06);
+  --a-border-strong: oklch(96% 0.008 130 / 0.14);
+  --a-fg: oklch(96% 0.008 130);
+  --a-fg-dim: oklch(82% 0.007 135);
+  --a-muted: oklch(65% 0.006 140);
+  --a-muted-2: oklch(48% 0.006 145);
+  --a-primary: oklch(96% 0.008 130);
+  --a-primary-fg: oklch(18% 0.004 150);
+  --a-gold: oklch(78% 0.13 85);
+  --a-gold-2: oklch(72% 0.12 85);
+  --a-mint: oklch(72% 0.16 150);
+  --a-sky: oklch(65% 0.16 250);
+  --a-rose: oklch(70% 0.19 22);
+  --a-amber: oklch(82% 0.16 90);
+  --a-shadow-card: none;
+
+  background: var(--a-bg) !important;
+  color: var(--a-fg) !important;
+}
+
+.admin-frame .a-main,
+.admin-frame .a-content {
+  background: var(--a-bg) !important;
+}
+
+.admin-frame .a-side {
+  background: var(--a-sidebar) !important;
+  border-color: var(--a-border) !important;
+}
+
+.admin-frame .a-brand {
+  border-color: var(--a-border) !important;
+}
+
+.admin-frame .a-brand-mark,
+.admin-frame .a-side-foot .av {
+  background: var(--a-primary) !important;
+  color: var(--a-primary-fg) !important;
+}
+
+.admin-frame .a-brand-name,
+.admin-frame .a-breadcrumbs .now,
+.admin-frame .a-page-title,
+.admin-frame .card-head h3,
+.admin-frame .tbl td .row-title,
+.admin-frame .admin-data-table strong {
+  color: var(--a-fg) !important;
+}
+
+.admin-frame .a-brand-env,
+.admin-frame .a-side-label,
+.admin-frame .a-breadcrumbs,
+.admin-frame .a-page-desc,
+.admin-frame .text-mute,
+.admin-frame .text-dim,
+.admin-frame .tbl td .row-sub,
+.admin-frame .tbl td.muted,
+.admin-frame .admin-id-line,
+.admin-frame .admin-muted-line,
+.admin-frame .admin-empty-note,
+.admin-frame .soft-card p,
+.admin-frame .soft-card label,
+.admin-frame .soft-card span,
+.admin-frame .soft-card li,
+.admin-frame .soft-card dd,
+.admin-frame .soft-card dt,
+.admin-frame .admin-panel p,
+.admin-frame .admin-panel label,
+.admin-frame .admin-panel li,
+.admin-frame .admin-pack-form p,
+.admin-frame .admin-pack-form label,
+.admin-frame .admin-pack-form li,
+.admin-frame .admin-form-head p,
+.admin-frame .admin-form-step p,
+.admin-frame .admin-form-step label,
+.admin-frame .admin-panel-compact-head p,
+.admin-frame .admin-clean-hero p,
+.admin-frame .admin-category-intro p {
+  color: var(--a-muted) !important;
+}
+
+.admin-frame .a-eyebrow,
+.admin-frame .section-label,
+.admin-frame .admin-kicker,
+.admin-frame .admin-form-head span,
+.admin-frame .admin-section-title span {
+  color: var(--a-muted) !important;
+}
+
+.admin-frame .a-side a,
+.admin-frame .a-side .a-nav {
+  color: var(--a-fg-dim) !important;
+}
+
+.admin-frame .a-side a:hover,
+.admin-frame .a-side .a-nav:hover {
+  background: var(--a-sidebar-active) !important;
+  color: var(--a-fg) !important;
+}
+
+.admin-frame .a-side .a-nav.active {
+  background: var(--a-sidebar-active) !important;
+  border-color: var(--a-border) !important;
+  color: var(--a-fg) !important;
+}
+
+.admin-frame .a-side .a-nav.active .a-nav-ico,
+.admin-frame .a-nav-ico {
+  color: var(--a-fg-dim) !important;
+}
+
+.admin-frame .a-nav-badge {
+  background: oklch(70% 0.19 22 / 0.12) !important;
+  color: var(--a-rose) !important;
+}
+
+.admin-frame .a-side-foot {
+  background: oklch(18% 0.004 150 / 0.72) !important;
+  border-color: var(--a-border) !important;
+}
+
+.admin-frame .a-top {
+  background: oklch(18% 0.004 150 / 0.86) !important;
+  border-color: var(--a-border) !important;
+}
+
+.admin-frame .a-top-menu,
+.admin-frame .a-search,
+.admin-frame .a-icon-btn {
+  background: oklch(21.5% 0.005 150 / 0.78) !important;
+  border-color: var(--a-border) !important;
+  color: var(--a-muted) !important;
+}
+
+.admin-frame .a-top-menu a {
+  color: var(--a-muted) !important;
+}
+
+.admin-frame .a-top-menu a:hover,
+.admin-frame .a-top-menu a:focus-visible,
+.admin-frame .a-icon-btn:hover {
+  background: var(--a-surface-3) !important;
+  color: var(--a-fg) !important;
+}
+
+.admin-frame .a-top-menu a.home,
+.admin-frame .a-top-menu a.home:hover,
+.admin-frame .a-top-menu a.home:focus-visible {
+  background: var(--a-primary) !important;
+  color: var(--a-primary-fg) !important;
+}
+
+.admin-frame .card,
+.admin-frame .kpi,
+.admin-frame .soft-card,
+.admin-frame .admin-panel,
+.admin-frame .admin-form-panel,
+.admin-frame .admin-pack-form,
+.admin-frame .admin-pack-form-horizontal,
+.admin-frame .admin-pack-list,
+.admin-frame .admin-table-panel,
+.admin-frame .admin-card-catalog-panel,
+.admin-frame .admin-inventory-panel,
+.admin-frame .admin-clean-hero,
+.admin-frame .admin-category-intro,
+.admin-frame .admin-category-contract,
+.admin-frame .admin-category-clean-card,
+.admin-frame .owner-approval-queue,
+.admin-frame .admin-prize-workspace,
+.admin-frame .admin-form-step,
+.admin-frame .admin-form-grid,
+.admin-frame .admin-form-grid-three,
+.admin-frame .admin-prize-tier-stack,
+.admin-frame .admin-prize-summary-grid,
+.admin-frame .admin-prize-tier-row,
+.admin-frame .admin-prize-table-wrap,
+.admin-frame .admin-prize-rank-cell,
+.admin-frame .wallet-balance-card,
+.admin-frame .wallet-method-card,
+.admin-frame .wallet-history-card,
+.admin-frame .topup-slip-card,
+.admin-frame .empty-state,
+.admin-frame .metric-card,
+.admin-frame .payment-method-card,
+.admin-frame .ranking-phone,
+.admin-frame .page-intro {
+  background: var(--a-surface) !important;
+  background-image: none !important;
+  border-color: var(--a-border) !important;
+  box-shadow: var(--a-shadow-card) !important;
+  color: var(--a-fg) !important;
+}
+
+.admin-frame .card-head,
+.admin-frame .tbl thead th,
+.admin-frame .admin-data-table thead th {
+  background: var(--a-surface-2) !important;
+  border-color: var(--a-border) !important;
+  color: var(--a-muted) !important;
+}
+
+.admin-frame .tbl tbody td,
+.admin-frame .admin-data-table tbody td {
+  border-color: var(--a-border-soft) !important;
+  color: var(--a-fg-dim) !important;
+}
+
+.admin-frame .tbl tbody tr:hover,
+.admin-frame .row-card:hover,
+.admin-frame .admin-list-card:hover {
+  background: var(--a-surface-2) !important;
+}
+
+.admin-frame .btn,
+.admin-frame .btn-primary,
+.admin-frame .btn-primary:hover,
+.admin-frame .gold-button,
+.admin-frame .primary-action,
+.admin-frame .admin-form-save {
+  background: var(--a-primary) !important;
+  border-color: var(--a-primary) !important;
+  color: var(--a-primary-fg) !important;
+  box-shadow: none !important;
+}
+
+.admin-frame .btn:hover,
+.admin-frame .btn-ghost:hover {
+  background: var(--a-surface-3) !important;
+  border-color: var(--a-border-strong) !important;
+  color: var(--a-fg) !important;
+}
+
+.admin-frame .btn-ghost {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--a-muted) !important;
+}
+
+.admin-frame .tabs,
+.admin-frame .chip,
+.admin-frame .pill,
+.admin-frame .tier-pill,
+.admin-frame .row-card,
+.admin-frame .admin-list-card,
+.admin-frame .pre-block,
+.admin-frame .admin-code-block,
+.admin-frame .thumb,
+.admin-frame .bar,
+.admin-frame .toggle {
+  background: var(--a-surface-2) !important;
+  border-color: var(--a-border) !important;
+  color: var(--a-fg-dim) !important;
+}
+
+.admin-frame .tabs .t {
+  color: var(--a-muted) !important;
+}
+
+.admin-frame .tabs .t.active {
+  background: var(--a-primary) !important;
+  color: var(--a-primary-fg) !important;
+}
+
+.admin-frame .input,
+.admin-frame .select,
+.admin-frame .textarea,
+.admin-frame .soft-card input,
+.admin-frame .soft-card select,
+.admin-frame .soft-card textarea,
+.admin-frame .admin-panel input,
+.admin-frame .admin-panel select,
+.admin-frame .admin-panel textarea,
+.admin-frame .admin-pack-form input,
+.admin-frame .admin-pack-form select,
+.admin-frame .admin-pack-form textarea {
+  background: var(--a-surface-2) !important;
+  border-color: var(--a-border) !important;
+  color: var(--a-fg) !important;
+}
+
+.admin-frame .input::placeholder,
+.admin-frame .textarea::placeholder {
+  color: var(--a-muted-2) !important;
+}
+
+.admin-frame .input:focus,
+.admin-frame .select:focus,
+.admin-frame .textarea:focus,
+.admin-frame .soft-card input:focus,
+.admin-frame .soft-card select:focus,
+.admin-frame .soft-card textarea:focus,
+.admin-frame .admin-panel input:focus,
+.admin-frame .admin-panel select:focus,
+.admin-frame .admin-panel textarea:focus,
+.admin-frame .admin-pack-form input:focus,
+.admin-frame .admin-pack-form select:focus,
+.admin-frame .admin-pack-form textarea:focus {
+  border-color: oklch(96% 0.008 130 / 0.32) !important;
+  box-shadow: 0 0 0 3px oklch(96% 0.008 130 / 0.06) !important;
+}
+
+.admin-frame .pill.live,
+.admin-frame .status-pill.ready,
+.admin-frame .status-pill.live,
+.admin-frame .status-pill.approved,
+.admin-frame .status-pill.delivered,
+.admin-frame .status-pill.active,
+.admin-frame .status-pill.completed {
+  background: oklch(72% 0.16 150 / 0.12) !important;
+  border-color: oklch(72% 0.16 150 / 0.24) !important;
+  color: var(--a-mint) !important;
+}
+
+.admin-frame .pill.review,
+.admin-frame .pill.warn,
+.admin-frame .status-pill.warn,
+.admin-frame .status-pill.pending,
+.admin-frame .status-pill.changes_requested,
+.admin-frame .status-pill.pending_slip {
+  background: oklch(82% 0.16 90 / 0.12) !important;
+  border-color: oklch(82% 0.16 90 / 0.24) !important;
+  color: var(--a-amber) !important;
+}
+
+.admin-frame .pill.fail,
+.admin-frame .status-pill.fail,
+.admin-frame .status-pill.rejected,
+.admin-frame .status-pill.error {
+  background: oklch(70% 0.19 22 / 0.12) !important;
+  border-color: oklch(70% 0.19 22 / 0.24) !important;
+  color: var(--a-rose) !important;
+}
+
+.admin-frame .pill.closed,
+.admin-frame .pill.draft,
+.admin-frame .pill.archived {
+  background: oklch(65% 0.16 250 / 0.10) !important;
+  border-color: oklch(65% 0.16 250 / 0.20) !important;
+  color: var(--a-sky) !important;
+}
+
+/* ============================================================
+   Inventory dark component pass
+   Matches inventory.yfifteen.com control density: Inter/Noto Thai,
+   compact h-8 actions, h-9 fields, thin borders, soft radii.
+   ============================================================ */
+.admin-frame {
+  --a-radius: 0.625rem;
+  --a-radius-sm: 0.375rem;
+  --a-radius-md: 0.5rem;
+  --a-control-h: 2rem;
+  --a-field-h: 2.25rem;
+
+  font-family: var(--font-inter), var(--font-noto-thai), -apple-system,
+    BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif !important;
+  font-feature-settings: "cv11", "ss01", "kern";
+  letter-spacing: -0.011em;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.admin-frame button,
+.admin-frame input,
+.admin-frame select,
+.admin-frame textarea {
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+.admin-frame :lang(th),
+.admin-frame :lang(th) h1,
+.admin-frame :lang(th) h2,
+.admin-frame :lang(th) h3,
+.admin-frame :lang(th) h4 {
+  letter-spacing: normal;
+}
+
+.admin-frame h1,
+.admin-frame h2,
+.admin-frame h3,
+.admin-frame h4 {
+  letter-spacing: -0.022em;
+}
+
+.admin-frame .a-side {
+  width: 16rem;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+.admin-frame .a-brand {
+  min-height: 3.5rem !important;
+  padding: 0.5rem 1rem !important;
+  gap: 0.75rem !important;
+}
+
+.admin-frame .a-brand-mark {
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  border-radius: var(--a-radius-sm) !important;
+  font-size: 0.875rem !important;
+  font-weight: 700 !important;
+}
+
+.admin-frame .a-brand-name {
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.011em !important;
+}
+
+.admin-frame .a-brand-env {
+  font-size: 0.625rem !important;
+  line-height: 0.875rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.05em !important;
+}
+
+.admin-frame .a-side-section {
+  padding: 0.5rem 0.75rem !important;
+  gap: 0.25rem !important;
+}
+
+.admin-frame .a-side-label {
+  margin: 0.35rem 0.5rem 0.25rem !important;
+  font-size: 0.65rem !important;
+  line-height: 1rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.08em !important;
+}
+
+.admin-frame .a-side a,
+.admin-frame .a-side .a-nav {
+  min-height: 2rem !important;
+  height: 2rem !important;
+  padding: 0 0.5rem !important;
+  gap: 0.5rem !important;
+  border-radius: var(--a-radius-sm) !important;
+  border-width: 0 !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.011em !important;
+}
+
+.admin-frame .a-side .a-nav.active {
+  font-weight: 500 !important;
+}
+
+.admin-frame .a-nav-ico,
+.admin-frame .a-nav svg {
+  width: 1rem !important;
+  height: 1rem !important;
+}
+
+.admin-frame .a-nav svg {
+  stroke-width: 2 !important;
+}
+
+.admin-frame .a-nav-kbd,
+.admin-frame .a-nav-badge {
+  min-width: 1.25rem !important;
+  height: 1.25rem !important;
+  padding: 0 0.375rem !important;
+  border-radius: var(--a-radius-sm) !important;
+  font-size: 0.625rem !important;
+  line-height: 1rem !important;
+  font-weight: 500 !important;
+}
+
+.admin-frame .a-side-foot {
+  margin: 0.75rem !important;
+  padding: 0.75rem !important;
+  border-radius: var(--a-radius) !important;
+}
+
+.admin-frame .a-top {
+  min-height: 3.5rem !important;
+  padding: 0.75rem 1rem !important;
+  gap: 0.75rem !important;
+}
+
+.admin-frame .a-top-menu {
+  min-height: 2rem !important;
+  height: 2rem !important;
+  padding: 0.125rem !important;
+  gap: 0.125rem !important;
+  border-radius: var(--a-radius-md) !important;
+}
+
+.admin-frame .a-top-menu a,
+.admin-frame .a-icon-btn {
+  min-height: 2rem !important;
+  height: 2rem !important;
+  border-radius: var(--a-radius-sm) !important;
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+}
+
+.admin-frame .a-top-menu a {
+  padding: 0 0.75rem !important;
+  gap: 0.5rem !important;
+}
+
+.admin-frame .a-icon-btn {
+  width: 2rem !important;
+  padding: 0 !important;
+}
+
+.admin-frame .a-search {
+  min-height: 2rem !important;
+  height: 2rem !important;
+  padding: 0 0.625rem !important;
+  border-radius: var(--a-radius-md) !important;
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
+  font-weight: 400 !important;
+}
+
+.admin-frame .a-content {
+  padding: 1.5rem !important;
+  gap: 1.5rem !important;
+}
+
+.admin-frame .a-page-head {
+  gap: 1rem !important;
+}
+
+.admin-frame .a-eyebrow,
+.admin-frame .section-label,
+.admin-frame .admin-kicker,
+.admin-frame .admin-form-head span,
+.admin-frame .admin-section-title span {
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+}
+
+.admin-frame .a-page-title {
+  margin: 0.125rem 0 0 !important;
+  font-size: 1.5rem !important;
+  line-height: 2rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.022em !important;
+}
+
+.admin-frame .a-page-desc {
+  margin-top: 0.25rem !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  font-weight: 400 !important;
+}
+
+.admin-frame .card,
+.admin-frame .kpi,
+.admin-frame .soft-card,
+.admin-frame .admin-panel,
+.admin-frame .admin-form-panel,
+.admin-frame .admin-pack-form,
+.admin-frame .admin-pack-form-horizontal,
+.admin-frame .admin-pack-list,
+.admin-frame .admin-table-panel,
+.admin-frame .admin-card-catalog-panel,
+.admin-frame .admin-inventory-panel,
+.admin-frame .admin-clean-hero,
+.admin-frame .admin-category-intro,
+.admin-frame .admin-category-contract,
+.admin-frame .admin-category-clean-card,
+.admin-frame .owner-approval-queue,
+.admin-frame .admin-prize-workspace,
+.admin-frame .admin-form-step,
+.admin-frame .admin-form-grid,
+.admin-frame .admin-form-grid-three,
+.admin-frame .admin-prize-tier-stack,
+.admin-frame .admin-prize-summary-grid,
+.admin-frame .admin-prize-tier-row,
+.admin-frame .admin-prize-table-wrap,
+.admin-frame .admin-prize-rank-cell,
+.admin-frame .wallet-balance-card,
+.admin-frame .wallet-method-card,
+.admin-frame .wallet-history-card,
+.admin-frame .topup-slip-card,
+.admin-frame .empty-state,
+.admin-frame .metric-card,
+.admin-frame .payment-method-card,
+.admin-frame .ranking-phone,
+.admin-frame .page-intro {
+  border-width: 1px !important;
+  border-radius: var(--a-radius) !important;
+  box-shadow: none !important;
+}
+
+.admin-frame .soft-card,
+.admin-frame .admin-panel,
+.admin-frame .admin-form-panel,
+.admin-frame .admin-pack-form,
+.admin-frame .admin-pack-form-horizontal,
+.admin-frame .admin-clean-hero,
+.admin-frame .admin-category-intro,
+.admin-frame .admin-category-contract,
+.admin-frame .admin-category-clean-card,
+.admin-frame .owner-approval-queue,
+.admin-frame .admin-prize-workspace,
+.admin-frame .admin-form-step,
+.admin-frame .wallet-balance-card,
+.admin-frame .wallet-method-card,
+.admin-frame .wallet-history-card,
+.admin-frame .topup-slip-card,
+.admin-frame .empty-state,
+.admin-frame .metric-card,
+.admin-frame .payment-method-card,
+.admin-frame .ranking-phone,
+.admin-frame .page-intro {
+  padding: 1.25rem !important;
+}
+
+.admin-frame .card-pad {
+  padding: 1.25rem !important;
+}
+
+.admin-frame .card-head {
+  padding: 1rem 1.25rem !important;
+  gap: 0.75rem !important;
+}
+
+.admin-frame .card-head h3 {
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.011em !important;
+}
+
+.admin-frame .kpi {
+  padding: 1.25rem !important;
+}
+
+.admin-frame .kpi .label {
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.05em !important;
+}
+
+.admin-frame .kpi .value {
+  margin-top: 0.25rem !important;
+  font-size: 1.5rem !important;
+  line-height: 2rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.022em !important;
+}
+
+.admin-frame .btn,
+.admin-frame .btn-primary,
+.admin-frame .btn-ghost,
+.admin-frame .btn-danger,
+.admin-frame .gold-button,
+.admin-frame .primary-action,
+.admin-frame .secondary-action,
+.admin-frame .plain-button,
+.admin-frame .danger-button,
+.admin-frame .admin-form-save,
+.admin-frame .admin-pack-table-action,
+.admin-frame .admin-pack-table-bulk-action,
+.admin-frame button.admin-action,
+.admin-frame button[type="button"]:not(.a-nav):not(.a-icon-btn),
+.admin-frame button[type="submit"] {
+  min-height: var(--a-control-h) !important;
+  height: var(--a-control-h) !important;
+  padding: 0 0.75rem !important;
+  border-width: 1px !important;
+  border-radius: var(--a-radius-sm) !important;
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.admin-frame .btn-sm {
+  min-height: 1.75rem !important;
+  height: 1.75rem !important;
+  padding: 0 0.625rem !important;
+  font-size: 0.6875rem !important;
+}
+
+.admin-frame .input,
+.admin-frame .select,
+.admin-frame .textarea,
+.admin-frame input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.admin-frame select,
+.admin-frame textarea {
+  min-height: var(--a-field-h) !important;
+  border-width: 1px !important;
+  border-radius: var(--a-radius-sm) !important;
+  padding: 0.5rem 0.75rem !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+
+.admin-frame select,
+.admin-frame .select {
+  padding-right: 2rem !important;
+}
+
+.admin-frame textarea,
+.admin-frame .textarea {
+  min-height: 5.5rem !important;
+}
+
+.admin-frame .field {
+  gap: 0.375rem !important;
+}
+
+.admin-frame .field label {
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+}
+
+.admin-frame .tabs {
+  min-height: 2.25rem !important;
+  padding: 0.125rem !important;
+  gap: 0.125rem !important;
+  border-radius: var(--a-radius-md) !important;
+}
+
+.admin-frame .tabs .t {
+  min-height: 2rem !important;
+  padding: 0 0.75rem !important;
+  border-radius: var(--a-radius-sm) !important;
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+}
+
+.admin-frame .pill,
+.admin-frame .tier-pill,
+.admin-frame .status-pill {
+  min-height: 1.5rem !important;
+  padding: 0.25rem 0.625rem !important;
+  border-width: 1px !important;
+  border-radius: 999px !important;
+  font-size: 0.6875rem !important;
+  line-height: 1rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+}
+
+.admin-frame .tbl,
+.admin-frame .admin-data-table {
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+}
+
+.admin-frame .tbl thead th,
+.admin-frame .admin-data-table thead th {
+  height: 2.5rem !important;
+  padding: 0.75rem 1rem !important;
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.05em !important;
+}
+
+.admin-frame .tbl tbody td,
+.admin-frame .admin-data-table tbody td {
+  padding: 0.875rem 1rem !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+}
+
+.admin-frame .row-card,
+.admin-frame .admin-list-card {
+  min-height: 3rem !important;
+  padding: 0.75rem 1rem !important;
+  border-radius: var(--a-radius) !important;
+}
+
+@media (max-width: 960px) {
+  .admin-frame .a-side {
+    width: 100% !important;
+    padding: 0.5rem !important;
+  }
+
+  .admin-frame .a-content {
+    padding: 1rem !important;
+    gap: 1rem !important;
+  }
+}
+
+/* Inventory uses Inter for Latin + Noto Sans Thai for Thai. Older admin
+   experiments force Prompt with higher specificity, so this final scoped
+   pass keeps the admin surface on the inventory font stack. */
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame a,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame button,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame input,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame select,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame textarea,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame label,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame p,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame span,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame div,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame th,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame td,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame h1,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame h2,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame h3,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame h4,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame h5,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame h6,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame section,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame article,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame header,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame footer,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame main,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame nav,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame aside,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame form,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame ul,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame ol,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame li,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame small,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame strong,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame em {
+  font-family: var(--font-inter), var(--font-noto-thai), -apple-system,
+    BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif !important;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .mono,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .mono *,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .text-mono,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .text-mono * {
+  font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace !important;
+}
