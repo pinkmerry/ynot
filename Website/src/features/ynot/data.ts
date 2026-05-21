@@ -49,6 +49,15 @@ import {
 
 const dataIssueStorage = new AsyncLocalStorage<YnotDataIssue[]>();
 
+type CardStockSummaryRow = {
+  cardId: string;
+  totalUnits: number;
+  availableUnits: number;
+  reservedUnits: number;
+  allocatedUnits: number;
+  archivedUnits: number;
+};
+
 const defaultViewer: YnotViewer = {
   authenticated: false,
   displayName: "Guest",
@@ -60,6 +69,32 @@ function safeCostCoins(
   row: Database["public"]["Tables"]["draw_rounds"]["Row"],
 ) {
   return row.cost_coins ?? Math.max(1, Math.ceil(row.price_thb / 100));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function numericValue(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function cardStockSummariesFromJson(value: unknown): CardStockSummaryRow[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item) || typeof item.cardId !== "string") return [];
+    return [
+      {
+        cardId: item.cardId,
+        totalUnits: numericValue(item.totalUnits),
+        availableUnits: numericValue(item.availableUnits),
+        reservedUnits: numericValue(item.reservedUnits),
+        allocatedUnits: numericValue(item.allocatedUnits),
+        archivedUnits: numericValue(item.archivedUnits),
+      },
+    ];
+  });
 }
 
 function defaultCampaignTags(series: "one_piece" | "pokemon") {
@@ -129,10 +164,6 @@ function normalizeRandomLogicMode(value: unknown): YnotRandomLogicMode {
     }
   }
   return "pure_random";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function inventorySummariesFromJson(value: unknown): InventorySummary[] {
@@ -1684,51 +1715,25 @@ export async function getAdminCards() {
   return readOrEmpty("admin_cards", async () => {
     const cards = await getCardCatalog(supabase);
     if (!cards.length) return cards;
-    const cardIds = cards.map((card) => card.catalogCardId);
-    const stockRows = await readOrEmpty("card_stock_units", async () => {
-      const { data, error } = await supabase
-        .from("card_stock_units")
-        .select("card_id,status")
-        .in("card_id", cardIds)
-        .limit(50000);
+    const stockRows = await readOrEmpty("card_stock_summary", async () => {
+      const { data, error } = await supabase.rpc("get_card_stock_summary", {
+        p_card_id: null,
+      });
       if (error) throw error;
-      return data ?? [];
+      return cardStockSummariesFromJson(data);
     });
-    const stockByCard = new Map<
-      string,
-      {
-        stockTotal: number;
-        stockAvailable: number;
-        stockReserved: number;
-        stockAllocated: number;
-        stockArchived: number;
-      }
-    >();
-    for (const stock of stockRows) {
-      const counts = stockByCard.get(stock.card_id) ?? {
-        stockTotal: 0,
-        stockAvailable: 0,
-        stockReserved: 0,
-        stockAllocated: 0,
-        stockArchived: 0,
+    const stockByCard = new Map(stockRows.map((row) => [row.cardId, row]));
+    return cards.map((card) => {
+      const stock = stockByCard.get(card.catalogCardId);
+      return {
+        ...card,
+        stockTotal: stock?.totalUnits ?? 0,
+        stockAvailable: stock?.availableUnits ?? 0,
+        stockReserved: stock?.reservedUnits ?? 0,
+        stockAllocated: stock?.allocatedUnits ?? 0,
+        stockArchived: stock?.archivedUnits ?? 0,
       };
-      if (stock.status !== "deleted") counts.stockTotal += 1;
-      if (stock.status === "available") counts.stockAvailable += 1;
-      if (stock.status === "reserved") counts.stockReserved += 1;
-      if (stock.status === "allocated") counts.stockAllocated += 1;
-      if (stock.status === "archived") counts.stockArchived += 1;
-      stockByCard.set(stock.card_id, counts);
-    }
-    return cards.map((card) => ({
-      ...card,
-      ...(stockByCard.get(card.catalogCardId) ?? {
-        stockTotal: 0,
-        stockAvailable: 0,
-        stockReserved: 0,
-        stockAllocated: 0,
-        stockArchived: 0,
-      }),
-    }));
+    });
   });
 }
 

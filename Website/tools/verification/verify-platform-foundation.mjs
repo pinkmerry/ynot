@@ -308,7 +308,7 @@ if (exists("src/features/ynot/stock-readiness.ts")) {
 }
 notCheck("src/features/ynot/stock-readiness.ts", "stock readiness helper stays client-safe", /server-only|createServiceSupabaseClient/);
 check("src/features/ynot/stock-readiness.ts", "stock readiness helper aggregates prize demand against card stock", /buildPrizeStockShortages[\s\S]*requiredByCardId[\s\S]*stockShortageBlockers/);
-check("src/features/ynot/prize-readiness.ts", "planned random pack readiness checks global stock before owner review", /getPrizeStockSummaries[\s\S]*card_stock_units[\s\S]*card_stock_reservations[\s\S]*reservationCoverageBlockers[\s\S]*stockBlockers/);
+check("src/features/ynot/prize-readiness.ts", "planned random pack readiness checks exact global stock before owner review", /getPrizeStockSummaries[\s\S]*get_card_stock_summary[\s\S]*countCampaignReservations[\s\S]*reservationCoverageBlockers[\s\S]*stockBlockers/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign create validates global stock before inserting draft", /getPrizeStockSummaries\(supabase, initialPrizes\)[\s\S]*validatePrizeDraftsForSave\([\s\S]*stockSummaries[\s\S]*from\("draw_rounds"\)\.insert/);
 const campaignPatchBeforeMutation = sliceBetween(
   "src/app/api/ynot/admin/campaigns/route.ts",

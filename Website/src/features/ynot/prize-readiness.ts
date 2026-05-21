@@ -30,6 +30,16 @@ type InventorySummary = {
   voidUnits?: number;
 };
 
+type StockSummaryRow = {
+  cardId: string;
+  totalUnits: number;
+  availableUnits: number;
+  reservedUnits: number;
+  allocatedUnits: number;
+  archivedUnits: number;
+  deletedUnits: number;
+};
+
 export type PrizeDraftInput = {
   cardId: string;
   tier: "normal" | "high";
@@ -165,6 +175,55 @@ function inventorySummariesFromJson(value: unknown): InventorySummary[] {
   });
 }
 
+function stockSummariesFromJson(value: unknown): StockSummaryRow[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item) || typeof item.cardId !== "string") return [];
+    return [
+      {
+        cardId: item.cardId,
+        totalUnits: numberOrZero(item.totalUnits),
+        availableUnits: numberOrZero(item.availableUnits),
+        reservedUnits: numberOrZero(item.reservedUnits),
+        allocatedUnits: numberOrZero(item.allocatedUnits),
+        archivedUnits: numberOrZero(item.archivedUnits),
+        deletedUnits: numberOrZero(item.deletedUnits),
+      },
+    ];
+  });
+}
+
+async function countPrizeUnits(
+  supabase: SupabaseClient,
+  prizeId: string,
+  status?: Database["public"]["Tables"]["draw_round_prize_units"]["Row"]["status"],
+) {
+  let query = supabase
+    .from("draw_round_prize_units")
+    .select("id", { count: "exact", head: true })
+    .eq("draw_round_prize_id", prizeId);
+  if (status) query = query.eq("status", status);
+  else query = query.neq("status", "void");
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function countCampaignReservations(
+  supabase: SupabaseClient,
+  campaignId: string,
+  prizeId: string,
+) {
+  const { count, error } = await supabase
+    .from("card_stock_reservations")
+    .select("id", { count: "exact", head: true })
+    .eq("draw_round_id", campaignId)
+    .eq("draw_round_prize_id", prizeId)
+    .in("status", ["reserved", "allocated"]);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 function soldPctForCampaign(row: DrawRoundRow, inventory?: InventorySummary) {
   const remainingSlots = inventory?.remainingSlots ?? row.total_slots;
   const soldSlots = Math.max(0, row.total_slots - remainingSlots);
@@ -230,56 +289,51 @@ export async function getPrizeStockSummaries(
         .from("cards")
         .select("id,name,card_code,search_code")
         .in("id", cardIds),
-      supabase
-        .from("card_stock_units")
-        .select("card_id,status")
-        .in("card_id", cardIds)
-        .limit(10000),
+      supabase.rpc("get_card_stock_summary", { p_card_id: null }),
     ]);
   if (cardsError) throw cardsError;
   if (stockError) throw stockError;
 
   const cardById = new Map((cards ?? []).map((card) => [card.id, card]));
-  const availableByCardId = new Map<string, number>();
-  for (const row of stockRows ?? []) {
-    if (row.status !== "available") continue;
-    availableByCardId.set(row.card_id, (availableByCardId.get(row.card_id) ?? 0) + 1);
-  }
+  const stockByCardId = new Map(
+    stockSummariesFromJson(stockRows).map((row) => [row.cardId, row]),
+  );
 
   const reservedByCardId = new Map<string, number>();
   if (options.includeCampaignReservations && options.campaignId) {
+    const campaignId = options.campaignId;
     const { data: currentPrizes, error: prizesError } = await supabase
       .from("draw_round_prizes")
       .select("id,card_id")
-      .eq("draw_round_id", options.campaignId);
+      .eq("draw_round_id", campaignId);
     if (prizesError) throw prizesError;
     const cardIdByPrizeId = new Map(
       (currentPrizes ?? []).map((prize) => [prize.id, prize.card_id]),
     );
-    const prizeIds = [...cardIdByPrizeId.keys()];
-    if (prizeIds.length) {
-      const { data: reservations, error: reservationsError } = await supabase
-        .from("card_stock_reservations")
-        .select("draw_round_prize_id,status")
-        .eq("draw_round_id", options.campaignId)
-        .in("status", ["reserved", "allocated"])
-        .limit(10000);
-      if (reservationsError) throw reservationsError;
-      for (const reservation of reservations ?? []) {
-        const cardId = cardIdByPrizeId.get(reservation.draw_round_prize_id);
-        if (!cardId) continue;
-        reservedByCardId.set(cardId, (reservedByCardId.get(cardId) ?? 0) + 1);
-      }
+    const reservationCounts = await Promise.all(
+      [...cardIdByPrizeId.keys()].map(async (prizeId) => ({
+        cardId: cardIdByPrizeId.get(prizeId),
+        reservedCount: await countCampaignReservations(
+          supabase,
+          campaignId,
+          prizeId,
+        ),
+      })),
+    );
+    for (const { cardId, reservedCount } of reservationCounts) {
+      if (!cardId) continue;
+      reservedByCardId.set(cardId, (reservedByCardId.get(cardId) ?? 0) + reservedCount);
     }
   }
 
   return cardIds.map((cardId) => {
     const card = cardById.get(cardId);
+    const stock = stockByCardId.get(cardId);
     return {
       cardId,
       cardName: card?.name ?? null,
       cardCode: card?.card_code ?? card?.search_code ?? null,
-      stockAvailable: availableByCardId.get(cardId) ?? 0,
+      stockAvailable: stock?.availableUnits ?? 0,
       reservedForCampaign: reservedByCardId.get(cardId) ?? 0,
     };
   });
@@ -420,15 +474,6 @@ export async function getCampaignPrizeReadiness(
   );
   const prizeIds = visiblePrizes.map((prize) => prize.id);
 
-  const unitRows = prizeIds.length
-    ? await supabase
-        .from("draw_round_prize_units")
-        .select("draw_round_prize_id,status")
-        .in("draw_round_prize_id", prizeIds)
-        .limit(10000)
-    : { data: [], error: null };
-  if (unitRows.error) throw unitRows.error;
-
   const prizeById = new Map<string, PrizeRow>(
     visiblePrizes.map((prize) => [prize.id, prize]),
   );
@@ -438,22 +483,29 @@ export async function getCampaignPrizeReadiness(
   let initialEligiblePrizeUnits = 0;
   const nonVoidUnitsByPrizeId = new Map<string, number>();
 
-  for (const unit of unitRows.data ?? []) {
-    if (unit.status === "void") continue;
-    totalPrizeUnits += 1;
-    nonVoidUnitsByPrizeId.set(
-      unit.draw_round_prize_id,
-      (nonVoidUnitsByPrizeId.get(unit.draw_round_prize_id) ?? 0) + 1,
-    );
-    if (unit.status !== "available") continue;
-    availablePrizeUnits += 1;
-    const prize = prizeById.get(unit.draw_round_prize_id);
+  const prizeUnitCounts = await Promise.all(
+    prizeIds.map(async (prizeId) => {
+      const [nonVoidCount, availableCount] = await Promise.all([
+        countPrizeUnits(supabase, prizeId),
+        countPrizeUnits(supabase, prizeId, "available"),
+      ]);
+      return { prizeId, nonVoidCount, availableCount };
+    }),
+  );
+
+  for (const { prizeId, nonVoidCount, availableCount } of prizeUnitCounts) {
+    if (nonVoidCount <= 0) continue;
+    totalPrizeUnits += nonVoidCount;
+    nonVoidUnitsByPrizeId.set(prizeId, nonVoidCount);
+    if (availableCount <= 0) continue;
+    availablePrizeUnits += availableCount;
+    const prize = prizeById.get(prizeId);
     if (!prize) continue;
     if (prizeEligibleAtSoldPct(prize, logicMode, soldPct)) {
-      eligiblePrizeUnits += 1;
+      eligiblePrizeUnits += availableCount;
     }
     if (prizeEligibleAtSoldPct(prize, logicMode, 0)) {
-      initialEligiblePrizeUnits += 1;
+      initialEligiblePrizeUnits += availableCount;
     }
   }
 
