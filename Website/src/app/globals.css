@@ -24298,6 +24298,34 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   border-bottom: 1px solid var(--a-border-soft) !important;
 }
 
+/* Owner review contrast rescue: legacy labels used dark text on dark admin cards. */
+.admin-frame {
+  --owner-review-fg: #ffffff;
+  --owner-review-muted: rgba(255, 255, 255, 0.86);
+}
+
+html[data-ynot-theme] .admin-frame .owner-approval-card,
+html[data-ynot-theme] .admin-frame .owner-review-details,
+html[data-ynot-theme] .admin-frame .owner-logic-panel,
+html[data-ynot-theme] .admin-frame .owner-prize-section,
+html[data-ynot-theme] .admin-frame .owner-prize-odds-panel,
+html[data-ynot-theme] .admin-frame .owner-prize-odds-table-wrap,
+html[data-ynot-theme] .admin-frame .owner-prize-odds-table-head,
+html[data-ynot-theme] .admin-frame .owner-prize-odds-row,
+html[data-ynot-theme] .admin-frame .owner-approval-grid > div {
+  color: var(--owner-review-fg) !important;
+  color-scheme: dark;
+}
+
+html[data-ynot-theme] .admin-frame .owner-approval-card :where(summary, h4, p, li, strong, em, label, div, span):not(.status-pill):not(.soft-pill):not(.campaign-label-pill),
+html[data-ynot-theme] .admin-frame .owner-approval-card :where(summary)::marker {
+  color: var(--owner-review-fg) !important;
+}
+
+html[data-ynot-theme] .admin-frame .owner-approval-card :where(.owner-approval-card-head span, .owner-approval-grid span, .owner-logic-panel > div > span, .owner-logic-save-row span, .owner-prize-section-head span, .owner-prize-section-head em, .owner-prize-odds-head span, .owner-prize-odds-head em, .owner-prize-odds-table-head span, .owner-prize-name-cell span):not(.status-pill) {
+  color: var(--owner-review-muted) !important;
+}
+
 /* Stop legacy "admin-edit-page-back" link from rendering chunky */
 .admin-frame .admin-edit-page-back a {
   color: var(--a-sky) !important;
