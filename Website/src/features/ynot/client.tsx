@@ -1512,22 +1512,14 @@ export function AdminCategoryForm({
             placeholder="✨"
           />
         </AdminField>
-        <AdminField
-          label="Legacy compatibility"
-          hint="Only use this for Pokemon/One Piece backfill compatibility."
-        >
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={legacySeries}
-            onChange={(event) =>
-              setLegacySeries(event.target.value as typeof legacySeries)
-            }
-          >
-            <option value="">No legacy series</option>
-            <option value="pokemon">Pokemon compatibility</option>
-            <option value="one_piece">One Piece compatibility</option>
-          </select>
-        </AdminField>
+        {/* Legacy compatibility (legacy_series column) is intentionally
+           hidden from the form. It was a one-off bridge for the bootstrap
+           Pokemon / One Piece categories whose pack data still keys off
+           draw_rounds.series; new categories never need it. The state +
+           PATCH payload still send `legacySeries: legacySeries || null`
+           below so existing Pokemon/One Piece edits preserve their flag
+           if loaded from the dropdown. To re-set it on an existing
+           category, use the Supabase SQL editor. */}
         <AdminField label="Sort order" hint="Lower number appears first.">
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
