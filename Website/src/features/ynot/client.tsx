@@ -1501,17 +1501,11 @@ export function AdminCategoryForm({
             placeholder="Example: Pokemon"
           />
         </AdminField>
-        <AdminField
-          label="Icon"
-          hint="Emoji or short text shown in admin/category cards."
-        >
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={icon}
-            onChange={(event) => setIcon(event.target.value)}
-            placeholder="✨"
-          />
-        </AdminField>
+        {/* Icon field hidden from the form — it only showed on admin
+           category cards (decoration), never on the customer storefront.
+           State + PATCH payload preserve the existing icon if the row is
+           loaded for edit, so Pokemon ⚡ / One Piece ☠️ keep theirs. To
+           change an icon on an existing category, use Supabase SQL. */}
         {/* Legacy compatibility (legacy_series column) is intentionally
            hidden from the form. It was a one-off bridge for the bootstrap
            Pokemon / One Piece categories whose pack data still keys off
