@@ -127,6 +127,96 @@ export async function POST(request: Request) {
   return Response.json({ ok: true, card: data });
 }
 
+export async function DELETE(request: Request) {
+  if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  const admin = await resolveAdminSession();
+  if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
+  const limited = await enforceRateLimit(request, "ynot:admin:cards", { limit: 60, windowMs: 60_000 }, admin.profileId);
+  if (limited) return limited;
+
+  const body = await bodyJson(request);
+  const cardId = text(body?.cardId, 80);
+  if (!cardId) return Response.json({ error: "cardId is required." }, { status: 400 });
+
+  const supabase = createServiceSupabaseClient();
+
+  // Eligibility: refuse delete if the card is referenced by any active
+  // prize row in a pack (deleting it would orphan the prize slot). The
+  // UI also disables the button in that case but we re-check on the
+  // server so a stale page can't bypass it.
+  const { count: prizeCount, error: prizeError } = await supabase
+    .from("draw_round_prizes")
+    .select("id", { count: "exact", head: true })
+    .eq("card_id", cardId);
+  if (prizeError) return Response.json({ error: prizeError.message }, { status: 409 });
+  if ((prizeCount ?? 0) > 0) {
+    return Response.json(
+      {
+        ok: false,
+        code: "CARD_IN_PRIZE_POOL",
+        error: `Cannot delete: ${prizeCount} pack prize slot${prizeCount === 1 ? "" : "s"} still reference this card.`,
+        prizeCount,
+      },
+      { status: 409 },
+    );
+  }
+
+  // Eligibility: refuse delete if any stock unit is still active
+  // (available / reserved / allocated). Allocated units are owned by
+  // a customer — deleting the card would orphan their collection row.
+  const { data: stockRows, error: stockError } = await supabase
+    .from("card_stock_units")
+    .select("status")
+    .eq("card_id", cardId)
+    .limit(50000);
+  if (stockError) return Response.json({ error: stockError.message }, { status: 409 });
+  const activeStock = (stockRows ?? []).filter(
+    (row) => row.status === "available" || row.status === "reserved" || row.status === "allocated",
+  );
+  if (activeStock.length > 0) {
+    const breakdown = { available: 0, reserved: 0, allocated: 0 };
+    for (const row of activeStock) {
+      breakdown[row.status as keyof typeof breakdown] += 1;
+    }
+    return Response.json(
+      {
+        ok: false,
+        code: "CARD_HAS_ACTIVE_STOCK",
+        error: `Cannot delete: ${activeStock.length} active stock unit${activeStock.length === 1 ? "" : "s"} still exist (${breakdown.allocated} allocated to customers, ${breakdown.reserved} reserved, ${breakdown.available} available). Allocated units cannot be removed.`,
+        activeStockCount: activeStock.length,
+        breakdown,
+      },
+      { status: 409 },
+    );
+  }
+
+  // Load the current card so the audit row carries identifying info
+  // even after the row is gone.
+  const { data: current, error: fetchError } = await supabase
+    .from("cards")
+    .select("id,name,card_code,series,is_test")
+    .eq("id", cardId)
+    .maybeSingle();
+  if (fetchError) return Response.json({ error: fetchError.message }, { status: 409 });
+  if (!current) return Response.json({ error: "Card not found." }, { status: 404 });
+
+  const { error: deleteError } = await supabase.from("cards").delete().eq("id", cardId);
+  if (deleteError) return Response.json({ error: deleteError.message }, { status: 409 });
+
+  await supabase.from("audit_events").insert({
+    actor_admin_id: admin.adminId,
+    event_type: "card_deleted",
+    metadata: {
+      cardId: current.id,
+      code: current.card_code,
+      name: current.name,
+      series: current.series,
+      isTest: current.is_test,
+    },
+  });
+  return Response.json({ ok: true, cardId });
+}
+
 export async function PATCH(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   const admin = await resolveAdminSession();
