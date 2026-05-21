@@ -334,7 +334,8 @@ check("src/features/ynot/components.tsx", "shell passes admin state into drawer"
 check("src/features/ynot/StorePreferences.tsx", "admin routes are hidden unless viewer is admin", /isAdmin &&[\s\S]*href="\/admin"/);
 check("src/features/ynot/components.tsx", "non-admin admin route gets denial state", /Admin access is required/);
 check("src/features/ynot/data.ts", "public campaign reads filter to live openable packs only", /query = query\.eq\("visibility", "public"\)\.eq\("status", "live"\)[\s\S]*campaigns\.filter\(\(campaign\) => campaign\.openable\)/);
-check("src/features/ynot/data.ts", "admin dashboard can request private campaigns explicitly", /getCampaigns\(\{ includePrivate: viewer\.isAdmin \}\)/);
+check("src/features/ynot/data.ts", "admin dashboard can request private campaigns explicitly", /getCampaigns\(\{[\s\S]*includePrivate: viewer\.isAdmin[\s\S]*includeReadiness: selector\.campaignReadiness[\s\S]*includePrizeLineups: selector\.campaignPrizeLineups/);
+check("src/app/admin/page.tsx", "admin dashboard keeps heavy campaign readiness on demand", /campaignReadiness: false[\s\S]*campaignPrizeLineups: false/);
 check("src/features/ynot/data.ts", "admin user and audit data readers exist", /getAdminUsers[\s\S]*getAdminAuditEvents/);
 check("src/features/ynot/data.ts", "admin user reader checks admin before service read", /export async function getAdminUsers\(\)[\s\S]*const admin = await resolveAdminSession\(\);[\s\S]*if \(!admin\) return \[\];[\s\S]*const supabase = createServiceSupabaseClient\(\);/);
 check("src/features/ynot/data.ts", "admin audit reader checks admin before service read", /export async function getAdminAuditEvents\(\)[\s\S]*const admin = await resolveAdminSession\(\);[\s\S]*if \(!admin\) return \[\];[\s\S]*const supabase = createServiceSupabaseClient\(\);/);

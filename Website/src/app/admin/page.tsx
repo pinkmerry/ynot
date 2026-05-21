@@ -42,6 +42,8 @@ export default async function AdminPage() {
     rankings: true,
     adminTopUps: true,
     ownerApprovalRequests: true,
+    campaignReadiness: false,
+    campaignPrizeLineups: false,
   });
 
   const liveCampaigns = data.campaigns.filter((c) => c.status === "live");

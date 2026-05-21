@@ -831,7 +831,9 @@ function ownerApprovalRequestFromCampaign(
   if (approvalStatus !== "pending_review" && !needsPublish) return null;
   const readinessLine = campaign.readinessBlockers?.length
     ? `Prize readiness blocked: ${campaign.readinessBlockers[0]}`
-    : "Prize inventory is ready for owner review and publish.";
+    : campaign.readinessBlockers
+      ? "Prize inventory is ready for owner review and publish."
+      : "Open Random Pack Studio to run the full prize readiness check.";
   return {
     id: `owner-approval-${campaign.id}`,
     campaign,
@@ -905,13 +907,23 @@ async function readOrEmpty<T>(
   }
 }
 
+type CampaignQueryOptions = {
+  includePrivate?: boolean;
+  limit?: number | null;
+  includeReadiness?: boolean;
+  includePrizeLineups?: boolean;
+};
+
 async function getCampaignsImpl(
-  options: { includePrivate?: boolean; limit?: number | null } = {},
+  options: CampaignQueryOptions = {},
 ): Promise<YnotCampaign[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("campaigns", async () => {
     const limit = options.limit ?? null;
+    const includeReadiness = options.includeReadiness ?? true;
+    const includePrizeLineups =
+      options.includePrizeLineups ?? Boolean(options.includePrivate);
     const loadRows = (requireApproval: boolean) => {
       let query = supabase
         .from("draw_rounds")
@@ -981,16 +993,18 @@ async function getCampaignsImpl(
     const inventoryByCampaign = new Map(
       inventoryRows.map((summary) => [summary.drawRoundId, summary]),
     );
-    const readinessRows = await Promise.all(
-      campaignIds.map(async (campaignId) => {
-        try {
-          return await getCampaignPrizeReadiness(supabase, campaignId);
-        } catch (error) {
-          recordDataIssue("campaign_prize_readiness", error);
-          return null;
-        }
-      }),
-    );
+    const readinessRows = includeReadiness
+      ? await Promise.all(
+          campaignIds.map(async (campaignId) => {
+            try {
+              return await getCampaignPrizeReadiness(supabase, campaignId);
+            } catch (error) {
+              recordDataIssue("campaign_prize_readiness", error);
+              return null;
+            }
+          }),
+        )
+      : [];
     const readinessByCampaign = new Map(
       readinessRows
         .filter(
@@ -1001,7 +1015,7 @@ async function getCampaignsImpl(
     );
 
     let prizeLineupsByCampaign = new Map<string, YnotPrizePreview[]>();
-    if (options.includePrivate) {
+    if (options.includePrivate && includePrizeLineups) {
       try {
         prizeLineupsByCampaign = await getPublicPrizeLineupsBatch(
           supabase,
@@ -1044,7 +1058,7 @@ const getPublicCampaignsCached = unstable_cache(
 );
 
 export async function getCampaigns(
-  options: { includePrivate?: boolean; limit?: number | null } = {},
+  options: CampaignQueryOptions = {},
 ): Promise<YnotCampaign[]> {
   if (options.includePrivate) return getCampaignsImpl(options);
   const campaigns = await getPublicCampaignsCached();
@@ -2062,6 +2076,8 @@ export type YnotDashboardSelector = {
   rankings?: boolean;
   adminTopUps?: boolean;
   ownerApprovalRequests?: boolean;
+  campaignReadiness?: boolean;
+  campaignPrizeLineups?: boolean;
   platformHealth?: boolean;
 };
 
@@ -2122,8 +2138,18 @@ export async function getYnotDashboardSlice(
             // packs surface locally even without a Supabase admin session.
             // Production still gates on the real viewer.isAdmin.
             process.env.NODE_ENV === "production"
-              ? getCampaigns({ includePrivate: viewer.isAdmin })
-              : getCampaigns({ includePrivate: true })
+              ? getCampaigns({
+                  includePrivate: viewer.isAdmin,
+                  limit: selector.campaignLimit,
+                  includeReadiness: selector.campaignReadiness,
+                  includePrizeLineups: selector.campaignPrizeLineups,
+                })
+              : getCampaigns({
+                  includePrivate: true,
+                  limit: selector.campaignLimit,
+                  includeReadiness: selector.campaignReadiness,
+                  includePrizeLineups: selector.campaignPrizeLineups,
+                })
           : getCampaigns({
               includePrivate: false,
               limit: selector.campaignLimit,
