@@ -43,6 +43,8 @@ type CampaignBody = {
   sortOrder?: unknown;
   categoryIds?: unknown;
   openQuantityOptions?: unknown;
+  bundleConfig?: unknown;
+  slotGrid?: unknown;
   isTest?: unknown;
   seedRunId?: unknown;
   initialPrizes?: unknown;
@@ -129,13 +131,27 @@ function prizeDraftDisplayTier(prize: PrizeDraftInput) {
 function logicSnapshotWithOpenOptions(
   current: unknown,
   openQuantityOptions: unknown,
+  extras?: { bundleConfig?: unknown; slotGrid?: unknown },
 ): Json {
   const base = isRecord(current) ? current : { mode: "pure_random" };
-  return {
+  const snapshot: Record<string, unknown> = {
     ...base,
     mode: typeof base.mode === "string" ? base.mode : "pure_random",
     openQuantityOptions: normalizeOpenQuantityOptions(openQuantityOptions),
-  } as Json;
+  };
+  if (extras?.bundleConfig !== undefined) {
+    snapshot.bundleConfig = Array.isArray(extras.bundleConfig)
+      ? extras.bundleConfig
+      : isRecord(extras.bundleConfig)
+      ? extras.bundleConfig
+      : base.bundleConfig;
+  }
+  if (extras?.slotGrid !== undefined) {
+    snapshot.slotGrid = isRecord(extras.slotGrid)
+      ? extras.slotGrid
+      : base.slotGrid;
+  }
+  return snapshot as Json;
 }
 
 function idArrayValue(value: unknown) {
@@ -436,6 +452,7 @@ export async function POST(request: Request) {
     logic_snapshot: logicSnapshotWithOpenOptions(
       { mode: "pure_random" },
       body.openQuantityOptions,
+      { bundleConfig: body.bundleConfig, slotGrid: body.slotGrid },
     ),
   };
   const initialPrizes = initialPrizesForAdminRole(
@@ -669,12 +686,18 @@ export async function PATCH(request: Request) {
 
   const reviewPatch: Database["public"]["Tables"]["draw_rounds"]["Update"] = {
     ...patch,
-    ...(body.openQuantityOptions === undefined
+    ...(body.openQuantityOptions === undefined &&
+    body.bundleConfig === undefined &&
+    body.slotGrid === undefined
       ? {}
       : {
           logic_snapshot: logicSnapshotWithOpenOptions(
             current.logic_snapshot,
             body.openQuantityOptions,
+            {
+              bundleConfig: (body as Record<string, unknown>).bundleConfig,
+              slotGrid: (body as Record<string, unknown>).slotGrid,
+            },
           ),
         }),
     approval_status: "not_submitted",

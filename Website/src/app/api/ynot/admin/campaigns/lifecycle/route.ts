@@ -306,12 +306,20 @@ export async function POST(request: Request) {
         action?: unknown;
         note?: unknown;
         logicMode?: unknown;
+        overrides?: unknown;
+        bundles?: unknown;
+        slotGrid?: unknown;
+        guarantees?: unknown;
       }
     | null;
   const campaignId = text(body?.campaignId, 80);
   const action = lifecycleAction(body?.action);
   const logicMode = randomLogicMode(body?.logicMode);
   const note = text(body?.note, 500);
+  const overridesPatch = isRecord(body?.overrides) ? body.overrides : null;
+  const bundlesPatch = Array.isArray(body?.bundles) ? body.bundles : null;
+  const slotGridPatch = isRecord(body?.slotGrid) ? body.slotGrid : null;
+  const guaranteesPatch = isRecord(body?.guarantees) ? body.guarantees : null;
 
   if (!campaignId || !action) {
     return adminErrorResponse(
@@ -386,13 +394,38 @@ export async function POST(request: Request) {
   }
 
   const now = new Date().toISOString();
-  const logicSnapshot = {
-    ...jsonRecord(current.logic_snapshot),
+  const previousSnapshot = jsonRecord(current.logic_snapshot);
+  const previousOverrides = isRecord(previousSnapshot.ownerOverrides)
+    ? previousSnapshot.ownerOverrides
+    : {};
+  const mergedOverrides = overridesPatch
+    ? { ...previousOverrides, ...overridesPatch, updatedAt: now, updatedBy: admin.adminId }
+    : previousOverrides;
+  const baseLogicSnapshot: Record<string, unknown> = {
+    ...previousSnapshot,
     mode: logicMode,
     label: randomLogicLabel(logicMode),
     selectedByAdminId: admin.adminId,
     selectedAt: now,
   };
+  if (bundlesPatch) baseLogicSnapshot.bundles = bundlesPatch;
+  if (slotGridPatch) baseLogicSnapshot.slotGrid = slotGridPatch;
+  if (guaranteesPatch) baseLogicSnapshot.guarantees = guaranteesPatch;
+  if (overridesPatch || Object.keys(previousOverrides).length) {
+    baseLogicSnapshot.ownerOverrides = mergedOverrides;
+  }
+  // On approve/publish, freeze the current snapshot (minus the .published key
+  // itself) as the diff baseline for the next review cycle.
+  if (action === "approve" || action === "publish") {
+    const { published: _previousPublished, ...freezable } = baseLogicSnapshot;
+    void _previousPublished;
+    baseLogicSnapshot.published = {
+      ...freezable,
+      publishedAt: now,
+      publishedBy: admin.adminId,
+    };
+  }
+  const logicSnapshot = baseLogicSnapshot as unknown as Json;
   const responseLogicMode =
     action === "publish"
       ? logicModeFromSnapshot(current.logic_snapshot) ?? logicMode

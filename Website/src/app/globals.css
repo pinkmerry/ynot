@@ -7650,10 +7650,10 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 
 .open-quantity-grid,
 .admin-open-preset-row {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
   width: 100%;
 }
 
@@ -7661,12 +7661,15 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 .admin-open-preset-row button {
   background: rgba(var(--prototype-cyan-rgb), 0.08);
   border: 1px solid rgba(var(--prototype-cyan-rgb), 0.3);
-  border-radius: 18px;
+  border-radius: 12px;
   color: var(--prototype-text);
-  display: grid;
-  gap: 4px;
-  min-height: 74px;
-  padding: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+  min-height: 34px;
+  padding: 6px 16px;
   text-align: center;
 }
 
@@ -9024,29 +9027,37 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 }
 
 .admin-prize-rank-cell {
+  align-items: flex-start;
   align-self: stretch;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  display: grid;
-  gap: 9px;
-  justify-items: center;
-  min-height: 166px;
-  padding: 10px;
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  padding: 0;
 }
 
 .admin-prize-rank-label {
-  align-items: baseline;
-  display: flex;
-  gap: 5px;
-  justify-content: center;
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
 .admin-prize-rank-cell .admin-prize-card-thumb {
-  border-radius: 12px;
-  height: 124px;
-  width: 98px;
+  aspect-ratio: 5 / 7;
+  border-radius: 14px;
+  height: auto;
+  max-width: 160px;
+  width: 100%;
+  object-fit: cover;
+}
+
+.admin-prize-rank-cell .admin-prize-card-placeholder {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed var(--border);
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 8px;
 }
 
 .admin-prize-card-field {
@@ -9161,15 +9172,20 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 }
 
 .admin-prize-rank-label strong {
-  font-size: 0.98rem;
+  font-size: 1.05rem;
   font-weight: 1000;
+  line-height: 1;
 }
 
 .admin-prize-rank-label span {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 999px;
   color: var(--muted);
   font-size: 0.66rem;
   font-weight: 900;
   letter-spacing: 0.08em;
+  padding: 3px 9px;
   text-transform: uppercase;
 }
 
@@ -9377,7 +9393,161 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 
 .owner-approval-list {
   display: grid;
-  gap: 14px;
+  gap: 8px;
+}
+
+.owner-approval-row {
+  align-items: center;
+  background: var(--admin-card-soft);
+  border: 1px solid var(--admin-line);
+  border-radius: 14px;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 90px minmax(0, 1fr) 360px auto;
+  padding: 12px 16px;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.owner-approval-row:hover {
+  border-color: var(--admin-line-strong);
+  transform: translateY(-1px);
+}
+
+.owner-approval-row-status {
+  align-items: center;
+  color: var(--admin-accent-dark);
+  display: inline-flex;
+  font-size: 0.74rem;
+  font-weight: 900;
+  gap: 6px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.owner-approval-row-status-dot {
+  background: currentColor;
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px rgba(226, 163, 0, 0.18);
+  display: inline-block;
+  height: 8px;
+  width: 8px;
+}
+
+.owner-approval-row-status[data-status="approved"] {
+  color: #46a56e;
+}
+.owner-approval-row-status[data-status="approved"] .owner-approval-row-status-dot {
+  box-shadow: 0 0 0 3px rgba(70, 165, 110, 0.18);
+}
+
+.owner-approval-row-status[data-status="rejected"] {
+  color: #dc414b;
+}
+.owner-approval-row-status[data-status="rejected"] .owner-approval-row-status-dot {
+  box-shadow: 0 0 0 3px rgba(220, 65, 75, 0.18);
+}
+
+.owner-approval-row-status[data-status="changes_requested"] {
+  color: #ffa03c;
+}
+.owner-approval-row-status[data-status="changes_requested"] .owner-approval-row-status-dot {
+  box-shadow: 0 0 0 3px rgba(255, 160, 60, 0.18);
+}
+
+.owner-approval-row-main {
+  min-width: 0;
+}
+
+.owner-approval-row-main h4 {
+  color: var(--admin-text);
+  font-size: 1rem;
+  font-weight: 1000;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.owner-approval-row-main p {
+  color: var(--admin-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  font-weight: 750;
+  gap: 6px;
+  line-height: 1.35;
+  margin-top: 4px;
+}
+
+.owner-approval-row-main p > span[aria-hidden="true"] {
+  opacity: 0.45;
+}
+
+.owner-approval-row-stats {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 56px 110px 1fr;
+}
+
+.owner-approval-row-stats > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+
+.owner-approval-row-stats > div strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.owner-approval-row-stats span {
+  color: var(--admin-accent-dark);
+  font-size: 0.62rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.owner-approval-row-stats strong {
+  color: var(--admin-text);
+  font-size: 0.92rem;
+  font-weight: 1000;
+  white-space: nowrap;
+}
+
+.owner-approval-row-cta {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.owner-approval-row-locked {
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+  .owner-approval-row {
+    grid-template-columns: 1fr;
+  }
+
+  .owner-approval-row-stats {
+    flex-wrap: wrap;
+  }
+
+  .owner-approval-row-stats > div {
+    text-align: left;
+  }
+
+  .owner-approval-row-cta {
+    justify-self: flex-start;
+  }
 }
 
 .owner-approval-card {
@@ -18444,6 +18614,25 @@ html[data-ynot-theme="light"] .admin-workspace [class*="owner-prize-odds-cell"] 
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
+/* Owner approval compact row — keep status dot + word readable in light theme */
+html[data-ynot-theme="light"] .admin-workspace .owner-approval-row-status {
+  background: transparent !important;
+  border: none !important;
+  color: #ffcc4d !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .owner-approval-row-status[data-status="approved"] {
+  color: #6fd8a0 !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .owner-approval-row-status[data-status="rejected"] {
+  color: #ff8a93 !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .owner-approval-row-status[data-status="changes_requested"] {
+  color: #ffc880 !important;
+}
+html[data-ynot-theme="light"] .admin-workspace .owner-approval-row-status-dot {
+  background: currentColor !important;
+}
+
 /* Catch-all for any explicit white-background div inside admin */
 html[data-ynot-theme="light"] .admin-workspace [style*="background: white"],
 html[data-ynot-theme="light"] .admin-workspace [style*="background:#fff"],
@@ -24071,7 +24260,6 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
 .admin-frame .admin-prize-summary-grid,
 .admin-frame .admin-prize-tier-row,
 .admin-frame .admin-prize-table-wrap,
-.admin-frame .admin-prize-rank-cell,
 .admin-frame .wallet-balance-card,
 .admin-frame .wallet-method-card,
 .admin-frame .wallet-history-card,
@@ -24235,7 +24423,11 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   border-radius: 7px !important;
 }
 .admin-frame .admin-pack-form .admin-open-preset-button {
-  min-height: 58px !important;
+  min-height: 34px !important;
+  padding: 6px 16px !important;
+  border-radius: 12px !important;
+  font-size: 0.78rem !important;
+  font-weight: 800 !important;
   border-color: var(--a-border-soft) !important;
   color: var(--a-fg-dim) !important;
 }
@@ -25953,4 +26145,208 @@ html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .text-m
 html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .text-mono * {
   font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace !important;
+}
+
+/* Final admin campaign polish: keep dark-theme controls warm instead of white,
+   keep prize thumbnails inside their frame, and make owner-review queue rows
+   scan as one compact line. */
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame {
+  --a-primary: #f1d77c;
+  --a-primary-fg: #17170f;
+  --a-gold: #f1d77c;
+  --a-gold-2: #d9b85a;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .btn,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .btn-primary,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .btn-primary:hover,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .gold-button,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .primary-action,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .secondary-action,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .admin-form-save,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame button[type="submit"] {
+  background: linear-gradient(180deg, #f6df8c, #e1bf5f) !important;
+  border-color: rgba(241, 215, 124, 0.72) !important;
+  color: #17170f !important;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .btn:hover,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .btn-primary:hover,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .gold-button:hover,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .primary-action:hover,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .secondary-action:hover,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .admin-form-save:hover,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame button[type="submit"]:hover {
+  background: linear-gradient(180deg, #ffe99c, #e8c766) !important;
+  border-color: rgba(255, 233, 156, 0.86) !important;
+  color: #17170f !important;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .btn-ghost {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--a-muted) !important;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .btn-ghost:hover {
+  background: rgba(241, 215, 124, 0.1) !important;
+  border-color: rgba(241, 215, 124, 0.18) !important;
+  color: var(--a-fg) !important;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .admin-prize-rank-cell .admin-prize-card-thumb {
+  background: rgba(255, 255, 255, 0.035) !important;
+  aspect-ratio: 5 / 7 !important;
+  height: auto !important;
+  max-width: 160px !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  width: 100% !important;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-list {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row {
+  background: rgba(255, 255, 255, 0.026) !important;
+  border-color: var(--a-border) !important;
+  border-radius: 10px !important;
+  box-sizing: border-box;
+  gap: 14px !important;
+  grid-template-columns:
+    minmax(104px, 118px)
+    minmax(0, 1fr)
+    minmax(202px, 250px)
+    minmax(70px, 78px) !important;
+  min-height: 44px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px 10px !important;
+  width: 100%;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-main {
+  align-items: center;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(160px, 260px) minmax(0, 1fr);
+  min-width: 0;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-main h4 {
+  color: var(--a-fg) !important;
+  font-size: 0.8125rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  line-height: 1rem !important;
+  margin: 0;
+  min-width: 0;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-main p {
+  color: var(--a-muted) !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  flex-wrap: nowrap;
+  gap: 6px;
+  line-height: 1rem !important;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-main p > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-main p > span:not([aria-hidden="true"]) {
+  flex: 0 1 auto;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-main p > span[aria-hidden="true"] {
+  flex: 0 0 auto;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-status {
+  align-items: center;
+  background: transparent !important;
+  border: none !important;
+  color: #f1d77c !important;
+  display: inline-flex;
+  font-size: 0.6875rem !important;
+  font-weight: 600 !important;
+  gap: 6px;
+  justify-content: center;
+  letter-spacing: 0.04em !important;
+  line-height: 1rem !important;
+  min-height: 1.5rem;
+  padding: 0 !important;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-status-dot {
+  background: currentColor !important;
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px rgba(241, 215, 124, 0.18);
+  flex: 0 0 auto;
+  height: 8px;
+  width: 8px;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-status[data-status="approved"] .owner-approval-row-status-dot {
+  box-shadow: 0 0 0 3px rgba(111, 216, 160, 0.18);
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-status[data-status="rejected"] .owner-approval-row-status-dot {
+  box-shadow: 0 0 0 3px rgba(255, 138, 147, 0.18);
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-status[data-status="changes_requested"] .owner-approval-row-status-dot {
+  box-shadow: 0 0 0 3px rgba(255, 200, 128, 0.18);
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-stats {
+  display: grid;
+  flex-wrap: nowrap;
+  gap: 8px;
+  grid-template-columns: minmax(42px, 52px) minmax(70px, 88px) minmax(80px, 110px);
+  min-width: 0;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-stats > div {
+  gap: 0;
+  min-width: 0;
+  text-align: left;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-stats span {
+  color: var(--a-muted-2) !important;
+  font-size: 0.625rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.05em !important;
+  line-height: 0.875rem !important;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-stats strong {
+  color: var(--a-fg) !important;
+  display: block;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  line-height: 1rem !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-cta,
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-approval-row-locked {
+  justify-self: end;
 }

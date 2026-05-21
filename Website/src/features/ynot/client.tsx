@@ -3,6 +3,7 @@
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CardCatalogItem, ProfileInfo } from "@/lib/lucky-draw/types";
 import type {
@@ -21,6 +22,9 @@ import type {
   YnotShippingRequest,
   YnotTierAnimation,
 } from "./types";
+import type { YnotViewer } from "./types";
+import { AdminFrame } from "./admin/Shell";
+import { AdminIcon } from "./admin/Icon";
 import { GachaRevealOverlay } from "./GachaRevealOverlay";
 import {
   defaultOpenQuantityOptions,
@@ -287,105 +291,6 @@ const randomLogicChoices: Array<{
     description: "High-tier pool starts locked, then opens after the sold checkpoint.",
   },
 ];
-
-function ownerLogicSummary(
-  logicMode: YnotRandomLogicMode,
-  soldPct: number,
-) {
-  const roundedSoldPct = Math.round(soldPct);
-  if (logicMode === "weighted_templates") {
-    return [
-      "Weight changes odds across the full prize pool immediately.",
-      "Higher weight means more chance; weight 0 removes that prize from the random pool.",
-      "Sold unlock fields are ignored in this mode.",
-    ];
-  }
-  if (logicMode === "inventory_gated") {
-    const unlockStatus =
-      roundedSoldPct >= 30
-        ? `This pack is ${roundedSoldPct}% sold; prizes with unlock checkpoints at or below ${roundedSoldPct}% can now enter the pool.`
-        : `This pack is ${roundedSoldPct}% sold; prizes above this sold percentage stay hidden and cannot drop yet.`;
-    return [
-      unlockStatus,
-      "The sold unlock gate runs before weighting, so locked high-tier prizes stay only in Postgres before the checkpoint.",
-      "After unlock, those prizes join the weighted database pool and their configured weights still control odds.",
-    ];
-  }
-  return [
-    "Every available prize unit has the same chance.",
-    "Stored weights are ignored in pure random mode.",
-    "Sold unlock fields are ignored in pure random mode.",
-  ];
-}
-
-function prizeAvailableUnitCount(prize: YnotPrizePreview) {
-  return Math.max(
-    0,
-    Math.round(Number(prize.availableUnits ?? prize.totalUnits ?? 1) || 0),
-  );
-}
-
-function effectivePrizeWeight(
-  prize: YnotPrizePreview,
-  logicMode: YnotRandomLogicMode,
-) {
-  if (logicMode === "pure_random") return 1;
-  return Math.max(0, Number(prize.weight ?? 1) || 0);
-}
-
-function effectivePrizeUnlockAtSoldPct(
-  prize: YnotPrizePreview,
-  logicMode: YnotRandomLogicMode,
-) {
-  if (logicMode !== "inventory_gated") return 0;
-  return Math.min(100, Math.max(0, Number(prize.unlockAtSoldPct ?? 0) || 0));
-}
-
-function usesPrizeWeight(logicMode: YnotRandomLogicMode) {
-  return logicMode !== "pure_random";
-}
-
-function usesPrizeUnlock(logicMode: YnotRandomLogicMode) {
-  return logicMode === "inventory_gated";
-}
-
-function ownerPrizeOddsLabel(
-  prize: YnotPrizePreview,
-  lineup: YnotPrizePreview[],
-  soldPct: number,
-  logicMode: YnotRandomLogicMode,
-) {
-  const unlockAtSoldPct = effectivePrizeUnlockAtSoldPct(prize, logicMode);
-  const weight = effectivePrizeWeight(prize, logicMode);
-  const availableUnits = prizeAvailableUnitCount(prize);
-  if (availableUnits <= 0) return "Sold out";
-  if (unlockAtSoldPct > soldPct) return `Locked until ${unlockAtSoldPct}%`;
-  if (weight <= 0) return "Disabled";
-  const prizeOddsWeight = availableUnits * weight;
-  const eligibleWeight = lineup.reduce((sum, candidate) => {
-    const candidateWeight = effectivePrizeWeight(candidate, logicMode);
-    const candidateUnits = prizeAvailableUnitCount(candidate);
-    if (candidateUnits <= 0 || candidateWeight <= 0) return sum;
-    if (effectivePrizeUnlockAtSoldPct(candidate, logicMode) > soldPct) {
-      return sum;
-    }
-    return sum + candidateUnits * candidateWeight;
-  }, 0);
-  if (eligibleWeight <= 0) return "No eligible pool";
-  return `${((prizeOddsWeight / eligibleWeight) * 100).toFixed(1)}%`;
-}
-
-function prizePreviewDisplayTier(prize: YnotPrizePreview) {
-  if (prize.displayTier) return prizeDisplayTierValue(prize.displayTier);
-  if (prize.displayGroup) return prizeDisplayTierValue(prize.displayGroup);
-  if (prize.tier === "high" && prize.rank <= 3) return "rainbow";
-  if (prize.tier === "high") return "gold";
-  return "bronze";
-}
-
-function prizePreviewTierRank(prize: YnotPrizePreview) {
-  return Math.max(1, Math.round(Number(prize.tierRank ?? prize.rank) || 1));
-}
 
 function AdminField({
   label,
@@ -2168,6 +2073,11 @@ export function AdminCampaignForm({
   const [openQuantityOptions, setOpenQuantityOptions] = useState<number[]>(
     normalizeOpenQuantityOptions(editingCampaign?.openQuantityOptions),
   );
+  const [slotGrid, setSlotGrid] = useState<{
+    layout: "10x10" | "5x20" | "20x5";
+    reveal: "stamp_on_pick" | "reveal_on_close";
+    blockRepick: boolean;
+  }>({ layout: "10x10", reveal: "stamp_on_pick", blockRepick: true });
   const [draftPrizes, setDraftPrizes] = useState<CampaignPrizeDraft[]>(() =>
     editingPrizes && editingPrizes.length
       ? prizeLineupToDrafts(editingPrizes, cards, defaultTotalSlots)
@@ -2536,6 +2446,7 @@ export function AdminCampaignForm({
           totalSlots,
           displayTags,
           openQuantityOptions,
+          slotGrid: mode === "slot_pick" ? slotGrid : undefined,
           categoryIds: categoryId ? [categoryId] : undefined,
           isTest,
           initialPrizes: activePrizeDrafts.map((prize) => ({
@@ -2686,18 +2597,50 @@ export function AdminCampaignForm({
                 placeholder="Pack title"
               />
             </label>
-            <label className="admin-field">
+            <div className="admin-field admin-field-wide">
               <span>Open mode</span>
-              <select
-                value={mode}
-                onChange={(event) =>
-                  setMode(event.target.value as "instant_gacha" | "slot_pick")
-                }
-              >
-                <option value="instant_gacha">Instant gacha</option>
-                <option value="slot_pick">Slot pick</option>
-              </select>
-            </label>
+              <div className="tabs" style={{ width: "100%" }}>
+                <button
+                  type="button"
+                  className={`t ${mode === "slot_pick" ? "active" : ""}`}
+                  style={{
+                    flex: 1,
+                    padding: "6px 10px",
+                    textAlign: "center",
+                    background: "transparent",
+                    border: 0,
+                    color: "inherit",
+                    fontFamily: "inherit",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => setMode("slot_pick")}
+                >
+                  Slot pick
+                </button>
+                <button
+                  type="button"
+                  className={`t ${mode === "instant_gacha" ? "active" : ""}`}
+                  style={{
+                    flex: 1,
+                    padding: "6px 10px",
+                    textAlign: "center",
+                    background: "transparent",
+                    border: 0,
+                    color: "inherit",
+                    fontFamily: "inherit",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => setMode("instant_gacha")}
+                >
+                  Instant gacha
+                </button>
+              </div>
+              <small>
+                {mode === "instant_gacha"
+                  ? "Customer buys bundles (1, 10, 100 pulls) and opens instantly."
+                  : "Admin sets N slots at a fixed cost per slot. Customer pays any amount, gets paid ÷ cost slots to pick."}
+              </small>
+            </div>
             <label className="admin-field">
               <span>Total packs</span>
               <input
@@ -2730,32 +2673,184 @@ export function AdminCampaignForm({
                 placeholder="1"
               />
             </label>
-            <div className="admin-field admin-field-wide">
-              <span>Open buttons</span>
-              <div
-                className="admin-open-preset-row"
-                role="group"
-                aria-label="Open quantity buttons"
-              >
-                {defaultOpenQuantityOptions.map((option) => {
-                  const selected = openQuantityOptions.includes(option);
-                  return (
-                    <button
-                      aria-pressed={selected}
-                      className={`admin-open-preset-button${selected ? " active is-selected" : ""}`}
-                      key={option}
-                      onClick={() => toggleOpenQuantityOption(option)}
-                      type="button"
-                    >
-                      Open {option}
-                    </button>
-                  );
-                })}
+            {mode === "instant_gacha" && (
+              <div className="admin-field admin-field-wide">
+                <span>Open buttons</span>
+                <div
+                  className="admin-open-preset-row"
+                  role="group"
+                  aria-label="Open quantity buttons"
+                >
+                  {defaultOpenQuantityOptions.map((option) => {
+                    const selected = openQuantityOptions.includes(option);
+                    return (
+                      <button
+                        aria-pressed={selected}
+                        className={`admin-open-preset-button${selected ? " active is-selected" : ""}`}
+                        key={option}
+                        onClick={() => toggleOpenQuantityOption(option)}
+                        type="button"
+                      >
+                        Open {option}
+                      </button>
+                    );
+                  })}
+                </div>
+                <small>
+                  These become the customer buttons on the open pack screen.
+                </small>
               </div>
-              <small>
-                These become the customer buttons on the open pack screen.
-              </small>
-            </div>
+            )}
+            {mode === "slot_pick" && (
+              <div className="admin-field admin-field-wide">
+                <span>How slot pick works</span>
+                <div
+                  style={{
+                    padding: "10px 12px",
+                    background: "rgba(108,166,255,0.06)",
+                    border: "1px solid rgba(108,166,255,0.18)",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    color: "var(--a-fg-dim)",
+                    lineHeight: 1.55,
+                  }}
+                >
+                  Customer pays any amount of coins. The number of spots they
+                  can pick = <b>coins paid ÷ cost per slot</b>. Each picked spot
+                  is fully random — no per-card weights apply. The {totalSlots.toLocaleString()}-spot
+                  grid layout is configured below.
+                </div>
+              </div>
+            )}
+            {mode === "slot_pick" && (
+              <div className="admin-field admin-field-wide">
+                <span>Slot grid config</span>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 1fr",
+                    gap: 8,
+                  }}
+                >
+                  <label
+                    style={{ display: "flex", flexDirection: "column", gap: 4 }}
+                  >
+                    <small>Grid layout</small>
+                    <select
+                      className="select"
+                      style={{ padding: "5px 8px", fontSize: 12 }}
+                      value={slotGrid.layout}
+                      onChange={(event) =>
+                        setSlotGrid((current) => ({
+                          ...current,
+                          layout: event.target.value as typeof current.layout,
+                        }))
+                      }
+                    >
+                      <option value="10x10">10 × 10</option>
+                      <option value="5x20">5 × 20</option>
+                      <option value="20x5">20 × 5</option>
+                    </select>
+                  </label>
+                  <label
+                    style={{ display: "flex", flexDirection: "column", gap: 4 }}
+                  >
+                    <small>Reveal style</small>
+                    <select
+                      className="select"
+                      style={{ padding: "5px 8px", fontSize: 12 }}
+                      value={slotGrid.reveal}
+                      onChange={(event) =>
+                        setSlotGrid((current) => ({
+                          ...current,
+                          reveal: event.target.value as typeof current.reveal,
+                        }))
+                      }
+                    >
+                      <option value="stamp_on_pick">Stamp serial on pick</option>
+                      <option value="reveal_on_close">Reveal at draw close</option>
+                    </select>
+                  </label>
+                  <label
+                    style={{ display: "flex", flexDirection: "column", gap: 4 }}
+                  >
+                    <small>Block re-pick same user</small>
+                    <button
+                      type="button"
+                      className={`toggle ${slotGrid.blockRepick ? "on" : ""}`}
+                      onClick={() =>
+                        setSlotGrid((current) => ({
+                          ...current,
+                          blockRepick: !current.blockRepick,
+                        }))
+                      }
+                      aria-pressed={slotGrid.blockRepick}
+                      style={{ border: 0, cursor: "pointer", marginTop: 4 }}
+                    />
+                  </label>
+                </div>
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: 10,
+                    background: "rgba(7,7,15,0.5)",
+                    border: "1px solid var(--a-border-soft)",
+                    borderRadius: 8,
+                  }}
+                >
+                  <small
+                    style={{
+                      display: "block",
+                      marginBottom: 6,
+                      color: "var(--a-muted)",
+                    }}
+                  >
+                    Live preview · {totalSlots} slots · {slotGrid.layout}
+                  </small>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: `repeat(${
+                        slotGrid.layout === "10x10"
+                          ? 10
+                          : slotGrid.layout === "5x20"
+                          ? 5
+                          : 20
+                      },1fr)`,
+                      gap: 3,
+                    }}
+                  >
+                    {Array.from({ length: Math.min(totalSlots, 100) }).map(
+                      (_, i) => {
+                        const picked = (i * 7) % 11 === 0 || (i * 13) % 17 === 0;
+                        return (
+                          <div
+                            key={i}
+                            style={{
+                              aspectRatio: "1 / 1.4",
+                              background: picked
+                                ? "rgba(244,197,66,0.20)"
+                                : "rgba(255,255,255,0.04)",
+                              border: picked
+                                ? "1px solid rgba(244,197,66,0.5)"
+                                : "1px solid var(--a-border-soft)",
+                              borderRadius: 3,
+                              display: "grid",
+                              placeItems: "center",
+                              fontFamily: "Geist Mono, monospace",
+                              fontSize: 8,
+                              color: picked ? "var(--a-gold)" : "var(--a-muted-2)",
+                            }}
+                          >
+                            {i + 1}
+                          </div>
+                        );
+                      },
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="admin-field admin-field-wide">
               <span>Customer card tags</span>
               <div className="admin-tag-chip-row" role="list">
@@ -2936,10 +3031,6 @@ export function AdminCampaignForm({
                           key={prize.localId}
                         >
                           <div className="admin-prize-rank-cell">
-                            <div className="admin-prize-rank-label">
-                              <strong>#{prize.tierRank}</strong>
-                              <span>{option.shortLabel}</span>
-                            </div>
                             {selectedCard ? (
                               <AdminPrizeCardImage
                                 code={selectedCard.code}
@@ -2955,6 +3046,10 @@ export function AdminCampaignForm({
                           </div>
                           <div className="admin-field admin-prize-card-field">
                             <span>Prize item</span>
+                            <div className="admin-prize-rank-label">
+                              <strong>#{prize.tierRank}</strong>
+                              <span>{option.shortLabel}</span>
+                            </div>
                             <AdminPrizeCardPicker
                               cards={itemOptions}
                               disabled={!itemOptions.length}
@@ -3090,37 +3185,6 @@ export function AdminCampaignForm({
   );
 }
 
-type LocalApprovalQueueItem = YnotOwnerApprovalRequest & {
-  runtimeStatus: YnotCampaign["status"];
-  runtimeVisibility: YnotCampaign["visibility"];
-  selectedLogicMode: YnotRandomLogicMode;
-  localMessage?: string;
-};
-
-type LifecycleAction =
-  | "submit_review"
-  | "save_logic"
-  | "approve"
-  | "reject"
-  | "request_changes"
-  | "publish"
-  | "close"
-  | "archive"
-  | "delete";
-
-function toLocalApprovalQueueItem(
-  request: YnotOwnerApprovalRequest,
-  current?: LocalApprovalQueueItem,
-): LocalApprovalQueueItem {
-  return {
-    ...request,
-    runtimeStatus: request.campaign.status,
-    runtimeVisibility: request.campaign.visibility,
-    selectedLogicMode: current?.selectedLogicMode ?? request.logicMode,
-    localMessage: current?.localMessage,
-  };
-}
-
 export function OwnerApprovalQueue({
   requests,
   viewerRole,
@@ -3128,162 +3192,7 @@ export function OwnerApprovalQueue({
   requests: YnotOwnerApprovalRequest[];
   viewerRole?: "owner" | "admin" | "staff" | null;
 }) {
-  const [items, setItems] = useState<LocalApprovalQueueItem[]>(
-    requests.map((request) => toLocalApprovalQueueItem(request)),
-  );
-  const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    setItems((current) => {
-      const currentById = new Map(current.map((item) => [item.id, item]));
-      return requests.map((request) =>
-        toLocalApprovalQueueItem(request, currentById.get(request.id)),
-      );
-    });
-  }, [requests]);
-
-  function applyAction(index: number, action: LifecycleAction) {
-    const item = items[index];
-    if (!item) return;
-    startTransition(async () => {
-      try {
-        const payload = await requestJson(
-          "/api/ynot/admin/campaigns/lifecycle",
-          {
-            campaignId: item.campaign.id,
-            action,
-            logicMode: item.selectedLogicMode,
-          },
-          "POST",
-        );
-        setItems((current) =>
-          current.map((candidate, candidateIndex) =>
-            candidateIndex === index
-              ? {
-                  ...candidate,
-                  approvalStatus:
-                    payload.approvalStatus ?? candidate.approvalStatus,
-                  runtimeStatus: payload.status ?? candidate.runtimeStatus,
-                  runtimeVisibility:
-                    payload.visibility ?? candidate.runtimeVisibility,
-                  selectedLogicMode:
-                    payload.logicMode ?? candidate.selectedLogicMode,
-                  logicMode: payload.logicMode ?? candidate.logicMode,
-                  localMessage: payload.message ?? "Owner action saved.",
-                }
-              : candidate,
-          ),
-        );
-      } catch (error) {
-        setItems((current) =>
-          current.map((candidate, candidateIndex) =>
-            candidateIndex === index
-              ? {
-                  ...candidate,
-                  localMessage:
-                    error instanceof Error
-                      ? error.message
-                      : "Owner action could not be saved.",
-                }
-              : candidate,
-          ),
-        );
-      }
-    });
-  }
-
-  function chooseLogicMode(index: number, logicMode: YnotRandomLogicMode) {
-    setItems((current) =>
-      current.map((candidate, candidateIndex) =>
-        candidateIndex === index
-          ? {
-              ...candidate,
-              selectedLogicMode: logicMode,
-              localMessage:
-                logicMode === "pure_random"
-                  ? "Pure random selected for this review."
-                  : logicMode === "weighted_templates"
-                    ? "Weighted high tier selected. Eligible prizes use configured weights, but this does not add a sold checkpoint by itself."
-                    : "30% sold unlock selected. Locked prizes stay hidden and cannot drop until their sold checkpoint is reached.",
-            }
-          : candidate,
-      ),
-    );
-  }
-
-  function updateOwnerPrizeOdds(
-    index: number,
-    prizeId: string,
-    patch: Partial<YnotPrizePreview>,
-  ) {
-    setItems((current) =>
-      current.map((candidate, candidateIndex) =>
-        candidateIndex === index
-          ? {
-              ...candidate,
-              campaign: {
-                ...candidate.campaign,
-                prizeLineup: (candidate.campaign.prizeLineup ?? []).map((prize) =>
-                  prize.id === prizeId ? { ...prize, ...patch } : prize,
-                ),
-              },
-              localMessage: undefined,
-            }
-          : candidate,
-      ),
-    );
-  }
-
-  function saveOwnerPrizeOdds(index: number, prize: YnotPrizePreview) {
-    const item = items[index];
-    if (!item || !prize.cardId) return;
-    const weight = usesPrizeWeight(item.selectedLogicMode)
-      ? Math.max(0, Number(prize.weight) || 0)
-      : 1;
-    const unlockAtSoldPct = usesPrizeUnlock(item.selectedLogicMode)
-      ? Math.min(
-          100,
-          Math.max(0, Math.round(Number(prize.unlockAtSoldPct) || 0)),
-        )
-      : 0;
-    startTransition(async () => {
-      try {
-        await postJson("/api/ynot/admin/prizes/odds", {
-          campaignId: item.campaign.id,
-          prizeId: prize.id,
-          weight,
-          unlockAtSoldPct,
-        });
-        setItems((current) =>
-          current.map((candidate, candidateIndex) =>
-            candidateIndex === index
-              ? {
-                  ...candidate,
-                  localMessage:
-                    "Owner prize mode settings saved. The pack stays in owner review.",
-                }
-              : candidate,
-          ),
-        );
-      } catch (error) {
-        setItems((current) =>
-          current.map((candidate, candidateIndex) =>
-            candidateIndex === index
-              ? {
-                  ...candidate,
-                  localMessage:
-                    error instanceof Error
-                      ? error.message
-                      : "Owner prize odds could not be saved.",
-                }
-              : candidate,
-          ),
-        );
-      }
-    });
-  }
-
-  if (!items.length) {
+  if (!requests.length) {
     return (
       <section className="owner-approval-queue soft-card">
         <div className="admin-form-head">
@@ -3298,6 +3207,8 @@ export function OwnerApprovalQueue({
     );
   }
 
+  const isOwner = viewerRole === "owner";
+
   return (
     <section className="owner-approval-queue soft-card">
       <div className="admin-panel-head">
@@ -3305,351 +3216,1165 @@ export function OwnerApprovalQueue({
           <p className="section-label">Owner review queue</p>
           <h3 className="title-m">Random drop requests</h3>
           <p className="txt-s">
-            {items.length} request{items.length === 1 ? "" : "s"} waiting in
-            the owner dashboard.
+            {requests.length} request{requests.length === 1 ? "" : "s"} waiting.
+            Click <strong>Review</strong> to inspect and approve.
           </p>
         </div>
         <span className="status-pill warn">Owner notification</span>
       </div>
 
       <div className="owner-approval-list">
-        {items.map((item, index) => {
-          const isOwner = viewerRole === "owner";
-          const readinessBlockers = item.campaign.readinessBlockers ?? [];
-          const readinessBlocked = readinessBlockers.length > 0;
-          const canPublish =
-            isOwner && item.approvalStatus === "approved" && !readinessBlocked;
-          const logicLocked = item.approvalStatus === "approved";
-          const summaryLines = ownerLogicSummary(
-            item.selectedLogicMode,
-            item.soldPct,
-          );
-          const weightControlsActive = usesPrizeWeight(item.selectedLogicMode);
-          const unlockControlsActive = usesPrizeUnlock(item.selectedLogicMode);
-          const logicChoiceChanged = item.selectedLogicMode !== item.logicMode;
-          const ownerPrizeLineup = item.campaign.prizeLineup ?? [];
-          const ownerPrizeSections = prizeDisplayTierOptions
-            .map((option) => ({
-              key: option.value,
-              title: `${option.label} tier`,
-              note:
-                option.value === "bronze"
-                  ? "Base or lowest tier rewards that cover the pack."
-                  : `${option.label} chase rewards reviewed above lower tiers.`,
-              prizes: ownerPrizeLineup
-                .filter(
-                  (prize) => prizePreviewDisplayTier(prize) === option.value,
-                )
-                .sort(
-                  (left, right) =>
-                    prizePreviewTierRank(left) - prizePreviewTierRank(right),
-                ),
-            }))
-            .filter((section) => section.prizes.length > 0);
+        {requests.map((request) => {
+          const logicLabel =
+            randomLogicChoices.find(
+              (choice) => choice.value === request.logicMode,
+            )?.label ?? request.logicMode;
+          const modeLabel =
+            request.campaign.mode === "slot_pick"
+              ? "Slot pick"
+              : "Instant gacha";
+          const totalUnits =
+            request.campaign.totalPrizeUnits ?? request.campaign.totalSlots;
+          const availableUnits = request.campaign.availablePrizeUnits ?? 0;
+          const shortStatusLabel: Record<YnotApprovalStatus, string> = {
+            not_submitted: "Draft",
+            pending_review: "Pending",
+            approved: "Approved",
+            rejected: "Rejected",
+            changes_requested: "Changes",
+          };
+          const requesterLabel = request.requestedByLabel?.trim();
           return (
-            <article className="owner-approval-card" key={item.id}>
-              <div className="owner-approval-card-head">
+            <article className="owner-approval-row" key={request.id}>
+              <span
+                className="owner-approval-row-status"
+                data-status={request.approvalStatus}
+                title={approvalStatusLabel(request.approvalStatus)}
+              >
+                <span className="owner-approval-row-status-dot" aria-hidden="true" />
+                {shortStatusLabel[request.approvalStatus]}
+              </span>
+              <div className="owner-approval-row-main">
+                <h4>{request.campaign.titleTh || request.campaign.titleEn}</h4>
+                <p>
+                  <span>{request.campaign.slug}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{modeLabel}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{formatApprovalDate(request.requestedAt)}</span>
+                  {requesterLabel ? (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span>by {requesterLabel}</span>
+                    </>
+                  ) : null}
+                </p>
+              </div>
+              <div className="owner-approval-row-stats">
                 <div>
-                  <span>{item.notificationLabel}</span>
-                  <h4>{item.campaign.titleTh || item.campaign.titleEn}</h4>
-                  <p>
-                    {item.campaign.slug} · {item.runtimeStatus}/
-                    {item.runtimeVisibility} · {item.soldPct}% sold checkpoint
-                  </p>
+                  <span>Sold</span>
+                  <strong>{request.soldPct}%</strong>
                 </div>
-                <div className="admin-pack-badges">
-                  <strong>{approvalStatusLabel(item.approvalStatus)}</strong>
-                  <em>{item.mock ? "localhost mock" : "database request"}</em>
+                <div>
+                  <span>Units</span>
+                  <strong>
+                    {availableUnits}/{totalUnits}
+                  </strong>
+                </div>
+                <div>
+                  <span>Logic</span>
+                  <strong>{logicLabel}</strong>
                 </div>
               </div>
-
-              <details className="owner-review-details" open>
-                <summary>Random logic</summary>
-                <div className="owner-logic-panel">
-                  <div>
-                    <span>Random logic choice</span>
-                    <strong>
-                      {
-                        randomLogicChoices.find(
-                          (choice) => choice.value === item.selectedLogicMode,
-                        )?.label
-                      }
-                    </strong>
-                    <p>
-                      {logicLocked
-                        ? "Approved logic is locked for publish."
-                        : "Pick the logic first, approve the settings, then publish when it is ready for customers."}
-                    </p>
-                  </div>
-                  <div className="owner-logic-options" aria-label="Random logic">
-                    {randomLogicChoices.map((choice) => (
-                      <button
-                        className={
-                          item.selectedLogicMode === choice.value
-                            ? "active"
-                            : ""
-                        }
-                        disabled={!isOwner || isPending || logicLocked}
-                        key={choice.value}
-                        onClick={() => chooseLogicMode(index, choice.value)}
-                        type="button"
-                      >
-                        <strong>{choice.label}</strong>
-                        <span>{choice.description}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="owner-logic-save-row">
-                    <button
-                      className="plain-button"
-                      disabled={
-                        !isOwner ||
-                        isPending ||
-                        logicLocked ||
-                        !logicChoiceChanged
-                      }
-                      onClick={() => applyAction(index, "save_logic")}
-                      type="button"
-                    >
-                      {logicChoiceChanged ? "Save logic choice" : "Logic saved"}
-                    </button>
-                    <span>
-                      Save before editing odds, then approve settings when the
-                      tier rows look correct.
-                    </span>
-                  </div>
-                </div>
-              </details>
-
-              <details className="owner-review-details" open>
-                <summary>Overview</summary>
-                <div className="owner-approval-grid">
-                  <div>
-                    <span>Requested by</span>
-                    <strong>{item.requestedByLabel}</strong>
-                  </div>
-                  <div>
-                    <span>Requested at</span>
-                    <strong>{formatApprovalDate(item.requestedAt)}</strong>
-                  </div>
-                  <div>
-                    <span>Prize units</span>
-                    <strong>
-                      {item.campaign.availablePrizeUnits ?? 0}/
-                      {item.campaign.totalPrizeUnits ?? item.campaign.totalSlots}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Openable now</span>
-                    <strong>{item.campaign.eligiblePrizeUnits ?? 0}</strong>
-                  </div>
-                </div>
-
-                {readinessBlocked && (
-                  <ul className="admin-prize-blocker-list">
-                    {readinessBlockers.map((blocker) => (
-                      <li key={blocker}>{blocker}</li>
-                    ))}
-                  </ul>
-                )}
-
-                <ul className="owner-approval-summary">
-                  {summaryLines.map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ul>
-              </details>
-
-              {isOwner && (
-                <details className="owner-review-details" open>
-                  <summary>Prize tiers</summary>
-                  <div className="owner-prize-odds-panel">
-                  <div className="owner-prize-odds-head">
-                    <div>
-                      <span>Owner-only prize odds</span>
-                      <strong>
-                        {item.selectedLogicMode === "pure_random"
-                          ? "Tier review with equal odds"
-                          : item.selectedLogicMode === "weighted_templates"
-                            ? "Tier review with active weights"
-                            : "Tier review with sold unlock and active weights"}
-                      </strong>
-                    </div>
-                    <em>
-                      {weightControlsActive ? "Weight active" : "Equal chance"}
-                    </em>
-                  </div>
-                  {ownerPrizeLineup.length > 0 ? (
-                    <div className="owner-prize-section-stack">
-                      {ownerPrizeSections.map((section) => (
-                        <section className="owner-prize-section" key={section.key}>
-                          <div className="owner-prize-section-head">
-                            <div>
-                              <strong>{section.title}</strong>
-                              <span>{section.note}</span>
-                            </div>
-                            <em>{section.prizes.length} row{section.prizes.length === 1 ? "" : "s"}</em>
-                          </div>
-                          <div className="owner-prize-odds-table-wrap">
-                            <div className="owner-prize-odds-table-head">
-                              <span>Prize</span>
-                              <span>Tier</span>
-                              <span>Weight</span>
-                              <span>Unlock %</span>
-                              <span>Current odds</span>
-                              <span>Action</span>
-                            </div>
-                            {section.prizes.map((prize) => (
-                              <article
-                                className="owner-prize-odds-row"
-                                key={prize.id}
-                              >
-                                <div className="owner-prize-name-cell">
-                                  <strong>
-                                    {prizeDisplayTierLabel(section.key)} #
-                                    {prizePreviewTierRank(prize)}{" "}
-                                    {prize.cardName}
-                                  </strong>
-                                  <span>
-                                    {prize.prizeCategoryLabel ??
-                                      (prize.tier === "high"
-                                        ? "High tier"
-                                        : "Normal")}
-                                  </span>
-                                </div>
-                                <div className="owner-prize-tier-cell">
-                                  {prizeDisplayTierLabel(section.key)}
-                                </div>
-                                {weightControlsActive ? (
-                                  <label className="admin-field">
-                                    <span>Weight</span>
-                                    <input
-                                      min={0}
-                                      step={0.1}
-                                      type="number"
-                                      value={prize.weight ?? 1}
-                                      onChange={(event) =>
-                                        updateOwnerPrizeOdds(index, prize.id, {
-                                          weight: Number(event.target.value),
-                                        })
-                                      }
-                                    />
-                                  </label>
-                                ) : (
-                                  <div className="owner-prize-mode-pill">
-                                    Equal chance
-                                  </div>
-                                )}
-                                {unlockControlsActive ? (
-                                  <label className="admin-field">
-                                    <span>Unlock sold percent</span>
-                                    <input
-                                      max={100}
-                                      min={0}
-                                      type="number"
-                                      value={prize.unlockAtSoldPct ?? 0}
-                                      onChange={(event) =>
-                                        updateOwnerPrizeOdds(index, prize.id, {
-                                          unlockAtSoldPct: Number(event.target.value),
-                                        })
-                                      }
-                                    />
-                                  </label>
-                                ) : (
-                                  <div className="owner-prize-mode-pill">
-                                    Immediate pool
-                                  </div>
-                                )}
-                                <div className="owner-prize-odds-cell">
-                                  {ownerPrizeOddsLabel(
-                                    prize,
-                                    ownerPrizeLineup,
-                                    item.soldPct,
-                                    item.selectedLogicMode,
-                                  )}
-                                </div>
-                                <button
-                                  className="plain-button"
-                                  disabled={
-                                    isPending ||
-                                    logicLocked ||
-                                    item.mock ||
-                                    !prize.cardId
-                                  }
-                                  onClick={() => saveOwnerPrizeOdds(index, prize)}
-                                  type="button"
-                                >
-                                  Save
-                                </button>
-                              </article>
-                            ))}
-                          </div>
-                        </section>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="admin-empty-note">
-                      Prize odds appear here after the draft has saved prize
-                      inventory.
-                    </p>
-                  )}
-                  </div>
-                </details>
-              )}
-
-              <details className="owner-review-details" open>
-                <summary>Approval actions</summary>
-                <div className="owner-approval-actions">
-                <div className="owner-action-note">
-                  <strong>Approve settings</strong>
-                  <span>Keeps the pack draft/private. Customers still cannot open it.</span>
-                </div>
-                <button
-                  className="gold-button"
-                  disabled={!isOwner || isPending || readinessBlocked}
-                  onClick={() => applyAction(index, "approve")}
-                  type="button"
+              {isOwner ? (
+                <Link
+                  className="btn btn-sm btn-primary owner-approval-row-cta"
+                  href={`/admin/campaigns/${request.campaign.id}/review`}
                 >
-                  Approve settings
-                </button>
-                <button
-                  className="plain-button"
-                  disabled={!isOwner || isPending}
-                  onClick={() => applyAction(index, "request_changes")}
-                  type="button"
-                >
-                  Request changes
-                </button>
-                <button
-                  className="danger-button"
-                  disabled={!isOwner || isPending}
-                  onClick={() => applyAction(index, "reject")}
-                  type="button"
-                >
-                  Reject
-                </button>
-                <button
-                  className="plain-button"
-                  disabled={!canPublish || isPending}
-                  onClick={() => applyAction(index, "publish")}
-                  type="button"
-                >
-                  Publish live/public
-                </button>
-                <div className="owner-action-note">
-                  <strong>Publish live/public</strong>
-                  <span>Only after approval. This makes the pack visible and openable.</span>
-                </div>
-                </div>
-              </details>
-              {item.localMessage && (
-                <p className="admin-pack-row-message">{item.localMessage}</p>
+                  Review <AdminIcon name="chev-r" size={12} />
+                </Link>
+              ) : (
+                <span className="owner-approval-row-locked">Owner only</span>
               )}
             </article>
           );
         })}
       </div>
     </section>
+  );
+}
+
+// ---------- Owner Approval Review (design artboard 02c) ----------
+
+type OwnerReviewTier = "rainbow" | "gold" | "silver" | "bronze";
+
+const OWNER_REVIEW_TIER_ORDER: OwnerReviewTier[] = [
+  "rainbow",
+  "gold",
+  "silver",
+  "bronze",
+];
+
+const OWNER_REVIEW_TIER_COLORS: Record<OwnerReviewTier, string> = {
+  rainbow: "#f05a6c",
+  gold: "#f4c542",
+  silver: "#c8c8d8",
+  bronze: "#cf8750",
+};
+
+const OWNER_REVIEW_GUARANTEE_OPTIONS = [
+  { value: "none", label: "None" },
+  { value: "silver_plus", label: "Silver+" },
+  { value: "gold_plus", label: "Gold+" },
+  { value: "rainbow", label: "Rainbow" },
+] as const;
+
+type OwnerReviewGuarantee =
+  (typeof OWNER_REVIEW_GUARANTEE_OPTIONS)[number]["value"];
+
+type OwnerReviewLogicMode = YnotRandomLogicMode;
+
+type OwnerReviewCardEdit = {
+  weight?: number;
+  unlockAtSoldPct?: number;
+};
+
+type OwnerReviewSimResult = {
+  counts: Record<OwnerReviewTier, number>;
+  expected: Record<OwnerReviewTier, number>;
+  cumulative: Record<OwnerReviewTier, number[]>;
+  payoutAvg: number;
+  payoutWorst10: number;
+  payoutBest1: number;
+  draws: number;
+  seed: string;
+  ranAt: number;
+};
+
+function ownerReviewTierFromPrize(prize: YnotPrizePreview): OwnerReviewTier {
+  const display = (prize.displayTier ?? "").toLowerCase();
+  if (display === "rainbow" || display === "gold" || display === "silver" || display === "bronze") {
+    return display as OwnerReviewTier;
+  }
+  if (prize.tier === "high") {
+    return (prize.tierRank ?? prize.rank ?? 99) <= 3 ? "rainbow" : "gold";
+  }
+  return "bronze";
+}
+
+function ownerReviewReadGuarantee(value: unknown): OwnerReviewGuarantee {
+  return OWNER_REVIEW_GUARANTEE_OPTIONS.some((opt) => opt.value === value)
+    ? (value as OwnerReviewGuarantee)
+    : "none";
+}
+
+function ownerReviewSeed() {
+  return Math.floor(Math.random() * 0xffffffff)
+    .toString(16)
+    .padStart(8, "0");
+}
+
+function mulberry32(seed: number) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function runOwnerReviewSimulation(
+  prizes: YnotPrizePreview[],
+  logicMode: OwnerReviewLogicMode,
+  cardEdits: Record<string, OwnerReviewCardEdit>,
+  draws: number,
+  seedHex: string,
+): OwnerReviewSimResult {
+  // Build the active table — weighted by either the override or the original.
+  const entries = prizes
+    .filter((prize) => (prize.plannedQuantity ?? 0) > 0)
+    .map((prize) => {
+      const edit = cardEdits[prize.id];
+      const baseWeight =
+        logicMode === "pure_random"
+          ? prize.plannedQuantity ?? 0
+          : edit?.weight ?? prize.weight ?? 0;
+      return {
+        tier: ownerReviewTierFromPrize(prize),
+        weight: Math.max(0, baseWeight || 0),
+        value: prize.valueThb ?? 0,
+      };
+    })
+    .filter((row) => row.weight > 0);
+
+  const totalWeight = entries.reduce((sum, row) => sum + row.weight, 0);
+  const counts: Record<OwnerReviewTier, number> = {
+    rainbow: 0,
+    gold: 0,
+    silver: 0,
+    bronze: 0,
+  };
+  const expected: Record<OwnerReviewTier, number> = {
+    rainbow: 0,
+    gold: 0,
+    silver: 0,
+    bronze: 0,
+  };
+  for (const row of entries) {
+    expected[row.tier] += (row.weight / Math.max(1, totalWeight)) * draws;
+  }
+
+  const cumulativeStep = Math.max(1, Math.floor(draws / 50));
+  const cumulative: Record<OwnerReviewTier, number[]> = {
+    rainbow: [],
+    gold: [],
+    silver: [],
+    bronze: [],
+  };
+  const payouts: number[] = [];
+
+  if (totalWeight === 0 || entries.length === 0) {
+    return {
+      counts,
+      expected,
+      cumulative,
+      payoutAvg: 0,
+      payoutWorst10: 0,
+      payoutBest1: 0,
+      draws,
+      seed: seedHex,
+      ranAt: Date.now(),
+    };
+  }
+
+  const seedNum = parseInt(seedHex, 16) || Date.now();
+  const random = mulberry32(seedNum);
+
+  for (let i = 0; i < draws; i++) {
+    const target = random() * totalWeight;
+    let acc = 0;
+    for (const row of entries) {
+      acc += row.weight;
+      if (target <= acc) {
+        counts[row.tier] += 1;
+        payouts.push(row.value);
+        break;
+      }
+    }
+    if ((i + 1) % cumulativeStep === 0 || i === draws - 1) {
+      for (const tier of OWNER_REVIEW_TIER_ORDER) {
+        cumulative[tier].push(counts[tier]);
+      }
+    }
+  }
+
+  payouts.sort((a, b) => a - b);
+  const payoutAvg =
+    payouts.reduce((sum, value) => sum + value, 0) / Math.max(1, payouts.length);
+  const worstIdx = Math.max(0, Math.floor(payouts.length * 0.1) - 1);
+  const bestIdx = Math.min(payouts.length - 1, Math.ceil(payouts.length * 0.99) - 1);
+  return {
+    counts,
+    expected,
+    cumulative,
+    payoutAvg,
+    payoutWorst10: payouts[worstIdx] ?? 0,
+    payoutBest1: payouts[bestIdx] ?? 0,
+    draws,
+    seed: seedHex,
+    ranAt: Date.now(),
+  };
+}
+
+type OwnerReviewDiffRow = {
+  key: string;
+  before: string;
+  after: string;
+};
+
+function ownerReviewBuildDiff(
+  current: {
+    logicMode: OwnerReviewLogicMode;
+    totalPulls: number;
+    bundles: number[];
+    guarantees: Record<"single" | "ten" | "hundred", OwnerReviewGuarantee>;
+    cardEdits: Record<string, OwnerReviewCardEdit>;
+  },
+  baseline: Record<string, unknown> | null,
+  prizes: YnotPrizePreview[],
+): OwnerReviewDiffRow[] {
+  if (!baseline) {
+    return [
+      { key: "snapshot", before: "—", after: "draft (not yet published)" },
+    ];
+  }
+  const baseLogic =
+    typeof baseline.mode === "string" ? (baseline.mode as string) : "pure_random";
+  const baseTotalPulls =
+    typeof baseline.totalPulls === "number"
+      ? (baseline.totalPulls as number)
+      : typeof baseline.totalSlots === "number"
+      ? (baseline.totalSlots as number)
+      : null;
+  const baseBundles = Array.isArray(baseline.openQuantityOptions)
+    ? (baseline.openQuantityOptions as number[]).join(", ")
+    : "—";
+  const baseGuarantees =
+    baseline.guarantees && typeof baseline.guarantees === "object"
+      ? (baseline.guarantees as Record<string, string>)
+      : {};
+  const baseEdits =
+    baseline.ownerOverrides &&
+    typeof baseline.ownerOverrides === "object" &&
+    (baseline.ownerOverrides as Record<string, unknown>).byCard &&
+    typeof (baseline.ownerOverrides as Record<string, unknown>).byCard === "object"
+      ? ((baseline.ownerOverrides as Record<string, unknown>).byCard as Record<
+          string,
+          OwnerReviewCardEdit
+        >)
+      : {};
+
+  const diff: OwnerReviewDiffRow[] = [];
+  if (baseLogic !== current.logicMode) {
+    diff.push({ key: "logic_mode", before: baseLogic, after: current.logicMode });
+  }
+  if (baseTotalPulls !== null && baseTotalPulls !== current.totalPulls) {
+    diff.push({
+      key: "total_pulls",
+      before: baseTotalPulls.toLocaleString(),
+      after: current.totalPulls.toLocaleString(),
+    });
+  }
+  const currentBundles = current.bundles.join(", ") || "—";
+  if (baseBundles !== currentBundles) {
+    diff.push({ key: "bundles", before: baseBundles, after: currentBundles });
+  }
+  for (const slot of ["single", "ten", "hundred"] as const) {
+    const before = baseGuarantees[slot] ?? "none";
+    const after = current.guarantees[slot];
+    if (before !== after) {
+      diff.push({ key: `guarantee_${slot}`, before, after });
+    }
+  }
+  for (const prize of prizes) {
+    const beforeWeight = baseEdits[prize.id]?.weight ?? prize.weight ?? 0;
+    const beforeUnlock =
+      baseEdits[prize.id]?.unlockAtSoldPct ?? prize.unlockAtSoldPct ?? 0;
+    const editWeight =
+      current.cardEdits[prize.id]?.weight ?? prize.weight ?? 0;
+    const editUnlock =
+      current.cardEdits[prize.id]?.unlockAtSoldPct ?? prize.unlockAtSoldPct ?? 0;
+    if (beforeWeight !== editWeight) {
+      diff.push({
+        key: `${prize.cardName}.weight`,
+        before: String(beforeWeight),
+        after: String(editWeight),
+      });
+    }
+    if (beforeUnlock !== editUnlock) {
+      diff.push({
+        key: `${prize.cardName}.unlock`,
+        before: `${beforeUnlock}%`,
+        after: `${editUnlock}%`,
+      });
+    }
+  }
+  if (!diff.length) {
+    return [{ key: "no_changes", before: "—", after: "no changes vs published" }];
+  }
+  return diff;
+}
+
+export function AdminOwnerReview({
+  viewer,
+  campaign,
+  prizes,
+  approvalRequest,
+}: {
+  viewer: YnotViewer;
+  campaign: YnotCampaign;
+  prizes: YnotPrizePreview[];
+  approvalRequest: YnotOwnerApprovalRequest | null;
+}) {
+  const router = useRouter();
+  const logicSnapshotRaw =
+    approvalRequest && isRecord((approvalRequest as { snapshot?: unknown }).snapshot)
+      ? ((approvalRequest as { snapshot?: unknown }).snapshot as Record<string, unknown>)
+      : null;
+  const persistedOverrides =
+    logicSnapshotRaw && isRecord(logicSnapshotRaw.ownerOverrides)
+      ? (logicSnapshotRaw.ownerOverrides as Record<string, unknown>)
+      : null;
+  const persistedGuarantees =
+    persistedOverrides && isRecord(persistedOverrides.guarantees)
+      ? (persistedOverrides.guarantees as Record<string, unknown>)
+      : null;
+  const persistedByCard =
+    persistedOverrides && isRecord(persistedOverrides.byCard)
+      ? (persistedOverrides.byCard as Record<string, OwnerReviewCardEdit>)
+      : null;
+  const publishedBaseline =
+    logicSnapshotRaw && isRecord(logicSnapshotRaw.published)
+      ? (logicSnapshotRaw.published as Record<string, unknown>)
+      : null;
+
+  const [logicMode, setLogicMode] = useState<OwnerReviewLogicMode>(
+    (campaign.logicMode ?? "weighted_templates") as OwnerReviewLogicMode,
+  );
+  const [guarantees] = useState<
+    Record<"single" | "ten" | "hundred", OwnerReviewGuarantee>
+  >({
+    single: ownerReviewReadGuarantee(persistedGuarantees?.single),
+    ten: ownerReviewReadGuarantee(persistedGuarantees?.ten),
+    hundred: ownerReviewReadGuarantee(persistedGuarantees?.hundred),
+  });
+  const [cardEdits, setCardEdits] = useState<Record<string, OwnerReviewCardEdit>>(
+    persistedByCard ?? {},
+  );
+  const [notes, setNotes] = useState(campaign.approvalNotes ?? "");
+  const [drawSampleSize, setDrawSampleSize] = useState<number>(1000);
+  const [simResult, setSimResult] = useState<OwnerReviewSimResult | null>(null);
+  const [message, setMessage] = useState<string>("");
+  const [isPending, startTransition] = useTransition();
+
+  const effectivePrizes = useMemo(
+    () =>
+      prizes.map((prize) => {
+        const edit = cardEdits[prize.id];
+        return {
+          ...prize,
+          weight: edit?.weight ?? prize.weight ?? 0,
+          unlockAtSoldPct:
+            edit?.unlockAtSoldPct ?? prize.unlockAtSoldPct ?? 0,
+          ownerTier: ownerReviewTierFromPrize(prize),
+        };
+      }),
+    [prizes, cardEdits],
+  );
+
+  const totalWeight = effectivePrizes.reduce(
+    (sum, prize) => sum + Math.max(0, prize.weight),
+    0,
+  );
+  const tierRollups = useMemo(() => {
+    return OWNER_REVIEW_TIER_ORDER.map((tier) => {
+      const subset = effectivePrizes.filter((prize) => prize.ownerTier === tier);
+      const weight = subset.reduce(
+        (sum, prize) => sum + Math.max(0, prize.weight),
+        0,
+      );
+      const planned = subset.reduce(
+        (sum, prize) => sum + (prize.plannedQuantity ?? 0),
+        0,
+      );
+      const pct = totalWeight === 0 ? 0 : (weight / totalWeight) * 100;
+      return { tier, weight, planned, cards: subset.length, pct };
+    });
+  }, [effectivePrizes, totalWeight]);
+
+  const totalPlanned = effectivePrizes.reduce(
+    (sum, prize) => sum + (prize.plannedQuantity ?? 0),
+    0,
+  );
+
+  const expectedValuePerOpen =
+    totalWeight === 0
+      ? 0
+      : effectivePrizes.reduce(
+          (sum, prize) =>
+            sum + (prize.weight / totalWeight) * (prize.valueThb ?? 0),
+          0,
+        );
+
+  const baseCostCoins = Math.max(1, campaign.costCoins ?? 1);
+  const expectedRtp = baseCostCoins > 0 ? (expectedValuePerOpen / baseCostCoins) * 100 : 0;
+
+  const bundles = useMemo(
+    () => normalizeOpenQuantityOptions(campaign.openQuantityOptions),
+    [campaign.openQuantityOptions],
+  );
+
+  const diffRows = useMemo(
+    () =>
+      ownerReviewBuildDiff(
+        {
+          logicMode,
+          totalPulls: campaign.totalSlots ?? 0,
+          bundles,
+          guarantees,
+          cardEdits,
+        },
+        publishedBaseline,
+        prizes,
+      ),
+    [logicMode, campaign.totalSlots, bundles, guarantees, cardEdits, publishedBaseline, prizes],
+  );
+
+  const runSimulation = useCallback(
+    (draws: number) => {
+      const seedHex = ownerReviewSeed();
+      startTransition(() => {
+        const result = runOwnerReviewSimulation(
+          prizes,
+          logicMode,
+          cardEdits,
+          draws,
+          seedHex,
+        );
+        setSimResult(result);
+      });
+    },
+    [prizes, logicMode, cardEdits],
+  );
+
+  // Real-time simulator (Instant Gacha only): re-run on every edit, debounced
+  // 250ms so typing stays smooth. Slot pick has no weights → no simulation.
+  useEffect(() => {
+    if (campaign.mode !== "instant_gacha") return;
+    const handle = setTimeout(() => {
+      runSimulation(drawSampleSize);
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [campaign.mode, logicMode, cardEdits, drawSampleSize, runSimulation]);
+
+  function updateCardEdit(prizeId: string, patch: OwnerReviewCardEdit) {
+    setCardEdits((current) => ({
+      ...current,
+      [prizeId]: { ...current[prizeId], ...patch },
+    }));
+  }
+
+  function sendAction(action: "save_logic" | "approve" | "reject" | "request_changes") {
+    setMessage("");
+    startTransition(async () => {
+      try {
+        await requestJson(
+          "/api/ynot/admin/campaigns/lifecycle",
+          {
+            campaignId: campaign.id,
+            action,
+            logicMode,
+            note: notes,
+            overrides: {
+              byCard: cardEdits,
+              guarantees,
+            },
+            guarantees,
+          },
+          "POST",
+        );
+        const successMessages: Record<typeof action, string> = {
+          save_logic: "Overrides saved.",
+          approve: "Approved — diff frozen as the new published baseline.",
+          reject: "Rejected — pack stays held from publish.",
+          request_changes: "Returned to admin with notes.",
+        };
+        setMessage(successMessages[action]);
+        if (action !== "save_logic") {
+          router.refresh();
+        }
+      } catch (error) {
+        setMessage(
+          error instanceof Error ? error.message : "Action could not be saved.",
+        );
+      }
+    });
+  }
+
+  const pendingStatus =
+    campaign.approvalStatus ??
+    (approvalRequest?.approvalStatus as YnotApprovalStatus | undefined) ??
+    "not_submitted";
+
+  const headerActions = (
+    <>
+      <Link
+        href="/admin/campaigns"
+        className="btn"
+        style={{ marginRight: "auto" }}
+      >
+        <AdminIcon name="chev-r" size={12} style={{ transform: "rotate(180deg)" }} />
+        Back to packs
+      </Link>
+      <span className="chip mono">
+        {campaign.slug} · v{publishedBaseline ? "0.7" : "0.1"}
+      </span>
+      <span className={`pill ${pendingStatus === "pending_review" ? "review" : "draft"}`}>
+        <span className="d" />
+        {pendingStatus === "pending_review" ? "Pending review" : pendingStatus}
+      </span>
+      <button
+        type="button"
+        className="btn btn-danger"
+        disabled={isPending}
+        onClick={() => sendAction("reject")}
+      >
+        <AdminIcon name="x" size={12} />
+        Reject
+      </button>
+      <button
+        type="button"
+        className="btn"
+        disabled={isPending}
+        onClick={() => sendAction("request_changes")}
+      >
+        <AdminIcon name="warning" size={12} />
+        Request changes
+      </button>
+      <button
+        type="button"
+        className="btn btn-primary"
+        disabled={isPending}
+        onClick={() => sendAction("approve")}
+      >
+        <AdminIcon name="check" size={12} />
+        Approve &amp; publish
+      </button>
+    </>
+  );
+
+  const pricingSummary = bundles
+    .map((qty) => {
+      const baseCoins = qty * baseCostCoins;
+      return `${qty}×${baseCoins.toLocaleString()}c`;
+    })
+    .join(" · ") || `1×${baseCostCoins.toLocaleString()}c`;
+
+  return (
+    <AdminFrame
+      viewer={viewer}
+      active="/admin/campaigns"
+      trail={["Admin", "Pack studio", "Random packs", `Review · ${campaign.slug}`]}
+      eyebrow="Owner approval"
+      title={`Review · ${campaign.titleEn || campaign.titleTh}`}
+      desc="Tune draw logic, simulate opens, and approve or request changes. Owner-only — staff cannot publish."
+      actions={headerActions}
+    >
+      <div className="kpi-grid">
+        <div className="kpi">
+          <div className="label">Pack</div>
+          <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.005em", marginTop: 4 }}>
+            {campaign.titleEn || campaign.titleTh}
+          </div>
+          <div className="text-mute mono" style={{ fontSize: 11, marginTop: 3 }}>
+            {campaign.slug} · {campaign.mode === "instant_gacha" ? "Instant gacha" : "Slot pick"}
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="label">Pool size</div>
+          <div className="value">{(campaign.totalSlots ?? 0).toLocaleString()}</div>
+          <div className="text-mute" style={{ fontSize: 11 }}>
+            slots planned · {totalPlanned.toLocaleString()} prize units assigned
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="label">Pricing</div>
+          <div className="value">฿{(campaign.priceThb ?? 0).toLocaleString()}</div>
+          <div className="text-mute" style={{ fontSize: 11 }}>{pricingSummary}</div>
+        </div>
+        <div className="kpi">
+          <div className="label">Expected RTP</div>
+          <div className="value">{expectedRtp.toFixed(1)}%</div>
+          <div className={`delta ${expectedRtp >= 75 && expectedRtp <= 100 ? "up" : "down"}`} style={{ fontSize: 11 }}>
+            <AdminIcon name={expectedRtp >= 75 && expectedRtp <= 100 ? "arrow-up" : "arrow-dn"} size={11} />
+            {expectedRtp >= 75 && expectedRtp <= 100 ? "Within owner band (75-100%)" : "Outside owner band — review"}
+          </div>
+        </div>
+      </div>
+
+      {message && (
+        <div className="card-pad" style={{ background: "rgba(244,197,66,0.08)", border: "1px solid rgba(244,197,66,0.2)", borderRadius: 8, fontSize: 12 }}>
+          {message}
+        </div>
+      )}
+
+      <div className="split-aside">
+        <section className="card">
+          <div className="card-head">
+            <div>
+              <p className="section-label">
+                {campaign.mode === "slot_pick" ? "Prize lineup" : "Draw logic"}
+              </p>
+              <h3>
+                {campaign.mode === "slot_pick"
+                  ? "Slot pick · pure random per spot"
+                  : "Random algorithm"}
+              </h3>
+            </div>
+            {campaign.mode === "instant_gacha" && (
+              <div className="actions">
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  disabled={isPending}
+                  onClick={() => {
+                    setCardEdits({});
+                    setMessage("Reset to admin draft (unsaved).");
+                  }}
+                >
+                  Reset to admin draft
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  disabled={isPending}
+                  onClick={() => sendAction("save_logic")}
+                >
+                  <AdminIcon name="check" size={12} />
+                  Save overrides
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {campaign.mode === "instant_gacha" && (
+            <>
+            <div className="field">
+              <label>Logic mode</label>
+              <div className="tabs" style={{ width: "100%" }}>
+                {[
+                  { k: "pure_random" as const, l: "Pure random", desc: "Equal weight per remaining unit" },
+                  { k: "weighted_templates" as const, l: "Weighted", desc: "Use admin weights" },
+                  { k: "inventory_gated" as const, l: "Inventory-gated", desc: "Weights + unlock %" },
+                ].map((m) => (
+                  <button
+                    type="button"
+                    key={m.k}
+                    className={`t ${logicMode === m.k ? "active" : ""}`}
+                    style={{ flex: 1, padding: "7px 10px", textAlign: "left", background: "transparent", border: 0, cursor: "pointer", color: "inherit", fontFamily: "inherit" }}
+                    onClick={() => setLogicMode(m.k)}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 600 }}>{m.l}</div>
+                    <div style={{ fontSize: 10, color: "var(--a-muted)", marginTop: 2 }}>{m.desc}</div>
+                  </button>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--a-muted)" }}>
+                pure_random ignores all weights; weighted_templates uses card weights; inventory_gated also locks prizes until pack hits sold %.
+              </div>
+            </div>
+
+            <hr className="hr" />
+
+            <div className="section-label">Per-tier targets (derived from weights)</div>
+            <div style={{ display: "grid", gridTemplateColumns: "110px 1fr 90px 90px", gap: 10, alignItems: "center", fontSize: 11, color: "var(--a-muted)", padding: "0 4px" }}>
+              <div>Tier</div>
+              <div>Weight share</div>
+              <div className="num">Hit %</div>
+              <div className="num">Override</div>
+            </div>
+            {tierRollups.map((row) => (
+              <div key={row.tier} style={{ display: "grid", gridTemplateColumns: "110px 1fr 90px 90px", gap: 10, alignItems: "center" }}>
+                <span className={`tier-pill ${row.tier}`}>{row.tier}</span>
+                <div>
+                  <div className="bar"><i style={{ width: `${Math.min(100, row.pct)}%` }} /></div>
+                  <div className="text-mute" style={{ fontSize: 10, marginTop: 3 }}>
+                    {row.cards} cards · {row.planned} units
+                  </div>
+                </div>
+                <div className="num tnum" style={{ fontWeight: 600 }}>{row.pct.toFixed(2)}%</div>
+                <div>
+                  <input
+                    className="input tnum"
+                    style={{ padding: "4px 8px", textAlign: "right", fontSize: 11 }}
+                    defaultValue={row.pct.toFixed(1)}
+                    disabled
+                    title="Per-tier overrides are a v2 feature — edit per-card weights below for now."
+                  />
+                </div>
+              </div>
+            ))}
+            </>
+            )}
+
+            {campaign.mode === "instant_gacha" && <hr className="hr" />}
+
+            <div className="section-label">
+              {campaign.mode === "slot_pick"
+                ? "Prize lineup (slot pick — pure random per spot, no weights)"
+                : "Per-card weights & unlocks"}
+            </div>
+            {effectivePrizes.length === 0 && (
+              <div
+                className="text-mute"
+                style={{ padding: 16, textAlign: "center", fontSize: 12 }}
+              >
+                No prizes assigned to this pack yet.
+              </div>
+            )}
+            {OWNER_REVIEW_TIER_ORDER.map((tier) => {
+              const rows = effectivePrizes.filter((prize) => prize.ownerTier === tier);
+              if (!rows.length) return null;
+              const tierLabel =
+                tier === "rainbow"
+                  ? "Rainbow tier"
+                  : tier === "gold"
+                  ? "Gold tier"
+                  : tier === "silver"
+                  ? "Silver tier"
+                  : "Bronze tier";
+              const tierNote =
+                tier === "bronze"
+                  ? "Base / lowest tier rewards that cover the pack."
+                  : `${tierLabel.replace(" tier", "")} chase rewards reviewed above lower tiers.`;
+              return (
+                <div
+                  key={tier}
+                  style={{
+                    border: "1px solid var(--a-border-soft)",
+                    borderRadius: 8,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "9px 12px",
+                      background: "rgba(255,255,255,0.02)",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>{tierLabel}</div>
+                      <div style={{ fontSize: 10, color: "var(--a-muted)", marginTop: 2 }}>
+                        {tierNote}
+                      </div>
+                    </div>
+                    <span className={`tier-pill ${tier}`}>{rows.length} row{rows.length === 1 ? "" : "s"}</span>
+                  </div>
+                  <table className="tbl" style={{ width: "100%" }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: "40%" }}>Prize</th>
+                        {campaign.mode === "instant_gacha" && (
+                          <>
+                            <th className="num" style={{ width: 90 }}>Weight</th>
+                            <th className="num" style={{ width: 110 }}>Unlock %</th>
+                            <th className="num" style={{ width: 90 }}>Per-pull %</th>
+                          </>
+                        )}
+                        {campaign.mode === "slot_pick" && (
+                          <th className="num" style={{ width: 110 }}>Planned units</th>
+                        )}
+                        <th className="num" style={{ width: 70 }}>Planned</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((prize) => (
+                        <tr key={prize.id}>
+                          <td>
+                            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                              {prize.cardImageUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={prize.cardImageUrl}
+                                  alt={prize.cardName}
+                                  width={32}
+                                  height={44}
+                                  style={{
+                                    objectFit: "cover",
+                                    borderRadius: 4,
+                                    border: "1px solid var(--a-border-soft)",
+                                    flex: "none",
+                                  }}
+                                />
+                              ) : (
+                                <span className="thumb" style={{ width: 32, height: 44 }} />
+                              )}
+                              <div style={{ minWidth: 0 }}>
+                                <div className="row-title" style={{ fontSize: 12 }}>{prize.cardName}</div>
+                                <div className="row-sub mono" style={{ fontSize: 10 }}>
+                                  {prize.cardCode ?? "—"}
+                                  {prize.cardGrade ? ` · ${prize.cardGrade}` : ""}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          {campaign.mode === "instant_gacha" && (
+                            <>
+                              <td className="num">
+                                <input
+                                  className="input tnum"
+                                  style={{
+                                    padding: "4px 6px",
+                                    width: 70,
+                                    textAlign: "right",
+                                    fontSize: 11,
+                                    opacity: logicMode === "pure_random" ? 0.45 : 1,
+                                    cursor: logicMode === "pure_random" ? "not-allowed" : "text",
+                                  }}
+                                  defaultValue={prize.weight}
+                                  disabled={logicMode === "pure_random"}
+                                  title={
+                                    logicMode === "pure_random"
+                                      ? "Pure random ignores weights"
+                                      : undefined
+                                  }
+                                  onChange={(event) => {
+                                    const next = Number(event.target.value);
+                                    if (Number.isFinite(next) && next >= 0) {
+                                      updateCardEdit(prize.id, { weight: next });
+                                    }
+                                  }}
+                                />
+                              </td>
+                              <td className="num">
+                                <input
+                                  className="input tnum"
+                                  style={{
+                                    padding: "4px 6px",
+                                    width: 70,
+                                    textAlign: "right",
+                                    fontSize: 11,
+                                    opacity: logicMode !== "inventory_gated" ? 0.45 : 1,
+                                    cursor:
+                                      logicMode !== "inventory_gated"
+                                        ? "not-allowed"
+                                        : "text",
+                                  }}
+                                  defaultValue={prize.unlockAtSoldPct}
+                                  disabled={logicMode !== "inventory_gated"}
+                                  title={
+                                    logicMode === "pure_random"
+                                      ? "Pure random ignores unlock %"
+                                      : logicMode === "weighted_templates"
+                                      ? "Weighted templates ignore unlock % — use Inventory-gated to lock prizes until pack hits sold %"
+                                      : undefined
+                                  }
+                                  onChange={(event) => {
+                                    const next = Number(event.target.value);
+                                    if (Number.isFinite(next) && next >= 0 && next <= 100) {
+                                      updateCardEdit(prize.id, { unlockAtSoldPct: next });
+                                    }
+                                  }}
+                                />
+                              </td>
+                              <td className="num tnum text-mute">
+                                {totalWeight === 0
+                                  ? "0.000%"
+                                  : `${((prize.weight / totalWeight) * 100).toFixed(3)}%`}
+                              </td>
+                            </>
+                          )}
+                          {campaign.mode === "slot_pick" && (
+                            <td className="num tnum text-mute">
+                              {prize.plannedQuantity ?? 0} units
+                            </td>
+                          )}
+                          <td className="num tnum">{prize.plannedQuantity ?? 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <section className="card">
+            <div className="card-head">
+              <div>
+                <p className="section-label">
+                  {campaign.mode === "instant_gacha" ? "Simulator · live" : "Distribution"}
+                </p>
+                <h3>
+                  {campaign.mode === "instant_gacha"
+                    ? `Run ${drawSampleSize.toLocaleString()} opens`
+                    : "Per-tier hit share (slot pick · planned units)"}
+                </h3>
+              </div>
+              {campaign.mode === "instant_gacha" && (
+                <div className="actions">
+                  <select
+                    className="select"
+                    style={{ padding: "4px 8px", width: 96, fontSize: 11 }}
+                    value={drawSampleSize}
+                    onChange={(event) => setDrawSampleSize(Number(event.target.value) || 1000)}
+                  >
+                    <option value={1000}>1,000</option>
+                    <option value={10000}>10,000</option>
+                    <option value={100000}>100,000</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    disabled={isPending}
+                    onClick={() => runSimulation(drawSampleSize)}
+                  >
+                    <AdminIcon name="play" size={12} />
+                    Reseed
+                  </button>
+                </div>
+              )}
+            </div>
+            <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div className="text-mute" style={{ fontSize: 11 }}>
+                {campaign.mode === "slot_pick" ? (
+                  "Slot pick draws are pure random per spot. Each tier share = planned units in tier ÷ total planned units."
+                ) : simResult ? (
+                  <>
+                    Auto-runs on every edit · {simResult.draws.toLocaleString()} opens · seed{" "}
+                    <span className="mono">0x{simResult.seed}</span>
+                  </>
+                ) : (
+                  "Loading simulation…"
+                )}
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {tierRollups.map((row) => {
+                  const actual = simResult?.counts[row.tier] ?? 0;
+                  const expected = simResult?.expected[row.tier] ?? 0;
+                  const slotPickPct =
+                    totalPlanned === 0 ? 0 : (row.planned / totalPlanned) * 100;
+                  const pctOfDraws =
+                    campaign.mode === "slot_pick"
+                      ? slotPickPct
+                      : simResult && simResult.draws > 0
+                      ? (actual / simResult.draws) * 100
+                      : row.pct;
+                  return (
+                    <div key={row.tier}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span className={`tier-pill ${row.tier}`}>{row.tier}</span>
+                          <span style={{ fontSize: 11, color: "var(--a-muted)" }}>
+                            {row.cards} card{row.cards === 1 ? "" : "s"} · {row.planned} units
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", gap: 10, alignItems: "baseline", fontSize: 11 }}>
+                          {campaign.mode === "slot_pick" ? (
+                            <span className="tnum" style={{ fontWeight: 600, fontSize: 13 }}>
+                              {slotPickPct.toFixed(2)}%
+                            </span>
+                          ) : (
+                            <>
+                              <span className="tnum" style={{ fontWeight: 600, fontSize: 13 }}>{actual.toLocaleString()}</span>
+                              <span className="text-mute">actual</span>
+                              <span className="tnum text-mute">vs expected {expected.toFixed(1)}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ position: "relative", height: 8, borderRadius: 4, background: "rgba(255,255,255,0.05)", overflow: "hidden" }}>
+                        <div style={{ position: "absolute", top: 0, left: 0, height: "100%", width: `${Math.min(100, pctOfDraws)}%`, background: OWNER_REVIEW_TIER_COLORS[row.tier], borderRadius: 4 }} />
+                        {campaign.mode === "instant_gacha" && simResult && simResult.draws > 0 && (
+                          <div style={{ position: "absolute", top: 0, left: `${Math.min(100, (expected / simResult.draws) * 100)}%`, height: "100%", width: 1, background: "rgba(255,255,255,0.7)" }} />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {simResult && campaign.mode === "instant_gacha" && (
+                <div>
+                  <div className="section-label" style={{ marginBottom: 6 }}>
+                    Hits over {simResult.draws.toLocaleString()} opens (cumulative)
+                  </div>
+                  <svg viewBox="0 0 600 110" preserveAspectRatio="none" style={{ width: "100%", height: 110 }}>
+                    {[20, 40, 60, 80, 100].map((y) => (
+                      <line key={y} x1="0" x2="600" y1={y} y2={y} stroke="rgba(255,255,255,0.04)" />
+                    ))}
+                    {OWNER_REVIEW_TIER_ORDER.map((tier) => {
+                      const series = simResult.cumulative[tier];
+                      if (!series.length) return null;
+                      const maxValue = Math.max(1, series[series.length - 1]);
+                      const points = series
+                        .map((value, idx) => {
+                          const x = (idx / (series.length - 1 || 1)) * 600;
+                          const y = 108 - (value / maxValue) * 100;
+                          return `${x.toFixed(1)},${y.toFixed(1)}`;
+                        })
+                        .join(" ");
+                      return (
+                        <polyline
+                          key={tier}
+                          points={points}
+                          fill="none"
+                          stroke={OWNER_REVIEW_TIER_COLORS[tier]}
+                          strokeWidth={1.5}
+                        />
+                      );
+                    })}
+                  </svg>
+                  <div style={{ display: "flex", gap: 14, fontSize: 11, color: "var(--a-muted)", marginTop: 4 }}>
+                    {OWNER_REVIEW_TIER_ORDER.map((tier) => (
+                      <span key={tier}>
+                        <span style={{ display: "inline-block", width: 8, height: 2, background: OWNER_REVIEW_TIER_COLORS[tier], marginRight: 5, verticalAlign: "middle" }} />
+                        {tier}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {simResult && campaign.mode === "instant_gacha" && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, padding: "10px 12px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--a-border-soft)", borderRadius: 7 }}>
+                  <div>
+                    <div className="section-label">Avg payout / open</div>
+                    <div className="tnum" style={{ fontWeight: 600, fontSize: 14, color: "var(--a-mint)" }}>
+                      ฿{simResult.payoutAvg.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="section-label">Worst 10% pulls</div>
+                    <div className="tnum" style={{ fontWeight: 600, fontSize: 14 }}>
+                      ฿{simResult.payoutWorst10.toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="section-label">Best 1% pulls</div>
+                    <div className="tnum" style={{ fontWeight: 600, fontSize: 14, color: "var(--a-gold)" }}>
+                      ฿{simResult.payoutBest1.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="card">
+            <div className="card-head">
+              <div>
+                <p className="section-label">Diff vs published</p>
+                <h3>{publishedBaseline ? "What changed since last publish" : "First review — no published baseline yet"}</h3>
+              </div>
+            </div>
+            <div className="card-pad">
+              <pre className="mono" style={{ fontSize: 11, background: "rgba(7,7,15,0.5)", border: "1px solid var(--a-border-soft)", padding: 12, borderRadius: 6, whiteSpace: "pre-wrap", margin: 0, lineHeight: 1.7 }}>
+                {diffRows
+                  .map((row) => `${row.key.padEnd(24, " ")} ${row.before}  →  ${row.after}`)
+                  .join("\n")}
+              </pre>
+            </div>
+          </section>
+
+          <section className="card">
+            <div className="card-head">
+              <div>
+                <p className="section-label">Notes for admin</p>
+                <h3>Optional message</h3>
+              </div>
+            </div>
+            <div className="card-pad">
+              <textarea
+                className="textarea"
+                placeholder="Explain what to change before next submission…"
+                style={{ minHeight: 90 }}
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+              />
+            </div>
+          </section>
+        </div>
+      </div>
+    </AdminFrame>
   );
 }
 
