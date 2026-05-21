@@ -17,7 +17,8 @@ export default async function OwnerReviewPage({
   const data = await getYnotDashboardSlice({
     campaigns: true,
     campaignVisibility: "admin",
-    campaignLimit: null,
+    campaignIdOrSlug: id,
+    campaignLimit: 1,
     campaignPrizeLineups: true,
     ownerApprovalRequests: true,
   });

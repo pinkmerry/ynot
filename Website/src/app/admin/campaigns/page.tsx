@@ -23,7 +23,7 @@ export default async function AdminCampaignsPage() {
       campaignLimit: null,
       categories: true,
       campaignReadiness: false,
-      campaignPrizeLineups: true,
+      campaignPrizeLineups: false,
       ownerApprovalRequests: true,
       wallet: false,
     }),

@@ -1052,6 +1052,7 @@ type CampaignQueryOptions = {
   limit?: number | null;
   includeReadiness?: boolean;
   includePrizeLineups?: boolean;
+  campaignIdOrSlug?: string;
 };
 
 async function getCampaignsImpl(
@@ -1064,12 +1065,18 @@ async function getCampaignsImpl(
     const includeReadiness = options.includeReadiness ?? true;
     const includePrizeLineups =
       options.includePrizeLineups ?? Boolean(options.includePrivate);
+    const campaignIdOrSlug = options.campaignIdOrSlug?.trim();
     const loadRows = (requireApproval: boolean) => {
       let query = supabase
         .from("draw_rounds")
         .select("*")
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false });
+      if (campaignIdOrSlug) {
+        query = looksLikeUuid(campaignIdOrSlug)
+          ? query.eq("id", campaignIdOrSlug)
+          : query.eq("slug", campaignIdOrSlug);
+      }
       if (typeof limit === "number") query = query.limit(limit);
 
       if (options.includePrivate) {
@@ -2222,6 +2229,7 @@ export type YnotDashboardSelector = {
   ownerApprovalRequests?: boolean;
   campaignReadiness?: boolean;
   campaignPrizeLineups?: boolean;
+  campaignIdOrSlug?: string;
   platformHealth?: boolean;
 };
 
@@ -2286,16 +2294,19 @@ export async function getYnotDashboardSlice(
                   limit: selector.campaignLimit,
                   includeReadiness: selector.campaignReadiness,
                   includePrizeLineups: selector.campaignPrizeLineups,
+                  campaignIdOrSlug: selector.campaignIdOrSlug,
                 })
               : getCampaigns({
                   includePrivate: true,
                   limit: selector.campaignLimit,
                   includeReadiness: selector.campaignReadiness,
                   includePrizeLineups: selector.campaignPrizeLineups,
+                  campaignIdOrSlug: selector.campaignIdOrSlug,
                 })
           : getCampaigns({
               includePrivate: false,
               limit: selector.campaignLimit,
+              campaignIdOrSlug: selector.campaignIdOrSlug,
             })
         : Promise.resolve([] as YnotCampaign[]),
       selector.categories

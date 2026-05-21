@@ -23,8 +23,10 @@ export default async function EditCampaignPage({
     getYnotDashboardSlice({
       campaigns: true,
       campaignVisibility: "admin",
-      campaignLimit: null,
+      campaignIdOrSlug: id,
+      campaignLimit: 1,
       categories: true,
+      campaignPrizeLineups: true,
     }),
     getAdminCards(),
   ]);
