@@ -4301,6 +4301,10 @@ function buildAdminCardCatalogRows(
       };
     })
     .sort((left, right) => {
+      const testCompare = Number(left.card.isTest) - Number(right.card.isTest);
+      if (testCompare) return testCompare;
+      const assignmentCompare = Number(right.prizes.length > 0) - Number(left.prizes.length > 0);
+      if (assignmentCompare) return assignmentCompare;
       const categoryCompare = prizeCategoryLabel(
         left.card.prizeCategory,
       ).localeCompare(prizeCategoryLabel(right.card.prizeCategory));
@@ -4447,10 +4451,10 @@ export function AdminCardCatalogPanel({
       <div className="admin-panel-head">
         <div>
           <p className="section-label">Card catalog</p>
-          <h3 className="title-m">All cards in database</h3>
+          <h3 className="title-m">Card inventory catalog</h3>
           <p className="admin-muted-line">
-            This list comes from the cards table. Pack stock is shown in the
-            separate section below.
+            One place to scan card identity, global stock, and every random pack
+            prize-pool assignment that uses the card.
           </p>
         </div>
         <span className="status-pill">
@@ -4470,7 +4474,7 @@ export function AdminCardCatalogPanel({
         </label>
         <div className="admin-card-catalog-summary">
           <strong>{assignedCount.toLocaleString()}</strong>
-          <span>cards used in packs</span>
+          <span>cards in prize pools</span>
           <strong>{stockedCount.toLocaleString()}</strong>
           <span>cards with global stock</span>
         </div>
@@ -4505,16 +4509,37 @@ export function AdminCardCatalogPanel({
                 <p className="admin-id-line">{card.catalogCardId}</p>
               </div>
               <div className="admin-card-catalog-usage">
-                <span>Global stock</span>
-                <strong>
-                  {row.stockAvailable.toLocaleString()}/
-                  {row.stockTotal.toLocaleString()}
-                </strong>
-                <small>
-                  {row.stockReserved.toLocaleString()} reserved ·{" "}
-                  {row.stockAllocated.toLocaleString()} allocated
-                  {row.stockArchived ? ` · ${row.stockArchived.toLocaleString()} archived` : ""}
-                </small>
+                <div className="admin-card-catalog-metrics">
+                  <div className="admin-card-catalog-metric">
+                    <span>Global stock</span>
+                    <strong>
+                      {row.stockAvailable.toLocaleString()}/
+                      {row.stockTotal.toLocaleString()}
+                    </strong>
+                    <small>
+                      {row.stockReserved.toLocaleString()} reserved ·{" "}
+                      {row.stockAllocated.toLocaleString()} allocated
+                      {row.stockArchived
+                        ? ` · ${row.stockArchived.toLocaleString()} archived`
+                        : ""}
+                    </small>
+                  </div>
+                  <div className="admin-card-catalog-metric">
+                    <span>Prize pool</span>
+                    <strong>
+                      {row.packAvailableUnits.toLocaleString()}/
+                      {row.packTotalUnits.toLocaleString()}
+                    </strong>
+                    <small>
+                      {row.prizes.length.toLocaleString()} pack slot
+                      {row.prizes.length === 1 ? "" : "s"} ·{" "}
+                      {row.packAwardedUnits.toLocaleString()} awarded
+                      {row.packVoidUnits
+                        ? ` · ${row.packVoidUnits.toLocaleString()} void`
+                        : ""}
+                    </small>
+                  </div>
+                </div>
                 <div className="admin-card-stock-actions">
                   {currentStockDraft ? (
                     <div className="admin-stock-confirm">
@@ -4623,9 +4648,9 @@ export function AdminCardCatalogPanel({
                         type="button"
                         title={
                           row.prizes.length > 0
-                            ? `Cannot delete — ${row.prizes.length} pack prize slot${row.prizes.length === 1 ? "" : "s"} still reference this card.`
+                            ? `Cannot delete - ${row.prizes.length} pack prize slot${row.prizes.length === 1 ? "" : "s"} still reference this card.`
                             : row.stockTotal - row.stockArchived > 0
-                              ? `Cannot delete — ${row.stockTotal - row.stockArchived} active stock unit${row.stockTotal - row.stockArchived === 1 ? "" : "s"} still exist. Use "Remove stock" until 0/${row.stockTotal} first.`
+                              ? `Cannot delete - ${row.stockTotal - row.stockArchived} active stock unit${row.stockTotal - row.stockArchived === 1 ? "" : "s"} still exist. Use "Remove stock" until 0/${row.stockTotal} first.`
                               : `Delete "${card.name}" permanently`
                         }
                         onClick={() => setDeleteTarget({ card, row })}
@@ -4635,29 +4660,61 @@ export function AdminCardCatalogPanel({
                     </div>
                   )}
                 </div>
-                <small>
-                  {row.prizes.length.toLocaleString()} pack slot
-                  {row.prizes.length === 1 ? "" : "s"} ·{" "}
-                  {row.packAvailableUnits.toLocaleString()}/
-                  {row.packTotalUnits.toLocaleString()} pack units ·{" "}
-                  {row.packAwardedUnits.toLocaleString()} awarded
-                  {row.packVoidUnits ? ` · ${row.packVoidUnits.toLocaleString()} void` : ""}
-                </small>
-                <div className="admin-card-catalog-slot-list">
+                <details
+                  className="admin-card-catalog-prize-details"
+                  open={row.prizes.length > 0}
+                >
+                  <summary>
+                    <span>Random pack usage</span>
+                    <strong>
+                      {row.prizes.length
+                        ? `${row.prizes.length.toLocaleString()} assignment${
+                            row.prizes.length === 1 ? "" : "s"
+                          }`
+                        : "No assignment"}
+                    </strong>
+                  </summary>
                   {row.prizes.length ? (
-                    row.prizes.map((prize) => (
-                      <em key={prize.id}>
-                        {prize.campaignTitle} ·{" "}
-                        {prizeDisplayTierLabel(
-                          prize.displayTier ?? prize.displayGroup ?? prize.tier,
-                        )}{" "}
-                        #{prize.tierRank ?? prize.rank}
-                      </em>
-                    ))
+                    <div className="admin-card-catalog-prize-table">
+                      <div className="admin-card-catalog-prize-head">
+                        <span>Random pack</span>
+                        <span>Tier</span>
+                        <span>Weight</span>
+                        <span>Unlock</span>
+                        <span>Units</span>
+                        <span>Awarded</span>
+                      </div>
+                      {row.prizes.map((prize) => (
+                        <div className="admin-card-catalog-prize-row" key={prize.id}>
+                          <span>{prize.campaignTitle}</span>
+                          <span>
+                            {prizeDisplayTierLabel(
+                              prize.displayTier ?? prize.displayGroup ?? prize.tier,
+                            )}{" "}
+                            #{prize.tierRank ?? prize.rank}
+                          </span>
+                          <span>{prize.weight.toLocaleString()}</span>
+                          <span>{prize.unlockAtSoldPct.toLocaleString()}%</span>
+                          <span>
+                            {prize.availableUnits.toLocaleString()}/
+                            {prize.plannedQuantity.toLocaleString()}
+                          </span>
+                          <span>
+                            {prize.awardedUnits.toLocaleString()}
+                            {prize.voidUnits
+                              ? ` · ${prize.voidUnits.toLocaleString()} void`
+                              : ""}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   ) : (
-                    <em>No pack assignment</em>
+                    <p className="admin-card-catalog-empty-usage">
+                      This card is in the catalog but is not assigned to a
+                      random pack prize pool yet.
+                    </p>
                   )}
-                </div>
+                </details>
               </div>
             </article>
           );

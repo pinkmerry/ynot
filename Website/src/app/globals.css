@@ -10383,8 +10383,8 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   gap: 16px;
   grid-template-columns:
     106px
-    minmax(220px, 0.9fr)
-    minmax(320px, 1.15fr);
+    minmax(220px, 0.7fr)
+    minmax(420px, 1.5fr);
   min-height: 148px;
   padding: 14px;
 }
@@ -10427,10 +10427,10 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
   display: grid;
-  gap: 3px;
+  gap: 10px;
   min-height: 118px;
   min-width: 0;
-  padding: 9px 10px;
+  padding: 10px;
 }
 
 .admin-card-catalog-usage span,
@@ -10445,6 +10445,104 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   color: var(--admin-text);
   font-size: 1.1rem;
   line-height: 1.1;
+}
+
+.admin-card-catalog-metrics {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-card-catalog-metric {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  display: grid;
+  gap: 3px;
+  min-height: 74px;
+  padding: 9px 10px;
+}
+
+.admin-card-catalog-prize-details {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  color: var(--admin-text);
+  overflow: hidden;
+}
+
+.admin-card-catalog-prize-details summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.admin-card-catalog-prize-details summary span,
+.admin-card-catalog-prize-details summary strong {
+  color: var(--admin-text);
+  font-size: 0.76rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.admin-card-catalog-prize-table {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: grid;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.admin-card-catalog-prize-head,
+.admin-card-catalog-prize-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns:
+    minmax(130px, 1.4fr)
+    minmax(92px, 0.8fr)
+    minmax(58px, 0.45fr)
+    minmax(58px, 0.45fr)
+    minmax(72px, 0.55fr)
+    minmax(72px, 0.55fr);
+  padding: 8px 10px;
+}
+
+.admin-card-catalog-prize-head {
+  background: rgba(0, 0, 0, 0.16);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.admin-card-catalog-prize-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.admin-card-catalog-prize-head span {
+  color: var(--admin-muted);
+  font-size: 0.68rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.admin-card-catalog-prize-row span {
+  color: var(--admin-text);
+  font-size: 0.75rem;
+  font-weight: 820;
+  line-height: 1.25;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-card-catalog-empty-usage {
+  color: var(--admin-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  margin: 0;
+  padding: 0 10px 10px;
 }
 
 .admin-card-stock-actions {

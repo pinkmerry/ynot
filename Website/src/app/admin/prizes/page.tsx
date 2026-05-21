@@ -1,7 +1,6 @@
 import {
   AdminCardCatalogPanel,
   AdminCardForm,
-  AdminPrizeInventoryPanel,
 } from "@/features/ynot/client";
 import { AdminGate } from "@/features/ynot/components";
 import {
@@ -27,6 +26,10 @@ export default async function AdminPrizesPage() {
   ]);
 
   const totalUnits = prizes.reduce((sum, p) => sum + (p.totalUnits ?? 0), 0);
+  const globalStockUnits = cards.reduce(
+    (sum, card) => sum + (card.stockTotal ?? 0),
+    0,
+  );
   const availableUnits = prizes.reduce(
     (sum, p) => sum + (p.availableUnits ?? 0),
     0,
@@ -53,13 +56,14 @@ export default async function AdminPrizesPage() {
             color="var(--a-gold)"
           />
           <AdminKPI
-            label="Active prize units"
-            value={totalUnits.toLocaleString()}
+            label="Global stock units"
+            value={globalStockUnits.toLocaleString()}
             color="var(--a-mint)"
           />
           <AdminKPI
-            label="Available right now"
-            value={availableUnits.toLocaleString()}
+            label="In prize pools"
+            value={totalUnits.toLocaleString()}
+            delta={`${availableUnits.toLocaleString()} available`}
             color="var(--a-sky)"
           />
           <AdminKPI
@@ -78,8 +82,8 @@ export default async function AdminPrizesPage() {
 
         <AdminCard>
           <AdminCardHead
-            label="Cards catalog"
-            title={`${cards.length} cards · tier-agnostic`}
+            label="Unified catalog"
+            title={`${cards.length} cards - global stock and prize-pool usage`}
             actions={
               <span className="chip">
                 <AdminIcon name="filter" size={11} /> Filter
@@ -88,16 +92,6 @@ export default async function AdminPrizesPage() {
           />
           <div className="card-pad">
             <AdminCardCatalogPanel cards={cards} prizes={prizes} />
-          </div>
-        </AdminCard>
-
-        <AdminCard>
-          <AdminCardHead
-            label="Prize pool inventory"
-            title="Per-pack assignments · edited in packs"
-          />
-          <div className="card-pad">
-            <AdminPrizeInventoryPanel cards={cards} prizes={prizes} />
           </div>
         </AdminCard>
       </AdminFrame>
