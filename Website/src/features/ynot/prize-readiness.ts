@@ -7,6 +7,13 @@ import {
   prizeDisplayTierValue,
   type PrizeDisplayTier,
 } from "./prize-tier";
+import {
+  buildPrizeStockShortages,
+  stockCardIdForPrize,
+  stockShortageBlockers,
+  type PrizeStockSummary,
+  type StockReadinessPrize,
+} from "./stock-readiness";
 
 type SupabaseClient = ReturnType<typeof createServiceSupabaseClient>;
 type DrawRoundRow = Database["public"]["Tables"]["draw_rounds"]["Row"];
@@ -176,6 +183,7 @@ function buildReadinessBlockers(input: {
   availablePrizeUnits: number;
   eligiblePrizeUnits: number;
   initialEligiblePrizeUnits: number;
+  stockBlockers?: string[];
 }) {
   const blockers: string[] = [];
   if (input.remainingSlots <= 0) {
@@ -199,7 +207,100 @@ function buildReadinessBlockers(input: {
   if (input.eligiblePrizeUnits <= 0) {
     blockers.push("No available prize is currently unlocked for customer pulls.");
   }
+  blockers.push(...(input.stockBlockers ?? []));
   return blockers;
+}
+
+export async function getPrizeStockSummaries(
+  supabase: SupabaseClient,
+  prizes: StockReadinessPrize[],
+  options: {
+    campaignId?: string;
+    includeCampaignReservations?: boolean;
+  } = {},
+): Promise<PrizeStockSummary[]> {
+  const cardIds = [
+    ...new Set(prizes.map(stockCardIdForPrize).filter(Boolean)),
+  ];
+  if (!cardIds.length) return [];
+
+  const [{ data: cards, error: cardsError }, { data: stockRows, error: stockError }] =
+    await Promise.all([
+      supabase
+        .from("cards")
+        .select("id,name,card_code,search_code")
+        .in("id", cardIds),
+      supabase
+        .from("card_stock_units")
+        .select("card_id,status")
+        .in("card_id", cardIds)
+        .limit(10000),
+    ]);
+  if (cardsError) throw cardsError;
+  if (stockError) throw stockError;
+
+  const cardById = new Map((cards ?? []).map((card) => [card.id, card]));
+  const availableByCardId = new Map<string, number>();
+  for (const row of stockRows ?? []) {
+    if (row.status !== "available") continue;
+    availableByCardId.set(row.card_id, (availableByCardId.get(row.card_id) ?? 0) + 1);
+  }
+
+  const reservedByCardId = new Map<string, number>();
+  if (options.includeCampaignReservations && options.campaignId) {
+    const { data: currentPrizes, error: prizesError } = await supabase
+      .from("draw_round_prizes")
+      .select("id,card_id")
+      .eq("draw_round_id", options.campaignId);
+    if (prizesError) throw prizesError;
+    const cardIdByPrizeId = new Map(
+      (currentPrizes ?? []).map((prize) => [prize.id, prize.card_id]),
+    );
+    const prizeIds = [...cardIdByPrizeId.keys()];
+    if (prizeIds.length) {
+      const { data: reservations, error: reservationsError } = await supabase
+        .from("card_stock_reservations")
+        .select("draw_round_prize_id,status")
+        .eq("draw_round_id", options.campaignId)
+        .in("status", ["reserved", "allocated"])
+        .limit(10000);
+      if (reservationsError) throw reservationsError;
+      for (const reservation of reservations ?? []) {
+        const cardId = cardIdByPrizeId.get(reservation.draw_round_prize_id);
+        if (!cardId) continue;
+        reservedByCardId.set(cardId, (reservedByCardId.get(cardId) ?? 0) + 1);
+      }
+    }
+  }
+
+  return cardIds.map((cardId) => {
+    const card = cardById.get(cardId);
+    return {
+      cardId,
+      cardName: card?.name ?? null,
+      cardCode: card?.card_code ?? card?.search_code ?? null,
+      stockAvailable: availableByCardId.get(cardId) ?? 0,
+      reservedForCampaign: reservedByCardId.get(cardId) ?? 0,
+    };
+  });
+}
+
+function reservationCoverageBlockers(
+  prizes: StockReadinessPrize[],
+  stockSummaries: PrizeStockSummary[],
+) {
+  return buildPrizeStockShortages({
+    includeReservedForCampaign: true,
+    prizes,
+    stockSummaries: stockSummaries.map((summary) => ({
+      ...summary,
+      stockAvailable: 0,
+    })),
+  }).map((shortage) => {
+    const plannedUnits = shortage.requiredUnits;
+    const reservedUnits = shortage.reservedUnits;
+    return `Reserved stock for Card "${shortage.label}" covers ${reservedUnits.toLocaleString()}/${plannedUnits.toLocaleString()} planned prize units. Refresh and re-submit owner review.`;
+  });
 }
 
 export function normalizePrizeDrafts(value: unknown): PrizeDraftInput[] {
@@ -238,6 +339,10 @@ export function validatePrizeDraftsForSave(
   prizes: PrizeDraftInput[],
   totalSlots: number,
   logicMode: RandomLogicMode = "pure_random",
+  stockReadiness?: {
+    includeReservedForCampaign?: boolean;
+    stockSummaries: PrizeStockSummary[];
+  },
 ) {
   const totalPrizeUnits = prizes.reduce((sum, prize) => sum + prize.quantity, 0);
   const initialEligiblePrizeUnits = prizes
@@ -257,6 +362,18 @@ export function validatePrizeDraftsForSave(
   }
   if (initialEligiblePrizeUnits <= 0) {
     blockers.push("Add at least one prize that is eligible when the pack launches.");
+  }
+  if (stockReadiness) {
+    blockers.push(
+      ...stockShortageBlockers(
+        buildPrizeStockShortages({
+          includeReservedForCampaign:
+            stockReadiness.includeReservedForCampaign,
+          prizes,
+          stockSummaries: stockReadiness.stockSummaries,
+        }),
+      ),
+    );
   }
   return {
     ready: blockers.length === 0,
@@ -344,6 +461,7 @@ export async function getCampaignPrizeReadiness(
     totalPrizeUnits === 0 &&
     row.status === "draft" &&
     row.approval_status !== "approved";
+  let stockBlockers: string[] = [];
   if (usePlannedInventory) {
     totalPrizeUnits = visiblePrizes.reduce(
       (sum, prize) => sum + Math.max(0, Number(prize.planned_quantity ?? 0)),
@@ -362,6 +480,19 @@ export async function getCampaignPrizeReadiness(
         (sum, prize) => sum + Math.max(0, Number(prize.planned_quantity ?? 0)),
         0,
       );
+    const stockSummaries = await getPrizeStockSummaries(supabase, visiblePrizes, {
+      campaignId,
+      includeCampaignReservations: row.approval_status === "pending_review",
+    });
+    stockBlockers =
+      row.approval_status === "pending_review"
+        ? reservationCoverageBlockers(visiblePrizes, stockSummaries)
+        : stockShortageBlockers(
+            buildPrizeStockShortages({
+              prizes: visiblePrizes,
+              stockSummaries,
+            }),
+          );
   }
 
   const remainingSlots = Math.max(
@@ -392,7 +523,7 @@ export async function getCampaignPrizeReadiness(
     eligiblePrizeUnits,
     initialEligiblePrizeUnits,
   };
-  const blockers = buildReadinessBlockers(readiness);
+  const blockers = buildReadinessBlockers({ ...readiness, stockBlockers });
   return {
     ...readiness,
     ready: blockers.length === 0,

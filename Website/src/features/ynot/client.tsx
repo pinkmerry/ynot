@@ -27,6 +27,11 @@ import {
   normalizeOpenQuantityOptions,
 } from "./open-quantity";
 import {
+  buildPrizeStockShortages,
+  stockShortageBlockers,
+  type PrizeStockSummary,
+} from "./stock-readiness";
+import {
   prizeCategoryLabel,
   prizeCategoryOptions,
   prizeCategoryValue,
@@ -2181,6 +2186,52 @@ export function AdminCampaignForm({
       ),
     [sortedDraftPrizes],
   );
+  const cardsById = useMemo(
+    () => new Map(cards.map((card) => [card.catalogCardId, card])),
+    [cards],
+  );
+  const reservedForEditingCampaignByCardId = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (editingCampaign?.approvalStatus !== "pending_review") return counts;
+    for (const prize of editingPrizes ?? []) {
+      if (!prize.cardId) continue;
+      counts.set(
+        prize.cardId,
+        (counts.get(prize.cardId) ?? 0) +
+          Math.max(0, Math.round(Number(prize.plannedQuantity) || 0)),
+      );
+    }
+    return counts;
+  }, [editingCampaign?.approvalStatus, editingPrizes]);
+  const prizeStockSummaries = useMemo<PrizeStockSummary[]>(() => {
+    const cardIds = [
+      ...new Set(activePrizeDrafts.map((prize) => prize.cardId).filter(Boolean)),
+    ];
+    return cardIds.map((cardId) => {
+      const card = cardsById.get(cardId);
+      return {
+        cardId,
+        cardName: card?.name ?? null,
+        cardCode: card?.code ?? card?.searchCode ?? null,
+        stockAvailable: card?.stockAvailable ?? 0,
+        reservedForCampaign: reservedForEditingCampaignByCardId.get(cardId) ?? 0,
+      };
+    });
+  }, [activePrizeDrafts, cardsById, reservedForEditingCampaignByCardId]);
+  const stockShortages = useMemo(
+    () =>
+      buildPrizeStockShortages({
+        includeReservedForCampaign:
+          editingCampaign?.approvalStatus === "pending_review",
+        prizes: activePrizeDrafts.map((prize) => ({
+          cardId: prize.cardId,
+          quantity: prizeUnitCount(prize),
+        })),
+        stockSummaries: prizeStockSummaries,
+      }),
+    [activePrizeDrafts, editingCampaign?.approvalStatus, prizeStockSummaries],
+  );
+  const stockBlockers = stockShortageBlockers(stockShortages);
   const configuredPrizeUnits = activePrizeDrafts.reduce(
     (sum, prize) => sum + Math.max(0, Math.round(Number(prize.quantity) || 0)),
     0,
@@ -2267,6 +2318,7 @@ export function AdminCampaignForm({
     configuredPrizeUnits !== totalSlots
       ? "Prize quantity must equal the total pack quantity."
       : "",
+    ...stockBlockers,
     initialUnlockedUnits <= 0
       ? "At least one prize must be available in the launch pool."
       : "",
@@ -2305,6 +2357,17 @@ export function AdminCampaignForm({
       primary: `${configuredPrizeUnits.toLocaleString()}/${totalSlots.toLocaleString()}`,
       secondary: "units configured",
       ready: configuredPrizeUnits === totalSlots,
+    },
+    {
+      label: "Global stock",
+      primary: stockShortages.length
+        ? `${stockShortages.length.toLocaleString()} shortage${stockShortages.length === 1 ? "" : "s"}`
+        : "Covered",
+      secondary:
+        editingCampaign?.approvalStatus === "pending_review"
+          ? "available + this pack reservation"
+          : "available card stock",
+      ready: stockShortages.length === 0,
     },
     {
       label: "Launch pool",
@@ -6358,7 +6421,8 @@ export function AdminCampaignTable({
                             isPending ||
                             pending !== null ||
                             alreadySubmitted ||
-                            alreadyApproved
+                            alreadyApproved ||
+                            Boolean(reviewBlocker)
                           }
                           title={
                             alreadySubmitted

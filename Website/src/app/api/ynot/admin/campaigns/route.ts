@@ -9,6 +9,7 @@ import {
 import type { Database, Json } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import {
+  getPrizeStockSummaries,
   normalizePrizeDrafts,
   validatePrizeDraftsForSave,
   type PrizeDraftInput,
@@ -441,10 +442,26 @@ export async function POST(request: Request) {
     normalizePrizeDrafts(body.initialPrizes),
     admin.adminRole,
   );
-  const prizeValidation = validatePrizeDraftsForSave(
-    initialPrizes,
-    insert.total_slots,
-  );
+  const supabase = createServiceSupabaseClient();
+  let prizeValidation: ReturnType<typeof validatePrizeDraftsForSave>;
+  try {
+    if (initialPrizes.length) await assertPrizeCardsExist(supabase, initialPrizes);
+    const stockSummaries = await getPrizeStockSummaries(supabase, initialPrizes);
+    prizeValidation = validatePrizeDraftsForSave(
+      initialPrizes,
+      insert.total_slots,
+      "pure_random",
+      { stockSummaries },
+    );
+  } catch (prizeError) {
+    return adminErrorResponse(
+      "CAMPAIGN_PRIZE_INVALID",
+      prizeError instanceof Error
+        ? prizeError.message
+        : "Prize inventory is not ready.",
+      400,
+    );
+  }
   if (!prizeValidation.ready) {
     return adminErrorResponse(
       "CAMPAIGN_PRIZE_INVALID",
@@ -454,7 +471,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase.from("draw_rounds").insert(insert).select("id,slug").single();
   if (error) {
     return adminErrorResponse(
@@ -551,7 +567,7 @@ export async function PATCH(request: Request) {
   const supabase = createServiceSupabaseClient();
   const { data: current, error: currentError } = await supabase
     .from("draw_rounds")
-    .select("id,status,approval_status,logic_snapshot")
+    .select("id,status,approval_status,logic_snapshot,total_slots")
     .eq("id", campaignId)
     .single();
   if (currentError) {
@@ -578,6 +594,54 @@ export async function PATCH(request: Request) {
       "Approved pack inventory is locked. Archive it or create a new draft before changing settings.",
       409,
     );
+  }
+  const replacementPrizes = Array.isArray(body.initialPrizes)
+    ? initialPrizesForAdminRole(
+        normalizePrizeDrafts(body.initialPrizes),
+        admin.adminRole,
+      )
+    : null;
+  if (replacementPrizes) {
+    try {
+      if (replacementPrizes.length) {
+        await assertPrizeCardsExist(supabase, replacementPrizes);
+      }
+      const stockSummaries = await getPrizeStockSummaries(
+        supabase,
+        replacementPrizes,
+        {
+          campaignId,
+          includeCampaignReservations:
+            current.approval_status === "pending_review",
+        },
+      );
+      const prizeValidation = validatePrizeDraftsForSave(
+        replacementPrizes,
+        patch.total_slots ?? current.total_slots,
+        "pure_random",
+        {
+          includeReservedForCampaign:
+            current.approval_status === "pending_review",
+          stockSummaries,
+        },
+      );
+      if (!prizeValidation.ready) {
+        return adminErrorResponse(
+          "CAMPAIGN_PRIZE_INVALID",
+          prizeValidation.blockers[0] ?? "Prize inventory is not ready.",
+          400,
+          { blockers: prizeValidation.blockers },
+        );
+      }
+    } catch (prizeError) {
+      return adminErrorResponse(
+        "CAMPAIGN_PRIZE_INVALID",
+        prizeError instanceof Error
+          ? prizeError.message
+          : "Prize inventory is not ready.",
+        400,
+      );
+    }
   }
   if (current.approval_status === "pending_review") {
     const { error: releaseError } = await supabase.rpc(
@@ -665,12 +729,7 @@ export async function PATCH(request: Request) {
   // Replace prize list if caller supplied initialPrizes. Approval state is
   // already enforced above (must be draft / not approved), so it's safe to
   // delete + reinsert here without risking a published pack.
-  if (Array.isArray(body.initialPrizes)) {
-    const normalizedPrizes = normalizePrizeDrafts(body.initialPrizes);
-    const initialPrizes = initialPrizesForAdminRole(
-      normalizedPrizes,
-      admin.adminRole,
-    );
+  if (replacementPrizes) {
     try {
       await supabase
         .from("draw_round_prize_units")
@@ -680,12 +739,12 @@ export async function PATCH(request: Request) {
         .from("draw_round_prizes")
         .delete()
         .eq("draw_round_id", campaignId);
-      if (initialPrizes.length) {
+      if (replacementPrizes.length) {
         await saveInitialPrizes(
           supabase,
           campaignId,
           admin.adminId,
-          initialPrizes,
+          replacementPrizes,
           Boolean(body.isTest),
           text(body.seedRunId, 80) || null,
         );
