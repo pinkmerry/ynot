@@ -28,6 +28,7 @@ export const dynamic = "force-dynamic";
 
 type LifecycleAction =
   | "submit_review"
+  | "save_logic"
   | "approve"
   | "reject"
   | "request_changes"
@@ -43,6 +44,7 @@ type RandomLogicMode =
 
 const lifecycleActions: readonly LifecycleAction[] = [
   "submit_review",
+  "save_logic",
   "approve",
   "reject",
   "request_changes",
@@ -94,6 +96,7 @@ function isLocalMockCampaign(campaignId: string) {
 
 function actionRequiresOwner(action: LifecycleAction) {
   return (
+    action === "save_logic" ||
     action === "approve" ||
     action === "reject" ||
     action === "request_changes" ||
@@ -122,6 +125,15 @@ function mockLifecycleResult(
   action: LifecycleAction,
   logicMode: RandomLogicMode,
 ) {
+  if (action === "save_logic") {
+    return {
+      approvalStatus: "pending_review",
+      status: "draft",
+      visibility: "private",
+      logicMode,
+      message: `${randomLogicLabel(logicMode)} saved for owner review.`,
+    };
+  }
   if (action === "approve") {
     return {
       approvalStatus: "approved",
@@ -195,6 +207,9 @@ function mockLifecycleResult(
 }
 
 function realLifecycleMessage(action: LifecycleAction, logicMode: RandomLogicMode) {
+  if (action === "save_logic") {
+    return `${randomLogicLabel(logicMode)} saved for owner review.`;
+  }
   if (action === "approve") {
     return `${randomLogicLabel(logicMode)} approved. The pack is still draft/private until publish.`;
   }
@@ -308,7 +323,7 @@ export async function POST(request: Request) {
   if (actionRequiresOwner(action) && admin.adminRole !== "owner") {
     return adminErrorResponse(
       "OWNER_ROLE_REQUIRED",
-      "Only an owner can approve, reject, request changes, publish, or delete a pack.",
+      "Only an owner can save review logic, approve, reject, request changes, publish, or delete a pack.",
       403,
     );
   }
@@ -383,7 +398,31 @@ export async function POST(request: Request) {
       ? logicModeFromSnapshot(current.logic_snapshot) ?? logicMode
       : logicMode;
 
-  if (action === "close") {
+  if (action === "save_logic") {
+    if (current.status !== "draft" || current.approval_status === "approved") {
+      return adminErrorResponse(
+        "CAMPAIGN_LOGIC_LOCKED",
+        "Random logic can only be saved while the pack is a draft waiting on owner review.",
+        409,
+      );
+    }
+    const { error: updateError } = await supabase
+      .from("draw_rounds")
+      .update({
+        logic_snapshot: logicSnapshot,
+      })
+      .eq("id", campaignId);
+    if (updateError) {
+      if (isMissingColumnError(updateError)) {
+        return randomPackSchemaMissingResponse();
+      }
+      return mappedAdminErrorResponse(updateError, campaignLifecycleErrorMap, {
+        code: "CAMPAIGN_LOGIC_SAVE_FAILED",
+        error: "Random logic could not be saved.",
+        status: 409,
+      });
+    }
+  } else if (action === "close") {
     const { error: updateError } = await supabase
       .from("draw_rounds")
       .update({

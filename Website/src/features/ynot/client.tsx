@@ -3099,6 +3099,7 @@ type LocalApprovalQueueItem = YnotOwnerApprovalRequest & {
 
 type LifecycleAction =
   | "submit_review"
+  | "save_logic"
   | "approve"
   | "reject"
   | "request_changes"
@@ -3167,6 +3168,7 @@ export function OwnerApprovalQueue({
                     payload.visibility ?? candidate.runtimeVisibility,
                   selectedLogicMode:
                     payload.logicMode ?? candidate.selectedLogicMode,
+                  logicMode: payload.logicMode ?? candidate.logicMode,
                   localMessage: payload.message ?? "Owner action saved.",
                 }
               : candidate,
@@ -3197,7 +3199,6 @@ export function OwnerApprovalQueue({
           ? {
               ...candidate,
               selectedLogicMode: logicMode,
-              logicMode,
               localMessage:
                 logicMode === "pure_random"
                   ? "Pure random selected for this review."
@@ -3236,10 +3237,6 @@ export function OwnerApprovalQueue({
   function saveOwnerPrizeOdds(index: number, prize: YnotPrizePreview) {
     const item = items[index];
     if (!item || !prize.cardId) return;
-    const prizeCategory = prizeCategoryValue(prize.prizeCategory);
-    const sourceType = prizeSourceType(prizeCategory);
-    const displayTier = prizePreviewDisplayTier(prize);
-    const tierRank = prizePreviewTierRank(prize);
     const weight = usesPrizeWeight(item.selectedLogicMode)
       ? Math.max(0, Number(prize.weight) || 0)
       : 1;
@@ -3251,26 +3248,11 @@ export function OwnerApprovalQueue({
       : 0;
     startTransition(async () => {
       try {
-        await postJson("/api/ynot/admin/prizes", {
+        await postJson("/api/ynot/admin/prizes/odds", {
           campaignId: item.campaign.id,
-          cardId: prize.cardId,
-          tier: prize.tier,
-          rank: prize.rank,
+          prizeId: prize.id,
           weight,
           unlockAtSoldPct,
-          prizeCategory,
-          sourceType,
-          displayTier,
-          displayGroup: displayTier,
-          metadata: {
-            displayTier,
-            displayTierLabel: prizeDisplayTierLabel(displayTier),
-            displayGroup: displayTier,
-            tierRank,
-            prizeCategory,
-            prizeCategoryLabel: prizeCategoryLabel(prizeCategory),
-            sourceType,
-          },
         });
         setItems((current) =>
           current.map((candidate, candidateIndex) =>
@@ -3278,7 +3260,7 @@ export function OwnerApprovalQueue({
               ? {
                   ...candidate,
                   localMessage:
-                    "Owner prize mode settings saved.",
+                    "Owner prize mode settings saved. The pack stays in owner review.",
                 }
               : candidate,
           ),
@@ -3344,6 +3326,7 @@ export function OwnerApprovalQueue({
           );
           const weightControlsActive = usesPrizeWeight(item.selectedLogicMode);
           const unlockControlsActive = usesPrizeUnlock(item.selectedLogicMode);
+          const logicChoiceChanged = item.selectedLogicMode !== item.logicMode;
           const ownerPrizeLineup = item.campaign.prizeLineup ?? [];
           const ownerPrizeSections = prizeDisplayTierOptions
             .map((option) => ({
@@ -3415,6 +3398,25 @@ export function OwnerApprovalQueue({
                         <span>{choice.description}</span>
                       </button>
                     ))}
+                  </div>
+                  <div className="owner-logic-save-row">
+                    <button
+                      className="plain-button"
+                      disabled={
+                        !isOwner ||
+                        isPending ||
+                        logicLocked ||
+                        !logicChoiceChanged
+                      }
+                      onClick={() => applyAction(index, "save_logic")}
+                      type="button"
+                    >
+                      {logicChoiceChanged ? "Save logic choice" : "Logic saved"}
+                    </button>
+                    <span>
+                      Save before editing odds, then approve settings when the
+                      tier rows look correct.
+                    </span>
                   </div>
                 </div>
               </details>

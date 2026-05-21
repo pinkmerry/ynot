@@ -333,12 +333,18 @@ async function getPublicPrizeLineupsBatch(
             error: null;
           }),
     ]);
-  if (cardsError) throw cardsError;
-  if (unitsError) throw unitsError;
+  if (cardsError) {
+    recordDataIssue("campaign_prize_lineup_cards", cardsError);
+  }
+  if (unitsError) {
+    recordDataIssue("campaign_prize_lineup_units", unitsError);
+  }
 
-  const cardById = new Map((cards ?? []).map((card) => [card.id, card]));
+  const cardById = new Map(
+    (cardsError ? [] : (cards ?? [])).map((card) => [card.id, card]),
+  );
   const countsByPrize = new Map<string, { total: number; available: number }>();
-  for (const unit of units ?? []) {
+  for (const unit of unitsError ? [] : (units ?? [])) {
     const counts = countsByPrize.get(unit.draw_round_prize_id) ?? {
       total: 0,
       available: 0,
@@ -439,12 +445,18 @@ async function getPublicPrizeLineup(
         .in("draw_round_prize_id", prizeIds)
         .limit(10000),
     ]);
-  if (cardsError) throw cardsError;
-  if (unitsError) throw unitsError;
+  if (cardsError) {
+    recordDataIssue("campaign_detail_prize_lineup_cards", cardsError);
+  }
+  if (unitsError) {
+    recordDataIssue("campaign_detail_prize_lineup_units", unitsError);
+  }
 
-  const cardById = new Map((cards ?? []).map((card) => [card.id, card]));
+  const cardById = new Map(
+    (cardsError ? [] : (cards ?? [])).map((card) => [card.id, card]),
+  );
   const countsByPrize = new Map<string, { total: number; available: number }>();
-  for (const unit of units ?? []) {
+  for (const unit of unitsError ? [] : (units ?? [])) {
     const counts = countsByPrize.get(unit.draw_round_prize_id) ?? {
       total: 0,
       available: 0,
@@ -509,9 +521,31 @@ function toYnotCampaign(
     row.approval_status,
     inferredApprovalStatus(row.status),
   );
+  const plannedPrizeUnits = (prizeLineup ?? []).reduce(
+    (sum, prize) =>
+      sum +
+      (Number(prize.plannedQuantity ?? prize.totalUnits ?? 0) || 0),
+    0,
+  );
+  const plannedPrizeUnitFallback =
+    plannedPrizeUnits > 0 ? plannedPrizeUnits : undefined;
+  const materializedTotalUnits =
+    inventory?.totalUnits && inventory.totalUnits > 0
+      ? inventory.totalUnits
+      : undefined;
+  const materializedAvailableUnits =
+    inventory?.availableUnits && inventory.availableUnits > 0
+      ? inventory.availableUnits
+      : undefined;
   const remainingSlots = readiness?.remainingSlots ?? inventory?.remainingSlots;
   const availablePrizeUnits =
-    readiness?.availablePrizeUnits ?? inventory?.availableUnits;
+    readiness?.availablePrizeUnits ??
+    materializedAvailableUnits ??
+    plannedPrizeUnitFallback ??
+    inventory?.availableUnits;
+  const eligiblePrizeUnits =
+    readiness?.eligiblePrizeUnits ??
+    (approvalStatus === "pending_review" ? availablePrizeUnits : undefined);
   const soldOut =
     readiness?.soldOut ??
     Boolean(
@@ -541,9 +575,13 @@ function toYnotCampaign(
     visibility: row.visibility,
     totalSlots: row.total_slots,
     remainingSlots,
-    totalPrizeUnits: readiness?.totalPrizeUnits ?? inventory?.totalUnits,
+    totalPrizeUnits:
+      readiness?.totalPrizeUnits ??
+      materializedTotalUnits ??
+      plannedPrizeUnitFallback ??
+      inventory?.totalUnits,
     availablePrizeUnits,
-    eligiblePrizeUnits: readiness?.eligiblePrizeUnits,
+    eligiblePrizeUnits,
     initialEligiblePrizeUnits: readiness?.initialEligiblePrizeUnits,
     awardedPrizeUnits: inventory?.awardedUnits,
     voidPrizeUnits: inventory?.voidUnits,

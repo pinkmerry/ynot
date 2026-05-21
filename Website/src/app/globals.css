@@ -9526,6 +9526,26 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   color: var(--admin-muted);
 }
 
+.owner-logic-save-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.owner-logic-save-row .plain-button {
+  border-radius: 12px;
+  min-height: 38px;
+}
+
+.owner-logic-save-row span {
+  color: var(--admin-muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+  line-height: 1.35;
+  max-width: 360px;
+}
+
 .owner-approval-grid {
   display: grid;
   gap: 10px;
