@@ -1604,7 +1604,6 @@ export function AdminCategoryRowActions({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [typed, setTyped] = useState("");
 
   if (isLegacySeries) {
     return (
@@ -1615,8 +1614,10 @@ export function AdminCategoryRowActions({
   }
 
   const canDelete = packCount === 0;
-  const expectedPhrase = categorySlug;
-  const matches = typed.trim() === expectedPhrase;
+  // `categorySlug` is still referenced via the prop but no longer
+  // required to be typed — the server eligibility check is the real
+  // safety net.
+  void categorySlug;
 
   function emitEdit() {
     window.dispatchEvent(
@@ -1640,7 +1641,6 @@ export function AdminCategoryRowActions({
         throw new Error(payload?.message || payload?.error || "Delete failed");
       }
       setShowModal(false);
-      setTyped("");
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Delete failed");
@@ -1705,22 +1705,6 @@ export function AdminCategoryRowActions({
                 is logged to the audit trail.
               </p>
             </header>
-            <label className="admin-modal-confirm-row">
-              <span>
-                Type <code>{expectedPhrase}</code> to confirm
-              </span>
-              <input
-                type="text"
-                value={typed}
-                onChange={(event) => setTyped(event.target.value)}
-                disabled={pending}
-                autoFocus
-                spellCheck={false}
-                autoComplete="off"
-                className="admin-modal-confirm-input"
-                placeholder={expectedPhrase}
-              />
-            </label>
             {error && (
               <p className="admin-category-row-error" role="alert">
                 {error}
@@ -1732,7 +1716,6 @@ export function AdminCategoryRowActions({
                 className="admin-modal-secondary"
                 onClick={() => {
                   setShowModal(false);
-                  setTyped("");
                   setError(null);
                 }}
                 disabled={pending}
@@ -1743,7 +1726,8 @@ export function AdminCategoryRowActions({
                 type="button"
                 className="admin-modal-primary admin-modal-primary-danger"
                 onClick={runDelete}
-                disabled={!matches || pending}
+                disabled={pending}
+                autoFocus
               >
                 {pending ? "Deleting…" : "Delete category"}
               </button>
@@ -5001,11 +4985,8 @@ function AdminCardDeleteModal({
   onCancel: () => void;
   onDeleted: () => void;
 }) {
-  const expectedPhrase = card.code ?? card.name;
-  const [typed, setTyped] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const matches = typed.trim() === expectedPhrase;
 
   async function runDelete() {
     setPending(true);
@@ -5048,22 +5029,6 @@ function AdminCardDeleteModal({
             unit still references this card, the delete will be refused.
           </p>
         </header>
-        <label className="admin-modal-confirm-row">
-          <span>
-            Type <code>{expectedPhrase}</code> to confirm
-          </span>
-          <input
-            type="text"
-            value={typed}
-            onChange={(event) => setTyped(event.target.value)}
-            disabled={pending}
-            autoFocus
-            spellCheck={false}
-            autoComplete="off"
-            className="admin-modal-confirm-input"
-            placeholder={expectedPhrase}
-          />
-        </label>
         {error && (
           <p className="admin-category-row-error" role="alert">
             {error}
@@ -5077,7 +5042,8 @@ function AdminCardDeleteModal({
             type="button"
             className="admin-modal-primary admin-modal-primary-danger"
             onClick={runDelete}
-            disabled={!matches || pending}
+            disabled={pending}
+            autoFocus
           >
             {pending ? "Deleting…" : "Delete card"}
           </button>
@@ -6683,22 +6649,29 @@ function DeletePackConfirmModal({
             ))}
           </ol>
         )}
-        <label className="admin-modal-confirm-row">
-          <span>
-            Type <code>{expectedPhrase}</code> to confirm
-          </span>
-          <input
-            type="text"
-            value={typed}
-            onChange={(event) => setTyped(event.target.value)}
-            disabled={pending}
-            autoFocus
-            spellCheck={false}
-            autoComplete="off"
-            className="admin-modal-confirm-input"
-            placeholder={expectedPhrase}
-          />
-        </label>
+        {/* Type-to-confirm only on bulk delete — gives a real chance to
+            catch a stray multi-select. Single delete is just Yes/No
+            because each row already shows the pack title in the modal
+            header and the server eligibility check refuses any pack
+            that still has live opens. */}
+        {isBulk && (
+          <label className="admin-modal-confirm-row">
+            <span>
+              Type <code>{expectedPhrase}</code> to confirm
+            </span>
+            <input
+              type="text"
+              value={typed}
+              onChange={(event) => setTyped(event.target.value)}
+              disabled={pending}
+              autoFocus
+              spellCheck={false}
+              autoComplete="off"
+              className="admin-modal-confirm-input"
+              placeholder={expectedPhrase}
+            />
+          </label>
+        )}
         <footer className="admin-modal-foot">
           <button
             type="button"
@@ -6712,7 +6685,8 @@ function DeletePackConfirmModal({
             type="button"
             className="admin-modal-primary admin-modal-primary-danger"
             onClick={onConfirm}
-            disabled={!matches || pending}
+            disabled={pending || (isBulk && !matches)}
+            autoFocus={!isBulk}
           >
             {pending ? "Deleting…" : isBulk ? `Delete ${campaigns.length} packs` : "Delete pack"}
           </button>
