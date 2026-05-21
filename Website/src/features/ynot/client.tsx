@@ -1514,16 +1514,12 @@ export function AdminCategoryForm({
            below so existing Pokemon/One Piece edits preserve their flag
            if loaded from the dropdown. To re-set it on an existing
            category, use the Supabase SQL editor. */}
-        <AdminField label="Sort order" hint="Lower number appears first.">
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            min={0}
-            type="number"
-            value={sortOrder}
-            onChange={(event) => setSortOrder(Number(event.target.value))}
-            placeholder="100"
-          />
-        </AdminField>
+        {/* Sort order hidden from the form — `/packs` chips are hardcoded
+           in components.tsx today so sort_order has no effect on the
+           customer storefront. It still feeds admin manager card order,
+           but defaulting all rows to 100 produces a stable enough order.
+           State + PATCH payload round-trip the value so existing rows
+           keep theirs. To re-order, use Supabase SQL. */}
         <AdminField label="Status">
           <div className="flex min-h-12 flex-wrap items-center gap-2">
             <button
