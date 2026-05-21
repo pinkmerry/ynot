@@ -2257,10 +2257,9 @@ export async function getYnotDashboardSlice(
     const campaignVisibility =
       selector.campaignVisibility ??
       (selector.ownerApprovalRequests ? "admin" : "public");
-    // YnotShell renders walletBalance on every page; always fetch wallet for
-    // authenticated viewers so the header doesn't show 0 coins on pages that
-    // don't otherwise need wallet data.
-    const wantWallet = !!selector.wallet || viewer.authenticated;
+    // YnotShell renders walletBalance on most customer pages. Admin pages can
+    // opt out to avoid one extra Supabase call during heavy server renders.
+    const wantWallet = selector.wallet ?? viewer.authenticated;
     const [
       campaigns,
       categories,

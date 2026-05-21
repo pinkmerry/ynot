@@ -477,42 +477,42 @@ export async function getCampaignPrizeReadiness(
   const prizeById = new Map<string, PrizeRow>(
     visiblePrizes.map((prize) => [prize.id, prize]),
   );
+  const usePlannedInventory =
+    row.status === "draft" && row.approval_status !== "approved";
   let totalPrizeUnits = 0;
   let availablePrizeUnits = 0;
   let eligiblePrizeUnits = 0;
   let initialEligiblePrizeUnits = 0;
   const nonVoidUnitsByPrizeId = new Map<string, number>();
 
-  const prizeUnitCounts = await Promise.all(
-    prizeIds.map(async (prizeId) => {
-      const [nonVoidCount, availableCount] = await Promise.all([
-        countPrizeUnits(supabase, prizeId),
-        countPrizeUnits(supabase, prizeId, "available"),
-      ]);
-      return { prizeId, nonVoidCount, availableCount };
-    }),
-  );
+  if (!usePlannedInventory) {
+    const prizeUnitCounts = await Promise.all(
+      prizeIds.map(async (prizeId) => {
+        const [nonVoidCount, availableCount] = await Promise.all([
+          countPrizeUnits(supabase, prizeId),
+          countPrizeUnits(supabase, prizeId, "available"),
+        ]);
+        return { prizeId, nonVoidCount, availableCount };
+      }),
+    );
 
-  for (const { prizeId, nonVoidCount, availableCount } of prizeUnitCounts) {
-    if (nonVoidCount <= 0) continue;
-    totalPrizeUnits += nonVoidCount;
-    nonVoidUnitsByPrizeId.set(prizeId, nonVoidCount);
-    if (availableCount <= 0) continue;
-    availablePrizeUnits += availableCount;
-    const prize = prizeById.get(prizeId);
-    if (!prize) continue;
-    if (prizeEligibleAtSoldPct(prize, logicMode, soldPct)) {
-      eligiblePrizeUnits += availableCount;
-    }
-    if (prizeEligibleAtSoldPct(prize, logicMode, 0)) {
-      initialEligiblePrizeUnits += availableCount;
+    for (const { prizeId, nonVoidCount, availableCount } of prizeUnitCounts) {
+      if (nonVoidCount <= 0) continue;
+      totalPrizeUnits += nonVoidCount;
+      nonVoidUnitsByPrizeId.set(prizeId, nonVoidCount);
+      if (availableCount <= 0) continue;
+      availablePrizeUnits += availableCount;
+      const prize = prizeById.get(prizeId);
+      if (!prize) continue;
+      if (prizeEligibleAtSoldPct(prize, logicMode, soldPct)) {
+        eligiblePrizeUnits += availableCount;
+      }
+      if (prizeEligibleAtSoldPct(prize, logicMode, 0)) {
+        initialEligiblePrizeUnits += availableCount;
+      }
     }
   }
 
-  const usePlannedInventory =
-    totalPrizeUnits === 0 &&
-    row.status === "draft" &&
-    row.approval_status !== "approved";
   let stockBlockers: string[] = [];
   if (usePlannedInventory) {
     totalPrizeUnits = visiblePrizes.reduce(

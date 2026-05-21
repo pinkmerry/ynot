@@ -22,7 +22,10 @@ export default async function AdminCampaignsPage() {
       campaignVisibility: "admin",
       campaignLimit: null,
       categories: true,
+      campaignReadiness: false,
+      campaignPrizeLineups: true,
       ownerApprovalRequests: true,
+      wallet: false,
     }),
     getAdminCards(),
   ]);
