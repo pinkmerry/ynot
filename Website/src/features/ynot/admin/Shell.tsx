@@ -75,7 +75,7 @@ function Sidebar({
       .toUpperCase() || "U";
   return (
     <aside className="a-side" aria-label="Admin navigation">
-      <Link href="/admin" className="a-brand">
+      <Link href="/admin" className="a-brand" prefetch={false}>
         <span className="a-brand-mark">Y</span>
         <span>
           <span className="a-brand-name">YNOTT Admin</span>
@@ -96,6 +96,7 @@ function Sidebar({
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 className={`a-nav ${isActive ? "active" : ""}`.trim()}
               >
                 <span className="a-nav-ico">
@@ -122,7 +123,12 @@ function Sidebar({
             {(viewer.adminRole ?? "user")} · {viewer.authSource ?? "—"}
           </span>
         </span>
-        <Link href="/auth/sign-out" aria-label="Sign out" style={{ color: "var(--a-muted)" }}>
+        <Link
+          href="/auth/sign-out"
+          aria-label="Sign out"
+          prefetch={false}
+          style={{ color: "var(--a-muted)" }}
+        >
           <AdminIcon name="logout" size={14} />
         </Link>
       </div>
@@ -151,6 +157,7 @@ function TopBar({ trail }: { trail: string[] }) {
           <Link
             href={item.href}
             key={item.href}
+            prefetch={false}
             className={item.primary ? "home" : undefined}
           >
             {item.primary && <AdminIcon name="globe" size={13} />}

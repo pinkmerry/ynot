@@ -1117,10 +1117,13 @@ async function getCampaignsImpl(
         return links ?? [];
       }),
       readOrEmpty("campaign_inventory_summary", async () => {
+        if (!campaignIds.length) return [];
+        const inventoryCampaignId =
+          campaignIds.length === 1 ? campaignIds[0] : null;
         const { data: inventory, error: inventoryError } = await supabase.rpc(
           "get_draw_round_inventory_summary",
           {
-            p_draw_round_id: null,
+            p_draw_round_id: inventoryCampaignId,
             p_profile_id: null,
           },
         );

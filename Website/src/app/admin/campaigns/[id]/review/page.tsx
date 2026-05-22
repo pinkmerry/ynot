@@ -19,10 +19,14 @@ export default async function OwnerReviewPage({
     campaignVisibility: "admin",
     campaignIdOrSlug: id,
     campaignLimit: 1,
+    campaignReadiness: false,
     campaignPrizeLineups: true,
     ownerApprovalRequests: true,
+    wallet: false,
   });
-  const campaign = data.campaigns.find((entry) => entry.id === id);
+  const campaign = data.campaigns.find(
+    (entry) => entry.id === id || entry.slug === id,
+  );
   if (!campaign) return notFound();
 
   // Dev-mode bypass mirrors AdminGate and the lifecycle route so owner-only
@@ -41,7 +45,7 @@ export default async function OwnerReviewPage({
           title="Owner-only"
           desc="Only the owner can review and publish random packs. Ask the owner to approve this draft."
           actions={
-            <Link href="/admin/campaigns" className="btn">
+            <Link href="/admin/campaigns" className="btn" prefetch={false}>
               <AdminIcon name="chev-r" /> Back to packs
             </Link>
           }
@@ -58,7 +62,7 @@ export default async function OwnerReviewPage({
   }
 
   const approvalRequest = data.ownerApprovalRequests.find(
-    (entry) => entry.campaign.id === id,
+    (entry) => entry.campaign.id === campaign.id,
   );
 
   return (

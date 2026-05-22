@@ -3290,6 +3290,7 @@ export function OwnerApprovalQueue({
                 <Link
                   className="btn btn-sm btn-primary owner-approval-row-cta"
                   href={`/admin/campaigns/${request.campaign.id}/review`}
+                  prefetch={false}
                 >
                   Review <AdminIcon name="chev-r" size={12} />
                 </Link>
@@ -3793,6 +3794,7 @@ export function AdminOwnerReview({
       <Link
         href="/admin/campaigns"
         className="btn"
+        prefetch={false}
         style={{ marginRight: "auto" }}
       >
         <AdminIcon name="chev-r" size={12} style={{ transform: "rotate(180deg)" }} />

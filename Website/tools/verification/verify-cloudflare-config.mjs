@@ -102,6 +102,40 @@ check("package exposes cf:build script", Boolean(packageJson.scripts?.["cf:build
 check("package exposes website Cloudflare deploy script", Boolean(packageJson.scripts?.["cf:deploy:website"]));
 check("package exposes LIFF Cloudflare deploy script", Boolean(packageJson.scripts?.["cf:deploy:liff"]));
 
+const campaignData = read("src/features/ynot/data.ts");
+check(
+  "single-campaign admin renders do not scan all inventory summaries",
+  /if \(!campaignIds\.length\) return \[\];[\s\S]*const inventoryCampaignId =[\s\S]*campaignIds\.length === 1 \? campaignIds\[0\] : null[\s\S]*p_draw_round_id: inventoryCampaignId/.test(
+    campaignData,
+  ),
+);
+
+const ownerReviewPage = read("src/app/admin/campaigns/[id]/review/page.tsx");
+check(
+  "owner review page opts out of unrelated dashboard reads",
+  /campaignReadiness: false,[\s\S]*ownerApprovalRequests: true,[\s\S]*wallet: false,/.test(
+    ownerReviewPage,
+  ),
+);
+check(
+  "owner review page resolves both UUID and slug campaign routes",
+  /entry\.id === id \|\| entry\.slug === id/.test(ownerReviewPage),
+);
+
+const adminShell = read("src/features/ynot/admin/Shell.tsx");
+check(
+  "admin shell disables production prefetch for heavyweight navigation links",
+  (adminShell.match(/prefetch=\{false\}/g) ?? []).length >= 4,
+);
+
+const adminClient = read("src/features/ynot/client.tsx");
+check(
+  "owner review queue disables production prefetch for review links",
+  /href=\{`\/admin\/campaigns\/\$\{request\.campaign\.id\}\/review`\}[\s\S]*prefetch=\{false\}/.test(
+    adminClient,
+  ),
+);
+
 const devVarsExample = read(".dev.vars.example");
 for (const key of [
   "RATE_LIMIT_BACKEND=supabase",
