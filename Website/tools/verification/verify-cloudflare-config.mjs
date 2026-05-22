@@ -91,6 +91,11 @@ validateWorkerConfig("wrangler.website.jsonc", {
   workerName: "ynott-website",
   routePatterns: ["ynotopen.com/*", "www.ynotopen.com/*"],
 });
+validateWorkerConfig("wrangler.website.ci.jsonc", {
+  siteUrl: "https://www.ynotopen.com",
+  workerName: "ynott-website",
+  routePatterns: [],
+});
 validateWorkerConfig("wrangler.liff.jsonc", {
   siteUrl: "https://liff.ynotopen.com",
   workerName: "ynott-line-liff",
@@ -100,6 +105,11 @@ validateWorkerConfig("wrangler.liff.jsonc", {
 const packageJson = parseJson("package.json");
 check("package exposes cf:build script", Boolean(packageJson.scripts?.["cf:build"]));
 check("package exposes website Cloudflare deploy script", Boolean(packageJson.scripts?.["cf:deploy:website"]));
+check(
+  "website Cloudflare deploy script uses route-safe CI config",
+  /wrangler\.website\.ci\.jsonc/.test(packageJson.scripts?.["cf:deploy:website"] ?? ""),
+);
+check("package exposes manual website route deploy script", Boolean(packageJson.scripts?.["cf:deploy:website:routes"]));
 check("package exposes LIFF Cloudflare deploy script", Boolean(packageJson.scripts?.["cf:deploy:liff"]));
 
 const campaignData = read("src/features/ynot/data.ts");
