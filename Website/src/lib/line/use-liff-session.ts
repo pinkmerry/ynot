@@ -20,8 +20,8 @@ type LiffSessionState = {
 };
 
 const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
-const primaryLiffUrl = "https://liff.ynottcg.com";
-const websiteHosts = new Set(["ynottcg.com", "www.ynottcg.com"]);
+const primaryLiffUrl = "https://liff.ynotopen.com";
+const websiteHosts = new Set(["ynotopen.com", "www.ynotopen.com"]);
 type LiffClient = Awaited<typeof import("@line/liff")>["default"];
 
 function redirectWebsiteHostToLiff() {

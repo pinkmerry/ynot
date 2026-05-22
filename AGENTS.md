@@ -19,16 +19,16 @@ YNOTT/
 
 ### How to decide what you are working on
 
-- If the task mentions **website**, `www.ynottcg.com`, admin pages, customer web pages, wallet, gacha, collection, exchange, shipping, auth, or Next.js code: work in `Website/` and treat it as **YNOTT Website**.
-- If the task mentions **LIFF**, LINE rich menu, LINE Console, `liff.ynottcg.com`, LINE login/session compatibility, or LIFF-specific routing: inspect `Line LIFF/` first, then update shared code in `Website/` only when needed to preserve LIFF behavior.
+- If the task mentions **website**, `www.ynotopen.com`, admin pages, customer web pages, wallet, gacha, collection, exchange, shipping, auth, or Next.js code: work in `Website/` and treat it as **YNOTT Website**.
+- If the task mentions **LIFF**, LINE rich menu, LINE Console, `liff.ynotopen.com`, LINE login/session compatibility, or LIFF-specific routing: inspect `Line LIFF/` first, then update shared code in `Website/` only when needed to preserve LIFF behavior.
 - If the task mentions **Supabase**, migrations, backups, RLS, RPCs, or production DB gates: work in `Database/` plus any related verification scripts in `Website/tools/verification/`.
 
 ### Vercel projects
 
 Both Vercel projects are expected to build from repo root with **Root Directory = `Website`** unless/until LIFF is extracted into a separate app.
 
-- **YNOTT Website**: Vercel project `ynott-website`, domains `www.ynottcg.com`, `ynottcg.com`, and fallback URL `https://ynott-website.vercel.app`.
-- **YNOTT LIFF**: Vercel project `ynott-line-liff`, domain `liff.ynottcg.com`, fallback URL `https://ynott-line-liff.vercel.app`.
+- **YNOTT Website**: Cloudflare Worker `ynott-website`, domains `www.ynotopen.com`, `ynotopen.com`, and fallback URL `https://ynott-website.puppeteer-55b.workers.dev`.
+- **YNOTT LIFF**: old `liff.ynottcg.com` routing is retired. Future LIFF work should use `liff.ynotopen.com` only after a new LIFF setup is intentionally created.
 
 Do not point the LIFF project root at `.`. That causes Vercel build failures because the Next.js app lives in `Website/`.
 
@@ -47,4 +47,4 @@ Use only `YNOTT/`, `pinkmerry/ynott`, `ynott-website`, and `ynott-line-liff`.
 
 - Do not apply production Supabase migrations until Phase 1 backup/PITR and restore-drill gates are satisfied.
 - Do not merge/push production-breaking topology changes unless Vercel root/source settings are verified.
-- Keep Website and LIFF URL ownership separate: normal web traffic goes to `www.ynottcg.com`; LINE LIFF traffic goes to `liff.ynottcg.com`.
+- Keep Website and LIFF URL ownership separate: normal web traffic goes to `www.ynotopen.com`; future LINE LIFF traffic should go to `liff.ynotopen.com` after the new LIFF setup exists.

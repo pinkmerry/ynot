@@ -1,6 +1,7 @@
 # Cloudflare Migration Runbook
 
 Date: 2026-05-17
+Updated: 2026-05-21 for the `ynotopen.com` cleanup.
 
 This runbook implements the approved staged migration from Vercel to Cloudflare Workers plus OpenNext. It prepares the repo for Cloudflare staging without changing production DNS, provider callbacks, or Supabase data.
 
@@ -13,19 +14,19 @@ Observed in the logged-in Chrome dashboard on 2026-05-17:
 | Account | `Puppeteer@yfifteen.com's Account` |
 | Account ID | `55be25428739205c62a6bb0c711a0b8b` |
 | Workers subdomain | `puppeteer-55b.workers.dev` |
-| Domains | `yfifteen.com`, `yfifteen-inventory`, and `ynottcg.com` are listed |
-| Domain plan | `ynottcg.com` is on Free |
+| Domains | `yfifteen.com`, `yfifteen-inventory`, `ynotopen.com`, and the retired `ynottcg.com` zone are listed |
+| Domain plan | `ynotopen.com` is on Free |
 | Assigned YNOTT nameservers | `daisy.ns.cloudflare.com`, `elliot.ns.cloudflare.com` |
 | Workers | `ynott-website` and `ynott-line-liff` are deployed |
-| YNOTT resources | `ynottcg.com` exists with Worker routes for website, apex, and LIFF |
+| YNOTT resources | `ynotopen.com` owns the active website Worker routes; old LIFF routing is retired |
 
 ## Domain And Provider Matrix
 
 | Surface | Current Vercel URL | Target Cloudflare Worker | Target custom domain | Build-time public site URL | Provider callback/allowlist gate |
 | --- | --- | --- | --- | --- | --- |
-| Website | `https://www.ynottcg.com` | `ynott-website` | `https://www.ynottcg.com` | `https://www.ynottcg.com` | Supabase Auth `https://www.ynottcg.com/auth/callback`; LINE Login `https://www.ynottcg.com/api/line/callback`; Google callback if enabled |
-| Apex | `https://ynottcg.com` | Website redirect | `https://ynottcg.com` redirects to `www` | Same as website | HTTPS must be valid before traffic because HSTS includes subdomains |
-| LIFF | `https://liff.ynottcg.com` | `ynott-line-liff` | `https://liff.ynottcg.com` | `https://liff.ynottcg.com` | LINE LIFF endpoint and rich-menu URLs must remain on `liff.ynottcg.com`; Supabase/LINE staging allowlists needed before real-provider tests |
+| Website | `https://www.ynotopen.com` | `ynott-website` | `https://www.ynotopen.com` | `https://www.ynotopen.com` | Supabase Auth `https://www.ynotopen.com/auth/callback`; LINE Login `https://www.ynotopen.com/api/line/callback`; Google callback if enabled |
+| Apex | `https://ynotopen.com` | Website redirect | `https://ynotopen.com` redirects to `www` | Same as website | HTTPS must be valid before traffic because HSTS includes subdomains |
+| Future LIFF | none active | `ynott-line-liff` | future `https://liff.ynotopen.com` | `https://liff.ynotopen.com` when recreated | New LINE LIFF endpoint and rich-menu URLs must be created before real-provider tests |
 
 The two Worker configs intentionally default to separate builds because `NEXT_PUBLIC_*` values can be embedded into browser bundles during `next build`.
 
@@ -36,7 +37,7 @@ Create these only when the owner is ready to mutate the Cloudflare account:
 | Resource | Website | LIFF | Notes |
 | --- | --- | --- | --- |
 | Worker | `ynott-website` | `ynott-line-liff` | Matches `wrangler.*.jsonc` names |
-| DNS record | `www` and apex | `liff` | Imported into the Cloudflare Free zone; `liff` was added manually because the scan missed it |
+| DNS record | `www` and apex | future `liff` | Use the `ynotopen.com` Cloudflare Free zone only |
 | Public runtime vars | `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_ENABLE_LINE_LOGIN`, Supabase public URL/key, LINE Login channel ID, LIFF ID | Same, with LIFF site URL | Checked into the Worker configs because these are browser-visible public or non-secret provider identifiers |
 | Rate-limit backend | `RATE_LIMIT_BACKEND=supabase` | `RATE_LIMIT_BACKEND=supabase` | Required before any production admin/customer mutation because production fails closed without it |
 | Server secrets | Supabase service role, LINE login secret, LINE session secret, Slip2Go secret | Same | Use `wrangler secret put` or the dashboard; do not commit or print values |
@@ -50,12 +51,12 @@ Captured on 2026-05-17 after switching away from R2/Durable Objects/Images bindi
 
 | Surface | Worker route | Preview URL | Version evidence |
 | --- | --- | --- | --- |
-| Website | `ynottcg.com/*`, `www.ynottcg.com/*` | `https://ynott-website.puppeteer-55b.workers.dev` | `cbfa9ac7-231d-4e5f-81c6-e360d5bae3bc` |
-| LIFF | `liff.ynottcg.com/*` | `https://ynott-line-liff.puppeteer-55b.workers.dev` | `5ceef28f-edbb-4d61-8045-4203848d75ad` |
+| Website | `ynotopen.com/*`, `www.ynotopen.com/*` | `https://ynott-website.puppeteer-55b.workers.dev` | current deployment list in Cloudflare |
+| LIFF | no active custom route | `https://ynott-line-liff.puppeteer-55b.workers.dev` | future setup only |
 
 Both preview URLs returned `HTTP/2 200` with `server: cloudflare`. `SUPABASE_SERVICE_ROLE_KEY` and `LINE_SESSION_SECRET` are configured as Worker secrets for both Workers. `LINE_LOGIN_CHANNEL_SECRET`, `SLIP2GO_API_URL`, and `SLIP2GO_SECRET_KEY` were not available locally and still need real production values before those flows can be fully verified on Cloudflare.
 
-Production nameservers were switched in Squarespace on 2026-05-17. Public DNS now resolves through Cloudflare:
+Production nameservers for the active `ynotopen.com` zone resolve through Cloudflare:
 
 ```text
 daisy.ns.cloudflare.com
@@ -65,9 +66,8 @@ elliot.ns.cloudflare.com
 Post-cutover edge checks forced through Cloudflare returned:
 
 ```text
-https://www.ynottcg.com/        HTTP/2 200, server: cloudflare, x-opennext: 1
-https://ynottcg.com/cards?x=1  HTTP/2 308 -> https://www.ynottcg.com/cards?x=1
-https://liff.ynottcg.com/       HTTP/2 200, server: cloudflare, x-opennext: 1
+https://www.ynotopen.com/       HTTP/2 200, server: cloudflare, x-opennext: 1
+https://ynotopen.com/cards?x=1 HTTP/2 308 -> https://www.ynotopen.com/cards?x=1
 ```
 
 ## Tier Recommendation
@@ -112,10 +112,10 @@ npm run cf:deploy:liff
 
 ## Cutover Gates
 
-- `ynottcg.com` is added to Cloudflare, but registrar/Squarespace nameservers are not switched until staging passes.
+- `ynotopen.com` is the active Cloudflare production zone.
 - Free-first Workers deploy successfully without R2, Durable Objects, or Cloudflare Images bindings.
 - All server secrets are configured with `wrangler secret put` or the dashboard.
-- Supabase Auth, LINE Login, LIFF endpoint, Google OAuth if enabled, and Slip2Go callback needs are allowlisted for staging and final URLs.
+- Supabase Auth, LINE Login, future LIFF endpoint, Google OAuth if enabled, and Slip2Go callback needs are allowlisted for staging and final URLs.
 - Website and LIFF previews pass public, auth, admin, upload, cache, image, and API smoke tests.
 - Free-first cache behavior is accepted for the pilot, or R2/Durable Objects are explicitly approved later for stronger cache revalidation.
 - HTTPS is valid for `www`, apex, and `liff` before traffic, because the current app sends HSTS with `includeSubDomains`.

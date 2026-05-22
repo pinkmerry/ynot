@@ -25,16 +25,16 @@ Original Lucky Draw UI/reference files are stored in:
 Do not break LIFF compatibility while building the normal website. The website and LIFF should continue to align to the same Supabase profile/admin/order/payment data model.
 ## Production URL ownership
 
-- Intended LIFF URL: `https://liff.ynottcg.com`
+- Intended future LIFF URL: `https://liff.ynotopen.com`
 - LIFF fallback/project URL: `https://ynott-line-liff.vercel.app`
-- Normal website URL: `https://www.ynottcg.com`
+- Normal website URL: `https://www.ynotopen.com`
 
-The LIFF Vercel project owns `liff.ynottcg.com`; DNS and SSL are live.
+The old `liff.ynottcg.com` route is retired. Recreate LIFF on `liff.ynotopen.com` when the new LINE setup is ready.
 
 Current routing record:
 
 ```text
-A liff.ynottcg.com 76.76.21.21
+No active LIFF custom domain is currently expected.
 ```
 
 Do not point LINE rich-menu/LIFF endpoint URLs at the normal website domain unless the intended action is normal web login rather than LIFF.

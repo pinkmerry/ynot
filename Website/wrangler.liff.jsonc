@@ -5,12 +5,7 @@
   "workers_dev": true,
   "compatibility_date": "2026-05-17",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
-  "routes": [
-    {
-      "pattern": "liff.ynottcg.com/*",
-      "zone_name": "ynottcg.com"
-    }
-  ],
+  "routes": [],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
@@ -24,7 +19,7 @@
     "LINE_LOGIN_CHANNEL_ID": "2009942829",
     "NEXT_PUBLIC_ENABLE_LINE_LOGIN": "true",
     "NEXT_PUBLIC_LINE_LIFF_ID": "2009971080-8exdgUaw",
-    "NEXT_PUBLIC_SITE_URL": "https://liff.ynottcg.com",
+    "NEXT_PUBLIC_SITE_URL": "https://liff.ynotopen.com",
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6am9hcmtpamVhc3BhemJyY2hjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMjMwMzIsImV4cCI6MjA5MzU5OTAzMn0.yElDtqBA8NPWW8kMRqw3jltuFqfPDJpr1Fek8AjTwFM",
     "NEXT_PUBLIC_SUPABASE_URL": "https://szjoarkijeaspazbrchc.supabase.co"
   }

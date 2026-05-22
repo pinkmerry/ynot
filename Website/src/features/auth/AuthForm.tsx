@@ -1,11 +1,18 @@
 import Link from "next/link";
-import { signInWithPasswordAction, signUpWithPasswordAction } from "./actions";
+import {
+  resendSignUpEmailCodeAction,
+  signInWithPasswordAction,
+  signUpWithPasswordAction,
+  verifySignUpEmailCodeAction,
+} from "./actions";
+import { SignupPasswordFields } from "./SignupPasswordFields";
 
 type AuthFormProps = {
   mode: "login" | "signup";
   error?: string;
   message?: string;
   next?: string;
+  verifyEmail?: string;
 };
 
 function safeNextPath(value: string | undefined) {
@@ -27,16 +34,27 @@ function withNext(path: string, nextPath: string) {
   return `${path}?${params.toString()}`;
 }
 
-export function AuthForm({ mode, error, message, next }: AuthFormProps) {
+export function AuthForm({
+  mode,
+  error,
+  message,
+  next,
+  verifyEmail,
+}: AuthFormProps) {
   const isSignup = mode === "signup";
   const nextPath = safeNextPath(next);
   const alternateHref = withNext(isSignup ? "/login" : "/signup", nextPath);
+  const normalizedVerifyEmail =
+    isSignup && verifyEmail ? verifyEmail.trim().toLowerCase() : "";
+  const isSignupVerification = Boolean(normalizedVerifyEmail);
 
   return (
     <main className="auth-template-shell mobile-safe">
       <section className="glass auth-phone phone-surface">
         <div className="auth-top-bar">
-          <h1>{isSignup ? "Sign Up" : "Log In"}</h1>
+          <h1>
+            {isSignupVerification ? "Verify Email" : isSignup ? "Sign Up" : "Log In"}
+          </h1>
           <Link href={alternateHref}>{isSignup ? "LOG IN" : "SIGN UP"}</Link>
         </div>
 
@@ -46,82 +64,121 @@ export function AuthForm({ mode, error, message, next }: AuthFormProps) {
         {error && <p className="rounded-2xl border border-red-300/25 bg-red-400/10 px-3 py-2 text-sm font-bold text-red-100">{error}</p>}
         {message && <p className="rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-3 py-2 text-sm font-bold text-emerald-100">{message}</p>}
 
-        <a
-          className="auth-social google-button"
-          href={`/api/auth/google/start?next=${encodeURIComponent(nextPath)}`}
-        >
-          G {isSignup ? "Sign up" : "Continue"} with Google
-        </a>
+        {isSignupVerification ? (
+          <>
+            <p className="text-center text-sm font-semibold leading-relaxed text-[var(--muted)]">
+              Enter the 6-digit code sent to {normalizedVerifyEmail}. After this, you can use your password to log in.
+            </p>
 
-        {process.env.NEXT_PUBLIC_ENABLE_LINE_LOGIN === "true" && (
-          <a
-            className="auth-social line-button"
-            href={`/api/line/login/start?mode=login&next=${encodeURIComponent(nextPath)}`}
-          >
-            LINE {isSignup ? "Sign up" : "Continue"} with LINE
-          </a>
+            <form action={verifySignUpEmailCodeAction} className="space-y-3">
+              <input type="hidden" name="email" value={normalizedVerifyEmail} />
+              <input type="hidden" name="next" value={nextPath} />
+              <label className="block space-y-1 text-sm font-bold text-white">
+                <span>6-digit code</span>
+                <input
+                  name="code"
+                  inputMode="numeric"
+                  pattern="\d{6}"
+                  maxLength={6}
+                  required
+                  autoComplete="one-time-code"
+                  className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-center text-2xl text-white outline-none ring-[var(--gold)]/0 focus:ring-2"
+                  placeholder="000000"
+                />
+              </label>
+              <button type="submit" className="primary-action auth-submit">
+                Verify and continue
+              </button>
+            </form>
+
+            <form action={resendSignUpEmailCodeAction} className="space-y-2 text-center">
+              <input type="hidden" name="email" value={normalizedVerifyEmail} />
+              <input type="hidden" name="next" value={nextPath} />
+              <button
+                type="submit"
+                className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--muted)] underline underline-offset-4"
+              >
+                Send a new code
+              </button>
+            </form>
+
+            <p className="text-center text-sm text-[var(--muted)]">
+              Used the wrong email?{" "}
+              <Link href={withNext("/signup", nextPath)} className="font-black text-[var(--gold)] underline-offset-4 hover:underline">
+                Start again
+              </Link>
+            </p>
+          </>
+        ) : (
+          <>
+            <a
+              className="auth-social google-button"
+              href={`/api/auth/google/start?next=${encodeURIComponent(nextPath)}`}
+            >
+              G {isSignup ? "Sign up" : "Continue"} with Google
+            </a>
+
+            {process.env.NEXT_PUBLIC_ENABLE_LINE_LOGIN === "true" && (
+              <a
+                className="auth-social line-button"
+                href={`/api/line/login/start?mode=login&next=${encodeURIComponent(nextPath)}`}
+              >
+                LINE {isSignup ? "Sign up" : "Continue"} with LINE
+              </a>
+            )}
+
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[var(--muted)]">
+              <span className="h-px bg-white/10" />
+              OR
+              <span className="h-px bg-white/10" />
+            </div>
+
+            <form action={isSignup ? signUpWithPasswordAction : signInWithPasswordAction} className="space-y-3">
+              <input type="hidden" name="next" value={nextPath} />
+              <label className="block space-y-1 text-sm font-bold text-white">
+                <span>Email</span>
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none ring-[var(--gold)]/0 focus:ring-2"
+                  placeholder="you@example.com"
+                />
+              </label>
+              {isSignup ? (
+                <SignupPasswordFields />
+              ) : (
+                <label className="block space-y-1 text-sm font-bold text-white">
+                  <span>Password</span>
+                  <input
+                    name="password"
+                    type="password"
+                    required
+                    minLength={8}
+                    autoComplete="current-password"
+                    className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none ring-[var(--gold)]/0 focus:ring-2"
+                    placeholder="Password"
+                  />
+                </label>
+              )}
+              <button type="submit" className="primary-action auth-submit">
+                {isSignup ? "Create account" : "Log in"}
+              </button>
+            </form>
+
+            <p className="text-center text-sm text-[var(--muted)]">
+              {isSignup ? "Already have an account?" : "New customer?"}{" "}
+              <Link href={alternateHref} className="font-black text-[var(--gold)] underline-offset-4 hover:underline">
+                {isSignup ? "Log in" : "Create account"}
+              </Link>
+            </p>
+
+            <p className="auth-note">
+              One account can connect email, Google, and LINE. Admin and payment features stay server-managed.
+            </p>
+          </>
         )}
-
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[var(--muted)]">
-          <span className="h-px bg-white/10" />
-          OR
-          <span className="h-px bg-white/10" />
-        </div>
-
-        <form action={isSignup ? signUpWithPasswordAction : signInWithPasswordAction} className="space-y-3">
-          <input type="hidden" name="next" value={nextPath} />
-          <label className="block space-y-1 text-sm font-bold text-white">
-            <span>Email</span>
-            <input
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none ring-[var(--gold)]/0 focus:ring-2"
-              placeholder="you@example.com"
-            />
-          </label>
-          <label className="block space-y-1 text-sm font-bold text-white">
-            <span>Password</span>
-            <input
-              name="password"
-              type="password"
-              required
-              minLength={8}
-              autoComplete={isSignup ? "new-password" : "current-password"}
-              className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none ring-[var(--gold)]/0 focus:ring-2"
-              placeholder="Minimum 8 characters"
-            />
-          </label>
-          {isSignup && (
-            <label className="block space-y-1 text-sm font-bold text-white">
-              <span>Confirm password</span>
-              <input
-                name="confirmPassword"
-                type="password"
-                required
-                minLength={8}
-                autoComplete="new-password"
-                className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none ring-[var(--gold)]/0 focus:ring-2"
-                placeholder="Repeat password"
-              />
-            </label>
-          )}
-          <button type="submit" className="primary-action auth-submit">
-            {isSignup ? "Create account" : "Log in"}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-[var(--muted)]">
-          {isSignup ? "Already have an account?" : "New customer?"} {" "}
-          <Link href={alternateHref} className="font-black text-[var(--gold)] underline-offset-4 hover:underline">
-            {isSignup ? "Log in" : "Create account"}
-          </Link>
-        </p>
-
-        <p className="auth-note">
-          One account can connect email, Google, and LINE. Admin and payment features stay server-managed.
-        </p>
       </section>
     </main>
   );

@@ -72,6 +72,13 @@ notCheck("src/features/auth/AuthForm.tsx", "auth form does not show unsupported 
 check("src/features/auth/AuthForm.tsx", "auth form still offers Google sign in", /\/api\/auth\/google\/start[\s\S]*Continue[\s\S]*with Google/);
 check("src/features/auth/AuthForm.tsx", "auth form still offers LINE sign in", /\/api\/line\/login\/start\?mode=login/);
 check("src/features/auth/AuthForm.tsx", "auth form still offers email password account creation", /signUpWithPasswordAction[\s\S]*Create account/);
+check("src/app/(auth)/signup/page.tsx", "signup page passes verification email state", /verifyEmail=\{params\?\.verifyEmail\}/);
+check("src/features/auth/AuthForm.tsx", "signup form renders 6-digit verification state", /verifySignUpEmailCodeAction[\s\S]*6-digit code[\s\S]*Verify and continue/);
+check("src/features/auth/AuthForm.tsx", "signup form can request a new signup code", /resendSignUpEmailCodeAction[\s\S]*Send a new code/);
+check("src/features/auth/actions.ts", "signup action redirects to code verification state", /withSignupCodeMessage\([\s\S]*Enter the 6-digit code we sent to your email/);
+check("src/features/auth/actions.ts", "signup verification uses signup token type", /verifyOtp\(\{[\s\S]*type:\s*"signup"/);
+check("src/features/auth/actions.ts", "signup resend uses signup token type", /auth\.resend\(\{[\s\S]*type:\s*"signup"/);
+notCheck("src/features/auth/actions.ts", "signup action does not call passwordless OTP", /signInWithOtp/);
 check("src/app/auth/callback/route.ts", "OAuth callback exchanges code for server session", /exchangeCodeForSession\(code\)/);
 check("src/app/auth/callback/route.ts", "OAuth callback sanitizes next redirect path", /function safeRedirectPath\([\s\S]*value\.startsWith\("\/\/"\)[\s\S]*return `\$\{parsed\.pathname\}\$\{parsed\.search\}\$\{parsed\.hash\}`;/);
 notCheck("src/app/auth/callback/route.ts", "OAuth callback rejects protocol-relative open redirects", /new URL\(next\.startsWith\("\/"\) \? next : "\/", url\.origin\)/);

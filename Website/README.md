@@ -49,7 +49,7 @@ The Website verification scripts read those migration files directly.
 
 | Surface | Vercel project | Root Directory | Domain |
 | --- | --- | --- | --- |
-| YNOTT Website | `ynott-website` | `Website` | `https://www.ynottcg.com` |
-| YNOTT LIFF compatibility deploy | `ynott-line-liff` | `Website` until LIFF extraction | `https://liff.ynottcg.com` |
+| YNOTT Website | `ynott-website` | `Website` | `https://www.ynotopen.com` |
+| Future YNOTT LIFF compatibility deploy | `ynott-line-liff` | `Website` until LIFF extraction | `https://liff.ynotopen.com` when recreated |
 
 This folder is the app root for both Vercel projects right now. Do not configure Vercel Root Directory as `.` while the Next.js app remains in `Website/`.

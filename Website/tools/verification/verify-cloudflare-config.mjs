@@ -47,6 +47,13 @@ function validateWorkerConfig(rel, expected) {
   );
   check(`${rel} binds static assets`, config.assets?.binding === "ASSETS");
   check(`${rel} enables observability`, config.observability?.enabled === true);
+  if (expected.routePatterns) {
+    const routePatterns = (config.routes ?? []).map((route) => route.pattern);
+    check(
+      `${rel} has expected Cloudflare routes`,
+      JSON.stringify(routePatterns) === JSON.stringify(expected.routePatterns),
+    );
+  }
   check(`${rel} uses free-first mode without service bindings`, !config.services);
   check(`${rel} uses free-first mode without R2`, !config.r2_buckets);
   check(`${rel} uses free-first mode without Durable Objects`, !config.durable_objects);
@@ -80,12 +87,14 @@ function validateWorkerConfig(rel, expected) {
 }
 
 validateWorkerConfig("wrangler.website.jsonc", {
-  siteUrl: "https://www.ynottcg.com",
+  siteUrl: "https://www.ynotopen.com",
   workerName: "ynott-website",
+  routePatterns: ["ynotopen.com/*", "www.ynotopen.com/*"],
 });
 validateWorkerConfig("wrangler.liff.jsonc", {
-  siteUrl: "https://liff.ynottcg.com",
+  siteUrl: "https://liff.ynotopen.com",
   workerName: "ynott-line-liff",
+  routePatterns: [],
 });
 
 const packageJson = parseJson("package.json");

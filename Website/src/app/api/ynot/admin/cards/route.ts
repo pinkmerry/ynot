@@ -62,7 +62,9 @@ function assertApprovedTestAsset(body: CardBody) {
   if (imageUrl.startsWith("/test-assets/")) return null;
   try {
     const parsed = new URL(imageUrl);
-    const allowedHost = parsed.hostname.endsWith(".supabase.co") || parsed.hostname === "ynottcg.com" || parsed.hostname === "localhost";
+    const allowedHost =
+      parsed.hostname.endsWith(".supabase.co") ||
+      ["ynotopen.com", "www.ynotopen.com", "localhost"].includes(parsed.hostname);
     return allowedHost ? null : "External test-card image hosts are blocked unless copied to approved storage or /test-assets/ with manifest evidence.";
   } catch {
     return "Test-card image URL must be a /test-assets/ path or approved HTTPS storage URL.";

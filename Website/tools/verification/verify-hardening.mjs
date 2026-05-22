@@ -321,9 +321,16 @@ for (const routeFile of [
 }
 
 // Finding 4: sign-up password floor raised to 12 + Supabase dashboard policy attested
-includes("src/features/auth/actions.ts", "password.length < 12", "sign-up enforces 12-char password minimum");
+includes("src/features/auth/password-policy.ts", "SIGNUP_PASSWORD_MIN_LENGTH = 12", "sign-up password policy keeps 12-char minimum");
+includes("src/features/auth/password-policy.ts", "SIGNUP_PASSWORD_NUMBER_RE = /\\d/", "sign-up password policy requires a number");
+includes("src/features/auth/password-policy.ts", "SIGNUP_PASSWORD_SPECIAL_RE", "sign-up password policy requires a special character");
+includes("src/features/auth/actions.ts", "isValidSignupPassword(password)", "sign-up enforces shared password policy");
 notIncludes("src/features/auth/actions.ts", "password.length < 8", "sign-up no longer uses 8-char minimum");
-includes("src/features/auth/actions.ts", "at least 12 characters", "sign-up error message says at least 12 characters");
+includes("src/features/auth/password-policy.ts", "at least 12 characters and include at least one number and one special character", "sign-up error message explains full password policy");
+includes("src/features/auth/SignupPasswordFields.tsx", "Password needs:", "auth form shows password requirements while typing");
+includes("src/features/auth/SignupPasswordFields.tsx", "At least one number", "auth form explains number requirement");
+includes("src/features/auth/SignupPasswordFields.tsx", "At least one special character", "auth form explains special-character requirement");
+includes("src/features/auth/SignupPasswordFields.tsx", "Must match the password above.", "auth form explains confirm-password rule");
 envCheck(
   "SUPABASE_AUTH_PASSWORD_MIN_VERIFIED",
   "12",

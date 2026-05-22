@@ -8,6 +8,10 @@ import {
   readSessionCookie,
 } from "@/lib/lucky-draw/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isValidSignupPassword, SIGNUP_PASSWORD_ERROR } from "./password-policy";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SIGNUP_CODE_RE = /^\d{6}$/;
 
 function formString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -56,6 +60,20 @@ function withMessage(
   const params = new URLSearchParams({ [key]: value });
   if (nextPath !== "/") params.set("next", nextPath);
   return `${path}?${params.toString()}`;
+}
+
+function withSignupCodeMessage(
+  email: string,
+  key: "error" | "message",
+  value: string,
+  nextPath = "/",
+) {
+  const params = new URLSearchParams({
+    verifyEmail: email,
+    [key]: value,
+  });
+  if (nextPath !== "/") params.set("next", nextPath);
+  return `/signup?${params.toString()}`;
 }
 
 async function lineSessionProfileId() {
@@ -117,12 +135,12 @@ export async function signUpWithPasswordAction(formData: FormData) {
     );
   }
 
-  if (password.length < 12) {
+  if (!isValidSignupPassword(password)) {
     redirect(
       withMessage(
         "/signup",
         "error",
-        "Password must be at least 12 characters.",
+        SIGNUP_PASSWORD_ERROR,
         nextPath,
       ),
     );
@@ -168,10 +186,10 @@ export async function signUpWithPasswordAction(formData: FormData) {
 
   if (!data.session) {
     redirect(
-      withMessage(
-        "/login",
+      withSignupCodeMessage(
+        email,
         "message",
-        "Check your email to confirm your account, then log in.",
+        "Enter the 6-digit code we sent to your email to finish creating your account.",
         nextPath,
       ),
     );
@@ -179,6 +197,94 @@ export async function signUpWithPasswordAction(formData: FormData) {
 
   await ensureProfileForUser(data.user, await lineSessionProfileId());
   redirect(nextPath);
+}
+
+export async function verifySignUpEmailCodeAction(formData: FormData) {
+  const email = formString(formData, "email").toLowerCase();
+  const code = formString(formData, "code");
+  const nextPath = formNextPath(formData);
+
+  if (!EMAIL_RE.test(email) || !SIGNUP_CODE_RE.test(code)) {
+    redirect(
+      withSignupCodeMessage(
+        email,
+        "error",
+        "Please enter the 6-digit code sent to your email.",
+        nextPath,
+      ),
+    );
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.verifyOtp({
+    email,
+    token: code,
+    type: "signup",
+  });
+
+  if (error || !data.user) {
+    redirect(
+      withSignupCodeMessage(
+        email,
+        "error",
+        error?.message ?? "Code is invalid or expired.",
+        nextPath,
+      ),
+    );
+  }
+
+  await ensureProfileForUser(data.user, await lineSessionProfileId());
+  redirect(nextPath);
+}
+
+export async function resendSignUpEmailCodeAction(formData: FormData) {
+  const email = formString(formData, "email").toLowerCase();
+  const nextPath = formNextPath(formData);
+
+  if (!EMAIL_RE.test(email)) {
+    redirect(
+      withSignupCodeMessage(
+        email,
+        "error",
+        "Please enter a valid email before requesting a new code.",
+        nextPath,
+      ),
+    );
+  }
+
+  const origin = await appOrigin();
+  if (!origin) {
+    redirect(
+      withSignupCodeMessage(
+        email,
+        "error",
+        "NEXT_PUBLIC_SITE_URL is required before production sign up.",
+        nextPath,
+      ),
+    );
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: {
+      emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
+    },
+  });
+
+  if (error) {
+    redirect(withSignupCodeMessage(email, "error", error.message, nextPath));
+  }
+
+  redirect(
+    withSignupCodeMessage(
+      email,
+      "message",
+      "We sent a new 6-digit code to your email.",
+      nextPath,
+    ),
+  );
 }
 
 export async function signInWithGoogleAction(formData: FormData) {

@@ -38,7 +38,7 @@ Use `Line LIFF/` for LINE-specific product ownership:
 
 - LINE Console / LIFF settings
 - LINE rich-menu URLs
-- `liff.ynottcg.com`
+- future `liff.ynotopen.com` setup
 - LIFF compatibility notes and original design references
 
 Current LIFF-compatible runtime code is still shared in `Website/src`. Until a separate LIFF app exists, the LIFF Vercel project must also build from `Website/`.
@@ -58,11 +58,10 @@ Website verification scripts read migrations directly from `../Database/supabase
 
 | Surface | Vercel project | Root Directory | Domain |
 | --- | --- | --- | --- |
-| YNOTT Website | `ynott-website` | `Website` | `https://www.ynottcg.com` |
-| YNOTT Website apex | `ynott-website` | `Website` | `https://ynottcg.com` -> `www` |
-| YNOTT Website fallback | `ynott-website` | `Website` | `https://ynott-website.vercel.app` |
-| YNOTT LIFF | `ynott-line-liff` | `Website` for now | `https://liff.ynottcg.com` |
-| YNOTT LIFF fallback | `ynott-line-liff` | `Website` for now | `https://ynott-line-liff.vercel.app` |
+| YNOTT Website | `ynott-website` | `Website` | `https://www.ynotopen.com` |
+| YNOTT Website apex | `ynott-website` | `Website` | `https://ynotopen.com` -> `www` |
+| YNOTT Website fallback | `ynott-website` | `Website` | `https://ynott-website.puppeteer-55b.workers.dev` |
+| Future YNOTT LIFF | `ynott-line-liff` | `Website` until extraction | `https://liff.ynotopen.com` when recreated |
 
 Important: do **not** set either Vercel project Root Directory to `.` while the Next.js app lives in `Website/`.
 
