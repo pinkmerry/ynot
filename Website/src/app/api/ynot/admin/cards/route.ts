@@ -15,6 +15,8 @@ type CardBody = {
   grade?: unknown;
   prizeCategory?: unknown;
   imageUrl?: unknown;
+  imageStoragePath?: unknown;
+  confirmOverwrite?: unknown;
   isTest?: unknown;
   assetSource?: unknown;
   assetLicense?: unknown;
@@ -44,6 +46,31 @@ function enumValue<T extends string>(value: unknown, allowed: readonly T[], fall
 
 function booleanValue(value: unknown) {
   return value === true || value === "true" || value === 1 || value === "1";
+}
+
+type CardDuplicateRow = Pick<
+  Database["public"]["Tables"]["cards"]["Row"],
+  "id" | "name" | "card_code" | "series" | "grade" | "image_url" | "image_storage_path"
+>;
+
+type CardUsageSummary = {
+  stockTotal: number;
+  stockAvailable: number;
+  stockReserved: number;
+  stockAllocated: number;
+  prizeAssignmentCount: number;
+};
+
+function duplicateCardPayload(card: CardDuplicateRow) {
+  return {
+    id: card.id,
+    name: card.name,
+    code: card.card_code,
+    series: card.series,
+    grade: card.grade,
+    imageUrl: card.image_url,
+    imageStoragePath: card.image_storage_path,
+  };
 }
 
 function assertApprovedTestAsset(body: CardBody) {
@@ -88,6 +115,7 @@ function cardPatch(body: CardBody): Database["public"]["Tables"]["cards"]["Inser
     grade: text(body.grade, 80) || "Ungraded",
     prize_category: prizeCategoryValue(body.prizeCategory),
     image_url: text(body.imageUrl, 1000) || null,
+    image_storage_path: text(body.imageStoragePath, 1000) || null,
   };
   if (isTest || body.seedRunId !== undefined || body.assetSource !== undefined || body.assetLicense !== undefined || body.assetManifestKey !== undefined) {
     patch.is_test = isTest;
@@ -97,6 +125,70 @@ function cardPatch(body: CardBody): Database["public"]["Tables"]["cards"]["Inser
     patch.asset_manifest_key = text(body.assetManifestKey, 160) || null;
   }
   return patch;
+}
+
+async function cardUsageSummary(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  cardId: string,
+): Promise<{ usage?: CardUsageSummary; error?: string }> {
+  const { data: stockRows, error: stockError } = await supabase
+    .from("card_stock_units")
+    .select("status")
+    .eq("card_id", cardId)
+    .limit(50000);
+  if (stockError) return { error: stockError.message };
+
+  const { count: prizeAssignmentCount, error: prizeError } = await supabase
+    .from("draw_round_prizes")
+    .select("id", { count: "exact", head: true })
+    .eq("card_id", cardId);
+  if (prizeError) return { error: prizeError.message };
+
+  const usage: CardUsageSummary = {
+    stockTotal: stockRows?.length ?? 0,
+    stockAvailable: 0,
+    stockReserved: 0,
+    stockAllocated: 0,
+    prizeAssignmentCount: prizeAssignmentCount ?? 0,
+  };
+  for (const row of stockRows ?? []) {
+    if (row.status === "available") usage.stockAvailable += 1;
+    if (row.status === "reserved") usage.stockReserved += 1;
+    if (row.status === "allocated") usage.stockAllocated += 1;
+  }
+  return { usage };
+}
+
+async function duplicateCardResponse(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  card: CardDuplicateRow,
+) {
+  const { usage, error } = await cardUsageSummary(supabase, card.id);
+  if (error) return Response.json({ error }, { status: 409 });
+  const usageSummary =
+    usage ??
+    ({
+      stockTotal: 0,
+      stockAvailable: 0,
+      stockReserved: 0,
+      stockAllocated: 0,
+      prizeAssignmentCount: 0,
+    } satisfies CardUsageSummary);
+  const hasUsage =
+    usageSummary.stockTotal > 0 || usageSummary.prizeAssignmentCount > 0;
+  return Response.json(
+    {
+      ok: false,
+      code: "CARD_ALREADY_EXISTS",
+      requiresConfirmation: true,
+      matchedCard: duplicateCardPayload(card),
+      usage: usageSummary,
+      message: hasUsage
+        ? "This card already exists and has inventory or pack usage. Confirm overwrite to update the existing catalog card while keeping inventory linked."
+        : "This card already exists. Confirm overwrite to update the existing catalog card.",
+    },
+    { status: 409 },
+  );
 }
 
 export async function POST(request: Request) {
@@ -114,10 +206,35 @@ export async function POST(request: Request) {
   const patch = cardPatch(body);
   const supabase = createServiceSupabaseClient();
   const existingQuery = patch.search_code
-    ? supabase.from("cards").select("id").eq("search_code", patch.search_code).limit(1)
-    : supabase.from("cards").select("id").eq("search_name", patch.search_name).limit(1);
+    ? supabase
+        .from("cards")
+        .select("id,name,card_code,series,grade,image_url,image_storage_path")
+        .eq("search_code", patch.search_code)
+        .limit(1)
+    : supabase
+        .from("cards")
+        .select("id,name,card_code,series,grade,image_url,image_storage_path")
+        .eq("search_name", patch.search_name)
+        .limit(2);
   const { data: existing, error: existingError } = await existingQuery;
   if (existingError) return Response.json({ error: existingError.message }, { status: 409 });
+
+  if (!patch.search_code && existing && existing.length > 1) {
+    return Response.json(
+      {
+        ok: false,
+        code: "CARD_DUPLICATE_NAME_AMBIGUOUS",
+        matches: existing.map(duplicateCardPayload),
+        message:
+          "Multiple existing cards use this name. Add a unique prize code or edit the exact existing card from the catalog.",
+      },
+      { status: 409 },
+    );
+  }
+
+  if (existing?.[0] && !booleanValue(body.confirmOverwrite)) {
+    return duplicateCardResponse(supabase, existing[0]);
+  }
 
   const query = existing?.[0]
     ? supabase.from("cards").update(patch).eq("id", existing[0].id).select("id,name,card_code,prize_category").single()

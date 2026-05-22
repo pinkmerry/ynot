@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { CampaignDetailPanel, EmptyState, PageHeader, YnotShell } from "@/features/ynot/components";
 import { getCampaign, getYnotDashboardSlice } from "@/features/ynot/data";
 
@@ -10,8 +9,21 @@ export default async function GachaDetailPage({ params }: { params: Promise<{ ca
   const showAdminEdit = data.viewer.isAdmin || process.env.NODE_ENV !== "production";
   return (
     <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
-      <PageHeader eyebrow="02 · Gacha Detail" title={campaign?.titleTh ?? "Campaign not found"} description="Pre-pull · S/A/B/C/D tiers · stock status · server-recorded results." action={campaign?.openable ? <Link className="primary-action" href={`/gacha/${campaign.slug}/open`}>Pull now</Link> : undefined} />
-      {campaign ? <CampaignDetailPanel campaign={campaign} showAdminEdit={showAdminEdit} /> : <EmptyState title="Missing campaign" body="This campaign is not available or the database migration has not been applied." />}
+      {campaign ? (
+        <CampaignDetailPanel campaign={campaign} showAdminEdit={showAdminEdit} />
+      ) : (
+        <>
+          <PageHeader
+            eyebrow="Y-Pack Detail"
+            title="Campaign not found"
+            description="This Y-Pack is not available or the database migration has not been applied."
+          />
+          <EmptyState
+            title="Missing campaign"
+            body="Go back to all packs and choose another Y-Pack."
+          />
+        </>
+      )}
     </YnotShell>
   );
 }

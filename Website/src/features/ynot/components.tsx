@@ -51,7 +51,7 @@ import {
   parseHeroPacksCookie,
 } from "./demo-pack-order";
 import {
-  prizeDisplayTierLabel,
+  type PrizeDisplayTier,
   prizeDisplayTierOptions,
   prizeDisplayTierValue,
 } from "./prize-tier";
@@ -386,6 +386,7 @@ export async function YnotShell({
   walletBalance,
   showHeaderCoin = false,
   shellClassName,
+  viewerMode = "preview",
 }: {
   viewer: YnotViewer;
   children: ReactNode;
@@ -394,13 +395,14 @@ export async function YnotShell({
   walletBalance?: number;
   showHeaderCoin?: boolean;
   shellClassName?: string;
+  viewerMode?: "preview" | "literal";
 }) {
   let renderViewer = viewer;
   let renderBalance = walletBalance;
   // Dev-mode auto-bypass — always render as an authenticated owner on
   // localhost so the admin/store surfaces are reachable without auth setup.
   // Production keeps the real viewer untouched.
-  if (process.env.NODE_ENV !== "production") {
+  if (viewerMode === "preview" && process.env.NODE_ENV !== "production") {
     renderViewer = {
       ...viewer,
       authenticated: true,
@@ -1088,7 +1090,7 @@ function SeriesEssentialsSection() {
 
 function MobileTorecaHero({ campaign }: { campaign?: YnotCampaign }) {
   const openHref = campaign
-    ? `/gacha/${campaign.slug}/open`
+    ? `/gacha/${campaign.slug}`
     : "/local-readiness";
   return (
     <section className="toreca-mobile-hero" aria-label="YNot mobile hero">
@@ -1107,8 +1109,8 @@ function MobileTorecaHero({ campaign }: { campaign?: YnotCampaign }) {
           <span className="i18n-th">WHY NOT OPEN?</span>
         </p>
         <Link className="hero-rip-button" href={openHref}>
-          <span className="i18n-en">{campaign ? "Y-Pack" : "View Readiness"}</span>
-          <span className="i18n-th">{campaign ? "Y-Pack" : "ดูสถานะ"}</span>
+          <span className="i18n-en">{campaign ? "View Y-Pack" : "View Readiness"}</span>
+          <span className="i18n-th">{campaign ? "ดู Y-Pack" : "ดูสถานะ"}</span>
         </Link>
       </div>
     </section>
@@ -1335,9 +1337,14 @@ export function CampaignDetailPanel({
   const detailOpenOptions = normalizeOpenQuantityOptions(
     campaign.openQuantityOptions,
   );
+  const detailTags = campaignDisplayTags(campaign);
+  const canOpen =
+    campaign.demo || campaign.openable || process.env.NODE_ENV !== "production";
+  const packTitle = campaign.titleTh || campaign.titleEn;
+  const packReference = campaign.slug || campaign.id;
 
   return (
-    <section className="product-detail-grid detail-layout">
+    <section className="product-detail-grid detail-layout gacha-detail-page">
       <PhoneTopBar
         title={campaign.titleEn}
         action={
@@ -1361,19 +1368,29 @@ export function CampaignDetailPanel({
         }
       />
       <PhoneRule />
-      <CampaignArtwork campaign={campaign} large quiet />
-      <section className="detail-info-card">
-        <p className="section-label">
-          {campaign.categoryLabel ?? seriesLabel(campaign.series)} mystery pack
-        </p>
-        <h3 className="page-title">{campaign.titleTh || campaign.titleEn}</h3>
-        <p className="page-description">
-          {campaign.heroLabel ??
-            "High-value chase cards, exchangeable collection rewards, and real shipping support."}
-        </p>
-        <div className="filter-chip-row">
-          <span className="filter-chip active">PSA10</span>
-          <span className="filter-chip">High value</span>
+      <div className="gacha-detail-hero-art">
+        <CampaignArtwork campaign={campaign} large />
+      </div>
+      <aside className="detail-info-card gacha-detail-buy-panel">
+        <div className="gacha-detail-title-stack">
+          <p className="section-label">
+            {campaign.categoryLabel ?? seriesLabel(campaign.series)} Y-Pack
+          </p>
+          <h1 className="page-title">{packTitle}</h1>
+          <p className="page-description">
+            {campaign.heroLabel ??
+              "High-value chase cards, exchangeable collection rewards, and real shipping support."}
+          </p>
+        </div>
+        <div className="filter-chip-row" aria-label="Pack tags">
+          {detailTags.map((tag, index) => (
+            <span
+              className={`filter-chip ${index === 0 ? "active" : ""}`}
+              key={tag}
+            >
+              {tag}
+            </span>
+          ))}
           <span className="filter-chip">Exchange available</span>
           <span className="filter-chip">Shipping ready</span>
         </div>
@@ -1395,8 +1412,81 @@ export function CampaignDetailPanel({
           </div>
         </div>
         <ProgressTrack campaign={campaign} />
-        <div className="detail-actions">
-          {campaign.demo || campaign.openable ? (
+        <div className="detail-note-card detail-note-card-warning">
+          <strong>Note before opening</strong>
+          <p>
+            Prize images are examples from this pack&apos;s saved prize pool.
+            Mystery pack results are final after opening, and displayed tier
+            information can change as inventory is sold or reserved.
+          </p>
+        </div>
+      </aside>
+      <section className="gacha-detail-prize-panel">
+        <div className="section-heading-row">
+          <div>
+            <p className="section-label">Prize lineup</p>
+            <h2 className="title-m">Dynamic tier details</h2>
+          </div>
+          <span className="status-pill">{campaign.status}</span>
+        </div>
+        {campaign.prizeLineup?.length ? (
+          <PrizeLineup prizes={campaign.prizeLineup} />
+        ) : campaign.demo && allowDemoStorefront() ? (
+          <RewardTierList />
+        ) : (
+          <EmptyState
+            title="Real prize pool required"
+            body="Unlocked public rewards will appear here after the prize pool is ready."
+          />
+        )}
+      </section>
+      <section className="gacha-detail-terms-panel" aria-label="YNOTT pack notes">
+        <div className="section-heading-row">
+          <div>
+            <p className="section-label">Pack notes</p>
+            <h2 className="title-m">Important before opening</h2>
+          </div>
+          <span className="status-pill">Ref: {packReference}</span>
+        </div>
+        <div className="gacha-detail-terms-grid">
+          <p>
+            Product images, prize images, and grades are shown for reference.
+            Actual card condition can vary, and graded cards follow the grading
+            company&apos;s assigned grade and case standards.
+          </p>
+          <p>
+            Drop behavior and tier availability are calculated from the pack
+            setup and remaining inventory. Results are random and are not a
+            guarantee that each open returns equal value.
+          </p>
+          <p>
+            Pull results are final once opened. For shipping or dispute cases,
+            keep your order reference and photo or video evidence from delivery
+            through opening.
+          </p>
+        </div>
+      </section>
+      <div className="transparent-note">
+        <strong>Server-recorded Y-Pack</strong>
+        <span>
+          Every production pull is recorded by YNOTT before rewards can move to
+          collection, exchange, or shipping.
+        </span>
+      </div>
+      <div
+        className="gacha-detail-open-dock"
+        role="region"
+        aria-label="Open this pack"
+      >
+        <div className="gacha-detail-open-dock-info">
+          <p className="section-label">Open this pack</p>
+          <strong>
+            <CoinIcon /> {formatCoins(campaign.costCoins)}
+            <span> / pack</span>
+          </strong>
+        </div>
+        <div className="gacha-detail-open-dock-actions">
+          {canOpen ? (
             <>
               {detailOpenOptions.map((option, index) => (
                 <Link
@@ -1404,46 +1494,23 @@ export function CampaignDetailPanel({
                   href={`/gacha/${campaign.slug}/open?qty=${option}`}
                   key={option}
                 >
-                  Pull × {option}
+                  {option === 1 ? "Open Pack" : `Open ${option}×`}
                 </Link>
               ))}
+              <Link
+                className="secondary-action gacha-detail-open-dock-wallet"
+                href="/wallet"
+              >
+                Wallet
+              </Link>
             </>
           ) : (
-            <p className="admin-form-message">
-              This pack is not openable because prize inventory is missing,
+            <p className="admin-form-message gacha-detail-open-dock-disabled">
+              This pack is not openable yet — prize inventory may be missing,
               sold out, or awaiting owner approval.
             </p>
           )}
-          <Link className="secondary-action" href="/wallet">
-            Top up wallet
-          </Link>
         </div>
-        <div className="reward-section">
-          <div className="section-heading-row">
-            <div>
-              <p className="section-label">Rewards</p>
-              <h4 className="title-m">Prize lineup</h4>
-            </div>
-            <span className="status-pill">{campaign.status}</span>
-          </div>
-          {campaign.prizeLineup?.length ? (
-            <PrizeLineup prizes={campaign.prizeLineup} />
-          ) : campaign.demo && allowDemoStorefront() ? (
-            <RewardTierList />
-          ) : (
-            <EmptyState
-              title="Real prize pool required"
-              body="Unlocked public rewards will appear here after the prize pool is ready."
-            />
-          )}
-        </div>
-      </section>
-      <div className="transparent-note">
-        <strong>🔒 100% Transparent</strong>
-        <span>
-          Production pulls are tracked by database rows after migrations are
-          applied
-        </span>
       </div>
     </section>
   );
@@ -1486,10 +1553,10 @@ function PrizeLineupImage({ prize }: { prize: YnotPrizePreview }) {
     .toUpperCase();
 
   return (
-    <div className="reward-prize-image" aria-hidden="true">
+    <div className="reward-prize-image">
       {prize.cardImageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- Catalog prize URLs are Supabase/storage assets already managed outside Next image config.
-        <img src={prize.cardImageUrl} alt="" loading="lazy" />
+        <img src={prize.cardImageUrl} alt={prize.cardName} loading="lazy" />
       ) : (
         <span>{fallbackLabel}</span>
       )}
@@ -1497,62 +1564,69 @@ function PrizeLineupImage({ prize }: { prize: YnotPrizePreview }) {
   );
 }
 
+const detailPrizeTierCopy: Record<
+  PrizeDisplayTier,
+  { title: string; description: string }
+> = {
+  rainbow: {
+    title: "Rainbow 1st Prize",
+    description: "Top chase rewards for this Y-Pack.",
+  },
+  gold: {
+    title: "Gold 2nd Prize",
+    description: "Premium chase rewards below Rainbow.",
+  },
+  silver: {
+    title: "Silver 3rd Prize",
+    description: "Strong mid-tier rewards from this pack.",
+  },
+  bronze: {
+    title: "Bronze 4th Prize",
+    description: "Base and category rewards for regular pulls.",
+  },
+};
+
 function PrizeLineup({ prizes }: { prizes: YnotPrizePreview[] }) {
   const sections = prizeDisplayTierOptions
-    .map((option) => ({
-      key: option.value,
-      label: `${option.label} rewards`,
-      description:
-        option.value === "bronze"
-          ? "Base rewards and category prizes that cover regular pulls."
-          : `${option.label} chase prizes shown above lower tiers.`,
-      prizes: prizes
-        .filter((prize) => prizeLineupTier(prize) === option.value)
-        .sort(
-          (left, right) =>
-            (left.tierRank ?? left.rank) - (right.tierRank ?? right.rank),
-        ),
-    }))
+    .map((option) => {
+      const tier = option.value;
+      const copy = detailPrizeTierCopy[tier];
+      return {
+        key: tier,
+        label: copy.title,
+        description: copy.description,
+        prizes: prizes
+          .filter((prize) => prizeLineupTier(prize) === tier)
+          .sort(
+            (left, right) =>
+              (left.tierRank ?? left.rank) - (right.tierRank ?? right.rank),
+          ),
+      };
+    })
     .filter((section) => section.prizes.length > 0);
 
   return (
-    <div className="reward-lineup-groups">
+    <div className="reward-lineup-groups gacha-tier-lineup">
       {sections.map((section) => (
-        <section className="reward-lineup-section" key={section.key}>
+        <section
+          className={`reward-lineup-section gacha-tier-section tier-section-${section.key}`}
+          key={section.key}
+        >
           <div className="reward-lineup-section-head">
             <div>
               <strong>{section.label}</strong>
               <span>{section.description}</span>
             </div>
-            <em>{section.prizes.length} item{section.prizes.length === 1 ? "" : "s"}</em>
+            <em>
+              {section.prizes.length} prize
+              {section.prizes.length === 1 ? "" : "s"}
+            </em>
           </div>
           <div className="reward-tier-list reward-tier-list-structured">
             {section.prizes.map((prize) => (
-              <div className="reward-tier-card" key={prize.id}>
+              <div className="reward-tier-card gacha-prize-card" key={prize.id}>
                 <PrizeLineupImage prize={prize} />
-                <div className="tier-heading">
-                  <div>
-                    <span className={`tier-rank tier-${section.key}`}>
-                      {prizeDisplayTierLabel(section.key)} #
-                      {prize.tierRank ?? prize.rank}
-                    </span>
-                    <strong>{prize.cardName}</strong>
-                  </div>
-                  <span>
-                    {prize.prizeCategoryLabel ??
-                      (prize.tier === "high" ? "High tier" : "Normal")}
-                  </span>
-                </div>
-                <p className="reward-prize-meta">
-                  {prize.availableUnits !== undefined && prize.totalUnits !== undefined
-                    ? `${prize.availableUnits}/${prize.totalUnits} left`
-                    : "Inventory preview"}
-                  {prize.cardCode ? ` · ${prize.cardCode}` : ""}
-                  {prize.cardGrade ? ` · ${prize.cardGrade}` : ""}
-                  {Number(prize.unlockAtSoldPct ?? 0) > 0
-                    ? " · preview reward"
-                    : ""}
-                </p>
+                <strong className="gacha-prize-name">{prize.cardName}</strong>
               </div>
             ))}
           </div>
@@ -1565,6 +1639,14 @@ function PrizeLineup({ prizes }: { prizes: YnotPrizePreview[] }) {
 function prizeLineupTier(prize: YnotPrizePreview) {
   if (prize.displayTier) return prizeDisplayTierValue(prize.displayTier);
   if (prize.displayGroup) return prizeDisplayTierValue(prize.displayGroup);
+  if (prize.displayTierLabel) {
+    const label = prize.displayTierLabel.toLowerCase();
+    if (label.includes("rainbow")) return "rainbow";
+    if (label.includes("gold")) return "gold";
+    if (label.includes("silver")) return "silver";
+    if (label.includes("bronze")) return "bronze";
+    return prizeDisplayTierValue(prize.displayTierLabel);
+  }
   if (prize.tier === "high" && prize.rank <= 3) return "rainbow";
   if (prize.tier === "high") return "gold";
   return "bronze";
@@ -1581,6 +1663,12 @@ function CampaignArtwork({
   clean?: boolean;
   quiet?: boolean;
 }) {
+  const heroPrizes =
+    large && !clean && !quiet
+      ? (campaign.prizeLineup ?? [])
+          .filter((prize) => Boolean(prize.cardImageUrl))
+          .slice(0, 5)
+      : [];
   const hasPackAsset = Boolean(
     campaign.demo &&
     allowDemoStorefront() &&
@@ -1588,9 +1676,22 @@ function CampaignArtwork({
   );
   return (
     <div
-      className={`campaign-art ${campaign.series === "pokemon" ? "pokemon" : "one-piece"} ${hasPackAsset ? "has-asset" : ""} ${large ? "large" : ""} ${clean ? "clean-art" : ""} ${quiet ? "quiet-art" : ""}`}
+      className={`campaign-art ${campaign.series === "pokemon" ? "pokemon" : "one-piece"} ${hasPackAsset ? "has-asset" : ""} ${heroPrizes.length ? "has-prize-preview" : ""} ${large ? "large" : ""} ${clean ? "clean-art" : ""} ${quiet ? "quiet-art" : ""}`}
     >
       <span className="art-glow" aria-hidden />
+      {heroPrizes.length ? (
+        <div className="campaign-art-prize-fan" aria-label="Featured prizes">
+          {heroPrizes.map((prize, index) => (
+            <span
+              className={`campaign-art-prize-card campaign-art-prize-card-${index + 1}`}
+              key={prize.id}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- Prize pool images are user-managed Supabase assets. */}
+              <img src={prize.cardImageUrl ?? ""} alt={prize.cardName} />
+            </span>
+          ))}
+        </div>
+      ) : null}
       {clean && !quiet && !hasPackAsset && (
         <span className="clean-pack-cover" aria-hidden>
           <span className="clean-cover-kicker">
@@ -2336,8 +2437,8 @@ export function AdminCategoryManager({
                     className="secondary-action compact"
                     href={
                       category.legacySeries
-                        ? `/?series=${category.legacySeries}`
-                        : `/?category=${category.slug}`
+                        ? `/packs?series=${category.legacySeries}`
+                        : `/packs?category=${category.slug}`
                     }
                   >
                     Preview storefront

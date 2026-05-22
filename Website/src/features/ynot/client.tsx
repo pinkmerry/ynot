@@ -27,6 +27,14 @@ import { AdminFrame } from "./admin/Shell";
 import { AdminIcon } from "./admin/Icon";
 import { GachaRevealOverlay } from "./GachaRevealOverlay";
 import {
+  adminCardDuplicateUsage,
+  filterAdminCardCatalogRows,
+  findAdminCardDuplicate,
+  type AdminCardCatalogSortMode,
+  type AdminCardDuplicateUsage,
+  type AdminCardSeriesFilter,
+} from "./admin-card-catalog-helpers";
+import {
   defaultOpenQuantityOptions,
   normalizeOpenQuantityOptions,
 } from "./open-quantity";
@@ -65,6 +73,7 @@ export class AdminRequestError extends Error {
   code?: string;
   detail?: string | null;
   blockers?: string[];
+  payload?: unknown;
   status: number;
 
   constructor(
@@ -73,6 +82,7 @@ export class AdminRequestError extends Error {
       blockers?: string[];
       code?: string;
       detail?: string | null;
+      payload?: unknown;
       status: number;
     },
   ) {
@@ -81,6 +91,7 @@ export class AdminRequestError extends Error {
     this.blockers = options.blockers;
     this.code = options.code;
     this.detail = options.detail;
+    this.payload = options.payload;
     this.status = options.status;
   }
 }
@@ -103,6 +114,7 @@ function requestErrorMessage(payload: unknown) {
   if (!isRecord(payload)) return "Request failed.";
   return (
     stringValue(payload.error) ||
+    stringValue(payload.message) ||
     stringArrayValue(payload.blockers)?.[0] ||
     stringValue(payload.detail) ||
     stringValue(payload.code) ||
@@ -122,6 +134,7 @@ async function requestJson(url: string, body: unknown, method = "POST") {
       blockers: isRecord(payload) ? stringArrayValue(payload.blockers) : undefined,
       code: isRecord(payload) ? stringValue(payload.code) || undefined : undefined,
       detail: isRecord(payload) ? stringValue(payload.detail) || null : null,
+      payload,
       status: response.status,
     });
   }
@@ -134,6 +147,45 @@ async function postJson(url: string, body: unknown) {
 
 async function patchJson(url: string, body: unknown) {
   return requestJson(url, body, "PATCH");
+}
+
+type AdminCardImageUpload = {
+  imageUrl: string;
+  storagePath: string;
+};
+
+async function uploadAdminCardImage(
+  file: File,
+  details: { code?: string; name?: string },
+): Promise<AdminCardImageUpload> {
+  const form = new FormData();
+  form.set("file", file);
+  if (details.code) form.set("code", details.code);
+  if (details.name) form.set("name", details.name);
+
+  const response = await fetch("/api/ynot/admin/cards/image", {
+    method: "POST",
+    body: form,
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new AdminRequestError(requestErrorMessage(payload), {
+      code: isRecord(payload) ? stringValue(payload.code) || undefined : undefined,
+      payload,
+      status: response.status,
+    });
+  }
+  if (
+    !isRecord(payload) ||
+    !stringValue(payload.imageUrl) ||
+    !stringValue(payload.storagePath)
+  ) {
+    throw new Error("Upload response did not include an image URL.");
+  }
+  return {
+    imageUrl: stringValue(payload.imageUrl),
+    storagePath: stringValue(payload.storagePath),
+  };
 }
 
 export function AdminRouteLink({
@@ -4800,7 +4852,63 @@ function AdminCampaignStatusRow({
   );
 }
 
-export function AdminCardForm() {
+function DuplicateCardCaution({
+  cardName,
+  code,
+  usage,
+  confirmed,
+  onConfirmedChange,
+}: {
+  cardName: string;
+  code?: string | null;
+  usage: AdminCardDuplicateUsage;
+  confirmed: boolean;
+  onConfirmedChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="admin-form-message" role="status">
+      <strong>This card already exists.</strong>
+      <br />
+      Saving will update the existing catalog card
+      {code ? ` (${code})` : ""}: {cardName}. Existing inventory and pack usage
+      stay linked.
+      <br />
+      Stock: {usage.stockAvailable.toLocaleString()}/
+      {usage.stockTotal.toLocaleString()} available,{" "}
+      {usage.stockReserved.toLocaleString()} reserved,{" "}
+      {usage.stockAllocated.toLocaleString()} allocated. Pack assignments:{" "}
+      {usage.prizeAssignmentCount.toLocaleString()}.
+      <label
+        className="admin-field"
+        style={{ marginTop: 10, maxWidth: "none" }}
+      >
+        <span>Overwrite confirmation</span>
+        <span
+          style={{
+            alignItems: "center",
+            display: "flex",
+            gap: 8,
+          }}
+        >
+          <input
+            checked={confirmed}
+            onChange={(event) => onConfirmedChange(event.target.checked)}
+            type="checkbox"
+          />
+          I understand this will replace the old card details/image.
+        </span>
+      </label>
+    </div>
+  );
+}
+
+export function AdminCardForm({
+  cards,
+  prizes,
+}: {
+  cards: CardCatalogItem[];
+  prizes: YnotPrizePoolItem[];
+}) {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
@@ -4809,6 +4917,12 @@ export function AdminCardForm() {
   const [series, setSeries] = useState<"pokemon" | "one_piece">("pokemon");
   const [grade, setGrade] = useState("Ungraded");
   const [imageUrl, setImageUrl] = useState("");
+  const [imageStoragePath, setImageStoragePath] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const imagePreviewObjectUrlRef = useRef<string | null>(null);
+  const [overwriteConfirmedForCardId, setOverwriteConfirmedForCardId] =
+    useState<string | null>(null);
   const [isTest, setIsTest] = useState(false);
   const [assetSource, setAssetSource] = useState(
     "Generated YNot placeholder asset",
@@ -4819,25 +4933,80 @@ export function AdminCardForm() {
   const [assetManifestKey, setAssetManifestKey] = useState("ynot-test-card");
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const duplicateCard = useMemo(
+    () => findAdminCardDuplicate(cards, { code, name }),
+    [cards, code, name],
+  );
+  const duplicateUsage = useMemo(
+    () => (duplicateCard ? adminCardDuplicateUsage(duplicateCard, prizes) : null),
+    [duplicateCard, prizes],
+  );
+  const overwriteConfirmed = Boolean(
+    duplicateCard &&
+      overwriteConfirmedForCardId === duplicateCard.catalogCardId,
+  );
+  const canConfirmOverwrite = Boolean(duplicateCard) && overwriteConfirmed;
+
+  useEffect(() => {
+    return () => {
+      if (imagePreviewObjectUrlRef.current) {
+        URL.revokeObjectURL(imagePreviewObjectUrlRef.current);
+      }
+    };
+  }, []);
+
+  function replaceImagePreviewUrl(nextUrl: string, objectUrl = false) {
+    if (imagePreviewObjectUrlRef.current) {
+      URL.revokeObjectURL(imagePreviewObjectUrlRef.current);
+      imagePreviewObjectUrlRef.current = null;
+    }
+    if (objectUrl) imagePreviewObjectUrlRef.current = nextUrl;
+    setImagePreviewUrl(nextUrl);
+  }
 
   function submit() {
     startTransition(async () => {
       try {
+        setMessage("");
+        let nextImageUrl = imageUrl.trim();
+        let nextImageStoragePath = imageStoragePath.trim();
+        if (imageFile) {
+          const uploaded = await uploadAdminCardImage(imageFile, {
+            code,
+            name,
+          });
+          nextImageUrl = uploaded.imageUrl;
+          nextImageStoragePath = uploaded.storagePath;
+          setImageUrl(uploaded.imageUrl);
+          setImageStoragePath(uploaded.storagePath);
+          replaceImagePreviewUrl(uploaded.imageUrl);
+        }
         const payload = await postJson("/api/ynot/admin/cards", {
           code,
           name,
           series,
           grade,
           prizeCategory,
-          imageUrl,
+          imageUrl: nextImageUrl,
+          imageStoragePath: nextImageStoragePath,
+          confirmOverwrite: canConfirmOverwrite,
           isTest,
           assetSource: isTest ? assetSource : undefined,
           assetLicense: isTest ? assetLicense : undefined,
           assetManifestKey: isTest ? assetManifestKey : undefined,
         });
         setMessage(`Prize item ${payload.card?.name ?? name} saved.`);
+        setImageFile(null);
+        setOverwriteConfirmedForCardId(null);
         router.refresh();
       } catch (error) {
+        if (
+          error instanceof AdminRequestError &&
+          error.code === "CARD_ALREADY_EXISTS"
+        ) {
+          setMessage(error.message);
+          return;
+        }
         setMessage(
           error instanceof Error ? error.message : "Prize item could not be saved.",
         );
@@ -4856,10 +5025,10 @@ export function AdminCardForm() {
           </p>
         </div>
         <div className="admin-form-grid">
-          <AdminField
-            label="Prize code"
-            hint="Optional unique code. If blank, the name is used to find/update an existing prize item."
-          >
+            <AdminField
+              label="Prize code"
+              hint="Optional unique code. Use a code when replacing a specific card; duplicate names must resolve to one existing card."
+            >
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={code}
@@ -4911,16 +5080,52 @@ export function AdminCardForm() {
           />
         </AdminField>
         <AdminField
-          label="Image URL"
-          hint="Use approved storage or /test-assets paths for production test prize items."
+          label="Upload image"
+          hint="JPG, PNG, or WEBP. The system uploads it to Supabase and saves the returned URL."
+        >
+          <input
+            accept="image/jpeg,image/png,image/webp"
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              setImageFile(file);
+              if (file) {
+                setImageStoragePath("");
+                replaceImagePreviewUrl(URL.createObjectURL(file), true);
+              } else {
+                replaceImagePreviewUrl(imageUrl.trim());
+              }
+            }}
+            type="file"
+          />
+        </AdminField>
+        <AdminField
+          label="Manual image URL"
+          hint="Advanced fallback only. Leave blank when uploading a file."
         >
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={imageUrl}
-            onChange={(event) => setImageUrl(event.target.value)}
+            onChange={(event) => {
+              const nextUrl = event.target.value;
+              setImageUrl(nextUrl);
+              setImageFile(null);
+              setImageStoragePath("");
+              replaceImagePreviewUrl(nextUrl.trim());
+            }}
             placeholder="/test-assets/ynot-test-card-001.svg"
           />
         </AdminField>
+        {imagePreviewUrl && (
+          <div className="admin-field" style={{ gridColumn: "span 2" }}>
+            <span>Image preview</span>
+            <AdminPrizeCardImage
+              code={code}
+              imageUrl={imagePreviewUrl}
+              name={name || "New prize item"}
+            />
+          </div>
+        )}
         <AdminField label="Prize item mode">
           <button
             className={
@@ -4963,13 +5168,36 @@ export function AdminCardForm() {
           </>
         )}
       </div>
+      {duplicateCard && duplicateUsage && (
+        <DuplicateCardCaution
+          cardName={duplicateCard.name}
+          code={duplicateCard.code}
+          confirmed={overwriteConfirmed}
+          usage={duplicateUsage}
+          onConfirmedChange={(confirmed) =>
+            setOverwriteConfirmedForCardId(
+              confirmed ? duplicateCard.catalogCardId : null,
+            )
+          }
+        />
+      )}
       <button
         className="gold-button admin-form-save"
-        disabled={isPending || !name.trim()}
+        disabled={
+          isPending ||
+          !name.trim() ||
+          (Boolean(duplicateCard) && !overwriteConfirmed)
+        }
         onClick={submit}
         type="button"
       >
-        {isPending ? "Saving..." : "Save prize item"}
+        {isPending
+          ? imageFile
+            ? "Uploading..."
+            : "Saving..."
+          : duplicateCard
+            ? "Update existing card"
+            : "Save prize item"}
       </button>
       {message && <p className="admin-form-message">{message}</p>}
     </section>
@@ -5089,6 +5317,10 @@ export function AdminCardCatalogPanel({
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [seriesFilter, setSeriesFilter] =
+    useState<AdminCardSeriesFilter>("all");
+  const [sortMode, setSortMode] =
+    useState<AdminCardCatalogSortMode>("default");
   const [message, setMessage] = useState("");
   const [pendingCardId, setPendingCardId] = useState("");
   const [stockDraft, setStockDraft] = useState<StockAdjustmentDraft | null>(null);
@@ -5102,13 +5334,14 @@ export function AdminCardCatalogPanel({
     () => buildAdminCardCatalogRows(cards, prizes),
     [cards, prizes],
   );
-  const normalizedQuery = query.trim().toLowerCase();
   const visibleRows = useMemo(() => {
-    if (!normalizedQuery) return rows;
-    return rows.filter((row) =>
-      adminCardCatalogRowSearchText(row).includes(normalizedQuery),
-    );
-  }, [normalizedQuery, rows]);
+    return filterAdminCardCatalogRows(rows, {
+      query,
+      seriesFilter,
+      sortMode,
+      searchText: adminCardCatalogRowSearchText,
+    });
+  }, [query, rows, seriesFilter, sortMode]);
   const assignedCount = rows.filter((row) => row.prizes.length > 0).length;
   const stockedCount = rows.filter((row) => row.stockTotal > 0).length;
 
@@ -5199,6 +5432,30 @@ export function AdminCardCatalogPanel({
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
+        <div className="admin-card-catalog-summary">
+          <span>Series</span>
+          <div className="filter-chip-row" aria-label="Catalog series filter">
+            {(["all", "Pokemon", "One Piece"] as const).map((filter) => (
+              <button
+                className={`filter-chip ${seriesFilter === filter ? "active" : ""}`}
+                key={filter}
+                onClick={() => setSeriesFilter(filter)}
+                type="button"
+              >
+                {filter === "all" ? "All" : filter}
+              </button>
+            ))}
+          </div>
+          <button
+            className={`filter-chip ${sortMode === "az" ? "active" : ""}`}
+            onClick={() =>
+              setSortMode((current) => (current === "az" ? "default" : "az"))
+            }
+            type="button"
+          >
+            A-Z
+          </button>
+        </div>
         <div className="admin-card-catalog-summary">
           <strong>{assignedCount.toLocaleString()}</strong>
           <span>cards in prize pools</span>
@@ -5487,18 +5744,54 @@ function AdminCardEditModal({
   const [name, setName] = useState(card.name);
   const [code, setCode] = useState(card.code ?? "");
   const [series, setSeries] = useState<"pokemon" | "one_piece">(
-    (card.series as "pokemon" | "one_piece") ?? "pokemon",
+    card.series === "Pokemon" ? "pokemon" : "one_piece",
   );
   const [grade, setGrade] = useState(card.grade ?? "");
   const [imageUrl, setImageUrl] = useState(card.photoUrl ?? "");
+  const [imageStoragePath, setImageStoragePath] = useState(
+    card.photoStoragePath ?? "",
+  );
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState(card.photoUrl ?? "");
+  const imagePreviewObjectUrlRef = useRef<string | null>(null);
   const [isTest, setIsTest] = useState(card.isTest ?? false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreviewObjectUrlRef.current) {
+        URL.revokeObjectURL(imagePreviewObjectUrlRef.current);
+      }
+    };
+  }, []);
+
+  function replaceImagePreviewUrl(nextUrl: string, objectUrl = false) {
+    if (imagePreviewObjectUrlRef.current) {
+      URL.revokeObjectURL(imagePreviewObjectUrlRef.current);
+      imagePreviewObjectUrlRef.current = null;
+    }
+    if (objectUrl) imagePreviewObjectUrlRef.current = nextUrl;
+    setImagePreviewUrl(nextUrl);
+  }
 
   async function save() {
     setPending(true);
     setError(null);
     try {
+      let nextImageUrl = imageUrl.trim();
+      let nextImageStoragePath = imageStoragePath.trim();
+      if (imageFile) {
+        const uploaded = await uploadAdminCardImage(imageFile, {
+          code,
+          name,
+        });
+        nextImageUrl = uploaded.imageUrl;
+        nextImageStoragePath = uploaded.storagePath;
+        setImageUrl(uploaded.imageUrl);
+        setImageStoragePath(uploaded.storagePath);
+        replaceImagePreviewUrl(uploaded.imageUrl);
+      }
       const response = await fetch("/api/ynot/admin/cards", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -5509,7 +5802,8 @@ function AdminCardEditModal({
           series,
           grade: grade.trim() || "Ungraded",
           prizeCategory: card.prizeCategory,
-          imageUrl: imageUrl.trim() || null,
+          imageUrl: nextImageUrl || null,
+          imageStoragePath: nextImageStoragePath || null,
           isTest,
         }),
       });
@@ -5571,9 +5865,47 @@ function AdminCardEditModal({
             <input value={grade} onChange={(e) => setGrade(e.target.value)} disabled={pending} />
           </label>
           <label className="admin-field" style={{ gridColumn: "span 2" }}>
-            <span>Image URL</span>
-            <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} disabled={pending} />
+            <span>Upload image</span>
+            <input
+              accept="image/jpeg,image/png,image/webp"
+              disabled={pending}
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                setImageFile(file);
+                if (file) {
+                  setImageStoragePath("");
+                  replaceImagePreviewUrl(URL.createObjectURL(file), true);
+                } else {
+                  replaceImagePreviewUrl(imageUrl.trim());
+                }
+              }}
+              type="file"
+            />
           </label>
+          <label className="admin-field" style={{ gridColumn: "span 2" }}>
+            <span>Manual image URL</span>
+            <input
+              value={imageUrl}
+              onChange={(e) => {
+                const nextUrl = e.target.value;
+                setImageUrl(nextUrl);
+                setImageFile(null);
+                setImageStoragePath("");
+                replaceImagePreviewUrl(nextUrl.trim());
+              }}
+              disabled={pending}
+            />
+          </label>
+          {imagePreviewUrl && (
+            <div className="admin-field" style={{ gridColumn: "span 2" }}>
+              <span>Image preview</span>
+              <AdminPrizeCardImage
+                code={code}
+                imageUrl={imagePreviewUrl}
+                name={name || card.name}
+              />
+            </div>
+          )}
           <label className="admin-field" style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8 }}>
             <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} disabled={pending} />
             <span>Test-only card (hidden from public catalog)</span>

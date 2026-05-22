@@ -1325,14 +1325,19 @@ export async function getCampaign(
 
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("campaign_detail", async () => {
+    const viewer = options.viewer ?? (await getYnotViewer());
+    const includePrivateDetail =
+      viewer.isAdmin || process.env.NODE_ENV !== "production";
     const loadRow = (requireApproval: boolean) => {
       let query = supabase
         .from("draw_rounds")
         .select("*")
-        .in("status", ["live", "closed"])
-        .eq("visibility", "public")
         .limit(1);
-      if (requireApproval) query = query.eq("approval_status", "approved");
+      query = includePrivateDetail
+        ? query.in("status", ["live", "closed", "draft"])
+        : query.in("status", ["live", "closed"]).eq("visibility", "public");
+      if (requireApproval && !includePrivateDetail)
+        query = query.eq("approval_status", "approved");
       return looksLikeUuid(campaignIdOrSlug)
         ? query.eq("id", campaignIdOrSlug)
         : query.eq("slug", campaignIdOrSlug);
@@ -1344,9 +1349,11 @@ export async function getCampaign(
     if (error) throw error;
     const row = data?.[0];
     if (!row) return [];
-
-    const viewer = options.viewer ?? (await getYnotViewer());
-    if (row.is_test && !(await canReadTestCampaign(supabase, row.id, viewer)))
+    if (
+      row.is_test &&
+      !includePrivateDetail &&
+      !(await canReadTestCampaign(supabase, row.id, viewer))
+    )
       return [];
 
     const [categories, categoryLinks, inventoryRows] = await Promise.all([
@@ -1380,7 +1387,9 @@ export async function getCampaign(
       .map((link) => categoriesById.get(link.category_id))
       .filter((category): category is YnotCategory => Boolean(category));
     const inventory = inventoryRows[0];
-    const prizeLineup = await getPublicPrizeLineup(supabase, row, inventory);
+    const prizeLineup = await getPublicPrizeLineup(supabase, row, inventory, {
+      includeLocked: true,
+    });
     let readiness: CampaignPrizeReadiness | null = null;
     try {
       readiness = await getCampaignPrizeReadiness(supabase, row.id);
@@ -1394,7 +1403,7 @@ export async function getCampaign(
       prizeLineup,
       readiness,
     );
-    if (!viewer.isAdmin && !campaign.openable) return [];
+    if (!includePrivateDetail && !campaign.openable) return [];
     return [campaign];
   }).then(
     (campaigns) =>

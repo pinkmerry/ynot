@@ -76,7 +76,7 @@ export default async function AdminPrizesPage() {
         <AdminCard className="admin-prize-create-card">
           <AdminCardHead label="Add card" title="Create catalog item" />
           <div className="card-pad">
-            <AdminCardForm />
+            <AdminCardForm cards={cards} prizes={prizes} />
           </div>
         </AdminCard>
 
@@ -86,7 +86,7 @@ export default async function AdminPrizesPage() {
             title={`${cards.length} cards - global stock and prize-pool usage`}
             actions={
               <span className="chip">
-                <AdminIcon name="filter" size={11} /> Filter
+                <AdminIcon name="filter" size={11} /> Live filters
               </span>
             }
           />
