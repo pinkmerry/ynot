@@ -42,7 +42,7 @@ await includes("src/features/ynot/data.ts", ["getStoreCategories", "get_draw_rou
 await includes("src/features/ynot/data.ts", ["canReadTestCampaign", "draw_round_testers", "allowTestForCurrentViewer"]);
 await includes("src/app/(store)/gacha/[campaignId]/page.tsx", ["allowTestForCurrentViewer: true"]);
 await includes("src/app/(store)/gacha/[campaignId]/open/page.tsx", ["allowTestForCurrentViewer: true"]);
-await includes("src/features/ynot/client.tsx", ["AdminCategoryForm", "Planned pack quantity", "Production test pack"]);
+await includes("src/features/ynot/client.tsx", ["AdminCategoryForm", "Pack prize quantities", "Production test pack"]);
 await includes("tools/seed/seed-production-admin-test-data.mjs", ["ALLOW_PRODUCTION_TEST_SEED", "--dry-run", "--apply", "--cleanup", "draw_round_testers"]);
 await includes("docs/runbooks/production-admin-test-data.md", ["Hard gate before production apply", "Owner go/no-go", "non-destructive"]);
 

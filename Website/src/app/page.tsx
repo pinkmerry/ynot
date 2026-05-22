@@ -18,6 +18,7 @@ export default async function HomePage({
     campaigns: true,
     campaignVisibility: "public",
     campaignLimit: 24,
+    campaignReadiness: false,
     wallet: true,
   });
   return (

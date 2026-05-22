@@ -28,6 +28,7 @@ export default async function PacksPage({
     campaigns: true,
     campaignVisibility: "admin",
     campaignLimit: null,
+    campaignReadiness: false,
     wallet: true,
   });
   return (

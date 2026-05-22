@@ -266,10 +266,24 @@ type PrizeLineupCardRow = {
   prize_category?: string | null;
 };
 
-type PrizeUnitStatusRow = {
-  draw_round_prize_id: string;
-  status: string;
+type PrizeUnitCounts = {
+  total: number;
+  available: number;
+  awarded: number;
+  void: number;
 };
+
+function plannedPrizeUnitCounts(
+  prize: Database["public"]["Tables"]["draw_round_prizes"]["Row"],
+): PrizeUnitCounts {
+  const plannedQuantity = Number(prize.planned_quantity ?? 0) || 0;
+  return {
+    total: plannedQuantity,
+    available: plannedQuantity,
+    awarded: 0,
+    void: 0,
+  };
+}
 
 async function readSupabaseRows<T>(
   label: string,
@@ -286,17 +300,6 @@ async function readSupabaseRows<T>(
     recordDataIssue(label, error);
     return [];
   }
-}
-
-function shouldQueryPrizeUnits(
-  row: DrawRoundRow,
-  inventory?: InventorySummary,
-) {
-  const approvalStatus = normalizeApprovalStatus(
-    row.approval_status,
-    inferredApprovalStatus(row.status),
-  );
-  return !(approvalStatus === "pending_review" && inventory?.totalUnits === 0);
 }
 
 function isOwnerReviewLineupRow(row: DrawRoundRow) {
@@ -354,10 +357,6 @@ async function getPublicPrizeLineupsBatch(
 
   const allVisible = Array.from(visiblePrizesByCampaign.values()).flat();
   const cardIds = [...new Set(allVisible.map((prize) => prize.card_id))];
-  const prizeIds = allVisible.map((prize) => prize.id);
-  const loadPrizeUnits = rows.some((row) =>
-    shouldQueryPrizeUnits(row, inventoryByCampaign.get(row.id)),
-  );
 
   const cards = cardIds.length
     ? await readSupabaseRows<PrizeLineupCardRow>(
@@ -371,36 +370,13 @@ async function getPublicPrizeLineupsBatch(
             .in("id", cardIds),
       )
     : [];
-  const units =
-    loadPrizeUnits && prizeIds.length
-      ? await readSupabaseRows<PrizeUnitStatusRow>(
-          "campaign_prize_lineup_units",
-          () =>
-            supabase
-              .from("draw_round_prize_units")
-              .select("draw_round_prize_id,status")
-              .in("draw_round_prize_id", prizeIds)
-              .limit(10000),
-        )
-      : [];
-
   const cardById = new Map(cards.map((card) => [card.id, card]));
-  const countsByPrize = new Map<string, { total: number; available: number }>();
-  for (const unit of units) {
-    const counts = countsByPrize.get(unit.draw_round_prize_id) ?? {
-      total: 0,
-      available: 0,
-    };
-    counts.total += 1;
-    if (unit.status === "available") counts.available += 1;
-    countsByPrize.set(unit.draw_round_prize_id, counts);
-  }
 
   for (const row of rows) {
     const visible = visiblePrizesByCampaign.get(row.id) ?? [];
     const previews: YnotPrizePreview[] = visible
       .map((prize) => {
-        const counts = countsByPrize.get(prize.id);
+        const counts = plannedPrizeUnitCounts(prize);
         const displayTier = displayTierFromPrizeMetadata(prize);
         const card = cardById.get(prize.card_id);
         return {
@@ -415,11 +391,9 @@ async function getPublicPrizeLineupsBatch(
           tier: prize.tier,
           rank: prize.rank,
           valueThb: prize.value_thb,
-          plannedQuantity: Number(prize.planned_quantity ?? counts?.total ?? 0) || 0,
-          availableUnits:
-            counts?.available ?? (Number(prize.planned_quantity ?? 0) || undefined),
-          totalUnits:
-            counts?.total ?? (Number(prize.planned_quantity ?? 0) || undefined),
+          plannedQuantity: counts.total,
+          availableUnits: counts.available || undefined,
+          totalUnits: counts.total || undefined,
           weight: Number(prize.weight ?? 1),
           unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
           prizeCategory: metadataString(prize.metadata, "prizeCategory"),
@@ -474,7 +448,6 @@ async function getPublicPrizeLineup(
   if (!visiblePrizes.length) return [];
 
   const cardIds = [...new Set(visiblePrizes.map((prize) => prize.card_id))];
-  const prizeIds = visiblePrizes.map((prize) => prize.id);
   const cards = cardIds.length
     ? await readSupabaseRows<PrizeLineupCardRow>(
         "campaign_detail_prize_lineup_cards",
@@ -487,34 +460,11 @@ async function getPublicPrizeLineup(
             .in("id", cardIds),
       )
     : [];
-  const units =
-    shouldQueryPrizeUnits(row, inventory) && prizeIds.length
-      ? await readSupabaseRows<PrizeUnitStatusRow>(
-          "campaign_detail_prize_lineup_units",
-          () =>
-            supabase
-              .from("draw_round_prize_units")
-              .select("draw_round_prize_id,status")
-              .in("draw_round_prize_id", prizeIds)
-              .limit(10000),
-        )
-      : [];
-
   const cardById = new Map(cards.map((card) => [card.id, card]));
-  const countsByPrize = new Map<string, { total: number; available: number }>();
-  for (const unit of units) {
-    const counts = countsByPrize.get(unit.draw_round_prize_id) ?? {
-      total: 0,
-      available: 0,
-    };
-    counts.total += 1;
-    if (unit.status === "available") counts.available += 1;
-    countsByPrize.set(unit.draw_round_prize_id, counts);
-  }
 
   return visiblePrizes
     .map((prize) => {
-      const counts = countsByPrize.get(prize.id);
+      const counts = plannedPrizeUnitCounts(prize);
       const displayTier = displayTierFromPrizeMetadata(prize);
       const card = cardById.get(prize.card_id);
       return {
@@ -529,11 +479,9 @@ async function getPublicPrizeLineup(
         tier: prize.tier,
         rank: prize.rank,
         valueThb: prize.value_thb,
-        plannedQuantity: Number(prize.planned_quantity ?? counts?.total ?? 0) || 0,
-        availableUnits:
-          counts?.available ?? (Number(prize.planned_quantity ?? 0) || undefined),
-        totalUnits:
-          counts?.total ?? (Number(prize.planned_quantity ?? 0) || undefined),
+        plannedQuantity: counts.total,
+        availableUnits: counts.available || undefined,
+        totalUnits: counts.total || undefined,
         weight: Number(prize.weight ?? 1),
         unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
         prizeCategory: metadataString(prize.metadata, "prizeCategory"),
@@ -625,14 +573,17 @@ function toYnotCampaign(
         (availablePrizeUnits !== undefined && availablePrizeUnits <= 0),
     );
   const adminRemoved = isOwnerRemoved(row.test_metadata);
+  const hasOpenableInventory = readiness
+    ? (readiness.eligiblePrizeUnits ?? 0) > 0 && readiness.ready !== false
+    : (availablePrizeUnits ?? 0) > 0 &&
+      (remainingSlots ?? row.total_slots) > 0;
   const openable =
     row.status === "live" &&
     row.visibility === "public" &&
     approvalStatus === "approved" &&
     !adminRemoved &&
     !soldOut &&
-    (readiness?.eligiblePrizeUnits ?? 0) > 0 &&
-    readiness?.ready !== false;
+    hasOpenableInventory;
   return {
     id: row.id,
     slug: row.slug,
@@ -1206,7 +1157,12 @@ async function getCampaignsImpl(
 }
 
 const getPublicCampaignsCached = unstable_cache(
-  () => getCampaignsImpl({ includePrivate: false, limit: null }),
+  () =>
+    getCampaignsImpl({
+      includePrivate: false,
+      limit: null,
+      includeReadiness: false,
+    }),
   ["ynot-campaigns-public-v2-all"],
   { tags: ["campaigns"], revalidate: 60 },
 );
@@ -1953,35 +1909,6 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
     if (campaignsError) throw campaignsError;
     if (cardsError) throw cardsError;
 
-    const prizeIds = visiblePrizes.map((prize) => prize.id);
-    const unitRows = await readOrEmpty("prize_unit_counts", async () => {
-      if (!prizeIds.length) return [];
-      const { data: units, error: unitsError } = await supabase
-        .from("draw_round_prize_units")
-        .select("draw_round_prize_id,status")
-        .in("draw_round_prize_id", prizeIds)
-        .limit(10000);
-      if (unitsError) throw unitsError;
-      return units ?? [];
-    });
-    const unitCountsByPrize = new Map<
-      string,
-      { total: number; available: number; awarded: number; void: number }
-    >();
-    for (const unit of unitRows) {
-      const counts = unitCountsByPrize.get(unit.draw_round_prize_id) ?? {
-        total: 0,
-        available: 0,
-        awarded: 0,
-        void: 0,
-      };
-      counts.total += 1;
-      if (unit.status === "available") counts.available += 1;
-      if (unit.status === "awarded") counts.awarded += 1;
-      if (unit.status === "void") counts.void += 1;
-      unitCountsByPrize.set(unit.draw_round_prize_id, counts);
-    }
-
     const campaignById = new Map(
       (campaigns ?? []).map((campaign) => [campaign.id, campaign]),
     );
@@ -1989,16 +1916,8 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
     return visiblePrizes.map((prize) => {
       const campaign = campaignById.get(prize.draw_round_id);
       const card = cardById.get(prize.card_id);
-      const counts = unitCountsByPrize.get(prize.id) ?? {
-        total: 0,
-        available: 0,
-        awarded: 0,
-        void: 0,
-      };
+      const counts = plannedPrizeUnitCounts(prize);
       const displayTier = displayTierFromPrizeMetadata(prize);
-      const plannedQuantity = Number(prize.planned_quantity ?? counts.total) || 0;
-      const displayTotalUnits = counts.total || plannedQuantity;
-      const displayAvailableUnits = counts.total ? counts.available : plannedQuantity;
       return {
         id: prize.id,
         campaignId: prize.draw_round_id,
@@ -2025,9 +1944,9 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
           metadataString(prize.metadata, "displayTierLabel") ??
           prizeDisplayTierLabel(displayTier),
         tierRank: metadataNumber(prize.metadata, "tierRank") ?? prize.rank,
-        plannedQuantity,
-        totalUnits: displayTotalUnits,
-        availableUnits: displayAvailableUnits,
+        plannedQuantity: counts.total,
+        totalUnits: counts.total,
+        availableUnits: counts.available,
         awardedUnits: counts.awarded,
         voidUnits: counts.void,
       };
