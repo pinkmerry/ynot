@@ -3,11 +3,22 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ensureProfileForUser } from "@/lib/auth/profile";
+import { sendSignupCodeEmail } from "@/lib/email/send-signup-code";
 import {
   luckyDrawSessionCookie,
   readSessionCookie,
 } from "@/lib/lucky-draw/session";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
+import {
+  createServiceSupabaseClient,
+  createSupabaseServerClient,
+} from "@/lib/supabase/server";
+import {
+  consumePendingSignupSetup,
+  createPendingSignupCode,
+  normalizeSignupEmail,
+  verifyPendingSignupCode,
+} from "./pending-signup";
 import { isValidSignupPassword, SIGNUP_PASSWORD_ERROR } from "./password-policy";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -33,10 +44,6 @@ function safeNextPath(value: string) {
 
 function formNextPath(formData: FormData) {
   return safeNextPath(formString(formData, "next"));
-}
-
-function isObfuscatedExistingSignupUser(user: { identities?: unknown[] | null }) {
-  return Array.isArray(user.identities) && user.identities.length === 0;
 }
 
 async function appOrigin() {
@@ -78,6 +85,75 @@ function withSignupCodeMessage(
   });
   if (nextPath !== "/") params.set("next", nextPath);
   return `/signup?${params.toString()}`;
+}
+
+function withSignupSetupMessage(
+  email: string,
+  setupToken: string,
+  key: "error" | "message",
+  value: string,
+  nextPath = "/",
+) {
+  const params = new URLSearchParams({
+    setupEmail: email,
+    setupToken,
+    [key]: value,
+  });
+  if (nextPath !== "/") params.set("next", nextPath);
+  return `/signup?${params.toString()}`;
+}
+
+async function signupRequestMetadata() {
+  const headerStore = await headers();
+  const forwardedFor = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return {
+    ipAddress:
+      headerStore.get("cf-connecting-ip") ??
+      headerStore.get("x-real-ip") ??
+      forwardedFor ??
+      null,
+    userAgent: headerStore.get("user-agent"),
+  };
+}
+
+async function signupRateLimitError(scope: string, subject: string) {
+  const metadata = await signupRequestMetadata();
+  const request = new Request("https://ynot.local/signup", {
+    headers: {
+      ...(metadata.ipAddress ? { "x-forwarded-for": metadata.ipAddress } : {}),
+      ...(metadata.userAgent ? { "user-agent": metadata.userAgent } : {}),
+    },
+  });
+  const limited = await enforceRateLimit(
+    request,
+    scope,
+    {
+      limit: 6,
+      windowMs: 10 * 60 * 1000,
+    },
+    subject,
+  );
+
+  if (!limited) return null;
+  if (limited.status === 429) {
+    return "Too many requests. Please wait and try again.";
+  }
+  return "Sign up is temporarily unavailable. Please try again later.";
+}
+
+function logAuthServerError(event: string, error: unknown) {
+  console.error(event, {
+    message: error instanceof Error ? error.message : String(error),
+  });
+}
+
+function isExistingAuthUserError(error: { message?: string }) {
+  const message = error.message?.toLowerCase() ?? "";
+  return (
+    message.includes("already") ||
+    message.includes("registered") ||
+    message.includes("exists")
+  );
 }
 
 async function lineSessionProfileId() {
@@ -122,100 +198,55 @@ export async function signInWithPasswordAction(formData: FormData) {
   redirect(nextPath);
 }
 
-export async function signUpWithPasswordAction(formData: FormData) {
-  const email = formString(formData, "email").toLowerCase();
-  const password = formString(formData, "password");
-  const confirmPassword = formString(formData, "confirmPassword");
+export async function requestPendingSignUpCodeAction(formData: FormData) {
+  const email = normalizeSignupEmail(formString(formData, "email"));
   const nextPath = formNextPath(formData);
 
-  if (!email || !password) {
+  if (!EMAIL_RE.test(email)) {
     redirect(
       withMessage(
         "/signup",
         "error",
-        "Email and password are required.",
+        "Please enter a valid email before requesting a code.",
         nextPath,
       ),
     );
   }
 
-  if (!isValidSignupPassword(password)) {
-    redirect(
-      withMessage(
-        "/signup",
-        "error",
-        SIGNUP_PASSWORD_ERROR,
-        nextPath,
-      ),
-    );
+  const rateLimitError = await signupRateLimitError("ynot:signup:request", email);
+  if (rateLimitError) {
+    redirect(withMessage("/signup", "error", rateLimitError, nextPath));
   }
 
-  if (password !== confirmPassword) {
-    redirect(
-      withMessage("/signup", "error", "Passwords do not match.", nextPath),
-    );
+  try {
+    const metadata = await signupRequestMetadata();
+    const pending = await createPendingSignupCode({
+      email,
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
+    });
+    await sendSignupCodeEmail({ email: pending.email, code: pending.code });
+  } catch (error) {
+    logAuthServerError("signup_code_request_failed", error);
+    const message =
+      error instanceof Error && error.message === "SIGNUP_CODE_RESEND_LIMIT"
+        ? "Too many codes requested. Please wait and try again."
+        : "We could not send the sign up code right now. Please try again later.";
+    redirect(withMessage("/signup", "error", message, nextPath));
   }
 
-  const origin = await appOrigin();
-  if (!origin) {
-    redirect(
-      withMessage(
-        "/signup",
-        "error",
-        "NEXT_PUBLIC_SITE_URL is required before production sign up.",
-        nextPath,
-      ),
-    );
-  }
-
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
-    },
-  });
-
-  if (error || !data.user) {
-    redirect(
-      withMessage(
-        "/signup",
-        "error",
-        error?.message ?? "Sign up failed.",
-        nextPath,
-      ),
-    );
-  }
-
-  if (isObfuscatedExistingSignupUser(data.user)) {
-    redirect(
-      withMessage(
-        "/login",
-        "message",
-        "This email already has an account. Log in with your password or continue with Google.",
-        nextPath,
-      ),
-    );
-  }
-
-  if (!data.session) {
-    redirect(
-      withSignupCodeMessage(
-        email,
-        "message",
-        "Enter the 6-digit code we sent to your email to finish creating your account.",
-        nextPath,
-      ),
-    );
-  }
-
-  await ensureProfileForUser(data.user, await lineSessionProfileId());
-  redirect(nextPath);
+  redirect(
+    withSignupCodeMessage(
+      email,
+      "message",
+      "Enter the 6-digit code we sent to your email to continue.",
+      nextPath,
+    ),
+  );
 }
 
 export async function verifySignUpEmailCodeAction(formData: FormData) {
-  const email = formString(formData, "email").toLowerCase();
+  const email = normalizeSignupEmail(formString(formData, "email"));
   const code = formString(formData, "code");
   const nextPath = formNextPath(formData);
 
@@ -230,30 +261,39 @@ export async function verifySignUpEmailCodeAction(formData: FormData) {
     );
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.verifyOtp({
-    email,
-    token: code,
-    type: "signup",
-  });
+  const rateLimitError = await signupRateLimitError("ynot:signup:verify", email);
+  if (rateLimitError) {
+    redirect(withSignupCodeMessage(email, "error", rateLimitError, nextPath));
+  }
 
-  if (error || !data.user) {
+  let setup: Awaited<ReturnType<typeof verifyPendingSignupCode>>;
+  try {
+    setup = await verifyPendingSignupCode(email, code);
+  } catch (error) {
+    logAuthServerError("signup_code_verify_failed", error);
     redirect(
       withSignupCodeMessage(
         email,
         "error",
-        error?.message ?? "Code is invalid or expired.",
+        "Code is invalid or expired. Request a new code if needed.",
         nextPath,
       ),
     );
   }
 
-  await ensureProfileForUser(data.user, await lineSessionProfileId());
-  redirect(nextPath);
+  redirect(
+    withSignupSetupMessage(
+      setup.email,
+      setup.setupToken,
+      "message",
+      "Email verified. Create your password to finish your account.",
+      nextPath,
+    ),
+  );
 }
 
 export async function resendSignUpEmailCodeAction(formData: FormData) {
-  const email = formString(formData, "email").toLowerCase();
+  const email = normalizeSignupEmail(formString(formData, "email"));
   const nextPath = formNextPath(formData);
 
   if (!EMAIL_RE.test(email)) {
@@ -267,29 +307,26 @@ export async function resendSignUpEmailCodeAction(formData: FormData) {
     );
   }
 
-  const origin = await appOrigin();
-  if (!origin) {
-    redirect(
-      withSignupCodeMessage(
-        email,
-        "error",
-        "NEXT_PUBLIC_SITE_URL is required before production sign up.",
-        nextPath,
-      ),
-    );
+  const rateLimitError = await signupRateLimitError("ynot:signup:resend", email);
+  if (rateLimitError) {
+    redirect(withSignupCodeMessage(email, "error", rateLimitError, nextPath));
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.resend({
-    type: "signup",
-    email,
-    options: {
-      emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
-    },
-  });
-
-  if (error) {
-    redirect(withSignupCodeMessage(email, "error", error.message, nextPath));
+  try {
+    const metadata = await signupRequestMetadata();
+    const pending = await createPendingSignupCode({
+      email,
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
+    });
+    await sendSignupCodeEmail({ email: pending.email, code: pending.code });
+  } catch (error) {
+    logAuthServerError("signup_code_resend_failed", error);
+    const message =
+      error instanceof Error && error.message === "SIGNUP_CODE_RESEND_LIMIT"
+        ? "Too many codes requested. Please wait and try again."
+        : "We could not send a new code right now. Please try again later.";
+    redirect(withSignupCodeMessage(email, "error", message, nextPath));
   }
 
   redirect(
@@ -300,6 +337,127 @@ export async function resendSignUpEmailCodeAction(formData: FormData) {
       nextPath,
     ),
   );
+}
+
+export async function completeSignUpWithPasswordAction(formData: FormData) {
+  const email = normalizeSignupEmail(formString(formData, "email"));
+  const setupToken = formString(formData, "setupToken");
+  const password = formString(formData, "password");
+  const confirmPassword = formString(formData, "confirmPassword");
+  const nextPath = formNextPath(formData);
+
+  if (!EMAIL_RE.test(email) || !setupToken) {
+    redirect(
+      withMessage(
+        "/signup",
+        "error",
+        "Sign up setup expired. Request a new code to continue.",
+        nextPath,
+      ),
+    );
+  }
+
+  if (!isValidSignupPassword(password)) {
+    redirect(
+      withSignupSetupMessage(
+        email,
+        setupToken,
+        "error",
+        SIGNUP_PASSWORD_ERROR,
+        nextPath,
+      ),
+    );
+  }
+
+  if (password !== confirmPassword) {
+    redirect(
+      withSignupSetupMessage(
+        email,
+        setupToken,
+        "error",
+        "Passwords do not match.",
+        nextPath,
+      ),
+    );
+  }
+
+  let verifiedEmail: string;
+  try {
+    const consumed = await consumePendingSignupSetup(email, setupToken);
+    verifiedEmail = consumed.email;
+  } catch (error) {
+    logAuthServerError("signup_setup_consume_failed", error);
+    redirect(
+      withMessage(
+        "/signup",
+        "error",
+        "Sign up setup expired. Request a new code to continue.",
+        nextPath,
+      ),
+    );
+  }
+
+  const serviceSupabase = createServiceSupabaseClient();
+  const { error: createError } = await serviceSupabase.auth.admin.createUser({
+    email: verifiedEmail,
+    password,
+    email_confirm: true,
+  });
+
+  if (createError) {
+    logAuthServerError("signup_admin_create_failed", createError);
+    if (isExistingAuthUserError(createError)) {
+      redirect(
+        withMessage(
+          "/login",
+          "message",
+          "This email already has an account. Log in with your password or continue with Google.",
+          nextPath,
+        ),
+      );
+    }
+    redirect(
+      withMessage(
+        "/signup",
+        "error",
+        "Account could not be created. Request a new code and try again.",
+        nextPath,
+      ),
+    );
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error: signInError } = await supabase.auth.signInWithPassword({
+    email: verifiedEmail,
+    password,
+  });
+
+  if (signInError || !data.user) {
+    redirect(
+      withMessage(
+        "/login",
+        "message",
+        "Account created. Log in with your password to continue.",
+        nextPath,
+      ),
+    );
+  }
+
+  try {
+    await ensureProfileForUser(data.user, await lineSessionProfileId());
+  } catch (error) {
+    logAuthServerError("signup_profile_bootstrap_failed", error);
+    redirect(
+      withMessage(
+        "/login",
+        "message",
+        "Account created. Log in with your password to continue.",
+        nextPath,
+      ),
+    );
+  }
+
+  redirect(nextPath);
 }
 
 export async function signInWithGoogleAction(formData: FormData) {

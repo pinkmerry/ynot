@@ -21,6 +21,8 @@
     "NEXT_PUBLIC_LINE_LIFF_ID": "2009971080-8exdgUaw",
     "NEXT_PUBLIC_SITE_URL": "https://liff.ynotopen.com",
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6am9hcmtpamVhc3BhemJyY2hjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMjMwMzIsImV4cCI6MjA5MzU5OTAzMn0.yElDtqBA8NPWW8kMRqw3jltuFqfPDJpr1Fek8AjTwFM",
-    "NEXT_PUBLIC_SUPABASE_URL": "https://szjoarkijeaspazbrchc.supabase.co"
+    "NEXT_PUBLIC_SUPABASE_URL": "https://szjoarkijeaspazbrchc.supabase.co",
+    "SIGNUP_OTP_DELIVERY": "resend",
+    "SIGNUP_EMAIL_FROM": "YNOTT <no-reply@ynotopen.com>"
   }
 }

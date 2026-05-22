@@ -1,8 +1,9 @@
 import Link from "next/link";
 import {
+  completeSignUpWithPasswordAction,
+  requestPendingSignUpCodeAction,
   resendSignUpEmailCodeAction,
   signInWithPasswordAction,
-  signUpWithPasswordAction,
   verifySignUpEmailCodeAction,
 } from "./actions";
 import { SignupPasswordFields } from "./SignupPasswordFields";
@@ -13,6 +14,8 @@ type AuthFormProps = {
   message?: string;
   next?: string;
   verifyEmail?: string;
+  setupEmail?: string;
+  setupToken?: string;
 };
 
 function safeNextPath(value: string | undefined) {
@@ -40,21 +43,31 @@ export function AuthForm({
   message,
   next,
   verifyEmail,
+  setupEmail,
+  setupToken,
 }: AuthFormProps) {
   const isSignup = mode === "signup";
   const nextPath = safeNextPath(next);
   const alternateHref = withNext(isSignup ? "/login" : "/signup", nextPath);
   const normalizedVerifyEmail =
     isSignup && verifyEmail ? verifyEmail.trim().toLowerCase() : "";
+  const normalizedSetupEmail =
+    isSignup && setupEmail ? setupEmail.trim().toLowerCase() : "";
   const isSignupVerification = Boolean(normalizedVerifyEmail);
+  const isSignupPasswordSetup = Boolean(normalizedSetupEmail && setupToken);
+  const title = isSignupVerification
+    ? "Verify Email"
+    : isSignupPasswordSetup
+      ? "Create Password"
+      : isSignup
+        ? "Sign Up"
+        : "Log In";
 
   return (
     <main className="auth-template-shell mobile-safe">
       <section className="glass auth-phone phone-surface">
         <div className="auth-top-bar">
-          <h1>
-            {isSignupVerification ? "Verify Email" : isSignup ? "Sign Up" : "Log In"}
-          </h1>
+          <h1>{title}</h1>
           <Link href={alternateHref}>{isSignup ? "LOG IN" : "SIGN UP"}</Link>
         </div>
 
@@ -67,7 +80,7 @@ export function AuthForm({
         {isSignupVerification ? (
           <>
             <p className="text-center text-sm font-semibold leading-relaxed text-[var(--muted)]">
-              Enter the 6-digit code sent to {normalizedVerifyEmail}. After this, you can use your password to log in.
+              Enter the 6-digit code sent to {normalizedVerifyEmail}. You will create your password after verification.
             </p>
 
             <form action={verifySignUpEmailCodeAction} className="space-y-3">
@@ -109,6 +122,29 @@ export function AuthForm({
               </Link>
             </p>
           </>
+        ) : isSignupPasswordSetup ? (
+          <>
+            <p className="text-center text-sm font-semibold leading-relaxed text-[var(--muted)]">
+              Email verified for {normalizedSetupEmail}. Create a password to finish your account.
+            </p>
+
+            <form action={completeSignUpWithPasswordAction} className="space-y-3">
+              <input type="hidden" name="email" value={normalizedSetupEmail} />
+              <input type="hidden" name="setupToken" value={setupToken} />
+              <input type="hidden" name="next" value={nextPath} />
+              <SignupPasswordFields />
+              <button type="submit" className="primary-action auth-submit">
+                Create account
+              </button>
+            </form>
+
+            <p className="text-center text-sm text-[var(--muted)]">
+              Need a new code?{" "}
+              <Link href={withNext("/signup", nextPath)} className="font-black text-[var(--gold)] underline-offset-4 hover:underline">
+                Start again
+              </Link>
+            </p>
+          </>
         ) : (
           <>
             <a
@@ -133,7 +169,13 @@ export function AuthForm({
               <span className="h-px bg-white/10" />
             </div>
 
-            <form action={isSignup ? signUpWithPasswordAction : signInWithPasswordAction} className="space-y-3">
+            {isSignup && (
+              <p className="text-center text-sm font-semibold leading-relaxed text-[var(--muted)]">
+                Enter your email first. We will send a 6-digit code, then you can create your password.
+              </p>
+            )}
+
+            <form action={isSignup ? requestPendingSignUpCodeAction : signInWithPasswordAction} className="space-y-3">
               <input type="hidden" name="next" value={nextPath} />
               <label className="block space-y-1 text-sm font-bold text-white">
                 <span>Email</span>
@@ -146,9 +188,7 @@ export function AuthForm({
                   placeholder="you@example.com"
                 />
               </label>
-              {isSignup ? (
-                <SignupPasswordFields />
-              ) : (
+              {!isSignup && (
                 <label className="block space-y-1 text-sm font-bold text-white">
                   <span>Password</span>
                   <input
@@ -163,7 +203,7 @@ export function AuthForm({
                 </label>
               )}
               <button type="submit" className="primary-action auth-submit">
-                {isSignup ? "Create account" : "Log in"}
+                {isSignup ? "Send code" : "Log in"}
               </button>
             </form>
 

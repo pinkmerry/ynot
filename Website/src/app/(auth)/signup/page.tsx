@@ -6,6 +6,8 @@ type SignupPageProps = {
     message?: string;
     next?: string;
     verifyEmail?: string;
+    setupEmail?: string;
+    setupToken?: string;
   }>;
 };
 
@@ -18,6 +20,8 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
       message={params?.message}
       next={params?.next}
       verifyEmail={params?.verifyEmail}
+      setupEmail={params?.setupEmail}
+      setupToken={params?.setupToken}
     />
   );
 }

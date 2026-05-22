@@ -1,4 +1,4 @@
-export const SIGNUP_PASSWORD_MIN_LENGTH = 12;
+export const SIGNUP_PASSWORD_MIN_LENGTH = 8;
 
 export const SIGNUP_PASSWORD_SPECIAL_CHARS = "!@#$%^&*()_-+={}[];:'\"\\|,.<>/?`~";
 
@@ -6,7 +6,7 @@ const SIGNUP_PASSWORD_NUMBER_RE = /\d/;
 const SIGNUP_PASSWORD_SPECIAL_RE = /[!@#$%^&*()_\-+={}\[\];:'"\\|,.<>/?`~]/;
 
 export const SIGNUP_PASSWORD_ERROR =
-  "Password must be at least 12 characters and include at least one number and one special character.";
+  "Password must be at least 8 characters and include at least one number and one special character.";
 
 export function getSignupPasswordChecks(password: string) {
   return {

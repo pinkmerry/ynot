@@ -45,7 +45,7 @@
     "route": "/signup",
     "label": "Sign up",
     "role": "anonymous",
-    "expectedAction": "server-action:signUpWithPasswordAction"
+    "expectedAction": "server-action:requestPendingSignUpCodeAction"
   },
   {
     "route": "/wallet",

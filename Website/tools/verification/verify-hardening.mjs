@@ -320,13 +320,13 @@ for (const routeFile of [
   notIncludes(routeFile, "contentType: file.type", `${routeFile} no longer trusts file.type for storage`);
 }
 
-// Finding 4: sign-up password floor raised to 12 + Supabase dashboard policy attested
-includes("src/features/auth/password-policy.ts", "SIGNUP_PASSWORD_MIN_LENGTH = 12", "sign-up password policy keeps 12-char minimum");
+// Finding 4: sign-up password floor, number, and special-character policy
+includes("src/features/auth/password-policy.ts", "SIGNUP_PASSWORD_MIN_LENGTH = 8", "sign-up password policy keeps 8-char minimum");
 includes("src/features/auth/password-policy.ts", "SIGNUP_PASSWORD_NUMBER_RE = /\\d/", "sign-up password policy requires a number");
 includes("src/features/auth/password-policy.ts", "SIGNUP_PASSWORD_SPECIAL_RE", "sign-up password policy requires a special character");
 includes("src/features/auth/actions.ts", "isValidSignupPassword(password)", "sign-up enforces shared password policy");
-notIncludes("src/features/auth/actions.ts", "password.length < 8", "sign-up no longer uses 8-char minimum");
-includes("src/features/auth/password-policy.ts", "at least 12 characters and include at least one number and one special character", "sign-up error message explains full password policy");
+notIncludes("src/features/auth/actions.ts", "password.length <", "sign-up does not hardcode a password length outside shared policy");
+includes("src/features/auth/password-policy.ts", "at least 8 characters and include at least one number and one special character", "sign-up error message explains full password policy");
 includes("src/features/auth/SignupPasswordFields.tsx", "Password needs:", "auth form shows password requirements while typing");
 includes("src/features/auth/SignupPasswordFields.tsx", "useState(false)", "auth form hides password requirements initially");
 includes("src/features/auth/SignupPasswordFields.tsx", "onPointerDown={() => setShowPasswordRequirements(true)}", "auth form shows password requirements on password pointer interaction");
@@ -340,8 +340,8 @@ includes("src/features/auth/SignupPasswordFields.tsx", "At least one special cha
 includes("src/features/auth/SignupPasswordFields.tsx", "Must match the password above.", "auth form explains confirm-password rule");
 envCheck(
   "SUPABASE_AUTH_PASSWORD_MIN_VERIFIED",
-  "12",
-  "operator has attested Supabase Auth dashboard minimum password length is 12 (set SUPABASE_AUTH_PASSWORD_MIN_VERIFIED=12 after updating dashboard)",
+  "8",
+  "operator has attested Supabase Auth dashboard minimum password length is 8 (set SUPABASE_AUTH_PASSWORD_MIN_VERIFIED=8 after updating dashboard)",
 );
 
 if (failures.length) {

@@ -19,7 +19,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "verify:phase1": "node tools/verification/verify-phase1-auth-db.mjs",
-    "verify:auth": "node tools/verification/verify-auth-foundation.mjs",
+    "verify:auth": "node tools/verification/verify-auth-foundation.mjs && node tools/verification/verify-signup-pending-flow.mjs",
     "verify:platform": "node tools/verification/verify-platform-foundation.mjs",
     "verify:cloudflare": "node tools/verification/verify-cloudflare-config.mjs",
     "verify:ynot": "npm run verify:phase1 && npm run verify:auth && npm run verify:platform && npm run verify:phase-readiness && npm run verify:hardening && npm run verify:production-test && node tools/verification/verify-lucky-draw-plan.mjs",

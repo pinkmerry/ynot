@@ -61,6 +61,44 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
         Relationships: [];
       };
+      pending_signup_email_codes: {
+        Row: {
+          id: string;
+          email: string;
+          code_hash: string;
+          setup_token_hash: string | null;
+          expires_at: string;
+          setup_expires_at: string | null;
+          attempts: number;
+          resend_count: number;
+          last_sent_at: string | null;
+          verified_at: string | null;
+          consumed_at: string | null;
+          created_at: string;
+          updated_at: string;
+          ip_address: string | null;
+          user_agent: string | null;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          code_hash: string;
+          setup_token_hash?: string | null;
+          expires_at: string;
+          setup_expires_at?: string | null;
+          attempts?: number;
+          resend_count?: number;
+          last_sent_at?: string | null;
+          verified_at?: string | null;
+          consumed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          ip_address?: string | null;
+          user_agent?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["pending_signup_email_codes"]["Insert"]>;
+        Relationships: [];
+      };
       user_identities: {
         Row: {
           id: string;
