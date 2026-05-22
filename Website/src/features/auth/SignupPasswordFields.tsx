@@ -37,7 +37,7 @@ function RequirementItem({
 export function SignupPasswordFields() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmPasswordRef = useRef<HTMLInputElement>(null);
   const checks = getSignupPasswordChecks(password);
@@ -47,7 +47,6 @@ export function SignupPasswordFields() {
     checks.hasMinLength && checks.hasNumber && checks.hasSpecialCharacter;
   const passwordsMatch =
     hasTypedPassword && hasTypedConfirmPassword && password === confirmPassword;
-  const showPasswordRequirements = isPasswordFocused;
 
   useEffect(() => {
     const passwordInput = passwordRef.current;
@@ -81,9 +80,13 @@ export function SignupPasswordFields() {
           aria-describedby={showPasswordRequirements ? "signup-password-help" : undefined}
           autoComplete="new-password"
           value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          onBlur={() => setIsPasswordFocused(false)}
-          onFocus={() => setIsPasswordFocused(true)}
+          onBlur={() => setShowPasswordRequirements(false)}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            setShowPasswordRequirements(true);
+          }}
+          onKeyDown={() => setShowPasswordRequirements(true)}
+          onPointerDown={() => setShowPasswordRequirements(true)}
           className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none ring-[var(--gold)]/0 focus:ring-2"
           placeholder={`Minimum ${SIGNUP_PASSWORD_MIN_LENGTH} characters`}
         />
