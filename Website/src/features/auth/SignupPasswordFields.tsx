@@ -37,6 +37,7 @@ function RequirementItem({
 export function SignupPasswordFields() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmPasswordRef = useRef<HTMLInputElement>(null);
   const checks = getSignupPasswordChecks(password);
@@ -46,6 +47,7 @@ export function SignupPasswordFields() {
     checks.hasMinLength && checks.hasNumber && checks.hasSpecialCharacter;
   const passwordsMatch =
     hasTypedPassword && hasTypedConfirmPassword && password === confirmPassword;
+  const showPasswordRequirements = isPasswordFocused;
 
   useEffect(() => {
     const passwordInput = passwordRef.current;
@@ -76,37 +78,41 @@ export function SignupPasswordFields() {
           required
           minLength={SIGNUP_PASSWORD_MIN_LENGTH}
           title={SIGNUP_PASSWORD_ERROR}
-          aria-describedby="signup-password-help"
+          aria-describedby={showPasswordRequirements ? "signup-password-help" : undefined}
           autoComplete="new-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
+          onBlur={() => setIsPasswordFocused(false)}
+          onFocus={() => setIsPasswordFocused(true)}
           className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none ring-[var(--gold)]/0 focus:ring-2"
           placeholder={`Minimum ${SIGNUP_PASSWORD_MIN_LENGTH} characters`}
         />
       </label>
 
-      <div id="signup-password-help" className="space-y-2" aria-live="polite">
-        <p className="text-xs font-semibold leading-relaxed text-[var(--muted)]">
-          Password needs:
-        </p>
-        <ul className="grid gap-2">
-          <RequirementItem
-            label={`At least ${SIGNUP_PASSWORD_MIN_LENGTH} characters`}
-            met={checks.hasMinLength}
-            active={hasTypedPassword}
-          />
-          <RequirementItem
-            label="At least one number"
-            met={checks.hasNumber}
-            active={hasTypedPassword}
-          />
-          <RequirementItem
-            label="At least one special character"
-            met={checks.hasSpecialCharacter}
-            active={hasTypedPassword}
-          />
-        </ul>
-      </div>
+      {showPasswordRequirements && (
+        <div id="signup-password-help" className="space-y-2" aria-live="polite">
+          <p className="text-xs font-semibold leading-relaxed text-[var(--muted)]">
+            Password needs:
+          </p>
+          <ul className="grid gap-2">
+            <RequirementItem
+              label={`At least ${SIGNUP_PASSWORD_MIN_LENGTH} characters`}
+              met={checks.hasMinLength}
+              active={hasTypedPassword}
+            />
+            <RequirementItem
+              label="At least one number"
+              met={checks.hasNumber}
+              active={hasTypedPassword}
+            />
+            <RequirementItem
+              label="At least one special character"
+              met={checks.hasSpecialCharacter}
+              active={hasTypedPassword}
+            />
+          </ul>
+        </div>
+      )}
 
       <label className="block space-y-1 text-sm font-bold text-white">
         <span>Confirm password</span>

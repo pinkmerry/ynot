@@ -328,6 +328,9 @@ includes("src/features/auth/actions.ts", "isValidSignupPassword(password)", "sig
 notIncludes("src/features/auth/actions.ts", "password.length < 8", "sign-up no longer uses 8-char minimum");
 includes("src/features/auth/password-policy.ts", "at least 12 characters and include at least one number and one special character", "sign-up error message explains full password policy");
 includes("src/features/auth/SignupPasswordFields.tsx", "Password needs:", "auth form shows password requirements while typing");
+includes("src/features/auth/SignupPasswordFields.tsx", "showPasswordRequirements = isPasswordFocused", "auth form hides password requirements until password focus");
+includes("src/features/auth/SignupPasswordFields.tsx", "onFocus={() => setIsPasswordFocused(true)}", "auth form shows password requirements on password focus");
+includes("src/features/auth/SignupPasswordFields.tsx", "onBlur={() => setIsPasswordFocused(false)}", "auth form hides password requirements after password blur");
 includes("src/features/auth/SignupPasswordFields.tsx", "At least one number", "auth form explains number requirement");
 includes("src/features/auth/SignupPasswordFields.tsx", "At least one special character", "auth form explains special-character requirement");
 includes("src/features/auth/SignupPasswordFields.tsx", "Must match the password above.", "auth form explains confirm-password rule");
