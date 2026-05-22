@@ -332,6 +332,9 @@ includes("src/features/auth/SignupPasswordFields.tsx", "useState(false)", "auth 
 includes("src/features/auth/SignupPasswordFields.tsx", "onPointerDown={() => setShowPasswordRequirements(true)}", "auth form shows password requirements on password pointer interaction");
 includes("src/features/auth/SignupPasswordFields.tsx", "onKeyDown={() => setShowPasswordRequirements(true)}", "auth form shows password requirements on password keyboard interaction");
 includes("src/features/auth/SignupPasswordFields.tsx", "onBlur={() => setShowPasswordRequirements(false)}", "auth form hides password requirements after password blur");
+includes("src/features/auth/SignupPasswordFields.tsx", "autoComplete=\"off\"", "auth form avoids browser-generated strong-password prompts on signup fields");
+includes("src/features/auth/SignupPasswordFields.tsx", "data-lpignore=\"true\"", "auth form discourages password-manager overlays on signup fields");
+includes("src/features/auth/SignupPasswordFields.tsx", "rounded-2xl border border-white/10 bg-black/35 p-3", "auth form renders password requirements in a visible panel");
 includes("src/features/auth/SignupPasswordFields.tsx", "At least one number", "auth form explains number requirement");
 includes("src/features/auth/SignupPasswordFields.tsx", "At least one special character", "auth form explains special-character requirement");
 includes("src/features/auth/SignupPasswordFields.tsx", "Must match the password above.", "auth form explains confirm-password rule");

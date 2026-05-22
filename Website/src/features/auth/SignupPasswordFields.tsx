@@ -22,12 +22,16 @@ function RequirementItem({
         met
           ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100"
           : active
-            ? "border-yellow-200/35 bg-yellow-200/10 text-yellow-50"
-            : "border-white/10 bg-white/[0.03] text-[var(--muted)]"
+            ? "border-white/15 bg-black/30 text-white"
+            : "border-white/10 bg-black/20 text-white/75"
       }`}
     >
       <span>{label}</span>
-      <span className="shrink-0 uppercase tracking-[0.16em]">
+      <span
+        className={`shrink-0 uppercase tracking-[0.16em] ${
+          met ? "text-emerald-100" : "text-[var(--gold)]"
+        }`}
+      >
         {met ? "Met" : "Needed"}
       </span>
     </li>
@@ -78,7 +82,10 @@ export function SignupPasswordFields() {
           minLength={SIGNUP_PASSWORD_MIN_LENGTH}
           title={SIGNUP_PASSWORD_ERROR}
           aria-describedby={showPasswordRequirements ? "signup-password-help" : undefined}
-          autoComplete="new-password"
+          autoComplete="off"
+          data-1p-ignore="true"
+          data-bwignore="true"
+          data-lpignore="true"
           value={password}
           onBlur={() => setShowPasswordRequirements(false)}
           onChange={(event) => {
@@ -93,8 +100,12 @@ export function SignupPasswordFields() {
       </label>
 
       {showPasswordRequirements && (
-        <div id="signup-password-help" className="space-y-2" aria-live="polite">
-          <p className="text-xs font-semibold leading-relaxed text-[var(--muted)]">
+        <div
+          id="signup-password-help"
+          className="rounded-2xl border border-white/10 bg-black/35 p-3 shadow-[0_18px_36px_rgba(0,0,0,0.24)]"
+          aria-live="polite"
+        >
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-white">
             Password needs:
           </p>
           <ul className="grid gap-2">
@@ -125,7 +136,10 @@ export function SignupPasswordFields() {
           type="password"
           required
           minLength={SIGNUP_PASSWORD_MIN_LENGTH}
-          autoComplete="new-password"
+          autoComplete="off"
+          data-1p-ignore="true"
+          data-bwignore="true"
+          data-lpignore="true"
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}
           aria-invalid={hasTypedConfirmPassword && !passwordsMatch}
