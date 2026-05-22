@@ -35,6 +35,10 @@ function formNextPath(formData: FormData) {
   return safeNextPath(formString(formData, "next"));
 }
 
+function isObfuscatedExistingSignupUser(user: { identities?: unknown[] | null }) {
+  return Array.isArray(user.identities) && user.identities.length === 0;
+}
+
 async function appOrigin() {
   const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (configuredSiteUrl) {
@@ -179,6 +183,17 @@ export async function signUpWithPasswordAction(formData: FormData) {
         "/signup",
         "error",
         error?.message ?? "Sign up failed.",
+        nextPath,
+      ),
+    );
+  }
+
+  if (isObfuscatedExistingSignupUser(data.user)) {
+    redirect(
+      withMessage(
+        "/login",
+        "message",
+        "This email already has an account. Log in with your password or continue with Google.",
         nextPath,
       ),
     );
