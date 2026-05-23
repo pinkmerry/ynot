@@ -12,7 +12,6 @@ import {
   AdminCard,
   AdminCardHead,
   AdminFrame,
-  AdminIcon,
   AdminKPI,
 } from "@/features/ynot/admin";
 
@@ -80,16 +79,7 @@ export default async function AdminPrizesPage() {
           </div>
         </AdminCard>
 
-        <AdminCard>
-          <AdminCardHead
-            label="Unified catalog"
-            title={`${cards.length} cards - global stock and prize-pool usage`}
-            actions={
-              <span className="chip">
-                <AdminIcon name="filter" size={11} /> Live filters
-              </span>
-            }
-          />
+        <AdminCard className="admin-prize-catalog-card">
           <div className="card-pad">
             <AdminCardCatalogPanel cards={cards} prizes={prizes} />
           </div>

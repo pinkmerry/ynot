@@ -1802,6 +1802,185 @@ function AdminPrizeCardImage({
   );
 }
 
+function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 KB";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function AdminImageDropzone({
+  imageUrl,
+  imageFile,
+  previewUrl,
+  manualUrl,
+  onFileChange,
+  onManualUrlChange,
+  onClear,
+  disabled,
+  cardCode,
+  cardName,
+  label = "Card image",
+  hint = "JPG, PNG, or WEBP. Uploaded to Supabase storage.",
+}: {
+  imageUrl: string;
+  imageFile: File | null;
+  previewUrl: string;
+  manualUrl: string;
+  onFileChange: (file: File | null) => void;
+  onManualUrlChange: (value: string) => void;
+  onClear: () => void;
+  disabled?: boolean;
+  cardCode?: string;
+  cardName?: string;
+  label?: string;
+  hint?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showManualUrl, setShowManualUrl] = useState(
+    Boolean(manualUrl && !imageFile),
+  );
+  const hasPreview = Boolean(previewUrl);
+
+  function openFilePicker() {
+    if (disabled) return;
+    inputRef.current?.click();
+  }
+
+  function handleFiles(files: FileList | null) {
+    if (!files || !files.length) return;
+    const file = files[0];
+    if (!file.type.startsWith("image/")) return;
+    onFileChange(file);
+  }
+
+  return (
+    <div className="admin-image-dropzone-field">
+      <span className="admin-image-dropzone-label">{label}</span>
+      <div
+        className={`admin-image-dropzone${isDragging ? " is-dragging" : ""}${hasPreview ? " has-preview" : ""}${disabled ? " is-disabled" : ""}`}
+        onClick={(event) => {
+          if (event.defaultPrevented) return;
+          openFilePicker();
+        }}
+        onDragOver={(event) => {
+          if (disabled) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+          if (!isDragging) setIsDragging(true);
+        }}
+        onDragLeave={(event) => {
+          if (disabled) return;
+          if (event.currentTarget.contains(event.relatedTarget as Node)) return;
+          setIsDragging(false);
+        }}
+        onDrop={(event) => {
+          if (disabled) return;
+          event.preventDefault();
+          setIsDragging(false);
+          handleFiles(event.dataTransfer.files);
+        }}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        onKeyDown={(event) => {
+          if (disabled) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openFilePicker();
+          }
+        }}
+        aria-label={`Upload image for ${cardName?.trim() || "card"}`}
+      >
+        <div className="admin-image-dropzone-thumb">
+          <AdminPrizeCardImage
+            code={cardCode}
+            imageUrl={previewUrl}
+            name={cardName?.trim() || "New prize item"}
+          />
+        </div>
+        <div className="admin-image-dropzone-body">
+          <strong className="admin-image-dropzone-title">
+            {hasPreview ? "Image ready" : "Drop a card image here"}
+          </strong>
+          <p className="admin-image-dropzone-hint">{hint}</p>
+          <div className="admin-image-dropzone-actions">
+            <button
+              type="button"
+              className="admin-image-dropzone-button"
+              onClick={(event) => {
+                event.stopPropagation();
+                openFilePicker();
+              }}
+              disabled={disabled}
+            >
+              {hasPreview ? "Replace file" : "Choose file"}
+            </button>
+            <button
+              type="button"
+              className="admin-image-dropzone-link"
+              onClick={(event) => {
+                event.stopPropagation();
+                setShowManualUrl((value) => !value);
+              }}
+              disabled={disabled}
+            >
+              {showManualUrl ? "Hide URL field" : "Paste URL instead"}
+            </button>
+            {hasPreview && (
+              <button
+                type="button"
+                className="admin-image-dropzone-clear"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onClear();
+                }}
+                disabled={disabled}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {imageFile && (
+            <p className="admin-image-dropzone-file">
+              <span>{imageFile.name}</span>
+              <span aria-hidden="true">·</span>
+              <span>{formatFileSize(imageFile.size)}</span>
+            </p>
+          )}
+          {!imageFile && imageUrl && (
+            <p className="admin-image-dropzone-file">
+              <span>Existing upload</span>
+              <span aria-hidden="true">·</span>
+              <span className="admin-image-dropzone-url">{imageUrl}</span>
+            </p>
+          )}
+        </div>
+        <input
+          ref={inputRef}
+          accept="image/jpeg,image/png,image/webp"
+          className="admin-image-dropzone-input"
+          disabled={disabled}
+          onChange={(event) => handleFiles(event.target.files)}
+          type="file"
+        />
+      </div>
+      {showManualUrl && (
+        <label className="admin-image-dropzone-manual">
+          <span>Manual image URL</span>
+          <input
+            value={manualUrl}
+            onChange={(event) => onManualUrlChange(event.target.value)}
+            placeholder="/test-assets/ynot-test-card-001.svg or https://…"
+            disabled={disabled}
+          />
+          <small>Advanced fallback. Leave blank when you uploaded a file.</small>
+        </label>
+      )}
+    </div>
+  );
+}
+
 function AdminPrizeCardPicker({
   cards,
   value,
@@ -5079,15 +5258,20 @@ export function AdminCardForm({
             placeholder="PSA 10 / PS5 / AirPods Pro"
           />
         </AdminField>
-        <AdminField
-          label="Upload image"
-          hint="JPG, PNG, or WEBP. The system uploads it to Supabase and saves the returned URL."
+        <div
+          className="admin-field admin-image-dropzone-field-wrap"
+          style={{ gridColumn: "span 2" }}
         >
-          <input
-            accept="image/jpeg,image/png,image/webp"
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            onChange={(event) => {
-              const file = event.target.files?.[0] ?? null;
+          <AdminImageDropzone
+            imageUrl={imageUrl}
+            imageFile={imageFile}
+            previewUrl={imagePreviewUrl}
+            manualUrl={imageUrl}
+            cardCode={code}
+            cardName={name}
+            label="Card image"
+            hint="Drag &amp; drop a JPG / PNG / WEBP, or paste a URL. Uploaded to Supabase storage."
+            onFileChange={(file) => {
               setImageFile(file);
               if (file) {
                 setImageStoragePath("");
@@ -5096,36 +5280,20 @@ export function AdminCardForm({
                 replaceImagePreviewUrl(imageUrl.trim());
               }
             }}
-            type="file"
-          />
-        </AdminField>
-        <AdminField
-          label="Manual image URL"
-          hint="Advanced fallback only. Leave blank when uploading a file."
-        >
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={imageUrl}
-            onChange={(event) => {
-              const nextUrl = event.target.value;
-              setImageUrl(nextUrl);
+            onManualUrlChange={(value) => {
+              setImageUrl(value);
               setImageFile(null);
               setImageStoragePath("");
-              replaceImagePreviewUrl(nextUrl.trim());
+              replaceImagePreviewUrl(value.trim());
             }}
-            placeholder="/test-assets/ynot-test-card-001.svg"
+            onClear={() => {
+              setImageFile(null);
+              setImageUrl("");
+              setImageStoragePath("");
+              replaceImagePreviewUrl("");
+            }}
           />
-        </AdminField>
-        {imagePreviewUrl && (
-          <div className="admin-field" style={{ gridColumn: "span 2" }}>
-            <span>Image preview</span>
-            <AdminPrizeCardImage
-              code={code}
-              imageUrl={imagePreviewUrl}
-              name={name || "New prize item"}
-            />
-          </div>
-        )}
+        </div>
         <AdminField label="Prize item mode">
           <button
             className={
@@ -5408,33 +5576,49 @@ export function AdminCardCatalogPanel({
 
   return (
     <section className="admin-panel admin-full-span admin-card-catalog-panel soft-card">
-      <div className="admin-panel-head">
-        <div>
+      <header className="admin-card-catalog-header">
+        <div className="admin-card-catalog-header-titles">
           <p className="section-label">Card catalog</p>
-          <h3 className="title-m">Card inventory catalog</h3>
+          <h3 className="title-m">Unified inventory catalog</h3>
           <p className="admin-muted-line">
-            One place to scan card identity, global stock, and every random pack
-            prize-pool assignment that uses the card.
+            Scan card identity, global stock, and every random-pack assignment
+            in one place.
           </p>
         </div>
-        <span className="status-pill">
-          {visibleRows.length}/{cards.length} cards
-        </span>
-      </div>
+        <div className="admin-card-catalog-header-meta">
+          <span className="admin-card-catalog-count-pill">
+            <strong>{visibleRows.length.toLocaleString()}</strong>
+            <em>/ {cards.length.toLocaleString()}</em>
+            <span>shown</span>
+          </span>
+        </div>
+      </header>
 
       <div className="admin-card-catalog-toolbar">
-        <label className="admin-field">
-          <span>Search catalog</span>
+        <label className="admin-card-catalog-search">
+          <span className="admin-card-catalog-search-icon" aria-hidden="true">
+            ⌕
+          </span>
           <input
             aria-label="Search catalog cards"
             placeholder="Search code, name, grade, category, pack"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
+          {query && (
+            <button
+              type="button"
+              className="admin-card-catalog-search-clear"
+              aria-label="Clear search"
+              onClick={() => setQuery("")}
+            >
+              ×
+            </button>
+          )}
         </label>
-        <div className="admin-card-catalog-summary">
-          <span>Series</span>
-          <div className="filter-chip-row" aria-label="Catalog series filter">
+        <div className="admin-card-catalog-toolbar-group" aria-label="Series filter">
+          <span className="admin-card-catalog-toolbar-label">Series</span>
+          <div className="filter-chip-row">
             {(["all", "Pokemon", "One Piece"] as const).map((filter) => (
               <button
                 className={`filter-chip ${seriesFilter === filter ? "active" : ""}`}
@@ -5446,6 +5630,9 @@ export function AdminCardCatalogPanel({
               </button>
             ))}
           </div>
+        </div>
+        <div className="admin-card-catalog-toolbar-group" aria-label="Sort">
+          <span className="admin-card-catalog-toolbar-label">Sort</span>
           <button
             className={`filter-chip ${sortMode === "az" ? "active" : ""}`}
             onClick={() =>
@@ -5453,16 +5640,22 @@ export function AdminCardCatalogPanel({
             }
             type="button"
           >
-            A-Z
+            A–Z
           </button>
         </div>
-        <div className="admin-card-catalog-summary">
-          <strong>{assignedCount.toLocaleString()}</strong>
-          <span>cards in prize pools</span>
-          <strong>{stockedCount.toLocaleString()}</strong>
-          <span>cards with global stock</span>
-        </div>
       </div>
+
+      <p className="admin-card-catalog-summary-line">
+        <span className="admin-card-catalog-summary-dot admin-card-catalog-summary-dot-mint" aria-hidden="true" />
+        <strong>{assignedCount.toLocaleString()}</strong>
+        <span>in prize pools</span>
+        <span className="admin-card-catalog-summary-sep" aria-hidden="true">
+          •
+        </span>
+        <span className="admin-card-catalog-summary-dot admin-card-catalog-summary-dot-gold" aria-hidden="true" />
+        <strong>{stockedCount.toLocaleString()}</strong>
+        <span>with global stock</span>
+      </p>
 
       <div className="admin-card-catalog-list" data-testid="admin-card-catalog-list">
         {visibleRows.map((row) => {
@@ -5471,28 +5664,49 @@ export function AdminCardCatalogPanel({
             stockDraft?.cardId === card.catalogCardId ? stockDraft : null;
           const stockPending = isPending && pendingCardId === card.catalogCardId;
           return (
-            <article className="admin-card-catalog-row" key={card.catalogCardId}>
-              <AdminPrizeCardImage
-                code={card.code}
-                imageUrl={card.photoUrl}
-                name={card.name}
-              />
-              <div className="admin-card-catalog-main">
-                <strong>{card.name}</strong>
-                <p className="admin-muted-line">
-                  {[card.code ?? "no code", card.grade, prizeCategoryLabel(card.prizeCategory)]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-                <p className="admin-muted-line">
-                  {card.series} · {card.isTest ? "Test item" : "Normal item"}
-                </p>
-                <p className="admin-muted-line">
-                  Updated {formatAdminCatalogDate(card.updatedAt)}
-                </p>
-                <p className="admin-id-line">{card.catalogCardId}</p>
+            <article
+              className={`admin-card-catalog-row${card.isTest ? " is-test" : ""}`}
+              key={card.catalogCardId}
+            >
+              <div className="admin-card-catalog-row-thumb">
+                <AdminPrizeCardImage
+                  code={card.code}
+                  imageUrl={card.photoUrl}
+                  name={card.name}
+                />
               </div>
-              <div className="admin-card-catalog-usage">
+              <div className="admin-card-catalog-body">
+                <header className="admin-card-catalog-row-head">
+                  <div className="admin-card-catalog-row-titles">
+                    <strong className="admin-card-catalog-row-name">
+                      {card.name}
+                    </strong>
+                    <p className="admin-muted-line">
+                      {[
+                        card.code ?? "no code",
+                        card.grade,
+                        prizeCategoryLabel(card.prizeCategory),
+                        card.series,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                  <div className="admin-card-catalog-row-pills">
+                    <span
+                      className={`admin-card-catalog-tag-pill${card.isTest ? " is-test" : ""}`}
+                    >
+                      {card.isTest ? "Test" : "Normal"}
+                    </span>
+                    {row.prizes.length > 0 && (
+                      <span className="admin-card-catalog-tag-pill is-info">
+                        {row.prizes.length.toLocaleString()} pack
+                        {row.prizes.length === 1 ? "" : "s"}
+                      </span>
+                    )}
+                  </div>
+                </header>
+
                 <div className="admin-card-catalog-metrics">
                   <div className="admin-card-catalog-metric">
                     <span>Global stock</span>
@@ -5523,7 +5737,23 @@ export function AdminCardCatalogPanel({
                         : ""}
                     </small>
                   </div>
+                  <div className="admin-card-catalog-metric">
+                    <span>Assignments</span>
+                    <strong>{row.prizes.length.toLocaleString()}</strong>
+                    <small>
+                      {row.prizes.length
+                        ? row.prizes
+                            .slice(0, 2)
+                            .map((prize) => prize.campaignTitle)
+                            .join(", ") +
+                          (row.prizes.length > 2
+                            ? ` +${row.prizes.length - 2} more`
+                            : "")
+                        : "Not in any pack yet"}
+                    </small>
+                  </div>
                 </div>
+
                 <div className="admin-card-stock-actions">
                   {currentStockDraft ? (
                     <div className="admin-stock-confirm">
@@ -5602,30 +5832,32 @@ export function AdminCardCatalogPanel({
                     </div>
                   ) : (
                     <div className="admin-stock-action-row">
-                      <button
-                        className="plain-button"
-                        disabled={isPending}
-                        type="button"
-                        onClick={() => openStockAdjustment(card, row, "add")}
-                      >
-                        Add stock
-                      </button>
-                      <button
-                        className="plain-button"
-                        disabled={isPending || row.stockAvailable <= 0}
-                        type="button"
-                        onClick={() => openStockAdjustment(card, row, "remove")}
-                      >
-                        Remove stock
-                      </button>
-                      <button
-                        className="plain-button"
-                        disabled={isPending}
-                        type="button"
-                        onClick={() => setEditingCard(card)}
-                      >
-                        Edit card
-                      </button>
+                      <div className="admin-stock-action-group">
+                        <button
+                          className="plain-button"
+                          disabled={isPending}
+                          type="button"
+                          onClick={() => openStockAdjustment(card, row, "add")}
+                        >
+                          + Add stock
+                        </button>
+                        <button
+                          className="plain-button"
+                          disabled={isPending || row.stockAvailable <= 0}
+                          type="button"
+                          onClick={() => openStockAdjustment(card, row, "remove")}
+                        >
+                          − Remove stock
+                        </button>
+                        <button
+                          className="plain-button"
+                          disabled={isPending}
+                          type="button"
+                          onClick={() => setEditingCard(card)}
+                        >
+                          Edit card
+                        </button>
+                      </div>
                       <button
                         className="plain-button admin-card-catalog-delete-btn"
                         disabled={isPending || row.prizes.length > 0 || row.stockTotal - row.stockArchived > 0}
@@ -5644,6 +5876,7 @@ export function AdminCardCatalogPanel({
                     </div>
                   )}
                 </div>
+
                 <details
                   className="admin-card-catalog-prize-details"
                   open={row.prizes.length > 0}
@@ -5699,6 +5932,16 @@ export function AdminCardCatalogPanel({
                     </p>
                   )}
                 </details>
+
+                <footer className="admin-card-catalog-row-footer">
+                  <span className="admin-card-catalog-row-footer-meta">
+                    Updated {formatAdminCatalogDate(card.updatedAt)}
+                  </span>
+                  <span className="admin-card-catalog-row-footer-sep" aria-hidden="true">·</span>
+                  <code className="admin-card-catalog-row-footer-id">
+                    {card.catalogCardId}
+                  </code>
+                </footer>
               </div>
             </article>
           );
@@ -5864,13 +6107,21 @@ function AdminCardEditModal({
             <span>Grade</span>
             <input value={grade} onChange={(e) => setGrade(e.target.value)} disabled={pending} />
           </label>
-          <label className="admin-field" style={{ gridColumn: "span 2" }}>
-            <span>Upload image</span>
-            <input
-              accept="image/jpeg,image/png,image/webp"
+          <div
+            className="admin-field admin-image-dropzone-field-wrap"
+            style={{ gridColumn: "span 2" }}
+          >
+            <AdminImageDropzone
+              imageUrl={imageUrl}
+              imageFile={imageFile}
+              previewUrl={imagePreviewUrl}
+              manualUrl={imageUrl}
+              cardCode={code}
+              cardName={name || card.name}
+              label="Card image"
+              hint="Drag &amp; drop a JPG / PNG / WEBP, or paste a URL. Uploaded to Supabase storage."
               disabled={pending}
-              onChange={(e) => {
-                const file = e.target.files?.[0] ?? null;
+              onFileChange={(file) => {
                 setImageFile(file);
                 if (file) {
                   setImageStoragePath("");
@@ -5879,33 +6130,20 @@ function AdminCardEditModal({
                   replaceImagePreviewUrl(imageUrl.trim());
                 }
               }}
-              type="file"
-            />
-          </label>
-          <label className="admin-field" style={{ gridColumn: "span 2" }}>
-            <span>Manual image URL</span>
-            <input
-              value={imageUrl}
-              onChange={(e) => {
-                const nextUrl = e.target.value;
-                setImageUrl(nextUrl);
+              onManualUrlChange={(value) => {
+                setImageUrl(value);
                 setImageFile(null);
                 setImageStoragePath("");
-                replaceImagePreviewUrl(nextUrl.trim());
+                replaceImagePreviewUrl(value.trim());
               }}
-              disabled={pending}
+              onClear={() => {
+                setImageFile(null);
+                setImageUrl("");
+                setImageStoragePath("");
+                replaceImagePreviewUrl("");
+              }}
             />
-          </label>
-          {imagePreviewUrl && (
-            <div className="admin-field" style={{ gridColumn: "span 2" }}>
-              <span>Image preview</span>
-              <AdminPrizeCardImage
-                code={code}
-                imageUrl={imagePreviewUrl}
-                name={name || card.name}
-              />
-            </div>
-          )}
+          </div>
           <label className="admin-field" style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8 }}>
             <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} disabled={pending} />
             <span>Test-only card (hidden from public catalog)</span>
