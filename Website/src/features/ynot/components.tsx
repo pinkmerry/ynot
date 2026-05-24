@@ -1091,7 +1091,7 @@ function SeriesEssentialsSection() {
 function MobileTorecaHero({ campaign }: { campaign?: YnotCampaign }) {
   const openHref = campaign
     ? `/gacha/${campaign.slug}`
-    : "/local-readiness";
+    : "/packs";
   return (
     <section className="toreca-mobile-hero" aria-label="YNot mobile hero">
       <div className="hero-card-fan" aria-hidden>
@@ -1109,8 +1109,8 @@ function MobileTorecaHero({ campaign }: { campaign?: YnotCampaign }) {
           <span className="i18n-th">WHY NOT OPEN?</span>
         </p>
         <Link className="hero-rip-button" href={openHref}>
-          <span className="i18n-en">{campaign ? "View Y-Pack" : "View Readiness"}</span>
-          <span className="i18n-th">{campaign ? "ดู Y-Pack" : "ดูสถานะ"}</span>
+          <span className="i18n-en">View Y-Pack</span>
+          <span className="i18n-th">ดู Y-Pack</span>
         </Link>
       </div>
     </section>

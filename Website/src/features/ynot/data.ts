@@ -2142,6 +2142,29 @@ export async function getPlatformHealth(
 
 const DEFAULT_WALLET = { balanceCoins: 0, version: 0 } as const;
 
+export async function getYnotPublicHomeData(): Promise<YnotDashboardData> {
+  // Keep the public homepage below Cloudflare Worker limits: no viewer, admin,
+  // wallet, campaign, inventory, or account-specific reads during "/" render.
+  return {
+    configured: isSupabaseConfigured(),
+    viewer: defaultViewer,
+    campaigns: [],
+    categories: [],
+    paymentMethods: [],
+    wallet: { ...DEFAULT_WALLET },
+    topUps: [],
+    gachaOpens: [],
+    collection: [],
+    exchanges: [],
+    shipping: [],
+    addresses: [],
+    rankings: [],
+    adminTopUps: [],
+    ownerApprovalRequests: [],
+    dataIssues: [],
+  };
+}
+
 export type YnotDashboardSelector = {
   campaigns?: boolean;
   campaignVisibility?: "public" | "admin";

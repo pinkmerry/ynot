@@ -154,6 +154,23 @@ check(
   ),
 );
 
+const homePage = read("src/app/page.tsx");
+check(
+  "homepage uses public-only data loader",
+  /getYnotPublicHomeData/.test(homePage) && !/getYnotDashboardSlice/.test(homePage),
+);
+
+const publicHomeDataMatch = campaignData.match(
+  /export async function getYnotPublicHomeData\(\): Promise<YnotDashboardData> \{[\s\S]*?\n\}/,
+);
+check(
+  "public homepage data loader avoids auth, admin, wallet, and campaign reads",
+  Boolean(publicHomeDataMatch) &&
+    !/getYnotViewer|resolveCurrentProfile|resolveAdminSession|getWallet|getOwnerApprovalRequests|getCampaigns/.test(
+      publicHomeDataMatch?.[0] ?? "",
+    ),
+);
+
 const devVarsExample = read(".dev.vars.example");
 for (const key of [
   "RATE_LIMIT_BACKEND=supabase",
