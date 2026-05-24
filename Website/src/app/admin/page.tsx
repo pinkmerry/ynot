@@ -97,7 +97,7 @@ export default async function AdminPage() {
             <span className="text-mute" style={{ fontSize: 11 }}>
               Auto-refresh on
             </span>
-            <Link href="/admin/campaigns" className="btn btn-primary">
+            <Link href="/admin/campaigns" className="btn btn-primary" prefetch={false}>
               <AdminIcon name="plus" />
               New random pack
             </Link>
@@ -150,7 +150,7 @@ export default async function AdminPage() {
                     <span className="t">Draft · {draftCampaigns.length}</span>
                     <span className="t">Closed · {closedCampaigns.length}</span>
                   </div>
-                  <Link href="/admin/campaigns" className="btn btn-sm">
+                  <Link href="/admin/campaigns" className="btn btn-sm" prefetch={false}>
                     <AdminIcon name="filter" size={12} />
                     Filter
                   </Link>
@@ -222,6 +222,7 @@ export default async function AdminPage() {
                         <Link
                           href={`/admin/campaigns/${c.id}/edit`}
                           className="btn btn-sm btn-ghost"
+                          prefetch={false}
                           aria-label="More"
                         >
                           <AdminIcon name="chev-r" size={12} />
@@ -246,7 +247,7 @@ export default async function AdminPage() {
               label="Action required"
               title={`Queue · ${pendingTopUps.length + shippingActive.length + exchangeReady.length + data.ownerApprovalRequests.length} items`}
               actions={
-                <Link href="/admin/top-ups" className="btn btn-sm">
+                <Link href="/admin/top-ups" className="btn btn-sm" prefetch={false}>
                   Open all
                 </Link>
               }
@@ -273,7 +274,7 @@ export default async function AdminPage() {
                     across {pendingTopUps.length} slips
                   </div>
                 </div>
-                <Link href="/admin/top-ups" className="btn btn-sm">
+                <Link href="/admin/top-ups" className="btn btn-sm" prefetch={false}>
                   Review
                 </Link>
               </div>
@@ -297,7 +298,7 @@ export default async function AdminPage() {
                     packing
                   </div>
                 </div>
-                <Link href="/admin/shipping" className="btn btn-sm">
+                <Link href="/admin/shipping" className="btn btn-sm" prefetch={false}>
                   Open queue
                 </Link>
               </div>
@@ -321,7 +322,7 @@ export default async function AdminPage() {
                       "Nothing waiting"}
                   </div>
                 </div>
-                <Link href="/admin/campaigns" className="btn btn-sm">
+                <Link href="/admin/campaigns" className="btn btn-sm" prefetch={false}>
                   Review
                 </Link>
               </div>
@@ -347,7 +348,7 @@ export default async function AdminPage() {
                     coin value · approve &amp; credit
                   </div>
                 </div>
-                <Link href="/admin/exchange" className="btn btn-sm">
+                <Link href="/admin/exchange" className="btn btn-sm" prefetch={false}>
                   Open
                 </Link>
               </div>
@@ -369,7 +370,7 @@ export default async function AdminPage() {
                     Open diagnostics only when needed to keep dashboard fast.
                   </div>
                 </div>
-                <Link href="/admin/health" className="btn btn-sm">
+                <Link href="/admin/health" className="btn btn-sm" prefetch={false}>
                   Open health
                 </Link>
               </div>
@@ -383,7 +384,7 @@ export default async function AdminPage() {
               label="Health"
               title="On-demand checks"
               actions={
-                <Link href="/admin/health" className="btn btn-sm">
+                <Link href="/admin/health" className="btn btn-sm" prefetch={false}>
                   Open health
                 </Link>
               }
@@ -417,7 +418,7 @@ export default async function AdminPage() {
               label="Owner approval"
               title={`${data.ownerApprovalRequests.length} drafts`}
               actions={
-                <Link href="/admin/campaigns" className="btn btn-sm">
+                <Link href="/admin/campaigns" className="btn btn-sm" prefetch={false}>
                   Open queue →
                 </Link>
               }

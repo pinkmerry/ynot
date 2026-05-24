@@ -521,6 +521,17 @@ export function GachaOpenPanel({
     campaign.availablePrizeUnits ?? Number.POSITIVE_INFINITY,
   );
   const selectedCost = campaign.costCoins * quantity;
+  const openBlocker =
+    campaign.readinessBlockers?.[0] ??
+    (campaign.status !== "live"
+      ? "This pack is not live yet. Publish it before opening."
+      : campaign.visibility !== "public"
+        ? "This pack is private. Publish it as public before opening."
+        : campaign.approvalStatus !== "approved"
+          ? "Owner approval is required before opening."
+          : campaign.soldOut
+            ? "This pack is sold out or out of prize inventory."
+            : "This pack is waiting for prize inventory, owner approval, or remaining stock before customers can pull.");
 
   function quantityDisabled(option: number) {
     return Number.isFinite(remainingOpenUnits) && option > remainingOpenUnits;
@@ -592,11 +603,10 @@ export function GachaOpenPanel({
         </div>
         <h3>{campaign.titleEn}</h3>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          This pack is waiting for prize inventory, owner approval, or remaining
-          stock before customers can pull.
+          {openBlocker}
         </p>
-        <a className="primary-action open-start mt-4" href="/wallet">
-          Top up wallet
+        <a className="primary-action open-start mt-4" href="/packs">
+          Back to packs
         </a>
         <a className="open-cancel" href={`/gacha/${campaign.slug}`}>
           [ CANCEL ]
@@ -3978,30 +3988,53 @@ export function AdminOwnerReview({
     }));
   }
 
-  function sendAction(action: "save_logic" | "approve" | "reject" | "request_changes") {
+  type OwnerReviewAction =
+    | "save_logic"
+    | "approve"
+    | "reject"
+    | "request_changes"
+    | "publish";
+
+  function ownerReviewLifecyclePayload(action: OwnerReviewAction) {
+    return {
+      campaignId: campaign.id,
+      action,
+      logicMode,
+      note: notes,
+      overrides: {
+        byCard: cardEdits,
+        guarantees,
+      },
+      guarantees,
+    };
+  }
+
+  async function postOwnerReviewAction(action: OwnerReviewAction) {
+    return requestJson(
+      "/api/ynot/admin/campaigns/lifecycle",
+      ownerReviewLifecyclePayload(action),
+      "POST",
+    );
+  }
+
+  function sendAction(action: OwnerReviewAction | "approve_and_publish") {
     setMessage("");
     startTransition(async () => {
       try {
-        await requestJson(
-          "/api/ynot/admin/campaigns/lifecycle",
-          {
-            campaignId: campaign.id,
-            action,
-            logicMode,
-            note: notes,
-            overrides: {
-              byCard: cardEdits,
-              guarantees,
-            },
-            guarantees,
-          },
-          "POST",
-        );
-        const successMessages: Record<typeof action, string> = {
+        if (action === "approve_and_publish") {
+          await postOwnerReviewAction("approve");
+          setMessage("Approved. Use Publish live after the page refreshes.");
+          router.refresh();
+          return;
+        }
+
+        await postOwnerReviewAction(action);
+        const successMessages: Record<OwnerReviewAction, string> = {
           save_logic: "Overrides saved.",
-          approve: "Approved — diff frozen as the new published baseline.",
+          approve: "Approved. Use Publish live after the page refreshes.",
           reject: "Rejected — pack stays held from publish.",
           request_changes: "Returned to admin with notes.",
+          publish: "Published live/public.",
         };
         setMessage(successMessages[action]);
         if (action !== "save_logic") {
@@ -4019,6 +4052,9 @@ export function AdminOwnerReview({
     campaign.approvalStatus ??
     (approvalRequest?.approvalStatus as YnotApprovalStatus | undefined) ??
     "not_submitted";
+  const alreadyApproved = pendingStatus === "approved";
+  const alreadyPublished =
+    campaign.status === "live" && campaign.visibility === "public";
 
   const headerActions = (
     <>
@@ -4059,11 +4095,17 @@ export function AdminOwnerReview({
       <button
         type="button"
         className="btn btn-primary"
-        disabled={isPending}
-        onClick={() => sendAction("approve")}
+        disabled={isPending || alreadyPublished}
+        onClick={() =>
+          sendAction(alreadyApproved ? "publish" : "approve_and_publish")
+        }
       >
         <AdminIcon name="check" size={12} />
-        Approve &amp; publish
+        {alreadyPublished
+          ? "Published"
+          : alreadyApproved
+            ? "Publish live"
+            : "Approve inventory"}
       </button>
     </>
   );
@@ -7561,6 +7603,44 @@ export function AdminCampaignTable({
     }
   }
 
+  async function publishApprovedCampaign(campaign: YnotCampaign) {
+    if (
+      campaign.status !== "draft" ||
+      campaign.approvalStatus !== "approved"
+    ) {
+      return;
+    }
+
+    setPending(campaign.id);
+    setError(null);
+    try {
+      const response = await fetch("/api/ynot/admin/campaigns/lifecycle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          campaignId: campaign.id,
+          action: "publish",
+        }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { blockers?: string[]; error?: string; message?: string }
+          | null;
+        throw new Error(
+          payload?.blockers?.[0] ||
+            payload?.message ||
+            payload?.error ||
+            "Publish failed",
+        );
+      }
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Publish failed");
+    } finally {
+      setPending(null);
+    }
+  }
+
   async function runDelete(targets: YnotCampaign[]) {
     if (!targets.length) return;
     setError(null);
@@ -7769,34 +7849,41 @@ export function AdminCampaignTable({
                         >
                           Edit all
                         </a>
-                        <button
-                          type="button"
-                          className="admin-pack-table-action admin-pack-table-action-review"
-                          onClick={() => submitForOwnerReview(campaign)}
-                          disabled={
-                            isPending ||
-                            pending !== null ||
-                            alreadySubmitted ||
-                            alreadyApproved ||
-                            Boolean(reviewBlocker)
-                          }
-                          title={
-                            alreadySubmitted
-                              ? "Pack is already waiting for owner review."
-                              : alreadyApproved
-                                ? "Pack is already approved."
+                        {alreadyApproved ? (
+                          <button
+                            type="button"
+                            className="admin-pack-table-action admin-pack-table-action-review"
+                            onClick={() => publishApprovedCampaign(campaign)}
+                            disabled={isPending || pending !== null}
+                            title="Publish this approved draft as live/public"
+                          >
+                            {isPending ? "…" : "Publish live"}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="admin-pack-table-action admin-pack-table-action-review"
+                            onClick={() => submitForOwnerReview(campaign)}
+                            disabled={
+                              isPending ||
+                              pending !== null ||
+                              alreadySubmitted ||
+                              Boolean(reviewBlocker)
+                            }
+                            title={
+                              alreadySubmitted
+                                ? "Pack is already waiting for owner review."
                                 : reviewBlocker ||
                                   "Send this draft to owner review"
-                          }
-                        >
-                          {isPending
-                            ? "…"
-                            : alreadySubmitted
-                              ? "In review"
-                              : alreadyApproved
-                                ? "Approved"
+                            }
+                          >
+                            {isPending
+                              ? "…"
+                              : alreadySubmitted
+                                ? "In review"
                                 : "Submit owner review"}
-                        </button>
+                          </button>
+                        )}
                       </>
                     )}
                     {campaign.status !== "archived" && (

@@ -503,7 +503,7 @@ function YnotFooter() {
               </span>
             </li>
             <li className="ynot-footer-item">
-              <Link href="/contact" className="ynot-footer-link">
+              <Link href="/contact" className="ynot-footer-link" prefetch={false}>
                 <span className="i18n-en">Contact</span>
                 <span className="i18n-th">ติดต่อเรา</span>
               </Link>
@@ -2055,7 +2055,7 @@ function AdminRouteLink({
   children: ReactNode;
 }) {
   return (
-    <Link className={className} href={href}>
+    <Link className={className} href={href} prefetch={false}>
       {children}
     </Link>
   );
@@ -2084,7 +2084,7 @@ export function AdminNav({ activeHref }: { activeHref: string }) {
           </AdminRouteLink>
         ))}
       </div>
-      <Link className="admin-storefront-link" href="/">
+      <Link className="admin-storefront-link" href="/" prefetch={false}>
         Back to storefront →
       </Link>
     </aside>

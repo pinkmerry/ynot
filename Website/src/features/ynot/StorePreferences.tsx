@@ -530,6 +530,7 @@ export function StoreHeaderNav({
             <Link
               className={`store-nav-link${active ? " active" : ""}`}
               href={protectedHref(item.href, authenticated, item.protected)}
+              prefetch={false}
               aria-controls={mega ? megaId : undefined}
               aria-current={active ? "page" : undefined}
               aria-expanded={mega ? isMegaOpen : undefined}
@@ -543,6 +544,7 @@ export function StoreHeaderNav({
                     <Link
                       className="ynot-mega-link"
                       href={link.href}
+                      prefetch={false}
                       key={`${item.key}-${link.href}`}
                     >
                       {link.label}
@@ -554,6 +556,7 @@ export function StoreHeaderNav({
                     <Link
                       className="ynot-mega-card"
                       href={feature.href}
+                      prefetch={false}
                       key={`${item.key}-${feature.href}-${feature.title}`}
                     >
                       <Image
@@ -600,6 +603,7 @@ export function StoreBrandHomeLink() {
       href="/"
       className="brand-lockup"
       aria-label="YNOT home"
+      prefetch={false}
       onClick={handleClick}
     >
       <Image
@@ -843,6 +847,7 @@ export function StoreAdminLink({
     <Link
       className="store-nav-link store-nav-link--right store-admin-link"
       href="/admin"
+      prefetch={false}
     >
       {navLabels[preferences.language].admin}
     </Link>
@@ -882,6 +887,7 @@ export function StoreHeaderRightNav({
       <Link
         className="store-nav-link store-nav-link--right"
         href="/login"
+        prefetch={false}
         aria-current={undefined}
       >
         {copy.login}
@@ -947,6 +953,7 @@ export function StoreHeaderRightNav({
           <Link
             className="store-profile-edit"
             href="/profile"
+            prefetch={false}
             onClick={() => setProfileOpen(false)}
           >
             {account.edit}
@@ -958,6 +965,7 @@ export function StoreHeaderRightNav({
           <Link
             className="store-profile-balance-row"
             href="/wallet"
+            prefetch={false}
             onClick={() => setProfileOpen(false)}
           >
             <span>{account.coins}</span>
@@ -966,6 +974,7 @@ export function StoreHeaderRightNav({
           <Link
             className="store-profile-cta"
             href="/wallet"
+            prefetch={false}
             onClick={() => setProfileOpen(false)}
           >
             {account.buyCoins}
@@ -979,6 +988,7 @@ export function StoreHeaderRightNav({
               <Link
                 className="store-profile-link"
                 href="/wallet"
+                prefetch={false}
                 onClick={() => setProfileOpen(false)}
               >
                 {navLabels[preferences.language].wallet}
@@ -988,6 +998,7 @@ export function StoreHeaderRightNav({
               <Link
                 className="store-profile-link"
                 href="/profile/personal-info"
+                prefetch={false}
                 onClick={() => setProfileOpen(false)}
               >
                 {navLabels[preferences.language].personalInfo}
@@ -997,6 +1008,7 @@ export function StoreHeaderRightNav({
               <Link
                 className="store-profile-link"
                 href="/collection"
+                prefetch={false}
                 onClick={() => setProfileOpen(false)}
               >
                 {account.cardHistory}
@@ -1006,6 +1018,7 @@ export function StoreHeaderRightNav({
               <Link
                 className="store-profile-link"
                 href="/notifications"
+                prefetch={false}
                 onClick={() => setProfileOpen(false)}
               >
                 {account.notifications}
@@ -1267,6 +1280,7 @@ export function StoreSettingsMenu({
                           authenticated,
                           item.protected,
                         )}
+                        prefetch={false}
                         onClick={closeAfter()}
                       >
                         {navStrings[item.key]}
@@ -1284,6 +1298,7 @@ export function StoreSettingsMenu({
                   <Link
                     className="store-drawer-bottom-link"
                     href="/admin"
+                    prefetch={false}
                     onClick={closeAfter()}
                   >
                     {copy.admin}
@@ -1303,6 +1318,7 @@ export function StoreSettingsMenu({
                 <Link
                   className="store-drawer-bottom-link"
                   href="/signup"
+                  prefetch={false}
                   onClick={closeAfter()}
                 >
                   {copy.signUp}
@@ -1310,6 +1326,7 @@ export function StoreSettingsMenu({
                 <Link
                   className="store-drawer-bottom-link"
                   href="/login"
+                  prefetch={false}
                   onClick={closeAfter()}
                 >
                   {copy.login}
@@ -1380,6 +1397,7 @@ export function StoreSettingsMenu({
                       <Link
                         className="store-drawer-link"
                         href={link.href}
+                        prefetch={false}
                         onClick={closeAfter()}
                       >
                         {link.label}
@@ -1398,6 +1416,7 @@ export function StoreSettingsMenu({
                     key={feature.href}
                     className="store-drawer-feature-card"
                     href={feature.href}
+                    prefetch={false}
                     onClick={closeAfter()}
                   >
                     <span className="store-drawer-feature-image-wrap">

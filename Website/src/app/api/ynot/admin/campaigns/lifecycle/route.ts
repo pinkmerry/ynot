@@ -11,10 +11,6 @@ import {
 import type { Json } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import {
-  getCampaignPrizeReadiness,
-  readinessErrorResponse,
-} from "@/features/ynot/prize-readiness";
-import {
   adminErrorResponse,
   campaignLifecycleErrorMap,
   mappedAdminErrorResponse,
@@ -242,6 +238,44 @@ function releaseReason(action: LifecycleAction) {
   return "released";
 }
 
+function lifecycleResult(input: {
+  campaignId: string;
+  action: LifecycleAction;
+  note: string;
+  logicMode: RandomLogicMode;
+  updated: {
+    approval_status: string | null;
+    status: string;
+    visibility: string;
+  };
+  message?: string;
+}) {
+  return Response.json({
+    ok: true,
+    campaignId: input.campaignId,
+    action: input.action,
+    note: input.note || null,
+    mock: false,
+    approvalStatus: input.updated.approval_status,
+    status: input.updated.status,
+    visibility: input.updated.visibility,
+    logicMode: input.logicMode,
+    message:
+      input.message ?? realLifecycleMessage(input.action, input.logicMode),
+  });
+}
+
+function safeRevalidateCampaigns() {
+  try {
+    revalidateTag("campaigns", "max");
+  } catch (error) {
+    console.warn(
+      "ynot_campaign_revalidate_failed",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
     return adminErrorResponse(
@@ -388,9 +422,30 @@ export async function POST(request: Request) {
       409,
     );
   }
-  if (action === "submit_review" || action === "approve" || action === "publish") {
-    const readiness = await getCampaignPrizeReadiness(supabase, campaignId);
-    if (!readiness.ready) return readinessErrorResponse(readiness);
+
+  if (action === "approve" && current.approval_status === "approved") {
+    return lifecycleResult({
+      campaignId,
+      action,
+      note,
+      logicMode,
+      updated: current,
+      message: "Pack is already approved. Publish it to make it live/public.",
+    });
+  }
+  if (
+    action === "publish" &&
+    current.status === "live" &&
+    current.visibility === "public"
+  ) {
+    return lifecycleResult({
+      campaignId,
+      action,
+      note,
+      logicMode: logicModeFromSnapshot(current.logic_snapshot) ?? logicMode,
+      updated: current,
+      message: "Pack is already published live/public.",
+    });
   }
 
   const now = new Date().toISOString();
@@ -555,24 +610,22 @@ export async function POST(request: Request) {
     });
   }
 
-  await supabase.from("audit_events").insert({
+  const { error: auditError } = await supabase.from("audit_events").insert({
     actor_admin_id: admin.adminId,
     event_type: `campaign_${action}`,
     draw_round_id: campaignId,
     metadata: { action, logicMode: responseLogicMode, note: note || null },
   });
-  revalidateTag("campaigns", "max");
+  if (auditError) {
+    console.warn("ynot_campaign_audit_insert_failed", auditError.message);
+  }
+  safeRevalidateCampaigns();
 
-  return Response.json({
-    ok: true,
+  return lifecycleResult({
     campaignId,
     action,
-    note: note || null,
-    mock: false,
-    approvalStatus: updated.approval_status,
-    status: updated.status,
-    visibility: updated.visibility,
+    note,
+    updated,
     logicMode: responseLogicMode,
-    message: realLifecycleMessage(action, responseLogicMode),
   });
 }
