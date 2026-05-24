@@ -19,7 +19,7 @@ export default async function HomePage({
     campaignVisibility: "public",
     campaignLimit: 24,
     campaignReadiness: false,
-    wallet: true,
+    wallet: false,
   });
   return (
     <YnotShell

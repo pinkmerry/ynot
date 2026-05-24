@@ -146,6 +146,14 @@ check(
   ),
 );
 
+const supabaseProxy = read("src/lib/supabase/proxy.ts");
+check(
+  "anonymous middleware requests skip Supabase auth refresh",
+  /if \(!hasSupabaseAuthCookie\(request\)\) return supabaseResponse;/.test(
+    supabaseProxy,
+  ),
+);
+
 const devVarsExample = read(".dev.vars.example");
 for (const key of [
   "RATE_LIMIT_BACKEND=supabase",
