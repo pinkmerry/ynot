@@ -2204,11 +2204,14 @@ export async function getPlatformHealth(
 const DEFAULT_WALLET = { balanceCoins: 0, version: 0 } as const;
 
 export async function getYnotPublicHomeData(): Promise<YnotDashboardData> {
-  // Keep the public homepage below Cloudflare Worker limits: no viewer, admin,
-  // wallet, campaign, inventory, or account-specific reads during "/" render.
+  // Keep the public homepage below Cloudflare Worker limits: no wallet,
+  // campaign, inventory, or collection reads during "/" render. Viewer
+  // resolution is still needed so the shared header reflects Supabase and LINE
+  // login state consistently with every other page.
+  const viewer = await getYnotViewer();
   return {
     configured: isSupabaseConfigured(),
-    viewer: defaultViewer,
+    viewer,
     campaigns: [],
     categories: [],
     paymentMethods: [],
