@@ -1,5 +1,9 @@
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { createSessionCookieValue, luckyDrawSessionCookie } from "@/lib/lucky-draw/session";
+import {
+  createSessionCookieValue,
+  fetchSessionVersion,
+  luckyDrawSessionCookie,
+} from "@/lib/lucky-draw/session";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { linkLineIdentity } from "@/lib/line/link-identity";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
@@ -175,12 +179,14 @@ export async function POST(request: Request) {
     return Response.json({ error: "LINE profile could not be checked for admin access." }, { status: 500 });
   }
 
+  const sessionVersion = await fetchSessionVersion(linked.profileId);
   const sessionCookie = createSessionCookieValue({
     profileId: linked.profileId,
     lineUserId: linked.lineUserId,
     displayName: linked.displayName,
     adminId: adminUser?.id,
     adminRole: adminUser?.role,
+    sessionVersion,
   });
 
   if (!sessionCookie) {

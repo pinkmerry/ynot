@@ -1,7 +1,10 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { readSessionCookie } from "@/lib/lucky-draw/session";
+import {
+  readSessionCookie,
+  isSessionVersionCurrent,
+} from "@/lib/lucky-draw/session";
 import { createServiceSupabaseClient, createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureProfileForUser } from "./profile";
 
@@ -81,6 +84,14 @@ export async function resolveCurrentProfile(): Promise<ResolvedProfileSession | 
 
   const lineSession = readSessionCookie(cookieStore);
   if (!lineSession?.profileId) return null;
+
+  // M2: reject the cookie if its sessionVersion doesn't match the profile's
+  // current version. Legacy cookies (no sessionVersion field) pass through
+  // until natural expiry. The check is sourced from a server-side RPC so a
+  // stolen cookie cannot be replayed once an admin has revoked the profile's
+  // sessions.
+  const versionOk = await isSessionVersionCurrent(lineSession);
+  if (!versionOk) return null;
 
   return {
     profileId: lineSession.profileId,
