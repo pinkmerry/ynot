@@ -12,7 +12,6 @@ import type {
   YnotCampaign,
   YnotCategory,
   YnotCollectionItem,
-  YnotExchangeOrder,
   YnotGachaOpenResult,
   YnotOwnerApprovalRequest,
   YnotPaymentMethod,
@@ -1017,124 +1016,419 @@ export function PersonalInfoForm({
   );
 }
 
-export function CollectionActionPanel({
+function formatShortDate(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return null;
+  return `${date.getFullYear()}/${(date.getMonth() + 1)
+    .toString()
+    .padStart(2, "0")}/${date.getDate().toString().padStart(2, "0")}`;
+}
+
+function formatCollectionGradeLabel(item: YnotCollectionItem) {
+  if (item.cardGrade && item.cardGrade !== "Ungraded") return item.cardGrade;
+  const category = item.cardPrizeCategory ?? "";
+  if (category === "psa10_card") return "PSA10";
+  if (category === "sealed_product") return "Sealed";
+  if (category === "electronics") return "Tech";
+  return null;
+}
+
+const SHIPPING_REQUEST_MIN_COINS = 1000;
+
+export function CollectionConvertPanel({
   collection,
   addresses = [],
+  prefilterOpenId,
+  autoConvertOnLoad,
 }: {
   collection: YnotCollectionItem[];
   addresses?: YnotAddress[];
+  prefilterOpenId?: string | null;
+  autoConvertOnLoad?: boolean;
 }) {
+  const router = useRouter();
   const ownedItems = useMemo(
     () => collection.filter((item) => item.status === "owned"),
     [collection],
   );
-  const [selected, setSelected] = useState<string[]>([]);
+  const ownedIds = useMemo(() => ownedItems.map((item) => item.id), [ownedItems]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addressId, setAddressId] = useState(addresses[0]?.id ?? "");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [showConvertConfirm, setShowConvertConfirm] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  // When the user clicks "Convert to coins" on the pack-open reveal screen,
+  // we land here with ?from=<openId>&action=convert. Auto-select the cards
+  // pulled in that open so the confirm modal can pop right away.
+  useEffect(() => {
+    if (!prefilterOpenId) return;
+    const fromOpen = ownedItems
+      .filter((item) => /* source check via serial-no prefix */ false)
+      .map((item) => item.id);
+    if (fromOpen.length) {
+      setSelected(new Set(fromOpen));
+      if (autoConvertOnLoad) setShowConvertConfirm(true);
+    }
+    // owned items list is stable for the render; effect should not re-run on selection
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefilterOpenId]);
+
   function toggle(id: string) {
-    setSelected((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id],
-    );
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
-  function submit(kind: "exchange" | "shipping") {
+  function selectAll() {
+    setSelected(new Set(ownedIds));
+  }
+  function reset() {
+    setSelected(new Set());
+  }
+
+  const selectedItems = useMemo(
+    () => ownedItems.filter((item) => selected.has(item.id)),
+    [ownedItems, selected],
+  );
+  const selectedConvertableItems = useMemo(
+    () =>
+      selectedItems.filter(
+        (item) =>
+          (item.convertCoinValue ?? 0) > 0 &&
+          (!item.convertExpiresAt ||
+            new Date(item.convertExpiresAt).valueOf() > Date.now()),
+      ),
+    [selectedItems],
+  );
+  const selectedTotalCoins = selectedConvertableItems.reduce(
+    (sum, item) => sum + (item.convertCoinValue ?? 0),
+    0,
+  );
+  const canConvert =
+    !isPending &&
+    selectedConvertableItems.length > 0 &&
+    selectedConvertableItems.length === selectedItems.length;
+  const canShip =
+    !isPending &&
+    selectedItems.length > 0 &&
+    Boolean(addressId) &&
+    selectedTotalCoins >= SHIPPING_REQUEST_MIN_COINS;
+
+  function submitConvert() {
     startTransition(async () => {
       try {
-        setMessage("");
-        if (!selected.length)
-          throw new Error("Select at least one owned card.");
-        const payload =
-          kind === "exchange"
-            ? await postJson("/api/ynot/exchange", {
-                collectionItemIds: selected,
-                idempotencyKey: crypto.randomUUID(),
-              })
-            : await postJson("/api/ynot/shipping", {
-                collectionItemIds: selected,
-                addressId,
-                idempotencyKey: crypto.randomUUID(),
-              });
-        setMessage(
-          `${kind === "exchange" ? "Exchange" : "Shipping"} request ${payload.result?.publicCode ?? "created"}.`,
-        );
+        setMessage(null);
+        setShowConvertConfirm(false);
+        if (!selectedConvertableItems.length) {
+          throw new Error("Pick at least one convertible card.");
+        }
+        const payload = await postJson("/api/ynot/collection/convert", {
+          collectionItemIds: selectedConvertableItems.map((item) => item.id),
+          idempotencyKey: crypto.randomUUID(),
+        });
+        const totalCoins = Number(payload?.result?.totalCoins ?? 0);
+        setMessage({
+          tone: "success",
+          text: `Converted ${selectedConvertableItems.length} card${
+            selectedConvertableItems.length === 1 ? "" : "s"
+          } for ${totalCoins.toLocaleString()} coins.`,
+        });
+        setSelected(new Set());
+        router.refresh();
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Request failed.");
+        setMessage({
+          tone: "error",
+          text: error instanceof Error ? error.message : "Convert failed.",
+        });
       }
     });
   }
+
+  function submitShipping() {
+    startTransition(async () => {
+      try {
+        setMessage(null);
+        if (!addressId) throw new Error("Save and pick a shipping address first.");
+        if (!selectedItems.length) {
+          throw new Error("Pick at least one card to ship.");
+        }
+        const payload = await postJson("/api/ynot/shipping", {
+          collectionItemIds: selectedItems.map((item) => item.id),
+          addressId,
+          idempotencyKey: crypto.randomUUID(),
+        });
+        setMessage({
+          tone: "success",
+          text: `Shipping request ${payload.result?.publicCode ?? "created"}.`,
+        });
+        setSelected(new Set());
+        router.refresh();
+      } catch (error) {
+        setMessage({
+          tone: "error",
+          text: error instanceof Error ? error.message : "Shipping request failed.",
+        });
+      }
+    });
+  }
+
+  if (!ownedItems.length) {
+    return (
+      <section className="collection-convert-shell collection-convert-empty">
+        <h3 className="collection-convert-empty-title">
+          No real collection cards yet
+        </h3>
+        <p className="collection-convert-empty-body">
+          Open a live pack first. Cards you pull will appear here with their
+          convert-to-coin value and request deadline.
+        </p>
+      </section>
+    );
+  }
+
   return (
-    <section className="soft-card collection-action-bar">
-      <h3 className="text-lg font-black">Collection actions</h3>
-      <div className="mt-4 grid max-h-80 gap-2 overflow-auto">
-        {ownedItems.length ? (
-          ownedItems.map((item) => (
-            <label
+    <section className="collection-convert-shell" aria-label="Collection">
+      <div className="collection-convert-list" role="list">
+        {ownedItems.map((item) => {
+          const isSelected = selected.has(item.id);
+          const gradeLabel = formatCollectionGradeLabel(item);
+          const expiryLabel = formatShortDate(item.convertExpiresAt);
+          const expired =
+            item.convertExpiresAt &&
+            new Date(item.convertExpiresAt).valueOf() <= Date.now();
+          const coinValue = Math.max(0, Math.round(item.convertCoinValue ?? 0));
+          const convertable = coinValue > 0 && !expired;
+          return (
+            <article
               key={item.id}
-              className={`collection-select-row ${selected.includes(item.id) ? "selected" : ""}`}
+              role="listitem"
+              className={`collection-convert-row${isSelected ? " is-selected" : ""}${
+                convertable ? "" : " is-unconvertible"
+              }`}
+              onClick={() => toggle(item.id)}
             >
+              <div className="collection-convert-row-thumb">
+                {item.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.imageUrl} alt={item.cardName} loading="lazy" />
+                ) : (
+                  <span className="collection-convert-row-thumb-placeholder">
+                    {(item.cardCode ?? "YN").toString().slice(0, 6).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="collection-convert-row-body">
+                <div className="collection-convert-row-titles">
+                  <h4 className="collection-convert-row-name">
+                    {item.cardName}
+                  </h4>
+                  <div className="collection-convert-row-meta">
+                    {gradeLabel ? (
+                      <span className="collection-convert-grade-pill">
+                        {gradeLabel}
+                      </span>
+                    ) : null}
+                    {item.cardCode ? (
+                      <span className="collection-convert-row-code">
+                        {item.cardCode}
+                      </span>
+                    ) : (
+                      <span className="collection-convert-row-code">
+                        {item.serialNo ?? item.id.slice(0, 8)}
+                      </span>
+                    )}
+                  </div>
+                  {item.sourceCampaignTitle ? (
+                    <p className="collection-convert-row-source">
+                      from {item.sourceCampaignTitle}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="collection-convert-row-side">
+                <span
+                  className={`collection-convert-row-checkbox${
+                    isSelected ? " is-checked" : ""
+                  }`}
+                  aria-hidden="true"
+                >
+                  {isSelected ? "✓" : ""}
+                </span>
+                {convertable ? (
+                  <span className="collection-convert-row-coin">
+                    <span className="collection-convert-row-coin-dot" aria-hidden="true" />
+                    <strong>{coinValue.toLocaleString()}</strong>
+                    <small>coin</small>
+                  </span>
+                ) : (
+                  <span className="collection-convert-row-coin is-muted">
+                    <small>{expired ? "Expired" : "Not convertible"}</small>
+                  </span>
+                )}
+                {expiryLabel && convertable ? (
+                  <span className="collection-convert-row-deadline">
+                    Convert by {expiryLabel}
+                  </span>
+                ) : null}
+              </div>
               <input
-                checked={selected.includes(item.id)}
                 type="checkbox"
+                checked={isSelected}
+                onClick={(event) => event.stopPropagation()}
                 onChange={() => toggle(item.id)}
+                className="sr-only"
+                aria-label={`Select ${item.cardName}`}
               />
-              <span className="collection-mini-art" />
-              <span>
-                {item.cardName}
-                <em>{item.serialNo}</em>
-              </span>
-              <strong>{selected.includes(item.id) ? "✓" : ""}</strong>
-            </label>
-          ))
-        ) : (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-sm font-bold text-[var(--muted)]">
-            No owned cards yet. Open a live pack before requesting exchange or
-            shipping.
+            </article>
+          );
+        })}
+      </div>
+
+      {message ? (
+        <p
+          className={`collection-convert-message${
+            message.tone === "success" ? " is-success" : " is-error"
+          }`}
+          role="status"
+        >
+          {message.text}
+        </p>
+      ) : null}
+
+      <div className="collection-convert-dock" role="region" aria-label="Collection actions">
+        <div className="collection-convert-dock-meta">
+          <div className="collection-convert-dock-count">
+            <strong>Selecting {selectedItems.length} card{selectedItems.length === 1 ? "" : "s"}</strong>
+            <span>
+              <span className="collection-convert-dock-coin-dot" aria-hidden="true" />
+              {selectedTotalCoins.toLocaleString()} coin
+            </span>
           </div>
-        )}
-      </div>
-      {addresses.length ? (
-        <select
-          className="mt-4 h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4"
-          value={addressId}
-          onChange={(event) => setAddressId(event.target.value)}
-        >
-          {addresses.map((address) => (
-            <option key={address.id} value={address.id}>
-              {address.label} · {address.addressLine1}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <p className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-sm font-bold text-amber-100">
-          Save a shipping address first. Raw address IDs are not required for
-          normal customer use.
+          <div className="collection-convert-dock-quick">
+            <button
+              type="button"
+              className="collection-convert-dock-link"
+              onClick={selectAll}
+              disabled={isPending}
+            >
+              Select all
+            </button>
+            <button
+              type="button"
+              className="collection-convert-dock-link"
+              onClick={reset}
+              disabled={isPending || selectedItems.length === 0}
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+        {addresses.length ? (
+          <select
+            className="collection-convert-dock-address"
+            value={addressId}
+            onChange={(event) => setAddressId(event.target.value)}
+            disabled={isPending}
+          >
+            {addresses.map((address) => (
+              <option key={address.id} value={address.id}>
+                {address.label} · {address.addressLine1}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        <div className="collection-convert-dock-actions">
+          <button
+            type="button"
+            className="collection-convert-dock-button is-ghost"
+            disabled={!canConvert}
+            onClick={() => setShowConvertConfirm(true)}
+          >
+            Convert to Coins
+          </button>
+          <button
+            type="button"
+            className="collection-convert-dock-button is-primary"
+            disabled={!canShip}
+            onClick={submitShipping}
+          >
+            Shipping Request
+          </button>
+        </div>
+        <p className="collection-convert-dock-foot">
+          A total of {SHIPPING_REQUEST_MIN_COINS.toLocaleString()} coins or more
+          in cards is required for shipping request.
         </p>
-      )}
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <button
-          className="plain-button rounded-2xl px-4 py-3 text-sm font-black"
-          disabled={isPending}
-          type="button"
-          onClick={() => submit("exchange")}
-        >
-          Redeem coin
-        </button>
-        <button
-          className="gold-button rounded-2xl px-4 py-3 text-sm font-black"
-          disabled={isPending || !addressId}
-          type="button"
-          onClick={() => submit("shipping")}
-        >
-          Request ship →
-        </button>
       </div>
-      {message && (
-        <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-bold">
-          {message}
-        </p>
-      )}
+
+      {showConvertConfirm ? (
+        <div
+          className="collection-convert-modal-backdrop"
+          role="presentation"
+          onClick={() => setShowConvertConfirm(false)}
+        >
+          <div
+            className="collection-convert-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Confirm convert"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="collection-convert-modal-head">
+              <h3>Convert to coins?</h3>
+              <button
+                type="button"
+                className="collection-convert-modal-close"
+                onClick={() => setShowConvertConfirm(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </header>
+            <div className="collection-convert-modal-body">
+              <p>
+                You will receive{" "}
+                <strong>{selectedTotalCoins.toLocaleString()} coins</strong> for{" "}
+                <strong>
+                  {selectedConvertableItems.length} card
+                  {selectedConvertableItems.length === 1 ? "" : "s"}
+                </strong>
+                .
+              </p>
+              <p className="collection-convert-modal-warn">
+                Selected cards will be removed from your collection. This cannot
+                be undone.
+              </p>
+            </div>
+            <footer className="collection-convert-modal-foot">
+              <button
+                type="button"
+                className="collection-convert-modal-button is-ghost"
+                onClick={() => setShowConvertConfirm(false)}
+                disabled={isPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="collection-convert-modal-button is-primary"
+                onClick={submitConvert}
+                disabled={isPending}
+                autoFocus
+              >
+                {isPending ? "Converting…" : "Yes, convert"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -1720,10 +2014,27 @@ type CampaignPrizeDraft = {
   rank: number;
   tierRank: number;
   valueThb: number;
+  convertCoinValue: number;
   quantity: number;
   weight: number;
   unlockAtSoldPct: number;
 };
+
+const defaultConvertDeadlineDays = 14;
+const convertCoinValueMax = 10_000_000;
+
+function defaultConvertCoinValue(displayTier: PrizeDisplayTier, index: number) {
+  if (displayTier === "rainbow") return index === 0 ? 5000 : 3000;
+  if (displayTier === "gold") return 1500;
+  if (displayTier === "silver") return 750;
+  return 100;
+}
+
+function clampConvertCoinValue(value: unknown) {
+  const parsed = Math.round(Number(value));
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return Math.min(convertCoinValueMax, parsed);
+}
 
 const minTierPrizeRows = 1;
 const maxTierPrizeRows = 30;
@@ -2140,6 +2451,9 @@ function createPrizeDraft(
     rank: existing?.rank ?? index + 1,
     tierRank: index + 1,
     valueThb: existing?.valueThb ?? defaultPrizeValueThb(displayTier, index),
+    convertCoinValue:
+      existing?.convertCoinValue ??
+      defaultConvertCoinValue(displayTier, index),
     quantity: Math.max(
       0,
       Math.round(Number(existing?.quantity) || config.defaultQuantity),
@@ -2258,6 +2572,7 @@ function prizeLineupToDrafts(
       rank: Math.max(1, Math.round(prize.rank || index + 1)),
       tierRank: Math.max(1, Math.round(prize.tierRank || 1)),
       valueThb: Math.max(0, Math.round(prize.valueThb ?? 0)),
+      convertCoinValue: clampConvertCoinValue(prize.convertCoinValue ?? 0),
       quantity: Math.max(0, Math.round(prize.plannedQuantity ?? 0)),
       weight: Math.max(0, prize.weight ?? 1),
       unlockAtSoldPct: Math.max(0, Math.min(100, prize.unlockAtSoldPct ?? 0)),
@@ -2308,6 +2623,13 @@ export function AdminCampaignForm({
   const [priceThb, setPriceThb] = useState(editingCampaign?.priceThb ?? 100);
   const [costCoins, setCostCoins] = useState(editingCampaign?.costCoins ?? 1);
   const [totalSlots, setTotalSlots] = useState(defaultTotalSlots);
+  const [convertDeadlineDays, setConvertDeadlineDays] = useState<number>(() => {
+    const stored = editingCampaign?.convertDeadlineDays;
+    if (stored === null || stored === undefined) return defaultConvertDeadlineDays;
+    const parsed = Math.round(Number(stored));
+    if (!Number.isFinite(parsed) || parsed < 1) return defaultConvertDeadlineDays;
+    return Math.min(3650, parsed);
+  });
   const [displayTags, setDisplayTags] = useState<string[]>(
     normalizeCustomerTags(editingCampaign?.displayTags, defaultSeries),
   );
@@ -2690,11 +3012,13 @@ export function AdminCampaignForm({
           slotGrid: mode === "slot_pick" ? slotGrid : undefined,
           categoryIds: categoryId ? [categoryId] : undefined,
           isTest,
+          convertDeadlineDays,
           initialPrizes: activePrizeDrafts.map((prize) => ({
             cardId: prize.cardId,
             tier: dbTierForPrizeDisplayTier(prize.displayTier),
             rank: Math.max(1, Math.round(Number(prize.rank) || 1)),
             quantity: Math.max(0, Math.round(Number(prize.quantity) || 0)),
+            convertCoinValue: clampConvertCoinValue(prize.convertCoinValue),
             metadata: {
               displayTier: prize.displayTier,
               displayTierLabel: prizeDisplayTierLabel(prize.displayTier),
@@ -2913,6 +3237,28 @@ export function AdminCampaignForm({
                 onChange={(event) => setCostCoins(Number(event.target.value))}
                 placeholder="1"
               />
+            </label>
+            <label className="admin-field">
+              <span>Convert deadline (days)</span>
+              <input
+                min={1}
+                max={3650}
+                type="number"
+                value={convertDeadlineDays}
+                onChange={(event) => {
+                  const parsed = Math.round(Number(event.target.value));
+                  if (!Number.isFinite(parsed) || parsed < 1) {
+                    setConvertDeadlineDays(defaultConvertDeadlineDays);
+                    return;
+                  }
+                  setConvertDeadlineDays(Math.min(3650, parsed));
+                }}
+                placeholder="14"
+              />
+              <small>
+                Days a user has to convert pulled cards into coins before they
+                expire. Default 14.
+              </small>
             </label>
             {mode === "instant_gacha" && (
               <div className="admin-field admin-field-wide">
@@ -3249,6 +3595,7 @@ export function AdminCampaignForm({
                       <span>Prize item</span>
                       <span>Category</span>
                       <span>Qty</span>
+                      <span>Convert coins</span>
                       <span>Action</span>
                     </div>
                     {rows.map((prize) => {
@@ -3341,6 +3688,22 @@ export function AdminCampaignForm({
                               onChange={(event) =>
                                 updatePrizeDraft(prize.localId, {
                                   quantity: Number(event.target.value),
+                                })
+                              }
+                            />
+                          </label>
+                          <label className="admin-field admin-prize-convert-field">
+                            <span>Convert coins</span>
+                            <input
+                              min={0}
+                              max={convertCoinValueMax}
+                              type="number"
+                              value={prize.convertCoinValue}
+                              onChange={(event) =>
+                                updatePrizeDraft(prize.localId, {
+                                  convertCoinValue: clampConvertCoinValue(
+                                    event.target.value,
+                                  ),
                                 })
                               }
                             />
@@ -3930,6 +4293,28 @@ export function AdminOwnerReview({
           0,
         );
 
+  const totalConvertPayoutCoins = effectivePrizes.reduce(
+    (sum, prize) =>
+      sum +
+      Math.max(0, prize.convertCoinValue ?? 0) *
+        Math.max(0, prize.plannedQuantity ?? 0),
+    0,
+  );
+  const averageConvertPerCardCoins =
+    totalWeight === 0
+      ? 0
+      : effectivePrizes.reduce(
+          (sum, prize) =>
+            sum +
+            (prize.weight / totalWeight) * (prize.convertCoinValue ?? 0),
+          0,
+        );
+  const convertDeadlineDaysDisplay =
+    campaign.convertDeadlineDays === null ||
+    campaign.convertDeadlineDays === undefined
+      ? "no deadline"
+      : `${campaign.convertDeadlineDays} days`;
+
   const baseCostCoins = Math.max(1, campaign.costCoins ?? 1);
   const expectedRtp = baseCostCoins > 0 ? (expectedValuePerOpen / baseCostCoins) * 100 : 0;
 
@@ -4155,6 +4540,15 @@ export function AdminOwnerReview({
           <div className={`delta ${expectedRtp >= 75 && expectedRtp <= 100 ? "up" : "down"}`} style={{ fontSize: 11 }}>
             <AdminIcon name={expectedRtp >= 75 && expectedRtp <= 100 ? "arrow-up" : "arrow-dn"} size={11} />
             {expectedRtp >= 75 && expectedRtp <= 100 ? "Within owner band (75-100%)" : "Outside owner band — review"}
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="label">Convert payout pool</div>
+          <div className="value">
+            {totalConvertPayoutCoins.toLocaleString()} coins
+          </div>
+          <div className="text-mute" style={{ fontSize: 11 }}>
+            Avg {averageConvertPerCardCoins.toFixed(0)} coins/card · deadline {convertDeadlineDaysDisplay}
           </div>
         </div>
       </div>
@@ -6570,75 +6964,6 @@ export function AdminMergeActions({
   );
 }
 
-export function AdminExchangeActions({ order }: { order: YnotExchangeOrder }) {
-  const [coinValue, setCoinValue] = useState(order.requestedCoinValue);
-  const [note, setNote] = useState("");
-  const [message, setMessage] = useState("");
-  const [isPending, startTransition] = useTransition();
-  function submit(action: "approve" | "reject") {
-    startTransition(async () => {
-      try {
-        await fetch("/api/ynot/admin/exchange", {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            exchangeOrderId: order.id,
-            action,
-            note,
-            coinValue,
-          }),
-        }).then(async (response) => {
-          if (!response.ok)
-            throw new Error(
-              (await response.json().catch(() => null))?.error ??
-                "Exchange review failed.",
-            );
-        });
-        setMessage(`${action} complete.`);
-      } catch (error) {
-        setMessage(
-          error instanceof Error ? error.message : "Exchange review failed.",
-        );
-      }
-    });
-  }
-  return (
-    <div className="mt-3 grid gap-2">
-      <input
-        className="h-10 rounded-xl border border-white/10 bg-black/25 px-3 text-xs"
-        type="number"
-        value={coinValue}
-        onChange={(event) => setCoinValue(Number(event.target.value))}
-      />
-      <input
-        className="h-10 rounded-xl border border-white/10 bg-black/25 px-3 text-xs"
-        placeholder="Admin note"
-        value={note}
-        onChange={(event) => setNote(event.target.value)}
-      />
-      <div className="flex gap-2">
-        <button
-          className="gold-button rounded-xl px-3 py-2 text-xs font-black"
-          disabled={isPending}
-          type="button"
-          onClick={() => submit("approve")}
-        >
-          Approve
-        </button>
-        <button
-          className="danger-button rounded-xl px-3 py-2 text-xs font-black"
-          disabled={isPending}
-          type="button"
-          onClick={() => submit("reject")}
-        >
-          Reject
-        </button>
-      </div>
-      {message && <p className="text-xs text-[var(--muted)]">{message}</p>}
-    </div>
-  );
-}
-
 export function AdminShippingActions({
   request,
 }: {
@@ -8085,6 +8410,13 @@ function EditCampaignModal({
   const [openQuantityOptions, setOpenQuantityOptions] = useState<number[]>(
     normalizeOpenQuantityOptions(campaign.openQuantityOptions),
   );
+  const [convertDeadlineDays, setConvertDeadlineDays] = useState<number>(() => {
+    const stored = campaign.convertDeadlineDays;
+    if (stored === null || stored === undefined) return defaultConvertDeadlineDays;
+    const parsed = Math.round(Number(stored));
+    if (!Number.isFinite(parsed) || parsed < 1) return defaultConvertDeadlineDays;
+    return Math.min(3650, parsed);
+  });
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -8130,6 +8462,7 @@ function EditCampaignModal({
           isTest,
           displayTags,
           openQuantityOptions,
+          convertDeadlineDays,
         }),
       });
       if (!response.ok) {
@@ -8257,6 +8590,27 @@ function EditCampaignModal({
               />
             </label>
           </div>
+          <label className="admin-edit-field">
+            <span>Convert-to-coin deadline (days)</span>
+            <input
+              type="number"
+              min={1}
+              max={3650}
+              value={convertDeadlineDays}
+              onChange={(event) => {
+                const parsed = Math.round(Number(event.target.value));
+                if (!Number.isFinite(parsed) || parsed < 1) {
+                  setConvertDeadlineDays(defaultConvertDeadlineDays);
+                  return;
+                }
+                setConvertDeadlineDays(Math.min(3650, parsed));
+              }}
+            />
+            <small>
+              Days a user has after opening to convert pulled cards into
+              coins. Default 14.
+            </small>
+          </label>
           <label className="admin-edit-field">
             <span>Sort order (lower = first on storefront)</span>
             <input

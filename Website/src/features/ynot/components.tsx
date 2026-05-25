@@ -71,7 +71,6 @@ const adminNavItems = [
   { href: "/admin/top-ups", label: "Top-ups", kicker: "Wallet" },
   { href: "/admin/rankings", label: "Rankings", kicker: "Leaderboard" },
   { href: "/admin/shipping", label: "Shipping", kicker: "Fulfill" },
-  { href: "/admin/exchange", label: "Exchange", kicker: "Review" },
   { href: "/admin/settings", label: "Settings", kicker: "Payments" },
   { href: "/admin/tier-animations", label: "Reveal Videos", kicker: "Gacha" },
   { href: "/admin/audit", label: "Audit", kicker: "Log" },
@@ -2114,9 +2113,6 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
     (topUp) =>
       topUp.status === "pending_review" || topUp.status === "pending_slip",
   ).length;
-  const pendingExchange = data.exchanges.filter(
-    (order) => order.status === "submitted",
-  ).length;
   const pendingShipping = data.shipping.filter(
     (request) => request.status === "submitted" || request.status === "packing",
   ).length;
@@ -2201,12 +2197,6 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
       title: "Shipping",
       body: "Move submitted card-shipping requests through packing, shipped, delivered, or cancelled states.",
       meta: `${pendingShipping} open`,
-    },
-    {
-      href: "/admin/exchange",
-      title: "Exchange",
-      body: "Review card exchange requests and record notes so the customer history stays auditable.",
-      meta: `${pendingExchange} submitted`,
     },
     {
       href: "/admin/settings",

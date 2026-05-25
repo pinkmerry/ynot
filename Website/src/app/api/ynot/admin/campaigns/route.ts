@@ -47,8 +47,17 @@ type CampaignBody = {
   slotGrid?: unknown;
   isTest?: unknown;
   seedRunId?: unknown;
+  convertDeadlineDays?: unknown;
   initialPrizes?: unknown;
 };
+
+function convertDeadlineValue(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  const parsed = Math.round(Number(value));
+  if (!Number.isFinite(parsed) || parsed < 1) return null;
+  return Math.min(3650, parsed);
+}
 
 function text(value: unknown, max = 160) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -186,6 +195,7 @@ function campaignPatch(body: CampaignBody): Database["public"]["Tables"]["draw_r
     sort_order: body.sortOrder === undefined ? undefined : Math.round(numberValue(body.sortOrder, 100)),
     is_test: body.isTest === undefined ? undefined : booleanValue(body.isTest),
     seed_run_id: body.seedRunId === undefined ? undefined : text(body.seedRunId, 80) || null,
+    convert_deadline_days: convertDeadlineValue(body.convertDeadlineDays),
   };
 }
 
@@ -306,6 +316,7 @@ async function saveInitialPrizes(
       tier: prize.tier,
       rank: prize.rank,
       value_thb: prize.valueThb,
+      convert_coin_value: prize.convertCoinValue,
       weight: prize.weight,
       unlock_at_sold_pct: prize.unlockAtSoldPct,
       planned_quantity: prize.quantity,
@@ -443,6 +454,8 @@ export async function POST(request: Request) {
     price_thb: patch.price_thb ?? 100,
     cost_coins: patch.cost_coins ?? 1,
     total_slots: patch.total_slots ?? 100,
+    convert_deadline_days:
+      patch.convert_deadline_days === undefined ? 14 : patch.convert_deadline_days,
     display_tags: patch.display_tags ?? displayTagsValue(body.displayTags, patch.series ?? "pokemon"),
     sort_order: patch.sort_order ?? 100,
     order_code_prefix: "YN",

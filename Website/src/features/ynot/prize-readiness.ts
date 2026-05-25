@@ -45,6 +45,7 @@ export type PrizeDraftInput = {
   tier: "normal" | "high";
   rank: number;
   valueThb: number | null;
+  convertCoinValue: number;
   quantity: number;
   weight: number;
   unlockAtSoldPct: number;
@@ -374,12 +375,17 @@ export function normalizePrizeDrafts(value: unknown): PrizeDraftInput[] {
     const key = `${tier}:${rank}`;
     if (!cardId || quantity <= 0 || seen.has(key)) return [];
     seen.add(key);
+    const convertCoinValue = Math.min(
+      10_000_000,
+      Math.max(0, Math.round(numberOrZero(row.convertCoinValue))),
+    );
     return [
       {
         cardId,
         tier,
         rank,
         valueThb: numberOrZero(row.valueThb) > 0 ? Math.round(numberOrZero(row.valueThb)) : null,
+        convertCoinValue,
         quantity,
         weight,
         unlockAtSoldPct,

@@ -236,6 +236,7 @@ export type Database = {
           is_test: boolean;
           seed_run_id: string | null;
           test_metadata: Json;
+          convert_deadline_days: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -285,6 +286,7 @@ export type Database = {
           is_test?: boolean;
           seed_run_id?: string | null;
           test_metadata?: Json;
+          convert_deadline_days?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -371,6 +373,7 @@ export type Database = {
           tier: "normal" | "high";
           rank: number;
           value_thb: number | null;
+          convert_coin_value: number;
           weight: number;
           unlock_at_sold_pct: number;
           planned_quantity: number;
@@ -387,6 +390,7 @@ export type Database = {
           tier: "normal" | "high";
           rank: number;
           value_thb?: number | null;
+          convert_coin_value?: number;
           weight?: number;
           unlock_at_sold_pct?: number;
           planned_quantity?: number;
@@ -620,8 +624,8 @@ export type Database = {
         Relationships: [];
       };
       collection_items: {
-        Row: { id: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id: string | null; status: "owned" | "locked" | "exchange_requested" | "exchanged" | "shipping_requested" | "shipped" | "void"; serial_no: string | null; acquired_at: string; created_at: string; updated_at: string };
-        Insert: { id?: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id?: string | null; status?: "owned" | "locked" | "exchange_requested" | "exchanged" | "shipping_requested" | "shipped" | "void"; serial_no?: string | null; acquired_at?: string; created_at?: string; updated_at?: string };
+        Row: { id: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id: string | null; status: "owned" | "locked" | "exchange_requested" | "exchanged" | "shipping_requested" | "shipped" | "void"; serial_no: string | null; acquired_at: string; convert_coin_value_snapshot: number | null; convert_expires_at: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id?: string | null; status?: "owned" | "locked" | "exchange_requested" | "exchanged" | "shipping_requested" | "shipped" | "void"; serial_no?: string | null; acquired_at?: string; convert_coin_value_snapshot?: number | null; convert_expires_at?: string | null; created_at?: string; updated_at?: string };
         Update: Partial<Database["public"]["Tables"]["collection_items"]["Insert"]>;
         Relationships: [];
       };
@@ -922,9 +926,7 @@ export type Database = {
       cancel_campaign_review: { Args: { p_draw_round_id: string; p_admin_id: string; p_note?: string | null }; Returns: Json };
       archive_campaign_inventory: { Args: { p_draw_round_id: string; p_admin_id: string; p_note?: string | null }; Returns: Json };
       delete_campaign_inventory: { Args: { p_draw_round_id: string; p_admin_id: string; p_note?: string | null }; Returns: Json };
-      submit_exchange_order: { Args: { p_profile_id: string; p_collection_item_ids: string[]; p_customer_note?: string | null; p_idempotency_key?: string | null }; Returns: Json };
-      approve_exchange_order: { Args: { p_exchange_order_id: string; p_admin_id: string; p_approved_coin_value?: number | null; p_admin_note?: string | null }; Returns: Json };
-      reject_exchange_order: { Args: { p_exchange_order_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
+      submit_card_conversion: { Args: { p_profile_id: string; p_collection_item_ids: string[]; p_idempotency_key?: string | null }; Returns: Json };
       complete_account_merge_request: { Args: { p_merge_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       reject_account_merge_request: { Args: { p_merge_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       request_shipping_for_items: { Args: { p_profile_id: string; p_address_id: string; p_collection_item_ids: string[]; p_customer_note?: string | null; p_idempotency_key?: string | null }; Returns: Json };

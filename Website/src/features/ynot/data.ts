@@ -391,6 +391,7 @@ async function getPublicPrizeLineupsBatch(
           tier: prize.tier,
           rank: prize.rank,
           valueThb: prize.value_thb,
+          convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
           plannedQuantity: counts.total,
           availableUnits: counts.available || undefined,
           totalUnits: counts.total || undefined,
@@ -479,6 +480,7 @@ async function getPublicPrizeLineup(
         tier: prize.tier,
         rank: prize.rank,
         valueThb: prize.value_thb,
+        convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
         plannedQuantity: counts.total,
         availableUnits: counts.available || undefined,
         totalUnits: counts.total || undefined,
@@ -629,6 +631,10 @@ function toYnotCampaign(
     displayTags: safeDisplayTags(row),
     openQuantityOptions: normalizeOpenQuantityOptions(row.logic_snapshot),
     prizeLineup,
+    convertDeadlineDays:
+      typeof row.convert_deadline_days === "number" && row.convert_deadline_days > 0
+        ? row.convert_deadline_days
+        : null,
   };
 }
 
@@ -1486,18 +1492,72 @@ export async function getCollection(
       getCardCatalog(supabase),
     ),
   ]);
+
+  // Look up the source pack title for each item via gacha_opens.draw_round_id.
+  const gachaSourceIds = Array.from(
+    new Set(
+      items
+        .filter((row) => row.source_type === "gacha_open" && row.source_id)
+        .map((row) => row.source_id as string),
+    ),
+  );
+  const opensById = new Map<string, { draw_round_id: string }>();
+  if (gachaSourceIds.length) {
+    const { data: opens } = await supabase
+      .from("gacha_opens")
+      .select("id,draw_round_id")
+      .in("id", gachaSourceIds);
+    for (const open of opens ?? []) {
+      opensById.set(open.id, { draw_round_id: open.draw_round_id });
+    }
+  }
+  const drawRoundIds = Array.from(
+    new Set(Array.from(opensById.values()).map((value) => value.draw_round_id)),
+  );
+  const campaignById = new Map<
+    string,
+    { titleTh: string | null; titleEn: string | null; slug: string | null }
+  >();
+  if (drawRoundIds.length) {
+    const { data: rounds } = await supabase
+      .from("draw_rounds")
+      .select("id,title_th,title_en,slug")
+      .in("id", drawRoundIds);
+    for (const round of rounds ?? []) {
+      campaignById.set(round.id, {
+        titleTh: round.title_th,
+        titleEn: round.title_en,
+        slug: round.slug,
+      });
+    }
+  }
+
   const cardsById = new Map(cards.map((card) => [card.id, card]));
   return items.map((item) => {
     const card = cardsById.get(item.card_id);
+    const open = item.source_id ? opensById.get(item.source_id) : null;
+    const campaign = open ? campaignById.get(open.draw_round_id) : null;
     return {
       id: item.id,
       cardId: item.card_id,
       cardName: card?.name ?? "Mystery card",
       cardCode: card?.code,
+      cardGrade: card?.grade ?? null,
+      cardPrizeCategory: card?.prizeCategory ?? null,
+      cardSeries: card?.series ?? null,
       imageUrl: card?.photoUrl,
       status: item.status,
       serialNo: item.serial_no,
       acquiredAt: item.acquired_at,
+      convertCoinValue:
+        typeof item.convert_coin_value_snapshot === "number"
+          ? Math.max(0, Math.round(item.convert_coin_value_snapshot))
+          : null,
+      convertExpiresAt: item.convert_expires_at ?? null,
+      sourceCampaignTitle: campaign
+        ? campaign.titleEn ?? campaign.titleTh ?? null
+        : null,
+      sourceCampaignSlug: campaign?.slug ?? null,
     };
   });
 }
@@ -1933,6 +1993,7 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         tier: prize.tier,
         rank: prize.rank,
         valueThb: prize.value_thb,
+        convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
         weight: Number(prize.weight ?? 1),
         unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
         prizeCategory: metadataString(prize.metadata, "prizeCategory"),

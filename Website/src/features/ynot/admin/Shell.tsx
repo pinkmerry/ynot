@@ -30,7 +30,6 @@ const NAV: { group: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/top-ups", label: "Top-ups", icon: "coin" },
       { href: "/admin/shipping", label: "Shipping", icon: "truck" },
-      { href: "/admin/exchange", label: "Exchange", icon: "swap" },
     ],
   },
   {

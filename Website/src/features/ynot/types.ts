@@ -47,6 +47,7 @@ export type YnotCampaign = {
   displayTags?: string[];
   openQuantityOptions?: number[];
   prizeLineup?: YnotPrizePreview[];
+  convertDeadlineDays?: number | null;
   demo?: boolean;
 };
 
@@ -142,6 +143,13 @@ export type YnotCollectionItem = {
     | "void";
   serialNo?: string | null;
   acquiredAt: string;
+  cardGrade?: string | null;
+  cardPrizeCategory?: string | null;
+  cardSeries?: string | null;
+  convertCoinValue?: number | null;
+  convertExpiresAt?: string | null;
+  sourceCampaignTitle?: string | null;
+  sourceCampaignSlug?: string | null;
 };
 
 export type YnotExchangeOrder = {
@@ -242,6 +250,7 @@ export type YnotPrizePreview = {
   tier: "normal" | "high";
   rank: number;
   valueThb?: number | null;
+  convertCoinValue?: number;
   plannedQuantity?: number;
   availableUnits?: number;
   totalUnits?: number;
@@ -290,6 +299,7 @@ export type YnotPrizePoolItem = {
   tier: "normal" | "high";
   rank: number;
   valueThb?: number | null;
+  convertCoinValue?: number;
   weight: number;
   unlockAtSoldPct: number;
   prizeCategory?: string;

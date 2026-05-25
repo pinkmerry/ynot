@@ -1,4 +1,4 @@
-import { CollectionActionPanel } from "@/features/ynot/client";
+import { CollectionConvertPanel } from "@/features/ynot/client";
 import { ExchangeCatalogPanel, OrderList, PageHeader, YnotShell } from "@/features/ynot/components";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
@@ -13,5 +13,25 @@ export default async function ExchangePage() {
     addresses: true,
     exchanges: true,
   });
-  return <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}><PageHeader eyebrow="06 · Exchange" title="Exchange" description="Request coin exchange from real collection items. Admin review records the final approved value." /><ExchangeCatalogPanel wallet={data.wallet} collectionCount={data.collection.length} requestCount={data.exchanges.length} /><div className="phone-page-shell grid gap-4 xl:grid-cols-[0.8fr_1fr]"><CollectionActionPanel collection={data.collection} addresses={data.addresses} /><OrderList title="Exchange history" orders={data.exchanges} /></div></YnotShell>;
+  return (
+    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
+      <PageHeader
+        eyebrow="06 · Exchange"
+        title="Exchange"
+        description="Convert collection cards into coins instantly. The coin value was set by the admin when each pack was created."
+      />
+      <ExchangeCatalogPanel
+        wallet={data.wallet}
+        collectionCount={data.collection.length}
+        requestCount={data.exchanges.length}
+      />
+      <div className="phone-page-shell grid gap-4 xl:grid-cols-[0.8fr_1fr]">
+        <CollectionConvertPanel
+          collection={data.collection}
+          addresses={data.addresses}
+        />
+        <OrderList title="Exchange history" orders={data.exchanges} />
+      </div>
+    </YnotShell>
+  );
 }

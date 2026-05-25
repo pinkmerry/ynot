@@ -1,4 +1,4 @@
-import { AddressForm, CollectionActionPanel } from "@/features/ynot/client";
+import { AddressForm, CollectionConvertPanel } from "@/features/ynot/client";
 import { OrderList, PageHeader, YnotShell } from "@/features/ynot/components";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
@@ -21,7 +21,7 @@ export default async function ShippingPage() {
           <div className="template-top-bar centered"><h2>Pick cards to ship</h2></div>
           <div className="ranking-tabs collection-tabs"><span className="active">Pending</span><span>Awaiting ship</span><span>Shipped</span></div>
         </div>
-        <CollectionActionPanel collection={data.collection} addresses={data.addresses} />
+        <CollectionConvertPanel collection={data.collection} addresses={data.addresses} />
         <AddressForm addresses={data.addresses} />
         <OrderList title="Shipping history" orders={data.shipping} />
       </div>

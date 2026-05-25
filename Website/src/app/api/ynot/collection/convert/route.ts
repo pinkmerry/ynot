@@ -1,6 +1,6 @@
-// Card conversion endpoint (formerly "exchange order submit"). Calls the new
-// submit_card_conversion RPC which auto-credits the user's wallet using the
-// admin-locked convert_coin_value snapshot saved on each collection item.
+// New card-conversion endpoint. Reuses the same RPC as /api/ynot/exchange,
+// but lives under /collection/convert so the collection page UI naming is
+// consistent with the new feature. Both routes are safe to call.
 
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";

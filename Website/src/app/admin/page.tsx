@@ -56,9 +56,6 @@ export default async function AdminPage() {
     (s) => s.status === "submitted" || s.status === "packing",
   );
   const submittedShipping = data.shipping.filter((s) => s.status === "submitted");
-  const exchangeReady = data.exchanges.filter(
-    (e) => e.status === "submitted" || e.status === "approved",
-  );
 
   const grossToday = data.adminTopUps
     .filter((t) => t.status === "approved")
@@ -90,7 +87,6 @@ export default async function AdminPage() {
         badges={{
           "/admin/top-ups": pendingTopUps.length || undefined,
           "/admin/shipping": shippingActive.length || undefined,
-          "/admin/exchange": exchangeReady.length || undefined,
         }}
         actions={
           <>
@@ -245,7 +241,7 @@ export default async function AdminPage() {
           <AdminCard>
             <AdminCardHead
               label="Action required"
-              title={`Queue · ${pendingTopUps.length + shippingActive.length + exchangeReady.length + data.ownerApprovalRequests.length} items`}
+              title={`Queue · ${pendingTopUps.length + shippingActive.length + data.ownerApprovalRequests.length} items`}
               actions={
                 <Link href="/admin/top-ups" className="btn btn-sm" prefetch={false}>
                   Open all
@@ -324,32 +320,6 @@ export default async function AdminPage() {
                 </div>
                 <Link href="/admin/campaigns" className="btn btn-sm" prefetch={false}>
                   Review
-                </Link>
-              </div>
-              <div className="list-row">
-                <span
-                  className="thumb sq"
-                  style={{
-                    background: "rgba(68,209,126,0.12)",
-                    color: "var(--a-mint)",
-                  }}
-                >
-                  <AdminIcon name="check" size={16} />
-                </span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 500 }}>
-                    {exchangeReady.length} exchange orders ready
-                  </div>
-                  <div className="row-sub">
-                    {exchangeReady.reduce(
-                      (s, e) => s + e.requestedCoinValue,
-                      0,
-                    ).toLocaleString()}{" "}
-                    coin value · approve &amp; credit
-                  </div>
-                </div>
-                <Link href="/admin/exchange" className="btn btn-sm" prefetch={false}>
-                  Open
                 </Link>
               </div>
               <div className="list-row">

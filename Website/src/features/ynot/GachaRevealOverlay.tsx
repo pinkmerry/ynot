@@ -251,16 +251,31 @@ export function GachaRevealOverlay({
           </ul>
 
           <footer className="gacha-reveal-summary-footer">
-            <button
-              type="button"
-              className="primary-action gacha-reveal-cta"
-              onClick={onOpenAgain}
-              disabled={Boolean(isPending)}
-            >
-              {isPending
-                ? "Opening…"
-                : `>> OPEN ${quantity} AGAIN`}
-            </button>
+            <div className="gacha-reveal-dock" role="group" aria-label="Pack actions">
+              <button
+                type="button"
+                className="gacha-reveal-dock-action is-primary"
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.location.assign(`/collection?from=${result.openId}&action=convert`);
+                  }
+                }}
+              >
+                <span className="gacha-reveal-dock-action-label">Convert to coins</span>
+                <span className="gacha-reveal-dock-action-hint">Pick cards on the next screen</span>
+              </button>
+              <button
+                type="button"
+                className="gacha-reveal-dock-action is-ghost"
+                onClick={onOpenAgain}
+                disabled={Boolean(isPending)}
+              >
+                <span className="gacha-reveal-dock-action-label">
+                  {isPending ? "Opening…" : `Open ${quantity} again`}
+                </span>
+                <span className="gacha-reveal-dock-action-hint">Same quantity, fresh pull</span>
+              </button>
+            </div>
             <button
               type="button"
               className="gacha-reveal-secondary"
