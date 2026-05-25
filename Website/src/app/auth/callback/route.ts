@@ -6,6 +6,7 @@ import {
   luckyDrawSessionCookie,
   readSessionCookie,
 } from "@/lib/lucky-draw/session";
+import { shouldUseSecureCookies } from "@/lib/security/cookies";
 import type { Database } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -90,7 +91,7 @@ export async function GET(request: Request) {
     response.cookies.set(luckyDrawSessionCookie, "", {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: shouldUseSecureCookies(request),
       path: "/",
       maxAge: 0,
     });

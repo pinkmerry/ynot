@@ -4,6 +4,7 @@ import { createSessionCookieValue, luckyDrawSessionCookie } from "@/lib/lucky-dr
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { lineOAuthStateCookie } from "@/lib/line/oauth";
+import { shouldUseSecureCookies } from "@/lib/security/cookies";
 
 export const dynamic = "force-dynamic";
 
@@ -153,7 +154,7 @@ export async function GET(request: Request) {
   const state = requestUrl.searchParams.get("state");
   const cookieStore = await cookies();
   const storedState = parseState(cookieStore.get(lineOAuthStateCookie)?.value);
-  const secure = process.env.NODE_ENV === "production";
+  const secure = shouldUseSecureCookies(request);
 
   cookieStore.set(lineOAuthStateCookie, "", { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: 0 });
 

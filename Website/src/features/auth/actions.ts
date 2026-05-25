@@ -9,6 +9,7 @@ import {
   readSessionCookie,
 } from "@/lib/lucky-draw/session";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { shouldUseSecureCookies } from "@/lib/security/cookies";
 import {
   createServiceSupabaseClient,
   createSupabaseServerClient,
@@ -503,7 +504,7 @@ export async function signOutAction() {
   cookieStore.set(luckyDrawSessionCookie, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookies(),
     path: "/",
     maxAge: 0,
   });

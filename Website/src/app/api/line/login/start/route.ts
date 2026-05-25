@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { lineOAuthStateCookie } from "@/lib/line/oauth";
+import { shouldUseSecureCookies } from "@/lib/security/cookies";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export async function GET(request: Request) {
   const nonce = randomBytes(24).toString("base64url");
   const mode = requestUrl.searchParams.get("mode") === "connect" ? "connect" : "login";
   const next = safeNext(requestUrl.searchParams.get("next"));
-  const secure = process.env.NODE_ENV === "production";
+  const secure = shouldUseSecureCookies(request);
 
   const cookieStore = await cookies();
   cookieStore.set(
