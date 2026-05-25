@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { createSessionCookieValue, luckyDrawSessionCookie } from "@/lib/lucky-draw/session";
+import {
+  createSessionCookieValue,
+  fetchSessionVersion,
+  luckyDrawSessionCookie,
+} from "@/lib/lucky-draw/session";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -83,12 +87,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: adminError?.message ?? "Could not create dev admin user." }, { status: 500 });
   }
 
+  const sessionVersion = await fetchSessionVersion(profile.id);
   const sessionCookie = createSessionCookieValue({
     profileId: profile.id,
     lineUserId: TEST_LINE_USER_ID,
     displayName: TEST_DISPLAY_NAME,
     adminId: admin.id,
     adminRole: admin.role,
+    sessionVersion,
   });
 
   if (!sessionCookie) {

@@ -1,6 +1,10 @@
 import { cookies } from "next/headers";
 import { linkLineIdentity } from "@/lib/line/link-identity";
-import { createSessionCookieValue, luckyDrawSessionCookie } from "@/lib/lucky-draw/session";
+import {
+  createSessionCookieValue,
+  fetchSessionVersion,
+  luckyDrawSessionCookie,
+} from "@/lib/lucky-draw/session";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { lineOAuthStateCookie } from "@/lib/line/oauth";
@@ -194,12 +198,14 @@ export async function GET(request: Request) {
     }
 
     const admin = await adminForProfile(linked.profileId);
+    const sessionVersion = await fetchSessionVersion(linked.profileId);
     const sessionCookie = createSessionCookieValue({
       profileId: linked.profileId,
       lineUserId: linked.lineUserId,
       displayName: linked.displayName,
       adminId: admin?.id,
       adminRole: admin?.role,
+      sessionVersion,
     });
 
     if (!sessionCookie) throw new Error("LINE session could not be created.");

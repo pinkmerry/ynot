@@ -8,7 +8,12 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (process.env.NODE_ENV === "production" && process.env.ENABLE_DEBUG_ENDPOINTS !== "true") {
+  // L1 hardening: in production, this endpoint is unconditionally a 404 — no
+  // env escape hatch. The previous ENABLE_DEBUG_ENDPOINTS="true" override is
+  // removed because it created a foot-gun (a single misconfigured env var
+  // would leak cookie names and session state to anyone). Local dev still
+  // serves the endpoint to make debugging painless.
+  if (process.env.NODE_ENV === "production") {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
