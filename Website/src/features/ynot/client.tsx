@@ -3959,6 +3959,16 @@ type OwnerReviewGuarantee =
 
 type OwnerReviewLogicMode = YnotRandomLogicMode;
 
+const OWNER_REVIEW_LOGIC_OPTIONS: Array<{
+  value: OwnerReviewLogicMode;
+  label: string;
+  desc: string;
+}> = [
+  { value: "pure_random", label: "Pure random", desc: "Equal weight per remaining unit" },
+  { value: "weighted_templates", label: "Weighted", desc: "Use admin weights" },
+  { value: "inventory_gated", label: "Inventory-gated", desc: "Weights + unlock %" },
+];
+
 type OwnerReviewCardEdit = {
   weight?: number;
   unlockAtSoldPct?: number;
@@ -3975,6 +3985,17 @@ type OwnerReviewSimResult = {
   seed: string;
   ranAt: number;
 };
+
+type OwnerReviewModeComparison = {
+  mode: OwnerReviewLogicMode;
+  label: string;
+  result: OwnerReviewSimResult;
+  recommended: boolean;
+};
+
+function ownerReviewTierLabel(tier: OwnerReviewTier) {
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
+}
 
 function ownerReviewTierFromPrize(prize: YnotPrizePreview): OwnerReviewTier {
   const display = (prize.displayTier ?? "").toLowerCase();
@@ -4024,7 +4045,7 @@ function ownerReviewPrizeWeight(
   logicMode: OwnerReviewLogicMode,
 ) {
   if (logicMode === "pure_random") return 1;
-  return Math.max(0, Number(prize.weight ?? 0) || 0);
+  return Math.max(0, Number(prize.weight ?? 1) || 0);
 }
 
 function ownerReviewPrizeUnlockAtSoldPct(
@@ -4063,7 +4084,7 @@ function runOwnerReviewSimulation(
       const edit = cardEdits[prize.id];
       const effectivePrize = {
         ...prize,
-        weight: edit?.weight ?? prize.weight ?? 0,
+        weight: edit?.weight ?? prize.weight ?? 1,
         unlockAtSoldPct:
           edit?.unlockAtSoldPct ?? prize.unlockAtSoldPct ?? 0,
       };
@@ -4169,6 +4190,40 @@ function runOwnerReviewSimulation(
     seed: seedHex,
     ranAt: Date.now(),
   };
+}
+
+function ownerReviewRecommendedLogicMode(
+  prizes: YnotPrizePreview[],
+): OwnerReviewLogicMode {
+  // UI guidance only: the actual simulator/open math stays in ownerReviewEffectivePoolWeight.
+  const hasUnlockPlan = prizes.some(
+    (prize) => ownerReviewPrizeUnlockAtSoldPct(prize, "inventory_gated") > 0,
+  );
+  if (hasUnlockPlan) return "inventory_gated";
+
+  const hasCustomWeights = prizes.some(
+    (prize) => ownerReviewPrizeWeight(prize, "weighted_templates") !== 1,
+  );
+  return hasCustomWeights ? "weighted_templates" : "pure_random";
+}
+
+function ownerReviewRecommendationReason(
+  recommendedMode: OwnerReviewLogicMode,
+) {
+  if (recommendedMode === "inventory_gated") {
+    return "Unlock gates are configured, so this keeps early pulls from seeing locked prizes.";
+  }
+  if (recommendedMode === "weighted_templates") {
+    return "Weights are configured, so this uses the intended prize balance without sold-% gates.";
+  }
+  return "No custom weights or unlock gates are set, so pure random is the cleanest match.";
+}
+
+function ownerReviewComparisonDrawCount(totalPulls: number, drawSampleSize: number) {
+  const selectedDraws = Math.max(1, Math.round(drawSampleSize || 0));
+  const packSize = Math.max(1, Math.round(totalPulls || selectedDraws));
+  const firstTenPercent = Math.max(1, Math.ceil(packSize * 0.1));
+  return Math.min(selectedDraws, firstTenPercent, 10000);
 }
 
 type OwnerReviewDiffRow = {
@@ -4328,7 +4383,7 @@ export function AdminOwnerReview({
         const edit = cardEdits[prize.id];
         return {
           ...prize,
-          weight: edit?.weight ?? prize.weight ?? 0,
+          weight: edit?.weight ?? prize.weight ?? 1,
           unlockAtSoldPct:
             edit?.unlockAtSoldPct ?? prize.unlockAtSoldPct ?? 0,
           ownerTier: ownerReviewTierFromPrize(prize),
@@ -4354,7 +4409,13 @@ export function AdminOwnerReview({
         0,
       );
       const pct = totalWeight === 0 ? 0 : (weight / totalWeight) * 100;
-      return { tier, weight, planned, cards: subset.length, pct };
+      return {
+        tier,
+        weight,
+        planned,
+        cards: subset.length,
+        pct,
+      };
     });
   }, [effectivePrizes, logicMode, totalWeight]);
 
@@ -4399,6 +4460,47 @@ export function AdminOwnerReview({
 
   const baseCostCoins = Math.max(1, campaign.costCoins ?? 1);
   const expectedRtp = baseCostCoins > 0 ? (expectedValuePerOpen / baseCostCoins) * 100 : 0;
+
+  const recommendedLogicMode = useMemo(
+    () => ownerReviewRecommendedLogicMode(effectivePrizes),
+    [effectivePrizes],
+  );
+  const recommendationReason = ownerReviewRecommendationReason(recommendedLogicMode);
+
+  const simulatorModeComparisons = useMemo<OwnerReviewModeComparison[]>(() => {
+    if (campaign.mode !== "instant_gacha") return [];
+
+    const comparisonDraws = ownerReviewComparisonDrawCount(
+      campaign.totalSlots,
+      drawSampleSize,
+    );
+    const comparisonSeed = simResult?.seed ?? "0dd5eed0";
+
+    return OWNER_REVIEW_LOGIC_OPTIONS.map((option) => ({
+      mode: option.value,
+      label: option.label,
+      result: runOwnerReviewSimulation(
+        prizes,
+        option.value,
+        cardEdits,
+        campaign.totalSlots,
+        comparisonDraws,
+        comparisonSeed,
+      ),
+      recommended: option.value === recommendedLogicMode,
+    }));
+  }, [
+    campaign.mode,
+    campaign.totalSlots,
+    cardEdits,
+    drawSampleSize,
+    prizes,
+    recommendedLogicMode,
+    simResult?.seed,
+  ]);
+  const recommendedComparison = simulatorModeComparisons.find(
+    (row) => row.recommended,
+  );
 
   const bundles = useMemo(
     () => normalizeOpenQuantityOptions(campaign.openQuantityOptions),
@@ -4686,19 +4788,15 @@ export function AdminOwnerReview({
             <div className="field">
               <label>Logic mode</label>
               <div className="tabs" style={{ width: "100%" }}>
-                {[
-                  { k: "pure_random" as const, l: "Pure random", desc: "Equal weight per remaining unit" },
-                  { k: "weighted_templates" as const, l: "Weighted", desc: "Use admin weights" },
-                  { k: "inventory_gated" as const, l: "Inventory-gated", desc: "Weights + unlock %" },
-                ].map((m) => (
+                {OWNER_REVIEW_LOGIC_OPTIONS.map((m) => (
                   <button
                     type="button"
-                    key={m.k}
-                    className={`t ${logicMode === m.k ? "active" : ""}`}
+                    key={m.value}
+                    className={`t ${logicMode === m.value ? "active" : ""}`}
                     style={{ flex: 1, padding: "7px 10px", textAlign: "left", background: "transparent", border: 0, cursor: "pointer", color: "inherit", fontFamily: "inherit" }}
-                    onClick={() => setLogicMode(m.k)}
+                    onClick={() => setLogicMode(m.value)}
                   >
-                    <div style={{ fontSize: 12, fontWeight: 600 }}>{m.l}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600 }}>{m.label}</div>
                     <div style={{ fontSize: 10, color: "var(--a-muted)", marginTop: 2 }}>{m.desc}</div>
                   </button>
                 ))}
@@ -4710,10 +4808,10 @@ export function AdminOwnerReview({
 
             <hr className="hr" />
 
-            <div className="section-label">Per-tier targets (derived from weights)</div>
+            <div className="section-label">Per-tier active odds</div>
             <div style={{ display: "grid", gridTemplateColumns: "110px 1fr 90px 90px", gap: 10, alignItems: "center", fontSize: 11, color: "var(--a-muted)", padding: "0 4px" }}>
               <div>Tier</div>
-              <div>Weight share</div>
+              <div>Active share</div>
               <div className="num">Hit %</div>
               <div className="num">Override</div>
             </div>
@@ -5029,6 +5127,104 @@ export function AdminOwnerReview({
                   );
                 })}
               </div>
+
+              {campaign.mode === "instant_gacha" &&
+                simulatorModeComparisons.length > 0 && (
+                  <div
+                    style={{
+                      border: "1px solid var(--a-border-soft)",
+                      borderRadius: 7,
+                      background: "rgba(255,255,255,0.02)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 10,
+                        alignItems: "center",
+                        padding: "10px 12px 8px",
+                      }}
+                    >
+                      <div>
+                        <div className="section-label">Logic mode comparison</div>
+                        <div className="text-mute" style={{ fontSize: 10, marginTop: 3 }}>
+                          First {simulatorModeComparisons[0]?.result.draws.toLocaleString()} opens · expected tier hits
+                        </div>
+                      </div>
+                      {recommendedComparison && (
+                        <span className="tier-pill gold">
+                          Recommended · {recommendedComparison.label}
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className="text-mute"
+                      style={{ fontSize: 11, padding: "0 12px 8px" }}
+                    >
+                      {recommendationReason}
+                    </div>
+                    <table className="tbl" style={{ width: "100%" }}>
+                      <thead>
+                        <tr>
+                          <th>Mode</th>
+                          {OWNER_REVIEW_TIER_ORDER.map((tier) => (
+                            <th key={tier} className="num">
+                              {ownerReviewTierLabel(tier)}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {simulatorModeComparisons.map((comparison) => {
+                          const { result } = comparison;
+                          return (
+                            <tr key={comparison.mode}>
+                              <td>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    flexWrap: "wrap",
+                                  }}
+                                >
+                                  <span>{comparison.label}</span>
+                                  {comparison.mode === logicMode && (
+                                    <span className="text-mute" style={{ fontSize: 10 }}>
+                                      selected
+                                    </span>
+                                  )}
+                                  {comparison.recommended && (
+                                    <span className="tier-pill gold">recommend</span>
+                                  )}
+                                </div>
+                              </td>
+                              {OWNER_REVIEW_TIER_ORDER.map((tier) => {
+                                const expectedHits = result.expected[tier];
+                                const expectedPct =
+                                  result.draws === 0
+                                    ? 0
+                                    : (expectedHits / result.draws) * 100;
+                                return (
+                                  <td key={tier} className="num tnum">
+                                    {expectedHits.toLocaleString(undefined, {
+                                      maximumFractionDigits: 2,
+                                    })}
+                                    <div className="text-mute" style={{ fontSize: 10 }}>
+                                      {expectedPct.toFixed(2)}%
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
               {simResult && campaign.mode === "instant_gacha" && (
                 <div>
