@@ -36,6 +36,40 @@ export async function PATCH(request: Request) {
   if (profileId === admin.profileId && !isActive) return Response.json({ error: "You cannot deactivate your own admin access." }, { status: 409 });
 
   const supabase = createServiceSupabaseClient();
+
+  // Load the target's current admin row before mutating so we can enforce
+  // role-transition rules that the database doesn't model.
+  const { data: targetCurrent, error: targetLoadError } = await supabase
+    .from("admin_users")
+    .select("id,role,is_active")
+    .eq("profile_id", profileId)
+    .maybeSingle();
+  if (targetLoadError) return Response.json({ error: targetLoadError.message }, { status: 500 });
+
+  // Only owners can modify a row that currently holds the owner role (covers
+  // both demote-the-owner and revoke-owner-access escalation paths).
+  if (targetCurrent?.role === "owner" && admin.adminRole !== "owner") {
+    return Response.json(
+      { error: "Only an owner can modify another owner's admin access." },
+      { status: 403 },
+    );
+  }
+
+  // Block non-owner admins from changing their own role. Owners may demote
+  // themselves (e.g. handing the seat to someone else) — the existing
+  // "grant owner" check still gates re-promotion separately.
+  if (
+    profileId === admin.profileId &&
+    admin.adminRole !== "owner" &&
+    targetCurrent &&
+    targetCurrent.role !== role
+  ) {
+    return Response.json(
+      { error: "You cannot change your own admin role." },
+      { status: 403 },
+    );
+  }
+
   const { error } = await supabase.from("admin_users").upsert(
     {
       profile_id: profileId,
@@ -50,7 +84,13 @@ export async function PATCH(request: Request) {
     actor_admin_id: admin.adminId,
     actor_profile_id: profileId,
     event_type: "admin_role_updated",
-    metadata: { profileId, role, isActive },
+    metadata: {
+      profileId,
+      role,
+      isActive,
+      previousRole: targetCurrent?.role ?? null,
+      previousIsActive: targetCurrent?.is_active ?? null,
+    },
   });
 
   return Response.json({ ok: true });
