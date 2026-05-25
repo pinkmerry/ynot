@@ -34,7 +34,7 @@ import {
   type AdminCardSeriesFilter,
 } from "./admin-card-catalog-helpers";
 import {
-  defaultOpenQuantityOptions,
+  allowedOpenQuantityOptions,
   normalizeOpenQuantityOptions,
 } from "./open-quantity";
 import {
@@ -1060,23 +1060,16 @@ export function CollectionConvertPanel({
     text: string;
   } | null>(null);
   const [showConvertConfirm, setShowConvertConfirm] = useState(false);
+  const [currentTimeMs] = useState(() => Date.now());
   const [isPending, startTransition] = useTransition();
 
   // When the user clicks "Convert to coins" on the pack-open reveal screen,
   // we land here with ?from=<openId>&action=convert. Auto-select the cards
   // pulled in that open so the confirm modal can pop right away.
   useEffect(() => {
-    if (!prefilterOpenId) return;
-    const fromOpen = ownedItems
-      .filter((item) => /* source check via serial-no prefix */ false)
-      .map((item) => item.id);
-    if (fromOpen.length) {
-      setSelected(new Set(fromOpen));
-      if (autoConvertOnLoad) setShowConvertConfirm(true);
-    }
-    // owned items list is stable for the render; effect should not re-run on selection
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefilterOpenId]);
+    if (!prefilterOpenId || !autoConvertOnLoad) return;
+    // Source-open item mapping is not available in the collection rows yet.
+  }, [autoConvertOnLoad, prefilterOpenId]);
 
   function toggle(id: string) {
     setSelected((current) => {
@@ -1103,9 +1096,9 @@ export function CollectionConvertPanel({
         (item) =>
           (item.convertCoinValue ?? 0) > 0 &&
           (!item.convertExpiresAt ||
-            new Date(item.convertExpiresAt).valueOf() > Date.now()),
+            new Date(item.convertExpiresAt).valueOf() > currentTimeMs),
       ),
-    [selectedItems],
+    [currentTimeMs, selectedItems],
   );
   const selectedTotalCoins = selectedConvertableItems.reduce(
     (sum, item) => sum + (item.convertCoinValue ?? 0),
@@ -1202,7 +1195,7 @@ export function CollectionConvertPanel({
           const expiryLabel = formatShortDate(item.convertExpiresAt);
           const expired =
             item.convertExpiresAt &&
-            new Date(item.convertExpiresAt).valueOf() <= Date.now();
+            new Date(item.convertExpiresAt).valueOf() <= currentTimeMs;
           const coinValue = Math.max(0, Math.round(item.convertCoinValue ?? 0));
           const convertable = coinValue > 0 && !expired;
           return (
@@ -3262,13 +3255,13 @@ export function AdminCampaignForm({
             </label>
             {mode === "instant_gacha" && (
               <div className="admin-field admin-field-wide">
-                <span>Open buttons</span>
+                <span>Customer pull buttons</span>
                 <div
                   className="admin-open-preset-row"
                   role="group"
                   aria-label="Open quantity buttons"
                 >
-                  {defaultOpenQuantityOptions.map((option) => {
+                  {allowedOpenQuantityOptions.map((option) => {
                     const selected = openQuantityOptions.includes(option);
                     return (
                       <button
@@ -3278,13 +3271,15 @@ export function AdminCampaignForm({
                         onClick={() => toggleOpenQuantityOption(option)}
                         type="button"
                       >
-                        Open {option}
+                        <strong>Open {option}</strong>
+                        <span>{openQuantityLabel(option)}</span>
                       </button>
                     );
                   })}
                 </div>
                 <small>
-                  These become the customer buttons on the open pack screen.
+                  Selected: {openQuantitySummary(openQuantityOptions)}. These
+                  exact buttons appear on the pack detail and opening screens.
                 </small>
               </div>
             )}
@@ -8640,9 +8635,9 @@ function EditCampaignModal({
             </div>
           </div>
           <div className="admin-edit-field">
-            <span>Open buttons (customer-facing batch options)</span>
+            <span>Customer pull buttons</span>
             <div className="admin-edit-chip-row">
-              {[1, 5, 10, 100].map((option) => {
+              {allowedOpenQuantityOptions.map((option) => {
                 const active = openQuantityOptions.includes(option);
                 return (
                   <button
@@ -8656,6 +8651,10 @@ function EditCampaignModal({
                 );
               })}
             </div>
+            <small>
+              Selected: {openQuantitySummary(openQuantityOptions)}. The open
+              pack page only shows selected pull buttons.
+            </small>
           </div>
           <label className="admin-edit-checkbox">
             <input
@@ -8688,4 +8687,14 @@ function EditCampaignModal({
       </div>
     </div>
   );
+}
+
+function openQuantityLabel(option: number) {
+  return `${option} pull${option === 1 ? "" : "s"}`;
+}
+
+function openQuantitySummary(options: number[]) {
+  return normalizeOpenQuantityOptions(options)
+    .map((option) => `Open ${option}`)
+    .join(", ");
 }

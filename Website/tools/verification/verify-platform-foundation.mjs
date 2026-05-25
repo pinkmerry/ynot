@@ -187,6 +187,9 @@ checkText(
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API keeps value weight unlock owner-only", /hasOwnerOnlyOddsFields[\s\S]*admin\.adminRole !== "owner"[\s\S]*Only an owner can set prize value, weight, or sold unlock odds/);
 check("src/features/ynot/client.tsx", "admin campaign form stores prize category metadata", /prizeCategoryOptions[\s\S]*prizeCategoryLabel[\s\S]*metadata: \{[\s\S]*prizeCategory/);
 check("src/features/ynot/client.tsx", "admin campaign form blocks mismatched prize quantities", /Prize quantity must equal the total pack quantity/);
+check("src/features/ynot/open-quantity.ts", "open quantity options are limited to 1 10 100 pull choices", /allowedOpenQuantityOptions = \[1, 10, 100\]/);
+check("src/features/ynot/client.tsx", "admin campaign create and edit expose customer pull buttons", /Customer pull buttons[\s\S]*allowedOpenQuantityOptions\.map[\s\S]*openQuantitySummary\(openQuantityOptions\)[\s\S]*The open[\s\S]*pack page only shows selected pull buttons/);
+notCheck("src/features/ynot/client.tsx", "admin pull button choices do not include obsolete 5 pull option", /\[1, 5, 10, 100\]/);
 check("src/features/ynot/client.tsx", "admin card form calls card API", /\/api\/ynot\/admin\/cards/);
 check("src/features/ynot/client.tsx", "admin card form refreshes catalog data after save", /export function AdminCardForm[\s\S]*const router = useRouter\(\)[\s\S]*\/api\/ynot\/admin\/cards[\s\S]*router\.refresh\(\)/);
 check("src/lib/lucky-draw/types.ts", "card catalog item exposes full card row metadata", /CardCatalogItem[\s\S]*searchName\?:[\s\S]*isTest\?:[\s\S]*assetSource\?:[\s\S]*assetManifestKey\?:[\s\S]*updatedAt\?:/);

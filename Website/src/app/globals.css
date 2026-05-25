@@ -7666,11 +7666,18 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
+  gap: 2px;
   font-size: 0.78rem;
   font-weight: 800;
   min-height: 34px;
   padding: 6px 16px;
   text-align: center;
+}
+
+.open-quantity-grid button strong,
+.open-quantity-grid button span {
+  line-height: 1.1;
 }
 
 .open-quantity-grid button.active,
@@ -24801,6 +24808,17 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   font-weight: 800 !important;
   border-color: var(--a-border-soft) !important;
   color: var(--a-fg-dim) !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+.admin-frame .admin-pack-form .admin-open-preset-button strong,
+.admin-frame .admin-pack-form .admin-open-preset-button span {
+  line-height: 1.1 !important;
+}
+.admin-frame .admin-pack-form .admin-open-preset-button span {
+  color: inherit !important;
+  font-size: 0.68rem !important;
+  opacity: 0.72 !important;
 }
 .admin-frame .admin-pack-form .admin-open-preset-button.is-selected,
 .admin-frame .admin-pack-form .admin-open-preset-button[aria-pressed="true"] {
