@@ -38,6 +38,14 @@ type RandomLogicMode =
   | "weighted_templates"
   | "inventory_gated";
 
+type ServiceSupabaseClient = ReturnType<typeof createServiceSupabaseClient>;
+
+type OwnerPrizeOddsOverride = {
+  id: string;
+  weight?: number;
+  unlockAtSoldPct?: number;
+};
+
 const lifecycleActions: readonly LifecycleAction[] = [
   "submit_review",
   "save_logic",
@@ -57,6 +65,22 @@ const randomLogicModes: readonly RandomLogicMode[] = [
 
 function text(value: unknown, max = 160) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+function boundedNumber(value: unknown, min: number, max: number) {
+  const number =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : NaN;
+  if (!Number.isFinite(number)) return null;
+  return Math.min(max, Math.max(min, number));
+}
+
+function roundedNumber(value: number, decimals: number) {
+  const multiplier = 10 ** decimals;
+  return Math.round(value * multiplier) / multiplier;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -115,6 +139,146 @@ function logicModeFromSnapshot(snapshot: unknown): RandomLogicMode | null {
   return randomLogicModes.includes(mode as RandomLogicMode)
     ? (mode as RandomLogicMode)
     : null;
+}
+
+function ownerPrizeOddsOverrides(value: unknown) {
+  if (!isRecord(value) || !isRecord(value.byCard)) {
+    return { overrides: [] as OwnerPrizeOddsOverride[], response: null };
+  }
+
+  const overrides: OwnerPrizeOddsOverride[] = [];
+  for (const [rawPrizeId, rawPatch] of Object.entries(value.byCard)) {
+    const prizeId = text(rawPrizeId, 80);
+    if (!prizeId || !isRecord(rawPatch)) continue;
+
+    const update: OwnerPrizeOddsOverride = { id: prizeId };
+    if ("weight" in rawPatch) {
+      const weight = boundedNumber(rawPatch.weight, 0, 100000);
+      if (weight === null) {
+        return {
+          overrides: [],
+          response: adminErrorResponse(
+            "PRIZE_ODDS_INVALID_VALUES",
+            "Weight must be a number from 0 to 100000 and unlock percent must be 0 to 100.",
+            400,
+          ),
+        };
+      }
+      update.weight = roundedNumber(weight, 4);
+    }
+
+    if ("unlockAtSoldPct" in rawPatch) {
+      const unlockAtSoldPct = boundedNumber(rawPatch.unlockAtSoldPct, 0, 100);
+      if (unlockAtSoldPct === null) {
+        return {
+          overrides: [],
+          response: adminErrorResponse(
+            "PRIZE_ODDS_INVALID_VALUES",
+            "Weight must be a number from 0 to 100000 and unlock percent must be 0 to 100.",
+            400,
+          ),
+        };
+      }
+      update.unlockAtSoldPct = Math.round(unlockAtSoldPct);
+    }
+
+    if (update.weight !== undefined || update.unlockAtSoldPct !== undefined) {
+      overrides.push(update);
+    }
+  }
+
+  return { overrides, response: null };
+}
+
+async function applyOwnerPrizeOddsOverrides(
+  supabase: ServiceSupabaseClient,
+  campaignId: string,
+  overrides: OwnerPrizeOddsOverride[],
+) {
+  if (!overrides.length) return { applied: 0, response: null };
+
+  const deduped = new Map<string, OwnerPrizeOddsOverride>();
+  for (const override of overrides) {
+    deduped.set(override.id, { ...deduped.get(override.id), ...override });
+  }
+  const prizeIds = [...deduped.keys()];
+  const { data: existingPrizes, error: loadError } = await supabase
+    .from("draw_round_prizes")
+    .select("id,weight,unlock_at_sold_pct")
+    .eq("draw_round_id", campaignId)
+    .in("id", prizeIds);
+
+  if (loadError) {
+    if (isMissingColumnError(loadError)) {
+      return { applied: 0, response: randomPackSchemaMissingResponse() };
+    }
+    return {
+      applied: 0,
+      response: mappedAdminErrorResponse(loadError, campaignLifecycleErrorMap, {
+        code: "PRIZE_ODDS_LOAD_FAILED",
+        error: "Owner prize odds could not be loaded.",
+        status: 409,
+      }),
+    };
+  }
+
+  const existingById = new Map(
+    (existingPrizes ?? []).map((prize) => [prize.id, prize]),
+  );
+  if (existingById.size !== prizeIds.length) {
+    return {
+      applied: 0,
+      response: adminErrorResponse(
+        "PRIZE_ODDS_INVALID_PRIZE",
+        "One or more owner odds rows do not belong to this pack.",
+        400,
+      ),
+    };
+  }
+
+  let applied = 0;
+  for (const override of deduped.values()) {
+    const existing = existingById.get(override.id);
+    if (!existing) continue;
+
+    const patch: { weight?: number; unlock_at_sold_pct?: number } = {};
+    if (
+      override.weight !== undefined &&
+      Number(existing.weight ?? 0) !== override.weight
+    ) {
+      patch.weight = override.weight;
+    }
+    if (
+      override.unlockAtSoldPct !== undefined &&
+      Number(existing.unlock_at_sold_pct ?? 0) !== override.unlockAtSoldPct
+    ) {
+      patch.unlock_at_sold_pct = override.unlockAtSoldPct;
+    }
+    if (!Object.keys(patch).length) continue;
+
+    const { error: updateError } = await supabase
+      .from("draw_round_prizes")
+      .update(patch)
+      .eq("id", override.id)
+      .eq("draw_round_id", campaignId);
+
+    if (updateError) {
+      if (isMissingColumnError(updateError)) {
+        return { applied, response: randomPackSchemaMissingResponse() };
+      }
+      return {
+        applied,
+        response: mappedAdminErrorResponse(updateError, campaignLifecycleErrorMap, {
+          code: "PRIZE_ODDS_SAVE_FAILED",
+          error: "Owner prize odds could not be saved.",
+          status: 409,
+        }),
+      };
+    }
+    applied += 1;
+  }
+
+  return { applied, response: null };
 }
 
 function mockLifecycleResult(
@@ -481,6 +645,17 @@ export async function POST(request: Request) {
     };
   }
   const logicSnapshot = baseLogicSnapshot as unknown as Json;
+  const shouldApplyOwnerPrizeOdds =
+    action === "save_logic" ||
+    action === "submit_review" ||
+    action === "approve" ||
+    action === "publish";
+  const parsedOwnerPrizeOdds = shouldApplyOwnerPrizeOdds
+    ? ownerPrizeOddsOverrides(mergedOverrides)
+    : { overrides: [] as OwnerPrizeOddsOverride[], response: null };
+  if (parsedOwnerPrizeOdds.response) return parsedOwnerPrizeOdds.response;
+  const ownerPrizeOdds = parsedOwnerPrizeOdds.overrides;
+  let appliedPrizeOddsOverrides = 0;
   const responseLogicMode =
     action === "publish"
       ? logicModeFromSnapshot(current.logic_snapshot) ?? logicMode
@@ -494,6 +669,13 @@ export async function POST(request: Request) {
         409,
       );
     }
+    const oddsResult = await applyOwnerPrizeOddsOverrides(
+      supabase,
+      campaignId,
+      ownerPrizeOdds,
+    );
+    if (oddsResult.response) return oddsResult.response;
+    appliedPrizeOddsOverrides = oddsResult.applied;
     const { error: updateError } = await supabase
       .from("draw_rounds")
       .update({
@@ -578,6 +760,19 @@ export async function POST(request: Request) {
     ) => Promise<{
       error: { message: string; code?: string; details?: string; hint?: string } | null;
     }>;
+    if (
+      action === "submit_review" ||
+      action === "approve" ||
+      action === "publish"
+    ) {
+      const oddsResult = await applyOwnerPrizeOddsOverrides(
+        supabase,
+        campaignId,
+        ownerPrizeOdds,
+      );
+      if (oddsResult.response) return oddsResult.response;
+      appliedPrizeOddsOverrides = oddsResult.applied;
+    }
     const { error: rpcError } = await callLifecycleRpc(rpcName, rpcPayload);
     if (rpcError) {
       if (
@@ -614,7 +809,12 @@ export async function POST(request: Request) {
     actor_admin_id: admin.adminId,
     event_type: `campaign_${action}`,
     draw_round_id: campaignId,
-    metadata: { action, logicMode: responseLogicMode, note: note || null },
+    metadata: {
+      action,
+      logicMode: responseLogicMode,
+      note: note || null,
+      appliedPrizeOddsOverrides,
+    },
   });
   if (auditError) {
     console.warn("ynot_campaign_audit_insert_failed", auditError.message);

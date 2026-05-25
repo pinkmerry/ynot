@@ -3985,31 +3985,72 @@ function mulberry32(seed: number) {
   };
 }
 
+function ownerReviewPrizeUnits(prize: YnotPrizePreview) {
+  return Math.max(
+    0,
+    Math.round(
+      prize.availableUnits ?? prize.plannedQuantity ?? prize.totalUnits ?? 0,
+    ),
+  );
+}
+
+function ownerReviewPrizeWeight(
+  prize: YnotPrizePreview,
+  logicMode: OwnerReviewLogicMode,
+) {
+  if (logicMode === "pure_random") return 1;
+  return Math.max(0, Number(prize.weight ?? 0) || 0);
+}
+
+function ownerReviewPrizeUnlockAtSoldPct(
+  prize: YnotPrizePreview,
+  logicMode: OwnerReviewLogicMode,
+) {
+  if (logicMode !== "inventory_gated") return 0;
+  return Math.min(100, Math.max(0, Number(prize.unlockAtSoldPct ?? 0) || 0));
+}
+
+function ownerReviewEffectivePoolWeight(
+  prize: YnotPrizePreview,
+  logicMode: OwnerReviewLogicMode,
+  soldPct: number,
+  remainingUnits = ownerReviewPrizeUnits(prize),
+) {
+  if (remainingUnits <= 0) return 0;
+  if (ownerReviewPrizeUnlockAtSoldPct(prize, logicMode) > soldPct) return 0;
+  return remainingUnits * ownerReviewPrizeWeight(prize, logicMode);
+}
+
 function runOwnerReviewSimulation(
   prizes: YnotPrizePreview[],
   logicMode: OwnerReviewLogicMode,
   cardEdits: Record<string, OwnerReviewCardEdit>,
+  totalPulls: number,
   draws: number,
   seedHex: string,
 ): OwnerReviewSimResult {
-  // Build the active table — weighted by either the override or the original.
+  const sampleDraws = Math.max(1, Math.round(draws || 0));
+  const packSize = Math.max(1, Math.round(totalPulls || sampleDraws));
+  // Build the active table the same way the RPC samples prize units:
+  // remaining units multiplied by the row weight, with sold-% gates applied.
   const entries = prizes
-    .filter((prize) => (prize.plannedQuantity ?? 0) > 0)
     .map((prize) => {
       const edit = cardEdits[prize.id];
-      const baseWeight =
-        logicMode === "pure_random"
-          ? prize.plannedQuantity ?? 0
-          : edit?.weight ?? prize.weight ?? 0;
+      const effectivePrize = {
+        ...prize,
+        weight: edit?.weight ?? prize.weight ?? 0,
+        unlockAtSoldPct:
+          edit?.unlockAtSoldPct ?? prize.unlockAtSoldPct ?? 0,
+      };
       return {
         tier: ownerReviewTierFromPrize(prize),
-        weight: Math.max(0, baseWeight || 0),
+        prize: effectivePrize,
+        remainingUnits: ownerReviewPrizeUnits(effectivePrize),
         value: prize.valueThb ?? 0,
       };
     })
-    .filter((row) => row.weight > 0);
+    .filter((row) => row.remainingUnits > 0);
 
-  const totalWeight = entries.reduce((sum, row) => sum + row.weight, 0);
   const counts: Record<OwnerReviewTier, number> = {
     rainbow: 0,
     gold: 0,
@@ -4022,11 +4063,8 @@ function runOwnerReviewSimulation(
     silver: 0,
     bronze: 0,
   };
-  for (const row of entries) {
-    expected[row.tier] += (row.weight / Math.max(1, totalWeight)) * draws;
-  }
 
-  const cumulativeStep = Math.max(1, Math.floor(draws / 50));
+  const cumulativeStep = Math.max(1, Math.floor(sampleDraws / 50));
   const cumulative: Record<OwnerReviewTier, number[]> = {
     rainbow: [],
     gold: [],
@@ -4035,7 +4073,7 @@ function runOwnerReviewSimulation(
   };
   const payouts: number[] = [];
 
-  if (totalWeight === 0 || entries.length === 0) {
+  if (entries.length === 0) {
     return {
       counts,
       expected,
@@ -4043,7 +4081,7 @@ function runOwnerReviewSimulation(
       payoutAvg: 0,
       payoutWorst10: 0,
       payoutBest1: 0,
-      draws,
+      draws: sampleDraws,
       seed: seedHex,
       ranAt: Date.now(),
     };
@@ -4052,18 +4090,38 @@ function runOwnerReviewSimulation(
   const seedNum = parseInt(seedHex, 16) || Date.now();
   const random = mulberry32(seedNum);
 
-  for (let i = 0; i < draws; i++) {
+  for (let i = 0; i < sampleDraws; i++) {
+    const soldPct = Math.min(100, ((i + 1) / packSize) * 100);
+    const pool = entries
+      .map((row) => ({
+        row,
+        weight: ownerReviewEffectivePoolWeight(
+          row.prize,
+          logicMode,
+          soldPct,
+          row.remainingUnits,
+        ),
+      }))
+      .filter((entry) => entry.weight > 0);
+    const totalWeight = pool.reduce((sum, entry) => sum + entry.weight, 0);
+    if (totalWeight <= 0) break;
+
+    for (const entry of pool) {
+      expected[entry.row.tier] += (entry.weight / totalWeight);
+    }
+
     const target = random() * totalWeight;
     let acc = 0;
-    for (const row of entries) {
-      acc += row.weight;
+    for (const entry of pool) {
+      acc += entry.weight;
       if (target <= acc) {
-        counts[row.tier] += 1;
-        payouts.push(row.value);
+        entry.row.remainingUnits -= 1;
+        counts[entry.row.tier] += 1;
+        payouts.push(entry.row.value);
         break;
       }
     }
-    if ((i + 1) % cumulativeStep === 0 || i === draws - 1) {
+    if ((i + 1) % cumulativeStep === 0 || i === sampleDraws - 1) {
       for (const tier of OWNER_REVIEW_TIER_ORDER) {
         cumulative[tier].push(counts[tier]);
       }
@@ -4082,7 +4140,7 @@ function runOwnerReviewSimulation(
     payoutAvg,
     payoutWorst10: payouts[worstIdx] ?? 0,
     payoutBest1: payouts[bestIdx] ?? 0,
-    draws,
+    draws: sampleDraws,
     seed: seedHex,
     ranAt: Date.now(),
   };
@@ -4255,24 +4313,25 @@ export function AdminOwnerReview({
   );
 
   const totalWeight = effectivePrizes.reduce(
-    (sum, prize) => sum + Math.max(0, prize.weight),
+    (sum, prize) => sum + ownerReviewEffectivePoolWeight(prize, logicMode, 0),
     0,
   );
   const tierRollups = useMemo(() => {
     return OWNER_REVIEW_TIER_ORDER.map((tier) => {
       const subset = effectivePrizes.filter((prize) => prize.ownerTier === tier);
       const weight = subset.reduce(
-        (sum, prize) => sum + Math.max(0, prize.weight),
+        (sum, prize) =>
+          sum + ownerReviewEffectivePoolWeight(prize, logicMode, 0),
         0,
       );
       const planned = subset.reduce(
-        (sum, prize) => sum + (prize.plannedQuantity ?? 0),
+        (sum, prize) => sum + ownerReviewPrizeUnits(prize),
         0,
       );
       const pct = totalWeight === 0 ? 0 : (weight / totalWeight) * 100;
       return { tier, weight, planned, cards: subset.length, pct };
     });
-  }, [effectivePrizes, totalWeight]);
+  }, [effectivePrizes, logicMode, totalWeight]);
 
   const totalPlanned = effectivePrizes.reduce(
     (sum, prize) => sum + (prize.plannedQuantity ?? 0),
@@ -4284,7 +4343,9 @@ export function AdminOwnerReview({
       ? 0
       : effectivePrizes.reduce(
           (sum, prize) =>
-            sum + (prize.weight / totalWeight) * (prize.valueThb ?? 0),
+            sum +
+            (ownerReviewEffectivePoolWeight(prize, logicMode, 0) / totalWeight) *
+              (prize.valueThb ?? 0),
           0,
         );
 
@@ -4301,7 +4362,8 @@ export function AdminOwnerReview({
       : effectivePrizes.reduce(
           (sum, prize) =>
             sum +
-            (prize.weight / totalWeight) * (prize.convertCoinValue ?? 0),
+            (ownerReviewEffectivePoolWeight(prize, logicMode, 0) / totalWeight) *
+              (prize.convertCoinValue ?? 0),
           0,
         );
   const convertDeadlineDaysDisplay =
@@ -4342,13 +4404,14 @@ export function AdminOwnerReview({
           prizes,
           logicMode,
           cardEdits,
+          campaign.totalSlots,
           draws,
           seedHex,
         );
         setSimResult(result);
       });
     },
-    [prizes, logicMode, cardEdits],
+    [prizes, logicMode, cardEdits, campaign.totalSlots],
   );
 
   // Real-time simulator (Instant Gacha only): re-run on every edit, debounced
@@ -4727,8 +4790,15 @@ export function AdminOwnerReview({
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.map((prize) => (
-                        <tr key={prize.id}>
+                      {rows.map((prize) => {
+                        const poolShare =
+                          totalWeight === 0
+                            ? 0
+                            : (ownerReviewEffectivePoolWeight(prize, logicMode, 0) /
+                                totalWeight) *
+                              100;
+                        return (
+                          <tr key={prize.id}>
                           <td>
                             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                               {prize.cardImageUrl ? (
@@ -4817,9 +4887,7 @@ export function AdminOwnerReview({
                                 />
                               </td>
                               <td className="num tnum text-mute">
-                                {totalWeight === 0
-                                  ? "0.000%"
-                                  : `${((prize.weight / totalWeight) * 100).toFixed(3)}%`}
+                                {`${poolShare.toFixed(3)}%`}
                               </td>
                             </>
                           )}
@@ -4829,8 +4897,9 @@ export function AdminOwnerReview({
                             </td>
                           )}
                           <td className="num tnum">{prize.plannedQuantity ?? 0}</td>
-                        </tr>
-                      ))}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

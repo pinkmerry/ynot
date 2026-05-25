@@ -12,14 +12,26 @@ function exists(rel) { return fs.existsSync(path.join(root, rel)); }
 function pass(label) { passes.push(label); }
 function fail(label) { failures.push(label); }
 function check(rel, label, pattern) {
+  if (!exists(rel)) {
+    fail(`${label} (${rel})`);
+    return;
+  }
   if (pattern.test(read(rel))) pass(label);
   else fail(`${label} (${rel})`);
 }
 function notCheck(rel, label, pattern) {
+  if (!exists(rel)) {
+    fail(`${label} (${rel})`);
+    return;
+  }
   if (!pattern.test(read(rel))) pass(label);
   else fail(`${label} (${rel})`);
 }
 function sliceBetween(rel, start, end, label) {
+  if (!exists(rel)) {
+    fail(`${label} (${rel})`);
+    return "";
+  }
   const source = read(rel);
   const startIndex = source.indexOf(start);
   const endIndex =
@@ -185,6 +197,8 @@ checkText(
   "AdminOwnerReview",
 );
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API keeps value weight unlock owner-only", /hasOwnerOnlyOddsFields[\s\S]*admin\.adminRole !== "owner"[\s\S]*Only an owner can set prize value, weight, or sold unlock odds/);
+check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle persists owner review by-card odds into canonical prize rows", /function applyOwnerPrizeOddsOverrides[\s\S]*from\("draw_round_prizes"\)[\s\S]*weight[\s\S]*unlock_at_sold_pct[\s\S]*if \(action === "save_logic"\)[\s\S]*applyOwnerPrizeOddsOverrides[\s\S]*action === "publish"[\s\S]*applyOwnerPrizeOddsOverrides/);
+check("src/features/ynot/client.tsx", "owner review simulator mirrors unit-weighted unlock-gated runtime odds", /function ownerReviewPrizeUnits[\s\S]*plannedQuantity[\s\S]*function ownerReviewEffectivePoolWeight[\s\S]*UnlockAtSoldPct[\s\S]*soldPct[\s\S]*remainingUnits[\s\S]*function runOwnerReviewSimulation[\s\S]*remainingUnits/);
 check("src/features/ynot/client.tsx", "admin campaign form stores prize category metadata", /prizeCategoryOptions[\s\S]*prizeCategoryLabel[\s\S]*metadata: \{[\s\S]*prizeCategory/);
 check("src/features/ynot/client.tsx", "admin campaign form blocks mismatched prize quantities", /Prize quantity must equal the total pack quantity/);
 check("src/features/ynot/open-quantity.ts", "open quantity options are limited to 1 10 100 pull choices", /allowedOpenQuantityOptions = \[1, 10, 100\]/);
