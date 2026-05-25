@@ -568,6 +568,11 @@ export function GachaOpenPanel({
     router.push("/collection");
   }
 
+  function handleBackToQuantity() {
+    setRevealResult(null);
+    router.refresh();
+  }
+
   function handleOpenAgain() {
     setRevealResult(null);
     fireOpen(quantity);
@@ -671,6 +676,7 @@ export function GachaOpenPanel({
           quantity={quantity}
           tierAnimations={tierAnimations}
           isPending={isPending}
+          onBackToQuantity={handleBackToQuantity}
           onClose={handleRevealClose}
           onOpenAgain={handleOpenAgain}
         />

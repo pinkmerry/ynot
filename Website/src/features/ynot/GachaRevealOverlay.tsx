@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   highestPrizeDisplayTier,
@@ -23,6 +24,7 @@ type RevealStage = "tension" | "reveal" | "summary";
 type Props = {
   result: YnotGachaOpenResult;
   quantity: number;
+  onBackToQuantity: () => void;
   onClose: () => void;
   onOpenAgain: () => void;
   tierAnimations?: YnotTierAnimation[];
@@ -48,6 +50,7 @@ function pickInitialStage(autoSkip: boolean): RevealStage {
 export function GachaRevealOverlay({
   result,
   quantity,
+  onBackToQuantity,
   onClose,
   onOpenAgain,
   tierAnimations,
@@ -120,6 +123,18 @@ export function GachaRevealOverlay({
       aria-label="Pack reveal"
     >
       <div className="gacha-reveal-backdrop" aria-hidden="true" />
+
+      {stage === "summary" && (
+        <button
+          type="button"
+          className="gacha-reveal-back"
+          aria-label="Back to choose pull quantity"
+          onClick={onBackToQuantity}
+        >
+          <ArrowLeft aria-hidden="true" />
+          <span>Choose pulls</span>
+        </button>
+      )}
 
       <button
         type="button"

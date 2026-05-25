@@ -13479,6 +13479,38 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
   font-size: 18px;
   backdrop-filter: blur(6px);
 }
+.gacha-reveal-back {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 18px);
+  left: 18px;
+  z-index: 2;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  background: rgba(15, 15, 26, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  color: var(--foreground);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  backdrop-filter: blur(6px);
+  transition: border-color 150ms ease, transform 150ms ease;
+}
+.gacha-reveal-back:hover {
+  border-color: rgba(244, 197, 66, 0.55);
+  transform: translateY(-1px);
+}
+.gacha-reveal-back svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
 
 /* Tension stage */
 .gacha-reveal-pack {
