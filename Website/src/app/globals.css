@@ -7657,6 +7657,36 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   width: 100%;
 }
 
+.open-pack-stockline {
+  align-items: center;
+  background: rgba(17, 180, 117, 0.08);
+  border: 1px solid rgba(17, 180, 117, 0.22);
+  border-radius: 999px;
+  color: var(--prototype-text);
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 10px !important;
+  max-width: 100%;
+  padding: 7px 14px;
+  text-align: center;
+}
+
+.open-pack-stockline span,
+.open-pack-stockline strong {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.open-pack-stockline strong {
+  color: var(--jt-green);
+}
+
 .open-quantity-grid button,
 .admin-open-preset-row button {
   background: rgba(var(--prototype-cyan-rgb), 0.08);

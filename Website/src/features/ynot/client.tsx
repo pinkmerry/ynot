@@ -519,6 +519,17 @@ export function GachaOpenPanel({
     campaign.remainingSlots ?? Number.POSITIVE_INFINITY,
     campaign.availablePrizeUnits ?? Number.POSITIVE_INFINITY,
   );
+  const visibleRemainingOpenUnits = Number.isFinite(remainingOpenUnits)
+    ? Math.max(0, Math.floor(remainingOpenUnits))
+    : null;
+  const remainingOpenText =
+    visibleRemainingOpenUnits === null
+      ? "Stock is tracked by the server."
+      : `${visibleRemainingOpenUnits.toLocaleString()} pack${visibleRemainingOpenUnits === 1 ? "" : "s"} left to open`;
+  const remainingTotalText =
+    visibleRemainingOpenUnits !== null && Number.isFinite(campaign.totalSlots)
+      ? `${visibleRemainingOpenUnits.toLocaleString()} / ${campaign.totalSlots.toLocaleString()}`
+      : null;
   const selectedCost = campaign.costCoins * quantity;
   const openBlocker =
     campaign.readinessBlockers?.[0] ??
@@ -609,6 +620,10 @@ export function GachaOpenPanel({
         <p className="mt-2 text-sm text-[var(--muted)]">
           {openBlocker}
         </p>
+        <p className="open-pack-stockline" aria-label="Packs left to open">
+          <span>{remainingOpenText}</span>
+          {remainingTotalText && <strong>{remainingTotalText}</strong>}
+        </p>
         <a className="primary-action open-start mt-4" href="/packs">
           Back to packs
         </a>
@@ -628,6 +643,10 @@ export function GachaOpenPanel({
       <p className="mt-2 text-sm text-[var(--muted)]">
         Choose how many packs to open. Current cost:{" "}
         {selectedCost.toLocaleString()} coins.
+      </p>
+      <p className="open-pack-stockline" aria-label="Packs left to open">
+        <span>{remainingOpenText}</span>
+        {remainingTotalText && <strong>{remainingTotalText}</strong>}
       </p>
       <div className="open-quantity-grid" role="group" aria-label="Open quantity">
         {openQuantityOptions.map((option) => {

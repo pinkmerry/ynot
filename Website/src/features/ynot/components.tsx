@@ -55,6 +55,7 @@ import {
   prizeDisplayTierOptions,
   prizeDisplayTierValue,
 } from "./prize-tier";
+import { getWallet } from "./data";
 
 const defaultHomeFilter: HomeFilterState = {
   series: "all",
@@ -383,7 +384,7 @@ export async function YnotShell({
   homeFilter,
   homeFilterBaseHref = "/",
   walletBalance,
-  showHeaderCoin = false,
+  showHeaderCoin = true,
   shellClassName,
   viewerMode = "preview",
 }: {
@@ -413,6 +414,9 @@ export async function YnotShell({
     if (typeof renderBalance !== "number" || renderBalance === 0) {
       renderBalance = 1250;
     }
+  }
+  if (showHeaderCoin && renderViewer.authenticated && typeof renderBalance !== "number") {
+    renderBalance = (await getWallet(renderViewer.profileId)).balanceCoins;
   }
   return (
     <main className={`app-shell store-shell mobile-safe space-y-7${shellClassName ? ` ${shellClassName}` : ""}`}>
