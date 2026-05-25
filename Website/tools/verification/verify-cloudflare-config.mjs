@@ -164,9 +164,10 @@ const publicHomeDataMatch = campaignData.match(
   /export async function getYnotPublicHomeData\(\): Promise<YnotDashboardData> \{[\s\S]*?\n\}/,
 );
 check(
-  "public homepage data loader avoids auth, admin, wallet, and campaign reads",
+  "public homepage resolves viewer state without wallet, campaign, or inventory reads",
   Boolean(publicHomeDataMatch) &&
-    !/getYnotViewer|resolveCurrentProfile|resolveAdminSession|getWallet|getOwnerApprovalRequests|getCampaigns/.test(
+    /const viewer = await getYnotViewer\(\);/.test(publicHomeDataMatch?.[0] ?? "") &&
+    !/getYnotDashboardSlice|getWallet|getOwnerApprovalRequests|getCampaigns|getCollection|getGachaOpenHistory|getTopUps|getPaymentMethods|getStoreCategories/.test(
       publicHomeDataMatch?.[0] ?? "",
     ),
 );
