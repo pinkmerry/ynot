@@ -1,6 +1,6 @@
 import { AdminPaymentMethodForm } from "@/features/ynot/client";
 import { AdminGate, WalletPanel } from "@/features/ynot/components";
-import { getYnotDashboardSlice } from "@/features/ynot/data";
+import { getAllPaymentMethods, getYnotDashboardSlice } from "@/features/ynot/data";
 import {
   AdminCard,
   AdminCardHead,
@@ -21,11 +21,14 @@ const SETTINGS_NAV: { key: string; label: string; icon: Parameters<typeof AdminI
 ];
 
 export default async function AdminSettingsPage() {
-  const data = await getYnotDashboardSlice({
-    wallet: true,
-    paymentMethods: true,
-    adminTopUps: true,
-  });
+  const [data, allPaymentMethods] = await Promise.all([
+    getYnotDashboardSlice({
+      wallet: true,
+      paymentMethods: true,
+      adminTopUps: true,
+    }),
+    getAllPaymentMethods(),
+  ]);
   return (
     <AdminGate viewer={data.viewer}>
       <AdminFrame
@@ -104,7 +107,7 @@ export default async function AdminSettingsPage() {
                 actions={<AdminPill kind="live">{data.paymentMethods.length} configured</AdminPill>}
               />
               <div className="card-pad">
-                <AdminPaymentMethodForm />
+                <AdminPaymentMethodForm paymentMethods={allPaymentMethods} />
               </div>
             </AdminCard>
 

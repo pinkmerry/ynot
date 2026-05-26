@@ -13,7 +13,40 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminTopUpsPage() {
+type TopUpFilter =
+  | "all"
+  | "pending"
+  | "valid"
+  | "mismatch"
+  | "duplicate"
+  | "provider_error"
+  | "rejected"
+  | "approved";
+
+const topUpFilters: { key: TopUpFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "pending", label: "Pending" },
+  { key: "valid", label: "Valid" },
+  { key: "mismatch", label: "Mismatch" },
+  { key: "duplicate", label: "Duplicate" },
+  { key: "provider_error", label: "Provider" },
+  { key: "rejected", label: "Rejected" },
+  { key: "approved", label: "Approved" },
+];
+
+function normalizeTopUpFilter(value: string | undefined): TopUpFilter {
+  return topUpFilters.some((filter) => filter.key === value)
+    ? (value as TopUpFilter)
+    : "all";
+}
+
+export default async function AdminTopUpsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ filter?: string }>;
+}) {
+  const params = await (searchParams ?? Promise.resolve({} as { filter?: string }));
+  const activeFilter = normalizeTopUpFilter(params.filter);
   const data = await getYnotDashboardSlice({ adminTopUps: true });
   const pending = data.adminTopUps.filter(
     (topUp) =>
@@ -21,7 +54,44 @@ export default async function AdminTopUpsPage() {
   );
   const awaitingSlip = data.adminTopUps.filter((t) => t.status === "pending_slip");
   const approved = data.adminTopUps.filter((t) => t.status === "approved");
+  const validPrecheck = data.adminTopUps.filter(
+    (t) => t.slipVerification?.status === "valid",
+  );
+  const mismatch = data.adminTopUps.filter((t) =>
+    ["amount_mismatch", "receiver_mismatch", "date_mismatch"].includes(
+      t.slipVerification?.status ?? "",
+    ),
+  );
+  const duplicate = data.adminTopUps.filter(
+    (t) => t.slipVerification?.status === "duplicate",
+  );
+  const providerError = data.adminTopUps.filter(
+    (t) => t.slipVerification?.status === "provider_error",
+  );
   const volume = approved.reduce((s, t) => s + t.amountThb, 0);
+  const filterCounts: Record<TopUpFilter, number> = {
+    all: pending.length,
+    pending: pending.filter((t) => t.status === "pending_review").length,
+    valid: validPrecheck.length,
+    mismatch: mismatch.length,
+    duplicate: duplicate.length,
+    provider_error: providerError.length,
+    rejected: data.adminTopUps.filter((t) => t.status === "rejected").length,
+    approved: approved.length,
+  };
+  const visibleTopUps = data.adminTopUps.filter((topUp) => {
+    if (activeFilter === "all") return pending.includes(topUp);
+    if (activeFilter === "pending") return topUp.status === "pending_review";
+    if (activeFilter === "valid") return topUp.slipVerification?.status === "valid";
+    if (activeFilter === "mismatch") {
+      return ["amount_mismatch", "receiver_mismatch", "date_mismatch"].includes(
+        topUp.slipVerification?.status ?? "",
+      );
+    }
+    if (activeFilter === "duplicate") return topUp.slipVerification?.status === "duplicate";
+    if (activeFilter === "provider_error") return topUp.slipVerification?.status === "provider_error";
+    return topUp.status === activeFilter;
+  });
 
   return (
     <AdminGate viewer={data.viewer}>
@@ -68,23 +138,26 @@ export default async function AdminTopUpsPage() {
         <AdminCard>
           <AdminCardHead
             label="Payment queue"
-            title={`Pending review · ${pending.length}`}
+            title={`${topUpFilters.find((filter) => filter.key === activeFilter)?.label ?? "All"} · ${visibleTopUps.length}`}
             actions={
               <div className="tabs">
-                <span className="t active">All · {pending.length}</span>
-                <span className="t">
-                  Pending ·{" "}
-                  {pending.filter((t) => t.status === "pending_review").length}
-                </span>
-                <span className="t">Slip · {awaitingSlip.length}</span>
+                {topUpFilters.map((filter) => (
+                  <a
+                    className={`t ${activeFilter === filter.key ? "active" : ""}`}
+                    href={`/admin/top-ups?filter=${filter.key}`}
+                    key={filter.key}
+                  >
+                    {filter.label} · {filterCounts[filter.key]}
+                  </a>
+                ))}
               </div>
             }
           />
           <div className="list">
-            {pending.length === 0 ? (
-              <div className="list-row text-mute">No pending top-ups.</div>
+            {visibleTopUps.length === 0 ? (
+              <div className="list-row text-mute">No top-ups in this filter.</div>
             ) : (
-              pending.map((t) => (
+              visibleTopUps.map((t) => (
                 <div className="list-row" key={t.id}>
                   <span
                     className="thumb sq"
@@ -113,6 +186,27 @@ export default async function AdminTopUpsPage() {
                       <span className="mono">{t.profileId.slice(0, 8)}…</span>
                       {" "}· {new Date(t.createdAt).toLocaleString()}
                     </div>
+                    <div className="row-sub">
+                      Method:{" "}
+                      <span className="mono">
+                        {t.paymentMethod?.displayName ?? "Unknown method"}
+                      </span>{" "}
+                      · Slip:{" "}
+                      <span className="mono">
+                        {t.slipVerification?.status ?? "not uploaded"}
+                      </span>
+                      {t.slipVerification?.providerCode
+                        ? ` · ${t.slipVerification.providerCode}`
+                        : ""}
+                    </div>
+                    {t.slipVerification?.providerMessage && (
+                      <div
+                        className="text-mute"
+                        style={{ fontSize: 11, marginTop: 3 }}
+                      >
+                        {t.slipVerification.providerMessage}
+                      </div>
+                    )}
                     {t.customerNote && (
                       <div
                         className="text-mute"

@@ -3,9 +3,11 @@ import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { requireVerifiedAnchor } from "@/lib/auth/verified-anchor";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { sha256Hex } from "@/lib/slip2go/client";
+import type { Json } from "@/lib/supabase/types";
+import { createSlip2GoProviderError, sha256Hex, verifySlipWithSlip2Go } from "@/lib/slip2go/client";
 import { getPaymentMethods, getTopUps, getWallet } from "@/features/ynot/data";
 import { toTopUp } from "@/features/ynot/data";
+import { getTopUpPackage } from "@/features/ynot/top-up-packages";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { allowedSlipTypes, maxSlipBytes, verifyImageMagicBytes } from "@/lib/uploads/magic-bytes";
 
@@ -46,15 +48,14 @@ export async function POST(request: Request) {
 
   const form = await request.formData();
   const paymentMethodId = String(form.get("paymentMethodId") ?? "").trim();
-  const amountThb = Number(form.get("amountThb"));
-  const coinAmount = Number(form.get("coinAmount"));
+  const packageId = String(form.get("packageId") ?? "").trim();
+  const topUpPackage = getTopUpPackage(packageId);
   const customerNote = typeof form.get("customerNote") === "string" ? String(form.get("customerNote")).trim().slice(0, 500) : null;
   const fileValue = form.get("slip");
   const slipFile = fileValue instanceof File && fileValue.size > 0 ? fileValue : null;
 
   if (!paymentMethodId) return jsonNoStore({ error: "Payment method is required." }, { status: 400 });
-  if (!Number.isInteger(amountThb) || amountThb <= 0 || amountThb > 1_000_000) return jsonNoStore({ error: "Invalid THB amount." }, { status: 400 });
-  if (!Number.isInteger(coinAmount) || coinAmount <= 0 || coinAmount > 10_000_000) return jsonNoStore({ error: "Invalid coin amount." }, { status: 400 });
+  if (!topUpPackage) return jsonNoStore({ error: "Invalid top-up package." }, { status: 400 });
   if (!slipFile) return jsonNoStore({ error: "Transfer slip upload is required." }, { status: 400 });
   if (!allowedSlipTypes.has(slipFile.type)) return jsonNoStore({ error: "Slip must be JPG, PNG, or WEBP." }, { status: 400 });
   if (slipFile.size > maxSlipBytes) return jsonNoStore({ error: "Slip must be 10 MB or smaller." }, { status: 400 });
@@ -64,12 +65,24 @@ export async function POST(request: Request) {
   const supabase = createServiceSupabaseClient();
   const { data: paymentMethod, error: methodError } = await supabase
     .from("payment_methods")
-    .select("id,is_active")
+    .select("id,is_active,type,bank_name,account_name,account_number,promptpay_id")
     .eq("id", paymentMethodId)
     .eq("is_active", true)
     .maybeSingle();
   if (methodError) throw methodError;
   if (!paymentMethod) return jsonNoStore({ error: "Payment method is not active." }, { status: 400 });
+
+  const slipBuffer = await slipFile.arrayBuffer();
+  const slipHash = sha256Hex(slipBuffer);
+  const { data: localDuplicateSlip, error: localDuplicateError } = await supabase
+    .from("payment_slips")
+    .select("id")
+    .eq("file_sha256", slipHash)
+    .eq("verification_status", "valid")
+    .order("verified_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (localDuplicateError) throw localDuplicateError;
 
   const idempotencyKey = randomUUID();
   const { data: topUp, error: topUpError } = await supabase
@@ -77,8 +90,8 @@ export async function POST(request: Request) {
     .insert({
       profile_id: session.profileId,
       payment_method_id: paymentMethodId,
-      amount_thb: amountThb,
-      coin_amount: coinAmount,
+      amount_thb: topUpPackage.amountThb,
+      coin_amount: topUpPackage.coins,
       status: "pending_review",
       submitted_at: new Date().toISOString(),
       customer_note: customerNote,
@@ -88,8 +101,6 @@ export async function POST(request: Request) {
     .single();
   if (topUpError) throw topUpError;
 
-  const slipBuffer = await slipFile.arrayBuffer();
-  const slipHash = sha256Hex(slipBuffer);
   const filePath = `topups/${session.profileId}/${topUp.id}/${Date.now()}-${cleanFileName(slipFile.name)}`;
   const { error: uploadError } = await supabase.storage.from(slipBucketName).upload(filePath, slipFile, { contentType: magicCheck.contentType, upsert: false });
   if (uploadError) {
@@ -97,26 +108,119 @@ export async function POST(request: Request) {
     return jsonNoStore({ error: uploadError.message }, { status: 500 });
   }
 
-  const { error: slipError } = await supabase.from("payment_slips").insert({
+  const initialProviderResponse: Json = localDuplicateSlip
+    ? { source: "local_file_hash", duplicateSlipId: localDuplicateSlip.id }
+    : { source: "manual_top_up_upload" };
+  const { data: slip, error: slipError } = await supabase.from("payment_slips").insert({
     top_up_request_id: topUp.id,
     storage_provider: "supabase",
     file_path: filePath,
     original_filename: slipFile.name,
     file_sha256: slipHash,
-    verification_status: "manual_review",
-    provider_response: { source: "manual_top_up_upload" },
-  });
+    verification_status: localDuplicateSlip ? "duplicate" : "unverified",
+    provider_code: localDuplicateSlip ? "LOCAL_DUPLICATE" : null,
+    provider_message: localDuplicateSlip ? "This slip image was already used on another approved payment." : null,
+    provider_response: initialProviderResponse,
+    duplicate_of_slip_id: localDuplicateSlip?.id ?? null,
+    verified_at: localDuplicateSlip ? new Date().toISOString() : null,
+  }).select("*").single();
   if (slipError) {
     await supabase.storage.from(slipBucketName).remove([filePath]);
     await supabase.from("top_up_requests").delete().eq("id", topUp.id);
     throw slipError;
   }
 
+  if (!localDuplicateSlip) {
+    const verificationFile = new File([slipBuffer], slipFile.name, {
+      type: magicCheck.contentType,
+    });
+    const verification = await verifySlipWithSlip2Go(verificationFile, {
+      amountThb: topUpPackage.amountThb,
+      promptPayId: paymentMethod.promptpay_id,
+      bankName: paymentMethod.bank_name,
+      bankAccountNumber: paymentMethod.account_number,
+      bankAccountName: paymentMethod.account_name,
+    }).catch((error: unknown) => {
+      console.warn("wallet_slip_verification_failed_before_provider_response", {
+        topUpPublicCode: topUp.public_code,
+        paymentSlipId: slip.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return createSlip2GoProviderError("Slip verification failed before provider response.");
+    });
+
+    let duplicateOfSlipId: string | null = null;
+    let duplicateLookupFailed = false;
+    const duplicateFilters = [
+      verification.referenceId ? `slip2go_reference_id.eq.${verification.referenceId}` : null,
+      verification.decodedQrHash ? `decoded_qr_hash.eq.${verification.decodedQrHash}` : null,
+    ].filter(Boolean);
+
+    if (duplicateFilters.length) {
+      const { data: duplicateSlip, error: duplicateSlipError } = await supabase
+        .from("payment_slips")
+        .select("id")
+        .eq("verification_status", "valid")
+        .neq("id", slip.id)
+        .or(duplicateFilters.join(","))
+        .limit(1)
+        .maybeSingle();
+
+      if (duplicateSlipError) {
+        duplicateLookupFailed = true;
+        console.warn("wallet_slip_verification_duplicate_lookup_failed", {
+          topUpPublicCode: topUp.public_code,
+          paymentSlipId: slip.id,
+          message: duplicateSlipError.message,
+        });
+      }
+      duplicateOfSlipId = duplicateSlip?.id ?? null;
+    }
+
+    const finalStatus = duplicateLookupFailed
+      ? "provider_error"
+      : duplicateOfSlipId
+        ? "duplicate"
+        : verification.status;
+    const finalProviderMessage = duplicateLookupFailed
+      ? "Slip verified, but duplicate recheck failed. Admin review required."
+      : duplicateOfSlipId
+        ? "This slip was already used on another approved payment."
+        : verification.providerMessage;
+
+    const { error: verifiedSlipError } = await supabase
+      .from("payment_slips")
+      .update({
+        verification_status: finalStatus,
+        slip2go_reference_id: verification.referenceId,
+        decoded_qr_hash: verification.decodedQrHash,
+        provider_code: verification.providerCode,
+        provider_message: finalProviderMessage,
+        provider_response: verification.providerResponse,
+        duplicate_of_slip_id: duplicateOfSlipId,
+        verified_at: new Date().toISOString(),
+      })
+      .eq("id", slip.id);
+
+    if (verifiedSlipError) {
+      console.warn("wallet_slip_verification_update_failed", {
+        topUpPublicCode: topUp.public_code,
+        paymentSlipId: slip.id,
+        message: verifiedSlipError.message,
+      });
+    }
+  }
+
   await supabase.from("audit_events").insert({
     actor_profile_id: session.profileId,
     event_type: "top_up_submitted",
     top_up_request_id: topUp.id,
-    metadata: { public_code: topUp.public_code, amount_thb: amountThb, coin_amount: coinAmount },
+    metadata: {
+      public_code: topUp.public_code,
+      amount_thb: topUpPackage.amountThb,
+      coin_amount: topUpPackage.coins,
+      package_id: topUpPackage.id,
+    },
   });
 
   return jsonNoStore({ topUp: toTopUp(topUp) }, { status: 201 });

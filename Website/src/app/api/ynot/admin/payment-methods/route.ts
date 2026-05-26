@@ -10,6 +10,15 @@ function clean(value: unknown, max: number) {
   return typeof value === "string" && value.trim() ? value.trim().replace(/\s+/g, " ").slice(0, max) : null;
 }
 
+function cleanPath(value: unknown, max: number) {
+  return typeof value === "string" && value.trim() ? value.trim().slice(0, max) : null;
+}
+
+function cleanSortOrder(value: unknown) {
+  const order = typeof value === "number" ? value : Number(value);
+  return Number.isInteger(order) && order >= 0 && order <= 10_000 ? order : 100;
+}
+
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   const admin = await resolveAdminSession();
@@ -32,7 +41,9 @@ export async function POST(request: Request) {
       account_name: clean(body?.accountName, 120),
       account_number: clean(body?.accountNumber, 80),
       promptpay_id: clean(body?.promptpayId, 80),
+      qr_image_path: cleanPath(body?.qrImagePath, 1000),
       instructions: clean(body?.instructions, 500),
+      sort_order: cleanSortOrder(body?.sortOrder),
       is_active: body?.isActive !== false,
     }, { onConflict: "code" })
     .select("*")

@@ -101,7 +101,21 @@ export type YnotPaymentMethod = {
   promptpayId?: string | null;
   qrImagePath?: string | null;
   instructions?: string | null;
+  isActive?: boolean;
+  sortOrder?: number;
 };
+
+export type YnotSlipVerificationStatus =
+  | "unverified"
+  | "valid"
+  | "duplicate"
+  | "fraud"
+  | "not_found"
+  | "amount_mismatch"
+  | "receiver_mismatch"
+  | "date_mismatch"
+  | "provider_error"
+  | "manual_review";
 
 export type YnotWallet = {
   balanceCoins: number;
@@ -123,6 +137,20 @@ export type YnotTopUp = {
     | "expired";
   adminNote?: string | null;
   customerNote?: string | null;
+  paymentMethod?: Pick<
+    YnotPaymentMethod,
+    "id" | "code" | "type" | "displayName"
+  > | null;
+  slipVerification?: {
+    id: string;
+    status: YnotSlipVerificationStatus;
+    providerCode?: string | null;
+    providerMessage?: string | null;
+    referenceId?: string | null;
+    duplicateOfSlipId?: string | null;
+    verifiedAt?: string | null;
+    uploadedAt?: string | null;
+  } | null;
   createdAt: string;
   reviewedAt?: string | null;
 };

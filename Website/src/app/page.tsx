@@ -18,7 +18,6 @@ export default async function HomePage({
   return (
     <YnotShell
       viewer={data.viewer}
-      walletBalance={data.wallet.balanceCoins}
       shellClassName="ynot-home-mint"
     >
       <YnotHomeExperience data={data} homeFilter={homeFilter} />

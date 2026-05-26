@@ -60,13 +60,7 @@ import {
   prizeDisplayTierValue,
   type PrizeDisplayTier,
 } from "./prize-tier";
-
-const coinPackages = [
-  { label: "Starter", amountThb: 100, coins: 100 },
-  { label: "Player", amountThb: 500, coins: 550 },
-  { label: "Collector", amountThb: 1000, coins: 1150 },
-  { label: "Whale", amountThb: 3000, coins: 3600 },
-];
+import { topUpPackages } from "./top-up-packages";
 
 export class AdminRequestError extends Error {
   code?: string;
@@ -379,17 +373,29 @@ export function TopUpForm({
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
-  const selected = coinPackages[packageIndex] ?? coinPackages[0];
+  const selected = topUpPackages[packageIndex] ?? topUpPackages[0];
+  const selectedMethod =
+    paymentMethods.find((method) => method.id === paymentMethodId) ??
+    paymentMethods[0] ??
+    null;
+  const blocked = !paymentMethods.length || !selectedMethod;
+
+  function copyValue(label: string, value: string | null | undefined) {
+    const clean = value?.trim();
+    if (!clean) return;
+    void navigator.clipboard?.writeText(clean).catch(() => undefined);
+    setMessage(`${label} copied.`);
+  }
 
   function submit() {
     startTransition(async () => {
       try {
         setMessage("");
+        if (!selectedMethod) throw new Error("Choose a payment method first.");
         if (!slip) throw new Error("Upload your bank/QR transfer slip first.");
         const form = new FormData();
-        form.set("paymentMethodId", paymentMethodId);
-        form.set("amountThb", String(selected.amountThb));
-        form.set("coinAmount", String(selected.coins));
+        form.set("paymentMethodId", selectedMethod.id);
+        form.set("packageId", selected.id);
         form.set("customerNote", note);
         form.set("slip", slip);
         const response = await fetch("/api/ynot/wallet", {
@@ -427,9 +433,9 @@ export function TopUpForm({
         before coins are credited.
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        {coinPackages.map((pkg, index) => (
+        {topUpPackages.map((pkg, index) => (
           <button
-            key={pkg.label}
+            key={pkg.id}
             className={`${index === packageIndex ? "gold-button" : "plain-button"} rounded-2xl px-4 py-3 text-left text-sm font-black`}
             onClick={() => setPackageIndex(index)}
             type="button"
@@ -443,20 +449,117 @@ export function TopUpForm({
           </button>
         ))}
       </div>
-      <label className="mt-4 block text-sm font-bold">
-        Payment method
-        <select
-          className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4"
-          value={paymentMethodId}
-          onChange={(event) => setPaymentMethodId(event.target.value)}
-        >
-          {paymentMethods.map((method) => (
-            <option key={method.id} value={method.id}>
-              {method.displayName}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="mt-4">
+        <p className="text-sm font-bold">Payment method</p>
+        {paymentMethods.length ? (
+          <div className="mt-2 grid gap-3 sm:grid-cols-2">
+            {paymentMethods.map((method) => {
+              const active = method.id === selectedMethod?.id;
+              return (
+                <button
+                  className={`${active ? "gold-button" : "plain-button"} rounded-2xl px-4 py-3 text-left text-sm font-black`}
+                  key={method.id}
+                  onClick={() => setPaymentMethodId(method.id)}
+                  type="button"
+                >
+                  <span className="block">
+                    {method.type === "promptpay_qr"
+                      ? "PromptPay QR"
+                      : "Bank transfer"}
+                  </span>
+                  <span className="mt-1 block text-xs font-bold opacity-75">
+                    {method.displayName}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="mt-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-bold text-[var(--muted)]">
+            No active bank or PromptPay method is configured yet. Admin must add
+            one before customers can submit a top-up.
+          </div>
+        )}
+      </div>
+      {selectedMethod && (
+        <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-[var(--gold)]">
+                {selectedMethod.displayName}
+              </p>
+              <p className="mt-1 text-xs font-bold opacity-75">
+                Pay ฿{selected.amountThb.toLocaleString()} for{" "}
+                {selected.coins.toLocaleString()} coins
+              </p>
+            </div>
+            <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-black">
+              {selectedMethod.type === "promptpay_qr"
+                ? "PromptPay"
+                : "Bank transfer"}
+            </span>
+          </div>
+          <div className="mt-3 grid gap-2 text-sm">
+            {selectedMethod.bankName && (
+              <p>
+                <span className="font-bold opacity-70">Bank:</span>{" "}
+                {selectedMethod.bankName}
+              </p>
+            )}
+            {selectedMethod.accountName && (
+              <p>
+                <span className="font-bold opacity-70">Account:</span>{" "}
+                {selectedMethod.accountName}
+              </p>
+            )}
+            {selectedMethod.accountNumber && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono font-black">
+                  {selectedMethod.accountNumber}
+                </span>
+                <button
+                  className="plain-button rounded-xl px-3 py-1 text-xs font-black"
+                  onClick={() =>
+                    copyValue("Account number", selectedMethod.accountNumber)
+                  }
+                  type="button"
+                >
+                  Copy
+                </button>
+              </div>
+            )}
+            {selectedMethod.promptpayId && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono font-black">
+                  {selectedMethod.promptpayId}
+                </span>
+                <button
+                  className="plain-button rounded-xl px-3 py-1 text-xs font-black"
+                  onClick={() =>
+                    copyValue("PromptPay ID", selectedMethod.promptpayId)
+                  }
+                  type="button"
+                >
+                  Copy
+                </button>
+              </div>
+            )}
+            {selectedMethod.qrImagePath &&
+              /^(https?:)?\/\//.test(selectedMethod.qrImagePath) && (
+                <img
+                  alt={`${selectedMethod.displayName} QR`}
+                  className="mt-2 max-w-48 rounded-2xl border border-white/10"
+                  src={selectedMethod.qrImagePath}
+                />
+              )}
+            {selectedMethod.instructions && (
+              <p className="text-xs font-bold text-[var(--muted)]">
+                {selectedMethod.instructions}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
       <label className="mt-4 block text-sm font-bold">
         Slip image
         <input
@@ -476,7 +579,7 @@ export function TopUpForm({
       </label>
       <button
         className="gold-button mt-4 w-full rounded-2xl px-4 py-3 text-sm font-black"
-        disabled={isPending || !paymentMethods.length}
+        disabled={isPending || blocked}
         onClick={submit}
         type="button"
       >
@@ -1502,21 +1605,49 @@ export function AdminTopUpActions({ topUpId }: { topUpId: string }) {
   );
 }
 
-export function AdminPaymentMethodForm() {
-  const [code, setCode] = useState("main-transfer");
-  const [displayName, setDisplayName] = useState("Main bank / PromptPay");
+export function AdminPaymentMethodForm({
+  paymentMethods = [],
+}: {
+  paymentMethods?: YnotPaymentMethod[];
+}) {
+  const [code, setCode] = useState("bank-transfer");
+  const [displayName, setDisplayName] = useState("Bank transfer");
   const [type, setType] = useState<"bank_transfer" | "promptpay_qr">(
-    "promptpay_qr",
+    "bank_transfer",
   );
   const [bankName, setBankName] = useState("");
   const [accountName, setAccountName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [promptpayId, setPromptpayId] = useState("");
+  const [qrImagePath, setQrImagePath] = useState("");
+  const [sortOrder, setSortOrder] = useState(10);
+  const [isActive, setIsActive] = useState(true);
   const [instructions, setInstructions] = useState(
     "Transfer manually and upload slip for admin review.",
   );
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  function applyPaymentPreset(nextType: "bank_transfer" | "promptpay_qr") {
+    setType(nextType);
+    setCode(nextType === "promptpay_qr" ? "promptpay-qr" : "bank-transfer");
+    setDisplayName(nextType === "promptpay_qr" ? "PromptPay QR" : "Bank transfer");
+    setSortOrder(nextType === "promptpay_qr" ? 20 : 10);
+  }
+
+  function loadMethod(method: YnotPaymentMethod) {
+    setCode(method.code);
+    setDisplayName(method.displayName);
+    setType(method.type);
+    setBankName(method.bankName ?? "");
+    setAccountName(method.accountName ?? "");
+    setAccountNumber(method.accountNumber ?? "");
+    setPromptpayId(method.promptpayId ?? "");
+    setQrImagePath(method.qrImagePath ?? "");
+    setInstructions(method.instructions ?? "");
+    setIsActive(method.isActive !== false);
+  }
+
   function submit() {
     startTransition(async () => {
       try {
@@ -1528,8 +1659,10 @@ export function AdminPaymentMethodForm() {
           accountName,
           accountNumber,
           promptpayId,
+          qrImagePath,
+          sortOrder,
           instructions,
-          isActive: true,
+          isActive,
         });
         setMessage("Payment method saved.");
       } catch (error) {
@@ -1551,6 +1684,36 @@ export function AdminPaymentMethodForm() {
           transfer slip.
         </p>
       </div>
+      <div className="mb-3 flex flex-wrap gap-2">
+        <button
+          className="plain-button rounded-xl px-3 py-2 text-xs font-black"
+          onClick={() => applyPaymentPreset("bank_transfer")}
+          type="button"
+        >
+          Bank transfer
+        </button>
+        <button
+          className="plain-button rounded-xl px-3 py-2 text-xs font-black"
+          onClick={() => applyPaymentPreset("promptpay_qr")}
+          type="button"
+        >
+          PromptPay QR
+        </button>
+      </div>
+      {paymentMethods.length > 0 && (
+        <div className="mb-3 grid gap-2">
+          {paymentMethods.map((method) => (
+            <button
+              className="plain-button rounded-xl px-3 py-2 text-left text-xs font-black"
+              key={method.id}
+              onClick={() => loadMethod(method)}
+              type="button"
+            >
+              Edit {method.displayName} · {method.type.replaceAll("_", " ")}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="admin-form-grid">
         <input
           className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
@@ -1598,7 +1761,28 @@ export function AdminPaymentMethodForm() {
           onChange={(event) => setAccountNumber(event.target.value)}
           placeholder="Account number"
         />
+        <input
+          className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+          value={qrImagePath}
+          onChange={(event) => setQrImagePath(event.target.value)}
+          placeholder="QR image URL or public path"
+        />
+        <input
+          className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+          value={sortOrder}
+          onChange={(event) => setSortOrder(Number(event.target.value))}
+          placeholder="Sort order"
+          type="number"
+        />
       </div>
+      <label className="mt-3 flex items-center gap-2 text-sm font-bold">
+        <input
+          checked={isActive}
+          onChange={(event) => setIsActive(event.target.checked)}
+          type="checkbox"
+        />
+        Active for customers
+      </label>
       <textarea
         className="mt-3 min-h-24 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3"
         value={instructions}

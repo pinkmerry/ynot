@@ -1391,18 +1391,7 @@ async function getPaymentMethodsImpl(): Promise<YnotPaymentMethod[]> {
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
     if (error) throw error;
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      code: row.code,
-      type: row.type,
-      displayName: row.display_name,
-      bankName: row.bank_name,
-      accountName: row.account_name,
-      accountNumber: row.account_number,
-      promptpayId: row.promptpay_id,
-      qrImagePath: row.qr_image_path,
-      instructions: row.instructions,
-    }));
+    return (data ?? []).map(toPaymentMethod);
   });
 }
 
@@ -1414,6 +1403,38 @@ const getPaymentMethodsCached = unstable_cache(
 
 export async function getPaymentMethods(): Promise<YnotPaymentMethod[]> {
   return getPaymentMethodsCached();
+}
+
+export async function getAllPaymentMethods(): Promise<YnotPaymentMethod[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createServiceSupabaseClient();
+  return readOrEmpty("payment_methods-admin", async () => {
+    const { data, error } = await supabase
+      .from("payment_methods")
+      .select("*")
+      .order("sort_order", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map(toPaymentMethod);
+  });
+}
+
+function toPaymentMethod(
+  row: Database["public"]["Tables"]["payment_methods"]["Row"],
+): YnotPaymentMethod {
+  return {
+    id: row.id,
+    code: row.code,
+    type: row.type,
+    displayName: row.display_name,
+    bankName: row.bank_name,
+    accountName: row.account_name,
+    accountNumber: row.account_number,
+    promptpayId: row.promptpay_id,
+    qrImagePath: row.qr_image_path,
+    instructions: row.instructions,
+    isActive: row.is_active,
+    sortOrder: row.sort_order,
+  };
 }
 
 export async function getWallet(profileId?: string): Promise<YnotWallet> {
@@ -1451,12 +1472,75 @@ export async function getTopUps(
     if (!includeAll && profileId) query = query.eq("profile_id", profileId);
     const { data, error } = await query;
     if (error) throw error;
-    return (data ?? []).map(toTopUp);
+    const rows = data ?? [];
+    const paymentMethodIds = Array.from(
+      new Set(rows.map((row) => row.payment_method_id).filter(Boolean)),
+    ) as string[];
+    const topUpIds = rows.map((row) => row.id);
+    const [paymentMethods, slips] = await Promise.all([
+      paymentMethodIds.length
+        ? supabase
+            .from("payment_methods")
+            .select("id,code,type,display_name")
+            .in("id", paymentMethodIds)
+        : Promise.resolve({ data: [], error: null }),
+      topUpIds.length
+        ? supabase
+            .from("payment_slips")
+            .select(
+              "id,top_up_request_id,verification_status,provider_code,provider_message,slip2go_reference_id,duplicate_of_slip_id,verified_at,uploaded_at",
+            )
+            .in("top_up_request_id", topUpIds)
+            .order("uploaded_at", { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (paymentMethods.error) throw paymentMethods.error;
+    if (slips.error) throw slips.error;
+    const paymentMethodById = new Map(
+      (paymentMethods.data ?? []).map((method) => [method.id, method]),
+    );
+    const latestSlipByTopUpId = new Map<
+      string,
+      Database["public"]["Tables"]["payment_slips"]["Row"]
+    >();
+    for (const slip of slips.data ?? []) {
+      if (slip.top_up_request_id && !latestSlipByTopUpId.has(slip.top_up_request_id)) {
+        latestSlipByTopUpId.set(
+          slip.top_up_request_id,
+          slip as Database["public"]["Tables"]["payment_slips"]["Row"],
+        );
+      }
+    }
+    return rows.map((row) =>
+      toTopUp(row, {
+        paymentMethod: row.payment_method_id
+          ? paymentMethodById.get(row.payment_method_id) ?? null
+          : null,
+        slip: latestSlipByTopUpId.get(row.id) ?? null,
+      }),
+    );
   });
 }
 
 export function toTopUp(
   row: Database["public"]["Tables"]["top_up_requests"]["Row"],
+  options: {
+    paymentMethod?: Pick<
+      Database["public"]["Tables"]["payment_methods"]["Row"],
+      "id" | "code" | "type" | "display_name"
+    > | null;
+    slip?: Pick<
+      Database["public"]["Tables"]["payment_slips"]["Row"],
+      | "id"
+      | "verification_status"
+      | "provider_code"
+      | "provider_message"
+      | "slip2go_reference_id"
+      | "duplicate_of_slip_id"
+      | "verified_at"
+      | "uploaded_at"
+    > | null;
+  } = {},
 ): YnotTopUp {
   return {
     id: row.id,
@@ -1467,6 +1551,26 @@ export function toTopUp(
     status: row.status,
     adminNote: row.admin_note,
     customerNote: row.customer_note,
+    paymentMethod: options.paymentMethod
+      ? {
+          id: options.paymentMethod.id,
+          code: options.paymentMethod.code,
+          type: options.paymentMethod.type,
+          displayName: options.paymentMethod.display_name,
+        }
+      : null,
+    slipVerification: options.slip
+      ? {
+          id: options.slip.id,
+          status: options.slip.verification_status,
+          providerCode: options.slip.provider_code,
+          providerMessage: options.slip.provider_message,
+          referenceId: options.slip.slip2go_reference_id,
+          duplicateOfSlipId: options.slip.duplicate_of_slip_id,
+          verifiedAt: options.slip.verified_at,
+          uploadedAt: options.slip.uploaded_at,
+        }
+      : null,
     createdAt: row.created_at,
     reviewedAt: row.reviewed_at,
   };

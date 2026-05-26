@@ -1849,6 +1849,8 @@ export function TopUpTable({
             <th>Coins</th>
             <th>Amount</th>
             <th>Status</th>
+            {admin && <th>Method</th>}
+            {admin && <th>Slip check</th>}
             <th>Created</th>
             {admin && <th>Profile</th>}
           </tr>
@@ -1862,6 +1864,23 @@ export function TopUpTable({
               <td>
                 <StatusBadge status={topUp.status} />
               </td>
+              {admin && (
+                <td>
+                  {topUp.paymentMethod?.displayName ?? "Unknown method"}
+                </td>
+              )}
+              {admin && (
+                <td>
+                  <StatusBadge
+                    status={topUp.slipVerification?.status ?? "not_uploaded"}
+                  />
+                  {topUp.slipVerification?.providerCode && (
+                    <span className="ml-2 font-mono text-xs">
+                      {topUp.slipVerification.providerCode}
+                    </span>
+                  )}
+                </td>
+              )}
               <td>{new Date(topUp.createdAt).toLocaleString()}</td>
               {admin && (
                 <td className="font-mono text-xs">
