@@ -15,7 +15,10 @@
 --   * Confirmed the function runs as service_role and is revoked from
 --     anon/authenticated.
 
-create extension if not exists pgcrypto;
+-- pgcrypto is already enabled in Supabase but lives in the `extensions`
+-- schema (not `public`), so gen_random_bytes must be fully qualified here.
+-- The bare `create extension` would no-op anyway since it's already loaded.
+create extension if not exists pgcrypto with schema extensions;
 
 -- 53-bit uniform double in [0, 1) backed by gen_random_bytes.
 -- 53 bits matches the IEEE 754 double precision mantissa, so we keep the same
@@ -37,7 +40,7 @@ as $$
     (get_byte(rnd, 5)::bigint <<  8) |
     (get_byte(rnd, 6)::bigint      )
   )::double precision / 72057594037927936.0  -- 2^56, gives uniform in [0, 1)
-  from (select gen_random_bytes(7) as rnd) s
+  from (select extensions.gen_random_bytes(7) as rnd) s
 $$;
 
 revoke all on function app_private.secure_random() from public, anon, authenticated;
