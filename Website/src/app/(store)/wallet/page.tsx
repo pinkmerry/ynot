@@ -1,5 +1,5 @@
-import { PageHeader, WalletPanel, YnotShell } from "@/features/ynot/components";
-import { TopUpForm } from "@/features/ynot/client";
+import { Shell } from "@/features/ynot/cr/Shell";
+import { WalletExperience } from "@/features/ynot/cr/WalletExperience";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
 
@@ -11,14 +11,23 @@ export default async function WalletPage() {
     wallet: true,
     paymentMethods: true,
     topUps: true,
+    collection: true,
   });
+
   return (
-    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
-      <PageHeader eyebrow="08 · Wallet" title="Top Up" description="2 stages: payment method → coin pack + VIP bonus. Manual bank/QR slip upload remains first for production." />
-      <div className="phone-page-shell wallet-phone grid gap-4 xl:grid-cols-[1fr_0.8fr]">
-        <WalletPanel wallet={data.wallet} paymentMethods={data.paymentMethods} topUps={data.topUps} />
-        <TopUpForm paymentMethods={data.paymentMethods} />
-      </div>
-    </YnotShell>
+    <Shell
+      viewer={{
+        displayName: data.viewer.displayName,
+        authenticated: data.viewer.authenticated,
+      }}
+      balanceCoins={data.wallet.balanceCoins}
+      collectionCount={data.collection.length}
+    >
+      <WalletExperience
+        wallet={data.wallet}
+        paymentMethods={data.paymentMethods}
+        topUps={data.topUps}
+      />
+    </Shell>
   );
 }

@@ -1,15 +1,14 @@
 import { Shell } from "@/features/ynot/cr/Shell";
-import { HistoryExperience } from "@/features/ynot/cr/HistoryExperience";
+import { AllPullsExperience } from "@/features/ynot/cr/AllPullsExperience";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProfilePage() {
-  await requireCurrentProfile("/profile");
+export default async function AllPullsPage() {
+  await requireCurrentProfile("/profile/all-pulls");
   const data = await getYnotDashboardSlice({
     collection: true,
-    addresses: true,
     gachaOpens: true,
     wallet: true,
   });
@@ -23,11 +22,9 @@ export default async function ProfilePage() {
       balanceCoins={data.wallet.balanceCoins}
       collectionCount={data.collection.length}
     >
-      <HistoryExperience
+      <AllPullsExperience
         collection={data.collection}
-        addresses={data.addresses}
         gachaOpens={data.gachaOpens}
-        viewer={{ displayName: data.viewer.displayName }}
       />
     </Shell>
   );
