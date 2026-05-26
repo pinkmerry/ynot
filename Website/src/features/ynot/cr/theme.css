@@ -143,6 +143,15 @@
 .cr-page.has-dock {
   padding-bottom: 140px;
 }
+.cr-page--packs .cr-h1 {
+  color: #1a1a1a;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
 
 .cr-topbar {
   position: sticky;
@@ -691,33 +700,59 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 12px;
+  padding: 0;
   height: 36px;
   border-radius: var(--cr-r-pill);
-  background: var(--cr-bg-soft);
+  background: transparent;
   color: var(--cr-mute);
   font-size: 13px;
 }
 .cr-search input {
-  border: 0;
-  background: transparent;
-  outline: none;
   flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  outline: none;
   font-size: 13px;
+  line-height: 36px;
   font-family: inherit;
-  color: var(--cr-ink);
+  color: var(--cr-ink) !important;
+}
+.cr-search input::placeholder {
+  color: var(--cr-mute);
 }
 .cr-select {
   height: 36px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid var(--cr-line);
-  background: var(--cr-bg-soft);
+  padding: 0 28px 0 10px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
   font-size: 13px;
+  line-height: 36px;
   font-family: inherit;
   font-weight: 600;
   cursor: pointer;
-  color: var(--cr-ink);
+  color: var(--cr-ink) !important;
+}
+html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-search input:not(.ynot-newsletter-input):not([type="checkbox"]):not([type="radio"]) {
+  height: 36px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--cr-ink) !important;
+}
+html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
+  height: 36px !important;
+  padding: 0 28px 0 10px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--cr-ink) !important;
+  line-height: 36px !important;
 }
 
 /* ============================================

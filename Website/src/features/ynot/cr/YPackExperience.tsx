@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import type { YnotCampaign } from "../types";
 import { normalizeOpenQuantityOptions } from "../open-quantity";
 import { CoinPip, Ico, formatCoins } from "./Icons";
-import { Modal, useToast } from "./UiKit";
+import { Modal, PageHead, useToast } from "./UiKit";
 
 const SERIES_LABEL: Record<string, string> = {
   pokemon: "Pokemon",
@@ -135,7 +135,9 @@ export function YPackExperience({
   }, [campaigns, category, search, sort]);
 
   return (
-    <div className="cr-page">
+    <div className="cr-page cr-page--packs">
+      <PageHead title="Y-PACKS" />
+
       <div className="cr-cat-strip" role="tablist" aria-label="Filter by series">
         <button
           type="button"
