@@ -1,5 +1,6 @@
 import { Shell } from "@/features/ynot/cr/Shell";
 import { PersonalInfoExperience } from "@/features/ynot/cr/PersonalInfoExperience";
+import { YnotShell } from "@/features/ynot/components";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
 
@@ -11,7 +12,6 @@ export default async function PersonalInfoPage() {
     wallet: true,
     addresses: true,
     shipping: true,
-    collection: true,
   });
 
   const lineHref = data.viewer.authenticated
@@ -27,32 +27,28 @@ export default async function PersonalInfoPage() {
       : undefined;
 
   return (
-    <Shell
-      viewer={{
-        displayName: data.viewer.displayName,
-        authenticated: data.viewer.authenticated,
-      }}
-      balanceCoins={data.wallet.balanceCoins}
-      collectionCount={data.collection.length}
-    >
-      <PersonalInfoExperience
-        viewer={data.viewer}
-        addresses={data.addresses}
-        shipping={data.shipping}
-        connections={{
-          line: { connected: data.viewer.authSource === "line" },
-          google: { connected: data.viewer.authSource === "supabase" },
-          email: {
-            connected:
-              data.viewer.authSource === "supabase" && data.viewer.authenticated,
-          },
-        }}
-        links={{
-          lineHref,
-          googleConnectHref,
-          emailConnectHref,
-        }}
-      />
-    </Shell>
+    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
+      <Shell>
+        <PersonalInfoExperience
+          viewer={data.viewer}
+          addresses={data.addresses}
+          shipping={data.shipping}
+          connections={{
+            line: { connected: data.viewer.authSource === "line" },
+            google: { connected: data.viewer.authSource === "supabase" },
+            email: {
+              connected:
+                data.viewer.authSource === "supabase" &&
+                data.viewer.authenticated,
+            },
+          }}
+          links={{
+            lineHref,
+            googleConnectHref,
+            emailConnectHref,
+          }}
+        />
+      </Shell>
+    </YnotShell>
   );
 }

@@ -1,5 +1,6 @@
 import { Shell } from "@/features/ynot/cr/Shell";
 import { WalletExperience } from "@/features/ynot/cr/WalletExperience";
+import { YnotShell } from "@/features/ynot/components";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
 
@@ -11,23 +12,17 @@ export default async function WalletPage() {
     wallet: true,
     paymentMethods: true,
     topUps: true,
-    collection: true,
   });
 
   return (
-    <Shell
-      viewer={{
-        displayName: data.viewer.displayName,
-        authenticated: data.viewer.authenticated,
-      }}
-      balanceCoins={data.wallet.balanceCoins}
-      collectionCount={data.collection.length}
-    >
-      <WalletExperience
-        wallet={data.wallet}
-        paymentMethods={data.paymentMethods}
-        topUps={data.topUps}
-      />
-    </Shell>
+    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
+      <Shell>
+        <WalletExperience
+          wallet={data.wallet}
+          paymentMethods={data.paymentMethods}
+          topUps={data.topUps}
+        />
+      </Shell>
+    </YnotShell>
   );
 }

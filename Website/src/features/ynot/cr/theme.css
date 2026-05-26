@@ -55,9 +55,21 @@
   font-size: 14px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+}
+/* Standalone — full viewport */
+.cr-root:not(.cr-root-embedded) {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+/* Embedded inside the existing YnotShell — bleed the mint bg edge-to-edge
+   inside the shell's content area so the page looks like a full surface
+   without owning the topbar or footer. */
+.cr-root.cr-root-embedded {
+  flex: 1;
+  width: 100%;
+  margin: -16px 0 0;
+  padding: 16px 0 0;
 }
 .cr-root,
 .cr-root * {

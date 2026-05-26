@@ -1,5 +1,6 @@
 import { Shell } from "@/features/ynot/cr/Shell";
 import { HistoryExperience } from "@/features/ynot/cr/HistoryExperience";
+import { YnotShell } from "@/features/ynot/components";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
 
@@ -15,20 +16,15 @@ export default async function ProfilePage() {
   });
 
   return (
-    <Shell
-      viewer={{
-        displayName: data.viewer.displayName,
-        authenticated: data.viewer.authenticated,
-      }}
-      balanceCoins={data.wallet.balanceCoins}
-      collectionCount={data.collection.length}
-    >
-      <HistoryExperience
-        collection={data.collection}
-        addresses={data.addresses}
-        gachaOpens={data.gachaOpens}
-        viewer={{ displayName: data.viewer.displayName }}
-      />
-    </Shell>
+    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
+      <Shell>
+        <HistoryExperience
+          collection={data.collection}
+          addresses={data.addresses}
+          gachaOpens={data.gachaOpens}
+          viewer={{ displayName: data.viewer.displayName }}
+        />
+      </Shell>
+    </YnotShell>
   );
 }

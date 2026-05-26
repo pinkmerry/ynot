@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import type { YnotCampaign } from "../types";
 import { normalizeOpenQuantityOptions } from "../open-quantity";
 import { CoinPip, Ico, formatCoins } from "./Icons";
-import { Modal, PageHead, useToast } from "./UiKit";
+import { Modal, useToast } from "./UiKit";
 
 const SERIES_LABEL: Record<string, string> = {
   pokemon: "Pokemon",
@@ -136,12 +136,6 @@ export function YPackExperience({
 
   return (
     <div className="cr-page">
-      <PageHead
-        eyebrow="Browse"
-        title="Y-Packs"
-        lead="Pick a pack, open it, and the cards land in your collection."
-      />
-
       <div className="cr-cat-strip" role="tablist" aria-label="Filter by series">
         <button
           type="button"

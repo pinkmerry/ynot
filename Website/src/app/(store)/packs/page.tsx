@@ -1,5 +1,6 @@
 import { Shell } from "@/features/ynot/cr/Shell";
 import { YPackExperience } from "@/features/ynot/cr/YPackExperience";
+import { YnotShell } from "@/features/ynot/components";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +36,6 @@ export default async function PacksPage({
     campaignLimit: null,
     campaignReadiness: false,
     wallet: true,
-    collection: true,
   });
 
   const visibleCampaigns = data.campaigns.filter(
@@ -44,19 +44,14 @@ export default async function PacksPage({
   );
 
   return (
-    <Shell
-      viewer={{
-        displayName: data.viewer.displayName,
-        authenticated: data.viewer.authenticated,
-      }}
-      balanceCoins={data.wallet.balanceCoins}
-      collectionCount={data.collection.length}
-    >
-      <YPackExperience
-        campaigns={visibleCampaigns}
-        balanceCoins={data.wallet.balanceCoins}
-        initialSeries={initialSeries}
-      />
-    </Shell>
+    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
+      <Shell>
+        <YPackExperience
+          campaigns={visibleCampaigns}
+          balanceCoins={data.wallet.balanceCoins}
+          initialSeries={initialSeries}
+        />
+      </Shell>
+    </YnotShell>
   );
 }
