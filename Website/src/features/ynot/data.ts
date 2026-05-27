@@ -1911,9 +1911,13 @@ export async function getAddresses(profileId?: string): Promise<YnotAddress[]> {
       recipientName: row.recipient_name,
       phone: row.phone,
       addressLine1: row.address_line1,
+      addressLine2: row.address_line2,
+      subdistrict: row.subdistrict,
       district: row.district,
       province: row.province,
       postalCode: row.postal_code,
+      country: row.country,
+      deliveryNote: row.delivery_note,
       isDefault: row.is_default,
     }));
   });

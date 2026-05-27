@@ -303,9 +303,13 @@ export type YnotAddress = {
   recipientName?: string | null;
   phone?: string | null;
   addressLine1: string;
+  addressLine2?: string | null;
+  subdistrict?: string | null;
   district?: string | null;
   province?: string | null;
   postalCode?: string | null;
+  country?: string | null;
+  deliveryNote?: string | null;
   isDefault: boolean;
 };
 

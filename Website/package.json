@@ -28,6 +28,7 @@
     "verify:phase-readiness": "node tools/verification/verify-phase-readiness.mjs",
     "test:uploads": "node --test scripts/test-magic-bytes.mjs",
     "test:top-up-flow": "node --test scripts/test-top-up-flow.mjs",
+    "test:personal-info": "node --test scripts/test-personal-info-address-sync.mjs",
     "verify:hardening": "npm run test:uploads && node tools/verification/verify-hardening.mjs",
     "verify:production-test": "node tools/verification/verify-production-test-readiness.mjs",
     "verify:production-db": "node tools/verification/check-production-supabase-readiness.mjs"

@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { adminErrorResponse } from "@/lib/ynot/admin-api-errors";
 
@@ -33,6 +34,13 @@ export async function POST(request: Request) {
       403,
     );
   }
+  const limited = await enforceRateLimit(
+    request,
+    "ynot:admin:campaigns:cost",
+    { limit: 40, windowMs: 60_000 },
+    admin?.profileId,
+  );
+  if (limited) return limited;
 
   const body = (await request.json().catch(() => null)) as
     | { campaignId?: unknown; costCoins?: unknown }

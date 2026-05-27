@@ -311,24 +311,6 @@ function buildPackReorderInfo(
   return map;
 }
 
-/** Repeat the available campaigns until `target` items exist, giving each
- *  duplicate a unique id so React keys stay stable. Used on the Mystery Packs
- *  page to fill the grid while only a few real campaigns are published. */
-function duplicatePacksForDisplay(
-  campaigns: YnotCampaign[],
-  target: number,
-): YnotCampaign[] {
-  if (!campaigns.length || campaigns.length >= target) return campaigns;
-  const expanded: YnotCampaign[] = [...campaigns];
-  let cycle = 1;
-  while (expanded.length < target) {
-    const source = campaigns[(expanded.length - campaigns.length) % campaigns.length];
-    expanded.push({ ...source, id: `${source.id}-copy-${cycle}` });
-    if (expanded.length % campaigns.length === 0) cycle += 1;
-  }
-  return expanded;
-}
-
 function remaining(campaign: YnotCampaign) {
   const remainingSlots = campaign.remainingSlots;
   if (typeof remainingSlots !== "number" || !Number.isFinite(remainingSlots))

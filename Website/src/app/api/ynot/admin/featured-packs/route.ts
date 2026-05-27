@@ -3,6 +3,8 @@ import {
   HERO_PACKS_COOKIE,
   parseHeroPacksCookie,
 } from "@/features/ynot/demo-pack-order";
+import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { adminErrorResponse } from "@/lib/ynot/admin-api-errors";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +24,18 @@ export const dynamic = "force-dynamic";
  *   { ids: ["<id-1>", "<id-2>", ...] }  // explicit reorder
  */
 export async function POST(request: Request) {
+  const admin = await resolveAdminSession();
+  if (!admin) {
+    return Response.json({ error: "Admin access is required." }, { status: 403 });
+  }
+  const limited = await enforceRateLimit(
+    request,
+    "ynot:admin:featured-packs",
+    { limit: 60, windowMs: 60_000 },
+    admin.profileId,
+  );
+  if (limited) return limited;
+
   const body = (await request.json().catch(() => null)) as
     | { action?: string; id?: string; ids?: unknown }
     | null;
@@ -69,7 +83,19 @@ export async function POST(request: Request) {
   return Response.json({ ok: true, ids: next });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const admin = await resolveAdminSession();
+  if (!admin) {
+    return Response.json({ error: "Admin access is required." }, { status: 403 });
+  }
+  const limited = await enforceRateLimit(
+    request,
+    "ynot:admin:featured-packs",
+    { limit: 120, windowMs: 60_000 },
+    admin.profileId,
+  );
+  if (limited) return limited;
+
   const cookieStore = await cookies();
   const ids = parseHeroPacksCookie(cookieStore.get(HERO_PACKS_COOKIE)?.value);
   return Response.json({ ok: true, ids });

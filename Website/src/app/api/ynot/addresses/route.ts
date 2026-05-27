@@ -27,7 +27,8 @@ export async function POST(request: Request) {
   const addressLine1 = clean(body?.addressLine1, 180);
   if (!addressLine1) return Response.json({ error: "Address line 1 is required." }, { status: 400 });
   const supabase = createServiceSupabaseClient();
-  const { data, error } = await supabase
+  const shouldBeDefault = Boolean(body?.isDefault);
+  const { data: inserted, error: insertError } = await supabase
     .from("user_addresses")
     .insert({
       profile_id: session.profileId,
@@ -42,10 +43,30 @@ export async function POST(request: Request) {
       postal_code: clean(body?.postalCode, 20),
       country: clean(body?.country, 80) ?? "Thailand",
       delivery_note: clean(body?.deliveryNote, 240),
-      is_default: Boolean(body?.isDefault),
+      is_default: false,
     })
     .select("*")
     .single();
-  if (error) return Response.json({ error: error.message }, { status: 409 });
+  if (insertError) return Response.json({ error: insertError.message }, { status: 409 });
+
+  let data = inserted;
+  if (shouldBeDefault) {
+    const { error: clearError } = await supabase
+      .from("user_addresses")
+      .update({ is_default: false })
+      .eq("profile_id", session.profileId)
+      .neq("id", inserted.id);
+    if (clearError) return Response.json({ error: clearError.message }, { status: 409 });
+
+    const { data: defaultAddress, error: defaultError } = await supabase
+      .from("user_addresses")
+      .update({ is_default: true })
+      .eq("id", inserted.id)
+      .select("*")
+      .single();
+    if (defaultError) return Response.json({ error: defaultError.message }, { status: 409 });
+    data = defaultAddress;
+  }
+
   return Response.json({ address: { id: data.id, label: data.label, addressLine1: data.address_line1 } }, { status: 201 });
 }

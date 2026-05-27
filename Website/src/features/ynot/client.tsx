@@ -5062,7 +5062,7 @@ export function AdminOwnerReview({
                           </>
                         )}
                         {campaign.mode === "slot_pick" && (
-                          <th className="num" style={{ width: 110 }}>Planned units</th>
+                            <th className="num" style={{ width: 150 }}>Planned pack quantity</th>
                         )}
                         <th className="num" style={{ width: 70 }}>Planned</th>
                       </tr>

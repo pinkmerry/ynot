@@ -96,9 +96,10 @@ for (const [file, needles] of Object.entries({
 })) {
   for (const needle of needles) notIncludes(file, needle, `${file} avoids fake/static claim: ${needle}`);
 }
-includes("src/app/(store)/collection/page.tsx", "data.wallet.balanceCoins.toLocaleString()", "collection coin metric is wallet-backed");
-includes("src/app/(store)/collection/page.tsx", "data.collection.filter", "collection status counts are collection-backed");
-includes("src/app/(store)/exchange/page.tsx", "ExchangeCatalogPanel wallet={data.wallet}", "exchange panel receives real wallet data");
+includes("src/app/(store)/collection/page.tsx", "walletBalance={data.wallet.balanceCoins}", "collection shell coin balance is wallet-backed");
+includes("src/app/(store)/collection/page.tsx", "collection={data.collection}", "collection page passes real collection data");
+includes("src/features/ynot/cr/HistoryExperience.tsx", "enriched.filter((c) => c.bucket === \"owned\")", "collection status counts are collection-backed");
+includes("src/app/(store)/exchange/page.tsx", "wallet={data.wallet}", "exchange panel receives real wallet data");
 includes("src/features/ynot/components.tsx", "Real exchange requests only", "exchange panel uses real-request empty state");
 includes("src/features/ynot/components.tsx", "SERVER RECORDED", "gacha artwork uses supported server-recorded claim");
 notIncludes("src/features/ynot/components.tsx", "Math.ceil(campaign.totalSlots * 0.42)", "components do not fabricate 42 percent remaining stock");
@@ -109,7 +110,7 @@ includes("src/features/ynot/components.tsx", "Stock tracked by server", "store s
 includes("src/features/ynot/components.tsx", "Server-tracked stock", "cards/details avoid fabricated stock counts when DB count is unavailable");
 includes("src/features/ynot/components.tsx", "remainingSlots === null", "stock rendering branches on unknown remainingSlots");
 notIncludes("src/app/(store)/gacha/[campaignId]/page.tsx", "stock count", "gacha detail copy avoids claiming a precise stock count");
-includes("src/app/(store)/gacha/[campaignId]/page.tsx", "stock status", "gacha detail copy uses stock status wording");
+includes("src/features/ynot/components.tsx", "aria-label=\"Pack price and stock status\"", "gacha detail copy uses stock status wording");
 
 includes("src/features/ynot/data.ts", "getPlatformHealth", "admin platform health loader exists");
 includes("src/features/ynot/components.tsx", "PlatformHealthPanel", "admin platform health panel exists");
@@ -230,22 +231,32 @@ for (const [file, needles] of Object.entries({
 for (const file of [
   "src/app/api/ynot/wallet/route.ts",
   "src/app/api/ynot/gacha/open/route.ts",
+  "src/app/api/ynot/collection/convert/route.ts",
   "src/app/api/ynot/exchange/route.ts",
   "src/app/api/ynot/shipping/route.ts",
   "src/app/api/ynot/addresses/route.ts",
+  "src/app/api/ynot/admin/campaigns/cost/route.ts",
+  "src/app/api/ynot/admin/campaigns/lifecycle/route.ts",
+  "src/app/api/ynot/admin/campaigns/reorder/route.ts",
   "src/app/api/ynot/admin/campaigns/route.ts",
+  "src/app/api/ynot/admin/card-stock/route.ts",
   "src/app/api/ynot/admin/categories/route.ts",
+  "src/app/api/ynot/admin/cards/image/route.ts",
   "src/app/api/ynot/admin/cards/route.ts",
-  "src/app/api/ynot/admin/exchange/route.ts",
+  "src/app/api/ynot/admin/featured-packs/route.ts",
   "src/app/api/ynot/admin/merge-requests/route.ts",
   "src/app/api/ynot/admin/payment-methods/route.ts",
+  "src/app/api/ynot/admin/prizes/odds/route.ts",
   "src/app/api/ynot/admin/prizes/route.ts",
   "src/app/api/ynot/admin/shipping/route.ts",
+  "src/app/api/ynot/admin/tier-animations/route.ts",
   "src/app/api/ynot/admin/top-ups/route.ts",
   "src/app/api/ynot/admin/users/route.ts",
 ]) {
   includes(file, "await enforceRateLimit", `${file} awaits rate limiting before mutation`);
 }
+
+includes("src/app/api/ynot/admin/featured-packs/route.ts", "resolveAdminSession", "featured packs route requires admin session");
 
 fileExists("docs/architecture/api-boundary.md", "API boundary document exists");
 for (const needle of ["/api/lucky-draw", "/api/line", "/api/ynot", "Public storefront should show real published DB campaigns in production"]) {
@@ -278,8 +289,8 @@ function envCheck(name, expected, message) {
 // Finding 1: /api/debug/whoami production gate + drop fingerprintable fields
 includes(
   "src/app/api/debug/whoami/route.ts",
-  'process.env.NODE_ENV === "production" && process.env.ENABLE_DEBUG_ENDPOINTS !== "true"',
-  "whoami has layered production gate (NODE_ENV + ENABLE_DEBUG_ENDPOINTS)",
+  'if (process.env.NODE_ENV === "production")',
+  "whoami is unconditionally disabled in production",
 );
 notIncludes("src/app/api/debug/whoami/route.ts", "valuePrefix", "whoami does not expose cookie valuePrefix");
 notIncludes("src/app/api/debug/whoami/route.ts", "valueLength", "whoami does not expose cookie valueLength");

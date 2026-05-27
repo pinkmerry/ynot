@@ -69,7 +69,6 @@ const routes = [
   "src/app/admin/categories/page.tsx",
   "src/app/admin/prizes/page.tsx",
   "src/app/admin/users/page.tsx",
-  "src/app/admin/exchange/page.tsx",
   "src/app/admin/shipping/page.tsx",
   "src/app/admin/rankings/page.tsx",
   "src/app/admin/settings/page.tsx",
@@ -84,11 +83,11 @@ const apis = [
   "src/app/api/ynot/wallet/route.ts",
   "src/app/api/ynot/addresses/route.ts",
   "src/app/api/ynot/gacha/open/route.ts",
+  "src/app/api/ynot/collection/convert/route.ts",
   "src/app/api/ynot/exchange/route.ts",
   "src/app/api/ynot/shipping/route.ts",
   "src/app/api/ynot/admin/top-ups/route.ts",
   "src/app/api/ynot/admin/payment-methods/route.ts",
-  "src/app/api/ynot/admin/exchange/route.ts",
   "src/app/api/ynot/admin/shipping/route.ts",
   "src/app/api/ynot/admin/campaigns/route.ts",
   "src/app/api/ynot/admin/card-stock/route.ts",
@@ -127,7 +126,7 @@ check("src/features/auth/actions.ts", "logout clears legacy LINE session cookie 
 check("src/features/ynot/client.tsx", "wallet top-up posts slip upload API", /fetch\("\/api\/ynot\/wallet", \{[\s\S]*method: "POST",[\s\S]*body: form,[\s\S]*\}\)/);
 check("src/features/ynot/client.tsx", "address form calls address API", /\/api\/ynot\/addresses/);
 check("src/features/ynot/client.tsx", "gacha open button calls API", /\/api\/ynot\/gacha\/open/);
-check("src/features/ynot/client.tsx", "collection actions call exchange and shipping APIs", /\/api\/ynot\/exchange[\s\S]*\/api\/ynot\/shipping/);
+check("src/features/ynot/cr/HistoryExperience.tsx", "collection actions call conversion and shipping APIs", /\/api\/ynot\/collection\/convert[\s\S]*\/api\/ynot\/shipping/);
 check("src/features/ynot/client.tsx", "admin payment settings call payment method API", /\/api\/ynot\/admin\/payment-methods/);
 check("src/features/ynot/client.tsx", "admin campaign form calls campaign API", /\/api\/ynot\/admin\/campaigns/);
 check("src/features/ynot/client.tsx", "admin campaign create refreshes server data after save", /import \{ useRouter \} from "next\/navigation"[\s\S]*AdminCampaignForm[\s\S]*const router = useRouter\(\)[\s\S]*\/api\/ynot\/admin\/campaigns[\s\S]*router\.refresh\(\)/);
@@ -223,7 +222,7 @@ const adminCardCatalogPanelSource = sliceBetween(
 checkText(
   "admin card catalog separates global stock from pack assignments",
   adminCardCatalogPanelSource,
-  /cards in prize pools[\s\S]*cards with global stock[\s\S]*Global stock[\s\S]*not assigned to a/,
+  /in prize pools[\s\S]*with global stock[\s\S]*Global stock[\s\S]*Not in any pack yet/,
   "AdminCardCatalogPanel",
 );
 checkText(
@@ -238,7 +237,7 @@ notCheckText(
   />Image URL<|>Storage path<|>Manifest<|>Asset source</,
   "AdminCardCatalogPanel",
 );
-check("src/features/ynot/client.tsx", "admin card form uploads images and still captures technical card asset metadata", /AdminCardForm[\s\S]*Upload image[\s\S]*Manual image URL[\s\S]*Asset source[\s\S]*Asset license/);
+check("src/features/ynot/client.tsx", "admin card form uploads images and still captures technical card asset metadata", /function AdminImageDropzone[\s\S]*Manual image URL[\s\S]*export function AdminCardForm[\s\S]*AdminImageDropzone[\s\S]*Asset source[\s\S]*Asset license/);
 check("src/features/ynot/client.tsx", "admin card form requires explicit duplicate overwrite confirmation", /DuplicateCardCaution[\s\S]*Overwrite confirmation[\s\S]*confirmOverwrite: canConfirmOverwrite[\s\S]*Boolean\(duplicateCard\) && !overwriteConfirmed/);
 const adminPrizeInventoryPanelSource = sliceBetween(
   "src/features/ynot/client.tsx",
@@ -305,7 +304,7 @@ checkText(
 check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle uses stock reservation allocation RPCs", /submit_campaign_review[\s\S]*approve_campaign_inventory[\s\S]*publish_campaign[\s\S]*release_campaign_reservations/);
 check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle maps symbolic RPC errors", /campaignLifecycleErrorMap[\s\S]*mappedAdminErrorResponse[\s\S]*CAMPAIGN_LIFECYCLE_FAILED/);
 check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle keeps Supabase RPC bound", /supabase\.rpc\.bind\(supabase\)/);
-check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle checks prize readiness before review approve publish", /submit_review[\s\S]*approve[\s\S]*publish[\s\S]*getCampaignPrizeReadiness[\s\S]*readinessErrorResponse/);
+check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle routes review approve publish through guarded inventory RPCs", /submit_review[\s\S]*approve[\s\S]*publish[\s\S]*submit_campaign_review[\s\S]*approve_campaign_inventory[\s\S]*publish_campaign/);
 const adminCampaignStatusRowSource = sliceBetween(
   "src/features/ynot/client.tsx",
   "function AdminCampaignStatusRow",
@@ -411,8 +410,8 @@ notCheck(globalInventoryMigration, "global inventory migration keeps cards catal
 
 check("src/lib/supabase/types.ts", "types include top_up_requests", /top_up_requests:\s*{[\s\S]*coin_amount: number;/);
 check("src/lib/supabase/types.ts", "types include collection_items", /collection_items:\s*{[\s\S]*source_type: "gacha_open"/);
-check("src/lib/supabase/types.ts", "types include platform RPCs", /open_gacha_campaign:[\s\S]*approve_exchange_order:[\s\S]*request_shipping_for_items:/);
-check("src/app/api/ynot/admin/exchange/route.ts", "admin exchange route uses wallet ledger RPCs", /approve_exchange_order[\s\S]*reject_exchange_order/);
+check("src/lib/supabase/types.ts", "types include platform RPCs", /open_gacha_campaign:[\s\S]*submit_card_conversion:[\s\S]*request_shipping_for_items:/);
+check("src/app/api/ynot/collection/convert/route.ts", "card conversion route uses wallet ledger RPC", /enforceRateLimit[\s\S]*submit_card_conversion/);
 check("docs/PROJECT_STATUS.md", "status docs mention migration-before-deploy gate", /migration.*before deploying code/i);
 
 if (exists("tools/fixtures/button-map.json")) {

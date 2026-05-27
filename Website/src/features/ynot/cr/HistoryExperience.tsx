@@ -1062,11 +1062,17 @@ function ShipModal({
                     </div>
                   )}
                   <div className="lines">{a.addressLine1}</div>
+                  {a.addressLine2 && (
+                    <div className="lines">{a.addressLine2}</div>
+                  )}
                   <div className="lines">
-                    {[a.district, a.province, a.postalCode]
+                    {[a.subdistrict, a.district, a.province, a.postalCode]
                       .filter(Boolean)
                       .join(" ")}
                   </div>
+                  {a.deliveryNote && (
+                    <small className="cr-mute">{a.deliveryNote}</small>
+                  )}
                 </div>
                 {a.isDefault && (
                   <span className="cr-pill cr-pill-ink">Default</span>

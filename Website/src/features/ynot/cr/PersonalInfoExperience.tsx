@@ -70,6 +70,18 @@ export function PersonalInfoExperience({
   links,
 }: PersonalInfoExperienceProps) {
   const [section, setSection] = useState<SectionKey>("profile");
+  const [addressRows, setAddressRows] = useState(addresses);
+
+  function syncAddress(address: YnotAddress) {
+    setAddressRows((current) => {
+      const withoutCurrent = current
+        .filter((row) => row.id !== address.id)
+        .map((row) => (address.isDefault ? { ...row, isDefault: false } : row));
+      return address.isDefault
+        ? [address, ...withoutCurrent]
+        : [...withoutCurrent, address];
+    });
+  }
 
   return (
     <div className="cr-page">
@@ -155,7 +167,7 @@ export function PersonalInfoExperience({
                 <Ico name="pin" size={14} />
               </span>
               <span>Addresses</span>
-              <span className="count">{addresses.length}</span>
+              <span className="count">{addressRows.length}</span>
             </button>
             <button
               type="button"
@@ -186,7 +198,9 @@ export function PersonalInfoExperience({
         </div>
 
         <div>
-          {section === "profile" && <ProfileSection />}
+          {section === "profile" && (
+            <ProfileSection onAddressSynced={syncAddress} />
+          )}
           {section === "connections" && (
             <ConnectionsSection
               connections={connections}
@@ -195,7 +209,7 @@ export function PersonalInfoExperience({
             />
           )}
           {section === "addresses" && (
-            <AddressesSection addresses={addresses} />
+            <AddressesSection addresses={addressRows} />
           )}
           {section === "shipping" && (
             <ShippingHistorySection shipping={shipping} />
@@ -206,7 +220,11 @@ export function PersonalInfoExperience({
   );
 }
 
-function ProfileSection() {
+function ProfileSection({
+  onAddressSynced,
+}: {
+  onAddressSynced: (address: YnotAddress) => void;
+}) {
   const { toast } = useToast();
   const [loaded, setLoaded] = useState(false);
   const [saved, setSaved] = useState<ProfileDraft>(emptyProfile);
@@ -279,9 +297,14 @@ function ProfileSection() {
           isRecord(payload) && isRecord(payload.profile)
             ? (payload.profile as Partial<ProfileDraft>)
             : null;
+        const defaultAddress =
+          isRecord(payload) && isRecord(payload.defaultAddress)
+            ? (payload.defaultAddress as YnotAddress)
+            : null;
         const next = { ...emptyProfile, ...(profile ?? {}) };
         setSaved(next);
         setDraft(next);
+        if (defaultAddress) onAddressSynced(defaultAddress);
         toast("success", "Personal info saved.");
       } catch (error) {
         toast(
@@ -707,11 +730,22 @@ function AddressesSection({ addresses }: { addresses: YnotAddress[] }) {
                   </div>
                 )}
                 <div className="lines">{address.addressLine1}</div>
+                {address.addressLine2 && (
+                  <div className="lines">{address.addressLine2}</div>
+                )}
                 <div className="lines">
-                  {[address.district, address.province, address.postalCode]
+                  {[
+                    address.subdistrict,
+                    address.district,
+                    address.province,
+                    address.postalCode,
+                  ]
                     .filter(Boolean)
                     .join(" ")}
                 </div>
+                {address.deliveryNote && (
+                  <small className="cr-mute">{address.deliveryNote}</small>
+                )}
               </div>
             </div>
           ))
