@@ -130,6 +130,76 @@ async function hydrateItems(
   });
 }
 
+// Dev-only mock pull. The preview session created by /api/dev/preview-auth
+// has no real profile, wallet, or collection rows in Supabase, so the real
+// gacha RPC would always fail with "profile not found" or "insufficient
+// balance" — breaking the localhost demo flow. This helper synthesises a
+// plausible open result so the reveal animation + summary can render. Never
+// reached in production because the gate above checks NODE_ENV and the
+// preview-user marker.
+const PREVIEW_AUTH_USER_ID = "preview-user";
+const MOCK_TIERS = ["bronze", "silver", "gold", "rainbow"] as const;
+type MockTier = (typeof MOCK_TIERS)[number];
+type MockCardSpec = { name: string; tier: MockTier; valueThb: number };
+const MOCK_POOL: MockCardSpec[] = [
+  { name: "Charizard ex SAR", tier: "rainbow", valueThb: 5800 },
+  { name: "Pikachu ex Full Art", tier: "gold", valueThb: 1800 },
+  { name: "Mew ex SIR", tier: "gold", valueThb: 1900 },
+  { name: "Iono Full Art", tier: "silver", valueThb: 700 },
+  { name: "Greninja Reverse", tier: "silver", valueThb: 620 },
+  { name: "Lucario Mirror", tier: "silver", valueThb: 580 },
+  { name: "Squirtle Promo", tier: "bronze", valueThb: 90 },
+  { name: "Magikarp Promo", tier: "bronze", valueThb: 60 },
+  { name: "Bulbasaur Reverse", tier: "bronze", valueThb: 80 },
+  { name: "Luffy P-009 Manga", tier: "rainbow", valueThb: 4400 },
+  { name: "Sanji Parallel", tier: "gold", valueThb: 1600 },
+  { name: "Zoro Parallel", tier: "silver", valueThb: 720 },
+];
+
+function pickMockCard(): MockCardSpec {
+  const r = Math.random();
+  let tier: MockTier;
+  if (r < 0.03) tier = "rainbow";
+  else if (r < 0.15) tier = "gold";
+  else if (r < 0.5) tier = "silver";
+  else tier = "bronze";
+  const pool = MOCK_POOL.filter((c) => c.tier === tier);
+  return pool[Math.floor(Math.random() * pool.length)] ?? MOCK_POOL[0];
+}
+
+function buildPreviewOpenResult(campaignId: string, quantity: number) {
+  const items = Array.from({ length: quantity }, (_, index) => {
+    const card = pickMockCard();
+    const tierRank: Record<MockTier, number> = {
+      rainbow: 1,
+      gold: 2,
+      silver: 6,
+      bronze: 20,
+    };
+    return {
+      cardId: `preview-${crypto.randomUUID()}`,
+      name: card.name,
+      imageUrl: null,
+      tier: card.tier === "rainbow" || card.tier === "gold" ? "high" : "normal",
+      displayTier: card.tier,
+      valueThb: card.valueThb,
+      position: index + 1,
+      rank: tierRank[card.tier],
+      prizeUnitId: null,
+    };
+  });
+  return {
+    status: "completed",
+    openId: `preview-${crypto.randomUUID()}`,
+    publicCode: `PREVIEW-${Math.floor(Math.random() * 1_000_000)}`,
+    costCoins: 0,
+    logicMode: "preview_mock",
+    items,
+    replayed: false,
+    remaining: { campaignId },
+  };
+}
+
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   const session = await resolveCurrentProfile();
@@ -144,6 +214,16 @@ export async function POST(request: Request) {
   const idempotencyKey = typeof body?.idempotencyKey === "string" ? body.idempotencyKey : crypto.randomUUID();
   if (!campaignId) return Response.json({ error: "Campaign is required." }, { status: 400 });
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) return Response.json({ error: "Quantity must be between 1 and 100." }, { status: 400 });
+
+  // Preview-mode short circuit: synthesise an open result so the localhost
+  // demo can show the reveal animation without a real wallet or profile.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    session.authUserId === PREVIEW_AUTH_USER_ID
+  ) {
+    return Response.json({ result: buildPreviewOpenResult(campaignId, quantity) });
+  }
+
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase.rpc("open_gacha_campaign", { p_profile_id: session.profileId, p_draw_round_id: campaignId, p_quantity: quantity, p_idempotency_key: idempotencyKey });
   if (error) return Response.json({ error: error.message }, { status: 409 });

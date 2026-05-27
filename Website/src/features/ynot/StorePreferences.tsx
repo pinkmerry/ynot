@@ -957,14 +957,11 @@ export function StoreHeaderRightNav({
               <path d="M5.5 19c1.6-3 4-4.5 6.5-4.5s4.9 1.5 6.5 4.5" />
             </svg>
           </span>
-          <Link
-            className="store-profile-edit"
-            href="/profile"
-            prefetch={false}
-            onClick={() => setProfileOpen(false)}
-          >
-            {account.edit}
-          </Link>
+          {/* The avatar used to link to /profile (a generic "Edit profile"
+              affordance) but that page was the Card history, which is now
+              listed separately below. The avatar is therefore a static
+              identity block — actual profile editing lives in the
+              "Personal Info" link in the account list. */}
         </div>
 
         <div className="store-profile-section">

@@ -1437,9 +1437,24 @@ function toPaymentMethod(
   };
 }
 
+const PREVIEW_PROFILE_ID = "00000000-0000-0000-0000-000000000001";
+const PREVIEW_WALLET_BALANCE = 50_000;
+
 export async function getWallet(profileId?: string): Promise<YnotWallet> {
   if (!profileId || !isSupabaseConfigured())
     return { balanceCoins: 0, version: 0 };
+  // Dev preview bypass — the stub session id from
+  // /api/dev/preview-auth doesn't have a real wallet row, so without an
+  // override the storefront looks broken on localhost (all open buttons
+  // become "Top up", confirm modals say "Need X more coins"). Give the
+  // preview user enough coins to exercise the gacha + sell flows. Never
+  // applies in production.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    profileId === PREVIEW_PROFILE_ID
+  ) {
+    return { balanceCoins: PREVIEW_WALLET_BALANCE, version: 0 };
+  }
   const supabase = createServiceSupabaseClient();
   const rows = await readOrEmpty("wallet", async () => {
     const { data, error } = await supabase
