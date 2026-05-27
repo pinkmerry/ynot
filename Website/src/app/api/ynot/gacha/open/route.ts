@@ -138,9 +138,14 @@ async function hydrateItems(
 // reached in production because the gate above checks NODE_ENV and the
 // preview-user marker.
 const PREVIEW_AUTH_USER_ID = "preview-user";
-const MOCK_TIERS = ["bronze", "silver", "gold", "rainbow"] as const;
-type MockTier = (typeof MOCK_TIERS)[number];
+type MockTier = "bronze" | "silver" | "gold" | "rainbow";
 type MockCardSpec = { name: string; tier: MockTier; valueThb: number };
+const MOCK_TIER_IMAGE: Record<MockTier, string> = {
+  bronze: "/test-assets/ynot-test-card-blue.svg",
+  silver: "/test-assets/ynot-test-card-blue.svg",
+  gold: "/test-assets/ynot-test-card-gold.svg",
+  rainbow: "/ynot-open-card-sample-cropped.png",
+};
 const MOCK_POOL: MockCardSpec[] = [
   { name: "Charizard ex SAR", tier: "rainbow", valueThb: 5800 },
   { name: "Pikachu ex Full Art", tier: "gold", valueThb: 1800 },
@@ -179,7 +184,7 @@ function buildPreviewOpenResult(campaignId: string, quantity: number) {
     return {
       cardId: `preview-${crypto.randomUUID()}`,
       name: card.name,
-      imageUrl: null,
+      imageUrl: MOCK_TIER_IMAGE[card.tier],
       tier: card.tier === "rainbow" || card.tier === "gold" ? "high" : "normal",
       displayTier: card.tier,
       valueThb: card.valueThb,

@@ -1266,17 +1266,20 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   }
 }
 
-/* prize tier — 3-column grid that stays centered when partial rows */
+/* prize tier — centered rows so partial tiers do not sit in the left column */
 .cr-prize-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 200px));
+  display: flex;
+  flex-wrap: wrap;
   gap: 16px;
   justify-content: center;
+  align-items: flex-start;
   max-width: 720px;
   margin: 0 auto;
 }
 .cr-prize-grid .cr-prize-card {
-  width: 100%;
+  flex: 0 1 200px;
+  width: 200px;
+  max-width: 100%;
 }
 .cr-prize-card-art {
   aspect-ratio: 3 / 4;
@@ -1310,13 +1313,20 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
 
 @media (max-width: 760px) {
   .cr-prize-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     max-width: 480px;
+  }
+  .cr-prize-grid .cr-prize-card {
+    flex-basis: calc((100% - 16px) / 2);
+    max-width: 220px;
   }
 }
 @media (max-width: 480px) {
   .cr-prize-grid {
-    grid-template-columns: minmax(0, 1fr);
+    max-width: 280px;
+  }
+  .cr-prize-grid .cr-prize-card {
+    flex-basis: 100%;
+    width: 100%;
     max-width: 280px;
   }
 }

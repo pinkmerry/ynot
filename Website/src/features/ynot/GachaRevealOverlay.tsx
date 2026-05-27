@@ -1,11 +1,13 @@
 "use client";
 
 import { ArrowLeft } from "lucide-react";
+import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   highestPrizeDisplayTier,
   prizeDisplayTierConfig,
   prizeDisplayTierLabel,
+  prizeDisplayTierOrder,
   prizeTierAnimationConfig,
   type PrizeDisplayTier,
 } from "./prize-tier";
@@ -19,19 +21,53 @@ import type {
   YnotTierAnimation,
 } from "./types";
 
-type RevealStage = "tension" | "reveal" | "summary";
+type RevealStage = "reveal" | "tierSpin" | "tier" | "spotlight" | "summary";
+type PullRarity = "normal" | "rare" | "blackout" | "jackpot";
 
 type Props = {
   result: YnotGachaOpenResult;
   quantity: number;
-  onBackToQuantity: () => void;
   onClose: () => void;
-  onOpenAgain: () => void;
+  onFinish: () => void;
+  onOpenAgain?: (quantity: number) => void;
+  openAgainOptions?: Array<{
+    quantity: number;
+    disabled?: boolean;
+    costCoins?: number;
+  }>;
   tierAnimations?: YnotTierAnimation[];
-  isPending?: boolean;
+  forceAnimation?: boolean;
 };
 
-const TENSION_MS = 1200;
+const TIER_SPIN_MS = 1450;
+const TIER_RESULT_MS = 1600;
+const SPOTLIGHT_MS = 2100;
+const FALLBACK_CARD_IMAGE = "/ynot-open-card-sample-cropped.png";
+
+function revealRarity(tier: PrizeDisplayTier): PullRarity {
+  if (tier === "rainbow") return "jackpot";
+  if (tier === "gold") return "blackout";
+  if (tier === "silver") return "rare";
+  return "normal";
+}
+
+function revealMotionDurationMs(rarity: PullRarity, quantity: number) {
+  if (quantity > 1) return 4500;
+  if (rarity === "jackpot") return 4900;
+  if (rarity === "blackout" || rarity === "rare") return 4400;
+  return 4150;
+}
+
+function featuredRevealItem(items: YnotGachaOpenItem[]) {
+  return items.reduce<YnotGachaOpenItem | null>((best, item) => {
+    if (!best) return item;
+    const bestOrder = prizeDisplayTierOrder(best.displayTier);
+    const itemOrder = prizeDisplayTierOrder(item.displayTier);
+    if (itemOrder < bestOrder) return item;
+    if (itemOrder === bestOrder && item.position < best.position) return item;
+    return best;
+  }, null);
+}
 
 function findTierAnimation(
   animations: YnotTierAnimation[] | undefined,
@@ -40,25 +76,27 @@ function findTierAnimation(
   return animations?.find((a) => a.tier === tier && a.isActive) ?? null;
 }
 
-function pickInitialStage(autoSkip: boolean): RevealStage {
-  if (typeof window === "undefined") return "tension";
+function pickInitialStage(autoSkip: boolean, forceAnimation: boolean): RevealStage {
+  if (typeof window === "undefined") return "reveal";
+  if (forceAnimation) return "reveal";
   if (autoSkip) return "summary";
   if (prefersReducedMotion()) return "summary";
-  return "tension";
+  return "reveal";
 }
 
 export function GachaRevealOverlay({
   result,
   quantity,
-  onBackToQuantity,
   onClose,
+  onFinish,
   onOpenAgain,
+  openAgainOptions = [],
   tierAnimations,
-  isPending,
+  forceAnimation = false,
 }: Props) {
   const { pref, setAutoSkip, setMuted } = useGachaAnimationPref();
   const [stage, setStage] = useState<RevealStage>(() =>
-    pickInitialStage(pref.autoSkip),
+    pickInitialStage(pref.autoSkip, forceAnimation),
   );
 
   const items: YnotGachaOpenItem[] = useMemo(
@@ -73,24 +111,38 @@ export function GachaRevealOverlay({
     [items],
   );
   const animation = prizeTierAnimationConfig(highestTier);
+  const highestTierConfig = prizeDisplayTierConfig(highestTier);
   const tierAsset = findTierAnimation(tierAnimations, highestTier);
+  const featuredItem = useMemo(() => featuredRevealItem(items), [items]);
+  const motionRarity = revealRarity(highestTier);
+  const revealDurationMs = tierAsset?.videoUrl
+    ? Math.max(1200, tierAsset.durationMs || animation.durationMs)
+    : revealMotionDurationMs(motionRarity, quantity);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    if (stage !== "tension") return;
-    const timer = setTimeout(() => setStage("reveal"), TENSION_MS);
+    if (stage !== "reveal") return;
+    const timer = setTimeout(() => setStage("tierSpin"), revealDurationMs);
+    return () => clearTimeout(timer);
+  }, [stage, revealDurationMs]);
+
+  useEffect(() => {
+    if (stage !== "tierSpin") return;
+    const timer = setTimeout(() => setStage("tier"), TIER_SPIN_MS);
     return () => clearTimeout(timer);
   }, [stage]);
 
   useEffect(() => {
-    if (stage !== "reveal") return;
-    if (animation.holdToContinue) return;
-    const timer = setTimeout(
-      () => setStage("summary"),
-      animation.durationMs,
-    );
+    if (stage !== "tier") return;
+    const timer = setTimeout(() => setStage("spotlight"), TIER_RESULT_MS);
     return () => clearTimeout(timer);
-  }, [stage, animation.durationMs, animation.holdToContinue]);
+  }, [stage]);
+
+  useEffect(() => {
+    if (stage !== "spotlight") return;
+    const timer = setTimeout(() => setStage("summary"), SPOTLIGHT_MS);
+    return () => clearTimeout(timer);
+  }, [stage]);
 
   useEffect(() => {
     if (stage !== "reveal") return;
@@ -128,11 +180,11 @@ export function GachaRevealOverlay({
         <button
           type="button"
           className="gacha-reveal-back"
-          aria-label="Back to choose pull quantity"
-          onClick={onBackToQuantity}
+          aria-label="Back to pack detail"
+          onClick={onFinish}
         >
           <ArrowLeft aria-hidden="true" />
-          <span>Choose pulls</span>
+          <span>Pack detail</span>
         </button>
       )}
 
@@ -145,31 +197,9 @@ export function GachaRevealOverlay({
         {pref.muted ? "🔇" : "🔊"}
       </button>
 
-      {stage === "tension" && (
-        <div className="gacha-reveal-stage gacha-reveal-tension">
-          <div
-            className="gacha-reveal-pack"
-            style={
-              {
-                "--tier-ring": animation.ringColor,
-                "--tier-glow": animation.glowColor,
-              } as React.CSSProperties
-            }
-          >
-            <div className="gacha-reveal-pack-core">
-              <span className="gacha-reveal-pack-label">OPENING</span>
-              <span className="gacha-reveal-pack-count">×{quantity}</span>
-            </div>
-          </div>
-          <p className="gacha-reveal-tagline">
-            {isPending ? "Securing prize from the vault…" : "Tearing the seal…"}
-          </p>
-        </div>
-      )}
-
       {stage === "reveal" && (
         <div
-          className="gacha-reveal-stage gacha-reveal-show"
+          className="gacha-reveal-stage gacha-reveal-show gacha-reveal-pack-open-stage"
           data-shake={animation.screenShake ? "1" : "0"}
         >
           {tierAsset?.videoUrl ? (
@@ -180,43 +210,129 @@ export function GachaRevealOverlay({
               autoPlay
               muted={pref.muted}
               playsInline
-              onEnded={() =>
-                !animation.holdToContinue && setStage("summary")
-              }
+              onEnded={() => setStage("tierSpin")}
             />
           ) : (
             <div
-              className="gacha-reveal-mock"
-              style={
-                {
-                  "--tier-ring": animation.ringColor,
-                  "--tier-glow": animation.glowColor,
-                  "--tier-duration": `${animation.durationMs}ms`,
-                } as React.CSSProperties
-              }
+              className={`pack-open-prototype gacha-reveal-pack-motion charging ${quantity > 1 ? "batch" : "single"} phase-pull rarity-${motionRarity} speed-2`}
+              role="group"
+              aria-label="Opening pack animation"
             >
-              <div className="gacha-reveal-mock-ring" />
-              <div className="gacha-reveal-mock-flash" />
-              <div className="gacha-reveal-mock-label">
-                <span>{prizeDisplayTierLabel(highestTier).toUpperCase()}</span>
-                <small>
-                  {items.length === 1
-                    ? "PRIZE INCOMING"
-                    : `${items.length} CARDS · HIGHEST: ${prizeDisplayTierLabel(highestTier).toUpperCase()}`}
-                </small>
+                <div className="pack-open-grain" aria-hidden="true" />
+              <div className="pack-open-visual gacha-reveal-pack-motion-visual">
+                <div className="pack-open-aura" aria-hidden="true" />
+                <span className="pack-open-scanline" aria-hidden="true" />
+                <span className="pack-open-flash" aria-hidden="true" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  className="pack-open-cutout-motion"
+                  src="/ynot-pack-open-cutout.webp"
+                  alt=""
+                  aria-hidden="true"
+                />
+                <div className="pack-open-pack-shell" aria-hidden="true">
+                  <div className="pack-open-pack pack-open-pack-base">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/ynot-open-pack-bg-removed.png" alt="" />
+                  </div>
+                  <div className="pack-open-pack-split pack-open-pack-top">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/ynot-open-pack-bg-removed.png" alt="" />
+                  </div>
+                  <div className="pack-open-pack-split pack-open-pack-body">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/ynot-open-pack-bg-removed.png" alt="" />
+                  </div>
+                  <span className="pack-open-tear" />
+                  <span className="pack-open-mouth-shadow" aria-hidden="true" />
+                  <span className="pack-open-crinkles" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                  <span className="pack-open-sheen" />
+                </div>
+                <span className="pack-open-slot" aria-hidden="true" />
+                <span className="pack-open-burst" aria-hidden="true" />
+                <span className="pack-open-rarity-ring" aria-hidden="true" />
+                <div className="pack-open-card-wrap" aria-hidden="true">
+                  <div className="gacha-reveal-pack-light-card" />
+                </div>
               </div>
             </div>
           )}
+        </div>
+      )}
 
-          {animation.holdToContinue && (
-            <button
-              type="button"
-              className="gacha-reveal-continue"
-              onClick={() => setStage("summary")}
-            >
-              Tap to reveal cards
-            </button>
-          )}
+      {stage === "tierSpin" && (
+        <div
+          className="gacha-reveal-stage gacha-reveal-tier-result"
+          style={
+            {
+              "--card-ring": highestTierConfig.animation.ringColor,
+              "--card-glow": highestTierConfig.animation.glowColor,
+            } as CSSProperties
+          }
+        >
+          <div className="gacha-reveal-tier-spin-card" aria-label="Prize card spinning">
+            <div className="gacha-reveal-tier-spin-face">
+              <span>YNOT</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {stage === "tier" && (
+        <div
+          className="gacha-reveal-stage gacha-reveal-tier-result"
+          style={
+            {
+              "--card-ring": highestTierConfig.animation.ringColor,
+              "--card-glow": highestTierConfig.animation.glowColor,
+            } as CSSProperties
+          }
+        >
+          <div
+            className="gacha-reveal-tier-card"
+            aria-label={`${prizeDisplayTierLabel(highestTier)} prize tier result`}
+          >
+            <div className="gacha-reveal-tier-face gacha-reveal-tier-face-back">
+              <span>YNOT</span>
+            </div>
+            <div className="gacha-reveal-tier-face gacha-reveal-tier-face-front">
+              <span>Prize tier</span>
+              <strong>{prizeDisplayTierLabel(highestTier)}</strong>
+              <small>
+                {items.length} {items.length === 1 ? "pull" : "pulls"}
+              </small>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {stage === "spotlight" && (
+        <div
+          className="gacha-reveal-stage gacha-reveal-spotlight"
+          data-tier={highestTier}
+          style={
+            {
+              "--card-ring": highestTierConfig.animation.ringColor,
+              "--card-glow": highestTierConfig.animation.glowColor,
+            } as CSSProperties
+          }
+        >
+          <div className="gacha-reveal-spotlight-burst" aria-hidden="true" />
+          <div
+            className="gacha-reveal-spotlight-card"
+          >
+            <div className="gacha-reveal-spotlight-frame">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={featuredItem?.imageUrl ?? FALLBACK_CARD_IMAGE}
+                alt={featuredItem?.name ?? "Revealed card"}
+              />
+            </div>
+          </div>
         </div>
       )}
 
@@ -242,7 +358,7 @@ export function GachaRevealOverlay({
                     {
                       "--card-ring": tier.animation.ringColor,
                       "--card-glow": tier.animation.glowColor,
-                    } as React.CSSProperties
+                    } as CSSProperties
                   }
                 >
                   <div className="gacha-reveal-card-frame">
@@ -266,38 +382,46 @@ export function GachaRevealOverlay({
           </ul>
 
           <footer className="gacha-reveal-summary-footer">
+            {onOpenAgain && openAgainOptions.length > 0 && (
+              <div
+                className="gacha-reveal-repeat-row"
+                role="group"
+                aria-label="Pull again"
+              >
+                {openAgainOptions.map((option) => (
+                  <button
+                    key={option.quantity}
+                    type="button"
+                    className="gacha-reveal-repeat-action"
+                    disabled={option.disabled}
+                    onClick={() => onOpenAgain(option.quantity)}
+                  >
+                    <span>Pull x{option.quantity}</span>
+                    {typeof option.costCoins === "number" && (
+                      <small>{option.costCoins.toLocaleString()} coins</small>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="gacha-reveal-dock" role="group" aria-label="Pack actions">
               <button
                 type="button"
                 className="gacha-reveal-dock-action is-primary"
-                onClick={() => {
-                  if (typeof window !== "undefined") {
-                    window.location.assign(`/collection?from=${result.openId}&action=convert`);
-                  }
-                }}
+                onClick={onFinish}
               >
-                <span className="gacha-reveal-dock-action-label">Convert to coins</span>
-                <span className="gacha-reveal-dock-action-hint">Pick cards on the next screen</span>
+                <span className="gacha-reveal-dock-action-label">Back to pack detail</span>
+                <span className="gacha-reveal-dock-action-hint">Open again there</span>
               </button>
               <button
                 type="button"
                 className="gacha-reveal-dock-action is-ghost"
-                onClick={onOpenAgain}
-                disabled={Boolean(isPending)}
+                onClick={onClose}
               >
-                <span className="gacha-reveal-dock-action-label">
-                  {isPending ? "Opening…" : `Open ${quantity} again`}
-                </span>
-                <span className="gacha-reveal-dock-action-hint">Same quantity, fresh pull</span>
+                <span className="gacha-reveal-dock-action-label">View collection</span>
+                <span className="gacha-reveal-dock-action-hint">Check inventory</span>
               </button>
             </div>
-            <button
-              type="button"
-              className="gacha-reveal-secondary"
-              onClick={onClose}
-            >
-              View collection
-            </button>
             <label className="gacha-reveal-toggle">
               <input
                 type="checkbox"

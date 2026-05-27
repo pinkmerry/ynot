@@ -622,6 +622,7 @@ export function GachaOpenPanel({
   const [revealResult, setRevealResult] = useState<YnotGachaOpenResult | null>(
     null,
   );
+  const [openingOverlayVisible, setOpeningOverlayVisible] = useState(autoStart);
   const [isPending, startTransition] = useTransition();
   const remainingOpenUnits = Math.min(
     campaign.remainingSlots ?? Number.POSITIVE_INFINITY,
@@ -668,9 +669,11 @@ export function GachaOpenPanel({
         if (result && Array.isArray(result.items)) {
           setRevealResult(result);
         } else {
+          setOpeningOverlayVisible(false);
           setMessage("Open succeeded but no items were returned.");
         }
       } catch (error) {
+        setOpeningOverlayVisible(false);
         setMessage(
           error instanceof Error ? error.message : "Could not open gacha.",
         );
@@ -679,23 +682,35 @@ export function GachaOpenPanel({
   }
 
   function open() {
+    setOpeningOverlayVisible(true);
     fireOpen(quantity);
   }
 
+  function openAgain(nextQuantity: number) {
+    setQuantity(nextQuantity);
+    setMessage("");
+    setOpeningOverlayVisible(true);
+    setRevealResult(null);
+    fireOpen(nextQuantity);
+  }
+
   function handleRevealClose() {
+    setOpeningOverlayVisible(false);
     setRevealResult(null);
     router.push("/collection");
   }
 
-  function handleBackToQuantity() {
+  const handleRevealFinish = useCallback(() => {
+    const detailHref = `/packs/${campaign.slug}`;
+    setOpeningOverlayVisible(true);
     setRevealResult(null);
-    router.refresh();
-  }
-
-  function handleOpenAgain() {
-    setRevealResult(null);
-    fireOpen(quantity);
-  }
+    router.replace(detailHref);
+    window.setTimeout(() => {
+      if (window.location.pathname !== detailHref) {
+        window.location.replace(detailHref);
+      }
+    }, 900);
+  }, [campaign.slug, router]);
 
   // Auto-start: when the user already confirmed quantity + cost on the
   // previous page (the Y-Pack confirm modal), skip the second "START PULL"
@@ -752,9 +767,9 @@ export function GachaOpenPanel({
           <span>{remainingOpenText}</span>
           {remainingTotalText && <strong>{remainingTotalText}</strong>}
         </p>
-        <a className="primary-action open-start mt-4" href="/packs">
+        <Link className="primary-action open-start mt-4" href="/packs">
           Back to packs
-        </a>
+        </Link>
         <a className="open-cancel" href={`/gacha/${campaign.slug}`}>
           [ CANCEL ]
         </a>
@@ -822,11 +837,30 @@ export function GachaOpenPanel({
           result={revealResult}
           quantity={quantity}
           tierAnimations={tierAnimations}
-          isPending={isPending}
-          onBackToQuantity={handleBackToQuantity}
+          forceAnimation={autoStart}
           onClose={handleRevealClose}
-          onOpenAgain={handleOpenAgain}
+          onFinish={handleRevealFinish}
+          onOpenAgain={openAgain}
+          openAgainOptions={openQuantityOptions.map((option) => ({
+            quantity: option,
+            disabled: quantityDisabled(option),
+            costCoins: campaign.costCoins * option,
+          }))}
         />
+      )}
+      {openingOverlayVisible && !revealResult && (
+        <div
+          className="gacha-auto-open-overlay"
+          role="status"
+          aria-live="polite"
+          aria-label="Opening pack"
+        >
+          <div className="gacha-auto-open-loader" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
+        </div>
       )}
     </section>
   );

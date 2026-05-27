@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 
@@ -94,9 +95,9 @@ export function PackOpenPrototype() {
     >
       <div className="pack-open-grain" aria-hidden />
       <header className="pack-open-header">
-        <a href="/packs" className="pack-open-link">
+        <Link href="/packs" className="pack-open-link">
           Back
-        </a>
+        </Link>
         <span>YNOT OPEN</span>
         <button className="pack-open-link" type="button" onClick={reset}>
           Reset

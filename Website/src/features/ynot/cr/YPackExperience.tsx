@@ -69,6 +69,16 @@ function isLowStock(campaign: YnotCampaign): boolean {
   return stockPercent(campaign) < 20;
 }
 
+function openUnavailableReason(campaign: YnotCampaign): string {
+  if (campaign.openable) return "";
+  if (campaign.readinessBlockers?.[0]) return campaign.readinessBlockers[0];
+  if (campaign.status !== "live") return "This pack is not live yet.";
+  if (campaign.visibility !== "public") return "This pack is not public yet.";
+  if (campaign.approvalStatus !== "approved") return "Owner approval is required.";
+  if ((campaign.availablePrizeUnits ?? 0) <= 0) return "Prize inventory is not ready.";
+  return "This pack is not ready to open yet.";
+}
+
 type SortKey = "recommended" | "price-asc" | "price-desc" | "almost-out";
 
 export type YPackExperienceProps = {
@@ -258,8 +268,10 @@ function PackCard({
   const pct = stockPercent(campaign);
   const stockClass = pct < 20 ? "crit" : pct < 50 ? "warn" : "";
   const soldOut = isSoldOut(campaign);
+  const openable = Boolean(campaign.openable);
+  const unavailableReason = openUnavailableReason(campaign);
   const lowStock = isLowStock(campaign);
-  const cantAfford = !soldOut && balanceCoins < campaign.costCoins;
+  const cantAfford = !soldOut && openable && balanceCoins < campaign.costCoins;
   const detailHref = `/packs/${campaign.slug}`;
   const isHot = (campaign.displayTags ?? []).some((tag) =>
     tag.toLowerCase().includes("hot"),
@@ -344,6 +356,16 @@ function PackCard({
               >
                 Sold out
               </button>
+            ) : !openable ? (
+              <button
+                type="button"
+                className="cr-pack-card-cta"
+                aria-disabled="true"
+                disabled
+                title={unavailableReason}
+              >
+                Not ready
+              </button>
             ) : cantAfford ? (
               <Link href="/wallet" className="cr-pack-card-cta">
                 Top up
@@ -386,8 +408,14 @@ function OpenPackModal({
   const openQty = normalizeOpenQuantityOptions(campaign.openQuantityOptions);
   const enoughCoins = balanceCoins >= totalCost;
   const enoughStock = remaining >= qty;
+  const openable = Boolean(campaign.openable);
+  const unavailableReason = openUnavailableReason(campaign);
 
   function handleConfirm() {
+    if (!openable) {
+      toast("error", unavailableReason);
+      return;
+    }
     if (!enoughCoins) {
       toast("error", `Need ${formatCoins(totalCost - balanceCoins)} more coins`);
       return;
@@ -425,12 +453,15 @@ function OpenPackModal({
             type="button"
             className="cr-btn cr-btn-primary"
             onClick={handleConfirm}
-            disabled={!enoughCoins || !enoughStock || submitting}
+            disabled={!openable || !enoughCoins || !enoughStock || submitting}
+            title={!openable ? unavailableReason : undefined}
           >
             <CoinPip size={14} />{" "}
-            {enoughCoins
-              ? `Spend ${formatCoins(totalCost)} coins`
-              : `Need ${formatCoins(totalCost - balanceCoins)} more coins`}
+            {!openable
+              ? "Not ready"
+              : enoughCoins
+                ? `Spend ${formatCoins(totalCost)} coins`
+                : `Need ${formatCoins(totalCost - balanceCoins)} more coins`}
           </button>
         </>
       }

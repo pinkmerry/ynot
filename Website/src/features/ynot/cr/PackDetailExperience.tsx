@@ -76,6 +76,16 @@ function initials(name: string): string {
     .join("");
 }
 
+function openUnavailableReason(campaign: YnotCampaign): string {
+  if (campaign.openable) return "";
+  if (campaign.readinessBlockers?.[0]) return campaign.readinessBlockers[0];
+  if (campaign.status !== "live") return "This pack is not live yet.";
+  if (campaign.visibility !== "public") return "This pack is not public yet.";
+  if (campaign.approvalStatus !== "approved") return "Owner approval is required.";
+  if ((campaign.availablePrizeUnits ?? 0) <= 0) return "Prize inventory is not ready.";
+  return "This pack is not ready to open yet.";
+}
+
 export type PackDetailExperienceProps = {
   campaign: YnotCampaign;
   balanceCoins: number;
@@ -101,6 +111,8 @@ export function PackDetailExperience({
   const lowStock = !soldOut && remaining > 0 && remaining / Math.max(1, campaign.totalSlots) < 0.2;
   const enoughCoins = balanceCoins >= totalCost;
   const enoughStock = remaining >= qty;
+  const openable = Boolean(campaign.openable);
+  const unavailableReason = openUnavailableReason(campaign);
   const stockPct = Math.max(
     0,
     Math.min(100, Math.round((remaining / Math.max(1, campaign.totalSlots)) * 100)),
@@ -113,6 +125,10 @@ export function PackDetailExperience({
   const containsRainbow = presentTiers.includes("rainbow");
 
   function tryOpen() {
+    if (!openable) {
+      toast("error", unavailableReason);
+      return;
+    }
     if (!enoughStock) {
       toast("error", `Only ${remaining} packs left.`);
       return;
@@ -462,7 +478,16 @@ export function PackDetailExperience({
                 <CoinPip size={13} /> {formatCoins(totalCost)}
               </strong>
             </div>
-            {!enoughCoins ? (
+            {!openable ? (
+              <button
+                type="button"
+                className="cr-btn cr-btn-lg"
+                disabled
+                title={unavailableReason}
+              >
+                <Ico name="bell" size={14} /> Not ready
+              </button>
+            ) : !enoughCoins ? (
               <a className="cr-btn cr-btn-gold cr-btn-lg" href="/wallet">
                 <Ico name="plus" size={14} /> Top up
               </a>
