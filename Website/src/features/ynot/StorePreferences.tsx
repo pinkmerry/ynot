@@ -74,6 +74,7 @@ const navLabels = {
     mysteryPacks: "Y-Packs",
     marketplace: "Marketplace",
     profile: "Profile",
+    cardHistory: "Card history",
     wallet: "Wallet",
     personalInfo: "Personal Info",
     admin: "Admin",
@@ -83,6 +84,7 @@ const navLabels = {
     mysteryPacks: "Y-Packs",
     marketplace: "ตลาด",
     profile: "โปรไฟล์",
+    cardHistory: "ประวัติการ์ด",
     wallet: "วอลเล็ต",
     personalInfo: "ข้อมูลส่วนตัว",
     admin: "หน้าแอดมิน",
@@ -134,9 +136,14 @@ const customerNav = [
   // "Home" is intentionally omitted — both the YNOT logo lockup and the
   // browser back affordance take users home, so duplicating it in the nav
   // adds noise without informational value.
+  //
+  // Card history (/collection) replaces the old generic "Profile" link so
+  // the drawer entry matches what the page actually renders: a collection
+  // grid + reward timeline. Profile edit lives under Personal Info; we do
+  // not want two drawer items that both feel like "edit profile".
   { key: "mysteryPacks", href: "/packs", protected: false, placement: ["left", "drawer"] },
   { key: "marketplace", href: "/marketplace", protected: false, placement: ["left", "drawer"] },
-  { key: "profile", href: "/profile", protected: true, placement: ["drawer"] },
+  { key: "cardHistory", href: "/collection", protected: true, placement: ["drawer"] },
   { key: "wallet", href: "/wallet", protected: true, placement: ["drawer"] },
   { key: "personalInfo", href: "/profile/personal-info", protected: true, placement: ["drawer"] },
 ] as const;

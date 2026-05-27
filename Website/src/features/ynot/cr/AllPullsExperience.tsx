@@ -193,7 +193,7 @@ export function AllPullsExperience({
         eyebrow="Reward history"
         title="All pulls"
         lead={`Every card you've pulled from a pack — ${allPulls.length} total. Filter and search to find a specific one.`}
-        back={{ href: "/profile", label: "Card history" }}
+        back={{ href: "/collection", label: "Card history" }}
       />
 
       <div
@@ -477,7 +477,7 @@ export function AllPullsExperience({
             <small className="cr-mute">
               Showing {filtered.length} pull{filtered.length === 1 ? "" : "s"}
             </small>
-            <Link href="/profile" className="cr-btn cr-btn-sm">
+            <Link href="/collection" className="cr-btn cr-btn-sm">
               <Ico name="chev-l" size={12} /> Back to card history
             </Link>
           </div>
