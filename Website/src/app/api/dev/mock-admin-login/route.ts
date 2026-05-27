@@ -5,6 +5,7 @@ import {
   luckyDrawSessionCookie,
 } from "@/lib/lucky-draw/session";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { isDevBypassWithLocalSupabaseAllowed } from "@/lib/security/dev-bypass";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +29,13 @@ function devRedirectUrl(request: Request) {
 }
 
 export async function GET(request: Request) {
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "Dev admin login is disabled in production." }, { status: 404 });
+  // Triple-factor gate: NODE_ENV non-prod, YNOTT_ALLOW_DEV_BYPASS=true,
+  // AND the Supabase URL points at a local instance. This endpoint writes
+  // a permanent `owner` row into `admin_users`, so it must never run
+  // against a hosted/production Supabase project — even from `next dev`
+  // with an accidentally-prod `.env.local`.
+  if (!isDevBypassWithLocalSupabaseAllowed()) {
+    return NextResponse.json({ error: "Dev admin login is disabled." }, { status: 404 });
   }
 
   const supabase = createServiceSupabaseClient();

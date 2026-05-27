@@ -15,6 +15,11 @@
   },
   "vars": {
     "RATE_LIMIT_BACKEND": "supabase",
+    // Pin NODE_ENV explicitly so any runtime read sees the prod value,
+    // not just Next.js compile-time inlining. Required by
+    // `@/lib/security/dev-bypass.isDevBypassAllowed` — see B7 in the
+    // security audit notes.
+    "NODE_ENV": "production",
     "NEXTJS_ENV": "production",
     "LINE_LOGIN_CHANNEL_ID": "2009942829",
     "NEXT_PUBLIC_ENABLE_LINE_LOGIN": "true",

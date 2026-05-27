@@ -3,6 +3,7 @@ import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { requireVerifiedAnchor } from "@/lib/auth/verified-anchor";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { isDevBypassAllowed } from "@/lib/security/dev-bypass";
 
 export const dynamic = "force-dynamic";
 
@@ -292,8 +293,11 @@ export async function POST(request: Request) {
 
   // Preview-mode short circuit: synthesise an open result so the localhost
   // demo can show the reveal animation without a real wallet or profile.
+  // Triple-gated: dev bypass allowed (NODE_ENV + YNOTT_ALLOW_DEV_BYPASS)
+  // AND the caller is the preview-user marker. See
+  // `@/lib/security/dev-bypass`.
   if (
-    process.env.NODE_ENV !== "production" &&
+    isDevBypassAllowed() &&
     session.authUserId === PREVIEW_AUTH_USER_ID
   ) {
     return Response.json({

@@ -8,6 +8,7 @@ import {
 } from "@/lib/supabase/schema-compat";
 import type { Database, Json } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { isDevBypassAllowed } from "@/lib/security/dev-bypass";
 import {
   getPrizeStockSummaries,
   normalizePrizeDrafts,
@@ -352,11 +353,12 @@ export async function GET(request: Request) {
   if (!isSupabaseConfigured()) {
     return Response.json({ ok: true, campaigns: [] });
   }
-  // Dev-mode bypass mirrors the storefront isAdmin shortcut: on non-prod
-  // builds the API trusts the caller so the admin UI can be exercised
-  // without a real Supabase auth cookie. Production always enforces the
-  // admin session.
-  const isDev = process.env.NODE_ENV !== "production";
+  // Dev-mode bypass: on non-prod builds with the explicit
+  // YNOTT_ALLOW_DEV_BYPASS=true flag set, the API trusts the caller so the
+  // admin UI can be exercised without a real Supabase auth cookie.
+  // Production always enforces the admin session — see
+  // `@/lib/security/dev-bypass`.
+  const isDev = isDevBypassAllowed();
   const admin = await resolveAdminSession();
   if (!admin && !isDev) {
     return adminErrorResponse(

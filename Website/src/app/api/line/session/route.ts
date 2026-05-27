@@ -25,10 +25,17 @@ type LineIdTokenClaims = {
   aud?: string;
 };
 
+// LINE LIFF channel id used as the audience when verifying id_tokens.
+// Resolves to LINE_LOGIN_CHANNEL_ID when present; otherwise derives the
+// channel portion of NEXT_PUBLIC_LINE_LIFF_ID. Returns empty string when
+// neither is configured — the verify call then fails closed (LINE rejects
+// an empty client_id). NO hardcoded fallback is provided so that a future
+// channel change in env never silently regresses to a stale id baked into
+// source.
 const lineChannelId =
-  process.env.LINE_LOGIN_CHANNEL_ID ??
+  process.env.LINE_LOGIN_CHANNEL_ID?.trim() ??
   process.env.NEXT_PUBLIC_LINE_LIFF_ID?.split("-")[0] ??
-  "2009942829";
+  "";
 
 // Max age of a LIFF id_token we are willing to accept. LIFF refreshes tokens
 // automatically every ~30 min, so any honest client will always be fresh.

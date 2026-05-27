@@ -3,6 +3,8 @@ import {
   HERO_PACKS_COOKIE,
   parseHeroPacksCookie,
 } from "@/features/ynot/demo-pack-order";
+import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
+import { isDevBypassAllowed } from "@/lib/security/dev-bypass";
 import { adminErrorResponse } from "@/lib/ynot/admin-api-errors";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +22,29 @@ export const dynamic = "force-dynamic";
  *   { action: "add",    id: "<campaign-id>" }
  *   { action: "remove", id: "<campaign-id>" }
  *   { ids: ["<id-1>", "<id-2>", ...] }  // explicit reorder
+ *
+ * NOTE: the cookie only affects the caller's own browser session, so this
+ * endpoint is not a privilege boundary in itself — but the path is under
+ * /api/ynot/admin/* and the UI is admin-only, so we gate on
+ * resolveAdminSession to match the naming convention and prevent
+ * unauthenticated callers from polluting admin-team browsers via shared
+ * machine misuse.
  */
+async function requireAdmin() {
+  const admin = await resolveAdminSession();
+  if (admin) return admin;
+  if (isDevBypassAllowed()) return null;
+  return adminErrorResponse(
+    "ADMIN_ACCESS_REQUIRED",
+    "Admin access is required.",
+    403,
+  );
+}
+
 export async function POST(request: Request) {
+  const gate = await requireAdmin();
+  if (gate instanceof Response) return gate;
+
   const body = (await request.json().catch(() => null)) as
     | { action?: string; id?: string; ids?: unknown }
     | null;
@@ -70,6 +93,9 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
+  const gate = await requireAdmin();
+  if (gate instanceof Response) return gate;
+
   const cookieStore = await cookies();
   const ids = parseHeroPacksCookie(cookieStore.get(HERO_PACKS_COOKIE)?.value);
   return Response.json({ ok: true, ids });

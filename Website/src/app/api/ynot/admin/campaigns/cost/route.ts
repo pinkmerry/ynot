@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { isDevBypassAllowed } from "@/lib/security/dev-bypass";
 import { adminErrorResponse } from "@/lib/ynot/admin-api-errors";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
       503,
     );
   }
-  const isDev = process.env.NODE_ENV !== "production";
+  const isDev = isDevBypassAllowed();
   const admin = await resolveAdminSession();
   if (!admin && !isDev) {
     return adminErrorResponse(

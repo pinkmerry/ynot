@@ -31,12 +31,21 @@ type CookieReader = {
 };
 
 function sessionSecret() {
-  const secret = process.env.LINE_SESSION_SECRET;
+  // The HMAC secret used to sign / verify the lucky_draw_session cookie.
+  // Returning null causes every sign and read attempt to fail, which means
+  // no session can be created or recognised — the app refuses to mint
+  // sessions rather than fall back to a known value.
+  //
+  // SECURITY: there is NO dev-default fallback. Previously, a hard-coded
+  // "dev-local-lucky-draw-session-secret" was returned when NODE_ENV was
+  // not "production", which meant any environment that ever shipped a
+  // non-prod build (preview deploy, mis-built worker, missing NODE_ENV in
+  // wrangler vars) would sign cookies with a publicly-known secret — and
+  // an attacker could forge arbitrary profileId / adminRole into a valid
+  // signed cookie. Both dev and prod now require this env var to be set
+  // explicitly. See `.env.example` for a suggested local development value.
+  const secret = process.env.LINE_SESSION_SECRET?.trim();
   if (secret) return secret;
-
-  if (process.env.NODE_ENV !== "production") {
-    return "dev-local-lucky-draw-session-secret";
-  }
 
   console.error("LINE_SESSION_SECRET is required to sign Lucky Draw sessions.");
   return null;
