@@ -3,16 +3,39 @@ import { PersonalInfoExperience } from "@/features/ynot/cr/PersonalInfoExperienc
 import { YnotShell } from "@/features/ynot/components";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
+import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function PersonalInfoPage() {
-  await requireCurrentProfile("/profile/personal-info");
-  const data = await getYnotDashboardSlice({
-    wallet: true,
-    addresses: true,
-    shipping: true,
-  });
+  const session = await requireCurrentProfile("/profile/personal-info");
+  const supabase = createServiceSupabaseClient();
+  const [data, profileResult, identitiesResult] = await Promise.all([
+    getYnotDashboardSlice({
+      wallet: true,
+      addresses: true,
+      shipping: true,
+    }),
+    supabase
+      .from("profiles")
+      .select("line_user_id")
+      .eq("id", session.profileId)
+      .maybeSingle(),
+    supabase
+      .from("user_identities")
+      .select("provider")
+      .eq("profile_id", session.profileId),
+  ]);
+  if (profileResult.error) throw profileResult.error;
+  if (identitiesResult.error) throw identitiesResult.error;
+
+  const identityProviders = new Set(
+    (identitiesResult.data ?? []).map((identity) => identity.provider),
+  );
+  const hasLineIdentity =
+    Boolean(profileResult.data?.line_user_id) || identityProviders.has("line");
+  const hasGoogleIdentity = identityProviders.has("google");
+  const hasEmailIdentity = identityProviders.has("email");
 
   const lineHref = data.viewer.authenticated
     ? "/api/line/login/start?mode=connect&next=/profile/personal-info"
@@ -34,13 +57,9 @@ export default async function PersonalInfoPage() {
           addresses={data.addresses}
           shipping={data.shipping}
           connections={{
-            line: { connected: data.viewer.authSource === "line" },
-            google: { connected: data.viewer.authSource === "supabase" },
-            email: {
-              connected:
-                data.viewer.authSource === "supabase" &&
-                data.viewer.authenticated,
-            },
+            line: { connected: hasLineIdentity },
+            google: { connected: hasGoogleIdentity },
+            email: { connected: hasEmailIdentity },
           }}
           links={{
             lineHref,

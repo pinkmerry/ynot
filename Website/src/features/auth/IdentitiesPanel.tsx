@@ -155,7 +155,7 @@ export function IdentitiesPanel({ profile, identities }: Props) {
           </button>
         </form>
         {!profile.hasLine && process.env.NEXT_PUBLIC_ENABLE_LINE_LOGIN === "true" && (
-          <a className="auth-social line-button block w-full" href="/api/line/login/start?mode=login&next=/account/identities">
+          <a className="auth-social line-button block w-full" href="/api/line/login/start?mode=connect&next=/account/identities">
             LINE Link LINE
           </a>
         )}
