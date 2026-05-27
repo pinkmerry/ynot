@@ -62,7 +62,7 @@ function validateWorkerConfig(rel, expected) {
   check(`${rel} locks production rate-limit backend`, vars.RATE_LIMIT_BACKEND === "supabase");
   check(`${rel} sets production env`, vars.NEXTJS_ENV === "production");
   check(`${rel} omits paid cache prefix`, !Object.hasOwn(vars, "NEXT_INC_CACHE_R2_PREFIX"));
-  check(`${rel} sets LINE Login channel ID`, vars.LINE_LOGIN_CHANNEL_ID === "2009942829");
+  check(`${rel} sets LINE Login channel ID`, vars.LINE_LOGIN_CHANNEL_ID === expected.lineLoginChannelId);
   check(`${rel} enables LINE login`, vars.NEXT_PUBLIC_ENABLE_LINE_LOGIN === "true");
   check(`${rel} sets public site URL`, vars.NEXT_PUBLIC_SITE_URL === expected.siteUrl);
   check(
@@ -89,16 +89,19 @@ function validateWorkerConfig(rel, expected) {
 validateWorkerConfig("wrangler.website.jsonc", {
   siteUrl: "https://www.ynotopen.com",
   workerName: "ynott-website",
+  lineLoginChannelId: "2009971080",
   routePatterns: ["ynotopen.com/*", "www.ynotopen.com/*"],
 });
 validateWorkerConfig("wrangler.website.ci.jsonc", {
   siteUrl: "https://www.ynotopen.com",
   workerName: "ynott-website",
+  lineLoginChannelId: "2009971080",
   routePatterns: [],
 });
 validateWorkerConfig("wrangler.liff.jsonc", {
   siteUrl: "https://liff.ynotopen.com",
   workerName: "ynott-line-liff",
+  lineLoginChannelId: "2009942829",
   routePatterns: [],
 });
 

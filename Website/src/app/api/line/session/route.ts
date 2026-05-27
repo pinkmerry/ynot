@@ -28,7 +28,7 @@ type LineIdTokenClaims = {
 const lineChannelId =
   process.env.LINE_LOGIN_CHANNEL_ID ??
   process.env.NEXT_PUBLIC_LINE_LIFF_ID?.split("-")[0] ??
-  "2009942829";
+  "2009971080";
 
 // Max age of a LIFF id_token we are willing to accept. LIFF refreshes tokens
 // automatically every ~30 min, so any honest client will always be fresh.

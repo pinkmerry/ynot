@@ -16,7 +16,7 @@
   "vars": {
     "RATE_LIMIT_BACKEND": "supabase",
     "NEXTJS_ENV": "production",
-    "LINE_LOGIN_CHANNEL_ID": "2009942829",
+    "LINE_LOGIN_CHANNEL_ID": "2009971080",
     "NEXT_PUBLIC_ENABLE_LINE_LOGIN": "true",
     "NEXT_PUBLIC_LINE_LIFF_ID": "2009971080-8exdgUaw",
     "NEXT_PUBLIC_SITE_URL": "https://www.ynotopen.com",
