@@ -638,10 +638,18 @@ export function StoreBrandHomeLink() {
 
 const accountCopy = {
   en: {
+    heading: "My Page",
     title: "Account",
-    edit: "Edit profile",
+    fallbackName: "Nameless Collector",
+    edit: "Edit Profile",
     balance: "Balance",
     coins: "Coins",
+    coinsLabel: "Coins:",
+    topUp: "Top up coins",
+    aboutExpiration: "About coin expiration",
+    expirationLabel: "Scheduled for expiration:",
+    expirationNote:
+      "※The validity period of the coins is 180 days from the last usage date or the date of issuance. Please be aware that coins will expire if they remain unused for 180 days.",
     cardHistory: "Card history",
     notifications: "Notifications",
     address: "Add or change delivery address",
@@ -654,10 +662,18 @@ const accountCopy = {
     close: "Close",
   },
   th: {
+    heading: "มายเพจ",
     title: "บัญชี",
+    fallbackName: "นักสะสมไร้นาม",
     edit: "แก้ไขโปรไฟล์",
     balance: "ยอดคงเหลือ",
     coins: "เหรียญ",
+    coinsLabel: "เหรียญ:",
+    topUp: "เติมเหรียญ",
+    aboutExpiration: "เกี่ยวกับการหมดอายุของเหรียญ",
+    expirationLabel: "วันหมดอายุ:",
+    expirationNote:
+      "※เหรียญมีอายุการใช้งาน 180 วันนับจากวันใช้งานล่าสุดหรือวันที่ออก หากไม่มีการใช้งานครบ 180 วัน เหรียญจะหมดอายุโดยอัตโนมัติ",
     cardHistory: "ประวัติการ์ด",
     notifications: "การแจ้งเตือน",
     address: "เพิ่ม/แก้ไขที่อยู่จัดส่ง",
@@ -864,16 +880,30 @@ export function StoreAdminLink({
 /** Right-side account: shows "Login" link when signed out, profile avatar when signed in. */
 export function StoreHeaderRightNav({
   authenticated,
+  displayName,
+  balance,
 }: {
   authenticated: boolean;
   /** Kept for compatibility — admin link now renders via {@link StoreAdminLink}. */
   isAdmin?: boolean;
+  /** Viewer's display name; falls back to an editorial placeholder if empty. */
+  displayName?: string;
+  /** Viewer's current coin balance — formatted for the My Page surface. */
+  balance?: number;
 }) {
   const { preferences, setLanguage } = useStorePreferences();
   const copy = settingsCopy[preferences.language];
   const account = accountCopy[preferences.language];
   const [profileOpen, setProfileOpen] = useState(false);
+  const [expirationOpen, setExpirationOpen] = useState(false);
   const hydrated = useHydrated();
+  // Expiration is 180 days from "now" — matches the toreca rule (180 days
+  // from issuance OR last usage). Without a stored last-activity timestamp
+  // we can only approximate from today; this is the worst-case ceiling.
+  const expirationDate = new Intl.DateTimeFormat(
+    preferences.language === "th" ? "th-TH" : "en-US",
+    { year: "numeric", month: "long", day: "numeric" },
+  ).format(new Date(Date.now() + 180 * 24 * 60 * 60 * 1000));
 
   useEffect(() => {
     if (!profileOpen) return;
@@ -881,13 +911,32 @@ export function StoreHeaderRightNav({
       if (event.key === "Escape") setProfileOpen(false);
     }
     document.addEventListener("keydown", closeOnEscape);
-    const previousOverflow = document.body.style.overflow;
+    // Full scroll lock — body + html overflow + touch-action, mirroring
+    // the hamburger drawer. Plain body { overflow: hidden } leaks touch
+    // scrolling on iOS Safari, so html and touch-action must be locked too.
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyTouchAction = document.body.style.touchAction;
     document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+    document.documentElement.dataset.ynotProfileOpen = "true";
     return () => {
       document.removeEventListener("keydown", closeOnEscape);
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.touchAction = previousBodyTouchAction;
+      delete document.documentElement.dataset.ynotProfileOpen;
     };
   }, [profileOpen]);
+
+  useEffect(() => {
+    function handleClose() {
+      setProfileOpen(false);
+    }
+    window.addEventListener("ynot:close-profile-drawer", handleClose);
+    return () => window.removeEventListener("ynot:close-profile-drawer", handleClose);
+  }, []);
 
   if (!authenticated) {
     return (
@@ -913,31 +962,11 @@ export function StoreHeaderRightNav({
         className={`store-profile-drawer${profileOpen ? " open" : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-label={account.title}
+        aria-label={account.heading}
         aria-hidden={!profileOpen}
       >
         <header className="store-profile-head">
-          <span className="store-profile-title">{account.title}</span>
-          <button
-            aria-label={account.close}
-            className="store-profile-close"
-            onClick={() => setProfileOpen(false)}
-            type="button"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="1.2em"
-              height="1.2em"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path d="M6 6 L18 18 M18 6 L6 18" />
-            </svg>
-          </button>
+          <span className="store-profile-title">{account.heading}</span>
         </header>
 
         <div className="store-profile-section store-profile-identity">
@@ -957,32 +986,113 @@ export function StoreHeaderRightNav({
               <path d="M5.5 19c1.6-3 4-4.5 6.5-4.5s4.9 1.5 6.5 4.5" />
             </svg>
           </span>
-          {/* The avatar used to link to /profile (a generic "Edit profile"
-              affordance) but that page was the Card history, which is now
-              listed separately below. The avatar is therefore a static
-              identity block — actual profile editing lives in the
-              "Personal Info" link in the account list. */}
+          <div className="store-profile-identity-text">
+            <span className="store-profile-identity-name">
+              {displayName?.trim() || account.fallbackName}
+            </span>
+            <Link
+              className="store-profile-identity-edit"
+              href="/profile/personal-info"
+              prefetch={false}
+              onClick={() => setProfileOpen(false)}
+            >
+              {account.edit}
+            </Link>
+          </div>
         </div>
 
-        <div className="store-profile-section">
+        <div className="store-profile-section store-profile-balance">
           <span className="store-profile-section-label">{account.balance}</span>
-          <Link
-            className="store-profile-balance-row"
-            href="/wallet"
-            prefetch={false}
-            onClick={() => setProfileOpen(false)}
+          <div className="store-profile-coins-row">
+            <span className="store-profile-coins-mark" aria-hidden>
+              {/* Silver coin disc with a clean letter Y in editorial
+                  green — two diagonals meet at centre, then a stem drops
+                  straight down. Reads as a proper "Y" rather than the
+                  trident-style wordmark glyph. */}
+              <svg
+                viewBox="0 0 48 48"
+                width="100%"
+                height="100%"
+                focusable="false"
+                className="store-profile-coins-mark-svg"
+              >
+                <defs>
+                  <radialGradient id="ynot-coin-face" cx="50%" cy="35%" r="65%">
+                    <stop offset="0%" stopColor="#f5f7f9" />
+                    <stop offset="60%" stopColor="#cfd5db" />
+                    <stop offset="100%" stopColor="#9aa1a8" />
+                  </radialGradient>
+                </defs>
+                {/* Coin body */}
+                <circle cx="24" cy="24" r="23" fill="url(#ynot-coin-face)" stroke="#6b7176" strokeWidth="1" />
+                {/* Concentric circuit hairline (single accent ring) */}
+                <circle cx="24" cy="24" r="19.5" fill="none" stroke="#05a66b" strokeWidth="0.6" opacity="0.5" />
+                {/* Clean letter Y — diagonals + vertical stem */}
+                <path
+                  d="M14 13 L24 25 L34 13 M24 25 L24 36"
+                  fill="none"
+                  stroke="#05a66b"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            <span className="store-profile-coins-label">{account.coinsLabel}</span>
+            <span className="store-profile-coins-value">
+              {typeof balance === "number" ? balance.toLocaleString() : "0"}
+            </span>
+            <Link
+              className="store-profile-coins-plus"
+              href="/wallet"
+              prefetch={false}
+              aria-label={account.topUp}
+              onClick={() => setProfileOpen(false)}
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden focusable="false">
+                <path
+                  d="M8 3 V13 M3 8 H13"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </Link>
+          </div>
+          <button
+            type="button"
+            className={`store-profile-expiration-toggle${expirationOpen ? " open" : ""}`}
+            aria-expanded={expirationOpen}
+            onClick={() => setExpirationOpen((value) => !value)}
           >
-            <span>{account.coins}</span>
-            <span className="store-profile-balance-value">— +</span>
-          </Link>
-          <Link
-            className="store-profile-cta"
-            href="/wallet"
-            prefetch={false}
-            onClick={() => setProfileOpen(false)}
-          >
-            {account.buyCoins}
-          </Link>
+            <svg
+              viewBox="0 0 14 14"
+              width="12"
+              height="12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+              focusable="false"
+              className="store-profile-expiration-chev"
+            >
+              <path d="M3 9 L7 5 L11 9" />
+            </svg>
+            <span>{account.aboutExpiration}</span>
+          </button>
+          {expirationOpen && (
+            <div className="store-profile-expiration-body">
+              <p className="store-profile-expiration-date">
+                <span>{account.expirationLabel}</span>
+                {expirationDate}
+              </p>
+              <p className="store-profile-expiration-note">
+                {account.expirationNote}
+              </p>
+            </div>
+          )}
         </div>
 
         <nav className="store-profile-section" aria-label={account.title}>
@@ -1069,30 +1179,54 @@ export function StoreHeaderRightNav({
       <button
         type="button"
         className="store-profile-avatar"
-        onClick={() => setProfileOpen(true)}
+        onClick={() => {
+          if (!profileOpen) window.dispatchEvent(new Event("ynot:close-drawer"));
+          setProfileOpen((value) => !value);
+        }}
         aria-label={navLabels[preferences.language].profile}
         aria-expanded={profileOpen}
         aria-haspopup="dialog"
       >
         <span aria-hidden className="store-profile-avatar-icon">
-          <svg
-            viewBox="0 0 24 24"
-            width="100%"
-            height="100%"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.1"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            focusable="false"
-          >
-            {/* Outer ring fills the avatar circle */}
-            <circle cx="12" cy="12" r="11" />
-            {/* Head */}
-            <circle cx="12" cy="10" r="3" />
-            {/* Shoulders / body curve */}
-            <path d="M5.5 19c1.6-3 4-4.5 6.5-4.5s4.9 1.5 6.5 4.5" />
-          </svg>
+          {profileOpen ? (
+            // Mirrors the hamburger's open-state X: same 14×14 viewBox, same
+            // stroke math, so the open glyph reads as the right-side twin of
+            // the left-side close cross.
+            <svg
+              viewBox="0 0 14 14"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="0.6"
+              strokeLinecap="butt"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M13 1 L1 13" />
+              <path d="M1 1 L13 13" />
+            </svg>
+          ) : (
+            <svg
+              viewBox="0 0 24 24"
+              width="100%"
+              height="100%"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.1"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              focusable="false"
+            >
+              {/* Outer ring fills the avatar circle */}
+              <circle cx="12" cy="12" r="11" />
+              {/* Head */}
+              <circle cx="12" cy="10" r="3" />
+              {/* Shoulders / body curve */}
+              <path d="M5.5 19c1.6-3 4-4.5 6.5-4.5s4.9 1.5 6.5 4.5" />
+            </svg>
+          )}
         </span>
       </button>
       {hydrated ? createPortal(profileDrawer, document.body) : null}
@@ -1453,7 +1587,10 @@ export function StoreSettingsMenu({
         aria-haspopup="dialog"
         aria-label={copy.button}
         className="settings-menu-button hamburger-button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          if (!open) window.dispatchEvent(new Event("ynot:close-profile-drawer"));
+          setOpen((value) => !value);
+        }}
         title={copy.button}
         type="button"
       >

@@ -4502,6 +4502,47 @@ body::before {
   color: #111827 !important;
 }
 
+/* Arena Club-style filter chips: icon + label pill row.
+   Each chip in the /packs filter strip carries a small inline SVG glyph
+   ("Pokemon", "Basketball", …). Without these overrides the icon would
+   inherit the tight 3px/10px padding above and crowd the label, so we
+   bump the chip a bit larger and align the icon on the baseline. The
+   active state still uses the existing jt-yellow brand fill — only the
+   shape (rounder, icon-friendly) is borrowed from arenaclub.com. */
+.store-filter-strip .filter-chip.filter-chip--with-icon,
+.filter-chip.filter-chip--with-icon {
+  align-items: center !important;
+  display: inline-flex !important;
+  gap: 6px !important;
+  min-height: 30px !important;
+  padding: 4px 12px 4px 8px !important;
+  font-size: 0.78rem !important;
+}
+
+.store-filter-strip .filter-chip.filter-chip--with-icon .filter-chip-icon,
+.filter-chip.filter-chip--with-icon .filter-chip-icon {
+  align-items: center;
+  background: rgba(17, 24, 39, 0.06);
+  border-radius: 999px;
+  color: #4b5563;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 22px;
+  justify-content: center;
+  width: 22px;
+}
+
+.store-filter-strip .filter-chip.filter-chip--with-icon.active .filter-chip-icon,
+.filter-chip.filter-chip--with-icon.active .filter-chip-icon {
+  background: rgba(17, 24, 39, 0.18);
+  color: #111827;
+}
+
+.store-filter-strip .filter-chip.filter-chip--with-icon .filter-chip-label,
+.filter-chip.filter-chip--with-icon .filter-chip-label {
+  white-space: nowrap;
+}
+
 .store-sort-select {
   align-items: center;
   color: var(--jt-muted);
@@ -15067,6 +15108,56 @@ html[data-ynot-theme="light"] .store-filter-strip .filter-chip.active::after,
 html[data-ynot-theme="light"] .store-filter-strip .filter-chip[aria-current="page"]::after {
   display: none !important;
 }
+
+/* Arena Club-inspired icon pill chips inside the FOG-mint light theme.
+   The default light-theme rule above flattens chips into 9px uppercase
+   labels with no border-radius — great for the marquee FOG look, but the
+   /packs filter bar wants the arenaclub.com pill shape (rounded, icon +
+   label, mid-size text). These overrides re-pillify only the chips that
+   opt-in via `.filter-chip--with-icon`, so the marketplace strip and
+   other plain chip rows keep their original flat look. */
+html[data-ynot-theme="light"] .store-filter-strip .filter-chip.filter-chip--with-icon {
+  align-items: center !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(26, 26, 26, 0.16) !important;
+  border-radius: 999px !important;
+  color: #1a1a1a !important;
+  display: inline-flex !important;
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  gap: 6px !important;
+  letter-spacing: 0 !important;
+  line-height: 1.2 !important;
+  min-height: 32px !important;
+  padding: 4px 14px 4px 6px !important;
+  text-transform: none !important;
+}
+
+html[data-ynot-theme="light"] .store-filter-strip .filter-chip.filter-chip--with-icon:hover {
+  background: #f4f7f4 !important;
+  opacity: 1 !important;
+}
+
+html[data-ynot-theme="light"] .store-filter-strip .filter-chip.filter-chip--with-icon.active,
+html[data-ynot-theme="light"] .store-filter-strip .filter-chip.filter-chip--with-icon[aria-current="page"] {
+  background: #1a1a1a !important;
+  border-color: #1a1a1a !important;
+  color: #ffffff !important;
+}
+
+html[data-ynot-theme="light"] .store-filter-strip .filter-chip.filter-chip--with-icon .filter-chip-icon {
+  background: #ebf8eb;
+  border-radius: 999px;
+  color: #1a1a1a;
+  height: 24px;
+  width: 24px;
+}
+
+html[data-ynot-theme="light"] .store-filter-strip .filter-chip.filter-chip--with-icon.active .filter-chip-icon,
+html[data-ynot-theme="light"] .store-filter-strip .filter-chip.filter-chip--with-icon[aria-current="page"] .filter-chip-icon {
+  background: #05a66b;
+  color: #ffffff;
+}
 html[data-ynot-theme="light"] .store-filter-strip .store-sort-select {
   display: inline-flex !important;
   align-items: center !important;
@@ -17020,13 +17111,56 @@ html[data-ynot-theme="light"] .store-topbar-left {
   }
 }
 
-/* Mobile: hide right-side profile avatar AND login text — keep only coin pill (if logged in).
-   Hamburger drawer (left) provides Login/Profile/Wallet access on mobile. */
+/* Mobile: keep avatar visible for quick profile access; hide login text + language
+   toggle (those still live in the hamburger drawer on the left). */
 @media (max-width: 640px) {
-  html[data-ynot-theme="light"] .store-topbar-right .store-profile-avatar,
   html[data-ynot-theme="light"] .store-topbar-right .store-nav-link--right,
   html[data-ynot-theme="light"] .store-topbar-right .store-language-toggle {
     display: none !important;
+  }
+  html[data-ynot-theme="light"] .store-topbar-right .store-profile-avatar {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    max-height: 36px !important;
+    align-self: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 9999px !important;
+    background: #f0f0f0 !important;
+    color: #666666 !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  html[data-ynot-theme="light"] .store-topbar-right .store-profile-avatar-icon {
+    display: inline-flex !important;
+    width: 100% !important;
+    height: 100% !important;
+    color: #666666 !important;
+  }
+
+  /* When the profile drawer is open the avatar morphs into a 14×14 X
+     glyph — mirror the hamburger's open-state look: transparent button,
+     no circle, current-color stroke. */
+  html[data-ynot-profile-open="true"] .store-topbar-right .store-profile-avatar {
+    background: transparent !important;
+    color: #000000 !important;
+    padding: 11px !important;
+  }
+  html[data-ynot-profile-open="true"] .store-topbar-right .store-profile-avatar-icon {
+    width: 14px !important;
+    height: 14px !important;
+    color: currentColor !important;
+  }
+  /* At-top home: header is black, so the X reads in white like the
+     hamburger close on the same surface. */
+  html[data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-profile-open="true"] .store-topbar-right .store-profile-avatar {
+    color: #ffffff !important;
   }
 }
 
@@ -17081,12 +17215,62 @@ html[data-ynot-theme="light"] .store-topbar-left {
   transform: translateX(0);
 }
 
+/* Mobile: account drawer mirrors the menu drawer's full-screen surface
+   (below the topbar, white panel, edge-to-edge) but slides in from the
+   RIGHT — the opposite side — so menu (left) and account (right) feel
+   like two sibling sheets anchored to their entry buttons. */
+@media (max-width: 640px) {
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-profile-backdrop {
+    position: fixed !important;
+    top: var(--ynot-header-height, 60px) !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(0, 0, 0, 0.35) !important;
+    z-index: 45 !important;
+  }
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-profile-drawer {
+    position: fixed !important;
+    top: var(--ynot-header-height, 60px) !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    max-width: none !important;
+    height: calc(100dvh - var(--ynot-header-height, 60px)) !important;
+    max-height: calc(100dvh - var(--ynot-header-height, 60px)) !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 0 !important;
+    border-left: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    transform: translateX(100%) !important;
+    transition:
+      transform 0.3s ease-in-out,
+      visibility 0s linear 0.3s !important;
+    visibility: hidden !important;
+    z-index: 46 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    backface-visibility: hidden !important;
+    will-change: transform !important;
+  }
+  html[lang][data-ynot-theme][data-ynot-language][class] .store-profile-drawer.open {
+    transform: translateX(0) !important;
+    visibility: visible !important;
+    transition:
+      transform 0.3s ease-in-out,
+      visibility 0s linear 0s !important;
+  }
+}
+
 .store-profile-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(26, 26, 26, 0.10);
 }
 .store-profile-title {
   font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
@@ -17127,9 +17311,47 @@ html[data-ynot-theme="light"] .store-topbar-left {
 .store-profile-identity {
   align-items: center;
   flex-direction: row;
-  gap: 12px;
+  gap: 14px;
   padding-bottom: 14px;
-  border-bottom: 1px solid rgba(26, 26, 26, 0.08);
+}
+.store-profile-identity-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.store-profile-identity-name {
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.store-profile-identity-edit {
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--jt-green, #05a66b);
+  text-decoration: none;
+  align-self: flex-start;
+}
+.store-profile-identity-edit:hover,
+.store-profile-identity-edit:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
+/* At-top home dark drawer: name + edit link colors invert. */
+html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer .store-profile-identity-name {
+  color: #ffffff !important;
+}
+html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer .store-profile-identity-edit {
+  color: #4cd9a0 !important;
 }
 .store-profile-avatar-large {
   width: 48px;
@@ -17159,28 +17381,138 @@ html[data-ynot-theme="light"] .store-topbar-left {
   opacity: 0.7;
 }
 
-.store-profile-balance-row {
+/* ============================================
+ * Balance / coins row — toreca-style: coin icon + label + value + red
+ * plus button on the right. The accordion below explains the 180-day
+ * expiration rule and shows the projected expiration date.
+ * ============================================ */
+.store-profile-balance {
+  gap: 6px;
+}
+.store-profile-coins-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  background: #ffffff;
-  border: 1px solid rgba(26, 26, 26, 0.10);
-  border-radius: 4px;
+  gap: 10px;
+  padding: 6px 0;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+}
+.store-profile-coins-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  /* Brushed-silver gradient evokes the coin reference; the green wordmark
+     crop reads over it the way the YNOT brand mark does on hero shots. */
+  background:
+    radial-gradient(circle at 50% 35%, #f5f7f9 0%, #cfd5db 60%, #9aa1a8 100%);
+  border: 1px solid #6b7176;
+  overflow: hidden;
+  position: relative;
+}
+.store-profile-coins-mark-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* At-top dark drawer keeps the brushed-silver gradient so the green Y
+   reads consistently in both light and dark drawer surfaces. */
+html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer .store-profile-coins-mark {
+  background:
+    radial-gradient(circle at 50% 35%, #f5f7f9 0%, #cfd5db 60%, #9aa1a8 100%) !important;
+  border-color: #6b7176 !important;
+}
+.store-profile-coins-label {
+  font-size: 15px;
+  font-weight: 600;
   color: #1a1a1a;
+}
+.store-profile-coins-value {
+  margin-left: auto;
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #1a1a1a;
+}
+.store-profile-coins-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  background: #e23b3b;
+  color: #ffffff;
   text-decoration: none;
+  flex: 0 0 auto;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.store-profile-coins-plus:hover,
+.store-profile-coins-plus:focus-visible {
+  opacity: 0.9;
+  transform: translateY(-0.5px);
+  outline: none;
+}
+
+.store-profile-expiration-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 0;
+  padding: 6px 0;
   font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 13px;
   font-weight: 500;
+  color: var(--jt-green, #05a66b);
+  cursor: pointer;
+  align-self: flex-start;
 }
-.store-profile-balance-row:hover {
-  background: rgba(5, 166, 107, 0.05);
-  border-color: rgba(5, 166, 107, 0.30);
+.store-profile-expiration-toggle:hover,
+.store-profile-expiration-toggle:focus-visible {
+  text-decoration: underline;
+  outline: none;
 }
-.store-profile-balance-value {
-  color: #05a66b;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+.store-profile-expiration-chev {
+  transition: transform 0.2s ease;
+}
+.store-profile-expiration-toggle:not(.open) .store-profile-expiration-chev {
+  transform: rotate(180deg);
+}
+.store-profile-expiration-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0 8px;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #1a1a1a;
+}
+.store-profile-expiration-date {
+  margin: 0;
+}
+.store-profile-expiration-date > span {
+  margin-right: 4px;
+}
+.store-profile-expiration-note {
+  margin: 0;
+  color: rgba(26, 26, 26, 0.78);
+}
+
+/* At-top dark mode — labels/values invert to read on the black drawer. */
+html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer .store-profile-coins-label,
+html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer .store-profile-coins-value,
+html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer .store-profile-expiration-date {
+  color: #ffffff !important;
+}
+html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer .store-profile-expiration-toggle {
+  color: #4cd9a0 !important;
+}
+html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer .store-profile-expiration-note {
+  color: rgba(255, 255, 255, 0.72) !important;
 }
 
 .store-profile-cta {
@@ -17212,24 +17544,33 @@ html[data-ynot-theme="light"] .store-topbar-left {
   flex-direction: column;
 }
 .store-profile-list > li + li {
-  border-top: 1px solid rgba(26, 26, 26, 0.08);
+  border-top: 0;
 }
+/* Match the menu drawer's editorial nav row — uppercase, wide letter-
+   spacing, fixed 38px row height, centred between hairlines. */
 .store-profile-link {
-  display: block;
-  padding: 14px 0;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
-  font-size: 14px;
-  letter-spacing: 0.02em;
-  color: #1a1a1a;
-  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 38px;
+  padding: 0;
   background: transparent;
   border: 0;
-  width: 100%;
+  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #000000;
+  text-decoration: none;
   text-align: left;
   cursor: pointer;
 }
-.store-profile-link:hover {
-  color: var(--jt-green, #05a66b);
+.store-profile-link:hover,
+.store-profile-link:focus-visible {
+  color: #000000;
+  outline: none;
 }
 .store-profile-link-danger {
   color: #d14343 !important;
@@ -20727,7 +21068,10 @@ html[data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top
 html[data-ynot-menu-open="true"][data-ynot-route-home="false"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header,
 html[data-ynot-menu-open="true"][data-ynot-route-home="false"][data-header-at-top="false"][data-ynot-theme="light"] .storefront-header,
 html[data-ynot-menu-open="true"][data-header-collapsed="true"][data-ynot-theme="light"] .storefront-header,
-html[data-ynot-menu-open="true"][data-header-collapsed="false"][data-ynot-theme="light"] .storefront-header {
+html[data-ynot-menu-open="true"][data-header-collapsed="false"][data-ynot-theme="light"] .storefront-header,
+html[data-ynot-profile-open="true"] .storefront-header,
+html[data-ynot-profile-open="true"][data-header-collapsed][data-ynot-theme] .storefront-header,
+html[data-ynot-profile-open="true"][data-ynot-route-home][data-header-at-top][data-ynot-theme] .storefront-header {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
@@ -20744,7 +21088,8 @@ html[data-ynot-menu-open="true"][data-header-collapsed="false"][data-ynot-theme=
 }
 
 html[data-ynot-menu-open="true"] .store-topbar,
-html[data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar {
+html[data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar,
+html[data-ynot-profile-open="true"] .store-topbar {
   background: #ffffff !important;
   background-image: none !important;
   border-bottom: 1px solid rgba(26, 26, 26, 0.08) !important;
@@ -20782,6 +21127,130 @@ html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data
 html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data-ynot-route-home][data-header-at-top][class] .account-chip,
 html[data-ynot-menu-open="true"][lang][data-ynot-theme][data-ynot-language][data-ynot-route-home][data-header-at-top][class] .store-admin-link {
   color: #000000 !important;
+}
+
+/* ============================================================
+ * AT-TOP HOME + DRAWER OPEN — editorial dark treatment (mirrors
+ * YFIFTEEN's behavior). When the user is at the very top of the
+ * home page (hero visible, transparent header + white text) and
+ * opens the hamburger menu OR the profile/account drawer, the
+ * surface flips to BLACK with WHITE text instead of the default
+ * white-drawer scrolled-state look.
+ *
+ * Override targets the same selector specificity as the scrolled
+ * white-bg rules above so it wins by source-order precedence.
+ * ============================================================ */
+html[data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header,
+html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .storefront-header {
+  background: #000000 !important;
+  background-image: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar,
+html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-topbar {
+  background: #000000 !important;
+  background-image: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Logo + topbar text/icons stay WHITE on the black header (override
+   the black-on-white rule above for the at-top case). */
+html[data-ynot-menu-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .brand-logo--white,
+html[data-ynot-profile-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .brand-logo--white {
+  opacity: 1 !important;
+}
+html[data-ynot-menu-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .brand-logo--black,
+html[data-ynot-profile-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .brand-logo--black {
+  opacity: 0 !important;
+}
+html[data-ynot-menu-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .hamburger-button,
+html[data-ynot-menu-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .header-coin-pill,
+html[data-ynot-menu-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .header-coin-pill *,
+html[data-ynot-menu-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .header-coin-mark,
+html[data-ynot-menu-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-language-toggle-trigger,
+html[data-ynot-menu-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-admin-link,
+html[data-ynot-profile-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .hamburger-button,
+html[data-ynot-profile-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .header-coin-pill,
+html[data-ynot-profile-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .header-coin-pill *,
+html[data-ynot-profile-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .header-coin-mark,
+html[data-ynot-profile-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-language-toggle-trigger,
+html[data-ynot-profile-open="true"][lang][data-ynot-theme="light"][data-ynot-language][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-admin-link {
+  color: #ffffff !important;
+}
+
+/* Drawer panels themselves flip to BLACK + WHITE at the top. */
+html[data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-drawer,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-drawer {
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-profile-drawer {
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+/* Drawer text/links inherit white; section labels stay muted. */
+html[data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-drawer .store-drawer-link,
+html[data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-drawer .store-drawer-title,
+html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer .store-profile-title,
+html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer .store-drawer-link {
+  color: #ffffff !important;
+}
+
+html[data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-drawer .store-drawer-label,
+html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer .store-drawer-label {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Inner drawer panels (.store-drawer-main, .store-drawer-sub) hardcode a
+   white background — clear them so the parent drawer's #000 shows through. */
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-drawer .store-drawer-main,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-drawer .store-drawer-sub {
+  background: transparent !important;
+  color: #ffffff !important;
+}
+
+/* Drawer text variants: links, drilldown rows, bottom links, dividers. */
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-drawer .store-drawer-primary li,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-drawer .store-drawer-primary a,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-drawer .store-drawer-primary button,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-drawer .store-drawer-bottom-link,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-drawer .store-drawer-close {
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Profile drawer mirrors the same treatment — inner content text turns
+   white, soft labels muted, BUY COINS / language / log-out keep their
+   semantic accents but read on a black panel. */
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-profile-drawer,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-profile-drawer * {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-profile-drawer .store-profile-title,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-profile-drawer .store-profile-close,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-profile-drawer .store-profile-link,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-profile-drawer a {
+  color: #ffffff !important;
+}
+
+/* Inactive language pill on dark drawer reads as a ghost button. The
+   active pill keeps its green fill so the user can see which is on. */
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-profile-drawer .store-profile-langbtn:not(.active) {
+  background: transparent !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+}
+
+/* Balance section on dark drawer — flip the container transparent so the
+   black drawer shows through, but skip the red top-up button (it keeps
+   its semantic accent color). */
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-profile-drawer .store-profile-balance {
+  background-color: transparent !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
 }
 
 /* Pack open prototype — luxury editorial motion sandbox. */

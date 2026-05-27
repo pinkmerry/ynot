@@ -441,6 +441,8 @@ export async function YnotShell({
             )}
             <StoreHeaderRightNav
               authenticated={renderViewer.authenticated}
+              displayName={renderViewer.displayName}
+              balance={renderBalance}
             />
           </div>
         </div>
@@ -594,6 +596,112 @@ const storeFilterChips: readonly StoreFilterChip[] = [
   { label: "Multi-Sport", series: "multi_sport" },
 ];
 
+/** Inline icon for each category chip. Arena Club's /slab-packs filter bar
+ *  ships every pill with a small monochrome glyph; we mirror that here so
+ *  the row reads at a glance instead of being a wall of text. Icons are
+ *  intentionally simple line/fill SVGs (no external icon library round trip)
+ *  sized to 14×14 so they slot between the pill padding without resizing. */
+function StoreFilterChipIcon({ series }: { series: HomeSeriesFilter }) {
+  const common = {
+    width: 14,
+    height: 14,
+    viewBox: "0 0 16 16",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.4,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+    focusable: false,
+  };
+  switch (series) {
+    case "all":
+      return (
+        <svg {...common}>
+          <rect x="2" y="2" width="5" height="5" rx="1" />
+          <rect x="9" y="2" width="5" height="5" rx="1" />
+          <rect x="2" y="9" width="5" height="5" rx="1" />
+          <rect x="9" y="9" width="5" height="5" rx="1" />
+        </svg>
+      );
+    case "football":
+      return (
+        <svg {...common}>
+          <ellipse cx="8" cy="8" rx="6" ry="3.6" transform="rotate(-30 8 8)" />
+          <path d="M5.6 8.5l4.8-1.6" />
+          <path d="M6.6 9.6l0.6-0.6" />
+          <path d="M7.6 10.2l0.6-0.6" />
+          <path d="M8.6 10.8l0.6-0.6" />
+        </svg>
+      );
+    case "pokemon":
+      return (
+        <svg {...common}>
+          <circle cx="8" cy="8" r="6" />
+          <path d="M2 8h12" />
+          <circle cx="8" cy="8" r="1.8" fill="currentColor" />
+        </svg>
+      );
+    case "one_piece":
+      return (
+        <svg {...common}>
+          <path d="M4 6c0-2 1.8-3.4 4-3.4S12 4 12 6v2.4c0 .6-.4 1-1 1H5c-.6 0-1-.4-1-1V6z" />
+          <circle cx="6.4" cy="6.4" r="0.7" fill="currentColor" stroke="none" />
+          <circle cx="9.6" cy="6.4" r="0.7" fill="currentColor" stroke="none" />
+          <path d="M6.5 11l3 2.4M9.5 11l-3 2.4" />
+        </svg>
+      );
+    case "basketball":
+      return (
+        <svg {...common}>
+          <circle cx="8" cy="8" r="6" />
+          <path d="M2 8h12M8 2v12" />
+          <path d="M3.2 4.4c1.8 1 3 2.6 3 4.4M12.8 4.4c-1.8 1-3 2.6-3 4.4" />
+        </svg>
+      );
+    case "soccer":
+      return (
+        <svg {...common}>
+          <circle cx="8" cy="8" r="6" />
+          <polygon points="8,5 10.3,6.7 9.4,9.4 6.6,9.4 5.7,6.7" />
+          <path d="M8 2.4v2.6M2.4 8.2l3.3-1.5M13.6 8.2l-3.3-1.5M5 13.6l1.6-2.2M11 13.6l-1.6-2.2" />
+        </svg>
+      );
+    case "baseball":
+      return (
+        <svg {...common}>
+          <circle cx="8" cy="8" r="6" />
+          <path d="M3.2 4.6c2 1 3.6 2.6 4.6 4.6" />
+          <path d="M12.8 4.6c-2 1-3.6 2.6-4.6 4.6" />
+        </svg>
+      );
+    case "magical":
+      return (
+        <svg {...common}>
+          <path d="M8 2v3M8 11v3M2 8h3M11 8h3" />
+          <path d="M4 4l2 2M12 4l-2 2M4 12l2-2M12 12l-2-2" />
+          <circle cx="8" cy="8" r="1.6" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "super":
+      return (
+        <svg {...common}>
+          <path d="M9 2L3.5 9h3l-1 5L12 7h-3l1-5z" />
+        </svg>
+      );
+    case "multi_sport":
+      return (
+        <svg {...common}>
+          <circle cx="5.2" cy="5.2" r="2.8" />
+          <circle cx="10.8" cy="5.2" r="2.8" />
+          <circle cx="8" cy="10.4" r="2.8" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
 function StoreFilterStrip({
   homeFilter,
   baseHref,
@@ -610,7 +718,7 @@ function StoreFilterStrip({
             <Link
               key={category.series}
               aria-current={isActive ? "page" : undefined}
-              className={`filter-chip ${isActive ? "active" : ""}`}
+              className={`filter-chip filter-chip--with-icon ${isActive ? "active" : ""}`}
               href={homeFilterHref({
                 series: category.series,
                 tag: homeFilter.tag,
@@ -619,7 +727,10 @@ function StoreFilterStrip({
               })}
               scroll={false}
             >
-              {category.label}
+              <span className="filter-chip-icon" aria-hidden>
+                <StoreFilterChipIcon series={category.series} />
+              </span>
+              <span className="filter-chip-label">{category.label}</span>
             </Link>
           );
         })}
