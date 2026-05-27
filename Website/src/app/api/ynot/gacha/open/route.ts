@@ -139,12 +139,13 @@ async function hydrateItems(
 // preview-user marker.
 const PREVIEW_AUTH_USER_ID = "preview-user";
 type MockTier = "bronze" | "silver" | "gold" | "rainbow";
-type MockCardSpec = { name: string; tier: MockTier; valueThb: number };
-const MOCK_TIER_IMAGE: Record<MockTier, string> = {
-  bronze: "/test-assets/ynot-test-card-blue.svg",
-  silver: "/test-assets/ynot-test-card-blue.svg",
-  gold: "/test-assets/ynot-test-card-gold.svg",
-  rainbow: "/ynot-open-card-sample-cropped.png",
+type MockCardSpec = {
+  cardId?: string;
+  name: string;
+  tier: MockTier;
+  valueThb: number;
+  imageUrl?: string | null;
+  rank?: number;
 };
 const MOCK_POOL: MockCardSpec[] = [
   { name: "Charizard ex SAR", tier: "rainbow", valueThb: 5800 },
@@ -161,20 +162,89 @@ const MOCK_POOL: MockCardSpec[] = [
   { name: "Zoro Parallel", tier: "silver", valueThb: 720 },
 ];
 
-function pickMockCard(): MockCardSpec {
+function previewDisplayTier(
+  tier: string | null | undefined,
+  rank: number,
+  metadata: unknown,
+): MockTier {
+  const explicit =
+    metadata &&
+    typeof metadata === "object" &&
+    "displayTier" in metadata &&
+    typeof (metadata as Record<string, unknown>).displayTier === "string"
+      ? String((metadata as Record<string, unknown>).displayTier).toLowerCase()
+      : null;
+  if (
+    explicit === "rainbow" ||
+    explicit === "gold" ||
+    explicit === "silver" ||
+    explicit === "bronze"
+  ) {
+    return explicit;
+  }
+  if (tier === "high" && rank <= 3) return "rainbow";
+  if (tier === "high") return "gold";
+  if (tier === "normal" && rank <= 6) return "silver";
+  return "bronze";
+}
+
+async function readPreviewPool(campaignId: string): Promise<MockCardSpec[]> {
+  const supabase = createServiceSupabaseClient();
+  const { data: prizes, error } = await supabase
+    .from("draw_round_prizes")
+    .select("id,card_id,tier,rank,value_thb,metadata")
+    .eq("draw_round_id", campaignId)
+    .order("tier", { ascending: true })
+    .order("rank", { ascending: true });
+  if (error || !prizes?.length) return MOCK_POOL;
+
+  const cardIds = Array.from(
+    new Set(prizes.map((prize) => prize.card_id).filter(Boolean)),
+  );
+  const { data: cards } = cardIds.length
+    ? await supabase
+        .from("cards")
+        .select("id,name,image_url")
+        .in("id", cardIds)
+    : { data: [] };
+  const cardById = new Map(
+    (cards ?? []).map((card) => [
+      card.id,
+      { name: card.name, imageUrl: card.image_url ?? null },
+    ]),
+  );
+
+  const pool = prizes.map((prize) => {
+    const card = cardById.get(prize.card_id);
+    const rank = Number(prize.rank ?? 99) || 99;
+    return {
+      cardId: prize.card_id,
+      name: card?.name ?? "Mystery reward",
+      tier: previewDisplayTier(prize.tier, rank, prize.metadata),
+      valueThb: Number(prize.value_thb ?? 0) || 0,
+      imageUrl: card?.imageUrl ?? null,
+      rank,
+    };
+  });
+  return pool.length ? pool : MOCK_POOL;
+}
+
+function pickMockCard(pool: MockCardSpec[]): MockCardSpec {
   const r = Math.random();
   let tier: MockTier;
   if (r < 0.03) tier = "rainbow";
   else if (r < 0.15) tier = "gold";
   else if (r < 0.5) tier = "silver";
   else tier = "bronze";
-  const pool = MOCK_POOL.filter((c) => c.tier === tier);
-  return pool[Math.floor(Math.random() * pool.length)] ?? MOCK_POOL[0];
+  const tierPool = pool.filter((c) => c.tier === tier);
+  const source = tierPool.length ? tierPool : pool;
+  return source[Math.floor(Math.random() * source.length)] ?? MOCK_POOL[0];
 }
 
-function buildPreviewOpenResult(campaignId: string, quantity: number) {
+async function buildPreviewOpenResult(campaignId: string, quantity: number) {
+  const previewPool = await readPreviewPool(campaignId);
   const items = Array.from({ length: quantity }, (_, index) => {
-    const card = pickMockCard();
+    const card = pickMockCard(previewPool);
     const tierRank: Record<MockTier, number> = {
       rainbow: 1,
       gold: 2,
@@ -182,14 +252,14 @@ function buildPreviewOpenResult(campaignId: string, quantity: number) {
       bronze: 20,
     };
     return {
-      cardId: `preview-${crypto.randomUUID()}`,
+      cardId: card.cardId ?? `preview-${crypto.randomUUID()}`,
       name: card.name,
-      imageUrl: MOCK_TIER_IMAGE[card.tier],
+      imageUrl: card.imageUrl ?? null,
       tier: card.tier === "rainbow" || card.tier === "gold" ? "high" : "normal",
       displayTier: card.tier,
       valueThb: card.valueThb,
       position: index + 1,
-      rank: tierRank[card.tier],
+      rank: card.rank ?? tierRank[card.tier],
       prizeUnitId: null,
     };
   });
@@ -226,7 +296,9 @@ export async function POST(request: Request) {
     process.env.NODE_ENV !== "production" &&
     session.authUserId === PREVIEW_AUTH_USER_ID
   ) {
-    return Response.json({ result: buildPreviewOpenResult(campaignId, quantity) });
+    return Response.json({
+      result: await buildPreviewOpenResult(campaignId, quantity),
+    });
   }
 
   const supabase = createServiceSupabaseClient();

@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { EmptyState, PageHeader, YnotShell } from "@/features/ynot/components";
 import { GachaOpenPanel } from "@/features/ynot/client";
 import { getCampaign, getTierAnimations, getYnotDashboardSlice } from "@/features/ynot/data";
@@ -20,20 +21,29 @@ export default async function GachaOpenPage({
   const campaign = await getCampaign(campaignId, { allowTestForCurrentViewer: true, viewer: data.viewer });
   const initialQuantity = Math.max(1, Math.min(100, Math.round(Number(query.qty) || 1)));
   const autoStart = query.auto === "1";
+  if (campaign && autoStart) {
+    return (
+      <GachaOpenPanel
+        campaign={campaign}
+        authenticated={data.viewer.authenticated}
+        initialQuantity={initialQuantity}
+        tierAnimations={tierAnimations}
+        autoStart
+        immersive
+      />
+    );
+  }
+  if (campaign) {
+    redirect(`/packs/${campaign.slug}`);
+  }
   return (
     <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
-      <PageHeader eyebrow="03 · Open Pack (Cinematic)" title={campaign ? `Open ${campaign.titleTh}` : "Open gacha"} description="Confirm · tension · reveal · summary · skip available." />
-      {campaign ? (
-        <GachaOpenPanel
-          campaign={campaign}
-          authenticated={data.viewer.authenticated}
-          initialQuantity={initialQuantity}
-          tierAnimations={tierAnimations}
-          autoStart={autoStart}
-        />
-      ) : (
-        <EmptyState title="No campaign" body="Pick a live campaign before opening." />
-      )}
+      <PageHeader
+        eyebrow="03 · Open Pack"
+        title="Open gacha"
+        description="Pick a live campaign before opening."
+      />
+      <EmptyState title="No campaign" body="Pick a live campaign before opening." />
     </YnotShell>
   );
 }

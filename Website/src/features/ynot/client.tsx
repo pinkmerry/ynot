@@ -600,6 +600,7 @@ export function GachaOpenPanel({
   initialQuantity = 1,
   tierAnimations,
   autoStart = false,
+  immersive = false,
 }: {
   campaign: YnotCampaign;
   authenticated: boolean;
@@ -609,6 +610,7 @@ export function GachaOpenPanel({
    *  screen). Used when the user just confirmed in the Y-Pack flow and
    *  expects the reveal animation to play right away. */
   autoStart?: boolean;
+  immersive?: boolean;
 }) {
   const router = useRouter();
   const openQuantityOptions = normalizeOpenQuantityOptions(
@@ -622,41 +624,20 @@ export function GachaOpenPanel({
   const [revealResult, setRevealResult] = useState<YnotGachaOpenResult | null>(
     null,
   );
+  const [revealRunId, setRevealRunId] = useState(0);
   const [openingOverlayVisible, setOpeningOverlayVisible] = useState(autoStart);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const remainingOpenUnits = Math.min(
     campaign.remainingSlots ?? Number.POSITIVE_INFINITY,
     campaign.availablePrizeUnits ?? Number.POSITIVE_INFINITY,
   );
-  const visibleRemainingOpenUnits = Number.isFinite(remainingOpenUnits)
-    ? Math.max(0, Math.floor(remainingOpenUnits))
-    : null;
-  const remainingOpenText =
-    visibleRemainingOpenUnits === null
-      ? "Stock is tracked by the server."
-      : `${visibleRemainingOpenUnits.toLocaleString()} pack${visibleRemainingOpenUnits === 1 ? "" : "s"} left to open`;
-  const remainingTotalText =
-    visibleRemainingOpenUnits !== null && Number.isFinite(campaign.totalSlots)
-      ? `${visibleRemainingOpenUnits.toLocaleString()} / ${campaign.totalSlots.toLocaleString()}`
-      : null;
-  const selectedCost = campaign.costCoins * quantity;
-  const openBlocker =
-    campaign.readinessBlockers?.[0] ??
-    (campaign.status !== "live"
-      ? "This pack is not live yet. Publish it before opening."
-      : campaign.visibility !== "public"
-        ? "This pack is private. Publish it as public before opening."
-        : campaign.approvalStatus !== "approved"
-          ? "Owner approval is required before opening."
-          : campaign.soldOut
-            ? "This pack is sold out or out of prize inventory."
-            : "This pack is waiting for prize inventory, owner approval, or remaining stock before customers can pull.");
 
   function quantityDisabled(option: number) {
     return Number.isFinite(remainingOpenUnits) && option > remainingOpenUnits;
   }
 
   function fireOpen(targetQuantity: number) {
+    setRevealRunId((current) => current + 1);
     startTransition(async () => {
       try {
         setMessage("");
@@ -679,11 +660,6 @@ export function GachaOpenPanel({
         );
       }
     });
-  }
-
-  function open() {
-    setOpeningOverlayVisible(true);
-    fireOpen(quantity);
   }
 
   function openAgain(nextQuantity: number) {
@@ -724,145 +700,66 @@ export function GachaOpenPanel({
     if (!authenticated) return;
     if (campaign.demo || !campaign.openable) return;
     if (quantityDisabled(initialOption)) return;
-    autoStartFiredRef.current = true;
-    fireOpen(initialOption);
+    const timer = window.setTimeout(() => {
+      if (autoStartFiredRef.current) return;
+      autoStartFiredRef.current = true;
+      fireOpen(initialOption);
+    }, 0);
+    return () => window.clearTimeout(timer);
     // initialOption captures the qty from the URL once on mount — that's the
     // value we want, not a possibly stale closure on `quantity`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (campaign.demo) {
-    return (
-      <section className="soft-card open-sequence-card phone-surface">
-        <p className="sequence-label">{"// CONFIRM SEQUENCE"}</p>
-        <div className="open-pack-cube">
-          <span>⚡ GOLD</span>
+  const openAgainOptions = openQuantityOptions.map((option) => ({
+    quantity: option,
+    disabled: quantityDisabled(option),
+    costCoins: campaign.costCoins * option,
+  }));
+
+  const revealOverlay = revealResult ? (
+    <GachaRevealOverlay
+      key={`${revealResult.openId}-${revealRunId}`}
+      result={revealResult}
+      quantity={quantity}
+      tierAnimations={tierAnimations}
+      forceAnimation={autoStart || openingOverlayVisible}
+      onClose={handleRevealClose}
+      onFinish={handleRevealFinish}
+      onOpenAgain={openAgain}
+      openAgainOptions={openAgainOptions}
+    />
+  ) : null;
+
+  const pendingOverlay =
+    openingOverlayVisible && !revealResult ? (
+      <div
+        className="gacha-auto-open-overlay"
+        role="status"
+        aria-live="polite"
+        aria-label="Opening pack"
+      >
+        <div className="gacha-auto-open-loader" aria-hidden="true">
+          <span />
+          <span />
+          <span />
         </div>
-        <h3>Pokemon · Gold Collection</h3>
-        <p>10 CARDS · {(campaign.costCoins * 10).toLocaleString()} COIN</p>
-        <a
-          className="primary-action open-start"
-          href={authenticated ? "/wallet" : "/login"}
-        >
-          &gt;&gt; START PULL
-        </a>
-        <a className="open-cancel" href={`/gacha/${campaign.slug}`}>
-          [ CANCEL ]
-        </a>
-      </section>
-    );
-  }
-  if (!campaign.openable) {
-    return (
-      <section className="soft-card open-sequence-card phone-surface">
-        <p className="sequence-label">{"// PACK NOT OPENABLE"}</p>
-        <div className="open-pack-cube">
-          <span>HOLD</span>
-        </div>
-        <h3>{campaign.titleEn}</h3>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          {openBlocker}
-        </p>
-        <p className="open-pack-stockline" aria-label="Packs left to open">
-          <span>{remainingOpenText}</span>
-          {remainingTotalText && <strong>{remainingTotalText}</strong>}
-        </p>
-        <Link className="primary-action open-start mt-4" href="/packs">
-          Back to packs
-        </Link>
-        <a className="open-cancel" href={`/gacha/${campaign.slug}`}>
-          [ CANCEL ]
-        </a>
-      </section>
-    );
-  }
+      </div>
+    ) : null;
+
   return (
-    <section className="soft-card open-sequence-card phone-surface">
-      <p className="sequence-label">{"// CONFIRM SEQUENCE"}</p>
-      <div className="open-pack-cube">
-        <span>⚡ GOLD</span>
-      </div>
-      <h3>{campaign.titleEn}</h3>
-      <p className="mt-2 text-sm text-[var(--muted)]">
-        Choose how many packs to open. Current cost:{" "}
-        {selectedCost.toLocaleString()} coins.
-      </p>
-      <p className="open-pack-stockline" aria-label="Packs left to open">
-        <span>{remainingOpenText}</span>
-        {remainingTotalText && <strong>{remainingTotalText}</strong>}
-      </p>
-      <div className="open-quantity-grid" role="group" aria-label="Open quantity">
-        {openQuantityOptions.map((option) => {
-          const disabled = quantityDisabled(option);
-          return (
-            <button
-              aria-pressed={quantity === option}
-              className={quantity === option ? "active" : ""}
-              disabled={disabled}
-              key={option}
-              onClick={() => setQuantity(option)}
-              type="button"
-            >
-              <strong>Open {option}</strong>
-              <span>{(campaign.costCoins * option).toLocaleString()} coins</span>
-            </button>
-          );
-        })}
-      </div>
-      {!authenticated ? (
-        <a className="primary-action open-start mt-4" href="/login">
-          &gt;&gt; START PULL
-        </a>
-      ) : (
-        <button
-          className="primary-action open-start mt-4 w-full"
-          disabled={isPending || quantityDisabled(quantity)}
-          onClick={open}
-          type="button"
-        >
-          {isPending ? "Opening..." : `>> START ${quantity} PULL${quantity === 1 ? "" : "S"}`}
-        </button>
-      )}
-      <a className="open-cancel" href={`/gacha/${campaign.slug}`}>
-        [ CANCEL ]
-      </a>
+    <div
+      className="gacha-open-immersive-host"
+      data-open-mode={immersive ? "immersive" : "embedded"}
+    >
       {message && (
-        <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-bold">
+        <p className="gacha-open-immersive-message">
           {message}
         </p>
       )}
-      {revealResult && (
-        <GachaRevealOverlay
-          key={revealResult.openId}
-          result={revealResult}
-          quantity={quantity}
-          tierAnimations={tierAnimations}
-          forceAnimation={autoStart}
-          onClose={handleRevealClose}
-          onFinish={handleRevealFinish}
-          onOpenAgain={openAgain}
-          openAgainOptions={openQuantityOptions.map((option) => ({
-            quantity: option,
-            disabled: quantityDisabled(option),
-            costCoins: campaign.costCoins * option,
-          }))}
-        />
-      )}
-      {openingOverlayVisible && !revealResult && (
-        <div
-          className="gacha-auto-open-overlay"
-          role="status"
-          aria-live="polite"
-          aria-label="Opening pack"
-        >
-          <div className="gacha-auto-open-loader" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </div>
-        </div>
-      )}
-    </section>
+      {revealOverlay}
+      {pendingOverlay}
+    </div>
   );
 }
 

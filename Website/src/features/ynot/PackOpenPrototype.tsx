@@ -165,13 +165,7 @@ export function PackOpenPrototype() {
           <span className="pack-open-rarity-ring" aria-hidden />
 
           <div className="pack-open-card-wrap" aria-hidden={!isRevealed && !isOpening}>
-            <Image
-              src="/ynot-open-card-sample-cropped.png"
-              alt="Sample PSA card reveal"
-              width={727}
-              height={1217}
-              priority
-            />
+            <div className="gacha-reveal-pack-light-card" />
           </div>
 
           {mode === "batch" && (
