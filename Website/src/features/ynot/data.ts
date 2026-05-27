@@ -10,6 +10,7 @@ import {
 import { getCardCatalog, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { isMissingColumnError } from "@/lib/supabase/schema-compat";
+import { isDevBypassAllowed } from "@/lib/security/dev-bypass";
 import type { Database } from "@/lib/supabase/types";
 import type {
   YnotCampaign,
@@ -1450,10 +1451,11 @@ export async function getWallet(profileId?: string): Promise<YnotWallet> {
   // /api/dev/preview-auth doesn't have a real wallet row, so without an
   // override the storefront looks broken on localhost (all open buttons
   // become "Top up", confirm modals say "Need X more coins"). Give the
-  // preview user enough coins to exercise the gacha + sell flows. Never
-  // applies in production.
+  // preview user enough coins to exercise the gacha + sell flows.
+  // Triple-gated: dev bypass allowed AND the caller is the preview profile.
+  // See `@/lib/security/dev-bypass`.
   if (
-    process.env.NODE_ENV !== "production" &&
+    isDevBypassAllowed() &&
     profileId === PREVIEW_PROFILE_ID
   ) {
     return { balanceCoins: PREVIEW_WALLET_BALANCE, version: 0 };

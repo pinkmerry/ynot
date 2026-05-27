@@ -6,6 +6,7 @@ import {
   isSessionVersionCurrent,
 } from "@/lib/lucky-draw/session";
 import { createServiceSupabaseClient, createSupabaseServerClient } from "@/lib/supabase/server";
+import { isDevBypassAllowed } from "@/lib/security/dev-bypass";
 import { ensureProfileForUser } from "./profile";
 
 export type ResolvedProfileSession = {
@@ -39,9 +40,10 @@ export async function resolveCurrentProfile(): Promise<ResolvedProfileSession | 
 
   // Dev-only preview bypass: when ynot-preview-auth=1 is set (via
   // /api/dev/preview-auth?mode=on), return a stub session so protected
-  // routes don't redirect to /login during local testing. Disabled in prod.
+  // routes don't redirect to /login during local testing.
+  // Gated by `isDevBypassAllowed()` — see `@/lib/security/dev-bypass`.
   if (
-    process.env.NODE_ENV !== "production" &&
+    isDevBypassAllowed() &&
     cookieStore.get("ynot-preview-auth")?.value === "1"
   ) {
     return {
@@ -108,8 +110,9 @@ export async function resolveAdminSession(baseSession?: ResolvedProfileSession |
   if (!session?.profileId) return null;
 
   // Dev-only preview bypass: preview session already carries admin role.
+  // Gated by `isDevBypassAllowed()` — see `@/lib/security/dev-bypass`.
   if (
-    process.env.NODE_ENV !== "production" &&
+    isDevBypassAllowed() &&
     session.authUserId === "preview-user" &&
     session.adminId &&
     session.adminRole
