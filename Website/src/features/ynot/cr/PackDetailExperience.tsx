@@ -125,7 +125,9 @@ export function PackDetailExperience({
   }
   function confirmAndOpen() {
     setSubmitting(true);
-    router.push(`/gacha/${campaign.slug}/open?qty=${qty}`);
+    // auto=1 fires the open immediately on arrival so the reveal animation
+    // plays without a second confirm screen. See GachaOpenPanel autoStart.
+    router.push(`/gacha/${campaign.slug}/open?qty=${qty}&auto=1`);
   }
 
   return (

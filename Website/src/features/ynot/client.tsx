@@ -599,11 +599,16 @@ export function GachaOpenPanel({
   authenticated,
   initialQuantity = 1,
   tierAnimations,
+  autoStart = false,
 }: {
   campaign: YnotCampaign;
   authenticated: boolean;
   initialQuantity?: number;
   tierAnimations?: YnotTierAnimation[];
+  /** When true, immediately fire the open API on mount (no second confirm
+   *  screen). Used when the user just confirmed in the Y-Pack flow and
+   *  expects the reveal animation to play right away. */
+  autoStart?: boolean;
 }) {
   const router = useRouter();
   const openQuantityOptions = normalizeOpenQuantityOptions(
@@ -691,6 +696,26 @@ export function GachaOpenPanel({
     setRevealResult(null);
     fireOpen(quantity);
   }
+
+  // Auto-start: when the user already confirmed quantity + cost on the
+  // previous page (the Y-Pack confirm modal), skip the second "START PULL"
+  // screen and fire the open immediately so the animation plays. We use a
+  // ref so the effect can't double-fire under React strict mode or
+  // re-renders that change unrelated state.
+  const autoStartFiredRef = useRef(false);
+  useEffect(() => {
+    if (autoStartFiredRef.current) return;
+    if (!autoStart) return;
+    if (!authenticated) return;
+    if (campaign.demo || !campaign.openable) return;
+    if (quantityDisabled(initialOption)) return;
+    autoStartFiredRef.current = true;
+    fireOpen(initialOption);
+    // initialOption captures the qty from the URL once on mount — that's the
+    // value we want, not a possibly stale closure on `quantity`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (campaign.demo) {
     return (
       <section className="soft-card open-sequence-card phone-surface">

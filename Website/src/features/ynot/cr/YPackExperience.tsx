@@ -398,9 +398,10 @@ function OpenPackModal({
     }
     setSubmitting(true);
     // The cinematic open page handles the actual reveal animation + collection
-    // update. We route there with the chosen quantity so the user immediately
-    // sees pulls without re-picking on a second screen.
-    router.push(`/gacha/${campaign.slug}/open?qty=${qty}`);
+    // update. We route there with the chosen quantity and auto=1 so the open
+    // fires immediately on arrival (no second "START PULL" screen) and the
+    // animation plays right after this modal confirms.
+    router.push(`/gacha/${campaign.slug}/open?qty=${qty}&auto=1`);
   }
 
   return (
