@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import type {
@@ -27,6 +28,15 @@ function statusBucket(status: YnotCollectionItem["status"]): StatusKey | null {
 }
 
 function deriveTier(item: YnotCollectionItem): TierKey {
+  const sourceTier = item.sourcePrizeTier;
+  if (
+    sourceTier === "rainbow" ||
+    sourceTier === "gold" ||
+    sourceTier === "silver" ||
+    sourceTier === "bronze"
+  ) {
+    return sourceTier;
+  }
   const grade = (item.cardGrade ?? "").toLowerCase();
   const tier = (item.cardPrizeCategory ?? "").toLowerCase();
   if (grade.includes("rainbow") || tier.includes("rainbow")) return "rainbow";
@@ -36,7 +46,10 @@ function deriveTier(item: YnotCollectionItem): TierKey {
 }
 
 function cardSeries(item: YnotCollectionItem): string {
-  return (item.cardSeries ?? "").toLowerCase();
+  return (item.cardSeries ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 function seriesLabel(series: string): string {
@@ -49,6 +62,12 @@ function statusLabel(bucket: StatusKey): string {
   if (bucket === "owned") return "Owned";
   if (bucket === "shipped") return "Shipped";
   return "Converted";
+}
+
+function formatPrizeValue(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0)
+    return null;
+  return `฿${Math.round(value).toLocaleString()}`;
 }
 
 type EnrichedItem = YnotCollectionItem & {
@@ -759,7 +778,26 @@ export function HistoryExperience({
                     borderBottom: 0,
                   }}
                 >
-                  <span style={{ fontSize: 9, opacity: 0.6 }}>
+                  {c.imageUrl ? (
+                    <Image
+                      className="cr-coll-art-img"
+                      src={c.imageUrl}
+                      alt={c.cardName}
+                      fill
+                      sizes="44px"
+                      unoptimized
+                    />
+                  ) : null}
+                  <span
+                    className="cr-coll-code"
+                    style={{
+                      left: 4,
+                      bottom: 4,
+                      maxWidth: 36,
+                      fontSize: 7,
+                      padding: "2px 4px",
+                    }}
+                  >
                     {c.cardCode ?? "—"}
                   </span>
                 </div>
@@ -842,9 +880,19 @@ function CollectionTile({
       }}
     >
       <div className={`cr-coll-art ${card.tier}`}>
+        {card.imageUrl ? (
+          <Image
+            className="cr-coll-art-img"
+            src={card.imageUrl}
+            alt={card.cardName}
+            fill
+            sizes="(max-width: 760px) 45vw, 180px"
+            unoptimized
+          />
+        ) : null}
         <span className="cr-coll-tier">{card.tier.toUpperCase()}</span>
         <span className={`cr-coll-status ${card.bucket}`}>{label}</span>
-        <span style={{ fontSize: 11, opacity: 0.7 }}>
+        <span className="cr-coll-code">
           {card.cardCode ?? card.id.slice(0, 6)}
         </span>
         {selectable && (
@@ -859,6 +907,34 @@ function CollectionTile({
           {card.series ? seriesLabel(card.series) : "Card"} ·{" "}
           {card.cardCode ?? card.id.slice(0, 6)}
         </small>
+        {(card.sourcePrizeTierLabel ||
+          card.sourcePrizeValueThb ||
+          card.sourceOpenPosition) && (
+          <small className="cr-coll-extra">
+            {[
+              card.sourcePrizeTierLabel
+                ? `${card.sourcePrizeTierLabel} prize`
+                : null,
+              formatPrizeValue(card.sourcePrizeValueThb),
+              card.sourceOpenPosition ? `Pull #${card.sourceOpenPosition}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </small>
+        )}
+        {card.sourceCampaignTitle && (
+          <Link
+            className="cr-coll-source"
+            href={
+              card.sourceCampaignSlug
+                ? `/packs/${card.sourceCampaignSlug}`
+                : "/packs"
+            }
+            onClick={(event) => event.stopPropagation()}
+          >
+            From {card.sourceCampaignTitle}
+          </Link>
+        )}
         {card.bucket === "owned" && card.sellValueCoins > 0 && (
           <span className="price">
             <CoinPip size={10} /> Sell for {formatCoins(card.sellValueCoins)}

@@ -746,19 +746,34 @@ export function GachaOpenPanel({
         </div>
       </div>
     ) : null;
+  const errorPanel =
+    message && !revealResult && !openingOverlayVisible ? (
+      <div className="gacha-open-error-panel" role="alert">
+        <p className="gacha-open-error-eyebrow">Open stopped</p>
+        <h2>Could not open this pull</h2>
+        <p>{message}</p>
+        <div className="gacha-open-error-actions">
+          <Link
+            className="gacha-open-error-action is-primary"
+            href={`/packs/${campaign.slug}`}
+          >
+            Back to pack detail
+          </Link>
+          <Link className="gacha-open-error-action" href="/wallet">
+            Top up coins
+          </Link>
+        </div>
+      </div>
+    ) : null;
 
   return (
     <div
       className="gacha-open-immersive-host"
       data-open-mode={immersive ? "immersive" : "embedded"}
     >
-      {message && (
-        <p className="gacha-open-immersive-message">
-          {message}
-        </p>
-      )}
       {revealOverlay}
       {pendingOverlay}
+      {errorPanel}
     </div>
   );
 }

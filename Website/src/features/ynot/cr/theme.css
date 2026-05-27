@@ -1762,8 +1762,14 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   text-transform: uppercase;
   border-bottom: 1px solid var(--cr-line-soft);
   position: relative;
+  overflow: hidden;
   background: linear-gradient(160deg, #f4f7f3, #e2ebe1);
   color: var(--cr-mute);
+}
+.cr-coll-art-img {
+  object-fit: cover;
+  object-position: center;
+  z-index: 0;
 }
 .cr-coll-art.rainbow {
   background: linear-gradient(135deg,
@@ -1777,6 +1783,7 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   position: absolute;
   top: 8px;
   left: 8px;
+  z-index: 1;
   background: rgba(255, 255, 255, 0.94);
   color: var(--cr-ink);
   font-size: 9px;
@@ -1789,6 +1796,7 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   position: absolute;
   top: 8px;
   right: 8px;
+  z-index: 1;
   font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1798,10 +1806,28 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
 .cr-coll-status.shipped { background: var(--cr-blue); color: #fff; }
 .cr-coll-status.owned { background: rgba(13, 20, 17, 0.86); color: #fff; }
 .cr-coll-status.converted { background: var(--cr-gold); color: #211504; }
+.cr-coll-code {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 1;
+  max-width: calc(100% - 48px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--cr-ink);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: var(--cr-r-pill);
+  padding: 3px 7px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
 .cr-coll-check {
   position: absolute;
   bottom: 8px;
   right: 8px;
+  z-index: 1;
   width: 26px;
   height: 26px;
   border-radius: 50%;
@@ -1831,6 +1857,25 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
 .cr-coll-body small {
   font-size: 10.5px;
   color: var(--cr-mute);
+}
+.cr-coll-body .cr-coll-extra {
+  color: var(--cr-mute);
+}
+.cr-coll-source {
+  width: fit-content;
+  max-width: 100%;
+  color: var(--cr-ink);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cr-coll-source:hover {
+  color: var(--cr-mint);
 }
 .cr-coll-body .price {
   margin-top: 4px;

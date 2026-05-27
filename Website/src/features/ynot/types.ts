@@ -178,6 +178,10 @@ export type YnotCollectionItem = {
   convertExpiresAt?: string | null;
   sourceCampaignTitle?: string | null;
   sourceCampaignSlug?: string | null;
+  sourcePrizeTier?: "rainbow" | "gold" | "silver" | "bronze" | null;
+  sourcePrizeTierLabel?: string | null;
+  sourcePrizeValueThb?: number | null;
+  sourceOpenPosition?: number | null;
 };
 
 export type YnotExchangeOrder = {

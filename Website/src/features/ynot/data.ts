@@ -213,7 +213,10 @@ function metadataNumber(metadata: unknown, key: string) {
 }
 
 function displayTierFromPrizeMetadata(
-  prize: Database["public"]["Tables"]["draw_round_prizes"]["Row"],
+  prize: Pick<
+    Database["public"]["Tables"]["draw_round_prizes"]["Row"],
+    "metadata" | "tier" | "rank"
+  >,
 ) {
   const displayTier = metadataString(prize.metadata, "displayTier");
   if (displayTier) return prizeDisplayTierValue(displayTier);
@@ -1651,11 +1654,72 @@ export async function getCollection(
     }
   }
 
-  const cardsById = new Map(cards.map((card) => [card.id, card]));
+  const openItems = gachaSourceIds.length
+    ? await readOrEmpty("collection_gacha_open_items", async () => {
+        const { data, error } = await supabase
+          .from("gacha_open_items")
+          .select(
+            "id,gacha_open_id,card_id,draw_round_prize_id,tier,value_thb,result_position",
+          )
+          .in("gacha_open_id", gachaSourceIds)
+          .order("result_position", { ascending: true });
+        if (error) throw error;
+        return data ?? [];
+      })
+    : [];
+
+  const prizeIds = Array.from(
+    new Set(
+      openItems
+        .map((openItem) => openItem.draw_round_prize_id)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+  const prizesById = new Map<
+    string,
+    Pick<
+      Database["public"]["Tables"]["draw_round_prizes"]["Row"],
+      "id" | "tier" | "rank" | "value_thb" | "metadata"
+    >
+  >();
+  if (prizeIds.length) {
+    const prizes = await readOrEmpty("collection_source_prizes", async () => {
+      const { data, error } = await supabase
+        .from("draw_round_prizes")
+        .select("id,tier,rank,value_thb,metadata")
+        .in("id", prizeIds);
+      if (error) throw error;
+      return data ?? [];
+    });
+    for (const prize of prizes ?? []) {
+      prizesById.set(prize.id, prize);
+    }
+  }
+
+  const openItemsByOpenAndCard = new Map<string, typeof openItems>();
+  for (const openItem of openItems) {
+    const key = `${openItem.gacha_open_id}:${openItem.card_id}`;
+    const group = openItemsByOpenAndCard.get(key) ?? [];
+    group.push(openItem);
+    openItemsByOpenAndCard.set(key, group);
+  }
+
+  const cardsById = new Map(cards.map((card) => [card.catalogCardId, card]));
   return items.map((item) => {
     const card = cardsById.get(item.card_id);
     const open = item.source_id ? opensById.get(item.source_id) : null;
     const campaign = open ? campaignById.get(open.draw_round_id) : null;
+    const sourceOpenItem = item.source_id
+      ? openItemsByOpenAndCard.get(`${item.source_id}:${item.card_id}`)?.shift()
+      : undefined;
+    const sourcePrize = sourceOpenItem?.draw_round_prize_id
+      ? prizesById.get(sourceOpenItem.draw_round_prize_id)
+      : undefined;
+    const sourcePrizeTier = sourcePrize
+      ? displayTierFromPrizeMetadata(sourcePrize)
+      : sourceOpenItem
+        ? prizeDisplayTierValue(sourceOpenItem.tier)
+        : null;
     return {
       id: item.id,
       cardId: item.card_id,
@@ -1677,6 +1741,14 @@ export async function getCollection(
         ? campaign.titleEn ?? campaign.titleTh ?? null
         : null,
       sourceCampaignSlug: campaign?.slug ?? null,
+      sourcePrizeTier,
+      sourcePrizeTierLabel: sourcePrizeTier
+        ? metadataString(sourcePrize?.metadata, "displayTierLabel") ??
+          prizeDisplayTierLabel(sourcePrizeTier)
+        : null,
+      sourcePrizeValueThb:
+        sourceOpenItem?.value_thb ?? sourcePrize?.value_thb ?? null,
+      sourceOpenPosition: sourceOpenItem?.result_position ?? null,
     };
   });
 }

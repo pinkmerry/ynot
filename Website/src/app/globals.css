@@ -13759,6 +13759,71 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
   font-weight: 800;
 }
 
+.gacha-open-error-panel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 1002;
+  display: grid;
+  width: min(90vw, 430px);
+  gap: 14px;
+  transform: translate(-50%, -50%);
+  padding: 24px;
+  border: 1px solid rgba(244, 197, 66, 0.3);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(244, 197, 66, 0.18), transparent 44%),
+    rgba(10, 10, 20, 0.96);
+  color: var(--foreground);
+  text-align: center;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.46);
+}
+.gacha-open-error-eyebrow {
+  margin: 0;
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.gacha-open-error-panel h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.1;
+}
+.gacha-open-error-panel p:not(.gacha-open-error-eyebrow) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.45;
+}
+.gacha-open-error-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+.gacha-open-error-action {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 900;
+  text-decoration: none;
+}
+.gacha-open-error-action.is-primary {
+  border-color: rgba(244, 197, 66, 0.52);
+  background: linear-gradient(135deg, #ffe49a, #f4c542);
+  color: #17110a;
+}
+
 .gacha-auto-open-loader {
   position: relative;
   width: min(46vw, 184px);

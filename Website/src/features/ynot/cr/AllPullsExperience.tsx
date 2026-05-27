@@ -24,6 +24,15 @@ function statusFromCollection(
 }
 
 function tierFromCollection(item: YnotCollectionItem): Tier {
+  const sourceTier = item.sourcePrizeTier;
+  if (
+    sourceTier === "rainbow" ||
+    sourceTier === "gold" ||
+    sourceTier === "silver" ||
+    sourceTier === "bronze"
+  ) {
+    return sourceTier;
+  }
   const grade = (item.cardGrade ?? "").toLowerCase();
   const category = (item.cardPrizeCategory ?? "").toLowerCase();
   if (grade.includes("rainbow") || category.includes("rainbow")) return "rainbow";
