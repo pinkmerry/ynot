@@ -149,6 +149,40 @@ export async function resolveCurrentProfile(): Promise<ResolvedProfileSession | 
   const versionOk = await isSessionVersionCurrent(lineSession);
   if (!versionOk) return null;
 
+  // Profile-existence check: reject the cookie if the profile_id no longer
+  // points to an active row. Without this, the sessionVersion check above
+  // passes for non-existent profiles because get_profile_session_version
+  // returns null/0 for a missing row, which coerces to 0 and matches a
+  // cookie minted at version 0. That left dev mock-admin sessions (or
+  // sessions whose profile was deleted) valid indefinitely, with the UI
+  // showing stale cookie data ("admin OWNER") while DB queries returned
+  // null. One extra round-trip per LINE-session request, which is the
+  // same shape Supabase path already pays via ensureProfileForUser.
+  try {
+    const supabase = createServiceSupabaseClient();
+    const { data: profileRow, error: profileError } = await supabase
+      .from("profiles")
+      .select("id,profile_status")
+      .eq("id", lineSession.profileId)
+      .maybeSingle();
+    if (profileError) {
+      console.warn(
+        "line_session_profile_lookup_failed",
+        profileError.message ?? "unknown",
+      );
+      return null;
+    }
+    if (!profileRow || profileRow.profile_status === "disabled") {
+      return null;
+    }
+  } catch (error: unknown) {
+    console.warn(
+      "line_session_profile_lookup_threw",
+      error instanceof Error ? error.message : String(error),
+    );
+    return null;
+  }
+
   return {
     profileId: lineSession.profileId,
     authUserId: lineSession.authUserId,
