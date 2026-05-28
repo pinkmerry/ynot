@@ -17337,6 +17337,33 @@ html[data-ynot-theme="light"] .store-topbar-left {
   color: rgba(26, 26, 26, 0.55);
 }
 
+/* Balance heading — promoted to a prominent title-case heading (toreca
+   style) instead of the small muted section label. */
+.store-profile-balance .store-profile-section-label {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: #1a1a1a;
+}
+
+/* Foot group — Admin / Log out pushed to the bottom of the drawer so
+   account actions sit at the base, mirroring the hamburger. The drawer's
+   own 28px bottom padding + this 10.5px lands Log out 38.5px off the
+   bottom edge — exactly where the hamburger's language row sits. */
+.store-profile-foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 16px;
+  padding-bottom: 10.5px;
+}
+.store-profile-foot-actions {
+  display: flex;
+  flex-direction: column;
+}
+
 .store-profile-identity {
   align-items: center;
   flex-direction: row;
@@ -17534,6 +17561,7 @@ html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-
 /* At-top dark mode — labels/values invert to read on the black drawer. */
 html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer .store-profile-coins-label,
 html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer .store-profile-coins-value,
+html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer .store-profile-balance .store-profile-section-label,
 html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][data-ynot-theme="light"] .store-profile-drawer .store-profile-expiration-date {
   color: #ffffff !important;
 }
@@ -17588,7 +17616,7 @@ html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-
   border: 0;
   font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 14px;
-  font-weight: 400;
+  font-weight: 300;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #000000;
@@ -20783,7 +20811,10 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer .store-draw
   flex-direction: column !important;
   flex: 1 1 auto !important;
   min-height: 0 !important;
-  padding: 18px 0 28px !important;
+  /* No bottom padding — the bottom block owns its own 24px bottom padding,
+     so the language toggle reaches the very bottom of the drawer (matches
+     YFIFTEEN's footer sitting flush at the panel base). */
+  padding: 18px 0 0 !important;
   overflow: hidden !important;
   overscroll-behavior: contain !important;
   background: #ffffff !important;
@@ -20828,7 +20859,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-primary .st
   color: #000000 !important;
   font-family: inherit !important;
   font-size: 14px !important;
-  font-weight: 400 !important;
+  font-weight: 300 !important;
   letter-spacing: 0.18em !important;
   text-transform: uppercase !important;
   text-decoration: none !important;
@@ -20868,7 +20899,11 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-chev svg {
 /* Bottom group — admin/logout + inline language. Smaller text, no chevrons. */
 html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-bottom {
   margin-top: auto !important;
-  padding: 28px 24px 0 !important;
+  /* Match YFIFTEEN's footer exactly: 21px top / 24.5px bottom padding on a
+     ~97.5px-tall footer whose account row is 38px and top-aligned — so the
+     row's baseline sits ~38.5px off the panel bottom, not flush. We mirror
+     that 38.5px clearance with the bottom padding here. */
+  padding: 21px 24px 38.5px !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 16px !important;
@@ -20904,10 +20939,13 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-bottom-link
   text-decoration: underline !important;
 }
 
-/* Language — inline "TH / EN" with the active locale bolded. */
+/* Language — inline "TH / EN" with the active locale bolded. Row height
+   matches YFIFTEEN's account row (38px) and is centred, so when both sit
+   38.5px off the panel bottom the text baselines line up exactly. */
 html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer-lang-inline {
   display: inline-flex !important;
   align-items: center !important;
+  min-height: 38px !important;
   gap: 6px !important;
   font-family: inherit !important;
   font-size: 14px !important;
@@ -21247,6 +21285,9 @@ html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="tru
 html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-drawer .store-drawer-primary a,
 html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-drawer .store-drawer-primary button,
 html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-drawer .store-drawer-bottom-link,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-drawer .store-drawer-lang-inline,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-drawer .store-drawer-lang-link,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-drawer .store-drawer-lang-sep,
 html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-drawer .store-drawer-close {
   color: #ffffff !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
@@ -21272,6 +21313,14 @@ html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="
   background: transparent !important;
   color: #ffffff !important;
   border: 1px solid rgba(255, 255, 255, 0.24) !important;
+}
+
+/* Compact EN / TH inline toggle inside the account drawer turns white on
+   the at-top black surface (active stays full-opacity, inactive dims). */
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-profile-drawer .store-drawer-lang-inline,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-profile-drawer .store-drawer-lang-link,
+html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-top="true"][class] .store-profile-drawer .store-drawer-lang-sep {
+  color: #ffffff !important;
 }
 
 /* Balance section on dark drawer — flip the container transparent so the

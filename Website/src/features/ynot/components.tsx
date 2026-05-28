@@ -441,6 +441,7 @@ export async function YnotShell({
             )}
             <StoreHeaderRightNav
               authenticated={renderViewer.authenticated}
+              isAdmin={renderViewer.isAdmin}
               displayName={renderViewer.displayName}
               balance={renderBalance}
             />

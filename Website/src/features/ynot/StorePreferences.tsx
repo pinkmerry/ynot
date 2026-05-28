@@ -143,9 +143,9 @@ const customerNav = [
   // not want two drawer items that both feel like "edit profile".
   { key: "mysteryPacks", href: "/packs", protected: false, placement: ["left", "drawer"] },
   { key: "marketplace", href: "/marketplace", protected: false, adminOnly: true, placement: ["left", "drawer"] },
-  { key: "cardHistory", href: "/collection", protected: true, placement: ["drawer"] },
-  { key: "wallet", href: "/wallet", protected: true, placement: ["drawer"] },
-  { key: "personalInfo", href: "/profile/personal-info", protected: true, placement: ["drawer"] },
+  // Card history, Wallet + Personal Info intentionally omitted from the
+  // hamburger drawer — they all live in the My Page (account) drawer now,
+  // so listing them here too is redundant.
 ] as const;
 
 type HeaderMegaMenu = {
@@ -895,11 +895,12 @@ export function StoreAdminLink({
 /** Right-side account: shows "Login" link when signed out, profile avatar when signed in. */
 export function StoreHeaderRightNav({
   authenticated,
+  isAdmin = false,
   displayName,
   balance,
 }: {
   authenticated: boolean;
-  /** Kept for compatibility — admin link now renders via {@link StoreAdminLink}. */
+  /** When true, the My Page drawer surfaces the Admin Console link. */
   isAdmin?: boolean;
   /** Viewer's display name; falls back to an editorial placeholder if empty. */
   displayName?: string;
@@ -1111,7 +1112,6 @@ export function StoreHeaderRightNav({
         </div>
 
         <nav className="store-profile-section" aria-label={account.title}>
-          <span className="store-profile-section-label">{account.title}</span>
           <ul className="store-profile-list">
             <li>
               <Link
@@ -1153,36 +1153,32 @@ export function StoreHeaderRightNav({
                 {account.notifications}
               </Link>
             </li>
-            <li>
-              <form action={signOutAction}>
-                <button
-                  className="store-profile-link store-profile-link-danger"
-                  type="submit"
-                >
-                  {copy.logout}
-                </button>
-              </form>
-            </li>
           </ul>
         </nav>
 
-        <div className="store-profile-section">
-          <span className="store-profile-section-label">{account.language}</span>
-          <div className="store-profile-langgrid">
-            <button
-              type="button"
-              className={`store-profile-langbtn${preferences.language === "th" ? " active" : ""}`}
-              onClick={() => setLanguage("th")}
-            >
-              {account.th}
-            </button>
-            <button
-              type="button"
-              className={`store-profile-langbtn${preferences.language === "en" ? " active" : ""}`}
-              onClick={() => setLanguage("en")}
-            >
-              {account.en}
-            </button>
+        {/* Foot group pushed to the bottom of the drawer (margin-top:auto),
+            mirroring the hamburger drawer where Admin / Log out / language
+            sit at the very bottom rather than inline with the nav list. */}
+        <div className="store-profile-foot">
+          <div className="store-profile-foot-actions">
+            {isAdmin && (
+              <Link
+                className="store-profile-link"
+                href="/admin"
+                prefetch={false}
+                onClick={() => setProfileOpen(false)}
+              >
+                {copy.admin}
+              </Link>
+            )}
+            <form action={signOutAction}>
+              <button
+                className="store-profile-link store-profile-link-danger"
+                type="submit"
+              >
+                {copy.logout}
+              </button>
+            </form>
           </div>
         </div>
       </aside>
@@ -1445,29 +1441,11 @@ export function StoreSettingsMenu({
             </ul>
           </nav>
 
+          {/* Account actions (Admin / Log out) live in the My Page drawer
+              for authenticated users; the language toggle stays here in the
+              hamburger for everyone. Guests also keep sign up / log in. */}
           <div className="store-drawer-bottom">
-            {authenticated ? (
-              <div className="store-drawer-bottom-stack">
-                {isAdmin && (
-                  <Link
-                    className="store-drawer-bottom-link"
-                    href="/admin"
-                    prefetch={false}
-                    onClick={closeAfter()}
-                  >
-                    {copy.admin}
-                  </Link>
-                )}
-                <form action={signOutAction}>
-                  <button
-                    className="store-drawer-bottom-link"
-                    type="submit"
-                  >
-                    {copy.logout}
-                  </button>
-                </form>
-              </div>
-            ) : (
+            {!authenticated && (
               <div className="store-drawer-bottom-stack">
                 <Link
                   className="store-drawer-bottom-link"
