@@ -114,16 +114,23 @@ test("top-up packages are fixed server-side catalog values", () => {
     plain(topUpPackages.map((pkg) => [pkg.id, pkg.amountThb, pkg.coins])),
     [
       ["starter", 100, 100],
-      ["player", 500, 550],
-      ["collector", 1000, 1150],
-      ["whale", 3000, 3600],
+      ["player", 500, 500],
+      ["collector", 1000, 1000],
+      ["whale", 3000, 3000],
     ],
   );
+  for (const pkg of topUpPackages) {
+    assert.equal(
+      pkg.coins,
+      pkg.amountThb,
+      `${pkg.id} must credit exactly 1 coin per 1 THB`,
+    );
+  }
   assert.deepEqual(plain(getTopUpPackage("player")), {
     id: "player",
     label: "Player",
     amountThb: 500,
-    coins: 550,
+    coins: 500,
   });
   assert.equal(getTopUpPackage("tampered-package"), null);
 });
@@ -133,10 +140,17 @@ test("wallet POST ignores browser-supplied amount and coin fields", () => {
     new URL("../src/app/api/ynot/wallet/route.ts", import.meta.url),
     "utf8",
   );
+  const walletExperience = readFileSync(
+    new URL("../src/features/ynot/cr/WalletExperience.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(source, /amount_thb:\s*topUpPackage\.amountThb/);
   assert.match(source, /coin_amount:\s*topUpPackage\.coins/);
   assert.doesNotMatch(source, /form\.get\(["']amountThb["']\)/);
   assert.doesNotMatch(source, /form\.get\(["']coinAmount["']\)/);
+  assert.match(walletExperience, /form\.set\("packageId",\s*picked\.id\)/);
+  assert.doesNotMatch(walletExperience, /form\.set\(["']amountThb["']/);
+  assert.doesNotMatch(walletExperience, /form\.set\(["']coinAmount["']/);
 });
 
 test("top-up mutations reject cross-origin browser submissions", () => {

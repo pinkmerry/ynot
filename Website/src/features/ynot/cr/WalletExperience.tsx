@@ -7,7 +7,7 @@ import type {
   YnotTopUp,
   YnotWallet,
 } from "../types";
-import { topUpPackages, type TopUpPackageId } from "../top-up-packages";
+import { topUpPackages } from "../top-up-packages";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { PageHead, useToast } from "./UiKit";
 
@@ -80,8 +80,6 @@ export function WalletExperience({
   const { toast } = useToast();
   const [step, setStep] = useState<Step>(1);
   const [pickedPackageIdx, setPickedPackageIdx] = useState<number>(1);
-  const [customMode, setCustomMode] = useState(false);
-  const [customThb, setCustomThb] = useState("");
   const [paymentMethodId, setPaymentMethodId] = useState<string>(
     paymentMethods[0]?.id ?? "",
   );
@@ -90,11 +88,9 @@ export function WalletExperience({
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
   const [submitting, startSubmit] = useTransition();
 
-  const picked = customMode ? null : topUpPackages[pickedPackageIdx];
-  const customThbNum = Math.max(0, Math.round(Number(customThb) || 0));
-  const customCoins = customMode ? Math.round(customThbNum * 1.0) : 0;
-  const buyThb = customMode ? customThbNum : picked?.amountThb ?? 0;
-  const buyCoins = customMode ? customCoins : picked?.coins ?? 0;
+  const picked = topUpPackages[pickedPackageIdx] ?? topUpPackages[0];
+  const buyThb = picked.amountThb;
+  const buyCoins = picked.coins;
   const ready = buyThb > 0 && buyCoins > 0 && !!paymentMethodId;
   const selectedMethod =
     paymentMethods.find((m) => m.id === paymentMethodId) ??
@@ -126,12 +122,7 @@ export function WalletExperience({
         const form = new FormData();
         form.set("paymentMethodId", selectedMethod.id);
         form.set("customerNote", note);
-        if (customMode) {
-          form.set("amountThb", String(buyThb));
-          form.set("coinAmount", String(buyCoins));
-        } else if (picked) {
-          form.set("packageId", picked.id as TopUpPackageId);
-        }
+        form.set("packageId", picked.id);
         form.set("slip", slip);
         const response = await fetch("/api/ynot/wallet", {
           method: "POST",
@@ -217,7 +208,6 @@ export function WalletExperience({
                 className="cr-btn cr-btn-primary"
                 onClick={() => {
                   setStep(1);
-                  setCustomMode(false);
                   setPickedPackageIdx(1);
                   if (typeof window !== "undefined") {
                     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -366,93 +356,28 @@ export function WalletExperience({
               <div className="cr-stack" style={{ gap: 16 }}>
                 <span className="cr-eyebrow">Pick how many coins</span>
                 <div className="cr-wallet-package-grid">
-                  {topUpPackages.map((p, i) => {
-                    const bonus =
-                      p.coins > p.amountThb
-                        ? Math.round(((p.coins - p.amountThb) / p.amountThb) * 100)
-                        : 0;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        className={`cr-pkg ${
-                          !customMode && pickedPackageIdx === i ? "active" : ""
-                        }`}
-                        onClick={() => {
-                          setPickedPackageIdx(i);
-                          setCustomMode(false);
-                        }}
-                      >
-                        {bonus > 0 && (
-                          <span className="bonus">+{bonus}%</span>
-                        )}
-                        <div className="coins">
-                          <CoinPip size={18} />
-                          <span>{formatCoins(p.coins)}</span>
-                        </div>
-                        <div className="price">฿{formatCoins(p.amountThb)}</div>
-                      </button>
-                    );
-                  })}
-                  <div
-                    className={`cr-pkg custom cr-wallet-custom-pkg ${
-                      customMode ? "active" : ""
-                    }`}
-                    onClick={() => setCustomMode(true)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") setCustomMode(true);
-                    }}
-                  >
-                    <span className="cr-eyebrow">Custom amount</span>
-                    <div
-                      className="cr-row cr-wallet-custom-input-row"
-                      style={{ gap: 8, marginTop: 4 }}
+                  {topUpPackages.map((p, i) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={`cr-pkg ${
+                        pickedPackageIdx === i ? "active" : ""
+                      }`}
+                      onClick={() => {
+                        setPickedPackageIdx(i);
+                      }}
                     >
-                      <span
-                        style={{ fontWeight: 700, color: "var(--cr-mute)" }}
-                      >
-                        ฿
-                      </span>
-                      <input
-                        value={customThb}
-                        onChange={(e) =>
-                          setCustomThb(e.target.value.replace(/[^0-9]/g, ""))
-                        }
-                        onFocus={() => setCustomMode(true)}
-                        placeholder="Enter amount"
-                        style={{
-                          flex: 1,
-                          border: 0,
-                          background: "transparent",
-                          outline: "none",
-                          fontSize: 22,
-                          fontWeight: 800,
-                          fontFamily: "inherit",
-                          color: "var(--cr-ink)",
-                        }}
-                        aria-label="Custom top-up amount in THB"
-                      />
-                      {customThbNum > 0 && (
-                        <span
-                          className="cr-row"
-                          style={{
-                            gap: 6,
-                            color: "var(--cr-coin-ink)",
-                            fontWeight: 700,
-                          }}
-                        >
-                          <CoinPip size={14} /> {formatCoins(customCoins)}
-                        </span>
-                      )}
-                    </div>
-                    <small className="cr-mute">
-                      1 THB = 1 coin. Bonus tiers apply on the standard
-                      packages.
-                    </small>
-                  </div>
+                      <div className="coins">
+                        <CoinPip size={18} />
+                        <span>{formatCoins(p.coins)}</span>
+                      </div>
+                      <div className="price">฿{formatCoins(p.amountThb)}</div>
+                    </button>
+                  ))}
                 </div>
+                <small className="cr-mute">
+                  1 THB = 1 coin. No bonus coins are added.
+                </small>
 
                 <div
                   style={{

@@ -1873,7 +1873,7 @@ export function WalletPanel({
       <section className="soft-card wallet-balance-card">
         <PhoneTopBar title="Top Up" coin={wallet.balanceCoins} />
         <p className="txt-s mt-2">Choose payment</p>
-        <span className="vip-bonus">⭐ VIP · BONUS +7%</span>
+        <span className="vip-bonus">1 THB = 1 coin</span>
       </section>
       <section className="soft-card wallet-method-card">
         <h3 className="title-m">Manual transfer / QR methods</h3>

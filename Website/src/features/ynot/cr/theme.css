@@ -1492,24 +1492,6 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   color: var(--cr-mute);
   font-variant-numeric: tabular-nums;
 }
-.cr-pkg .bonus {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: var(--cr-mint-soft);
-  color: var(--cr-mint);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 4px 8px;
-  border-radius: var(--cr-r-pill);
-}
-.cr-pkg.custom {
-  border-style: dashed;
-  background: var(--cr-paper-2);
-}
-
 /* TX row */
 .cr-tx-row {
   display: grid;
@@ -1566,12 +1548,6 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
 .cr-wallet-payment-grid > * {
   min-width: 0;
 }
-.cr-wallet-custom-pkg { grid-column: 1 / -1; }
-.cr-wallet-custom-input-row {
-  min-width: 0;
-  flex-wrap: wrap;
-}
-.cr-wallet-custom-input-row input { min-width: 0; }
 .cr-wallet-stepper-wrap {
   padding: 14px 22px 4px;
 }
@@ -2369,10 +2345,6 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   .cr-wallet-step-line {
     width: 18px;
     flex-basis: 18px;
-  }
-  .cr-wallet-custom-input-row input {
-    flex-basis: 160px;
-    font-size: 20px !important;
   }
   .cr-tx-row {
     grid-template-columns: 36px minmax(0, 1fr) auto;
