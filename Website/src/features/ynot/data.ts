@@ -1400,7 +1400,7 @@ async function getPaymentMethodsImpl(): Promise<YnotPaymentMethod[]> {
 
 const getPaymentMethodsCached = unstable_cache(
   getPaymentMethodsImpl,
-  ["ynot-payment-methods-v3-bank-transfer-only"],
+  ["ynot-payment-methods-v4-auto-slip-approval"],
   { tags: ["payment-methods"], revalidate: 300 },
 );
 
@@ -1434,7 +1434,7 @@ function toPaymentMethod(
     accountNumber: row.account_number,
     promptpayId: row.promptpay_id,
     qrImagePath: row.qr_image_path,
-    instructions: row.instructions,
+    instructions: displayPaymentInstructions(row.type, row.instructions),
     isActive: row.is_active,
     sortOrder: row.sort_order,
   };
@@ -1446,6 +1446,18 @@ function displayPaymentMethodName(
 ) {
   if (type === "bank_transfer") return "Bank Transfer";
   return displayName?.trim() || "PromptPay QR";
+}
+
+function displayPaymentInstructions(
+  type: Database["public"]["Tables"]["payment_methods"]["Row"]["type"],
+  instructions: string | null | undefined,
+) {
+  const clean = instructions?.trim();
+  if (!clean) return null;
+  if (type === "bank_transfer" && /admin (review|confirmation)/i.test(clean)) {
+    return "Transfer manually, then upload the slip for automatic verification.";
+  }
+  return clean;
 }
 
 function hideLegacyMainTransfer(methods: YnotPaymentMethod[]) {

@@ -12,6 +12,11 @@ import { getTopUpPackage } from "@/features/ynot/top-up-packages";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { allowedSlipTypes, maxSlipBytes, verifyImageMagicBytes } from "@/lib/uploads/magic-bytes";
+import {
+  canAutoApproveVerifiedSlip,
+  emitTopUpApprovalRiskAlerts,
+  resolveAutoTopUpAdmin,
+} from "@/lib/ynot/top-up-approval";
 
 export const dynamic = "force-dynamic";
 
@@ -194,6 +199,22 @@ export async function POST(request: Request) {
     throw slipError;
   }
 
+  await supabase.from("audit_events").insert({
+    actor_profile_id: session.profileId,
+    event_type: "top_up_submitted",
+    top_up_request_id: topUp.id,
+    metadata: {
+      public_code: topUp.public_code,
+      amount_thb: resolvedTopUp.value.amountThb,
+      coin_amount: resolvedTopUp.value.coins,
+      amount_source: resolvedTopUp.value.packageId ? "package" : "custom",
+      package_id: resolvedTopUp.value.packageId,
+    },
+  });
+
+  let responseTopUp = topUp;
+  let autoApproved = false;
+
   if (!localDuplicateSlip) {
     const verificationFile = new File([slipBuffer], slipFile.name, {
       type: magicCheck.contentType,
@@ -275,21 +296,68 @@ export async function POST(request: Request) {
         paymentSlipId: slip.id,
         message: verifiedSlipError.message,
       });
+    } else if (
+      canAutoApproveVerifiedSlip({
+        finalStatus,
+        providerAutoApprove: verification.autoApprove,
+      })
+    ) {
+      try {
+        const autoAdmin = await resolveAutoTopUpAdmin(supabase);
+        if (!autoAdmin) {
+          console.warn("wallet_top_up_auto_approval_skipped_no_admin", {
+            topUpPublicCode: topUp.public_code,
+            paymentSlipId: slip.id,
+          });
+        } else {
+          const { error: approvalError } = await supabase.rpc("approve_top_up_request", {
+            p_top_up_request_id: topUp.id,
+            p_admin_id: autoAdmin.id,
+            p_admin_note: "Auto-approved after Slip2Go verified amount, receiver, date, and duplicate checks.",
+          });
+
+          if (approvalError) {
+            console.warn("wallet_top_up_auto_approval_failed", {
+              topUpPublicCode: topUp.public_code,
+              paymentSlipId: slip.id,
+              message: approvalError.message,
+            });
+          } else {
+            autoApproved = true;
+            await emitTopUpApprovalRiskAlerts(supabase, {
+              actor: {
+                profileId: autoAdmin.profileId,
+                adminId: autoAdmin.id,
+                role: autoAdmin.role,
+              },
+              topUpId: topUp.id,
+              approvalMode: "slip2go_auto",
+            });
+
+            const { data: refreshedTopUp, error: refreshedTopUpError } = await supabase
+              .from("top_up_requests")
+              .select("*")
+              .eq("id", topUp.id)
+              .maybeSingle();
+            if (refreshedTopUpError) {
+              console.warn("wallet_top_up_auto_approval_refresh_failed", {
+                topUpPublicCode: topUp.public_code,
+                message: refreshedTopUpError.message,
+              });
+            } else if (refreshedTopUp) {
+              responseTopUp = refreshedTopUp;
+            }
+          }
+        }
+      } catch (error: unknown) {
+        console.warn("wallet_top_up_auto_approval_threw", {
+          topUpPublicCode: topUp.public_code,
+          paymentSlipId: slip.id,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
   }
 
-  await supabase.from("audit_events").insert({
-    actor_profile_id: session.profileId,
-    event_type: "top_up_submitted",
-    top_up_request_id: topUp.id,
-    metadata: {
-      public_code: topUp.public_code,
-      amount_thb: resolvedTopUp.value.amountThb,
-      coin_amount: resolvedTopUp.value.coins,
-      amount_source: resolvedTopUp.value.packageId ? "package" : "custom",
-      package_id: resolvedTopUp.value.packageId,
-    },
-  });
-
-  return jsonNoStore({ topUp: toTopUp(topUp) }, { status: 201 });
+  return jsonNoStore({ topUp: toTopUp(responseTopUp), autoApproved }, { status: 201 });
 }

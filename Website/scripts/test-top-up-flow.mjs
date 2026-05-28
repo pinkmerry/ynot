@@ -258,10 +258,12 @@ test("bank-transfer top-up labels stay aligned across customer and admin preview
   );
 
   assert.match(dataSource, /function displayPaymentMethodName/);
+  assert.match(dataSource, /function displayPaymentInstructions/);
   assert.ok(dataSource.includes('if (type === "bank_transfer") return "Bank Transfer";'));
+  assert.match(dataSource, /upload the slip for automatic verification/);
   assert.match(dataSource, /function hideLegacyMainTransfer/);
   assert.match(dataSource, /method\.code === "main-transfer"/);
-  assert.match(dataSource, /ynot-payment-methods-v3-bank-transfer-only/);
+  assert.match(dataSource, /ynot-payment-methods-v4-auto-slip-approval/);
   assert.match(dataSource, /displayName:\s*displayPaymentMethodName\(row\.type, row\.display_name\)/);
   assert.match(
     dataSource,
@@ -277,20 +279,44 @@ test("admin top-up approval refuses unsafe or reused slips before crediting", ()
     new URL("../src/app/api/ynot/admin/top-ups/route.ts", import.meta.url),
     "utf8",
   );
+  const approvalHelper = readFileSync(
+    new URL("../src/lib/ynot/top-up-approval.ts", import.meta.url),
+    "utf8",
+  );
   const migration = readFileSync(
     new URL("../../Database/supabase/migrations/20260528050000_harden_top_up_approval.sql", import.meta.url),
     "utf8",
   );
 
-  assert.match(adminRoute, /approvableSlipStatuses\s*=\s*new Set\(\["valid", "manual_review"\]\)/);
+  assert.match(approvalHelper, /manualApprovableSlipStatuses\s*=\s*new Set<SlipVerificationStatus>\(\[[\s\S]*"valid"[\s\S]*"manual_review"/);
   assert.match(adminRoute, /Cannot approve a top-up without an uploaded slip/);
-  assert.match(adminRoute, /duplicate_of_slip_id[\s\S]*approvableSlipStatuses\.has/);
+  assert.match(adminRoute, /duplicate_of_slip_id[\s\S]*manualApprovableSlipStatuses\.has/);
   assert.match(adminRoute, /Only pending top-up requests can be approved/);
   assert.match(migration, /latest_slip public\.payment_slips%rowtype/);
   assert.match(migration, /latest_slip\.duplicate_of_slip_id is not null[\s\S]*verification_status not in \('valid', 'manual_review'\)/);
   assert.match(migration, /locked_topup\.status not in \('pending_slip', 'pending_review'\)/);
   assert.match(migration, /top_up_slip_required/);
   assert.match(migration, /top_up_slip_not_approvable/);
+});
+
+test("wallet top-up auto-approval requires strict Slip2Go valid status", () => {
+  const walletRoute = readFileSync(
+    new URL("../src/app/api/ynot/wallet/route.ts", import.meta.url),
+    "utf8",
+  );
+  const approvalHelper = readFileSync(
+    new URL("../src/lib/ynot/top-up-approval.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(approvalHelper, /const autoApprovableSlipStatus: SlipVerificationStatus = "valid"/);
+  assert.match(approvalHelper, /providerAutoApprove && finalStatus === autoApprovableSlipStatus/);
+  assert.match(walletRoute, /canAutoApproveVerifiedSlip\(\{[\s\S]*finalStatus[\s\S]*providerAutoApprove: verification\.autoApprove/);
+  assert.match(walletRoute, /resolveAutoTopUpAdmin\(supabase\)/);
+  assert.match(walletRoute, /rpc\("approve_top_up_request"/);
+  assert.match(walletRoute, /p_admin_note:\s*"Auto-approved after Slip2Go verified amount, receiver, date, and duplicate checks\."/);
+  assert.match(walletRoute, /emitTopUpApprovalRiskAlerts\(supabase,[\s\S]*approvalMode: "slip2go_auto"/);
+  assert.match(walletRoute, /return jsonNoStore\(\{ topUp: toTopUp\(responseTopUp\), autoApproved \}/);
 });
 
 test("wallet top-up API safe validation and edge cases", async (t) => {

@@ -150,11 +150,22 @@ export function WalletExperience({
           isRecord(payload) && isRecord(payload.topUp)
             ? stringValue(payload.topUp.publicCode)
             : "";
+        const topUpStatus =
+          isRecord(payload) && isRecord(payload.topUp)
+            ? stringValue(payload.topUp.status)
+            : "";
+        const autoApproved =
+          (isRecord(payload) && payload.autoApproved === true) ||
+          topUpStatus === "approved";
         toast(
           "success",
-          publicCode
-            ? `Top-up ${publicCode} submitted for admin review`
-            : "Top-up submitted for admin review",
+          autoApproved
+            ? publicCode
+              ? `Top-up ${publicCode} approved. Coins credited.`
+              : "Top-up approved. Coins credited."
+            : publicCode
+              ? `Top-up ${publicCode} submitted for review`
+              : "Top-up submitted for review",
         );
         setSlip(null);
         setStep(1);
@@ -174,7 +185,7 @@ export function WalletExperience({
       <PageHead
         eyebrow="Wallet"
         title="Top up"
-        lead="Pick how many coins you want, then pay. We credit your wallet after the slip is confirmed."
+        lead="Pick how many coins you want, then pay. We verify the slip and credit your wallet after it passes."
       />
 
       <div className="cr-wallet-grid">
@@ -832,8 +843,8 @@ export function WalletExperience({
                   className="cr-mute"
                   style={{ textAlign: "center", fontSize: 11.5 }}
                 >
-                  Admin reviews your slip before coins are credited. Pending
-                  requests show up in your history above.
+                  Slip checks must match the amount and receiver before coins
+                  are credited. Any unclear slip stays pending for review.
                 </small>
               </div>
             )}

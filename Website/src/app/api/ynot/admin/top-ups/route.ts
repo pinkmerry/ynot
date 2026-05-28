@@ -5,26 +5,13 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { emitSecurityAlert } from "@/lib/security/alerts";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
+import {
+  emitTopUpApprovalRiskAlerts,
+  manualApprovableSlipStatuses,
+} from "@/lib/ynot/top-up-approval";
 
 export const dynamic = "force-dynamic";
 
-// Approvals at or above this THB threshold trigger a security alert. Set at
-// 1000 THB so every Collector and Whale approval (the two highest packages
-// at 1000 and 3000 THB respectively) lands in the security inbox. The
-// previous value of 5000 was above the maximum legitimate package and the
-// alert never fired.
-const LARGE_TOP_UP_THB_THRESHOLD = 1000;
-
-// Per-profile velocity: when the SAME profile gets approved this many
-// top-ups (or more) inside the rolling window, fire a separate alert.
-// The DB-level approve_top_up_request RPC blocks the explicit double-credit
-// attack (same slip image, twice), but a determined attacker can submit
-// multiple DIFFERENT slips for the same payment by re-photographing the
-// receipt — the per-slip dedup misses that. This catches it in real time.
-// Threshold = "this is the 2nd or later approval in the window".
-const PROFILE_VELOCITY_WINDOW_MS = 24 * 60 * 60 * 1000;
-const PROFILE_VELOCITY_COUNT_THRESHOLD = 2;
-const approvableSlipStatuses = new Set(["valid", "manual_review"]);
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -87,7 +74,7 @@ async function approvalBlocker(
     .maybeSingle();
   if (slipError) throw slipError;
   if (!slip) return { message: "Cannot approve a top-up without an uploaded slip." };
-  if (slip.duplicate_of_slip_id || !approvableSlipStatuses.has(slip.verification_status)) {
+  if (slip.duplicate_of_slip_id || !manualApprovableSlipStatuses.has(slip.verification_status)) {
     const status = slip.verification_status.replace(/_/g, " ");
     return {
       message: `Slip check is ${status}; reject it or ask the customer to upload a fresh slip.`,
@@ -173,70 +160,15 @@ export async function PATCH(request: Request) {
   }
 
   if (action === "approve") {
-    const { data: approved } = await supabase
-      .from("top_up_requests")
-      .select("amount_thb,profile_id,public_code")
-      .eq("id", topUpId)
-      .maybeSingle();
-    if (approved && Number(approved.amount_thb ?? 0) >= LARGE_TOP_UP_THB_THRESHOLD) {
-      emitSecurityAlert({
-        event: "top_up_approved_large",
-        actor: {
-          profileId: admin.profileId,
-          adminId: admin.adminId,
-          role: admin.adminRole,
-        },
-        target: { profileId: approved.profile_id },
-        details: {
-          publicCode: approved.public_code,
-          amountThb: approved.amount_thb,
-          threshold: LARGE_TOP_UP_THB_THRESHOLD,
-        },
-      });
-    }
-
-    // Velocity alert: count top-up credits for the SAME profile in the
-    // rolling window (including this one we just approved). If the count
-    // hits the threshold, page the security inbox. This catches the
-    // re-photographed-slip variant of the F1 attack, where the slip-hash
-    // dedup misses because each upload has a different file_sha256.
-    if (approved?.profile_id) {
-      const windowStart = new Date(
-        Date.now() - PROFILE_VELOCITY_WINDOW_MS,
-      ).toISOString();
-      const { count: recentApprovals, error: velocityError } = await supabase
-        .from("coin_ledger")
-        .select("id", { count: "exact", head: true })
-        .eq("profile_id", approved.profile_id)
-        .eq("entry_type", "top_up")
-        .gte("created_at", windowStart);
-      if (velocityError) {
-        console.warn(
-          "top_up_velocity_lookup_failed",
-          velocityError.message ?? "unknown",
-        );
-      } else if (
-        typeof recentApprovals === "number" &&
-        recentApprovals >= PROFILE_VELOCITY_COUNT_THRESHOLD
-      ) {
-        emitSecurityAlert({
-          event: "top_up_velocity_unusual",
-          actor: {
-            profileId: admin.profileId,
-            adminId: admin.adminId,
-            role: admin.adminRole,
-          },
-          target: { profileId: approved.profile_id },
-          details: {
-            publicCode: approved.public_code,
-            amountThb: approved.amount_thb,
-            totalApprovalsLast24h: recentApprovals,
-            windowHours: PROFILE_VELOCITY_WINDOW_MS / (60 * 60 * 1000),
-            threshold: PROFILE_VELOCITY_COUNT_THRESHOLD,
-          },
-        });
-      }
-    }
+    await emitTopUpApprovalRiskAlerts(supabase, {
+      actor: {
+        profileId: admin.profileId,
+        adminId: admin.adminId,
+        role: admin.adminRole,
+      },
+      topUpId,
+      approvalMode: "manual",
+    });
   }
 
   return Response.json({
