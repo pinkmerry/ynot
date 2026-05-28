@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
@@ -19,8 +20,8 @@ const MAX_CAMPAIGN_COST_COINS = 1_000_000;
  * for an admin to "add a pack to COMMON" is to click an existing pack and
  * let us set the cost to a value inside that bucket.
  *
- * In dev (no Supabase admin session) we skip the admin gate so the
- * preview / local environments still let the UI work end-to-end.
+ * Explicit dev auth can skip the admin gate so preview/local environments
+ * still let the UI work end-to-end when opted in.
  */
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
   }
   const crossOrigin = enforceSameOriginMutation(request);
   if (crossOrigin) return crossOrigin;
-  const isDev = process.env.NODE_ENV !== "production";
+  const isDev = isDevAuthAllowed();
   const admin = await resolveAdminSession();
   if (!admin && !isDev) {
     return adminErrorResponse(

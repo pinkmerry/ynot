@@ -142,7 +142,7 @@ const customerNav = [
   // grid + reward timeline. Profile edit lives under Personal Info; we do
   // not want two drawer items that both feel like "edit profile".
   { key: "mysteryPacks", href: "/packs", protected: false, placement: ["left", "drawer"] },
-  { key: "marketplace", href: "/marketplace", protected: false, placement: ["left", "drawer"] },
+  { key: "marketplace", href: "/marketplace", protected: false, adminOnly: true, placement: ["left", "drawer"] },
   { key: "cardHistory", href: "/collection", protected: true, placement: ["drawer"] },
   { key: "wallet", href: "/wallet", protected: true, placement: ["drawer"] },
   { key: "personalInfo", href: "/profile/personal-info", protected: true, placement: ["drawer"] },
@@ -436,6 +436,7 @@ function isNavActive(pathname: string | null, href: string): boolean {
 
 export function StoreHeaderNav({
   authenticated,
+  isAdmin = false,
 }: {
   authenticated: boolean;
   /** Kept for compatibility — admin nav now renders on the right side. */
@@ -494,7 +495,8 @@ export function StoreHeaderNav({
   }, []);
 
   const leftNav = customerNav.filter((item) =>
-    (item.placement as readonly string[]).includes("left"),
+    (item.placement as readonly string[]).includes("left") &&
+    (!("adminOnly" in item) || !item.adminOnly || isAdmin),
   );
 
   return (
@@ -1373,7 +1375,8 @@ export function StoreSettingsMenu({
             <ul>
               {customerNav
                 .filter((item) =>
-                  (item.placement as readonly string[]).includes("drawer"),
+                  (item.placement as readonly string[]).includes("drawer") &&
+                  (!("adminOnly" in item) || !item.adminOnly || isAdmin),
                 )
                 .map((item) => {
                   const hasSubmenu =

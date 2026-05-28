@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import type {
   HomeFilterState,
   HomeSeriesFilter,
@@ -381,10 +382,9 @@ export async function YnotShell({
 }) {
   let renderViewer = viewer;
   let renderBalance = walletBalance;
-  // Dev-mode auto-bypass — always render as an authenticated owner on
-  // localhost so the admin/store surfaces are reachable without auth setup.
-  // Production keeps the real viewer untouched.
-  if (viewerMode === "preview" && process.env.NODE_ENV !== "production") {
+  // Explicit dev-auth preview: production keeps the real viewer untouched,
+  // and localhost only gets owner rendering when the dev flag is set.
+  if (viewerMode === "preview" && isDevAuthAllowed()) {
     renderViewer = {
       ...viewer,
       authenticated: true,
@@ -851,11 +851,9 @@ export async function PacksExperience({
   const featuredCampaignsList = heroIds
     .map((id) => campaignsById.get(id))
     .filter((c): c is YnotCampaign => !!c);
-  // Dev-mode bypass mirrors AdminGate / YnotShell — show the "Edit" shortcut
-  // on every pack while developing locally; production still requires the
-  // real admin role.
-  const isAdmin =
-    data.viewer.isAdmin || process.env.NODE_ENV !== "production";
+  // Dev-auth bypass mirrors AdminGate / YnotShell. Production still requires
+  // the real admin role.
+  const isAdmin = data.viewer.isAdmin || isDevAuthAllowed();
   // The reorder map is built off the full sorted list (NOT the duplicated
   // grid items) so swapping always targets real campaign ids.
   const reorderInfo = isAdmin ? buildPackReorderInfo(campaigns) : null;
@@ -1435,7 +1433,7 @@ export function CampaignDetailPanel({
   );
   const detailTags = campaignDisplayTags(campaign);
   const canOpen =
-    campaign.demo || campaign.openable || process.env.NODE_ENV !== "production";
+    campaign.demo || campaign.openable || isDevAuthAllowed();
   const packTitle = campaign.titleTh || campaign.titleEn;
   const packReference = campaign.slug || campaign.id;
 
@@ -2625,11 +2623,9 @@ export function AdminGate({
   viewer: YnotViewer;
   children: ReactNode;
 }) {
-  // Dev-mode bypass — always grant admin access when NODE_ENV !== "production"
-  // so localhost can browse the admin surface without auth setup. Production
-  // still enforces the real admin role check.
-  const effectiveAdmin =
-    viewer.isAdmin || process.env.NODE_ENV !== "production";
+  // Explicit dev-auth bypass. Production still enforces the real admin role
+  // check, and development does too unless YNOT_ENABLE_DEV_AUTH=true.
+  const effectiveAdmin = viewer.isAdmin || isDevAuthAllowed();
 
   if (!effectiveAdmin) {
     return (

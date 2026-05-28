@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import {
   isMissingColumnError,
@@ -352,11 +353,9 @@ export async function GET(request: Request) {
   if (!isSupabaseConfigured()) {
     return Response.json({ ok: true, campaigns: [] });
   }
-  // Dev-mode bypass mirrors the storefront isAdmin shortcut: on non-prod
-  // builds the API trusts the caller so the admin UI can be exercised
-  // without a real Supabase auth cookie. Production always enforces the
-  // admin session.
-  const isDev = process.env.NODE_ENV !== "production";
+  // Explicit dev-auth bypass mirrors the storefront shortcut without making
+  // every non-production request an admin request by default.
+  const isDev = isDevAuthAllowed();
   const admin = await resolveAdminSession();
   if (!admin && !isDev) {
     return adminErrorResponse(

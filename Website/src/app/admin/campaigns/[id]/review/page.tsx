@@ -5,6 +5,7 @@ import { AdminCard, AdminFrame, AdminIcon } from "@/features/ynot/admin";
 import { AdminOwnerReview } from "@/features/ynot/client";
 import { AdminGate } from "@/features/ynot/components";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -29,10 +30,10 @@ export default async function OwnerReviewPage({
   );
   if (!campaign) return notFound();
 
-  // Dev-mode bypass mirrors AdminGate and the lifecycle route so owner-only
-  // pages can be reviewed locally without a real admin session.
+  // Dev-auth bypass mirrors AdminGate so owner-only pages can be reviewed
+  // locally only when the explicit dev flag is set.
   const viewerIsOwner =
-    data.viewer.adminRole === "owner" || process.env.NODE_ENV !== "production";
+    data.viewer.adminRole === "owner" || isDevAuthAllowed();
 
   if (!viewerIsOwner) {
     return (

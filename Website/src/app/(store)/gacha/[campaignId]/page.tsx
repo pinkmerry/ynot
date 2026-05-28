@@ -1,12 +1,13 @@
 import { CampaignDetailPanel, EmptyState, PageHeader, YnotShell } from "@/features/ynot/components";
 import { getCampaign, getYnotDashboardSlice } from "@/features/ynot/data";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function GachaDetailPage({ params }: { params: Promise<{ campaignId: string }> }) {
   const [{ campaignId }, data] = await Promise.all([params, getYnotDashboardSlice()]);
   const campaign = await getCampaign(campaignId, { allowTestForCurrentViewer: true, viewer: data.viewer });
-  const showAdminEdit = data.viewer.isAdmin || process.env.NODE_ENV !== "production";
+  const showAdminEdit = data.viewer.isAdmin || isDevAuthAllowed();
   return (
     <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
       {campaign ? (

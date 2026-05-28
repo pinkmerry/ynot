@@ -7,6 +7,7 @@ import {
   resolveAdminSession,
   resolveCurrentProfile,
 } from "@/lib/auth/resolve-current-profile";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { getCardCatalog, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { isMissingColumnError } from "@/lib/supabase/schema-compat";
@@ -1291,8 +1292,7 @@ export async function getCampaign(
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("campaign_detail", async () => {
     const viewer = options.viewer ?? (await getYnotViewer());
-    const includePrivateDetail =
-      viewer.isAdmin || process.env.NODE_ENV !== "production";
+    const includePrivateDetail = viewer.isAdmin || isDevAuthAllowed();
     const loadRow = (requireApproval: boolean) => {
       let query = supabase
         .from("draw_rounds")
@@ -1453,7 +1453,7 @@ export async function getWallet(profileId?: string): Promise<YnotWallet> {
   // preview user enough coins to exercise the gacha + sell flows. Never
   // applies in production.
   if (
-    process.env.NODE_ENV !== "production" &&
+    isDevAuthAllowed() &&
     profileId === PREVIEW_PROFILE_ID
   ) {
     return { balanceCoins: PREVIEW_WALLET_BALANCE, version: 0 };
@@ -1606,7 +1606,7 @@ export async function getCollection(
 ): Promise<YnotCollectionItem[]> {
   if (!profileId) return [];
   const collectionLimit =
-    process.env.NODE_ENV !== "production" &&
+    isDevAuthAllowed() &&
     profileId === process.env.YNOT_PREVIEW_PROFILE_ID?.trim()
       ? 1000
       : 200;
@@ -2511,24 +2511,13 @@ export async function getYnotDashboardSlice(
     ] = await Promise.all([
       needCampaigns
         ? campaignVisibility === "admin"
-          ? // Dev mirrors the YnotShell admin-bypass so promoted closed/test
-            // packs surface locally even without a Supabase admin session.
-            // Production still gates on the real viewer.isAdmin.
-            process.env.NODE_ENV === "production"
-              ? getCampaigns({
-                  includePrivate: viewer.isAdmin,
-                  limit: selector.campaignLimit,
-                  includeReadiness: selector.campaignReadiness,
-                  includePrizeLineups: selector.campaignPrizeLineups,
-                  campaignIdOrSlug: selector.campaignIdOrSlug,
-                })
-              : getCampaigns({
-                  includePrivate: true,
-                  limit: selector.campaignLimit,
-                  includeReadiness: selector.campaignReadiness,
-                  includePrizeLineups: selector.campaignPrizeLineups,
-                  campaignIdOrSlug: selector.campaignIdOrSlug,
-                })
+          ? getCampaigns({
+              includePrivate: viewer.isAdmin || isDevAuthAllowed(),
+              limit: selector.campaignLimit,
+              includeReadiness: selector.campaignReadiness,
+              includePrizeLineups: selector.campaignPrizeLineups,
+              campaignIdOrSlug: selector.campaignIdOrSlug,
+            })
           : getCampaigns({
               includePrivate: false,
               limit: selector.campaignLimit,
