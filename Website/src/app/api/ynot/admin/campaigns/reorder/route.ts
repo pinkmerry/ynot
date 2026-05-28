@@ -4,6 +4,7 @@ import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { adminErrorResponse } from "@/lib/ynot/admin-api-errors";
 import { DEMO_PACK_ORDER_COOKIE } from "@/features/ynot/demo-pack-order";
 
@@ -24,7 +25,7 @@ type ReorderSwap = { id: unknown; sortOrder: unknown };
  */
 export async function POST(request: Request) {
   const supabaseReady = isSupabaseConfigured();
-  const isDev = process.env.NODE_ENV !== "production";
+  const isDev = isDevAuthAllowed();
   // Skip admin gate when Supabase isn't configured (demo mode) OR when
   // running on a non-prod build (local dev against production Supabase).
   // Production always enforces the admin session.

@@ -10,6 +10,7 @@ import {
 } from "@/lib/supabase/schema-compat";
 import type { Json } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import {
   adminErrorResponse,
   campaignLifecycleErrorMap,
@@ -448,13 +449,14 @@ export async function POST(request: Request) {
       503,
     );
   }
-  const isDev = process.env.NODE_ENV !== "production";
+  const isDev = isDevAuthAllowed();
   // Dev-mode bypass: when no real admin session is present we still want
   // local lifecycle actions (e.g. archiving from the storefront delete
   // button) to work. Look up the first owner profile in the database so the
   // RPC receives a valid UUID; fall back to the well-known nil UUID if
-  // there is no admin row yet. Production always enforces the real admin
-  // gate.
+  // there is no admin row yet. Requires BOTH NODE_ENV != production AND
+  // YNOT_ENABLE_DEV_AUTH=true so a misconfigured NODE_ENV alone can't
+  // disable the admin gate in production.
   const realAdmin = await resolveAdminSession();
   let admin: Awaited<ReturnType<typeof resolveAdminSession>> = realAdmin;
   if (!admin && isDev) {

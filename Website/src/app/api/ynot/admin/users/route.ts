@@ -2,6 +2,7 @@ import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { emitSecurityAlert } from "@/lib/security/alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -82,11 +83,35 @@ export async function PATCH(request: Request) {
 
   await supabase.from("audit_events").insert({
     actor_admin_id: admin.adminId,
-    actor_profile_id: profileId,
+    actor_profile_id: admin.profileId,
     event_type: "admin_role_updated",
     metadata: {
-      profileId,
+      targetProfileId: profileId,
       role,
+      isActive,
+      previousRole: targetCurrent?.role ?? null,
+      previousIsActive: targetCurrent?.is_active ?? null,
+    },
+  });
+
+  // Fire a security alert on every admin-role mutation. Owner grants and
+  // deactivations are the highest-blast-radius events in the system; cheaper
+  // to be noisy than to miss one.
+  emitSecurityAlert({
+    event:
+      role === "owner" && targetCurrent?.role !== "owner"
+        ? "owner_role_granted"
+        : !isActive
+          ? "admin_role_revoked"
+          : "admin_role_granted",
+    actor: {
+      profileId: admin.profileId,
+      adminId: admin.adminId,
+      role: admin.adminRole,
+    },
+    target: { profileId },
+    details: {
+      newRole: role,
       isActive,
       previousRole: targetCurrent?.role ?? null,
       previousIsActive: targetCurrent?.is_active ?? null,

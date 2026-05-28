@@ -4,16 +4,15 @@ import {
   isSupabaseAuthCookieName,
   resolveCurrentProfile,
 } from "@/lib/auth/resolve-current-profile";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  // L1 hardening: in production, this endpoint is unconditionally a 404 — no
-  // env escape hatch. The previous ENABLE_DEBUG_ENDPOINTS="true" override is
-  // removed because it created a foot-gun (a single misconfigured env var
-  // would leak cookie names and session state to anyone). Local dev still
-  // serves the endpoint to make debugging painless.
-  if (process.env.NODE_ENV === "production") {
+  // Double-gated: NODE_ENV != production AND YNOT_ENABLE_DEV_AUTH=true.
+  // Leaks cookie names and session metadata, so production must never serve
+  // it. Local dev still works as long as the opt-in flag is set.
+  if (!isDevAuthAllowed()) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 

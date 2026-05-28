@@ -5,6 +5,7 @@ import {
   luckyDrawSessionCookie,
 } from "@/lib/lucky-draw/session";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +29,8 @@ function devRedirectUrl(request: Request) {
 }
 
 export async function GET(request: Request) {
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "Dev admin login is disabled in production." }, { status: 404 });
+  if (!isDevAuthAllowed()) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
   const supabase = createServiceSupabaseClient();

@@ -3,8 +3,13 @@ import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { emitSecurityAlert } from "@/lib/security/alerts";
 
 export const dynamic = "force-dynamic";
+
+// Approvals over this THB threshold trigger a security alert. Tune to whatever
+// "unusual for our user base" looks like.
+const LARGE_TOP_UP_THB_THRESHOLD = 5000;
 
 export async function GET() {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
@@ -29,5 +34,30 @@ export async function PATCH(request: Request) {
     ? await supabase.rpc("approve_top_up_request", { p_top_up_request_id: topUpId, p_admin_id: admin.adminId, p_admin_note: note })
     : await supabase.rpc("reject_top_up_request", { p_top_up_request_id: topUpId, p_admin_id: admin.adminId, p_admin_note: note });
   if (error) return Response.json({ error: error.message }, { status: 409 });
+
+  if (action === "approve") {
+    const { data: approved } = await supabase
+      .from("top_up_requests")
+      .select("amount_thb,profile_id,public_code")
+      .eq("id", topUpId)
+      .maybeSingle();
+    if (approved && Number(approved.amount_thb ?? 0) >= LARGE_TOP_UP_THB_THRESHOLD) {
+      emitSecurityAlert({
+        event: "top_up_approved_large",
+        actor: {
+          profileId: admin.profileId,
+          adminId: admin.adminId,
+          role: admin.adminRole,
+        },
+        target: { profileId: approved.profile_id },
+        details: {
+          publicCode: approved.public_code,
+          amountThb: approved.amount_thb,
+          threshold: LARGE_TOP_UP_THB_THRESHOLD,
+        },
+      });
+    }
+  }
+
   return Response.json({ result: data });
 }

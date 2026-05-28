@@ -3,6 +3,7 @@ import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { requireVerifiedAnchor } from "@/lib/auth/verified-anchor";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -293,7 +294,7 @@ export async function POST(request: Request) {
   // Preview-mode short circuit: synthesise an open result so the localhost
   // demo can show the reveal animation without a real wallet or profile.
   if (
-    process.env.NODE_ENV !== "production" &&
+    isDevAuthAllowed() &&
     session.authUserId === PREVIEW_AUTH_USER_ID
   ) {
     return Response.json({

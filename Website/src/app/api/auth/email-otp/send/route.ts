@@ -41,7 +41,16 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    return jsonNoStore({ error: error.message }, { status: 400 });
+    // Log the real provider message for ops; respond with a generic message
+    // so we don't enumerate account state or rate-limit details.
+    console.warn(
+      "email_otp_send_provider_error",
+      error.message ?? "unknown",
+    );
+    return jsonNoStore(
+      { error: "Could not send code. Please try again in a moment." },
+      { status: 400 },
+    );
   }
 
   return jsonNoStore({ sent: true, email });

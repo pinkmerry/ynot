@@ -1,15 +1,11 @@
 import type { NextConfig } from "next";
 
-// CSP shipped in report-only mode first. This lets us observe violations from
-// the YouTube livestream embed, the LIFF SDK, and Supabase realtime without
-// blocking any existing behavior. After we have a clean week of reports we
-// flip the header name from Content-Security-Policy-Report-Only to
-// Content-Security-Policy to enforce.
-//
-// 'unsafe-inline' on script-src is required because Next.js 16 still emits
-// inline runtime scripts; switching to nonce-based CSP needs middleware
-// support that the current Cloudflare Worker setup does not yet wire up.
-// 'unsafe-eval' is needed for the LIFF SDK in dev/preview environments.
+// CSP is enforced. 'unsafe-inline' on script-src is required because Next.js 16
+// still emits inline runtime scripts; switching to nonce-based CSP needs
+// middleware support that the current Cloudflare Worker setup does not yet
+// wire up. 'unsafe-eval' is needed for the LIFF SDK. Other directives
+// (frame-ancestors, object-src, base-uri, form-action) still provide
+// meaningful clickjacking and form-hijack protection even with relaxed scripts.
 const cspDirectives = [
   "default-src 'self'",
   // Scripts: self + inline (Next.js runtime). Add hosts as needed for
@@ -45,9 +41,7 @@ const securityHeaders = [
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=(), interest-cohort=(), browsing-topics=()",
   },
-  // Report-only — observes but does not block. Promote to enforcing
-  // (Content-Security-Policy) once reports are clean.
-  { key: "Content-Security-Policy-Report-Only", value: cspDirectives },
+  { key: "Content-Security-Policy", value: cspDirectives },
 ];
 
 const nextConfig: NextConfig = {

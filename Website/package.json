@@ -30,7 +30,8 @@
     "test:top-up-flow": "node --test scripts/test-top-up-flow.mjs",
     "test:identity-review-db-safety": "node --test scripts/test-identity-review-db-safety.mjs",
     "test:personal-info": "node --test scripts/test-personal-info-address-sync.mjs",
-    "verify:hardening": "npm run test:uploads && node tools/verification/verify-hardening.mjs",
+    "verify:hardening": "npm run test:uploads && node tools/verification/verify-hardening.mjs && node tools/verification/verify-rls-coverage.mjs",
+    "verify:production-env": "YNOT_ENV=production node tools/verification/verify-production-env.mjs",
     "verify:production-test": "node tools/verification/verify-production-test-readiness.mjs",
     "verify:production-db": "node tools/verification/check-production-supabase-readiness.mjs"
   },

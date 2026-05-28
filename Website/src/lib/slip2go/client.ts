@@ -38,6 +38,12 @@ export type Slip2GoVerificationResult = {
 
 const slip2GoValidCode = "200200";
 const defaultSlip2GoApiUrl = "https://connect.slip2go.com";
+// Hard allowlist for the Slip2Go endpoint. A misconfigured SLIP2GO_API_URL
+// otherwise leaks the bearer secret + payment slip image to whatever host an
+// operator typo'd. Extend this list only when Slip2Go publishes a new host.
+const allowedSlip2GoHosts = new Set<string>([
+  "connect.slip2go.com",
+]);
 const verificationWindowMs = 24 * 60 * 60 * 1000;
 const defaultPromptPayAccountTypes: Record<PromptPayKind, string> = {
   phone: "02001",
@@ -81,7 +87,15 @@ export function sha256Hex(value: ArrayBuffer | string) {
 
 function normalizeBaseUrl(value: string | undefined) {
   const clean = value?.trim().replace(/\/+$/, "");
-  return clean || null;
+  if (!clean) return null;
+  try {
+    const parsed = new URL(clean);
+    if (parsed.protocol !== "https:") return null;
+    if (!allowedSlip2GoHosts.has(parsed.hostname)) return null;
+    return clean;
+  } catch {
+    return null;
+  }
 }
 
 function normalizePaymentAccount(value: string | null | undefined) {

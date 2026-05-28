@@ -216,6 +216,7 @@ export async function GET(request: Request) {
       secure,
       path: "/",
       maxAge: 60 * 60 * 24 * 30,
+      priority: "high",
     });
 
     return redirectWith(
@@ -226,6 +227,7 @@ export async function GET(request: Request) {
     );
   } catch (error) {
     console.error("line_oauth_callback_failed", error instanceof Error ? error.message : String(error));
-    return redirectWith(request, storedState.next, "error", error instanceof Error ? error.message : "LINE login failed.");
+    // Generic user-facing message — provider internals never reach the browser.
+    return redirectWith(request, storedState.next, "error", "LINE login failed. Please try again.");
   }
 }

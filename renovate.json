@@ -1,0 +1,50 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    ":dependencyDashboard"
+  ],
+  "schedule": ["before 6am on Monday"],
+  "timezone": "Asia/Bangkok",
+  "rangeStrategy": "bump",
+  "labels": ["dependencies"],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security", "dependencies"],
+    "schedule": ["at any time"],
+    "automerge": false
+  },
+  "packageRules": [
+    {
+      "description": "Group all minor + patch updates into one PR per ecosystem to reduce noise.",
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchManagers": ["npm"],
+      "groupName": "npm minor + patch",
+      "automerge": false
+    },
+    {
+      "description": "Major updates always get their own PR with a description so we can read release notes.",
+      "matchUpdateTypes": ["major"],
+      "groupName": null,
+      "automerge": false
+    },
+    {
+      "description": "Pin the Next.js major version — it ships breaking app-router changes regularly.",
+      "matchPackageNames": ["next", "eslint-config-next"],
+      "matchUpdateTypes": ["major"],
+      "enabled": true,
+      "labels": ["framework-major", "needs-manual-test"]
+    },
+    {
+      "description": "Supabase libs travel together; group them so RPC type drift is reviewed in one PR.",
+      "matchPackageNames": ["@supabase/ssr", "@supabase/supabase-js"],
+      "groupName": "supabase clients"
+    },
+    {
+      "description": "Wrangler + opennext travel together — both gate the Cloudflare build.",
+      "matchPackageNames": ["wrangler", "@opennextjs/cloudflare"],
+      "groupName": "cloudflare workers toolchain"
+    }
+  ]
+}

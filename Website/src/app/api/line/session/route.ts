@@ -200,10 +200,13 @@ export async function POST(request: Request) {
     adminRole: adminUser?.role ?? null,
   });
 
+  // Priority=High keeps the session cookie from being evicted under storage
+  // pressure (Chrome's storage manager prefers low-priority cookies). Without
+  // it, heavy-cookie users would silently get logged out.
   const secure = shouldUseSecureCookies(request) ? " Secure;" : "";
   serverResponse.headers.set(
     "Set-Cookie",
-    `${luckyDrawSessionCookie}=${sessionCookie}; HttpOnly;${secure} SameSite=Lax; Path=/; Max-Age=2592000`,
+    `${luckyDrawSessionCookie}=${sessionCookie}; HttpOnly;${secure} SameSite=Lax; Path=/; Max-Age=2592000; Priority=High`,
   );
 
   return serverResponse;

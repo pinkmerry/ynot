@@ -46,6 +46,15 @@ export async function POST(request: Request) {
   const limited = await enforceRateLimit(request, "ynot:wallet:top-up", { limit: 6, windowMs: 60_000 }, session.profileId);
   if (limited) return limited;
 
+  // Reject oversize uploads BEFORE buffering. The body-level magic-byte check
+  // below still runs as the authoritative ceiling, but content-length lets us
+  // bail out without spending Worker memory on a 100 MB tarball. We allow a
+  // little headroom over maxSlipBytes for multipart envelope overhead.
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > maxSlipBytes + 64 * 1024) {
+    return jsonNoStore({ error: "Slip must be 10 MB or smaller." }, { status: 413 });
+  }
+
   const form = await request.formData();
   const paymentMethodId = String(form.get("paymentMethodId") ?? "").trim();
   const packageId = String(form.get("packageId") ?? "").trim();
