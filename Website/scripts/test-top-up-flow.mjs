@@ -239,6 +239,39 @@ test("customer wallet top-ups do not expose provider internals", () => {
   assert.doesNotMatch(typesSource, /referenceId|duplicateOfSlipId/);
 });
 
+test("bank-transfer top-up labels stay aligned across customer and admin previews", () => {
+  const dataSource = readFileSync(
+    new URL("../src/features/ynot/data.ts", import.meta.url),
+    "utf8",
+  );
+  const walletExperience = readFileSync(
+    new URL("../src/features/ynot/cr/WalletExperience.tsx", import.meta.url),
+    "utf8",
+  );
+  const adminSettings = readFileSync(
+    new URL("../src/app/admin/settings/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const adminComponents = readFileSync(
+    new URL("../src/features/ynot/components.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(dataSource, /function displayPaymentMethodName/);
+  assert.ok(dataSource.includes('if (type === "bank_transfer") return "Bank Transfer";'));
+  assert.match(dataSource, /function hideLegacyMainTransfer/);
+  assert.match(dataSource, /method\.code === "main-transfer"/);
+  assert.match(dataSource, /ynot-payment-methods-v3-bank-transfer-only/);
+  assert.match(dataSource, /displayName:\s*displayPaymentMethodName\(row\.type, row\.display_name\)/);
+  assert.match(
+    dataSource,
+    /displayName:\s*displayPaymentMethodName\(\s*options\.paymentMethod\.type,\s*options\.paymentMethod\.display_name,\s*\)/,
+  );
+  assert.doesNotMatch(walletExperience, /Main bank \/ PromptPay|No active bank or PromptPay/);
+  assert.match(adminSettings, /title="Bank Transfer"/);
+  assert.match(adminComponents, />Bank Transfer<\/h3>/);
+});
+
 test("admin top-up approval refuses unsafe or reused slips before crediting", () => {
   const adminRoute = readFileSync(
     new URL("../src/app/api/ynot/admin/top-ups/route.ts", import.meta.url),

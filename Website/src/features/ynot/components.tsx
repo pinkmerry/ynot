@@ -1876,7 +1876,7 @@ export function WalletPanel({
         <span className="vip-bonus">1 THB = 1 coin</span>
       </section>
       <section className="soft-card wallet-method-card">
-        <h3 className="title-m">Manual transfer / QR methods</h3>
+        <h3 className="title-m">Bank Transfer</h3>
         <div className="mt-4 grid gap-3">
           {paymentMethods.length ? (
             paymentMethods.map((method) => (
@@ -1888,7 +1888,7 @@ export function WalletPanel({
                   {method.displayName}
                 </p>
                 <p className="txt-s mt-1">
-                  {method.bankName ?? "PromptPay"} ·{" "}
+                  {method.bankName ?? "Bank Transfer"} ·{" "}
                   {method.accountName ??
                     method.promptpayId ??
                     "Configured by admin"}
@@ -2304,7 +2304,7 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
     {
       href: "/admin/top-ups",
       title: "Wallet Top-ups",
-      body: "Approve or reject bank transfer and PromptPay slip requests before coins are credited.",
+      body: "Approve or reject bank transfer slip requests before coins are credited.",
       meta: `${pendingTopUps} pending`,
     },
     {
@@ -2316,7 +2316,7 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
     {
       href: "/admin/settings",
       title: "Payment Settings",
-      body: "Configure bank transfer and PromptPay methods used by customer wallet top-ups.",
+      body: "Configure bank transfer methods used by customer wallet top-ups.",
       meta: `${data.paymentMethods.length} methods`,
     },
     {

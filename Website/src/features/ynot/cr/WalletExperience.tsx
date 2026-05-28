@@ -529,7 +529,7 @@ export function WalletExperience({
                       fontSize: 13,
                     }}
                   >
-                    No active bank or PromptPay method is configured. Admin must
+                    No active bank transfer method is configured. Admin must
                     add one before customers can submit a top-up.
                   </div>
                 ) : (
@@ -570,7 +570,7 @@ export function WalletExperience({
                         <small className="cr-mute" style={{ marginTop: 2 }}>
                           {method.type === "promptpay_qr"
                             ? "Scan & pay"
-                            : method.bankName ?? "Bank transfer"}
+                            : method.bankName ?? "Bank Transfer"}
                         </small>
                       </button>
                     ))}
@@ -636,20 +636,21 @@ export function WalletExperience({
                           <strong>{selectedMethod.accountName}</strong>
                         </div>
                       )}
-                      {selectedMethod.promptpayId && (
-                        <div
-                          className="cr-row"
-                          style={{
-                            justifyContent: "space-between",
-                            padding: "6px 0",
-                          }}
-                        >
-                          <span className="cr-mute">PromptPay ID</span>
-                          <strong className="cr-tnum">
-                            {selectedMethod.promptpayId}
-                          </strong>
-                        </div>
-                      )}
+                      {selectedMethod.type === "promptpay_qr" &&
+                        selectedMethod.promptpayId && (
+                          <div
+                            className="cr-row"
+                            style={{
+                              justifyContent: "space-between",
+                              padding: "6px 0",
+                            }}
+                          >
+                            <span className="cr-mute">PromptPay ID</span>
+                            <strong className="cr-tnum">
+                              {selectedMethod.promptpayId}
+                            </strong>
+                          </div>
+                        )}
                       <div
                         className="cr-row"
                         style={{

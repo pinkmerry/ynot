@@ -103,7 +103,7 @@ export default async function AdminSettingsPage() {
             <AdminCard className="admin-settings-payment-card">
               <AdminCardHead
                 label="Payment methods"
-                title="Bank transfer · PromptPay"
+                title="Bank Transfer"
                 actions={<AdminPill kind="live">{data.paymentMethods.length} configured</AdminPill>}
               />
               <div className="card-pad">

@@ -1394,13 +1394,13 @@ async function getPaymentMethodsImpl(): Promise<YnotPaymentMethod[]> {
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
     if (error) throw error;
-    return (data ?? []).map(toPaymentMethod);
+    return hideLegacyMainTransfer((data ?? []).map(toPaymentMethod));
   });
 }
 
 const getPaymentMethodsCached = unstable_cache(
   getPaymentMethodsImpl,
-  ["ynot-payment-methods-v1"],
+  ["ynot-payment-methods-v3-bank-transfer-only"],
   { tags: ["payment-methods"], revalidate: 300 },
 );
 
@@ -1417,7 +1417,7 @@ export async function getAllPaymentMethods(): Promise<YnotPaymentMethod[]> {
       .select("*")
       .order("sort_order", { ascending: true });
     if (error) throw error;
-    return (data ?? []).map(toPaymentMethod);
+    return hideLegacyMainTransfer((data ?? []).map(toPaymentMethod));
   });
 }
 
@@ -1428,7 +1428,7 @@ function toPaymentMethod(
     id: row.id,
     code: row.code,
     type: row.type,
-    displayName: row.display_name,
+    displayName: displayPaymentMethodName(row.type, row.display_name),
     bankName: row.bank_name,
     accountName: row.account_name,
     accountNumber: row.account_number,
@@ -1438,6 +1438,26 @@ function toPaymentMethod(
     isActive: row.is_active,
     sortOrder: row.sort_order,
   };
+}
+
+function displayPaymentMethodName(
+  type: Database["public"]["Tables"]["payment_methods"]["Row"]["type"],
+  displayName: string | null | undefined,
+) {
+  if (type === "bank_transfer") return "Bank Transfer";
+  return displayName?.trim() || "PromptPay QR";
+}
+
+function hideLegacyMainTransfer(methods: YnotPaymentMethod[]) {
+  const hasCanonicalBankTransfer = methods.some(
+    (method) =>
+      method.type === "bank_transfer" && method.code === "bank-transfer",
+  );
+  if (!hasCanonicalBankTransfer) return methods;
+  return methods.filter(
+    (method) =>
+      !(method.type === "bank_transfer" && method.code === "main-transfer"),
+  );
 }
 
 const PREVIEW_PROFILE_ID = "00000000-0000-0000-0000-000000000001";
@@ -1579,7 +1599,10 @@ export function toTopUp(
           id: options.paymentMethod.id,
           code: options.paymentMethod.code,
           type: options.paymentMethod.type,
-          displayName: options.paymentMethod.display_name,
+          displayName: displayPaymentMethodName(
+            options.paymentMethod.type,
+            options.paymentMethod.display_name,
+          ),
         }
       : null,
     slipVerification: options.slip

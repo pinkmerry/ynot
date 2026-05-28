@@ -480,7 +480,7 @@ export function TopUpForm({
     <section className="soft-card topup-slip-card">
       <h3 className="text-lg font-black">Upload transfer slip</h3>
       <p className="txt-s mt-2">
-        Manual bank transfer and QR slip upload stay first. Admin confirms
+        Manual bank transfer slip upload stays first. Admin confirms
         before coins are credited.
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -516,7 +516,7 @@ export function TopUpForm({
                   <span className="block">
                     {method.type === "promptpay_qr"
                       ? "PromptPay QR"
-                      : "Bank transfer"}
+                      : "Bank Transfer"}
                   </span>
                   <span className="mt-1 block text-xs font-bold opacity-75">
                     {method.displayName}
@@ -527,7 +527,7 @@ export function TopUpForm({
           </div>
         ) : (
           <div className="mt-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-bold text-[var(--muted)]">
-            No active bank or PromptPay method is configured yet. Admin must add
+            No active bank transfer method is configured yet. Admin must add
             one before customers can submit a top-up.
           </div>
         )}
@@ -547,7 +547,7 @@ export function TopUpForm({
             <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-black">
               {selectedMethod.type === "promptpay_qr"
                 ? "PromptPay"
-                : "Bank transfer"}
+                : "Bank Transfer"}
             </span>
           </div>
           <div className="mt-3 grid gap-2 text-sm">
@@ -579,22 +579,23 @@ export function TopUpForm({
                 </button>
               </div>
             )}
-            {selectedMethod.promptpayId && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono font-black">
-                  {selectedMethod.promptpayId}
-                </span>
-                <button
-                  className="plain-button rounded-xl px-3 py-1 text-xs font-black"
-                  onClick={() =>
-                    copyValue("PromptPay ID", selectedMethod.promptpayId)
-                  }
-                  type="button"
-                >
-                  Copy
-                </button>
-              </div>
-            )}
+            {selectedMethod.type === "promptpay_qr" &&
+              selectedMethod.promptpayId && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono font-black">
+                    {selectedMethod.promptpayId}
+                  </span>
+                  <button
+                    className="plain-button rounded-xl px-3 py-1 text-xs font-black"
+                    onClick={() =>
+                      copyValue("PromptPay ID", selectedMethod.promptpayId)
+                    }
+                    type="button"
+                  >
+                    Copy
+                  </button>
+                </div>
+              )}
             {selectedMethod.qrImagePath &&
               /^(https?:)?\/\//.test(selectedMethod.qrImagePath) && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -1634,7 +1635,7 @@ export function AdminPaymentMethodForm({
   paymentMethods?: YnotPaymentMethod[];
 }) {
   const [code, setCode] = useState("bank-transfer");
-  const [displayName, setDisplayName] = useState("Bank transfer");
+  const [displayName, setDisplayName] = useState("Bank Transfer");
   const [type, setType] = useState<"bank_transfer" | "promptpay_qr">(
     "bank_transfer",
   );
@@ -1674,7 +1675,7 @@ export function AdminPaymentMethodForm({
   function applyPaymentPreset(nextType: "bank_transfer" | "promptpay_qr") {
     setType(nextType);
     setCode(nextType === "promptpay_qr" ? "promptpay-qr" : "bank-transfer");
-    setDisplayName(nextType === "promptpay_qr" ? "PromptPay QR" : "Bank transfer");
+    setDisplayName(nextType === "promptpay_qr" ? "PromptPay QR" : "Bank Transfer");
     setSortOrder(nextType === "promptpay_qr" ? 20 : 10);
   }
 
@@ -1736,7 +1737,7 @@ export function AdminPaymentMethodForm({
         <span>Payment settings</span>
         <h3>Payment method settings</h3>
         <p>
-          Manage the bank or PromptPay details customers see before uploading a
+          Manage the bank transfer details customers see before uploading a
           transfer slip.
         </p>
       </div>
@@ -1746,7 +1747,7 @@ export function AdminPaymentMethodForm({
           onClick={() => applyPaymentPreset("bank_transfer")}
           type="button"
         >
-          Bank transfer
+          Bank Transfer
         </button>
         <button
           className="plain-button rounded-xl px-3 py-2 text-xs font-black"
@@ -1791,7 +1792,7 @@ export function AdminPaymentMethodForm({
           }
         >
           <option value="promptpay_qr">PromptPay QR</option>
-          <option value="bank_transfer">Bank transfer</option>
+          <option value="bank_transfer">Bank Transfer</option>
         </select>
         <input
           className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
