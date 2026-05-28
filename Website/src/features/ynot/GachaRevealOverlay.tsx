@@ -68,6 +68,30 @@ function featuredRevealItem(items: YnotGachaOpenItem[]) {
   }, null);
 }
 
+function PackOpenCutoutMotionImage() {
+  return (
+    <picture>
+      <source srcSet="/ynot-pack-open-cutout.avif" type="image/avif" />
+      <img
+        className="pack-open-cutout-motion"
+        src="/ynot-pack-open-cutout.webp"
+        alt=""
+        aria-hidden="true"
+      />
+    </picture>
+  );
+}
+
+function OpenPackShellImage() {
+  return (
+    <picture className="pack-open-picture">
+      <source srcSet="/ynot-open-pack-bg-removed.avif" type="image/avif" />
+      <source srcSet="/ynot-open-pack-bg-removed.webp" type="image/webp" />
+      <img src="/ynot-open-pack-bg-removed.png" alt="" />
+    </picture>
+  );
+}
+
 function findTierAnimation(
   animations: YnotTierAnimation[] | undefined,
   tier: PrizeDisplayTier,
@@ -273,25 +297,16 @@ export function GachaRevealOverlay({
                 <div className="pack-open-aura" aria-hidden="true" />
                 <span className="pack-open-scanline" aria-hidden="true" />
                 <span className="pack-open-flash" aria-hidden="true" />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  className="pack-open-cutout-motion"
-                  src="/ynot-pack-open-cutout.webp"
-                  alt=""
-                  aria-hidden="true"
-                />
+                <PackOpenCutoutMotionImage />
                 <div className="pack-open-pack-shell" aria-hidden="true">
                   <div className="pack-open-pack pack-open-pack-base">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/ynot-open-pack-bg-removed.png" alt="" />
+                    <OpenPackShellImage />
                   </div>
                   <div className="pack-open-pack-split pack-open-pack-top">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/ynot-open-pack-bg-removed.png" alt="" />
+                    <OpenPackShellImage />
                   </div>
                   <div className="pack-open-pack-split pack-open-pack-body">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/ynot-open-pack-bg-removed.png" alt="" />
+                    <OpenPackShellImage />
                   </div>
                   <span className="pack-open-tear" />
                   <span className="pack-open-mouth-shadow" aria-hidden="true" />

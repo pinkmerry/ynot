@@ -615,25 +615,33 @@ export function StoreBrandHomeLink() {
       prefetch={false}
       onClick={handleClick}
     >
-      <Image
-        src="/ynot-logo-black.png?v=1"
-        alt="YNOT"
-        width={1896}
-        height={596}
-        priority
-        unoptimized
-        className="brand-logo brand-logo--black"
-      />
-      <Image
-        src="/ynot-logo-white.png?v=1"
-        alt=""
-        width={1896}
-        height={596}
-        priority
-        unoptimized
-        aria-hidden="true"
-        className="brand-logo brand-logo--white"
-      />
+      <picture>
+        <source srcSet="/ynot-logo-black.webp?v=1" type="image/webp" />
+        <img
+          src="/ynot-logo-black.png?v=1"
+          alt="YNOT"
+          width={1896}
+          height={596}
+          loading="eager"
+          decoding="async"
+          fetchPriority="high"
+          className="brand-logo brand-logo--black"
+        />
+      </picture>
+      <picture>
+        <source srcSet="/ynot-logo-white.webp?v=1" type="image/webp" />
+        <img
+          src="/ynot-logo-white.png?v=1"
+          alt=""
+          width={1896}
+          height={596}
+          loading="eager"
+          decoding="async"
+          fetchPriority="high"
+          aria-hidden="true"
+          className="brand-logo brand-logo--white"
+        />
+      </picture>
     </Link>
   );
 }

@@ -35,6 +35,20 @@ function getOpenDuration(mode: OpenMode, rarity: PullRarity) {
   return 7200;
 }
 
+function PackOpenCutoutMotionImage() {
+  return (
+    <picture>
+      <source srcSet="/ynot-pack-open-cutout.avif" type="image/avif" />
+      <img
+        className="pack-open-cutout-motion"
+        src="/ynot-pack-open-cutout.webp"
+        alt=""
+        aria-hidden
+      />
+    </picture>
+  );
+}
+
 function getPhaseLabel(stage: OpenStage, phase: OpenPhase, mode: OpenMode, rarity: PullRarity) {
   if (stage === "idle") return "Ready";
   if (stage === "revealed") {
@@ -116,12 +130,7 @@ export function PackOpenPrototype() {
           <span className="pack-open-scanline" aria-hidden />
           <span className="pack-open-flash" aria-hidden />
           {isOpening && (
-            <img
-              className="pack-open-cutout-motion"
-              src="/ynot-pack-open-cutout.webp"
-              alt=""
-              aria-hidden
-            />
+            <PackOpenCutoutMotionImage />
           )}
           <div className="pack-open-pack-shell" aria-hidden={isRevealed}>
             <div className="pack-open-pack pack-open-pack-base">
