@@ -1597,7 +1597,13 @@ export function toTopUp(
 export async function getCollection(
   profileId?: string,
 ): Promise<YnotCollectionItem[]> {
-  if (!profileId || !isSupabaseConfigured()) return [];
+  if (!profileId) return [];
+  const collectionLimit =
+    process.env.NODE_ENV !== "production" &&
+    profileId === process.env.YNOT_PREVIEW_PROFILE_ID?.trim()
+      ? 1000
+      : 200;
+  if (!isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   const [items, cards] = await Promise.all([
     readOrEmpty("collection", async () => {
@@ -1606,7 +1612,7 @@ export async function getCollection(
         .select("*")
         .eq("profile_id", profileId)
         .order("acquired_at", { ascending: false })
-        .limit(200);
+        .limit(collectionLimit);
       if (error) throw error;
       return data ?? [];
     }),

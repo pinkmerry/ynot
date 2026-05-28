@@ -6,7 +6,6 @@ import { useMemo, useState, useTransition } from "react";
 import type {
   YnotAddress,
   YnotCollectionItem,
-  YnotGachaOpenHistory,
 } from "../types";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { Modal, PageHead, useToast } from "./UiKit";
@@ -64,12 +63,6 @@ function statusLabel(bucket: StatusKey): string {
   return "Converted";
 }
 
-function formatPrizeValue(value: number | null | undefined) {
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0)
-    return null;
-  return `฿${Math.round(value).toLocaleString()}`;
-}
-
 type EnrichedItem = YnotCollectionItem & {
   bucket: StatusKey;
   tier: TierKey;
@@ -95,20 +88,15 @@ function enrich(item: YnotCollectionItem): EnrichedItem | null {
 export type HistoryExperienceProps = {
   collection: YnotCollectionItem[];
   addresses: YnotAddress[];
-  gachaOpens: YnotGachaOpenHistory[];
-  viewer: { displayName: string };
 };
 
 export function HistoryExperience({
   collection,
   addresses,
-  gachaOpens,
-  viewer,
 }: HistoryExperienceProps) {
   const { toast } = useToast();
   const [tab, setTab] = useState<TabKey>("collection");
   const [seriesFilter, setSeriesFilter] = useState<string>("all");
-  const [tierFilter, setTierFilter] = useState<TierKey | "all">("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sellOpen, setSellOpen] = useState(false);
@@ -137,7 +125,6 @@ export function HistoryExperience({
       .filter(
         (c) => seriesFilter === "all" || c.series === seriesFilter,
       )
-      .filter((c) => tierFilter === "all" || c.tier === tierFilter)
       .filter((c) => {
         if (!search.trim()) return true;
         const needle = search.toLowerCase();
@@ -146,7 +133,7 @@ export function HistoryExperience({
           (c.cardCode ?? "").toLowerCase().includes(needle)
         );
       });
-  }, [byTab, tab, seriesFilter, tierFilter, search]);
+  }, [byTab, tab, seriesFilter, search]);
 
   const seriesOptions = useMemo(() => {
     const set = new Set<string>();
@@ -155,27 +142,6 @@ export function HistoryExperience({
     }
     return Array.from(set).sort();
   }, [enriched]);
-
-  // Timeline: derive from gachaOpens flatMap of rewards.
-  const timeline = useMemo(() => {
-    const events = gachaOpens
-      .flatMap((open) =>
-        open.rewards.map((reward) => ({
-          id: reward.id,
-          name: reward.cardName,
-          code: reward.cardCode ?? "—",
-          tier: ((reward.tier ?? "bronze").toLowerCase() as TierKey | string),
-          series: open.campaignTitle.toLowerCase().includes("pokemon")
-            ? "pokemon"
-            : "one_piece",
-          campaignTitle: open.campaignTitle,
-          openedAt: new Date(open.openedAt).toLocaleString(),
-          status: "owned" as StatusKey,
-        })),
-      )
-      .slice(0, 8);
-    return events;
-  }, [gachaOpens]);
 
   function toggleSelect(id: string, bucket: StatusKey) {
     if (bucket !== "owned") {
@@ -275,9 +241,9 @@ export function HistoryExperience({
   return (
     <div className="cr-page">
       <PageHead
-        eyebrow="Profile"
-        title="Card history"
-        lead="Everything you've pulled, kept, shipped, or converted back to coins."
+        eyebrow="Collection"
+        title="My collection"
+        lead="Cards you own, ship, or sell back to coins."
         actions={
           <Link className="cr-btn cr-btn-primary" href="/packs">
             <Ico name="sparkle" size={14} /> Open another pack
@@ -285,203 +251,7 @@ export function HistoryExperience({
         }
       />
 
-      <div className="cr-section cr-history-summary">
-        <div
-          className="cr-history-profile-card"
-          style={{
-            padding: "20px 22px",
-            display: "flex",
-            gap: 14,
-            alignItems: "center",
-          }}
-        >
-          <span
-            style={{
-              width: 52,
-              height: 52,
-              borderRadius: "50%",
-              background: "linear-gradient(135deg, #d9a022, #f6c64a)",
-              color: "#fff",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 22,
-              fontWeight: 900,
-            }}
-          >
-            {(viewer.displayName || "Y").charAt(0).toUpperCase()}
-          </span>
-          <div className="cr-stack" style={{ gap: 2 }}>
-            <span className="cr-eyebrow">Collector</span>
-            <strong style={{ fontSize: 15 }}>{viewer.displayName}</strong>
-            <small className="cr-mute" style={{ fontSize: 11.5 }}>
-              {gachaOpens.reduce((sum, open) => sum + open.quantity, 0)} packs
-              opened
-            </small>
-          </div>
-        </div>
-        <div className="cr-history-kpi-grid">
-          {(
-            [
-              {
-                label: "Owned cards",
-                value: byTab.collection.length,
-                sub: "in your stash",
-              },
-              {
-                label: "Top tier (R/G)",
-                value: enriched.filter(
-                  (c) => c.tier === "rainbow" || c.tier === "gold",
-                ).length,
-                sub: "highest pulls",
-              },
-              {
-                label: "Shipped to me",
-                value: byTab.shipped.length,
-                sub: "physical delivery",
-              },
-              {
-                label: "Converted to coins",
-                value: byTab.converted.length,
-                sub: "cashed back",
-              },
-            ] as { label: string; value: number; sub: string }[]
-          ).map((kpi, i) => (
-            <div
-              key={kpi.label}
-              className={`cr-stack cr-history-kpi-card ${
-                i ? "with-border" : ""
-              }`}
-              style={{
-                gap: 4,
-                padding: "20px 18px",
-              }}
-            >
-              <span className="cr-eyebrow">{kpi.label}</span>
-              <strong className="cr-tnum" style={{ fontSize: 24 }}>
-                {formatCoins(kpi.value)}
-              </strong>
-              <small className="cr-mute" style={{ fontSize: 11.5 }}>
-                {kpi.sub}
-              </small>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="cr-history-layout">
-        <div className="cr-section cr-history-timeline">
-          <div className="cr-section-head">
-            <div className="cr-stack" style={{ gap: 2 }}>
-              <span className="cr-eyebrow">Recent pulls · Timeline</span>
-              <h3>Reward history</h3>
-            </div>
-            <span className="cr-pill">
-              {Math.min(timeline.length, 8)} of{" "}
-              {gachaOpens.reduce((sum, o) => sum + o.rewards.length, 0)}
-            </span>
-          </div>
-          <div>
-            {timeline.length === 0 ? (
-              <div
-                style={{
-                  padding: 30,
-                  textAlign: "center",
-                  color: "var(--cr-mute)",
-                  fontSize: 13,
-                }}
-              >
-                Open a pack to start building your reward history.
-              </div>
-            ) : (
-              timeline.map((reward) => (
-                <div key={reward.id} className="cr-history-row">
-                  <div style={{ display: "flex", justifyContent: "center" }}>
-                    <span
-                      style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: "50%",
-                        marginTop: 2,
-                        background:
-                          reward.tier === "rainbow"
-                            ? "linear-gradient(135deg, #ff80b5, #ffc480, #80ff9b, #80c0ff)"
-                            : reward.tier === "gold"
-                              ? "#d9a022"
-                              : reward.tier === "silver"
-                                ? "#9aa1a8"
-                                : "#c98e5c",
-                        border: "2px solid #fff",
-                        boxShadow: "0 0 0 1px var(--cr-line)",
-                      }}
-                    />
-                  </div>
-                  <div className="cr-history-thumb">
-                    <div
-                      className={`cr-coll-art ${reward.tier}`}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        borderBottom: 0,
-                      }}
-                    >
-                      <span style={{ fontSize: 9, opacity: 0.6 }}>
-                        {reward.code}
-                      </span>
-                    </div>
-                  </div>
-                  <div
-                    className="cr-stack"
-                    style={{ gap: 2, minWidth: 0 }}
-                  >
-                    <strong
-                      style={{
-                        fontSize: 13,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {reward.name}
-                    </strong>
-                    <small className="cr-mute" style={{ fontSize: 11 }}>
-                      {reward.code} · {seriesLabel(reward.series)}
-                    </small>
-                    <small
-                      className="cr-mute"
-                      style={{
-                        fontSize: 10.5,
-                        letterSpacing: "0.1em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      {reward.openedAt}
-                    </small>
-                  </div>
-                  <span className="cr-pill">{reward.tier}</span>
-                </div>
-              ))
-            )}
-          </div>
-          <div
-            style={{
-              padding: "10px 18px",
-              borderTop: "1px solid var(--cr-line-soft)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <small className="cr-mute">
-              Showing latest {Math.min(timeline.length, 8)}
-            </small>
-            <Link className="cr-btn cr-btn-sm cr-btn-ghost" href="/profile/all-pulls">
-              All pulls <Ico name="chev-r" size={12} />
-            </Link>
-          </div>
-        </div>
-
-        <div className="cr-stack" style={{ gap: 14 }}>
+      <div className="cr-stack cr-collection-workspace">
           <div className="cr-tabs" role="tablist">
             <button
               type="button"
@@ -536,32 +306,9 @@ export function HistoryExperience({
                   onClick={() => setSeriesFilter(series)}
                 >
                   {seriesLabel(series)}
-                </button>
-              ))}
-            </div>
-            <span
-              style={{
-                width: 1,
-                height: 22,
-                background: "var(--cr-line)",
-              }}
-            />
-            <div className="cr-row" style={{ gap: 4 }}>
-              {(["all", "rainbow", "gold", "silver", "bronze"] as const).map(
-                (t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    className={`cr-btn cr-btn-sm ${
-                      tierFilter === t ? "cr-btn-primary" : "cr-btn-ghost"
-                    }`}
-                    onClick={() => setTierFilter(t)}
-                  >
-                    {t === "all" ? "Any tier" : t}
-                  </button>
-                ),
-              )}
-            </div>
+              </button>
+            ))}
+          </div>
             <span style={{ flex: 1 }} />
             <div className="cr-search" style={{ maxWidth: 220 }}>
               <Ico name="search" size={14} />
@@ -587,7 +334,7 @@ export function HistoryExperience({
                 className="cr-btn cr-btn-ghost cr-btn-sm"
                 onClick={selectAll}
               >
-                Select all visible
+                Select all
               </button>
               {selected.size > 0 && (
                 <button
@@ -630,12 +377,8 @@ export function HistoryExperience({
             </div>
           ) : (
             <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-                gap: 12,
-                paddingBottom: selected.size > 0 ? 80 : 12,
-              }}
+              className="cr-collection-grid"
+              style={{ paddingBottom: selected.size > 0 ? 80 : 12 }}
             >
               {visibleCards.map((card) => (
                 <CollectionTile
@@ -688,7 +431,6 @@ export function HistoryExperience({
               </button>
             </div>
           )}
-        </div>
       </div>
 
       <Modal
@@ -884,38 +626,6 @@ function CollectionTile({
       </div>
       <div className="cr-coll-body">
         <strong>{card.cardName}</strong>
-        <small>
-          {card.series ? seriesLabel(card.series) : "Card"} ·{" "}
-          {card.cardCode ?? card.id.slice(0, 6)}
-        </small>
-        {(card.sourcePrizeTierLabel ||
-          card.sourcePrizeValueThb ||
-          card.sourceOpenPosition) && (
-          <small className="cr-coll-extra">
-            {[
-              card.sourcePrizeTierLabel
-                ? `${card.sourcePrizeTierLabel} prize`
-                : null,
-              formatPrizeValue(card.sourcePrizeValueThb),
-              card.sourceOpenPosition ? `Pull #${card.sourceOpenPosition}` : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </small>
-        )}
-        {card.sourceCampaignTitle && (
-          <Link
-            className="cr-coll-source"
-            href={
-              card.sourceCampaignSlug
-                ? `/packs/${card.sourceCampaignSlug}`
-                : "/packs"
-            }
-            onClick={(event) => event.stopPropagation()}
-          >
-            From {card.sourceCampaignTitle}
-          </Link>
-        )}
         {card.bucket === "owned" && card.sellValueCoins > 0 && (
           <span className="price">
             <CoinPip size={10} /> Sell for {formatCoins(card.sellValueCoins)}

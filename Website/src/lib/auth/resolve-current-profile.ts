@@ -35,6 +35,56 @@ function hasSupabaseAuthCookie(cookieStore: Awaited<ReturnType<typeof cookies>>)
   return cookieStore.getAll().some((c) => isSupabaseAuthCookieName(c.name));
 }
 
+function adminRoleFromValue(value: unknown): ResolvedProfileSession["adminRole"] {
+  return value === "owner" || value === "admin" || value === "staff"
+    ? value
+    : undefined;
+}
+
+async function resolveDevPreviewProfile(): Promise<ResolvedProfileSession | null> {
+  const previewProfileId = process.env.YNOT_PREVIEW_PROFILE_ID?.trim();
+  if (!previewProfileId) return null;
+
+  const supabase = createServiceSupabaseClient();
+  const [{ data: profile, error: profileError }, { data: admin, error: adminError }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id,display_name,line_display_name,line_user_id")
+        .eq("id", previewProfileId)
+        .maybeSingle(),
+      supabase
+        .from("admin_users")
+        .select("id,role")
+        .eq("profile_id", previewProfileId)
+        .eq("is_active", true)
+        .maybeSingle(),
+    ]);
+
+  if (profileError || !profile) {
+    console.warn(
+      "dev_preview_profile_resolution_failed",
+      profileError?.message ?? "profile not found",
+    );
+    return null;
+  }
+  if (adminError) {
+    console.warn("dev_preview_admin_resolution_failed", adminError.message);
+  }
+
+  const adminRole = adminRoleFromValue(admin?.role);
+  return {
+    profileId: profile.id,
+    authUserId: "preview-user",
+    lineUserId: profile.line_user_id ?? undefined,
+    displayName:
+      profile.display_name ?? profile.line_display_name ?? "Preview User",
+    adminId: admin?.id,
+    adminRole,
+    authSource: "supabase",
+  };
+}
+
 export async function resolveCurrentProfile(): Promise<ResolvedProfileSession | null> {
   const cookieStore = await cookies();
 
@@ -47,6 +97,9 @@ export async function resolveCurrentProfile(): Promise<ResolvedProfileSession | 
     isDevAuthAllowed() &&
     cookieStore.get("ynot-preview-auth")?.value === "1"
   ) {
+    const devPreviewProfile = await resolveDevPreviewProfile();
+    if (devPreviewProfile) return devPreviewProfile;
+
     return {
       profileId: "00000000-0000-0000-0000-000000000001",
       authUserId: "preview-user",

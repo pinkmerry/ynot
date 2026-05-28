@@ -11,7 +11,6 @@ export default async function ProfilePage() {
   const data = await getYnotDashboardSlice({
     collection: true,
     addresses: true,
-    gachaOpens: true,
     wallet: true,
   });
 
@@ -21,8 +20,6 @@ export default async function ProfilePage() {
         <HistoryExperience
           collection={data.collection}
           addresses={data.addresses}
-          gachaOpens={data.gachaOpens}
-          viewer={{ displayName: data.viewer.displayName }}
         />
       </Shell>
     </YnotShell>

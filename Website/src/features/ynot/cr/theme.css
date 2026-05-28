@@ -1847,6 +1847,15 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
 }
 .cr-tab.active .count { background: var(--cr-ink); color: #fff; }
 
+.cr-collection-workspace {
+  gap: 14px;
+}
+.cr-collection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
 /* collection card */
 .cr-coll-card {
   background: var(--cr-paper);
@@ -1966,15 +1975,16 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   box-shadow: 0 0 0 2px var(--cr-ink);
 }
 .cr-coll-body {
-  padding: 10px 12px 12px;
+  padding: 12px 13px 13px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 .cr-coll-body strong {
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.25;
+  min-height: 34px;
 }
 .cr-coll-body small {
   font-size: 10.5px;
@@ -2000,10 +2010,14 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   color: var(--cr-mint);
 }
 .cr-coll-body .price {
-  margin-top: 4px;
-  font-size: 11px;
-  font-weight: 700;
+  width: fit-content;
+  font-size: 11.5px;
+  font-weight: 800;
   color: var(--cr-coin-ink);
+  background: var(--cr-coin-bg);
+  border: 1px solid var(--cr-gold-soft);
+  border-radius: var(--cr-r-pill);
+  padding: 5px 9px;
   font-variant-numeric: tabular-nums;
   display: inline-flex;
   align-items: center;
@@ -2281,6 +2295,16 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
 }
 
 @media (max-width: 640px) {
+  .cr-page-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cr-page-head > .cr-row {
+    justify-content: stretch;
+  }
+  .cr-page-head > .cr-row .cr-btn {
+    width: 100%;
+  }
   .cr-section-head {
     align-items: flex-start;
     flex-wrap: wrap;

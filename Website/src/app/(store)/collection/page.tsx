@@ -16,7 +16,6 @@ export default async function CollectionPage() {
   const data = await getYnotDashboardSlice({
     collection: true,
     addresses: true,
-    gachaOpens: true,
     wallet: true,
   });
 
@@ -26,8 +25,6 @@ export default async function CollectionPage() {
         <HistoryExperience
           collection={data.collection}
           addresses={data.addresses}
-          gachaOpens={data.gachaOpens}
-          viewer={{ displayName: data.viewer.displayName }}
         />
       </Shell>
     </YnotShell>
