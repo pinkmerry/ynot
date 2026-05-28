@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CardCatalogItem, ProfileInfo } from "@/lib/lucky-draw/types";
+import type { Database } from "@/lib/supabase/types";
 import type {
   YnotAddress,
   YnotApprovalStatus,
@@ -6230,6 +6231,11 @@ export function AdminCardForm({
   const [imageStoragePath, setImageStoragePath] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const [isTest, setIsTest] = useState(false);
+  const [seedRunId, setSeedRunId] = useState("");
+  const [assetSource, setAssetSource] = useState("");
+  const [assetLicense, setAssetLicense] = useState("");
+  const [assetManifestKey, setAssetManifestKey] = useState("");
   const imagePreviewObjectUrlRef = useRef<string | null>(null);
   const [overwriteConfirmedForCardId, setOverwriteConfirmedForCardId] =
     useState<string | null>(null);
@@ -6300,6 +6306,11 @@ export function AdminCardForm({
           prizeCategory: legacyPrizeCategoryForCatalog(catalogCategory),
           imageUrl: nextImageUrl,
           imageStoragePath: nextImageStoragePath,
+          isTest,
+          seedRunId,
+          assetSource,
+          assetLicense,
+          assetManifestKey,
           confirmOverwrite: canConfirmOverwrite,
         });
         setMessage(`Catalog item ${payload.card?.name ?? name} saved.`);
@@ -6517,6 +6528,49 @@ export function AdminCardForm({
             }}
           />
         </div>
+        <label className="admin-field">
+          <span>Test asset</span>
+          <span style={{ alignItems: "center", display: "flex", gap: 8 }}>
+            <input
+              checked={isTest}
+              onChange={(event) => setIsTest(event.target.checked)}
+              type="checkbox"
+            />
+            Mark as test-only catalog data
+          </span>
+        </label>
+        <AdminField label="Seed run ID">
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={seedRunId}
+            onChange={(event) => setSeedRunId(event.target.value)}
+            placeholder="optional-import-run"
+          />
+        </AdminField>
+        <AdminField label="Asset source">
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={assetSource}
+            onChange={(event) => setAssetSource(event.target.value)}
+            placeholder="Generated original art, licensed source, or storage copy"
+          />
+        </AdminField>
+        <AdminField label="Asset license">
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={assetLicense}
+            onChange={(event) => setAssetLicense(event.target.value)}
+            placeholder="Owned, generated, licensed, or internal test"
+          />
+        </AdminField>
+        <AdminField label="Asset manifest key">
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={assetManifestKey}
+            onChange={(event) => setAssetManifestKey(event.target.value)}
+            placeholder="test-assets/card-manifest-key"
+          />
+        </AdminField>
       </div>
       {duplicateCard && duplicateUsage && (
         <DuplicateCardCaution
@@ -6694,6 +6748,72 @@ function legacyPrizeCategoryForCatalog(category: CatalogCategory): PrizeCategory
   return "sealed_product";
 }
 
+type AdminCardApiRow = Database["public"]["Tables"]["cards"]["Row"];
+
+function adminCardApiSeries(series: AdminCardApiRow["series"]): CardCatalogItem["series"] {
+  return series === "pokemon" ? "Pokemon" : "One Piece";
+}
+
+function adminCardApiRowToCatalogItem(
+  row: AdminCardApiRow,
+  previous?: CardCatalogItem,
+): CardCatalogItem {
+  return {
+    id: row.id,
+    catalogCardId: row.id,
+    code: row.card_code ?? undefined,
+    modelCode: row.card_code ?? undefined,
+    name: row.name,
+    searchName: row.search_name,
+    searchCode: row.search_code,
+    grade: row.grade,
+    series: adminCardApiSeries(row.series),
+    prizeCategory: row.prize_category ?? "psa10_card",
+    language: row.language,
+    releaseYear: row.release_year,
+    cardSet: row.card_set,
+    variant: row.variant,
+    catalogCategory: row.catalog_category,
+    condition: row.condition,
+    gradingService: row.grading_service,
+    certNumber: row.cert_number,
+    gemrateId: row.gemrate_id,
+    photoUrl: row.image_url ?? undefined,
+    photoStoragePath: row.image_storage_path ?? undefined,
+    isTest: row.is_test,
+    seedRunId: row.seed_run_id,
+    assetSource: row.asset_source,
+    assetLicense: row.asset_license,
+    assetManifestKey: row.asset_manifest_key,
+    stockTotal: previous?.stockTotal ?? 0,
+    stockAvailable: previous?.stockAvailable ?? 0,
+    stockReserved: previous?.stockReserved ?? 0,
+    stockAllocated: previous?.stockAllocated ?? 0,
+    stockArchived: previous?.stockArchived ?? 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function isAdminCardApiRow(value: unknown): value is AdminCardApiRow {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.search_name === "string" &&
+    (value.series === "pokemon" || value.series === "one_piece") &&
+    typeof value.grade === "string"
+  );
+}
+
+function adminCardFromSavePayload(
+  payload: unknown,
+  previous?: CardCatalogItem,
+) {
+  if (!isRecord(payload) || !isAdminCardApiRow(payload.card)) return null;
+  return adminCardApiRowToCatalogItem(payload.card, previous);
+}
+
 export function AdminCardCatalogPanel({
   cards,
   prizes,
@@ -6702,6 +6822,12 @@ export function AdminCardCatalogPanel({
   prizes: YnotPrizePoolItem[];
 }) {
   const router = useRouter();
+  const [savedCatalogCards, setSavedCatalogCards] = useState(
+    () => new Map<string, CardCatalogItem>(),
+  );
+  const [deletedCatalogCardIds, setDeletedCatalogCardIds] = useState(
+    () => new Set<string>(),
+  );
   const [query, setQuery] = useState("");
   const [seriesFilter, setSeriesFilter] =
     useState<AdminCardSeriesFilter>("all");
@@ -6716,9 +6842,25 @@ export function AdminCardCatalogPanel({
     | { card: CardCatalogItem; row: AdminCardCatalogRow }
     | null
   >(null);
+
+  const catalogCards = useMemo(() => {
+    const serverCardIds = new Set(cards.map((card) => card.catalogCardId));
+    const localOnlyCards = [...savedCatalogCards.values()].filter(
+      (card) =>
+        !serverCardIds.has(card.catalogCardId) &&
+        !deletedCatalogCardIds.has(card.catalogCardId),
+    );
+    return [
+      ...localOnlyCards,
+      ...cards
+        .filter((card) => !deletedCatalogCardIds.has(card.catalogCardId))
+        .map((card) => savedCatalogCards.get(card.catalogCardId) ?? card),
+    ];
+  }, [cards, deletedCatalogCardIds, savedCatalogCards]);
+
   const rows = useMemo(
-    () => buildAdminCardCatalogRows(cards, prizes),
-    [cards, prizes],
+    () => buildAdminCardCatalogRows(catalogCards, prizes),
+    [catalogCards, prizes],
   );
   const visibleRows = useMemo(() => {
     return filterAdminCardCatalogRows(rows, {
@@ -6806,7 +6948,7 @@ export function AdminCardCatalogPanel({
         <div className="admin-card-catalog-header-meta">
           <span className="admin-card-catalog-count-pill">
             <strong>{visibleRows.length.toLocaleString()}</strong>
-            <em>/ {cards.length.toLocaleString()}</em>
+            <em>/ {catalogCards.length.toLocaleString()}</em>
             <span>shown</span>
           </span>
         </div>
@@ -7186,7 +7328,18 @@ export function AdminCardCatalogPanel({
         <AdminCardEditModal
           card={editingCard}
           onClose={() => setEditingCard(null)}
-          onSaved={() => {
+          onSaved={(savedCard) => {
+            setSavedCatalogCards((current) => {
+              const next = new Map(current);
+              next.set(savedCard.catalogCardId, savedCard);
+              return next;
+            });
+            setDeletedCatalogCardIds((current) => {
+              if (!current.has(savedCard.catalogCardId)) return current;
+              const next = new Set(current);
+              next.delete(savedCard.catalogCardId);
+              return next;
+            });
             setEditingCard(null);
             router.refresh();
           }}
@@ -7197,6 +7350,18 @@ export function AdminCardCatalogPanel({
           card={deleteTarget.card}
           onCancel={() => setDeleteTarget(null)}
           onDeleted={() => {
+            const deletedCardId = deleteTarget.card.catalogCardId;
+            setDeletedCatalogCardIds((current) => {
+              const next = new Set(current);
+              next.add(deletedCardId);
+              return next;
+            });
+            setSavedCatalogCards((current) => {
+              if (!current.has(deletedCardId)) return current;
+              const next = new Map(current);
+              next.delete(deletedCardId);
+              return next;
+            });
             setDeleteTarget(null);
             router.refresh();
           }}
@@ -7213,7 +7378,7 @@ function AdminCardEditModal({
 }: {
   card: CardCatalogItem;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (card: CardCatalogItem) => void;
 }) {
   const [name, setName] = useState(card.name);
   const [code, setCode] = useState(card.modelCode ?? card.code ?? "");
@@ -7246,6 +7411,13 @@ function AdminCardEditModal({
   );
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState(card.photoUrl ?? "");
+  const [isTest, setIsTest] = useState(Boolean(card.isTest));
+  const [seedRunId, setSeedRunId] = useState(card.seedRunId ?? "");
+  const [assetSource, setAssetSource] = useState(card.assetSource ?? "");
+  const [assetLicense, setAssetLicense] = useState(card.assetLicense ?? "");
+  const [assetManifestKey, setAssetManifestKey] = useState(
+    card.assetManifestKey ?? "",
+  );
   const imagePreviewObjectUrlRef = useRef<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -7305,6 +7477,11 @@ function AdminCardEditModal({
           prizeCategory: legacyPrizeCategoryForCatalog(catalogCategory),
           imageUrl: nextImageUrl || null,
           imageStoragePath: nextImageStoragePath || null,
+          isTest,
+          seedRunId,
+          assetSource,
+          assetLicense,
+          assetManifestKey,
         }),
       });
       if (!response.ok) {
@@ -7313,7 +7490,12 @@ function AdminCardEditModal({
           | null;
         throw new Error(payload?.error || payload?.message || "Save failed");
       }
-      onSaved();
+      const payload = await response.json().catch(() => null);
+      const savedCard = adminCardFromSavePayload(payload, card);
+      if (!savedCard) {
+        throw new Error("Save response did not include the updated card.");
+      }
+      onSaved(savedCard);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Save failed");
     } finally {
@@ -7501,6 +7683,34 @@ function AdminCardEditModal({
               }}
             />
           </div>
+          <label className="admin-field">
+            <span>Test asset</span>
+            <span style={{ alignItems: "center", display: "flex", gap: 8 }}>
+              <input
+                checked={isTest}
+                disabled={pending}
+                onChange={(e) => setIsTest(e.target.checked)}
+                type="checkbox"
+              />
+              Mark as test-only catalog data
+            </span>
+          </label>
+          <label className="admin-field">
+            <span>Seed run ID</span>
+            <input value={seedRunId} onChange={(e) => setSeedRunId(e.target.value)} disabled={pending} />
+          </label>
+          <label className="admin-field">
+            <span>Asset source</span>
+            <input value={assetSource} onChange={(e) => setAssetSource(e.target.value)} disabled={pending} />
+          </label>
+          <label className="admin-field">
+            <span>Asset license</span>
+            <input value={assetLicense} onChange={(e) => setAssetLicense(e.target.value)} disabled={pending} />
+          </label>
+          <label className="admin-field">
+            <span>Asset manifest key</span>
+            <input value={assetManifestKey} onChange={(e) => setAssetManifestKey(e.target.value)} disabled={pending} />
+          </label>
         </div>
         {error && (
           <p className="admin-category-row-error" role="alert">
