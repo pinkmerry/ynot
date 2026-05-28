@@ -27967,6 +27967,64 @@ html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .owner-
   justify-self: end;
 }
 
+/* Admin settings mobile containment */
+.admin-frame .a-main,
+.admin-frame .a-content,
+.admin-frame .card,
+.admin-frame .card-pad,
+.admin-frame .wallet-panel-stack,
+.admin-frame .wallet-history-card,
+.admin-frame .wallet-method-card,
+.admin-frame .wallet-balance-card {
+  min-width: 0;
+}
+
+.admin-frame .admin-settings-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  min-width: 0;
+}
+
+.admin-frame .admin-settings-grid > *,
+.admin-frame .admin-settings-main {
+  min-width: 0;
+}
+
+.admin-frame .admin-settings-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-frame .admin-settings-wallet-card .overflow-x-auto {
+  max-width: 100%;
+}
+
+@media (max-width: 900px) {
+  .admin-frame .admin-settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-frame .admin-settings-nav-card .list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-frame .admin-settings-nav-card .list > div {
+    min-width: 0;
+  }
+
+  .admin-frame .admin-settings-nav-card .list > div span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 /* Gacha detail final cascade: Toreca-style linear flow + fixed bottom dock. */
 html[data-ynot-theme] .store-shell > .product-detail-grid.gacha-detail-page {
   align-items: stretch !important;

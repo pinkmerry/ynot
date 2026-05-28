@@ -175,14 +175,7 @@ export function WalletExperience({
         lead="Pick how many coins you want, then pay. We credit your wallet after the slip is confirmed."
       />
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 1fr)",
-          gap: 22,
-          alignItems: "start",
-        }}
-      >
+      <div className="cr-wallet-grid">
         <div className="cr-stack" style={{ gap: 16 }}>
           <div className="cr-balance-card">
             <span className="cr-balance-eyebrow">Current balance</span>
@@ -310,7 +303,7 @@ export function WalletExperience({
           </div>
         </div>
 
-        <div className="cr-section" style={{ position: "sticky", top: 80 }}>
+        <div className="cr-section cr-wallet-topup-card">
           <div className="cr-section-head">
             <div className="cr-stack" style={{ gap: 2 }}>
               <span className="cr-eyebrow">Top up</span>
@@ -326,36 +319,29 @@ export function WalletExperience({
             </button>
           </div>
 
-          <div style={{ padding: "14px 22px 4px" }}>
-            <div className="cr-row" style={{ gap: 6 }}>
+          <div className="cr-wallet-stepper-wrap">
+            <div className="cr-wallet-stepper">
               {[
                 { n: 1, label: "Coins" },
                 { n: 2, label: "Payment" },
                 { n: 3, label: "Confirm" },
               ].map((sx, i) => (
-                <div key={sx.n} className="cr-row" style={{ gap: 8, flex: i < 2 ? "0 0 auto" : "0 0 auto" }}>
+                <div key={sx.n} className="cr-wallet-step">
                   <span
+                    className="cr-wallet-step-dot"
                     style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 50,
                       background:
                         step >= sx.n
                           ? "var(--cr-ink)"
                           : "var(--cr-line-soft)",
                       color: step >= sx.n ? "#fff" : "var(--cr-mute)",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 11,
-                      fontWeight: 800,
                     }}
                   >
                     {step > sx.n ? <Ico name="check" size={12} /> : sx.n}
                   </span>
                   <strong
+                    className="cr-wallet-step-label"
                     style={{
-                      fontSize: 12,
                       color: step >= sx.n ? "var(--cr-ink)" : "var(--cr-mute)",
                     }}
                   >
@@ -363,9 +349,8 @@ export function WalletExperience({
                   </strong>
                   {i < 2 && (
                     <span
+                      className="cr-wallet-step-line"
                       style={{
-                        width: 32,
-                        height: 1,
                         background:
                           step > sx.n ? "var(--cr-ink)" : "var(--cr-line)",
                       }}
@@ -380,13 +365,7 @@ export function WalletExperience({
             {step === 1 && (
               <div className="cr-stack" style={{ gap: 16 }}>
                 <span className="cr-eyebrow">Pick how many coins</span>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 10,
-                  }}
-                >
+                <div className="cr-wallet-package-grid">
                   {topUpPackages.map((p, i) => {
                     const bonus =
                       p.coins > p.amountThb
@@ -416,8 +395,9 @@ export function WalletExperience({
                     );
                   })}
                   <div
-                    className={`cr-pkg custom ${customMode ? "active" : ""}`}
-                    style={{ gridColumn: "span 2" }}
+                    className={`cr-pkg custom cr-wallet-custom-pkg ${
+                      customMode ? "active" : ""
+                    }`}
                     onClick={() => setCustomMode(true)}
                     role="button"
                     tabIndex={0}
@@ -426,7 +406,10 @@ export function WalletExperience({
                     }}
                   >
                     <span className="cr-eyebrow">Custom amount</span>
-                    <div className="cr-row" style={{ gap: 8, marginTop: 4 }}>
+                    <div
+                      className="cr-row cr-wallet-custom-input-row"
+                      style={{ gap: 8, marginTop: 4 }}
+                    >
                       <span
                         style={{ fontWeight: 700, color: "var(--cr-mute)" }}
                       >
@@ -552,13 +535,7 @@ export function WalletExperience({
                     add one before customers can submit a top-up.
                   </div>
                 ) : (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 10,
-                    }}
-                  >
+                  <div className="cr-wallet-payment-grid">
                     {paymentMethods.map((method) => (
                       <button
                         key={method.id}

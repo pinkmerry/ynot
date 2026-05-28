@@ -285,19 +285,11 @@ export function HistoryExperience({
         }
       />
 
-      <div
-        className="cr-section"
-        style={{
-          padding: 0,
-          overflow: "hidden",
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 280px) 1fr",
-        }}
-      >
+      <div className="cr-section cr-history-summary">
         <div
+          className="cr-history-profile-card"
           style={{
             padding: "20px 22px",
-            borderRight: "1px solid var(--cr-line-soft)",
             display: "flex",
             gap: 14,
             alignItems: "center",
@@ -328,12 +320,7 @@ export function HistoryExperience({
             </small>
           </div>
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-          }}
-        >
+        <div className="cr-history-kpi-grid">
           {(
             [
               {
@@ -362,11 +349,12 @@ export function HistoryExperience({
           ).map((kpi, i) => (
             <div
               key={kpi.label}
-              className="cr-stack"
+              className={`cr-stack cr-history-kpi-card ${
+                i ? "with-border" : ""
+              }`}
               style={{
                 gap: 4,
                 padding: "20px 18px",
-                borderLeft: i ? "1px solid var(--cr-line-soft)" : 0,
               }}
             >
               <span className="cr-eyebrow">{kpi.label}</span>
@@ -381,15 +369,8 @@ export function HistoryExperience({
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(320px, 380px) 1fr",
-          gap: 22,
-          alignItems: "start",
-        }}
-      >
-        <div className="cr-section" style={{ position: "sticky", top: 80 }}>
+      <div className="cr-history-layout">
+        <div className="cr-section cr-history-timeline">
           <div className="cr-section-head">
             <div className="cr-stack" style={{ gap: 2 }}>
               <span className="cr-eyebrow">Recent pulls · Timeline</span>

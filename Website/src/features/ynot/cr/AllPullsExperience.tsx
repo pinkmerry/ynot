@@ -205,10 +205,7 @@ export function AllPullsExperience({
         back={{ href: "/collection", label: "Card history" }}
       />
 
-      <div
-        className="cr-kpi-row"
-        style={{ gridTemplateColumns: "repeat(4, 1fr)" }}
-      >
+      <div className="cr-kpi-row cr-pulls-kpi-row">
         {TIER_ORDER.map((t) => (
           <button
             key={t}

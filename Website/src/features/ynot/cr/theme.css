@@ -633,6 +633,7 @@
   font-size: 11.5px;
   color: var(--cr-mute);
 }
+.cr-field-full { grid-column: 1 / -1; }
 .cr-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1543,6 +1544,71 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
 .cr-tx-amount.in { color: var(--cr-mint); }
 .cr-tx-amount.out { color: var(--cr-rose); }
 
+/* Wallet */
+.cr-wallet-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+.cr-wallet-grid > * { min-width: 0; }
+.cr-wallet-topup-card {
+  position: sticky;
+  top: 80px;
+}
+.cr-wallet-package-grid,
+.cr-wallet-payment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.cr-wallet-package-grid > *,
+.cr-wallet-payment-grid > * {
+  min-width: 0;
+}
+.cr-wallet-custom-pkg { grid-column: 1 / -1; }
+.cr-wallet-custom-input-row {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.cr-wallet-custom-input-row input { min-width: 0; }
+.cr-wallet-stepper-wrap {
+  padding: 14px 22px 4px;
+}
+.cr-wallet-stepper,
+.cr-wallet-step {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.cr-wallet-stepper {
+  gap: 6px;
+}
+.cr-wallet-step {
+  gap: 8px;
+  flex: 0 1 auto;
+}
+.cr-wallet-step-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+}
+.cr-wallet-step-label {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.cr-wallet-step-line {
+  width: 32px;
+  height: 1px;
+  flex: 0 0 auto;
+}
+
 /* ============================================
    PERSONAL INFO
    ============================================ */
@@ -1625,6 +1691,12 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   color: #fff;
 }
 
+.cr-conn-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.cr-conn-grid > * { min-width: 0; }
+
 .cr-addr-card {
   display: flex;
   gap: 14px;
@@ -1660,6 +1732,13 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   gap: 6px;
   align-self: flex-start;
 }
+.cr-address-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.cr-address-grid > * { min-width: 0; }
+.cr-address-empty { grid-column: 1 / -1; }
 
 .cr-conn-card {
   padding: 18px 16px;
@@ -1687,9 +1766,52 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
 }
 .cr-conn-logo.email { background: var(--cr-ink); }
 
+.cr-shipment-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) minmax(160px, 220px) auto;
+  gap: 14px;
+  padding: 14px 22px;
+  align-items: center;
+}
+.cr-shipment-row.with-border {
+  border-top: 1px solid var(--cr-line-soft);
+}
+.cr-shipment-row > * { min-width: 0; }
+.cr-shipment-row .cr-mono { overflow-wrap: anywhere; }
+
 /* ============================================
    CARD HISTORY
    ============================================ */
+.cr-history-summary {
+  padding: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+}
+.cr-history-summary > * { min-width: 0; }
+.cr-history-profile-card {
+  border-right: 1px solid var(--cr-line-soft);
+}
+.cr-history-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.cr-history-kpi-card { min-width: 0; }
+.cr-history-kpi-card.with-border {
+  border-left: 1px solid var(--cr-line-soft);
+}
+.cr-history-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+.cr-history-layout > * { min-width: 0; }
+.cr-history-timeline {
+  position: sticky;
+  top: 80px;
+}
+
 .cr-tabs {
   display: flex;
   gap: 4px;
@@ -1948,6 +2070,9 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
+.cr-pulls-kpi-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
 .cr-kpi {
   display: flex;
   flex-direction: column;
@@ -2066,6 +2191,46 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
    RESPONSIVE
    ============================================ */
 @media (max-width: 900px) {
+  .cr-wallet-grid,
+  .cr-history-layout {
+    grid-template-columns: 1fr;
+  }
+  .cr-wallet-topup-card,
+  .cr-history-timeline {
+    position: relative;
+    top: 0;
+  }
+  .cr-history-summary {
+    grid-template-columns: 1fr;
+  }
+  .cr-history-profile-card {
+    border-right: 0;
+    border-bottom: 1px solid var(--cr-line-soft);
+  }
+  .cr-history-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cr-history-kpi-card.with-border {
+    border-left: 0;
+    border-top: 1px solid var(--cr-line-soft);
+  }
+  .cr-conn-grid,
+  .cr-address-grid {
+    grid-template-columns: 1fr;
+  }
+  .cr-shipment-row {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "icon code status"
+      "icon tracking tracking";
+  }
+  .cr-shipment-row > *:nth-child(1) { grid-area: icon; }
+  .cr-shipment-row > *:nth-child(2) { grid-area: code; }
+  .cr-shipment-row > *:nth-child(3) { grid-area: tracking; }
+  .cr-shipment-row > *:nth-child(4) {
+    grid-area: status;
+    justify-self: end;
+  }
   .cr-personal-grid { grid-template-columns: 1fr; }
   .cr-side {
     position: relative;
@@ -2113,4 +2278,93 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   .cr-pulls-row > *:nth-child(5) { grid-area: meta; font-size: 11px; }
   .cr-pulls-row > *:nth-child(6) { display: none; }
   .cr-pulls-row > *:nth-child(7) { grid-area: value; justify-self: end; }
+}
+
+@media (max-width: 640px) {
+  .cr-section-head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .cr-section-head > .cr-row,
+  .cr-toolbar > .cr-row {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .cr-toolbar {
+    align-items: flex-start;
+    border-radius: var(--cr-r-lg);
+  }
+  .cr-toolbar > .cr-row,
+  .cr-toolbar .cr-search {
+    flex-basis: 100%;
+    max-width: none !important;
+    width: 100%;
+  }
+  .cr-toolbar > span {
+    display: none;
+  }
+  .cr-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+  }
+  .cr-tab {
+    justify-content: center;
+    min-width: 0;
+    padding: 10px 4px;
+    gap: 5px;
+    white-space: normal;
+    text-align: center;
+    font-size: 11.5px;
+  }
+  .cr-tab .count {
+    padding: 2px 6px;
+  }
+  .cr-wallet-package-grid,
+  .cr-wallet-payment-grid {
+    grid-template-columns: 1fr;
+  }
+  .cr-wallet-stepper-wrap {
+    padding: 12px 16px 4px;
+  }
+  .cr-wallet-stepper {
+    gap: 4px;
+    justify-content: space-between;
+  }
+  .cr-wallet-step {
+    gap: 5px;
+  }
+  .cr-wallet-step-dot {
+    width: 22px;
+    height: 22px;
+    font-size: 10.5px;
+  }
+  .cr-wallet-step-label {
+    font-size: 11px;
+  }
+  .cr-wallet-step-line {
+    width: 18px;
+    flex-basis: 18px;
+  }
+  .cr-wallet-custom-input-row input {
+    flex-basis: 160px;
+    font-size: 20px !important;
+  }
+  .cr-tx-row {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "icon meta amount"
+      "icon when amount";
+    row-gap: 2px;
+  }
+  .cr-tx-row > *:nth-child(1) { grid-area: icon; }
+  .cr-tx-row > *:nth-child(2) { grid-area: meta; }
+  .cr-tx-row > *:nth-child(3) { grid-area: when; }
+  .cr-tx-row > *:nth-child(4) {
+    grid-area: amount;
+    justify-self: end;
+  }
+  .cr-shipment-row {
+    padding: 14px 16px;
+  }
 }

@@ -367,7 +367,7 @@ function ProfileSection({
               placeholder="e.g. +66 92 188 7423"
             />
           </div>
-          <div className="cr-field" style={{ gridColumn: "span 2" }}>
+          <div className="cr-field cr-field-full">
             <label htmlFor="cr-profile-address1">Default address line 1</label>
             <input
               id="cr-profile-address1"
@@ -378,7 +378,7 @@ function ProfileSection({
               placeholder="House, building, street"
             />
           </div>
-          <div className="cr-field" style={{ gridColumn: "span 2" }}>
+          <div className="cr-field cr-field-full">
             <label htmlFor="cr-profile-address2">Default address line 2</label>
             <input
               id="cr-profile-address2"
@@ -440,7 +440,7 @@ function ProfileSection({
               onChange={(e) => update("country", e.target.value)}
             />
           </div>
-          <div className="cr-field" style={{ gridColumn: "span 2" }}>
+          <div className="cr-field cr-field-full">
             <label htmlFor="cr-profile-delivery">Delivery note</label>
             <textarea
               id="cr-profile-delivery"
@@ -517,12 +517,7 @@ function ConnectionsSection({
         </div>
         <small className="cr-mute">{connectedCount} of 3 set</small>
       </div>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
-        }}
-      >
+      <div className="cr-conn-grid">
         {rows.map((row, i) => {
           const conn =
             row.key === "line"
@@ -534,8 +529,7 @@ function ConnectionsSection({
           return (
             <div
               key={row.key}
-              className="cr-conn-card"
-              style={{ borderLeft: i ? "1px solid var(--cr-line-soft)" : 0 }}
+              className={`cr-conn-card ${i ? "with-border" : ""}`}
             >
               <div className="cr-row" style={{ gap: 10 }}>
                 <span className={`cr-conn-logo ${row.logo}`}>
@@ -683,22 +677,15 @@ function AddressesSection({ addresses }: { addresses: YnotAddress[] }) {
           <Ico name="plus" size={12} /> Add address
         </button>
       </div>
-      <div
-        className="cr-section-body"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 12,
-        }}
-      >
+      <div className="cr-section-body cr-address-grid">
         {addresses.length === 0 ? (
           <div
-            style={{
-              gridColumn: "span 2",
-              padding: 40,
-              textAlign: "center",
-              color: "var(--cr-mute)",
-            }}
+              className="cr-address-empty"
+              style={{
+                padding: 40,
+                textAlign: "center",
+                color: "var(--cr-mute)",
+              }}
           >
             No saved addresses yet. Add one above to enable physical shipping.
           </div>
@@ -929,14 +916,7 @@ function ShippingHistorySection({
           filtered.map((shp, i) => (
             <div
               key={shp.id}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "44px 1fr 220px auto",
-                gap: 14,
-                padding: "14px 22px",
-                borderTop: i ? "1px solid var(--cr-line-soft)" : 0,
-                alignItems: "center",
-              }}
+              className={`cr-shipment-row ${i ? "with-border" : ""}`}
             >
               <span
                 style={{

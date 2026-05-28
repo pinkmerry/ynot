@@ -45,8 +45,8 @@ export default async function AdminSettingsPage() {
           </>
         }
       >
-        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 16 }}>
-          <AdminCard>
+        <div className="admin-settings-grid">
+          <AdminCard className="admin-settings-nav-card">
             <div className="list" style={{ padding: "6px 6px" }}>
               {SETTINGS_NAV.map((s) => (
                 <div
@@ -99,8 +99,8 @@ export default async function AdminSettingsPage() {
             </div>
           </AdminCard>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <AdminCard>
+          <div className="admin-settings-main">
+            <AdminCard className="admin-settings-payment-card">
               <AdminCardHead
                 label="Payment methods"
                 title="Bank transfer · PromptPay"
@@ -111,7 +111,7 @@ export default async function AdminSettingsPage() {
               </div>
             </AdminCard>
 
-            <AdminCard>
+            <AdminCard className="admin-settings-wallet-card">
               <AdminCardHead
                 label="Customer preview"
                 title="Wallet panel"
