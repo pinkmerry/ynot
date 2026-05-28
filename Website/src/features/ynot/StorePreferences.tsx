@@ -1383,8 +1383,13 @@ export function StoreSettingsMenu({
                   (!("adminOnly" in item) || !item.adminOnly || isAdmin),
                 )
                 .map((item) => {
-                  const hasSubmenu =
-                    item.key === "mysteryPacks" || item.key === "marketplace";
+                  // Cast to a plain string[] so `.includes` doesn't narrow
+                  // item.key to a literal union — otherwise, when every
+                  // remaining nav entry has a submenu, TypeScript narrows the
+                  // fallthrough branch's `item` to `never`.
+                  const hasSubmenu = (
+                    ["mysteryPacks", "marketplace"] as readonly string[]
+                  ).includes(item.key);
                   if (hasSubmenu) {
                     return (
                       <li key={item.href}>
