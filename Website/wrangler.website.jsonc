@@ -24,6 +24,7 @@
   },
   "vars": {
     "RATE_LIMIT_BACKEND": "supabase",
+    "NODE_ENV": "production",
     "NEXTJS_ENV": "production",
     "LINE_LOGIN_CHANNEL_ID": "2009971080",
     "NEXT_PUBLIC_ENABLE_LINE_LOGIN": "true",
@@ -31,6 +32,7 @@
     "NEXT_PUBLIC_SITE_URL": "https://www.ynotopen.com",
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6am9hcmtpamVhc3BhemJyY2hjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMjMwMzIsImV4cCI6MjA5MzU5OTAzMn0.yElDtqBA8NPWW8kMRqw3jltuFqfPDJpr1Fek8AjTwFM",
     "NEXT_PUBLIC_SUPABASE_URL": "https://szjoarkijeaspazbrchc.supabase.co",
+    "SLIP2GO_API_URL": "https://connect.slip2go.com",
     "SIGNUP_OTP_DELIVERY": "resend",
     "SIGNUP_EMAIL_FROM": "YNOTT <no-reply@ynotopen.com>"
   }
