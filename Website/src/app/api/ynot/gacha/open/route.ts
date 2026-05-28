@@ -8,6 +8,13 @@ import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 
 export const dynamic = "force-dynamic";
 
+const gachaOpenRateLimit = {
+  // Customers can chain "open again" quickly after reveal animations. Keep
+  // the limit high enough for real play, while still blocking scripted bursts.
+  limit: 120,
+  windowMs: 60_000,
+};
+
 type RawOpenItem = {
   cardId?: string;
   name?: string | null;
@@ -413,7 +420,7 @@ export async function POST(request: Request) {
   if (!session?.profileId) return Response.json({ error: "Login is required." }, { status: 401 });
   const blocked = await requireVerifiedAnchor(session);
   if (blocked) return blocked;
-  const limited = await enforceRateLimit(request, "ynot:gacha:open", { limit: 30, windowMs: 60_000 }, session.profileId);
+  const limited = await enforceRateLimit(request, "ynot:gacha:open", gachaOpenRateLimit, session.profileId);
   if (limited) return limited;
   const body = await request.json().catch(() => null) as { campaignId?: unknown; quantity?: unknown; idempotencyKey?: unknown } | null;
   const campaignId = typeof body?.campaignId === "string" ? body.campaignId.trim() : "";

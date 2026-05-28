@@ -123,8 +123,12 @@ export async function enforceRateLimit(request: Request, scope: string, options:
     try {
       return responseFromResult(await checkSupabaseRateLimit(key, options));
     } catch (error) {
+      console.warn(
+        "rate_limit_backend_unavailable",
+        error instanceof Error ? error.message : String(error),
+      );
       return Response.json(
-        { error: "Rate-limit backend is unavailable.", detail: error instanceof Error ? error.message : String(error) },
+        { error: "Rate-limit backend is unavailable." },
         { status: 503 },
       );
     }
