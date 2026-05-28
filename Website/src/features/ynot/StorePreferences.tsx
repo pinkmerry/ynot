@@ -907,7 +907,7 @@ export function StoreHeaderRightNav({
   /** Viewer's current coin balance — formatted for the My Page surface. */
   balance?: number;
 }) {
-  const { preferences, setLanguage } = useStorePreferences();
+  const { preferences } = useStorePreferences();
   const copy = settingsCopy[preferences.language];
   const account = accountCopy[preferences.language];
   const [profileOpen, setProfileOpen] = useState(false);
