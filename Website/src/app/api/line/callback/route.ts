@@ -193,7 +193,7 @@ export async function GET(request: Request) {
         request,
         "/profile",
         "message",
-        `LINE is already connected to another profile. Merge request ${linked.mergeRequestId} is waiting for admin review.`,
+        `LINE is already connected to another profile. Identity link request ${linked.mergeRequestId} is waiting for admin review.`,
       );
     }
 

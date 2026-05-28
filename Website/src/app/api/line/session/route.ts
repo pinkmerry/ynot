@@ -160,7 +160,7 @@ export async function POST(request: Request) {
 
   if (linked.status === "merge_required") {
     return Response.json({
-      error: "LINE identity is already connected to another profile. Admin merge review is required.",
+      error: "LINE identity is already connected to another profile. Admin identity link review is required.",
       mergeRequestId: linked.mergeRequestId,
       profileId: linked.profileId,
     }, { status: 409 });

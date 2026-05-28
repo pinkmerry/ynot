@@ -53,13 +53,16 @@ export function CompleteProfileForm({ defaultEmail, displayName, nextPath }: Pro
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email, code }),
       });
-      const body = (await res.json().catch(() => ({}))) as { error?: string; merged?: boolean };
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        identityReviewRequired?: boolean;
+      };
       if (!res.ok) {
         setError(body.error ?? "That code didn't work.");
         return;
       }
-      if (body.merged) {
-        setInfo("This email is already linked to another account. We merged your data into it.");
+      if (body.identityReviewRequired) {
+        setInfo("This email already belongs to another profile. An admin review was created to link only your login identity.");
       }
       router.replace(nextPath || "/");
       router.refresh();

@@ -7363,11 +7363,11 @@ export function AdminMergeActions({
           "PATCH",
         );
         setMessage(
-          `${action === "approve" ? "Merge completed" : "Merge rejected"}.`,
+          `${action === "approve" ? "Identity link approved" : "Identity link rejected"}.`,
         );
       } catch (error) {
         setMessage(
-          error instanceof Error ? error.message : "Merge review failed.",
+          error instanceof Error ? error.message : "Identity review failed.",
         );
       }
     });
@@ -7388,7 +7388,7 @@ export function AdminMergeActions({
           onClick={() => submit("approve")}
           type="button"
         >
-          Approve merge
+          Approve link
         </button>
         <button
           className="danger-button rounded-xl px-3 py-2 text-xs font-black"
@@ -7396,7 +7396,7 @@ export function AdminMergeActions({
           onClick={() => submit("reject")}
           type="button"
         >
-          Reject merge
+          Reject link
         </button>
       </div>
       {message && <p className="text-xs text-[var(--muted)]">{message}</p>}

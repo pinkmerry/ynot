@@ -5,6 +5,7 @@ import type { Database, Json } from "@/lib/supabase/types";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 type IdentityRow = Database["public"]["Tables"]["user_identities"]["Row"];
+type IdentityInsert = Database["public"]["Tables"]["user_identities"]["Insert"];
 
 export type VerifiedLineIdentity = {
   lineUserId: string;
@@ -41,6 +42,27 @@ function lineMetadata(identity: VerifiedLineIdentity): Json {
     source: identity.source,
     channelId: identity.channelId,
   };
+}
+
+function identityReviewRiskSummary({
+  conflict,
+  identityId,
+  lineUserId,
+  email,
+}: {
+  conflict: string;
+  identityId?: string | null;
+  lineUserId: string;
+  email?: string | null;
+}): Json {
+  return {
+    mode: "identity_review_only",
+    conflict,
+    provider: "line",
+    providerSubject: lineUserId,
+    identityId: identityId ?? null,
+    email: email ?? null,
+  } as Json;
 }
 
 async function activeProfileById(profileId: string): Promise<ProfileRow | null> {
@@ -80,7 +102,17 @@ async function profileByVerifiedEmail(email: string | null): Promise<ProfileRow 
   return data?.length === 1 ? data[0] : null;
 }
 
-async function createMergeRequest(sourceProfileId: string, targetProfileId: string, requestedByProfileId: string | null) {
+async function createMergeRequest(
+  sourceProfileId: string,
+  targetProfileId: string,
+  requestedByProfileId: string | null,
+  details: {
+    conflict: string;
+    identityId?: string | null;
+    lineUserId: string;
+    email?: string | null;
+  },
+) {
   const supabase = createServiceSupabaseClient();
   const { data: existing, error: existingError } = await supabase
     .from("account_merge_requests")
@@ -90,7 +122,16 @@ async function createMergeRequest(sourceProfileId: string, targetProfileId: stri
     .eq("status", "pending")
     .limit(1);
   if (existingError) throw existingError;
-  if (existing?.[0]) return existing[0].id;
+  if (existing?.[0]) {
+    const { error: updateError } = await supabase
+      .from("account_merge_requests")
+      .update({
+        risk_summary: identityReviewRiskSummary(details),
+      })
+      .eq("id", existing[0].id);
+    if (updateError) throw updateError;
+    return existing[0].id;
+  }
 
   const { data: mergeRequest, error: insertError } = await supabase
     .from("account_merge_requests")
@@ -98,10 +139,8 @@ async function createMergeRequest(sourceProfileId: string, targetProfileId: stri
       requested_by_profile_id: requestedByProfileId,
       source_profile_id: sourceProfileId,
       target_profile_id: targetProfileId,
-      reason: "LINE identity already belongs to another profile; admin review required before merge.",
-      risk_summary: {
-        conflict: "line_subject_already_linked",
-      } as Json,
+      reason: "LINE identity already belongs to another profile; admin review required before linking.",
+      risk_summary: identityReviewRiskSummary(details),
     })
     .select("id")
     .single();
@@ -115,6 +154,7 @@ async function createMergeRequest(sourceProfileId: string, targetProfileId: stri
       sourceProfileId,
       targetProfileId,
       reason: "LINE connect conflict",
+      mode: "identity_review_only",
     } as Json,
   });
 
@@ -125,6 +165,30 @@ async function attachLineToProfile(identity: VerifiedLineIdentity, profile: Prof
   const supabase = createServiceSupabaseClient();
   const email = normalizeEmail(identity.email);
   const displayName = identity.displayName || profile.display_name || profile.line_display_name || "LINE Customer";
+  const existingIdentity = await identityByLineSubject(identity.lineUserId);
+
+  if (existingIdentity && existingIdentity.profile_id !== profile.id) {
+    const mergeRequestId = await createMergeRequest(
+      existingIdentity.profile_id,
+      profile.id,
+      profile.id,
+      {
+        conflict: "line_subject_already_linked",
+        identityId: existingIdentity.id,
+        lineUserId: identity.lineUserId,
+        email,
+      },
+    );
+    return {
+      status: "merge_required",
+      profileId: profile.id,
+      lineUserId: identity.lineUserId,
+      displayName,
+      mergeRequestId,
+      sourceProfileId: existingIdentity.profile_id,
+      targetProfileId: profile.id,
+    };
+  }
 
   const { data: updatedProfile, error: profileError } = await supabase
     .from("profiles")
@@ -143,21 +207,33 @@ async function attachLineToProfile(identity: VerifiedLineIdentity, profile: Prof
     .single();
   if (profileError) throw profileError;
 
-  const { error: identityError } = await supabase.from("user_identities").upsert(
-    {
-      profile_id: profile.id,
-      auth_user_id: profile.auth_user_id,
-      provider: "line",
-      provider_subject: identity.lineUserId,
-      email,
-      email_verified: Boolean(email),
-      display_name: displayName,
-      avatar_url: identity.pictureUrl ?? null,
-      metadata: lineMetadata(identity),
-      last_seen_at: new Date().toISOString(),
-    },
-    { onConflict: "provider,provider_subject" },
-  );
+  const identityRow: IdentityInsert = {
+    profile_id: profile.id,
+    auth_user_id: profile.auth_user_id,
+    provider: "line",
+    provider_subject: identity.lineUserId,
+    email,
+    email_verified: Boolean(email),
+    display_name: displayName,
+    avatar_url: identity.pictureUrl ?? null,
+    metadata: lineMetadata(identity),
+    last_seen_at: new Date().toISOString(),
+  };
+
+  const { error: identityError } = existingIdentity
+    ? await supabase
+        .from("user_identities")
+        .update({
+          auth_user_id: identityRow.auth_user_id ?? null,
+          email: identityRow.email ?? null,
+          email_verified: identityRow.email_verified ?? false,
+          display_name: identityRow.display_name ?? null,
+          avatar_url: identityRow.avatar_url ?? null,
+          metadata: identityRow.metadata ?? ({} as Json),
+          last_seen_at: identityRow.last_seen_at ?? new Date().toISOString(),
+        })
+        .eq("id", existingIdentity.id)
+    : await supabase.from("user_identities").insert(identityRow);
   if (identityError) throw identityError;
 
   return {
@@ -207,7 +283,17 @@ export async function linkLineIdentity(identity: VerifiedLineIdentity, targetPro
     }
 
     if (existingIdentity && existingIdentity.profile_id !== targetProfileId) {
-      const mergeRequestId = await createMergeRequest(existingIdentity.profile_id, targetProfileId, targetProfileId);
+      const mergeRequestId = await createMergeRequest(
+        existingIdentity.profile_id,
+        targetProfileId,
+        targetProfileId,
+        {
+          conflict: "line_subject_already_linked",
+          identityId: existingIdentity.id,
+          lineUserId: identity.lineUserId,
+          email: normalizeEmail(identity.email),
+        },
+      );
       return {
         status: "merge_required",
         profileId: targetProfileId,
@@ -228,9 +314,34 @@ export async function linkLineIdentity(identity: VerifiedLineIdentity, targetPro
   }
 
   const emailProfile = await profileByVerifiedEmail(normalizeEmail(identity.email));
-  if (emailProfile && (!emailProfile.line_user_id || emailProfile.line_user_id === identity.lineUserId)) {
+  if (emailProfile?.line_user_id === identity.lineUserId) {
     return attachLineToProfile(identity, emailProfile);
   }
 
-  return createLineProfile(identity);
+  const lineProfile = await createLineProfile(identity);
+  if (emailProfile && lineProfile.profileId !== emailProfile.id) {
+    const linkedIdentity = await identityByLineSubject(identity.lineUserId);
+    const mergeRequestId = await createMergeRequest(
+      lineProfile.profileId,
+      emailProfile.id,
+      lineProfile.profileId,
+      {
+        conflict: "verified_email_matches_existing_profile",
+        identityId: linkedIdentity?.id ?? null,
+        lineUserId: identity.lineUserId,
+        email: normalizeEmail(identity.email),
+      },
+    );
+    return {
+      status: "merge_required",
+      profileId: lineProfile.profileId,
+      lineUserId: identity.lineUserId,
+      displayName: identity.displayName,
+      mergeRequestId,
+      sourceProfileId: lineProfile.profileId,
+      targetProfileId: emailProfile.id,
+    };
+  }
+
+  return lineProfile;
 }

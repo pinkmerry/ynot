@@ -1,9 +1,10 @@
 import "server-only";
 
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import type { Database } from "@/lib/supabase/types";
+import type { Database, Json } from "@/lib/supabase/types";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type IdentityRow = Database["public"]["Tables"]["user_identities"]["Row"];
 
 export async function findVerifiedEmailProfile(
   email: string,
@@ -46,25 +47,99 @@ export async function stampVerifiedEmail(profileId: string, email: string) {
   if (error) throw error;
 }
 
-export async function mergeProfiles(
-  sourceProfileId: string,
-  targetProfileId: string,
-  reason: string,
-): Promise<{ targetProfileId: string }> {
-  if (sourceProfileId === targetProfileId) return { targetProfileId };
+async function emailIdentityFor(email: string): Promise<IdentityRow | null> {
   const supabase = createServiceSupabaseClient();
-  const { data, error } = await supabase.rpc("link_identity_to_existing_profile", {
-    p_source_profile_id: sourceProfileId,
-    p_target_profile_id: targetProfileId,
-    p_reason: reason,
-  });
+  const { data, error } = await supabase
+    .from("user_identities")
+    .select("*")
+    .eq("provider", "email")
+    .eq("provider_subject", email.trim().toLowerCase())
+    .maybeSingle();
   if (error) throw error;
-  return { targetProfileId: (data as string) ?? targetProfileId };
+  return data;
+}
+
+async function createIdentityReviewRequest({
+  sourceProfileId,
+  targetProfileId,
+  requestedByProfileId,
+  reason,
+  email,
+  identityId,
+}: {
+  sourceProfileId: string;
+  targetProfileId: string;
+  requestedByProfileId: string;
+  reason: string;
+  email: string;
+  identityId?: string | null;
+}) {
+  const supabase = createServiceSupabaseClient();
+  const { data: existing, error: existingError } = await supabase
+    .from("account_merge_requests")
+    .select("id")
+    .eq("source_profile_id", sourceProfileId)
+    .eq("target_profile_id", targetProfileId)
+    .eq("status", "pending")
+    .limit(1);
+
+  if (existingError) throw existingError;
+  const riskSummary = {
+    mode: "identity_review_only",
+    conflict: "verified_email_matches_existing_profile",
+    provider: "email",
+    providerSubject: email,
+    identityId: identityId ?? null,
+    email,
+  } as Json;
+
+  if (existing?.[0]) {
+    const { error: updateError } = await supabase
+      .from("account_merge_requests")
+      .update({ risk_summary: riskSummary })
+      .eq("id", existing[0].id);
+    if (updateError) throw updateError;
+    return existing[0].id;
+  }
+
+  const { data: mergeRequest, error: insertError } = await supabase
+    .from("account_merge_requests")
+    .insert({
+      requested_by_profile_id: requestedByProfileId,
+      source_profile_id: sourceProfileId,
+      target_profile_id: targetProfileId,
+      reason,
+      risk_summary: riskSummary,
+    })
+    .select("id")
+    .single();
+  if (insertError) throw insertError;
+
+  await supabase.from("account_merge_events").insert({
+    merge_request_id: mergeRequest.id,
+    event_type: "created",
+    actor_profile_id: requestedByProfileId,
+    metadata: {
+      mode: "identity_review_only",
+      sourceProfileId,
+      targetProfileId,
+      reason,
+      email,
+    } as Json,
+  });
+
+  return mergeRequest.id;
 }
 
 export type EmailMatchOutcome =
   | { kind: "stamped"; profileId: string }
-  | { kind: "merged"; profileId: string; mergedFrom: string };
+  | {
+      kind: "review_required";
+      profileId: string;
+      reviewRequestId: string;
+      sourceProfileId: string;
+      targetProfileId: string;
+    };
 
 export async function resolveEmailAnchor(
   currentProfileId: string,
@@ -73,8 +148,23 @@ export async function resolveEmailAnchor(
 ): Promise<EmailMatchOutcome> {
   const target = await findVerifiedEmailProfile(email, currentProfileId);
   if (target && target.id !== currentProfileId) {
-    const { targetProfileId } = await mergeProfiles(currentProfileId, target.id, reason);
-    return { kind: "merged", profileId: targetProfileId, mergedFrom: currentProfileId };
+    const normalized = email.trim().toLowerCase();
+    const identity = await emailIdentityFor(normalized);
+    const reviewRequestId = await createIdentityReviewRequest({
+      sourceProfileId: target.id,
+      targetProfileId: currentProfileId,
+      requestedByProfileId: currentProfileId,
+      reason,
+      email: normalized,
+      identityId: identity?.id ?? null,
+    });
+    return {
+      kind: "review_required",
+      profileId: currentProfileId,
+      reviewRequestId,
+      sourceProfileId: target.id,
+      targetProfileId: currentProfileId,
+    };
   }
   await stampVerifiedEmail(currentProfileId, email);
   return { kind: "stamped", profileId: currentProfileId };

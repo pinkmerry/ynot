@@ -179,7 +179,7 @@ export default async function AdminUsersPage() {
         <AdminCard>
           <AdminCardHead
             label="Identity safety"
-            title="Account merge review"
+            title="Identity link review"
             actions={
               <AdminPill kind={pendingMerges ? "warn" : "live"}>
                 {pendingMerges} pending
@@ -189,7 +189,7 @@ export default async function AdminUsersPage() {
           <div className="list">
             {mergeRequests.length === 0 ? (
               <div className="list-row text-mute">
-                No merge requests waiting for review.
+                No identity link requests waiting for review.
               </div>
             ) : (
               mergeRequests.map((request) => (

@@ -109,6 +109,9 @@ notCheck("src/app/page.tsx", "root no longer redirects to wireframes", /redirect
 check("src/app/layout.tsx", "production metadata is set", /YNOT · TCG Lucky Draw/);
 check("src/features/ynot/StorePreferences.tsx", "normal web login and signup navigation exist", /href="\/signup"[\s\S]*href="\/login"|href="\/login"[\s\S]*href="\/signup"/);
 check("src/app/page.tsx", "home page reads category, tag, and sort filters from URL search params", /searchParams[\s\S]*normalizeHomeSeries\(params\?\.series\)[\s\S]*normalizeHomeTag\(params\?\.tag\)[\s\S]*normalizeHomeSort\(params\?\.sort\)/);
+check("src/app/(store)/packs/page.tsx", "packs page reads series and tag filters from URL search params", /validSeriesParams[\s\S]*validTagParams[\s\S]*initialSeries[\s\S]*initialTag[\s\S]*<YPackExperience/);
+check("src/app/(store)/packs/page.tsx", "packs page remounts CR filter state when query filters change", /key=\{`\$\{initialSeries\}:\$\{initialTag\}`\}/);
+check("src/features/ynot/cr/YPackExperience.tsx", "CR packs view applies URL-driven series and tag filters", /initialTag[\s\S]*normalizeTag\(initialTag\)[\s\S]*campaignMatchesTag/);
 check("src/features/ynot/components.tsx", "home category and tag filters are real links that preserve filter state", /homeFilterHref[\s\S]*href=\{homeFilterHref\(\{[\s\S]*series: category\.series,[\s\S]*tag: homeFilter\.tag,[\s\S]*sort: homeFilter\.sort,[\s\S]*\}\)\}/);
 check("src/features/ynot/components.tsx", "home campaigns are sorted by selected sort option", /function sortedCampaigns[\s\S]*sort === "latest"[\s\S]*coins-desc[\s\S]*filteredCampaigns[\s\S]*sortedCampaigns\(filtered, filter\.sort\)/);
 check("src/features/ynot/StorePreferences.tsx", "sort select updates the URL query", /export function StoreSortSelect[\s\S]*router\.replace\(\s*homeSortHref\(\{ \.\.\.homeFilter, sort \}\),[\s\S]*scroll: false/);
@@ -121,7 +124,8 @@ check("src/app/api/line/login/start/route.ts", "LINE login requires configured p
 check("src/app/api/line/callback/route.ts", "LINE callback exchanges with trusted redirect URI", /NEXT_PUBLIC_SITE_URL[\s\S]*redirect_uri:\s*redirectUri/);
 check("src/app/api/line/login/start/route.ts", "LINE login next path rejects backslash/protocol-relative redirects", /parsed\.origin !== base\.origin[\s\S]*parsed\.pathname/);
 check("src/app/api/line/callback/route.ts", "LINE callback next path rejects backslash/protocol-relative redirects", /parsed\.origin !== base\.origin[\s\S]*parsed\.pathname/);
-check("src/lib/line/link-identity.ts", "LINE email auto-link only when exactly one active profile matches", /\.limit\(2\)[\s\S]*data\?\.length === 1 \? data\[0\] : null/);
+check("src/lib/line/link-identity.ts", "LINE email matches create identity review instead of auto-linking accounts", /profileByVerifiedEmail[\s\S]*verified_email_matches_existing_profile[\s\S]*merge_required/);
+notCheck("src/lib/line/link-identity.ts", "LINE identity sync does not reassign conflicting identities by upsert", /from\("user_identities"\)\.upsert/);
 check("src/features/auth/actions.ts", "logout clears legacy LINE session cookie too", /luckyDrawSessionCookie[\s\S]*maxAge: 0/);
 check("src/features/ynot/client.tsx", "wallet top-up posts slip upload API", /fetch\("\/api\/ynot\/wallet", \{[\s\S]*method: "POST",[\s\S]*body: form,[\s\S]*\}\)/);
 check("src/features/ynot/client.tsx", "address form calls address API", /\/api\/ynot\/addresses/);
@@ -363,7 +367,7 @@ check("src/app/api/ynot/admin/cards/route.ts", "admin card API requires duplicat
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API assigns draw_round_prizes through live rank allocation", /resolveAdminSession[\s\S]*resolvePrizeRank[\s\S]*from\("draw_round_prizes"\)[\s\S]*(?:insert|update)\(rowPatch\)/);
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API persists category metadata", /metadataValue[\s\S]*prizeCategory[\s\S]*sourceType[\s\S]*displayGroup[\s\S]*metadata,/);
 check("src/app/api/ynot/admin/users/route.ts", "admin users API protects owner changes and self deactivation", /Only an owner can grant owner role[\s\S]*cannot deactivate your own admin access/);
-check("src/app/api/ynot/admin/merge-requests/route.ts", "admin merge API uses service-role merge RPCs", /complete_account_merge_request[\s\S]*reject_account_merge_request/);
+check("src/app/api/ynot/admin/merge-requests/route.ts", "admin identity review API uses identity-only RPCs", /approve_identity_review_request[\s\S]*reject_identity_review_request/);
 check("src/app/api/ynot/admin/shipping/route.ts", "admin shipping route uses transaction-safe status RPC", /supabase\.rpc\("update_shipping_request_status"[\s\S]*p_shipping_request_id[\s\S]*p_admin_id[\s\S]*p_status/);
 check("src/features/ynot/components.tsx", "shell passes admin state into drawer", /isAdmin=\{renderViewer\.isAdmin\}/);
 check("src/features/ynot/StorePreferences.tsx", "admin routes are hidden unless viewer is admin", /isAdmin &&[\s\S]*href="\/admin"/);
@@ -384,6 +388,7 @@ notCheck("src/app/admin/audit/page.tsx", "admin audit page is not a placeholder"
 
 const migration = "../Database/supabase/migrations/20260507032000_phase2_platform_wallet_gacha.sql";
 const globalInventoryMigration = "../Database/supabase/migrations/20260514045933_global_card_inventory_owner_approval.sql";
+const identityReviewMigration = "../Database/supabase/migrations/20260528020000_identity_review_only_linking.sql";
 check("../Database/supabase/migrations/20260508133000_add_campaign_display_tags.sql", "campaign label migration adds display_tags", /add column if not exists display_tags text\[\]/);
 check(migration, "phase2 migration creates payment_methods", /create table if not exists public\.payment_methods/);
 check(migration, "phase2 migration creates top_up_requests", /create table if not exists public\.top_up_requests/);
@@ -396,7 +401,9 @@ check(migration, "phase2 migration creates exchange and shipping tables", /creat
 check(migration, "phase2 migration creates service-role wallet RPC", /create or replace function public\.approve_top_up_request/);
 check(migration, "phase2 migration creates atomic gacha RPC", /create or replace function public\.open_gacha_campaign[\s\S]*for update[\s\S]*insert into public\.coin_ledger[\s\S]*insert into public\.collection_items/);
 check(migration, "phase2 migration creates atomic exchange approval RPC", /create or replace function public\.approve_exchange_order[\s\S]*for update[\s\S]*insert into public\.coin_ledger[\s\S]*entry_type[\s\S]*exchange_credit/);
-check(migration, "phase2 migration creates account merge completion RPC", /create or replace function public\.complete_account_merge_request[\s\S]*update public\.user_identities set profile_id = target_profile\.id[\s\S]*account_merge_completed/);
+check(identityReviewMigration, "identity review migration disables account merge completion RPC", /create or replace function public\.complete_account_merge_request[\s\S]*account_merge_disabled_use_identity_review/);
+check(identityReviewMigration, "identity review approval only moves user identity rows", /create or replace function public\.approve_identity_review_request[\s\S]*update public\.user_identities[\s\S]*identity_review_only[\s\S]*identity_review_approved/);
+notCheck(identityReviewMigration, "identity review migration does not move financial or order records", /update public\.(wallet_accounts|coin_ledger|user_addresses|top_up_requests|gacha_opens|collection_items|exchange_orders|shipping_requests|ranking_snapshots|orders|admin_users|profiles)\b/);
 check(migration, "phase2 migration enables RLS for platform public tables", /alter table public\.top_up_requests enable row level security;[\s\S]*alter table public\.ranking_snapshots enable row level security;/);
 check(migration, "phase2 migration grants RPC execute only to service_role", /revoke all on function public\.open_gacha_campaign[\s\S]*grant execute on function public\.open_gacha_campaign[\s\S]*to service_role/);
 notCheck(migration, "phase2 migration does not grant table writes to authenticated users", /grant (?:insert|update|delete|all)[\s\S]* to authenticated/i);

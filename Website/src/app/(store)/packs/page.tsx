@@ -18,6 +18,8 @@ const validSeriesParams = new Set([
   "multi_sport",
 ]);
 
+const validTagParams = new Set(["all", "new", "psa10"]);
+
 export default async function PacksPage({
   searchParams,
 }: {
@@ -29,6 +31,9 @@ export default async function PacksPage({
     : params?.series;
   const initialSeries =
     seriesParam && validSeriesParams.has(seriesParam) ? seriesParam : "all";
+  const tagParam = Array.isArray(params?.tag) ? params.tag[0] : params?.tag;
+  const initialTag =
+    tagParam && validTagParams.has(tagParam) ? tagParam : "all";
 
   const data = await getYnotDashboardSlice({
     campaigns: true,
@@ -47,9 +52,11 @@ export default async function PacksPage({
     <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
       <Shell>
         <YPackExperience
+          key={`${initialSeries}:${initialTag}`}
           campaigns={visibleCampaigns}
           balanceCoins={data.wallet.balanceCoins}
           initialSeries={initialSeries}
+          initialTag={initialTag}
         />
       </Shell>
     </YnotShell>

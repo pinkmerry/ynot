@@ -80,19 +80,48 @@ function openUnavailableReason(campaign: YnotCampaign): string {
 }
 
 type SortKey = "recommended" | "price-asc" | "price-desc" | "almost-out";
+type TagKey = "all" | "new" | "psa10";
+
+function normalizeTag(tag: string | undefined): TagKey {
+  if (tag === "new" || tag === "psa10") return tag;
+  return "all";
+}
+
+function normalizedTagText(value: string): string {
+  return value.toLowerCase().replace(/[\s_-]+/g, "");
+}
+
+function campaignMatchesTag(campaign: YnotCampaign, tag: TagKey): boolean {
+  if (tag === "all") return true;
+  const tags = campaign.displayTags ?? [];
+  if (tag === "new") {
+    return tags.some((item) => normalizedTagText(item) === "new");
+  }
+  const searchable = [
+    ...tags,
+    campaign.titleEn,
+    campaign.titleTh,
+    campaign.categoryLabel ?? "",
+    ...(campaign.categorySlugs ?? []),
+  ].filter(Boolean);
+  return searchable.some((item) => normalizedTagText(item).includes("psa10"));
+}
 
 export type YPackExperienceProps = {
   campaigns: YnotCampaign[];
   balanceCoins: number;
   initialSeries?: string;
+  initialTag?: string;
 };
 
 export function YPackExperience({
   campaigns,
   balanceCoins,
   initialSeries = "all",
+  initialTag = "all",
 }: YPackExperienceProps) {
   const [category, setCategory] = useState<string>(initialSeries);
+  const [tag, setTag] = useState<TagKey>(normalizeTag(initialTag));
   const [sort, setSort] = useState<SortKey>("recommended");
   const [search, setSearch] = useState("");
   const [openState, setOpenState] = useState<{
@@ -125,9 +154,16 @@ export function YPackExperience({
     return map;
   }, [campaigns]);
 
+  const psa10Count = useMemo(
+    () => campaigns.filter((campaign) => campaignMatchesTag(campaign, "psa10")).length,
+    [campaigns],
+  );
+
   const filtered = useMemo(() => {
     let list = campaigns.filter(
-      (c) => category === "all" || c.series === category,
+      (c) =>
+        (category === "all" || c.series === category) &&
+        campaignMatchesTag(c, tag),
     );
     if (search.trim()) {
       const needle = search.toLowerCase();
@@ -142,7 +178,7 @@ export function YPackExperience({
     if (sort === "almost-out")
       return [...list].sort((a, b) => stockPercent(a) - stockPercent(b));
     return list;
-  }, [campaigns, category, search, sort]);
+  }, [campaigns, category, search, sort, tag]);
 
   return (
     <div className="cr-page cr-page--packs">
@@ -167,6 +203,13 @@ export function YPackExperience({
             <span className="count">{counts[series] ?? 0}</span>
           </button>
         ))}
+        <button
+          type="button"
+          className={tag === "psa10" ? "active" : ""}
+          onClick={() => setTag((current) => (current === "psa10" ? "all" : "psa10"))}
+        >
+          PSA 10 <span className="count">{psa10Count}</span>
+        </button>
       </div>
 
       <div className="cr-toolbar">

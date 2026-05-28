@@ -55,7 +55,8 @@ check(sessionPath, "LINE_SESSION_SECRET is required for LINE session signing", /
 notCheck(sessionPath, "LINE session signing never falls back to service role", /SUPABASE_SERVICE_ROLE_KEY/);
 
 check(lineSessionPath, "LINE session records user identity bridge", /linkLineIdentity/);
-check(lineLinkPath, "LINE identity helper upserts user identity bridge", /from\("user_identities"\)\.upsert/);
+check(lineLinkPath, "LINE identity helper writes user identity bridge without conflict upsert", /identityByLineSubject[\s\S]*from\("user_identities"\)\.insert/);
+notCheck(lineLinkPath, "LINE identity helper does not reassign conflicting identity rows by upsert", /from\("user_identities"\)\.upsert/);
 check(lineSessionPath, "LINE session uses linked verified LINE sub for cookie", /lineUserId: linked\.lineUserId/);
 check(realtimeHookPath, "client subscribes to public and private event tables", /table: "lucky_draw_realtime_events"[\s\S]*table: "app_realtime_events"/);
 

@@ -30,12 +30,12 @@ export async function PATCH(request: Request) {
 
   const supabase = createServiceSupabaseClient();
   const { error } = action === "approve"
-    ? await supabase.rpc("complete_account_merge_request", {
+    ? await supabase.rpc("approve_identity_review_request", {
         p_merge_request_id: mergeRequestId,
         p_admin_id: admin.adminId,
         p_admin_note: note || null,
       })
-    : await supabase.rpc("reject_account_merge_request", {
+    : await supabase.rpc("reject_identity_review_request", {
         p_merge_request_id: mergeRequestId,
         p_admin_id: admin.adminId,
         p_admin_note: note || null,

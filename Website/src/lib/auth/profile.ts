@@ -5,7 +5,17 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database, Json } from "@/lib/supabase/types";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type IdentityInsert = Database["public"]["Tables"]["user_identities"]["Insert"];
+type IdentityRow = Database["public"]["Tables"]["user_identities"]["Row"];
 type SupportedProvider = "email" | "google" | "line";
+type IdentityReviewContext = {
+  conflict: string;
+  provider?: SupportedProvider | null;
+  providerSubject?: string | null;
+  identityId?: string | null;
+  authUserId?: string | null;
+  email?: string | null;
+};
 
 function stringValue(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -54,11 +64,94 @@ function supportedProvider(provider: string): SupportedProvider | null {
   return null;
 }
 
-async function syncUserIdentities(user: User, profileId: string) {
+function reviewRiskSummary(context: IdentityReviewContext): Json {
+  return {
+    mode: "identity_review_only",
+    conflict: context.conflict,
+    provider: context.provider ?? null,
+    providerSubject: context.providerSubject ?? null,
+    identityId: context.identityId ?? null,
+    authUserId: context.authUserId ?? null,
+    email: context.email ?? null,
+  } as Json;
+}
+
+function identityReviewContextForUser(
+  user: User,
+  conflict: string,
+): IdentityReviewContext {
+  const email = user.email?.toLowerCase() ?? null;
+  const primary =
+    user.identities?.find((identity) => supportedProvider(identity.provider)) ??
+    user.identities?.[0];
+  const provider = primary ? supportedProvider(primary.provider) : null;
+  return {
+    conflict,
+    provider: provider ?? (email ? "email" : null),
+    providerSubject: primary
+      ? providerSubject(primary, email)
+      : email,
+    identityId: primary?.id ?? null,
+    authUserId: user.id,
+    email,
+  };
+}
+
+async function writeIdentityRow(
+  row: IdentityInsert,
+  conflict: IdentityReviewContext,
+) {
   const supabase = createServiceSupabaseClient();
+  const { data: existing, error: existingError } = await supabase
+    .from("user_identities")
+    .select("id,profile_id,provider,provider_subject")
+    .eq("provider", row.provider)
+    .eq("provider_subject", row.provider_subject)
+    .maybeSingle<Pick<IdentityRow, "id" | "profile_id" | "provider" | "provider_subject">>();
+
+  if (existingError) throw existingError;
+
+  if (existing && existing.profile_id !== row.profile_id) {
+    await createAuthMergeRequest(
+      existing.profile_id,
+      row.profile_id,
+      row.profile_id,
+      "Auth identity already belongs to another profile; admin review required before linking.",
+      {
+        ...conflict,
+        identityId: existing.id,
+        provider: existing.provider,
+        providerSubject: existing.provider_subject,
+      },
+    );
+    return;
+  }
+
+  if (existing) {
+    const { error } = await supabase
+      .from("user_identities")
+      .update({
+        auth_user_id: row.auth_user_id ?? null,
+        email: row.email ?? null,
+        email_verified: row.email_verified ?? false,
+        display_name: row.display_name ?? null,
+        avatar_url: row.avatar_url ?? null,
+        metadata: row.metadata ?? ({} as Json),
+        last_seen_at: row.last_seen_at ?? new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase.from("user_identities").insert(row);
+  if (error) throw error;
+}
+
+async function syncUserIdentities(user: User, profileId: string) {
   const email = user.email?.toLowerCase() ?? null;
   const identities = user.identities ?? [];
-  const rows: Database["public"]["Tables"]["user_identities"]["Insert"][] = [];
+  const rows: IdentityInsert[] = [];
 
   if (email) {
     rows.push({
@@ -106,13 +199,15 @@ async function syncUserIdentities(user: User, profileId: string) {
     });
   }
 
-  if (!rows.length) return;
-
-  const { error } = await supabase.from("user_identities").upsert(rows, {
-    onConflict: "provider,provider_subject",
-  });
-
-  if (error) throw error;
+  for (const row of rows) {
+    await writeIdentityRow(row, {
+      conflict: "auth_identity_already_linked_to_another_profile",
+      provider: row.provider,
+      providerSubject: row.provider_subject,
+      authUserId: user.id,
+      email: row.email ?? null,
+    });
+  }
 }
 
 async function markProfileIdentitiesForAuthUser(
@@ -136,6 +231,20 @@ async function profileByAuthUserId(
   authUserId: string,
 ): Promise<ProfileRow | null> {
   const supabase = createServiceSupabaseClient();
+  const { data: identity, error: identityError } = await supabase
+    .from("user_identities")
+    .select("profile_id")
+    .eq("auth_user_id", authUserId)
+    .order("last_seen_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ profile_id: string }>();
+
+  if (identityError) throw identityError;
+  if (identity?.profile_id) {
+    const identityProfile = await activeProfileById(identity.profile_id);
+    if (identityProfile) return identityProfile;
+  }
+
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
@@ -161,27 +270,12 @@ async function activeProfileById(
   return data;
 }
 
-async function profileByVerifiedEmail(
-  email: string | null,
-): Promise<ProfileRow | null> {
-  if (!email) return null;
-  const supabase = createServiceSupabaseClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("email", email)
-    .eq("profile_status", "active")
-    .limit(2);
-
-  if (error) throw error;
-  return data?.length === 1 ? data[0] : null;
-}
-
 async function createAuthMergeRequest(
   sourceProfileId: string,
   targetProfileId: string,
   requestedByProfileId: string | null,
   reason: string,
+  context: IdentityReviewContext,
 ) {
   const supabase = createServiceSupabaseClient();
   const { data: existing, error: existingError } = await supabase
@@ -193,7 +287,16 @@ async function createAuthMergeRequest(
     .limit(1);
 
   if (existingError) throw existingError;
-  if (existing?.[0]) return existing[0].id;
+  if (existing?.[0]) {
+    const { error: updateError } = await supabase
+      .from("account_merge_requests")
+      .update({
+        risk_summary: reviewRiskSummary(context),
+      })
+      .eq("id", existing[0].id);
+    if (updateError) throw updateError;
+    return existing[0].id;
+  }
 
   const { data: mergeRequest, error: insertError } = await supabase
     .from("account_merge_requests")
@@ -202,9 +305,7 @@ async function createAuthMergeRequest(
       source_profile_id: sourceProfileId,
       target_profile_id: targetProfileId,
       reason,
-      risk_summary: {
-        conflict: "supabase_auth_already_linked_to_another_profile",
-      } as Json,
+      risk_summary: reviewRiskSummary(context),
     })
     .select("id")
     .single();
@@ -219,6 +320,7 @@ async function createAuthMergeRequest(
       sourceProfileId,
       targetProfileId,
       reason,
+      mode: "identity_review_only",
     } as Json,
   });
 
@@ -319,10 +421,14 @@ export async function ensureProfileForUser(
     if (targetProfile) {
       if (existing && existing.id !== targetProfile.id) {
         await createAuthMergeRequest(
-          targetProfile.id,
           existing.id,
           targetProfile.id,
-          "Supabase Auth user already belongs to another profile; admin review required before merge.",
+          targetProfile.id,
+          "Supabase Auth user already belongs to another profile; admin review required before linking.",
+          identityReviewContextForUser(
+            user,
+            "supabase_auth_already_linked_to_another_profile",
+          ),
         );
         return updateProfileForSupabaseUser(user, existing);
       }
@@ -335,10 +441,14 @@ export async function ensureProfileForUser(
           existing ?? (await createProfileForSupabaseUser(user));
         if (newProfile.id !== targetProfile.id) {
           await createAuthMergeRequest(
-            targetProfile.id,
             newProfile.id,
             targetProfile.id,
-            "Target LINE profile already has another Supabase Auth user; admin review required before merge.",
+            targetProfile.id,
+            "Target profile already has another Supabase Auth user; admin review required before linking.",
+            identityReviewContextForUser(
+              user,
+              "target_profile_has_different_supabase_auth",
+            ),
           );
         }
         return updateProfileForSupabaseUser(user, newProfile);
@@ -350,16 +460,6 @@ export async function ensureProfileForUser(
 
   if (existing) {
     return updateProfileForSupabaseUser(user, existing);
-  }
-
-  const emailProfile = await profileByVerifiedEmail(
-    user.email?.toLowerCase() ?? null,
-  );
-  if (
-    emailProfile &&
-    (!emailProfile.auth_user_id || emailProfile.auth_user_id === user.id)
-  ) {
-    return updateProfileForSupabaseUser(user, emailProfile);
   }
 
   return createProfileForSupabaseUser(user);

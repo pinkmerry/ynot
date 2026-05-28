@@ -86,7 +86,8 @@ check("src/app/auth/callback/route.ts", "OAuth callback exchanges code for serve
 check("src/app/auth/callback/route.ts", "OAuth callback sanitizes next redirect path", /function safeRedirectPath\([\s\S]*value\.startsWith\("\/\/"\)[\s\S]*return `\$\{parsed\.pathname\}\$\{parsed\.search\}\$\{parsed\.hash\}`;/);
 notCheck("src/app/auth/callback/route.ts", "OAuth callback rejects protocol-relative open redirects", /new URL\(next\.startsWith\("\/"\) \? next : "\/", url\.origin\)/);
 check("src/lib/auth/profile.ts", "auth users bootstrap canonical profile", /auth_user_id:\s*user\.id/);
-check("src/lib/auth/profile.ts", "auth identities sync to user_identities", /from\("user_identities"\)\.upsert/);
+check("src/lib/auth/profile.ts", "auth identities sync to user_identities without conflict upsert", /function writeIdentityRow[\s\S]*from\("user_identities"\)[\s\S]*createAuthMergeRequest[\s\S]*from\("user_identities"\)\.insert/);
+notCheck("src/lib/auth/profile.ts", "auth identity sync does not reassign conflicting identities by upsert", /from\("user_identities"\)\.upsert/);
 check("src/lib/auth/resolve-current-profile.ts", "resolver supports Supabase Auth", /authSource:\s*"supabase"/);
 check("src/lib/auth/resolve-current-profile.ts", "resolver detects chunked Supabase Auth cookies", /-auth-token\(\?:\\\.\\d\+\)\?\$/);
 check("src/lib/auth/resolve-current-profile.ts", "resolver preserves LIFF cookie fallback", /readSessionCookie/);

@@ -929,6 +929,8 @@ export type Database = {
       submit_card_conversion: { Args: { p_profile_id: string; p_collection_item_ids: string[]; p_idempotency_key?: string | null }; Returns: Json };
       complete_account_merge_request: { Args: { p_merge_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       reject_account_merge_request: { Args: { p_merge_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
+      approve_identity_review_request: { Args: { p_merge_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
+      reject_identity_review_request: { Args: { p_merge_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       request_shipping_for_items: { Args: { p_profile_id: string; p_address_id: string; p_collection_item_ids: string[]; p_customer_note?: string | null; p_idempotency_key?: string | null }; Returns: Json };
       update_shipping_request_status: {
         Args: {

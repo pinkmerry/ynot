@@ -34,7 +34,8 @@ export async function POST(request: Request) {
   if (limited) return limited;
 
   // Capture the LINE-only session BEFORE Supabase verify writes a new cookie,
-  // so we can merge the old profile into whatever Supabase resolves to.
+  // so we can request identity linking against that profile without moving
+  // wallet/ledger/order data.
   const cookieStore = await cookies();
   const lineSessionProfileId = readSessionCookie(cookieStore)?.profileId ?? null;
 
@@ -50,10 +51,8 @@ export async function POST(request: Request) {
   // adopts that profile when no other profile owns the email.
   const profile = await ensureProfileForUser(supabaseUser, lineSessionProfileId ?? undefined);
 
-  // Now we know the Supabase-resolved profile id. If there is *another* profile
-  // already verified to this email, merge into it explicitly (covers the case
-  // where the user's LINE-only profile and a prior email-verified profile are
-  // distinct rows that need consolidating).
+  // If another active profile already owns this verified email, never merge
+  // account data. Create an identity review request for admin approval.
   const outcome = await resolveEmailAnchor(profile.id, email, "verified_email_anchor");
 
   // Drop the LINE cookie — the Supabase session is now authoritative.
@@ -63,8 +62,9 @@ export async function POST(request: Request) {
 
   return jsonNoStore({
     profileId: outcome.profileId,
-    merged: outcome.kind === "merged",
-    mergedFrom: outcome.kind === "merged" ? outcome.mergedFrom : null,
+    identityReviewRequired: outcome.kind === "review_required",
+    reviewRequestId:
+      outcome.kind === "review_required" ? outcome.reviewRequestId : null,
     email,
   });
 }

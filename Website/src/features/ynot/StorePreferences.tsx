@@ -687,6 +687,11 @@ const accountCopy = {
   },
 } as const;
 
+const coinExpirationWindowMs = 180 * 24 * 60 * 60 * 1000;
+const approximateCoinExpirationDate = new Date(
+  Date.now() + coinExpirationWindowMs,
+);
+
 type LanguageOption = {
   value: Language;
   code: string;
@@ -903,7 +908,7 @@ export function StoreHeaderRightNav({
   const expirationDate = new Intl.DateTimeFormat(
     preferences.language === "th" ? "th-TH" : "en-US",
     { year: "numeric", month: "long", day: "numeric" },
-  ).format(new Date(Date.now() + 180 * 24 * 60 * 60 * 1000));
+  ).format(approximateCoinExpirationDate);
 
   useEffect(() => {
     if (!profileOpen) return;
