@@ -273,6 +273,8 @@ check("src/features/ynot/prize-readiness.ts", "initial prize normalization defau
 check("src/features/ynot/client.tsx", "admin user role form calls users API", /\/api\/ynot\/admin\/users/);
 check("src/features/ynot/client.tsx", "admin merge review calls merge API", /\/api\/ynot\/admin\/merge-requests/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign API is admin gated", /resolveAdminSession[\s\S]*Admin access is required/);
+check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign create stays admin-accessible draft creation", /export async function POST[\s\S]*resolveAdminSession[\s\S]*Admin access is required[\s\S]*status: "draft"[\s\S]*visibility: "private"/);
+check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "admin can submit owner review while owner handles approval publish", /function actionRequiresOwner\(action: LifecycleAction\) \{[\s\S]*action === "save_logic"[\s\S]*action === "publish"[\s\S]*action === "delete"[\s\S]*\);[\s\S]*if \(action === "submit_review"\)/);
 check("src/app/api/ynot/admin/categories/route.ts", "admin category API is admin gated", /resolveAdminSession[\s\S]*Admin access is required/);
 check("src/app/api/ynot/admin/categories/route.ts", "admin category API persists store categories", /from\("store_categories"\)[\s\S]*insert/);
 notCheck("src/app/api/ynot/admin/categories/route.ts", "admin category create does not upsert duplicate slugs", /upsert\([\s\S]*onConflict:\s*"slug"/);
@@ -366,7 +368,8 @@ check("src/app/api/ynot/admin/cards/route.ts", "admin card API is admin gated", 
 check("src/app/api/ynot/admin/cards/route.ts", "admin card API requires duplicate confirmation and blocks ambiguous name-only overwrite", /CARD_ALREADY_EXISTS[\s\S]*CARD_DUPLICATE_NAME_AMBIGUOUS[\s\S]*!booleanValue\(body\.confirmOverwrite\)/);
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API assigns draw_round_prizes through live rank allocation", /resolveAdminSession[\s\S]*resolvePrizeRank[\s\S]*from\("draw_round_prizes"\)[\s\S]*(?:insert|update)\(rowPatch\)/);
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API persists category metadata", /metadataValue[\s\S]*prizeCategory[\s\S]*sourceType[\s\S]*displayGroup[\s\S]*metadata,/);
-check("src/app/api/ynot/admin/users/route.ts", "admin users API protects owner changes and self deactivation", /Only an owner can grant owner role[\s\S]*cannot deactivate your own admin access/);
+check("src/app/api/ynot/admin/users/route.ts", "admin users API restricts all role changes to owners", /admin\.adminRole !== "owner"[\s\S]*Only an owner can manage admin roles[\s\S]*from\("admin_users"\)\.upsert/);
+check("src/app/admin/users/page.tsx", "admin users page hides role form from non-owners", /data\.viewer\.adminRole === "owner"[\s\S]*<AdminUserRoleForm[\s\S]*Owner only/);
 check("src/app/api/ynot/admin/merge-requests/route.ts", "admin identity review API uses identity-only RPCs", /approve_identity_review_request[\s\S]*reject_identity_review_request/);
 check("src/app/api/ynot/admin/shipping/route.ts", "admin shipping route uses transaction-safe status RPC", /supabase\.rpc\("update_shipping_request_status"[\s\S]*p_shipping_request_id[\s\S]*p_admin_id[\s\S]*p_status/);
 check("src/features/ynot/components.tsx", "shell passes admin state into drawer", /isAdmin=\{renderViewer\.isAdmin\}/);

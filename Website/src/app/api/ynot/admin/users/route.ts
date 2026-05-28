@@ -27,49 +27,27 @@ export async function PATCH(request: Request) {
   if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
   const limited = await enforceRateLimit(request, "ynot:admin:users", { limit: 30, windowMs: 60_000 }, admin.profileId);
   if (limited) return limited;
+  if (admin.adminRole !== "owner") {
+    return Response.json({ error: "Only an owner can manage admin roles." }, { status: 403 });
+  }
 
   const body = await request.json().catch(() => null) as UserAdminBody | null;
   const profileId = text(body?.profileId);
   const role = adminRole(body?.role);
   const isActive = body?.isActive !== false;
   if (!profileId || !role) return Response.json({ error: "profileId and role are required." }, { status: 400 });
-  if (role === "owner" && admin.adminRole !== "owner") return Response.json({ error: "Only an owner can grant owner role." }, { status: 403 });
   if (profileId === admin.profileId && !isActive) return Response.json({ error: "You cannot deactivate your own admin access." }, { status: 409 });
 
   const supabase = createServiceSupabaseClient();
 
-  // Load the target's current admin row before mutating so we can enforce
-  // role-transition rules that the database doesn't model.
+  // Load the target's current admin row before mutating so audit events can
+  // report the previous role and active state.
   const { data: targetCurrent, error: targetLoadError } = await supabase
     .from("admin_users")
     .select("id,role,is_active")
     .eq("profile_id", profileId)
     .maybeSingle();
   if (targetLoadError) return Response.json({ error: targetLoadError.message }, { status: 500 });
-
-  // Only owners can modify a row that currently holds the owner role (covers
-  // both demote-the-owner and revoke-owner-access escalation paths).
-  if (targetCurrent?.role === "owner" && admin.adminRole !== "owner") {
-    return Response.json(
-      { error: "Only an owner can modify another owner's admin access." },
-      { status: 403 },
-    );
-  }
-
-  // Block non-owner admins from changing their own role. Owners may demote
-  // themselves (e.g. handing the seat to someone else) — the existing
-  // "grant owner" check still gates re-promotion separately.
-  if (
-    profileId === admin.profileId &&
-    admin.adminRole !== "owner" &&
-    targetCurrent &&
-    targetCurrent.role !== role
-  ) {
-    return Response.json(
-      { error: "You cannot change your own admin role." },
-      { status: 403 },
-    );
-  }
 
   const { error } = await supabase.from("admin_users").upsert(
     {

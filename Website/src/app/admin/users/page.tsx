@@ -161,11 +161,15 @@ export default async function AdminUsersPage() {
                           {new Date(user.createdAt).toLocaleDateString()}
                         </td>
                         <td>
-                          <AdminUserRoleForm
-                            profileId={user.id}
-                            currentRole={user.adminRole}
-                            currentActive={user.adminActive}
-                          />
+                          {data.viewer.adminRole === "owner" ? (
+                            <AdminUserRoleForm
+                              profileId={user.id}
+                              currentRole={user.adminRole}
+                              currentActive={user.adminActive}
+                            />
+                          ) : (
+                            <AdminPill kind="default">Owner only</AdminPill>
+                          )}
                         </td>
                       </tr>
                     );
