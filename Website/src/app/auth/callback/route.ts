@@ -34,9 +34,11 @@ export async function GET(request: Request) {
   const next = safeRedirectPath(url.searchParams.get("next"));
 
   if (!code) {
-    return NextResponse.redirect(
-      new URL("/login?error=Missing+auth+callback+code.", url.origin),
-    );
+    // Stay on the originating page so the failure is visible inline instead
+    // of dumping the user on /login with no context.
+    const target = new URL(next, url.origin);
+    target.searchParams.set("error", "Missing auth callback code.");
+    return NextResponse.redirect(target);
   }
 
   // Build the success response up-front so Supabase can write the session
@@ -69,9 +71,13 @@ export async function GET(request: Request) {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
-    return NextResponse.redirect(
-      new URL(`/login?error=${encodeURIComponent(error.message)}`, url.origin),
-    );
+    // Same reasoning as above — stay on the originating page so the user can
+    // retry without losing context. Sanitize the provider message: don't
+    // leak GoTrue internals beyond a short token.
+    const target = new URL(next, url.origin);
+    target.searchParams.set("error", "Sign-in failed. Please try again.");
+    console.warn("auth_callback_exchange_failed", error.message ?? "unknown");
+    return NextResponse.redirect(target);
   }
 
   const lineSession = readSessionCookie({

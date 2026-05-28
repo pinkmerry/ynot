@@ -20,6 +20,10 @@ export function CompleteProfileForm({ defaultEmail, displayName, nextPath }: Pro
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  // When the server reports an identity review request, we stop auto-
+  // redirecting and let the user read the banner. The "Continue" button then
+  // does the redirect on click.
+  const [reviewMessage, setReviewMessage] = useState<string | null>(null);
 
   async function sendCode() {
     setBusy(true);
@@ -56,13 +60,21 @@ export function CompleteProfileForm({ defaultEmail, displayName, nextPath }: Pro
       const body = (await res.json().catch(() => ({}))) as {
         error?: string;
         identityReviewRequired?: boolean;
+        identityReviewMessage?: string | null;
       };
       if (!res.ok) {
         setError(body.error ?? "That code didn't work.");
         return;
       }
       if (body.identityReviewRequired) {
-        setInfo("This email already belongs to another profile. An admin review was created to link only your login identity.");
+        // Hold the banner and wait for the user to click Continue. Without
+        // this, the router.replace below would unmount the form before the
+        // message renders.
+        setReviewMessage(
+          body.identityReviewMessage
+            ?? "This email already belongs to another profile. An admin review was created to link only your login identity.",
+        );
+        return;
       }
       router.replace(nextPath || "/");
       router.refresh();
@@ -88,6 +100,21 @@ export function CompleteProfileForm({ defaultEmail, displayName, nextPath }: Pro
         )}
         {info && (
           <p className="rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-3 py-2 text-sm font-bold text-emerald-100">{info}</p>
+        )}
+        {reviewMessage && (
+          <div className="space-y-2 rounded-2xl border border-amber-300/25 bg-amber-400/10 px-3 py-3 text-sm font-semibold text-amber-100">
+            <p>{reviewMessage}</p>
+            <button
+              type="button"
+              className="auth-cta"
+              onClick={() => {
+                router.replace(nextPath || "/");
+                router.refresh();
+              }}
+            >
+              Continue
+            </button>
+          </div>
         )}
 
         {step === "enter-email" ? (

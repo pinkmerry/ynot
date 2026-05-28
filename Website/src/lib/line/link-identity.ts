@@ -31,7 +31,27 @@ export type LineLinkResult =
       mergeRequestId: string;
       sourceProfileId: string;
       targetProfileId: string;
+    }
+  // Returned when the caller has no active session AND the LINE token's email
+  // already belongs to an existing profile. We refuse to create a new LINE
+  // profile silently — that would leave a zombie account behind. The caller
+  // should send the user to sign in with email/Google first, then come back
+  // to connect LINE explicitly.
+  | {
+      status: "login_required";
+      lineUserId: string;
+      displayName: string;
+      emailHint: string;
     };
+
+function maskEmail(email: string): string {
+  const at = email.indexOf("@");
+  if (at <= 1) return "your email";
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  const visible = local.length <= 2 ? local : local.slice(0, 2);
+  return `${visible}${"*".repeat(Math.max(1, local.length - visible.length))}@${domain}`;
+}
 
 function normalizeEmail(email: string | null | undefined) {
   return email?.trim().toLowerCase() || null;
@@ -313,35 +333,28 @@ export async function linkLineIdentity(identity: VerifiedLineIdentity, targetPro
     if (profile) return attachLineToProfile(identity, profile);
   }
 
-  const emailProfile = await profileByVerifiedEmail(normalizeEmail(identity.email));
+  const normalizedEmail = normalizeEmail(identity.email);
+  const emailProfile = await profileByVerifiedEmail(normalizedEmail);
+
+  // If LINE returned an email that already belongs to an existing profile and
+  // the user has no active session, refuse to create a new LINE-only profile.
+  // The previous behaviour created a zombie P_line + a merge request, then
+  // sent the user to admin review. The user had no way to recover on their
+  // own. Now: send them to the existing account's sign-in path.
+  if (emailProfile && emailProfile.line_user_id !== identity.lineUserId) {
+    return {
+      status: "login_required",
+      lineUserId: identity.lineUserId,
+      displayName: identity.displayName,
+      emailHint: normalizedEmail ? maskEmail(normalizedEmail) : "your email",
+    };
+  }
+
   if (emailProfile?.line_user_id === identity.lineUserId) {
     return attachLineToProfile(identity, emailProfile);
   }
 
-  const lineProfile = await createLineProfile(identity);
-  if (emailProfile && lineProfile.profileId !== emailProfile.id) {
-    const linkedIdentity = await identityByLineSubject(identity.lineUserId);
-    const mergeRequestId = await createMergeRequest(
-      lineProfile.profileId,
-      emailProfile.id,
-      lineProfile.profileId,
-      {
-        conflict: "verified_email_matches_existing_profile",
-        identityId: linkedIdentity?.id ?? null,
-        lineUserId: identity.lineUserId,
-        email: normalizeEmail(identity.email),
-      },
-    );
-    return {
-      status: "merge_required",
-      profileId: lineProfile.profileId,
-      lineUserId: identity.lineUserId,
-      displayName: identity.displayName,
-      mergeRequestId,
-      sourceProfileId: lineProfile.profileId,
-      targetProfileId: emailProfile.id,
-    };
-  }
-
-  return lineProfile;
+  // Genuine first-time LINE-only signup: no existing identity, no matching
+  // email profile, no active session. Create a fresh LINE profile.
+  return createLineProfile(identity);
 }

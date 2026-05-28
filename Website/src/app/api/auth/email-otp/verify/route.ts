@@ -73,6 +73,13 @@ export async function POST(request: Request) {
     identityReviewRequired: outcome.kind === "review_required",
     reviewRequestId:
       outcome.kind === "review_required" ? outcome.reviewRequestId : null,
+    // Friendly copy the client can surface verbatim without re-mapping the
+    // outcome kind. Null when no review is needed so the client can branch on
+    // truthiness instead of having to interpret a status string.
+    identityReviewMessage:
+      outcome.kind === "review_required"
+        ? "This email is already linked to another YNot account. Support will merge them within 1 business day. You can keep using your LINE login in the meantime."
+        : null,
     email,
   });
   const secure = shouldUseSecureCookies(request);

@@ -166,7 +166,15 @@ export async function GET(request: Request) {
   cookieStore.set(lineOAuthStateCookie, "", { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: 0 });
 
   if (!code || !state || !storedState || state !== storedState.state) {
-    return redirectWith(request, "/login", "error", "LINE login state was invalid. Please try again.");
+    // Fall back to /login only when we truly lost the state cookie. If the
+    // cookie survived but state mismatched (rare — usually a stale tab), keep
+    // the user on the page they started from so the failure is recoverable.
+    return redirectWith(
+      request,
+      storedState?.next ?? "/login",
+      "error",
+      "LINE login state was invalid. Please try again.",
+    );
   }
 
   const channelId = lineChannelId();
@@ -192,11 +200,27 @@ export async function GET(request: Request) {
     );
 
     if (linked.status === "merge_required") {
+      // Stay on the page the user started from (e.g. /profile/personal-info)
+      // and show a friendlier message that explains the next step instead of
+      // dumping a raw merge-request ID on the user.
       return redirectWith(
         request,
-        "/profile",
+        storedState.next,
         "message",
-        `LINE is already connected to another profile. Identity link request ${linked.mergeRequestId} is waiting for admin review.`,
+        "This LINE account is already tied to another YNot account. Support will merge them within 1 business day. Please log in with email in the meantime.",
+      );
+    }
+
+    if (linked.status === "login_required") {
+      // linkLineIdentity refused to create a new LINE profile because the
+      // email on the LINE token already belongs to an existing profile and
+      // there's no active session to merge into. Send the user to the email
+      // sign-in screen with a hint.
+      return redirectWith(
+        request,
+        "/login",
+        "error",
+        `An account already exists for ${linked.emailHint}. Please sign in with email or Google, then connect LINE from the profile page.`,
       );
     }
 

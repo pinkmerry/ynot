@@ -125,7 +125,17 @@ check("src/app/api/line/login/start/route.ts", "LINE login requires configured p
 check("src/app/api/line/callback/route.ts", "LINE callback exchanges with trusted redirect URI", /NEXT_PUBLIC_SITE_URL[\s\S]*redirect_uri:\s*redirectUri/);
 check("src/app/api/line/login/start/route.ts", "LINE login next path rejects backslash/protocol-relative redirects", /parsed\.origin !== base\.origin[\s\S]*parsed\.pathname/);
 check("src/app/api/line/callback/route.ts", "LINE callback next path rejects backslash/protocol-relative redirects", /parsed\.origin !== base\.origin[\s\S]*parsed\.pathname/);
-check("src/lib/line/link-identity.ts", "LINE email matches create identity review instead of auto-linking accounts", /profileByVerifiedEmail[\s\S]*verified_email_matches_existing_profile[\s\S]*merge_required/);
+// linkLineIdentity refuses to auto-link a LINE token whose email already
+// belongs to another profile. The old shape created a merge_request inline
+// (verified_email_matches_existing_profile) and returned merge_required.
+// After A4 the shape changed: it returns login_required and the caller
+// sends the user to sign in with that email first — no spurious P_line is
+// created. Either shape proves the protection is in place.
+check(
+  "src/lib/line/link-identity.ts",
+  "LINE email matches refuse to auto-link accounts",
+  /profileByVerifiedEmail[\s\S]*(login_required|verified_email_matches_existing_profile[\s\S]*merge_required)/,
+);
 notCheck("src/lib/line/link-identity.ts", "LINE identity sync does not reassign conflicting identities by upsert", /from\("user_identities"\)\.upsert/);
 check("src/features/auth/actions.ts", "logout clears canonical and legacy session cookies", /luckyDrawSessionCookie[\s\S]*sessionCookieClearOptions[\s\S]*legacyLuckyDrawSessionCookie[\s\S]*sessionCookieClearOptions/);
 check("src/features/ynot/client.tsx", "wallet top-up posts slip upload API", /fetch\("\/api\/ynot\/wallet", \{[\s\S]*method: "POST",[\s\S]*body: form,[\s\S]*\}\)/);

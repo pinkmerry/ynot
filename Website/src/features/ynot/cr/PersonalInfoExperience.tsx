@@ -6,6 +6,7 @@ import type {
   YnotShippingRequest,
   YnotViewer,
 } from "../types";
+import { FlashBanner } from "./FlashBanner";
 import { Ico } from "./Icons";
 import { Modal, PageHead, useToast } from "./UiKit";
 
@@ -90,6 +91,8 @@ export function PersonalInfoExperience({
         title="Personal info"
         lead="Manage how you sign in, where we ship your cards, and how we contact you."
       />
+
+      <FlashBanner />
 
       <div className="cr-personal-grid">
         <div className="cr-side">
@@ -508,8 +511,55 @@ function ConnectionsSection({
         : connections.email.connected,
   ).length;
 
+  // When the user only has one sign-in method, nudge them to add a second one
+  // for account recovery. Reuse the existing connect hrefs so this card
+  // doesn't introduce new auth surface.
+  const recoveryPrompt =
+    connectedCount === 1
+      ? (() => {
+          if (!connections.line.connected) {
+            return { provider: "LINE", href: links.lineHref };
+          }
+          if (!connections.email.connected && links.emailConnectHref) {
+            return { provider: "email", href: links.emailConnectHref };
+          }
+          if (!connections.google.connected && links.googleConnectHref) {
+            return { provider: "Google", href: links.googleConnectHref };
+          }
+          return null;
+        })()
+      : null;
+
   return (
     <div className="cr-section">
+      {recoveryPrompt && (
+        <div
+          className="cr-conn-card"
+          style={{
+            background: "rgba(244,197,66,0.10)",
+            borderColor: "rgba(244,197,66,0.25)",
+            marginBottom: 12,
+          }}
+        >
+          <div className="cr-row" style={{ gap: 10, alignItems: "center" }}>
+            <span className="cr-conn-logo" style={{ background: "rgba(244,197,66,0.2)" }}>
+              <Ico name="mail" size={14} />
+            </span>
+            <div style={{ flex: 1 }}>
+              <strong>Add a second sign-in method</strong>
+              <small className="cr-mute" style={{ display: "block", marginTop: 2 }}>
+                Connect {recoveryPrompt.provider} so you can recover access if you lose your other sign-in.
+              </small>
+            </div>
+            <a
+              className="cr-btn cr-btn-primary cr-btn-sm"
+              href={recoveryPrompt.href}
+            >
+              Connect {recoveryPrompt.provider}
+            </a>
+          </div>
+        </div>
+      )}
       <div className="cr-section-head">
         <div className="cr-stack" style={{ gap: 2 }}>
           <span className="cr-eyebrow">Sign-in</span>

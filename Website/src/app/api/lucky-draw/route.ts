@@ -2,6 +2,7 @@ import { defaultDraw, seedOrders } from "@/lib/lucky-draw/defaults";
 import { getActiveDraw, getLuckyDrawState, isSupabaseConfigured, toOrder } from "@/lib/lucky-draw/data";
 import { resolveAdminSession, resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { createSlip2GoProviderError, sha256Hex, verifySlipWithSlip2Go } from "@/lib/slip2go/client";
+import { findLiveDuplicateSlip } from "@/lib/slip2go/dedup";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/types";
 import { allowedSlipTypes, maxSlipBytes, verifyImageMagicBytes } from "@/lib/uploads/magic-bytes";
@@ -148,20 +149,15 @@ export async function POST(request: Request) {
 
   const slipFileBuffer = slipFile ? await slipFile.arrayBuffer() : null;
   const slipFileSha256 = slipFileBuffer ? sha256Hex(slipFileBuffer) : null;
-  // Include 'manual_review' alongside 'valid' so slips that landed in
-  // manual_review state also block re-upload of the same image.
-  const { data: localDuplicateSlip, error: localDuplicateError } = slipFileSha256
-    ? await supabase
-        .from("payment_slips")
-        .select("id")
-        .eq("file_sha256", slipFileSha256)
-        .in("verification_status", ["valid", "manual_review"])
-        .order("verified_at", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-    : { data: null, error: null };
-
-  if (localDuplicateError) throw localDuplicateError;
+  // Two-step dedup that skips slips whose parent order is cancelled/expired/
+  // refunded so users can re-upload after a rejected first attempt. See
+  // src/lib/slip2go/dedup.ts for the rationale.
+  const localDuplicateSlip = slipFileSha256
+    ? await findLiveDuplicateSlip(supabase, {
+        column: "file_sha256",
+        value: slipFileSha256,
+      })
+    : null;
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
@@ -250,31 +246,31 @@ export async function POST(request: Request) {
 
     let duplicateOfSlipId: string | null = null;
     let duplicateLookupFailed = false;
-    const duplicateFilters = [
-      verification.referenceId ? `slip2go_reference_id.eq.${verification.referenceId}` : null,
-      verification.decodedQrHash ? `decoded_qr_hash.eq.${verification.decodedQrHash}` : null,
-    ].filter(Boolean);
 
-    if (duplicateFilters.length) {
-      // Same widening: 'manual_review' slips count as already-used.
-      const { data: duplicateSlip, error: duplicateSlipError } = await supabase
-        .from("payment_slips")
-        .select("id")
-        .in("verification_status", ["valid", "manual_review"])
-        .neq("id", slip.id)
-        .or(duplicateFilters.join(","))
-        .limit(1)
-        .maybeSingle();
-
-      if (duplicateSlipError) {
-        duplicateLookupFailed = true;
-        console.warn("slip_verification_duplicate_lookup_failed", {
-          orderPublicCode: order.public_code,
-          paymentSlipId: slip.id,
-          message: duplicateSlipError.message,
-        });
-      }
-      duplicateOfSlipId = duplicateSlip?.id ?? null;
+    try {
+      const refDup = verification.referenceId
+        ? await findLiveDuplicateSlip(supabase, {
+            column: "slip2go_reference_id",
+            value: verification.referenceId,
+            excludeSlipId: slip.id,
+          })
+        : null;
+      const qrDup =
+        !refDup && verification.decodedQrHash
+          ? await findLiveDuplicateSlip(supabase, {
+              column: "decoded_qr_hash",
+              value: verification.decodedQrHash,
+              excludeSlipId: slip.id,
+            })
+          : null;
+      duplicateOfSlipId = refDup?.id ?? qrDup?.id ?? null;
+    } catch (error: unknown) {
+      duplicateLookupFailed = true;
+      console.warn("slip_verification_duplicate_lookup_failed", {
+        orderPublicCode: order.public_code,
+        paymentSlipId: slip.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
 
     const finalStatus = duplicateLookupFailed ? "provider_error" : duplicateOfSlipId ? "duplicate" : verification.status;

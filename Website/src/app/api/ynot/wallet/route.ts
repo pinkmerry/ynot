@@ -5,6 +5,7 @@ import { requireVerifiedAnchor } from "@/lib/auth/verified-anchor";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/types";
 import { createSlip2GoProviderError, sha256Hex, verifySlipWithSlip2Go } from "@/lib/slip2go/client";
+import { findLiveDuplicateSlip } from "@/lib/slip2go/dedup";
 import { getPaymentMethods, getTopUps, getWallet } from "@/features/ynot/data";
 import { toTopUp } from "@/features/ynot/data";
 import { getTopUpPackage } from "@/features/ynot/top-up-packages";
@@ -86,20 +87,17 @@ export async function POST(request: Request) {
 
   const slipBuffer = await slipFile.arrayBuffer();
   const slipHash = sha256Hex(slipBuffer);
-  // Include 'manual_review' alongside 'valid' so slips that landed in
-  // manual_review state (e.g. flows that admit slips without provider data)
-  // also block re-upload of the same image. The DB-side guard in
-  // approve_top_up_request is the authoritative gate; this just widens the
-  // operator-visible duplicate signal at upload time.
-  const { data: localDuplicateSlip, error: localDuplicateError } = await supabase
-    .from("payment_slips")
-    .select("id")
-    .eq("file_sha256", slipHash)
-    .in("verification_status", ["valid", "manual_review"])
-    .order("verified_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (localDuplicateError) throw localDuplicateError;
+  // Step 1: pull every slip with this file hash whose verification status is
+  // approvable. Step 2 filters out the ones whose parent top-up was rejected
+  // / cancelled / expired — those slips are "released" for re-upload (e.g.
+  // user's payment was rejected for a fixable reason and they retry with the
+  // same image). The DB-side guard in approve_top_up_request is still the
+  // authoritative money-flow gate; this just keeps the operator-visible
+  // duplicate signal honest.
+  const localDuplicateSlip = await findLiveDuplicateSlip(supabase, {
+    column: "file_sha256",
+    value: slipHash,
+  });
 
   const idempotencyKey = randomUUID();
   const { data: topUp, error: topUpError } = await supabase
@@ -168,32 +166,33 @@ export async function POST(request: Request) {
 
     let duplicateOfSlipId: string | null = null;
     let duplicateLookupFailed = false;
-    const duplicateFilters = [
-      verification.referenceId ? `slip2go_reference_id.eq.${verification.referenceId}` : null,
-      verification.decodedQrHash ? `decoded_qr_hash.eq.${verification.decodedQrHash}` : null,
-    ].filter(Boolean);
 
-    if (duplicateFilters.length) {
-      // Same widening as the file-hash lookup above: 'manual_review' slips
-      // count as already-used for the operator-visible duplicate signal.
-      const { data: duplicateSlip, error: duplicateSlipError } = await supabase
-        .from("payment_slips")
-        .select("id")
-        .in("verification_status", ["valid", "manual_review"])
-        .neq("id", slip.id)
-        .or(duplicateFilters.join(","))
-        .limit(1)
-        .maybeSingle();
-
-      if (duplicateSlipError) {
-        duplicateLookupFailed = true;
-        console.warn("wallet_slip_verification_duplicate_lookup_failed", {
-          topUpPublicCode: topUp.public_code,
-          paymentSlipId: slip.id,
-          message: duplicateSlipError.message,
-        });
-      }
-      duplicateOfSlipId = duplicateSlip?.id ?? null;
+    // Reuse the same scoping helper so the slip2go reference / decoded-QR
+    // dedup also ignores slips on rejected/cancelled/expired top-ups.
+    try {
+      const refDup = verification.referenceId
+        ? await findLiveDuplicateSlip(supabase, {
+            column: "slip2go_reference_id",
+            value: verification.referenceId,
+            excludeSlipId: slip.id,
+          })
+        : null;
+      const qrDup =
+        !refDup && verification.decodedQrHash
+          ? await findLiveDuplicateSlip(supabase, {
+              column: "decoded_qr_hash",
+              value: verification.decodedQrHash,
+              excludeSlipId: slip.id,
+            })
+          : null;
+      duplicateOfSlipId = refDup?.id ?? qrDup?.id ?? null;
+    } catch (error: unknown) {
+      duplicateLookupFailed = true;
+      console.warn("wallet_slip_verification_duplicate_lookup_failed", {
+        topUpPublicCode: topUp.public_code,
+        paymentSlipId: slip.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
 
     const finalStatus = duplicateLookupFailed
