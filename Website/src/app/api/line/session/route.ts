@@ -20,8 +20,7 @@ type LineVerifyResponse = {
   email?: string;
 };
 
-// Decoded JWT claims we care about for replay-window enforcement. LIFF tokens
-// always carry iat/exp; we treat both as optional and fail safe if missing.
+// Decoded JWT claims we care about for replay-window enforcement.
 type LineIdTokenClaims = {
   iat?: number;
   exp?: number;
@@ -75,18 +74,43 @@ export async function POST(request: Request) {
     return Response.json({ error: "Missing LINE ID token." }, { status: 400 });
   }
 
+  const coarseLimited = await enforceRateLimit(
+    request,
+    "line:session:mint:ip",
+    { limit: 20, windowMs: 15 * 60_000 },
+  );
+  if (coarseLimited) return coarseLimited;
+
   // Pre-verify freshness check: even if the token is a valid LINE id_token,
   // refuse to mint a session for one that's older than the LIFF refresh
   // window. This bounds the replay window for any leaked token.
   const preClaims = decodeIdTokenClaims(idToken);
-  if (preClaims?.iat) {
-    const ageMs = Date.now() - preClaims.iat * 1000;
-    if (ageMs > MAX_ID_TOKEN_AGE_MS) {
-      return Response.json(
-        { error: "LINE ID token is too old. Please sign in again." },
-        { status: 401 },
-      );
-    }
+  if (
+    !preClaims ||
+    typeof preClaims.iat !== "number" ||
+    typeof preClaims.exp !== "number" ||
+    !preClaims.sub ||
+    preClaims.aud !== lineChannelId
+  ) {
+    return Response.json(
+      { error: "LINE ID token claims are invalid. Please sign in again." },
+      { status: 401 },
+    );
+  }
+
+  if (Date.now() >= preClaims.exp * 1000) {
+    return Response.json(
+      { error: "LINE ID token has expired. Please sign in again." },
+      { status: 401 },
+    );
+  }
+
+  const ageMs = Date.now() - preClaims.iat * 1000;
+  if (ageMs < 0 || ageMs > MAX_ID_TOKEN_AGE_MS) {
+    return Response.json(
+      { error: "LINE ID token is too old. Please sign in again." },
+      { status: 401 },
+    );
   }
 
   // Rate-limit per LINE user (sub) — bounds damage from a leaked id_token even
@@ -96,15 +120,13 @@ export async function POST(request: Request) {
   // safe because (a) we still verify the token below before issuing the
   // session, and (b) the attacker would have to spin up a different sub to
   // dodge the limit, which already mints sessions for a different account.
-  if (preClaims?.sub) {
-    const limited = await enforceRateLimit(
-      request,
-      "line:session:mint",
-      { limit: 5, windowMs: 15 * 60_000 },
-      `sub:${preClaims.sub}`,
-    );
-    if (limited) return limited;
-  }
+  const limited = await enforceRateLimit(
+    request,
+    "line:session:mint",
+    { limit: 5, windowMs: 15 * 60_000 },
+    `sub:${preClaims.sub}`,
+  );
+  if (limited) return limited;
 
   const form = new URLSearchParams({
     id_token: idToken,
@@ -130,7 +152,7 @@ export async function POST(request: Request) {
   // what was used for rate-limiting. If they diverge, the token's payload was
   // tampered with — LINE verify catches signature failures, but this is a
   // belt-and-braces check against future LINE-side bugs.
-  if (preClaims?.sub && preClaims.sub !== verified.sub) {
+  if (preClaims.sub !== verified.sub) {
     return Response.json(
       { error: "LINE ID token subject mismatch." },
       { status: 401 },

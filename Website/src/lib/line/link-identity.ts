@@ -91,7 +91,7 @@ async function activeProfileById(profileId: string): Promise<ProfileRow | null> 
     .from("profiles")
     .select("*")
     .eq("id", profileId)
-    .neq("profile_status", "disabled")
+    .eq("profile_status", "active")
     .maybeSingle();
   if (error) throw error;
   return data;

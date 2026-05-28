@@ -243,6 +243,7 @@ async function profileByAuthUserId(
   if (identity?.profile_id) {
     const identityProfile = await activeProfileById(identity.profile_id);
     if (identityProfile) return identityProfile;
+    throw new Error("AUTH_PROFILE_NOT_ACTIVE");
   }
 
   const { data, error } = await supabase
@@ -252,6 +253,9 @@ async function profileByAuthUserId(
     .maybeSingle();
 
   if (error) throw error;
+  if (data && data.profile_status !== "active") {
+    throw new Error("AUTH_PROFILE_NOT_ACTIVE");
+  }
   return data;
 }
 
@@ -263,7 +267,7 @@ async function activeProfileById(
     .from("profiles")
     .select("*")
     .eq("id", profileId)
-    .neq("profile_status", "disabled")
+    .eq("profile_status", "active")
     .maybeSingle();
 
   if (error) throw error;

@@ -94,7 +94,10 @@ check("src/lib/auth/resolve-current-profile.ts", "resolver detects chunked Supab
 check("src/lib/auth/resolve-current-profile.ts", "resolver preserves LIFF cookie fallback", /readSessionCookie/);
 check("src/lib/lucky-draw/session.ts", "site session cookie is canonical site-wide JWT", /luckyDrawSessionCookie = "ynot_session"[\s\S]*JWT_HEADER[\s\S]*alg: "HS256"[\s\S]*typ: "JWT"/);
 check("src/lib/lucky-draw/session.ts", "site session cookie is httpOnly and scoped to the whole site", /sessionCookieOptions[\s\S]*httpOnly: true[\s\S]*sameSite: "lax"[\s\S]*path: "\/"[\s\S]*priority: "high"/);
-check("src/lib/lucky-draw/session.ts", "legacy two-part session cookie remains readable during migration", /legacyLuckyDrawSessionCookie = "lucky_draw_session"[\s\S]*readLegacySession[\s\S]*cookieStore\.get\(legacyLuckyDrawSessionCookie\)/);
+check("src/lib/lucky-draw/session.ts", "legacy site session cookie is retained for clearing only", /legacyLuckyDrawSessionCookie = "lucky_draw_session"[\s\S]*sessionCookieNames/);
+notCheck("src/lib/lucky-draw/session.ts", "legacy two-part session cookie is no longer accepted as active", /cookieStore\.get\(legacyLuckyDrawSessionCookie\)\?\.value/);
+check("src/lib/lucky-draw/session.ts", "site session reader requires versioned payloads", /typeof parsed\.sessionVersion !== "number"[\s\S]*return null/);
+check("src/lib/lucky-draw/session.ts", "site session version validation fails closed", /typeof session\.sessionVersion !== "number"[\s\S]*return false/);
 check("src/features/auth/actions.ts", "password auth mints site JWT session cookie", /signInWithPasswordAction[\s\S]*setSupabaseProfileSessionCookie/);
 check("src/app/auth/callback/route.ts", "OAuth callback mints site JWT session cookie", /createSessionCookieValue[\s\S]*authSource: "supabase"[\s\S]*sessionCookieOptions\(secure\)/);
 check("src/app/api/line/session/route.ts", "LINE LIFF session mints site JWT session cookie", /createSessionCookieValue[\s\S]*authSource: "line"[\s\S]*sessionCookieOptions\(secure\)/);

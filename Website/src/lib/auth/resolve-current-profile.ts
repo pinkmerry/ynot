@@ -141,10 +141,9 @@ export async function resolveCurrentProfile(): Promise<ResolvedProfileSession | 
   const lineSession = readSessionCookie(cookieStore);
   if (!lineSession?.profileId) return null;
 
-  // M2: reject the cookie if its sessionVersion doesn't match the profile's
-  // current version. Legacy cookies (no sessionVersion field) pass through
-  // until natural expiry. The check is sourced from a server-side RPC so a
-  // stolen cookie cannot be replayed once an admin has revoked the profile's
+  // Reject the cookie if its sessionVersion doesn't match the profile's
+  // current version. The check is sourced from a server-side RPC so a stolen
+  // cookie cannot be replayed once an admin has revoked the profile's
   // sessions.
   const versionOk = await isSessionVersionCurrent(lineSession);
   if (!versionOk) return null;
@@ -172,7 +171,7 @@ export async function resolveCurrentProfile(): Promise<ResolvedProfileSession | 
       );
       return null;
     }
-    if (!profileRow || profileRow.profile_status === "disabled") {
+    if (!profileRow || profileRow.profile_status !== "active") {
       return null;
     }
   } catch (error: unknown) {

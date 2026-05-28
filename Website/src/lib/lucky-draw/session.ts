@@ -24,10 +24,8 @@ export type LuckyDrawSession = {
   displayName?: string;
   adminId?: string;
   adminRole?: "owner" | "admin" | "staff";
-  // M2: issued-at (epoch seconds), absolute expiry, and per-profile revocation
-  // counter. All three are optional on read so legacy cookies (minted before
-  // this migration) continue to verify until their 30-day Max-Age elapses,
-  // after which only the new format exists.
+  // Issued-at (epoch seconds), absolute expiry, and per-profile revocation
+  // counter. Read paths require all three for active sessions.
   iat?: number;
   exp?: number;
   sessionVersion?: number;
@@ -133,18 +131,6 @@ function readJwtSession(raw: string): LuckyDrawSession | null {
   }
 }
 
-function readLegacySession(raw: string): LuckyDrawSession | null {
-  const [payload, signature] = raw.split(".");
-  if (!payload || !signature) return null;
-  if (!signedValueMatches(payload, signature)) return null;
-
-  try {
-    return normalizeSessionPayload(parseJsonSegment(payload));
-  } catch {
-    return null;
-  }
-}
-
 function isExpired(session: LuckyDrawSession) {
   return typeof session.exp === "number" && session.exp <= nowEpochSeconds();
 }
@@ -172,11 +158,11 @@ export function sessionCookieClearOptions(secure: boolean) {
 
 /**
  * Stamp a session payload with iat + exp before signing. exp defaults to
- * iat + LUCKY_DRAW_SESSION_TTL_SECONDS. Caller may pass a pre-fetched
- * sessionVersion to embed; otherwise it stays undefined and the read-side
- * version check is skipped.
+ * iat + LUCKY_DRAW_SESSION_TTL_SECONDS. Caller must pass a pre-fetched
+ * sessionVersion so read-side revocation checks can fail closed.
  */
 export function createSessionCookieValue(session: LuckyDrawSession) {
+  if (typeof session.sessionVersion !== "number") return null;
   const iat = session.iat ?? nowEpochSeconds();
   const exp = session.exp ?? iat + LUCKY_DRAW_SESSION_TTL_SECONDS;
   const stamped: LuckyDrawSession = {
@@ -194,38 +180,28 @@ export function createSessionCookieValue(session: LuckyDrawSession) {
 /**
  * Verify HMAC + decode the JWT payload + enforce exp (if present).
  * Returns null for: missing/malformed cookie, HMAC mismatch, expired token.
- * Falls back to the legacy two-part cookie during the compatibility window.
+ * Legacy two-part cookies are intentionally not accepted as active sessions.
  * Does NOT check sessionVersion — that requires a DB round-trip and is the
  * caller's responsibility (see resolveCurrentProfile).
  */
 export function readSessionCookie(cookieStore: CookieReader): LuckyDrawSession | null {
-  const raw =
-    cookieStore.get(luckyDrawSessionCookie)?.value ??
-    cookieStore.get(legacyLuckyDrawSessionCookie)?.value;
+  const raw = cookieStore.get(luckyDrawSessionCookie)?.value;
   if (!raw) return null;
 
-  const parsed = raw.split(".").length === 3
-    ? readJwtSession(raw)
-    : readLegacySession(raw);
+  const parsed = raw.split(".").length === 3 ? readJwtSession(raw) : null;
 
-  // M2: enforce absolute expiry when present. Legacy cookies without exp pass
-  // through; they'll be replaced as the user signs in again.
   if (!parsed || isExpired(parsed)) {
+    return null;
+  }
+  if (
+    typeof parsed.iat !== "number" ||
+    typeof parsed.exp !== "number" ||
+    typeof parsed.sessionVersion !== "number"
+  ) {
     return null;
   }
 
   return parsed;
-}
-
-// Postgres SQLSTATE codes we treat as "schema not yet migrated":
-//   42883 = undefined_function (get_profile_session_version doesn't exist)
-//   42703 = undefined_column (session_version column doesn't exist)
-// In both cases we fail open — the cookie's version field is ignored and
-// the session is treated as current. This lets the code deploy ahead of the
-// migration without locking everyone out.
-function isLegacySchemaError(error: { code?: string } | null | undefined) {
-  if (!error) return false;
-  return error.code === "42883" || error.code === "42703";
 }
 
 type RpcFn = (
@@ -235,17 +211,14 @@ type RpcFn = (
 
 /**
  * M2 sessionVersion check. Pulled out of readSessionCookie because it needs
- * a DB call. Returns true if the cookie's sessionVersion matches the
- * profile's current session_version, OR if the cookie predates the field
- * (legacy compatibility window), OR if the DB schema predates the column.
+ * a DB call. Returns true only if the cookie's sessionVersion matches the
+ * profile's current session_version.
  */
 export async function isSessionVersionCurrent(
   session: LuckyDrawSession,
 ): Promise<boolean> {
   if (typeof session.sessionVersion !== "number") {
-    // Legacy cookie; no version to verify against. Treat as valid until
-    // natural expiry.
-    return true;
+    return false;
   }
   if (!session.profileId) return false;
 
@@ -256,7 +229,6 @@ export async function isSessionVersionCurrent(
       p_profile_id: session.profileId,
     });
     if (error) {
-      if (isLegacySchemaError(error)) return true;
       return false;
     }
     return Number((data as number | null) ?? 0) === session.sessionVersion;
