@@ -139,6 +139,48 @@ test("wallet POST ignores browser-supplied amount and coin fields", () => {
   assert.doesNotMatch(source, /form\.get\(["']coinAmount["']\)/);
 });
 
+test("top-up mutations reject cross-origin browser submissions", () => {
+  const walletRoute = readFileSync(
+    new URL("../src/app/api/ynot/wallet/route.ts", import.meta.url),
+    "utf8",
+  );
+  const adminRoute = readFileSync(
+    new URL("../src/app/api/ynot/admin/top-ups/route.ts", import.meta.url),
+    "utf8",
+  );
+  const sameOrigin = readFileSync(
+    new URL("../src/lib/security/same-origin.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(sameOrigin, /request\.headers\.get\("origin"\)/);
+  assert.match(sameOrigin, /new URL\(request\.url\)\.origin/);
+  assert.match(sameOrigin, /Cross-origin mutation requests are not allowed/);
+  assert.match(walletRoute, /enforceSameOriginMutation\(request\)/);
+  assert.match(adminRoute, /enforceSameOriginMutation\(request\)/);
+});
+
+test("admin top-up approval refuses unsafe or reused slips before crediting", () => {
+  const adminRoute = readFileSync(
+    new URL("../src/app/api/ynot/admin/top-ups/route.ts", import.meta.url),
+    "utf8",
+  );
+  const migration = readFileSync(
+    new URL("../../Database/supabase/migrations/20260528050000_harden_top_up_approval.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(adminRoute, /approvableSlipStatuses\s*=\s*new Set\(\["valid", "manual_review"\]\)/);
+  assert.match(adminRoute, /Cannot approve a top-up without an uploaded slip/);
+  assert.match(adminRoute, /duplicate_of_slip_id[\s\S]*approvableSlipStatuses\.has/);
+  assert.match(adminRoute, /Only pending top-up requests can be approved/);
+  assert.match(migration, /latest_slip public\.payment_slips%rowtype/);
+  assert.match(migration, /latest_slip\.duplicate_of_slip_id is not null[\s\S]*verification_status not in \('valid', 'manual_review'\)/);
+  assert.match(migration, /locked_topup\.status not in \('pending_slip', 'pending_review'\)/);
+  assert.match(migration, /top_up_slip_required/);
+  assert.match(migration, /top_up_slip_not_approvable/);
+});
+
 test("wallet top-up API safe validation and edge cases", async (t) => {
   await t.test("unauthenticated wallet GET is rejected", async () => {
     const { response, body } = await fetchJson("/api/ynot/wallet");

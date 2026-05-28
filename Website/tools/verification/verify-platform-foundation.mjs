@@ -126,10 +126,41 @@ check("src/app/api/line/login/start/route.ts", "LINE login next path rejects bac
 check("src/app/api/line/callback/route.ts", "LINE callback next path rejects backslash/protocol-relative redirects", /parsed\.origin !== base\.origin[\s\S]*parsed\.pathname/);
 check("src/lib/line/link-identity.ts", "LINE email matches create identity review instead of auto-linking accounts", /profileByVerifiedEmail[\s\S]*verified_email_matches_existing_profile[\s\S]*merge_required/);
 notCheck("src/lib/line/link-identity.ts", "LINE identity sync does not reassign conflicting identities by upsert", /from\("user_identities"\)\.upsert/);
-check("src/features/auth/actions.ts", "logout clears legacy LINE session cookie too", /luckyDrawSessionCookie[\s\S]*maxAge: 0/);
+check("src/features/auth/actions.ts", "logout clears canonical and legacy session cookies", /luckyDrawSessionCookie[\s\S]*sessionCookieClearOptions[\s\S]*legacyLuckyDrawSessionCookie[\s\S]*sessionCookieClearOptions/);
 check("src/features/ynot/client.tsx", "wallet top-up posts slip upload API", /fetch\("\/api\/ynot\/wallet", \{[\s\S]*method: "POST",[\s\S]*body: form,[\s\S]*\}\)/);
 check("src/features/ynot/client.tsx", "address form calls address API", /\/api\/ynot\/addresses/);
 check("src/features/ynot/client.tsx", "gacha open button calls API", /\/api\/ynot\/gacha\/open/);
+check("src/lib/security/same-origin.ts", "same-origin mutation helper rejects Fetch Metadata cross-site requests", /sec-fetch-site[\s\S]*cross-site/);
+check("src/app/api/ynot/gacha/open/route.ts", "gacha open POST rejects cross-origin cookie mutations", /enforceSameOriginMutation[\s\S]*enforceSameOriginMutation\(request\)/);
+check("src/app/api/ynot/gacha/open/route.ts", "gacha open POST validates campaign IDs as UUIDs", /function isUuid[\s\S]*!campaignId \|\| !isUuid\(campaignId\)/);
+check("src/app/api/ynot/gacha/open/route.ts", "gacha open POST rejects unsafe idempotency keys", /function normalizeIdempotencyKey[\s\S]*Invalid idempotency key/);
+notCheck("src/app/api/ynot/gacha/open/route.ts", "gacha open POST does not return raw database errors", /Response\.json\(\{\s*error:\s*error\.message/);
+notCheck("src/app/api/ynot/gacha/open/route.ts", "gacha open POST does not spread raw RPC results to the browser", /result:\s*\{\s*\.\.\.raw/);
+check("src/app/api/ynot/gacha/open/route.ts", "gacha open response is allowlisted through public reveal serializers", /function toPublicOpenItem[\s\S]*function toPublicOpenResult[\s\S]*result:\s*toPublicOpenResult/);
+const publicOpenItemSource = sliceBetween(
+  "src/app/api/ynot/gacha/open/route.ts",
+  "function toPublicOpenItem",
+  "function toPublicOpenResult",
+  "gacha open public item serializer",
+);
+notCheckText(
+  "gacha open public item serializer strips internal pull metadata",
+  publicOpenItemSource,
+  /(?:cardId|prizeUnitId|soldPct|logicMode|weight|effectiveWeight|unlockAtSoldPct|effectiveUnlockAtSoldPct)/,
+  "gacha open public item serializer",
+);
+const publicGachaOpenTypes = sliceBetween(
+  "src/features/ynot/types.ts",
+  "export type YnotGachaOpenItem",
+  "export type YnotTierAnimation",
+  "public gacha open result types",
+);
+notCheckText(
+  "public gacha open result types omit internal pull metadata",
+  publicGachaOpenTypes,
+  /(?:cardId|prizeUnitId|logicMode|remaining)/,
+  "public gacha open result types",
+);
 check("src/features/ynot/cr/HistoryExperience.tsx", "collection actions call conversion and shipping APIs", /\/api\/ynot\/collection\/convert[\s\S]*\/api\/ynot\/shipping/);
 check("src/features/ynot/client.tsx", "admin payment settings call payment method API", /\/api\/ynot\/admin\/payment-methods/);
 check("src/features/ynot/client.tsx", "admin campaign form calls campaign API", /\/api\/ynot\/admin\/campaigns/);
@@ -392,6 +423,7 @@ notCheck("src/app/admin/audit/page.tsx", "admin audit page is not a placeholder"
 const migration = "../Database/supabase/migrations/20260507032000_phase2_platform_wallet_gacha.sql";
 const globalInventoryMigration = "../Database/supabase/migrations/20260514045933_global_card_inventory_owner_approval.sql";
 const identityReviewMigration = "../Database/supabase/migrations/20260528020000_identity_review_only_linking.sql";
+const topUpApprovalHardeningMigration = "../Database/supabase/migrations/20260528050000_harden_top_up_approval.sql";
 check("../Database/supabase/migrations/20260508133000_add_campaign_display_tags.sql", "campaign label migration adds display_tags", /add column if not exists display_tags text\[\]/);
 check(migration, "phase2 migration creates payment_methods", /create table if not exists public\.payment_methods/);
 check(migration, "phase2 migration creates top_up_requests", /create table if not exists public\.top_up_requests/);
@@ -410,6 +442,10 @@ notCheck(identityReviewMigration, "identity review migration does not move finan
 check(migration, "phase2 migration enables RLS for platform public tables", /alter table public\.top_up_requests enable row level security;[\s\S]*alter table public\.ranking_snapshots enable row level security;/);
 check(migration, "phase2 migration grants RPC execute only to service_role", /revoke all on function public\.open_gacha_campaign[\s\S]*grant execute on function public\.open_gacha_campaign[\s\S]*to service_role/);
 notCheck(migration, "phase2 migration does not grant table writes to authenticated users", /grant (?:insert|update|delete|all)[\s\S]* to authenticated/i);
+check(topUpApprovalHardeningMigration, "top-up approval RPC requires a latest slip", /latest_slip public\.payment_slips%rowtype[\s\S]*top_up_slip_required/);
+check(topUpApprovalHardeningMigration, "top-up approval RPC blocks duplicate or failed slips", /duplicate_of_slip_id is not null[\s\S]*verification_status not in \('valid', 'manual_review'\)[\s\S]*top_up_slip_not_approvable/);
+check(topUpApprovalHardeningMigration, "top-up approval RPC only credits pending requests", /locked_topup\.status not in \('pending_slip', 'pending_review'\)/);
+check(topUpApprovalHardeningMigration, "top-up approval RPC remains service-role only", /revoke all on function public\.approve_top_up_request[\s\S]*grant execute on function public\.approve_top_up_request[\s\S]*to service_role/);
 
 check(globalInventoryMigration, "global inventory migration adds draw round planned quantity", /add column if not exists planned_quantity integer not null default 0[\s\S]*draw_round_prizes_planned_quantity_check/);
 check(globalInventoryMigration, "global inventory migration creates stock units reservations and ledger", /create table if not exists public\.card_stock_units[\s\S]*create table if not exists public\.card_stock_reservations[\s\S]*create table if not exists public\.card_stock_ledger/);

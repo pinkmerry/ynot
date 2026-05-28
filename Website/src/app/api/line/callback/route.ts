@@ -3,7 +3,10 @@ import { linkLineIdentity } from "@/lib/line/link-identity";
 import {
   createSessionCookieValue,
   fetchSessionVersion,
+  legacyLuckyDrawSessionCookie,
   luckyDrawSessionCookie,
+  sessionCookieClearOptions,
+  sessionCookieOptions,
 } from "@/lib/lucky-draw/session";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
@@ -201,6 +204,7 @@ export async function GET(request: Request) {
     const sessionVersion = await fetchSessionVersion(linked.profileId);
     const sessionCookie = createSessionCookieValue({
       profileId: linked.profileId,
+      authSource: "line",
       lineUserId: linked.lineUserId,
       displayName: linked.displayName,
       adminId: admin?.id,
@@ -210,14 +214,8 @@ export async function GET(request: Request) {
 
     if (!sessionCookie) throw new Error("LINE session could not be created.");
 
-    cookieStore.set(luckyDrawSessionCookie, sessionCookie, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure,
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
-      priority: "high",
-    });
+    cookieStore.set(luckyDrawSessionCookie, sessionCookie, sessionCookieOptions(secure));
+    cookieStore.set(legacyLuckyDrawSessionCookie, "", sessionCookieClearOptions(secure));
 
     return redirectWith(
       request,

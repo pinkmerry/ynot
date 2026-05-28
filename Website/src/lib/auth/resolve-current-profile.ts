@@ -151,11 +151,12 @@ export async function resolveCurrentProfile(): Promise<ResolvedProfileSession | 
 
   return {
     profileId: lineSession.profileId,
+    authUserId: lineSession.authUserId,
     lineUserId: lineSession.lineUserId,
     displayName: lineSession.displayName,
     adminId: lineSession.adminId,
     adminRole: lineSession.adminRole,
-    authSource: "line",
+    authSource: lineSession.authSource ?? (lineSession.lineUserId ? "line" : "supabase"),
   };
 }
 

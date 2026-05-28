@@ -266,6 +266,7 @@ for (const needle of ["/api/lucky-draw", "/api/line", "/api/ynot", "Public store
 const pkg = JSON.parse(read("package.json"));
 if (
   pkg.scripts?.["verify:hardening"] === "npm run test:uploads && node tools/verification/verify-hardening.mjs"
+  || pkg.scripts?.["verify:hardening"] === "npm run test:uploads && node tools/verification/verify-hardening.mjs && node tools/verification/verify-rls-coverage.mjs"
   || pkg.scripts?.["verify:hardening"] === "node tools/verification/verify-hardening.mjs"
 ) pass("package has verify:hardening script");
 else fail("package missing verify:hardening script");

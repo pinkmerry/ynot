@@ -9,6 +9,10 @@ import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
+
   // Double-gated: NODE_ENV != production AND YNOT_ENABLE_DEV_AUTH=true.
   // Leaks cookie names and session metadata, so production must never serve
   // it. Local dev still works as long as the opt-in flag is set.

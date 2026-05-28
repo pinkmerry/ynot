@@ -46,6 +46,7 @@ for (const rel of [
   "src/lib/supabase/client.ts",
   "src/lib/auth/profile.ts",
   "src/lib/auth/resolve-current-profile.ts",
+  "src/lib/lucky-draw/session.ts",
   "src/features/auth/actions.ts",
   "src/features/auth/AuthForm.tsx",
   "src/app/(auth)/login/page.tsx",
@@ -91,6 +92,13 @@ notCheck("src/lib/auth/profile.ts", "auth identity sync does not reassign confli
 check("src/lib/auth/resolve-current-profile.ts", "resolver supports Supabase Auth", /authSource:\s*"supabase"/);
 check("src/lib/auth/resolve-current-profile.ts", "resolver detects chunked Supabase Auth cookies", /-auth-token\(\?:\\\.\\d\+\)\?\$/);
 check("src/lib/auth/resolve-current-profile.ts", "resolver preserves LIFF cookie fallback", /readSessionCookie/);
+check("src/lib/lucky-draw/session.ts", "site session cookie is canonical site-wide JWT", /luckyDrawSessionCookie = "ynot_session"[\s\S]*JWT_HEADER[\s\S]*alg: "HS256"[\s\S]*typ: "JWT"/);
+check("src/lib/lucky-draw/session.ts", "site session cookie is httpOnly and scoped to the whole site", /sessionCookieOptions[\s\S]*httpOnly: true[\s\S]*sameSite: "lax"[\s\S]*path: "\/"[\s\S]*priority: "high"/);
+check("src/lib/lucky-draw/session.ts", "legacy two-part session cookie remains readable during migration", /legacyLuckyDrawSessionCookie = "lucky_draw_session"[\s\S]*readLegacySession[\s\S]*cookieStore\.get\(legacyLuckyDrawSessionCookie\)/);
+check("src/features/auth/actions.ts", "password auth mints site JWT session cookie", /signInWithPasswordAction[\s\S]*setSupabaseProfileSessionCookie/);
+check("src/app/auth/callback/route.ts", "OAuth callback mints site JWT session cookie", /createSessionCookieValue[\s\S]*authSource: "supabase"[\s\S]*sessionCookieOptions\(secure\)/);
+check("src/app/api/line/session/route.ts", "LINE LIFF session mints site JWT session cookie", /createSessionCookieValue[\s\S]*authSource: "line"[\s\S]*sessionCookieOptions\(secure\)/);
+check("src/features/auth/actions.ts", "logout clears canonical and legacy site sessions", /luckyDrawSessionCookie[\s\S]*sessionCookieClearOptions[\s\S]*legacyLuckyDrawSessionCookie[\s\S]*sessionCookieClearOptions/);
 check("src/app/api/debug/whoami/route.ts", "whoami debug uses canonical Supabase auth-cookie detection", /isSupabaseAuthCookieName/);
 notCheck("src/app/api/debug/whoami/route.ts", "whoami debug ignores auth-token code verifier cookies", /includes\("auth-token"\)/);
 check("src/app/api/lucky-draw/route.ts", "order creation uses unified profile resolver", /resolveCurrentProfile\(\)/);

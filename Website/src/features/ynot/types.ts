@@ -240,14 +240,12 @@ export type YnotGachaOpenHistory = {
 };
 
 export type YnotGachaOpenItem = {
-  cardId: string;
   name: string;
   imageUrl: string | null;
   tier: "normal" | "high" | string;
   displayTier: "rainbow" | "gold" | "silver" | "bronze";
   valueThb: number | null;
   position: number;
-  prizeUnitId?: string | null;
 };
 
 export type YnotGachaOpenResult = {
@@ -255,10 +253,8 @@ export type YnotGachaOpenResult = {
   openId: string;
   publicCode: string;
   costCoins?: number;
-  logicMode?: string;
   items: YnotGachaOpenItem[];
   replayed?: boolean;
-  remaining?: Record<string, unknown> | null;
 };
 
 export type YnotTierAnimation = {

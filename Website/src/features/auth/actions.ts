@@ -5,8 +5,13 @@ import { redirect } from "next/navigation";
 import { ensureProfileForUser } from "@/lib/auth/profile";
 import { sendSignupCodeEmail } from "@/lib/email/send-signup-code";
 import {
+  createSessionCookieValue,
+  fetchSessionVersion,
+  legacyLuckyDrawSessionCookie,
   luckyDrawSessionCookie,
   readSessionCookie,
+  sessionCookieClearOptions,
+  sessionCookieOptions,
 } from "@/lib/lucky-draw/session";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { shouldUseSecureCookies } from "@/lib/security/cookies";
@@ -162,6 +167,28 @@ async function lineSessionProfileId() {
   return lineSession?.profileId ?? null;
 }
 
+async function setSupabaseProfileSessionCookie(
+  profile: Awaited<ReturnType<typeof ensureProfileForUser>>,
+  authUserId: string,
+  email?: string | null,
+) {
+  const sessionVersion = await fetchSessionVersion(profile.id);
+  const sessionCookie = createSessionCookieValue({
+    profileId: profile.id,
+    authSource: "supabase",
+    authUserId,
+    lineUserId: profile.line_user_id ?? undefined,
+    displayName: profile.display_name ?? profile.line_display_name ?? email ?? "YNot Customer",
+    sessionVersion,
+  });
+  if (!sessionCookie) return;
+
+  const cookieStore = await cookies();
+  const secure = shouldUseSecureCookies();
+  cookieStore.set(luckyDrawSessionCookie, sessionCookie, sessionCookieOptions(secure));
+  cookieStore.set(legacyLuckyDrawSessionCookie, "", sessionCookieClearOptions(secure));
+}
+
 export async function signInWithPasswordAction(formData: FormData) {
   const email = formString(formData, "email").toLowerCase();
   const password = formString(formData, "password");
@@ -195,7 +222,8 @@ export async function signInWithPasswordAction(formData: FormData) {
     );
   }
 
-  await ensureProfileForUser(data.user, await lineSessionProfileId());
+  const profile = await ensureProfileForUser(data.user, await lineSessionProfileId());
+  await setSupabaseProfileSessionCookie(profile, data.user.id, data.user.email);
   redirect(nextPath);
 }
 
@@ -445,7 +473,8 @@ export async function completeSignUpWithPasswordAction(formData: FormData) {
   }
 
   try {
-    await ensureProfileForUser(data.user, await lineSessionProfileId());
+    const profile = await ensureProfileForUser(data.user, await lineSessionProfileId());
+    await setSupabaseProfileSessionCookie(profile, data.user.id, data.user.email);
   } catch (error) {
     logAuthServerError("signup_profile_bootstrap_failed", error);
     redirect(
@@ -501,12 +530,8 @@ export async function signOutAction() {
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
   const cookieStore = await cookies();
-  cookieStore.set(luckyDrawSessionCookie, "", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: shouldUseSecureCookies(),
-    path: "/",
-    maxAge: 0,
-  });
+  const secure = shouldUseSecureCookies();
+  cookieStore.set(luckyDrawSessionCookie, "", sessionCookieClearOptions(secure));
+  cookieStore.set(legacyLuckyDrawSessionCookie, "", sessionCookieClearOptions(secure));
   redirect(withMessage("/login", "message", "You have signed out."));
 }

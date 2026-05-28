@@ -4,6 +4,7 @@ import { requireVerifiedAnchor } from "@/lib/auth/verified-anchor";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -19,15 +20,134 @@ type RawOpenItem = {
   [key: string]: unknown;
 };
 
+type RawOpenResult = {
+  status?: unknown;
+  openId?: unknown;
+  publicCode?: unknown;
+  costCoins?: unknown;
+  items?: unknown;
+  replayed?: unknown;
+  [key: string]: unknown;
+};
+
+type PublicDisplayTier = "rainbow" | "gold" | "silver" | "bronze";
+
+type PublicOpenItem = {
+  name: string;
+  imageUrl: string | null;
+  tier: string;
+  displayTier: PublicDisplayTier;
+  valueThb: number | null;
+  position: number;
+};
+
+type PublicOpenResult = {
+  status: string;
+  openId: string;
+  publicCode: string;
+  costCoins?: number;
+  items: PublicOpenItem[];
+  replayed?: boolean;
+};
+
 function deriveDisplayTier(tier: string | null | undefined, rank: number) {
   if (tier === "high" && rank <= 3) return "rainbow";
   if (tier === "high") return "gold";
   return "bronze";
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+function readString(value: unknown, fallback = "") {
+  return typeof value === "string" && value ? value : fallback;
+}
+
+function readNumber(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function readPositiveInteger(value: unknown, fallback: number) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : fallback;
+}
+
+function normalizeDisplayTier(
+  value: unknown,
+  tier: string | null | undefined,
+): PublicDisplayTier {
+  if (
+    value === "rainbow" ||
+    value === "gold" ||
+    value === "silver" ||
+    value === "bronze"
+  ) {
+    return value;
+  }
+  return deriveDisplayTier(tier, 99);
+}
+
+function normalizeIdempotencyKey(value: unknown) {
+  if (value === undefined || value === null) return crypto.randomUUID();
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!/^[a-zA-Z0-9:_-]{1,120}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+function toPublicOpenItem(item: RawOpenItem, index: number): PublicOpenItem {
+  const tier = readString(item.tier, "normal");
+  return {
+    name: readString(item.name, "Mystery card"),
+    imageUrl: typeof item.imageUrl === "string" && item.imageUrl ? item.imageUrl : null,
+    tier,
+    displayTier: normalizeDisplayTier(item.displayTier, tier),
+    valueThb: readNumber(item.valueThb),
+    position: readPositiveInteger(item.position, index + 1),
+  };
+}
+
+function toPublicOpenResult(raw: RawOpenResult, items: RawOpenItem[]): PublicOpenResult {
+  const result: PublicOpenResult = {
+    status: readString(raw.status, "completed"),
+    openId: readString(raw.openId),
+    publicCode: readString(raw.publicCode),
+    items: items.map(toPublicOpenItem),
+  };
+  const costCoins = readNumber(raw.costCoins);
+  if (costCoins !== null) result.costCoins = costCoins;
+  if (raw.replayed === true) result.replayed = true;
+  return result;
+}
+
+function openErrorMessage(message: string | undefined) {
+  switch (message) {
+    case "insufficient_balance":
+      return "Insufficient coin balance.";
+    case "invalid_open_quantity":
+    case "invalid_open_quantity_option":
+      return "Quantity must be one of the available pull options.";
+    case "campaign_not_live":
+    case "test_campaign_not_allowed":
+    case "not_enough_available_slots":
+    case "not_enough_prize_inventory":
+    case "not_enough_unlocked_prize_inventory":
+      return "This pack is not openable right now.";
+    case "profile_required":
+      return "Login is required.";
+    default:
+      return "Could not open this pack. Please try again.";
+  }
+}
+
 async function hydrateItems(
   items: RawOpenItem[],
   openId: string,
+  profileId: string,
 ): Promise<RawOpenItem[]> {
   if (!items.length) return items;
   const needsHydration = items.some(
@@ -36,6 +156,14 @@ async function hydrateItems(
   if (!needsHydration) return items;
 
   const supabase = createServiceSupabaseClient();
+  const { data: open, error: openError } = await supabase
+    .from("gacha_opens")
+    .select("id")
+    .eq("id", openId)
+    .eq("profile_id", profileId)
+    .maybeSingle();
+  if (openError || !open?.id) return items;
+
   // Open items hold the canonical link to card_id + draw_round_prize_id for
   // this open, so use them to resolve display tier from prize metadata and
   // card name/image from the catalog.
@@ -264,7 +392,7 @@ async function buildPreviewOpenResult(campaignId: string, quantity: number) {
       prizeUnitId: null,
     };
   });
-  return {
+  const result = {
     status: "completed",
     openId: `preview-${crypto.randomUUID()}`,
     publicCode: `PREVIEW-${Math.floor(Math.random() * 1_000_000)}`,
@@ -274,10 +402,13 @@ async function buildPreviewOpenResult(campaignId: string, quantity: number) {
     replayed: false,
     remaining: { campaignId },
   };
+  return toPublicOpenResult(result, items);
 }
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
   const session = await resolveCurrentProfile();
   if (!session?.profileId) return Response.json({ error: "Login is required." }, { status: 401 });
   const blocked = await requireVerifiedAnchor(session);
@@ -285,11 +416,12 @@ export async function POST(request: Request) {
   const limited = await enforceRateLimit(request, "ynot:gacha:open", { limit: 30, windowMs: 60_000 }, session.profileId);
   if (limited) return limited;
   const body = await request.json().catch(() => null) as { campaignId?: unknown; quantity?: unknown; idempotencyKey?: unknown } | null;
-  const campaignId = typeof body?.campaignId === "string" ? body.campaignId : "";
+  const campaignId = typeof body?.campaignId === "string" ? body.campaignId.trim() : "";
   const quantity = Number(body?.quantity ?? 1);
-  const idempotencyKey = typeof body?.idempotencyKey === "string" ? body.idempotencyKey : crypto.randomUUID();
-  if (!campaignId) return Response.json({ error: "Campaign is required." }, { status: 400 });
+  const idempotencyKey = normalizeIdempotencyKey(body?.idempotencyKey);
+  if (!campaignId || !isUuid(campaignId)) return Response.json({ error: "Campaign is required." }, { status: 400 });
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) return Response.json({ error: "Quantity must be between 1 and 100." }, { status: 400 });
+  if (!idempotencyKey) return Response.json({ error: "Invalid idempotency key." }, { status: 400 });
 
   // Preview-mode short circuit: synthesise an open result so the localhost
   // demo can show the reveal animation without a real wallet or profile.
@@ -304,13 +436,13 @@ export async function POST(request: Request) {
 
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase.rpc("open_gacha_campaign", { p_profile_id: session.profileId, p_draw_round_id: campaignId, p_quantity: quantity, p_idempotency_key: idempotencyKey });
-  if (error) return Response.json({ error: error.message }, { status: 409 });
+  if (error) return Response.json({ error: openErrorMessage(error.message) }, { status: 409 });
 
   // Backfill card name / image / displayTier so the reveal overlay can render
   // even when the RPC has not been updated to project these fields yet.
-  const raw = (data ?? {}) as { items?: RawOpenItem[]; openId?: string };
+  const raw = (data ?? {}) as RawOpenResult;
   const openId = typeof raw.openId === "string" ? raw.openId : "";
   const items = Array.isArray(raw.items) ? raw.items : [];
-  const hydrated = openId ? await hydrateItems(items, openId) : items;
-  return Response.json({ result: { ...raw, items: hydrated } });
+  const hydrated = openId ? await hydrateItems(items, openId, session.profileId) : items;
+  return Response.json({ result: toPublicOpenResult(raw, hydrated) });
 }

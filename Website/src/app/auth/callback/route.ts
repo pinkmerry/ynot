@@ -3,8 +3,13 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { ensureProfileForUser } from "@/lib/auth/profile";
 import {
+  createSessionCookieValue,
+  fetchSessionVersion,
+  legacyLuckyDrawSessionCookie,
   luckyDrawSessionCookie,
   readSessionCookie,
+  sessionCookieClearOptions,
+  sessionCookieOptions,
 } from "@/lib/lucky-draw/session";
 import { shouldUseSecureCookies } from "@/lib/security/cookies";
 import type { Database } from "@/lib/supabase/types";
@@ -85,16 +90,31 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (user) await ensureProfileForUser(user, lineSession?.profileId ?? null);
-
-  if (lineSession?.profileId) {
-    response.cookies.set(luckyDrawSessionCookie, "", {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: shouldUseSecureCookies(request),
-      path: "/",
-      maxAge: 0,
+  const secure = shouldUseSecureCookies(request);
+  if (user) {
+    const profile = await ensureProfileForUser(user, lineSession?.profileId ?? null);
+    const sessionVersion = await fetchSessionVersion(profile.id);
+    const sessionCookie = createSessionCookieValue({
+      profileId: profile.id,
+      authSource: "supabase",
+      authUserId: user.id,
+      lineUserId: profile.line_user_id ?? undefined,
+      displayName: profile.display_name ?? profile.line_display_name ?? user.email ?? "YNot Customer",
+      sessionVersion,
     });
+
+    if (sessionCookie) {
+      response.cookies.set(
+        luckyDrawSessionCookie,
+        sessionCookie,
+        sessionCookieOptions(secure),
+      );
+    }
+    response.cookies.set(
+      legacyLuckyDrawSessionCookie,
+      "",
+      sessionCookieClearOptions(secure),
+    );
   }
 
   return response;

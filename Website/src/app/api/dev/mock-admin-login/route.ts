@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import {
   createSessionCookieValue,
   fetchSessionVersion,
+  legacyLuckyDrawSessionCookie,
   luckyDrawSessionCookie,
+  sessionCookieClearOptions,
+  sessionCookieOptions,
 } from "@/lib/lucky-draw/session";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
@@ -91,6 +94,7 @@ export async function GET(request: Request) {
   const sessionVersion = await fetchSessionVersion(profile.id);
   const sessionCookie = createSessionCookieValue({
     profileId: profile.id,
+    authSource: "line",
     lineUserId: TEST_LINE_USER_ID,
     displayName: TEST_DISPLAY_NAME,
     adminId: admin.id,
@@ -109,12 +113,15 @@ export async function GET(request: Request) {
     }
   }
 
-  response.cookies.set(luckyDrawSessionCookie, sessionCookie, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: false,
-    path: "/",
-    maxAge: 60 * 60 * 24,
-  });
+  response.cookies.set(
+    luckyDrawSessionCookie,
+    sessionCookie,
+    sessionCookieOptions(false, 60 * 60 * 24),
+  );
+  response.cookies.set(
+    legacyLuckyDrawSessionCookie,
+    "",
+    sessionCookieClearOptions(false),
+  );
   return response;
 }

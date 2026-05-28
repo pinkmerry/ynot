@@ -2,12 +2,16 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import {
   createSessionCookieValue,
   fetchSessionVersion,
+  legacyLuckyDrawSessionCookie,
   luckyDrawSessionCookie,
+  sessionCookieClearOptions,
+  sessionCookieOptions,
 } from "@/lib/lucky-draw/session";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { linkLineIdentity } from "@/lib/line/link-identity";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { shouldUseSecureCookies } from "@/lib/security/cookies";
+import { NextResponse } from "next/server";
 
 type LineVerifyResponse = {
   sub?: string;
@@ -182,6 +186,7 @@ export async function POST(request: Request) {
   const sessionVersion = await fetchSessionVersion(linked.profileId);
   const sessionCookie = createSessionCookieValue({
     profileId: linked.profileId,
+    authSource: "line",
     lineUserId: linked.lineUserId,
     displayName: linked.displayName,
     adminId: adminUser?.id,
@@ -193,7 +198,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "LINE session could not be created." }, { status: 500 });
   }
 
-  const serverResponse = Response.json({
+  const serverResponse = NextResponse.json({
     ...profile,
     profileId: linked.profileId,
     isAdmin: !!adminUser,
@@ -203,21 +208,25 @@ export async function POST(request: Request) {
   // Priority=High keeps the session cookie from being evicted under storage
   // pressure (Chrome's storage manager prefers low-priority cookies). Without
   // it, heavy-cookie users would silently get logged out.
-  const secure = shouldUseSecureCookies(request) ? " Secure;" : "";
-  serverResponse.headers.set(
-    "Set-Cookie",
-    `${luckyDrawSessionCookie}=${sessionCookie}; HttpOnly;${secure} SameSite=Lax; Path=/; Max-Age=2592000; Priority=High`,
+  const secure = shouldUseSecureCookies(request);
+  serverResponse.cookies.set(
+    luckyDrawSessionCookie,
+    sessionCookie,
+    sessionCookieOptions(secure),
+  );
+  serverResponse.cookies.set(
+    legacyLuckyDrawSessionCookie,
+    "",
+    sessionCookieClearOptions(secure),
   );
 
   return serverResponse;
 }
 
 export async function DELETE(request: Request) {
-  const response = Response.json({ ok: true });
-  const secure = shouldUseSecureCookies(request) ? " Secure;" : "";
-  response.headers.set(
-    "Set-Cookie",
-    `${luckyDrawSessionCookie}=; HttpOnly;${secure} SameSite=Lax; Path=/; Max-Age=0`,
-  );
+  const response = NextResponse.json({ ok: true });
+  const secure = shouldUseSecureCookies(request);
+  response.cookies.set(luckyDrawSessionCookie, "", sessionCookieClearOptions(secure));
+  response.cookies.set(legacyLuckyDrawSessionCookie, "", sessionCookieClearOptions(secure));
   return response;
 }

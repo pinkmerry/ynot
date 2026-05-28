@@ -9,6 +9,7 @@ import { getPaymentMethods, getTopUps, getWallet } from "@/features/ynot/data";
 import { toTopUp } from "@/features/ynot/data";
 import { getTopUpPackage } from "@/features/ynot/top-up-packages";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { allowedSlipTypes, maxSlipBytes, verifyImageMagicBytes } from "@/lib/uploads/magic-bytes";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) return jsonNoStore({ error: "Supabase is not configured." }, { status: 503 });
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
   const session = await resolveCurrentProfile();
   if (!session?.profileId) return jsonNoStore({ error: "Login is required." }, { status: 401 });
   const blocked = await requireVerifiedAnchor(session);

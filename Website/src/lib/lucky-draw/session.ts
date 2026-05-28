@@ -3,7 +3,12 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
-export const luckyDrawSessionCookie = "lucky_draw_session";
+export const luckyDrawSessionCookie = "ynot_session";
+export const legacyLuckyDrawSessionCookie = "lucky_draw_session";
+export const sessionCookieNames = [
+  luckyDrawSessionCookie,
+  legacyLuckyDrawSessionCookie,
+] as const;
 
 // Absolute lifetime baked into the signed payload. Matches the cookie's
 // browser-side Max-Age so an attacker can't extend a cookie beyond what the
@@ -13,6 +18,8 @@ export const LUCKY_DRAW_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 export type LuckyDrawSession = {
   profileId: string;
+  authSource?: "supabase" | "line";
+  authUserId?: string;
   lineUserId?: string;
   displayName?: string;
   adminId?: string;
@@ -29,6 +36,11 @@ export type LuckyDrawSession = {
 type CookieReader = {
   get(name: string): { value: string } | undefined;
 };
+
+const JWT_HEADER = {
+  alg: "HS256",
+  typ: "JWT",
+} as const;
 
 function sessionSecret() {
   const secret = process.env.LINE_SESSION_SECRET;
@@ -52,6 +64,112 @@ function nowEpochSeconds() {
   return Math.floor(Date.now() / 1000);
 }
 
+function encodeJson(value: unknown) {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+function parseJsonSegment(segment: string): unknown {
+  return JSON.parse(Buffer.from(segment, "base64url").toString("utf8"));
+}
+
+function signedValueMatches(value: string, signature: string) {
+  const expected = sign(value);
+  if (!expected) return false;
+
+  const actualBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function authSourceValue(value: unknown): LuckyDrawSession["authSource"] {
+  return value === "supabase" || value === "line" ? value : undefined;
+}
+
+function adminRoleValue(value: unknown): LuckyDrawSession["adminRole"] {
+  return value === "owner" || value === "admin" || value === "staff" ? value : undefined;
+}
+
+function normalizeSessionPayload(value: unknown): LuckyDrawSession | null {
+  if (!value || typeof value !== "object") return null;
+  const payload = value as Record<string, unknown>;
+  const profileId = stringValue(payload.profileId);
+  if (!profileId) return null;
+
+  return {
+    profileId,
+    authSource: authSourceValue(payload.authSource),
+    authUserId: stringValue(payload.authUserId),
+    lineUserId: stringValue(payload.lineUserId),
+    displayName: stringValue(payload.displayName),
+    adminId: stringValue(payload.adminId),
+    adminRole: adminRoleValue(payload.adminRole),
+    iat: numberValue(payload.iat),
+    exp: numberValue(payload.exp),
+    sessionVersion: numberValue(payload.sessionVersion),
+  };
+}
+
+function readJwtSession(raw: string): LuckyDrawSession | null {
+  const [encodedHeader, encodedPayload, signature] = raw.split(".");
+  if (!encodedHeader || !encodedPayload || !signature) return null;
+  if (!signedValueMatches(`${encodedHeader}.${encodedPayload}`, signature)) return null;
+
+  try {
+    const header = parseJsonSegment(encodedHeader);
+    if (!header || typeof header !== "object") return null;
+    const values = header as Record<string, unknown>;
+    if (values.alg !== JWT_HEADER.alg || values.typ !== JWT_HEADER.typ) return null;
+    return normalizeSessionPayload(parseJsonSegment(encodedPayload));
+  } catch {
+    return null;
+  }
+}
+
+function readLegacySession(raw: string): LuckyDrawSession | null {
+  const [payload, signature] = raw.split(".");
+  if (!payload || !signature) return null;
+  if (!signedValueMatches(payload, signature)) return null;
+
+  try {
+    return normalizeSessionPayload(parseJsonSegment(payload));
+  } catch {
+    return null;
+  }
+}
+
+function isExpired(session: LuckyDrawSession) {
+  return typeof session.exp === "number" && session.exp <= nowEpochSeconds();
+}
+
+export function sessionCookieOptions(secure: boolean, maxAge = LUCKY_DRAW_SESSION_TTL_SECONDS) {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure,
+    path: "/",
+    maxAge,
+    priority: "high" as const,
+  };
+}
+
+export function sessionCookieClearOptions(secure: boolean) {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure,
+    path: "/",
+    maxAge: 0,
+  };
+}
+
 /**
  * Stamp a session payload with iat + exp before signing. exp defaults to
  * iat + LUCKY_DRAW_SESSION_TTL_SECONDS. Caller may pass a pre-fetched
@@ -66,44 +184,33 @@ export function createSessionCookieValue(session: LuckyDrawSession) {
     iat,
     exp,
   };
-  const payload = Buffer.from(JSON.stringify(stamped)).toString("base64url");
-  const signature = sign(payload);
+  const header = encodeJson(JWT_HEADER);
+  const payload = encodeJson(stamped);
+  const signature = sign(`${header}.${payload}`);
   if (!signature) return null;
-  return `${payload}.${signature}`;
+  return `${header}.${payload}.${signature}`;
 }
 
 /**
- * Verify HMAC + decode the payload + enforce exp (if present).
+ * Verify HMAC + decode the JWT payload + enforce exp (if present).
  * Returns null for: missing/malformed cookie, HMAC mismatch, expired token.
+ * Falls back to the legacy two-part cookie during the compatibility window.
  * Does NOT check sessionVersion — that requires a DB round-trip and is the
  * caller's responsibility (see resolveCurrentProfile).
  */
 export function readSessionCookie(cookieStore: CookieReader): LuckyDrawSession | null {
-  const raw = cookieStore.get(luckyDrawSessionCookie)?.value;
+  const raw =
+    cookieStore.get(luckyDrawSessionCookie)?.value ??
+    cookieStore.get(legacyLuckyDrawSessionCookie)?.value;
   if (!raw) return null;
 
-  const [payload, signature] = raw.split(".");
-  if (!payload || !signature) return null;
-
-  const expected = sign(payload);
-  if (!expected) return null;
-
-  const actualBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expected);
-  if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) {
-    return null;
-  }
-
-  let parsed: LuckyDrawSession;
-  try {
-    parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as LuckyDrawSession;
-  } catch {
-    return null;
-  }
+  const parsed = raw.split(".").length === 3
+    ? readJwtSession(raw)
+    : readLegacySession(raw);
 
   // M2: enforce absolute expiry when present. Legacy cookies without exp pass
   // through; they'll be replaced as the user signs in again.
-  if (typeof parsed.exp === "number" && parsed.exp <= nowEpochSeconds()) {
+  if (!parsed || isExpired(parsed)) {
     return null;
   }
 

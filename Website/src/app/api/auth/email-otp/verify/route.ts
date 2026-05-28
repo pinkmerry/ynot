@@ -1,9 +1,19 @@
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureProfileForUser } from "@/lib/auth/profile";
 import { resolveEmailAnchor } from "@/lib/auth/identity-merge";
-import { readSessionCookie, luckyDrawSessionCookie } from "@/lib/lucky-draw/session";
+import {
+  createSessionCookieValue,
+  fetchSessionVersion,
+  legacyLuckyDrawSessionCookie,
+  luckyDrawSessionCookie,
+  readSessionCookie,
+  sessionCookieClearOptions,
+  sessionCookieOptions,
+} from "@/lib/lucky-draw/session";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { shouldUseSecureCookies } from "@/lib/security/cookies";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +23,7 @@ const CODE_RE = /^\d{6}$/;
 function jsonNoStore(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
   headers.set("cache-control", "no-store");
-  return Response.json(body, { ...init, headers });
+  return NextResponse.json(body, { ...init, headers });
 }
 
 export async function POST(request: Request) {
@@ -58,16 +68,32 @@ export async function POST(request: Request) {
   // account data. Create an identity review request for admin approval.
   const outcome = await resolveEmailAnchor(profile.id, email, "verified_email_anchor");
 
-  // Drop the LINE cookie — the Supabase session is now authoritative.
-  if (cookieStore.get(luckyDrawSessionCookie)) {
-    cookieStore.set(luckyDrawSessionCookie, "", { maxAge: 0, path: "/" });
-  }
-
-  return jsonNoStore({
+  const response = jsonNoStore({
     profileId: outcome.profileId,
     identityReviewRequired: outcome.kind === "review_required",
     reviewRequestId:
       outcome.kind === "review_required" ? outcome.reviewRequestId : null,
     email,
   });
+  const secure = shouldUseSecureCookies(request);
+  const sessionVersion = await fetchSessionVersion(profile.id);
+  const sessionCookie = createSessionCookieValue({
+    profileId: profile.id,
+    authSource: "supabase",
+    authUserId: supabaseUser.id,
+    lineUserId: profile.line_user_id ?? undefined,
+    displayName: profile.display_name ?? profile.line_display_name ?? supabaseUser.email ?? "YNot Customer",
+    sessionVersion,
+  });
+
+  if (sessionCookie) {
+    response.cookies.set(
+      luckyDrawSessionCookie,
+      sessionCookie,
+      sessionCookieOptions(secure),
+    );
+  }
+  response.cookies.set(legacyLuckyDrawSessionCookie, "", sessionCookieClearOptions(secure));
+
+  return response;
 }
