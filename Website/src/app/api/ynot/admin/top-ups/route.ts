@@ -8,9 +8,12 @@ import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 
 export const dynamic = "force-dynamic";
 
-// Approvals over this THB threshold trigger a security alert. Tune to whatever
-// "unusual for our user base" looks like.
-const LARGE_TOP_UP_THB_THRESHOLD = 5000;
+// Approvals at or above this THB threshold trigger a security alert. Set at
+// 1000 THB so every Collector and Whale approval (the two highest packages
+// at 1000 and 3000 THB respectively) lands in the security inbox. The
+// previous value of 5000 was above the maximum legitimate package and the
+// alert never fired.
+const LARGE_TOP_UP_THB_THRESHOLD = 1000;
 const approvableSlipStatuses = new Set(["valid", "manual_review"]);
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -38,20 +41,31 @@ function topUpReviewErrorMessage(message?: string) {
   return "Could not review this top-up request.";
 }
 
+type ApprovalBlock =
+  | null
+  | { message: string; alert?: never }
+  | {
+      // Suspicious block: admin is trying to push through a slip that the
+      // upload pipeline already flagged as duplicate/fraud/mismatch. The
+      // caller should page the security inbox.
+      message: string;
+      alert: { slipStatus: string; slipId: string; duplicateOfSlipId: string | null };
+    };
+
 async function approvalBlocker(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   topUpId: string,
-) {
+): Promise<ApprovalBlock> {
   const { data: topUp, error: topUpError } = await supabase
     .from("top_up_requests")
     .select("id,status,public_code")
     .eq("id", topUpId)
     .maybeSingle();
   if (topUpError) throw topUpError;
-  if (!topUp) return "Top-up request was not found.";
+  if (!topUp) return { message: "Top-up request was not found." };
   if (topUp.status === "approved") return null;
   if (topUp.status !== "pending_review" && topUp.status !== "pending_slip") {
-    return "Only pending top-up requests can be approved.";
+    return { message: "Only pending top-up requests can be approved." };
   }
 
   const { data: slip, error: slipError } = await supabase
@@ -62,10 +76,17 @@ async function approvalBlocker(
     .limit(1)
     .maybeSingle();
   if (slipError) throw slipError;
-  if (!slip) return "Cannot approve a top-up without an uploaded slip.";
+  if (!slip) return { message: "Cannot approve a top-up without an uploaded slip." };
   if (slip.duplicate_of_slip_id || !approvableSlipStatuses.has(slip.verification_status)) {
     const status = slip.verification_status.replace(/_/g, " ");
-    return `Slip check is ${status}; reject it or ask the customer to upload a fresh slip.`;
+    return {
+      message: `Slip check is ${status}; reject it or ask the customer to upload a fresh slip.`,
+      alert: {
+        slipStatus: slip.verification_status,
+        slipId: slip.id,
+        duplicateOfSlipId: slip.duplicate_of_slip_id,
+      },
+    };
   }
 
   return null;
@@ -97,12 +118,49 @@ export async function PATCH(request: Request) {
   const supabase = createServiceSupabaseClient();
   if (action === "approve") {
     const blocker = await approvalBlocker(supabase, topUpId);
-    if (blocker) return Response.json({ error: blocker }, { status: 409 });
+    if (blocker) {
+      if (blocker.alert) {
+        emitSecurityAlert({
+          event: "top_up_approval_blocked",
+          actor: {
+            profileId: admin.profileId,
+            adminId: admin.adminId,
+            role: admin.adminRole,
+          },
+          details: {
+            topUpId,
+            reason: "slip_check_not_approvable",
+            ...blocker.alert,
+          },
+        });
+      }
+      return Response.json({ error: blocker.message }, { status: 409 });
+    }
   }
   const { data, error } = action === "approve"
     ? await supabase.rpc("approve_top_up_request", { p_top_up_request_id: topUpId, p_admin_id: admin.adminId, p_admin_note: note })
     : await supabase.rpc("reject_top_up_request", { p_top_up_request_id: topUpId, p_admin_id: admin.adminId, p_admin_note: note });
-  if (error) return Response.json({ error: topUpReviewErrorMessage(error.message) }, { status: 409 });
+  if (error) {
+    // RPC-level fallback: the JS approvalBlocker should catch slip issues
+    // first, but if a race or schema drift slips past, the DB will still
+    // raise. Page the security inbox on the same condition.
+    if (action === "approve" && /top_up_slip_not_approvable|top_up_slip_required/.test(error.message ?? "")) {
+      emitSecurityAlert({
+        event: "top_up_approval_blocked",
+        actor: {
+          profileId: admin.profileId,
+          adminId: admin.adminId,
+          role: admin.adminRole,
+        },
+        details: {
+          topUpId,
+          reason: "rpc_raised",
+          rpcError: error.message,
+        },
+      });
+    }
+    return Response.json({ error: topUpReviewErrorMessage(error.message) }, { status: 409 });
+  }
 
   if (action === "approve") {
     const { data: approved } = await supabase

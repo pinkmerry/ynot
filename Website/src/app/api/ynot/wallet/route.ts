@@ -86,11 +86,16 @@ export async function POST(request: Request) {
 
   const slipBuffer = await slipFile.arrayBuffer();
   const slipHash = sha256Hex(slipBuffer);
+  // Include 'manual_review' alongside 'valid' so slips that landed in
+  // manual_review state (e.g. flows that admit slips without provider data)
+  // also block re-upload of the same image. The DB-side guard in
+  // approve_top_up_request is the authoritative gate; this just widens the
+  // operator-visible duplicate signal at upload time.
   const { data: localDuplicateSlip, error: localDuplicateError } = await supabase
     .from("payment_slips")
     .select("id")
     .eq("file_sha256", slipHash)
-    .eq("verification_status", "valid")
+    .in("verification_status", ["valid", "manual_review"])
     .order("verified_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -169,10 +174,12 @@ export async function POST(request: Request) {
     ].filter(Boolean);
 
     if (duplicateFilters.length) {
+      // Same widening as the file-hash lookup above: 'manual_review' slips
+      // count as already-used for the operator-visible duplicate signal.
       const { data: duplicateSlip, error: duplicateSlipError } = await supabase
         .from("payment_slips")
         .select("id")
-        .eq("verification_status", "valid")
+        .in("verification_status", ["valid", "manual_review"])
         .neq("id", slip.id)
         .or(duplicateFilters.join(","))
         .limit(1)

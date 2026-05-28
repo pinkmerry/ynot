@@ -148,12 +148,14 @@ export async function POST(request: Request) {
 
   const slipFileBuffer = slipFile ? await slipFile.arrayBuffer() : null;
   const slipFileSha256 = slipFileBuffer ? sha256Hex(slipFileBuffer) : null;
+  // Include 'manual_review' alongside 'valid' so slips that landed in
+  // manual_review state also block re-upload of the same image.
   const { data: localDuplicateSlip, error: localDuplicateError } = slipFileSha256
     ? await supabase
         .from("payment_slips")
         .select("id")
         .eq("file_sha256", slipFileSha256)
-        .eq("verification_status", "valid")
+        .in("verification_status", ["valid", "manual_review"])
         .order("verified_at", { ascending: false })
         .limit(1)
         .maybeSingle()
@@ -254,10 +256,11 @@ export async function POST(request: Request) {
     ].filter(Boolean);
 
     if (duplicateFilters.length) {
+      // Same widening: 'manual_review' slips count as already-used.
       const { data: duplicateSlip, error: duplicateSlipError } = await supabase
         .from("payment_slips")
         .select("id")
-        .eq("verification_status", "valid")
+        .in("verification_status", ["valid", "manual_review"])
         .neq("id", slip.id)
         .or(duplicateFilters.join(","))
         .limit(1)

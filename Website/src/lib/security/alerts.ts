@@ -22,6 +22,7 @@ export type SecurityAlertEvent =
   | "owner_role_granted"
   | "profile_sessions_revoked"
   | "top_up_approved_large"
+  | "top_up_approval_blocked"
   | "admin_login_unfamiliar_ip"
   | "admin_user_created";
 
