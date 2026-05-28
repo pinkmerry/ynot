@@ -20,11 +20,21 @@ type CardStockBody = {
   quantityDelta?: unknown;
   reason?: unknown;
   sourceId?: unknown;
+  // Unit-level identity (set when ADDING graded slabs / raw stock). Ignored
+  // for negative deltas (archiving) — units to archive are picked by status.
+  condition?: unknown;
+  grade?: unknown;
+  gradingService?: unknown;
+  certNumber?: unknown;
+  gemrateId?: unknown;
 };
 
 function text(value: unknown, max = 160) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
+
+const CONDITIONS = new Set(["sealed", "raw", "graded"]);
+const GRADING_SERVICES = new Set(["psa", "bgs", "cgc", "other"]);
 
 function quantityDelta(value: unknown) {
   const parsed = Number(value);
@@ -67,6 +77,26 @@ export async function POST(request: Request) {
 
   const reason = text(body?.reason, 80) || "admin_adjustment";
   const sourceId = text(body?.sourceId, 120) || null;
+
+  // Unit identity only applies when adding stock (positive delta).
+  const conditionRaw = text(body?.condition, 16).toLowerCase();
+  const condition =
+    delta > 0 ? (CONDITIONS.has(conditionRaw) ? conditionRaw : "raw") : null;
+  const gradingRaw = text(body?.gradingService, 16).toLowerCase();
+  const gradingService =
+    delta > 0 && GRADING_SERVICES.has(gradingRaw) ? gradingRaw : null;
+  const grade = delta > 0 ? text(body?.grade, 40) || null : null;
+  const certNumber = delta > 0 ? text(body?.certNumber, 60) || null : null;
+  const gemrateId = delta > 0 ? text(body?.gemrateId, 60) || null : null;
+
+  // A cert pins one physical slab; reject bulk-with-cert before hitting the RPC.
+  if (certNumber && delta !== 1) {
+    return Response.json(
+      { error: "A cert number can only be attached to a single unit." },
+      { status: 400 },
+    );
+  }
+
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase.rpc("adjust_card_stock_units", {
     p_card_id: cardId,
@@ -79,6 +109,11 @@ export async function POST(request: Request) {
       reason,
       sourceId,
     } satisfies Json,
+    p_condition: condition,
+    p_grade: grade,
+    p_grading_service: gradingService,
+    p_cert_number: certNumber,
+    p_gemrate_id: gemrateId,
   });
 
   if (error) {

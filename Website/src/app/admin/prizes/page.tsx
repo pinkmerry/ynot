@@ -1,6 +1,7 @@
 import {
   AdminCardCatalogPanel,
   AdminCardForm,
+  AdminCardStockUnitForm,
 } from "@/features/ynot/client";
 import { AdminGate } from "@/features/ynot/components";
 import {
@@ -76,6 +77,13 @@ export default async function AdminPrizesPage() {
           <AdminCardHead label="Add card" title="Create catalog item" />
           <div className="card-pad">
             <AdminCardForm cards={cards} prizes={prizes} />
+          </div>
+        </AdminCard>
+
+        <AdminCard className="admin-prize-create-card">
+          <AdminCardHead label="Add stock" title="Add stock units" />
+          <div className="card-pad">
+            <AdminCardStockUnitForm cards={cards} />
           </div>
         </AdminCard>
 

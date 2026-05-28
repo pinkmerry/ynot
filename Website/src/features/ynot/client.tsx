@@ -6553,6 +6553,190 @@ export function AdminCardForm({
   );
 }
 
+/**
+ * Adds physical stock units to an existing catalog product. Each unit carries
+ * its own condition/grade/cert (the product row stays pure identity). Graded
+ * slabs are added one at a time with a unique cert; raw/sealed are added as N
+ * identical rows. Posts to the card-stock API which stamps the identity onto
+ * the units it creates.
+ */
+export function AdminCardStockUnitForm({
+  cards,
+}: {
+  cards: CardCatalogItem[];
+}) {
+  const router = useRouter();
+  const [cardId, setCardId] = useState("");
+  const [condition, setCondition] = useState<CardCondition>("raw");
+  const [grade, setGrade] = useState("");
+  const [gradingService, setGradingService] = useState<GradingService | "">("");
+  const [certNumber, setCertNumber] = useState("");
+  const [gemrateId, setGemrateId] = useState("");
+  const [count, setCount] = useState("1");
+  const [message, setMessage] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  const isGraded = condition === "graded";
+  const hasCert = isGraded && certNumber.trim().length > 0;
+  // A cert pins one physical slab, so it can only attach to a single unit.
+  const effectiveCount = hasCert
+    ? 1
+    : Math.min(10000, Math.max(1, Math.trunc(Number(count) || 1)));
+
+  function submit() {
+    startTransition(async () => {
+      try {
+        setMessage("");
+        if (!cardId) {
+          setMessage("Select a product card first.");
+          return;
+        }
+        await postJson("/api/ynot/admin/card-stock", {
+          cardId,
+          quantityDelta: effectiveCount,
+          reason: "admin_catalog",
+          condition,
+          grade: isGraded ? grade : "",
+          gradingService: isGraded ? gradingService || "" : "",
+          certNumber: isGraded ? certNumber.trim() : "",
+          gemrateId: isGraded ? gemrateId.trim() : "",
+        });
+        setMessage(
+          `Added ${effectiveCount} ${condition} unit${effectiveCount > 1 ? "s" : ""}.`,
+        );
+        setCertNumber("");
+        setGemrateId("");
+        router.refresh();
+      } catch (error) {
+        setMessage(
+          error instanceof Error ? error.message : "Units could not be added.",
+        );
+      }
+    });
+  }
+
+  return (
+    <section className="admin-panel admin-form-panel soft-card">
+      <div className="admin-form-head">
+        <span>Stock</span>
+        <h3>Add stock units</h3>
+        <p>
+          Attach physical units to a product. Graded slabs get a unique cert
+          (one at a time); raw / sealed are added as a quantity.
+        </p>
+      </div>
+      <div className="admin-form-grid">
+        <AdminField label="Product card" required>
+          <select
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={cardId}
+            onChange={(event) => setCardId(event.target.value)}
+          >
+            <option value="">-- Select product --</option>
+            {cards.map((card) => (
+              <option key={card.catalogCardId} value={card.catalogCardId}>
+                {card.name}
+                {card.code ? ` (${card.code})` : ""}
+              </option>
+            ))}
+          </select>
+        </AdminField>
+        <AdminField label="Condition">
+          <select
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={condition}
+            onChange={(event) =>
+              setCondition(event.target.value as CardCondition)
+            }
+          >
+            {cardConditionOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </AdminField>
+        {isGraded ? (
+          <>
+            <AdminField label="Grade">
+              <select
+                className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                value={grade}
+                onChange={(event) => setGrade(event.target.value)}
+              >
+                <option value="">-- Select --</option>
+                {cardGradeOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </AdminField>
+            <AdminField label="Grading service">
+              <select
+                className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                value={gradingService}
+                onChange={(event) =>
+                  setGradingService(event.target.value as GradingService | "")
+                }
+              >
+                <option value="">-- Select --</option>
+                {gradingServiceOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </AdminField>
+            <AdminField
+              label="Cert number"
+              hint="Unique per slab — adding a cert forces a single unit."
+            >
+              <input
+                className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                value={certNumber}
+                onChange={(event) => setCertNumber(event.target.value)}
+                placeholder="154130791"
+              />
+            </AdminField>
+            <AdminField label="GemRate ID">
+              <input
+                className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                value={gemrateId}
+                onChange={(event) => setGemrateId(event.target.value)}
+                placeholder="GemRate record ID"
+              />
+            </AdminField>
+          </>
+        ) : null}
+        <AdminField
+          label="How many"
+          hint={hasCert ? "Locked to 1 because a cert is set." : undefined}
+        >
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            type="number"
+            min={1}
+            max={10000}
+            value={hasCert ? 1 : count}
+            disabled={hasCert}
+            onChange={(event) => setCount(event.target.value)}
+          />
+        </AdminField>
+      </div>
+      <button
+        className="admin-form-submit"
+        onClick={submit}
+        type="button"
+        disabled={isPending}
+      >
+        {isPending ? "Adding..." : `Add ${effectiveCount} unit${effectiveCount > 1 ? "s" : ""}`}
+      </button>
+      {message && <p className="admin-form-message">{message}</p>}
+    </section>
+  );
+}
+
 type AdminCardCatalogRow = {
   card: CardCatalogItem;
   prizes: YnotPrizePoolItem[];
