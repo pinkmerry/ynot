@@ -12,11 +12,13 @@ import { CoinPip, Ico, formatCoins } from "./Icons";
 import { PageHead, useToast } from "./UiKit";
 
 type Step = 1 | 2 | 3;
-type HistoryFilter = "all" | "in" | "out";
+type HistoryFilter = "all" | "approved" | "pending" | "rejected";
+type HistoryGroup = Exclude<HistoryFilter, "all">;
 const maxCustomTopUpThb = 20_000;
 
 type TopUpEntry = {
   id: string;
+  group: HistoryGroup;
   kind: "in" | "out";
   label: string;
   sub: string;
@@ -51,13 +53,26 @@ function statusLabel(status: YnotTopUp["status"]): string {
   }
 }
 
+function topUpHistoryGroup(status: YnotTopUp["status"]): HistoryGroup {
+  if (status === "approved") return "approved";
+  if (status === "rejected" || status === "cancelled" || status === "expired") {
+    return "rejected";
+  }
+  return "pending";
+}
+
 function topUpToEntry(topUp: YnotTopUp): TopUpEntry {
-  const approved = topUp.status === "approved";
+  const group = topUpHistoryGroup(topUp.status);
+  const approved = group === "approved";
+  const rejected = group === "rejected";
   return {
     id: topUp.id,
+    group,
     kind: approved ? "in" : "out",
     label: approved
       ? `Top-up · ${topUp.paymentMethod?.displayName ?? "manual"}`
+      : rejected
+        ? `Rejected top-up · ${topUp.paymentMethod?.displayName ?? "manual"}`
       : `Pending top-up · ${topUp.paymentMethod?.displayName ?? "manual"}`,
     sub: `฿${formatCoins(topUp.amountThb)} · ${statusLabel(topUp.status)}${
       topUp.publicCode ? ` · ${topUp.publicCode}` : ""
@@ -107,7 +122,7 @@ export function WalletExperience({
   const historyEntries = useMemo(() => {
     const entries = topUps.map(topUpToEntry);
     return entries.filter((entry) =>
-      historyFilter === "all" ? true : entry.kind === historyFilter,
+      historyFilter === "all" ? true : entry.group === historyFilter,
     );
   }, [historyFilter, topUps]);
 
@@ -157,12 +172,19 @@ export function WalletExperience({
         const autoApproved =
           (isRecord(payload) && payload.autoApproved === true) ||
           topUpStatus === "approved";
+        const autoRejected =
+          (isRecord(payload) && payload.autoRejected === true) ||
+          topUpStatus === "rejected";
         toast(
-          "success",
+          autoRejected ? "error" : "success",
           autoApproved
             ? publicCode
               ? `Top-up ${publicCode} approved. Coins credited.`
               : "Top-up approved. Coins credited."
+            : autoRejected
+              ? publicCode
+                ? `Top-up ${publicCode} rejected. Slip did not pass verification.`
+                : "Top-up rejected. Slip did not pass verification."
             : publicCode
               ? `Top-up ${publicCode} submitted for review`
               : "Top-up submitted for review",
@@ -255,8 +277,9 @@ export function WalletExperience({
                 {(
                   [
                     { id: "all", label: "All" },
-                    { id: "in", label: "Approved" },
-                    { id: "out", label: "Pending" },
+                    { id: "approved", label: "Approved" },
+                    { id: "pending", label: "Pending" },
+                    { id: "rejected", label: "Rejected" },
                   ] as { id: HistoryFilter; label: string }[]
                 ).map((f) => (
                   <button

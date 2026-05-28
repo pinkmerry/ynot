@@ -12,6 +12,14 @@ export const manualApprovableSlipStatuses = new Set<SlipVerificationStatus>([
   "manual_review",
 ]);
 const autoApprovableSlipStatus: SlipVerificationStatus = "valid";
+const autoRejectableSlipStatuses = new Set<SlipVerificationStatus>([
+  "duplicate",
+  "fraud",
+  "not_found",
+  "amount_mismatch",
+  "receiver_mismatch",
+  "date_mismatch",
+]);
 
 // Approvals at or above this THB threshold trigger a security alert. Set at
 // 1000 THB so every Collector and Whale approval (the two highest packages
@@ -43,6 +51,10 @@ export function canAutoApproveVerifiedSlip({
   providerAutoApprove: boolean;
 }) {
   return providerAutoApprove && finalStatus === autoApprovableSlipStatus;
+}
+
+export function canAutoRejectVerifiedSlip(finalStatus: SlipVerificationStatus) {
+  return autoRejectableSlipStatuses.has(finalStatus);
 }
 
 export async function resolveAutoTopUpAdmin(

@@ -4,6 +4,7 @@ import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { requireVerifiedAnchor } from "@/lib/auth/verified-anchor";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/types";
+import type { SlipVerificationStatus } from "@/lib/lucky-draw/types";
 import { createSlip2GoProviderError, sha256Hex, verifySlipWithSlip2Go } from "@/lib/slip2go/client";
 import { findLiveDuplicateSlip } from "@/lib/slip2go/dedup";
 import { getPaymentMethods, getTopUps, getWallet } from "@/features/ynot/data";
@@ -14,6 +15,7 @@ import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { allowedSlipTypes, maxSlipBytes, verifyImageMagicBytes } from "@/lib/uploads/magic-bytes";
 import {
   canAutoApproveVerifiedSlip,
+  canAutoRejectVerifiedSlip,
   emitTopUpApprovalRiskAlerts,
   resolveAutoTopUpAdmin,
 } from "@/lib/ynot/top-up-approval";
@@ -214,8 +216,63 @@ export async function POST(request: Request) {
 
   let responseTopUp = topUp;
   let autoApproved = false;
+  let autoRejected = false;
 
-  if (!localDuplicateSlip) {
+  const autoRejectTopUpFromSlipCheck = async (finalStatus: SlipVerificationStatus) => {
+    try {
+      const autoAdmin = await resolveAutoTopUpAdmin(supabase);
+      if (!autoAdmin) {
+        console.warn("wallet_top_up_auto_rejection_skipped_no_admin", {
+          topUpPublicCode: topUp.public_code,
+          paymentSlipId: slip.id,
+          finalStatus,
+        });
+        return;
+      }
+
+      const { error: rejectionError } = await supabase.rpc("reject_top_up_request", {
+        p_top_up_request_id: topUp.id,
+        p_admin_id: autoAdmin.id,
+        p_admin_note: `Auto-rejected after Slip2Go returned ${finalStatus.replace(/_/g, " ")}. Customer needs to upload a matching slip.`,
+      });
+
+      if (rejectionError) {
+        console.warn("wallet_top_up_auto_rejection_failed", {
+          topUpPublicCode: topUp.public_code,
+          paymentSlipId: slip.id,
+          finalStatus,
+          message: rejectionError.message,
+        });
+        return;
+      }
+
+      autoRejected = true;
+      const { data: refreshedTopUp, error: refreshedTopUpError } = await supabase
+        .from("top_up_requests")
+        .select("*")
+        .eq("id", topUp.id)
+        .maybeSingle();
+      if (refreshedTopUpError) {
+        console.warn("wallet_top_up_auto_rejection_refresh_failed", {
+          topUpPublicCode: topUp.public_code,
+          message: refreshedTopUpError.message,
+        });
+      } else if (refreshedTopUp) {
+        responseTopUp = refreshedTopUp;
+      }
+    } catch (error: unknown) {
+      console.warn("wallet_top_up_auto_rejection_threw", {
+        topUpPublicCode: topUp.public_code,
+        paymentSlipId: slip.id,
+        finalStatus,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  if (localDuplicateSlip) {
+    await autoRejectTopUpFromSlipCheck("duplicate");
+  } else {
     const verificationFile = new File([slipBuffer], slipFile.name, {
       type: magicCheck.contentType,
     });
@@ -356,8 +413,10 @@ export async function POST(request: Request) {
           message: error instanceof Error ? error.message : String(error),
         });
       }
+    } else if (canAutoRejectVerifiedSlip(finalStatus)) {
+      await autoRejectTopUpFromSlipCheck(finalStatus);
     }
   }
 
-  return jsonNoStore({ topUp: toTopUp(responseTopUp), autoApproved }, { status: 201 });
+  return jsonNoStore({ topUp: toTopUp(responseTopUp), autoApproved, autoRejected }, { status: 201 });
 }

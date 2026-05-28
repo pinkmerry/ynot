@@ -316,7 +316,37 @@ test("wallet top-up auto-approval requires strict Slip2Go valid status", () => {
   assert.match(walletRoute, /rpc\("approve_top_up_request"/);
   assert.match(walletRoute, /p_admin_note:\s*"Auto-approved after Slip2Go verified amount, receiver, date, and duplicate checks\."/);
   assert.match(walletRoute, /emitTopUpApprovalRiskAlerts\(supabase,[\s\S]*approvalMode: "slip2go_auto"/);
-  assert.match(walletRoute, /return jsonNoStore\(\{ topUp: toTopUp\(responseTopUp\), autoApproved \}/);
+  assert.match(walletRoute, /return jsonNoStore\(\{ topUp: toTopUp\(responseTopUp\), autoApproved, autoRejected \}/);
+});
+
+test("wallet top-up auto-rejects definitive Slip2Go failures", () => {
+  const walletRoute = readFileSync(
+    new URL("../src/app/api/ynot/wallet/route.ts", import.meta.url),
+    "utf8",
+  );
+  const approvalHelper = readFileSync(
+    new URL("../src/lib/ynot/top-up-approval.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(approvalHelper, /autoRejectableSlipStatuses[\s\S]*"duplicate"[\s\S]*"amount_mismatch"[\s\S]*"receiver_mismatch"/);
+  assert.match(approvalHelper, /function canAutoRejectVerifiedSlip/);
+  assert.match(walletRoute, /canAutoRejectVerifiedSlip\(finalStatus\)/);
+  assert.match(walletRoute, /rpc\("reject_top_up_request"/);
+  assert.match(walletRoute, /autoRejected = true/);
+});
+
+test("customer wallet history exposes rejected top-up filter", () => {
+  const walletExperience = readFileSync(
+    new URL("../src/features/ynot/cr/WalletExperience.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(walletExperience, /type HistoryFilter = "all" \| "approved" \| "pending" \| "rejected"/);
+  assert.match(walletExperience, /entry\.group === historyFilter/);
+  assert.match(walletExperience, /Rejected top-up/);
+  assert.match(walletExperience, /\{ id: "rejected", label: "Rejected" \}/);
+  assert.match(walletExperience, /autoRejected/);
 });
 
 test("wallet top-up API safe validation and edge cases", async (t) => {
