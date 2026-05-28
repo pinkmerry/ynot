@@ -674,19 +674,31 @@ export function WalletExperience({
                   </div>
                 )}
 
-                <div className="cr-field">
-                  <label htmlFor="topup-slip">Upload payment slip</label>
+                <div className="cr-field cr-wallet-slip-field">
+                  <span className="cr-wallet-slip-label">Payment slip</span>
                   <input
                     id="topup-slip"
+                    className="cr-wallet-slip-input"
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     onChange={(e) => setSlip(e.target.files?.[0] ?? null)}
                   />
-                  {slip && (
-                    <small className="cr-mute">
-                      Selected: {slip.name}
-                    </small>
-                  )}
+                  <label
+                    htmlFor="topup-slip"
+                    className={`cr-wallet-slip-button ${slip ? "has-file" : ""}`}
+                  >
+                    <span className="cr-wallet-slip-icon">
+                      <Ico name="upload" size={16} />
+                    </span>
+                    <span className="cr-wallet-slip-copy">
+                      <strong>
+                        {slip ? "Change payment slip" : "Upload payment slip"}
+                      </strong>
+                      <small>
+                        {slip ? slip.name : "JPG, PNG, or WEBP up to 10 MB"}
+                      </small>
+                    </span>
+                  </label>
                 </div>
 
                 <div className="cr-field">

@@ -633,6 +633,79 @@
   font-size: 11.5px;
   color: var(--cr-mute);
 }
+.cr-wallet-slip-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cr-mute);
+}
+.cr-field .cr-wallet-slip-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.cr-field .cr-wallet-slip-button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 12px 14px;
+  border: 1px solid var(--cr-line-strong);
+  border-radius: var(--cr-r-md);
+  background: var(--cr-paper);
+  color: var(--cr-ink);
+  cursor: pointer;
+  letter-spacing: 0;
+  text-transform: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease;
+}
+.cr-field .cr-wallet-slip-button:hover {
+  border-color: var(--cr-ink);
+  background: var(--cr-bg-soft);
+  transform: translateY(-1px);
+}
+.cr-wallet-slip-input:focus-visible + .cr-wallet-slip-button {
+  border-color: var(--cr-ink);
+  box-shadow: 0 0 0 3px rgba(13, 20, 17, 0.08);
+}
+.cr-field .cr-wallet-slip-button.has-file {
+  border-color: var(--cr-gold-soft);
+  background: var(--cr-gold-tint);
+}
+.cr-wallet-slip-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cr-ink);
+  color: #fff;
+  flex: 0 0 auto;
+}
+.cr-wallet-slip-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cr-wallet-slip-copy strong {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--cr-ink);
+}
+.cr-wallet-slip-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .cr-field-full { grid-column: 1 / -1; }
 .cr-grid-2 {
   display: grid;
