@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
   const [data, users, mergeRequests] = await Promise.all([
-    getYnotDashboardSlice(),
+    getYnotDashboardSlice({ wallet: false }),
     getAdminUsers(),
     getAdminMergeRequests(),
   ]);

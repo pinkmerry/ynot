@@ -42,7 +42,7 @@ import {
   PackDeleteButton,
   PackOrderControls,
   PackPickerLauncher,
-} from "./client";
+} from "./StorefrontAdminControls";
 import { PackDragDrop } from "./PackDragDrop";
 import {
   DEMO_PACK_ORDER_COOKIE,

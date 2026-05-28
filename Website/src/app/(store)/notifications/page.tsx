@@ -17,7 +17,7 @@ export default async function NotificationsPage() {
   };
 
   return (
-    <YnotShell viewer={viewer}>
+    <YnotShell viewer={viewer} showHeaderCoin={false}>
       <PageHeader
         eyebrow="Account"
         title="Notifications"

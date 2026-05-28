@@ -2092,17 +2092,20 @@ export async function getAdminUsers() {
   });
 }
 
-export async function getAdminAuditEvents() {
+export async function getAdminAuditEvents({
+  limit = 120,
+}: { limit?: number } = {}) {
   if (!isSupabaseConfigured()) return [];
   const admin = await resolveAdminSession();
   if (!admin) return [];
+  const safeLimit = Math.max(1, Math.min(120, Math.floor(limit)));
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("audit_events", async () => {
     const { data, error } = await supabase
       .from("audit_events")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(120);
+      .limit(safeLimit);
     if (error) throw error;
     return data ?? [];
   });

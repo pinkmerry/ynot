@@ -253,7 +253,7 @@ export function GachaRevealOverlay({
               data-ready={videoReady ? "1" : "0"}
               muted={pref.muted}
               playsInline
-              preload="auto"
+              preload="metadata"
               onLoadedData={(event) => resetRevealVideo(event.currentTarget)}
               onLoadedMetadata={(event) => {
                 event.currentTarget.currentTime = 0;

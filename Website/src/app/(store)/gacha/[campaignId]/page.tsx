@@ -5,7 +5,10 @@ import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 export const dynamic = "force-dynamic";
 
 export default async function GachaDetailPage({ params }: { params: Promise<{ campaignId: string }> }) {
-  const [{ campaignId }, data] = await Promise.all([params, getYnotDashboardSlice()]);
+  const [{ campaignId }, data] = await Promise.all([
+    params,
+    getYnotDashboardSlice({ wallet: true }),
+  ]);
   const campaign = await getCampaign(campaignId, { allowTestForCurrentViewer: true, viewer: data.viewer });
   const showAdminEdit = data.viewer.isAdmin || isDevAuthAllowed();
   return (

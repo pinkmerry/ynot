@@ -45,8 +45,8 @@ function pillKindForScope(scope: string): Parameters<typeof AdminPill>[0]["kind"
 
 export default async function AdminAuditPage() {
   const [data, eventsRaw] = await Promise.all([
-    getYnotDashboardSlice(),
-    getAdminAuditEvents(),
+    getYnotDashboardSlice({ wallet: false }),
+    getAdminAuditEvents({ limit: 50 }),
   ]);
   const events = eventsRaw as AuditRow[];
 

@@ -1,9 +1,9 @@
 import {
   AdminCampaignForm,
   AdminCampaignTable,
-  OwnerApprovalQueue,
 } from "@/features/ynot/client";
 import { AdminGate } from "@/features/ynot/components";
+import { OwnerApprovalQueue } from "@/features/ynot/StorefrontAdminControls";
 import { getAdminCards, getYnotDashboardSlice } from "@/features/ynot/data";
 import {
   AdminCard,

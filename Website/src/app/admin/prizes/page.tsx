@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPrizesPage() {
   const [data, cards, prizes] = await Promise.all([
-    getYnotDashboardSlice(),
+    getYnotDashboardSlice({ wallet: false }),
     getAdminCards(),
     getAdminPrizePool(),
   ]);
