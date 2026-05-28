@@ -41,7 +41,10 @@ export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
   if (error || !data.user) {
-    return jsonNoStore({ error: error?.message ?? "Code is invalid or expired." }, { status: 400 });
+    // Don't leak provider message — log to server, show generic to user so
+    // we don't enumerate account state or rate-limit details.
+    if (error) console.warn("email_otp_verify_provider_error", error.message ?? "unknown");
+    return jsonNoStore({ error: "Code is invalid or expired." }, { status: 400 });
   }
 
   const supabaseUser = data.user;

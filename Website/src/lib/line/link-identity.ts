@@ -30,10 +30,30 @@ export type LineLinkResult =
       mergeRequestId: string;
       sourceProfileId: string;
       targetProfileId: string;
+    }
+  // Returned when the caller has no active session AND the LINE token's
+  // email already belongs to a profile that has a DIFFERENT LINE attached.
+  // We refuse to create a new LINE profile silently — that would leave a
+  // zombie account behind. The caller should send the user to sign in with
+  // email/Google first, then come back to connect LINE explicitly.
+  | {
+      status: "login_required";
+      lineUserId: string;
+      displayName: string;
+      emailHint: string;
     };
 
 function normalizeEmail(email: string | null | undefined) {
   return email?.trim().toLowerCase() || null;
+}
+
+function maskEmail(email: string): string {
+  const at = email.indexOf("@");
+  if (at <= 1) return "your email";
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  const visible = local.length <= 2 ? local : local.slice(0, 2);
+  return `${visible}${"*".repeat(Math.max(1, local.length - visible.length))}@${domain}`;
 }
 
 function lineMetadata(identity: VerifiedLineIdentity): Json {
@@ -227,9 +247,22 @@ export async function linkLineIdentity(identity: VerifiedLineIdentity, targetPro
     if (profile) return attachLineToProfile(identity, profile);
   }
 
-  const emailProfile = await profileByVerifiedEmail(normalizeEmail(identity.email));
+  const normalizedEmail = normalizeEmail(identity.email);
+  const emailProfile = await profileByVerifiedEmail(normalizedEmail);
   if (emailProfile && (!emailProfile.line_user_id || emailProfile.line_user_id === identity.lineUserId)) {
     return attachLineToProfile(identity, emailProfile);
+  }
+
+  // Bug 4 guard: if a profile already exists for this email AND it has a
+  // DIFFERENT LINE attached, refuse to silently create a zombie P_line.
+  // Tell the caller to send the user to sign in with email first.
+  if (emailProfile) {
+    return {
+      status: "login_required",
+      lineUserId: identity.lineUserId,
+      displayName: identity.displayName,
+      emailHint: normalizedEmail ? maskEmail(normalizedEmail) : "your email",
+    };
   }
 
   return createLineProfile(identity);

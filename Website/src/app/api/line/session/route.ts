@@ -75,10 +75,25 @@ export async function POST(request: Request) {
   }
 
   if (linked.status === "merge_required") {
+    // Friendly copy for the LIFF client to surface verbatim. The code field
+    // lets the client branch on the specific reason without parsing the
+    // error string.
     return Response.json({
-      error: "LINE identity is already connected to another profile. Admin merge review is required.",
+      error: "This LINE account is already tied to another YNot account. Support will merge them within 1 business day.",
+      code: "line_already_linked",
       mergeRequestId: linked.mergeRequestId,
       profileId: linked.profileId,
+    }, { status: 409 });
+  }
+
+  if (linked.status === "login_required") {
+    // The LINE token's email already belongs to an existing profile with a
+    // different LINE attached. Refuse to create a new LINE profile silently;
+    // ask the LIFF client to send the user to email sign-in first.
+    return Response.json({
+      error: `An account already exists for ${linked.emailHint}. Please sign in with email or Google first, then connect LINE.`,
+      code: "line_email_belongs_to_existing_account",
+      emailHint: linked.emailHint,
     }, { status: 409 });
   }
 

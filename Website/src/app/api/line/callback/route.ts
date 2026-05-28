@@ -158,7 +158,17 @@ export async function GET(request: Request) {
   cookieStore.set(lineOAuthStateCookie, "", { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: 0 });
 
   if (!code || !state || !storedState || state !== storedState.state) {
-    return redirectWith(request, "/login", "error", "LINE login state was invalid. Please try again.");
+    // Stay on the page the user started from when we still have the state
+    // cookie (rare cookie-survived-but-state-mismatched case — usually a
+    // stale tab). Only fall back to /login when the state cookie itself was
+    // lost. This keeps the failure recoverable inline instead of dumping
+    // the user on the login screen.
+    return redirectWith(
+      request,
+      storedState?.next ?? "/login",
+      "error",
+      "LINE login state was invalid. Please try again.",
+    );
   }
 
   const channelId = lineChannelId();
@@ -184,11 +194,27 @@ export async function GET(request: Request) {
     );
 
     if (linked.status === "merge_required") {
+      // Stay on the page the user started from (e.g. /profile/personal-info)
+      // and show a friendlier message that explains the next step instead
+      // of dumping a raw merge-request ID on the user.
       return redirectWith(
         request,
-        "/profile",
+        storedState.next,
         "message",
-        `LINE is already connected to another profile. Merge request ${linked.mergeRequestId} is waiting for admin review.`,
+        "This LINE account is already tied to another YNot account. Support will merge them within 1 business day. Please log in with email in the meantime.",
+      );
+    }
+
+    if (linked.status === "login_required") {
+      // linkLineIdentity refused to create a new LINE profile because the
+      // email on the LINE token belongs to an existing profile that already
+      // has a different LINE attached, and there's no active session to
+      // merge into. Send the user to the email sign-in screen with a hint.
+      return redirectWith(
+        request,
+        "/login",
+        "error",
+        `An account already exists for ${linked.emailHint}. Please sign in with email or Google, then connect LINE from the profile page.`,
       );
     }
 
@@ -219,6 +245,8 @@ export async function GET(request: Request) {
     );
   } catch (error) {
     console.error("line_oauth_callback_failed", error instanceof Error ? error.message : String(error));
-    return redirectWith(request, storedState.next, "error", error instanceof Error ? error.message : "LINE login failed.");
+    // Don't leak provider message details (LINE error_description) to the
+    // browser — log to server only, show generic to user.
+    return redirectWith(request, storedState.next, "error", "LINE login failed. Please try again.");
   }
 }

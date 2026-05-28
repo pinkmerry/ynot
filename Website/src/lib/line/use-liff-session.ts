@@ -85,9 +85,16 @@ async function syncServerSession(liff: LiffClient) {
     body: JSON.stringify({ idToken }),
   });
 
-  const session = (await response.json().catch(() => null)) as (LiffProfile & { error?: string }) | null;
+  type LiffSessionResponse = LiffProfile & {
+    error?: string;
+    code?: "line_already_linked" | "line_email_belongs_to_existing_account";
+    emailHint?: string;
+  };
+  const session = (await response.json().catch(() => null)) as LiffSessionResponse | null;
   if (!response.ok || !session?.profileId) {
     await clearServerSession();
+    // The server already produced a friendly message — surface it verbatim
+    // so the LIFF UI shows the same text the email/web flow shows.
     throw new Error(session?.error ?? "LINE connection could not be saved.");
   }
 
