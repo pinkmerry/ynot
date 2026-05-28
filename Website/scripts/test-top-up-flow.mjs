@@ -146,6 +146,10 @@ test("wallet POST ignores browser-supplied amount and coin fields", () => {
   );
   assert.match(source, /amount_thb:\s*topUpPackage\.amountThb/);
   assert.match(source, /coin_amount:\s*topUpPackage\.coins/);
+  assert.match(
+    source,
+    /verifySlipWithSlip2Go\([\s\S]*amountThb:\s*topUpPackage\.amountThb/,
+  );
   assert.doesNotMatch(source, /form\.get\(["']amountThb["']\)/);
   assert.doesNotMatch(source, /form\.get\(["']coinAmount["']\)/);
   assert.match(walletExperience, /form\.set\("packageId",\s*picked\.id\)/);
