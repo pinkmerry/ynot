@@ -4,15 +4,33 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { prizeCategoryValue } from "@/features/ynot/prize-category";
+import {
+  cardConditionValue,
+  cardGradeOptions,
+  cardLanguageValue,
+  catalogCategoryValue,
+  gradingServiceValue,
+  releaseYearValue,
+} from "@/features/ynot/card-catalog-metadata";
 
 export const dynamic = "force-dynamic";
 
 type CardBody = {
   cardId?: unknown;
+  modelCode?: unknown;
   code?: unknown;
   name?: unknown;
   series?: unknown;
   grade?: unknown;
+  language?: unknown;
+  releaseYear?: unknown;
+  cardSet?: unknown;
+  variant?: unknown;
+  catalogCategory?: unknown;
+  condition?: unknown;
+  gradingService?: unknown;
+  certNumber?: unknown;
+  gemrateId?: unknown;
   prizeCategory?: unknown;
   imageUrl?: unknown;
   imageStoragePath?: unknown;
@@ -23,6 +41,9 @@ type CardBody = {
   assetManifestKey?: unknown;
   seedRunId?: unknown;
 };
+
+type CardInsert = Database["public"]["Tables"]["cards"]["Insert"];
+type CardUpdate = Database["public"]["Tables"]["cards"]["Update"];
 
 function text(value: unknown, max = 180) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -48,6 +69,51 @@ function booleanValue(value: unknown) {
   return value === true || value === "true" || value === 1 || value === "1";
 }
 
+function hasPayloadValue(value: unknown) {
+  return value !== undefined && value !== null && String(value).trim() !== "";
+}
+
+function gradeValue(value: unknown) {
+  const clean = text(value, 80);
+  return clean || "Ungraded";
+}
+
+function validateCardBody(body: CardBody) {
+  const grade = text(body.grade, 80);
+  if (
+    grade &&
+    grade !== "Ungraded" &&
+    !cardGradeOptions.includes(grade as (typeof cardGradeOptions)[number])
+  ) {
+    return "Grade must use one of the configured PSA dropdown options.";
+  }
+  if (hasPayloadValue(body.language) && !cardLanguageValue(body.language)) {
+    return "Language must be English, Japanese, or Chinese.";
+  }
+  if (hasPayloadValue(body.releaseYear) && releaseYearValue(body.releaseYear) === null) {
+    return "Release year must be a valid year.";
+  }
+  if (
+    hasPayloadValue(body.catalogCategory) &&
+    catalogCategoryValue(body.catalogCategory) !== body.catalogCategory
+  ) {
+    return "Catalog category must be Single Cards, Packs, Boxes, Cases, Sets, or Supplies.";
+  }
+  if (
+    hasPayloadValue(body.condition) &&
+    cardConditionValue(body.condition) !== body.condition
+  ) {
+    return "Condition must be Sealed, Raw, or Graded.";
+  }
+  if (
+    hasPayloadValue(body.gradingService) &&
+    !gradingServiceValue(body.gradingService)
+  ) {
+    return "Grading service must be PSA, BGS, CGC, or Other.";
+  }
+  return null;
+}
+
 type CardDuplicateRow = Pick<
   Database["public"]["Tables"]["cards"]["Row"],
   "id" | "name" | "card_code" | "series" | "grade" | "image_url" | "image_storage_path"
@@ -66,6 +132,7 @@ function duplicateCardPayload(card: CardDuplicateRow) {
     id: card.id,
     name: card.name,
     code: card.card_code,
+    modelCode: card.card_code,
     series: card.series,
     grade: card.grade,
     imageUrl: card.image_url,
@@ -102,22 +169,72 @@ async function bodyJson(request: Request): Promise<CardBody | null> {
   return request.json().catch(() => null) as Promise<CardBody | null>;
 }
 
-function cardPatch(body: CardBody): Database["public"]["Tables"]["cards"]["Insert"] {
-  const name = text(body.name) || "Untitled Card";
-  const code = cardCode(body.code);
-  const isTest = booleanValue(body.isTest);
-  const patch: Database["public"]["Tables"]["cards"]["Insert"] = {
-    card_code: code,
-    name,
-    search_name: searchName(name),
-    search_code: code?.toLowerCase() ?? null,
-    series: enumValue(body.series, ["one_piece", "pokemon"] as const, "pokemon"),
-    grade: text(body.grade, 80) || "Ungraded",
-    prize_category: prizeCategoryValue(body.prizeCategory),
-    image_url: text(body.imageUrl, 1000) || null,
-    image_storage_path: text(body.imageStoragePath, 1000) || null,
-  };
-  if (isTest || body.seedRunId !== undefined || body.assetSource !== undefined || body.assetLicense !== undefined || body.assetManifestKey !== undefined) {
+function cardPatch(
+  body: CardBody,
+  options: { partial?: boolean } = {},
+): CardUpdate {
+  const partial = options.partial === true;
+  const patch: CardUpdate = {};
+  if (!partial || body.modelCode !== undefined || body.code !== undefined) {
+    const code = cardCode(body.modelCode ?? body.code);
+    patch.card_code = code;
+    patch.search_code = code?.toLowerCase() ?? null;
+  }
+  if (!partial || body.name !== undefined) {
+    const name = text(body.name) || "Untitled Card";
+    patch.name = name;
+    patch.search_name = searchName(name);
+  }
+  if (!partial || body.series !== undefined) {
+    patch.series = enumValue(body.series, ["one_piece", "pokemon"] as const, "pokemon");
+  }
+  if (!partial || body.grade !== undefined) {
+    patch.grade = gradeValue(body.grade);
+  }
+  if (!partial || body.prizeCategory !== undefined) {
+    patch.prize_category = prizeCategoryValue(body.prizeCategory);
+  }
+  if (!partial || body.imageUrl !== undefined) {
+    patch.image_url = text(body.imageUrl, 1000) || null;
+  }
+  if (!partial || body.imageStoragePath !== undefined) {
+    patch.image_storage_path = text(body.imageStoragePath, 1000) || null;
+  }
+  if (!options.partial || body.language !== undefined) {
+    patch.language = cardLanguageValue(body.language);
+  }
+  if (!options.partial || body.releaseYear !== undefined) {
+    patch.release_year = releaseYearValue(body.releaseYear);
+  }
+  if (!options.partial || body.cardSet !== undefined) {
+    patch.card_set = text(body.cardSet, 160) || null;
+  }
+  if (!options.partial || body.variant !== undefined) {
+    patch.variant = text(body.variant, 160) || null;
+  }
+  if (!options.partial || body.catalogCategory !== undefined) {
+    patch.catalog_category = catalogCategoryValue(body.catalogCategory);
+  }
+  if (!options.partial || body.condition !== undefined) {
+    patch.condition = cardConditionValue(body.condition);
+  }
+  if (!options.partial || body.gradingService !== undefined) {
+    patch.grading_service = gradingServiceValue(body.gradingService);
+  }
+  if (!options.partial || body.certNumber !== undefined) {
+    patch.cert_number = text(body.certNumber, 120) || null;
+  }
+  if (!options.partial || body.gemrateId !== undefined) {
+    patch.gemrate_id = text(body.gemrateId, 160) || null;
+  }
+  if (
+    body.isTest !== undefined ||
+    body.seedRunId !== undefined ||
+    body.assetSource !== undefined ||
+    body.assetLicense !== undefined ||
+    body.assetManifestKey !== undefined
+  ) {
+    const isTest = booleanValue(body.isTest);
     patch.is_test = isTest;
     patch.seed_run_id = text(body.seedRunId, 80) || null;
     patch.asset_source = text(body.assetSource, 300) || null;
@@ -200,10 +317,12 @@ export async function POST(request: Request) {
 
   const body = await bodyJson(request);
   if (!body) return Response.json({ error: "Invalid JSON body." }, { status: 400 });
+  const validationError = validateCardBody(body);
+  if (validationError) return Response.json({ error: validationError }, { status: 400 });
   const assetError = assertApprovedTestAsset(body);
   if (assetError) return Response.json({ error: assetError }, { status: 400 });
 
-  const patch = cardPatch(body);
+  const patch = cardPatch(body) as CardInsert;
   const supabase = createServiceSupabaseClient();
   const existingQuery = patch.search_code
     ? supabase
@@ -226,7 +345,7 @@ export async function POST(request: Request) {
         code: "CARD_DUPLICATE_NAME_AMBIGUOUS",
         matches: existing.map(duplicateCardPayload),
         message:
-          "Multiple existing cards use this name. Add a unique prize code or edit the exact existing card from the catalog.",
+          "Multiple existing cards use this name. Add a unique model code or edit the exact existing card from the catalog.",
       },
       { status: 409 },
     );
@@ -237,8 +356,8 @@ export async function POST(request: Request) {
   }
 
   const query = existing?.[0]
-    ? supabase.from("cards").update(patch).eq("id", existing[0].id).select("id,name,card_code,prize_category").single()
-    : supabase.from("cards").insert(patch).select("id,name,card_code,prize_category").single();
+    ? supabase.from("cards").update(patch).eq("id", existing[0].id).select("*").single()
+    : supabase.from("cards").insert(patch).select("*").single();
   const { data, error } = await query;
   if (error) return Response.json({ error: error.message }, { status: 409 });
 
@@ -346,12 +465,14 @@ export async function PATCH(request: Request) {
   const body = await bodyJson(request);
   const cardId = text(body?.cardId, 80);
   if (!body || !cardId) return Response.json({ error: "cardId is required." }, { status: 400 });
+  const validationError = validateCardBody(body);
+  if (validationError) return Response.json({ error: validationError }, { status: 400 });
   const assetError = assertApprovedTestAsset(body);
   if (assetError) return Response.json({ error: assetError }, { status: 400 });
 
-  const patch = cardPatch(body);
+  const patch = cardPatch(body, { partial: true });
   const supabase = createServiceSupabaseClient();
-  const { data, error } = await supabase.from("cards").update(patch).eq("id", cardId).select("id,name,card_code,prize_category").single();
+  const { data, error } = await supabase.from("cards").update(patch).eq("id", cardId).select("*").single();
   if (error) return Response.json({ error: error.message }, { status: 409 });
 
   await supabase.from("audit_events").insert({ actor_admin_id: admin.adminId, event_type: "card_updated", metadata: { cardId: data.id, code: data.card_code } });

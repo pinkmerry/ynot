@@ -28587,6 +28587,41 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-metric strong {
   font-size: 0.85rem;
 }
 
+.admin-qr-dropzone-thumb {
+  background: #fff;
+}
+
+.admin-payment-qr-preview {
+  display: block;
+  height: 100%;
+  object-fit: contain;
+  padding: 10px;
+  width: 100%;
+}
+
+.admin-payment-qr-placeholder {
+  align-items: center;
+  color: #161616;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  text-align: center;
+}
+
+.admin-payment-qr-placeholder strong {
+  border: 2px solid rgba(22, 22, 22, 0.7);
+  border-radius: 10px;
+  font-size: 1.1rem;
+  font-weight: 950;
+  padding: 8px 10px;
+}
+
+.admin-payment-qr-placeholder small {
+  color: rgba(22, 22, 22, 0.7);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
 .admin-image-dropzone-body {
   align-content: center;
   display: grid;
@@ -29103,6 +29138,38 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-tag-pill.is-info {
   color: #ffe18b;
 }
 
+html[data-ynot-theme] .admin-frame .admin-card-catalog-detail-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+html[data-ynot-theme] .admin-frame .admin-card-catalog-detail-item {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-card-catalog-detail-item span {
+  color: var(--a-muted, #9b9daf);
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+html[data-ynot-theme] .admin-frame .admin-card-catalog-detail-item strong {
+  color: var(--a-fg-dim, #c8c8d8);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
 html[data-ynot-theme] .admin-frame .admin-card-catalog-metrics {
   display: grid;
   gap: 10px;
@@ -29362,6 +29429,9 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-row-footer-id {
 }
 
 @media (max-width: 900px) {
+  html[data-ynot-theme] .admin-frame .admin-card-catalog-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   html[data-ynot-theme] .admin-frame .admin-card-catalog-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -29377,6 +29447,9 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-row-footer-id {
   }
   html[data-ynot-theme] .admin-frame .admin-card-catalog-row-thumb .admin-prize-card-thumb {
     object-fit: contain;
+  }
+  html[data-ynot-theme] .admin-frame .admin-card-catalog-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
   html[data-ynot-theme] .admin-frame .admin-card-catalog-metrics {
     grid-template-columns: minmax(0, 1fr);

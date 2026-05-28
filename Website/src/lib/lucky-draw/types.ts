@@ -63,6 +63,16 @@ export type ChaseCard = FeaturedCard & {
 
 export type CardCatalogItem = Required<Pick<FeaturedCard, "catalogCardId">> &
   Omit<FeaturedCard, "catalogCardId"> & {
+    modelCode?: string;
+    language?: "english" | "japanese" | "chinese" | null;
+    releaseYear?: number | null;
+    cardSet?: string | null;
+    variant?: string | null;
+    catalogCategory?: "single_cards" | "packs" | "boxes" | "cases" | "sets" | "supplies";
+    condition?: "sealed" | "raw" | "graded";
+    gradingService?: "psa" | "bgs" | "cgc" | "other" | null;
+    certNumber?: string | null;
+    gemrateId?: string | null;
     searchName?: string;
     searchCode?: string | null;
     isTest?: boolean;

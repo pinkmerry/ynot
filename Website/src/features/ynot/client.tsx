@@ -51,6 +51,23 @@ import {
   type PrizeCategory,
 } from "./prize-category";
 import {
+  cardConditionLabel,
+  cardConditionOptions,
+  cardGradeOptions,
+  cardGradeValue,
+  cardLanguageLabel,
+  cardLanguageOptions,
+  cardReleaseYearOptions,
+  catalogCategoryLabel,
+  catalogCategoryOptions,
+  gradingServiceLabel,
+  gradingServiceOptions,
+  type CardCondition,
+  type CardLanguage,
+  type CatalogCategory,
+  type GradingService,
+} from "./card-catalog-metadata";
+import {
   canPrizeDisplayTierUseRandomPsa10,
   dbTierForPrizeDisplayTier,
   prizeDisplayTierConfig,
@@ -174,6 +191,40 @@ async function uploadAdminCardImage(
     !stringValue(payload.storagePath)
   ) {
     throw new Error("Upload response did not include an image URL.");
+  }
+  return {
+    imageUrl: stringValue(payload.imageUrl),
+    storagePath: stringValue(payload.storagePath),
+  };
+}
+
+async function uploadAdminPaymentQrImage(
+  file: File,
+  details: { code?: string; displayName?: string },
+): Promise<AdminCardImageUpload> {
+  const form = new FormData();
+  form.set("file", file);
+  if (details.code) form.set("code", details.code);
+  if (details.displayName) form.set("displayName", details.displayName);
+
+  const response = await fetch("/api/ynot/admin/payment-methods/qr-image", {
+    method: "POST",
+    body: form,
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new AdminRequestError(requestErrorMessage(payload), {
+      code: isRecord(payload) ? stringValue(payload.code) || undefined : undefined,
+      payload,
+      status: response.status,
+    });
+  }
+  if (
+    !isRecord(payload) ||
+    !stringValue(payload.imageUrl) ||
+    !stringValue(payload.storagePath)
+  ) {
+    throw new Error("Upload response did not include a QR image URL.");
   }
   return {
     imageUrl: stringValue(payload.imageUrl),
@@ -546,6 +597,7 @@ export function TopUpForm({
             )}
             {selectedMethod.qrImagePath &&
               /^(https?:)?\/\//.test(selectedMethod.qrImagePath) && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   alt={`${selectedMethod.displayName} QR`}
                   className="mt-2 max-w-48 rounded-2xl border border-white/10"
@@ -1591,6 +1643,9 @@ export function AdminPaymentMethodForm({
   const [accountNumber, setAccountNumber] = useState("");
   const [promptpayId, setPromptpayId] = useState("");
   const [qrImagePath, setQrImagePath] = useState("");
+  const [qrImageFile, setQrImageFile] = useState<File | null>(null);
+  const [qrImagePreviewUrl, setQrImagePreviewUrl] = useState("");
+  const qrImagePreviewObjectUrlRef = useRef<string | null>(null);
   const [sortOrder, setSortOrder] = useState(10);
   const [isActive, setIsActive] = useState(true);
   const [instructions, setInstructions] = useState(
@@ -1598,6 +1653,23 @@ export function AdminPaymentMethodForm({
   );
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    return () => {
+      if (qrImagePreviewObjectUrlRef.current) {
+        URL.revokeObjectURL(qrImagePreviewObjectUrlRef.current);
+      }
+    };
+  }, []);
+
+  function replaceQrImagePreviewUrl(nextUrl: string, objectUrl = false) {
+    if (qrImagePreviewObjectUrlRef.current) {
+      URL.revokeObjectURL(qrImagePreviewObjectUrlRef.current);
+      qrImagePreviewObjectUrlRef.current = null;
+    }
+    if (objectUrl) qrImagePreviewObjectUrlRef.current = nextUrl;
+    setQrImagePreviewUrl(nextUrl);
+  }
 
   function applyPaymentPreset(nextType: "bank_transfer" | "promptpay_qr") {
     setType(nextType);
@@ -1615,6 +1687,8 @@ export function AdminPaymentMethodForm({
     setAccountNumber(method.accountNumber ?? "");
     setPromptpayId(method.promptpayId ?? "");
     setQrImagePath(method.qrImagePath ?? "");
+    setQrImageFile(null);
+    replaceQrImagePreviewUrl(method.qrImagePath ?? "");
     setInstructions(method.instructions ?? "");
     setIsActive(method.isActive !== false);
   }
@@ -1622,6 +1696,16 @@ export function AdminPaymentMethodForm({
   function submit() {
     startTransition(async () => {
       try {
+        let nextQrImagePath = qrImagePath.trim();
+        if (qrImageFile) {
+          const uploaded = await uploadAdminPaymentQrImage(qrImageFile, {
+            code,
+            displayName,
+          });
+          nextQrImagePath = uploaded.imageUrl;
+          setQrImagePath(uploaded.imageUrl);
+          replaceQrImagePreviewUrl(uploaded.imageUrl);
+        }
         await postJson("/api/ynot/admin/payment-methods", {
           code,
           displayName,
@@ -1630,11 +1714,12 @@ export function AdminPaymentMethodForm({
           accountName,
           accountNumber,
           promptpayId,
-          qrImagePath,
+          qrImagePath: nextQrImagePath,
           sortOrder,
           instructions,
           isActive,
         });
+        setQrImageFile(null);
         setMessage("Payment method saved.");
       } catch (error) {
         setMessage(
@@ -1734,16 +1819,31 @@ export function AdminPaymentMethodForm({
         />
         <input
           className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-          value={qrImagePath}
-          onChange={(event) => setQrImagePath(event.target.value)}
-          placeholder="QR image URL or public path"
-        />
-        <input
-          className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
           value={sortOrder}
           onChange={(event) => setSortOrder(Number(event.target.value))}
           placeholder="Sort order"
           type="number"
+        />
+      </div>
+      <div className="mt-3">
+        <AdminQrImageDropzone
+          disabled={isPending}
+          imageFile={qrImageFile}
+          imageUrl={qrImagePath}
+          previewUrl={qrImagePreviewUrl || qrImagePath}
+          onClear={() => {
+            setQrImageFile(null);
+            setQrImagePath("");
+            replaceQrImagePreviewUrl("");
+          }}
+          onFileChange={(file) => {
+            setQrImageFile(file);
+            if (file) {
+              replaceQrImagePreviewUrl(URL.createObjectURL(file), true);
+            } else {
+              replaceQrImagePreviewUrl(qrImagePath.trim());
+            }
+          }}
         />
       </div>
       <label className="mt-3 flex items-center gap-2 text-sm font-bold">
@@ -2242,7 +2342,7 @@ function firstCatalogCardId(cards: CardCatalogItem[]) {
 
 function adminPrizeCardIdentity(card: CardCatalogItem) {
   return [
-    card.code ?? "no code",
+    card.modelCode ?? card.code ?? "no model code",
     card.grade,
     prizeCategoryLabel(card.prizeCategory),
   ]
@@ -2253,6 +2353,7 @@ function adminPrizeCardIdentity(card: CardCatalogItem) {
 function adminPrizeCardSearchText(card: CardCatalogItem) {
   return [
     card.code,
+    card.modelCode,
     card.name,
     card.grade,
     card.series,
@@ -2468,9 +2569,154 @@ function AdminImageDropzone({
             placeholder="/test-assets/ynot-test-card-001.svg or https://…"
             disabled={disabled}
           />
-          <small>Advanced fallback. Leave blank when you uploaded a file.</small>
+          <small>Optional URL. Leave blank when you uploaded a file.</small>
         </label>
       )}
+    </div>
+  );
+}
+
+function AdminQrImageDropzone({
+  imageUrl,
+  imageFile,
+  previewUrl,
+  onFileChange,
+  onClear,
+  disabled,
+}: {
+  imageUrl: string;
+  imageFile: File | null;
+  previewUrl: string;
+  onFileChange: (file: File | null) => void;
+  onClear: () => void;
+  disabled?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const hasPreview = Boolean(previewUrl);
+
+  function openFilePicker() {
+    if (disabled) return;
+    inputRef.current?.click();
+  }
+
+  function handleFiles(files: FileList | null) {
+    if (!files || !files.length) return;
+    const file = files[0];
+    if (!file.type.startsWith("image/")) return;
+    onFileChange(file);
+  }
+
+  return (
+    <div className="admin-image-dropzone-field">
+      <span className="admin-image-dropzone-label">QR code image</span>
+      <div
+        aria-label="Upload payment QR code image"
+        className={`admin-image-dropzone admin-qr-dropzone${isDragging ? " is-dragging" : ""}${hasPreview ? " has-preview" : ""}${disabled ? " is-disabled" : ""}`}
+        onClick={(event) => {
+          if (event.defaultPrevented) return;
+          openFilePicker();
+        }}
+        onDragLeave={(event) => {
+          if (disabled) return;
+          if (event.currentTarget.contains(event.relatedTarget as Node)) return;
+          setIsDragging(false);
+        }}
+        onDragOver={(event) => {
+          if (disabled) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+          if (!isDragging) setIsDragging(true);
+        }}
+        onDrop={(event) => {
+          if (disabled) return;
+          event.preventDefault();
+          setIsDragging(false);
+          handleFiles(event.dataTransfer.files);
+        }}
+        onKeyDown={(event) => {
+          if (disabled) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openFilePicker();
+          }
+        }}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+      >
+        <div className="admin-image-dropzone-thumb admin-qr-dropzone-thumb">
+          {hasPreview ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt="Payment QR preview"
+              className="admin-payment-qr-preview"
+              src={previewUrl}
+            />
+          ) : (
+            <div className="admin-payment-qr-placeholder">
+              <strong>QR</strong>
+              <small>Upload image</small>
+            </div>
+          )}
+        </div>
+        <div className="admin-image-dropzone-body">
+          <strong className="admin-image-dropzone-title">
+            {hasPreview ? "QR image ready" : "Drop payment QR image here"}
+          </strong>
+          <p className="admin-image-dropzone-hint">
+            JPG, PNG, or WEBP. Uploaded to the public YNOTT asset bucket and
+            shown on the customer top-up page.
+          </p>
+          <div className="admin-image-dropzone-actions">
+            <button
+              className="admin-image-dropzone-button"
+              disabled={disabled}
+              onClick={(event) => {
+                event.stopPropagation();
+                openFilePicker();
+              }}
+              type="button"
+            >
+              {hasPreview ? "Replace QR" : "Choose QR image"}
+            </button>
+            {hasPreview && (
+              <button
+                className="admin-image-dropzone-clear"
+                disabled={disabled}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onClear();
+                }}
+                type="button"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {imageFile && (
+            <p className="admin-image-dropzone-file">
+              <span>{imageFile.name}</span>
+              <span aria-hidden="true">·</span>
+              <span>{formatFileSize(imageFile.size)}</span>
+            </p>
+          )}
+          {!imageFile && imageUrl && (
+            <p className="admin-image-dropzone-file">
+              <span>Saved QR image</span>
+              <span aria-hidden="true">·</span>
+              <span className="admin-image-dropzone-url">{imageUrl}</span>
+            </p>
+          )}
+        </div>
+        <input
+          ref={inputRef}
+          accept="image/jpeg,image/png,image/webp"
+          className="admin-image-dropzone-input"
+          disabled={disabled}
+          onChange={(event) => handleFiles(event.target.files)}
+          type="file"
+        />
+      </div>
     </div>
   );
 }
@@ -2555,9 +2801,9 @@ function AdminPrizeCardPicker({
       <div className={`admin-prize-card-controls${showSearch ? "" : " is-single"}`}>
         {showSearch && (
           <input
-            aria-label="Search prize item by code or name"
+            aria-label="Search prize item by model code or name"
             disabled={disabled || !cards.length}
-            placeholder="Search code or name"
+            placeholder="Search model code or name"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -2572,7 +2818,7 @@ function AdminPrizeCardPicker({
           <option value="">{cards.length ? emptyLabel : missingLabel}</option>
           {selectCards.map((card) => (
             <option key={card.catalogCardId} value={card.catalogCardId}>
-              {[card.code ?? "no code", card.name, card.grade, prizeCategoryLabel(card.prizeCategory)].join(" · ")}
+              {[card.modelCode ?? card.code ?? "no model code", card.name, card.grade, prizeCategoryLabel(card.prizeCategory)].join(" · ")}
             </option>
           ))}
         </select>
@@ -5967,10 +6213,18 @@ export function AdminCardForm({
   const router = useRouter();
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
-  const [prizeCategory, setPrizeCategory] =
-    useState<PrizeCategory>("psa10_card");
   const [series, setSeries] = useState<"pokemon" | "one_piece">("pokemon");
-  const [grade, setGrade] = useState("Ungraded");
+  const [language, setLanguage] = useState<CardLanguage | "">("");
+  const [releaseYear, setReleaseYear] = useState("");
+  const [cardSet, setCardSet] = useState("");
+  const [variant, setVariant] = useState("");
+  const [catalogCategory, setCatalogCategory] =
+    useState<CatalogCategory>("single_cards");
+  const [condition, setCondition] = useState<CardCondition>("raw");
+  const [gradingService, setGradingService] = useState<GradingService | "">("");
+  const [grade, setGrade] = useState("");
+  const [certNumber, setCertNumber] = useState("");
+  const [gemrateId, setGemrateId] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [imageStoragePath, setImageStoragePath] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -5978,14 +6232,6 @@ export function AdminCardForm({
   const imagePreviewObjectUrlRef = useRef<string | null>(null);
   const [overwriteConfirmedForCardId, setOverwriteConfirmedForCardId] =
     useState<string | null>(null);
-  const [isTest, setIsTest] = useState(false);
-  const [assetSource, setAssetSource] = useState(
-    "Generated YNot placeholder asset",
-  );
-  const [assetLicense, setAssetLicense] = useState(
-    "Original generated placeholder",
-  );
-  const [assetManifestKey, setAssetManifestKey] = useState("ynot-test-card");
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const duplicateCard = useMemo(
@@ -6037,20 +6283,25 @@ export function AdminCardForm({
           replaceImagePreviewUrl(uploaded.imageUrl);
         }
         const payload = await postJson("/api/ynot/admin/cards", {
-          code,
+          modelCode: code,
           name,
           series,
+          language: language || null,
+          releaseYear: releaseYear || null,
+          cardSet,
+          variant,
+          catalogCategory,
+          condition,
+          gradingService: gradingService || null,
           grade,
-          prizeCategory,
+          certNumber,
+          gemrateId,
+          prizeCategory: legacyPrizeCategoryForCatalog(catalogCategory),
           imageUrl: nextImageUrl,
           imageStoragePath: nextImageStoragePath,
           confirmOverwrite: canConfirmOverwrite,
-          isTest,
-          assetSource: isTest ? assetSource : undefined,
-          assetLicense: isTest ? assetLicense : undefined,
-          assetManifestKey: isTest ? assetManifestKey : undefined,
         });
-        setMessage(`Prize item ${payload.card?.name ?? name} saved.`);
+        setMessage(`Catalog item ${payload.card?.name ?? name} saved.`);
         setImageFile(null);
         setOverwriteConfirmedForCardId(null);
         router.refresh();
@@ -6063,7 +6314,7 @@ export function AdminCardForm({
           return;
         }
         setMessage(
-          error instanceof Error ? error.message : "Prize item could not be saved.",
+          error instanceof Error ? error.message : "Catalog item could not be saved.",
         );
       }
     });
@@ -6073,16 +6324,16 @@ export function AdminCardForm({
       <section className="admin-panel admin-form-panel soft-card">
         <div className="admin-form-head">
           <span>Prize catalog</span>
-          <h3>Create or update prize item</h3>
+          <h3>Create or update card catalog item</h3>
           <p>
-            Add PSA10 cards, sealed products, electronics, or other prizes
-            before using them in the random pack prize builder.
+            Add card identity, language, product type, condition, grading, and
+            image details before using the item in the random pack prize builder.
           </p>
         </div>
         <div className="admin-form-grid">
             <AdminField
-              label="Prize code"
-              hint="Optional unique code. Use a code when replacing a specific card; duplicate names must resolve to one existing card."
+              label="Model code"
+              hint="Optional stable model identity. Use it when replacing a specific card; duplicate names must resolve to one existing card."
             >
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
@@ -6091,12 +6342,12 @@ export function AdminCardForm({
             placeholder="OP-PSA10-001"
           />
         </AdminField>
-        <AdminField label="Prize item name" required>
+        <AdminField label="Card name" required>
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="PSA10 card, PlayStation, AirPods, or other prize"
+            placeholder="Kaya, Charizard, booster box, or supplies"
           />
         </AdminField>
         <AdminField label="Catalog series">
@@ -6111,27 +6362,122 @@ export function AdminCardForm({
             <option value="one_piece">One Piece</option>
           </select>
         </AdminField>
-        <AdminField label="Prize category">
+        <AdminField label="Language">
           <select
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={prizeCategory}
-            onChange={(event) =>
-              setPrizeCategory(event.target.value as PrizeCategory)
-            }
+            value={language}
+            onChange={(event) => setLanguage(event.target.value as CardLanguage | "")}
           >
-            {prizeCategoryOptions.map((option) => (
+            <option value="">-- Select --</option>
+            {cardLanguageOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
           </select>
         </AdminField>
-        <AdminField label="Grade / model">
+        <AdminField label="Release year">
+          <select
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={releaseYear}
+            onChange={(event) => setReleaseYear(event.target.value)}
+          >
+            <option value="">-- Select --</option>
+            {cardReleaseYearOptions.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </AdminField>
+        <AdminField label="Set">
           <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={cardSet}
+            onChange={(event) => setCardSet(event.target.value)}
+            placeholder="2nd Anniversary Set"
+          />
+        </AdminField>
+        <AdminField label="Variant">
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={variant}
+            onChange={(event) => setVariant(event.target.value)}
+            placeholder="Parallel, promo, alt art"
+          />
+        </AdminField>
+        <AdminField label="Prize catalog">
+          <select
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={catalogCategory}
+            onChange={(event) =>
+              setCatalogCategory(event.target.value as CatalogCategory)
+            }
+          >
+            {catalogCategoryOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </AdminField>
+        <AdminField label="Condition">
+          <select
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={condition}
+            onChange={(event) => setCondition(event.target.value as CardCondition)}
+          >
+            {cardConditionOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </AdminField>
+        <AdminField label="Grading service">
+          <select
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={gradingService}
+            onChange={(event) =>
+              setGradingService(event.target.value as GradingService | "")
+            }
+          >
+            <option value="">-- Select --</option>
+            {gradingServiceOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </AdminField>
+        <AdminField label="Grade">
+          <select
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={grade}
             onChange={(event) => setGrade(event.target.value)}
-            placeholder="PSA 10 / PS5 / AirPods Pro"
+          >
+            <option value="">-- Select --</option>
+            {cardGradeOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </AdminField>
+        <AdminField label="Cert number">
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={certNumber}
+            onChange={(event) => setCertNumber(event.target.value)}
+            placeholder="154130791"
+          />
+        </AdminField>
+        <AdminField label="GemRate ID">
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={gemrateId}
+            onChange={(event) => setGemrateId(event.target.value)}
+            placeholder="GemRate record ID"
           />
         </AdminField>
         <div
@@ -6170,52 +6516,11 @@ export function AdminCardForm({
             }}
           />
         </div>
-        <AdminField label="Prize item mode">
-          <button
-            className={
-              isTest
-                ? "gold-button rounded-2xl px-4 py-3 text-sm font-black"
-                : "plain-button rounded-2xl px-4 py-3 text-sm font-black"
-            }
-            onClick={() => setIsTest((value) => !value)}
-            type="button"
-          >
-            {isTest ? "Test prize ON" : "Normal prize"}
-          </button>
-        </AdminField>
-        {isTest && (
-          <>
-            <AdminField label="Asset manifest key" required>
-              <input
-                className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-                value={assetManifestKey}
-                onChange={(event) => setAssetManifestKey(event.target.value)}
-                placeholder="ynot-test-card-001"
-              />
-            </AdminField>
-            <AdminField label="Asset source" required>
-              <input
-                className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-                value={assetSource}
-                onChange={(event) => setAssetSource(event.target.value)}
-                placeholder="Generated YNot placeholder asset"
-              />
-            </AdminField>
-            <AdminField label="Asset license" required>
-              <input
-                className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-                value={assetLicense}
-                onChange={(event) => setAssetLicense(event.target.value)}
-                placeholder="Original generated placeholder"
-              />
-            </AdminField>
-          </>
-        )}
       </div>
       {duplicateCard && duplicateUsage && (
         <DuplicateCardCaution
           cardName={duplicateCard.name}
-          code={duplicateCard.code}
+          code={duplicateCard.modelCode ?? duplicateCard.code}
           confirmed={overwriteConfirmed}
           usage={duplicateUsage}
           onConfirmedChange={(confirmed) =>
@@ -6241,7 +6546,7 @@ export function AdminCardForm({
             : "Saving..."
           : duplicateCard
             ? "Update existing card"
-            : "Save prize item"}
+            : "Save catalog item"}
       </button>
       {message && <p className="admin-form-message">{message}</p>}
     </section>
@@ -6318,9 +6623,19 @@ function adminCardCatalogRowSearchText(row: AdminCardCatalogRow) {
   const card = row.card;
   return [
     card.code,
+    card.modelCode,
     card.name,
     card.grade,
     card.series,
+    cardLanguageLabel(card.language),
+    card.releaseYear,
+    card.cardSet,
+    card.variant,
+    catalogCategoryLabel(card.catalogCategory),
+    cardConditionLabel(card.condition),
+    gradingServiceLabel(card.gradingService),
+    card.certNumber,
+    card.gemrateId,
     prizeCategoryLabel(card.prizeCategory),
     card.catalogCardId,
     card.searchName,
@@ -6339,6 +6654,26 @@ function adminCardCatalogRowSearchText(row: AdminCardCatalogRow) {
     .toLowerCase();
 }
 
+function adminCardDisplayValue(value: unknown) {
+  if (value === null || value === undefined || value === "") return "-";
+  return String(value);
+}
+
+function adminCardCatalogDetails(card: CardCatalogItem) {
+  return [
+    { label: "Language", value: cardLanguageLabel(card.language) },
+    { label: "Release year", value: card.releaseYear },
+    { label: "Set", value: card.cardSet },
+    { label: "Variant", value: card.variant },
+    { label: "Prize catalog", value: catalogCategoryLabel(card.catalogCategory) },
+    { label: "Condition", value: cardConditionLabel(card.condition) },
+    { label: "Grading service", value: gradingServiceLabel(card.gradingService) },
+    { label: "Grade", value: card.grade || "Ungraded" },
+    { label: "Cert number", value: card.certNumber },
+    { label: "GemRate ID", value: card.gemrateId },
+  ];
+}
+
 function formatAdminCatalogDate(value?: string | null) {
   if (!value) return "Unknown";
   return formatApprovalDate(value);
@@ -6351,6 +6686,12 @@ type StockAdjustmentDraft = {
   mode: StockAdjustmentMode;
   quantity: string;
 };
+
+function legacyPrizeCategoryForCatalog(category: CatalogCategory): PrizeCategory {
+  if (category === "single_cards") return "psa10_card";
+  if (category === "supplies") return "other";
+  return "sealed_product";
+}
 
 export function AdminCardCatalogPanel({
   cards,
@@ -6477,7 +6818,7 @@ export function AdminCardCatalogPanel({
           </span>
           <input
             aria-label="Search catalog cards"
-            placeholder="Search code, name, grade, category, pack"
+            placeholder="Search model code, set, variant, cert, GemRate, category, condition, grade, pack"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -6559,9 +6900,10 @@ export function AdminCardCatalogPanel({
                     </strong>
                     <p className="admin-muted-line">
                       {[
-                        card.code ?? "no code",
-                        card.grade,
-                        prizeCategoryLabel(card.prizeCategory),
+                        card.modelCode ?? card.code ?? "no model code",
+                        catalogCategoryLabel(card.catalogCategory),
+                        cardConditionLabel(card.condition),
+                        card.grade || "Ungraded",
                         card.series,
                       ]
                         .filter(Boolean)
@@ -6582,6 +6924,18 @@ export function AdminCardCatalogPanel({
                     )}
                   </div>
                 </header>
+
+                <div className="admin-card-catalog-detail-grid">
+                  {adminCardCatalogDetails(card).map((detail) => (
+                    <div
+                      className="admin-card-catalog-detail-item"
+                      key={detail.label}
+                    >
+                      <span>{detail.label}</span>
+                      <strong>{adminCardDisplayValue(detail.value)}</strong>
+                    </div>
+                  ))}
+                </div>
 
                 <div className="admin-card-catalog-metrics">
                   <div className="admin-card-catalog-metric">
@@ -6861,11 +7215,30 @@ function AdminCardEditModal({
   onSaved: () => void;
 }) {
   const [name, setName] = useState(card.name);
-  const [code, setCode] = useState(card.code ?? "");
+  const [code, setCode] = useState(card.modelCode ?? card.code ?? "");
   const [series, setSeries] = useState<"pokemon" | "one_piece">(
     card.series === "Pokemon" ? "pokemon" : "one_piece",
   );
-  const [grade, setGrade] = useState(card.grade ?? "");
+  const [language, setLanguage] = useState<CardLanguage | "">(
+    card.language ?? "",
+  );
+  const [releaseYear, setReleaseYear] = useState(
+    card.releaseYear ? String(card.releaseYear) : "",
+  );
+  const [cardSet, setCardSet] = useState(card.cardSet ?? "");
+  const [variant, setVariant] = useState(card.variant ?? "");
+  const [catalogCategory, setCatalogCategory] = useState<CatalogCategory>(
+    card.catalogCategory ?? "single_cards",
+  );
+  const [condition, setCondition] = useState<CardCondition>(
+    card.condition ?? "raw",
+  );
+  const [gradingService, setGradingService] = useState<GradingService | "">(
+    card.gradingService ?? "",
+  );
+  const [grade, setGrade] = useState(cardGradeValue(card.grade));
+  const [certNumber, setCertNumber] = useState(card.certNumber ?? "");
+  const [gemrateId, setGemrateId] = useState(card.gemrateId ?? "");
   const [imageUrl, setImageUrl] = useState(card.photoUrl ?? "");
   const [imageStoragePath, setImageStoragePath] = useState(
     card.photoStoragePath ?? "",
@@ -6873,7 +7246,6 @@ function AdminCardEditModal({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState(card.photoUrl ?? "");
   const imagePreviewObjectUrlRef = useRef<string | null>(null);
-  const [isTest, setIsTest] = useState(card.isTest ?? false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -6917,13 +7289,21 @@ function AdminCardEditModal({
         body: JSON.stringify({
           cardId: card.catalogCardId,
           name: name.trim() || card.name,
-          code: code.trim() || null,
+          modelCode: code.trim() || null,
           series,
-          grade: grade.trim() || "Ungraded",
-          prizeCategory: card.prizeCategory,
+          language: language || null,
+          releaseYear: releaseYear || null,
+          cardSet,
+          variant,
+          catalogCategory,
+          condition,
+          gradingService: gradingService || null,
+          grade,
+          certNumber,
+          gemrateId,
+          prizeCategory: legacyPrizeCategoryForCatalog(catalogCategory),
           imageUrl: nextImageUrl || null,
           imageStoragePath: nextImageStoragePath || null,
-          isTest,
         }),
       });
       if (!response.ok) {
@@ -6965,7 +7345,7 @@ function AdminCardEditModal({
             <input value={name} onChange={(e) => setName(e.target.value)} disabled={pending} />
           </label>
           <label className="admin-field">
-            <span>Code</span>
+            <span>Model code</span>
             <input value={code} onChange={(e) => setCode(e.target.value)} disabled={pending} />
           </label>
           <label className="admin-field">
@@ -6980,8 +7360,108 @@ function AdminCardEditModal({
             </select>
           </label>
           <label className="admin-field">
+            <span>Language</span>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as CardLanguage | "")}
+              disabled={pending}
+            >
+              <option value="">-- Select --</option>
+              {cardLanguageOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="admin-field">
+            <span>Release year</span>
+            <select
+              value={releaseYear}
+              onChange={(e) => setReleaseYear(e.target.value)}
+              disabled={pending}
+            >
+              <option value="">-- Select --</option>
+              {cardReleaseYearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="admin-field">
+            <span>Set</span>
+            <input value={cardSet} onChange={(e) => setCardSet(e.target.value)} disabled={pending} />
+          </label>
+          <label className="admin-field">
+            <span>Variant</span>
+            <input value={variant} onChange={(e) => setVariant(e.target.value)} disabled={pending} />
+          </label>
+          <label className="admin-field">
+            <span>Prize catalog</span>
+            <select
+              value={catalogCategory}
+              onChange={(e) => setCatalogCategory(e.target.value as CatalogCategory)}
+              disabled={pending}
+            >
+              {catalogCategoryOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="admin-field">
+            <span>Condition</span>
+            <select
+              value={condition}
+              onChange={(e) => setCondition(e.target.value as CardCondition)}
+              disabled={pending}
+            >
+              {cardConditionOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="admin-field">
+            <span>Grading service</span>
+            <select
+              value={gradingService}
+              onChange={(e) => setGradingService(e.target.value as GradingService | "")}
+              disabled={pending}
+            >
+              <option value="">-- Select --</option>
+              {gradingServiceOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="admin-field">
             <span>Grade</span>
-            <input value={grade} onChange={(e) => setGrade(e.target.value)} disabled={pending} />
+            <select
+              value={grade}
+              onChange={(e) => setGrade(e.target.value)}
+              disabled={pending}
+            >
+              <option value="">-- Select --</option>
+              {cardGradeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="admin-field">
+            <span>Cert number</span>
+            <input value={certNumber} onChange={(e) => setCertNumber(e.target.value)} disabled={pending} />
+          </label>
+          <label className="admin-field">
+            <span>GemRate ID</span>
+            <input value={gemrateId} onChange={(e) => setGemrateId(e.target.value)} disabled={pending} />
           </label>
           <div
             className="admin-field admin-image-dropzone-field-wrap"
@@ -7020,10 +7500,6 @@ function AdminCardEditModal({
               }}
             />
           </div>
-          <label className="admin-field" style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} disabled={pending} />
-            <span>Test-only card (hidden from public catalog)</span>
-          </label>
         </div>
         {error && (
           <p className="admin-category-row-error" role="alert">
@@ -7200,7 +7676,8 @@ export function AdminPrizeInventoryPanel({
         {inventoryCards.map((item) => {
           const firstPrize = item.prizes[0];
           const cardName = item.card?.name ?? firstPrize?.cardName ?? "Card";
-          const cardCode = item.card?.code ?? firstPrize?.cardCode ?? null;
+          const cardCode =
+            item.card?.modelCode ?? item.card?.code ?? firstPrize?.cardCode ?? null;
           const cardGrade = item.card?.grade ?? firstPrize?.cardGrade ?? "";
           const cardImageUrl =
             item.card?.photoUrl ?? firstPrize?.cardImageUrl ?? null;
@@ -7216,7 +7693,7 @@ export function AdminPrizeInventoryPanel({
               <div className="admin-card-inventory-main">
                 <strong>{cardName}</strong>
                 <p className="admin-muted-line">
-                  {[cardCode ?? "no code", cardGrade, prizeCategoryLabel(cardCategory)]
+                  {[cardCode ?? "no model code", cardGrade, prizeCategoryLabel(cardCategory)]
                     .filter(Boolean)
                     .join(" · ")}
                 </p>
