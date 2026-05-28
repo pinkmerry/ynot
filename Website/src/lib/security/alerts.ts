@@ -23,6 +23,7 @@ export type SecurityAlertEvent =
   | "profile_sessions_revoked"
   | "top_up_approved_large"
   | "top_up_approval_blocked"
+  | "top_up_velocity_unusual"
   | "admin_login_unfamiliar_ip"
   | "admin_user_created";
 

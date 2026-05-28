@@ -14,6 +14,16 @@ export const dynamic = "force-dynamic";
 // previous value of 5000 was above the maximum legitimate package and the
 // alert never fired.
 const LARGE_TOP_UP_THB_THRESHOLD = 1000;
+
+// Per-profile velocity: when the SAME profile gets approved this many
+// top-ups (or more) inside the rolling window, fire a separate alert.
+// The DB-level approve_top_up_request RPC blocks the explicit double-credit
+// attack (same slip image, twice), but a determined attacker can submit
+// multiple DIFFERENT slips for the same payment by re-photographing the
+// receipt — the per-slip dedup misses that. This catches it in real time.
+// Threshold = "this is the 2nd or later approval in the window".
+const PROFILE_VELOCITY_WINDOW_MS = 24 * 60 * 60 * 1000;
+const PROFILE_VELOCITY_COUNT_THRESHOLD = 2;
 const approvableSlipStatuses = new Set(["valid", "manual_review"]);
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -183,6 +193,49 @@ export async function PATCH(request: Request) {
           threshold: LARGE_TOP_UP_THB_THRESHOLD,
         },
       });
+    }
+
+    // Velocity alert: count top-up credits for the SAME profile in the
+    // rolling window (including this one we just approved). If the count
+    // hits the threshold, page the security inbox. This catches the
+    // re-photographed-slip variant of the F1 attack, where the slip-hash
+    // dedup misses because each upload has a different file_sha256.
+    if (approved?.profile_id) {
+      const windowStart = new Date(
+        Date.now() - PROFILE_VELOCITY_WINDOW_MS,
+      ).toISOString();
+      const { count: recentApprovals, error: velocityError } = await supabase
+        .from("coin_ledger")
+        .select("id", { count: "exact", head: true })
+        .eq("profile_id", approved.profile_id)
+        .eq("entry_type", "top_up")
+        .gte("created_at", windowStart);
+      if (velocityError) {
+        console.warn(
+          "top_up_velocity_lookup_failed",
+          velocityError.message ?? "unknown",
+        );
+      } else if (
+        typeof recentApprovals === "number" &&
+        recentApprovals >= PROFILE_VELOCITY_COUNT_THRESHOLD
+      ) {
+        emitSecurityAlert({
+          event: "top_up_velocity_unusual",
+          actor: {
+            profileId: admin.profileId,
+            adminId: admin.adminId,
+            role: admin.adminRole,
+          },
+          target: { profileId: approved.profile_id },
+          details: {
+            publicCode: approved.public_code,
+            amountThb: approved.amount_thb,
+            totalApprovalsLast24h: recentApprovals,
+            windowHours: PROFILE_VELOCITY_WINDOW_MS / (60 * 60 * 1000),
+            threshold: PROFILE_VELOCITY_COUNT_THRESHOLD,
+          },
+        });
+      }
     }
   }
 
