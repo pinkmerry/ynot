@@ -160,6 +160,60 @@ test("top-up mutations reject cross-origin browser submissions", () => {
   assert.match(adminRoute, /enforceSameOriginMutation\(request\)/);
 });
 
+test("coin mutation APIs validate inputs and hide internal response fields", () => {
+  const conversionHandler = readFileSync(
+    new URL("../src/lib/ynot/card-conversion-api.ts", import.meta.url),
+    "utf8",
+  );
+  const collectionRoute = readFileSync(
+    new URL("../src/app/api/ynot/collection/convert/route.ts", import.meta.url),
+    "utf8",
+  );
+  const exchangeRoute = readFileSync(
+    new URL("../src/app/api/ynot/exchange/route.ts", import.meta.url),
+    "utf8",
+  );
+  const adminTopUpsRoute = readFileSync(
+    new URL("../src/app/api/ynot/admin/top-ups/route.ts", import.meta.url),
+    "utf8",
+  );
+  const campaignCostRoute = readFileSync(
+    new URL("../src/app/api/ynot/admin/campaigns/cost/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(collectionRoute, /handleCardConversionRequest\(request\)/);
+  assert.match(exchangeRoute, /handleCardConversionRequest\(request\)/);
+  assert.match(conversionHandler, /enforceSameOriginMutation\(request\)/);
+  assert.match(conversionHandler, /UUID_RE[\s\S]*IDEMPOTENCY_KEY_RE/);
+  assert.match(conversionHandler, /new Set\(ids\)\.size !== ids\.length/);
+  assert.match(conversionHandler, /function publicConversionResult[\s\S]*totalCoins[\s\S]*itemCount[\s\S]*replayed/);
+  assert.doesNotMatch(conversionHandler, /ledgerId/);
+  assert.doesNotMatch(conversionHandler, /Response\.json\(\{\s*error:\s*error\.message/);
+  assert.doesNotMatch(adminTopUpsRoute, /Response\.json\(\{\s*error:\s*error\.message/);
+  assert.doesNotMatch(adminTopUpsRoute, /result:\s*data/);
+  assert.match(campaignCostRoute, /enforceSameOriginMutation\(request\)/);
+  assert.match(campaignCostRoute, /MAX_CAMPAIGN_COST_COINS/);
+  assert.doesNotMatch(campaignCostRoute, /error\.message/);
+  assert.doesNotMatch(campaignCostRoute, /error\.details|error\.hint/);
+});
+
+test("customer wallet top-ups do not expose provider internals", () => {
+  const dataSource = readFileSync(
+    new URL("../src/features/ynot/data.ts", import.meta.url),
+    "utf8",
+  );
+  const typesSource = readFileSync(
+    new URL("../src/features/ynot/types.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(dataSource, /includeSensitiveSlipDetails\s*=\s*options\.includeSensitiveSlipDetails \?\? includeAll/);
+  assert.match(dataSource, /adminNote:\s*includeSensitiveSlipDetails \? row\.admin_note : null/);
+  assert.match(dataSource, /\.\.\.\(includeSensitiveSlipDetails[\s\S]*providerCode:[\s\S]*providerMessage:/);
+  assert.doesNotMatch(typesSource, /referenceId|duplicateOfSlipId/);
+});
+
 test("admin top-up approval refuses unsafe or reused slips before crediting", () => {
   const adminRoute = readFileSync(
     new URL("../src/app/api/ynot/admin/top-ups/route.ts", import.meta.url),

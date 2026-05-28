@@ -90,6 +90,7 @@ const apis = [
   "src/app/api/ynot/admin/payment-methods/route.ts",
   "src/app/api/ynot/admin/shipping/route.ts",
   "src/app/api/ynot/admin/campaigns/route.ts",
+  "src/app/api/ynot/admin/campaigns/cost/route.ts",
   "src/app/api/ynot/admin/card-stock/route.ts",
   "src/app/api/ynot/admin/categories/route.ts",
   "src/app/api/ynot/admin/cards/route.ts",
@@ -162,6 +163,13 @@ notCheckText(
   "public gacha open result types",
 );
 check("src/features/ynot/cr/HistoryExperience.tsx", "collection actions call conversion and shipping APIs", /\/api\/ynot\/collection\/convert[\s\S]*\/api\/ynot\/shipping/);
+check("src/app/api/ynot/collection/convert/route.ts", "collection conversion route delegates to hardened handler", /handleCardConversionRequest/);
+check("src/app/api/ynot/exchange/route.ts", "legacy exchange route delegates to hardened handler", /handleCardConversionRequest/);
+check("src/lib/ynot/card-conversion-api.ts", "card conversion API rejects cross-origin cookie mutations", /enforceSameOriginMutation\(request\)/);
+check("src/lib/ynot/card-conversion-api.ts", "card conversion API validates item ids and idempotency keys", /UUID_RE[\s\S]*IDEMPOTENCY_KEY_RE[\s\S]*normalizeCollectionItemIds/);
+notCheck("src/lib/ynot/card-conversion-api.ts", "card conversion API does not return raw RPC errors", /Response\.json\(\{\s*error:\s*error\.message/);
+notCheck("src/lib/ynot/card-conversion-api.ts", "card conversion API does not expose ledger ids", /ledgerId/);
+check("src/lib/ynot/card-conversion-api.ts", "card conversion API returns allowlisted RPC result", /function publicConversionResult[\s\S]*totalCoins[\s\S]*itemCount[\s\S]*replayed/);
 check("src/features/ynot/client.tsx", "admin payment settings call payment method API", /\/api\/ynot\/admin\/payment-methods/);
 check("src/features/ynot/client.tsx", "admin campaign form calls campaign API", /\/api\/ynot\/admin\/campaigns/);
 check("src/features/ynot/client.tsx", "admin campaign create refreshes server data after save", /import \{ useRouter \} from "next\/navigation"[\s\S]*AdminCampaignForm[\s\S]*const router = useRouter\(\)[\s\S]*\/api\/ynot\/admin\/campaigns[\s\S]*router\.refresh\(\)/);
@@ -457,7 +465,11 @@ notCheck(globalInventoryMigration, "global inventory migration keeps cards catal
 check("src/lib/supabase/types.ts", "types include top_up_requests", /top_up_requests:\s*{[\s\S]*coin_amount: number;/);
 check("src/lib/supabase/types.ts", "types include collection_items", /collection_items:\s*{[\s\S]*source_type: "gacha_open"/);
 check("src/lib/supabase/types.ts", "types include platform RPCs", /open_gacha_campaign:[\s\S]*submit_card_conversion:[\s\S]*request_shipping_for_items:/);
-check("src/app/api/ynot/collection/convert/route.ts", "card conversion route uses wallet ledger RPC", /enforceRateLimit[\s\S]*submit_card_conversion/);
+check("src/lib/ynot/card-conversion-api.ts", "card conversion route uses wallet ledger RPC", /enforceRateLimit[\s\S]*submit_card_conversion/);
+check("src/features/ynot/data.ts", "customer top-ups hide slip provider internals by default", /includeSensitiveSlipDetails[\s\S]*\?\? includeAll[\s\S]*providerCode:[\s\S]*providerMessage:/);
+notCheck("src/features/ynot/types.ts", "public top-up type omits duplicate/reference slip internals", /(?:referenceId|duplicateOfSlipId)/);
+check("src/app/api/ynot/admin/campaigns/cost/route.ts", "admin cost route rejects cross-origin cookie mutations", /enforceSameOriginMutation\(request\)/);
+check("src/app/api/ynot/admin/campaigns/cost/route.ts", "admin cost route clamps coin tier edits", /MAX_CAMPAIGN_COST_COINS[\s\S]*rawCost < 1 \|\| rawCost > MAX_CAMPAIGN_COST_COINS/);
 check("docs/PROJECT_STATUS.md", "status docs mention migration-before-deploy gate", /migration.*before deploying code/i);
 
 if (exists("tools/fixtures/button-map.json")) {

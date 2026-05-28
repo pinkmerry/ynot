@@ -231,8 +231,6 @@ for (const [file, needles] of Object.entries({
 for (const file of [
   "src/app/api/ynot/wallet/route.ts",
   "src/app/api/ynot/gacha/open/route.ts",
-  "src/app/api/ynot/collection/convert/route.ts",
-  "src/app/api/ynot/exchange/route.ts",
   "src/app/api/ynot/shipping/route.ts",
   "src/app/api/ynot/addresses/route.ts",
   "src/app/api/ynot/admin/campaigns/cost/route.ts",
@@ -255,6 +253,24 @@ for (const file of [
 ]) {
   includes(file, "await enforceRateLimit", `${file} awaits rate limiting before mutation`);
 }
+
+for (const file of [
+  "src/app/api/ynot/collection/convert/route.ts",
+  "src/app/api/ynot/exchange/route.ts",
+]) {
+  includes(file, "handleCardConversionRequest", `${file} delegates to hardened card conversion handler`);
+}
+includes("src/lib/ynot/card-conversion-api.ts", "await enforceRateLimit", "card conversion handler awaits rate limiting before mutation");
+includes("src/lib/ynot/card-conversion-api.ts", "enforceSameOriginMutation(request)", "card conversion rejects cross-origin cookie mutations");
+includes("src/lib/ynot/card-conversion-api.ts", "UUID_RE", "card conversion validates collection item UUIDs");
+includes("src/lib/ynot/card-conversion-api.ts", "IDEMPOTENCY_KEY_RE", "card conversion rejects unsafe idempotency keys");
+includes("src/lib/ynot/card-conversion-api.ts", "publicConversionResult", "card conversion returns allowlisted RPC data");
+notIncludes("src/lib/ynot/card-conversion-api.ts", "ledgerId", "card conversion does not expose ledger ids");
+matches(
+  "src/lib/ynot/card-conversion-api.ts",
+  /Response\.json\(\s*\{ error: conversionErrorMessage\(error\.message\) \}/,
+  "card conversion maps database errors before returning them",
+);
 
 includes("src/app/api/ynot/admin/featured-packs/route.ts", "resolveAdminSession", "featured packs route requires admin session");
 

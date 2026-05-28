@@ -1478,8 +1478,11 @@ export async function getWallet(profileId?: string): Promise<YnotWallet> {
 export async function getTopUps(
   profileId?: string,
   includeAll = false,
+  options: { includeSensitiveSlipDetails?: boolean } = {},
 ): Promise<YnotTopUp[]> {
   if ((!profileId && !includeAll) || !isSupabaseConfigured()) return [];
+  const includeSensitiveSlipDetails =
+    options.includeSensitiveSlipDetails ?? includeAll;
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("topups", async () => {
     let query = supabase
@@ -1506,7 +1509,7 @@ export async function getTopUps(
         ? supabase
             .from("payment_slips")
             .select(
-              "id,top_up_request_id,verification_status,provider_code,provider_message,slip2go_reference_id,duplicate_of_slip_id,verified_at,uploaded_at",
+              "id,top_up_request_id,verification_status,provider_code,provider_message,verified_at,uploaded_at",
             )
             .in("top_up_request_id", topUpIds)
             .order("uploaded_at", { ascending: false })
@@ -1535,6 +1538,7 @@ export async function getTopUps(
           ? paymentMethodById.get(row.payment_method_id) ?? null
           : null,
         slip: latestSlipByTopUpId.get(row.id) ?? null,
+        includeSensitiveSlipDetails,
       }),
     );
   });
@@ -1553,13 +1557,14 @@ export function toTopUp(
       | "verification_status"
       | "provider_code"
       | "provider_message"
-      | "slip2go_reference_id"
-      | "duplicate_of_slip_id"
       | "verified_at"
       | "uploaded_at"
     > | null;
+    includeSensitiveSlipDetails?: boolean;
   } = {},
 ): YnotTopUp {
+  const includeSensitiveSlipDetails =
+    options.includeSensitiveSlipDetails === true;
   return {
     id: row.id,
     publicCode: row.public_code,
@@ -1567,7 +1572,7 @@ export function toTopUp(
     amountThb: row.amount_thb,
     coinAmount: row.coin_amount,
     status: row.status,
-    adminNote: row.admin_note,
+    adminNote: includeSensitiveSlipDetails ? row.admin_note : null,
     customerNote: row.customer_note,
     paymentMethod: options.paymentMethod
       ? {
@@ -1579,12 +1584,14 @@ export function toTopUp(
       : null,
     slipVerification: options.slip
       ? {
-          id: options.slip.id,
+          ...(includeSensitiveSlipDetails ? { id: options.slip.id } : {}),
           status: options.slip.verification_status,
-          providerCode: options.slip.provider_code,
-          providerMessage: options.slip.provider_message,
-          referenceId: options.slip.slip2go_reference_id,
-          duplicateOfSlipId: options.slip.duplicate_of_slip_id,
+          ...(includeSensitiveSlipDetails
+            ? {
+                providerCode: options.slip.provider_code,
+                providerMessage: options.slip.provider_message,
+              }
+            : {}),
           verifiedAt: options.slip.verified_at,
           uploadedAt: options.slip.uploaded_at,
         }

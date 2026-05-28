@@ -142,12 +142,10 @@ export type YnotTopUp = {
     "id" | "code" | "type" | "displayName"
   > | null;
   slipVerification?: {
-    id: string;
+    id?: string;
     status: YnotSlipVerificationStatus;
     providerCode?: string | null;
     providerMessage?: string | null;
-    referenceId?: string | null;
-    duplicateOfSlipId?: string | null;
     verifiedAt?: string | null;
     uploadedAt?: string | null;
   } | null;

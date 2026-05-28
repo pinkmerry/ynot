@@ -2,10 +2,15 @@ import { revalidateTag } from "next/cache";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { adminErrorResponse } from "@/lib/ynot/admin-api-errors";
 
 export const dynamic = "force-dynamic";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_CAMPAIGN_COST_COINS = 1_000_000;
 
 /**
  * Single-purpose endpoint: move a campaign into a different price tier by
@@ -25,6 +30,8 @@ export async function POST(request: Request) {
       503,
     );
   }
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
   const isDev = process.env.NODE_ENV !== "production";
   const admin = await resolveAdminSession();
   if (!admin && !isDev) {
@@ -55,14 +62,38 @@ export async function POST(request: Request) {
       400,
     );
   }
-  const costCoins = Math.max(1, rawCost);
 
   // Dev-mode mock id support — the storefront fallback packs use
   // synthetic ids that aren't real DB rows. Return ok without touching
   // Supabase so the local UX still feels responsive.
   if (isDev && campaignId.startsWith("storefront-")) {
-    return Response.json({ ok: true, campaignId, costCoins, mock: true });
+    const mockCostCoins = Math.min(
+      MAX_CAMPAIGN_COST_COINS,
+      Math.max(1, rawCost),
+    );
+    return Response.json({
+      ok: true,
+      campaignId,
+      costCoins: mockCostCoins,
+      mock: true,
+    });
   }
+
+  if (!UUID_RE.test(campaignId)) {
+    return adminErrorResponse(
+      "INVALID_CAMPAIGN",
+      "Choose a valid random pack.",
+      400,
+    );
+  }
+  if (rawCost < 1 || rawCost > MAX_CAMPAIGN_COST_COINS) {
+    return adminErrorResponse(
+      "INVALID_COST",
+      `Cost must be between 1 and ${MAX_CAMPAIGN_COST_COINS.toLocaleString()} coins.`,
+      400,
+    );
+  }
+  const costCoins = rawCost;
 
   const supabase = createServiceSupabaseClient();
   const { error } = await supabase
@@ -71,10 +102,9 @@ export async function POST(request: Request) {
     .eq("id", campaignId);
   if (error) {
     return adminErrorResponse(
-      error.code ?? "CAMPAIGN_COST_UPDATE_FAILED",
-      error.message,
+      "CAMPAIGN_COST_UPDATE_FAILED",
+      "Could not update campaign cost.",
       409,
-      { detail: error.details ?? null, hint: error.hint ?? null },
     );
   }
 

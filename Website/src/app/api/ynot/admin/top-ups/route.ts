@@ -12,6 +12,31 @@ export const dynamic = "force-dynamic";
 // "unusual for our user base" looks like.
 const LARGE_TOP_UP_THB_THRESHOLD = 5000;
 const approvableSlipStatuses = new Set(["valid", "manual_review"]);
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function topUpReviewErrorMessage(message?: string) {
+  if (!message) return "Could not review this top-up request.";
+  if (message.includes("admin_access_required")) {
+    return "Admin access is required.";
+  }
+  if (message.includes("top_up_not_found")) {
+    return "Top-up request was not found.";
+  }
+  if (message.includes("top_up_not_reviewable")) {
+    return "Only pending top-up requests can be reviewed.";
+  }
+  if (message.includes("top_up_slip_required")) {
+    return "Cannot approve a top-up without an uploaded slip.";
+  }
+  if (message.includes("top_up_slip_not_approvable")) {
+    return "Slip check is not approvable; reject it or ask the customer to upload a fresh slip.";
+  }
+  if (message.includes("approved_top_up_cannot_be_rejected")) {
+    return "Approved top-ups cannot be rejected.";
+  }
+  return "Could not review this top-up request.";
+}
 
 async function approvalBlocker(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
@@ -66,6 +91,9 @@ export async function PATCH(request: Request) {
   const action = body?.action === "approve" || body?.action === "reject" ? body.action : null;
   const note = typeof body?.note === "string" ? body.note.slice(0, 500) : null;
   if (!topUpId || !action) return Response.json({ error: "topUpId and action are required." }, { status: 400 });
+  if (!UUID_RE.test(topUpId)) {
+    return Response.json({ error: "Invalid top-up request." }, { status: 400 });
+  }
   const supabase = createServiceSupabaseClient();
   if (action === "approve") {
     const blocker = await approvalBlocker(supabase, topUpId);
@@ -74,7 +102,7 @@ export async function PATCH(request: Request) {
   const { data, error } = action === "approve"
     ? await supabase.rpc("approve_top_up_request", { p_top_up_request_id: topUpId, p_admin_id: admin.adminId, p_admin_note: note })
     : await supabase.rpc("reject_top_up_request", { p_top_up_request_id: topUpId, p_admin_id: admin.adminId, p_admin_note: note });
-  if (error) return Response.json({ error: error.message }, { status: 409 });
+  if (error) return Response.json({ error: topUpReviewErrorMessage(error.message) }, { status: 409 });
 
   if (action === "approve") {
     const { data: approved } = await supabase
@@ -100,5 +128,13 @@ export async function PATCH(request: Request) {
     }
   }
 
-  return Response.json({ result: data });
+  return Response.json({
+    result: {
+      status: action === "approve" ? "approved" : "rejected",
+      replayed:
+        data && typeof data === "object" && "replayed" in data
+          ? (data as { replayed?: unknown }).replayed === true
+          : false,
+    },
+  });
 }
