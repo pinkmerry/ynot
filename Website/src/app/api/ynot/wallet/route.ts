@@ -16,6 +16,14 @@ import { allowedSlipTypes, maxSlipBytes, verifyImageMagicBytes } from "@/lib/upl
 export const dynamic = "force-dynamic";
 
 const slipBucketName = "payment-slips";
+const minCustomTopUpThb = 1;
+const maxCustomTopUpThb = 20_000;
+
+type ResolvedTopUpAmount = {
+  amountThb: number;
+  coins: number;
+  packageId: string | null;
+};
 
 function jsonNoStore(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
@@ -25,6 +33,48 @@ function jsonNoStore(body: unknown, init?: ResponseInit) {
 
 function cleanFileName(name: string) {
   return name.trim().replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").slice(0, 120) || "payment-slip";
+}
+
+function formString(value: FormDataEntryValue | null) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function resolveTopUpAmount(form: FormData): { value: ResolvedTopUpAmount } | { error: string } {
+  const packageId = formString(form.get("packageId"));
+  const customAmountRaw = formString(form.get("customAmountThb"));
+  if (packageId && customAmountRaw) {
+    return { error: "Choose either a package or a custom top-up amount, not both." };
+  }
+
+  if (packageId) {
+    const topUpPackage = getTopUpPackage(packageId);
+    if (!topUpPackage) return { error: "Invalid top-up package." };
+    return {
+      value: {
+        amountThb: topUpPackage.amountThb,
+        coins: topUpPackage.coins,
+        packageId: topUpPackage.id,
+      },
+    };
+  }
+
+  if (!customAmountRaw) {
+    return { error: "Choose a top-up package or enter a custom amount." };
+  }
+  if (!/^\d+$/.test(customAmountRaw)) {
+    return { error: "Custom top-up amount must be a whole baht amount." };
+  }
+
+  const amountThb = Number(customAmountRaw);
+  if (
+    !Number.isSafeInteger(amountThb) ||
+    amountThb < minCustomTopUpThb ||
+    amountThb > maxCustomTopUpThb
+  ) {
+    return { error: `Custom top-up amount must be between ฿${minCustomTopUpThb} and ฿${maxCustomTopUpThb.toLocaleString()}.` };
+  }
+
+  return { value: { amountThb, coins: amountThb, packageId: null } };
 }
 
 export async function GET() {
@@ -61,14 +111,13 @@ export async function POST(request: Request) {
 
   const form = await request.formData();
   const paymentMethodId = String(form.get("paymentMethodId") ?? "").trim();
-  const packageId = String(form.get("packageId") ?? "").trim();
-  const topUpPackage = getTopUpPackage(packageId);
+  const resolvedTopUp = resolveTopUpAmount(form);
   const customerNote = typeof form.get("customerNote") === "string" ? String(form.get("customerNote")).trim().slice(0, 500) : null;
   const fileValue = form.get("slip");
   const slipFile = fileValue instanceof File && fileValue.size > 0 ? fileValue : null;
 
   if (!paymentMethodId) return jsonNoStore({ error: "Payment method is required." }, { status: 400 });
-  if (!topUpPackage) return jsonNoStore({ error: "Invalid top-up package." }, { status: 400 });
+  if ("error" in resolvedTopUp) return jsonNoStore({ error: resolvedTopUp.error }, { status: 400 });
   if (!slipFile) return jsonNoStore({ error: "Transfer slip upload is required." }, { status: 400 });
   if (!allowedSlipTypes.has(slipFile.type)) return jsonNoStore({ error: "Slip must be JPG, PNG, or WEBP." }, { status: 400 });
   if (slipFile.size > maxSlipBytes) return jsonNoStore({ error: "Slip must be 10 MB or smaller." }, { status: 400 });
@@ -105,8 +154,8 @@ export async function POST(request: Request) {
     .insert({
       profile_id: session.profileId,
       payment_method_id: paymentMethodId,
-      amount_thb: topUpPackage.amountThb,
-      coin_amount: topUpPackage.coins,
+      amount_thb: resolvedTopUp.value.amountThb,
+      coin_amount: resolvedTopUp.value.coins,
       status: "pending_review",
       submitted_at: new Date().toISOString(),
       customer_note: customerNote,
@@ -150,7 +199,7 @@ export async function POST(request: Request) {
       type: magicCheck.contentType,
     });
     const verification = await verifySlipWithSlip2Go(verificationFile, {
-      amountThb: topUpPackage.amountThb,
+      amountThb: resolvedTopUp.value.amountThb,
       promptPayId: paymentMethod.promptpay_id,
       bankName: paymentMethod.bank_name,
       bankAccountNumber: paymentMethod.account_number,
@@ -235,9 +284,10 @@ export async function POST(request: Request) {
     top_up_request_id: topUp.id,
     metadata: {
       public_code: topUp.public_code,
-      amount_thb: topUpPackage.amountThb,
-      coin_amount: topUpPackage.coins,
-      package_id: topUpPackage.id,
+      amount_thb: resolvedTopUp.value.amountThb,
+      coin_amount: resolvedTopUp.value.coins,
+      amount_source: resolvedTopUp.value.packageId ? "package" : "custom",
+      package_id: resolvedTopUp.value.packageId,
     },
   });
 

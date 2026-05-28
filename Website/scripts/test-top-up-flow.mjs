@@ -65,15 +65,18 @@ async function previewCookie() {
   return extractPreviewCookie(response);
 }
 
-function makeForm({
-  paymentMethodId = "00000000-0000-0000-0000-000000000000",
-  packageId = "starter",
-  slip,
-  customerNote,
-} = {}) {
+function makeForm(options = {}) {
+  const {
+    paymentMethodId = "00000000-0000-0000-0000-000000000000",
+    packageId = options.customAmountThb === undefined ? "starter" : undefined,
+    customAmountThb,
+    slip,
+    customerNote,
+  } = options;
   const form = new FormData();
   if (paymentMethodId !== undefined) form.set("paymentMethodId", paymentMethodId);
   if (packageId !== undefined) form.set("packageId", packageId);
+  if (customAmountThb !== undefined) form.set("customAmountThb", customAmountThb);
   if (customerNote !== undefined) form.set("customerNote", customerNote);
   if (slip) form.set("slip", slip);
   return form;
@@ -135,7 +138,7 @@ test("top-up packages are fixed server-side catalog values", () => {
   assert.equal(getTopUpPackage("tampered-package"), null);
 });
 
-test("wallet POST ignores browser-supplied amount and coin fields", () => {
+test("wallet POST uses server-resolved amount for storage and slip checks", () => {
   const source = readFileSync(
     new URL("../src/app/api/ynot/wallet/route.ts", import.meta.url),
     "utf8",
@@ -144,15 +147,19 @@ test("wallet POST ignores browser-supplied amount and coin fields", () => {
     new URL("../src/features/ynot/cr/WalletExperience.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(source, /amount_thb:\s*topUpPackage\.amountThb/);
-  assert.match(source, /coin_amount:\s*topUpPackage\.coins/);
+  assert.match(source, /customAmountThb/);
+  assert.match(source, /coins:\s*amountThb/);
+  assert.match(source, /amount_thb:\s*resolvedTopUp\.value\.amountThb/);
+  assert.match(source, /coin_amount:\s*resolvedTopUp\.value\.coins/);
+  assert.match(source, /amount_source:\s*resolvedTopUp\.value\.packageId \? "package" : "custom"/);
   assert.match(
     source,
-    /verifySlipWithSlip2Go\([\s\S]*amountThb:\s*topUpPackage\.amountThb/,
+    /verifySlipWithSlip2Go\([\s\S]*amountThb:\s*resolvedTopUp\.value\.amountThb/,
   );
   assert.doesNotMatch(source, /form\.get\(["']amountThb["']\)/);
   assert.doesNotMatch(source, /form\.get\(["']coinAmount["']\)/);
   assert.match(walletExperience, /form\.set\("packageId",\s*picked\.id\)/);
+  assert.match(walletExperience, /form\.set\("customAmountThb",\s*String\(buyThb\)\)/);
   assert.doesNotMatch(walletExperience, /form\.set\(["']amountThb["']/);
   assert.doesNotMatch(walletExperience, /form\.set\(["']coinAmount["']/);
 });
@@ -290,23 +297,21 @@ test("wallet top-up API safe validation and edge cases", async (t) => {
     );
   });
 
-  await t.test("missing slip is rejected for otherwise valid package input", async () => {
+  await t.test("invalid custom amount is rejected before upload processing", async () => {
     await expectTopUpError(
       cookie,
-      makeForm({ packageId: "starter" }),
+      makeForm({ packageId: undefined, customAmountThb: "0" }),
       400,
-      /slip upload is required/i,
+      /custom top-up amount/i,
     );
   });
 
-  await t.test("unsupported slip MIME type is rejected", async () => {
+  await t.test("missing slip is rejected for otherwise valid custom amount input", async () => {
     await expectTopUpError(
       cookie,
-      makeForm({
-        slip: textFile("not an image", "fake.txt", "text/plain"),
-      }),
+      makeForm({ packageId: undefined, customAmountThb: "321" }),
       400,
-      /jpg, png, or webp/i,
+      /slip upload is required/i,
     );
   });
 
@@ -321,10 +326,14 @@ test("wallet top-up API safe validation and edge cases", async (t) => {
     );
   });
 
-  await t.test("valid image bytes with nonexistent method is rejected before insert", async () => {
+  await t.test("valid image bytes with custom amount is rejected before insert when method is inactive", async () => {
     await expectTopUpError(
       cookie,
-      makeForm({ slip: validPngSlip() }),
+      makeForm({
+        packageId: undefined,
+        customAmountThb: "321",
+        slip: validPngSlip(),
+      }),
       400,
       /payment method is not active/i,
     );
