@@ -23649,34 +23649,77 @@ html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-bulk-ac
 
 /* Delete-pack confirm modal — dark danger surface with type-to-confirm */
 .admin-modal-backdrop {
-  position: fixed;
-  inset: 0;
+  align-items: center;
   background: rgba(5, 5, 8, 0.72);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
-  z-index: 1000;
   display: flex;
-  align-items: center;
+  inset: 0;
   justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 24px;
+  position: fixed;
+  z-index: 1000;
 }
 .admin-modal {
-  width: min(520px, 100%);
   background: #141416;
   border: 1px solid rgba(245, 245, 245, 0.12);
+  border-radius: 22px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
   color: #f5f5f5;
-  padding: 28px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
   font-family: inherit;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  gap: 18px;
+  max-height: calc(100dvh - 48px);
+  max-width: calc(100vw - 48px);
+  overflow-y: auto;
+  padding: 28px;
+  width: min(520px, 100%);
 }
 .admin-modal-danger {
   border-color: rgba(220, 38, 38, 0.45);
   box-shadow:
     0 24px 60px rgba(0, 0, 0, 0.55),
     0 0 0 1px rgba(220, 38, 38, 0.18) inset;
+}
+.admin-card-edit-modal {
+  gap: 0;
+  max-height: calc(100dvh - 48px);
+  overflow: hidden;
+  padding: 0;
+  width: min(920px, calc(100vw - 48px));
+}
+.admin-card-edit-modal .admin-modal-head {
+  border-bottom: 1px solid rgba(245, 245, 245, 0.08);
+  flex: 0 0 auto;
+  padding: 24px 28px 16px;
+}
+.admin-card-edit-modal-body {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 16px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 28px;
+}
+.admin-card-edit-modal .admin-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.admin-card-edit-modal .admin-field,
+.admin-card-edit-modal .admin-image-dropzone-field,
+.admin-card-edit-modal .admin-image-dropzone-manual {
+  min-width: 0;
+}
+.admin-card-edit-modal .admin-field-wide {
+  grid-column: 1 / -1;
+}
+.admin-card-edit-modal .admin-modal-foot {
+  border-top: 1px solid rgba(245, 245, 245, 0.08);
+  flex: 0 0 auto;
+  padding: 16px 28px 24px;
 }
 .admin-modal-head {
   display: flex;
@@ -23789,6 +23832,53 @@ html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-bulk-ac
 .admin-modal-secondary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+@media (max-width: 760px) {
+  .admin-modal-backdrop {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .admin-card-edit-modal {
+    max-height: calc(100dvh - 24px);
+    max-width: calc(100vw - 24px);
+    width: 100%;
+  }
+
+  .admin-card-edit-modal .admin-modal-head,
+  .admin-card-edit-modal-body,
+  .admin-card-edit-modal .admin-modal-foot {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .admin-card-edit-modal .admin-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-card-edit-modal .admin-field-wide {
+    grid-column: 1;
+  }
+
+  .admin-card-edit-modal .admin-image-dropzone {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-card-edit-modal .admin-image-dropzone-thumb {
+    aspect-ratio: 5 / 7;
+    height: auto;
+    justify-self: center;
+    width: min(160px, 100%);
+  }
+
+  .admin-card-edit-modal .admin-modal-foot {
+    flex-direction: column-reverse;
+  }
+
+  .admin-card-edit-modal .admin-modal-secondary,
+  .admin-card-edit-modal .admin-modal-primary {
+    width: 100%;
+  }
 }
 html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-empty {
   padding: 24px !important;
@@ -28697,6 +28787,7 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-metric strong {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 2px;
+  min-width: 0;
 }
 
 .admin-image-dropzone-button {
@@ -28763,9 +28854,12 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-metric strong {
   font-size: 0.74rem;
   gap: 6px;
   margin: 0;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .admin-image-dropzone-file span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -28773,8 +28867,13 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-metric strong {
 
 .admin-image-dropzone-url {
   color: var(--a-muted-2, #6b6d82);
+  display: block;
   font-family: "Geist Mono", ui-monospace, monospace;
   max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-image-dropzone-manual {
@@ -28819,6 +28918,18 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-metric strong {
   .admin-image-dropzone-thumb {
     height: 128px;
     width: 96px;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-card-edit-modal .admin-image-dropzone-actions {
+    flex-direction: column;
+  }
+
+  .admin-card-edit-modal .admin-image-dropzone-button,
+  .admin-card-edit-modal .admin-image-dropzone-link,
+  .admin-card-edit-modal .admin-image-dropzone-clear {
+    width: 100%;
   }
 }
 

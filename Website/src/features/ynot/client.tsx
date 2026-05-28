@@ -6492,10 +6492,7 @@ export function AdminCardForm({
             placeholder="GemRate record ID"
           />
         </AdminField>
-        <div
-          className="admin-field admin-image-dropzone-field-wrap"
-          style={{ gridColumn: "span 2" }}
-        >
+        <div className="admin-field admin-field-wide admin-image-dropzone-field-wrap">
           <AdminImageDropzone
             imageUrl={imageUrl}
             imageFile={imageFile}
@@ -7512,7 +7509,7 @@ function AdminCardEditModal({
         if (event.target === event.currentTarget && !pending) onClose();
       }}
     >
-      <div className="admin-modal" role="document">
+      <div className="admin-modal admin-card-edit-modal" role="document">
         <header className="admin-modal-head">
           <h2 className="admin-modal-title" style={{ color: "#fff" }}>
             Edit card
@@ -7522,201 +7519,200 @@ function AdminCardEditModal({
             reference this card keep the new name + image after refresh.
           </p>
         </header>
-        <div className="admin-form-grid">
-          <label className="admin-field">
-            <span>Name</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} disabled={pending} />
-          </label>
-          <label className="admin-field">
-            <span>Model code</span>
-            <input value={code} onChange={(e) => setCode(e.target.value)} disabled={pending} />
-          </label>
-          <label className="admin-field">
-            <span>Series</span>
-            <select
-              value={series}
-              onChange={(e) => setSeries(e.target.value as "pokemon" | "one_piece")}
-              disabled={pending}
-            >
-              <option value="pokemon">Pokemon</option>
-              <option value="one_piece">One Piece</option>
-            </select>
-          </label>
-          <label className="admin-field">
-            <span>Language</span>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value as CardLanguage | "")}
-              disabled={pending}
-            >
-              <option value="">-- Select --</option>
-              {cardLanguageOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="admin-field">
-            <span>Release year</span>
-            <select
-              value={releaseYear}
-              onChange={(e) => setReleaseYear(e.target.value)}
-              disabled={pending}
-            >
-              <option value="">-- Select --</option>
-              {cardReleaseYearOptions.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="admin-field">
-            <span>Set</span>
-            <input value={cardSet} onChange={(e) => setCardSet(e.target.value)} disabled={pending} />
-          </label>
-          <label className="admin-field">
-            <span>Variant</span>
-            <input value={variant} onChange={(e) => setVariant(e.target.value)} disabled={pending} />
-          </label>
-          <label className="admin-field">
-            <span>Prize catalog</span>
-            <select
-              value={catalogCategory}
-              onChange={(e) => setCatalogCategory(e.target.value as CatalogCategory)}
-              disabled={pending}
-            >
-              {catalogCategoryOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="admin-field">
-            <span>Condition</span>
-            <select
-              value={condition}
-              onChange={(e) => setCondition(e.target.value as CardCondition)}
-              disabled={pending}
-            >
-              {cardConditionOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="admin-field">
-            <span>Grading service</span>
-            <select
-              value={gradingService}
-              onChange={(e) => setGradingService(e.target.value as GradingService | "")}
-              disabled={pending}
-            >
-              <option value="">-- Select --</option>
-              {gradingServiceOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="admin-field">
-            <span>Grade</span>
-            <select
-              value={grade}
-              onChange={(e) => setGrade(e.target.value)}
-              disabled={pending}
-            >
-              <option value="">-- Select --</option>
-              {cardGradeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="admin-field">
-            <span>Cert number</span>
-            <input value={certNumber} onChange={(e) => setCertNumber(e.target.value)} disabled={pending} />
-          </label>
-          <label className="admin-field">
-            <span>GemRate ID</span>
-            <input value={gemrateId} onChange={(e) => setGemrateId(e.target.value)} disabled={pending} />
-          </label>
-          <div
-            className="admin-field admin-image-dropzone-field-wrap"
-            style={{ gridColumn: "span 2" }}
-          >
-            <AdminImageDropzone
-              imageUrl={imageUrl}
-              imageFile={imageFile}
-              previewUrl={imagePreviewUrl}
-              manualUrl={imageUrl}
-              cardCode={code}
-              cardName={name || card.name}
-              label="Card image"
-              hint="Drag &amp; drop a JPG / PNG / WEBP, or paste a URL. Uploaded to Supabase storage."
-              disabled={pending}
-              onFileChange={(file) => {
-                setImageFile(file);
-                if (file) {
-                  setImageStoragePath("");
-                  replaceImagePreviewUrl(URL.createObjectURL(file), true);
-                } else {
-                  replaceImagePreviewUrl(imageUrl.trim());
-                }
-              }}
-              onManualUrlChange={(value) => {
-                setImageUrl(value);
-                setImageFile(null);
-                setImageStoragePath("");
-                replaceImagePreviewUrl(value.trim());
-              }}
-              onClear={() => {
-                setImageFile(null);
-                setImageUrl("");
-                setImageStoragePath("");
-                replaceImagePreviewUrl("");
-              }}
-            />
-          </div>
-          <label className="admin-field">
-            <span>Test asset</span>
-            <span style={{ alignItems: "center", display: "flex", gap: 8 }}>
-              <input
-                checked={isTest}
+        <div className="admin-card-edit-modal-body">
+          <div className="admin-form-grid admin-card-edit-grid">
+            <label className="admin-field">
+              <span>Name</span>
+              <input value={name} onChange={(e) => setName(e.target.value)} disabled={pending} />
+            </label>
+            <label className="admin-field">
+              <span>Model code</span>
+              <input value={code} onChange={(e) => setCode(e.target.value)} disabled={pending} />
+            </label>
+            <label className="admin-field">
+              <span>Series</span>
+              <select
+                value={series}
+                onChange={(e) => setSeries(e.target.value as "pokemon" | "one_piece")}
                 disabled={pending}
-                onChange={(e) => setIsTest(e.target.checked)}
-                type="checkbox"
+              >
+                <option value="pokemon">Pokemon</option>
+                <option value="one_piece">One Piece</option>
+              </select>
+            </label>
+            <label className="admin-field">
+              <span>Language</span>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as CardLanguage | "")}
+                disabled={pending}
+              >
+                <option value="">-- Select --</option>
+                {cardLanguageOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="admin-field">
+              <span>Release year</span>
+              <select
+                value={releaseYear}
+                onChange={(e) => setReleaseYear(e.target.value)}
+                disabled={pending}
+              >
+                <option value="">-- Select --</option>
+                {cardReleaseYearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="admin-field">
+              <span>Set</span>
+              <input value={cardSet} onChange={(e) => setCardSet(e.target.value)} disabled={pending} />
+            </label>
+            <label className="admin-field">
+              <span>Variant</span>
+              <input value={variant} onChange={(e) => setVariant(e.target.value)} disabled={pending} />
+            </label>
+            <label className="admin-field">
+              <span>Prize catalog</span>
+              <select
+                value={catalogCategory}
+                onChange={(e) => setCatalogCategory(e.target.value as CatalogCategory)}
+                disabled={pending}
+              >
+                {catalogCategoryOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="admin-field">
+              <span>Condition</span>
+              <select
+                value={condition}
+                onChange={(e) => setCondition(e.target.value as CardCondition)}
+                disabled={pending}
+              >
+                {cardConditionOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="admin-field">
+              <span>Grading service</span>
+              <select
+                value={gradingService}
+                onChange={(e) => setGradingService(e.target.value as GradingService | "")}
+                disabled={pending}
+              >
+                <option value="">-- Select --</option>
+                {gradingServiceOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="admin-field">
+              <span>Grade</span>
+              <select
+                value={grade}
+                onChange={(e) => setGrade(e.target.value)}
+                disabled={pending}
+              >
+                <option value="">-- Select --</option>
+                {cardGradeOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="admin-field">
+              <span>Cert number</span>
+              <input value={certNumber} onChange={(e) => setCertNumber(e.target.value)} disabled={pending} />
+            </label>
+            <label className="admin-field">
+              <span>GemRate ID</span>
+              <input value={gemrateId} onChange={(e) => setGemrateId(e.target.value)} disabled={pending} />
+            </label>
+            <div className="admin-field admin-field-wide admin-image-dropzone-field-wrap">
+              <AdminImageDropzone
+                imageUrl={imageUrl}
+                imageFile={imageFile}
+                previewUrl={imagePreviewUrl}
+                manualUrl={imageUrl}
+                cardCode={code}
+                cardName={name || card.name}
+                label="Card image"
+                hint="Drag &amp; drop a JPG / PNG / WEBP, or paste a URL. Uploaded to Supabase storage."
+                disabled={pending}
+                onFileChange={(file) => {
+                  setImageFile(file);
+                  if (file) {
+                    setImageStoragePath("");
+                    replaceImagePreviewUrl(URL.createObjectURL(file), true);
+                  } else {
+                    replaceImagePreviewUrl(imageUrl.trim());
+                  }
+                }}
+                onManualUrlChange={(value) => {
+                  setImageUrl(value);
+                  setImageFile(null);
+                  setImageStoragePath("");
+                  replaceImagePreviewUrl(value.trim());
+                }}
+                onClear={() => {
+                  setImageFile(null);
+                  setImageUrl("");
+                  setImageStoragePath("");
+                  replaceImagePreviewUrl("");
+                }}
               />
-              Mark as test-only catalog data
-            </span>
-          </label>
-          <label className="admin-field">
-            <span>Seed run ID</span>
-            <input value={seedRunId} onChange={(e) => setSeedRunId(e.target.value)} disabled={pending} />
-          </label>
-          <label className="admin-field">
-            <span>Asset source</span>
-            <input value={assetSource} onChange={(e) => setAssetSource(e.target.value)} disabled={pending} />
-          </label>
-          <label className="admin-field">
-            <span>Asset license</span>
-            <input value={assetLicense} onChange={(e) => setAssetLicense(e.target.value)} disabled={pending} />
-          </label>
-          <label className="admin-field">
-            <span>Asset manifest key</span>
-            <input value={assetManifestKey} onChange={(e) => setAssetManifestKey(e.target.value)} disabled={pending} />
-          </label>
+            </div>
+            <label className="admin-field">
+              <span>Test asset</span>
+              <span style={{ alignItems: "center", display: "flex", gap: 8 }}>
+                <input
+                  checked={isTest}
+                  disabled={pending}
+                  onChange={(e) => setIsTest(e.target.checked)}
+                  type="checkbox"
+                />
+                Mark as test-only catalog data
+              </span>
+            </label>
+            <label className="admin-field">
+              <span>Seed run ID</span>
+              <input value={seedRunId} onChange={(e) => setSeedRunId(e.target.value)} disabled={pending} />
+            </label>
+            <label className="admin-field">
+              <span>Asset source</span>
+              <input value={assetSource} onChange={(e) => setAssetSource(e.target.value)} disabled={pending} />
+            </label>
+            <label className="admin-field">
+              <span>Asset license</span>
+              <input value={assetLicense} onChange={(e) => setAssetLicense(e.target.value)} disabled={pending} />
+            </label>
+            <label className="admin-field">
+              <span>Asset manifest key</span>
+              <input value={assetManifestKey} onChange={(e) => setAssetManifestKey(e.target.value)} disabled={pending} />
+            </label>
+          </div>
+          {error && (
+            <p className="admin-category-row-error" role="alert">
+              {error}
+            </p>
+          )}
         </div>
-        {error && (
-          <p className="admin-category-row-error" role="alert">
-            {error}
-          </p>
-        )}
         <footer className="admin-modal-foot">
           <button type="button" className="admin-modal-secondary" onClick={onClose} disabled={pending}>
             Cancel
