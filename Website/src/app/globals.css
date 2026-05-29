@@ -26312,8 +26312,19 @@ html[data-ynot-theme] .admin-frame .admin-prize-catalog-card .admin-card-catalog
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.admin-frame .admin-option-select-placeholder {
-  color: var(--a-muted-2, #6b6d82);
+/* The dropdown lives inside .admin-field, whose `span` rule forces tiny
+   uppercase label styling — reset the trigger text back to normal copy. */
+.admin-frame .admin-option-select-trigger > span {
+  color: var(--a-fg, #f4efe1) !important;
+  display: inline !important;
+  font-size: 0.95rem !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  text-shadow: none !important;
+  text-transform: none !important;
+}
+.admin-frame .admin-option-select-trigger > span.admin-option-select-placeholder {
+  color: var(--a-muted-2, #6b6d82) !important;
 }
 .admin-frame .admin-option-select-trigger svg {
   color: var(--a-muted, #9b9daf);
