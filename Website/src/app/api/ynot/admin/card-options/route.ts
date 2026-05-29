@@ -5,10 +5,12 @@ import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
-type OptionKind = "set" | "variant";
+type OptionKind = "set" | "variant" | "language" | "release_year";
+
+const OPTION_KINDS: OptionKind[] = ["set", "variant", "language", "release_year"];
 
 function optionKind(value: unknown): OptionKind | null {
-  return value === "set" || value === "variant" ? value : null;
+  return OPTION_KINDS.includes(value as OptionKind) ? (value as OptionKind) : null;
 }
 
 function optionName(value: unknown): string {

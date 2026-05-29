@@ -57,14 +57,11 @@ import {
   cardGradeOptions,
   cardGradeValue,
   cardLanguageLabel,
-  cardLanguageOptions,
-  cardReleaseYearOptions,
   catalogCategoryLabel,
   catalogCategoryOptions,
   gradingServiceLabel,
   gradingServiceOptions,
   type CardCondition,
-  type CardLanguage,
   type CatalogCategory,
   type GradingService,
 } from "./card-catalog-metadata";
@@ -6329,7 +6326,7 @@ export function AdminCardForm({
   const [cardNumber, setCardNumber] = useState("");
   const [name, setName] = useState("");
   const [series, setSeries] = useState<"pokemon" | "one_piece">("pokemon");
-  const [language, setLanguage] = useState<CardLanguage | "">("");
+  const [language, setLanguage] = useState("");
   const [releaseYear, setReleaseYear] = useState("");
   const [cardSet, setCardSet] = useState("");
   const [variant, setVariant] = useState("");
@@ -6508,34 +6505,20 @@ export function AdminCardForm({
                 />
               </AdminField>
               <AdminField label="Language">
-                <select
-                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                <AdminCardOptionSelect
+                  kind="language"
                   value={language}
-                  onChange={(event) =>
-                    setLanguage(event.target.value as CardLanguage | "")
-                  }
-                >
-                  <option value="">-- Select --</option>
-                  {cardLanguageOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setLanguage}
+                  placeholder="Select language…"
+                />
               </AdminField>
               <AdminField label="Release year">
-                <select
-                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                <AdminCardOptionSelect
+                  kind="release_year"
                   value={releaseYear}
-                  onChange={(event) => setReleaseYear(event.target.value)}
-                >
-                  <option value="">-- Select --</option>
-                  {cardReleaseYearOptions.map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setReleaseYear}
+                  placeholder="Select year…"
+                />
               </AdminField>
               <AdminField label="Set">
                 <AdminCardOptionSelect
@@ -8393,9 +8376,7 @@ function AdminCardEditModal({
   const [series, setSeries] = useState<"pokemon" | "one_piece">(
     card.series === "Pokemon" ? "pokemon" : "one_piece",
   );
-  const [language, setLanguage] = useState<CardLanguage | "">(
-    card.language ?? "",
-  );
+  const [language, setLanguage] = useState(card.language ?? "");
   const [releaseYear, setReleaseYear] = useState(
     card.releaseYear ? String(card.releaseYear) : "",
   );
@@ -8542,36 +8523,26 @@ function AdminCardEditModal({
                 <option value="one_piece">One Piece</option>
               </select>
             </label>
-            <label className="admin-field">
+            <div className="admin-field">
               <span>Language</span>
-              <select
+              <AdminCardOptionSelect
+                kind="language"
                 value={language}
-                onChange={(e) => setLanguage(e.target.value as CardLanguage | "")}
+                onChange={setLanguage}
+                placeholder="Select language…"
                 disabled={pending}
-              >
-                <option value="">-- Select --</option>
-                {cardLanguageOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="admin-field">
+              />
+            </div>
+            <div className="admin-field">
               <span>Release year</span>
-              <select
+              <AdminCardOptionSelect
+                kind="release_year"
                 value={releaseYear}
-                onChange={(e) => setReleaseYear(e.target.value)}
+                onChange={setReleaseYear}
+                placeholder="Select year…"
                 disabled={pending}
-              >
-                <option value="">-- Select --</option>
-                {cardReleaseYearOptions.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </label>
+              />
+            </div>
             <div className="admin-field">
               <span>Set</span>
               <AdminCardOptionSelect

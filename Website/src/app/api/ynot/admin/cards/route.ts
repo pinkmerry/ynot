@@ -7,7 +7,6 @@ import { prizeCategoryValue } from "@/features/ynot/prize-category";
 import {
   cardConditionValue,
   cardGradeOptions,
-  cardLanguageValue,
   catalogCategoryValue,
   gradingServiceValue,
   releaseYearValue,
@@ -87,9 +86,6 @@ function validateCardBody(body: CardBody) {
     !cardGradeOptions.includes(grade as (typeof cardGradeOptions)[number])
   ) {
     return "Grade must use one of the configured PSA dropdown options.";
-  }
-  if (hasPayloadValue(body.language) && !cardLanguageValue(body.language)) {
-    return "Language must be English, Japanese, or Chinese.";
   }
   if (hasPayloadValue(body.releaseYear) && releaseYearValue(body.releaseYear) === null) {
     return "Release year must be a valid year.";
@@ -205,7 +201,7 @@ function cardPatch(
     patch.image_storage_path = text(body.imageStoragePath, 1000) || null;
   }
   if (!options.partial || body.language !== undefined) {
-    patch.language = cardLanguageValue(body.language);
+    patch.language = text(body.language, 80) || null;
   }
   if (!options.partial || body.releaseYear !== undefined) {
     patch.release_year = releaseYearValue(body.releaseYear);

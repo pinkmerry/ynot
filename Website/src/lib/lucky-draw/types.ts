@@ -65,7 +65,7 @@ export type CardCatalogItem = Required<Pick<FeaturedCard, "catalogCardId">> &
   Omit<FeaturedCard, "catalogCardId"> & {
     modelCode?: string;
     cardNumber?: string | null;
-    language?: "english" | "japanese" | "chinese" | null;
+    language?: string | null;
     releaseYear?: number | null;
     cardSet?: string | null;
     variant?: string | null;

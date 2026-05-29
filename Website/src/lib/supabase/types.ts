@@ -326,14 +326,14 @@ export type Database = {
       card_options: {
         Row: {
           id: string;
-          kind: "set" | "variant";
+          kind: "set" | "variant" | "language" | "release_year";
           name: string;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
-          kind: "set" | "variant";
+          kind: "set" | "variant" | "language" | "release_year";
           name: string;
           created_at?: string;
           updated_at?: string;
@@ -352,7 +352,7 @@ export type Database = {
           series: "one_piece" | "pokemon";
           grade: string;
           prize_category: string;
-          language: "english" | "japanese" | "chinese" | null;
+          language: string | null;
           release_year: number | null;
           card_set: string | null;
           variant: string | null;
@@ -381,7 +381,7 @@ export type Database = {
           series: "one_piece" | "pokemon";
           grade: string;
           prize_category?: string;
-          language?: "english" | "japanese" | "chinese" | null;
+          language?: string | null;
           release_year?: number | null;
           card_set?: string | null;
           variant?: string | null;

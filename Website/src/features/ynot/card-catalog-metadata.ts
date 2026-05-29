@@ -113,7 +113,10 @@ export function gradingServiceValue(value: unknown) {
 }
 
 export function cardLanguageLabel(value: unknown) {
-  return optionLabel(value, cardLanguageOptions);
+  return (
+    optionLabel(value, cardLanguageOptions) ||
+    (typeof value === "string" ? value : "")
+  );
 }
 
 export function catalogCategoryLabel(value: unknown) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export type CardOptionKind = "set" | "variant";
+export type CardOptionKind = "set" | "variant" | "language" | "release_year";
 
 type CardOption = { id: string; name: string };
 
