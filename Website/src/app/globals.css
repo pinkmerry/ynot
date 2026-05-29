@@ -26316,12 +26316,17 @@ html[data-ynot-theme] .admin-frame .admin-prize-catalog-card .admin-card-catalog
    uppercase label styling — reset the trigger text back to normal copy. */
 html[data-ynot-theme] .admin-frame .admin-option-select .admin-option-select-trigger > span {
   color: var(--a-fg, #f4efe1) !important;
-  display: inline !important;
+  display: block !important;
+  flex: 1 1 auto !important;
   font-size: 0.95rem !important;
   font-weight: 400 !important;
   letter-spacing: normal !important;
+  overflow: hidden;
+  text-align: left !important;
+  text-overflow: ellipsis;
   text-shadow: none !important;
   text-transform: none !important;
+  white-space: nowrap;
 }
 html[data-ynot-theme] .admin-frame .admin-option-select .admin-option-select-trigger > span.admin-option-select-placeholder {
   color: var(--a-muted-2, #6b6d82) !important;
