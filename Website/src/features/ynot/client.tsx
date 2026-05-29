@@ -7858,15 +7858,6 @@ function AdminCardEditModal({
   const [catalogCategory, setCatalogCategory] = useState<CatalogCategory>(
     card.catalogCategory ?? "single_cards",
   );
-  const [condition, setCondition] = useState<CardCondition>(
-    card.condition ?? "raw",
-  );
-  const [gradingService, setGradingService] = useState<GradingService | "">(
-    card.gradingService ?? "",
-  );
-  const [grade, setGrade] = useState(cardGradeValue(card.grade));
-  const [certNumber, setCertNumber] = useState(card.certNumber ?? "");
-  const [gemrateId, setGemrateId] = useState(card.gemrateId ?? "");
   const [imageUrl, setImageUrl] = useState(card.photoUrl ?? "");
   const [imageStoragePath, setImageStoragePath] = useState(
     card.photoStoragePath ?? "",
@@ -7931,11 +7922,6 @@ function AdminCardEditModal({
           cardSet,
           variant,
           catalogCategory,
-          condition,
-          gradingService: gradingService || null,
-          grade,
-          certNumber,
-          gemrateId,
           prizeCategory: legacyPrizeCategoryForCatalog(catalogCategory),
           imageUrl: nextImageUrl || null,
           imageStoragePath: nextImageStoragePath || null,
@@ -8056,58 +8042,6 @@ function AdminCardEditModal({
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="admin-field">
-              <span>Condition</span>
-              <select
-                value={condition}
-                onChange={(e) => setCondition(e.target.value as CardCondition)}
-                disabled={pending}
-              >
-                {cardConditionOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="admin-field">
-              <span>Grading service</span>
-              <select
-                value={gradingService}
-                onChange={(e) => setGradingService(e.target.value as GradingService | "")}
-                disabled={pending}
-              >
-                <option value="">-- Select --</option>
-                {gradingServiceOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="admin-field">
-              <span>Grade</span>
-              <select
-                value={grade}
-                onChange={(e) => setGrade(e.target.value)}
-                disabled={pending}
-              >
-                <option value="">-- Select --</option>
-                {cardGradeOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="admin-field">
-              <span>Cert number</span>
-              <input value={certNumber} onChange={(e) => setCertNumber(e.target.value)} disabled={pending} />
-            </label>
-            <label className="admin-field">
-              <span>GemRate ID</span>
-              <input value={gemrateId} onChange={(e) => setGemrateId(e.target.value)} disabled={pending} />
             </label>
             <div className="admin-field admin-field-wide admin-image-dropzone-field-wrap">
               <AdminImageDropzone
