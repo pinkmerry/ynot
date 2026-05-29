@@ -7512,6 +7512,10 @@ export function AdminCardCatalogPanel({
             A–Z
           </button>
         </div>
+        <span className="admin-card-catalog-count">
+          {visibleRows.length.toLocaleString()} of{" "}
+          {catalogCards.length.toLocaleString()}
+        </span>
       </div>
 
       <p className="admin-card-catalog-summary-line">

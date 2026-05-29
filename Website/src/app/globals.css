@@ -29177,6 +29177,15 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-toolbar-label {
   text-transform: uppercase;
 }
 
+/* Catalog result count — muted "X of Y" at the far right of the toolbar row,
+   matching the inventory.yfifteen.com products toolbar. */
+html[data-ynot-theme] .admin-frame .admin-card-catalog-count {
+  color: var(--a-muted, #9b9daf);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 html[data-ynot-theme] .admin-frame .admin-card-catalog-toolbar .filter-chip-row {
   display: inline-flex;
   flex-wrap: wrap;
