@@ -1,5 +1,5 @@
 export type AdminCardSeriesFilter = "all" | "Pokemon" | "One Piece";
-export type AdminCardCatalogSortMode = "default" | "az";
+export type AdminCardCatalogSortMode = "default" | "recent" | "az" | "stock";
 
 export type AdminCardDuplicateCard = {
   catalogCardId: string;

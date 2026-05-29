@@ -28,7 +28,6 @@ import { AdminIcon } from "./admin/Icon";
 import { GachaRevealOverlay } from "./GachaRevealOverlay";
 import {
   adminCardDuplicateUsage,
-  filterAdminCardCatalogRows,
   findAdminCardDuplicate,
   type AdminCardCatalogSortMode,
   type AdminCardDuplicateUsage,
@@ -7330,6 +7329,95 @@ function adminCardFromSavePayload(
   return adminCardApiRowToCatalogItem(payload.card, previous);
 }
 
+const ADMIN_CATALOG_SORT_OPTIONS: {
+  value: AdminCardCatalogSortMode;
+  label: string;
+}[] = [
+  { value: "default", label: "Recommended" },
+  { value: "recent", label: "Recently added" },
+  { value: "az", label: "Name A–Z" },
+  { value: "stock", label: "Stock: high → low" },
+];
+
+type AdminCatalogStockKey = "pools" | "stock" | "archived";
+
+function adminCatalogToggleSetValue<T>(
+  setState: React.Dispatch<React.SetStateAction<Set<T>>>,
+  value: T,
+) {
+  setState((previous) => {
+    const next = new Set(previous);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    return next;
+  });
+}
+
+/** Collapsible section inside the catalog FILTERS sidebar. */
+function AdminCatalogFilterSection({
+  label,
+  summary,
+  expanded,
+  onToggle,
+  children,
+}: {
+  label: string;
+  summary: ReactNode;
+  expanded: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`catalog-filter-section${expanded ? " is-open" : ""}`}>
+      <button
+        type="button"
+        className="catalog-filter-section-head"
+        onClick={onToggle}
+        aria-expanded={expanded}
+      >
+        <span className="catalog-filter-section-label">{label}</span>
+        <span className="catalog-filter-section-summary">{summary}</span>
+        <span className="catalog-filter-section-chevron" aria-hidden="true">
+          ›
+        </span>
+      </button>
+      {expanded && (
+        <div className="catalog-filter-section-body">{children}</div>
+      )}
+    </div>
+  );
+}
+
+/** One selectable option row (radio or checkbox style) in a filter section. */
+function AdminCatalogFilterOption({
+  label,
+  count,
+  selected,
+  onClick,
+}: {
+  label: ReactNode;
+  count?: number;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`catalog-filter-option${selected ? " is-selected" : ""}`}
+      onClick={onClick}
+      aria-pressed={selected}
+    >
+      <span className="catalog-filter-option-check" aria-hidden="true" />
+      <span className="catalog-filter-option-label">{label}</span>
+      {count !== undefined && (
+        <span className="catalog-filter-option-count">
+          {count.toLocaleString()}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export function AdminCardCatalogPanel({
   cards,
   prizes,
@@ -7349,6 +7437,16 @@ export function AdminCardCatalogPanel({
     useState<AdminCardSeriesFilter>("all");
   const [sortMode, setSortMode] =
     useState<AdminCardCatalogSortMode>("default");
+  const [categoryFilter, setCategoryFilter] = useState<Set<string>>(new Set());
+  const [conditionFilter, setConditionFilter] = useState<Set<string>>(new Set());
+  const [gradingFilter, setGradingFilter] = useState<Set<string>>(new Set());
+  const [stockFilter, setStockFilter] = useState<Set<AdminCatalogStockKey>>(
+    new Set(),
+  );
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [openFilterSections, setOpenFilterSections] = useState<Set<string>>(
+    () => new Set(["sort"]),
+  );
   const [message, setMessage] = useState("");
   const [pendingCardId, setPendingCardId] = useState("");
   const [stockDraft, setStockDraft] = useState<StockAdjustmentDraft | null>(null);
@@ -7378,14 +7476,117 @@ export function AdminCardCatalogPanel({
     () => buildAdminCardCatalogRows(catalogCards, prizes),
     [catalogCards, prizes],
   );
+  const facets = useMemo(() => {
+    const category = new Map<string, number>();
+    const condition = new Map<string, number>();
+    const grading = new Map<string, number>();
+    let pools = 0;
+    let stocked = 0;
+    let archived = 0;
+    let pokemon = 0;
+    let onePiece = 0;
+    for (const row of rows) {
+      const cat = String(row.card.catalogCategory ?? "");
+      if (cat) category.set(cat, (category.get(cat) ?? 0) + 1);
+      const cond = String(row.card.condition ?? "");
+      if (cond) condition.set(cond, (condition.get(cond) ?? 0) + 1);
+      const grad = String(row.card.gradingService ?? "");
+      if (grad) grading.set(grad, (grading.get(grad) ?? 0) + 1);
+      if (row.prizes.length > 0) pools += 1;
+      if (row.stockTotal > 0) stocked += 1;
+      if (row.stockArchived > 0) archived += 1;
+      if (row.card.series === "Pokemon") pokemon += 1;
+      else if (row.card.series === "One Piece") onePiece += 1;
+    }
+    return {
+      category,
+      condition,
+      grading,
+      pools,
+      stocked,
+      archived,
+      pokemon,
+      onePiece,
+    };
+  }, [rows]);
+
   const visibleRows = useMemo(() => {
-    return filterAdminCardCatalogRows(rows, {
-      query,
-      seriesFilter,
-      sortMode,
-      searchText: adminCardCatalogRowSearchText,
-    });
-  }, [query, rows, seriesFilter, sortMode]);
+    const normalizedQuery = query.trim().toLowerCase();
+    let visible = rows;
+    if (seriesFilter !== "all") {
+      visible = visible.filter((row) => row.card.series === seriesFilter);
+    }
+    if (normalizedQuery) {
+      visible = visible.filter((row) =>
+        adminCardCatalogRowSearchText(row).includes(normalizedQuery),
+      );
+    }
+    if (categoryFilter.size) {
+      visible = visible.filter((row) =>
+        categoryFilter.has(String(row.card.catalogCategory ?? "")),
+      );
+    }
+    if (conditionFilter.size) {
+      visible = visible.filter((row) =>
+        conditionFilter.has(String(row.card.condition ?? "")),
+      );
+    }
+    if (gradingFilter.size) {
+      visible = visible.filter((row) =>
+        gradingFilter.has(String(row.card.gradingService ?? "")),
+      );
+    }
+    if (stockFilter.size) {
+      visible = visible.filter(
+        (row) =>
+          (stockFilter.has("pools") && row.prizes.length > 0) ||
+          (stockFilter.has("stock") && row.stockTotal > 0) ||
+          (stockFilter.has("archived") && row.stockArchived > 0),
+      );
+    }
+    const sorted = [...visible];
+    if (sortMode === "az") {
+      sorted.sort((left, right) => left.card.name.localeCompare(right.card.name));
+    } else if (sortMode === "stock") {
+      sorted.sort((left, right) => right.stockTotal - left.stockTotal);
+    } else if (sortMode === "recent") {
+      sorted.sort((left, right) =>
+        String(right.card.updatedAt ?? right.card.createdAt ?? "").localeCompare(
+          String(left.card.updatedAt ?? left.card.createdAt ?? ""),
+        ),
+      );
+    }
+    return sorted;
+  }, [
+    rows,
+    query,
+    seriesFilter,
+    sortMode,
+    categoryFilter,
+    conditionFilter,
+    gradingFilter,
+    stockFilter,
+  ]);
+
+  const activeFilterCount =
+    (seriesFilter !== "all" ? 1 : 0) +
+    categoryFilter.size +
+    conditionFilter.size +
+    gradingFilter.size +
+    stockFilter.size;
+
+  function toggleFilterSection(id: string) {
+    adminCatalogToggleSetValue(setOpenFilterSections, id);
+  }
+
+  function clearAllFilters() {
+    setSeriesFilter("all");
+    setCategoryFilter(new Set());
+    setConditionFilter(new Set());
+    setGradingFilter(new Set());
+    setStockFilter(new Set());
+  }
+
   const assignedCount = rows.filter((row) => row.prizes.length > 0).length;
   const stockedCount = rows.filter((row) => row.stockTotal > 0).length;
 
@@ -7474,52 +7675,232 @@ export function AdminCardCatalogPanel({
             </button>
           )}
         </label>
-        <div className="admin-card-catalog-toolbar-group" aria-label="Series filter">
-          <span className="admin-card-catalog-toolbar-label">Series</span>
-          <div className="filter-chip-row">
-            {(["all", "Pokemon", "One Piece"] as const).map((filter) => (
-              <button
-                className={`filter-chip ${seriesFilter === filter ? "active" : ""}`}
-                key={filter}
-                onClick={() => setSeriesFilter(filter)}
-                type="button"
-              >
-                {filter === "all" ? "All" : filter}
-              </button>
-            ))}
+        <div className="admin-card-catalog-toolbar-right">
+          <span className="admin-card-catalog-count">
+            {visibleRows.length.toLocaleString()} of{" "}
+            {catalogCards.length.toLocaleString()}
+          </span>
+          <div
+            className="admin-card-catalog-view-toggle"
+            role="group"
+            aria-label="View mode"
+          >
+            <button
+              type="button"
+              className={`admin-card-catalog-view-btn${viewMode === "grid" ? " is-active" : ""}`}
+              onClick={() => setViewMode("grid")}
+              aria-label="Grid view"
+              aria-pressed={viewMode === "grid"}
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <rect x="1.5" y="1.5" width="5" height="5" rx="1.2" fill="currentColor" />
+                <rect x="9.5" y="1.5" width="5" height="5" rx="1.2" fill="currentColor" />
+                <rect x="1.5" y="9.5" width="5" height="5" rx="1.2" fill="currentColor" />
+                <rect x="9.5" y="9.5" width="5" height="5" rx="1.2" fill="currentColor" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className={`admin-card-catalog-view-btn${viewMode === "list" ? " is-active" : ""}`}
+              onClick={() => setViewMode("list")}
+              aria-label="List view"
+              aria-pressed={viewMode === "list"}
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <rect x="1.5" y="2.5" width="13" height="2.4" rx="1" fill="currentColor" />
+                <rect x="1.5" y="6.8" width="13" height="2.4" rx="1" fill="currentColor" />
+                <rect x="1.5" y="11.1" width="13" height="2.4" rx="1" fill="currentColor" />
+              </svg>
+            </button>
           </div>
         </div>
-        <div className="admin-card-catalog-toolbar-group" aria-label="Sort">
-          <span className="admin-card-catalog-toolbar-label">Sort</span>
-          <button
-            className={`filter-chip ${sortMode === "az" ? "active" : ""}`}
-            onClick={() =>
-              setSortMode((current) => (current === "az" ? "default" : "az"))
-            }
-            type="button"
-          >
-            A–Z
-          </button>
-        </div>
-        <span className="admin-card-catalog-count">
-          {visibleRows.length.toLocaleString()} of{" "}
-          {catalogCards.length.toLocaleString()}
-        </span>
       </div>
 
-      <p className="admin-card-catalog-summary-line">
-        <span className="admin-card-catalog-summary-dot admin-card-catalog-summary-dot-mint" aria-hidden="true" />
-        <strong>{assignedCount.toLocaleString()}</strong>
-        <span>in prize pools</span>
-        <span className="admin-card-catalog-summary-sep" aria-hidden="true">
-          •
-        </span>
-        <span className="admin-card-catalog-summary-dot admin-card-catalog-summary-dot-gold" aria-hidden="true" />
-        <strong>{stockedCount.toLocaleString()}</strong>
-        <span>with global stock</span>
-      </p>
+      <div className="admin-card-catalog-shell">
+        <aside className="admin-card-catalog-filters" aria-label="Catalog filters">
+          <header className="admin-card-catalog-filters-head">
+            <div>
+              <p className="section-label">Filters</p>
+              <p className="admin-muted-line">Refine catalog</p>
+            </div>
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                className="admin-card-catalog-filters-clear"
+                onClick={clearAllFilters}
+              >
+                Clear ({activeFilterCount})
+              </button>
+            )}
+          </header>
 
-      <div className="admin-card-catalog-list" data-testid="admin-card-catalog-list">
+          <AdminCatalogFilterSection
+            label="Sort"
+            summary={
+              ADMIN_CATALOG_SORT_OPTIONS.find((o) => o.value === sortMode)?.label ??
+              "Recommended"
+            }
+            expanded={openFilterSections.has("sort")}
+            onToggle={() => toggleFilterSection("sort")}
+          >
+            {ADMIN_CATALOG_SORT_OPTIONS.map((option) => (
+              <AdminCatalogFilterOption
+                key={option.value}
+                label={option.label}
+                selected={sortMode === option.value}
+                onClick={() => setSortMode(option.value)}
+              />
+            ))}
+          </AdminCatalogFilterSection>
+
+          <AdminCatalogFilterSection
+            label="Series"
+            summary={seriesFilter === "all" ? "All" : seriesFilter}
+            expanded={openFilterSections.has("series")}
+            onToggle={() => toggleFilterSection("series")}
+          >
+            <AdminCatalogFilterOption
+              label="All series"
+              count={rows.length}
+              selected={seriesFilter === "all"}
+              onClick={() => setSeriesFilter("all")}
+            />
+            <AdminCatalogFilterOption
+              label="Pokémon"
+              count={facets.pokemon}
+              selected={seriesFilter === "Pokemon"}
+              onClick={() => setSeriesFilter("Pokemon")}
+            />
+            <AdminCatalogFilterOption
+              label="One Piece"
+              count={facets.onePiece}
+              selected={seriesFilter === "One Piece"}
+              onClick={() => setSeriesFilter("One Piece")}
+            />
+          </AdminCatalogFilterSection>
+
+          {facets.category.size > 0 && (
+            <AdminCatalogFilterSection
+              label="Category"
+              summary={categoryFilter.size || facets.category.size}
+              expanded={openFilterSections.has("category")}
+              onToggle={() => toggleFilterSection("category")}
+            >
+              {[...facets.category.entries()].map(([value, count]) => (
+                <AdminCatalogFilterOption
+                  key={value}
+                  label={catalogCategoryLabel(value as CatalogCategory)}
+                  count={count}
+                  selected={categoryFilter.has(value)}
+                  onClick={() =>
+                    adminCatalogToggleSetValue(setCategoryFilter, value)
+                  }
+                />
+              ))}
+            </AdminCatalogFilterSection>
+          )}
+
+          {facets.condition.size > 0 && (
+            <AdminCatalogFilterSection
+              label="Condition"
+              summary={conditionFilter.size || facets.condition.size}
+              expanded={openFilterSections.has("condition")}
+              onToggle={() => toggleFilterSection("condition")}
+            >
+              {[...facets.condition.entries()].map(([value, count]) => (
+                <AdminCatalogFilterOption
+                  key={value}
+                  label={cardConditionLabel(value as CardCondition)}
+                  count={count}
+                  selected={conditionFilter.has(value)}
+                  onClick={() =>
+                    adminCatalogToggleSetValue(setConditionFilter, value)
+                  }
+                />
+              ))}
+            </AdminCatalogFilterSection>
+          )}
+
+          {facets.grading.size > 0 && (
+            <AdminCatalogFilterSection
+              label="Grading"
+              summary={gradingFilter.size || facets.grading.size}
+              expanded={openFilterSections.has("grading")}
+              onToggle={() => toggleFilterSection("grading")}
+            >
+              {[...facets.grading.entries()].map(([value, count]) => (
+                <AdminCatalogFilterOption
+                  key={value}
+                  label={gradingServiceLabel(value as GradingService)}
+                  count={count}
+                  selected={gradingFilter.has(value)}
+                  onClick={() =>
+                    adminCatalogToggleSetValue(setGradingFilter, value)
+                  }
+                />
+              ))}
+            </AdminCatalogFilterSection>
+          )}
+
+          <AdminCatalogFilterSection
+            label="Stock"
+            summary={stockFilter.size || 3}
+            expanded={openFilterSections.has("stock")}
+            onToggle={() => toggleFilterSection("stock")}
+          >
+            <AdminCatalogFilterOption
+              label="In prize pools"
+              count={facets.pools}
+              selected={stockFilter.has("pools")}
+              onClick={() =>
+                adminCatalogToggleSetValue<AdminCatalogStockKey>(
+                  setStockFilter,
+                  "pools",
+                )
+              }
+            />
+            <AdminCatalogFilterOption
+              label="With global stock"
+              count={facets.stocked}
+              selected={stockFilter.has("stock")}
+              onClick={() =>
+                adminCatalogToggleSetValue<AdminCatalogStockKey>(
+                  setStockFilter,
+                  "stock",
+                )
+              }
+            />
+            <AdminCatalogFilterOption
+              label="Has archived"
+              count={facets.archived}
+              selected={stockFilter.has("archived")}
+              onClick={() =>
+                adminCatalogToggleSetValue<AdminCatalogStockKey>(
+                  setStockFilter,
+                  "archived",
+                )
+              }
+            />
+          </AdminCatalogFilterSection>
+        </aside>
+
+        <div className="admin-card-catalog-content">
+          <p className="admin-card-catalog-summary-line">
+            <span className="admin-card-catalog-summary-dot admin-card-catalog-summary-dot-mint" aria-hidden="true" />
+            <strong>{assignedCount.toLocaleString()}</strong>
+            <span>in prize pools</span>
+            <span className="admin-card-catalog-summary-sep" aria-hidden="true">
+              •
+            </span>
+            <span className="admin-card-catalog-summary-dot admin-card-catalog-summary-dot-gold" aria-hidden="true" />
+            <strong>{stockedCount.toLocaleString()}</strong>
+            <span>with global stock</span>
+          </p>
+
+          <div
+            className={`admin-card-catalog-list${viewMode === "grid" ? " is-grid" : ""}`}
+            data-testid="admin-card-catalog-list"
+          >
         {visibleRows.map((row) => {
           const card = row.card;
           const currentStockDraft =
@@ -7856,9 +8237,13 @@ export function AdminCardCatalogPanel({
             </article>
           );
         })}
-        {!visibleRows.length && (
-          <p className="admin-empty-note">No catalog cards match this search.</p>
-        )}
+            {!visibleRows.length && (
+              <p className="admin-empty-note">
+                No catalog cards match this search.
+              </p>
+            )}
+          </div>
+        </div>
       </div>
       {message && <p className="admin-form-message">{message}</p>}
       {editingCard && (
