@@ -25782,6 +25782,15 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   overflow: hidden;
 }
 .admin-frame .card-pad { padding: 14px 16px; }
+/* Flatten the catalog card: drop the outer frame (border/background/shadow)
+   but keep the padding so the content stays inset. Two classes → 0,3,0 to win
+   over the themed .card rules regardless of source order. */
+.admin-frame .card.admin-prize-catalog-card {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
 .admin-frame .card-head {
   display: flex; align-items: center; gap: 10px;
   padding: 11px 16px;
