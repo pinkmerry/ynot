@@ -7452,17 +7452,6 @@ export function AdminCardCatalogPanel({
 
   return (
     <section className="admin-panel admin-full-span admin-card-catalog-panel soft-card">
-      <header className="admin-card-catalog-header">
-        <div className="admin-card-catalog-header-titles">
-          <p className="section-label">Card catalog</p>
-          <h3 className="title-m">Unified inventory catalog</h3>
-          <p className="admin-muted-line">
-            Scan card identity, global stock, and every random-pack assignment
-            in one place.
-          </p>
-        </div>
-      </header>
-
       <div className="admin-card-catalog-toolbar">
         <label className="admin-card-catalog-search">
           <span className="admin-card-catalog-search-icon" aria-hidden="true">
