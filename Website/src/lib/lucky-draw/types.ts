@@ -85,14 +85,15 @@ export type CardCatalogItem = Required<Pick<FeaturedCard, "catalogCardId">> &
     stockReserved?: number;
     stockAllocated?: number;
     stockArchived?: number;
-    /** Per-unit breakdown of graded / sealed / cert-bearing stock (not plain raw). */
+    /** Individual graded / sealed / cert-bearing units (not plain raw bulk). */
     stockUnits?: Array<{
+      id: string;
       condition: string;
       grade: string | null;
       gradingService: string | null;
       certNumber: string | null;
+      gemrateId: string | null;
       status: string;
-      count: number;
     }>;
     createdAt?: string;
     updatedAt?: string;
