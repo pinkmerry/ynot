@@ -7461,13 +7461,6 @@ export function AdminCardCatalogPanel({
             in one place.
           </p>
         </div>
-        <div className="admin-card-catalog-header-meta">
-          <span className="admin-card-catalog-count-pill">
-            <strong>{visibleRows.length.toLocaleString()}</strong>
-            <em>/ {catalogCards.length.toLocaleString()}</em>
-            <span>shown</span>
-          </span>
-        </div>
       </header>
 
       <div className="admin-card-catalog-toolbar">
