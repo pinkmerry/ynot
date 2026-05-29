@@ -626,6 +626,11 @@ function CollectionTile({
       </div>
       <div className="cr-coll-body">
         <strong>{card.cardName}</strong>
+        {card.cardCertNumber ? (
+          <small className="cr-mute" style={{ marginTop: 2 }}>
+            {card.cardGrade ?? "Graded"} · #{card.cardCertNumber}
+          </small>
+        ) : null}
         {card.bucket === "owned" && card.sellValueCoins > 0 && (
           <span className="price">
             <CoinPip size={10} /> Sell for {formatCoins(card.sellValueCoins)}

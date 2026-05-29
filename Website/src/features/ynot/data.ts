@@ -1752,9 +1752,74 @@ export async function getCollection(
     openItemsByOpenAndCard.set(key, group);
   }
 
+  // Resolve the specific won stock unit per collection item so the displayed
+  // grade/cert reflects the exact slab the player received, not the product's
+  // legacy default. Linked via draw_round_prize_units.collection_item_id →
+  // card_stock_units. Items without a unit link fall back to product values.
+  const wonUnitByItemId = new Map<
+    string,
+    {
+      grade: string | null;
+      condition: string | null;
+      gradingService: string | null;
+      certNumber: string | null;
+    }
+  >();
+  const collectionItemIds = items
+    .map((item) => item.id)
+    .filter((id): id is string => Boolean(id));
+  if (collectionItemIds.length) {
+    // 1) collection item → its won stock unit id
+    const prizeUnitRows = await readOrEmpty(
+      "collection_prize_units",
+      async () => {
+        const { data, error } = await supabase
+          .from("draw_round_prize_units")
+          .select("collection_item_id, card_stock_unit_id")
+          .in("collection_item_id", collectionItemIds);
+        if (error) throw error;
+        return data ?? [];
+      },
+    );
+    const stockUnitIdByItem = new Map<string, string>();
+    const stockUnitIds: string[] = [];
+    for (const row of prizeUnitRows) {
+      const itemId = row.collection_item_id;
+      const unitId = row.card_stock_unit_id;
+      if (itemId && unitId) {
+        stockUnitIdByItem.set(itemId, unitId);
+        stockUnitIds.push(unitId);
+      }
+    }
+    // 2) load those units' identity, then map back to the collection item
+    if (stockUnitIds.length) {
+      const units = await readOrEmpty("collection_stock_units", async () => {
+        const { data, error } = await supabase
+          .from("card_stock_units")
+          .select("id,grade,condition,grading_service,cert_number")
+          .in("id", stockUnitIds);
+        if (error) throw error;
+        return data ?? [];
+      });
+      const unitById = new Map(units.map((unit) => [unit.id, unit]));
+      for (const [itemId, unitId] of stockUnitIdByItem) {
+        const unit = unitById.get(unitId);
+        if (unit) {
+          wonUnitByItemId.set(itemId, {
+            grade: unit.grade ?? null,
+            condition: unit.condition ?? null,
+            gradingService: unit.grading_service ?? null,
+            certNumber: unit.cert_number ?? null,
+          });
+        }
+      }
+    }
+  }
+
   const cardsById = new Map(cards.map((card) => [card.catalogCardId, card]));
   return items.map((item) => {
     const card = cardsById.get(item.card_id);
+    const wonUnit = wonUnitByItemId.get(item.id);
     const open = item.source_id ? opensById.get(item.source_id) : null;
     const campaign = open ? campaignById.get(open.draw_round_id) : null;
     const sourceOpenItem = item.source_id
@@ -1773,7 +1838,11 @@ export async function getCollection(
       cardId: item.card_id,
       cardName: card?.name ?? "Mystery card",
       cardCode: card?.code,
-      cardGrade: card?.grade ?? null,
+      cardGrade: wonUnit?.grade ?? card?.grade ?? null,
+      cardCondition: wonUnit?.condition ?? card?.condition ?? null,
+      cardGradingService:
+        wonUnit?.gradingService ?? card?.gradingService ?? null,
+      cardCertNumber: wonUnit?.certNumber ?? card?.certNumber ?? null,
       cardPrizeCategory: card?.prizeCategory ?? null,
       cardSeries: card?.series ?? null,
       imageUrl: card?.photoUrl,
