@@ -323,6 +323,24 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["draw_round_testers"]["Insert"]>;
         Relationships: [];
       };
+      card_options: {
+        Row: {
+          id: string;
+          kind: "set" | "variant";
+          name: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          kind: "set" | "variant";
+          name: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["card_options"]["Insert"]>;
+        Relationships: [];
+      };
       cards: {
         Row: {
           id: string;

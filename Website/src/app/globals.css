@@ -26280,6 +26280,201 @@ html[data-ynot-theme] .admin-frame .admin-prize-catalog-card .admin-card-catalog
   text-transform: uppercase;
 }
 
+/* ── Searchable / creatable option dropdown (Set, Variant) ── */
+.admin-frame .admin-option-select {
+  position: relative;
+}
+.admin-frame .admin-option-select-trigger {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  color: var(--a-fg, #f4efe1);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 8px;
+  height: 3rem;
+  justify-content: space-between;
+  padding: 0 14px;
+  text-align: left;
+  width: 100%;
+}
+.admin-frame .admin-option-select-trigger:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.admin-frame .admin-option-select-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.admin-frame .admin-option-select-trigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-frame .admin-option-select-placeholder {
+  color: var(--a-muted-2, #6b6d82);
+}
+.admin-frame .admin-option-select-trigger svg {
+  color: var(--a-muted, #9b9daf);
+  flex: 0 0 auto;
+}
+
+.admin-frame .admin-option-select-popover {
+  background: #141625;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  left: 0;
+  max-height: 300px;
+  overflow: hidden;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 1200;
+}
+.admin-frame .admin-option-select-search {
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+}
+.admin-frame .admin-option-select-search svg {
+  color: var(--a-muted, #9b9daf);
+  flex: 0 0 auto;
+}
+.admin-frame .admin-option-select-search input {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--a-fg, #f4efe1);
+  flex: 1 1 auto;
+  font: inherit;
+  min-height: 0 !important;
+  outline: none;
+  padding: 0 !important;
+}
+.admin-frame .admin-option-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+}
+.admin-frame .admin-option-select-group {
+  color: var(--a-muted-2, #6b6d82);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  margin: 4px 8px 2px;
+  text-transform: uppercase;
+}
+.admin-frame .admin-option-select-row {
+  align-items: center;
+  border-radius: 9px;
+  display: flex;
+  gap: 2px;
+}
+.admin-frame .admin-option-select-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.admin-frame .admin-option-select-option {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--a-fg, #f4efe1);
+  cursor: pointer;
+  display: flex;
+  flex: 1 1 auto;
+  font: inherit;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 6px 8px 8px;
+  text-align: left;
+}
+.admin-frame .admin-option-select-check {
+  align-items: center;
+  color: var(--a-gold, #f4c542);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 14px;
+  justify-content: center;
+  width: 14px;
+}
+.admin-frame .admin-option-select-icon {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: var(--a-muted, #9b9daf);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 28px;
+  justify-content: center;
+  opacity: 0;
+  width: 28px;
+}
+.admin-frame .admin-option-select-row:hover .admin-option-select-icon,
+.admin-frame .admin-option-select-row.is-editing .admin-option-select-icon {
+  opacity: 1;
+}
+.admin-frame .admin-option-select-icon:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--a-fg, #f4efe1);
+}
+.admin-frame .admin-option-select-icon.is-danger:hover {
+  background: rgba(240, 90, 108, 0.16);
+  color: #ff8a98;
+}
+.admin-frame .admin-option-select-icon.is-confirm {
+  color: var(--a-mint, #5fd0a0);
+  opacity: 1;
+}
+.admin-frame .admin-option-select-row.is-editing {
+  gap: 4px;
+  padding: 4px 4px 4px 6px;
+}
+.admin-frame .admin-option-select-row.is-editing input {
+  background: rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 7px;
+  color: var(--a-fg, #f4efe1);
+  flex: 1 1 auto;
+  font: inherit;
+  min-height: 0 !important;
+  min-width: 0;
+  outline: none;
+  padding: 6px 8px !important;
+}
+.admin-frame .admin-option-select-create {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  color: var(--a-gold, #f4c542);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 9px 8px;
+  text-align: left;
+  width: 100%;
+}
+.admin-frame .admin-option-select-create:hover {
+  background: rgba(244, 197, 66, 0.1);
+}
+.admin-frame .admin-option-select-empty {
+  color: var(--a-muted, #9b9daf);
+  font-size: 0.82rem;
+  margin: 0;
+  padding: 12px 8px;
+}
+
 .admin-frame .admin-prize-create-card .admin-form-save,
 .admin-frame .admin-prize-create-modal-body .admin-form-save {
   margin-top: 16px;

@@ -25,6 +25,7 @@ import type {
 import type { YnotViewer } from "./types";
 import { AdminFrame } from "./admin/Shell";
 import { AdminIcon } from "./admin/Icon";
+import { AdminCardOptionSelect } from "./admin/AdminCardOptionSelect";
 import { GachaRevealOverlay } from "./GachaRevealOverlay";
 import {
   adminCardDuplicateUsage,
@@ -6537,19 +6538,19 @@ export function AdminCardForm({
                 </select>
               </AdminField>
               <AdminField label="Set">
-                <input
-                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                <AdminCardOptionSelect
+                  kind="set"
                   value={cardSet}
-                  onChange={(event) => setCardSet(event.target.value)}
-                  placeholder="2nd Anniversary Set"
+                  onChange={setCardSet}
+                  placeholder="Select set…"
                 />
               </AdminField>
               <AdminField label="Variant">
-                <input
-                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                <AdminCardOptionSelect
+                  kind="variant"
                   value={variant}
-                  onChange={(event) => setVariant(event.target.value)}
-                  placeholder="Parallel, promo, alt art"
+                  onChange={setVariant}
+                  placeholder="Select variant…"
                 />
               </AdminField>
             </div>
@@ -8571,14 +8572,26 @@ function AdminCardEditModal({
                 ))}
               </select>
             </label>
-            <label className="admin-field">
+            <div className="admin-field">
               <span>Set</span>
-              <input value={cardSet} onChange={(e) => setCardSet(e.target.value)} disabled={pending} />
-            </label>
-            <label className="admin-field">
+              <AdminCardOptionSelect
+                kind="set"
+                value={cardSet}
+                onChange={setCardSet}
+                placeholder="Select set…"
+                disabled={pending}
+              />
+            </div>
+            <div className="admin-field">
               <span>Variant</span>
-              <input value={variant} onChange={(e) => setVariant(e.target.value)} disabled={pending} />
-            </label>
+              <AdminCardOptionSelect
+                kind="variant"
+                value={variant}
+                onChange={setVariant}
+                placeholder="Select variant…"
+                disabled={pending}
+              />
+            </div>
             <label className="admin-field">
               <span>Prize catalog</span>
               <select
