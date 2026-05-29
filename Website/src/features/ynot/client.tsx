@@ -403,7 +403,7 @@ function AdminField({
     <div className="admin-field">
       <span>
         {label}
-        {required && <span aria-label="required"> *</span>}
+        {required && <span aria-label="required">{" *"}</span>}
       </span>
       {children}
       {hint && <small>{hint}</small>}
