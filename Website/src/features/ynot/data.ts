@@ -2231,8 +2231,70 @@ export async function getAdminCards() {
       return cardStockSummariesFromJson(data);
     });
     const stockByCard = new Map(stockRows.map((row) => [row.cardId, row]));
+
+    // Per-card breakdown of the "special" units (graded slabs, sealed, or
+    // anything carrying a cert) so the catalog can show each slab's grade/cert
+    // instead of hiding them inside the aggregate count. Plain raw bulk stays
+    // as the GLOBAL STOCK number, so this query stays small.
+    const cardIds = cards.map((card) => card.catalogCardId);
+    const breakdownByCard = new Map<
+      string,
+      Map<
+        string,
+        {
+          condition: string;
+          grade: string | null;
+          gradingService: string | null;
+          certNumber: string | null;
+          status: string;
+          count: number;
+        }
+      >
+    >();
+    if (cardIds.length) {
+      await readOrEmpty("card_stock_unit_breakdown", async () => {
+        const { data, error } = await supabase
+          .from("card_stock_units")
+          .select(
+            "card_id,condition,grade,grading_service,cert_number,status",
+          )
+          .in("card_id", cardIds)
+          .neq("status", "deleted")
+          .neq("status", "archived")
+          .or("cert_number.not.is.null,condition.neq.raw")
+          .limit(2000);
+        if (error) throw error;
+        for (const unit of data ?? []) {
+          const group = breakdownByCard.get(unit.card_id) ?? new Map();
+          const key = [
+            unit.condition,
+            unit.grade ?? "",
+            unit.grading_service ?? "",
+            unit.cert_number ?? "",
+            unit.status,
+          ].join("|");
+          const existing = group.get(key);
+          if (existing) {
+            existing.count += 1;
+          } else {
+            group.set(key, {
+              condition: unit.condition,
+              grade: unit.grade,
+              gradingService: unit.grading_service,
+              certNumber: unit.cert_number,
+              status: unit.status,
+              count: 1,
+            });
+          }
+          breakdownByCard.set(unit.card_id, group);
+        }
+        return data ?? [];
+      });
+    }
+
     return cards.map((card) => {
       const stock = stockByCard.get(card.catalogCardId);
+      const breakdownGroup = breakdownByCard.get(card.catalogCardId);
       return {
         ...card,
         stockTotal: stock?.totalUnits ?? 0,
@@ -2240,6 +2302,13 @@ export async function getAdminCards() {
         stockReserved: stock?.reservedUnits ?? 0,
         stockAllocated: stock?.allocatedUnits ?? 0,
         stockArchived: stock?.archivedUnits ?? 0,
+        stockUnits: breakdownGroup
+          ? Array.from(breakdownGroup.values()).sort((a, b) =>
+              (a.certNumber ?? a.grade ?? a.condition).localeCompare(
+                b.certNumber ?? b.grade ?? b.condition,
+              ),
+            )
+          : [],
       };
     });
   });
