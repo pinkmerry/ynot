@@ -6222,11 +6222,6 @@ export function AdminCardForm({
   const [variant, setVariant] = useState("");
   const [catalogCategory, setCatalogCategory] =
     useState<CatalogCategory>("single_cards");
-  const [condition, setCondition] = useState<CardCondition>("raw");
-  const [gradingService, setGradingService] = useState<GradingService | "">("");
-  const [grade, setGrade] = useState("");
-  const [certNumber, setCertNumber] = useState("");
-  const [gemrateId, setGemrateId] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [imageStoragePath, setImageStoragePath] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -6298,11 +6293,6 @@ export function AdminCardForm({
           cardSet,
           variant,
           catalogCategory,
-          condition,
-          gradingService: gradingService || null,
-          grade,
-          certNumber,
-          gemrateId,
           prizeCategory: legacyPrizeCategoryForCatalog(catalogCategory),
           imageUrl: nextImageUrl,
           imageStoragePath: nextImageStoragePath,
@@ -6433,65 +6423,9 @@ export function AdminCardForm({
             ))}
           </select>
         </AdminField>
-        <AdminField label="Condition">
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={condition}
-            onChange={(event) => setCondition(event.target.value as CardCondition)}
-          >
-            {cardConditionOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </AdminField>
-        <AdminField label="Grading service">
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={gradingService}
-            onChange={(event) =>
-              setGradingService(event.target.value as GradingService | "")
-            }
-          >
-            <option value="">-- Select --</option>
-            {gradingServiceOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </AdminField>
-        <AdminField label="Grade">
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={grade}
-            onChange={(event) => setGrade(event.target.value)}
-          >
-            <option value="">-- Select --</option>
-            {cardGradeOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </AdminField>
-        <AdminField label="Cert number">
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={certNumber}
-            onChange={(event) => setCertNumber(event.target.value)}
-            placeholder="154130791"
-          />
-        </AdminField>
-        <AdminField label="GemRate ID">
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={gemrateId}
-            onChange={(event) => setGemrateId(event.target.value)}
-            placeholder="GemRate record ID"
-          />
-        </AdminField>
+        {/* Condition / grade / grading service / cert / GemRate moved to the
+            "Add stock units" form — those describe the physical item (unit),
+            not the product identity. */}
         <div className="admin-field admin-field-wide admin-image-dropzone-field-wrap">
           <AdminImageDropzone
             imageUrl={imageUrl}
