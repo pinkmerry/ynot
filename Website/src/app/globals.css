@@ -26280,6 +26280,16 @@ html[data-ynot-theme] .admin-frame .admin-prize-catalog-card .admin-card-catalog
   text-transform: uppercase;
 }
 
+/* Field labels: normal-case, medium weight (reference uses text-xs font-medium),
+   not the all-caps label style .admin-field span otherwise forces. */
+html[data-ynot-theme] .admin-frame .admin-prize-create-modal-body .admin-field > span {
+  color: var(--a-muted, #9b9daf) !important;
+  font-size: 0.78rem !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+
 /* Unify every field control in the create modal to the Set/Variant dropdown
    design — same height, fill, border, radius (36px / h-9, reference look). */
 html[data-ynot-theme] .admin-frame .admin-prize-create-modal-body .admin-field > input,
