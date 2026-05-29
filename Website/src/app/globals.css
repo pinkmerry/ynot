@@ -25782,14 +25782,17 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   overflow: hidden;
 }
 .admin-frame .card-pad { padding: 14px 16px; }
-/* Flatten the catalog card: drop the outer frame (border/background/shadow)
-   but keep the padding so the content stays inset. Two classes → 0,3,0 to win
-   over the themed .card rules regardless of source order. */
-.admin-frame .card.admin-prize-catalog-card {
-  background: none;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
+/* Flatten the catalog card: drop the frame (border/background/shadow) on both
+   the outer card and the inner panel, keeping the padding so content stays
+   inset. The themed .card / .admin-card-catalog-panel rules use !important, so
+   match that and out-specify them (html[data-ynot-theme] prefix). */
+html[data-ynot-theme] .admin-frame .card.admin-prize-catalog-card,
+html[data-ynot-theme] .admin-frame .admin-prize-catalog-card .admin-card-catalog-panel {
+  background: none !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 .admin-frame .card-head {
   display: flex; align-items: center; gap: 10px;
