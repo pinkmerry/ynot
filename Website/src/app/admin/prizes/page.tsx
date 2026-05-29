@@ -1,7 +1,6 @@
 import {
   AdminCardCatalogPanel,
-  AdminCardForm,
-  AdminCardStockUnitForm,
+  AdminPrizeCreateActions,
 } from "@/features/ynot/client";
 import { AdminGate } from "@/features/ynot/components";
 import {
@@ -9,12 +8,7 @@ import {
   getAdminPrizePool,
   getYnotDashboardSlice,
 } from "@/features/ynot/data";
-import {
-  AdminCard,
-  AdminCardHead,
-  AdminFrame,
-  AdminKPI,
-} from "@/features/ynot/admin";
+import { AdminCard, AdminFrame, AdminKPI } from "@/features/ynot/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +41,7 @@ export default async function AdminPrizesPage() {
         trail={["Admin", "Pack studio", "Prize catalog"]}
         title="Prize catalog"
         desc="Create cards, sealed products, electronics, and more for the pack editor."
+        actions={<AdminPrizeCreateActions cards={cards} prizes={prizes} />}
       >
         <div className="kpi-grid">
           <AdminKPI
@@ -71,20 +66,6 @@ export default async function AdminPrizesPage() {
             color="var(--a-amber)"
           />
         </div>
-
-        <AdminCard className="admin-prize-create-card">
-          <AdminCardHead label="Add card" title="Create catalog item" />
-          <div className="card-pad">
-            <AdminCardForm cards={cards} prizes={prizes} />
-          </div>
-        </AdminCard>
-
-        <AdminCard className="admin-prize-create-card">
-          <AdminCardHead label="Add stock" title="Add stock units" />
-          <div className="card-pad">
-            <AdminCardStockUnitForm cards={cards} />
-          </div>
-        </AdminCard>
 
         <AdminCard className="admin-prize-catalog-card">
           <div className="card-pad">

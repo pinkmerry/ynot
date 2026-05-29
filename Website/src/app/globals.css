@@ -23691,6 +23691,41 @@ html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-bulk-ac
   padding: 0;
   width: min(920px, calc(100vw - 48px));
 }
+.admin-prize-create-modal {
+  gap: 0;
+  max-height: calc(100dvh - 48px);
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+  width: min(920px, calc(100vw - 48px));
+}
+.admin-prize-create-modal .admin-modal-head {
+  border-bottom: 1px solid rgba(245, 245, 245, 0.08);
+  flex: 0 0 auto;
+  padding: 24px 28px 16px;
+}
+.admin-prize-create-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 28px 28px;
+}
+.admin-prize-create-modal-close {
+  background: transparent;
+  border: 0;
+  color: rgba(245, 245, 245, 0.55);
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px 8px;
+  position: absolute;
+  right: 16px;
+  top: 16px;
+}
+.admin-prize-create-modal-close:hover {
+  color: #f5f5f5;
+}
 .admin-card-edit-modal .admin-modal-head {
   border-bottom: 1px solid rgba(245, 245, 245, 0.08);
   flex: 0 0 auto;
@@ -26072,7 +26107,10 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
 .admin-frame .card .admin-prize-workspace,
 .admin-frame .card .wallet-balance-card,
 .admin-frame .card .wallet-method-card,
-.admin-frame .card .wallet-history-card {
+.admin-frame .card .wallet-history-card,
+.admin-frame .admin-prize-create-modal-body .soft-card,
+.admin-frame .admin-prize-create-modal-body .admin-panel,
+.admin-frame .admin-prize-create-modal-body .admin-form-panel {
   background: transparent !important;
   background-image: none !important;
   border: 0 !important;
@@ -26085,11 +26123,13 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   padding: 20px 22px 22px !important;
 }
 
-.admin-frame .admin-prize-create-card .admin-form-head {
+.admin-frame .admin-prize-create-card .admin-form-head,
+.admin-frame .admin-prize-create-modal-body .admin-form-head {
   max-width: 760px;
 }
 
-.admin-frame .admin-prize-create-card .admin-form-grid {
+.admin-frame .admin-prize-create-card .admin-form-grid,
+.admin-frame .admin-prize-create-modal-body .admin-form-grid {
   background: transparent !important;
   background-image: none !important;
   border: 0 !important;
@@ -26099,17 +26139,20 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   padding: 0 !important;
 }
 
-.admin-frame .admin-prize-create-card .admin-form-save {
+.admin-frame .admin-prize-create-card .admin-form-save,
+.admin-frame .admin-prize-create-modal-body .admin-form-save {
   margin-top: 16px;
   max-width: 280px;
 }
 
 @media (max-width: 1024px) {
-  .admin-frame .admin-prize-create-card .admin-form-grid {
+  .admin-frame .admin-prize-create-card .admin-form-grid,
+  .admin-frame .admin-prize-create-modal-body .admin-form-grid {
     grid-template-columns: 1fr !important;
   }
 
-  .admin-frame .admin-prize-create-card .admin-form-save {
+  .admin-frame .admin-prize-create-card .admin-form-save,
+  .admin-frame .admin-prize-create-modal-body .admin-form-save {
     max-width: none;
   }
 }
@@ -28600,7 +28643,8 @@ html[data-ynot-theme] .admin-frame .market-shell {
 }
 
 html[data-ynot-theme] .admin-frame .admin-card-catalog-panel,
-html[data-ynot-theme] .admin-frame .admin-prize-create-card .admin-panel {
+html[data-ynot-theme] .admin-frame .admin-prize-create-card .admin-panel,
+html[data-ynot-theme] .admin-prize-create-modal-body .admin-panel {
   color: var(--a-fg) !important;
 }
 

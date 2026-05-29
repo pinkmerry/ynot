@@ -6205,6 +6205,93 @@ function DuplicateCardCaution({
   );
 }
 
+type PrizeCreateModalKind = "card" | "stock";
+
+/**
+ * Header actions for the Prize catalog page. Replaces the two always-visible
+ * "Create catalog item" / "Add stock units" forms with a pair of buttons that
+ * each open the corresponding form in a modal, keeping the page focused on the
+ * catalog table.
+ */
+export function AdminPrizeCreateActions({
+  cards,
+  prizes,
+}: {
+  cards: CardCatalogItem[];
+  prizes: YnotPrizePoolItem[];
+}) {
+  const [openModal, setOpenModal] = useState<PrizeCreateModalKind | null>(null);
+
+  useEffect(() => {
+    if (!openModal) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpenModal(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openModal]);
+
+  return (
+    <>
+      <button
+        type="button"
+        className="btn btn-sm"
+        onClick={() => setOpenModal("card")}
+      >
+        <AdminIcon name="plus" size={12} />
+        Add card
+      </button>
+      <button
+        type="button"
+        className="btn btn-primary"
+        onClick={() => setOpenModal("stock")}
+      >
+        <AdminIcon name="plus" size={12} />
+        Add stock
+      </button>
+
+      {openModal && (
+        <div
+          className="admin-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setOpenModal(null);
+          }}
+        >
+          <div className="admin-modal admin-prize-create-modal" role="document">
+            <header className="admin-modal-head">
+              <button
+                type="button"
+                className="admin-prize-create-modal-close"
+                onClick={() => setOpenModal(null)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+              <h2 className="admin-modal-title" style={{ color: "#fff" }}>
+                {openModal === "card" ? "Create catalog item" : "Add stock units"}
+              </h2>
+              <p className="admin-modal-subtitle">
+                {openModal === "card"
+                  ? "Add card identity, language, product type, condition, grading, and image details before using the item in the random pack prize builder."
+                  : "Add physical stock units to an existing catalog product. Each unit can carry its own grade, cert, and image."}
+              </p>
+            </header>
+            <div className="admin-prize-create-modal-body">
+              {openModal === "card" ? (
+                <AdminCardForm cards={cards} prizes={prizes} />
+              ) : (
+                <AdminCardStockUnitForm cards={cards} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export function AdminCardForm({
   cards,
   prizes,
