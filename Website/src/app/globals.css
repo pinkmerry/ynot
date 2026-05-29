@@ -26314,7 +26314,7 @@ html[data-ynot-theme] .admin-frame .admin-prize-catalog-card .admin-card-catalog
 }
 /* The dropdown lives inside .admin-field, whose `span` rule forces tiny
    uppercase label styling — reset the trigger text back to normal copy. */
-.admin-frame .admin-option-select-trigger > span {
+html[data-ynot-theme] .admin-frame .admin-option-select .admin-option-select-trigger > span {
   color: var(--a-fg, #f4efe1) !important;
   display: inline !important;
   font-size: 0.95rem !important;
@@ -26323,7 +26323,7 @@ html[data-ynot-theme] .admin-frame .admin-prize-catalog-card .admin-card-catalog
   text-shadow: none !important;
   text-transform: none !important;
 }
-.admin-frame .admin-option-select-trigger > span.admin-option-select-placeholder {
+html[data-ynot-theme] .admin-frame .admin-option-select .admin-option-select-trigger > span.admin-option-select-placeholder {
   color: var(--a-muted-2, #6b6d82) !important;
 }
 .admin-frame .admin-option-select-trigger svg {
@@ -26357,15 +26357,19 @@ html[data-ynot-theme] .admin-frame .admin-prize-catalog-card .admin-card-catalog
   color: var(--a-muted, #9b9daf);
   flex: 0 0 auto;
 }
-.admin-frame .admin-option-select-search input {
+html[data-ynot-theme] .admin-frame .admin-option-select .admin-option-select-search input {
   background: transparent !important;
   border: 0 !important;
-  color: var(--a-fg, #f4efe1);
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: var(--a-fg, #f4efe1) !important;
   flex: 1 1 auto;
   font: inherit;
+  height: auto !important;
   min-height: 0 !important;
-  outline: none;
+  outline: none !important;
   padding: 0 !important;
+  text-transform: none !important;
 }
 .admin-frame .admin-option-select-list {
   display: flex;
