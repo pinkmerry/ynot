@@ -6559,6 +6559,11 @@ export function AdminCardStockUnitForm({
   const [certNumber, setCertNumber] = useState("");
   const [gemrateId, setGemrateId] = useState("");
   const [count, setCount] = useState("1");
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageStoragePath, setImageStoragePath] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const imagePreviewObjectUrlRef = useRef<string | null>(null);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -6569,6 +6574,15 @@ export function AdminCardStockUnitForm({
     ? 1
     : Math.min(10000, Math.max(1, Math.trunc(Number(count) || 1)));
 
+  function replaceUnitPreviewUrl(nextUrl: string, objectUrl = false) {
+    if (imagePreviewObjectUrlRef.current) {
+      URL.revokeObjectURL(imagePreviewObjectUrlRef.current);
+      imagePreviewObjectUrlRef.current = null;
+    }
+    if (objectUrl) imagePreviewObjectUrlRef.current = nextUrl;
+    setImagePreviewUrl(nextUrl);
+  }
+
   function submit() {
     startTransition(async () => {
       try {
@@ -6576,6 +6590,16 @@ export function AdminCardStockUnitForm({
         if (!cardId) {
           setMessage("Select a product card first.");
           return;
+        }
+        let nextImageUrl = imageUrl.trim();
+        let nextImageStoragePath = imageStoragePath.trim();
+        if (imageFile) {
+          const uploaded = await uploadAdminCardImage(imageFile, {
+            code: cardId,
+            name: certNumber || "unit",
+          });
+          nextImageUrl = uploaded.imageUrl;
+          nextImageStoragePath = uploaded.storagePath;
         }
         await postJson("/api/ynot/admin/card-stock", {
           cardId,
@@ -6586,12 +6610,18 @@ export function AdminCardStockUnitForm({
           gradingService: isGraded ? gradingService || "" : "",
           certNumber: isGraded ? certNumber.trim() : "",
           gemrateId: isGraded ? gemrateId.trim() : "",
+          imageUrl: nextImageUrl,
+          imageStoragePath: nextImageStoragePath,
         });
         setMessage(
           `Added ${effectiveCount} ${condition} unit${effectiveCount > 1 ? "s" : ""}.`,
         );
         setCertNumber("");
         setGemrateId("");
+        setImageFile(null);
+        setImageUrl("");
+        setImageStoragePath("");
+        replaceUnitPreviewUrl("");
         router.refresh();
       } catch (error) {
         setMessage(
@@ -6709,6 +6739,37 @@ export function AdminCardStockUnitForm({
             onChange={(event) => setCount(event.target.value)}
           />
         </AdminField>
+        <div className="admin-field admin-field-wide admin-image-dropzone-field-wrap">
+          <AdminImageDropzone
+            imageUrl={imageUrl}
+            imageFile={imageFile}
+            previewUrl={imagePreviewUrl}
+            manualUrl={imageUrl}
+            label="Unit image (optional)"
+            hint="Photo of this specific slab. Leave empty to use the product image."
+            onFileChange={(file) => {
+              setImageFile(file);
+              if (file) {
+                setImageStoragePath("");
+                replaceUnitPreviewUrl(URL.createObjectURL(file), true);
+              } else {
+                replaceUnitPreviewUrl(imageUrl.trim());
+              }
+            }}
+            onManualUrlChange={(value) => {
+              setImageUrl(value);
+              setImageFile(null);
+              setImageStoragePath("");
+              replaceUnitPreviewUrl(value.trim());
+            }}
+            onClear={() => {
+              setImageFile(null);
+              setImageUrl("");
+              setImageStoragePath("");
+              replaceUnitPreviewUrl("");
+            }}
+          />
+        </div>
       </div>
       <button
         className="admin-form-submit"
@@ -6754,6 +6815,7 @@ function AdminStockUnitRow({
   );
   const [certNumber, setCertNumber] = useState(unit.certNumber ?? "");
   const [gemrateId, setGemrateId] = useState(unit.gemrateId ?? "");
+  const [imageUrl, setImageUrl] = useState(unit.imageUrl ?? "");
   const [busy, startBusy] = useTransition();
   const [msg, setMsg] = useState("");
   const editable = unit.status === "available";
@@ -6769,6 +6831,7 @@ function AdminStockUnitRow({
           gradingService: gradingService || "",
           certNumber,
           gemrateId,
+          imageUrl,
         });
         setEditing(false);
         router.refresh();
@@ -6848,6 +6911,12 @@ function AdminStockUnitRow({
             placeholder="GemRate ID"
             onChange={(event) => setGemrateId(event.target.value)}
           />
+          <input
+            className="admin-stock-unit-input"
+            value={imageUrl}
+            placeholder="Image URL (optional)"
+            onChange={(event) => setImageUrl(event.target.value)}
+          />
         </div>
         <div className="admin-stock-unit-actions">
           <button type="button" onClick={save} disabled={busy}>
@@ -6871,6 +6940,21 @@ function AdminStockUnitRow({
 
   return (
     <li className="admin-stock-unit-row">
+      {unit.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={unit.imageUrl}
+          alt=""
+          className="admin-stock-unit-thumb"
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 6,
+            objectFit: "cover",
+            flex: "0 0 auto",
+          }}
+        />
+      ) : null}
       <span className="admin-stock-unit-label">
         {unit.grade || cardConditionLabel(unit.condition)}
         {unit.gradingService ? ` (${unit.gradingService.toUpperCase()})` : ""}
