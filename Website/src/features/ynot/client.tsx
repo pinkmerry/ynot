@@ -6235,18 +6235,18 @@ export function AdminPrizeCreateActions({
     <>
       <button
         type="button"
-        className="btn btn-sm"
+        className="admin-prize-create-btn"
         onClick={() => setOpenModal("card")}
       >
-        <AdminIcon name="plus" size={12} />
+        <AdminIcon name="plus" size={14} />
         Add card
       </button>
       <button
         type="button"
-        className="btn btn-primary"
+        className="admin-prize-create-btn"
         onClick={() => setOpenModal("stock")}
       >
-        <AdminIcon name="plus" size={12} />
+        <AdminIcon name="plus" size={14} />
         Add stock
       </button>
 

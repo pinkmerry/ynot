@@ -25727,6 +25727,32 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
 .admin-frame .btn-danger { background: rgba(240,90,108,0.14); border-color: rgba(240,90,108,0.32); color: #ff8a98; }
 .admin-frame .btn-sm { padding: 4px 8px; font-size: 11px; border-radius: 6px; }
 
+/* Outlined pill action buttons (Prize catalog header) — matches the
+   inventory.yfifteen.com "Add Product" style: thin border, transparent fill,
+   roomy padding, + icon. */
+.admin-frame .admin-prize-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid var(--a-border-soft);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--a-fg);
+  cursor: pointer;
+  line-height: 1.2;
+  font-family: inherit;
+}
+.admin-frame .admin-prize-create-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--a-border);
+}
+.admin-frame .admin-prize-create-btn svg {
+  opacity: 0.85;
+}
+
 /* Cards */
 .admin-frame .card {
   background: linear-gradient(180deg, rgba(23,24,42,0.85), rgba(16,17,31,0.92));
