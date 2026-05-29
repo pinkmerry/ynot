@@ -10809,12 +10809,6 @@ html[data-ynot-theme="light"] .gacha-detail-open-dock-info strong span {
   text-transform: uppercase;
 }
 
-/* The required asterisk is a nested span inside the label; keep it inline so
-   it sits beside the label text instead of dropping to its own line. */
-.admin-field span[aria-label="required"] {
-  display: inline;
-}
-
 .admin-field > small {
   font-size: 0.78rem;
   font-weight: 700;
