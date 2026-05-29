@@ -6220,6 +6220,8 @@ export function AdminPrizeCreateActions({
   prizes: YnotPrizePoolItem[];
 }) {
   const [openModal, setOpenModal] = useState<PrizeCreateModalKind | null>(null);
+  const modalBodyRef = useRef<HTMLDivElement>(null);
+  const scrollHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!openModal) return;
@@ -6229,6 +6231,23 @@ export function AdminPrizeCreateActions({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [openModal]);
+
+  useEffect(
+    () => () => {
+      if (scrollHideTimer.current) clearTimeout(scrollHideTimer.current);
+    },
+    [],
+  );
+
+  function handleModalBodyScroll() {
+    const el = modalBodyRef.current;
+    if (!el) return;
+    el.classList.add("is-scrolling");
+    if (scrollHideTimer.current) clearTimeout(scrollHideTimer.current);
+    scrollHideTimer.current = setTimeout(() => {
+      el.classList.remove("is-scrolling");
+    }, 700);
+  }
 
   return (
     <>
@@ -6279,7 +6298,11 @@ export function AdminPrizeCreateActions({
                   : "Add physical stock units to an existing catalog product. Each unit can carry its own grade, cert, and image."}
               </p>
             </header>
-            <div className="admin-prize-create-modal-body">
+            <div
+              className="admin-prize-create-modal-body"
+              ref={modalBodyRef}
+              onScroll={handleModalBodyScroll}
+            >
               {openModal === "card" ? (
                 <AdminCardForm cards={cards} prizes={prizes} />
               ) : (

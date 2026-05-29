@@ -23710,13 +23710,34 @@ html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-bulk-ac
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 20px 28px 28px;
-  /* Hide the scrollbar track but keep wheel/trackpad scrolling. */
-  scrollbar-width: none;
+  /* Auto-hide scrollbar: invisible at rest, the .is-scrolling class (toggled
+     in JS while scrolling) reveals a subtle grey rounded thumb. Gutter width
+     stays constant so toggling never shifts layout. */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.admin-prize-create-modal-body.is-scrolling {
+  scrollbar-color: rgba(235, 235, 245, 0.32) transparent;
 }
 .admin-prize-create-modal-body::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
+  width: 10px;
+}
+.admin-prize-create-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-prize-create-modal-body::-webkit-scrollbar-thumb {
+  background: transparent;
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+.admin-prize-create-modal-body.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(235, 235, 245, 0.32);
+  background-clip: padding-box;
+}
+.admin-prize-create-modal-body.is-scrolling::-webkit-scrollbar-thumb:hover {
+  background: rgba(235, 235, 245, 0.5);
+  background-clip: padding-box;
 }
 .admin-prize-create-modal-close {
   background: transparent;
