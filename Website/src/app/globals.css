@@ -26493,8 +26493,10 @@ html[data-ynot-theme] .admin-frame .admin-option-select .admin-option-select-sea
   color: var(--a-fg, #f4efe1);
 }
 /* Defeat any inherited button/field theming inside the popover: keep option
-   rows left-aligned, compact and borderless, with correctly-sized icons. */
-html[data-ynot-theme] .admin-frame .admin-option-select-popover .admin-option-select-option {
+   rows left-aligned, compact and borderless, with correctly-sized icons.
+   Uses the full html[lang][data-ynot-theme][data-ynot-language][class] body
+   prefix so it out-specifies the global admin button styling. */
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .admin-option-select-popover .admin-option-select-option {
   background: transparent !important;
   border: 0 !important;
   border-radius: 8px !important;
@@ -26507,7 +26509,7 @@ html[data-ynot-theme] .admin-frame .admin-option-select-popover .admin-option-se
   text-align: left !important;
   text-transform: none !important;
 }
-html[data-ynot-theme] .admin-frame .admin-option-select-popover .admin-option-select-icon {
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .admin-option-select-popover .admin-option-select-icon {
   background: transparent !important;
   border: 0 !important;
   border-radius: 7px !important;
@@ -26518,8 +26520,18 @@ html[data-ynot-theme] .admin-frame .admin-option-select-popover .admin-option-se
   padding: 0 !important;
   width: 28px !important;
 }
-html[data-ynot-theme] .admin-frame .admin-option-select-popover .admin-option-select-icon:hover {
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .admin-option-select-popover .admin-option-select-icon:hover {
   background: rgba(255, 255, 255, 0.1) !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .admin-option-select-popover .admin-option-select-create {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .admin-option-select-popover .admin-option-select-create:hover {
+  background: rgba(244, 197, 66, 0.1) !important;
 }
 html[data-ynot-theme] .admin-frame .admin-option-select-popover svg {
   flex: 0 0 auto !important;
