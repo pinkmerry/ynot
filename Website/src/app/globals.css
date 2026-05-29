@@ -25471,6 +25471,37 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
    Dense Linear/Stripe-style on YNOTT dark + gold.
    Scoped to `.admin-frame` so it never bleeds into the public site.
    ============================================================ */
+/* Auto-hide window scrollbar on admin pages (class toggled by
+   AdminScrollbarAutoHide). Invisible at rest, subtle rounded thumb while
+   scrolling; gutter width stays constant so nothing shifts. */
+html.admin-autohide-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+html.admin-autohide-scroll.is-scrolling {
+  scrollbar-color: rgba(235, 235, 245, 0.32) transparent;
+}
+html.admin-autohide-scroll::-webkit-scrollbar {
+  width: 12px;
+}
+html.admin-autohide-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+html.admin-autohide-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+html.admin-autohide-scroll.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(235, 235, 245, 0.32);
+  background-clip: padding-box;
+}
+html.admin-autohide-scroll.is-scrolling::-webkit-scrollbar-thumb:hover {
+  background: rgba(235, 235, 245, 0.5);
+  background-clip: padding-box;
+}
+
 .admin-frame {
   --a-bg: #07070f;
   --a-bg-2: #0b0c18;

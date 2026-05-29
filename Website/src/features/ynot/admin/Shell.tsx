@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AdminIcon, type AdminIconName } from "./Icon";
+import { AdminScrollbarAutoHide } from "./AdminScrollbarAutoHide";
 import type { YnotViewer } from "../types";
 
 type NavItem = {
@@ -229,6 +230,7 @@ export function AdminFrame({
 }) {
   return (
     <div className="admin-frame">
+      <AdminScrollbarAutoHide />
       <Sidebar active={active} viewer={viewer} badges={badges} />
       <div className="a-main">
         <TopBar trail={trail} />
