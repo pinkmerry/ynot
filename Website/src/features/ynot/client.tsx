@@ -6420,175 +6420,199 @@ export function AdminCardForm({
             image details before using the item in the random pack prize builder.
           </p>
         </div>
-        <div className="admin-form-grid">
-            <AdminField label="SKU">
+        <div className="admin-form-sections">
+          <section className="admin-form-section">
+            <p className="admin-form-section-label">Basic</p>
+            <div className="admin-form-grid">
+              <AdminField label="Card name" required>
+                <input
+                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Kaya, Charizard, booster box, or supplies"
+                />
+              </AdminField>
+              <AdminField label="Catalog series">
+                <select
+                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                  value={series}
+                  onChange={(event) =>
+                    setSeries(event.target.value as "pokemon" | "one_piece")
+                  }
+                >
+                  <option value="pokemon">Pokémon</option>
+                  <option value="one_piece">One Piece</option>
+                </select>
+              </AdminField>
+              <AdminField label="Prize catalog">
+                <select
+                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                  value={catalogCategory}
+                  onChange={(event) =>
+                    setCatalogCategory(event.target.value as CatalogCategory)
+                  }
+                >
+                  {catalogCategoryOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </AdminField>
+            </div>
+          </section>
 
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-            placeholder="OP-PSA10-001"
-          />
-        </AdminField>
-        <AdminField label="Card name" required>
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Kaya, Charizard, booster box, or supplies"
-          />
-        </AdminField>
-        <AdminField label="Catalog series">
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={series}
-            onChange={(event) =>
-              setSeries(event.target.value as "pokemon" | "one_piece")
-            }
-          >
-            <option value="pokemon">Pokémon</option>
-            <option value="one_piece">One Piece</option>
-          </select>
-        </AdminField>
-        <AdminField label="Language">
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={language}
-            onChange={(event) => setLanguage(event.target.value as CardLanguage | "")}
-          >
-            <option value="">-- Select --</option>
-            {cardLanguageOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </AdminField>
-        <AdminField label="Release year">
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={releaseYear}
-            onChange={(event) => setReleaseYear(event.target.value)}
-          >
-            <option value="">-- Select --</option>
-            {cardReleaseYearOptions.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </select>
-        </AdminField>
-        <AdminField label="Set">
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={cardSet}
-            onChange={(event) => setCardSet(event.target.value)}
-            placeholder="2nd Anniversary Set"
-          />
-        </AdminField>
-        <AdminField label="Variant">
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={variant}
-            onChange={(event) => setVariant(event.target.value)}
-            placeholder="Parallel, promo, alt art"
-          />
-        </AdminField>
-        <AdminField label="Prize catalog">
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={catalogCategory}
-            onChange={(event) =>
-              setCatalogCategory(event.target.value as CatalogCategory)
-            }
-          >
-            {catalogCategoryOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </AdminField>
-        {/* Condition / grade / grading service / cert / GemRate moved to the
-            "Add stock units" form — those describe the physical item (unit),
-            not the product identity. */}
-        <div className="admin-field admin-field-wide admin-image-dropzone-field-wrap">
-          <AdminImageDropzone
-            imageUrl={imageUrl}
-            imageFile={imageFile}
-            previewUrl={imagePreviewUrl}
-            manualUrl={imageUrl}
-            cardCode={code}
-            cardName={name}
-            label="Card image"
-            hint="Drag &amp; drop a JPG / PNG / WEBP, or paste a URL. Uploaded to Supabase storage."
-            onFileChange={(file) => {
-              setImageFile(file);
-              if (file) {
-                setImageStoragePath("");
-                replaceImagePreviewUrl(URL.createObjectURL(file), true);
-              } else {
-                replaceImagePreviewUrl(imageUrl.trim());
-              }
-            }}
-            onManualUrlChange={(value) => {
-              setImageUrl(value);
-              setImageFile(null);
-              setImageStoragePath("");
-              replaceImagePreviewUrl(value.trim());
-            }}
-            onClear={() => {
-              setImageFile(null);
-              setImageUrl("");
-              setImageStoragePath("");
-              replaceImagePreviewUrl("");
-            }}
-          />
+          <section className="admin-form-section">
+            <p className="admin-form-section-label">Details</p>
+            <div className="admin-form-grid">
+              <AdminField label="SKU">
+                <input
+                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                  value={code}
+                  onChange={(event) => setCode(event.target.value)}
+                  placeholder="OP-PSA10-001"
+                />
+              </AdminField>
+              <AdminField label="Language">
+                <select
+                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                  value={language}
+                  onChange={(event) =>
+                    setLanguage(event.target.value as CardLanguage | "")
+                  }
+                >
+                  <option value="">-- Select --</option>
+                  {cardLanguageOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </AdminField>
+              <AdminField label="Release year">
+                <select
+                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                  value={releaseYear}
+                  onChange={(event) => setReleaseYear(event.target.value)}
+                >
+                  <option value="">-- Select --</option>
+                  {cardReleaseYearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </AdminField>
+              <AdminField label="Set">
+                <input
+                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                  value={cardSet}
+                  onChange={(event) => setCardSet(event.target.value)}
+                  placeholder="2nd Anniversary Set"
+                />
+              </AdminField>
+              <AdminField label="Variant">
+                <input
+                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                  value={variant}
+                  onChange={(event) => setVariant(event.target.value)}
+                  placeholder="Parallel, promo, alt art"
+                />
+              </AdminField>
+            </div>
+          </section>
+
+          {/* Condition / grade / grading service / cert / GemRate live in the
+              "Add stock units" form — those describe the physical item (unit),
+              not the product identity. */}
+          <section className="admin-form-section">
+            <p className="admin-form-section-label">Image</p>
+            <div className="admin-form-grid">
+              <div className="admin-field admin-field-wide admin-image-dropzone-field-wrap">
+                <AdminImageDropzone
+                  imageUrl={imageUrl}
+                  imageFile={imageFile}
+                  previewUrl={imagePreviewUrl}
+                  manualUrl={imageUrl}
+                  cardCode={code}
+                  cardName={name}
+                  label="Card image"
+                  hint="Drag &amp; drop a JPG / PNG / WEBP, or paste a URL. Uploaded to Supabase storage."
+                  onFileChange={(file) => {
+                    setImageFile(file);
+                    if (file) {
+                      setImageStoragePath("");
+                      replaceImagePreviewUrl(URL.createObjectURL(file), true);
+                    } else {
+                      replaceImagePreviewUrl(imageUrl.trim());
+                    }
+                  }}
+                  onManualUrlChange={(value) => {
+                    setImageUrl(value);
+                    setImageFile(null);
+                    setImageStoragePath("");
+                    replaceImagePreviewUrl(value.trim());
+                  }}
+                  onClear={() => {
+                    setImageFile(null);
+                    setImageUrl("");
+                    setImageStoragePath("");
+                    replaceImagePreviewUrl("");
+                  }}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="admin-form-section">
+            <p className="admin-form-section-label">Metadata</p>
+            <div className="admin-form-grid">
+              <label className="admin-field">
+                <span>Test asset</span>
+                <span style={{ alignItems: "center", display: "flex", gap: 8 }}>
+                  <input
+                    checked={isTest}
+                    onChange={(event) => setIsTest(event.target.checked)}
+                    type="checkbox"
+                  />
+                  Mark as test-only catalog data
+                </span>
+              </label>
+              <AdminField label="Seed run ID">
+                <input
+                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                  value={seedRunId}
+                  onChange={(event) => setSeedRunId(event.target.value)}
+                  placeholder="optional-import-run"
+                />
+              </AdminField>
+              <AdminField label="Asset source">
+                <input
+                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                  value={assetSource}
+                  onChange={(event) => setAssetSource(event.target.value)}
+                  placeholder="Generated original art, licensed source, or storage copy"
+                />
+              </AdminField>
+              <AdminField label="Asset license">
+                <input
+                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                  value={assetLicense}
+                  onChange={(event) => setAssetLicense(event.target.value)}
+                  placeholder="Owned, generated, licensed, or internal test"
+                />
+              </AdminField>
+              <AdminField label="Asset manifest key">
+                <input
+                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                  value={assetManifestKey}
+                  onChange={(event) => setAssetManifestKey(event.target.value)}
+                  placeholder="test-assets/card-manifest-key"
+                />
+              </AdminField>
+            </div>
+          </section>
         </div>
-        <label className="admin-field">
-          <span>Test asset</span>
-          <span style={{ alignItems: "center", display: "flex", gap: 8 }}>
-            <input
-              checked={isTest}
-              onChange={(event) => setIsTest(event.target.checked)}
-              type="checkbox"
-            />
-            Mark as test-only catalog data
-          </span>
-        </label>
-        <AdminField label="Seed run ID">
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={seedRunId}
-            onChange={(event) => setSeedRunId(event.target.value)}
-            placeholder="optional-import-run"
-          />
-        </AdminField>
-        <AdminField label="Asset source">
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={assetSource}
-            onChange={(event) => setAssetSource(event.target.value)}
-            placeholder="Generated original art, licensed source, or storage copy"
-          />
-        </AdminField>
-        <AdminField label="Asset license">
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={assetLicense}
-            onChange={(event) => setAssetLicense(event.target.value)}
-            placeholder="Owned, generated, licensed, or internal test"
-          />
-        </AdminField>
-        <AdminField label="Asset manifest key">
-          <input
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={assetManifestKey}
-            onChange={(event) => setAssetManifestKey(event.target.value)}
-            placeholder="test-assets/card-manifest-key"
-          />
-        </AdminField>
-      </div>
       {duplicateCard && duplicateUsage && (
         <DuplicateCardCaution
           cardName={duplicateCard.name}
