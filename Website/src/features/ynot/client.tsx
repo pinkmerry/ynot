@@ -6422,8 +6422,8 @@ export function AdminCardForm({
         </div>
         <div className="admin-form-grid">
             <AdminField
-              label="Model code"
-              hint="Optional stable model identity. Use it when replacing a specific card; duplicate names must resolve to one existing card."
+              label="SKU"
+              hint="Optional stable product code (SKU). Use it when replacing a specific card; duplicate names must resolve to one existing card."
             >
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
@@ -8464,7 +8464,7 @@ function AdminCardEditModal({
               <input value={name} onChange={(e) => setName(e.target.value)} disabled={pending} />
             </label>
             <label className="admin-field">
-              <span>Model code</span>
+              <span>SKU</span>
               <input value={code} onChange={(e) => setCode(e.target.value)} disabled={pending} />
             </label>
             <label className="admin-field">
