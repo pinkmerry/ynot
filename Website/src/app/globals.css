@@ -29286,8 +29286,6 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-filters {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  position: sticky;
-  top: 12px;
 }
 html[data-ynot-theme] .admin-frame .admin-card-catalog-filters-head {
   align-items: center;
