@@ -26302,6 +26302,17 @@ html[data-ynot-theme] .admin-frame .admin-prize-create-modal-body .admin-field >
 html[data-ynot-theme] .admin-frame .admin-prize-create-modal-body .admin-field > select:focus {
   border-color: rgba(244, 197, 66, 0.45) !important;
 }
+/* Swap the native select arrow for the same chevron the Set/Variant dropdown
+   uses, in the same position, so all controls match exactly. */
+html[data-ynot-theme] .admin-frame .admin-prize-create-modal-body .admin-field > select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%239b9daf' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M4 6l4 4 4-4'/></svg>") !important;
+  background-position: right 12px center !important;
+  background-repeat: no-repeat !important;
+  background-size: 14px 14px !important;
+  padding-right: 34px !important;
+}
 
 /* ── Searchable / creatable option dropdown (Set, Variant) ── */
 .admin-frame .admin-option-select {
