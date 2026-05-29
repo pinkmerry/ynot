@@ -26332,8 +26332,8 @@ html[data-ynot-theme] .admin-frame .admin-option-select .admin-option-select-tri
 }
 
 .admin-frame .admin-option-select-popover {
-  background: #141625;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--a-surface, #1c1d22);
+  border: 1px solid var(--a-border-strong, rgba(255, 255, 255, 0.14));
   border-radius: 14px;
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
   display: flex;
