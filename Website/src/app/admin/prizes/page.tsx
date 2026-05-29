@@ -45,9 +45,8 @@ export default async function AdminPrizesPage() {
         viewer={data.viewer}
         active="/admin/prizes"
         trail={["Admin", "Pack studio", "Prize catalog"]}
-        eyebrow="Admin prizes"
         title="Prize catalog"
-        desc="Create PSA10 cards, sealed products, electronics, and other prize items for the random pack editor."
+        desc="Create cards, sealed products, electronics, and more for the pack editor."
       >
         <div className="kpi-grid">
           <AdminKPI
