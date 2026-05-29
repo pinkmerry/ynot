@@ -25764,8 +25764,13 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   display: flex;
   gap: 8px;
 }
+/* Match the heading exactly: .a-page-title is 1.5rem text on a 2rem line box,
+   so size the buttons to 2rem (same unit → identical at any root font size). */
 .admin-frame .admin-prize-create-actions .admin-prize-create-btn {
-  min-height: 33px;
+  height: 2rem;
+  padding-top: 0;
+  padding-bottom: 0;
+  box-sizing: border-box;
 }
 
 /* Cards */
