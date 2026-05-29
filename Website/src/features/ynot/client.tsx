@@ -6816,9 +6816,29 @@ function AdminStockUnitRow({
   const [certNumber, setCertNumber] = useState(unit.certNumber ?? "");
   const [gemrateId, setGemrateId] = useState(unit.gemrateId ?? "");
   const [imageUrl, setImageUrl] = useState(unit.imageUrl ?? "");
+  const [imageStoragePath, setImageStoragePath] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [busy, startBusy] = useTransition();
   const [msg, setMsg] = useState("");
   const editable = unit.status === "available";
+
+  async function handleImageFile(file: File | null) {
+    if (!file) return;
+    try {
+      setMsg("");
+      setUploading(true);
+      const uploaded = await uploadAdminCardImage(file, {
+        code: unit.id,
+        name: certNumber || "unit",
+      });
+      setImageUrl(uploaded.imageUrl);
+      setImageStoragePath(uploaded.storagePath);
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   function save() {
     startBusy(async () => {
@@ -6832,6 +6852,7 @@ function AdminStockUnitRow({
           certNumber,
           gemrateId,
           imageUrl,
+          imageStoragePath,
         });
         setEditing(false);
         router.refresh();
@@ -6911,12 +6932,50 @@ function AdminStockUnitRow({
             placeholder="GemRate ID"
             onChange={(event) => setGemrateId(event.target.value)}
           />
-          <input
-            className="admin-stock-unit-input"
-            value={imageUrl}
-            placeholder="Image URL (optional)"
-            onChange={(event) => setImageUrl(event.target.value)}
-          />
+          <label className="admin-stock-unit-image">
+            {imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={imageUrl}
+                alt=""
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 6,
+                  objectFit: "cover",
+                }}
+              />
+            ) : null}
+            <span className="admin-stock-unit-image-btn">
+              {uploading
+                ? "Uploading..."
+                : imageUrl
+                  ? "Change image"
+                  : "Upload image"}
+            </span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              style={{ display: "none" }}
+              disabled={uploading}
+              onChange={(event) =>
+                handleImageFile(event.target.files?.[0] ?? null)
+              }
+            />
+            {imageUrl ? (
+              <button
+                type="button"
+                className="admin-stock-unit-image-clear"
+                onClick={(event) => {
+                  event.preventDefault();
+                  setImageUrl("");
+                  setImageStoragePath("");
+                }}
+              >
+                Remove image
+              </button>
+            ) : null}
+          </label>
         </div>
         <div className="admin-stock-unit-actions">
           <button type="button" onClick={save} disabled={busy}>
