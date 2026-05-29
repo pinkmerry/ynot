@@ -23710,24 +23710,13 @@ html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-bulk-ac
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 20px 28px 28px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  /* Hide the scrollbar track but keep wheel/trackpad scrolling. */
+  scrollbar-width: none;
 }
 .admin-prize-create-modal-body::-webkit-scrollbar {
-  width: 8px;
-}
-.admin-prize-create-modal-body::-webkit-scrollbar-track {
-  background: transparent;
-}
-.admin-prize-create-modal-body::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.16);
-  border: 2px solid transparent;
-  background-clip: padding-box;
-  border-radius: 999px;
-}
-.admin-prize-create-modal-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-  background-clip: padding-box;
+  width: 0;
+  height: 0;
+  display: none;
 }
 .admin-prize-create-modal-close {
   background: transparent;
