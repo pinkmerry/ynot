@@ -30231,3 +30231,67 @@ html[data-ynot-theme] .admin-frame .admin-prize-convert-field input {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ============================================================
+ * Admin catalog — per-unit stock breakdown rows (graded/sealed)
+ * ============================================================ */
+.admin-stock-unit-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  padding: 4px 0;
+}
+.admin-stock-unit-row + .admin-stock-unit-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.admin-stock-unit-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.admin-stock-unit-actions {
+  display: inline-flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.admin-stock-unit-actions button {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+.admin-stock-unit-actions button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+.admin-stock-unit-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.admin-stock-unit-row.is-editing {
+  flex-direction: column;
+  align-items: stretch;
+}
+.admin-stock-unit-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 6px;
+}
+.admin-stock-unit-input {
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  padding: 0 10px;
+  font-size: 13px;
+}
+.admin-stock-unit-msg {
+  font-size: 12px;
+  color: #f0a0a0;
+  flex-basis: 100%;
+}

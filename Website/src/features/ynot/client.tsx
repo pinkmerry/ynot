@@ -6723,6 +6723,175 @@ export function AdminCardStockUnitForm({
   );
 }
 
+async function requestUnitJson(
+  method: "PATCH" | "DELETE",
+  body: unknown,
+): Promise<void> {
+  const res = await fetch("/api/ynot/admin/card-stock/unit", {
+    method,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) throw new Error(data.error || "Request failed");
+}
+
+/** One row in the catalog's per-unit breakdown — editable + removable when the
+ * unit is still available (reserved/allocated units are locked to a pool). */
+function AdminStockUnitRow({
+  unit,
+}: {
+  unit: NonNullable<CardCatalogItem["stockUnits"]>[number];
+}) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [condition, setCondition] = useState<CardCondition>(
+    (unit.condition as CardCondition) || "graded",
+  );
+  const [grade, setGrade] = useState(unit.grade ?? "");
+  const [gradingService, setGradingService] = useState<GradingService | "">(
+    (unit.gradingService as GradingService) ?? "",
+  );
+  const [certNumber, setCertNumber] = useState(unit.certNumber ?? "");
+  const [gemrateId, setGemrateId] = useState(unit.gemrateId ?? "");
+  const [busy, startBusy] = useTransition();
+  const [msg, setMsg] = useState("");
+  const editable = unit.status === "available";
+
+  function save() {
+    startBusy(async () => {
+      try {
+        setMsg("");
+        await requestUnitJson("PATCH", {
+          unitId: unit.id,
+          condition,
+          grade,
+          gradingService: gradingService || "",
+          certNumber,
+          gemrateId,
+        });
+        setEditing(false);
+        router.refresh();
+      } catch (error) {
+        setMsg(error instanceof Error ? error.message : "Could not save unit.");
+      }
+    });
+  }
+
+  function remove() {
+    if (!window.confirm("Remove this unit from stock?")) return;
+    startBusy(async () => {
+      try {
+        setMsg("");
+        await requestUnitJson("DELETE", { unitId: unit.id });
+        router.refresh();
+      } catch (error) {
+        setMsg(
+          error instanceof Error ? error.message : "Could not remove unit.",
+        );
+      }
+    });
+  }
+
+  if (editing) {
+    return (
+      <li className="admin-stock-unit-row is-editing">
+        <div className="admin-stock-unit-edit-grid">
+          <select
+            className="admin-stock-unit-input"
+            value={condition}
+            onChange={(event) =>
+              setCondition(event.target.value as CardCondition)
+            }
+          >
+            {cardConditionOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <select
+            className="admin-stock-unit-input"
+            value={grade}
+            onChange={(event) => setGrade(event.target.value)}
+          >
+            <option value="">-- Grade --</option>
+            {cardGradeOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          <select
+            className="admin-stock-unit-input"
+            value={gradingService}
+            onChange={(event) =>
+              setGradingService(event.target.value as GradingService | "")
+            }
+          >
+            <option value="">-- Service --</option>
+            {gradingServiceOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <input
+            className="admin-stock-unit-input"
+            value={certNumber}
+            placeholder="Cert #"
+            onChange={(event) => setCertNumber(event.target.value)}
+          />
+          <input
+            className="admin-stock-unit-input"
+            value={gemrateId}
+            placeholder="GemRate ID"
+            onChange={(event) => setGemrateId(event.target.value)}
+          />
+        </div>
+        <div className="admin-stock-unit-actions">
+          <button type="button" onClick={save} disabled={busy}>
+            {busy ? "Saving..." : "Save"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(false);
+              setMsg("");
+            }}
+            disabled={busy}
+          >
+            Cancel
+          </button>
+        </div>
+        {msg && <span className="admin-stock-unit-msg">{msg}</span>}
+      </li>
+    );
+  }
+
+  return (
+    <li className="admin-stock-unit-row">
+      <span className="admin-stock-unit-label">
+        {unit.grade || cardConditionLabel(unit.condition)}
+        {unit.gradingService ? ` (${unit.gradingService.toUpperCase()})` : ""}
+        {unit.certNumber ? ` · #${unit.certNumber}` : ""}
+        <span style={{ opacity: 0.6 }}> — {unit.status}</span>
+      </span>
+      {editable ? (
+        <span className="admin-stock-unit-actions">
+          <button type="button" onClick={() => setEditing(true)} disabled={busy}>
+            Edit
+          </button>
+          <button type="button" onClick={remove} disabled={busy}>
+            Remove
+          </button>
+        </span>
+      ) : null}
+      {msg && <span className="admin-stock-unit-msg">{msg}</span>}
+    </li>
+  );
+}
+
 type AdminCardCatalogRow = {
   card: CardCatalogItem;
   prizes: YnotPrizePoolItem[];
@@ -7260,28 +7429,18 @@ export function AdminCardCatalogPanel({
                       Graded / sealed units
                     </span>
                     <ul
+                      className="admin-stock-unit-list"
                       style={{
                         margin: "4px 0 0",
                         padding: 0,
                         listStyle: "none",
                         display: "flex",
                         flexDirection: "column",
-                        gap: 2,
+                        gap: 4,
                       }}
                     >
-                      {card.stockUnits.map((unit, index) => (
-                        <li
-                          key={`${unit.certNumber ?? unit.grade ?? unit.condition}-${unit.status}-${index}`}
-                          style={{ fontSize: 13 }}
-                        >
-                          {unit.grade || cardConditionLabel(unit.condition)}
-                          {unit.gradingService
-                            ? ` (${unit.gradingService.toUpperCase()})`
-                            : ""}
-                          {unit.certNumber ? ` · #${unit.certNumber}` : ""}
-                          {unit.count > 1 ? ` ×${unit.count}` : ""}
-                          <span style={{ opacity: 0.6 }}> — {unit.status}</span>
-                        </li>
+                      {card.stockUnits.map((unit) => (
+                        <AdminStockUnitRow key={unit.id} unit={unit} />
                       ))}
                     </ul>
                   </div>
