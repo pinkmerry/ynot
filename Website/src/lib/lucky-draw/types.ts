@@ -64,6 +64,7 @@ export type ChaseCard = FeaturedCard & {
 export type CardCatalogItem = Required<Pick<FeaturedCard, "catalogCardId">> &
   Omit<FeaturedCard, "catalogCardId"> & {
     modelCode?: string;
+    cardNumber?: string | null;
     language?: "english" | "japanese" | "chinese" | null;
     releaseYear?: number | null;
     cardSet?: string | null;

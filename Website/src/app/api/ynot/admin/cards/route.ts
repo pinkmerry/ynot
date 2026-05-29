@@ -19,6 +19,7 @@ type CardBody = {
   cardId?: unknown;
   modelCode?: unknown;
   code?: unknown;
+  cardNumber?: unknown;
   name?: unknown;
   series?: unknown;
   grade?: unknown;
@@ -179,6 +180,9 @@ function cardPatch(
     const code = cardCode(body.modelCode ?? body.code);
     patch.card_code = code;
     patch.search_code = code?.toLowerCase() ?? null;
+  }
+  if (!partial || body.cardNumber !== undefined) {
+    patch.card_number = text(body.cardNumber, 80) || null;
   }
   if (!partial || body.name !== undefined) {
     const name = text(body.name) || "Untitled Card";

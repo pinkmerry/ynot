@@ -6325,6 +6325,7 @@ export function AdminCardForm({
 }) {
   const router = useRouter();
   const [code, setCode] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
   const [name, setName] = useState("");
   const [series, setSeries] = useState<"pokemon" | "one_piece">("pokemon");
   const [language, setLanguage] = useState<CardLanguage | "">("");
@@ -6397,6 +6398,7 @@ export function AdminCardForm({
         }
         const payload = await postJson("/api/ynot/admin/cards", {
           modelCode: code,
+          cardNumber: cardNumber || null,
           name,
           series,
           language: language || null,
@@ -6494,6 +6496,14 @@ export function AdminCardForm({
                   value={code}
                   onChange={(event) => setCode(event.target.value)}
                   placeholder="OP-PSA10-001"
+                />
+              </AdminField>
+              <AdminField label="Card number">
+                <input
+                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                  value={cardNumber}
+                  onChange={(event) => setCardNumber(event.target.value)}
+                  placeholder="057 or #057/204"
                 />
               </AdminField>
               <AdminField label="Language">
@@ -7239,6 +7249,7 @@ function adminCardCatalogRowSearchText(row: AdminCardCatalogRow) {
   return [
     card.code,
     card.modelCode,
+    card.cardNumber,
     card.name,
     card.grade,
     card.series,
@@ -7323,6 +7334,7 @@ function adminCardApiRowToCatalogItem(
     catalogCardId: row.id,
     code: row.card_code ?? undefined,
     modelCode: row.card_code ?? undefined,
+    cardNumber: row.card_number,
     name: row.name,
     searchName: row.search_name,
     searchCode: row.search_code,
@@ -8376,6 +8388,7 @@ function AdminCardEditModal({
 }) {
   const [name, setName] = useState(card.name);
   const [code, setCode] = useState(card.modelCode ?? card.code ?? "");
+  const [cardNumber, setCardNumber] = useState(card.cardNumber ?? "");
   const [series, setSeries] = useState<"pokemon" | "one_piece">(
     card.series === "Pokemon" ? "pokemon" : "one_piece",
   );
@@ -8448,6 +8461,7 @@ function AdminCardEditModal({
           cardId: card.catalogCardId,
           name: name.trim() || card.name,
           modelCode: code.trim() || null,
+          cardNumber: cardNumber.trim() || null,
           series,
           language: language || null,
           releaseYear: releaseYear || null,
@@ -8511,6 +8525,10 @@ function AdminCardEditModal({
             <label className="admin-field">
               <span>Model code</span>
               <input value={code} onChange={(e) => setCode(e.target.value)} disabled={pending} />
+            </label>
+            <label className="admin-field">
+              <span>Card number</span>
+              <input value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} disabled={pending} />
             </label>
             <label className="admin-field">
               <span>Series</span>

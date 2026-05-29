@@ -327,6 +327,7 @@ export type Database = {
         Row: {
           id: string;
           card_code: string | null;
+          card_number: string | null;
           name: string;
           search_name: string;
           search_code: string | null;
@@ -355,6 +356,7 @@ export type Database = {
         Insert: {
           id?: string;
           card_code?: string | null;
+          card_number?: string | null;
           name: string;
           search_name: string;
           search_code?: string | null;

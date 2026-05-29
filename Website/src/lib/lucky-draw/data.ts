@@ -155,6 +155,7 @@ function toCatalogItem(row: CardRow): CardCatalogItem {
     catalogCardId: row.id,
     code: row.card_code ?? undefined,
     modelCode: row.card_code ?? undefined,
+    cardNumber: row.card_number,
     name: row.name,
     searchName: row.search_name,
     searchCode: row.search_code,
