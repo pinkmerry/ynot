@@ -26280,12 +26280,27 @@ html[data-ynot-theme] .admin-frame .admin-prize-catalog-card .admin-card-catalog
   text-transform: uppercase;
 }
 
-/* Match the reference's compact 36px (h-9) field controls. */
+/* Unify every field control in the create modal to the Set/Variant dropdown
+   design — same height, fill, border, radius (36px / h-9, reference look). */
 html[data-ynot-theme] .admin-frame .admin-prize-create-modal-body .admin-field > input,
 html[data-ynot-theme] .admin-frame .admin-prize-create-modal-body .admin-field > select,
 html[data-ynot-theme] .admin-frame .admin-prize-create-modal-body .admin-option-select-trigger {
+  background: rgba(0, 0, 0, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px !important;
+  color: var(--a-fg, #f4efe1) !important;
   height: 2.25rem !important;
   min-height: 0 !important;
+  padding: 0 12px !important;
+}
+html[data-ynot-theme] .admin-frame .admin-prize-create-modal-body .admin-field > input:hover,
+html[data-ynot-theme] .admin-frame .admin-prize-create-modal-body .admin-field > select:hover,
+html[data-ynot-theme] .admin-frame .admin-prize-create-modal-body .admin-option-select-trigger:hover {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+html[data-ynot-theme] .admin-frame .admin-prize-create-modal-body .admin-field > input:focus,
+html[data-ynot-theme] .admin-frame .admin-prize-create-modal-body .admin-field > select:focus {
+  border-color: rgba(244, 197, 66, 0.45) !important;
 }
 
 /* ── Searchable / creatable option dropdown (Set, Variant) ── */
