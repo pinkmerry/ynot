@@ -6421,10 +6421,8 @@ export function AdminCardForm({
           </p>
         </div>
         <div className="admin-form-grid">
-            <AdminField
-              label="SKU"
-              hint="Optional stable product code (SKU). Use it when replacing a specific card; duplicate names must resolve to one existing card."
-            >
+            <AdminField label="SKU">
+
           <input
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={code}
