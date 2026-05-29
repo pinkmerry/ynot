@@ -20,6 +20,8 @@ type UnitBody = {
   gradingService?: unknown;
   certNumber?: unknown;
   gemrateId?: unknown;
+  imageUrl?: unknown;
+  imageStoragePath?: unknown;
 };
 
 async function guard(request: Request) {
@@ -69,6 +71,8 @@ export async function PATCH(request: Request) {
     cert_number: text(body?.certNumber, 60) || null,
     gemrate_id: text(body?.gemrateId, 60) || null,
     grading_service: GRADING_SERVICES.has(gradingRaw) ? gradingRaw : null,
+    image_url: text(body?.imageUrl, 600) || null,
+    image_storage_path: text(body?.imageStoragePath, 400) || null,
   };
   if (CONDITIONS.has(conditionRaw)) patch.condition = conditionRaw;
 

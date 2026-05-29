@@ -1763,6 +1763,7 @@ export async function getCollection(
       condition: string | null;
       gradingService: string | null;
       certNumber: string | null;
+      imageUrl: string | null;
     }
   >();
   const collectionItemIds = items
@@ -1796,7 +1797,7 @@ export async function getCollection(
       const units = await readOrEmpty("collection_stock_units", async () => {
         const { data, error } = await supabase
           .from("card_stock_units")
-          .select("id,grade,condition,grading_service,cert_number")
+          .select("id,grade,condition,grading_service,cert_number,image_url")
           .in("id", stockUnitIds);
         if (error) throw error;
         return data ?? [];
@@ -1810,6 +1811,7 @@ export async function getCollection(
             condition: unit.condition ?? null,
             gradingService: unit.grading_service ?? null,
             certNumber: unit.cert_number ?? null,
+            imageUrl: unit.image_url ?? null,
           });
         }
       }
@@ -1845,7 +1847,7 @@ export async function getCollection(
       cardCertNumber: wonUnit?.certNumber ?? card?.certNumber ?? null,
       cardPrizeCategory: card?.prizeCategory ?? null,
       cardSeries: card?.series ?? null,
-      imageUrl: card?.photoUrl,
+      imageUrl: wonUnit?.imageUrl ?? card?.photoUrl,
       status: item.status,
       serialNo: item.serial_no,
       acquiredAt: item.acquired_at,
@@ -2246,6 +2248,7 @@ export async function getAdminCards() {
         gradingService: string | null;
         certNumber: string | null;
         gemrateId: string | null;
+        imageUrl: string | null;
         status: string;
       }>
     >();
@@ -2254,7 +2257,7 @@ export async function getAdminCards() {
         const { data, error } = await supabase
           .from("card_stock_units")
           .select(
-            "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,status",
+            "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status",
           )
           .in("card_id", cardIds)
           .neq("status", "deleted")
@@ -2272,6 +2275,7 @@ export async function getAdminCards() {
             gradingService: unit.grading_service,
             certNumber: unit.cert_number,
             gemrateId: unit.gemrate_id,
+            imageUrl: unit.image_url,
             status: unit.status,
           });
           unitsByCard.set(unit.card_id, list);

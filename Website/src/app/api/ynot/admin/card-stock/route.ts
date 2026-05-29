@@ -27,6 +27,8 @@ type CardStockBody = {
   gradingService?: unknown;
   certNumber?: unknown;
   gemrateId?: unknown;
+  imageUrl?: unknown;
+  imageStoragePath?: unknown;
 };
 
 function text(value: unknown, max = 160) {
@@ -88,6 +90,9 @@ export async function POST(request: Request) {
   const grade = delta > 0 ? text(body?.grade, 40) || null : null;
   const certNumber = delta > 0 ? text(body?.certNumber, 60) || null : null;
   const gemrateId = delta > 0 ? text(body?.gemrateId, 60) || null : null;
+  const imageUrl = delta > 0 ? text(body?.imageUrl, 600) || null : null;
+  const imageStoragePath =
+    delta > 0 ? text(body?.imageStoragePath, 400) || null : null;
 
   // A cert pins one physical slab; reject bulk-with-cert before hitting the RPC.
   if (certNumber && delta !== 1) {
@@ -114,6 +119,8 @@ export async function POST(request: Request) {
     p_grading_service: gradingService,
     p_cert_number: certNumber,
     p_gemrate_id: gemrateId,
+    p_image_url: imageUrl,
+    p_image_storage_path: imageStoragePath,
   });
 
   if (error) {
