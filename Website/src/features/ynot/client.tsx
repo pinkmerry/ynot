@@ -7242,6 +7242,51 @@ export function AdminCardCatalogPanel({
                   </div>
                 </div>
 
+                {card.stockUnits && card.stockUnits.length > 0 ? (
+                  <div
+                    className="admin-card-stock-breakdown"
+                    style={{
+                      marginTop: 8,
+                      padding: "8px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      background: "rgba(255,255,255,0.03)",
+                    }}
+                  >
+                    <span
+                      className="admin-muted-line"
+                      style={{ fontSize: 11, letterSpacing: "0.08em" }}
+                    >
+                      Graded / sealed units
+                    </span>
+                    <ul
+                      style={{
+                        margin: "4px 0 0",
+                        padding: 0,
+                        listStyle: "none",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                      }}
+                    >
+                      {card.stockUnits.map((unit, index) => (
+                        <li
+                          key={`${unit.certNumber ?? unit.grade ?? unit.condition}-${unit.status}-${index}`}
+                          style={{ fontSize: 13 }}
+                        >
+                          {unit.grade || cardConditionLabel(unit.condition)}
+                          {unit.gradingService
+                            ? ` (${unit.gradingService.toUpperCase()})`
+                            : ""}
+                          {unit.certNumber ? ` · #${unit.certNumber}` : ""}
+                          {unit.count > 1 ? ` ×${unit.count}` : ""}
+                          <span style={{ opacity: 0.6 }}> — {unit.status}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
                 <div className="admin-card-stock-actions">
                   {currentStockDraft ? (
                     <div className="admin-stock-confirm">
