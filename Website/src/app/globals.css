@@ -26492,6 +26492,44 @@ html[data-ynot-theme] .admin-frame .admin-option-select .admin-option-select-sea
   background: rgba(255, 255, 255, 0.1);
   color: var(--a-fg, #f4efe1);
 }
+/* Defeat any inherited button/field theming inside the popover: keep option
+   rows left-aligned, compact and borderless, with correctly-sized icons. */
+html[data-ynot-theme] .admin-frame .admin-option-select-popover .admin-option-select-option {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  display: flex !important;
+  height: auto !important;
+  justify-content: flex-start !important;
+  letter-spacing: normal !important;
+  min-height: 0 !important;
+  text-align: left !important;
+  text-transform: none !important;
+}
+html[data-ynot-theme] .admin-frame .admin-option-select-popover .admin-option-select-icon {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  box-shadow: none !important;
+  flex: 0 0 auto !important;
+  height: 28px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  width: 28px !important;
+}
+html[data-ynot-theme] .admin-frame .admin-option-select-popover .admin-option-select-icon:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+html[data-ynot-theme] .admin-frame .admin-option-select-popover svg {
+  flex: 0 0 auto !important;
+  height: 14px !important;
+  width: 14px !important;
+}
+html[data-ynot-theme] .admin-frame .admin-option-select-popover .admin-option-select-check {
+  height: 14px !important;
+  width: 14px !important;
+}
 .admin-frame .admin-option-select-icon.is-danger:hover {
   background: rgba(240, 90, 108, 0.16);
   color: #ff8a98;

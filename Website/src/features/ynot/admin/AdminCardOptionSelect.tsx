@@ -77,9 +77,9 @@ export function AdminCardOptionSelect({
 
   const trimmedQuery = query.trim();
   const lowerQuery = trimmedQuery.toLowerCase();
-  const filtered = options.filter((option) =>
-    option.name.toLowerCase().includes(lowerQuery),
-  );
+  const filtered = options
+    .filter((option) => option.name.toLowerCase().includes(lowerQuery))
+    .filter((option) => option.name !== value);
   const exactExists = options.some(
     (option) => option.name.toLowerCase() === lowerQuery,
   );
@@ -192,6 +192,25 @@ export function AdminCardOptionSelect({
           </div>
 
           <div className="admin-option-select-list">
+            {value && (
+              <>
+                <p className="admin-option-select-group">Selected</p>
+                <div className="admin-option-select-row">
+                  <button
+                    type="button"
+                    className="admin-option-select-option"
+                    onClick={() => selectOption(value)}
+                  >
+                    <span className="admin-option-select-check" aria-hidden="true">
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 8.5l3.5 3.5 6.5-7" />
+                      </svg>
+                    </span>
+                    {value}
+                  </button>
+                </div>
+              </>
+            )}
             {filtered.length > 0 && (
               <p className="admin-option-select-group">Existing</p>
             )}
@@ -292,7 +311,7 @@ export function AdminCardOptionSelect({
               </button>
             )}
 
-            {loaded && !filtered.length && !trimmedQuery && (
+            {loaded && !options.length && !trimmedQuery && (
               <p className="admin-option-select-empty">No options yet — type to create one.</p>
             )}
             {!loaded && (
