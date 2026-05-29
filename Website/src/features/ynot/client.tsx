@@ -6447,7 +6447,7 @@ export function AdminCardForm({
           <section className="admin-form-section">
             <p className="admin-form-section-label">Basic</p>
             <div className="admin-form-grid">
-              <AdminField label="Card name" required>
+              <AdminField label="Product name" required>
                 <input
                   className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
                   value={name}
@@ -6455,7 +6455,7 @@ export function AdminCardForm({
                   placeholder="Kaya, Charizard, booster box, or supplies"
                 />
               </AdminField>
-              <AdminField label="Catalog series">
+              <AdminField label="Brands" required>
                 <select
                   className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
                   value={series}
@@ -6467,7 +6467,7 @@ export function AdminCardForm({
                   <option value="one_piece">One Piece</option>
                 </select>
               </AdminField>
-              <AdminField label="Prize catalog">
+              <AdminField label="Sub-category" required>
                 <select
                   className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
                   value={catalogCategory}
@@ -6488,7 +6488,7 @@ export function AdminCardForm({
           <section className="admin-form-section">
             <p className="admin-form-section-label">Details</p>
             <div className="admin-form-grid">
-              <AdminField label="SKU">
+              <AdminField label="Model code">
                 <input
                   className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
                   value={code}
@@ -8509,7 +8509,7 @@ function AdminCardEditModal({
               <input value={name} onChange={(e) => setName(e.target.value)} disabled={pending} />
             </label>
             <label className="admin-field">
-              <span>SKU</span>
+              <span>Model code</span>
               <input value={code} onChange={(e) => setCode(e.target.value)} disabled={pending} />
             </label>
             <label className="admin-field">
