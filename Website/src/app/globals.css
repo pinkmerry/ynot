@@ -25752,6 +25752,21 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
 .admin-frame .admin-prize-create-btn svg {
   opacity: 0.85;
 }
+/* The page head bottom-aligns its actions, which drops these buttons to the
+   description line. Pull them up to the "Prize catalog" title row and size them
+   to the heading's height so they read as part of that row. Scoped with :has()
+   so other admin pages keep the default alignment. */
+.admin-frame .a-page-actions:has(.admin-prize-create-actions) {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+.admin-frame .admin-prize-create-actions {
+  display: flex;
+  gap: 8px;
+}
+.admin-frame .admin-prize-create-actions .admin-prize-create-btn {
+  min-height: 33px;
+}
 
 /* Cards */
 .admin-frame .card {

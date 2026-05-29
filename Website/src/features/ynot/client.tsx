@@ -6233,22 +6233,24 @@ export function AdminPrizeCreateActions({
 
   return (
     <>
-      <button
-        type="button"
-        className="admin-prize-create-btn"
-        onClick={() => setOpenModal("card")}
-      >
-        <AdminIcon name="plus" size={14} />
-        Add card
-      </button>
-      <button
-        type="button"
-        className="admin-prize-create-btn"
-        onClick={() => setOpenModal("stock")}
-      >
-        <AdminIcon name="plus" size={14} />
-        Add stock
-      </button>
+      <div className="admin-prize-create-actions">
+        <button
+          type="button"
+          className="admin-prize-create-btn"
+          onClick={() => setOpenModal("card")}
+        >
+          <AdminIcon name="plus" size={14} />
+          Add card
+        </button>
+        <button
+          type="button"
+          className="admin-prize-create-btn"
+          onClick={() => setOpenModal("stock")}
+        >
+          <AdminIcon name="plus" size={14} />
+          Add stock
+        </button>
+      </div>
 
       {openModal && (
         <div
