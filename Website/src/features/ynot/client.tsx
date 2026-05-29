@@ -7377,9 +7377,20 @@ function AdminCatalogFilterSection({
       >
         <span className="catalog-filter-section-label">{label}</span>
         <span className="catalog-filter-section-summary">{summary}</span>
-        <span className="catalog-filter-section-chevron" aria-hidden="true">
-          ›
-        </span>
+        <svg
+          className="catalog-filter-section-chevron"
+          width="13"
+          height="13"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M6 4l4 4-4 4" />
+        </svg>
       </button>
       {expanded && (
         <div className="catalog-filter-section-body">{children}</div>
@@ -7719,7 +7730,23 @@ export function AdminCardCatalogPanel({
       <div className="admin-card-catalog-shell">
         <aside className="admin-card-catalog-filters" aria-label="Catalog filters">
           <header className="admin-card-catalog-filters-head">
-            <div>
+            <span className="admin-card-catalog-filters-icon" aria-hidden="true">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              >
+                <path d="M2 4.5h7M12 4.5h2" />
+                <path d="M2 11.5h3M9 11.5h5" />
+                <circle cx="9.5" cy="4.5" r="1.7" />
+                <circle cx="6.5" cy="11.5" r="1.7" />
+              </svg>
+            </span>
+            <div className="admin-card-catalog-filters-head-text">
               <p className="section-label">Filters</p>
               <p className="admin-muted-line">Refine catalog</p>
             </div>

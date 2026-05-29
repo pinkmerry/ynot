@@ -29269,9 +29269,24 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-filters-head {
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   display: flex;
-  gap: 10px;
-  justify-content: space-between;
-  padding: 14px 16px;
+  gap: 11px;
+  padding: 16px 16px 15px;
+}
+html[data-ynot-theme] .admin-frame .admin-card-catalog-filters-icon {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: var(--a-fg, #f4efe1);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+html[data-ynot-theme] .admin-frame .admin-card-catalog-filters-head-text {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 html[data-ynot-theme] .admin-frame .admin-card-catalog-filters-head .section-label {
   margin: 0;
@@ -29308,7 +29323,7 @@ html[data-ynot-theme] .admin-frame .catalog-filter-section-head {
   cursor: pointer;
   display: flex;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 15px 16px;
   width: 100%;
 }
 html[data-ynot-theme] .admin-frame .catalog-filter-section-head:hover {
@@ -29333,13 +29348,11 @@ html[data-ynot-theme] .admin-frame .catalog-filter-section-summary {
 }
 html[data-ynot-theme] .admin-frame .catalog-filter-section-chevron {
   color: var(--a-muted, #9b9daf);
-  font-size: 1.1rem;
-  line-height: 1;
-  transform: rotate(90deg);
+  flex: 0 0 auto;
   transition: transform 0.15s ease;
 }
 html[data-ynot-theme] .admin-frame .catalog-filter-section.is-open .catalog-filter-section-chevron {
-  transform: rotate(-90deg);
+  transform: rotate(90deg);
 }
 html[data-ynot-theme] .admin-frame .catalog-filter-section-body {
   display: flex;
