@@ -4,6 +4,18 @@ import { useEffect, useRef, useState } from "react";
 
 export type AdminSearchableOption = { value: string; label: string };
 
+const OPTION_STYLE: React.CSSProperties = {
+  alignItems: "center",
+  background: "transparent",
+  border: 0,
+  borderRadius: 8,
+  display: "flex",
+  gap: 8,
+  justifyContent: "flex-start",
+  textAlign: "left",
+  width: "100%",
+};
+
 /**
  * Static searchable dropdown — same look as AdminCardOptionSelect (search box,
  * Selected/Existing groups) but read-only: pick from a fixed list, no
@@ -103,6 +115,7 @@ export function AdminSearchableSelect({
                   <button
                     type="button"
                     className="admin-option-select-option"
+                    style={OPTION_STYLE}
                     onClick={() => select(selected.value)}
                   >
                     <span className="admin-option-select-check" aria-hidden="true">
@@ -123,6 +136,7 @@ export function AdminSearchableSelect({
                 <button
                   type="button"
                   className="admin-option-select-option"
+                  style={OPTION_STYLE}
                   onClick={() => select(option.value)}
                 >
                   <span className="admin-option-select-check" aria-hidden="true" />
