@@ -6435,14 +6435,6 @@ export function AdminCardForm({
 
   return (
       <section className="admin-panel admin-form-panel soft-card">
-        <div className="admin-form-head">
-          <span>Prize catalog</span>
-          <h3>Create or update card catalog item</h3>
-          <p>
-            Add card identity, language, product type, condition, grading, and
-            image details before using the item in the random pack prize builder.
-          </p>
-        </div>
         <div className="admin-form-sections">
           <section className="admin-form-section">
             <p className="admin-form-section-label">Basic</p>
