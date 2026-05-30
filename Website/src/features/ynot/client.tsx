@@ -26,6 +26,7 @@ import type { YnotViewer } from "./types";
 import { AdminFrame } from "./admin/Shell";
 import { AdminIcon } from "./admin/Icon";
 import { AdminCardOptionSelect } from "./admin/AdminCardOptionSelect";
+import { AdminSearchableSelect } from "./admin/AdminSearchableSelect";
 import { GachaRevealOverlay } from "./GachaRevealOverlay";
 import {
   adminCardDuplicateUsage,
@@ -6773,19 +6774,16 @@ export function AdminCardStockUnitForm({
     <section className="admin-panel admin-form-panel soft-card">
       <div className="admin-form-grid">
         <AdminField label="Product card" required>
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+          <AdminSearchableSelect
             value={cardId}
-            onChange={(event) => setCardId(event.target.value)}
-          >
-            <option value="">-- Select product --</option>
-            {cards.map((card) => (
-              <option key={card.catalogCardId} value={card.catalogCardId}>
-                {card.name}
-                {card.code ? ` (${card.code})` : ""}
-              </option>
-            ))}
-          </select>
+            onChange={setCardId}
+            placeholder="Select product…"
+            searchPlaceholder="Search product…"
+            options={cards.map((card) => ({
+              value: card.catalogCardId,
+              label: `${card.name}${card.code ? ` (${card.code})` : ""}`,
+            }))}
+          />
         </AdminField>
         <AdminField label="Condition">
           <select
