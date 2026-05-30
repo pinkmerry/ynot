@@ -6342,6 +6342,9 @@ export function AdminCardForm({
   const [assetSource, setAssetSource] = useState("");
   const [assetLicense, setAssetLicense] = useState("");
   const [assetManifestKey, setAssetManifestKey] = useState("");
+  const [psaCert, setPsaCert] = useState("");
+  const [filling, setFilling] = useState(false);
+  const [fillError, setFillError] = useState("");
   const imagePreviewObjectUrlRef = useRef<string | null>(null);
   const [overwriteConfirmedForCardId, setOverwriteConfirmedForCardId] =
     useState<string | null>(null);
@@ -6434,9 +6437,79 @@ export function AdminCardForm({
     });
   }
 
+  async function fillFromCert() {
+    const cert = psaCert.trim();
+    if (!cert || filling) return;
+    setFilling(true);
+    setFillError("");
+    try {
+      const response = await fetch("/api/ynot/admin/gemrate-cert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cert, grader: "psa" }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setFillError(data?.error || "Cert lookup failed.");
+        return;
+      }
+      const draft = data?.lookup?.productDraft;
+      if (!draft) {
+        setFillError("No card details found for this cert.");
+        return;
+      }
+      if (draft.productName) setName(draft.productName);
+      if (draft.brandName) {
+        const brand = String(draft.brandName).toLowerCase();
+        if (brand.includes("pokemon")) setSeries("pokemon");
+        else if (brand.includes("one piece")) setSeries("one_piece");
+      }
+      if (draft.languageName) setLanguage(draft.languageName);
+      if (draft.releaseYear) setReleaseYear(String(draft.releaseYear));
+      if (draft.setName) setCardSet(draft.setName);
+      if (draft.modelCode) setCardNumber(draft.modelCode);
+      if (draft.variant) setVariant(draft.variant);
+    } catch {
+      setFillError("Could not look up this cert.");
+    } finally {
+      setFilling(false);
+    }
+  }
+
   return (
       <section className="admin-panel admin-form-panel soft-card">
         <div className="admin-form-sections">
+          <section className="admin-form-section">
+            <p className="admin-form-section-label">Import</p>
+            <div className="admin-field admin-field-wide">
+              <span>PSA cert</span>
+              <div className="admin-cert-fill">
+                <input
+                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                  value={psaCert}
+                  onChange={(event) => setPsaCert(event.target.value)}
+                  placeholder="Enter PSA cert to fill product"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void fillFromCert();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="admin-cert-fill-btn"
+                  onClick={() => void fillFromCert()}
+                  disabled={filling || !psaCert.trim()}
+                >
+                  {filling ? "Filling…" : "Fill"}
+                </button>
+              </div>
+              {fillError && (
+                <small style={{ color: "#ff8a98" }}>{fillError}</small>
+              )}
+            </div>
+          </section>
           <section className="admin-form-section">
             <p className="admin-form-section-label">Basic</p>
             <div className="admin-form-grid">
