@@ -28289,7 +28289,7 @@ html[data-ynot-theme] .admin-frame .owner-approval-card :where(.owner-approval-c
 .admin-frame .admin-pack-table-action,
 .admin-frame .admin-pack-table-bulk-action,
 .admin-frame button.admin-action,
-.admin-frame button[type="button"]:not(.a-nav):not(.a-icon-btn),
+.admin-frame button[type="button"]:not(.a-nav):not(.a-icon-btn):not(.admin-option-select-option):not(.admin-option-select-icon):not(.admin-option-select-create):not(.admin-option-select-trigger),
 .admin-frame button[type="submit"] {
   min-height: var(--a-control-h) !important;
   height: var(--a-control-h) !important;
