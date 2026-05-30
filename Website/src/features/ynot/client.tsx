@@ -6290,11 +6290,12 @@ export function AdminPrizeCreateActions({
               <h2 className="admin-modal-title" style={{ color: "#fff" }}>
                 {openModal === "card" ? "Create catalog item" : "Add stock units"}
               </h2>
-              <p className="admin-modal-subtitle">
-                {openModal === "card"
-                  ? "Add card identity, language, product type, condition, grading, and image details before using the item in the random pack prize builder."
-                  : "Add physical stock units to an existing catalog product. Each unit can carry its own grade, cert, and image."}
-              </p>
+              {openModal === "stock" && (
+                <p className="admin-modal-subtitle">
+                  Add physical stock units to an existing catalog product. Each
+                  unit can carry its own grade, cert, and image.
+                </p>
+              )}
             </header>
             <div
               className="admin-prize-create-modal-body"
