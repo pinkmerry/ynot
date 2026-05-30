@@ -6646,55 +6646,6 @@ export function AdminCardForm({
               </div>
             </div>
           </section>
-
-          <section className="admin-form-section">
-            <p className="admin-form-section-label">Metadata</p>
-            <div className="admin-form-grid">
-              <label className="admin-field">
-                <span>Test asset</span>
-                <span style={{ alignItems: "center", display: "flex", gap: 8 }}>
-                  <input
-                    checked={isTest}
-                    onChange={(event) => setIsTest(event.target.checked)}
-                    type="checkbox"
-                  />
-                  Mark as test-only catalog data
-                </span>
-              </label>
-              <AdminField label="Seed run ID">
-                <input
-                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-                  value={seedRunId}
-                  onChange={(event) => setSeedRunId(event.target.value)}
-                  placeholder="optional-import-run"
-                />
-              </AdminField>
-              <AdminField label="Asset source">
-                <input
-                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-                  value={assetSource}
-                  onChange={(event) => setAssetSource(event.target.value)}
-                  placeholder="Generated original art, licensed source, or storage copy"
-                />
-              </AdminField>
-              <AdminField label="Asset license">
-                <input
-                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-                  value={assetLicense}
-                  onChange={(event) => setAssetLicense(event.target.value)}
-                  placeholder="Owned, generated, licensed, or internal test"
-                />
-              </AdminField>
-              <AdminField label="Asset manifest key">
-                <input
-                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-                  value={assetManifestKey}
-                  onChange={(event) => setAssetManifestKey(event.target.value)}
-                  placeholder="test-assets/card-manifest-key"
-                />
-              </AdminField>
-            </div>
-          </section>
         </div>
       {duplicateCard && duplicateUsage && (
         <DuplicateCardCaution
