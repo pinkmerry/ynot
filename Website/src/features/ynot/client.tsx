@@ -6290,12 +6290,6 @@ export function AdminPrizeCreateActions({
               <h2 className="admin-modal-title" style={{ color: "#fff" }}>
                 {openModal === "card" ? "Create catalog item" : "Add stock units"}
               </h2>
-              {openModal === "stock" && (
-                <p className="admin-modal-subtitle">
-                  Add physical stock units to an existing catalog product. Each
-                  unit can carry its own grade, cert, and image.
-                </p>
-              )}
             </header>
             <div
               className="admin-prize-create-modal-body"
@@ -6777,14 +6771,6 @@ export function AdminCardStockUnitForm({
 
   return (
     <section className="admin-panel admin-form-panel soft-card">
-      <div className="admin-form-head">
-        <span>Stock</span>
-        <h3>Add stock units</h3>
-        <p>
-          Attach physical units to a product. Graded slabs get a unique cert
-          (one at a time); raw / sealed are added as a quantity.
-        </p>
-      </div>
       <div className="admin-form-grid">
         <AdminField label="Product card" required>
           <select
