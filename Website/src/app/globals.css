@@ -26538,6 +26538,7 @@ html[data-ynot-theme] .admin-frame .admin-option-select .admin-option-select-sea
    Uses the full html[lang][data-ynot-theme][data-ynot-language][class] body
    prefix so it out-specifies the global admin button styling. */
 html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .admin-option-select-popover .admin-option-select-option {
+  align-items: center !important;
   background: transparent !important;
   border: 0 !important;
   border-radius: 8px !important;
@@ -26549,6 +26550,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .admin-
   min-height: 0 !important;
   text-align: left !important;
   text-transform: none !important;
+  width: 100% !important;
 }
 html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame .admin-option-select-popover .admin-option-select-icon {
   background: transparent !important;
