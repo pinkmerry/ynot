@@ -21519,11 +21519,14 @@ html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="
 
 .pack-open-aura {
   position: absolute;
+  top: 50%;
+  left: 50%;
   width: 86%;
   aspect-ratio: 1;
   border-radius: 999px;
   background: rgba(210, 222, 204, 0.56);
   filter: blur(34px);
+  translate: -50% -50%;
   transform: translateY(18%);
   transition:
     opacity 0.42s ease,
@@ -21534,13 +21537,18 @@ html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="
 .pack-open-pack-shell,
 .pack-open-card-wrap {
   position: absolute;
+  top: 50%;
+  left: 50%;
   width: min(82%, 360px);
   aspect-ratio: 896 / 1200;
+  translate: -50% -50%;
   transform-style: preserve-3d;
 }
 
 .pack-open-cutout-motion {
   position: absolute;
+  top: 50%;
+  left: 50%;
   z-index: 5;
   width: min(82%, 360px);
   aspect-ratio: 830 / 1110;
@@ -21551,6 +21559,7 @@ html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="
   user-select: none;
   -webkit-user-drag: none;
   backface-visibility: hidden;
+  translate: -50% -50%;
   transform: translate3d(0, 0, 0);
   animation: packCutoutMotion var(--open-duration-base) linear forwards;
 }
@@ -21703,9 +21712,12 @@ html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="
 .pack-open-scanline,
 .pack-open-flash {
   position: absolute;
+  top: 50%;
+  left: 50%;
   z-index: 3;
   pointer-events: none;
   opacity: 0;
+  translate: -50% -50%;
 }
 
 .pack-open-slot {
