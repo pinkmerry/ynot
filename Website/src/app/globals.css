@@ -23102,6 +23102,48 @@ html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="
   min-height: 390px;
 }
 
+.gacha-reveal-pack-motion-layer {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.gacha-reveal-pack-motion-layer-cutout {
+  z-index: 5;
+  width: min(82%, 360px);
+  aspect-ratio: 830 / 1110;
+}
+
+.gacha-reveal-pack-motion-layer-shell {
+  z-index: 2;
+  width: min(82%, 360px);
+  aspect-ratio: 896 / 1200;
+}
+
+.gacha-reveal-pack-motion-layer-card {
+  z-index: 4;
+  width: min(58%, 260px);
+  aspect-ratio: 727 / 1217;
+}
+
+.gacha-reveal-pack-motion .gacha-reveal-pack-motion-layer .pack-open-cutout-motion,
+.gacha-reveal-pack-motion .gacha-reveal-pack-motion-layer .pack-open-pack-shell,
+.gacha-reveal-pack-motion .gacha-reveal-pack-motion-layer .pack-open-card-wrap {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 100%;
+  translate: none;
+}
+
+.gacha-reveal-pack-motion .gacha-reveal-pack-motion-layer .pack-open-cutout-motion {
+  height: auto;
+}
+
 .gacha-reveal-pack-motion .pack-open-pack-shell {
   width: min(82%, 360px);
 }
@@ -23140,6 +23182,15 @@ html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="
     width: 100%;
     height: min(66dvh, 560px);
     min-height: 390px;
+  }
+
+  .gacha-reveal-pack-motion-layer-cutout,
+  .gacha-reveal-pack-motion-layer-shell {
+    width: min(76vw, 312px);
+  }
+
+  .gacha-reveal-pack-motion-layer-card {
+    width: min(66vw, 270px);
   }
 
   .gacha-reveal-pack-motion .pack-open-pack-shell {

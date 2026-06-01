@@ -292,36 +292,42 @@ export function GachaRevealOverlay({
               role="group"
               aria-label="Opening pack animation"
             >
-                <div className="pack-open-grain" aria-hidden="true" />
+              <div className="pack-open-grain" aria-hidden="true" />
               <div className="pack-open-visual gacha-reveal-pack-motion-visual">
                 <div className="pack-open-aura" aria-hidden="true" />
                 <span className="pack-open-scanline" aria-hidden="true" />
                 <span className="pack-open-flash" aria-hidden="true" />
-                <PackOpenCutoutMotionImage />
-                <div className="pack-open-pack-shell" aria-hidden="true">
-                  <div className="pack-open-pack pack-open-pack-base">
-                    <OpenPackShellImage />
+                <div className="gacha-reveal-pack-motion-layer gacha-reveal-pack-motion-layer-cutout">
+                  <PackOpenCutoutMotionImage />
+                </div>
+                <div className="gacha-reveal-pack-motion-layer gacha-reveal-pack-motion-layer-shell">
+                  <div className="pack-open-pack-shell" aria-hidden="true">
+                    <div className="pack-open-pack pack-open-pack-base">
+                      <OpenPackShellImage />
+                    </div>
+                    <div className="pack-open-pack-split pack-open-pack-top">
+                      <OpenPackShellImage />
+                    </div>
+                    <div className="pack-open-pack-split pack-open-pack-body">
+                      <OpenPackShellImage />
+                    </div>
+                    <span className="pack-open-tear" />
+                    <span className="pack-open-mouth-shadow" aria-hidden="true" />
+                    <span className="pack-open-crinkles" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                    <span className="pack-open-sheen" />
                   </div>
-                  <div className="pack-open-pack-split pack-open-pack-top">
-                    <OpenPackShellImage />
-                  </div>
-                  <div className="pack-open-pack-split pack-open-pack-body">
-                    <OpenPackShellImage />
-                  </div>
-                  <span className="pack-open-tear" />
-                  <span className="pack-open-mouth-shadow" aria-hidden="true" />
-                  <span className="pack-open-crinkles" aria-hidden="true">
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                  <span className="pack-open-sheen" />
                 </div>
                 <span className="pack-open-slot" aria-hidden="true" />
                 <span className="pack-open-burst" aria-hidden="true" />
                 <span className="pack-open-rarity-ring" aria-hidden="true" />
-                <div className="pack-open-card-wrap" aria-hidden="true">
-                  <div className="gacha-reveal-pack-light-card" />
+                <div className="gacha-reveal-pack-motion-layer gacha-reveal-pack-motion-layer-card">
+                  <div className="pack-open-card-wrap" aria-hidden="true">
+                    <div className="gacha-reveal-pack-light-card" />
+                  </div>
                 </div>
               </div>
             </div>
