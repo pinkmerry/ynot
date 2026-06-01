@@ -14238,33 +14238,29 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
 .gacha-reveal-card-frame {
   position: relative;
   aspect-ratio: 5 / 7;
+  box-sizing: border-box;
+  border: 2px solid transparent;
   border-radius: 16px;
   overflow: hidden;
-  background: #0a0a14;
+  background:
+    linear-gradient(#0a0a14, #0a0a14) padding-box,
+    var(--card-ring) border-box;
   box-shadow: 0 0 32px var(--card-glow, rgba(0, 0, 0, 0.5));
 }
 .gacha-reveal-card-frame::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 16px;
-  padding: 2px;
-  background: var(--card-ring);
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  pointer-events: none;
-  z-index: 1;
+  content: none;
 }
 .gacha-reveal-card-image {
   width: 100%;
   height: 100%;
+  border-radius: 14px;
   object-fit: cover;
   display: block;
 }
 .gacha-reveal-card-placeholder {
   width: 100%;
   height: 100%;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
