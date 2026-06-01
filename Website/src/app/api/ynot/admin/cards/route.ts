@@ -186,7 +186,15 @@ function cardPatch(
     patch.search_name = searchName(name);
   }
   if (!partial || body.series !== undefined) {
-    patch.series = enumValue(body.series, ["one_piece", "pokemon"] as const, "pokemon");
+    // Brand is free text; keep the two built-in brands as their legacy db
+    // values and store any custom brand name verbatim.
+    const brand = text(body.series, 80);
+    patch.series =
+      brand.toLowerCase() === "pokemon"
+        ? "pokemon"
+        : brand.toLowerCase() === "one piece"
+          ? "one_piece"
+          : brand || "pokemon";
   }
   if (!partial || body.grade !== undefined) {
     patch.grade = gradeValue(body.grade);

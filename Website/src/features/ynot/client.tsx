@@ -6321,7 +6321,7 @@ export function AdminCardForm({
   const [code, setCode] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [name, setName] = useState("");
-  const [series, setSeries] = useState<"pokemon" | "one_piece">("pokemon");
+  const [series, setSeries] = useState("Pokemon");
   const [language, setLanguage] = useState("");
   const [releaseYear, setReleaseYear] = useState("");
   const [cardSet, setCardSet] = useState("");
@@ -6454,11 +6454,7 @@ export function AdminCardForm({
         return;
       }
       if (draft.productName) setName(draft.productName);
-      if (draft.brandName) {
-        const brand = String(draft.brandName).toLowerCase();
-        if (brand.includes("pokemon")) setSeries("pokemon");
-        else if (brand.includes("one piece")) setSeries("one_piece");
-      }
+      if (draft.brandName) setSeries(String(draft.brandName));
       if (draft.languageName) setLanguage(draft.languageName);
       if (draft.releaseYear) setReleaseYear(String(draft.releaseYear));
       if (draft.setName) setCardSet(draft.setName);
@@ -6517,16 +6513,12 @@ export function AdminCardForm({
                 />
               </AdminField>
               <AdminField label="Brands" required>
-                <select
-                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                <AdminCardOptionSelect
+                  kind="brand"
                   value={series}
-                  onChange={(event) =>
-                    setSeries(event.target.value as "pokemon" | "one_piece")
-                  }
-                >
-                  <option value="pokemon">Pokémon</option>
-                  <option value="one_piece">One Piece</option>
-                </select>
+                  onChange={setSeries}
+                  placeholder="Select brand…"
+                />
               </AdminField>
               <AdminField label="Sub-category" required>
                 <select
@@ -7307,7 +7299,9 @@ function legacyPrizeCategoryForCatalog(category: CatalogCategory): PrizeCategory
 type AdminCardApiRow = Database["public"]["Tables"]["cards"]["Row"];
 
 function adminCardApiSeries(series: AdminCardApiRow["series"]): CardCatalogItem["series"] {
-  return series === "pokemon" ? "Pokemon" : "One Piece";
+  if (series === "pokemon") return "Pokemon";
+  if (series === "one_piece") return "One Piece";
+  return series;
 }
 
 function adminCardApiRowToCatalogItem(
@@ -8374,9 +8368,7 @@ function AdminCardEditModal({
   const [name, setName] = useState(card.name);
   const [code, setCode] = useState(card.modelCode ?? card.code ?? "");
   const [cardNumber, setCardNumber] = useState(card.cardNumber ?? "");
-  const [series, setSeries] = useState<"pokemon" | "one_piece">(
-    card.series === "Pokemon" ? "pokemon" : "one_piece",
-  );
+  const [series, setSeries] = useState(card.series ?? "Pokemon");
   const [language, setLanguage] = useState(card.language ?? "");
   const [releaseYear, setReleaseYear] = useState(
     card.releaseYear ? String(card.releaseYear) : "",
@@ -8513,17 +8505,16 @@ function AdminCardEditModal({
               <span>Card number</span>
               <input value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} disabled={pending} />
             </label>
-            <label className="admin-field">
-              <span>Series</span>
-              <select
+            <div className="admin-field">
+              <span>Brands</span>
+              <AdminCardOptionSelect
+                kind="brand"
                 value={series}
-                onChange={(e) => setSeries(e.target.value as "pokemon" | "one_piece")}
+                onChange={setSeries}
+                placeholder="Select brand…"
                 disabled={pending}
-              >
-                <option value="pokemon">Pokemon</option>
-                <option value="one_piece">One Piece</option>
-              </select>
-            </label>
+              />
+            </div>
             <div className="admin-field">
               <span>Language</span>
               <AdminCardOptionSelect

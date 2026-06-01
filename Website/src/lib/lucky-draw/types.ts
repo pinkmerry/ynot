@@ -50,7 +50,7 @@ export type FeaturedCard = {
   code?: string;
   name: string;
   grade: string;
-  series: "One Piece" | "Pokemon";
+  series: string;
   prizeCategory?: string;
   photoUrl?: string;
   photoStoragePath?: string;

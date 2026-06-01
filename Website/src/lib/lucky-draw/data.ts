@@ -142,11 +142,15 @@ function toChaseCards(value: unknown): ChaseCard[] {
 }
 
 function toAppSeries(value: CardRow["series"]): FeaturedCard["series"] {
-  return value === "pokemon" ? "Pokemon" : "One Piece";
+  if (value === "pokemon") return "Pokemon";
+  if (value === "one_piece") return "One Piece";
+  return value;
 }
 
 function fromAppSeries(value: FeaturedCard["series"]): CardRow["series"] {
-  return value === "Pokemon" ? "pokemon" : "one_piece";
+  if (value === "Pokemon") return "pokemon";
+  if (value === "One Piece") return "one_piece";
+  return value;
 }
 
 function toCatalogItem(row: CardRow): CardCatalogItem {

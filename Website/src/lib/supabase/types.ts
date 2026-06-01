@@ -326,14 +326,14 @@ export type Database = {
       card_options: {
         Row: {
           id: string;
-          kind: "set" | "variant" | "language" | "release_year";
+          kind: "set" | "variant" | "language" | "release_year" | "brand";
           name: string;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
-          kind: "set" | "variant" | "language" | "release_year";
+          kind: "set" | "variant" | "language" | "release_year" | "brand";
           name: string;
           created_at?: string;
           updated_at?: string;
@@ -349,7 +349,7 @@ export type Database = {
           name: string;
           search_name: string;
           search_code: string | null;
-          series: "one_piece" | "pokemon";
+          series: string;
           grade: string;
           prize_category: string;
           language: string | null;
@@ -378,7 +378,7 @@ export type Database = {
           name: string;
           search_name: string;
           search_code?: string | null;
-          series: "one_piece" | "pokemon";
+          series: string;
           grade: string;
           prize_category?: string;
           language?: string | null;
