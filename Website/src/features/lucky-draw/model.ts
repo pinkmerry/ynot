@@ -271,7 +271,6 @@ export const defaultFeaturedCards: FeaturedCard[] = [
   { id: "poster-pikachu", name: "Pikachu Promo", grade: "PSA 10", series: "Pokemon" },
   { id: "poster-lugia", name: "Lugia V", grade: "BGS 10", series: "Pokemon" },
   { id: "poster-rayleigh", name: "Rayleigh SP", grade: "PSA 10", series: "One Piece" },
-  { id: "poster-sabo", name: "Sabo Manga", grade: "PSA 10", series: "One Piece" },
   { id: "poster-mewtwo", name: "Mewtwo SAR", grade: "BGS 10", series: "Pokemon" },
 ];
 

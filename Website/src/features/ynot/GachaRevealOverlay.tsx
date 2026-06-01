@@ -68,6 +68,14 @@ function featuredRevealItem(items: YnotGachaOpenItem[]) {
   }, null);
 }
 
+function isUploadedQuestionPlaceholder(item: YnotGachaOpenItem | null | undefined) {
+  if (!item?.imageUrl) return false;
+  return (
+    item.name.trim().toLowerCase() === "one piece" &&
+    item.imageUrl.includes("1779995851519-c99c0801-c923-48ee-9118-3505ec2167d6-psa-10.png")
+  );
+}
+
 function PackOpenCutoutMotionImage() {
   return (
     <picture>
@@ -137,6 +145,12 @@ export function GachaRevealOverlay({
   const highestTierConfig = prizeDisplayTierConfig(highestTier);
   const tierAsset = findTierAnimation(tierAnimations, highestTier);
   const featuredItem = useMemo(() => featuredRevealItem(items), [items]);
+  const featuredItemImageUrl = isUploadedQuestionPlaceholder(featuredItem)
+    ? null
+    : featuredItem?.imageUrl;
+  const featuredPlaceholderLabel = isUploadedQuestionPlaceholder(featuredItem)
+    ? "?"
+    : highestTierConfig.shortLabel;
   const motionRarity = revealRarity(highestTier);
   const revealInstanceKey = `${result.openId}-${quantity}-${highestTier}-${items.length}`;
   const revealDurationMs = tierAsset?.videoUrl
@@ -397,15 +411,15 @@ export function GachaRevealOverlay({
             className="gacha-reveal-spotlight-card"
           >
             <div className="gacha-reveal-spotlight-frame">
-              {featuredItem?.imageUrl ? (
+              {featuredItemImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={featuredItem.imageUrl}
-                  alt={featuredItem.name}
+                  src={featuredItemImageUrl}
+                  alt={featuredItem?.name ?? "Pulled card"}
                 />
               ) : (
                 <div className="gacha-reveal-spotlight-placeholder">
-                  {highestTierConfig.shortLabel}
+                  {featuredPlaceholderLabel}
                 </div>
               )}
             </div>
@@ -426,6 +440,12 @@ export function GachaRevealOverlay({
           <ul className="gacha-reveal-grid" data-quantity={items.length}>
             {items.map((item) => {
               const tier = prizeDisplayTierConfig(item.displayTier);
+              const itemImageUrl = isUploadedQuestionPlaceholder(item)
+                ? null
+                : item.imageUrl;
+              const placeholderLabel = isUploadedQuestionPlaceholder(item)
+                ? "?"
+                : tier.shortLabel;
               return (
                 <li
                   key={item.position}
@@ -439,17 +459,17 @@ export function GachaRevealOverlay({
                   }
                 >
                   <div className="gacha-reveal-card-frame">
-                    {item.imageUrl ? (
+                    {itemImageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         className="gacha-reveal-card-image"
-                        src={item.imageUrl}
+                        src={itemImageUrl}
                         alt={item.name}
                         loading="eager"
                       />
                     ) : (
                       <div className="gacha-reveal-card-placeholder">
-                        {tier.shortLabel}
+                        {placeholderLabel}
                       </div>
                     )}
                   </div>
