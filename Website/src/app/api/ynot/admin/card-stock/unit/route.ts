@@ -65,24 +65,46 @@ export async function PATCH(request: Request) {
   }
 
   const conditionRaw = text(body?.condition, 16).toLowerCase();
+  if (!CONDITIONS.has(conditionRaw)) {
+    return Response.json(
+      { error: "Choose a valid stock condition." },
+      { status: 400 },
+    );
+  }
+  const condition = conditionRaw;
   const gradingRaw = text(body?.gradingService, 16).toLowerCase();
+  const grade = condition === "graded" ? text(body?.grade, 40) || null : null;
+  const gradingService =
+    condition === "graded" && GRADING_SERVICES.has(gradingRaw)
+      ? gradingRaw
+      : null;
+  const certNumber =
+    condition === "graded" ? text(body?.certNumber, 60) || null : null;
+  const gemrateId =
+    condition === "graded" ? text(body?.gemrateId, 60) || null : null;
+  if (condition === "graded" && (!grade || !gradingService)) {
+    return Response.json(
+      { error: "Choose a grade and grading service for graded stock." },
+      { status: 400 },
+    );
+  }
   const patch: Record<string, string | null> = {
-    grade: text(body?.grade, 40) || null,
-    cert_number: text(body?.certNumber, 60) || null,
-    gemrate_id: text(body?.gemrateId, 60) || null,
-    grading_service: GRADING_SERVICES.has(gradingRaw) ? gradingRaw : null,
+    condition,
+    grade,
+    cert_number: certNumber,
+    gemrate_id: gemrateId,
+    grading_service: gradingService,
     image_url: text(body?.imageUrl, 600) || null,
     image_storage_path: text(body?.imageStoragePath, 400) || null,
   };
-  if (CONDITIONS.has(conditionRaw)) patch.condition = conditionRaw;
 
   // A cert pins one physical slab — reject if another unit already holds it.
   const supabase = createServiceSupabaseClient();
-  if (patch.cert_number) {
+  if (certNumber) {
     const { data: clash } = await supabase
       .from("card_stock_units")
       .select("id")
-      .eq("cert_number", patch.cert_number)
+      .eq("cert_number", certNumber)
       .neq("id", unitId)
       .limit(1);
     if (clash && clash.length > 0) {

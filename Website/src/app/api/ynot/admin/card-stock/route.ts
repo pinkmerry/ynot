@@ -29,6 +29,7 @@ type CardStockBody = {
   gemrateId?: unknown;
   imageUrl?: unknown;
   imageStoragePath?: unknown;
+  stockUnitGroupKey?: unknown;
 };
 
 function text(value: unknown, max = 160) {
@@ -37,6 +38,18 @@ function text(value: unknown, max = 160) {
 
 const CONDITIONS = new Set(["sealed", "raw", "graded"]);
 const GRADING_SERVICES = new Set(["psa", "bgs", "cgc", "other"]);
+
+function groupKeyParts(groupKey: string) {
+  const [condition = "", grade = "", gradingService = "", certNumber = "", gemrateId = ""] =
+    groupKey.split("\u001f");
+  return {
+    condition: condition || "",
+    grade,
+    gradingService,
+    certNumber,
+    gemrateId,
+  };
+}
 
 function quantityDelta(value: unknown) {
   const parsed = Number(value);
@@ -79,20 +92,66 @@ export async function POST(request: Request) {
 
   const reason = text(body?.reason, 80) || "admin_adjustment";
   const sourceId = text(body?.sourceId, 120) || null;
+  const stockUnitGroupKey = text(body?.stockUnitGroupKey, 240);
+  if (delta < 0 && !stockUnitGroupKey) {
+    return Response.json(
+      { error: "Choose a stock sub-SKU before removing stock." },
+      { status: 400 },
+    );
+  }
+  const removeGroup = delta < 0 ? groupKeyParts(stockUnitGroupKey) : null;
+  if (removeGroup && !CONDITIONS.has(removeGroup.condition)) {
+    return Response.json(
+      { error: "The selected stock sub-SKU is invalid." },
+      { status: 400 },
+    );
+  }
 
-  // Unit identity only applies when adding stock (positive delta).
+  // Positive deltas create units; negative deltas must target one sub-SKU.
   const conditionRaw = text(body?.condition, 16).toLowerCase();
   const condition =
-    delta > 0 ? (CONDITIONS.has(conditionRaw) ? conditionRaw : "raw") : null;
+    delta > 0
+      ? CONDITIONS.has(conditionRaw)
+        ? conditionRaw
+        : "raw"
+      : removeGroup?.condition ?? null;
   const gradingRaw = text(body?.gradingService, 16).toLowerCase();
   const gradingService =
-    delta > 0 && GRADING_SERVICES.has(gradingRaw) ? gradingRaw : null;
-  const grade = delta > 0 ? text(body?.grade, 40) || null : null;
-  const certNumber = delta > 0 ? text(body?.certNumber, 60) || null : null;
-  const gemrateId = delta > 0 ? text(body?.gemrateId, 60) || null : null;
+    delta > 0
+      ? GRADING_SERVICES.has(gradingRaw)
+        ? gradingRaw
+        : null
+      : removeGroup?.condition === "graded"
+        ? removeGroup.gradingService || null
+        : null;
+  const grade =
+    delta > 0
+      ? text(body?.grade, 40) || null
+      : removeGroup?.condition === "graded"
+        ? removeGroup.grade || null
+        : null;
+  const certNumber =
+    delta > 0
+      ? text(body?.certNumber, 60) || null
+      : removeGroup?.condition === "graded"
+        ? removeGroup.certNumber || null
+        : null;
+  const gemrateId =
+    delta > 0
+      ? text(body?.gemrateId, 60) || null
+      : removeGroup?.condition === "graded"
+        ? removeGroup.gemrateId || null
+        : null;
   const imageUrl = delta > 0 ? text(body?.imageUrl, 600) || null : null;
   const imageStoragePath =
     delta > 0 ? text(body?.imageStoragePath, 400) || null : null;
+
+  if (delta > 0 && condition === "graded" && (!grade || !gradingService)) {
+    return Response.json(
+      { error: "Choose a grade and grading service for graded stock." },
+      { status: 400 },
+    );
+  }
 
   // A cert pins one physical slab; reject bulk-with-cert before hitting the RPC.
   if (certNumber && delta !== 1) {
@@ -113,6 +172,7 @@ export async function POST(request: Request) {
       adjustedByAdminId: admin.adminId,
       reason,
       sourceId,
+      stockUnitGroupKey: stockUnitGroupKey || null,
     } satisfies Json,
     p_condition: condition,
     p_grade: grade,
@@ -142,6 +202,7 @@ export async function POST(request: Request) {
       quantityDelta: delta,
       reason,
       sourceId,
+      stockUnitGroupKey: stockUnitGroupKey || null,
     },
   });
   revalidateTag("campaigns", "max");

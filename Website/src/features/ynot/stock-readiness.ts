@@ -15,16 +15,33 @@ export type PrizeStockSummary = {
   cardCode?: string | null;
   stockAvailable?: number | null;
   reservedForCampaign?: number | null;
+  stockSkuGroups?: PrizeStockSkuSummary[];
+};
+
+export type PrizeStockSkuSummary = {
+  key: string;
+  sku?: string | null;
+  label?: string | null;
+  availableUnits?: number | null;
+  reservedForCampaign?: number | null;
 };
 
 export type PrizeStockShortage = {
   cardId: string;
+  stockUnitGroupKey?: string;
+  stockSku?: string | null;
   label: string;
   requiredUnits: number;
   availableUnits: number;
   reservedUnits: number;
   usableUnits: number;
   shortageUnits: number;
+};
+
+export type PrizeStockSelectionIssue = {
+  cardId: string;
+  label: string;
+  availableSubSkuCount: number;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -63,10 +80,83 @@ function labelForPrize(
   cardId: string,
   prize: StockReadinessPrize | undefined,
   summary: PrizeStockSummary | undefined,
+  stockGroup?: PrizeStockSkuSummary | undefined,
 ) {
   const code = stringOrEmpty(summary?.cardCode ?? prize?.cardCode);
   const name = stringOrEmpty(summary?.cardName ?? prize?.cardName);
-  return [code, name].filter(Boolean).join(" - ") || cardId;
+  const cardLabel = [code, name].filter(Boolean).join(" - ") || cardId;
+  const stockLabel = stringOrEmpty(
+    stockGroup?.label ?? stockSelectionLabelForPrize(prize),
+  );
+  return stockLabel ? `${cardLabel} / ${stockLabel}` : cardLabel;
+}
+
+function stockSelectionMetadata(prize: StockReadinessPrize | undefined) {
+  return isRecord(prize?.metadata) ? prize.metadata : null;
+}
+
+function stockSelectionLabelForPrize(prize: StockReadinessPrize | undefined) {
+  const metadata = stockSelectionMetadata(prize);
+  return stringOrEmpty(metadata?.stockLabel);
+}
+
+function stockGroupKeyFromFilter(filter: unknown) {
+  if (!isRecord(filter)) return "";
+  const condition = stringOrEmpty(filter.condition);
+  if (!condition) return "";
+  return [
+    condition,
+    stringOrEmpty(filter.grade),
+    stringOrEmpty(filter.gradingService),
+    stringOrEmpty(filter.certNumber),
+    stringOrEmpty(filter.gemrateId),
+  ].join("\u001f");
+}
+
+function stockGroupKeyForPrize(prize: StockReadinessPrize) {
+  const metadata = stockSelectionMetadata(prize);
+  if (!metadata) return "";
+  return (
+    stringOrEmpty(metadata.stockUnitGroupKey) ||
+    stockGroupKeyFromFilter(metadata.stockUnitFilter)
+  );
+}
+
+export function buildPrizeStockSelectionIssues({
+  ignoreAdminHidden = true,
+  prizes,
+  stockSummaries,
+}: {
+  ignoreAdminHidden?: boolean;
+  prizes: StockReadinessPrize[];
+  stockSummaries: PrizeStockSummary[];
+}) {
+  const summaryByCardId = new Map(
+    stockSummaries.map((summary) => [summary.cardId, summary]),
+  );
+  const seen = new Set<string>();
+
+  return prizes.flatMap((prize): PrizeStockSelectionIssue[] => {
+    if (ignoreAdminHidden && isStockReadinessAdminHidden(prize.metadata)) {
+      return [];
+    }
+    const cardId = stockCardIdForPrize(prize);
+    const quantity = stockUnitsForPrize(prize);
+    if (!cardId || quantity <= 0 || stockGroupKeyForPrize(prize)) return [];
+
+    const summary = summaryByCardId.get(cardId);
+    const stockSkuGroups = summary?.stockSkuGroups ?? [];
+    if (!stockSkuGroups.length || seen.has(cardId)) return [];
+    seen.add(cardId);
+
+    return [
+      {
+        cardId,
+        label: labelForPrize(cardId, prize, summary),
+        availableSubSkuCount: stockSkuGroups.length,
+      },
+    ];
+  });
 }
 
 export function buildPrizeStockShortages({
@@ -80,8 +170,8 @@ export function buildPrizeStockShortages({
   prizes: StockReadinessPrize[];
   stockSummaries: PrizeStockSummary[];
 }) {
-  const requiredByCardId = new Map<string, number>();
-  const prizeByCardId = new Map<string, StockReadinessPrize>();
+  const requiredByTarget = new Map<string, number>();
+  const prizeByTarget = new Map<string, StockReadinessPrize>();
 
   for (const prize of prizes) {
     if (ignoreAdminHidden && isStockReadinessAdminHidden(prize.metadata)) {
@@ -90,25 +180,42 @@ export function buildPrizeStockShortages({
     const cardId = stockCardIdForPrize(prize);
     const quantity = stockUnitsForPrize(prize);
     if (!cardId || quantity <= 0) continue;
-    requiredByCardId.set(cardId, (requiredByCardId.get(cardId) ?? 0) + quantity);
-    if (!prizeByCardId.has(cardId)) prizeByCardId.set(cardId, prize);
+    const groupKey = stockGroupKeyForPrize(prize);
+    const targetKey = `${cardId}\u001e${groupKey}`;
+    requiredByTarget.set(targetKey, (requiredByTarget.get(targetKey) ?? 0) + quantity);
+    if (!prizeByTarget.has(targetKey)) prizeByTarget.set(targetKey, prize);
   }
 
   const summaryByCardId = new Map(
     stockSummaries.map((summary) => [summary.cardId, summary]),
   );
 
-  return Array.from(requiredByCardId.entries()).flatMap(
-    ([cardId, requiredUnits]) => {
+  return Array.from(requiredByTarget.entries()).flatMap(
+    ([targetKey, requiredUnits]) => {
+      const [cardId, groupKey = ""] = targetKey.split("\u001e");
+      const prize = prizeByTarget.get(targetKey);
       const summary = summaryByCardId.get(cardId);
+      const stockGroup = groupKey
+        ? summary?.stockSkuGroups?.find((group) => group.key === groupKey)
+        : undefined;
       const availableUnits = Math.max(
         0,
-        Math.round(numberOrZero(summary?.stockAvailable)),
+        Math.round(
+          numberOrZero(
+            groupKey ? stockGroup?.availableUnits : summary?.stockAvailable,
+          ),
+        ),
       );
       const reservedUnits = includeReservedForCampaign
         ? Math.max(
             0,
-            Math.round(numberOrZero(summary?.reservedForCampaign)),
+            Math.round(
+              numberOrZero(
+                groupKey
+                  ? stockGroup?.reservedForCampaign
+                  : summary?.reservedForCampaign,
+              ),
+            ),
           )
         : 0;
       const usableUnits = availableUnits + reservedUnits;
@@ -116,7 +223,10 @@ export function buildPrizeStockShortages({
       return [
         {
           cardId,
-          label: labelForPrize(cardId, prizeByCardId.get(cardId), summary),
+          ...(groupKey ? { stockUnitGroupKey: groupKey } : {}),
+          stockSku:
+            stockGroup?.sku ?? stringOrEmpty(stockSelectionMetadata(prize)?.stockSku) ?? null,
+          label: labelForPrize(cardId, prize, summary, stockGroup),
           requiredUnits,
           availableUnits,
           reservedUnits,
@@ -138,4 +248,12 @@ export function stockShortageMessage(shortage: PrizeStockShortage) {
 
 export function stockShortageBlockers(shortages: PrizeStockShortage[]) {
   return shortages.map(stockShortageMessage);
+}
+
+export function stockSelectionIssueMessage(issue: PrizeStockSelectionIssue) {
+  return `Card "${issue.label}" must select one stock sub-SKU before it can be used in a random pack.`;
+}
+
+export function stockSelectionBlockers(issues: PrizeStockSelectionIssue[]) {
+  return issues.map(stockSelectionIssueMessage);
 }

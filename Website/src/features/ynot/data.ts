@@ -51,7 +51,9 @@ import {
 import {
   stockUnitDisplayLabel,
   stockUnitGroupKey,
+  stockSkuGroupsFromSummaryRows,
   stockUnitSku,
+  type StockSkuSummaryRow,
   type StockSkuUsageDetail,
 } from "./stock-sku-usage";
 
@@ -65,73 +67,6 @@ type CardStockSummaryRow = {
   allocatedUnits: number;
   archivedUnits: number;
 };
-
-type AdminCardStockUnit = NonNullable<CardCatalogItem["stockUnits"]>[number];
-
-type CardStockUnitRow = Pick<
-  Database["public"]["Tables"]["card_stock_units"]["Row"],
-  | "id"
-  | "card_id"
-  | "condition"
-  | "grade"
-  | "grading_service"
-  | "cert_number"
-  | "gemrate_id"
-  | "image_url"
-  | "status"
-  | "quantity"
->;
-
-function stockUnitQuantity(value: { quantity?: number | null }) {
-  const quantity = Number(value.quantity ?? 1);
-  return Number.isFinite(quantity) && quantity > 0 ? Math.trunc(quantity) : 1;
-}
-
-function stockUnitAggregateKey(unit: CardStockUnitRow) {
-  return [
-    unit.condition || "raw",
-    unit.grade || "",
-    unit.grading_service || "",
-    unit.cert_number || "",
-    unit.gemrate_id || "",
-    unit.image_url || "",
-    unit.status,
-  ].join("\u001f");
-}
-
-function addAggregatedStockUnit(
-  unitsByCard: Map<string, Map<string, AdminCardStockUnit>>,
-  unit: CardStockUnitRow,
-) {
-  const cardUnits = unitsByCard.get(unit.card_id) ?? new Map<string, AdminCardStockUnit>();
-  const key = stockUnitAggregateKey(unit);
-  const quantity = stockUnitQuantity(unit);
-  const existing = cardUnits.get(key);
-  if (existing) {
-    existing.quantity = stockUnitQuantity(existing) + quantity;
-  } else {
-    cardUnits.set(key, {
-      id: unit.id,
-      condition: unit.condition,
-      grade: unit.grade,
-      gradingService: unit.grading_service,
-      certNumber: unit.cert_number,
-      gemrateId: unit.gemrate_id,
-      imageUrl: unit.image_url,
-      status: unit.status,
-      quantity,
-    });
-  }
-  unitsByCard.set(unit.card_id, cardUnits);
-}
-
-function chunkValues<T>(values: T[], size: number) {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 const defaultViewer: YnotViewer = {
   authenticated: false,
@@ -167,6 +102,30 @@ function cardStockSummariesFromJson(value: unknown): CardStockSummaryRow[] {
         reservedUnits: numericValue(item.reservedUnits),
         allocatedUnits: numericValue(item.allocatedUnits),
         archivedUnits: numericValue(item.archivedUnits),
+      },
+    ];
+  });
+}
+
+function cardStockSubSkuSummariesFromJson(value: unknown): StockSkuSummaryRow[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item) || typeof item.cardId !== "string") return [];
+    return [
+      {
+        cardId: item.cardId,
+        sampleUnitId: typeof item.sampleUnitId === "string" ? item.sampleUnitId : null,
+        condition: typeof item.condition === "string" ? item.condition : null,
+        grade: typeof item.grade === "string" ? item.grade : null,
+        gradingService:
+          typeof item.gradingService === "string" ? item.gradingService : null,
+        certNumber: typeof item.certNumber === "string" ? item.certNumber : null,
+        gemrateId: typeof item.gemrateId === "string" ? item.gemrateId : null,
+        imageUrl: typeof item.imageUrl === "string" ? item.imageUrl : null,
+        totalUnits: numericValue(item.totalUnits),
+        availableUnits: numericValue(item.availableUnits),
+        reservedUnits: numericValue(item.reservedUnits),
+        allocatedUnits: numericValue(item.allocatedUnits),
       },
     ];
   });
@@ -396,6 +355,36 @@ function prizeStockMetadata(
   };
 }
 
+type PrizeLineupOptions = {
+  includeLocked?: boolean;
+  includeSensitiveOdds?: boolean;
+  includeStockTarget?: boolean;
+};
+
+function privatePrizePreviewFields(
+  prize: Database["public"]["Tables"]["draw_round_prizes"]["Row"],
+  options: PrizeLineupOptions,
+): Partial<
+  Pick<
+    YnotPrizePreview,
+    | "weight"
+    | "unlockAtSoldPct"
+    | "intendedStockUnitKey"
+    | "intendedStockSku"
+    | "intendedStockLabel"
+  >
+> {
+  return {
+    ...(options.includeSensitiveOdds
+      ? {
+          weight: Number(prize.weight ?? 1),
+          unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
+        }
+      : {}),
+    ...(options.includeStockTarget ? prizeStockMetadata(prize) : {}),
+  };
+}
+
 function cardForStockSku(card: PrizePoolCardRow): CardCatalogItem {
   return {
     catalogCardId: card.id,
@@ -503,7 +492,7 @@ async function getPublicPrizeLineupsBatch(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   rows: DrawRoundRow[],
   inventoryByCampaign: Map<string, InventorySummary>,
-  options: { includeLocked?: boolean } = {},
+  options: PrizeLineupOptions = {},
 ): Promise<Map<string, YnotPrizePreview[]>> {
   const out = new Map<string, YnotPrizePreview[]>();
   if (!rows.length) return out;
@@ -580,8 +569,6 @@ async function getPublicPrizeLineupsBatch(
           plannedQuantity: counts.total,
           availableUnits: counts.available || undefined,
           totalUnits: counts.total || undefined,
-          weight: Number(prize.weight ?? 1),
-          unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
           prizeCategory: metadataString(prize.metadata, "prizeCategory"),
           prizeCategoryLabel: metadataString(
             prize.metadata,
@@ -594,7 +581,7 @@ async function getPublicPrizeLineupsBatch(
             metadataString(prize.metadata, "displayTierLabel") ??
             prizeDisplayTierLabel(displayTier),
           tierRank: metadataNumber(prize.metadata, "tierRank") ?? prize.rank,
-          ...prizeStockMetadata(prize),
+          ...privatePrizePreviewFields(prize, options),
         };
       })
       .sort((left, right) => {
@@ -613,7 +600,7 @@ async function getPublicPrizeLineup(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   row: DrawRoundRow,
   inventory?: InventorySummary,
-  options: { includeLocked?: boolean } = {},
+  options: PrizeLineupOptions = {},
 ): Promise<YnotPrizePreview[]> {
   const soldPct = soldPctForCampaign(row, inventory);
   const { data: prizes, error } = await supabase
@@ -670,8 +657,6 @@ async function getPublicPrizeLineup(
         plannedQuantity: counts.total,
         availableUnits: counts.available || undefined,
         totalUnits: counts.total || undefined,
-        weight: Number(prize.weight ?? 1),
-        unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
         prizeCategory: metadataString(prize.metadata, "prizeCategory"),
         prizeCategoryLabel: metadataString(prize.metadata, "prizeCategoryLabel"),
         sourceType: metadataString(prize.metadata, "sourceType"),
@@ -681,7 +666,7 @@ async function getPublicPrizeLineup(
           metadataString(prize.metadata, "displayTierLabel") ??
           prizeDisplayTierLabel(displayTier),
         tierRank: metadataNumber(prize.metadata, "tierRank") ?? prize.rank,
-        ...prizeStockMetadata(prize),
+        ...privatePrizePreviewFields(prize, options),
       };
     })
     .sort((left, right) => {
@@ -697,7 +682,7 @@ async function getPublicPrizeLineupsIndividually(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   rows: DrawRoundRow[],
   inventoryByCampaign: Map<string, InventorySummary>,
-  options: { includeLocked?: boolean } = {},
+  options: PrizeLineupOptions = {},
 ): Promise<Map<string, YnotPrizePreview[]>> {
   const out = new Map<string, YnotPrizePreview[]>();
   for (const row of rows) {
@@ -1316,7 +1301,11 @@ async function getCampaignsImpl(
           supabase,
           prizeLineupRows,
           inventoryByCampaign,
-          { includeLocked: true },
+          {
+            includeLocked: true,
+            includeSensitiveOdds: true,
+            includeStockTarget: true,
+          },
         );
       } catch (error) {
         recordDataIssue("campaign_owner_prize_lineup", error);
@@ -1324,7 +1313,11 @@ async function getCampaignsImpl(
           supabase,
           prizeLineupRows,
           inventoryByCampaign,
-          { includeLocked: true },
+          {
+            includeLocked: true,
+            includeSensitiveOdds: true,
+            includeStockTarget: true,
+          },
         );
       }
     }
@@ -1536,7 +1529,9 @@ export async function getCampaign(
       .filter((category): category is YnotCategory => Boolean(category));
     const inventory = inventoryRows[0];
     const prizeLineup = await getPublicPrizeLineup(supabase, row, inventory, {
-      includeLocked: true,
+      includeLocked: includePrivateDetail,
+      includeSensitiveOdds: includePrivateDetail,
+      includeStockTarget: includePrivateDetail,
     });
     let readiness: CampaignPrizeReadiness | null = null;
     try {
@@ -1934,11 +1929,11 @@ export async function getCollection(
     group.push(openItem);
     openItemsByOpenAndCard.set(key, group);
   }
+  const openItemsById = new Map(openItems.map((openItem) => [openItem.id, openItem]));
 
   // Resolve the specific won stock unit per collection item so the displayed
-  // grade/cert reflects the exact slab the player received, not the product's
-  // legacy default. Linked via draw_round_prize_units.collection_item_id →
-  // card_stock_units. Items without a unit link fall back to product values.
+  // grade/cert and source position reflect the exact prize unit the player
+  // received, not another copy of the same card from the same pull.
   const wonUnitByItemId = new Map<
     string,
     {
@@ -1949,6 +1944,7 @@ export async function getCollection(
       imageUrl: string | null;
     }
   >();
+  const sourceOpenItemIdByCollectionItem = new Map<string, string>();
   const collectionItemIds = items
     .map((item) => item.id)
     .filter((id): id is string => Boolean(id));
@@ -1959,7 +1955,7 @@ export async function getCollection(
       async () => {
         const { data, error } = await supabase
           .from("draw_round_prize_units")
-          .select("collection_item_id, card_stock_unit_id")
+          .select("collection_item_id,gacha_open_item_id,card_stock_unit_id")
           .in("collection_item_id", collectionItemIds);
         if (error) throw error;
         return data ?? [];
@@ -1969,7 +1965,11 @@ export async function getCollection(
     const stockUnitIds: string[] = [];
     for (const row of prizeUnitRows) {
       const itemId = row.collection_item_id;
+      const openItemId = row.gacha_open_item_id;
       const unitId = row.card_stock_unit_id;
+      if (itemId && openItemId) {
+        sourceOpenItemIdByCollectionItem.set(itemId, openItemId);
+      }
       if (itemId && unitId) {
         stockUnitIdByItem.set(itemId, unitId);
         stockUnitIds.push(unitId);
@@ -2007,9 +2007,12 @@ export async function getCollection(
     const wonUnit = wonUnitByItemId.get(item.id);
     const open = item.source_id ? opensById.get(item.source_id) : null;
     const campaign = open ? campaignById.get(open.draw_round_id) : null;
-    const sourceOpenItem = item.source_id
-      ? openItemsByOpenAndCard.get(`${item.source_id}:${item.card_id}`)?.shift()
-      : undefined;
+    const directOpenItemId = sourceOpenItemIdByCollectionItem.get(item.id);
+    const sourceOpenItem = directOpenItemId
+      ? openItemsById.get(directOpenItemId)
+      : item.source_id
+        ? openItemsByOpenAndCard.get(`${item.source_id}:${item.card_id}`)?.shift()
+        : undefined;
     const sourcePrize = sourceOpenItem?.draw_round_prize_id
       ? prizesById.get(sourceOpenItem.draw_round_prize_id)
       : undefined;
@@ -2416,49 +2419,17 @@ export async function getAdminCards() {
       return cardStockSummariesFromJson(data);
     });
     const stockByCard = new Map(stockRows.map((row) => [row.cardId, row]));
-
-    // Per-card stock identity breakdown. Repeated physical rows are aggregated
-    // before crossing into the client, so one raw/BGS/PSA sub-SKU renders as a
-    // single amount instead of thousands of repeated rows.
-    const cardIds = cards.map((card) => card.catalogCardId);
-    const unitMapsByCard = new Map<string, Map<string, AdminCardStockUnit>>();
-    if (cardIds.length) {
-      await readOrEmpty("card_stock_unit_breakdown", async () => {
-        const loadedRows: CardStockUnitRow[] = [];
-        const batchSize = 1000;
-        const cardIdBatchSize = 100;
-        for (const cardIdBatch of chunkValues(cardIds, cardIdBatchSize)) {
-          let offset = 0;
-          while (true) {
-            const { data, error } = await supabase
-              .from("card_stock_units")
-              .select(
-                "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status,quantity",
-              )
-              .in("card_id", cardIdBatch)
-              .neq("status", "deleted")
-              .neq("status", "archived")
-              .order("created_at", { ascending: true })
-              .range(offset, offset + batchSize - 1);
-            if (error) throw error;
-            for (const unit of data ?? []) {
-              const row = unit as CardStockUnitRow;
-              addAggregatedStockUnit(unitMapsByCard, row);
-              loadedRows.push(row);
-            }
-            if (!data || data.length < batchSize) break;
-            offset += batchSize;
-          }
-        }
-        return loadedRows;
-      });
-    }
+    const subSkuRows = await readOrEmpty("card_stock_subsku_summary", async () => {
+      const { data, error } = await supabase.rpc(
+        "get_admin_card_stock_subsku_summary",
+        { p_card_id: null },
+      );
+      if (error) throw error;
+      return cardStockSubSkuSummariesFromJson(data);
+    });
 
     return cards.map((card) => {
       const stock = stockByCard.get(card.catalogCardId);
-      const stockUnits = [
-        ...(unitMapsByCard.get(card.catalogCardId)?.values() ?? []),
-      ];
       return {
         ...card,
         stockTotal: stock?.totalUnits ?? 0,
@@ -2466,7 +2437,8 @@ export async function getAdminCards() {
         stockReserved: stock?.reservedUnits ?? 0,
         stockAllocated: stock?.allocatedUnits ?? 0,
         stockArchived: stock?.archivedUnits ?? 0,
-        stockUnits,
+        stockSkuGroups: stockSkuGroupsFromSummaryRows(card, subSkuRows),
+        stockUnits: [],
       };
     });
   });

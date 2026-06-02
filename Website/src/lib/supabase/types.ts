@@ -956,6 +956,8 @@ export type Database = {
       get_draw_round_inventory_summary: { Args: { p_draw_round_id?: string | null; p_profile_id?: string | null }; Returns: Json };
       ensure_draw_round_prize_units: { Args: { p_draw_round_prize_id: string; p_total_units: number; p_admin_id: string; p_seed_run_id?: string | null }; Returns: Json };
       get_card_stock_summary: { Args: { p_card_id?: string | null }; Returns: Json };
+      get_admin_card_stock_subsku_summary: { Args: { p_card_id?: string | null }; Returns: Json };
+      get_admin_prize_stock_summaries: { Args: { p_card_ids: string[] }; Returns: Json };
       adjust_card_stock_units: { Args: { p_card_id: string; p_quantity_delta: number; p_admin_id: string; p_source_type?: string | null; p_source_id?: string | null; p_metadata?: Json; p_condition?: string | null; p_grade?: string | null; p_grading_service?: string | null; p_cert_number?: string | null; p_gemrate_id?: string | null; p_image_url?: string | null; p_image_storage_path?: string | null }; Returns: Json };
       card_stock_unit_matches_prize_filter: { Args: { p_unit: Database["public"]["Tables"]["card_stock_units"]["Row"]; p_prize_metadata: Json | null }; Returns: boolean };
       release_campaign_reservations: { Args: { p_draw_round_id: string; p_admin_id: string; p_reason?: string | null; p_note?: string | null }; Returns: Json };

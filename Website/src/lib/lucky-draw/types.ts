@@ -98,6 +98,27 @@ export type CardCatalogItem = Required<Pick<FeaturedCard, "catalogCardId">> &
       status: string;
       quantity?: number;
     }>;
+    /** Pre-grouped stock summaries for admin/catalog selectors. */
+    stockSkuGroups?: Array<{
+      key: string;
+      label: string;
+      sku: string;
+      totalUnits: number;
+      availableUnits: number;
+      reservedUnits: number;
+      allocatedUnits: number;
+      units: Array<{
+        id: string;
+        condition: string;
+        grade: string | null;
+        gradingService: string | null;
+        certNumber: string | null;
+        gemrateId: string | null;
+        imageUrl: string | null;
+        status: string;
+        quantity?: number;
+      }>;
+    }>;
     createdAt?: string;
     updatedAt?: string;
   };

@@ -13,6 +13,21 @@ export type StockSkuGroup = {
   units: CatalogStockUnit[];
 };
 
+export type StockSkuSummaryRow = {
+  cardId: string;
+  sampleUnitId?: string | null;
+  condition?: string | null;
+  grade?: string | null;
+  gradingService?: string | null;
+  certNumber?: string | null;
+  gemrateId?: string | null;
+  imageUrl?: string | null;
+  totalUnits?: number | null;
+  availableUnits?: number | null;
+  reservedUnits?: number | null;
+  allocatedUnits?: number | null;
+};
+
 export type StockSkuUsageDetail = {
   groupKey: string;
   sku: string;
@@ -149,8 +164,12 @@ export function stockUnitGroupKey(
     "certNumber" | "condition" | "gemrateId" | "grade" | "gradingService"
   >,
 ) {
+  const condition = unit.condition || "raw";
+  if (condition !== "graded") {
+    return [condition, "", "", "", ""].join("\u001f");
+  }
   return [
-    unit.condition || "raw",
+    condition,
     unit.grade || "",
     unit.gradingService || "",
     unit.certNumber || "",
@@ -175,7 +194,54 @@ export function stockUnitDisplayLabel(
   return conditionLabel(unit.condition);
 }
 
+function countValue(value: unknown) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : 0;
+}
+
+export function stockSkuGroupsFromSummaryRows(
+  card: CardCatalogItem,
+  rows: StockSkuSummaryRow[],
+): StockSkuGroup[] {
+  return rows
+    .filter((row) => row.cardId === card.catalogCardId)
+    .map((row) => {
+      const totalUnits = countValue(row.totalUnits);
+      const unit = {
+        id: row.sampleUnitId || stockUnitGroupKey({
+          condition: row.condition || "raw",
+          grade: row.grade || null,
+          gradingService: row.gradingService || null,
+          certNumber: row.certNumber || null,
+          gemrateId: row.gemrateId || null,
+        }),
+        condition: row.condition || "raw",
+        grade: row.grade || null,
+        gradingService: row.gradingService || null,
+        certNumber: row.certNumber || null,
+        gemrateId: row.gemrateId || null,
+        imageUrl: row.imageUrl || null,
+        status: "summary",
+        quantity: totalUnits,
+      } satisfies CatalogStockUnit;
+      return {
+        key: stockUnitGroupKey(unit),
+        label: stockUnitDisplayLabel(unit),
+        sku: stockUnitSku(card, unit),
+        totalUnits,
+        availableUnits: countValue(row.availableUnits),
+        reservedUnits: countValue(row.reservedUnits),
+        allocatedUnits: countValue(row.allocatedUnits),
+        units: [unit],
+      };
+    })
+    .filter((group) => group.totalUnits > 0)
+    .sort((left, right) => left.sku.localeCompare(right.sku));
+}
+
 export function stockSkuGroups(card: CardCatalogItem): StockSkuGroup[] {
+  const precomputed = (card as { stockSkuGroups?: StockSkuGroup[] }).stockSkuGroups;
+  if (Array.isArray(precomputed)) return precomputed;
   const groups = new Map<string, StockSkuGroup>();
   for (const unit of card.stockUnits ?? []) {
     const key = stockUnitGroupKey(unit);
@@ -213,16 +279,17 @@ export function stockUnitSelectionMetadata(
   const group = stockSkuGroups(card).find((candidate) => candidate.key === groupKey);
   if (!group) return null;
   const unit = group.units[0];
+  const condition = unit?.condition || "raw";
   return {
     stockUnitGroupKey: group.key,
     stockSku: group.sku,
     stockLabel: group.label,
     stockUnitFilter: {
-      condition: unit?.condition || "raw",
-      grade: unit?.grade || "",
-      gradingService: unit?.gradingService || "",
-      certNumber: unit?.certNumber || "",
-      gemrateId: unit?.gemrateId || "",
+      condition,
+      grade: condition === "graded" ? unit?.grade || "" : "",
+      gradingService: condition === "graded" ? unit?.gradingService || "" : "",
+      certNumber: condition === "graded" ? unit?.certNumber || "" : "",
+      gemrateId: condition === "graded" ? unit?.gemrateId || "" : "",
     },
   };
 }

@@ -45,10 +45,10 @@ import {
   type PrizeStockSummary,
 } from "./stock-readiness";
 import {
-  displayStockUnitQuantity,
   stockSkuGroups,
   stockSkuPackUsageByGroup,
   stockUnitSelectionMetadata,
+  type StockSkuGroup,
   type StockSkuPackUsage,
 } from "./stock-sku-usage";
 import {
@@ -2369,14 +2369,19 @@ function defaultStockUnitKey(card: CardCatalogItem | null | undefined) {
   );
 }
 
-function normalizedStockUnitKey(
+function defaultRemovableStockUnitKey(card: CardCatalogItem | null | undefined) {
+  if (!card) return "";
+  return stockSkuGroups(card).find((group) => group.availableUnits > 0)?.key ?? "";
+}
+
+function validStockUnitKey(
   card: CardCatalogItem | null | undefined,
   key: string | null | undefined,
 ) {
   if (!card) return "";
   const groups = stockSkuGroups(card);
   if (key && groups.some((group) => group.key === key)) return key;
-  return defaultStockUnitKey(card);
+  return "";
 }
 
 type PrizeStockUnitShortage = {
@@ -2919,7 +2924,9 @@ function createPrizeDraft(
     localId: existing?.localId ?? `${displayTier}-${index + 1}`,
     displayTier,
     cardId,
-    stockUnitKey: normalizedStockUnitKey(selectedCard, existing?.stockUnitKey),
+    stockUnitKey: existing
+      ? validStockUnitKey(selectedCard, existing.stockUnitKey)
+      : defaultStockUnitKey(selectedCard),
     tier: config.dbTier,
     prizeCategory,
     rank: existing?.rank ?? index + 1,
@@ -3009,7 +3016,7 @@ function withLowestTierRemainder(
     return {
       ...prize,
       cardId,
-      stockUnitKey: normalizedStockUnitKey(selectedCard, prize.stockUnitKey),
+      stockUnitKey: validStockUnitKey(selectedCard, prize.stockUnitKey),
       quantity: Math.max(0, normalizedTotalSlots - fixedUnits),
     };
   });
@@ -3045,7 +3052,7 @@ function prizeLineupToDrafts(
       localId: `existing-${prize.id || index}`,
       displayTier,
       cardId: prize.cardId ?? "",
-      stockUnitKey: normalizedStockUnitKey(
+      stockUnitKey: validStockUnitKey(
         cards.find((card) => card.catalogCardId === prize.cardId),
         prize.intendedStockUnitKey,
       ),
@@ -3215,7 +3222,7 @@ export function AdminCampaignForm({
       if (!prize.cardId || !prize.stockUnitKey) continue;
       const card = cardsById.get(prize.cardId);
       if (!card) continue;
-      const groupKey = normalizedStockUnitKey(card, prize.stockUnitKey);
+      const groupKey = validStockUnitKey(card, prize.stockUnitKey);
       if (!groupKey) continue;
       const key = `${card.catalogCardId}\u001f${groupKey}`;
       const existing = requiredByStockKey.get(key);
@@ -3324,6 +3331,14 @@ export function AdminCampaignForm({
     );
     return itemOptions.length > 0 && !prize.cardId;
   });
+  const missingStockUnitRows = activePrizeDrafts.filter((prize) => {
+    const card = cardsById.get(prize.cardId);
+    return Boolean(
+      card &&
+        stockSkuGroups(card).length &&
+        !validStockUnitKey(card, prize.stockUnitKey),
+    );
+  });
   const missingPrizeCategories = [
     ...new Set(
       unavailablePrizeCategoryRows.map(
@@ -3348,6 +3363,9 @@ export function AdminCampaignForm({
       : "",
     ...stockBlockers,
     ...stockUnitBlockers,
+    missingStockUnitRows.length
+      ? "Choose sub-SKU stock for every active prize row."
+      : "",
     initialUnlockedUnits <= 0
       ? "At least one prize must be available in the launch pool."
       : "",
@@ -3455,7 +3473,7 @@ export function AdminCampaignForm({
             ...prize,
             cardId: nextCard?.catalogCardId ?? "",
             stockUnitKey: currentCard
-              ? normalizedStockUnitKey(currentCard, prize.stockUnitKey)
+              ? validStockUnitKey(currentCard, prize.stockUnitKey)
               : defaultStockUnitKey(nextCard),
           };
         }),
@@ -3620,9 +3638,10 @@ export function AdminCampaignForm({
           convertDeadlineDays,
           initialPrizes: activePrizeDrafts.map((prize) => {
             const card = cardsById.get(prize.cardId);
+            const stockUnitKey = validStockUnitKey(card, prize.stockUnitKey);
             const stockMetadata =
-              card && prize.stockUnitKey
-                ? stockUnitSelectionMetadata(card, prize.stockUnitKey)
+              card && stockUnitKey
+                ? stockUnitSelectionMetadata(card, stockUnitKey)
                 : null;
             return {
               cardId: prize.cardId,
@@ -4227,7 +4246,7 @@ export function AdminCampaignForm({
                       const stockGroups = selectedCard
                         ? stockSkuGroups(selectedCard)
                         : [];
-                      const selectedStockUnitKey = normalizedStockUnitKey(
+                      const selectedStockUnitKey = validStockUnitKey(
                         selectedCard,
                         prize.stockUnitKey,
                       );
@@ -4292,11 +4311,15 @@ export function AdminCampaignForm({
                                 })
                               }
                             >
-                              <option value="">
-                                {selectedCard
-                                  ? "Main SKU stock"
-                                  : "Choose item first"}
-                              </option>
+                              {stockGroups.length ? (
+                                <option value="">Choose sub-SKU stock</option>
+                              ) : (
+                                <option value="">
+                                  {selectedCard
+                                    ? "No sub-SKU stock"
+                                    : "Choose item first"}
+                                </option>
+                              )}
                               {stockGroups.map((group) => (
                                 <option key={group.key} value={group.key}>
                                   {group.sku} · {group.label} ·{" "}
@@ -6958,6 +6981,14 @@ export function AdminCardStockUnitForm({
           setMessage("Select a product card first.");
           return;
         }
+        if (isGraded && !grade.trim()) {
+          setMessage("Choose a grade for graded stock.");
+          return;
+        }
+        if (isGraded && !gradingService) {
+          setMessage("Choose a grading service for graded stock.");
+          return;
+        }
         let nextImageUrl = imageUrl.trim();
         let nextImageStoragePath = imageStoragePath.trim();
         if (imageFile) {
@@ -6973,7 +7004,7 @@ export function AdminCardStockUnitForm({
           quantityDelta: effectiveCount,
           reason: "admin_catalog",
           condition,
-          grade: isGraded ? grade : "",
+          grade: isGraded ? grade.trim() : "",
           gradingService: isGraded ? gradingService || "" : "",
           certNumber: isGraded ? certNumber.trim() : "",
           gemrateId: isGraded ? gemrateId.trim() : "",
@@ -7027,7 +7058,7 @@ export function AdminCardStockUnitForm({
         </AdminField>
         {isGraded ? (
           <>
-            <AdminField label="Grade">
+            <AdminField label="Grade" required>
               <select
                 className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
                 value={grade}
@@ -7041,7 +7072,7 @@ export function AdminCardStockUnitForm({
                 ))}
               </select>
             </AdminField>
-            <AdminField label="Grading service">
+            <AdminField label="Grading service" required>
               <select
                 className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
                 value={gradingService}
@@ -7150,11 +7181,31 @@ async function requestUnitJson(
   if (!res.ok) throw new Error(data.error || "Request failed");
 }
 
+async function fetchEditableStockUnits(
+  cardId: string,
+  groupKey: string,
+): Promise<NonNullable<CardCatalogItem["stockUnits"]>> {
+  const params = new URLSearchParams({
+    cardId,
+    groupKey,
+    limit: "200",
+  });
+  const res = await fetch(`/api/ynot/admin/card-stock/units?${params}`);
+  const data = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    units?: NonNullable<CardCatalogItem["stockUnits"]>;
+  };
+  if (!res.ok) throw new Error(data.error || "Could not load units.");
+  return data.units ?? [];
+}
+
 /** One row in the catalog's per-unit breakdown — editable + removable when the
  * unit is still available (reserved/allocated units are locked to a pool). */
 function AdminStockUnitRow({
+  onChanged,
   unit,
 }: {
+  onChanged?: () => Promise<void> | void;
   unit: NonNullable<CardCatalogItem["stockUnits"]>[number];
 }) {
   const router = useRouter();
@@ -7197,17 +7248,26 @@ function AdminStockUnitRow({
     startBusy(async () => {
       try {
         setMsg("");
+        if (condition === "graded" && !grade.trim()) {
+          setMsg("Choose a grade for graded stock.");
+          return;
+        }
+        if (condition === "graded" && !gradingService) {
+          setMsg("Choose a grading service for graded stock.");
+          return;
+        }
         await requestUnitJson("PATCH", {
           unitId: unit.id,
           condition,
-          grade,
-          gradingService: gradingService || "",
-          certNumber,
-          gemrateId,
+          grade: condition === "graded" ? grade.trim() : "",
+          gradingService: condition === "graded" ? gradingService || "" : "",
+          certNumber: condition === "graded" ? certNumber : "",
+          gemrateId: condition === "graded" ? gemrateId : "",
           imageUrl,
           imageStoragePath,
         });
         setEditing(false);
+        await onChanged?.();
         router.refresh();
       } catch (error) {
         setMsg(error instanceof Error ? error.message : "Could not save unit.");
@@ -7221,6 +7281,7 @@ function AdminStockUnitRow({
       try {
         setMsg("");
         await requestUnitJson("DELETE", { unitId: unit.id });
+        await onChanged?.();
         router.refresh();
       } catch (error) {
         setMsg(
@@ -7250,6 +7311,7 @@ function AdminStockUnitRow({
           <select
             className="admin-stock-unit-input"
             value={grade}
+            disabled={condition !== "graded"}
             onChange={(event) => setGrade(event.target.value)}
           >
             <option value="">-- Grade --</option>
@@ -7262,6 +7324,7 @@ function AdminStockUnitRow({
           <select
             className="admin-stock-unit-input"
             value={gradingService}
+            disabled={condition !== "graded"}
             onChange={(event) =>
               setGradingService(event.target.value as GradingService | "")
             }
@@ -7276,12 +7339,14 @@ function AdminStockUnitRow({
           <input
             className="admin-stock-unit-input"
             value={certNumber}
+            disabled={condition !== "graded"}
             placeholder="Cert #"
             onChange={(event) => setCertNumber(event.target.value)}
           />
           <input
             className="admin-stock-unit-input"
             value={gemrateId}
+            disabled={condition !== "graded"}
             placeholder="GemRate ID"
             onChange={(event) => setGemrateId(event.target.value)}
           />
@@ -7463,6 +7528,80 @@ function AdminSubSkuPackUsageList({
   );
 }
 
+function AdminSubSkuManageUnits({
+  cardId,
+  group,
+}: {
+  cardId: string;
+  group: StockSkuGroup;
+}) {
+  const [units, setUnits] = useState<NonNullable<CardCatalogItem["stockUnits"]>>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function loadUnits(force = false) {
+    if ((!force && loaded) || loading || group.availableUnits <= 0) return;
+    try {
+      setError("");
+      setLoading(true);
+      setUnits(await fetchEditableStockUnits(cardId, group.key));
+      setLoaded(true);
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Could not load units.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (group.availableUnits <= 0) return null;
+
+  return (
+    <details
+      className="admin-stock-sku-manage"
+      onToggle={(event) => {
+        if (event.currentTarget.open) void loadUnits();
+      }}
+    >
+      <summary>
+        Manage {group.availableUnits.toLocaleString()} available unit
+        {group.availableUnits === 1 ? "" : "s"}
+      </summary>
+      {loading ? (
+        <p className="admin-card-catalog-empty-usage">Loading units...</p>
+      ) : null}
+      {error ? <p className="admin-form-message">{error}</p> : null}
+      {loaded && units.length ? (
+        <>
+          <ul className="admin-stock-unit-list">
+            {units.map((unit) => (
+              <AdminStockUnitRow
+                key={unit.id}
+                unit={unit}
+                onChanged={() => loadUnits(true)}
+              />
+            ))}
+          </ul>
+          {group.availableUnits > units.length ? (
+            <small>
+              Showing first {units.length.toLocaleString()} available units.
+            </small>
+          ) : null}
+        </>
+      ) : null}
+      {loaded && !units.length ? (
+        <p className="admin-card-catalog-empty-usage">
+          No editable available units found for this sub-SKU.
+        </p>
+      ) : null}
+    </details>
+  );
+}
+
 function AdminStockSkuBreakdown({
   card,
   row,
@@ -7499,10 +7638,6 @@ function AdminStockSkuBreakdown({
               (sum, usage) => sum + usage.units,
               0,
             );
-            const editableUnits = group.units.filter(
-              (unit) =>
-                unit.status === "available" && displayStockUnitQuantity(unit) === 1,
-            );
             return (
               <article className="admin-stock-sku-row" key={group.key}>
                 <div className="admin-stock-sku-main">
@@ -7532,19 +7667,7 @@ function AdminStockSkuBreakdown({
                   ) : null}
                 </div>
                 <AdminSubSkuPackUsageList usages={packUsages} />
-                {editableUnits.length ? (
-                  <details className="admin-stock-sku-manage">
-                    <summary>
-                      Manage {editableUnits.length.toLocaleString()} unit
-                      {editableUnits.length === 1 ? "" : "s"}
-                    </summary>
-                    <ul className="admin-stock-unit-list">
-                      {editableUnits.map((unit) => (
-                        <AdminStockUnitRow key={unit.id} unit={unit} />
-                      ))}
-                    </ul>
-                  </details>
-                ) : null}
+                <AdminSubSkuManageUnits cardId={card.catalogCardId} group={group} />
               </article>
             );
           })}
@@ -7692,6 +7815,7 @@ type StockAdjustmentDraft = {
   cardId: string;
   mode: StockAdjustmentMode;
   quantity: string;
+  stockUnitKey: string;
 };
 
 function legacyPrizeCategoryForCatalog(category: CatalogCategory): PrizeCategory {
@@ -8091,11 +8215,18 @@ export function AdminCardCatalogPanel({
       cardId: card.catalogCardId,
       mode,
       quantity: mode === "remove" ? String(Math.min(1, row.stockAvailable)) : "1",
+      stockUnitKey: mode === "remove" ? defaultRemovableStockUnitKey(card) : "",
     });
   }
 
   function updateStockDraftQuantity(quantity: string) {
     setStockDraft((current) => (current ? { ...current, quantity } : current));
+  }
+
+  function updateStockDraftSubSku(stockUnitKey: string) {
+    setStockDraft((current) =>
+      current ? { ...current, stockUnitKey } : current,
+    );
   }
 
   function cancelStockAdjustment() {
@@ -8111,6 +8242,24 @@ export function AdminCardCatalogPanel({
       setMessage("No available global stock can be removed for this card.");
       return;
     }
+    let selectedRemoveGroup: StockSkuGroup | null = null;
+    let stockUnitGroupKey: string | undefined;
+    if (stockDraft.mode === "remove") {
+      selectedRemoveGroup =
+        stockSkuGroups(card).find((group) => group.key === stockDraft.stockUnitKey) ??
+        null;
+      if (!selectedRemoveGroup) {
+        setMessage("Choose a stock sub-SKU before removing stock.");
+        return;
+      }
+      stockUnitGroupKey = selectedRemoveGroup.key;
+      if (requestedQuantity > selectedRemoveGroup.availableUnits) {
+        setMessage(
+          `Only ${selectedRemoveGroup.availableUnits.toLocaleString()} available units can be removed for ${selectedRemoveGroup.sku}.`,
+        );
+        return;
+      }
+    }
 
     const quantityDelta =
       stockDraft.mode === "remove" ? -requestedQuantity : requestedQuantity;
@@ -8122,6 +8271,7 @@ export function AdminCardCatalogPanel({
           cardId: card.catalogCardId,
           quantityDelta,
           reason: quantityDelta > 0 ? "admin_stock_added" : "admin_stock_removed",
+          stockUnitGroupKey,
         });
         setMessage(
           quantityDelta > 0
@@ -8413,6 +8563,15 @@ export function AdminCardCatalogPanel({
           const currentStockDraft =
             stockDraft?.cardId === card.catalogCardId ? stockDraft : null;
           const stockPending = isPending && pendingCardId === card.catalogCardId;
+          const removableStockGroups = stockSkuGroups(card).filter(
+            (group) => group.availableUnits > 0,
+          );
+          const selectedRemoveGroup =
+            currentStockDraft?.mode === "remove"
+              ? removableStockGroups.find(
+                  (group) => group.key === currentStockDraft.stockUnitKey,
+                ) ?? removableStockGroups[0] ?? null
+              : null;
           return (
             <article
               className={`admin-card-catalog-row${card.isTest ? " is-test" : ""}`}
@@ -8528,22 +8687,46 @@ export function AdminCardCatalogPanel({
                             ? "Remove stock"
                             : "Add stock"}
                         </span>
-                        <strong>
-                          {currentStockDraft.mode === "remove"
-                            ? `${row.stockAvailable.toLocaleString()} available`
-                            : "Global stock"}
-                        </strong>
-                      </div>
-                      <label className="admin-stock-confirm-field">
-                        <span>Quantity</span>
-                        <input
+	                        <strong>
+	                          {currentStockDraft.mode === "remove"
+	                            ? selectedRemoveGroup
+	                              ? `${selectedRemoveGroup.availableUnits.toLocaleString()} available`
+	                              : "Choose sub-SKU"
+	                            : "Global stock"}
+	                        </strong>
+	                      </div>
+	                      {currentStockDraft.mode === "remove" ? (
+	                        <label className="admin-stock-confirm-field">
+	                          <span>Stock sub-SKU</span>
+	                          <select
+	                            disabled={stockPending || !removableStockGroups.length}
+	                            value={selectedRemoveGroup?.key ?? ""}
+	                            onChange={(event) =>
+	                              updateStockDraftSubSku(event.target.value)
+	                            }
+	                          >
+	                            {!removableStockGroups.length ? (
+	                              <option value="">No available sub-SKU</option>
+	                            ) : null}
+	                            {removableStockGroups.map((group) => (
+	                              <option key={group.key} value={group.key}>
+	                                {group.sku} · {group.label} ·{" "}
+	                                {group.availableUnits.toLocaleString()} available
+	                              </option>
+	                            ))}
+	                          </select>
+	                        </label>
+	                      ) : null}
+	                      <label className="admin-stock-confirm-field">
+	                        <span>Quantity</span>
+	                        <input
                           aria-label={`Stock quantity for ${card.name}`}
                           disabled={stockPending}
-                          max={
-                            currentStockDraft.mode === "remove"
-                              ? row.stockAvailable
-                              : 10000
-                          }
+	                          max={
+	                            currentStockDraft.mode === "remove"
+	                              ? selectedRemoveGroup?.availableUnits ?? 0
+	                              : 10000
+	                          }
                           min={1}
                           type="number"
                           value={currentStockDraft.quantity}
@@ -8551,14 +8734,17 @@ export function AdminCardCatalogPanel({
                             updateStockDraftQuantity(
                               currentStockDraft.mode === "remove"
                                 ? String(
-                                    Math.min(
-                                      Math.max(
-                                        1,
-                                        Math.round(Number(event.target.value) || 1),
-                                      ),
-                                      Math.max(1, row.stockAvailable),
-                                    ),
-                                  )
+	                                    Math.min(
+	                                      Math.max(
+	                                        1,
+	                                        Math.round(Number(event.target.value) || 1),
+	                                      ),
+	                                      Math.max(
+	                                        1,
+	                                        selectedRemoveGroup?.availableUnits ?? 0,
+	                                      ),
+	                                    ),
+	                                  )
                                 : event.target.value,
                             )
                           }
@@ -8571,11 +8757,12 @@ export function AdminCardCatalogPanel({
                               ? "danger-button"
                               : "gold-button"
                           }
-                          disabled={
-                            stockPending ||
-                            (currentStockDraft.mode === "remove" &&
-                              row.stockAvailable <= 0)
-                          }
+	                          disabled={
+	                            stockPending ||
+	                            (currentStockDraft.mode === "remove" &&
+	                              (!selectedRemoveGroup ||
+	                                selectedRemoveGroup.availableUnits <= 0))
+	                          }
                           type="button"
                           onClick={() => confirmStockAdjustment(card, row)}
                         >
@@ -8610,10 +8797,12 @@ export function AdminCardCatalogPanel({
                         >
                           + Add stock
                         </button>
-                        <button
-                          className="plain-button"
-                          disabled={isPending || row.stockAvailable <= 0}
-                          type="button"
+	                        <button
+	                          className="plain-button"
+	                          disabled={
+	                            isPending || !removableStockGroups.length
+	                          }
+	                          type="button"
                           onClick={() => openStockAdjustment(card, row, "remove")}
                         >
                           − Remove stock

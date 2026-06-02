@@ -111,6 +111,26 @@ export const cardStockErrorMap: KnownErrorMap = {
       "Not enough available global stock can be removed for this card. Check active reservations or lower the remove quantity.",
     status: 409,
   },
+  stock_subsku_required: {
+    code: "CARD_STOCK_SUBSKU_REQUIRED",
+    error: "Choose a stock sub-SKU before removing stock.",
+    status: 400,
+  },
+  graded_stock_identity_required: {
+    code: "CARD_STOCK_GRADED_IDENTITY_REQUIRED",
+    error: "Choose a grade and grading service for graded stock.",
+    status: 400,
+  },
+  invalid_grading_service: {
+    code: "CARD_STOCK_INVALID_GRADING_SERVICE",
+    error: "Choose a valid grading service for graded stock.",
+    status: 400,
+  },
+  cert_requires_single_unit: {
+    code: "CARD_STOCK_CERT_SINGLE_UNIT",
+    error: "A cert number can only be attached to a single unit.",
+    status: 400,
+  },
 };
 
 export const campaignLifecycleErrorMap: KnownErrorMap = {

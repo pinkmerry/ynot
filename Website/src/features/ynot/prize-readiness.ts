@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { isMissingFunctionError } from "@/lib/supabase/schema-compat";
 import type { Database, Json } from "@/lib/supabase/types";
 import {
   prizeDisplayTierOptions,
@@ -8,8 +9,10 @@ import {
   type PrizeDisplayTier,
 } from "./prize-tier";
 import {
+  buildPrizeStockSelectionIssues,
   buildPrizeStockShortages,
   stockCardIdForPrize,
+  stockSelectionBlockers,
   stockShortageBlockers,
   type PrizeStockSummary,
   type StockReadinessPrize,
@@ -38,6 +41,12 @@ type StockSummaryRow = {
   allocatedUnits: number;
   archivedUnits: number;
   deletedUnits: number;
+};
+
+type StockSubSkuSummaryRow = {
+  cardId: string;
+  stockUnitGroupKey: string;
+  availableUnits: number;
 };
 
 export type PrizeDraftInput = {
@@ -194,6 +203,69 @@ function stockSummariesFromJson(value: unknown): StockSummaryRow[] {
   });
 }
 
+function stockSubSkuSummariesFromJson(value: unknown): StockSubSkuSummaryRow[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item) || typeof item.cardId !== "string") return [];
+    const stockUnitGroupKey =
+      typeof item.stockUnitGroupKey === "string" ? item.stockUnitGroupKey : "";
+    if (!stockUnitGroupKey) return [];
+    return [
+      {
+        cardId: item.cardId,
+        stockUnitGroupKey,
+        availableUnits: numberOrZero(item.availableUnits),
+      },
+    ];
+  });
+}
+
+async function getPrizeStockSummaryRows(
+  supabase: SupabaseClient,
+  cardIds: string[],
+) {
+  const { data: batchData, error: batchError } = await supabase.rpc(
+    "get_admin_prize_stock_summaries",
+    { p_card_ids: cardIds },
+  );
+  if (!batchError) {
+    const batch = isRecord(batchData) ? batchData : {};
+    return {
+      stockRows: stockSummariesFromJson(batch.stockSummaries),
+      subSkuRows: stockSubSkuSummariesFromJson(batch.subSkuSummaries),
+    };
+  }
+  if (!isMissingFunctionError(batchError, "get_admin_prize_stock_summaries")) {
+    throw batchError;
+  }
+
+  const [stockResponses, subSkuResponses] = await Promise.all([
+    Promise.all(
+      cardIds.map((cardId) =>
+        supabase.rpc("get_card_stock_summary", { p_card_id: cardId }),
+      ),
+    ),
+    Promise.all(
+      cardIds.map((cardId) =>
+        supabase.rpc("get_admin_card_stock_subsku_summary", { p_card_id: cardId }),
+      ),
+    ),
+  ]);
+  const stockError = stockResponses.find((response) => response.error)?.error;
+  if (stockError) throw stockError;
+  const subSkuError = subSkuResponses.find((response) => response.error)?.error;
+  if (subSkuError) throw subSkuError;
+
+  return {
+    stockRows: stockResponses.flatMap((response) =>
+      stockSummariesFromJson(response.data),
+    ),
+    subSkuRows: subSkuResponses.flatMap((response) =>
+      stockSubSkuSummariesFromJson(response.data),
+    ),
+  };
+}
+
 async function countPrizeUnits(
   supabase: SupabaseClient,
   prizeId: string,
@@ -223,6 +295,24 @@ async function countCampaignReservations(
     .in("status", ["reserved", "allocated"]);
   if (error) throw error;
   return count ?? 0;
+}
+
+function stockGroupKeyFromMetadata(metadata: unknown) {
+  if (!isRecord(metadata)) return "";
+  if (typeof metadata.stockUnitGroupKey === "string") {
+    return metadata.stockUnitGroupKey.trim();
+  }
+  const filter = metadata.stockUnitFilter;
+  if (!isRecord(filter)) return "";
+  return [
+    typeof filter.condition === "string" && filter.condition.trim()
+      ? filter.condition.trim()
+      : "raw",
+    typeof filter.grade === "string" ? filter.grade.trim() : "",
+    typeof filter.gradingService === "string" ? filter.gradingService.trim() : "",
+    typeof filter.certNumber === "string" ? filter.certNumber.trim() : "",
+    typeof filter.gemrateId === "string" ? filter.gemrateId.trim() : "",
+  ].join("\u001f");
 }
 
 function soldPctForCampaign(row: DrawRoundRow, inventory?: InventorySummary) {
@@ -284,36 +374,51 @@ export async function getPrizeStockSummaries(
   ];
   if (!cardIds.length) return [];
 
-  const [{ data: cards, error: cardsError }, { data: stockRows, error: stockError }] =
-    await Promise.all([
-      supabase
-        .from("cards")
-        .select("id,name,card_code,search_code")
-        .in("id", cardIds),
-      supabase.rpc("get_card_stock_summary", { p_card_id: null }),
-    ]);
+  const [
+    { data: cards, error: cardsError },
+    { stockRows, subSkuRows },
+  ] = await Promise.all([
+    supabase
+      .from("cards")
+      .select("id,name,card_code,search_code")
+      .in("id", cardIds),
+    getPrizeStockSummaryRows(supabase, cardIds),
+  ]);
   if (cardsError) throw cardsError;
-  if (stockError) throw stockError;
 
   const cardById = new Map((cards ?? []).map((card) => [card.id, card]));
   const stockByCardId = new Map(
-    stockSummariesFromJson(stockRows).map((row) => [row.cardId, row]),
+    stockRows.map((row) => [row.cardId, row]),
   );
+  const subSkuRowsByCardId = new Map<string, StockSubSkuSummaryRow[]>();
+  for (const row of subSkuRows) {
+    const current = subSkuRowsByCardId.get(row.cardId) ?? [];
+    current.push(row);
+    subSkuRowsByCardId.set(row.cardId, current);
+  }
 
   const reservedByCardId = new Map<string, number>();
+  const reservedByCardAndGroup = new Map<string, number>();
   if (options.includeCampaignReservations && options.campaignId) {
     const campaignId = options.campaignId;
     const { data: currentPrizes, error: prizesError } = await supabase
       .from("draw_round_prizes")
-      .select("id,card_id")
+      .select("id,card_id,metadata")
       .eq("draw_round_id", campaignId);
     if (prizesError) throw prizesError;
     const cardIdByPrizeId = new Map(
       (currentPrizes ?? []).map((prize) => [prize.id, prize.card_id]),
     );
+    const groupKeyByPrizeId = new Map(
+      (currentPrizes ?? []).map((prize) => [
+        prize.id,
+        stockGroupKeyFromMetadata(prize.metadata),
+      ]),
+    );
     const reservationCounts = await Promise.all(
       [...cardIdByPrizeId.keys()].map(async (prizeId) => ({
         cardId: cardIdByPrizeId.get(prizeId),
+        groupKey: groupKeyByPrizeId.get(prizeId) ?? "",
         reservedCount: await countCampaignReservations(
           supabase,
           campaignId,
@@ -321,9 +426,16 @@ export async function getPrizeStockSummaries(
         ),
       })),
     );
-    for (const { cardId, reservedCount } of reservationCounts) {
+    for (const { cardId, groupKey, reservedCount } of reservationCounts) {
       if (!cardId) continue;
       reservedByCardId.set(cardId, (reservedByCardId.get(cardId) ?? 0) + reservedCount);
+      if (groupKey) {
+        const targetKey = `${cardId}\u001e${groupKey}`;
+        reservedByCardAndGroup.set(
+          targetKey,
+          (reservedByCardAndGroup.get(targetKey) ?? 0) + reservedCount,
+        );
+      }
     }
   }
 
@@ -336,6 +448,12 @@ export async function getPrizeStockSummaries(
       cardCode: card?.card_code ?? card?.search_code ?? null,
       stockAvailable: stock?.availableUnits ?? 0,
       reservedForCampaign: reservedByCardId.get(cardId) ?? 0,
+      stockSkuGroups: (subSkuRowsByCardId.get(cardId) ?? []).map((row) => ({
+        key: row.stockUnitGroupKey,
+        availableUnits: row.availableUnits,
+        reservedForCampaign:
+          reservedByCardAndGroup.get(`${cardId}\u001e${row.stockUnitGroupKey}`) ?? 0,
+      })),
     };
   });
 }
@@ -424,6 +542,14 @@ export function validatePrizeDraftsForSave(
     blockers.push("Add at least one prize that is eligible when the pack launches.");
   }
   if (stockReadiness) {
+    blockers.push(
+      ...stockSelectionBlockers(
+        buildPrizeStockSelectionIssues({
+          prizes,
+          stockSummaries: stockReadiness.stockSummaries,
+        }),
+      ),
+    );
     blockers.push(
       ...stockShortageBlockers(
         buildPrizeStockShortages({
@@ -544,13 +670,29 @@ export async function getCampaignPrizeReadiness(
     });
     stockBlockers =
       row.approval_status === "pending_review"
-        ? reservationCoverageBlockers(visiblePrizes, stockSummaries)
-        : stockShortageBlockers(
-            buildPrizeStockShortages({
-              prizes: visiblePrizes,
-              stockSummaries,
-            }),
-          );
+        ? [
+            ...stockSelectionBlockers(
+              buildPrizeStockSelectionIssues({
+                prizes: visiblePrizes,
+                stockSummaries,
+              }),
+            ),
+            ...reservationCoverageBlockers(visiblePrizes, stockSummaries),
+          ]
+        : [
+            ...stockSelectionBlockers(
+              buildPrizeStockSelectionIssues({
+                prizes: visiblePrizes,
+                stockSummaries,
+              }),
+            ),
+            ...stockShortageBlockers(
+              buildPrizeStockShortages({
+                prizes: visiblePrizes,
+                stockSummaries,
+              }),
+            ),
+          ];
   }
 
   const remainingSlots = Math.max(

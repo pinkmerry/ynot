@@ -175,3 +175,133 @@ test("groups stock units by sub-SKU and summarizes pack usage per sub-SKU", () =
     ],
   );
 });
+
+test("builds stock sub-SKU groups from server summary rows without raw unit fan-out", () => {
+  const groups = stockSku.stockSkuGroupsFromSummaryRows(rogerCard, [
+    {
+      cardId: "card-roger",
+      sampleUnitId: "summary-raw",
+      condition: "raw",
+      grade: null,
+      gradingService: null,
+      certNumber: null,
+      gemrateId: null,
+      imageUrl: null,
+      totalUnits: 29900,
+      availableUnits: 29800,
+      reservedUnits: 25,
+      allocatedUnits: 75,
+    },
+    {
+      cardId: "card-roger",
+      sampleUnitId: "summary-bgs",
+      condition: "graded",
+      grade: "BGS 9.5",
+      gradingService: "bgs",
+      certNumber: null,
+      gemrateId: null,
+      imageUrl: null,
+      totalUnits: 4,
+      availableUnits: 3,
+      reservedUnits: 0,
+      allocatedUnits: 1,
+    },
+    {
+      cardId: "other-card",
+      sampleUnitId: "ignore-other-card",
+      condition: "raw",
+      totalUnits: 999,
+      availableUnits: 999,
+      reservedUnits: 0,
+      allocatedUnits: 0,
+    },
+  ]);
+
+  assert.deepEqual(
+    plain(
+      groups.map((group) => ({
+        key: group.key,
+        sku: group.sku,
+        label: group.label,
+        totalUnits: group.totalUnits,
+        availableUnits: group.availableUnits,
+        reservedUnits: group.reservedUnits,
+        allocatedUnits: group.allocatedUnits,
+        unitCount: group.units.length,
+        sampleUnitId: group.units[0]?.id,
+        sampleQuantity: group.units[0]?.quantity,
+      })),
+    ),
+    [
+      {
+        key: "graded\u001fBGS 9.5\u001fbgs\u001f\u001f",
+        sku: "OP09-118-JP-MANGA-BGS95",
+        label: "BGS · BGS 9.5",
+        totalUnits: 4,
+        availableUnits: 3,
+        reservedUnits: 0,
+        allocatedUnits: 1,
+        unitCount: 1,
+        sampleUnitId: "summary-bgs",
+        sampleQuantity: 4,
+      },
+      {
+        key: "raw\u001f\u001f\u001f\u001f",
+        sku: "OP09-118-JP-MANGA-RAW",
+        label: "Raw",
+        totalUnits: 29900,
+        availableUnits: 29800,
+        reservedUnits: 25,
+        allocatedUnits: 75,
+        unitCount: 1,
+        sampleUnitId: "summary-raw",
+        sampleQuantity: 29900,
+      },
+    ],
+  );
+});
+
+test("raw and sealed sub-SKUs ignore legacy Ungraded grade metadata", () => {
+  const groups = stockSku.stockSkuGroups({
+    ...rogerCard,
+    stockUnits: [
+      {
+        id: "raw-legacy",
+        condition: "raw",
+        grade: "Ungraded",
+        gradingService: null,
+        certNumber: null,
+        gemrateId: null,
+        imageUrl: null,
+        status: "available",
+        quantity: 5,
+      },
+      {
+        id: "raw-new",
+        condition: "raw",
+        grade: null,
+        gradingService: null,
+        certNumber: null,
+        gemrateId: null,
+        imageUrl: null,
+        status: "available",
+        quantity: 7,
+      },
+    ],
+  });
+
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].key, "raw\u001f\u001f\u001f\u001f");
+  assert.equal(groups[0].sku, "OP09-118-JP-MANGA-RAW");
+  assert.equal(groups[0].availableUnits, 12);
+  assert.deepEqual(plain(stockSku.stockUnitSelectionMetadata({
+    ...rogerCard,
+    stockUnits: groups[0].units,
+  }, groups[0].key)?.stockUnitFilter), {
+    condition: "raw",
+    grade: "",
+    gradingService: "",
+    certNumber: "",
+    gemrateId: "",
+  });
+});
