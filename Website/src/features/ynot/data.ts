@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth/resolve-current-profile";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { getCardCatalog, isSupabaseConfigured } from "@/lib/lucky-draw/data";
+import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { isMissingColumnError } from "@/lib/supabase/schema-compat";
 import type { Database } from "@/lib/supabase/types";
@@ -47,6 +48,12 @@ import {
   prizeDisplayTierOrder,
   prizeDisplayTierValue,
 } from "./prize-tier";
+import {
+  stockUnitDisplayLabel,
+  stockUnitGroupKey,
+  stockUnitSku,
+  type StockSkuUsageDetail,
+} from "./stock-sku-usage";
 
 const dataIssueStorage = new AsyncLocalStorage<YnotDataIssue[]>();
 
@@ -58,6 +65,73 @@ type CardStockSummaryRow = {
   allocatedUnits: number;
   archivedUnits: number;
 };
+
+type AdminCardStockUnit = NonNullable<CardCatalogItem["stockUnits"]>[number];
+
+type CardStockUnitRow = Pick<
+  Database["public"]["Tables"]["card_stock_units"]["Row"],
+  | "id"
+  | "card_id"
+  | "condition"
+  | "grade"
+  | "grading_service"
+  | "cert_number"
+  | "gemrate_id"
+  | "image_url"
+  | "status"
+  | "quantity"
+>;
+
+function stockUnitQuantity(value: { quantity?: number | null }) {
+  const quantity = Number(value.quantity ?? 1);
+  return Number.isFinite(quantity) && quantity > 0 ? Math.trunc(quantity) : 1;
+}
+
+function stockUnitAggregateKey(unit: CardStockUnitRow) {
+  return [
+    unit.condition || "raw",
+    unit.grade || "",
+    unit.grading_service || "",
+    unit.cert_number || "",
+    unit.gemrate_id || "",
+    unit.image_url || "",
+    unit.status,
+  ].join("\u001f");
+}
+
+function addAggregatedStockUnit(
+  unitsByCard: Map<string, Map<string, AdminCardStockUnit>>,
+  unit: CardStockUnitRow,
+) {
+  const cardUnits = unitsByCard.get(unit.card_id) ?? new Map<string, AdminCardStockUnit>();
+  const key = stockUnitAggregateKey(unit);
+  const quantity = stockUnitQuantity(unit);
+  const existing = cardUnits.get(key);
+  if (existing) {
+    existing.quantity = stockUnitQuantity(existing) + quantity;
+  } else {
+    cardUnits.set(key, {
+      id: unit.id,
+      condition: unit.condition,
+      grade: unit.grade,
+      gradingService: unit.grading_service,
+      certNumber: unit.cert_number,
+      gemrateId: unit.gemrate_id,
+      imageUrl: unit.image_url,
+      status: unit.status,
+      quantity,
+    });
+  }
+  unitsByCard.set(unit.card_id, cardUnits);
+}
+
+function chunkValues<T>(values: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 const defaultViewer: YnotViewer = {
   authenticated: false,
@@ -270,6 +344,29 @@ type PrizeLineupCardRow = {
   prize_category?: string | null;
 };
 
+type PrizePoolCardRow = PrizeLineupCardRow & {
+  catalog_category?: CardCatalogItem["catalogCategory"] | null;
+  language?: string | null;
+  variant?: string | null;
+};
+
+type PrizePoolStockUnitRow = Pick<
+  Database["public"]["Tables"]["card_stock_units"]["Row"],
+  | "id"
+  | "card_id"
+  | "condition"
+  | "grade"
+  | "grading_service"
+  | "cert_number"
+  | "gemrate_id"
+  | "status"
+>;
+
+type PrizePoolUnitRow = Pick<
+  Database["public"]["Tables"]["draw_round_prize_units"]["Row"],
+  "card_stock_unit_id" | "draw_round_prize_id" | "status"
+>;
+
 type PrizeUnitCounts = {
   total: number;
   available: number;
@@ -287,6 +384,90 @@ function plannedPrizeUnitCounts(
     awarded: 0,
     void: 0,
   };
+}
+
+function prizeStockMetadata(
+  prize: Pick<Database["public"]["Tables"]["draw_round_prizes"]["Row"], "metadata">,
+) {
+  return {
+    intendedStockUnitKey: metadataString(prize.metadata, "stockUnitGroupKey") ?? null,
+    intendedStockSku: metadataString(prize.metadata, "stockSku") ?? null,
+    intendedStockLabel: metadataString(prize.metadata, "stockLabel") ?? null,
+  };
+}
+
+function cardForStockSku(card: PrizePoolCardRow): CardCatalogItem {
+  return {
+    catalogCardId: card.id,
+    code: card.card_code ?? card.id,
+    modelCode: card.card_code ?? undefined,
+    language: card.language ?? undefined,
+    name: card.name,
+    grade: card.grade ?? "",
+    series: "One Piece",
+    variant: card.variant ?? undefined,
+    stockUnits: [],
+  };
+}
+
+function stockUnitForSku(unit: PrizePoolStockUnitRow) {
+  return {
+    id: unit.id,
+    condition: unit.condition,
+    grade: unit.grade,
+    gradingService: unit.grading_service,
+    certNumber: unit.cert_number,
+    gemrateId: unit.gemrate_id,
+    imageUrl: null,
+    status: unit.status,
+  };
+}
+
+function prizePoolStockUnitUsages(
+  prizeUnits: PrizePoolUnitRow[],
+  stockUnitById: Map<string, PrizePoolStockUnitRow>,
+  cardById: Map<string, PrizePoolCardRow>,
+) {
+  const usageByPrize = new Map<string, Map<string, StockSkuUsageDetail>>();
+  for (const prizeUnit of prizeUnits) {
+    if (!prizeUnit.card_stock_unit_id) continue;
+    const stockUnit = stockUnitById.get(prizeUnit.card_stock_unit_id);
+    if (!stockUnit) continue;
+    const card = cardById.get(stockUnit.card_id);
+    if (!card) continue;
+    const displayUnit = stockUnitForSku(stockUnit);
+    const groupKey = stockUnitGroupKey(displayUnit);
+    const prizeUsage =
+      usageByPrize.get(prizeUnit.draw_round_prize_id) ??
+      new Map<string, StockSkuUsageDetail>();
+    const existing =
+      prizeUsage.get(groupKey) ??
+      ({
+        groupKey,
+        sku: stockUnitSku(cardForStockSku(card), displayUnit),
+        label: stockUnitDisplayLabel(displayUnit),
+        totalUnits: 0,
+        availableUnits: 0,
+        awardedUnits: 0,
+        voidUnits: 0,
+      } satisfies StockSkuUsageDetail);
+
+    existing.totalUnits += 1;
+    if (prizeUnit.status === "available" || prizeUnit.status === "reserved") {
+      existing.availableUnits += 1;
+    }
+    if (prizeUnit.status === "awarded") existing.awardedUnits += 1;
+    if (prizeUnit.status === "void") existing.voidUnits += 1;
+    prizeUsage.set(groupKey, existing);
+    usageByPrize.set(prizeUnit.draw_round_prize_id, prizeUsage);
+  }
+
+  return new Map(
+    [...usageByPrize.entries()].map(([prizeId, usages]) => [
+      prizeId,
+      [...usages.values()].sort((left, right) => left.sku.localeCompare(right.sku)),
+    ]),
+  );
 }
 
 async function readSupabaseRows<T>(
@@ -413,6 +594,7 @@ async function getPublicPrizeLineupsBatch(
             metadataString(prize.metadata, "displayTierLabel") ??
             prizeDisplayTierLabel(displayTier),
           tierRank: metadataNumber(prize.metadata, "tierRank") ?? prize.rank,
+          ...prizeStockMetadata(prize),
         };
       })
       .sort((left, right) => {
@@ -499,6 +681,7 @@ async function getPublicPrizeLineup(
           metadataString(prize.metadata, "displayTierLabel") ??
           prizeDisplayTierLabel(displayTier),
         tierRank: metadataNumber(prize.metadata, "tierRank") ?? prize.rank,
+        ...prizeStockMetadata(prize),
       };
     })
     .sort((left, right) => {
@@ -2234,58 +2417,48 @@ export async function getAdminCards() {
     });
     const stockByCard = new Map(stockRows.map((row) => [row.cardId, row]));
 
-    // Per-card breakdown of the "special" units (graded slabs, sealed, or
-    // anything carrying a cert) so the catalog can show each slab's grade/cert
-    // instead of hiding them inside the aggregate count. Plain raw bulk stays
-    // as the GLOBAL STOCK number, so this query stays small.
+    // Per-card stock identity breakdown. Repeated physical rows are aggregated
+    // before crossing into the client, so one raw/BGS/PSA sub-SKU renders as a
+    // single amount instead of thousands of repeated rows.
     const cardIds = cards.map((card) => card.catalogCardId);
-    const unitsByCard = new Map<
-      string,
-      Array<{
-        id: string;
-        condition: string;
-        grade: string | null;
-        gradingService: string | null;
-        certNumber: string | null;
-        gemrateId: string | null;
-        imageUrl: string | null;
-        status: string;
-      }>
-    >();
+    const unitMapsByCard = new Map<string, Map<string, AdminCardStockUnit>>();
     if (cardIds.length) {
       await readOrEmpty("card_stock_unit_breakdown", async () => {
-        const { data, error } = await supabase
-          .from("card_stock_units")
-          .select(
-            "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status",
-          )
-          .in("card_id", cardIds)
-          .neq("status", "deleted")
-          .neq("status", "archived")
-          .or("cert_number.not.is.null,condition.neq.raw")
-          .order("created_at", { ascending: true })
-          .limit(2000);
-        if (error) throw error;
-        for (const unit of data ?? []) {
-          const list = unitsByCard.get(unit.card_id) ?? [];
-          list.push({
-            id: unit.id,
-            condition: unit.condition,
-            grade: unit.grade,
-            gradingService: unit.grading_service,
-            certNumber: unit.cert_number,
-            gemrateId: unit.gemrate_id,
-            imageUrl: unit.image_url,
-            status: unit.status,
-          });
-          unitsByCard.set(unit.card_id, list);
+        const loadedRows: CardStockUnitRow[] = [];
+        const batchSize = 1000;
+        const cardIdBatchSize = 100;
+        for (const cardIdBatch of chunkValues(cardIds, cardIdBatchSize)) {
+          let offset = 0;
+          while (true) {
+            const { data, error } = await supabase
+              .from("card_stock_units")
+              .select(
+                "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status,quantity",
+              )
+              .in("card_id", cardIdBatch)
+              .neq("status", "deleted")
+              .neq("status", "archived")
+              .order("created_at", { ascending: true })
+              .range(offset, offset + batchSize - 1);
+            if (error) throw error;
+            for (const unit of data ?? []) {
+              const row = unit as CardStockUnitRow;
+              addAggregatedStockUnit(unitMapsByCard, row);
+              loadedRows.push(row);
+            }
+            if (!data || data.length < batchSize) break;
+            offset += batchSize;
+          }
         }
-        return data ?? [];
+        return loadedRows;
       });
     }
 
     return cards.map((card) => {
       const stock = stockByCard.get(card.catalogCardId);
+      const stockUnits = [
+        ...(unitMapsByCard.get(card.catalogCardId)?.values() ?? []),
+      ];
       return {
         ...card,
         stockTotal: stock?.totalUnits ?? 0,
@@ -2293,7 +2466,7 @@ export async function getAdminCards() {
         stockReserved: stock?.reservedUnits ?? 0,
         stockAllocated: stock?.allocatedUnits ?? 0,
         stockArchived: stock?.archivedUnits ?? 0,
-        stockUnits: unitsByCard.get(card.catalogCardId) ?? [],
+        stockUnits,
       };
     });
   });
@@ -2322,26 +2495,59 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
       ...new Set(visiblePrizes.map((prize) => prize.draw_round_id)),
     ];
     const cardIds = [...new Set(visiblePrizes.map((prize) => prize.card_id))];
-    const [
-      { data: campaigns, error: campaignsError },
-      { data: cards, error: cardsError },
-    ] = await Promise.all([
+    const [{ data: campaigns, error: campaignsError }, cards] = await Promise.all([
       supabase
         .from("draw_rounds")
         .select("id,slug,title_th,title_en")
         .in("id", campaignIds),
-      supabase
-        .from("cards")
-        .select("id,name,card_code,grade,image_url,image_storage_path,prize_category")
-        .in("id", cardIds),
+      readSupabaseRows<PrizePoolCardRow>("prize_pool_cards", () =>
+        supabase
+          .from("cards")
+          .select(
+            "id,name,card_code,grade,image_url,image_storage_path,prize_category,catalog_category,language,variant",
+          )
+          .in("id", cardIds),
+      ),
     ]);
     if (campaignsError) throw campaignsError;
-    if (cardsError) throw cardsError;
 
     const campaignById = new Map(
       (campaigns ?? []).map((campaign) => [campaign.id, campaign]),
     );
     const cardById = new Map((cards ?? []).map((card) => [card.id, card]));
+    const prizeIds = visiblePrizes.map((prize) => prize.id);
+    const prizeUnits = prizeIds.length
+      ? await readSupabaseRows<PrizePoolUnitRow>("prize_pool_stock_units", () =>
+          supabase
+            .from("draw_round_prize_units")
+            .select("draw_round_prize_id,card_stock_unit_id,status")
+            .in("draw_round_prize_id", prizeIds),
+        )
+      : [];
+    const stockUnitIds = [
+      ...new Set(
+        prizeUnits
+          .map((unit) => unit.card_stock_unit_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const stockUnits = stockUnitIds.length
+      ? await readSupabaseRows<PrizePoolStockUnitRow>(
+          "prize_pool_stock_unit_identities",
+          () =>
+            supabase
+              .from("card_stock_units")
+              .select(
+                "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,status",
+              )
+              .in("id", stockUnitIds),
+        )
+      : [];
+    const stockUsageByPrizeId = prizePoolStockUnitUsages(
+      prizeUnits,
+      new Map(stockUnits.map((unit) => [unit.id, unit])),
+      cardById,
+    );
     return visiblePrizes.map((prize) => {
       const campaign = campaignById.get(prize.draw_round_id);
       const card = cardById.get(prize.card_id);
@@ -2374,6 +2580,8 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
           metadataString(prize.metadata, "displayTierLabel") ??
           prizeDisplayTierLabel(displayTier),
         tierRank: metadataNumber(prize.metadata, "tierRank") ?? prize.rank,
+        ...prizeStockMetadata(prize),
+        stockUnitUsages: stockUsageByPrizeId.get(prize.id) ?? [],
         plannedQuantity: counts.total,
         totalUnits: counts.total,
         availableUnits: counts.available,

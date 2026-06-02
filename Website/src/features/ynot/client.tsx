@@ -45,6 +45,13 @@ import {
   type PrizeStockSummary,
 } from "./stock-readiness";
 import {
+  displayStockUnitQuantity,
+  stockSkuGroups,
+  stockSkuPackUsageByGroup,
+  stockUnitSelectionMetadata,
+  type StockSkuPackUsage,
+} from "./stock-sku-usage";
+import {
   prizeCategoryLabel,
   prizeCategoryOptions,
   prizeCategoryValue,
@@ -56,7 +63,6 @@ import {
   cardConditionLabel,
   cardConditionOptions,
   cardGradeOptions,
-  cardGradeValue,
   cardLanguageLabel,
   catalogCategoryLabel,
   catalogCategoryOptions,
@@ -2282,6 +2288,7 @@ type CampaignPrizeDraft = {
   localId: string;
   displayTier: PrizeDisplayTier;
   cardId: string;
+  stockUnitKey: string;
   tier: "normal" | "high";
   prizeCategory: PrizeCategory;
   rank: number;
@@ -2325,9 +2332,12 @@ function prizeCatalogCardsFor(
   cards: CardCatalogItem[],
   category: PrizeCategory,
   displayTier: PrizeDisplayTier,
+  series?: YnotCampaign["series"],
 ) {
   const categorizedCards = cards.filter(
-    (card) => cardPrizeCategory(card) === category,
+    (card) =>
+      cardPrizeCategory(card) === category &&
+      (!series || cardMatchesCampaignSeries(card, series)),
   );
   if (category !== "psa10_card") return categorizedCards;
   if (canPrizeDisplayTierUseRandomPsa10(displayTier)) {
@@ -2336,8 +2346,49 @@ function prizeCatalogCardsFor(
   return categorizedCards.filter((card) => !isRandomPsa10Card(card));
 }
 
+function cardMatchesCampaignSeries(
+  card: CardCatalogItem,
+  series: YnotCampaign["series"],
+) {
+  return series === "pokemon"
+    ? card.series === "Pokemon"
+    : card.series === "One Piece";
+}
+
 function firstCatalogCardId(cards: CardCatalogItem[]) {
   return cards[0]?.catalogCardId ?? "";
+}
+
+function defaultStockUnitKey(card: CardCatalogItem | null | undefined) {
+  if (!card) return "";
+  const groups = stockSkuGroups(card);
+  return (
+    groups.find((group) => group.availableUnits > 0)?.key ??
+    groups[0]?.key ??
+    ""
+  );
+}
+
+function normalizedStockUnitKey(
+  card: CardCatalogItem | null | undefined,
+  key: string | null | undefined,
+) {
+  if (!card) return "";
+  const groups = stockSkuGroups(card);
+  if (key && groups.some((group) => group.key === key)) return key;
+  return defaultStockUnitKey(card);
+}
+
+type PrizeStockUnitShortage = {
+  cardName: string;
+  stockSku: string;
+  requiredUnits: number;
+  usableUnits: number;
+  shortageUnits: number;
+};
+
+function stockUnitShortageMessage(shortage: PrizeStockUnitShortage) {
+  return `${shortage.cardName} ${shortage.stockSku} needs ${shortage.requiredUnits.toLocaleString()} prize units but only ${shortage.usableUnits.toLocaleString()} matching sub-SKU stock units are usable.`;
 }
 
 function adminPrizeCardIdentity(card: CardCatalogItem) {
@@ -2861,10 +2912,14 @@ function createPrizeDraft(
       ? existing.cardId
       : "";
   const defaultCardId = existing ? "" : firstCatalogCardId(cardOptions);
+  const cardId = existingCardId || defaultCardId;
+  const selectedCard =
+    cardOptions.find((card) => card.catalogCardId === cardId) ?? null;
   return {
     localId: existing?.localId ?? `${displayTier}-${index + 1}`,
     displayTier,
-    cardId: existingCardId || defaultCardId,
+    cardId,
+    stockUnitKey: normalizedStockUnitKey(selectedCard, existing?.stockUnitKey),
     tier: config.dbTier,
     prizeCategory,
     rank: existing?.rank ?? index + 1,
@@ -2944,13 +2999,17 @@ function withLowestTierRemainder(
       prize.prizeCategory,
       prize.displayTier,
     );
+    const cardId =
+      prize.cardId &&
+      cardOptions.some((card) => card.catalogCardId === prize.cardId)
+        ? prize.cardId
+        : "";
+    const selectedCard =
+      cardOptions.find((card) => card.catalogCardId === cardId) ?? null;
     return {
       ...prize,
-      cardId:
-        prize.cardId &&
-        cardOptions.some((card) => card.catalogCardId === prize.cardId)
-          ? prize.cardId
-          : "",
+      cardId,
+      stockUnitKey: normalizedStockUnitKey(selectedCard, prize.stockUnitKey),
       quantity: Math.max(0, normalizedTotalSlots - fixedUnits),
     };
   });
@@ -2986,6 +3045,10 @@ function prizeLineupToDrafts(
       localId: `existing-${prize.id || index}`,
       displayTier,
       cardId: prize.cardId ?? "",
+      stockUnitKey: normalizedStockUnitKey(
+        cards.find((card) => card.catalogCardId === prize.cardId),
+        prize.intendedStockUnitKey,
+      ),
       tier: (prize.tier === "high" ? "high" : "normal") as "normal" | "high",
       prizeCategory,
       rank: Math.max(1, Math.round(prize.rank || index + 1)),
@@ -3078,9 +3141,13 @@ export function AdminCampaignForm({
       ),
     [sortedDraftPrizes],
   );
+  const campaignCatalogCards = useMemo(
+    () => cards.filter((card) => cardMatchesCampaignSeries(card, series)),
+    [cards, series],
+  );
   const cardsById = useMemo(
-    () => new Map(cards.map((card) => [card.catalogCardId, card])),
-    [cards],
+    () => new Map(campaignCatalogCards.map((card) => [card.catalogCardId, card])),
+    [campaignCatalogCards],
   );
   const reservedForEditingCampaignByCardId = useMemo(() => {
     const counts = new Map<string, number>();
@@ -3124,6 +3191,70 @@ export function AdminCampaignForm({
     [activePrizeDrafts, editingCampaign?.approvalStatus, prizeStockSummaries],
   );
   const stockBlockers = stockShortageBlockers(stockShortages);
+  const reservedForEditingCampaignByStockKey = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (editingCampaign?.approvalStatus !== "pending_review") return counts;
+    for (const prize of editingPrizes ?? []) {
+      if (!prize.cardId || !prize.intendedStockUnitKey) continue;
+      const key = `${prize.cardId}\u001f${prize.intendedStockUnitKey}`;
+      counts.set(
+        key,
+        (counts.get(key) ?? 0) +
+          Math.max(0, Math.round(Number(prize.plannedQuantity) || 0)),
+      );
+    }
+    return counts;
+  }, [editingCampaign?.approvalStatus, editingPrizes]);
+  const stockUnitShortages = useMemo<PrizeStockUnitShortage[]>(() => {
+    const requiredByStockKey = new Map<
+      string,
+      { card: CardCatalogItem; groupKey: string; requiredUnits: number }
+    >();
+
+    for (const prize of activePrizeDrafts) {
+      if (!prize.cardId || !prize.stockUnitKey) continue;
+      const card = cardsById.get(prize.cardId);
+      if (!card) continue;
+      const groupKey = normalizedStockUnitKey(card, prize.stockUnitKey);
+      if (!groupKey) continue;
+      const key = `${card.catalogCardId}\u001f${groupKey}`;
+      const existing = requiredByStockKey.get(key);
+      requiredByStockKey.set(key, {
+        card,
+        groupKey,
+        requiredUnits:
+          (existing?.requiredUnits ?? 0) + Math.max(0, prizeUnitCount(prize)),
+      });
+    }
+
+    return Array.from(requiredByStockKey.entries()).flatMap(([key, entry]) => {
+      const group = stockSkuGroups(entry.card).find(
+        (candidate) => candidate.key === entry.groupKey,
+      );
+      if (!group) return [];
+      const reservedUnits =
+        editingCampaign?.approvalStatus === "pending_review"
+          ? (reservedForEditingCampaignByStockKey.get(key) ?? 0)
+          : 0;
+      const usableUnits = group.availableUnits + reservedUnits;
+      if (entry.requiredUnits <= usableUnits) return [];
+      return [
+        {
+          cardName: entry.card.name,
+          stockSku: group.sku,
+          requiredUnits: entry.requiredUnits,
+          usableUnits,
+          shortageUnits: entry.requiredUnits - usableUnits,
+        },
+      ];
+    });
+  }, [
+    activePrizeDrafts,
+    cardsById,
+    editingCampaign?.approvalStatus,
+    reservedForEditingCampaignByStockKey,
+  ]);
+  const stockUnitBlockers = stockUnitShortages.map(stockUnitShortageMessage);
   const configuredPrizeUnits = activePrizeDrafts.reduce(
     (sum, prize) => sum + Math.max(0, Math.round(Number(prize.quantity) || 0)),
     0,
@@ -3163,17 +3294,19 @@ export function AdminCampaignForm({
     (prize) =>
       prizeUnitCount(prize) > 0 &&
       !prizeCatalogCardsFor(
-        cards,
+        campaignCatalogCards,
         prize.prizeCategory,
         prize.displayTier,
+        series,
       ).length,
   );
   const invalidPrizeItemRows = draftPrizes.filter((prize) => {
     if (prizeUnitCount(prize) <= 0) return false;
     const itemOptions = prizeCatalogCardsFor(
-      cards,
+      campaignCatalogCards,
       prize.prizeCategory,
       prize.displayTier,
+      series,
     );
     return (
       itemOptions.length > 0 &&
@@ -3184,9 +3317,10 @@ export function AdminCampaignForm({
   const missingPrizeItemRows = draftPrizes.filter((prize) => {
     if (prizeUnitCount(prize) <= 0) return false;
     const itemOptions = prizeCatalogCardsFor(
-      cards,
+      campaignCatalogCards,
       prize.prizeCategory,
       prize.displayTier,
+      series,
     );
     return itemOptions.length > 0 && !prize.cardId;
   });
@@ -3205,12 +3339,15 @@ export function AdminCampaignForm({
     (rankKey, index) => rankKeys.indexOf(rankKey) !== index,
   );
   const prizeBlockers = [
-    !cards.length ? "Add at least one item in Prize Catalog first." : "",
+    !campaignCatalogCards.length
+      ? "Add at least one Prize Catalog item for the selected brand first."
+      : "",
     !activePrizeDrafts.length ? "Choose prize inventory before saving." : "",
     configuredPrizeUnits !== totalSlots
       ? "Prize quantity must equal the total pack quantity."
       : "",
     ...stockBlockers,
+    ...stockUnitBlockers,
     initialUnlockedUnits <= 0
       ? "At least one prize must be available in the launch pool."
       : "",
@@ -3262,6 +3399,14 @@ export function AdminCampaignForm({
       ready: stockShortages.length === 0,
     },
     {
+      label: "Sub-SKU stock",
+      primary: stockUnitShortages.length
+        ? `${stockUnitShortages.length.toLocaleString()} shortage${stockUnitShortages.length === 1 ? "" : "s"}`
+        : "Covered",
+      secondary: "selected raw / graded identity",
+      ready: stockUnitShortages.length === 0,
+    },
+    {
       label: "Launch pool",
       primary: countLabel(initialUnlockedUnits, "unit"),
       secondary: "unlocked at launch",
@@ -3282,7 +3427,40 @@ export function AdminCampaignForm({
           prize.localId === localId ? { ...prize, ...patch } : prize,
         ),
         totalSlots,
-        cards,
+        campaignCatalogCards,
+      ),
+    );
+  }
+
+  function applyCampaignSeries(nextSeries: YnotCampaign["series"]) {
+    const nextCampaignCards = cards.filter((card) =>
+      cardMatchesCampaignSeries(card, nextSeries),
+    );
+    setSeries(nextSeries);
+    setDisplayTags((current) => normalizeCustomerTags(current, nextSeries));
+    setDraftPrizes((current) =>
+      withLowestTierRemainder(
+        current.map((prize) => {
+          const itemOptions = prizeCatalogCardsFor(
+            nextCampaignCards,
+            prize.prizeCategory,
+            prize.displayTier,
+            nextSeries,
+          );
+          const currentCard = itemOptions.find(
+            (card) => card.catalogCardId === prize.cardId,
+          );
+          const nextCard = currentCard ?? itemOptions[0] ?? null;
+          return {
+            ...prize,
+            cardId: nextCard?.catalogCardId ?? "",
+            stockUnitKey: currentCard
+              ? normalizedStockUnitKey(currentCard, prize.stockUnitKey)
+              : defaultStockUnitKey(nextCard),
+          };
+        }),
+        totalSlots,
+        nextCampaignCards,
       ),
     );
   }
@@ -3291,9 +3469,17 @@ export function AdminCampaignForm({
     prize: CampaignPrizeDraft,
     nextCategory: PrizeCategory,
   ) {
+    const itemOptions = prizeCatalogCardsFor(
+      campaignCatalogCards,
+      nextCategory,
+      prize.displayTier,
+      series,
+    );
+    const defaultCard = itemOptions[0] ?? null;
     updatePrizeDraft(prize.localId, {
       prizeCategory: nextCategory,
-      cardId: "",
+      cardId: defaultCard?.catalogCardId ?? "",
+      stockUnitKey: defaultStockUnitKey(defaultCard),
     });
   }
 
@@ -3304,7 +3490,7 @@ export function AdminCampaignForm({
     );
     setTotalSlots(normalizedTotalSlots);
     setDraftPrizes((current) =>
-      withLowestTierRemainder(current, normalizedTotalSlots, cards),
+      withLowestTierRemainder(current, normalizedTotalSlots, campaignCatalogCards),
     );
   }
 
@@ -3320,11 +3506,11 @@ export function AdminCampaignForm({
           [
             ...current,
             ...Array.from({ length: config.defaultCount }, (_, index) =>
-              createPrizeDraft(displayTier, index, cards),
+              createPrizeDraft(displayTier, index, campaignCatalogCards),
             ),
           ],
           totalSlots,
-          cards,
+          campaignCatalogCards,
         );
       }
       const activeTiers = new Set(current.map((prize) => prize.displayTier));
@@ -3332,7 +3518,7 @@ export function AdminCampaignForm({
       return withLowestTierRemainder(
         current.filter((prize) => prize.displayTier !== displayTier),
         totalSlots,
-        cards,
+        campaignCatalogCards,
       );
     });
   }
@@ -3347,7 +3533,7 @@ export function AdminCampaignForm({
             createPrizeDraft(
               displayTier,
               index,
-              cards,
+              campaignCatalogCards,
               current
                 .filter((prize) => prize.displayTier === displayTier)
                 .sort((left, right) => left.tierRank - right.tierRank)[index],
@@ -3355,14 +3541,14 @@ export function AdminCampaignForm({
           ),
         ],
         totalSlots,
-        cards,
+        campaignCatalogCards,
       ),
     );
   }
 
   function fillLowestTierRemainder() {
     setDraftPrizes((current) =>
-      withLowestTierRemainder(current, totalSlots, cards),
+      withLowestTierRemainder(current, totalSlots, campaignCatalogCards),
     );
   }
 
@@ -3376,7 +3562,7 @@ export function AdminCampaignForm({
           prize.displayTier === displayTier ? { ...prize, ...patch } : prize,
         ),
         totalSlots,
-        cards,
+        campaignCatalogCards,
       ),
     );
   }
@@ -3397,7 +3583,7 @@ export function AdminCampaignForm({
       withLowestTierRemainder(
         current.filter((prize) => prize.localId !== localId),
         totalSlots,
-        cards,
+        campaignCatalogCards,
       ),
     );
   }
@@ -3432,23 +3618,31 @@ export function AdminCampaignForm({
           categoryIds: categoryId ? [categoryId] : undefined,
           isTest,
           convertDeadlineDays,
-          initialPrizes: activePrizeDrafts.map((prize) => ({
-            cardId: prize.cardId,
-            tier: dbTierForPrizeDisplayTier(prize.displayTier),
-            rank: Math.max(1, Math.round(Number(prize.rank) || 1)),
-            quantity: Math.max(0, Math.round(Number(prize.quantity) || 0)),
-            convertCoinValue: clampConvertCoinValue(prize.convertCoinValue),
-            metadata: {
-              displayTier: prize.displayTier,
-              displayTierLabel: prizeDisplayTierLabel(prize.displayTier),
-              displayGroup: prize.displayTier,
-              tierRank: prize.tierRank,
-              tierRowCount: draftPrizesByTier[prize.displayTier].length,
-              prizeCategory: prize.prizeCategory,
-              prizeCategoryLabel: prizeCategoryLabel(prize.prizeCategory),
-              sourceType: prizeSourceType(prize.prizeCategory),
-            },
-          })),
+          initialPrizes: activePrizeDrafts.map((prize) => {
+            const card = cardsById.get(prize.cardId);
+            const stockMetadata =
+              card && prize.stockUnitKey
+                ? stockUnitSelectionMetadata(card, prize.stockUnitKey)
+                : null;
+            return {
+              cardId: prize.cardId,
+              tier: dbTierForPrizeDisplayTier(prize.displayTier),
+              rank: Math.max(1, Math.round(Number(prize.rank) || 1)),
+              quantity: Math.max(0, Math.round(Number(prize.quantity) || 0)),
+              convertCoinValue: clampConvertCoinValue(prize.convertCoinValue),
+              metadata: {
+                displayTier: prize.displayTier,
+                displayTierLabel: prizeDisplayTierLabel(prize.displayTier),
+                displayGroup: prize.displayTier,
+                tierRank: prize.tierRank,
+                tierRowCount: draftPrizesByTier[prize.displayTier].length,
+                prizeCategory: prize.prizeCategory,
+                prizeCategoryLabel: prizeCategoryLabel(prize.prizeCategory),
+                sourceType: prizeSourceType(prize.prizeCategory),
+                ...(stockMetadata ?? {}),
+              },
+            };
+          }),
         };
         if (editMode && editingCampaign) {
           await patchJson("/api/ynot/admin/campaigns", {
@@ -3522,7 +3716,7 @@ export function AdminCampaignForm({
               />
             </label>
             <label className="admin-field">
-              <span>Category</span>
+              <span>Brand</span>
               {categories.length ? (
                 <select
                   value={categoryId}
@@ -3533,10 +3727,7 @@ export function AdminCampaignForm({
                     const nextSeries = nextCategory?.legacySeries ?? undefined;
                     setCategoryId(event.target.value);
                     if (nextSeries) {
-                      setSeries(nextSeries);
-                      setDisplayTags((current) =>
-                        normalizeCustomerTags(current, nextSeries),
-                      );
+                      applyCampaignSeries(nextSeries);
                     }
                   }}
                 >
@@ -3554,10 +3745,7 @@ export function AdminCampaignForm({
                     const nextSeries = event.target.value as
                       | "pokemon"
                       | "one_piece";
-                    setSeries(nextSeries);
-                    setDisplayTags((current) =>
-                      normalizeCustomerTags(current, nextSeries),
-                    );
+                    applyCampaignSeries(nextSeries);
                   }}
                 >
                   <option value="pokemon">Pokemon</option>
@@ -4014,16 +4202,18 @@ export function AdminCampaignForm({
                     <div className="admin-prize-table-head">
                       <span>Tier #</span>
                       <span>Prize item</span>
-                      <span>Category</span>
+                      <span>Sub-SKU stock</span>
+                      <span>Prize type</span>
                       <span>Qty</span>
                       <span>Convert coins</span>
                       <span>Action</span>
                     </div>
                     {rows.map((prize) => {
                       const itemOptions = prizeCatalogCardsFor(
-                        cards,
+                        campaignCatalogCards,
                         prize.prizeCategory,
                         prize.displayTier,
+                        series,
                       );
                       const selectedCardId = itemOptions.some(
                         (card) => card.catalogCardId === prize.cardId,
@@ -4034,6 +4224,13 @@ export function AdminCampaignForm({
                         itemOptions.find(
                           (card) => card.catalogCardId === selectedCardId,
                         ) ?? null;
+                      const stockGroups = selectedCard
+                        ? stockSkuGroups(selectedCard)
+                        : [];
+                      const selectedStockUnitKey = normalizedStockUnitKey(
+                        selectedCard,
+                        prize.stockUnitKey,
+                      );
                       return (
                         <article
                           className={`admin-prize-table-row tier-${option.value}`}
@@ -4065,11 +4262,16 @@ export function AdminCampaignForm({
                               showPreview={false}
                               showSearch={false}
                               value={selectedCardId}
-                              onChange={(cardId) =>
+                              onChange={(cardId) => {
+                                const nextCard =
+                                  itemOptions.find(
+                                    (card) => card.catalogCardId === cardId,
+                                  ) ?? null;
                                 updatePrizeDraft(prize.localId, {
                                   cardId,
-                                })
-                              }
+                                  stockUnitKey: defaultStockUnitKey(nextCard),
+                                });
+                              }}
                               testIdPrefix={`campaign-prize-${prize.localId}`}
                             />
                             {!itemOptions.length && (
@@ -4079,8 +4281,32 @@ export function AdminCampaignForm({
                               </small>
                             )}
                           </div>
+                          <label className="admin-field admin-prize-stock-sku-field">
+                            <span>Sub-SKU stock</span>
+                            <select
+                              disabled={!stockGroups.length}
+                              value={selectedStockUnitKey}
+                              onChange={(event) =>
+                                updatePrizeDraft(prize.localId, {
+                                  stockUnitKey: event.target.value,
+                                })
+                              }
+                            >
+                              <option value="">
+                                {selectedCard
+                                  ? "Main SKU stock"
+                                  : "Choose item first"}
+                              </option>
+                              {stockGroups.map((group) => (
+                                <option key={group.key} value={group.key}>
+                                  {group.sku} · {group.label} ·{" "}
+                                  {group.availableUnits}/{group.totalUnits} stock
+                                </option>
+                              ))}
+                            </select>
+                          </label>
                           <label className="admin-field">
-                            <span>Category</span>
+                            <span>Prize type</span>
                             <select
                               value={prize.prizeCategory}
                               onChange={(event) =>
@@ -6679,11 +6905,13 @@ export function AdminCardForm({
  */
 export function AdminCardStockUnitForm({
   cards,
+  initialCardId,
 }: {
   cards: CardCatalogItem[];
+  initialCardId?: string;
 }) {
   const router = useRouter();
-  const [cardId, setCardId] = useState("");
+  const [cardId, setCardId] = useState(initialCardId ?? "");
   const [condition, setCondition] = useState<CardCondition>("raw");
   const [grade, setGrade] = useState("");
   const [gradingService, setGradingService] = useState<GradingService | "">("");
@@ -6704,6 +6932,14 @@ export function AdminCardStockUnitForm({
   const effectiveCount = hasCert
     ? 1
     : Math.min(10000, Math.max(1, Math.trunc(Number(count) || 1)));
+  const productCardOptions = useMemo(
+    () =>
+      cards.map((card) => ({
+        value: card.catalogCardId,
+        label: `${card.name}${card.code ? ` (${card.code})` : ""}`,
+      })),
+    [cards],
+  );
 
   function replaceUnitPreviewUrl(nextUrl: string, objectUrl = false) {
     if (imagePreviewObjectUrlRef.current) {
@@ -6771,10 +7007,7 @@ export function AdminCardStockUnitForm({
             onChange={setCardId}
             placeholder="Select product…"
             searchPlaceholder="Search product…"
-            options={cards.map((card) => ({
-              value: card.catalogCardId,
-              label: `${card.name}${card.code ? ` (${card.code})` : ""}`,
-            }))}
+            options={productCardOptions}
           />
         </AdminField>
         <AdminField label="Condition">
@@ -7155,6 +7388,177 @@ function AdminStockUnitRow({
   );
 }
 
+function prizeAssignmentQuantity(prizes: YnotPrizePoolItem[]) {
+  return prizes.reduce(
+    (sum, prize) =>
+      sum +
+      Math.max(
+        0,
+        Math.trunc(Number(prize.totalUnits || prize.plannedQuantity || 0)),
+      ),
+    0,
+  );
+}
+
+function prizeUsageTierLabel(prize: {
+  displayGroup?: string | null;
+  displayTier?: string | null;
+  rank: number;
+  tier: "normal" | "high";
+  tierRank?: number | null;
+}) {
+  return `${prizeDisplayTierLabel(
+    prizeDisplayTierValue(prize.displayTier ?? prize.displayGroup ?? prize.tier),
+  )} #${prize.tierRank ?? prize.rank}`;
+}
+
+function prizeStockUsageSummary(prize: YnotPrizePoolItem) {
+  const materialized = prize.stockUnitUsages ?? [];
+  if (materialized.length) {
+    return materialized
+      .map((usage) => `${usage.sku} · ${usage.totalUnits.toLocaleString()} unit${usage.totalUnits === 1 ? "" : "s"}`)
+      .join(" / ");
+  }
+  if (prize.intendedStockSku) return `${prize.intendedStockSku} · draft target`;
+  return "Main SKU stock";
+}
+
+function AdminSubSkuPackUsageList({
+  usages,
+}: {
+  usages: StockSkuPackUsage[];
+}) {
+  if (!usages.length) {
+    return (
+      <p className="admin-stock-sku-pack-empty">
+        Not assigned to a random pack yet.
+      </p>
+    );
+  }
+  return (
+    <div className="admin-stock-sku-pack-list">
+      {usages.map((usage) => (
+        <div
+          className="admin-stock-sku-pack-row"
+          key={`${usage.prizeId}-${usage.sku}-${usage.source}`}
+        >
+          <span>
+            <strong>{usage.campaignTitle}</strong>
+            <small>
+              {prizeUsageTierLabel(usage)} · {usage.source === "intended" ? "draft target" : "reserved stock"}
+            </small>
+          </span>
+          <code>{usage.sku}</code>
+          <span>
+            {usage.availableUnits.toLocaleString()}/
+            {usage.units.toLocaleString()} available
+            {usage.awardedUnits
+              ? ` · ${usage.awardedUnits.toLocaleString()} awarded`
+              : ""}
+            {usage.voidUnits ? ` · ${usage.voidUnits.toLocaleString()} void` : ""}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AdminStockSkuBreakdown({
+  card,
+  row,
+}: {
+  card: CardCatalogItem;
+  row: AdminCardCatalogRow;
+}) {
+  const groups = stockSkuGroups(card);
+  const assignedUnits = prizeAssignmentQuantity(row.prizes);
+  const usageByGroup = stockSkuPackUsageByGroup(groups, row.prizes);
+  const activeUnits = Math.max(0, row.stockTotal - row.stockArchived);
+  if (!groups.length && !activeUnits && !assignedUnits) return null;
+
+  return (
+    <details className="admin-card-stock-breakdown">
+      <summary className="admin-card-stock-summary">
+        <span>Stock sub-SKUs</span>
+        <strong>
+          {groups.length
+            ? `${groups.length.toLocaleString()} sub-SKU${groups.length === 1 ? "" : "s"}`
+            : "No sub-SKU detail"}
+          {assignedUnits ? ` · ${assignedUnits.toLocaleString()} assigned to packs` : ""}
+        </strong>
+        <em>
+          {row.stockAvailable.toLocaleString()}/{activeUnits.toLocaleString()} active
+        </em>
+      </summary>
+
+      {groups.length ? (
+        <div className="admin-stock-sku-list">
+          {groups.map((group) => {
+            const packUsages = usageByGroup.get(group.key) ?? [];
+            const packUsageUnits = packUsages.reduce(
+              (sum, usage) => sum + usage.units,
+              0,
+            );
+            const editableUnits = group.units.filter(
+              (unit) =>
+                unit.status === "available" && displayStockUnitQuantity(unit) === 1,
+            );
+            return (
+              <article className="admin-stock-sku-row" key={group.key}>
+                <div className="admin-stock-sku-main">
+                  <code className="admin-stock-sku-code">{group.sku}</code>
+                  <strong>{group.label}</strong>
+                  <small>
+                    {group.availableUnits.toLocaleString()}/
+                    {group.totalUnits.toLocaleString()} available
+                  </small>
+                </div>
+                <div className="admin-stock-sku-statuses">
+                  {group.availableUnits ? (
+                    <span>{group.availableUnits.toLocaleString()} available</span>
+                  ) : null}
+                  {group.reservedUnits ? (
+                    <span>{group.reservedUnits.toLocaleString()} reserved</span>
+                  ) : null}
+                  {group.allocatedUnits ? (
+                    <span>{group.allocatedUnits.toLocaleString()} allocated</span>
+                  ) : null}
+                  {packUsageUnits ? (
+                    <span>
+                      {packUsageUnits.toLocaleString()} used in{" "}
+                      {packUsages.length.toLocaleString()} pack row
+                      {packUsages.length === 1 ? "" : "s"}
+                    </span>
+                  ) : null}
+                </div>
+                <AdminSubSkuPackUsageList usages={packUsages} />
+                {editableUnits.length ? (
+                  <details className="admin-stock-sku-manage">
+                    <summary>
+                      Manage {editableUnits.length.toLocaleString()} unit
+                      {editableUnits.length === 1 ? "" : "s"}
+                    </summary>
+                    <ul className="admin-stock-unit-list">
+                      {editableUnits.map((unit) => (
+                        <AdminStockUnitRow key={unit.id} unit={unit} />
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="admin-card-catalog-empty-usage">
+          Stock exists for this main SKU, but detailed sub-SKU rows are not
+          loaded yet.
+        </p>
+      )}
+    </details>
+  );
+}
+
 type AdminCardCatalogRow = {
   card: CardCatalogItem;
   prizes: YnotPrizePoolItem[];
@@ -7375,6 +7779,8 @@ const ADMIN_CATALOG_SORT_OPTIONS: {
   { value: "stock", label: "Stock: high → low" },
 ];
 
+const ADMIN_CARD_CATALOG_PAGE_SIZE = 24;
+
 type AdminCatalogStockKey = "pools" | "stock" | "archived";
 
 function adminCatalogToggleSetValue<T>(
@@ -7491,6 +7897,10 @@ export function AdminCardCatalogPanel({
     new Set(),
   );
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [visibleRowLimitState, setVisibleRowLimitState] = useState(() => ({
+    key: "",
+    limit: ADMIN_CARD_CATALOG_PAGE_SIZE,
+  }));
   const [openFilterSections, setOpenFilterSections] = useState<Set<string>>(
     () => new Set(["sort"]),
   );
@@ -7499,6 +7909,8 @@ export function AdminCardCatalogPanel({
   const [stockDraft, setStockDraft] = useState<StockAdjustmentDraft | null>(null);
   const [isPending, startTransition] = useTransition();
   const [editingCard, setEditingCard] = useState<CardCatalogItem | null>(null);
+  const [stockUnitModalCard, setStockUnitModalCard] =
+    useState<CardCatalogItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<
     | { card: CardCatalogItem; row: AdminCardCatalogRow }
     | null
@@ -7614,6 +8026,38 @@ export function AdminCardCatalogPanel({
     gradingFilter,
     stockFilter,
   ]);
+  const visibleRowsKey = useMemo(
+    () =>
+      [
+        query.trim().toLowerCase(),
+        seriesFilter,
+        sortMode,
+        viewMode,
+        [...categoryFilter].sort().join("|"),
+        [...conditionFilter].sort().join("|"),
+        [...gradingFilter].sort().join("|"),
+        [...stockFilter].sort().join("|"),
+      ].join("::"),
+    [
+      categoryFilter,
+      conditionFilter,
+      gradingFilter,
+      query,
+      seriesFilter,
+      sortMode,
+      stockFilter,
+      viewMode,
+    ],
+  );
+  const visibleRowLimit =
+    visibleRowLimitState.key === visibleRowsKey
+      ? visibleRowLimitState.limit
+      : ADMIN_CARD_CATALOG_PAGE_SIZE;
+  const renderedRows = useMemo(
+    () => visibleRows.slice(0, visibleRowLimit),
+    [visibleRowLimit, visibleRows],
+  );
+  const hiddenRowCount = Math.max(0, visibleRows.length - renderedRows.length);
 
   const activeFilterCount =
     (seriesFilter !== "all" ? 1 : 0) +
@@ -7964,7 +8408,7 @@ export function AdminCardCatalogPanel({
             className={`admin-card-catalog-list${viewMode === "grid" ? " is-grid" : ""}`}
             data-testid="admin-card-catalog-list"
           >
-        {visibleRows.map((row) => {
+        {renderedRows.map((row) => {
           const card = row.card;
           const currentStockDraft =
             stockDraft?.cardId === card.catalogCardId ? stockDraft : null;
@@ -8073,40 +8517,7 @@ export function AdminCardCatalogPanel({
                   </div>
                 </div>
 
-                {card.stockUnits && card.stockUnits.length > 0 ? (
-                  <div
-                    className="admin-card-stock-breakdown"
-                    style={{
-                      marginTop: 8,
-                      padding: "8px 12px",
-                      borderRadius: 12,
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      background: "rgba(255,255,255,0.03)",
-                    }}
-                  >
-                    <span
-                      className="admin-muted-line"
-                      style={{ fontSize: 11, letterSpacing: "0.08em" }}
-                    >
-                      Graded / sealed units
-                    </span>
-                    <ul
-                      className="admin-stock-unit-list"
-                      style={{
-                        margin: "4px 0 0",
-                        padding: 0,
-                        listStyle: "none",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 4,
-                      }}
-                    >
-                      {card.stockUnits.map((unit) => (
-                        <AdminStockUnitRow key={unit.id} unit={unit} />
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
+                <AdminStockSkuBreakdown card={card} row={row} />
 
                 <div className="admin-card-stock-actions">
                   {currentStockDraft ? (
@@ -8191,7 +8602,11 @@ export function AdminCardCatalogPanel({
                           className="plain-button"
                           disabled={isPending}
                           type="button"
-                          onClick={() => openStockAdjustment(card, row, "add")}
+                          onClick={() => {
+                            setStockDraft(null);
+                            setMessage("");
+                            setStockUnitModalCard(card);
+                          }}
                         >
                           + Add stock
                         </button>
@@ -8249,6 +8664,7 @@ export function AdminCardCatalogPanel({
                     <div className="admin-card-catalog-prize-table">
                       <div className="admin-card-catalog-prize-head">
                         <span>Random pack</span>
+                        <span>Card / stock</span>
                         <span>Tier</span>
                         <span>Weight</span>
                         <span>Unlock</span>
@@ -8258,11 +8674,17 @@ export function AdminCardCatalogPanel({
                       {row.prizes.map((prize) => (
                         <div className="admin-card-catalog-prize-row" key={prize.id}>
                           <span>{prize.campaignTitle}</span>
+                          <span className="admin-card-catalog-prize-stock-cell">
+                            <strong>{card.name}</strong>
+                            <small>
+                              {[card.modelCode ?? card.code, catalogCategoryLabel(card.catalogCategory)]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </small>
+                            <code>{prizeStockUsageSummary(prize)}</code>
+                          </span>
                           <span>
-                            {prizeDisplayTierLabel(
-                              prize.displayTier ?? prize.displayGroup ?? prize.tier,
-                            )}{" "}
-                            #{prize.tierRank ?? prize.rank}
+                            {prizeUsageTierLabel(prize)}
                           </span>
                           <span>{prize.weight.toLocaleString()}</span>
                           <span>{prize.unlockAtSoldPct.toLocaleString()}%</span>
@@ -8305,10 +8727,44 @@ export function AdminCardCatalogPanel({
                 No catalog cards match this search.
               </p>
             )}
+            {hiddenRowCount > 0 && (
+              <button
+                type="button"
+                className="plain-button admin-card-catalog-load-more"
+                onClick={() =>
+                  setVisibleRowLimitState((current) => {
+                    const currentLimit =
+                      current.key === visibleRowsKey
+                        ? current.limit
+                        : ADMIN_CARD_CATALOG_PAGE_SIZE;
+                    return {
+                      key: visibleRowsKey,
+                      limit: Math.min(
+                        currentLimit + ADMIN_CARD_CATALOG_PAGE_SIZE,
+                        visibleRows.length,
+                      ),
+                    };
+                  })
+                }
+              >
+                Load {Math.min(ADMIN_CARD_CATALOG_PAGE_SIZE, hiddenRowCount).toLocaleString()} more
+                <span>
+                  {renderedRows.length.toLocaleString()} of{" "}
+                  {visibleRows.length.toLocaleString()} shown
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </div>
       {message && <p className="admin-form-message">{message}</p>}
+      {stockUnitModalCard && (
+        <AdminCardStockUnitModal
+          card={stockUnitModalCard}
+          cards={catalogCards}
+          onClose={() => setStockUnitModalCard(null)}
+        />
+      )}
       {editingCard && (
         <AdminCardEditModal
           card={editingCard}
@@ -8353,6 +8809,57 @@ export function AdminCardCatalogPanel({
         />
       )}
     </section>
+  );
+}
+
+function AdminCardStockUnitModal({
+  card,
+  cards,
+  onClose,
+}: {
+  card: CardCatalogItem;
+  cards: CardCatalogItem[];
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="admin-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="admin-modal admin-prize-create-modal admin-card-stock-unit-modal"
+        role="document"
+      >
+        <header className="admin-modal-head">
+          <button
+            type="button"
+            className="admin-prize-create-modal-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ×
+          </button>
+          <h2 className="admin-modal-title" style={{ color: "#fff" }}>
+            Add stock units
+          </h2>
+          <p className="admin-modal-subtitle">
+            Main SKU selected: {card.modelCode ?? card.code ?? card.catalogCardId} ·{" "}
+            {card.name}
+          </p>
+        </header>
+        <div className="admin-prize-create-modal-body">
+          <AdminCardStockUnitForm
+            key={card.catalogCardId}
+            cards={cards}
+            initialCardId={card.catalogCardId}
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 

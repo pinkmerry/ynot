@@ -9457,12 +9457,14 @@ html[data-ynot-theme="light"] .gacha-detail-open-dock-info strong span {
   display: grid;
   gap: 8px;
   grid-template-columns:
-    minmax(148px, 0.7fr)
-    minmax(292px, 2fr)
-    minmax(140px, 1.1fr)
-    minmax(74px, 0.54fr)
-    minmax(82px, 0.58fr);
-  min-width: 888px;
+    minmax(90px, 0.45fr)
+    minmax(240px, 1.55fr)
+    minmax(220px, 1.35fr)
+    minmax(130px, 0.8fr)
+    minmax(72px, 0.45fr)
+    minmax(110px, 0.65fr)
+    minmax(84px, 0.45fr);
+  min-width: 1050px;
   padding: 10px;
 }
 
@@ -11134,7 +11136,8 @@ html[data-ynot-theme="light"] .gacha-detail-open-dock-info strong span {
   display: grid;
   gap: 8px;
   grid-template-columns:
-    minmax(130px, 1.4fr)
+    minmax(130px, 1.2fr)
+    minmax(190px, 1.4fr)
     minmax(92px, 0.8fr)
     minmax(58px, 0.45fr)
     minmax(58px, 0.45fr)
@@ -11167,6 +11170,25 @@ html[data-ynot-theme="light"] .gacha-detail-open-dock-info strong span {
   font-weight: 820;
   line-height: 1.25;
   min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-card-catalog-prize-stock-cell {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-card-catalog-prize-stock-cell small {
+  color: var(--admin-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.admin-card-catalog-prize-stock-cell code {
+  color: #f7dc82;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+  font-weight: 900;
   overflow-wrap: anywhere;
 }
 
@@ -29945,8 +29967,7 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-list.is-grid .admin-card-
   flex-direction: column;
 }
 html[data-ynot-theme] .admin-frame .admin-card-catalog-list.is-grid .admin-card-catalog-detail-grid,
-html[data-ynot-theme] .admin-frame .admin-card-catalog-list.is-grid .admin-card-catalog-metrics,
-html[data-ynot-theme] .admin-frame .admin-card-catalog-list.is-grid .admin-card-stock-breakdown {
+html[data-ynot-theme] .admin-frame .admin-card-catalog-list.is-grid .admin-card-catalog-metrics {
   display: none;
 }
 
@@ -30276,6 +30297,24 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-body .plain-button:disabl
   opacity: 0.45;
 }
 
+html[data-ynot-theme] .admin-frame .admin-card-catalog-load-more {
+  align-items: center;
+  align-self: stretch;
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+  min-height: 44px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-card-catalog-load-more span {
+  color: var(--a-muted, #9b9daf);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin-left: 8px;
+  text-transform: none;
+}
+
 html[data-ynot-theme] .admin-frame .admin-card-catalog-body .admin-card-catalog-delete-btn {
   background: rgba(240, 90, 108, 0.06) !important;
   border-color: rgba(240, 90, 108, 0.4) !important;
@@ -30381,7 +30420,8 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-prize-row {
   display: grid;
   gap: 8px;
   grid-template-columns:
-    minmax(160px, 2fr)
+    minmax(150px, 1.3fr)
+    minmax(210px, 1.4fr)
     minmax(100px, 1fr)
     minmax(60px, 0.5fr)
     minmax(60px, 0.5fr)
@@ -30414,6 +30454,25 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-prize-row span {
   font-size: 0.78rem;
   font-weight: 700;
   line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+html[data-ynot-theme] .admin-frame .admin-card-catalog-prize-stock-cell {
+  display: grid;
+  gap: 3px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-card-catalog-prize-stock-cell small {
+  color: var(--a-muted, #9b9daf) !important;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+html[data-ynot-theme] .admin-frame .admin-card-catalog-prize-stock-cell code {
+  color: #f7dc82 !important;
+  font-family: "Geist Mono", ui-monospace, monospace !important;
+  font-size: 0.68rem;
+  font-weight: 900;
   overflow-wrap: anywhere;
 }
 
@@ -31047,10 +31106,15 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-row-footer-id {
 
 /* --- Admin: convert coins input column --- */
 html[data-ynot-theme] .admin-frame .admin-prize-table-head {
-  grid-template-columns: 90px minmax(180px, 1fr) 130px 80px 120px auto;
+  grid-template-columns: 90px minmax(180px, 1fr) minmax(220px, 1.1fr) 130px 80px 120px auto;
 }
 html[data-ynot-theme] .admin-frame .admin-prize-table-row {
-  grid-template-columns: 90px minmax(180px, 1fr) 130px 80px 120px auto;
+  grid-template-columns: 90px minmax(180px, 1fr) minmax(220px, 1.1fr) 130px 80px 120px auto;
+}
+html[data-ynot-theme] .admin-frame .admin-prize-stock-sku-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 html[data-ynot-theme] .admin-frame .admin-prize-convert-field {
   display: flex;
@@ -31098,88 +31162,297 @@ html[data-ynot-theme] .admin-frame .admin-prize-convert-field input {
 /* ============================================================
  * Admin catalog — per-unit stock breakdown rows (graded/sealed)
  * ============================================================ */
-.admin-stock-unit-row {
+html[data-ynot-theme] .admin-frame .admin-card-stock-breakdown {
+  background: rgba(0, 0, 0, 0.24);
+  border: 1px solid rgba(241, 215, 124, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+html[data-ynot-theme] .admin-frame .admin-card-stock-summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  padding: 10px 14px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-card-stock-summary::-webkit-details-marker {
+  display: none;
+}
+
+html[data-ynot-theme] .admin-frame .admin-card-stock-summary::before {
+  color: var(--a-gold, #f1d77c);
+  content: "▸";
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  transition: transform 0.15s ease;
+}
+
+html[data-ynot-theme] .admin-frame .admin-card-stock-breakdown[open] .admin-card-stock-summary::before {
+  transform: rotate(90deg);
+}
+
+html[data-ynot-theme] .admin-frame .admin-card-stock-summary span {
+  color: var(--a-fg-dim, #c8c8d8) !important;
+  flex: 1 1 130px;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+html[data-ynot-theme] .admin-frame .admin-card-stock-summary strong {
+  color: var(--a-gold, #f1d77c) !important;
+  flex: 2 1 220px;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+html[data-ynot-theme] .admin-frame .admin-card-stock-summary em {
+  color: var(--a-muted, #9b9daf) !important;
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 750;
+  text-align: right;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-list {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-row {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-main {
+  align-items: center;
+  display: grid;
+  gap: 6px 10px;
+  grid-template-columns: minmax(220px, auto) minmax(0, 1fr) auto;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-code {
+  background: rgba(241, 215, 124, 0.1) !important;
+  border: 1px solid rgba(241, 215, 124, 0.34) !important;
+  border-radius: 8px;
+  color: #f7dc82 !important;
+  font-family: "Geist Mono", ui-monospace, monospace !important;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  overflow-wrap: anywhere;
+  padding: 5px 8px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-main strong {
+  color: var(--a-fg, #f4efe1) !important;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-main small {
+  color: var(--a-muted, #9b9daf) !important;
+  font-size: 0.73rem;
+  font-weight: 750;
+  text-align: right;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-statuses span {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  color: var(--a-fg-dim, #c8c8d8) !important;
+  font-size: 0.7rem;
+  font-weight: 850;
+  padding: 4px 9px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-pack-empty {
+  color: var(--a-muted, #9b9daf) !important;
+  font-size: 0.74rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-pack-list {
+  display: grid;
+  gap: 6px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-pack-row {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(241, 215, 124, 0.16);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(160px, 1.2fr) minmax(180px, 1fr) minmax(120px, auto);
+  padding: 8px 10px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-pack-row span {
+  color: var(--a-fg-dim, #c8c8d8) !important;
+  display: grid;
+  font-size: 0.72rem;
+  font-weight: 800;
+  gap: 2px;
+  min-width: 0;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-pack-row strong {
+  color: var(--a-fg, #f4efe1) !important;
+  font-size: 0.76rem;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-pack-row small {
+  color: var(--a-muted, #9b9daf) !important;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-pack-row code {
+  color: #f7dc82 !important;
+  font-family: "Geist Mono", ui-monospace, monospace !important;
+  font-size: 0.7rem;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-manage {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 8px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-manage summary {
+  color: var(--a-gold, #f1d77c) !important;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-unit-list {
+  display: grid;
+  gap: 4px;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-unit-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+  color: var(--a-fg-dim, #c8c8d8) !important;
   font-size: 13px;
   padding: 4px 0;
 }
-.admin-stock-unit-row + .admin-stock-unit-row {
+html[data-ynot-theme] .admin-frame .admin-stock-unit-row + .admin-stock-unit-row {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
-.admin-stock-unit-label {
+html[data-ynot-theme] .admin-frame .admin-stock-unit-label {
+  color: #f7dc82 !important;
   flex: 1 1 auto;
   min-width: 0;
 }
-.admin-stock-unit-actions {
+html[data-ynot-theme] .admin-frame .admin-stock-unit-actions {
   display: inline-flex;
   gap: 6px;
   flex: 0 0 auto;
 }
-.admin-stock-unit-actions button {
+html[data-ynot-theme] .admin-frame .admin-stock-unit-actions button {
   font-size: 12px;
   padding: 3px 10px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.04);
-  color: inherit;
+  color: #f7dc82 !important;
   cursor: pointer;
   transition: background 0.15s ease, opacity 0.15s ease;
 }
-.admin-stock-unit-actions button:hover:not(:disabled) {
+html[data-ynot-theme] .admin-frame .admin-stock-unit-actions button:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
 }
-.admin-stock-unit-actions button:disabled {
+html[data-ynot-theme] .admin-frame .admin-stock-unit-actions button:disabled {
   opacity: 0.5;
   cursor: default;
 }
-.admin-stock-unit-row.is-editing {
+html[data-ynot-theme] .admin-frame .admin-stock-unit-row.is-editing {
   flex-direction: column;
   align-items: stretch;
 }
-.admin-stock-unit-edit-grid {
+html[data-ynot-theme] .admin-frame .admin-stock-unit-edit-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 6px;
 }
-.admin-stock-unit-input {
+html[data-ynot-theme] .admin-frame .admin-stock-unit-input {
   height: 36px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(0, 0, 0, 0.25);
-  color: inherit;
+  color: var(--a-fg, #f4efe1) !important;
   padding: 0 10px;
   font-size: 13px;
 }
-.admin-stock-unit-msg {
+html[data-ynot-theme] .admin-frame .admin-stock-unit-msg {
   font-size: 12px;
   color: #f0a0a0;
   flex-basis: 100%;
 }
 
-.admin-stock-unit-image {
+html[data-ynot-theme] .admin-frame .admin-stock-unit-image {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
 }
-.admin-stock-unit-image-btn {
+html[data-ynot-theme] .admin-frame .admin-stock-unit-image-btn {
   font-size: 12px;
   padding: 6px 12px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.04);
 }
-.admin-stock-unit-image:hover .admin-stock-unit-image-btn {
+html[data-ynot-theme] .admin-frame .admin-stock-unit-image:hover .admin-stock-unit-image-btn {
   background: rgba(255, 255, 255, 0.1);
 }
-.admin-stock-unit-image-clear {
+html[data-ynot-theme] .admin-frame .admin-stock-unit-image-clear {
   font-size: 11px;
   color: #f0a0a0;
   background: none;
   border: 0;
   cursor: pointer;
   padding: 0;
+}
+
+@media (max-width: 720px) {
+  html[data-ynot-theme] .admin-frame .admin-stock-sku-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html[data-ynot-theme] .admin-frame .admin-stock-sku-pack-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html[data-ynot-theme] .admin-frame .admin-card-stock-summary em,
+  html[data-ynot-theme] .admin-frame .admin-stock-sku-main small {
+    text-align: left;
+  }
 }

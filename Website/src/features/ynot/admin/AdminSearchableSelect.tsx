@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export type AdminSearchableOption = { value: string; label: string };
+
+const DEFAULT_MAX_VISIBLE_OPTIONS = 80;
 
 const OPTION_STYLE: React.CSSProperties = {
   alignItems: "center",
@@ -15,6 +17,33 @@ const OPTION_STYLE: React.CSSProperties = {
   textAlign: "left",
   width: "100%",
 };
+
+export function getAdminSearchableVisibleOptions(
+  options: AdminSearchableOption[],
+  value: string,
+  query: string,
+  maxVisibleOptions = DEFAULT_MAX_VISIBLE_OPTIONS,
+) {
+  const lowerQuery = query.trim().toLowerCase();
+  const visible: AdminSearchableOption[] = [];
+  let matchCount = 0;
+
+  for (const option of options) {
+    if (option.value === value) continue;
+    if (lowerQuery && !option.label.toLowerCase().includes(lowerQuery)) {
+      continue;
+    }
+
+    matchCount += 1;
+    if (visible.length < maxVisibleOptions) visible.push(option);
+  }
+
+  return {
+    hiddenCount: Math.max(0, matchCount - visible.length),
+    matchCount,
+    visible,
+  };
+}
 
 /**
  * Static searchable dropdown — same look as AdminCardOptionSelect (search box,
@@ -29,6 +58,7 @@ export function AdminSearchableSelect({
   placeholder = "Select…",
   searchPlaceholder = "Search…",
   disabled,
+  maxVisibleOptions = DEFAULT_MAX_VISIBLE_OPTIONS,
 }: {
   options: AdminSearchableOption[];
   value: string;
@@ -36,6 +66,7 @@ export function AdminSearchableSelect({
   placeholder?: string;
   searchPlaceholder?: string;
   disabled?: boolean;
+  maxVisibleOptions?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -59,11 +90,19 @@ export function AdminSearchableSelect({
     };
   }, [open]);
 
-  const selected = options.find((option) => option.value === value) ?? null;
-  const lowerQuery = query.trim().toLowerCase();
-  const filtered = options.filter(
-    (option) =>
-      option.value !== value && option.label.toLowerCase().includes(lowerQuery),
+  const selected = useMemo(
+    () => options.find((option) => option.value === value) ?? null,
+    [options, value],
+  );
+  const visibleResult = useMemo(
+    () =>
+      getAdminSearchableVisibleOptions(
+        options,
+        value,
+        query,
+        maxVisibleOptions,
+      ),
+    [maxVisibleOptions, options, query, value],
   );
 
   function select(next: string) {
@@ -128,10 +167,10 @@ export function AdminSearchableSelect({
                 </div>
               </>
             )}
-            {filtered.length > 0 && (
+            {visibleResult.visible.length > 0 && (
               <p className="admin-option-select-group">Existing</p>
             )}
-            {filtered.map((option) => (
+            {visibleResult.visible.map((option) => (
               <div className="admin-option-select-row" key={option.value}>
                 <button
                   type="button"
@@ -144,7 +183,14 @@ export function AdminSearchableSelect({
                 </button>
               </div>
             ))}
-            {!filtered.length && !selected && (
+            {visibleResult.hiddenCount > 0 && (
+              <p className="admin-option-select-empty">
+                Showing first {visibleResult.visible.length.toLocaleString()}.
+                Keep typing to narrow{" "}
+                {visibleResult.hiddenCount.toLocaleString()} more.
+              </p>
+            )}
+            {!visibleResult.matchCount && !selected && (
               <p className="admin-option-select-empty">No matches.</p>
             )}
           </div>

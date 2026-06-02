@@ -199,7 +199,7 @@ check("src/features/ynot/data.ts", "public prize lineup maps card image metadata
 check("src/features/ynot/components.tsx", "public pack detail renders prize images in lineup", /function PrizeLineupImage[\s\S]*prize\.cardImageUrl[\s\S]*<img[\s\S]*function PrizeLineup[\s\S]*<PrizeLineupImage prize=\{prize\}/);
 check("src/app/globals.css", "public prize lineup images keep stable card thumbnail layout", /reward-prize-image[\s\S]*aspect-ratio: 3 \/ 4[\s\S]*object-fit: contain/);
 check("src/features/ynot/types.ts", "admin prize pool item carries card image metadata", /YnotPrizePoolItem[\s\S]*cardCode\?:[\s\S]*cardGrade\?:[\s\S]*cardImageUrl\?:[\s\S]*cardImageStoragePath\?:/);
-check("src/features/ynot/data.ts", "admin prize pool reader selects card image metadata", /getAdminPrizePool\(\)[\s\S]*from\("cards"\)[\s\S]*select\("id,name,card_code,grade,image_url,image_storage_path,prize_category"\)/);
+check("src/features/ynot/data.ts", "admin prize pool reader selects card image metadata", /getAdminPrizePool\(\)[\s\S]*from\("cards"\)[\s\S]*select\(\s*"id,name,card_code,grade,image_url,image_storage_path,prize_category(?:,[^"]*)?",?\s*\)/);
 check("src/features/ynot/data.ts", "admin prize pool reader maps card image metadata", /cardCode:[\s\S]*cardGrade:[\s\S]*cardImageUrl:[\s\S]*cardImageStoragePath:[\s\S]*cardPrizeCategory:/);
 check("src/features/ynot/client.tsx", "admin prize picker exposes selected card preview identity", /function AdminPrizeCardPicker[\s\S]*data-selected-card-id[\s\S]*catalogCardId[\s\S]*selected-card-preview/);
 check("src/features/ynot/client.tsx", "admin prize picker renders image with stable fallback", /function AdminPrizeCardImage[\s\S]*photoUrl|function AdminPrizeCardImage[\s\S]*imageUrl[\s\S]*admin-prize-card-placeholder/);
@@ -213,7 +213,7 @@ check("src/app/globals.css", "admin campaign builder keeps pack info and prize t
 notCheck("src/features/ynot/client.tsx", "admin campaign create form hides value weight unlock fields from draft prize builder", /admin-top-prize-controls[\s\S]{0,900}<span>Value<\/span>|className="admin-prize-table-head"[\s\S]{0,260}<span>Value<\/span>|className="admin-prize-table-head"[\s\S]{0,320}<span>Weight<\/span>|High unlock 30%/);
 const adminCampaignInitialPrizePayload = sliceBetween(
   "src/features/ynot/client.tsx",
-  "initialPrizes: activePrizeDrafts.map((prize) => ({",
+  "initialPrizes: activePrizeDrafts.map((prize) => {",
   "metadata: {",
   "admin campaign initial prize payload slice",
 );
@@ -254,6 +254,7 @@ check("src/features/ynot/client.tsx", "owner review simulator mirrors unit-weigh
 check("src/features/ynot/client.tsx", "owner review per-pull display stays aligned with active gated odds", /const poolShare =[\s\S]*ownerReviewEffectivePoolWeight\(prize, logicMode, 0\)[\s\S]*\{`\$\{poolShare\.toFixed\(3\)\}%`\}/);
 check("src/features/ynot/client.tsx", "owner review simulator compares early-window tier expectations and recommends the configured match", /type OwnerReviewModeComparison[\s\S]*function ownerReviewComparisonDrawCount[\s\S]*firstTenPercent[\s\S]*simulatorModeComparisons[\s\S]*expected tier hits[\s\S]*Recommended[\s\S]*OWNER_REVIEW_TIER_ORDER\.map[\s\S]*result\.expected\[tier\]/);
 check("src/features/ynot/client.tsx", "admin campaign form stores prize category metadata", /prizeCategoryOptions[\s\S]*prizeCategoryLabel[\s\S]*metadata: \{[\s\S]*prizeCategory/);
+check("src/features/ynot/client.tsx", "admin campaign form filters prize items by selected brand", /function prizeCatalogCardsFor[\s\S]*series\?: YnotCampaign\["series"\][\s\S]*cardMatchesCampaignSeries\(card, series\)[\s\S]*function cardMatchesCampaignSeries[\s\S]*<span>Brand<\/span>[\s\S]*<span>Prize type<\/span>/);
 check("src/features/ynot/client.tsx", "admin campaign form blocks mismatched prize quantities", /Prize quantity must equal the total pack quantity/);
 check("src/features/ynot/open-quantity.ts", "open quantity options are limited to 1 10 100 pull choices", /allowedOpenQuantityOptions = \[1, 10, 100\]/);
 check("src/features/ynot/client.tsx", "admin campaign create and edit expose customer pull buttons", /Customer pull buttons[\s\S]*allowedOpenQuantityOptions\.map[\s\S]*openQuantitySummary\(openQuantityOptions\)[\s\S]*The open[\s\S]*pack page only shows selected pull buttons/);
@@ -270,7 +271,7 @@ check("src/lib/lucky-draw/types.ts", "card catalog item exposes full card row me
 check("src/lib/lucky-draw/data.ts", "card catalog mapper includes cards table metadata", /function toCatalogItem[\s\S]*searchName: row\.search_name[\s\S]*isTest: row\.is_test[\s\S]*assetSource: row\.asset_source[\s\S]*updatedAt: row\.updated_at/);
 check("src/features/ynot/client.tsx", "owner review still calls lifecycle API for owner odds", /export function AdminOwnerReview[\s\S]*\/api\/ynot\/admin\/campaigns\/lifecycle/);
 notCheck("src/features/ynot/client.tsx", "admin existing card stock panel removes add-to-pack CTA", /Add to pack|function AdminPrizeCatalogActionList|addCatalogCardToPack/);
-check("src/features/ynot/client.tsx", "admin card catalog panel renders every card from catalog reader", /function buildAdminCardCatalogRows[\s\S]*prizesByCard[\s\S]*return cards[\s\S]*card\.catalogCardId[\s\S]*export function AdminCardCatalogPanel[\s\S]*buildAdminCardCatalogRows\(catalogCards, prizes\)[\s\S]*data-testid="admin-card-catalog-list"[\s\S]*visibleRows\.map/);
+check("src/features/ynot/client.tsx", "admin card catalog panel renders every card from catalog reader", /function buildAdminCardCatalogRows[\s\S]*prizesByCard[\s\S]*return cards[\s\S]*card\.catalogCardId[\s\S]*export function AdminCardCatalogPanel[\s\S]*catalogCards[\s\S]*buildAdminCardCatalogRows\(catalogCards, prizes\)[\s\S]*data-testid="admin-card-catalog-list"[\s\S]*(?:visibleRows|renderedRows)\.map/);
 const adminCardCatalogPanelSource = sliceBetween(
   "src/features/ynot/client.tsx",
   "export function AdminCardCatalogPanel",

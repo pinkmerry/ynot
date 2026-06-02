@@ -293,6 +293,9 @@ export type YnotPrizePreview = {
   displayTier?: string;
   displayTierLabel?: string;
   tierRank?: number;
+  intendedStockUnitKey?: string | null;
+  intendedStockSku?: string | null;
+  intendedStockLabel?: string | null;
 };
 
 export type YnotAddress = {
@@ -343,6 +346,18 @@ export type YnotPrizePoolItem = {
   displayTier?: string;
   displayTierLabel?: string;
   tierRank?: number;
+  intendedStockUnitKey?: string | null;
+  intendedStockSku?: string | null;
+  intendedStockLabel?: string | null;
+  stockUnitUsages?: Array<{
+    groupKey: string;
+    sku: string;
+    label: string;
+    totalUnits: number;
+    availableUnits: number;
+    awardedUnits: number;
+    voidUnits: number;
+  }>;
   plannedQuantity: number;
   totalUnits: number;
   availableUnits: number;

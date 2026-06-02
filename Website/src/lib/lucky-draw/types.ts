@@ -96,6 +96,7 @@ export type CardCatalogItem = Required<Pick<FeaturedCard, "catalogCardId">> &
       gemrateId: string | null;
       imageUrl: string | null;
       status: string;
+      quantity?: number;
     }>;
     createdAt?: string;
     updatedAt?: string;
