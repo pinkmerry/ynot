@@ -23,6 +23,18 @@ const crHistorySource = readFileSync(
   new URL("../src/features/ynot/cr/HistoryExperience.tsx", import.meta.url),
   "utf8",
 );
+const identityPageSource = readFileSync(
+  new URL("../src/app/(store)/account/identities/page.tsx", import.meta.url),
+  "utf8",
+);
+const identitiesPanelSource = readFileSync(
+  new URL("../src/features/auth/IdentitiesPanel.tsx", import.meta.url),
+  "utf8",
+);
+const identityUnlinkRouteSource = readFileSync(
+  new URL("../src/app/api/auth/identities/unlink/route.ts", import.meta.url),
+  "utf8",
+);
 const componentsSource = readFileSync(
   new URL("../src/features/ynot/components.tsx", import.meta.url),
   "utf8",
@@ -39,8 +51,28 @@ const shippingRouteSource = readFileSync(
   new URL("../src/app/api/ynot/shipping/route.ts", import.meta.url),
   "utf8",
 );
+const addressesRouteSource = readFileSync(
+  new URL("../src/app/api/ynot/addresses/route.ts", import.meta.url),
+  "utf8",
+);
+const walletRouteSource = readFileSync(
+  new URL("../src/app/api/ynot/wallet/route.ts", import.meta.url),
+  "utf8",
+);
 const collectionActionTokenSource = readFileSync(
   new URL("../src/lib/ynot/collection-action-tokens.ts", import.meta.url),
+  "utf8",
+);
+const addressActionTokenSource = readFileSync(
+  new URL("../src/lib/ynot/address-action-tokens.ts", import.meta.url),
+  "utf8",
+);
+const paymentMethodActionTokenSource = readFileSync(
+  new URL("../src/lib/ynot/payment-method-action-tokens.ts", import.meta.url),
+  "utf8",
+);
+const identityActionTokenSource = readFileSync(
+  new URL("../src/lib/auth/identity-action-tokens.ts", import.meta.url),
   "utf8",
 );
 const hidePrizeMetadataMigration = readFileSync(
@@ -154,6 +186,7 @@ test("customer campaign props hide house logic and internal prize inventory", ()
     "function publicYnotCampaign",
     "function localOwnerMockPrizeLineup",
   );
+  assert.match(publicCampaign, /id:\s*campaign\.slug/);
   assert.match(publicCampaign, /logicMode:\s*undefined/);
   assert.match(publicCampaign, /totalPrizeUnits:\s*undefined/);
   assert.match(publicCampaign, /availablePrizeUnits:\s*undefined/);
@@ -162,6 +195,7 @@ test("customer campaign props hide house logic and internal prize inventory", ()
   assert.match(publicCampaign, /awardedPrizeUnits:\s*undefined/);
   assert.match(publicCampaign, /voidPrizeUnits:\s*undefined/);
   assert.match(publicCampaign, /readinessBlockers:\s*undefined/);
+  assert.match(publicCampaign, /categoryIds:\s*undefined/);
 
   const publicCampaignCall = between(
     dataSource,
@@ -169,6 +203,20 @@ test("customer campaign props hide house logic and internal prize inventory", ()
     "if (!includePrivateDetail && !campaign.openable) return [];",
   );
   assert.match(publicCampaignCall, /includePrivateDetail\s*\?\s*campaign\s*:\s*publicYnotCampaign\(campaign\)/);
+
+  const packsFeatureBlock = between(
+    componentsSource,
+    "featuredCampaignsList.map",
+    "{isAdmin && featuredCampaignsList.length === 0",
+  );
+  assert.match(packsFeatureBlock, /data-pack-id=\{isAdmin \? campaign\.id : campaign\.slug\}/);
+
+  const campaignCardBlock = between(
+    componentsSource,
+    "export function CampaignCard",
+    "export function CampaignDetailPanel",
+  );
+  assert.match(campaignCardBlock, /data-pack-id=\{showAdminEdit \? campaign\.id : campaign\.slug\}/);
 });
 
 test("pack-open reveal result does not expose raw internal open ids", () => {
@@ -219,6 +267,14 @@ test("customer campaign detail does not use dev auth as a private data gate", ()
     .find((line) => line.includes("const includePrivateDetail"));
   assert.equal(includePrivateGateLine?.trim(), "const includePrivateDetail = viewer.isAdmin;");
   assert.doesNotMatch(includePrivateGateLine ?? "", /isDevAuthAllowed/);
+  assert.match(getCampaignBlock, /if \(looksLikeUuid\(campaignLookup\)\) return null;/);
+  assert.match(getCampaignBlock, /const rawCampaignLookup = looksLikeUuid\(campaignLookup\);/);
+  assert.match(getCampaignBlock, /if \(rawCampaignLookup && !includePrivateDetail\) return \[\];/);
+  assert.match(
+    getCampaignBlock,
+    /rawCampaignLookup\s*\?\s*query\.eq\("id", campaignLookup\)\s*:\s*query\.eq\("slug", campaignLookup\)/,
+  );
+  assert.doesNotMatch(getCampaignBlock, /campaign\.id === campaignLookup/);
 });
 
 test("pack-open browser payload uses public campaign slug and server resolves it internally", () => {
@@ -304,6 +360,9 @@ test("customer collection actions use opaque tokens instead of raw collection it
     "export async function POST",
     "return Response.json({ result: publicShippingResult(data) });",
   );
+  assert.match(shippingHandler, /resolveAddressActionToken\(/);
+  assert.match(shippingHandler, /p_address_id:\s*resolvedAddressId/);
+  assert.doesNotMatch(shippingHandler, /p_address_id:\s*(addressId|addressToken)\b/);
   assert.match(
     shippingHandler,
     /resolvedCollectionItemIds\s*=\s*await resolveCollectionItemActionTokens\(/,
@@ -326,6 +385,121 @@ test("customer collection actions use opaque tokens instead of raw collection it
       `${name} must not render collection ids or action-token slices`,
     );
   }
+});
+
+test("customer login methods use public identity rows and opaque unlink tokens", () => {
+  assert.match(identityPageSource, /identityActionToken/);
+  assert.doesNotMatch(identityPageSource, /provider_subject/);
+  assert.doesNotMatch(identityPageSource, /providerSubject/);
+  assert.doesNotMatch(identityPageSource, /id:\s*session\.profileId/);
+  assert.match(identityPageSource, /id:\s*await identityActionToken\(session\.profileId,\s*row\.id\)/);
+
+  assert.doesNotMatch(identitiesPanelSource, /providerSubject/);
+  assert.match(identitiesPanelSource, /JSON\.stringify\(\{ identityToken \}\)/);
+  assert.doesNotMatch(identitiesPanelSource, /identityId/);
+
+  assert.match(identityUnlinkRouteSource, /resolveIdentityActionToken/);
+  assert.match(identityUnlinkRouteSource, /identityToken/);
+  assert.doesNotMatch(identityUnlinkRouteSource, /provider_subject/);
+  assert.doesNotMatch(identityUnlinkRouteSource, /payload\.identityId/);
+  assert.doesNotMatch(identityUnlinkRouteSource, /error:\s*(listError|deleteError)\.message/);
+  assert.match(identityUnlinkRouteSource, /identity_unlink_failed/);
+
+  assert.match(
+    identityActionTokenSource,
+    /throw new Error\("Missing server-only identity action token secret\."\)/,
+  );
+  assert.doesNotMatch(identityActionTokenSource, /NEXT_PUBLIC_/);
+  assert.doesNotMatch(identityActionTokenSource, /ynott-local|hardcoded/i);
+});
+
+test("customer addresses use opaque action tokens and hide database error details", () => {
+  const addressMapper = between(
+    dataSource,
+    "export async function getAddresses",
+    "async function getRankingsImpl",
+  );
+  assert.match(addressMapper, /id:\s*await addressActionToken\(profileId,\s*row\.id\)/);
+  assert.doesNotMatch(addressMapper, /id:\s*row\.id/);
+  assert.match(addressesRouteSource, /addressActionToken\(session\.profileId,\s*data\.id\)/);
+  assert.doesNotMatch(addressesRouteSource, /address:\s*\{\s*id:\s*data\.id/);
+  assert.match(shippingRouteSource, /normalizeAddressActionToken/);
+  assert.match(shippingRouteSource, /resolveAddressActionToken/);
+  assert.doesNotMatch(shippingRouteSource, /function normalizeUuid/);
+  assert.doesNotMatch(shippingRouteSource, /const UUID_RE\s*=/);
+  assert.match(
+    addressActionTokenSource,
+    /throw new Error\("Missing server-only address action token secret\."\)/,
+  );
+  assert.doesNotMatch(addressActionTokenSource, /NEXT_PUBLIC_/);
+  assert.doesNotMatch(addressActionTokenSource, /ynott-local|hardcoded/i);
+
+  assert.match(addressesRouteSource, /addressSaveFailure/);
+  assert.match(addressesRouteSource, /console\.warn\("ynot_address_save_failed"/);
+  assert.doesNotMatch(
+    addressesRouteSource,
+    /error:\s*(insertError|clearError|defaultError)\.message/,
+  );
+});
+
+test("customer wallet top-ups use public DTOs without raw payment-flow ids", () => {
+  const publicTopUpBlock = between(
+    dataSource,
+    "export function publicTopUp",
+    "export async function getCollection",
+  );
+  assert.match(publicTopUpBlock, /delete publicFields\.id/);
+  assert.match(publicTopUpBlock, /delete publicFields\.profileId/);
+  assert.match(publicTopUpBlock, /delete publicFields\.adminNote/);
+  assert.doesNotMatch(publicTopUpBlock, /providerCode/);
+  assert.doesNotMatch(publicTopUpBlock, /providerMessage/);
+  assert.doesNotMatch(publicTopUpBlock, /id:\s*paymentMethod\.id/);
+  assert.doesNotMatch(publicTopUpBlock, /code:\s*topUp\.paymentMethod\.code/);
+  assert.match(dataSource, /getPaymentMethods\(\)\.then\(publicPaymentMethods\)/);
+  assert.match(dataSource, /getTopUps\(profileId\)\.then\(\(topUps\) => topUps\.map\(publicTopUp\)\)/);
+  assert.match(
+    walletRouteSource,
+    /getTopUps\(session\.profileId\)\.then\(\(topUps\) => topUps\.map\(publicTopUp\)\)/,
+  );
+  assert.match(walletRouteSource, /getPaymentMethods\(\)\.then\(publicPaymentMethods\)/);
+  assert.match(walletRouteSource, /resolvePaymentMethodActionToken\(paymentMethodToken\)/);
+  assert.doesNotMatch(walletRouteSource, /\.eq\("id", paymentMethodToken\)/);
+  assert.doesNotMatch(walletRouteSource, /payment_method_id:\s*paymentMethodToken/);
+  assert.doesNotMatch(walletRouteSource, /error:\s*uploadError\.message/);
+  assert.match(walletRouteSource, /wallet_top_up_slip_upload_failed/);
+  assert.match(
+    paymentMethodActionTokenSource,
+    /throw new Error\("Missing server-only payment method action token secret\."\)/,
+  );
+  assert.doesNotMatch(paymentMethodActionTokenSource, /NEXT_PUBLIC_/);
+  assert.doesNotMatch(paymentMethodActionTokenSource, /ynott-local|hardcoded/i);
+  assert.match(walletRouteSource, /topUp:\s*publicTopUp\(toTopUp\(responseTopUp\)\)/);
+  assert.doesNotMatch(walletRouteSource, /return jsonNoStore\(\{ topUp: toTopUp/);
+});
+
+test("customer order histories use public codes instead of raw row ids", () => {
+  const publicExchangeBlock = between(
+    dataSource,
+    "function publicExchangeOrder",
+    "export async function getShipping",
+  );
+  const publicShippingBlock = between(
+    dataSource,
+    "function publicShippingRequest",
+    "export async function getAddresses",
+  );
+  const dashboardLoader = between(
+    dataSource,
+    "export async function getYnotDashboardSlice",
+    "const ownerApprovalRequests",
+  );
+
+  assert.match(publicExchangeBlock, /id:\s*order\.publicCode/);
+  assert.match(publicExchangeBlock, /adminNote:\s*null/);
+  assert.match(publicShippingBlock, /id:\s*request\.publicCode/);
+  assert.match(publicShippingBlock, /adminNote:\s*null/);
+  assert.match(dashboardLoader, /viewer\.isAdmin \? orders : orders\.map\(publicExchangeOrder\)/);
+  assert.match(dashboardLoader, /viewer\.isAdmin \? requests : requests\.map\(publicShippingRequest\)/);
 });
 
 test("collection display maps each collection item to its exact open item", () => {

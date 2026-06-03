@@ -3,11 +3,23 @@ import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { addressActionToken } from "@/lib/ynot/address-action-tokens";
 
 export const dynamic = "force-dynamic";
 
 function clean(value: unknown, max: number) {
   return typeof value === "string" && value.trim() ? value.trim().replace(/\s+/g, " ").slice(0, max) : null;
+}
+
+function addressSaveFailure(stage: string, error: { message?: string }) {
+  console.warn("ynot_address_save_failed", {
+    stage,
+    message: error.message,
+  });
+  return Response.json(
+    { error: "Could not save this address. Please check the details and try again." },
+    { status: 409 },
+  );
 }
 
 export async function GET() {
@@ -47,7 +59,7 @@ export async function POST(request: Request) {
     })
     .select("*")
     .single();
-  if (insertError) return Response.json({ error: insertError.message }, { status: 409 });
+  if (insertError) return addressSaveFailure("insert", insertError);
 
   let data = inserted;
   if (shouldBeDefault) {
@@ -56,7 +68,7 @@ export async function POST(request: Request) {
       .update({ is_default: false })
       .eq("profile_id", session.profileId)
       .neq("id", inserted.id);
-    if (clearError) return Response.json({ error: clearError.message }, { status: 409 });
+    if (clearError) return addressSaveFailure("clear_default", clearError);
 
     const { data: defaultAddress, error: defaultError } = await supabase
       .from("user_addresses")
@@ -64,9 +76,18 @@ export async function POST(request: Request) {
       .eq("id", inserted.id)
       .select("*")
       .single();
-    if (defaultError) return Response.json({ error: defaultError.message }, { status: 409 });
+    if (defaultError) return addressSaveFailure("set_default", defaultError);
     data = defaultAddress;
   }
 
-  return Response.json({ address: { id: data.id, label: data.label, addressLine1: data.address_line1 } }, { status: 201 });
+  return Response.json(
+    {
+      address: {
+        id: await addressActionToken(session.profileId, data.id),
+        label: data.label,
+        addressLine1: data.address_line1,
+      },
+    },
+    { status: 201 },
+  );
 }

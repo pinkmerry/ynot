@@ -7,7 +7,7 @@ import type { Json } from "@/lib/supabase/types";
 import type { SlipVerificationStatus } from "@/lib/lucky-draw/types";
 import { createSlip2GoProviderError, sha256Hex, verifySlipWithSlip2Go } from "@/lib/slip2go/client";
 import { findLiveDuplicateSlip } from "@/lib/slip2go/dedup";
-import { getPaymentMethods, getTopUps, getWallet } from "@/features/ynot/data";
+import { getPaymentMethods, getTopUps, getWallet, publicPaymentMethods, publicTopUp } from "@/features/ynot/data";
 import { toTopUp } from "@/features/ynot/data";
 import { getTopUpPackage } from "@/features/ynot/top-up-packages";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
@@ -19,6 +19,7 @@ import {
   emitTopUpApprovalRiskAlerts,
   resolveAutoTopUpAdmin,
 } from "@/lib/ynot/top-up-approval";
+import { resolvePaymentMethodActionToken } from "@/lib/ynot/payment-method-action-tokens";
 
 export const dynamic = "force-dynamic";
 
@@ -90,8 +91,8 @@ export async function GET() {
   if (!session?.profileId) return jsonNoStore({ error: "Login is required." }, { status: 401 });
   const [wallet, topUps, paymentMethods] = await Promise.all([
     getWallet(session.profileId),
-    getTopUps(session.profileId),
-    getPaymentMethods(),
+    getTopUps(session.profileId).then((topUps) => topUps.map(publicTopUp)),
+    getPaymentMethods().then(publicPaymentMethods),
   ]);
   return jsonNoStore({ wallet, topUps, paymentMethods });
 }
@@ -117,13 +118,13 @@ export async function POST(request: Request) {
   }
 
   const form = await request.formData();
-  const paymentMethodId = String(form.get("paymentMethodId") ?? "").trim();
+  const paymentMethodToken = String(form.get("paymentMethodId") ?? "").trim();
   const resolvedTopUp = resolveTopUpAmount(form);
   const customerNote = typeof form.get("customerNote") === "string" ? String(form.get("customerNote")).trim().slice(0, 500) : null;
   const fileValue = form.get("slip");
   const slipFile = fileValue instanceof File && fileValue.size > 0 ? fileValue : null;
 
-  if (!paymentMethodId) return jsonNoStore({ error: "Payment method is required." }, { status: 400 });
+  if (!paymentMethodToken) return jsonNoStore({ error: "Payment method is required." }, { status: 400 });
   if ("error" in resolvedTopUp) return jsonNoStore({ error: resolvedTopUp.error }, { status: 400 });
   if (!slipFile) return jsonNoStore({ error: "Transfer slip upload is required." }, { status: 400 });
   if (!allowedSlipTypes.has(slipFile.type)) return jsonNoStore({ error: "Slip must be JPG, PNG, or WEBP." }, { status: 400 });
@@ -132,6 +133,23 @@ export async function POST(request: Request) {
   if (!magicCheck.ok) return jsonNoStore({ error: magicCheck.error }, { status: 400 });
 
   const supabase = createServiceSupabaseClient();
+  let paymentMethodId: string | null;
+  try {
+    paymentMethodId = await resolvePaymentMethodActionToken(paymentMethodToken);
+  } catch (error) {
+    console.warn("wallet_top_up_payment_method_token_resolve_failed", {
+      profileId: session.profileId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return jsonNoStore(
+      { error: "Could not start this top-up. Please refresh and try again." },
+      { status: 503 },
+    );
+  }
+  if (!paymentMethodId) {
+    return jsonNoStore({ error: "Payment method is not active." }, { status: 400 });
+  }
+
   const { data: paymentMethod, error: methodError } = await supabase
     .from("payment_methods")
     .select("id,is_active,type,bank_name,account_name,account_number,promptpay_id")
@@ -176,7 +194,14 @@ export async function POST(request: Request) {
   const { error: uploadError } = await supabase.storage.from(slipBucketName).upload(filePath, slipFile, { contentType: magicCheck.contentType, upsert: false });
   if (uploadError) {
     await supabase.from("top_up_requests").delete().eq("id", topUp.id);
-    return jsonNoStore({ error: uploadError.message }, { status: 500 });
+    console.warn("wallet_top_up_slip_upload_failed", {
+      topUpPublicCode: topUp.public_code,
+      message: uploadError.message,
+    });
+    return jsonNoStore(
+      { error: "Could not upload this slip. Please try again." },
+      { status: 500 },
+    );
   }
 
   const initialProviderResponse: Json = localDuplicateSlip
@@ -418,5 +443,8 @@ export async function POST(request: Request) {
     }
   }
 
-  return jsonNoStore({ topUp: toTopUp(responseTopUp), autoApproved, autoRejected }, { status: 201 });
+  return jsonNoStore(
+    { topUp: publicTopUp(toTopUp(responseTopUp)), autoApproved, autoRejected },
+    { status: 201 },
+  );
 }

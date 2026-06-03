@@ -181,7 +181,7 @@ notCheck("src/lib/ynot/card-conversion-api.ts", "card conversion API does not re
 notCheck("src/lib/ynot/card-conversion-api.ts", "card conversion API does not expose ledger ids", /ledgerId/);
 check("src/lib/ynot/card-conversion-api.ts", "card conversion API returns allowlisted RPC result", /function publicConversionResult[\s\S]*totalCoins[\s\S]*itemCount[\s\S]*replayed/);
 check("src/app/api/ynot/shipping/route.ts", "shipping request rejects cross-origin cookie mutations", /enforceSameOriginMutation\(request\)/);
-check("src/app/api/ynot/shipping/route.ts", "shipping request validates action tokens and idempotency keys", /UUID_RE[\s\S]*IDEMPOTENCY_KEY_RE[\s\S]*normalizeUuid[\s\S]*normalizeCollectionItemActionTokens[\s\S]*normalizeIdempotencyKey[\s\S]*resolveCollectionItemActionTokens[\s\S]*p_collection_item_ids:\s*resolvedCollectionItemIds/);
+check("src/app/api/ynot/shipping/route.ts", "shipping request validates action tokens and idempotency keys", /normalizeAddressActionToken[\s\S]*IDEMPOTENCY_KEY_RE[\s\S]*normalizeCollectionItemActionTokens[\s\S]*normalizeIdempotencyKey[\s\S]*resolveAddressActionToken[\s\S]*resolveCollectionItemActionTokens[\s\S]*p_address_id:\s*resolvedAddressId[\s\S]*p_collection_item_ids:\s*resolvedCollectionItemIds/);
 notCheck("src/app/api/ynot/shipping/route.ts", "shipping request does not return raw RPC errors", /Response\.json\(\s*\{[\s\S]*\berror\s*:\s*error.message/);
 check("src/app/api/ynot/shipping/route.ts", "shipping request returns allowlisted RPC result", /function publicShippingResult[\s\S]*publicCode[\s\S]*itemCount[\s\S]*replayed[\s\S]*result:\s*publicShippingResult/);
 check("src/features/ynot/client.tsx", "admin payment settings call payment method API", /\/api\/ynot\/admin\/payment-methods/);

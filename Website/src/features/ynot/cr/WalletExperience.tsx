@@ -66,7 +66,7 @@ function topUpToEntry(topUp: YnotTopUp): TopUpEntry {
   const approved = group === "approved";
   const rejected = group === "rejected";
   return {
-    id: topUp.id,
+    id: topUp.publicCode,
     group,
     kind: approved ? "in" : "out",
     label: approved

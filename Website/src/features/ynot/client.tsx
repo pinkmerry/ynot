@@ -1686,7 +1686,7 @@ export function AdminPaymentMethodForm({
   }
 
   function loadMethod(method: YnotPaymentMethod) {
-    setCode(method.code);
+    setCode(method.code ?? "bank-transfer");
     setDisplayName(method.displayName);
     setType(method.type);
     setBankName(method.bankName ?? "");

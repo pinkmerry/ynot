@@ -13,7 +13,9 @@ import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { isMissingColumnError } from "@/lib/supabase/schema-compat";
 import type { Database } from "@/lib/supabase/types";
+import { addressActionToken } from "@/lib/ynot/address-action-tokens";
 import { collectionItemActionToken } from "@/lib/ynot/collection-action-tokens";
+import { paymentMethodActionToken } from "@/lib/ynot/payment-method-action-tokens";
 import type {
   YnotCampaign,
   YnotCollectionItem,
@@ -837,6 +839,7 @@ function publicPrizeLineup(prizes?: YnotPrizePreview[]) {
 function publicYnotCampaign(campaign: YnotCampaign): YnotCampaign {
   return {
     ...campaign,
+    id: campaign.slug,
     approvalStatus: undefined,
     totalPrizeUnits: undefined,
     availablePrizeUnits: undefined,
@@ -852,6 +855,7 @@ function publicYnotCampaign(campaign: YnotCampaign): YnotCampaign {
     approvalNotes: undefined,
     logicMode: undefined,
     isTest: undefined,
+    categoryIds: undefined,
     prizeLineup: publicPrizeLineup(campaign.prizeLineup),
   };
 }
@@ -1481,19 +1485,15 @@ export async function getCampaign(
   campaignIdOrSlug: string,
   options: { allowTestForCurrentViewer?: boolean; viewer?: YnotViewer } = {},
 ) {
+  const campaignLookup = campaignIdOrSlug.trim();
   if (!options.allowTestForCurrentViewer) {
+    if (looksLikeUuid(campaignLookup)) return null;
     const campaigns = await getCampaigns();
     return (
-      campaigns.find(
-        (campaign) =>
-          campaign.id === campaignIdOrSlug ||
-          campaign.slug === campaignIdOrSlug,
-      ) ??
+      campaigns.find((campaign) => campaign.slug === campaignLookup) ??
       (allowDemoStorefront()
         ? featuredCampaigns.find(
-            (campaign) =>
-              campaign.id === campaignIdOrSlug ||
-              campaign.slug === campaignIdOrSlug,
+            (campaign) => campaign.slug === campaignLookup,
           )
         : undefined) ??
       null
@@ -1504,9 +1504,7 @@ export async function getCampaign(
     return (
       (allowDemoStorefront()
         ? featuredCampaigns.find(
-            (campaign) =>
-              campaign.id === campaignIdOrSlug ||
-              campaign.slug === campaignIdOrSlug,
+            (campaign) => campaign.slug === campaignLookup,
           )
         : undefined) ?? null
     );
@@ -1516,6 +1514,8 @@ export async function getCampaign(
   return readOrEmpty("campaign_detail", async () => {
     const viewer = options.viewer ?? (await getYnotViewer());
     const includePrivateDetail = viewer.isAdmin;
+    const rawCampaignLookup = looksLikeUuid(campaignLookup);
+    if (rawCampaignLookup && !includePrivateDetail) return [];
     const loadRow = (requireApproval: boolean) => {
       let query = supabase
         .from("draw_rounds")
@@ -1526,9 +1526,9 @@ export async function getCampaign(
         : query.in("status", ["live", "closed"]).eq("visibility", "public");
       if (requireApproval && !includePrivateDetail)
         query = query.eq("approval_status", "approved");
-      return looksLikeUuid(campaignIdOrSlug)
-        ? query.eq("id", campaignIdOrSlug)
-        : query.eq("slug", campaignIdOrSlug);
+      return rawCampaignLookup
+        ? query.eq("id", campaignLookup)
+        : query.eq("slug", campaignLookup);
     };
     let { data, error } = await loadRow(true);
     if (error && isMissingColumnError(error, "approval_status")) {
@@ -1601,9 +1601,7 @@ export async function getCampaign(
       campaigns[0] ??
       (allowDemoStorefront()
         ? featuredCampaigns.find(
-            (campaign) =>
-              campaign.id === campaignIdOrSlug ||
-              campaign.slug === campaignIdOrSlug,
+            (campaign) => campaign.slug === campaignLookup,
           )
         : undefined) ??
       null,
@@ -1632,6 +1630,23 @@ const getPaymentMethodsCached = unstable_cache(
 
 export async function getPaymentMethods(): Promise<YnotPaymentMethod[]> {
   return getPaymentMethodsCached();
+}
+
+export async function publicPaymentMethod(
+  method: YnotPaymentMethod,
+): Promise<YnotPaymentMethod> {
+  const publicMethod: YnotPaymentMethod = {
+    ...method,
+    id: await paymentMethodActionToken(method.id),
+  };
+  delete publicMethod.code;
+  return publicMethod;
+}
+
+export async function publicPaymentMethods(
+  methods: YnotPaymentMethod[],
+): Promise<YnotPaymentMethod[]> {
+  return Promise.all(methods.map(publicPaymentMethod));
 }
 
 export async function getAllPaymentMethods(): Promise<YnotPaymentMethod[]> {
@@ -1859,6 +1874,29 @@ export function toTopUp(
       : null,
     createdAt: row.created_at,
     reviewedAt: row.reviewed_at,
+  };
+}
+
+export function publicTopUp(topUp: YnotTopUp): YnotTopUp {
+  const publicFields: YnotTopUp = { ...topUp };
+  delete publicFields.id;
+  delete publicFields.profileId;
+  delete publicFields.adminNote;
+  return {
+    ...publicFields,
+    paymentMethod: topUp.paymentMethod
+      ? {
+          type: topUp.paymentMethod.type,
+          displayName: topUp.paymentMethod.displayName,
+        }
+      : null,
+    slipVerification: topUp.slipVerification
+      ? {
+          status: topUp.slipVerification.status,
+          verifiedAt: topUp.slipVerification.verifiedAt,
+          uploadedAt: topUp.slipVerification.uploadedAt,
+        }
+      : null,
   };
 }
 
@@ -2218,6 +2256,14 @@ export async function getExchanges(
   });
 }
 
+function publicExchangeOrder(order: YnotExchangeOrder): YnotExchangeOrder {
+  return {
+    ...order,
+    id: order.publicCode,
+    adminNote: null,
+  };
+}
+
 export async function getShipping(
   profileId?: string,
   includeAll = false,
@@ -2245,6 +2291,16 @@ export async function getShipping(
   });
 }
 
+function publicShippingRequest(
+  request: YnotShippingRequest,
+): YnotShippingRequest {
+  return {
+    ...request,
+    id: request.publicCode,
+    adminNote: null,
+  };
+}
+
 export async function getAddresses(profileId?: string): Promise<YnotAddress[]> {
   if (!profileId || !isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
@@ -2257,21 +2313,23 @@ export async function getAddresses(profileId?: string): Promise<YnotAddress[]> {
       .order("created_at", { ascending: false })
       .limit(20);
     if (error) throw error;
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      label: row.label,
-      recipientName: row.recipient_name,
-      phone: row.phone,
-      addressLine1: row.address_line1,
-      addressLine2: row.address_line2,
-      subdistrict: row.subdistrict,
-      district: row.district,
-      province: row.province,
-      postalCode: row.postal_code,
-      country: row.country,
-      deliveryNote: row.delivery_note,
-      isDefault: row.is_default,
-    }));
+    return Promise.all(
+      (data ?? []).map(async (row) => ({
+        id: await addressActionToken(profileId, row.id),
+        label: row.label,
+        recipientName: row.recipient_name,
+        phone: row.phone,
+        addressLine1: row.address_line1,
+        addressLine2: row.address_line2,
+        subdistrict: row.subdistrict,
+        district: row.district,
+        province: row.province,
+        postalCode: row.postal_code,
+        country: row.country,
+        deliveryNote: row.delivery_note,
+        isDefault: row.is_default,
+      })),
+    );
   });
 }
 
@@ -2916,12 +2974,14 @@ export async function getYnotDashboardSlice(
         ? getStoreCategories({ includeTest: viewer.isAdmin })
         : Promise.resolve([] as YnotCategory[]),
       selector.paymentMethods
-        ? getPaymentMethods()
+        ? getPaymentMethods().then(publicPaymentMethods)
         : Promise.resolve([] as YnotPaymentMethod[]),
       wantWallet
         ? getWallet(profileId)
         : Promise.resolve({ ...DEFAULT_WALLET }),
-      selector.topUps ? getTopUps(profileId) : Promise.resolve([] as YnotTopUp[]),
+      selector.topUps
+        ? getTopUps(profileId).then((topUps) => topUps.map(publicTopUp))
+        : Promise.resolve([] as YnotTopUp[]),
       selector.gachaOpens
         ? getGachaOpenHistory(profileId)
         : Promise.resolve([] as YnotGachaOpenHistory[]),
@@ -2929,10 +2989,14 @@ export async function getYnotDashboardSlice(
         ? getCollection(profileId)
         : Promise.resolve([] as YnotCollectionItem[]),
       selector.exchanges
-        ? getExchanges(profileId)
+        ? getExchanges(profileId).then((orders) =>
+            viewer.isAdmin ? orders : orders.map(publicExchangeOrder),
+          )
         : Promise.resolve([] as YnotExchangeOrder[]),
       selector.shipping
-        ? getShipping(profileId)
+        ? getShipping(profileId).then((requests) =>
+            viewer.isAdmin ? requests : requests.map(publicShippingRequest),
+          )
         : Promise.resolve([] as YnotShippingRequest[]),
       selector.addresses
         ? getAddresses(profileId)

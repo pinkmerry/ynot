@@ -884,7 +884,7 @@ export async function PacksExperience({
               return (
                 <div
                   key={campaign.id}
-                  data-pack-id={campaign.id}
+                  data-pack-id={isAdmin ? campaign.id : campaign.slug}
                   data-pack-sort-order={
                     info?.currentSortOrder ?? campaign.sortOrder ?? ""
                   }
@@ -1317,7 +1317,7 @@ export function CampaignCard({
   return (
     <article
       className={`product-card clean-pack-card pack-card-tier-${tier}`}
-      data-pack-id={campaign.id}
+      data-pack-id={showAdminEdit ? campaign.id : campaign.slug}
       data-pack-sort-order={sortOrderForAttr}
       data-pack-tier={tier}
     >
@@ -1953,7 +1953,7 @@ export function TopUpTable({
         </thead>
         <tbody>
           {topUps.map((topUp) => (
-            <tr key={topUp.id} className="border-t border-[var(--border)]">
+            <tr key={topUp.id ?? topUp.publicCode} className="border-t border-[var(--border)]">
               <td className="py-3 font-mono font-bold">{topUp.publicCode}</td>
               <td>{topUp.coinAmount.toLocaleString()}</td>
               <td>฿{topUp.amountThb.toLocaleString()}</td>
@@ -1980,7 +1980,7 @@ export function TopUpTable({
               <td>{new Date(topUp.createdAt).toLocaleString()}</td>
               {admin && (
                 <td className="font-mono text-xs">
-                  {topUp.profileId.slice(0, 8)}
+                  {topUp.profileId?.slice(0, 8) ?? "Unknown"}
                 </td>
               )}
             </tr>

@@ -7,7 +7,6 @@ import { useState } from "react";
 export type IdentityRow = {
   id: string;
   provider: "email" | "google" | "line";
-  providerSubject: string;
   email: string | null;
   displayName: string | null;
   linkedAt: string;
@@ -15,7 +14,6 @@ export type IdentityRow = {
 };
 
 type Profile = {
-  id: string;
   email: string | null;
   emailVerifiedAt: string | null;
   phone: string | null;
@@ -44,20 +42,20 @@ export function IdentitiesPanel({ profile, identities }: Props) {
   const emailVerified = Boolean(profile.emailVerifiedAt);
   const phoneVerified = Boolean(profile.phoneVerifiedAt);
 
-  async function unlink(identityId: string) {
+  async function unlink(identityToken: string) {
     if (identities.length <= 1) {
       setError("You can't remove your last login method.");
       return;
     }
     if (!confirm("Remove this login method from your account?")) return;
-    setBusy(identityId);
+    setBusy(identityToken);
     setError(null);
     setInfo(null);
     try {
       const res = await fetch("/api/auth/identities/unlink", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ identityId }),
+        body: JSON.stringify({ identityToken }),
       });
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
@@ -126,7 +124,7 @@ export function IdentitiesPanel({ profile, identities }: Props) {
               <div className="min-w-0">
                 <p className="truncate text-sm font-bold text-white">{PROVIDER_LABEL[identity.provider]}</p>
                 <p className="truncate text-xs text-[var(--muted)]">
-                  {identity.email ?? identity.providerSubject}
+                  {identity.email ?? identity.displayName ?? "Linked account"}
                 </p>
                 <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--muted)]">
                   Linked {new Date(identity.linkedAt).toLocaleDateString()}

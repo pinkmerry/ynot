@@ -8,11 +8,13 @@ import {
   isCollectionItemActionToken,
   resolveCollectionItemActionTokens,
 } from "@/lib/ynot/collection-action-tokens";
+import {
+  isAddressActionToken,
+  resolveAddressActionToken,
+} from "@/lib/ynot/address-action-tokens";
 
 export const dynamic = "force-dynamic";
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_KEY_RE = /^[a-zA-Z0-9:_-]{1,120}$/;
 const MAX_SHIPPING_ITEMS = 50;
 
@@ -23,10 +25,10 @@ type ShippingBody = {
   idempotencyKey?: unknown;
 };
 
-function normalizeUuid(value: unknown) {
+function normalizeAddressActionToken(value: unknown) {
   if (typeof value !== "string") return "";
   const trimmed = value.trim();
-  return UUID_RE.test(trimmed) ? trimmed : "";
+  return isAddressActionToken(trimmed) ? trimmed : "";
 }
 
 function normalizeCollectionItemActionTokens(value: unknown) {
@@ -147,7 +149,7 @@ export async function POST(request: Request) {
   if (limited) return limited;
 
   const body = (await request.json().catch(() => null)) as ShippingBody | null;
-  const addressId = normalizeUuid(body?.addressId);
+  const addressToken = normalizeAddressActionToken(body?.addressId);
   const {
     tokens: collectionItemTokens,
     error: itemError,
@@ -158,7 +160,7 @@ export async function POST(request: Request) {
     body?.idempotencyKey,
   );
 
-  if (!addressId) {
+  if (!addressToken) {
     return Response.json(
       { error: "Shipping address is required." },
       { status: 400 },
@@ -178,6 +180,26 @@ export async function POST(request: Request) {
     );
   }
   if (keyError) return Response.json({ error: keyError }, { status: 400 });
+
+  let resolvedAddressId: string | null;
+  try {
+    resolvedAddressId = await resolveAddressActionToken(
+      session.profileId,
+      addressToken,
+    );
+  } catch (error) {
+    console.error("Failed to resolve address action token for shipping.", error);
+    return Response.json(
+      { error: "Could not request shipping. Please refresh and try again." },
+      { status: 503 },
+    );
+  }
+  if (!resolvedAddressId) {
+    return Response.json(
+      { error: "Choose a valid shipping address." },
+      { status: 400 },
+    );
+  }
 
   let resolvedCollectionItemIds: string[];
   try {
@@ -202,7 +224,7 @@ export async function POST(request: Request) {
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase.rpc("request_shipping_for_items", {
     p_profile_id: session.profileId,
-    p_address_id: addressId,
+    p_address_id: resolvedAddressId,
     p_collection_item_ids: resolvedCollectionItemIds,
     p_customer_note: note,
     p_idempotency_key: idempotencyKey,

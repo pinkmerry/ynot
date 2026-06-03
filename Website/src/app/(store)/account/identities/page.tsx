@@ -1,4 +1,5 @@
 import { IdentitiesPanel, type IdentityRow } from "@/features/auth/IdentitiesPanel";
+import { identityActionToken } from "@/lib/auth/identity-action-tokens";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
@@ -16,26 +17,24 @@ export default async function IdentitiesPage() {
       .maybeSingle(),
     supabase
       .from("user_identities")
-      .select("id,provider,provider_subject,email,display_name,linked_at,last_seen_at")
+      .select("id,provider,email,display_name,linked_at,last_seen_at")
       .eq("profile_id", session.profileId)
       .order("linked_at", { ascending: true }),
   ]);
 
   const profile = profileResult.data;
-  const identities: IdentityRow[] = (identitiesResult.data ?? []).map((row) => ({
-    id: row.id,
+  const identities: IdentityRow[] = await Promise.all((identitiesResult.data ?? []).map(async (row) => ({
+    id: await identityActionToken(session.profileId, row.id),
     provider: row.provider,
-    providerSubject: row.provider_subject,
     email: row.email,
     displayName: row.display_name,
     linkedAt: row.linked_at,
     lastSeenAt: row.last_seen_at,
-  }));
+  })));
 
   return (
     <IdentitiesPanel
       profile={{
-        id: session.profileId,
         email: profile?.email ?? null,
         emailVerifiedAt: profile?.email_verified_at ?? null,
         phone: profile?.phone ?? null,

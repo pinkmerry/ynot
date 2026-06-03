@@ -92,7 +92,7 @@ export type YnotCategory = {
 
 export type YnotPaymentMethod = {
   id: string;
-  code: string;
+  code?: string;
   type: "bank_transfer" | "promptpay_qr";
   displayName: string;
   bankName?: string | null;
@@ -123,9 +123,9 @@ export type YnotWallet = {
 };
 
 export type YnotTopUp = {
-  id: string;
+  id?: string;
   publicCode: string;
-  profileId: string;
+  profileId?: string;
   amountThb: number;
   coinAmount: number;
   status:
@@ -137,10 +137,12 @@ export type YnotTopUp = {
     | "expired";
   adminNote?: string | null;
   customerNote?: string | null;
-  paymentMethod?: Pick<
-    YnotPaymentMethod,
-    "id" | "code" | "type" | "displayName"
-  > | null;
+  paymentMethod?: {
+    id?: string;
+    code?: YnotPaymentMethod["code"];
+    type: YnotPaymentMethod["type"];
+    displayName: YnotPaymentMethod["displayName"];
+  } | null;
   slipVerification?: {
     id?: string;
     status: YnotSlipVerificationStatus;

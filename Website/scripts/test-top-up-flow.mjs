@@ -318,7 +318,7 @@ test("wallet top-up auto-approval requires strict Slip2Go valid status", () => {
   assert.match(walletRoute, /rpc\("approve_top_up_request"/);
   assert.match(walletRoute, /p_admin_note:\s*"Auto-approved after Slip2Go verified amount, receiver, date, and duplicate checks\."/);
   assert.match(walletRoute, /emitTopUpApprovalRiskAlerts\(supabase,[\s\S]*approvalMode: "slip2go_auto"/);
-  assert.match(walletRoute, /return jsonNoStore\(\{ topUp: toTopUp\(responseTopUp\), autoApproved, autoRejected \}/);
+  assert.match(walletRoute, /topUp:\s*publicTopUp\(toTopUp\(responseTopUp\)\)/);
 });
 
 test("wallet top-up auto-rejects definitive Slip2Go failures", () => {
@@ -368,6 +368,16 @@ test("wallet top-up API safe validation and edge cases", async (t) => {
     assert.equal(typeof body.wallet?.balanceCoins, "number");
     assert.ok(Array.isArray(body.topUps));
     assert.ok(Array.isArray(body.paymentMethods));
+    for (const method of body.paymentMethods) {
+      assert.match(String(method.id ?? ""), /^pm_[A-Za-z0-9_-]{43}$/);
+      assert.equal("code" in method, false);
+    }
+    for (const topUp of body.topUps) {
+      assert.equal("id" in topUp, false);
+      assert.equal("profileId" in topUp, false);
+      assert.equal("adminNote" in topUp, false);
+      assert.equal("code" in (topUp.paymentMethod ?? {}), false);
+    }
   });
 
   await t.test("missing payment method is rejected before upload processing", async () => {

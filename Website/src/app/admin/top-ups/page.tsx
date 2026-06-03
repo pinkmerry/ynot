@@ -158,7 +158,7 @@ export default async function AdminTopUpsPage({
               <div className="list-row text-mute">No top-ups in this filter.</div>
             ) : (
               visibleTopUps.map((t) => (
-                <div className="list-row" key={t.id}>
+                <div className="list-row" key={t.id ?? t.publicCode}>
                   <span
                     className="thumb sq"
                     style={{
@@ -183,7 +183,7 @@ export default async function AdminTopUpsPage({
                         coins
                       </span>{" "}
                       · profile{" "}
-                      <span className="mono">{t.profileId.slice(0, 8)}…</span>
+                      <span className="mono">{t.profileId?.slice(0, 8) ?? "Unknown"}…</span>
                       {" "}· {new Date(t.createdAt).toLocaleString()}
                     </div>
                     <div className="row-sub">
@@ -216,7 +216,7 @@ export default async function AdminTopUpsPage({
                       </div>
                     )}
                   </div>
-                  <AdminTopUpActions topUpId={t.id} />
+                  {t.id && <AdminTopUpActions topUpId={t.id} />}
                 </div>
               ))
             )}
