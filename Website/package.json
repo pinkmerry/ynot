@@ -28,6 +28,7 @@
     "verify:phase-readiness": "node tools/verification/verify-phase-readiness.mjs",
     "test:uploads": "node --test scripts/test-magic-bytes.mjs",
     "test:top-up-flow": "node --test scripts/test-top-up-flow.mjs",
+    "test:shipping-flow": "node --test scripts/test-shipping-flow.mjs",
     "test:rate-limits": "node --test scripts/test-rate-limit-config.mjs",
     "test:card-catalog-metadata": "node --test scripts/test-card-catalog-metadata.mjs",
     "test:pack-open-privacy": "node --test scripts/test-pack-open-privacy.mjs",

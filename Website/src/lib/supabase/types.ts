@@ -460,8 +460,8 @@ export type Database = {
         Relationships: [];
       };
       card_stock_ledger: {
-        Row: { id: string; stock_unit_id: string | null; card_id: string | null; draw_round_id: string | null; draw_round_prize_id: string | null; event_type: "stock_created" | "reserved" | "reservation_released" | "allocated" | "unit_materialized" | "archived" | "deleted" | "approval_failed"; actor_admin_id: string | null; metadata: Json; created_at: string };
-        Insert: { id?: string; stock_unit_id?: string | null; card_id?: string | null; draw_round_id?: string | null; draw_round_prize_id?: string | null; event_type: "stock_created" | "reserved" | "reservation_released" | "allocated" | "unit_materialized" | "archived" | "deleted" | "approval_failed"; actor_admin_id?: string | null; metadata?: Json; created_at?: string };
+        Row: { id: string; stock_unit_id: string | null; card_id: string | null; draw_round_id: string | null; draw_round_prize_id: string | null; event_type: "stock_created" | "reserved" | "reservation_released" | "allocated" | "unit_materialized" | "archived" | "deleted" | "edited" | "approval_failed"; actor_admin_id: string | null; metadata: Json; created_at: string };
+        Insert: { id?: string; stock_unit_id?: string | null; card_id?: string | null; draw_round_id?: string | null; draw_round_prize_id?: string | null; event_type: "stock_created" | "reserved" | "reservation_released" | "allocated" | "unit_materialized" | "archived" | "deleted" | "edited" | "approval_failed"; actor_admin_id?: string | null; metadata?: Json; created_at?: string };
         Update: Partial<Database["public"]["Tables"]["card_stock_ledger"]["Insert"]>;
         Relationships: [];
       };
@@ -959,6 +959,24 @@ export type Database = {
       get_admin_card_stock_subsku_summary: { Args: { p_card_id?: string | null }; Returns: Json };
       get_admin_prize_stock_summaries: { Args: { p_card_ids: string[] }; Returns: Json };
       adjust_card_stock_units: { Args: { p_card_id: string; p_quantity_delta: number; p_admin_id: string; p_source_type?: string | null; p_source_id?: string | null; p_metadata?: Json; p_condition?: string | null; p_grade?: string | null; p_grading_service?: string | null; p_cert_number?: string | null; p_gemrate_id?: string | null; p_image_url?: string | null; p_image_storage_path?: string | null }; Returns: Json };
+      edit_card_stock_unit: {
+        Args: {
+          p_unit_id: string;
+          p_admin_id: string;
+          p_condition: string;
+          p_grade?: string | null;
+          p_grading_service?: string | null;
+          p_cert_number?: string | null;
+          p_gemrate_id?: string | null;
+          p_image_url?: string | null;
+          p_image_storage_path?: string | null;
+        };
+        Returns: Json;
+      };
+      delete_card_stock_unit: {
+        Args: { p_unit_id: string; p_admin_id: string };
+        Returns: Json;
+      };
       card_stock_unit_matches_prize_filter: { Args: { p_unit: Database["public"]["Tables"]["card_stock_units"]["Row"]; p_prize_metadata: Json | null }; Returns: boolean };
       release_campaign_reservations: { Args: { p_draw_round_id: string; p_admin_id: string; p_reason?: string | null; p_note?: string | null }; Returns: Json };
       submit_campaign_review: { Args: { p_draw_round_id: string; p_admin_id: string; p_logic_snapshot?: Json | null; p_note?: string | null }; Returns: Json };

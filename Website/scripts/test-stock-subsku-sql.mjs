@@ -11,8 +11,24 @@ const cardStockUnitRouteSource = readFileSync(
   new URL("../src/app/api/ynot/admin/card-stock/unit/route.ts", import.meta.url),
   "utf8",
 );
+const cardStockUnitsRouteSource = readFileSync(
+  new URL("../src/app/api/ynot/admin/card-stock/units/route.ts", import.meta.url),
+  "utf8",
+);
+const adminPrizeRouteSource = readFileSync(
+  new URL("../src/app/api/ynot/admin/prizes/route.ts", import.meta.url),
+  "utf8",
+);
+const adminCampaignRouteSource = readFileSync(
+  new URL("../src/app/api/ynot/admin/campaigns/route.ts", import.meta.url),
+  "utf8",
+);
 const clientSource = readFileSync(
   new URL("../src/features/ynot/client.tsx", import.meta.url),
+  "utf8",
+);
+const prizeCategorySource = readFileSync(
+  new URL("../src/features/ynot/prize-category.ts", import.meta.url),
   "utf8",
 );
 const prizeReadinessSource = readFileSync(
@@ -102,10 +118,86 @@ test("random-pack stock readiness uses the batched summary RPC first", () => {
   );
 });
 
+test("legacy admin prize API validates planned stock against selected sub-SKU before saving", () => {
+  assert.match(adminPrizeRouteSource, /getPrizeStockSummaries/);
+  assert.match(adminPrizeRouteSource, /buildPrizeStockSelectionIssues/);
+  assert.match(adminPrizeRouteSource, /buildPrizeStockShortages/);
+  assert.match(
+    adminPrizeRouteSource,
+    /export async function POST\(request: Request\)[\s\S]*enforceSameOriginMutation\(request\)[\s\S]*const body = await bodyJson\(request\)/,
+  );
+  assert.match(
+    adminPrizeRouteSource,
+    /export async function DELETE\(request: Request\)[\s\S]*enforceSameOriginMutation\(request\)[\s\S]*const body = await bodyJson\(request\)/,
+  );
+  assert.match(
+    adminPrizeRouteSource,
+    /validatePlannedPrizeStock[\s\S]*stockSelectionBlockers[\s\S]*stockShortageBlockers[\s\S]*savePrizeRow/,
+  );
+});
+
+test("single stock-unit edits use a distinct ledger event type", () => {
+  const sql = migrationSql();
+  assert.match(sql, /card_stock_ledger_edited_event/i);
+  assert.match(sql, /event_type in \([\s\S]*'edited'[\s\S]*\)/i);
+  assert.match(sql, /insert\s+into\s+public\.card_stock_ledger[\s\S]*'edited'/i);
+  assert.match(sql, /card_stock_unit_edited/);
+  assert.match(cardStockUnitRouteSource, /rpc\("edit_card_stock_unit"/);
+  assert.doesNotMatch(
+    cardStockUnitRouteSource,
+    /from\("card_stock_ledger"\)\.insert/,
+  );
+});
+
+test("admin stock-unit list does not return raw database error messages", () => {
+  assert.doesNotMatch(
+    cardStockUnitsRouteSource,
+    /Response\.json\(\{\s*error:\s*error\.message/,
+  );
+  assert.match(cardStockUnitsRouteSource, /UNITS_LIST_FAILED/);
+});
+
+test("editable stock-unit rows preserve existing image storage paths", () => {
+  assert.match(cardStockUnitsRouteSource, /image_storage_path/);
+  assert.match(cardStockUnitsRouteSource, /imageStoragePath:\s*unit\.image_storage_path/);
+  assert.match(clientSource, /useState\(\s*unit\.imageStoragePath \?\? ""/);
+});
+
 test("random-pack save serializes the validated visible sub-SKU selection", () => {
   assert.match(
     clientSource,
     /const stockUnitKey = validStockUnitKey\(card, prize\.stockUnitKey\);[\s\S]*stockUnitSelectionMetadata\(card, stockUnitKey\)/,
+  );
+});
+
+test("random-pack prize rows use catalog sub-category instead of hardcoded prize type", () => {
+  assert.match(clientSource, /catalogCategoryOptions\.map/);
+  assert.match(clientSource, /<span>Sub-category<\/span>/);
+  assert.match(clientSource, /catalogCategoryLabel\(prize\.catalogCategory\)/);
+  assert.match(
+    clientSource,
+    /metadata: \{[\s\S]*catalogCategory[\s\S]*catalogCategoryLabel[\s\S]*prizeCategory[\s\S]*sourceType/,
+  );
+  assert.doesNotMatch(clientSource, /<span>Prize type<\/span>/);
+  assert.doesNotMatch(clientSource, /prizeCategoryOptions\.map/);
+});
+
+test("random-pack APIs validate selected catalog sub-category against the card row", () => {
+  assert.match(prizeCategorySource, /function prizeCategoryForCatalogCategory/);
+  assert.match(prizeCategorySource, /function catalogCategoryForPrizeCategory/);
+  assert.match(adminCampaignRouteSource, /catalog_category/);
+  assert.match(adminCampaignRouteSource, /metadata\.catalogCategory/);
+  assert.match(adminCampaignRouteSource, /catalogCategoryLabel\(catalogCategory\)/);
+  assert.match(adminCampaignRouteSource, /prizeCategoryForCatalogCategory\(catalogCategory\)/);
+  assert.match(
+    adminCampaignRouteSource,
+    /selected prize items do not match the selected sub-category/,
+  );
+  assert.match(adminPrizeRouteSource, /catalog_category/);
+  assert.match(adminPrizeRouteSource, /metadata\.catalogCategory/);
+  assert.match(
+    adminPrizeRouteSource,
+    /Prize item does not match the selected sub-category/,
   );
 });
 
@@ -133,6 +225,7 @@ test("random-pack editor does not offer a blank main-SKU option when sub-SKUs ex
 });
 
 test("single stock-unit edits enforce condition-only identity for raw and sealed stock", () => {
+  const sql = migrationSql();
   assert.match(
     cardStockUnitRouteSource,
     /const grade = condition === "graded" \? text\(body\?\.grade, 40\) \|\| null : null/,
@@ -141,5 +234,42 @@ test("single stock-unit edits enforce condition-only identity for raw and sealed
     cardStockUnitRouteSource,
     /const certNumber =\s+condition === "graded" \? text\(body\?\.certNumber, 60\) \|\| null : null/,
   );
-  assert.match(cardStockUnitRouteSource, /if \(certNumber\)/);
+  assert.match(cardStockUnitRouteSource, /p_cert_number:\s*certNumber/);
+  assert.match(
+    sql,
+    /if\s+v_condition\s+=\s+'graded'[\s\S]*else[\s\S]*v_grade\s*:=\s*null[\s\S]*v_grading_service\s*:=\s*null[\s\S]*v_cert_number\s*:=\s*null[\s\S]*v_gemrate_id\s*:=\s*null/i,
+  );
+});
+
+test("single stock-unit edit and delete use transaction-safe RPCs", () => {
+  const sql = migrationSql();
+  assert.match(sql, /create\s+or\s+replace\s+function\s+public\.edit_card_stock_unit/i);
+  assert.match(sql, /create\s+or\s+replace\s+function\s+public\.delete_card_stock_unit/i);
+  assert.match(
+    sql,
+    /create\s+or\s+replace\s+function\s+public\.edit_card_stock_unit[\s\S]*security\s+definer[\s\S]*set\s+search_path\s*=\s*public,\s*pg_temp/i,
+  );
+  assert.match(
+    sql,
+    /create\s+or\s+replace\s+function\s+public\.delete_card_stock_unit[\s\S]*security\s+definer[\s\S]*set\s+search_path\s*=\s*public,\s*pg_temp/i,
+  );
+  assert.match(sql, /stock_unit_not_editable/);
+  assert.match(sql, /card_stock_unit_edited/);
+  assert.match(sql, /card_stock_unit_deleted/);
+  assert.match(sql, /grant execute on function public\.edit_card_stock_unit/i);
+  assert.match(sql, /grant execute on function public\.delete_card_stock_unit/i);
+});
+
+test("admin stock-unit route calls RPCs instead of split update plus ledger writes", () => {
+  assert.match(cardStockUnitRouteSource, /enforceSameOriginMutation\(request\)/);
+  assert.match(cardStockUnitRouteSource, /rpc\("edit_card_stock_unit"/);
+  assert.match(cardStockUnitRouteSource, /rpc\("delete_card_stock_unit"/);
+  assert.doesNotMatch(
+    cardStockUnitRouteSource,
+    /from\("card_stock_units"\)[\s\S]*\.update/,
+  );
+  assert.doesNotMatch(
+    cardStockUnitRouteSource,
+    /from\("card_stock_ledger"\)\.insert/,
+  );
 });

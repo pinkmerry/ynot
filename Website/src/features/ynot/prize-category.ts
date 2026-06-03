@@ -1,3 +1,8 @@
+import {
+  catalogCategoryValue,
+  type CatalogCategory,
+} from "./card-catalog-metadata";
+
 export type PrizeCategory =
   | "psa10_card"
   | "sealed_product"
@@ -59,4 +64,22 @@ export function prizeSourceType(category: unknown) {
     prizeCategoryOptions.find((option) => option.value === category)
       ?.sourceType ?? "card"
   );
+}
+
+export function prizeCategoryForCatalogCategory(
+  category: unknown,
+): PrizeCategory {
+  const catalogCategory = catalogCategoryValue(category);
+  if (catalogCategory === "single_cards") return "psa10_card";
+  if (catalogCategory === "supplies") return "other";
+  return "sealed_product";
+}
+
+export function catalogCategoryForPrizeCategory(
+  category: unknown,
+): CatalogCategory {
+  const prizeCategory = prizeCategoryValue(category);
+  if (prizeCategory === "sealed_product") return "packs";
+  if (prizeCategory === "other") return "supplies";
+  return "single_cards";
 }

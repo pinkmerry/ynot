@@ -180,6 +180,10 @@ check("src/lib/ynot/card-conversion-api.ts", "card conversion API validates item
 notCheck("src/lib/ynot/card-conversion-api.ts", "card conversion API does not return raw RPC errors", /Response\.json\(\{\s*error:\s*error\.message/);
 notCheck("src/lib/ynot/card-conversion-api.ts", "card conversion API does not expose ledger ids", /ledgerId/);
 check("src/lib/ynot/card-conversion-api.ts", "card conversion API returns allowlisted RPC result", /function publicConversionResult[\s\S]*totalCoins[\s\S]*itemCount[\s\S]*replayed/);
+check("src/app/api/ynot/shipping/route.ts", "shipping request rejects cross-origin cookie mutations", /enforceSameOriginMutation\(request\)/);
+check("src/app/api/ynot/shipping/route.ts", "shipping request validates ids and idempotency keys", /UUID_RE[\s\S]*IDEMPOTENCY_KEY_RE[\s\S]*normalizeUuid[\s\S]*normalizeCollectionItemIds[\s\S]*normalizeIdempotencyKey/);
+notCheck("src/app/api/ynot/shipping/route.ts", "shipping request does not return raw RPC errors", /Response\.json\(\s*\{[\s\S]*\berror\s*:\s*error.message/);
+check("src/app/api/ynot/shipping/route.ts", "shipping request returns allowlisted RPC result", /function publicShippingResult[\s\S]*publicCode[\s\S]*itemCount[\s\S]*replayed[\s\S]*result:\s*publicShippingResult/);
 check("src/features/ynot/client.tsx", "admin payment settings call payment method API", /\/api\/ynot\/admin\/payment-methods/);
 check("src/features/ynot/client.tsx", "admin campaign form calls campaign API", /\/api\/ynot\/admin\/campaigns/);
 check("src/features/ynot/client.tsx", "admin campaign create refreshes server data after save", /import \{ useRouter \} from "next\/navigation"[\s\S]*AdminCampaignForm[\s\S]*const router = useRouter\(\)[\s\S]*\/api\/ynot\/admin\/campaigns[\s\S]*router\.refresh\(\)/);
@@ -253,8 +257,9 @@ check("src/app/api/ynot/admin/campaigns/lifecycle/route.ts", "campaign lifecycle
 check("src/features/ynot/client.tsx", "owner review simulator mirrors unit-weighted unlock-gated runtime odds", /function ownerReviewPrizeUnits[\s\S]*plannedQuantity[\s\S]*function ownerReviewEffectivePoolWeight[\s\S]*UnlockAtSoldPct[\s\S]*soldPct[\s\S]*remainingUnits[\s\S]*function runOwnerReviewSimulation[\s\S]*remainingUnits/);
 check("src/features/ynot/client.tsx", "owner review per-pull display stays aligned with active gated odds", /const poolShare =[\s\S]*ownerReviewEffectivePoolWeight\(prize, logicMode, 0\)[\s\S]*\{`\$\{poolShare\.toFixed\(3\)\}%`\}/);
 check("src/features/ynot/client.tsx", "owner review simulator compares early-window tier expectations and recommends the configured match", /type OwnerReviewModeComparison[\s\S]*function ownerReviewComparisonDrawCount[\s\S]*firstTenPercent[\s\S]*simulatorModeComparisons[\s\S]*expected tier hits[\s\S]*Recommended[\s\S]*OWNER_REVIEW_TIER_ORDER\.map[\s\S]*result\.expected\[tier\]/);
-check("src/features/ynot/client.tsx", "admin campaign form stores prize category metadata", /prizeCategoryOptions[\s\S]*prizeCategoryLabel[\s\S]*metadata: \{[\s\S]*prizeCategory/);
-check("src/features/ynot/client.tsx", "admin campaign form filters prize items by selected brand", /function prizeCatalogCardsFor[\s\S]*series\?: YnotCampaign\["series"\][\s\S]*cardMatchesCampaignSeries\(card, series\)[\s\S]*function cardMatchesCampaignSeries[\s\S]*<span>Brand<\/span>[\s\S]*<span>Prize type<\/span>/);
+check("src/features/ynot/client.tsx", "admin campaign form stores catalog sub-category and legacy prize metadata", /catalogCategoryOptions[\s\S]*catalogCategoryLabel[\s\S]*metadata: \{[\s\S]*catalogCategory[\s\S]*prizeCategory/);
+check("src/features/ynot/client.tsx", "admin campaign form filters prize items by selected brand and sub-category", /function prizeCatalogCardsFor[\s\S]*category: CatalogCategory[\s\S]*cardMatchesCampaignSeries\(card, series\)[\s\S]*function cardMatchesCampaignSeries[\s\S]*<span>Brand<\/span>[\s\S]*<span>Sub-category<\/span>/);
+notCheck("src/features/ynot/client.tsx", "admin campaign form does not expose obsolete prize type selector", /<span>Prize type<\/span>|prizeCategoryOptions\.map/);
 check("src/features/ynot/client.tsx", "admin campaign form blocks mismatched prize quantities", /Prize quantity must equal the total pack quantity/);
 check("src/features/ynot/open-quantity.ts", "open quantity options are limited to 1 10 100 pull choices", /allowedOpenQuantityOptions = \[1, 10, 100\]/);
 check("src/features/ynot/client.tsx", "admin campaign create and edit expose customer pull buttons", /Customer pull buttons[\s\S]*allowedOpenQuantityOptions\.map[\s\S]*openQuantitySummary\(openQuantityOptions\)[\s\S]*The open[\s\S]*pack page only shows selected pull buttons/);
@@ -401,10 +406,11 @@ if (exists("src/features/ynot/stock-readiness.ts")) {
   fail("random pack stock readiness helper exists (src/features/ynot/stock-readiness.ts)");
 }
 notCheck("src/features/ynot/stock-readiness.ts", "stock readiness helper stays client-safe", /server-only|createServiceSupabaseClient/);
-check("src/features/ynot/stock-readiness.ts", "stock readiness helper aggregates prize demand against card stock", /buildPrizeStockShortages[\s\S]*requiredByCardId[\s\S]*stockShortageBlockers/);
-check("src/features/ynot/prize-readiness.ts", "planned random pack readiness checks exact global stock before owner review", /getPrizeStockSummaries[\s\S]*get_card_stock_summary[\s\S]*countCampaignReservations[\s\S]*reservationCoverageBlockers[\s\S]*stockBlockers/);
+check("src/features/ynot/stock-readiness.ts", "stock readiness helper aggregates prize demand against sub-SKU stock", /buildPrizeStockShortages[\s\S]*requiredByTarget[\s\S]*stockUnitGroupKey[\s\S]*stockShortageBlockers/);
+check("src/features/ynot/prize-readiness.ts", "planned random pack readiness checks exact global stock before owner review", /get_admin_prize_stock_summaries[\s\S]*get_card_stock_summary[\s\S]*countCampaignReservations[\s\S]*getPrizeStockSummaries[\s\S]*reservationCoverageBlockers[\s\S]*stockBlockers/);
 notCheck("src/features/ynot/data.ts", "storefront/admin renders do not pull bulk prize unit rows into the Worker", /draw_round_prize_units["']?\)[\s\S]*select\("draw_round_prize_id,status"\)[\s\S]*limit\(10000\)/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign create validates global stock before inserting draft", /getPrizeStockSummaries\(supabase, initialPrizes\)[\s\S]*validatePrizeDraftsForSave\([\s\S]*stockSummaries[\s\S]*from\("draw_rounds"\)\.insert/);
+check("src/app/api/ynot/admin/prizes/route.ts", "legacy admin prize mutation rejects cross-origin cookie mutations", /export async function POST\(request: Request\)[\s\S]*enforceSameOriginMutation\(request\)[\s\S]*const body = await bodyJson\(request\)[\s\S]*export async function DELETE\(request: Request\)[\s\S]*enforceSameOriginMutation\(request\)[\s\S]*const body = await bodyJson\(request\)/);
 const campaignPatchBeforeMutation = sliceBetween(
   "src/app/api/ynot/admin/campaigns/route.ts",
   "const replacementPrizes = Array.isArray(body.initialPrizes)",

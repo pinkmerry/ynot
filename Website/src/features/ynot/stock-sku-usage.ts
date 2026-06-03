@@ -221,6 +221,7 @@ export function stockSkuGroupsFromSummaryRows(
         certNumber: row.certNumber || null,
         gemrateId: row.gemrateId || null,
         imageUrl: row.imageUrl || null,
+        imageStoragePath: null,
         status: "summary",
         quantity: totalUnits,
       } satisfies CatalogStockUnit;

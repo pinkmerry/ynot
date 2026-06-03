@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,19 @@ const GRADING_SERVICES = new Set(["psa", "bgs", "cgc", "other"]);
 
 function text(value: unknown, max = 160) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+function stockUnitErrorMessage(message?: string) {
+  if (!message) return "Stock unit could not be updated.";
+  if (message.includes("active_admin_required")) return "Admin access is required.";
+  if (message.includes("stock_unit_required")) return "unitId is required.";
+  if (message.includes("stock_unit_not_editable")) return "Unit not found or not editable (must be available).";
+  if (message.includes("stock_unit_not_removable")) return "Unit not found or not removable (must be available).";
+  if (message.includes("invalid_condition")) return "Choose a valid stock condition.";
+  if (message.includes("graded_stock_identity_required")) return "Choose a grade and grading service for graded stock.";
+  if (message.includes("invalid_grading_service")) return "Choose a valid grading service.";
+  if (message.includes("stock_cert_number_already_used")) return "That cert number is already used by another unit.";
+  return "Stock unit could not be updated.";
 }
 
 type UnitBody = {
@@ -33,6 +47,8 @@ async function guard(request: Request) {
       ),
     };
   }
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return { error: crossOrigin };
   const admin = await resolveAdminSession();
   if (!admin) {
     return {
@@ -88,67 +104,27 @@ export async function PATCH(request: Request) {
       { status: 400 },
     );
   }
-  const patch: Record<string, string | null> = {
-    condition,
-    grade,
-    cert_number: certNumber,
-    gemrate_id: gemrateId,
-    grading_service: gradingService,
-    image_url: text(body?.imageUrl, 600) || null,
-    image_storage_path: text(body?.imageStoragePath, 400) || null,
-  };
 
-  // A cert pins one physical slab — reject if another unit already holds it.
   const supabase = createServiceSupabaseClient();
-  if (certNumber) {
-    const { data: clash } = await supabase
-      .from("card_stock_units")
-      .select("id")
-      .eq("cert_number", certNumber)
-      .neq("id", unitId)
-      .limit(1);
-    if (clash && clash.length > 0) {
-      return Response.json(
-        { error: "That cert number is already used by another unit." },
-        { status: 409 },
-      );
-    }
-  }
-
-  // Only available units may be edited — reserved/allocated are locked to a pool.
-  const { data: updated, error } = await supabase
-    .from("card_stock_units")
-    .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq("id", unitId)
-    .eq("status", "available")
-    .select("id,card_id")
-    .maybeSingle();
+  const { error } = await supabase.rpc("edit_card_stock_unit", {
+    p_unit_id: unitId,
+    p_admin_id: admin.adminId,
+    p_condition: condition,
+    p_grade: grade,
+    p_grading_service: gradingService,
+    p_cert_number: certNumber,
+    p_gemrate_id: gemrateId,
+    p_image_url: text(body?.imageUrl, 600) || null,
+    p_image_storage_path: text(body?.imageStoragePath, 400) || null,
+  });
 
   if (error) {
     return Response.json(
-      { error: "Unit could not be updated.", code: "UNIT_UPDATE_FAILED" },
-      { status: 409 },
-    );
-  }
-  if (!updated) {
-    return Response.json(
-      { error: "Unit not found or not editable (must be available)." },
+      { error: stockUnitErrorMessage(error.message), code: "UNIT_UPDATE_FAILED" },
       { status: 409 },
     );
   }
 
-  await supabase.from("card_stock_ledger").insert({
-    stock_unit_id: updated.id,
-    card_id: updated.card_id,
-    event_type: "stock_created",
-    actor_admin_id: admin.adminId,
-    metadata: { action: "unit_edited", patch },
-  });
-  await supabase.from("audit_events").insert({
-    actor_admin_id: admin.adminId,
-    event_type: "card_stock_unit_edited",
-    metadata: { unitId, patch },
-  });
   revalidateTag("campaigns", "max");
   return Response.json({ ok: true });
 }
@@ -166,39 +142,18 @@ export async function DELETE(request: Request) {
   }
 
   const supabase = createServiceSupabaseClient();
-  const { data: removed, error } = await supabase
-    .from("card_stock_units")
-    .update({ status: "deleted", updated_at: new Date().toISOString() })
-    .eq("id", unitId)
-    .eq("status", "available")
-    .select("id,card_id")
-    .maybeSingle();
+  const { error } = await supabase.rpc("delete_card_stock_unit", {
+    p_unit_id: unitId,
+    p_admin_id: admin.adminId,
+  });
 
   if (error) {
     return Response.json(
-      { error: "Unit could not be removed.", code: "UNIT_DELETE_FAILED" },
-      { status: 409 },
-    );
-  }
-  if (!removed) {
-    return Response.json(
-      { error: "Unit not found or not removable (must be available)." },
+      { error: stockUnitErrorMessage(error.message), code: "UNIT_DELETE_FAILED" },
       { status: 409 },
     );
   }
 
-  await supabase.from("card_stock_ledger").insert({
-    stock_unit_id: removed.id,
-    card_id: removed.card_id,
-    event_type: "deleted",
-    actor_admin_id: admin.adminId,
-    metadata: { action: "unit_deleted" },
-  });
-  await supabase.from("audit_events").insert({
-    actor_admin_id: admin.adminId,
-    event_type: "card_stock_unit_deleted",
-    metadata: { unitId },
-  });
   revalidateTag("campaigns", "max");
   return Response.json({ ok: true });
 }

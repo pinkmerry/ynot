@@ -52,9 +52,9 @@ import {
   type StockSkuPackUsage,
 } from "./stock-sku-usage";
 import {
+  catalogCategoryForPrizeCategory,
   prizeCategoryLabel,
-  prizeCategoryOptions,
-  prizeCategoryValue,
+  prizeCategoryForCatalogCategory,
   isRandomPsa10PrizeCard,
   prizeSourceType,
   type PrizeCategory,
@@ -66,6 +66,7 @@ import {
   cardLanguageLabel,
   catalogCategoryLabel,
   catalogCategoryOptions,
+  catalogCategoryValue,
   gradingServiceLabel,
   gradingServiceOptions,
   type CardCondition,
@@ -2290,6 +2291,7 @@ type CampaignPrizeDraft = {
   cardId: string;
   stockUnitKey: string;
   tier: "normal" | "high";
+  catalogCategory: CatalogCategory;
   prizeCategory: PrizeCategory;
   rank: number;
   tierRank: number;
@@ -2324,22 +2326,23 @@ function isRandomPsa10Card(card: CardCatalogItem) {
   return isRandomPsa10PrizeCard(card);
 }
 
-function cardPrizeCategory(card: CardCatalogItem) {
-  return prizeCategoryValue(card.prizeCategory);
+function cardCatalogCategory(card: CardCatalogItem) {
+  return catalogCategoryValue(card.catalogCategory);
 }
 
 function prizeCatalogCardsFor(
   cards: CardCatalogItem[],
-  category: PrizeCategory,
+  category: CatalogCategory,
   displayTier: PrizeDisplayTier,
   series?: YnotCampaign["series"],
 ) {
+  const catalogCategory = catalogCategoryValue(category);
   const categorizedCards = cards.filter(
     (card) =>
-      cardPrizeCategory(card) === category &&
+      cardCatalogCategory(card) === catalogCategory &&
       (!series || cardMatchesCampaignSeries(card, series)),
   );
-  if (category !== "psa10_card") return categorizedCards;
+  if (catalogCategory !== "single_cards") return categorizedCards;
   if (canPrizeDisplayTierUseRandomPsa10(displayTier)) {
     return categorizedCards.filter(isRandomPsa10Card);
   }
@@ -2874,7 +2877,12 @@ function AdminPrizeCardPicker({
           <option value="">{cards.length ? emptyLabel : missingLabel}</option>
           {selectCards.map((card) => (
             <option key={card.catalogCardId} value={card.catalogCardId}>
-              {[card.modelCode ?? card.code ?? "no model code", card.name, card.grade, prizeCategoryLabel(card.prizeCategory)].join(" · ")}
+              {[
+                card.modelCode ?? card.code ?? "no model code",
+                card.name,
+                card.grade,
+                catalogCategoryLabel(card.catalogCategory),
+              ].join(" · ")}
             </option>
           ))}
         </select>
@@ -2909,8 +2917,9 @@ function createPrizeDraft(
   existing?: CampaignPrizeDraft,
 ) {
   const config = prizeDisplayTierConfig(displayTier);
-  const prizeCategory = existing?.prizeCategory ?? "psa10_card";
-  const cardOptions = prizeCatalogCardsFor(cards, prizeCategory, displayTier);
+  const catalogCategory = existing?.catalogCategory ?? "single_cards";
+  const prizeCategory = prizeCategoryForCatalogCategory(catalogCategory);
+  const cardOptions = prizeCatalogCardsFor(cards, catalogCategory, displayTier);
   const existingCardId =
     existing?.cardId &&
     cardOptions.some((card) => card.catalogCardId === existing.cardId)
@@ -2928,6 +2937,7 @@ function createPrizeDraft(
       ? validStockUnitKey(selectedCard, existing.stockUnitKey)
       : defaultStockUnitKey(selectedCard),
     tier: config.dbTier,
+    catalogCategory,
     prizeCategory,
     rank: existing?.rank ?? index + 1,
     tierRank: index + 1,
@@ -3003,7 +3013,7 @@ function withLowestTierRemainder(
     if (prize.localId !== firstLowestRow.localId) return prize;
     const cardOptions = prizeCatalogCardsFor(
       cards,
-      prize.prizeCategory,
+      prize.catalogCategory,
       prize.displayTier,
     );
     const cardId =
@@ -3047,16 +3057,23 @@ function prizeLineupToDrafts(
   }
   const drafts = prizes.map((prize, index): CampaignPrizeDraft => {
     const displayTier = prizeDisplayTierValueFromPreview(prize);
-    const prizeCategory = prizeCategoryValue(prize.prizeCategory);
+    const selectedCard = cards.find(
+      (card) => card.catalogCardId === prize.cardId,
+    );
+    const catalogCategory = selectedCard
+      ? cardCatalogCategory(selectedCard)
+      : catalogCategoryForPrizeCategory(prize.prizeCategory);
+    const prizeCategory = prizeCategoryForCatalogCategory(catalogCategory);
     return {
       localId: `existing-${prize.id || index}`,
       displayTier,
       cardId: prize.cardId ?? "",
       stockUnitKey: validStockUnitKey(
-        cards.find((card) => card.catalogCardId === prize.cardId),
+        selectedCard,
         prize.intendedStockUnitKey,
       ),
       tier: (prize.tier === "high" ? "high" : "normal") as "normal" | "high",
+      catalogCategory,
       prizeCategory,
       rank: Math.max(1, Math.round(prize.rank || index + 1)),
       tierRank: Math.max(1, Math.round(prize.tierRank || 1)),
@@ -3297,12 +3314,12 @@ export function AdminCampaignForm({
         `${option.shortLabel} ${draftPrizesByTier[option.value].length}`,
     )
     .join(" / ");
-  const unavailablePrizeCategoryRows = draftPrizes.filter(
+  const unavailableCatalogCategoryRows = draftPrizes.filter(
     (prize) =>
       prizeUnitCount(prize) > 0 &&
       !prizeCatalogCardsFor(
         campaignCatalogCards,
-        prize.prizeCategory,
+        prize.catalogCategory,
         prize.displayTier,
         series,
       ).length,
@@ -3311,7 +3328,7 @@ export function AdminCampaignForm({
     if (prizeUnitCount(prize) <= 0) return false;
     const itemOptions = prizeCatalogCardsFor(
       campaignCatalogCards,
-      prize.prizeCategory,
+      prize.catalogCategory,
       prize.displayTier,
       series,
     );
@@ -3325,7 +3342,7 @@ export function AdminCampaignForm({
     if (prizeUnitCount(prize) <= 0) return false;
     const itemOptions = prizeCatalogCardsFor(
       campaignCatalogCards,
-      prize.prizeCategory,
+      prize.catalogCategory,
       prize.displayTier,
       series,
     );
@@ -3339,11 +3356,11 @@ export function AdminCampaignForm({
         !validStockUnitKey(card, prize.stockUnitKey),
     );
   });
-  const missingPrizeCategories = [
+  const missingCatalogCategories = [
     ...new Set(
-      unavailablePrizeCategoryRows.map(
+      unavailableCatalogCategoryRows.map(
         (prize) =>
-          `${prizeDraftTierLabel(prize.displayTier)}: ${prizeCategoryLabel(prize.prizeCategory)}`,
+          `${prizeDraftTierLabel(prize.displayTier)}: ${catalogCategoryLabel(prize.catalogCategory)}`,
       ),
     ),
   ];
@@ -3369,11 +3386,11 @@ export function AdminCampaignForm({
     initialUnlockedUnits <= 0
       ? "At least one prize must be available in the launch pool."
       : "",
-    missingPrizeCategories.length
-      ? `Add catalog item(s) for ${missingPrizeCategories.join(", ")}.`
+    missingCatalogCategories.length
+      ? `Add catalog item(s) for ${missingCatalogCategories.join(", ")}.`
       : "",
     invalidPrizeItemRows.length
-      ? "Choose a prize item that matches each selected prize category."
+      ? "Choose a prize item that matches each selected sub-category."
       : "",
     missingPrizeItemRows.length
       ? "Choose a prize item for every active prize row."
@@ -3461,7 +3478,7 @@ export function AdminCampaignForm({
         current.map((prize) => {
           const itemOptions = prizeCatalogCardsFor(
             nextCampaignCards,
-            prize.prizeCategory,
+            prize.catalogCategory,
             prize.displayTier,
             nextSeries,
           );
@@ -3483,19 +3500,22 @@ export function AdminCampaignForm({
     );
   }
 
-  function updatePrizeDraftCategory(
+  function updatePrizeDraftCatalogCategory(
     prize: CampaignPrizeDraft,
-    nextCategory: PrizeCategory,
+    nextCategory: CatalogCategory,
   ) {
+    const catalogCategory = catalogCategoryValue(nextCategory);
+    const prizeCategory = prizeCategoryForCatalogCategory(catalogCategory);
     const itemOptions = prizeCatalogCardsFor(
       campaignCatalogCards,
-      nextCategory,
+      catalogCategory,
       prize.displayTier,
       series,
     );
     const defaultCard = itemOptions[0] ?? null;
     updatePrizeDraft(prize.localId, {
-      prizeCategory: nextCategory,
+      catalogCategory,
+      prizeCategory,
       cardId: defaultCard?.catalogCardId ?? "",
       stockUnitKey: defaultStockUnitKey(defaultCard),
     });
@@ -3639,6 +3659,9 @@ export function AdminCampaignForm({
           initialPrizes: activePrizeDrafts.map((prize) => {
             const card = cardsById.get(prize.cardId);
             const stockUnitKey = validStockUnitKey(card, prize.stockUnitKey);
+            const catalogCategory = catalogCategoryValue(prize.catalogCategory);
+            const prizeCategory =
+              prizeCategoryForCatalogCategory(catalogCategory);
             const stockMetadata =
               card && stockUnitKey
                 ? stockUnitSelectionMetadata(card, stockUnitKey)
@@ -3655,9 +3678,11 @@ export function AdminCampaignForm({
                 displayGroup: prize.displayTier,
                 tierRank: prize.tierRank,
                 tierRowCount: draftPrizesByTier[prize.displayTier].length,
-                prizeCategory: prize.prizeCategory,
-                prizeCategoryLabel: prizeCategoryLabel(prize.prizeCategory),
-                sourceType: prizeSourceType(prize.prizeCategory),
+                catalogCategory,
+                catalogCategoryLabel: catalogCategoryLabel(catalogCategory),
+                prizeCategory,
+                prizeCategoryLabel: prizeCategoryLabel(prizeCategory),
+                sourceType: prizeSourceType(prizeCategory),
                 ...(stockMetadata ?? {}),
               },
             };
@@ -4222,7 +4247,7 @@ export function AdminCampaignForm({
                       <span>Tier #</span>
                       <span>Prize item</span>
                       <span>Sub-SKU stock</span>
-                      <span>Prize type</span>
+                      <span>Sub-category</span>
                       <span>Qty</span>
                       <span>Convert coins</span>
                       <span>Action</span>
@@ -4230,7 +4255,7 @@ export function AdminCampaignForm({
                     {rows.map((prize) => {
                       const itemOptions = prizeCatalogCardsFor(
                         campaignCatalogCards,
-                        prize.prizeCategory,
+                        prize.catalogCategory,
                         prize.displayTier,
                         series,
                       );
@@ -4295,7 +4320,7 @@ export function AdminCampaignForm({
                             />
                             {!itemOptions.length && (
                               <small>
-                                Add a {prizeCategoryLabel(prize.prizeCategory)}{" "}
+                                Add a {catalogCategoryLabel(prize.catalogCategory)}{" "}
                                 catalog item first.
                               </small>
                             )}
@@ -4329,17 +4354,17 @@ export function AdminCampaignForm({
                             </select>
                           </label>
                           <label className="admin-field">
-                            <span>Prize type</span>
+                            <span>Sub-category</span>
                             <select
-                              value={prize.prizeCategory}
+                              value={prize.catalogCategory}
                               onChange={(event) =>
-                                updatePrizeDraftCategory(
+                                updatePrizeDraftCatalogCategory(
                                   prize,
-                                  event.target.value as PrizeCategory,
+                                  event.target.value as CatalogCategory,
                                 )
                               }
                             >
-                              {prizeCategoryOptions.map((categoryOption) => (
+                              {catalogCategoryOptions.map((categoryOption) => (
                                 <option
                                   key={categoryOption.value}
                                   value={categoryOption.value}
@@ -6652,7 +6677,7 @@ export function AdminCardForm({
           cardSet,
           variant,
           catalogCategory,
-          prizeCategory: legacyPrizeCategoryForCatalog(catalogCategory),
+          prizeCategory: prizeCategoryForCatalogCategory(catalogCategory),
           imageUrl: nextImageUrl,
           imageStoragePath: nextImageStoragePath,
           isTest,
@@ -7220,7 +7245,9 @@ function AdminStockUnitRow({
   const [certNumber, setCertNumber] = useState(unit.certNumber ?? "");
   const [gemrateId, setGemrateId] = useState(unit.gemrateId ?? "");
   const [imageUrl, setImageUrl] = useState(unit.imageUrl ?? "");
-  const [imageStoragePath, setImageStoragePath] = useState("");
+  const [imageStoragePath, setImageStoragePath] = useState(
+    unit.imageStoragePath ?? "",
+  );
   const [uploading, setUploading] = useState(false);
   const [busy, startBusy] = useTransition();
   const [msg, setMsg] = useState("");
@@ -7817,12 +7844,6 @@ type StockAdjustmentDraft = {
   quantity: string;
   stockUnitKey: string;
 };
-
-function legacyPrizeCategoryForCatalog(category: CatalogCategory): PrizeCategory {
-  if (category === "single_cards") return "psa10_card";
-  if (category === "supplies") return "other";
-  return "sealed_product";
-}
 
 type AdminCardApiRow = Database["public"]["Tables"]["cards"]["Row"];
 
@@ -9139,7 +9160,7 @@ function AdminCardEditModal({
           cardSet,
           variant,
           catalogCategory,
-          prizeCategory: legacyPrizeCategoryForCatalog(catalogCategory),
+          prizeCategory: prizeCategoryForCatalogCategory(catalogCategory),
           imageUrl: nextImageUrl || null,
           imageStoragePath: nextImageStoragePath || null,
           isTest,

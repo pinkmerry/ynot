@@ -62,7 +62,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("card_stock_units")
     .select(
-      "id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status,quantity",
+      "id,condition,grade,grading_service,cert_number,gemrate_id,image_url,image_storage_path,status,quantity",
     )
     .eq("card_id", cardId)
     .eq("status", "available")
@@ -87,7 +87,13 @@ export async function GET(request: Request) {
 
   const { data, error } = await query;
   if (error) {
-    return Response.json({ error: error.message }, { status: 409 });
+    return Response.json(
+      {
+        error: "Stock units could not be loaded.",
+        code: "UNITS_LIST_FAILED",
+      },
+      { status: 409 },
+    );
   }
 
   return Response.json({
@@ -100,6 +106,7 @@ export async function GET(request: Request) {
       certNumber: unit.cert_number,
       gemrateId: unit.gemrate_id,
       imageUrl: unit.image_url,
+      imageStoragePath: unit.image_storage_path,
       status: unit.status,
       quantity: unit.quantity ?? 1,
     })),

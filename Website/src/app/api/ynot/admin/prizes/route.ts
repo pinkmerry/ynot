@@ -8,17 +8,32 @@ import {
 } from "@/lib/supabase/schema-compat";
 import type { Database, Json } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import {
+  catalogCategoryForPrizeCategory,
   isRandomPsa10PrizeCard,
+  prizeCategoryForCatalogCategory,
   prizeCategoryLabel,
   prizeCategoryValue,
   prizeSourceType,
 } from "@/features/ynot/prize-category";
 import {
+  catalogCategoryLabel,
+  catalogCategoryValue,
+} from "@/features/ynot/card-catalog-metadata";
+import {
   canPrizeDisplayTierUseRandomPsa10,
   prizeDisplayTierLabel,
   prizeDisplayTierValue,
 } from "@/features/ynot/prize-tier";
+import { getPrizeStockSummaries } from "@/features/ynot/prize-readiness";
+import {
+  buildPrizeStockSelectionIssues,
+  buildPrizeStockShortages,
+  stockSelectionBlockers,
+  stockShortageBlockers,
+  type StockReadinessPrize,
+} from "@/features/ynot/stock-readiness";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +50,7 @@ type PrizeBody = {
   isTest?: unknown;
   seedRunId?: unknown;
   metadata?: unknown;
+  catalogCategory?: unknown;
   prizeCategory?: unknown;
   sourceType?: unknown;
   displayGroup?: unknown;
@@ -125,13 +141,29 @@ function metadataPositiveInteger(
 
 function metadataValue(body: PrizeBody): Json {
   const metadata = isRecord(body.metadata) ? { ...body.metadata } : {};
-  const prizeCategory = prizeCategoryValue(body.prizeCategory);
+  const rawCatalogCategory = body.catalogCategory ?? metadata.catalogCategory;
+  const fallbackPrizeCategory = prizeCategoryValue(
+    body.prizeCategory ?? metadata.prizeCategory,
+  );
+  const catalogCategory = catalogCategoryValue(
+    rawCatalogCategory,
+    catalogCategoryForPrizeCategory(fallbackPrizeCategory),
+  );
+  const hasCatalogCategory =
+    rawCatalogCategory !== undefined &&
+    rawCatalogCategory !== null &&
+    rawCatalogCategory !== "";
+  const prizeCategory = hasCatalogCategory
+    ? prizeCategoryForCatalogCategory(catalogCategory)
+    : fallbackPrizeCategory;
   const sourceType = prizeSourceType(prizeCategory);
   const displayGroup = text(body.displayGroup, 40);
   const tierRank = rankValue(metadata.tierRank) ?? rankValue(body.rank) ?? 1;
   const displayTier = prizeDisplayTierValue(
     text(body.displayTier, 40) || metadata.displayTier || displayGroup,
   );
+  metadata.catalogCategory = catalogCategory;
+  metadata.catalogCategoryLabel = catalogCategoryLabel(catalogCategory);
   metadata.prizeCategory = prizeCategory;
   metadata.prizeCategoryLabel = prizeCategoryLabel(prizeCategory);
   metadata.sourceType = sourceType;
@@ -254,6 +286,87 @@ async function bodyJson(request: Request): Promise<PrizeBody | null> {
   return request.json().catch(() => null) as Promise<PrizeBody | null>;
 }
 
+async function validatePlannedPrizeStock(
+  supabase: Supabase,
+  campaignId: string,
+  existingPrizeId: string | null,
+  selectedPrize: StockReadinessPrize,
+) {
+  const { data: currentPrizes, error } = await supabase
+    .from("draw_round_prizes")
+    .select("id,card_id,planned_quantity,metadata")
+    .eq("draw_round_id", campaignId);
+  if (error) {
+    return Response.json(
+      {
+        error: "Prize stock could not be validated.",
+        code: "CAMPAIGN_PRIZE_STOCK_CHECK_FAILED",
+      },
+      { status: 409 },
+    );
+  }
+
+  const existingPrize = existingPrizeId
+    ? (currentPrizes ?? []).find((prize) => prize.id === existingPrizeId)
+    : null;
+  const selectedQuantity =
+    selectedPrize.quantity === null || selectedPrize.quantity === undefined
+      ? Math.max(0, Math.round(Number(existingPrize?.planned_quantity ?? 0)))
+      : Math.max(0, Math.round(Number(selectedPrize.quantity)));
+  const plannedPrizes: StockReadinessPrize[] = (currentPrizes ?? [])
+    .filter((prize) => prize.id !== existingPrizeId)
+    .map((prize) => ({
+      card_id: prize.card_id,
+      planned_quantity: prize.planned_quantity,
+      metadata: prize.metadata,
+    }));
+  if (selectedQuantity > 0) {
+    plannedPrizes.push({
+      ...selectedPrize,
+      quantity: selectedQuantity,
+    });
+  }
+  if (!plannedPrizes.length) return null;
+
+  try {
+    const stockSummaries = await getPrizeStockSummaries(supabase, plannedPrizes);
+    const blockers = [
+      ...stockSelectionBlockers(
+        buildPrizeStockSelectionIssues({
+          prizes: plannedPrizes,
+          stockSummaries,
+        }),
+      ),
+      ...stockShortageBlockers(
+        buildPrizeStockShortages({
+          prizes: plannedPrizes,
+          stockSummaries,
+        }),
+      ),
+    ];
+    if (blockers.length) {
+      return Response.json(
+        {
+          error: blockers[0],
+          code: "CAMPAIGN_PRIZE_STOCK_INVALID",
+          blockers,
+        },
+        { status: 400 },
+      );
+    }
+  } catch {
+    return Response.json(
+      {
+        error: "Prize stock could not be validated.",
+        code: "CAMPAIGN_PRIZE_STOCK_CHECK_FAILED",
+      },
+      { status: 409 },
+    );
+  }
+
+  return null;
+}
+
 async function markCampaignNeedsOwnerReview(
   supabase: Supabase,
   campaignId: string,
@@ -337,6 +450,8 @@ async function markCampaignNeedsOwnerReview(
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
   const admin = await resolveAdminSession();
   if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
   const limited = await enforceRateLimit(request, "ynot:admin:prizes", { limit: 60, windowMs: 60_000 }, admin.profileId);
@@ -367,8 +482,13 @@ export async function POST(request: Request) {
     body.unlockAtSoldPct === undefined
       ? undefined
       : percentValue(body.unlockAtSoldPct);
-  const prizeCategory = prizeCategoryValue(body.prizeCategory);
   const metadata = metadataValue(body);
+  const catalogCategory = catalogCategoryValue(
+    isRecord(metadata) ? metadata.catalogCategory : undefined,
+  );
+  const prizeCategory = prizeCategoryValue(
+    isRecord(metadata) ? metadata.prizeCategory : body.prizeCategory,
+  );
   const displayTier = prizeDisplayTierValue(
     isRecord(metadata) ? metadata.displayTier : undefined,
   );
@@ -381,13 +501,17 @@ export async function POST(request: Request) {
   const supabase = createServiceSupabaseClient();
   const { data: card, error: cardError } = await supabase
     .from("cards")
-    .select("id,name,card_code,search_code,prize_category")
+    .select("id,name,card_code,search_code,prize_category,catalog_category")
     .eq("id", cardId)
     .single();
   if (cardError) return Response.json({ error: cardError.message }, { status: 409 });
-  if (prizeCategoryValue(card.prize_category) !== prizeCategory) {
+  const cardCatalogCategory = catalogCategoryValue(
+    card.catalog_category,
+    catalogCategoryForPrizeCategory(card.prize_category),
+  );
+  if (cardCatalogCategory !== catalogCategory) {
     return Response.json(
-      { error: "Prize item does not match the selected prize category." },
+      { error: "Prize item does not match the selected sub-category." },
       { status: 400 },
     );
   }
@@ -428,6 +552,17 @@ export async function POST(request: Request) {
       tierRank,
     );
     savedRank = allocation.rank;
+    const stockValidation = await validatePlannedPrizeStock(
+      supabase,
+      campaignId,
+      allocation.existingPrizeId,
+      {
+        cardId,
+        quantity,
+        metadata,
+      },
+    );
+    if (stockValidation) return stockValidation;
     const basePatch: Database["public"]["Tables"]["draw_round_prizes"]["Insert"] =
       {
         draw_round_id: campaignId,
@@ -506,6 +641,8 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
   const admin = await resolveAdminSession();
   if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
   const limited = await enforceRateLimit(request, "ynot:admin:prizes", { limit: 60, windowMs: 60_000 }, admin.profileId);

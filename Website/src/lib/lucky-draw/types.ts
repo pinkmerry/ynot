@@ -95,6 +95,7 @@ export type CardCatalogItem = Required<Pick<FeaturedCard, "catalogCardId">> &
       certNumber: string | null;
       gemrateId: string | null;
       imageUrl: string | null;
+      imageStoragePath: string | null;
       status: string;
       quantity?: number;
     }>;
@@ -115,6 +116,7 @@ export type CardCatalogItem = Required<Pick<FeaturedCard, "catalogCardId">> &
         certNumber: string | null;
         gemrateId: string | null;
         imageUrl: string | null;
+        imageStoragePath: string | null;
         status: string;
         quantity?: number;
       }>;

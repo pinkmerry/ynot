@@ -17,9 +17,16 @@ import {
 } from "@/features/ynot/prize-readiness";
 import { normalizeOpenQuantityOptions } from "@/features/ynot/open-quantity";
 import {
+  catalogCategoryForPrizeCategory,
   isRandomPsa10PrizeCard,
-  prizeCategoryValue,
+  prizeCategoryForCatalogCategory,
+  prizeCategoryLabel,
+  prizeSourceType,
 } from "@/features/ynot/prize-category";
+import {
+  catalogCategoryLabel,
+  catalogCategoryValue,
+} from "@/features/ynot/card-catalog-metadata";
 import {
   canPrizeDisplayTierUseRandomPsa10,
   prizeDisplayTierValue,
@@ -261,7 +268,7 @@ async function assertPrizeCardsExist(
   const cardIds = [...new Set(prizes.map((prize) => prize.cardId))];
   const { data, error } = await supabase
     .from("cards")
-    .select("id,name,card_code,search_code,prize_category")
+    .select("id,name,card_code,search_code,prize_category,catalog_category")
     .in("id", cardIds);
   if (error) throw error;
   const cardsById = new Map((data ?? []).map((card) => [card.id, card]));
@@ -274,17 +281,26 @@ async function assertPrizeCardsExist(
     const card = cardsById.get(prize.cardId);
     if (!card) return true;
     const metadata = isRecord(prize.metadata) ? prize.metadata : {};
-    return (
-      prizeCategoryValue(metadata.prizeCategory) !==
-      prizeCategoryValue(card.prize_category)
+    const selectedCatalogCategory = catalogCategoryValue(
+      metadata.catalogCategory,
+      catalogCategoryForPrizeCategory(metadata.prizeCategory),
     );
+    const cardCatalogCategory = catalogCategoryValue(
+      card.catalog_category,
+      catalogCategoryForPrizeCategory(card.prize_category),
+    );
+    return selectedCatalogCategory !== cardCatalogCategory;
   });
   if (mismatched) {
-    throw new Error("One or more selected prize items do not match the selected prize category.");
+    throw new Error("One or more selected prize items do not match the selected sub-category.");
   }
   const psa10TierMismatched = prizes.some((prize) => {
     const metadata = isRecord(prize.metadata) ? prize.metadata : {};
-    const prizeCategory = prizeCategoryValue(metadata.prizeCategory);
+    const catalogCategory = catalogCategoryValue(
+      metadata.catalogCategory,
+      catalogCategoryForPrizeCategory(metadata.prizeCategory),
+    );
+    const prizeCategory = prizeCategoryForCatalogCategory(catalogCategory);
     if (prizeCategory !== "psa10_card") return false;
     const card = cardsById.get(prize.cardId);
     if (!card) return true;
@@ -311,23 +327,36 @@ async function saveInitialPrizes(
 ) {
   await assertPrizeCardsExist(supabase, prizes);
   const prizeRows: Database["public"]["Tables"]["draw_round_prizes"]["Insert"][] =
-    prizes.map((prize) => ({
-      draw_round_id: campaignId,
-      card_id: prize.cardId,
-      tier: prize.tier,
-      rank: prize.rank,
-      value_thb: prize.valueThb,
-      convert_coin_value: prize.convertCoinValue,
-      weight: prize.weight,
-      unlock_at_sold_pct: prize.unlockAtSoldPct,
-      planned_quantity: prize.quantity,
-      is_test: isTest,
-      seed_run_id: seedRunId,
-      metadata: {
-        ...(isRecord(prize.metadata) ? prize.metadata : {}),
-        plannedByAdminId: adminId,
-      } as Json,
-    }));
+    prizes.map((prize) => {
+      const metadata = isRecord(prize.metadata) ? prize.metadata : {};
+      const catalogCategory = catalogCategoryValue(
+        metadata.catalogCategory,
+        catalogCategoryForPrizeCategory(metadata.prizeCategory),
+      );
+      const prizeCategory = prizeCategoryForCatalogCategory(catalogCategory);
+      return {
+        draw_round_id: campaignId,
+        card_id: prize.cardId,
+        tier: prize.tier,
+        rank: prize.rank,
+        value_thb: prize.valueThb,
+        convert_coin_value: prize.convertCoinValue,
+        weight: prize.weight,
+        unlock_at_sold_pct: prize.unlockAtSoldPct,
+        planned_quantity: prize.quantity,
+        is_test: isTest,
+        seed_run_id: seedRunId,
+        metadata: {
+          ...metadata,
+          catalogCategory,
+          catalogCategoryLabel: catalogCategoryLabel(catalogCategory),
+          prizeCategory,
+          prizeCategoryLabel: prizeCategoryLabel(prizeCategory),
+          sourceType: prizeSourceType(prizeCategory),
+          plannedByAdminId: adminId,
+        } as Json,
+      };
+    });
 
   const { data, error } = await supabase
     .from("draw_round_prizes")
