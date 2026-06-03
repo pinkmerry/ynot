@@ -230,7 +230,6 @@ export type YnotGachaOpenReward = {
 export type YnotGachaOpenHistory = {
   id: string;
   publicCode: string;
-  campaignId: string;
   campaignSlug?: string | null;
   campaignTitle: string;
   costCoins: number;

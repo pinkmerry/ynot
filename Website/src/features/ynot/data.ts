@@ -2162,11 +2162,12 @@ export async function getGachaOpenHistory(
   }
 
   return opens.map((open) => {
+    const publicCode = open.public_code;
     const campaign = campaignsById.get(open.draw_round_id);
-    const rewards = (itemsByOpenId.get(open.id) ?? []).map((item) => {
+    const rewards = (itemsByOpenId.get(open.id) ?? []).map((item, index) => {
       const card = cardsById.get(item.card_id);
       return {
-        id: item.id,
+        id: `${publicCode}-${item.result_position ?? index + 1}`,
         cardName: card?.name ?? "Mystery reward",
         cardCode: card?.code,
         tier: item.tier,
@@ -2176,9 +2177,8 @@ export async function getGachaOpenHistory(
     });
 
     return {
-      id: open.id,
-      publicCode: open.public_code,
-      campaignId: open.draw_round_id,
+      id: publicCode,
+      publicCode,
       campaignSlug: campaign?.slug,
       campaignTitle: campaign?.title_en ?? campaign?.title_th ?? "Mystery pack",
       costCoins: open.cost_coins,
