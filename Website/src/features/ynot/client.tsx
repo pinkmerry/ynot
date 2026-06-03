@@ -701,7 +701,7 @@ export function GachaOpenPanel({
       try {
         setMessage("");
         const payload = await postJson("/api/ynot/gacha/open", {
-          campaignId: campaign.id,
+          campaignId: campaign.slug,
           quantity: targetQuantity,
           idempotencyKey: crypto.randomUUID(),
         });

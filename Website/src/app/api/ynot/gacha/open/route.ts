@@ -106,6 +106,30 @@ function normalizeIdempotencyKey(value: unknown) {
   return trimmed;
 }
 
+async function resolveOpenCampaignId(campaignId: string, profileId: string) {
+  const slug = campaignId.trim();
+  if (!slug || isUuid(slug)) return null;
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("draw_rounds")
+    .select("id,is_test")
+    .eq("slug", slug)
+    .eq("status", "live")
+    .eq("visibility", "public")
+    .eq("approval_status", "approved")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.id) return null;
+  if (!data.is_test) return data.id;
+
+  const { data: allowed, error: allowedError } = await supabase.rpc(
+    "profile_can_open_test_draw_round",
+    { p_draw_round_id: data.id, p_profile_id: profileId },
+  );
+  if (allowedError) throw allowedError;
+  return allowed === true ? data.id : null;
+}
+
 function toPublicOpenItem(item: RawOpenItem, index: number): PublicOpenItem {
   const tier = readString(item.tier, "normal");
   return {
@@ -427,9 +451,12 @@ export async function POST(request: Request) {
   const campaignId = typeof body?.campaignId === "string" ? body.campaignId.trim() : "";
   const quantity = Number(body?.quantity ?? 1);
   const idempotencyKey = normalizeIdempotencyKey(body?.idempotencyKey);
-  if (!campaignId || !isUuid(campaignId)) return Response.json({ error: "Campaign is required." }, { status: 400 });
+  if (!campaignId) return Response.json({ error: "Campaign is required." }, { status: 400 });
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) return Response.json({ error: "Quantity must be between 1 and 100." }, { status: 400 });
   if (!idempotencyKey) return Response.json({ error: "Invalid idempotency key." }, { status: 400 });
+
+  const resolvedCampaignId = await resolveOpenCampaignId(campaignId, session.profileId);
+  if (!resolvedCampaignId) return Response.json({ error: "Campaign is required." }, { status: 400 });
 
   // Preview-mode short circuit: synthesise an open result so the localhost
   // demo can show the reveal animation without a real wallet or profile.
@@ -438,12 +465,12 @@ export async function POST(request: Request) {
     session.authUserId === PREVIEW_AUTH_USER_ID
   ) {
     return Response.json({
-      result: await buildPreviewOpenResult(campaignId, quantity),
+      result: await buildPreviewOpenResult(resolvedCampaignId, quantity),
     });
   }
 
   const supabase = createServiceSupabaseClient();
-  const { data, error } = await supabase.rpc("open_gacha_campaign", { p_profile_id: session.profileId, p_draw_round_id: campaignId, p_quantity: quantity, p_idempotency_key: idempotencyKey });
+  const { data, error } = await supabase.rpc("open_gacha_campaign", { p_profile_id: session.profileId, p_draw_round_id: resolvedCampaignId, p_quantity: quantity, p_idempotency_key: idempotencyKey });
   if (error) return Response.json({ error: openErrorMessage(error.message) }, { status: 409 });
 
   // Backfill card name / image / displayTier so the reveal overlay can render

@@ -223,7 +223,18 @@ test("pack-open browser payload uses public campaign slug and server resolves it
   assert.doesNotMatch(openPanelBlock, /campaignId:\s*campaign\.id/);
 
   assert.match(openRouteSource, /async function resolveOpenCampaignId/);
+  const slugResolver = between(
+    openRouteSource,
+    "async function resolveOpenCampaignId",
+    "function toPublicOpenItem",
+  );
+  assert.match(slugResolver, /\.eq\("status",\s*"live"\)/);
+  assert.match(slugResolver, /\.eq\("visibility",\s*"public"\)/);
+  assert.match(slugResolver, /\.eq\("approval_status",\s*"approved"\)/);
+  assert.match(slugResolver, /\.select\("id,is_test"\)/);
+  assert.match(slugResolver, /\.rpc\(\s*"profile_can_open_test_draw_round"/);
   assert.doesNotMatch(openRouteSource, /if \(!campaignId \|\| !isUuid\(campaignId\)\)/);
+  assert.match(openRouteSource, /buildPreviewOpenResult\(resolvedCampaignId,\s*quantity\)/);
   assert.match(openRouteSource, /p_draw_round_id:\s*resolvedCampaignId/);
 });
 
