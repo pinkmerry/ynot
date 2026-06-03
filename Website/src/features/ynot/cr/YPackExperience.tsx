@@ -71,11 +71,6 @@ function isLowStock(campaign: YnotCampaign): boolean {
 
 function openUnavailableReason(campaign: YnotCampaign): string {
   if (campaign.openable) return "";
-  if (campaign.readinessBlockers?.[0]) return campaign.readinessBlockers[0];
-  if (campaign.status !== "live") return "This pack is not live yet.";
-  if (campaign.visibility !== "public") return "This pack is not public yet.";
-  if (campaign.approvalStatus !== "approved") return "Owner approval is required.";
-  if ((campaign.availablePrizeUnits ?? 0) <= 0) return "Prize inventory is not ready.";
   return "This pack is not ready to open yet.";
 }
 

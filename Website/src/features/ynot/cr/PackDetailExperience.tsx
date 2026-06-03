@@ -78,11 +78,6 @@ function initials(name: string): string {
 
 function openUnavailableReason(campaign: YnotCampaign): string {
   if (campaign.openable) return "";
-  if (campaign.readinessBlockers?.[0]) return campaign.readinessBlockers[0];
-  if (campaign.status !== "live") return "This pack is not live yet.";
-  if (campaign.visibility !== "public") return "This pack is not public yet.";
-  if (campaign.approvalStatus !== "approved") return "Owner approval is required.";
-  if ((campaign.availablePrizeUnits ?? 0) <= 0) return "Prize inventory is not ready.";
   return "This pack is not ready to open yet.";
 }
 
@@ -368,13 +363,13 @@ export function PackDetailExperience({
               </p>
             </div>
             <div className="cr-stack" style={{ gap: 4 }}>
-              <strong style={{ fontSize: 13 }}>Drop odds shift with stock</strong>
+              <strong style={{ fontSize: 13 }}>Enjoy the lineup</strong>
               <p
                 className="cr-mute"
                 style={{ fontSize: 12.5, margin: 0 }}
               >
-                Tier availability is calculated from remaining inventory. Lower
-                stock can mean better odds for chase tiers.
+                Browse the featured collectibles before opening. Each pull is
+                random, and shown rewards are examples from this Y-Pack.
               </p>
             </div>
             <div className="cr-stack" style={{ gap: 4 }}>

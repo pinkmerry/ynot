@@ -15,6 +15,10 @@ const crPackDetailSource = readFileSync(
   new URL("../src/features/ynot/cr/PackDetailExperience.tsx", import.meta.url),
   "utf8",
 );
+const crYPackSource = readFileSync(
+  new URL("../src/features/ynot/cr/YPackExperience.tsx", import.meta.url),
+  "utf8",
+);
 const componentsSource = readFileSync(
   new URL("../src/features/ynot/components.tsx", import.meta.url),
   "utf8",
@@ -174,11 +178,26 @@ test("pack-open reveal result does not expose raw internal open ids", () => {
 });
 
 test("customer pack pages do not describe stock-sensitive house logic", () => {
+  const campaignDetailPanel = between(
+    componentsSource,
+    "export function CampaignDetailPanel",
+    "export function RewardTierList",
+  );
   assert.doesNotMatch(crPackDetailSource, /Drop odds shift with stock/i);
   assert.doesNotMatch(crPackDetailSource, /better odds for chase tiers/i);
   assert.doesNotMatch(crPackDetailSource, /Tier availability is calculated from remaining inventory/i);
-  assert.doesNotMatch(componentsSource, /Drop behavior and tier availability are calculated/i);
-  assert.doesNotMatch(componentsSource, /pack setup and remaining inventory/i);
+  assert.doesNotMatch(campaignDetailPanel, /Drop behavior and tier availability are calculated/i);
+  assert.doesNotMatch(campaignDetailPanel, /pack setup and remaining inventory/i);
+  assert.doesNotMatch(campaignDetailPanel, /tier information can change as inventory is sold or reserved/i);
+  assert.doesNotMatch(campaignDetailPanel, /prize inventory may be missing/i);
+  assert.doesNotMatch(campaignDetailPanel, /awaiting owner approval/i);
+  assert.doesNotMatch(campaignDetailPanel, /Real prize pool required/i);
+  assert.doesNotMatch(campaignDetailPanel, /prize pool is ready/i);
+  for (const source of [crPackDetailSource, crYPackSource]) {
+    assert.doesNotMatch(source, /Owner approval is required/i);
+    assert.doesNotMatch(source, /Prize inventory is not ready/i);
+    assert.doesNotMatch(source, /readinessBlockers\?\.\[0\]/);
+  }
 });
 
 test("customer campaign detail does not use dev auth as a private data gate", () => {

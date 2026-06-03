@@ -1516,8 +1516,8 @@ export function CampaignDetailPanel({
           <strong>Note before opening</strong>
           <p>
             Prize images are examples from this pack&apos;s saved prize pool.
-            Mystery pack results are final after opening, and displayed tier
-            information can change as inventory is sold or reserved.
+            Mystery pack results are final after opening, so review the
+            collectible details before you choose to open.
           </p>
         </div>
       </aside>
@@ -1535,8 +1535,8 @@ export function CampaignDetailPanel({
           <RewardTierList />
         ) : (
           <EmptyState
-            title="Real prize pool required"
-            body="Unlocked public rewards will appear here after the prize pool is ready."
+            title="Prize lineup unavailable"
+            body="Featured rewards are temporarily unavailable. Please check back later."
           />
         )}
       </section>
@@ -1555,9 +1555,9 @@ export function CampaignDetailPanel({
             company&apos;s assigned grade and case standards.
           </p>
           <p>
-            Drop behavior and tier availability are calculated from the pack
-            setup and remaining inventory. Results are random and are not a
-            guarantee that each open returns equal value.
+            Every pack open is random. Featured collectibles are shown so you
+            can review the series, artwork, and grading details before you
+            choose to open.
           </p>
           <p>
             Pull results are final once opened. For shipping or dispute cases,
@@ -1606,8 +1606,7 @@ export function CampaignDetailPanel({
             </>
           ) : (
             <p className="admin-form-message gacha-detail-open-dock-disabled">
-              This pack is not openable yet — prize inventory may be missing,
-              sold out, or awaiting owner approval.
+              This pack is not ready to open yet. Please check back later.
             </p>
           )}
         </div>
