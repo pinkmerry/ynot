@@ -7,6 +7,30 @@ const openRouteSource = readFileSync(
   new URL("../src/app/api/ynot/gacha/open/route.ts", import.meta.url),
   "utf8",
 );
+const clientSource = readFileSync(
+  new URL("../src/features/ynot/client.tsx", import.meta.url),
+  "utf8",
+);
+const crPackDetailSource = readFileSync(
+  new URL("../src/features/ynot/cr/PackDetailExperience.tsx", import.meta.url),
+  "utf8",
+);
+const componentsSource = readFileSync(
+  new URL("../src/features/ynot/components.tsx", import.meta.url),
+  "utf8",
+);
+const typesSource = readFileSync(
+  new URL("../src/features/ynot/types.ts", import.meta.url),
+  "utf8",
+);
+const conversionApiSource = readFileSync(
+  new URL("../src/lib/ynot/card-conversion-api.ts", import.meta.url),
+  "utf8",
+);
+const shippingRouteSource = readFileSync(
+  new URL("../src/app/api/ynot/shipping/route.ts", import.meta.url),
+  "utf8",
+);
 const hidePrizeMetadataMigration = readFileSync(
   new URL("../../Database/supabase/migrations/20260602190000_hide_prize_metadata_from_clients.sql", import.meta.url),
   "utf8",
@@ -147,6 +171,105 @@ test("pack-open reveal result does not expose raw internal open ids", () => {
   assert.doesNotMatch(resultMapper, /remaining/);
   assert.doesNotMatch(resultMapper, /weight/);
   assert.doesNotMatch(resultMapper, /unlockAtSoldPct/);
+});
+
+test("customer pack pages do not describe stock-sensitive house logic", () => {
+  assert.doesNotMatch(crPackDetailSource, /Drop odds shift with stock/i);
+  assert.doesNotMatch(crPackDetailSource, /better odds for chase tiers/i);
+  assert.doesNotMatch(crPackDetailSource, /Tier availability is calculated from remaining inventory/i);
+  assert.doesNotMatch(componentsSource, /Drop behavior and tier availability are calculated/i);
+  assert.doesNotMatch(componentsSource, /pack setup and remaining inventory/i);
+});
+
+test("customer campaign detail does not use dev auth as a private data gate", () => {
+  const getCampaignBlock = between(
+    dataSource,
+    "export async function getCampaign",
+    "async function getPaymentMethodsImpl",
+  );
+  const includePrivateGateLine = getCampaignBlock
+    .split("\n")
+    .find((line) => line.includes("const includePrivateDetail"));
+  assert.equal(includePrivateGateLine?.trim(), "const includePrivateDetail = viewer.isAdmin;");
+  assert.doesNotMatch(includePrivateGateLine ?? "", /isDevAuthAllowed/);
+});
+
+test("pack-open browser payload uses public campaign slug and server resolves it internally", () => {
+  const openPanelBlock = between(
+    clientSource,
+    "export function GachaOpenPanel",
+    "const revealOverlay = revealResult ?",
+  );
+  assert.match(openPanelBlock, /campaignId:\s*campaign\.slug/);
+  assert.doesNotMatch(openPanelBlock, /campaignId:\s*campaign\.id/);
+
+  assert.match(openRouteSource, /async function resolveOpenCampaignId/);
+  assert.doesNotMatch(openRouteSource, /if \(!campaignId \|\| !isUuid\(campaignId\)\)/);
+  assert.match(openRouteSource, /p_draw_round_id:\s*resolvedCampaignId/);
+});
+
+test("customer pull history does not expose raw open, reward, or campaign ids", () => {
+  const historyMapper = between(
+    dataSource,
+    "export async function getGachaOpenHistory",
+    "export async function getExchanges",
+  );
+  assert.doesNotMatch(historyMapper, /id:\s*open\.id/);
+  assert.doesNotMatch(historyMapper, /campaignId:\s*open\.draw_round_id/);
+  assert.doesNotMatch(historyMapper, /id:\s*item\.id/);
+  assert.match(historyMapper, /id:\s*publicCode/);
+  assert.match(historyMapper, /id:\s*`\$\{publicCode\}-\$\{item\.result_position \?\? index \+ 1\}`/);
+
+  const openHistoryType = between(
+    typesSource,
+    "export type YnotGachaOpenHistory",
+    "export type YnotGachaOpenItem",
+  );
+  assert.doesNotMatch(openHistoryType, /campaignId:/);
+});
+
+test("customer collection actions use opaque tokens instead of raw collection item UUIDs", () => {
+  assert.match(dataSource, /collectionItemActionToken/);
+  const collectionMapper = between(
+    dataSource,
+    "export async function getCollection",
+    "export async function getGachaOpenHistory",
+  );
+  assert.doesNotMatch(collectionMapper, /id:\s*item\.id/);
+  assert.match(collectionMapper, /id:\s*await collectionItemActionToken\(profileId,\s*item\.id\)/);
+
+  const conversionHandler = between(
+    conversionApiSource,
+    "export async function handleCardConversionRequest",
+    "return Response.json({ result: publicConversionResult(data) });",
+  );
+  assert.match(
+    conversionHandler,
+    /const resolvedCollectionItemIds = await resolveCollectionItemActionTokens\(/,
+  );
+  assert.match(conversionHandler, /p_collection_item_ids:\s*resolvedCollectionItemIds/);
+  assert.doesNotMatch(
+    conversionHandler,
+    /p_collection_item_ids:\s*(ids|collectionItemTokens|tokens)\b/,
+  );
+  assert.doesNotMatch(conversionHandler, /ids\.some\(\(item\) => !UUID_RE\.test\(item\)\)/);
+
+  const shippingHandler = between(
+    shippingRouteSource,
+    "export async function POST",
+    "return Response.json({ result: publicShippingResult(data) });",
+  );
+  assert.match(
+    shippingHandler,
+    /const resolvedCollectionItemIds = await resolveCollectionItemActionTokens\(/,
+  );
+  assert.match(shippingHandler, /p_collection_item_ids:\s*resolvedCollectionItemIds/);
+  assert.doesNotMatch(
+    shippingHandler,
+    /p_collection_item_ids:\s*(collectionItemIds|collectionItemTokens|ids|tokens)\b/,
+  );
+  assert.doesNotMatch(shippingHandler, /ids\.some\(\(item\) => !UUID_RE\.test\(item\)\)/);
+  assert.doesNotMatch(clientSource, /item\.id\.slice\(0,\s*8\)/);
 });
 
 test("collection display maps each collection item to its exact open item", () => {
