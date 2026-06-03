@@ -97,6 +97,58 @@ test("pack-open API response is mapped through a public result shape", () => {
   assert.doesNotMatch(postHandler, /p_profile_id:\s*body/);
 });
 
+test("customer campaign props hide house logic and internal prize inventory", () => {
+  const publicPrize = between(
+    dataSource,
+    "function publicPrizePreview",
+    "function publicPrizeLineup",
+  );
+  assert.match(publicPrize, /id:\s*`public-prize-\$\{index \+ 1\}`/);
+  assert.doesNotMatch(publicPrize, /cardId:/);
+  assert.doesNotMatch(publicPrize, /cardImageStoragePath:/);
+  assert.doesNotMatch(publicPrize, /plannedQuantity:/);
+  assert.doesNotMatch(publicPrize, /availableUnits:/);
+  assert.doesNotMatch(publicPrize, /totalUnits:/);
+  assert.doesNotMatch(publicPrize, /tierRank:/);
+  assert.doesNotMatch(publicPrize, /sourceType:/);
+  assert.doesNotMatch(publicPrize, /intendedStock/);
+
+  const publicCampaign = between(
+    dataSource,
+    "function publicYnotCampaign",
+    "function localOwnerMockPrizeLineup",
+  );
+  assert.match(publicCampaign, /logicMode:\s*undefined/);
+  assert.match(publicCampaign, /totalPrizeUnits:\s*undefined/);
+  assert.match(publicCampaign, /availablePrizeUnits:\s*undefined/);
+  assert.match(publicCampaign, /eligiblePrizeUnits:\s*undefined/);
+  assert.match(publicCampaign, /initialEligiblePrizeUnits:\s*undefined/);
+  assert.match(publicCampaign, /awardedPrizeUnits:\s*undefined/);
+  assert.match(publicCampaign, /voidPrizeUnits:\s*undefined/);
+  assert.match(publicCampaign, /readinessBlockers:\s*undefined/);
+
+  const publicCampaignCall = between(
+    dataSource,
+    "const campaign = toYnotCampaign(",
+    "if (!includePrivateDetail && !campaign.openable) return [];",
+  );
+  assert.match(publicCampaignCall, /includePrivateDetail\s*\?\s*campaign\s*:\s*publicYnotCampaign\(campaign\)/);
+});
+
+test("pack-open reveal result does not expose raw internal open ids", () => {
+  const resultMapper = between(
+    openRouteSource,
+    "function toPublicOpenResult",
+    "function openErrorMessage",
+  );
+  assert.doesNotMatch(resultMapper, /openId:\s*readString\(raw\.openId\)/);
+  assert.match(resultMapper, /openId:\s*publicCode/);
+  assert.doesNotMatch(resultMapper, /logicMode/);
+  assert.doesNotMatch(resultMapper, /remaining/);
+  assert.doesNotMatch(resultMapper, /weight/);
+  assert.doesNotMatch(resultMapper, /unlockAtSoldPct/);
+});
+
 test("collection display maps each collection item to its exact open item", () => {
   const collectionMapper = between(
     dataSource,

@@ -810,6 +810,51 @@ function toYnotCampaign(
   };
 }
 
+function publicPrizePreview(prize: YnotPrizePreview, index: number): YnotPrizePreview {
+  return {
+    id: `public-prize-${index + 1}`,
+    cardCode: prize.cardCode,
+    cardGrade: prize.cardGrade,
+    cardImageUrl: prize.cardImageUrl,
+    cardPrizeCategory: prize.cardPrizeCategory,
+    cardName: prize.cardName,
+    tier: prize.tier,
+    rank: index + 1,
+    valueThb: prize.valueThb,
+    convertCoinValue: prize.convertCoinValue,
+    prizeCategory: prize.prizeCategory,
+    prizeCategoryLabel: prize.prizeCategoryLabel,
+    displayTier: prize.displayTier,
+    displayTierLabel: prize.displayTierLabel,
+  };
+}
+
+function publicPrizeLineup(prizes?: YnotPrizePreview[]) {
+  return prizes?.map(publicPrizePreview);
+}
+
+function publicYnotCampaign(campaign: YnotCampaign): YnotCampaign {
+  return {
+    ...campaign,
+    approvalStatus: undefined,
+    totalPrizeUnits: undefined,
+    availablePrizeUnits: undefined,
+    eligiblePrizeUnits: undefined,
+    initialEligiblePrizeUnits: undefined,
+    awardedPrizeUnits: undefined,
+    voidPrizeUnits: undefined,
+    readinessBlockers: undefined,
+    adminRemoved: undefined,
+    sortOrder: undefined,
+    approvalRequestedAt: undefined,
+    approvedAt: undefined,
+    approvalNotes: undefined,
+    logicMode: undefined,
+    isTest: undefined,
+    prizeLineup: publicPrizeLineup(campaign.prizeLineup),
+  };
+}
+
 function localOwnerMockPrizeLineup(
   campaignId: string,
   logicMode: YnotRandomLogicMode,
@@ -1328,13 +1373,14 @@ async function getCampaignsImpl(
         .map((link) => categoriesById.get(link.category_id))
         .filter((category): category is YnotCategory => Boolean(category));
       const inventory = inventoryByCampaign.get(row.id);
-      return toYnotCampaign(
+      const campaign = toYnotCampaign(
         row,
         linkedCategories,
         inventory,
         prizeLineupsByCampaign.get(row.id),
         readinessByCampaign.get(row.id),
       );
+      return options.includePrivate ? campaign : publicYnotCampaign(campaign);
     });
     return options.includePrivate
       ? campaigns
@@ -1546,8 +1592,9 @@ export async function getCampaign(
       prizeLineup,
       readiness,
     );
+    const customerCampaign = includePrivateDetail ? campaign : publicYnotCampaign(campaign);
     if (!includePrivateDetail && !campaign.openable) return [];
-    return [campaign];
+    return [customerCampaign];
   }).then(
     (campaigns) =>
       campaigns[0] ??

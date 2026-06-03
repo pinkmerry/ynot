@@ -119,10 +119,11 @@ function toPublicOpenItem(item: RawOpenItem, index: number): PublicOpenItem {
 }
 
 function toPublicOpenResult(raw: RawOpenResult, items: RawOpenItem[]): PublicOpenResult {
+  const publicCode = readString(raw.publicCode);
   const result: PublicOpenResult = {
     status: readString(raw.status, "completed"),
-    openId: readString(raw.openId),
-    publicCode: readString(raw.publicCode),
+    openId: publicCode,
+    publicCode,
     items: items.map(toPublicOpenItem),
   };
   const costCoins = readNumber(raw.costCoins);
