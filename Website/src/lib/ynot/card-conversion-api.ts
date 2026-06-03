@@ -6,9 +6,11 @@ import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import {
+  isCollectionItemActionToken,
+  resolveCollectionItemActionTokens,
+} from "@/lib/ynot/collection-action-tokens";
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_KEY_RE = /^[a-zA-Z0-9:_-]{1,120}$/;
 const MAX_CONVERT_ITEMS = 50;
 
@@ -17,41 +19,44 @@ type ConversionBody = {
   idempotencyKey?: unknown;
 };
 
-function normalizeCollectionItemIds(value: unknown) {
+function normalizeCollectionItemActionTokens(value: unknown) {
   if (!Array.isArray(value) || value.length === 0) {
     return {
       error: "Select at least one card to convert.",
       status: 400,
-      ids: [] as string[],
+      tokens: [] as string[],
     };
   }
   if (value.length > MAX_CONVERT_ITEMS) {
     return {
       error: `Convert up to ${MAX_CONVERT_ITEMS} cards at a time.`,
       status: 400,
-      ids: [] as string[],
+      tokens: [] as string[],
     };
   }
 
-  const ids = value
+  const tokens = value
     .filter((item): item is string => typeof item === "string")
     .map((item) => item.trim());
-  if (ids.length !== value.length || ids.some((item) => !UUID_RE.test(item))) {
+  if (
+    tokens.length !== value.length ||
+    tokens.some((item) => !isCollectionItemActionToken(item))
+  ) {
     return {
       error: "Choose valid collection items to convert.",
       status: 400,
-      ids: [] as string[],
+      tokens: [] as string[],
     };
   }
-  if (new Set(ids).size !== ids.length) {
+  if (new Set(tokens).size !== tokens.length) {
     return {
       error: "Each card can only be selected once.",
       status: 400,
-      ids: [] as string[],
+      tokens: [] as string[],
     };
   }
 
-  return { ids, error: null, status: 200 };
+  return { tokens, error: null, status: 200 };
 }
 
 function normalizeIdempotencyKey(value: unknown) {
@@ -126,9 +131,11 @@ export async function handleCardConversionRequest(request: Request) {
   if (limited) return limited;
 
   const body = (await request.json().catch(() => null)) as ConversionBody | null;
-  const { ids, error: itemError, status } = normalizeCollectionItemIds(
-    body?.collectionItemIds,
-  );
+  const {
+    tokens: collectionItemTokens,
+    error: itemError,
+    status,
+  } = normalizeCollectionItemActionTokens(body?.collectionItemIds);
   if (itemError) return Response.json({ error: itemError }, { status });
 
   const { key: idempotencyKey, error: keyError } = normalizeIdempotencyKey(
@@ -141,10 +148,30 @@ export async function handleCardConversionRequest(request: Request) {
     );
   }
 
+  let resolvedCollectionItemIds: string[];
+  try {
+    resolvedCollectionItemIds = await resolveCollectionItemActionTokens(
+      session.profileId,
+      collectionItemTokens,
+    );
+  } catch (error) {
+    console.error("Failed to resolve collection action tokens for conversion.", error);
+    return Response.json(
+      { error: "Could not convert these cards. Please refresh and try again." },
+      { status: 503 },
+    );
+  }
+  if (resolvedCollectionItemIds.length !== collectionItemTokens.length) {
+    return Response.json(
+      { error: "Choose valid collection items to convert." },
+      { status: 400 },
+    );
+  }
+
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase.rpc("submit_card_conversion", {
     p_profile_id: session.profileId,
-    p_collection_item_ids: ids,
+    p_collection_item_ids: resolvedCollectionItemIds,
     p_idempotency_key: idempotencyKey,
   });
   if (error) {

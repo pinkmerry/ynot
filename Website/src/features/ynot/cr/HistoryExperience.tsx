@@ -63,6 +63,10 @@ function statusLabel(bucket: StatusKey): string {
   return "Converted";
 }
 
+function collectionDisplayCode(item: YnotCollectionItem): string {
+  return item.cardCode ?? item.serialNo ?? "Collection reward";
+}
+
 type EnrichedItem = YnotCollectionItem & {
   bucket: StatusKey;
   tier: TierKey;
@@ -530,7 +534,7 @@ export function HistoryExperience({
                 >
                   <strong style={{ fontSize: 12.5 }}>{c.cardName}</strong>
                   <small className="cr-mute" style={{ fontSize: 11 }}>
-                    {c.tier} · {c.cardCode ?? c.id.slice(0, 6)}
+                    {c.tier} · {collectionDisplayCode(c)}
                   </small>
                 </div>
                 <strong
@@ -616,7 +620,7 @@ function CollectionTile({
         <span className="cr-coll-tier">{card.tier.toUpperCase()}</span>
         <span className={`cr-coll-status ${card.bucket}`}>{label}</span>
         <span className="cr-coll-code">
-          {card.cardCode ?? card.id.slice(0, 6)}
+          {collectionDisplayCode(card)}
         </span>
         {selectable && (
           <span className="cr-coll-check">

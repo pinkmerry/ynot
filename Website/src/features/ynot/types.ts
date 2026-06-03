@@ -155,7 +155,6 @@ export type YnotTopUp = {
 
 export type YnotCollectionItem = {
   id: string;
-  cardId: string;
   cardName: string;
   cardCode?: string | null;
   imageUrl?: string | null;

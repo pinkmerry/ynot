@@ -210,8 +210,10 @@ test("coin mutation APIs validate inputs and hide internal response fields", () 
   assert.match(collectionRoute, /handleCardConversionRequest\(request\)/);
   assert.match(exchangeRoute, /handleCardConversionRequest\(request\)/);
   assert.match(conversionHandler, /enforceSameOriginMutation\(request\)/);
-  assert.match(conversionHandler, /UUID_RE[\s\S]*IDEMPOTENCY_KEY_RE/);
-  assert.match(conversionHandler, /new Set\(ids\)\.size !== ids\.length/);
+  assert.match(conversionHandler, /isCollectionItemActionToken[\s\S]*IDEMPOTENCY_KEY_RE/);
+  assert.match(conversionHandler, /resolveCollectionItemActionTokens/);
+  assert.match(conversionHandler, /new Set\(tokens\)\.size !== tokens\.length/);
+  assert.match(conversionHandler, /p_collection_item_ids:\s*resolvedCollectionItemIds/);
   assert.match(conversionHandler, /function publicConversionResult[\s\S]*totalCoins[\s\S]*itemCount[\s\S]*replayed/);
   assert.doesNotMatch(conversionHandler, /ledgerId/);
   assert.doesNotMatch(conversionHandler, /Response\.json\(\{\s*error:\s*error\.message/);

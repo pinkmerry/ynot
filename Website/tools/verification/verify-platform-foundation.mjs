@@ -143,7 +143,7 @@ check("src/features/ynot/client.tsx", "address form calls address API", /\/api\/
 check("src/features/ynot/client.tsx", "gacha open button calls API", /\/api\/ynot\/gacha\/open/);
 check("src/lib/security/same-origin.ts", "same-origin mutation helper rejects Fetch Metadata cross-site requests", /sec-fetch-site[\s\S]*cross-site/);
 check("src/app/api/ynot/gacha/open/route.ts", "gacha open POST rejects cross-origin cookie mutations", /enforceSameOriginMutation[\s\S]*enforceSameOriginMutation\(request\)/);
-check("src/app/api/ynot/gacha/open/route.ts", "gacha open POST validates campaign IDs as UUIDs", /function isUuid[\s\S]*!campaignId \|\| !isUuid\(campaignId\)/);
+check("src/app/api/ynot/gacha/open/route.ts", "gacha open POST resolves public campaign slugs server-side", /function isUuid[\s\S]*resolveOpenCampaignId[\s\S]*if \(!slug \|\| isUuid\(slug\)\) return null[\s\S]*\.eq\("status", "live"\)[\s\S]*\.eq\("visibility", "public"\)[\s\S]*\.eq\("approval_status", "approved"\)[\s\S]*profile_can_open_test_draw_round/);
 check("src/app/api/ynot/gacha/open/route.ts", "gacha open POST rejects unsafe idempotency keys", /function normalizeIdempotencyKey[\s\S]*Invalid idempotency key/);
 notCheck("src/app/api/ynot/gacha/open/route.ts", "gacha open POST does not return raw database errors", /Response\.json\(\{\s*error:\s*error\.message/);
 notCheck("src/app/api/ynot/gacha/open/route.ts", "gacha open POST does not spread raw RPC results to the browser", /result:\s*\{\s*\.\.\.raw/);
@@ -176,12 +176,12 @@ check("src/features/ynot/cr/HistoryExperience.tsx", "collection actions call con
 check("src/app/api/ynot/collection/convert/route.ts", "collection conversion route delegates to hardened handler", /handleCardConversionRequest/);
 check("src/app/api/ynot/exchange/route.ts", "legacy exchange route delegates to hardened handler", /handleCardConversionRequest/);
 check("src/lib/ynot/card-conversion-api.ts", "card conversion API rejects cross-origin cookie mutations", /enforceSameOriginMutation\(request\)/);
-check("src/lib/ynot/card-conversion-api.ts", "card conversion API validates item ids and idempotency keys", /UUID_RE[\s\S]*IDEMPOTENCY_KEY_RE[\s\S]*normalizeCollectionItemIds/);
+check("src/lib/ynot/card-conversion-api.ts", "card conversion API validates action tokens and idempotency keys", /isCollectionItemActionToken[\s\S]*IDEMPOTENCY_KEY_RE[\s\S]*normalizeCollectionItemActionTokens[\s\S]*resolveCollectionItemActionTokens/);
 notCheck("src/lib/ynot/card-conversion-api.ts", "card conversion API does not return raw RPC errors", /Response\.json\(\{\s*error:\s*error\.message/);
 notCheck("src/lib/ynot/card-conversion-api.ts", "card conversion API does not expose ledger ids", /ledgerId/);
 check("src/lib/ynot/card-conversion-api.ts", "card conversion API returns allowlisted RPC result", /function publicConversionResult[\s\S]*totalCoins[\s\S]*itemCount[\s\S]*replayed/);
 check("src/app/api/ynot/shipping/route.ts", "shipping request rejects cross-origin cookie mutations", /enforceSameOriginMutation\(request\)/);
-check("src/app/api/ynot/shipping/route.ts", "shipping request validates ids and idempotency keys", /UUID_RE[\s\S]*IDEMPOTENCY_KEY_RE[\s\S]*normalizeUuid[\s\S]*normalizeCollectionItemIds[\s\S]*normalizeIdempotencyKey/);
+check("src/app/api/ynot/shipping/route.ts", "shipping request validates action tokens and idempotency keys", /UUID_RE[\s\S]*IDEMPOTENCY_KEY_RE[\s\S]*normalizeUuid[\s\S]*normalizeCollectionItemActionTokens[\s\S]*normalizeIdempotencyKey[\s\S]*resolveCollectionItemActionTokens[\s\S]*p_collection_item_ids:\s*resolvedCollectionItemIds/);
 notCheck("src/app/api/ynot/shipping/route.ts", "shipping request does not return raw RPC errors", /Response\.json\(\s*\{[\s\S]*\berror\s*:\s*error.message/);
 check("src/app/api/ynot/shipping/route.ts", "shipping request returns allowlisted RPC result", /function publicShippingResult[\s\S]*publicCode[\s\S]*itemCount[\s\S]*replayed[\s\S]*result:\s*publicShippingResult/);
 check("src/features/ynot/client.tsx", "admin payment settings call payment method API", /\/api\/ynot\/admin\/payment-methods/);

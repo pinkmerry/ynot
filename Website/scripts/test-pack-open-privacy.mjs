@@ -19,6 +19,10 @@ const crYPackSource = readFileSync(
   new URL("../src/features/ynot/cr/YPackExperience.tsx", import.meta.url),
   "utf8",
 );
+const crHistorySource = readFileSync(
+  new URL("../src/features/ynot/cr/HistoryExperience.tsx", import.meta.url),
+  "utf8",
+);
 const componentsSource = readFileSync(
   new URL("../src/features/ynot/components.tsx", import.meta.url),
   "utf8",
@@ -33,6 +37,10 @@ const conversionApiSource = readFileSync(
 );
 const shippingRouteSource = readFileSync(
   new URL("../src/app/api/ynot/shipping/route.ts", import.meta.url),
+  "utf8",
+);
+const collectionActionTokenSource = readFileSync(
+  new URL("../src/lib/ynot/collection-action-tokens.ts", import.meta.url),
   "utf8",
 );
 const hidePrizeMetadataMigration = readFileSync(
@@ -260,6 +268,12 @@ test("customer pull history does not expose raw open, reward, or campaign ids", 
 
 test("customer collection actions use opaque tokens instead of raw collection item UUIDs", () => {
   assert.match(dataSource, /collectionItemActionToken/);
+  assert.match(
+    collectionActionTokenSource,
+    /throw new Error\("Missing server-only collection action token secret\."\)/,
+  );
+  assert.doesNotMatch(collectionActionTokenSource, /NEXT_PUBLIC_/);
+  assert.doesNotMatch(collectionActionTokenSource, /ynott-local|hardcoded/i);
   const collectionMapper = between(
     dataSource,
     "export async function getCollection",
@@ -275,8 +289,9 @@ test("customer collection actions use opaque tokens instead of raw collection it
   );
   assert.match(
     conversionHandler,
-    /const resolvedCollectionItemIds = await resolveCollectionItemActionTokens\(/,
+    /resolvedCollectionItemIds\s*=\s*await resolveCollectionItemActionTokens\(/,
   );
+  assert.match(conversionHandler, /catch \(error\)[\s\S]*Could not convert these cards/);
   assert.match(conversionHandler, /p_collection_item_ids:\s*resolvedCollectionItemIds/);
   assert.doesNotMatch(
     conversionHandler,
@@ -291,15 +306,26 @@ test("customer collection actions use opaque tokens instead of raw collection it
   );
   assert.match(
     shippingHandler,
-    /const resolvedCollectionItemIds = await resolveCollectionItemActionTokens\(/,
+    /resolvedCollectionItemIds\s*=\s*await resolveCollectionItemActionTokens\(/,
   );
+  assert.match(shippingHandler, /catch \(error\)[\s\S]*Could not request shipping/);
   assert.match(shippingHandler, /p_collection_item_ids:\s*resolvedCollectionItemIds/);
   assert.doesNotMatch(
     shippingHandler,
     /p_collection_item_ids:\s*(collectionItemIds|collectionItemTokens|ids|tokens)\b/,
   );
   assert.doesNotMatch(shippingHandler, /ids\.some\(\(item\) => !UUID_RE\.test\(item\)\)/);
-  assert.doesNotMatch(clientSource, /item\.id\.slice\(0,\s*8\)/);
+  for (const [name, source] of [
+    ["client", clientSource],
+    ["components", componentsSource],
+    ["cr history", crHistorySource],
+  ]) {
+    assert.doesNotMatch(
+      source,
+      /\b(?:item|card|c)\.id\.slice\(/,
+      `${name} must not render collection ids or action-token slices`,
+    );
+  }
 });
 
 test("collection display maps each collection item to its exact open item", () => {

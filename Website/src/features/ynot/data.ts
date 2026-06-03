@@ -13,6 +13,7 @@ import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { isMissingColumnError } from "@/lib/supabase/schema-compat";
 import type { Database } from "@/lib/supabase/types";
+import { collectionItemActionToken } from "@/lib/ynot/collection-action-tokens";
 import type {
   YnotCampaign,
   YnotCollectionItem,
@@ -2049,7 +2050,7 @@ export async function getCollection(
   }
 
   const cardsById = new Map(cards.map((card) => [card.catalogCardId, card]));
-  return items.map((item) => {
+  return Promise.all(items.map(async (item) => {
     const card = cardsById.get(item.card_id);
     const wonUnit = wonUnitByItemId.get(item.id);
     const open = item.source_id ? opensById.get(item.source_id) : null;
@@ -2069,8 +2070,7 @@ export async function getCollection(
         ? prizeDisplayTierValue(sourceOpenItem.tier)
         : null;
     return {
-      id: item.id,
-      cardId: item.card_id,
+      id: await collectionItemActionToken(profileId, item.id),
       cardName: card?.name ?? "Mystery card",
       cardCode: card?.code,
       cardGrade: wonUnit?.grade ?? card?.grade ?? null,
@@ -2102,7 +2102,7 @@ export async function getCollection(
         sourceOpenItem?.value_thb ?? sourcePrize?.value_thb ?? null,
       sourceOpenPosition: sourceOpenItem?.result_position ?? null,
     };
-  });
+  }));
 }
 
 export async function getGachaOpenHistory(

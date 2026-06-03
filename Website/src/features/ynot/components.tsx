@@ -2023,7 +2023,7 @@ function CollectionCard({ item }: { item: YnotCollectionItem }) {
       </div>
       <h3 className="title-s mt-4">{item.cardName}</h3>
       <p className="txt-mono mt-1 text-xs">
-        {item.serialNo ?? item.id.slice(0, 8)} · {item.status}
+        {item.serialNo ?? item.cardCode ?? "Collection reward"} · {item.status}
       </p>
     </article>
   );

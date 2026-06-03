@@ -262,10 +262,14 @@ for (const file of [
 }
 includes("src/lib/ynot/card-conversion-api.ts", "await enforceRateLimit", "card conversion handler awaits rate limiting before mutation");
 includes("src/lib/ynot/card-conversion-api.ts", "enforceSameOriginMutation(request)", "card conversion rejects cross-origin cookie mutations");
-includes("src/lib/ynot/card-conversion-api.ts", "UUID_RE", "card conversion validates collection item UUIDs");
+includes("src/lib/ynot/card-conversion-api.ts", "isCollectionItemActionToken", "card conversion validates collection action tokens");
+includes("src/lib/ynot/card-conversion-api.ts", "resolveCollectionItemActionTokens", "card conversion resolves collection tokens server-side");
 includes("src/lib/ynot/card-conversion-api.ts", "IDEMPOTENCY_KEY_RE", "card conversion rejects unsafe idempotency keys");
 includes("src/lib/ynot/card-conversion-api.ts", "publicConversionResult", "card conversion returns allowlisted RPC data");
 notIncludes("src/lib/ynot/card-conversion-api.ts", "ledgerId", "card conversion does not expose ledger ids");
+includes("src/lib/ynot/collection-action-tokens.ts", "Missing server-only collection action token secret.", "collection action tokens fail closed without server-only secret");
+notIncludes("src/lib/ynot/collection-action-tokens.ts", "NEXT_PUBLIC_", "collection action tokens do not use public env secrets");
+notIncludes("src/lib/ynot/collection-action-tokens.ts", "ynott-local", "collection action tokens do not use hardcoded dev fallback secrets");
 matches(
   "src/lib/ynot/card-conversion-api.ts",
   /Response\.json\(\s*\{ error: conversionErrorMessage\(error\.message\) \}/,

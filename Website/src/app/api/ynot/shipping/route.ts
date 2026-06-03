@@ -4,6 +4,10 @@ import { requireVerifiedAnchor } from "@/lib/auth/verified-anchor";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
+import {
+  isCollectionItemActionToken,
+  resolveCollectionItemActionTokens,
+} from "@/lib/ynot/collection-action-tokens";
 
 export const dynamic = "force-dynamic";
 
@@ -25,42 +29,45 @@ function normalizeUuid(value: unknown) {
   return UUID_RE.test(trimmed) ? trimmed : "";
 }
 
-function normalizeCollectionItemIds(value: unknown) {
+function normalizeCollectionItemActionTokens(value: unknown) {
   if (!Array.isArray(value) || value.length === 0) {
     return {
-      ids: [] as string[],
+      tokens: [] as string[],
       error: "Select at least one card.",
       status: 400,
     };
   }
 
-  const ids = value
+  const tokens = value
     .filter((item): item is string => typeof item === "string")
     .map((item) => item.trim());
 
   if (value.length > MAX_SHIPPING_ITEMS) {
     return {
-      ids,
+      tokens,
       error: `Ship up to ${MAX_SHIPPING_ITEMS} cards at a time.`,
       status: 400,
     };
   }
-  if (ids.length !== value.length || ids.some((item) => !UUID_RE.test(item))) {
+  if (
+    tokens.length !== value.length ||
+    tokens.some((item) => !isCollectionItemActionToken(item))
+  ) {
     return {
-      ids,
+      tokens,
       error: "Choose valid collection items to ship.",
       status: 400,
     };
   }
-  if (new Set(ids).size !== ids.length) {
+  if (new Set(tokens).size !== tokens.length) {
     return {
-      ids,
+      tokens,
       error: "Each card can only be selected once.",
       status: 400,
     };
   }
 
-  return { ids, error: null, status: 200 };
+  return { tokens, error: null, status: 200 };
 }
 
 function normalizeIdempotencyKey(value: unknown) {
@@ -141,8 +148,11 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as ShippingBody | null;
   const addressId = normalizeUuid(body?.addressId);
-  const { ids: collectionItemIds, error: itemError, status } =
-    normalizeCollectionItemIds(body?.collectionItemIds);
+  const {
+    tokens: collectionItemTokens,
+    error: itemError,
+    status,
+  } = normalizeCollectionItemActionTokens(body?.collectionItemIds);
   const note = typeof body?.note === "string" ? body.note.trim().slice(0, 500) : null;
   const { key: idempotencyKey, error: keyError } = normalizeIdempotencyKey(
     body?.idempotencyKey,
@@ -155,7 +165,7 @@ export async function POST(request: Request) {
     );
   }
   if (itemError) return Response.json({ error: itemError }, { status });
-  if (!collectionItemIds.length) {
+  if (!collectionItemTokens.length) {
     return Response.json(
       { error: "Select at least one card." },
       { status: 400 },
@@ -169,11 +179,31 @@ export async function POST(request: Request) {
   }
   if (keyError) return Response.json({ error: keyError }, { status: 400 });
 
+  let resolvedCollectionItemIds: string[];
+  try {
+    resolvedCollectionItemIds = await resolveCollectionItemActionTokens(
+      session.profileId,
+      collectionItemTokens,
+    );
+  } catch (error) {
+    console.error("Failed to resolve collection action tokens for shipping.", error);
+    return Response.json(
+      { error: "Could not request shipping. Please refresh and try again." },
+      { status: 503 },
+    );
+  }
+  if (resolvedCollectionItemIds.length !== collectionItemTokens.length) {
+    return Response.json(
+      { error: "Choose valid collection items to ship." },
+      { status: 400 },
+    );
+  }
+
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase.rpc("request_shipping_for_items", {
     p_profile_id: session.profileId,
     p_address_id: addressId,
-    p_collection_item_ids: collectionItemIds,
+    p_collection_item_ids: resolvedCollectionItemIds,
     p_customer_note: note,
     p_idempotency_key: idempotencyKey,
   });

@@ -70,7 +70,7 @@ test("customer shipping route uses the same mutation guard as other customer flo
   );
 });
 
-test("customer shipping route validates ids, duplicate cards, count, and idempotency before RPC", () => {
+test("customer shipping route validates action tokens, duplicate cards, count, and idempotency before RPC", () => {
   const beforeShippingRpc = sourceBefore(shippingRoute, 'supabase.rpc("request_shipping_for_items"');
   const shippingRpcCall = callSource(shippingRoute, 'supabase.rpc("request_shipping_for_items"');
 
@@ -78,22 +78,26 @@ test("customer shipping route validates ids, duplicate cards, count, and idempot
   assert.match(shippingRoute, /const IDEMPOTENCY_KEY_RE\s*=/);
   assert.match(shippingRoute, /const MAX_SHIPPING_ITEMS\s*=/);
   assert.match(shippingRoute, /function normalizeUuid/);
-  assert.match(shippingRoute, /function normalizeCollectionItemIds/);
+  assert.match(shippingRoute, /function normalizeCollectionItemActionTokens/);
+  assert.match(shippingRoute, /resolveCollectionItemActionTokens/);
+  assert.match(shippingRoute, /isCollectionItemActionToken/);
   assert.match(shippingRoute, /function normalizeIdempotencyKey/);
   assert.match(shippingRoute, /Each card can only be selected once/);
   assert.match(shippingRoute, /Ship up to \$\{MAX_SHIPPING_ITEMS\} cards at a time/);
   assert.match(shippingRoute, /Invalid idempotency key/);
   assert.match(beforeShippingRpc, /\baddressId\b[\s\S]{0,160}normalizeUuid\(/);
-  assert.match(beforeShippingRpc, /\bcollectionItemIds\b[\s\S]{0,160}normalizeCollectionItemIds\(/);
+  assert.match(beforeShippingRpc, /\bcollectionItemTokens\b[\s\S]{0,240}normalizeCollectionItemActionTokens\(/);
   assert.match(beforeShippingRpc, /\bidempotencyKey\b[\s\S]{0,160}normalizeIdempotencyKey\(/);
   assert.match(beforeShippingRpc, /if\s*\(!addressId\)/);
-  assert.match(beforeShippingRpc, /if\s*\(!collectionItemIds\.length\)/);
+  assert.match(beforeShippingRpc, /if\s*\(!collectionItemTokens\.length\)/);
   assert.match(beforeShippingRpc, /if\s*\(!idempotencyKey\)/);
+  assert.match(beforeShippingRpc, /resolvedCollectionItemIds\s*=\s*await resolveCollectionItemActionTokens\(/);
   assert.match(shippingRpcCall, /\bp_address_id:\s*addressId\b/);
-  assert.match(shippingRpcCall, /\bp_collection_item_ids:\s*collectionItemIds\b/);
+  assert.match(shippingRpcCall, /\bp_collection_item_ids:\s*resolvedCollectionItemIds\b/);
   assert.match(shippingRpcCall, /\bp_idempotency_key:\s*idempotencyKey\b/);
   assert.doesNotMatch(shippingRpcCall, /\bbody\?\.addressId\b/);
   assert.doesNotMatch(shippingRpcCall, /\bbody\?\.collectionItemIds\b/);
+  assert.doesNotMatch(shippingRpcCall, /\bcollectionItemTokens\b/);
   assert.doesNotMatch(shippingRpcCall, /\bbody\?\.idempotencyKey\b/);
 });
 
@@ -136,7 +140,7 @@ test("platform verifier covers customer shipping hardening", () => {
   const validationCheck = verifierCallSource(
     "check",
     "src/app/api/ynot/shipping/route.ts",
-    "shipping request validates ids and idempotency keys",
+    "shipping request validates action tokens and idempotency keys",
   );
   const rawErrorCheck = verifierCallSource(
     "notCheck",
@@ -151,7 +155,8 @@ test("platform verifier covers customer shipping hardening", () => {
 
   assert.match(crossOriginCheck, /enforceSameOriginMutation\\?\(request\\?\)/);
   assert.match(validationCheck, /normalizeUuid/);
-  assert.match(validationCheck, /normalizeCollectionItemIds/);
+  assert.match(validationCheck, /normalizeCollectionItemActionTokens/);
+  assert.match(validationCheck, /resolveCollectionItemActionTokens/);
   assert.match(validationCheck, /normalizeIdempotencyKey/);
   assert.match(rawErrorCheck, /error\\?\.message/);
   assert.match(publicResultCheck, /publicShippingResult/);

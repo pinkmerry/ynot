@@ -1392,7 +1392,7 @@ export function CollectionConvertPanel({
                       </span>
                     ) : (
                       <span className="collection-convert-row-code">
-                        {item.serialNo ?? item.id.slice(0, 8)}
+                        {item.serialNo ?? "Collection reward"}
                       </span>
                     )}
                   </div>
