@@ -1514,7 +1514,7 @@ export async function getCampaign(
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("campaign_detail", async () => {
     const viewer = options.viewer ?? (await getYnotViewer());
-    const includePrivateDetail = viewer.isAdmin || isDevAuthAllowed();
+    const includePrivateDetail = viewer.isAdmin;
     const loadRow = (requireApproval: boolean) => {
       let query = supabase
         .from("draw_rounds")
