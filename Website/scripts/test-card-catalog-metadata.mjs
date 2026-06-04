@@ -63,7 +63,10 @@ test("normalizes blank and invalid metadata safely", () => {
   assert.equal(metadata.cardLanguageValue("japanese"), "japanese");
   assert.equal(metadata.cardLanguageValue("thai"), null);
   assert.equal(metadata.catalogCategoryValue("packs"), "packs");
-  assert.equal(metadata.catalogCategoryValue("unknown"), "single_cards");
+  // Free-text catalog categories pass through; blank falls back.
+  assert.equal(metadata.catalogCategoryValue("unknown"), "unknown");
+  assert.equal(metadata.catalogCategoryValue(""), "single_cards");
+  assert.equal(metadata.catalogCategoryValue(null), "single_cards");
   assert.equal(metadata.cardConditionValue("graded"), "graded");
   assert.equal(metadata.cardConditionValue("unknown"), "raw");
   assert.equal(metadata.gradingServiceValue("psa"), "psa");
@@ -72,4 +75,23 @@ test("normalizes blank and invalid metadata safely", () => {
   assert.equal(metadata.cardGradeValue("Ungraded"), "");
   assert.equal(metadata.releaseYearValue("2024"), 2024);
   assert.equal(metadata.releaseYearValue("not-a-year"), null);
+});
+
+test("treats catalog categories as managed free text with built-in canonicalization", () => {
+  // Built-ins canonicalize from either the slug or the human label so existing
+  // slug-based fulfilment checks keep matching after the free-text migration.
+  assert.equal(metadata.canonicalCatalogCategory("boxes"), "boxes");
+  assert.equal(metadata.canonicalCatalogCategory("Boxes"), "boxes");
+  assert.equal(metadata.canonicalCatalogCategory("Single Cards"), "single_cards");
+  assert.equal(metadata.canonicalCatalogCategory("Promo Box"), null);
+
+  // catalogCategoryValue collapses built-ins to their slug, custom passes through.
+  assert.equal(metadata.catalogCategoryValue("Boxes"), "boxes");
+  assert.equal(metadata.catalogCategoryValue("Promo Box"), "Promo Box");
+
+  // Labels display nicely for built-ins (slug or label) and verbatim for custom.
+  assert.equal(metadata.catalogCategoryLabel("boxes"), "Boxes");
+  assert.equal(metadata.catalogCategoryLabel("Boxes"), "Boxes");
+  assert.equal(metadata.catalogCategoryLabel("Promo Box"), "Promo Box");
+  assert.equal(metadata.catalogCategoryLabel(""), "Single Cards");
 });

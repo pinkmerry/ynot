@@ -7,7 +7,6 @@ import { prizeCategoryValue } from "@/features/ynot/prize-category";
 import {
   cardConditionValue,
   cardGradeOptions,
-  catalogCategoryValue,
   gradingServiceValue,
   releaseYearValue,
 } from "@/features/ynot/card-catalog-metadata";
@@ -92,9 +91,9 @@ function validateCardBody(body: CardBody) {
   }
   if (
     hasPayloadValue(body.catalogCategory) &&
-    catalogCategoryValue(body.catalogCategory) !== body.catalogCategory
+    (typeof body.catalogCategory !== "string" || !body.catalogCategory.trim())
   ) {
-    return "Catalog category must be Single Cards, Packs, Boxes, Cases, Sets, or Supplies.";
+    return "Catalog category is required.";
   }
   if (
     hasPayloadValue(body.condition) &&
@@ -221,7 +220,9 @@ function cardPatch(
     patch.variant = text(body.variant, 160) || null;
   }
   if (!options.partial || body.catalogCategory !== undefined) {
-    patch.catalog_category = catalogCategoryValue(body.catalogCategory);
+    // Store the human label / custom name as-is; fulfilment logic canonicalizes
+    // built-ins back to their slug when needed.
+    patch.catalog_category = text(body.catalogCategory, 160) || "Single Cards";
   }
   if (!options.partial || body.condition !== undefined) {
     patch.condition = cardConditionValue(body.condition);

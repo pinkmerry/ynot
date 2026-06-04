@@ -5,7 +5,13 @@ import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
-type OptionKind = "set" | "variant" | "language" | "release_year" | "brand";
+type OptionKind =
+  | "set"
+  | "variant"
+  | "language"
+  | "release_year"
+  | "brand"
+  | "catalog_category";
 
 const OPTION_KINDS: OptionKind[] = [
   "set",
@@ -13,6 +19,7 @@ const OPTION_KINDS: OptionKind[] = [
   "language",
   "release_year",
   "brand",
+  "catalog_category",
 ];
 
 function optionKind(value: unknown): OptionKind | null {

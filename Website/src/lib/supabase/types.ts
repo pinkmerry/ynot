@@ -326,14 +326,14 @@ export type Database = {
       card_options: {
         Row: {
           id: string;
-          kind: "set" | "variant" | "language" | "release_year" | "brand";
+          kind: "set" | "variant" | "language" | "release_year" | "brand" | "catalog_category";
           name: string;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
-          kind: "set" | "variant" | "language" | "release_year" | "brand";
+          kind: "set" | "variant" | "language" | "release_year" | "brand" | "catalog_category";
           name: string;
           created_at?: string;
           updated_at?: string;
@@ -356,7 +356,7 @@ export type Database = {
           release_year: number | null;
           card_set: string | null;
           variant: string | null;
-          catalog_category: "single_cards" | "packs" | "boxes" | "cases" | "sets" | "supplies";
+          catalog_category: string;
           condition: "sealed" | "raw" | "graded";
           grading_service: "psa" | "bgs" | "cgc" | "other" | null;
           cert_number: string | null;
@@ -385,7 +385,7 @@ export type Database = {
           release_year?: number | null;
           card_set?: string | null;
           variant?: string | null;
-          catalog_category?: "single_cards" | "packs" | "boxes" | "cases" | "sets" | "supplies";
+          catalog_category?: string;
           condition?: "sealed" | "raw" | "graded";
           grading_service?: "psa" | "bgs" | "cgc" | "other" | null;
           cert_number?: string | null;
