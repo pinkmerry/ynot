@@ -11095,14 +11095,13 @@ export function AdminCampaignTable({
               <th>Status</th>
               <th>Price</th>
               <th>Slots</th>
-              <th>Order</th>
               <th className="admin-pack-table-actions-col">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="admin-pack-table-empty">
+                <td colSpan={7} className="admin-pack-table-empty">
                   No packs match this view.
                 </td>
               </tr>
@@ -11165,7 +11164,6 @@ export function AdminCampaignTable({
                       </span>
                     ) : null}
                   </td>
-                  <td>{campaign.sortOrder ?? "—"}</td>
                   <td className="admin-pack-table-actions-col">
                     <a
                       href={`/gacha/${campaign.slug}`}
