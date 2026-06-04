@@ -371,7 +371,7 @@ test("admin shipping console shows status action first and collapses long detail
   assert.match(adminShippingConsoleSource, /Tracking/);
   assert.match(adminShippingConsoleSource, /Timeline/);
   assert.match(adminShippingConsoleSource, /admin-shipping-queue-status-cell/);
-  assert.match(adminShippingConsoleSource, /aria-label="Select shipping request/);
+  assert.match(adminShippingConsoleSource, /aria-label=\{`Select shipping request/);
 });
 
 test("admin user directory links to User 360 and the detail route loads admin user history", () => {
