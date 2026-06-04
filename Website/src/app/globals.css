@@ -23669,6 +23669,15 @@ html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-slug {
   font-size: 11px !important;
   letter-spacing: 0.04em !important;
 }
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-code {
+  display: block !important;
+  margin-top: 3px !important;
+  color: rgba(245, 245, 245, 0.78) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em !important;
+  font-variant-numeric: tabular-nums !important;
+}
 html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-series {
   font-size: 11px !important;
   letter-spacing: 0.12em !important;
