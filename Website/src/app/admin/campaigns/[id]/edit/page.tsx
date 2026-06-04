@@ -33,7 +33,8 @@ export default async function EditCampaignPage({
   const campaign = data.campaigns.find((entry) => entry.id === id);
   if (!campaign) return notFound();
 
-  if (campaign.status !== "draft") {
+  const isLiveEdit = campaign.status === "live";
+  if (campaign.status !== "draft" && !isLiveEdit) {
     return (
       <AdminGate viewer={data.viewer}>
         <AdminFrame
@@ -42,7 +43,7 @@ export default async function EditCampaignPage({
           trail={["Admin", "Pack studio", "Random packs", "Edit"]}
           eyebrow="Edit random pack"
           title={campaign.titleEn || campaign.titleTh || "Pack editor"}
-          desc={`This pack is "${campaign.status}". Only packs in draft state can be edited. Archive the pack and create a new draft to make changes.`}
+          desc={`This pack is "${campaign.status}". Only draft or live packs can be edited. Archive the pack and create a new draft to make changes.`}
           actions={
             <Link href="/admin/campaigns" className="btn">
               <AdminIcon name="chev-r" /> Back to all packs
@@ -51,7 +52,7 @@ export default async function EditCampaignPage({
         >
           <AdminCard>
             <div className="card-pad text-mute">
-              Locked — only drafts are editable. Archive this pack first.
+              Locked — only draft or live packs are editable.
             </div>
           </AdminCard>
         </AdminFrame>
@@ -65,9 +66,13 @@ export default async function EditCampaignPage({
         viewer={data.viewer}
         active="/admin/campaigns"
         trail={["Admin", "Pack studio", "Random packs", "Edit"]}
-        eyebrow="Edit random pack"
+        eyebrow={isLiveEdit ? "Edit LIVE random pack" : "Edit random pack"}
         title={`Editing: ${campaign.titleEn || campaign.titleTh || campaign.slug}`}
-        desc="Update every campaign field and prize allocation. Saving puts the pack back into draft/private and requires a fresh owner approval before it can go live again."
+        desc={
+          isLiveEdit
+            ? "⚠️ This pack is LIVE. Changes apply immediately to customers — prize/slot edits re-materialize stock atomically (awarded prizes are kept). The pack stays live; no re-approval needed."
+            : "Update every campaign field and prize allocation. Saving puts the pack back into draft/private and requires a fresh owner approval before it can go live again."
+        }
         actions={
           <Link href="/admin/campaigns" className="btn">
             ← Back to all packs

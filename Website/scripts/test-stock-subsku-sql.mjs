@@ -300,3 +300,43 @@ test("admin stock-unit route calls RPCs instead of split update plus ledger writ
     /from\("card_stock_ledger"\)\.insert/,
   );
 });
+
+test("live pack re-materialization RPC locks the round and guards awarded units", () => {
+  const sql = migrationSql();
+  assert.match(
+    sql,
+    /create\s+or\s+replace\s+function\s+public\.edit_live_campaign_inventory/i,
+  );
+  // Must lock the round FOR UPDATE (serializes against open_gacha_campaign) and
+  // only edit live/approved packs.
+  assert.match(
+    sql,
+    /create\s+or\s+replace\s+function\s+public\.edit_live_campaign_inventory[\s\S]*from\s+public\.draw_rounds[\s\S]*for\s+update[\s\S]*campaign_not_live_editable/i,
+  );
+  // Awarded-aware reject rules (owner-approved).
+  for (const guard of [
+    "prize_has_awarded_units",
+    "cannot_reduce_below_awarded",
+    "prize_identity_locked_after_award",
+    "cannot_reduce_slots_below_consumed",
+  ]) {
+    assert.match(sql, new RegExp(guard), `missing guard ${guard}`);
+  }
+  // The release helper voids ONLY available units — awarded units are preserved.
+  assert.match(
+    sql,
+    /create\s+or\s+replace\s+function\s+public\._release_live_prize_units[\s\S]*u\.status\s*=\s*'available'/i,
+  );
+  // Re-asserts the publish invariant before commit.
+  assert.match(sql, /materialized_stock_must_match_planned_quantity/);
+});
+
+test("admin campaign route edits live packs in place via the RPC", () => {
+  // Live packs route through the re-materialization RPC...
+  assert.match(adminCampaignRouteSource, /rpc\(\s*"edit_live_campaign_inventory"/);
+  assert.match(adminCampaignRouteSource, /current\.status === "live"/);
+  // ...while non-live, non-draft packs stay locked.
+  assert.match(adminCampaignRouteSource, /CAMPAIGN_MUST_BE_DRAFT/);
+  // The form/list exposes the live editor entry point.
+  assert.match(clientSource, /Edit live/);
+});
