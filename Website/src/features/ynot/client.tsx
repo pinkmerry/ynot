@@ -10995,6 +10995,15 @@ export function AdminCampaignTable({
                         )}
                       </>
                     )}
+                    {campaign.status === "live" && (
+                      <a
+                        href={`/admin/campaigns/${campaign.id}/edit`}
+                        className="admin-pack-table-action"
+                        title="Edit this LIVE pack in place — changes apply immediately and re-materialize stock"
+                      >
+                        Edit live
+                      </a>
+                    )}
                     {campaign.status !== "archived" && (
                       <button
                         type="button"
