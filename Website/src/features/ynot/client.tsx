@@ -7836,17 +7836,15 @@ function adminCardDisplayValue(value: unknown) {
 }
 
 function adminCardCatalogDetails(card: CardCatalogItem) {
+  // Condition / grade / cert / GemRate identity now live on the sub-SKU
+  // stock units, not the catalog card, and are not editable from "Edit
+  // card", so they are intentionally omitted from the card detail grid.
   return [
     { label: "Language", value: cardLanguageLabel(card.language) },
     { label: "Release year", value: card.releaseYear },
     { label: "Set", value: card.cardSet },
     { label: "Variant", value: card.variant },
     { label: "Prize catalog", value: catalogCategoryLabel(card.catalogCategory) },
-    { label: "Condition", value: cardConditionLabel(card.condition) },
-    { label: "Grading service", value: gradingServiceLabel(card.gradingService) },
-    { label: "Grade", value: card.grade || "Ungraded" },
-    { label: "Cert number", value: card.certNumber },
-    { label: "GemRate ID", value: card.gemrateId },
   ];
 }
 
