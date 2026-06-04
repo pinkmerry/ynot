@@ -22,3 +22,11 @@ test("readiness aggregates prize-unit counts from a single bulk read", () => {
     "must read all non-void units for the campaign in one query",
   );
 });
+
+test("readiness paginates the prize-unit read to survive PostgREST max_rows", () => {
+  assert.match(
+    readinessSource,
+    /\.range\(\s*offset/,
+    "the bulk read must page through with .range() so large packs are not truncated",
+  );
+});

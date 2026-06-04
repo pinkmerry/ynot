@@ -29,6 +29,7 @@ export function aggregateNonVoidPrizeUnitCounts(
   for (const row of rows) {
     const prizeId = row.draw_round_prize_id;
     if (!prizeId) continue;
+    if (row.status === "void") continue;
     nonVoid.set(prizeId, (nonVoid.get(prizeId) ?? 0) + 1);
     if (row.status === "available") {
       available.set(prizeId, (available.get(prizeId) ?? 0) + 1);

@@ -65,3 +65,14 @@ test("only returns the requested prize ids, in order", () => {
   const result = aggregateNonVoidPrizeUnitCounts(["p1", "p2"], rows);
   assert.deepEqual(result.map((r) => r.prizeId), ["p1", "p2"]);
 });
+
+test("excludes void rows even if a caller forgets to pre-filter", () => {
+  const rows = [
+    { draw_round_prize_id: "p1", status: "available" },
+    { draw_round_prize_id: "p1", status: "void" },
+  ];
+  const result = aggregateNonVoidPrizeUnitCounts(["p1"], rows);
+  assert.deepEqual(plain(result), [
+    { prizeId: "p1", nonVoidCount: 1, availableCount: 1 },
+  ]);
+});
