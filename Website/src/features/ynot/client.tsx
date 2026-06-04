@@ -3392,9 +3392,18 @@ export function AdminCampaignForm({
     () => new Map(campaignCatalogCards.map((card) => [card.catalogCardId, card])),
     [campaignCatalogCards],
   );
+  // True when the pack already owns inventory tied to this campaign — either
+  // reserved (pending owner review) or allocated/materialized (live/closed). In
+  // those cases the campaign's own units must count as available in the
+  // readiness check, otherwise every existing prize reports a phantom "needs N
+  // but 0 available" shortage even though its stock is already committed here.
+  const editsExistingCampaignInventory =
+    editingCampaign?.approvalStatus === "pending_review" ||
+    editingCampaign?.status === "live" ||
+    editingCampaign?.status === "closed";
   const reservedForEditingCampaignByCardId = useMemo(() => {
     const counts = new Map<string, number>();
-    if (editingCampaign?.approvalStatus !== "pending_review") return counts;
+    if (!editsExistingCampaignInventory) return counts;
     for (const prize of editingPrizes ?? []) {
       if (!prize.cardId) continue;
       counts.set(
@@ -3404,7 +3413,7 @@ export function AdminCampaignForm({
       );
     }
     return counts;
-  }, [editingCampaign?.approvalStatus, editingPrizes]);
+  }, [editsExistingCampaignInventory, editingPrizes]);
   const prizeStockSummaries = useMemo<PrizeStockSummary[]>(() => {
     const cardIds = [
       ...new Set(activePrizeDrafts.map((prize) => prize.cardId).filter(Boolean)),
@@ -3423,20 +3432,19 @@ export function AdminCampaignForm({
   const stockShortages = useMemo(
     () =>
       buildPrizeStockShortages({
-        includeReservedForCampaign:
-          editingCampaign?.approvalStatus === "pending_review",
+        includeReservedForCampaign: editsExistingCampaignInventory,
         prizes: activePrizeDrafts.map((prize) => ({
           cardId: prize.cardId,
           quantity: prizeUnitCount(prize),
         })),
         stockSummaries: prizeStockSummaries,
       }),
-    [activePrizeDrafts, editingCampaign?.approvalStatus, prizeStockSummaries],
+    [activePrizeDrafts, editsExistingCampaignInventory, prizeStockSummaries],
   );
   const stockBlockers = stockShortageBlockers(stockShortages);
   const reservedForEditingCampaignByStockKey = useMemo(() => {
     const counts = new Map<string, number>();
-    if (editingCampaign?.approvalStatus !== "pending_review") return counts;
+    if (!editsExistingCampaignInventory) return counts;
     for (const prize of editingPrizes ?? []) {
       if (!prize.cardId || !prize.intendedStockUnitKey) continue;
       const key = `${prize.cardId}\u001f${prize.intendedStockUnitKey}`;
@@ -3447,7 +3455,7 @@ export function AdminCampaignForm({
       );
     }
     return counts;
-  }, [editingCampaign?.approvalStatus, editingPrizes]);
+  }, [editsExistingCampaignInventory, editingPrizes]);
   const stockUnitShortages = useMemo<PrizeStockUnitShortage[]>(() => {
     const requiredByStockKey = new Map<
       string,
@@ -3475,10 +3483,9 @@ export function AdminCampaignForm({
         (candidate) => candidate.key === entry.groupKey,
       );
       if (!group) return [];
-      const reservedUnits =
-        editingCampaign?.approvalStatus === "pending_review"
-          ? (reservedForEditingCampaignByStockKey.get(key) ?? 0)
-          : 0;
+      const reservedUnits = editsExistingCampaignInventory
+        ? (reservedForEditingCampaignByStockKey.get(key) ?? 0)
+        : 0;
       const usableUnits = group.availableUnits + reservedUnits;
       if (entry.requiredUnits <= usableUnits) return [];
       return [
@@ -3494,7 +3501,7 @@ export function AdminCampaignForm({
   }, [
     activePrizeDrafts,
     cardsById,
-    editingCampaign?.approvalStatus,
+    editsExistingCampaignInventory,
     reservedForEditingCampaignByStockKey,
   ]);
   const stockUnitBlockers = stockUnitShortages.map(stockUnitShortageMessage);
