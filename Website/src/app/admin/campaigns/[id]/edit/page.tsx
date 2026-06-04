@@ -19,17 +19,21 @@ export default async function EditCampaignPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [data, cards] = await Promise.all([
-    getYnotDashboardSlice({
-      campaigns: true,
-      campaignVisibility: "admin",
-      campaignIdOrSlug: id,
-      campaignLimit: 1,
-      categories: true,
-      campaignPrizeLineups: true,
-    }),
-    getAdminCards(),
-  ]);
+  // Fetch sequentially, not in Promise.all: the prize-lineup dashboard slice
+  // fires many concurrent Supabase requests, and running getAdminCards (which
+  // includes the sub-SKU stock summary RPC) alongside it can exceed the
+  // Cloudflare Worker simultaneous-connection limit, silently dropping the
+  // sub-SKU summary so every prize row shows "No sub-SKU stock". Serializing the
+  // two keeps getAdminCards' stock RPC from competing for connections.
+  const data = await getYnotDashboardSlice({
+    campaigns: true,
+    campaignVisibility: "admin",
+    campaignIdOrSlug: id,
+    campaignLimit: 1,
+    categories: true,
+    campaignPrizeLineups: true,
+  });
+  const cards = await getAdminCards();
   const campaign = data.campaigns.find((entry) => entry.id === id);
   if (!campaign) return notFound();
 
