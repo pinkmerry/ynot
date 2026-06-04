@@ -87,3 +87,35 @@ test("public sub-SKU image helper builds server-only image maps from linked priz
     { "open-item-1": "https://cdn.example/stock-a.png" },
   );
 });
+
+test("public pack detail prize lineups prefer linked sub-SKU images", () => {
+  const dataSource = readSource("../src/features/ynot/data.ts");
+
+  assert.match(dataSource, /publicSubSkuImageUrl/);
+  assert.match(dataSource, /stockImageUrlByPrizeId/);
+  assert.match(
+    dataSource,
+    /\.from\("draw_round_prize_units"\)[\s\S]*\.select\("id,draw_round_prize_id,card_stock_unit_id,status"\)/,
+  );
+  assert.match(
+    dataSource,
+    /\.from\("card_stock_units"\)[\s\S]*\.select\("id,image_url"\)/,
+  );
+  assert.match(
+    dataSource,
+    /cardImageUrl:\s*publicSubSkuImageUrl\(\s*prizeImageByPrizeId\.get\(prize\.id\),\s*card\?\.image_url\s*\?\?\s*null\s*\)/,
+  );
+});
+
+test("public prize preview still strips internal stock and house fields", () => {
+  const dataSource = readSource("../src/features/ynot/data.ts");
+  const publicPrizePreview = dataSource.match(/function publicPrizePreview[\s\S]*?function publicPrizeLineup/)?.[0] ?? "";
+
+  assert.doesNotMatch(publicPrizePreview, /card_stock_unit_id/);
+  assert.doesNotMatch(publicPrizePreview, /draw_round_prize_unit_id/);
+  assert.doesNotMatch(publicPrizePreview, /stockUnitGroupKey/);
+  assert.doesNotMatch(publicPrizePreview, /unlockAtSoldPct/);
+  assert.doesNotMatch(publicPrizePreview, /weight:/);
+  assert.doesNotMatch(publicPrizePreview, /certNumber/);
+  assert.doesNotMatch(publicPrizePreview, /gemrateId/);
+});

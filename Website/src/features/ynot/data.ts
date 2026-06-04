@@ -63,6 +63,12 @@ import {
   type StockSkuSummaryRow,
   type StockSkuUsageDetail,
 } from "./stock-sku-usage";
+import {
+  publicSubSkuImageUrl,
+  stockImageUrlByPrizeId,
+  type PublicPrizeUnitImageRow,
+  type PublicStockUnitImageRow,
+} from "./public-subsku-images";
 
 const dataIssueStorage = new AsyncLocalStorage<YnotDataIssue[]>();
 
@@ -325,6 +331,7 @@ type PrizePoolStockUnitRow = Pick<
   | "grading_service"
   | "cert_number"
   | "gemrate_id"
+  | "image_url"
   | "status"
 >;
 
@@ -414,7 +421,7 @@ function stockUnitForSku(unit: PrizePoolStockUnitRow) {
     gradingService: unit.grading_service,
     certNumber: unit.cert_number,
     gemrateId: unit.gemrate_id,
-    imageUrl: null,
+    imageUrl: unit.image_url ?? null,
     status: unit.status,
   };
 }
@@ -481,6 +488,40 @@ async function readSupabaseRows<T>(
     recordDataIssue(label, error);
     return [];
   }
+}
+
+async function readPrizeUnitImageUrlsByPrizeId(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  prizeIds: string[],
+  label: string,
+) {
+  if (!prizeIds.length) return new Map<string, string>();
+  const prizeUnits = await readSupabaseRows<PublicPrizeUnitImageRow>(
+    `${label}_prize_units`,
+    () =>
+      supabase
+        .from("draw_round_prize_units")
+        .select("id,draw_round_prize_id,card_stock_unit_id,status")
+        .in("draw_round_prize_id", prizeIds),
+  );
+  const stockUnitIds = [
+    ...new Set(
+      prizeUnits
+        .map((unit) => unit.card_stock_unit_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const stockUnits = stockUnitIds.length
+    ? await readSupabaseRows<PublicStockUnitImageRow>(
+        `${label}_stock_unit_images`,
+        () =>
+          supabase
+            .from("card_stock_units")
+            .select("id,image_url")
+            .in("id", stockUnitIds),
+      )
+    : [];
+  return stockImageUrlByPrizeId(prizeUnits, stockUnits);
 }
 
 function isOwnerReviewLineupRow(row: DrawRoundRow) {
@@ -552,6 +593,11 @@ async function getPublicPrizeLineupsBatch(
       )
     : [];
   const cardById = new Map(cards.map((card) => [card.id, card]));
+  const prizeImageByPrizeId = await readPrizeUnitImageUrlsByPrizeId(
+    supabase,
+    allVisible.map((prize) => prize.id),
+    "campaign_prize_lineup_images",
+  );
 
   for (const row of rows) {
     const visible = visiblePrizesByCampaign.get(row.id) ?? [];
@@ -565,7 +611,10 @@ async function getPublicPrizeLineupsBatch(
           cardId: prize.card_id,
           cardCode: card?.card_code ?? null,
           cardGrade: card?.grade ?? null,
-          cardImageUrl: card?.image_url ?? null,
+          cardImageUrl: publicSubSkuImageUrl(
+            prizeImageByPrizeId.get(prize.id),
+            card?.image_url ?? null
+          ),
           cardImageStoragePath: card?.image_storage_path ?? null,
           cardPrizeCategory: card?.prize_category ?? null,
           cardName: card?.name ?? "Mystery reward",
@@ -642,6 +691,11 @@ async function getPublicPrizeLineup(
       )
     : [];
   const cardById = new Map(cards.map((card) => [card.id, card]));
+  const prizeImageByPrizeId = await readPrizeUnitImageUrlsByPrizeId(
+    supabase,
+    visiblePrizes.map((prize) => prize.id),
+    "campaign_detail_prize_lineup_images",
+  );
 
   return visiblePrizes
     .map((prize) => {
@@ -653,7 +707,10 @@ async function getPublicPrizeLineup(
         cardId: prize.card_id,
         cardCode: card?.card_code ?? null,
         cardGrade: card?.grade ?? null,
-        cardImageUrl: card?.image_url ?? null,
+        cardImageUrl: publicSubSkuImageUrl(
+          prizeImageByPrizeId.get(prize.id),
+          card?.image_url ?? null
+        ),
         cardImageStoragePath: card?.image_storage_path ?? null,
         cardPrizeCategory: card?.prize_category ?? null,
         cardName: card?.name ?? "Mystery reward",
@@ -3166,7 +3223,7 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
             supabase
               .from("card_stock_units")
               .select(
-                "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,status",
+                "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status",
               )
               .in("id", stockUnitIds),
         )
@@ -3176,6 +3233,7 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
       new Map(stockUnits.map((unit) => [unit.id, unit])),
       cardById,
     );
+    const prizeImageByPrizeId = stockImageUrlByPrizeId(prizeUnits, stockUnits);
     return visiblePrizes.map((prize) => {
       const campaign = campaignById.get(prize.draw_round_id);
       const card = cardById.get(prize.card_id);
@@ -3190,7 +3248,10 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         cardName: card?.name ?? "Card",
         cardCode: card?.card_code ?? null,
         cardGrade: card?.grade ?? null,
-        cardImageUrl: card?.image_url ?? null,
+        cardImageUrl: publicSubSkuImageUrl(
+          prizeImageByPrizeId.get(prize.id),
+          card?.image_url ?? null
+        ),
         cardImageStoragePath: card?.image_storage_path ?? null,
         cardPrizeCategory: card?.prize_category ?? null,
         tier: prize.tier,
