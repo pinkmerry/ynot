@@ -495,6 +495,43 @@ function isOwnerReviewLineupRow(row: DrawRoundRow) {
   );
 }
 
+// Most catalog cards carry their photo on the stock unit (the graded slab scan),
+// not the product row, so prize lineups fall back to a representative unit image
+// when the product image_url is empty — otherwise the storefront shows a blank
+// gradient even though the admin prize builder shows the real card.
+async function fetchPrizeCardUnitImages(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  cardIds: string[],
+): Promise<Map<string, { imageUrl: string | null; imageStoragePath: string | null }>> {
+  const map = new Map<
+    string,
+    { imageUrl: string | null; imageStoragePath: string | null }
+  >();
+  if (!cardIds.length) return map;
+  const rows = await readSupabaseRows<{
+    card_id: string;
+    image_url: string | null;
+    image_storage_path: string | null;
+  }>("prize_lineup_unit_images", () =>
+    supabase
+      .from("card_stock_units")
+      .select("card_id,image_url,image_storage_path,created_at")
+      .in("card_id", cardIds)
+      .not("image_url", "is", null)
+      .neq("status", "deleted")
+      .order("created_at", { ascending: true }),
+  );
+  for (const row of rows) {
+    if (row.image_url && !map.has(row.card_id)) {
+      map.set(row.card_id, {
+        imageUrl: row.image_url,
+        imageStoragePath: row.image_storage_path,
+      });
+    }
+  }
+  return map;
+}
+
 async function getPublicPrizeLineupsBatch(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   rows: DrawRoundRow[],
@@ -552,6 +589,7 @@ async function getPublicPrizeLineupsBatch(
       )
     : [];
   const cardById = new Map(cards.map((card) => [card.id, card]));
+  const unitImages = await fetchPrizeCardUnitImages(supabase, cardIds);
 
   for (const row of rows) {
     const visible = visiblePrizesByCampaign.get(row.id) ?? [];
@@ -560,13 +598,15 @@ async function getPublicPrizeLineupsBatch(
         const counts = plannedPrizeUnitCounts(prize);
         const displayTier = displayTierFromPrizeMetadata(prize);
         const card = cardById.get(prize.card_id);
+        const unitImage = unitImages.get(prize.card_id);
         return {
           id: prize.id,
           cardId: prize.card_id,
           cardCode: card?.card_code ?? null,
           cardGrade: card?.grade ?? null,
-          cardImageUrl: card?.image_url ?? null,
-          cardImageStoragePath: card?.image_storage_path ?? null,
+          cardImageUrl: card?.image_url ?? unitImage?.imageUrl ?? null,
+          cardImageStoragePath:
+            card?.image_storage_path ?? unitImage?.imageStoragePath ?? null,
           cardPrizeCategory: card?.prize_category ?? null,
           cardName: card?.name ?? "Mystery reward",
           tier: prize.tier,
@@ -642,19 +682,22 @@ async function getPublicPrizeLineup(
       )
     : [];
   const cardById = new Map(cards.map((card) => [card.id, card]));
+  const unitImages = await fetchPrizeCardUnitImages(supabase, cardIds);
 
   return visiblePrizes
     .map((prize) => {
       const counts = plannedPrizeUnitCounts(prize);
       const displayTier = displayTierFromPrizeMetadata(prize);
       const card = cardById.get(prize.card_id);
+      const unitImage = unitImages.get(prize.card_id);
       return {
         id: prize.id,
         cardId: prize.card_id,
         cardCode: card?.card_code ?? null,
         cardGrade: card?.grade ?? null,
-        cardImageUrl: card?.image_url ?? null,
-        cardImageStoragePath: card?.image_storage_path ?? null,
+        cardImageUrl: card?.image_url ?? unitImage?.imageUrl ?? null,
+        cardImageStoragePath:
+          card?.image_storage_path ?? unitImage?.imageStoragePath ?? null,
         cardPrizeCategory: card?.prize_category ?? null,
         cardName: card?.name ?? "Mystery reward",
         tier: prize.tier,
