@@ -33,6 +33,7 @@
     "test:card-catalog-metadata": "node --test scripts/test-card-catalog-metadata.mjs",
     "test:pack-open-privacy": "node --test scripts/test-pack-open-privacy.mjs",
     "test:stock-sku-usage": "node --test scripts/test-stock-sku-usage.mjs",
+    "test:prize-unit-counts": "node --test scripts/test-prize-unit-counts.mjs",
     "test:stock-readiness": "node --test scripts/test-stock-readiness.mjs && node --test scripts/test-stock-subsku-sql.mjs",
     "test:identity-review-db-safety": "node --test scripts/test-identity-review-db-safety.mjs",
     "test:auth-session-hardening": "node --test scripts/test-auth-session-hardening.mjs",
