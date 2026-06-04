@@ -7263,7 +7263,11 @@ function AdminStockUnitRow({
   const [uploading, setUploading] = useState(false);
   const [busy, startBusy] = useTransition();
   const [msg, setMsg] = useState("");
-  const editable = unit.status === "available";
+  // Editing is allowed even while a pack holds the unit (reserved/allocated) so
+  // admins can fix its identity or attach an image; removal stays restricted to
+  // available units so a pack prize slot is never orphaned.
+  const editable = ["available", "reserved", "allocated"].includes(unit.status);
+  const removable = unit.status === "available";
 
   async function handleImageFile(file: File | null) {
     if (!file) return;
@@ -7477,14 +7481,18 @@ function AdminStockUnitRow({
         {unit.certNumber ? ` · #${unit.certNumber}` : ""}
         <span style={{ opacity: 0.6 }}> — {unit.status}</span>
       </span>
-      {editable ? (
+      {editable || removable ? (
         <span className="admin-stock-unit-actions">
-          <button type="button" onClick={() => setEditing(true)} disabled={busy}>
-            Edit
-          </button>
-          <button type="button" onClick={remove} disabled={busy}>
-            Remove
-          </button>
+          {editable ? (
+            <button type="button" onClick={() => setEditing(true)} disabled={busy}>
+              Edit
+            </button>
+          ) : null}
+          {removable ? (
+            <button type="button" onClick={remove} disabled={busy}>
+              Remove
+            </button>
+          ) : null}
         </span>
       ) : null}
       {msg && <span className="admin-stock-unit-msg">{msg}</span>}

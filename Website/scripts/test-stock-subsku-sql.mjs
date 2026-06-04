@@ -260,6 +260,21 @@ test("single stock-unit edit and delete use transaction-safe RPCs", () => {
   assert.match(sql, /grant execute on function public\.delete_card_stock_unit/i);
 });
 
+test("editing a stock unit is allowed while a pack reserves or allocates it", () => {
+  const sql = migrationSql();
+  // The latest edit RPC must accept reserved/allocated units so admins can fix
+  // a unit's identity or image after a pack uses it.
+  assert.match(
+    sql,
+    /create\s+or\s+replace\s+function\s+public\.edit_card_stock_unit[\s\S]*status\s+in\s*\(\s*'available'\s*,\s*'reserved'\s*,\s*'allocated'\s*\)[\s\S]*stock_unit_not_editable/i,
+  );
+  // Deletion stays restricted to available units so a pack slot is never orphaned.
+  assert.match(
+    sql,
+    /create\s+or\s+replace\s+function\s+public\.delete_card_stock_unit[\s\S]*and\s+status\s*=\s*'available'[\s\S]*stock_unit_not_removable/i,
+  );
+});
+
 test("admin stock-unit route calls RPCs instead of split update plus ledger writes", () => {
   assert.match(cardStockUnitRouteSource, /enforceSameOriginMutation\(request\)/);
   assert.match(cardStockUnitRouteSource, /rpc\("edit_card_stock_unit"/);
