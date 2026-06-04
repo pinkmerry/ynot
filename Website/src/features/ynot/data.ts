@@ -1350,7 +1350,17 @@ async function getCampaignsImpl(
 
     let prizeLineupsByCampaign = new Map<string, YnotPrizePreview[]>();
     if (options.includePrivate && includePrizeLineups) {
-      const prizeLineupRows = rows.filter(isOwnerReviewLineupRow);
+      // Owner-review packs always need their lineup. Live/closed packs need it
+      // too now that admins can edit a published pack in place — without this
+      // they're excluded and the editor falls back to a blank default template.
+      // This block is admin-only (includePrivate) and the batch builder is O(2)
+      // queries regardless of how many campaigns match, so widening is cheap.
+      const prizeLineupRows = rows.filter(
+        (row) =>
+          isOwnerReviewLineupRow(row) ||
+          row.status === "live" ||
+          row.status === "closed",
+      );
       try {
         prizeLineupsByCampaign = await getPublicPrizeLineupsBatch(
           supabase,
