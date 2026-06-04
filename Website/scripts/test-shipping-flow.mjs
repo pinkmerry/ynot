@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const shippingRoute = readFileSync(
@@ -9,6 +9,45 @@ const shippingRoute = readFileSync(
 const platformVerifier = readFileSync(
   new URL("../tools/verification/verify-platform-foundation.mjs", import.meta.url),
   "utf8",
+);
+
+function readOptionalUrl(url) {
+  return existsSync(url) ? readFileSync(url, "utf8") : "";
+}
+
+const dataSource = readFileSync(
+  new URL("../src/features/ynot/data.ts", import.meta.url),
+  "utf8",
+);
+const typesSource = readFileSync(
+  new URL("../src/features/ynot/types.ts", import.meta.url),
+  "utf8",
+);
+const adminShippingPage = readFileSync(
+  new URL("../src/app/admin/shipping/page.tsx", import.meta.url),
+  "utf8",
+);
+const adminUsersPage = readFileSync(
+  new URL("../src/app/admin/users/page.tsx", import.meta.url),
+  "utf8",
+);
+const componentsSource = readFileSync(
+  new URL("../src/features/ynot/components.tsx", import.meta.url),
+  "utf8",
+);
+const clientSource = readFileSync(
+  new URL("../src/features/ynot/client.tsx", import.meta.url),
+  "utf8",
+);
+const adminShippingRoute = readFileSync(
+  new URL("../src/app/api/ynot/admin/shipping/route.ts", import.meta.url),
+  "utf8",
+);
+const adminUserRouteSource = readOptionalUrl(
+  new URL("../src/app/admin/users/[profileId]/page.tsx", import.meta.url),
+);
+const shippingContextMigration = readOptionalUrl(
+  new URL("../../Database/supabase/migrations/20260604100000_shipping_operations_context.sql", import.meta.url),
 );
 
 function functionBody(source, functionName) {
@@ -49,6 +88,18 @@ function callSource(source, marker) {
   }
 
   return "";
+}
+
+function between(source, start, end) {
+  const startIndex = source.indexOf(start);
+  assert.notEqual(startIndex, -1, `Missing start marker: ${start}`);
+  const endIndex = end ? source.indexOf(end, startIndex + start.length) : -1;
+  if (end) assert.notEqual(endIndex, -1, `Missing end marker: ${end}`);
+  return source.slice(startIndex, endIndex >= 0 ? endIndex : undefined);
+}
+
+function typeBlock(typeName) {
+  return between(typesSource, `export type ${typeName}`, "\nexport type ");
 }
 
 function verifierCallSource(functionName, rel, label) {
@@ -132,6 +183,97 @@ test("customer shipping route returns an allowlisted public result", () => {
   assert.doesNotMatch(shippingRoute, /result:\s*data\b/);
   assert.doesNotMatch(shippingRoute, /\.\.\.(?:data|raw|result)\b/);
   assert.doesNotMatch(shippingRoute, /shippingRequestId:\s*value\.shippingRequestId/);
+});
+
+test("admin shipping page loads all requests and renders the operations console", () => {
+  assert.match(adminShippingPage, /getShipping\(undefined,\s*true\)/);
+  assert.match(adminShippingPage, /AdminShippingConsole/);
+  assert.doesNotMatch(adminShippingPage, /getYnotDashboardSlice\(\{\s*shipping:\s*true\s*\}\)/);
+});
+
+test("shipping DTOs include user reward pack address tracking and timeline fields", () => {
+  const shippingItemBlock = typeBlock("YnotShippingItem");
+  const shippingCustomerBlock = typeBlock("YnotShippingCustomer");
+  const addressSnapshotBlock = typeBlock("YnotShippingAddressSnapshot");
+  const timelineEventBlock = typeBlock("YnotShippingTimelineEvent");
+  const shippingRequestBlock = typeBlock("YnotShippingRequest");
+
+  assert.match(shippingItemBlock, /sourceCampaignTitle/);
+  assert.match(shippingItemBlock, /sourceOpenCode/);
+  assert.match(shippingCustomerBlock, /export type YnotShippingCustomer/);
+  assert.match(addressSnapshotBlock, /export type YnotShippingAddressSnapshot/);
+  assert.match(timelineEventBlock, /export type YnotShippingTimelineEvent/);
+  assert.match(shippingRequestBlock, /items\?: YnotShippingItem\[\]/);
+  assert.match(shippingRequestBlock, /customer\?: YnotShippingCustomer \| null/);
+  assert.match(shippingRequestBlock, /addressSnapshot\?: YnotShippingAddressSnapshot \| null/);
+  assert.match(shippingRequestBlock, /timeline\?: YnotShippingTimelineEvent\[\]/);
+});
+
+test("shipping loader enriches requests from users items packs addresses and audits", () => {
+  const getShippingBlock = between(dataSource, "export async function getShipping", "function publicShippingRequest");
+
+  assert.match(getShippingBlock, /includeAll/);
+  assert.match(getShippingBlock, /\.from\("shipping_request_items"\)/);
+  assert.match(getShippingBlock, /\.from\("collection_items"\)/);
+  assert.match(getShippingBlock, /\.from\("profiles"\)/);
+  assert.match(getShippingBlock, /\.from\("user_addresses"\)/);
+  assert.match(getShippingBlock, /\.from\("gacha_opens"\)/);
+  assert.match(getShippingBlock, /\.from\("draw_rounds"\)/);
+  assert.match(getShippingBlock, /\.from\("audit_events"\)/);
+  assert.match(getShippingBlock, /addressSnapshotFromRow/);
+  assert.match(getShippingBlock, /shippingItemsByRequestId/);
+  assert.match(getShippingBlock, /timelineByShippingRequestId/);
+});
+
+test("customer public shipping strips admin-only customer and timeline context", () => {
+  const publicBlock = between(dataSource, "function publicShippingRequest", "export async function getAddresses");
+
+  assert.match(publicBlock, /customer:\s*null/);
+  assert.match(publicBlock, /timeline:\s*\[\]/);
+  assert.match(publicBlock, /adminNote:\s*null/);
+  assert.match(publicBlock, /id:\s*request\.publicCode/);
+});
+
+test("shipping request stores address snapshot and enforces complete address plus value minimum", () => {
+  assert.match(shippingContextMigration, /add column if not exists address_snapshot jsonb/);
+  assert.match(shippingContextMigration, /shipping_minimum_coin_value_required/);
+  assert.match(shippingContextMigration, /valid_shipping_address_required/);
+  assert.match(shippingContextMigration, /recipient_name/);
+  assert.match(shippingContextMigration, /postal_code/);
+  assert.match(shippingContextMigration, /convert_coin_value_snapshot/);
+  assert.match(shippingRoute, /shipping_minimum_coin_value_required/);
+});
+
+test("admin shipped transition requires tracking in route and database function", () => {
+  assert.match(adminShippingRoute, /status === "shipped"/);
+  assert.match(adminShippingRoute, /Tracking provider and tracking number are required/);
+  assert.match(shippingContextMigration, /shipping_tracking_required/);
+});
+
+test("admin user directory links to User 360 and the detail route loads admin user history", () => {
+  assert.match(adminUsersPage, /\/admin\/users\/(?:\$\{user\.id\}|[\s\S]{0,120}user\.id)/);
+  assert.match(adminUserRouteSource, /getAdminUserDetail/);
+  assert.match(adminUserRouteSource, /AdminUser360/);
+  assert.match(typesSource, /export type YnotAdminUserDetail/);
+  assert.match(dataSource, /export async function getAdminUserDetail/);
+});
+
+test("customer shipping history shows reward source pack and tracking details", () => {
+  const orderListBlock = between(componentsSource, "export function OrderList", "export function AdminSectionShell");
+
+  assert.match(orderListBlock, /order\.items/);
+  assert.match(orderListBlock, /sourceCampaignTitle/);
+  assert.match(orderListBlock, /trackingProvider/);
+  assert.match(orderListBlock, /trackingNumber/);
+});
+
+test("customer shipping panel requires a complete address and confirms reward lock before submit", () => {
+  const convertPanelBlock = between(clientSource, "export function CollectionConvertPanel", "export function AdminTopUpActions");
+
+  assert.match(convertPanelBlock, /function isCompleteShippingAddress/);
+  assert.match(convertPanelBlock, /showShippingConfirm/);
+  assert.match(convertPanelBlock, /This reward will be locked/);
+  assert.match(convertPanelBlock, /SHIPPING_REQUEST_MIN_COINS/);
 });
 
 test("platform verifier covers customer shipping hardening", () => {

@@ -184,6 +184,106 @@ check("src/app/api/ynot/shipping/route.ts", "shipping request rejects cross-orig
 check("src/app/api/ynot/shipping/route.ts", "shipping request validates action tokens and idempotency keys", /normalizeAddressActionToken[\s\S]*IDEMPOTENCY_KEY_RE[\s\S]*normalizeCollectionItemActionTokens[\s\S]*normalizeIdempotencyKey[\s\S]*resolveAddressActionToken[\s\S]*resolveCollectionItemActionTokens[\s\S]*p_address_id:\s*resolvedAddressId[\s\S]*p_collection_item_ids:\s*resolvedCollectionItemIds/);
 notCheck("src/app/api/ynot/shipping/route.ts", "shipping request does not return raw RPC errors", /Response\.json\(\s*\{[\s\S]*\berror\s*:\s*error.message/);
 check("src/app/api/ynot/shipping/route.ts", "shipping request returns allowlisted RPC result", /function publicShippingResult[\s\S]*publicCode[\s\S]*itemCount[\s\S]*replayed[\s\S]*result:\s*publicShippingResult/);
+check("src/app/admin/shipping/page.tsx", "admin shipping page loads all customer requests", /getShipping\(undefined,\s*true\)[\s\S]*AdminShippingConsole/);
+const shippingItemTypeSource = sliceBetween(
+  "src/features/ynot/types.ts",
+  "export type YnotShippingItem",
+  "\nexport type ",
+  "shipping item type source slice",
+);
+const shippingCustomerTypeSource = sliceBetween(
+  "src/features/ynot/types.ts",
+  "export type YnotShippingCustomer",
+  "\nexport type ",
+  "shipping customer type source slice",
+);
+const shippingAddressSnapshotTypeSource = sliceBetween(
+  "src/features/ynot/types.ts",
+  "export type YnotShippingAddressSnapshot",
+  "\nexport type ",
+  "shipping address snapshot type source slice",
+);
+const shippingTimelineTypeSource = sliceBetween(
+  "src/features/ynot/types.ts",
+  "export type YnotShippingTimelineEvent",
+  "\nexport type ",
+  "shipping timeline type source slice",
+);
+const shippingRequestTypeSource = sliceBetween(
+  "src/features/ynot/types.ts",
+  "export type YnotShippingRequest",
+  "\nexport type ",
+  "shipping request type source slice",
+);
+checkText(
+  "shipping item DTO carries reward source context",
+  shippingItemTypeSource,
+  /sourceCampaignTitle[\s\S]*sourceOpenCode/,
+  "YnotShippingItem",
+);
+checkText(
+  "shipping customer DTO exists",
+  shippingCustomerTypeSource,
+  /export type YnotShippingCustomer/,
+  "YnotShippingCustomer",
+);
+checkText(
+  "shipping address snapshot DTO exists",
+  shippingAddressSnapshotTypeSource,
+  /export type YnotShippingAddressSnapshot/,
+  "YnotShippingAddressSnapshot",
+);
+checkText(
+  "shipping timeline DTO exists",
+  shippingTimelineTypeSource,
+  /export type YnotShippingTimelineEvent/,
+  "YnotShippingTimelineEvent",
+);
+checkText(
+  "shipping request DTO carries fulfilment context",
+  shippingRequestTypeSource,
+  /items\?: YnotShippingItem\[\][\s\S]*customer\?: YnotShippingCustomer \| null[\s\S]*addressSnapshot\?: YnotShippingAddressSnapshot \| null[\s\S]*timeline\?: YnotShippingTimelineEvent\[\]/,
+  "YnotShippingRequest",
+);
+const shippingLoaderSource = sliceBetween(
+  "src/features/ynot/data.ts",
+  "export async function getShipping",
+  "function publicShippingRequest",
+  "shipping loader source slice",
+);
+checkText(
+  "shipping loader enriches admin fulfilment context",
+  shippingLoaderSource,
+  /shipping_request_items[\s\S]*collection_items[\s\S]*profiles[\s\S]*user_addresses[\s\S]*gacha_opens[\s\S]*draw_rounds[\s\S]*audit_events/,
+  "getShipping",
+);
+check("src/app/api/ynot/admin/shipping/route.ts", "admin shipped status requires tracking", /status === "shipped"[\s\S]*Tracking provider and tracking number are required/);
+check("src/app/admin/users/[profileId]/page.tsx", "admin User 360 route renders user detail history", /getAdminUserDetail[\s\S]*AdminUser360/);
+const orderListSource = sliceBetween(
+  "src/features/ynot/components.tsx",
+  "export function OrderList",
+  "export function AdminSectionShell",
+  "customer order list source slice",
+);
+checkText(
+  "customer shipping history shows item source and tracking",
+  orderListSource,
+  /order\.items[\s\S]*sourceCampaignTitle[\s\S]*trackingNumber/,
+  "OrderList",
+);
+const collectionConvertPanelSource = sliceBetween(
+  "src/features/ynot/client.tsx",
+  "export function CollectionConvertPanel",
+  "export function AdminTopUpActions",
+  "customer collection convert panel source slice",
+);
+checkText(
+  "customer shipping panel confirms complete shipment details",
+  collectionConvertPanelSource,
+  /isCompleteShippingAddress[\s\S]*showShippingConfirm[\s\S]*This reward will be locked/,
+  "CollectionConvertPanel",
+);
+check("../Database/supabase/migrations/20260604100000_shipping_operations_context.sql", "shipping migration stores address snapshots and server-side shipment guards", /address_snapshot jsonb[\s\S]*shipping_minimum_coin_value_required[\s\S]*shipping_tracking_required/);
 check("src/features/ynot/client.tsx", "admin payment settings call payment method API", /\/api\/ynot\/admin\/payment-methods/);
 check("src/features/ynot/client.tsx", "admin campaign form calls campaign API", /\/api\/ynot\/admin\/campaigns/);
 check("src/features/ynot/client.tsx", "admin campaign create refreshes server data after save", /import \{ useRouter \} from "next\/navigation"[\s\S]*AdminCampaignForm[\s\S]*const router = useRouter\(\)[\s\S]*\/api\/ynot\/admin\/campaigns[\s\S]*router\.refresh\(\)/);
