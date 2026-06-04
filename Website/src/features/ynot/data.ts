@@ -1457,7 +1457,7 @@ async function getCampaignsImpl(
     });
     return options.includePrivate
       ? campaigns
-      : campaigns.filter((campaign) => campaign.openable);
+      : campaigns.filter((campaign) => campaign.openable || campaign.soldOut);
   });
 }
 
@@ -1468,7 +1468,7 @@ const getPublicCampaignsCached = unstable_cache(
       limit: null,
       includeReadiness: false,
     }),
-  ["ynot-campaigns-public-v2-all"],
+  ["ynot-campaigns-public-v3-all"],
   { tags: ["campaigns"], revalidate: 60 },
 );
 
@@ -1629,7 +1629,7 @@ async function loadPublicCampaignDetailImpl(
     publicPrizeLineup,
     publicReadiness,
   );
-  if (!campaign.openable) return null;
+  if (!campaign.openable && !campaign.soldOut) return null;
   return publicYnotCampaign(campaign);
 }
 
@@ -1641,7 +1641,7 @@ async function loadPublicCampaignDetailImpl(
 const getPublicCampaignDetailCached = (slug: string): Promise<YnotCampaign | null> =>
   unstable_cache(
     () => loadPublicCampaignDetailImpl(slug),
-    ["ynot-campaign-detail-public-v1", slug],
+    ["ynot-campaign-detail-public-v2", slug],
     { tags: ["campaigns", "campaign-detail"], revalidate: 30 },
   )();
 
@@ -1679,7 +1679,7 @@ export async function getCampaign(
   // Non-admin viewers of a public, non-test pack (looked up by slug) get the
   // cached public projection. Admins, UUID lookups, and test-campaign testers
   // fall through to the dynamic per-viewer path below, so private detail is
-  // never cached or shared. Cache returns null for not-found / not-openable /
+  // never cached or shared. Cache returns null for not-found / not-visible /
   // test packs, which correctly falls through.
   if (!viewer.isAdmin && !looksLikeUuid(campaignLookup)) {
     const cached = await getPublicCampaignDetailCached(campaignLookup);
@@ -1769,7 +1769,7 @@ export async function getCampaign(
       readiness,
     );
     const customerCampaign = includePrivateDetail ? campaign : publicYnotCampaign(campaign);
-    if (!includePrivateDetail && !campaign.openable) return [];
+    if (!includePrivateDetail && !campaign.openable && !campaign.soldOut) return [];
     return [customerCampaign];
   }).then(
     (campaigns) =>
