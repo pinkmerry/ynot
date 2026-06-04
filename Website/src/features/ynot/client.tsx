@@ -3947,7 +3947,12 @@ export function AdminCampaignForm({
     <section className="admin-pack-form admin-pack-form-horizontal soft-card">
       <div className="admin-pack-builder-head">
         <div>
-          <span>{editMode ? "Edit random pack" : "New random pack"}</span>
+          <span>
+            {editMode ? "Edit random pack" : "New random pack"}
+            {editMode && editingCampaign?.packCode
+              ? ` · ${editingCampaign.packCode}`
+              : ""}
+          </span>
           <h3>
             {editMode
               ? `Edit "${editingCampaign?.titleEn || editingCampaign?.titleTh || "pack"}"`
