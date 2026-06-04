@@ -163,6 +163,18 @@ test("editable stock-unit rows preserve existing image storage paths", () => {
   assert.match(clientSource, /useState\(\s*unit\.imageStoragePath \?\? ""/);
 });
 
+test("editable stock-unit list includes units a pack reserves or allocates", () => {
+  // The list endpoint must surface reserved/allocated units, not just available,
+  // so the per-unit Edit UI appears for units already used in a pack.
+  assert.match(
+    cardStockUnitsRouteSource,
+    /\.in\(\s*"status"\s*,\s*\[\s*"available"\s*,\s*"reserved"\s*,\s*"allocated"\s*\]\s*\)/,
+  );
+  assert.doesNotMatch(cardStockUnitsRouteSource, /\.eq\(\s*"status"\s*,\s*"available"\s*\)/);
+  // The manage-units section gates on all editable units, not only available.
+  assert.match(clientSource, /const editableUnits =\s*\n?\s*group\.availableUnits \+ group\.reservedUnits \+ group\.allocatedUnits/);
+});
+
 test("random-pack save serializes the validated visible sub-SKU selection", () => {
   assert.match(
     clientSource,

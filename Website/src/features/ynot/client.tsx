@@ -7586,9 +7586,13 @@ function AdminSubSkuManageUnits({
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Units a pack reserves/allocates are still editable (identity + image), so
+  // surface them here too — not only the freely available ones.
+  const editableUnits =
+    group.availableUnits + group.reservedUnits + group.allocatedUnits;
 
   async function loadUnits(force = false) {
-    if ((!force && loaded) || loading || group.availableUnits <= 0) return;
+    if ((!force && loaded) || loading || editableUnits <= 0) return;
     try {
       setError("");
       setLoading(true);
@@ -7605,7 +7609,7 @@ function AdminSubSkuManageUnits({
     }
   }
 
-  if (group.availableUnits <= 0) return null;
+  if (editableUnits <= 0) return null;
 
   return (
     <details
@@ -7615,8 +7619,8 @@ function AdminSubSkuManageUnits({
       }}
     >
       <summary>
-        Manage {group.availableUnits.toLocaleString()} available unit
-        {group.availableUnits === 1 ? "" : "s"}
+        Manage {editableUnits.toLocaleString()} unit
+        {editableUnits === 1 ? "" : "s"}
       </summary>
       {loading ? (
         <p className="admin-card-catalog-empty-usage">Loading units...</p>
@@ -7633,16 +7637,16 @@ function AdminSubSkuManageUnits({
               />
             ))}
           </ul>
-          {group.availableUnits > units.length ? (
+          {editableUnits > units.length ? (
             <small>
-              Showing first {units.length.toLocaleString()} available units.
+              Showing first {units.length.toLocaleString()} units.
             </small>
           ) : null}
         </>
       ) : null}
       {loaded && !units.length ? (
         <p className="admin-card-catalog-empty-usage">
-          No editable available units found for this sub-SKU.
+          No editable units found for this sub-SKU.
         </p>
       ) : null}
     </details>

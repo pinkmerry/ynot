@@ -65,7 +65,9 @@ export async function GET(request: Request) {
       "id,condition,grade,grading_service,cert_number,gemrate_id,image_url,image_storage_path,status,quantity",
     )
     .eq("card_id", cardId)
-    .eq("status", "available")
+    // Include units a pack already holds so admins can edit their identity /
+    // image; archived and deleted units stay hidden.
+    .in("status", ["available", "reserved", "allocated"])
     .eq("condition", group.condition)
     .order("created_at", { ascending: true })
     .limit(limit);
