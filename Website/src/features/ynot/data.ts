@@ -793,6 +793,7 @@ function toYnotCampaign(
     openable,
     soldOut,
     adminRemoved,
+    packCode: row.pack_code,
     sortOrder: row.sort_order,
     startsAt: row.starts_at,
     endsAt: row.ends_at,

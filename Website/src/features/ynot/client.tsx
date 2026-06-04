@@ -11133,6 +11133,11 @@ export function AdminCampaignTable({
                     >
                       {campaign.titleTh || campaign.titleEn}
                     </a>
+                    {campaign.packCode ? (
+                      <span className="admin-pack-table-code">
+                        {campaign.packCode}
+                      </span>
+                    ) : null}
                     <span className="admin-pack-table-slug">
                       /{campaign.slug}
                     </span>
