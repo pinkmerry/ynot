@@ -1218,8 +1218,20 @@ export function CollectionConvertPanel({
     text: string;
   } | null>(null);
   const [showConvertConfirm, setShowConvertConfirm] = useState(false);
+  const [showShippingConfirm, setShowShippingConfirm] = useState(false);
   const [currentTimeMs] = useState(() => Date.now());
   const [isPending, startTransition] = useTransition();
+
+  function isCompleteShippingAddress(address?: YnotAddress) {
+    return Boolean(
+      address?.recipientName?.trim() &&
+        address.phone?.trim() &&
+        address.addressLine1?.trim() &&
+        address.district?.trim() &&
+        address.province?.trim() &&
+        address.postalCode?.trim(),
+    );
+  }
 
   // When the user clicks "Convert to coins" on the pack-open reveal screen,
   // we land here with ?from=<openId>&action=convert. Auto-select the cards
@@ -1248,6 +1260,10 @@ export function CollectionConvertPanel({
     () => ownedItems.filter((item) => selected.has(item.id)),
     [ownedItems, selected],
   );
+  const selectedAddress = useMemo(
+    () => addresses.find((address) => address.id === addressId),
+    [addresses, addressId],
+  );
   const selectedConvertableItems = useMemo(
     () =>
       selectedItems.filter(
@@ -1269,7 +1285,7 @@ export function CollectionConvertPanel({
   const canShip =
     !isPending &&
     selectedItems.length > 0 &&
-    Boolean(addressId) &&
+    isCompleteShippingAddress(selectedAddress) &&
     selectedTotalCoins >= SHIPPING_REQUEST_MIN_COINS;
 
   function submitConvert() {
@@ -1306,7 +1322,10 @@ export function CollectionConvertPanel({
     startTransition(async () => {
       try {
         setMessage(null);
-        if (!addressId) throw new Error("Save and pick a shipping address first.");
+        setShowShippingConfirm(false);
+        if (!isCompleteShippingAddress(selectedAddress)) {
+          throw new Error("Save and pick a complete shipping address first.");
+        }
         if (!selectedItems.length) {
           throw new Error("Pick at least one card to ship.");
         }
@@ -1508,14 +1527,15 @@ export function CollectionConvertPanel({
             type="button"
             className="collection-convert-dock-button is-primary"
             disabled={!canShip}
-            onClick={submitShipping}
+            onClick={() => setShowShippingConfirm(true)}
           >
             Shipping Request
           </button>
         </div>
         <p className="collection-convert-dock-foot">
-          A total of {SHIPPING_REQUEST_MIN_COINS.toLocaleString()} coins or more
-          in cards is required for shipping request.
+          Shipping requires a complete saved address and{" "}
+          {SHIPPING_REQUEST_MIN_COINS.toLocaleString()} coins or more in selected
+          reward value.
         </p>
       </div>
 
@@ -1575,6 +1595,80 @@ export function CollectionConvertPanel({
                 autoFocus
               >
                 {isPending ? "Converting…" : "Yes, convert"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
+
+      {showShippingConfirm ? (
+        <div
+          className="collection-convert-modal-backdrop"
+          role="presentation"
+          onClick={() => setShowShippingConfirm(false)}
+        >
+          <div
+            className="collection-convert-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Confirm shipping request"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="collection-convert-modal-head">
+              <h3>Request shipping?</h3>
+              <button
+                type="button"
+                className="collection-convert-modal-close"
+                onClick={() => setShowShippingConfirm(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </header>
+            <div className="collection-convert-modal-body">
+              <p>
+                This reward will be locked for fulfilment and cannot be
+                converted while the shipping request is active.
+              </p>
+              <p>
+                <strong>
+                  {selectedItems.length} card
+                  {selectedItems.length === 1 ? "" : "s"}
+                </strong>{" "}
+                will be sent to{" "}
+                <strong>{selectedAddress?.recipientName ?? "your address"}</strong>.
+              </p>
+              <p className="collection-convert-modal-warn">
+                Ship to:{" "}
+                {selectedAddress
+                  ? [
+                      selectedAddress.addressLine1,
+                      selectedAddress.district,
+                      selectedAddress.province,
+                      selectedAddress.postalCode,
+                    ]
+                      .filter(Boolean)
+                      .join(" | ")
+                  : "No complete address selected"}
+              </p>
+            </div>
+            <footer className="collection-convert-modal-foot">
+              <button
+                type="button"
+                className="collection-convert-modal-button is-ghost"
+                onClick={() => setShowShippingConfirm(false)}
+                disabled={isPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="collection-convert-modal-button is-primary"
+                onClick={submitShipping}
+                disabled={isPending}
+                autoFocus
+              >
+                {isPending ? "Requesting…" : "Yes, request shipping"}
               </button>
             </footer>
           </div>

@@ -2115,6 +2115,30 @@ export function OrderList({
   title: string;
   orders: Array<YnotExchangeOrder | YnotShippingRequest>;
 }) {
+  function shippingDetails(order: YnotExchangeOrder | YnotShippingRequest) {
+    if (!("items" in order)) return null;
+    const firstItem = order.items?.[0];
+    const itemCount = order.items?.length ?? 0;
+    const itemLabel = firstItem
+      ? `${firstItem.cardName}${itemCount > 1 ? ` +${itemCount - 1}` : ""}`
+      : "Reward details pending";
+    const packLabel = firstItem?.sourceCampaignTitle ?? "Pack source pending";
+    const trackingLabel =
+      order.trackingProvider && order.trackingNumber
+        ? `${order.trackingProvider} | ${order.trackingNumber}`
+        : "Tracking not added yet";
+
+    return (
+      <div className="mt-3 grid gap-1 text-xs text-[var(--text-muted)]">
+        <p>
+          Reward: <strong>{itemLabel}</strong>
+        </p>
+        <p>Pack: {packLabel}</p>
+        <p className="font-mono">Tracking: {trackingLabel}</p>
+      </div>
+    );
+  }
+
   return (
     <section className="soft-card order-history-card rounded-[28px] p-5">
       <h3 className="title-m">{title}</h3>
@@ -2134,6 +2158,7 @@ export function OrderList({
               <p className="txt-mono mt-2 text-xs">
                 Created {new Date(order.createdAt).toLocaleString()}
               </p>
+              {shippingDetails(order)}
             </div>
           ))}
         </div>
