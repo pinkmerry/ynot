@@ -43,13 +43,13 @@ export async function PATCH(request: Request) {
       ? body.trackingNumber.trim().slice(0, 120)
       : "";
   if (
-    (status === "shipped" || status === "delivered") &&
+    status === "shipped" &&
     (!trackingProvider || !trackingNumber)
   ) {
     return Response.json(
       {
         error:
-          "Tracking provider and tracking number are required before marking a shipment shipped or delivered.",
+          "Tracking provider and tracking number are required before marking a shipment shipped.",
       },
       { status: 400 },
     );

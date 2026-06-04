@@ -63,6 +63,9 @@ const shippingContextMigration = readOptionalUrl(
 const shippingPickupMigration = readOptionalUrl(
   new URL("../../Database/supabase/migrations/20260604150000_shipping_pickup_statuses.sql", import.meta.url),
 );
+const shippingEventHandoffMigration = readOptionalUrl(
+  new URL("../../Database/supabase/migrations/20260604160000_shipping_event_handoff_statuses.sql", import.meta.url),
+);
 const shippingStatusSource = readOptionalUrl(
   new URL("../src/features/ynot/shipping-status.ts", import.meta.url),
 );
@@ -261,11 +264,11 @@ test("shipping request stores address snapshot and enforces complete address plu
   assert.match(shippingRoute, /shipping_minimum_coin_value_required/);
 });
 
-test("admin shipped transition requires tracking in route and database function", () => {
+test("admin shipped transition is the only tracking-required fulfilment status", () => {
   assert.match(adminShippingRoute, /status === "shipped"/);
-  assert.match(adminShippingRoute, /status === "delivered"/);
   assert.match(adminShippingRoute, /Tracking provider and tracking number are required/);
-  assert.match(shippingContextMigration, /shipping_tracking_required/);
+  assert.match(shippingEventHandoffMigration, /if p_status = 'shipped'[\s\S]*shipping_tracking_required/);
+  assert.doesNotMatch(shippingEventHandoffMigration, /if p_status in \('shipped', 'delivered'\)[\s\S]*shipping_tracking_required/);
 });
 
 test("shipping status model supports pickup fulfilment states", () => {
@@ -291,48 +294,56 @@ test("shipping status model supports pickup fulfilment states", () => {
   assert.match(shippingStatusSource, /Picked up/);
 });
 
-test("shipping pickup migration enforces pickup transitions without tracking", () => {
+test("shipping pickup migration adds pickup statuses", () => {
   assert.match(shippingPickupMigration, /drop constraint if exists shipping_requests_status_check/);
   assert.match(shippingPickupMigration, /add constraint shipping_requests_status_check/);
   assert.match(shippingPickupMigration, /ready_for_pickup/);
   assert.match(shippingPickupMigration, /picked_up/);
+});
+
+test("shipping event handoff migration allows direct pickup and delivery without tracking", () => {
   assert.match(
-    shippingPickupMigration,
-    /v_previous_status = 'packing'[\s\S]*p_status not in \('packing', 'ready_for_pickup', 'shipped', 'cancelled'\)/,
+    shippingEventHandoffMigration,
+    /v_previous_status = 'submitted'[\s\S]*p_status not in \('submitted', 'packing', 'ready_for_pickup', 'shipped', 'delivered', 'cancelled'\)/,
   );
   assert.match(
-    shippingPickupMigration,
-    /v_previous_status = 'ready_for_pickup'[\s\S]*p_status not in \('ready_for_pickup', 'picked_up', 'cancelled'\)/,
+    shippingEventHandoffMigration,
+    /v_previous_status = 'packing'[\s\S]*p_status not in \('packing', 'ready_for_pickup', 'shipped', 'delivered', 'cancelled'\)/,
   );
   assert.match(
-    shippingPickupMigration,
+    shippingEventHandoffMigration,
+    /v_previous_status = 'ready_for_pickup'[\s\S]*p_status not in \('ready_for_pickup', 'picked_up', 'delivered', 'cancelled'\)/,
+  );
+  assert.match(
+    shippingEventHandoffMigration,
     /v_previous_status in \('delivered', 'picked_up', 'cancelled'\)/,
   );
   assert.match(
-    shippingPickupMigration,
-    /if p_status in \('shipped', 'delivered'\)[\s\S]*shipping_tracking_required/,
+    shippingEventHandoffMigration,
+    /if p_status = 'shipped'[\s\S]*shipping_tracking_required/,
   );
   assert.doesNotMatch(
-    shippingPickupMigration,
-    /if p_status in \('shipped', 'delivered', 'picked_up'\)[\s\S]*shipping_tracking_required/,
+    shippingEventHandoffMigration,
+    /if p_status in \('shipped', 'delivered'\)[\s\S]*shipping_tracking_required/,
   );
   assert.match(
-    shippingPickupMigration,
+    shippingEventHandoffMigration,
     /if p_status in \('shipped', 'delivered', 'picked_up'\)[\s\S]*status = 'shipped'/,
   );
 });
 
-test("admin shipping route accepts pickup statuses without tracking", () => {
+test("admin shipping route requires tracking only for shipped status", () => {
   const trackingGuard = between(
     adminShippingRoute,
-    "if (",
+    "if (\n    status === \"shipped\"",
     "const adminNote",
   );
 
   assert.match(adminShippingRoute, /ready_for_pickup/);
   assert.match(adminShippingRoute, /picked_up/);
   assert.match(trackingGuard, /status === "shipped"/);
-  assert.match(trackingGuard, /status === "delivered"/);
+  assert.match(adminShippingRoute, /delivered/);
+  assert.doesNotMatch(trackingGuard, /status === "delivered"/);
   assert.doesNotMatch(trackingGuard, /ready_for_pickup/);
   assert.doesNotMatch(trackingGuard, /picked_up/);
 });
@@ -353,13 +364,14 @@ test("admin shipping console only offers valid pickup-aware status transitions",
     "nextShippingStatuses",
   );
 
-  assert.match(nextStatusesBody, /case "submitted":[\s\S]*\["submitted", "packing", "cancelled"\]/);
-  assert.match(nextStatusesBody, /case "packing":[\s\S]*\["packing", "ready_for_pickup", "shipped", "cancelled"\]/);
-  assert.match(nextStatusesBody, /case "ready_for_pickup":[\s\S]*\["ready_for_pickup", "picked_up", "cancelled"\]/);
+  assert.match(nextStatusesBody, /case "submitted":[\s\S]*\["submitted", "packing", "ready_for_pickup", "shipped", "delivered", "cancelled"\]/);
+  assert.match(nextStatusesBody, /case "packing":[\s\S]*\["packing", "ready_for_pickup", "shipped", "delivered", "cancelled"\]/);
+  assert.match(nextStatusesBody, /case "ready_for_pickup":[\s\S]*\["ready_for_pickup", "picked_up", "delivered", "cancelled"\]/);
   assert.match(nextStatusesBody, /case "shipped":[\s\S]*\["shipped", "delivered"\]/);
   assert.match(nextStatusesBody, /case "delivered":[\s\S]*\["delivered"\]/);
   assert.match(nextStatusesBody, /case "picked_up":[\s\S]*\["picked_up"\]/);
   assert.match(nextStatusesBody, /case "cancelled":[\s\S]*\["cancelled"\]/);
+  assert.match(adminShippingConsoleSource, /return status === "shipped"/);
   assert.match(adminShippingConsoleSource, /statusOptions\.map/);
 });
 

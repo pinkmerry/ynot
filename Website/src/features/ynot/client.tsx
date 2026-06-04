@@ -10004,6 +10004,8 @@ export function AdminShippingActions({
       >
         <option value="submitted">Submitted</option>
         <option value="packing">Packing</option>
+        <option value="ready_for_pickup">Ready for pickup</option>
+        <option value="picked_up">Picked up</option>
         <option value="shipped">Shipped</option>
         <option value="delivered">Delivered</option>
         <option value="cancelled">Cancelled</option>

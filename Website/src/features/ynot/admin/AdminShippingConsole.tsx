@@ -22,11 +22,11 @@ function nextShippingStatuses(
     case "draft":
       return ["submitted", "cancelled"];
     case "submitted":
-      return ["submitted", "packing", "cancelled"];
+      return ["submitted", "packing", "ready_for_pickup", "shipped", "delivered", "cancelled"];
     case "packing":
-      return ["packing", "ready_for_pickup", "shipped", "cancelled"];
+      return ["packing", "ready_for_pickup", "shipped", "delivered", "cancelled"];
     case "ready_for_pickup":
-      return ["ready_for_pickup", "picked_up", "cancelled"];
+      return ["ready_for_pickup", "picked_up", "delivered", "cancelled"];
     case "shipped":
       return ["shipped", "delivered"];
     case "delivered":
@@ -45,7 +45,7 @@ function defaultActionStatus(
 }
 
 function isTrackingRequiredForStatus(status: AdminShippingActionStatus) {
-  return status === "shipped" || status === "delivered";
+  return status === "shipped";
 }
 
 function formatDate(value?: string | null) {
