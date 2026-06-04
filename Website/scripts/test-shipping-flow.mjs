@@ -57,6 +57,12 @@ const adminUserRouteSource = readOptionalUrl(
 const shippingContextMigration = readOptionalUrl(
   new URL("../../Database/supabase/migrations/20260604100000_shipping_operations_context.sql", import.meta.url),
 );
+const shippingPickupMigration = readOptionalUrl(
+  new URL("../../Database/supabase/migrations/20260604150000_shipping_pickup_statuses.sql", import.meta.url),
+);
+const shippingStatusSource = readOptionalUrl(
+  new URL("../src/features/ynot/shipping-status.ts", import.meta.url),
+);
 
 function functionBody(source, functionName) {
   const functionStart = source.indexOf(`function ${functionName}`);
@@ -259,6 +265,75 @@ test("admin shipped transition requires tracking in route and database function"
   assert.match(shippingContextMigration, /shipping_tracking_required/);
 });
 
+test("shipping status model supports pickup fulfilment states", () => {
+  const shippingStatusBlock = typeBlock("YnotShippingStatus");
+  const requestTypeBlock = between(
+    readFileSync(new URL("../src/lib/supabase/types.ts", import.meta.url), "utf8"),
+    "shipping_requests: {",
+    "shipping_request_items:",
+  );
+  const rpcTypeBlock = between(
+    readFileSync(new URL("../src/lib/supabase/types.ts", import.meta.url), "utf8"),
+    "update_shipping_request_status:",
+    "consume_api_rate_limit:",
+  );
+
+  assert.match(shippingStatusBlock, /ready_for_pickup/);
+  assert.match(shippingStatusBlock, /picked_up/);
+  assert.match(requestTypeBlock, /ready_for_pickup/);
+  assert.match(requestTypeBlock, /picked_up/);
+  assert.match(rpcTypeBlock, /ready_for_pickup/);
+  assert.match(rpcTypeBlock, /picked_up/);
+  assert.match(shippingStatusSource, /Ready for pickup/);
+  assert.match(shippingStatusSource, /Picked up/);
+});
+
+test("shipping pickup migration enforces pickup transitions without tracking", () => {
+  assert.match(shippingPickupMigration, /drop constraint if exists shipping_requests_status_check/);
+  assert.match(shippingPickupMigration, /add constraint shipping_requests_status_check/);
+  assert.match(shippingPickupMigration, /ready_for_pickup/);
+  assert.match(shippingPickupMigration, /picked_up/);
+  assert.match(
+    shippingPickupMigration,
+    /v_previous_status = 'packing'[\s\S]*p_status not in \('packing', 'ready_for_pickup', 'shipped', 'cancelled'\)/,
+  );
+  assert.match(
+    shippingPickupMigration,
+    /v_previous_status = 'ready_for_pickup'[\s\S]*p_status not in \('ready_for_pickup', 'picked_up', 'cancelled'\)/,
+  );
+  assert.match(
+    shippingPickupMigration,
+    /v_previous_status in \('delivered', 'picked_up', 'cancelled'\)/,
+  );
+  assert.match(
+    shippingPickupMigration,
+    /if p_status in \('shipped', 'delivered'\)[\s\S]*shipping_tracking_required/,
+  );
+  assert.doesNotMatch(
+    shippingPickupMigration,
+    /if p_status in \('shipped', 'delivered', 'picked_up'\)[\s\S]*shipping_tracking_required/,
+  );
+  assert.match(
+    shippingPickupMigration,
+    /if p_status in \('shipped', 'delivered', 'picked_up'\)[\s\S]*status = 'shipped'/,
+  );
+});
+
+test("admin shipping route accepts pickup statuses without tracking", () => {
+  const trackingGuard = between(
+    adminShippingRoute,
+    "if (",
+    "const adminNote",
+  );
+
+  assert.match(adminShippingRoute, /ready_for_pickup/);
+  assert.match(adminShippingRoute, /picked_up/);
+  assert.match(trackingGuard, /status === "shipped"/);
+  assert.match(trackingGuard, /status === "delivered"/);
+  assert.doesNotMatch(trackingGuard, /ready_for_pickup/);
+  assert.doesNotMatch(trackingGuard, /picked_up/);
+});
+
 test("admin shipping route rejects cross-origin status mutations", () => {
   const beforeBodyParsing = sourceBefore(adminShippingRoute, "request.json()");
 
@@ -269,18 +344,34 @@ test("admin shipping route rejects cross-origin status mutations", () => {
   );
 });
 
-test("admin shipping console only offers valid status transitions", () => {
+test("admin shipping console only offers valid pickup-aware status transitions", () => {
   const nextStatusesBody = functionBody(
     adminShippingConsoleSource,
     "nextShippingStatuses",
   );
 
   assert.match(nextStatusesBody, /case "submitted":[\s\S]*\["submitted", "packing", "cancelled"\]/);
-  assert.match(nextStatusesBody, /case "packing":[\s\S]*\["packing", "shipped", "cancelled"\]/);
+  assert.match(nextStatusesBody, /case "packing":[\s\S]*\["packing", "ready_for_pickup", "shipped", "cancelled"\]/);
+  assert.match(nextStatusesBody, /case "ready_for_pickup":[\s\S]*\["ready_for_pickup", "picked_up", "cancelled"\]/);
   assert.match(nextStatusesBody, /case "shipped":[\s\S]*\["shipped", "delivered"\]/);
   assert.match(nextStatusesBody, /case "delivered":[\s\S]*\["delivered"\]/);
+  assert.match(nextStatusesBody, /case "picked_up":[\s\S]*\["picked_up"\]/);
   assert.match(nextStatusesBody, /case "cancelled":[\s\S]*\["cancelled"\]/);
   assert.match(adminShippingConsoleSource, /statusOptions\.map/);
+});
+
+test("admin shipping console shows status action first and collapses long detail sections", () => {
+  assert.match(adminShippingConsoleSource, /admin-shipping-action-bar/);
+  assert.match(adminShippingConsoleSource, /admin-shipping-status-select/);
+  assert.match(adminShippingConsoleSource, /ShippingDetailSection/);
+  assert.match(adminShippingConsoleSource, /<details/);
+  assert.match(adminShippingConsoleSource, /Customer/);
+  assert.match(adminShippingConsoleSource, /Address/);
+  assert.match(adminShippingConsoleSource, /Reward and pack source/);
+  assert.match(adminShippingConsoleSource, /Tracking/);
+  assert.match(adminShippingConsoleSource, /Timeline/);
+  assert.match(adminShippingConsoleSource, /admin-shipping-queue-status-cell/);
+  assert.match(adminShippingConsoleSource, /aria-label="Select shipping request/);
 });
 
 test("admin user directory links to User 360 and the detail route loads admin user history", () => {
@@ -307,6 +398,22 @@ test("customer shipping history shows reward source pack and tracking details", 
   assert.match(personalInfoShippingBlock, /shippingSourceLabel\(shp\)/);
   assert.match(personalInfoShippingBlock, /trackingProvider/);
   assert.match(personalInfoShippingBlock, /trackingNumber/);
+});
+
+test("customer shipping history uses friendly pickup labels instead of raw statuses", () => {
+  const orderListBlock = between(componentsSource, "export function OrderList", "export function AdminSectionShell");
+  const personalInfoShippingBlock = between(
+    personalInfoSource,
+    "function ShippingHistorySection",
+    undefined,
+  );
+
+  assert.match(shippingStatusSource, /ynotShippingStatusCustomerLabel/);
+  assert.match(shippingStatusSource, /Ready for pickup/);
+  assert.match(shippingStatusSource, /Picked up/);
+  assert.match(orderListBlock, /ynotShippingStatusCustomerLabel/);
+  assert.match(personalInfoShippingBlock, /ynotShippingStatusCustomerLabel/);
+  assert.doesNotMatch(personalInfoShippingBlock, /shp\.status\.replace\(/);
 });
 
 test("customer shipping panel requires a complete address and confirms reward lock before submit", () => {
