@@ -218,7 +218,7 @@ async function hydrateItems(
     ),
   );
 
-  const [cardsResult, prizesResult] = await Promise.all([
+  const [cardsResult, prizesResult, unitImagesResult] = await Promise.all([
     cardIds.length
       ? supabase
           .from("cards")
@@ -231,6 +231,17 @@ async function hydrateItems(
           .select("id,tier,rank,metadata")
           .in("id", prizeIds)
       : Promise.resolve({ data: [], error: null }),
+    // Most catalog cards have no product image; the real photo is on the graded
+    // stock unit. Fall back to a unit image so the reveal shows the card.
+    cardIds.length
+      ? supabase
+          .from("card_stock_units")
+          .select("card_id,image_url,created_at")
+          .in("card_id", cardIds)
+          .not("image_url", "is", null)
+          .neq("status", "deleted")
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   const cardById = new Map<string, { name: string; image_url: string | null }>();
@@ -239,6 +250,12 @@ async function hydrateItems(
       name: card.name,
       image_url: card.image_url ?? null,
     });
+  }
+  const unitImageByCard = new Map<string, string>();
+  for (const unit of unitImagesResult.data ?? []) {
+    if (unit.image_url && !unitImageByCard.has(unit.card_id)) {
+      unitImageByCard.set(unit.card_id, unit.image_url);
+    }
   }
   const prizeById = new Map<
     string,
@@ -283,7 +300,10 @@ async function hydrateItems(
       ...item,
       cardId,
       name: item.name ?? card?.name ?? "Mystery card",
-      imageUrl: item.imageUrl ?? card?.image_url ?? null,
+      imageUrl:
+        item.imageUrl ??
+        card?.image_url ??
+        (cardId ? (unitImageByCard.get(cardId) ?? null) : null),
       tier,
       displayTier,
       valueThb: item.valueThb ?? openItem?.value_thb ?? null,
