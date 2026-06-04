@@ -25567,6 +25567,19 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   color: var(--admin-muted) !important;
 }
 
+/* Save banner tone: success (green) vs error (red), so a successful save
+   never reads like a warning. */
+.admin-redesign-reference .admin-form-message--success {
+  background: rgba(74, 173, 130, 0.1) !important;
+  border-color: rgba(74, 173, 130, 0.55) !important;
+  color: #7ee0ad !important;
+}
+.admin-redesign-reference .admin-form-message--error {
+  background: rgba(201, 122, 114, 0.1) !important;
+  border-color: rgba(201, 122, 114, 0.6) !important;
+  color: #e6a59d !important;
+}
+
 /* Accent text — section eyebrows, callouts */
 .admin-redesign-reference .section-label,
 .admin-redesign-reference .admin-kicker,

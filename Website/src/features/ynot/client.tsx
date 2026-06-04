@@ -3380,6 +3380,9 @@ export function AdminCampaignForm({
     editingCampaign?.lastPrizeStockUnitKey ?? "",
   );
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<"info" | "success" | "error">(
+    "info",
+  );
   const [isPending, startTransition] = useTransition();
   const sortedDraftPrizes = useMemo(
     () => assignPrizeDraftRanks(draftPrizes),
@@ -3933,12 +3936,17 @@ export function AdminCampaignForm({
           })(),
         };
         if (editMode && editingCampaign) {
-          await patchJson("/api/ynot/admin/campaigns", {
+          const result = await patchJson("/api/ynot/admin/campaigns", {
             campaignId: editingCampaign.id,
             ...basePayload,
           });
+          const packLabel =
+            editingCampaign.titleEn || editingCampaign.titleTh || "pack";
+          setMessageTone("success");
           setMessage(
-            `Pack "${editingCampaign.titleEn || editingCampaign.titleTh}" updated with ${configuredPrizeUnits.toLocaleString()} prize units. Submit owner review to re-publish.`,
+            isRecord(result) && result.status === "live"
+              ? `✓ "${packLabel}" saved — pack is live and changes apply now (${configuredPrizeUnits.toLocaleString()} prize units). No owner review needed.`
+              : `✓ "${packLabel}" saved with ${configuredPrizeUnits.toLocaleString()} prize units. Submit owner review to re-publish.`,
           );
         } else {
           const payload = await postJson("/api/ynot/admin/campaigns", {
@@ -3946,12 +3954,14 @@ export function AdminCampaignForm({
             status: "draft",
             visibility: "private",
           });
+          setMessageTone("success");
           setMessage(
-            `Random pack ${payload.campaign?.slug ?? slug} saved as draft with ${configuredPrizeUnits.toLocaleString()} prize units.`,
+            `✓ Random pack ${payload.campaign?.slug ?? slug} saved as draft with ${configuredPrizeUnits.toLocaleString()} prize units.`,
           );
         }
         router.refresh();
       } catch (error) {
+        setMessageTone("error");
         setMessage(
           error instanceof Error
             ? error.message
@@ -4870,7 +4880,11 @@ export function AdminCampaignForm({
                 ? "Save pack changes"
                 : "Save random pack draft"}
           </button>
-          {message && <p className="admin-form-message">{message}</p>}
+          {message && (
+            <p className={`admin-form-message admin-form-message--${messageTone}`}>
+              {message}
+            </p>
+          )}
         </aside>
       </div>
     </section>
