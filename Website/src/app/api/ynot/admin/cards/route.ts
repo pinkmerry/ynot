@@ -13,6 +13,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const adminCardMutationRateLimit = { limit: 180, windowMs: 60_000 };
+
 type CardBody = {
   cardId?: unknown;
   modelCode?: unknown;
@@ -321,7 +323,7 @@ export async function POST(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   const admin = await resolveAdminSession();
   if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
-  const limited = await enforceRateLimit(request, "ynot:admin:cards", { limit: 60, windowMs: 60_000 }, admin.profileId);
+  const limited = await enforceRateLimit(request, "ynot:admin:cards", adminCardMutationRateLimit, admin.profileId);
   if (limited) return limited;
 
   const body = await bodyJson(request);
@@ -378,7 +380,7 @@ export async function DELETE(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   const admin = await resolveAdminSession();
   if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
-  const limited = await enforceRateLimit(request, "ynot:admin:cards", { limit: 60, windowMs: 60_000 }, admin.profileId);
+  const limited = await enforceRateLimit(request, "ynot:admin:cards", adminCardMutationRateLimit, admin.profileId);
   if (limited) return limited;
 
   const body = await bodyJson(request);
@@ -468,7 +470,7 @@ export async function PATCH(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   const admin = await resolveAdminSession();
   if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
-  const limited = await enforceRateLimit(request, "ynot:admin:cards", { limit: 60, windowMs: 60_000 }, admin.profileId);
+  const limited = await enforceRateLimit(request, "ynot:admin:cards", adminCardMutationRateLimit, admin.profileId);
   if (limited) return limited;
 
   const body = await bodyJson(request);

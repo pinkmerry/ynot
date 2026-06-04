@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   const limited = await enforceRateLimit(
     request,
     "ynot:admin:gemrate-cert",
-    { limit: 30, windowMs: 60_000 },
+    { limit: 120, windowMs: 60_000 },
     admin.profileId,
   );
   if (limited) return limited;

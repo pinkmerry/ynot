@@ -7,6 +7,11 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+function readSource(path) {
+  return readFileSync(new URL(path, import.meta.url), "utf8");
+}
 
 const JPEG_SIGNATURE = [0xff, 0xd8, 0xff];
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -94,4 +99,30 @@ test("rejects 6-byte PNG truncation (header started but incomplete)", async () =
   const file = fileFromBytes([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a], "broken.png", "image/png");
   const result = await verifyImageMagicBytes(file);
   assert.equal(result.ok, false);
+});
+
+test("YNOT admin image uploads reject oversized bodies before form parsing", () => {
+  const cardImageRoute = readSource("../src/app/api/ynot/admin/cards/image/route.ts");
+  const paymentQrRoute = readSource("../src/app/api/ynot/admin/payment-methods/qr-image/route.ts");
+  const uploadHelper = readSource("../src/lib/uploads/magic-bytes.ts");
+
+  assert.match(uploadHelper, /requestExceedsUploadLimit\(request: Request/);
+  assert.match(uploadHelper, /content-length/);
+  for (const route of [cardImageRoute, paymentQrRoute]) {
+    assert.match(route, /requestExceedsUploadLimit\(request,\s*maxSlipBytes\)/);
+    assert.match(route, /status:\s*413/);
+    assert.match(route, /requestExceedsUploadLimit\(request,\s*maxSlipBytes\)[\s\S]*request\.formData\(\)/);
+  }
+});
+
+test("YNOT admin uploads stream to storage without full file buffer copies", () => {
+  const cardImageRoute = readSource("../src/app/api/ynot/admin/cards/image/route.ts");
+  const paymentQrRoute = readSource("../src/app/api/ynot/admin/payment-methods/qr-image/route.ts");
+  const tierAnimationRoute = readSource("../src/app/api/ynot/admin/tier-animations/route.ts");
+
+  for (const route of [cardImageRoute, paymentQrRoute, tierAnimationRoute]) {
+    assert.doesNotMatch(route, /file\.arrayBuffer\(\)/);
+    assert.doesNotMatch(route, /new Uint8Array\(await file\.arrayBuffer\(\)\)/);
+    assert.match(route, /\.upload\(\s*path,\s*file\.stream\(\),/);
+  }
 });

@@ -78,10 +78,9 @@ export async function POST(request: Request) {
       throw new Error(`${kind} type ${file.type} is not allowed.`);
     const ext = pickExtension(file, fallbackExt);
     const path = `${tier}/${kind}-${Date.now()}.${ext}`;
-    const bytes = new Uint8Array(await file.arrayBuffer());
     const { error: uploadError } = await supabase.storage
       .from("tier-animations")
-      .upload(path, bytes, {
+      .upload(path, file.stream(), {
         contentType: file.type || undefined,
         upsert: true,
       });

@@ -5,6 +5,7 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import {
   allowedSlipTypes,
   maxSlipBytes,
+  requestExceedsUploadLimit,
   verifyImageMagicBytes,
   type VerifiedImageContentType,
 } from "@/lib/uploads/magic-bytes";
@@ -51,10 +52,17 @@ export async function POST(request: Request) {
   const limited = await enforceRateLimit(
     request,
     "ynot:admin:payment-methods:qr-image",
-    { limit: 30, windowMs: 60_000 },
+    { limit: 120, windowMs: 60_000 },
     admin.profileId,
   );
   if (limited) return limited;
+
+  if (requestExceedsUploadLimit(request, maxSlipBytes)) {
+    return Response.json(
+      { error: "QR image must be 10 MB or smaller." },
+      { status: 413 },
+    );
+  }
 
   const form = await request.formData().catch(() => null);
   if (!form) {
@@ -96,10 +104,9 @@ export async function POST(request: Request) {
   );
   const ext = extensionFor(magicCheck.contentType);
   const path = `payment-qr/ynot-methods/${day}/${Date.now()}-${crypto.randomUUID()}-${label}.${ext}`;
-  const bytes = new Uint8Array(await file.arrayBuffer());
   const { error: uploadError } = await supabase.storage
     .from(bucketName)
-    .upload(path, bytes, {
+    .upload(path, file.stream(), {
       contentType: magicCheck.contentType,
       upsert: false,
     });

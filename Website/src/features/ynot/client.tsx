@@ -2568,6 +2568,9 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+const maxAdminImageUploadBytes = 10 * 1024 * 1024;
+const adminImageUploadTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+
 function AdminImageDropzone({
   imageUrl,
   imageFile,
@@ -2597,6 +2600,7 @@ function AdminImageDropzone({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [fileError, setFileError] = useState("");
   const [showManualUrl, setShowManualUrl] = useState(
     Boolean(manualUrl && !imageFile),
   );
@@ -2610,7 +2614,19 @@ function AdminImageDropzone({
   function handleFiles(files: FileList | null) {
     if (!files || !files.length) return;
     const file = files[0];
-    if (!file.type.startsWith("image/")) return;
+    if (!adminImageUploadTypes.has(file.type)) {
+      setFileError("Use a JPG, PNG, or WEBP image.");
+      onFileChange(null);
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    if (file.size > maxAdminImageUploadBytes) {
+      setFileError("Image must be 10 MB or smaller.");
+      onFileChange(null);
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    setFileError("");
     onFileChange(file);
   }
 
@@ -2680,6 +2696,7 @@ function AdminImageDropzone({
               className="admin-image-dropzone-link"
               onClick={(event) => {
                 event.stopPropagation();
+                setFileError("");
                 setShowManualUrl((value) => !value);
               }}
               disabled={disabled}
@@ -2692,6 +2709,8 @@ function AdminImageDropzone({
                 className="admin-image-dropzone-clear"
                 onClick={(event) => {
                   event.stopPropagation();
+                  setFileError("");
+                  if (inputRef.current) inputRef.current.value = "";
                   onClear();
                 }}
                 disabled={disabled}
@@ -2712,6 +2731,15 @@ function AdminImageDropzone({
               <span>Existing upload</span>
               <span aria-hidden="true">·</span>
               <span className="admin-image-dropzone-url">{imageUrl}</span>
+            </p>
+          )}
+          {fileError && (
+            <p
+              className="admin-image-dropzone-file"
+              role="alert"
+              style={{ color: "#ff8a98" }}
+            >
+              {fileError}
             </p>
           )}
         </div>
@@ -2757,6 +2785,7 @@ function AdminQrImageDropzone({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [fileError, setFileError] = useState("");
   const hasPreview = Boolean(previewUrl);
 
   function openFilePicker() {
@@ -2767,7 +2796,19 @@ function AdminQrImageDropzone({
   function handleFiles(files: FileList | null) {
     if (!files || !files.length) return;
     const file = files[0];
-    if (!file.type.startsWith("image/")) return;
+    if (!adminImageUploadTypes.has(file.type)) {
+      setFileError("Use a JPG, PNG, or WEBP image.");
+      onFileChange(null);
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    if (file.size > maxAdminImageUploadBytes) {
+      setFileError("Image must be 10 MB or smaller.");
+      onFileChange(null);
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    setFileError("");
     onFileChange(file);
   }
 
@@ -2849,6 +2890,8 @@ function AdminQrImageDropzone({
                 disabled={disabled}
                 onClick={(event) => {
                   event.stopPropagation();
+                  setFileError("");
+                  if (inputRef.current) inputRef.current.value = "";
                   onClear();
                 }}
                 type="button"
@@ -2869,6 +2912,15 @@ function AdminQrImageDropzone({
               <span>Saved QR image</span>
               <span aria-hidden="true">·</span>
               <span className="admin-image-dropzone-url">{imageUrl}</span>
+            </p>
+          )}
+          {fileError && (
+            <p
+              className="admin-image-dropzone-file"
+              role="alert"
+              style={{ color: "#ff8a98" }}
+            >
+              {fileError}
             </p>
           )}
         </div>

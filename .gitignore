@@ -42,6 +42,7 @@ Line LIFF/.env*
 
 # Root leftovers / debug
 .claude/
+.superpowers/
 node_modules/
 .next/
 out/

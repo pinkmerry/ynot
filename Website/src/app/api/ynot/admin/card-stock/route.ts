@@ -75,7 +75,7 @@ export async function POST(request: Request) {
   const limited = await enforceRateLimit(
     request,
     "ynot:admin:card-stock",
-    { limit: 80, windowMs: 60_000 },
+    { limit: 240, windowMs: 60_000 },
     admin.profileId,
   );
   if (limited) return limited;
