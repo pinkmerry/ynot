@@ -323,7 +323,16 @@ function remaining(campaign: YnotCampaign) {
   return Math.max(0, remainingSlots);
 }
 
+function isCampaignSoldOut(campaign: YnotCampaign) {
+  const remainingSlots = remaining(campaign);
+  return (
+    Boolean(campaign.soldOut) ||
+    (remainingSlots !== null && remainingSlots <= 0)
+  );
+}
+
 function remainingPercent(campaign: YnotCampaign) {
+  if (isCampaignSoldOut(campaign)) return 0;
   const remainingSlots = remaining(campaign);
   if (remainingSlots === null) return null;
   return Math.max(
@@ -333,6 +342,7 @@ function remainingPercent(campaign: YnotCampaign) {
 }
 
 function remainingRatioText(campaign: YnotCampaign) {
+  if (isCampaignSoldOut(campaign)) return "Sold out";
   const remainingSlots = remaining(campaign);
   if (remainingSlots === null) return "Server-tracked stock";
   return `${remainingSlots.toLocaleString()}/${campaign.totalSlots.toLocaleString()}`;
@@ -1308,9 +1318,11 @@ export function CampaignCard({
 }) {
   const title = campaign.titleTh || campaign.titleEn;
   const displayTags = campaignDisplayTags(campaign);
+  const soldOut = isCampaignSoldOut(campaign);
   const remainingSlots = remaining(campaign);
-  const remainingLabel =
-    remainingSlots === null
+  const remainingLabel = soldOut
+    ? "Sold out"
+    : remainingSlots === null
       ? "Stock tracked by server"
       : `Remaining ${remainingSlots.toLocaleString()}/${campaign.totalSlots.toLocaleString()}`;
   const sortOrderForAttr =
@@ -1421,9 +1433,15 @@ export function CampaignCard({
         <Link className="secondary-action" href={`/gacha/${campaign.slug}`}>
           Details
         </Link>
-        <Link className="primary-action" href={`/gacha/${campaign.slug}/open`}>
-          Open
-        </Link>
+        {soldOut ? (
+          <button className="primary-action" type="button" disabled>
+            Sold out
+          </button>
+        ) : (
+          <Link className="primary-action" href={`/gacha/${campaign.slug}/open`}>
+            Open
+          </Link>
+        )}
       </div>
     </article>
   );
@@ -1440,8 +1458,12 @@ export function CampaignDetailPanel({
     campaign.openQuantityOptions,
   );
   const detailTags = campaignDisplayTags(campaign);
+  const soldOut = isCampaignSoldOut(campaign);
   const canOpen =
-    campaign.demo || campaign.openable || isDevAuthAllowed();
+    campaign.demo || (!soldOut && (campaign.openable || isDevAuthAllowed()));
+  const unavailableCopy = soldOut
+    ? "Sold out"
+    : "This pack is not ready to open yet. Please check back later.";
   const packTitle = campaign.titleTh || campaign.titleEn;
   const packReference = campaign.slug || campaign.id;
 
@@ -1509,8 +1531,8 @@ export function CampaignDetailPanel({
           </div>
           <div className="detail-stat-card detail-stat-card-stock">
             <span>Stock</span>
-            <strong>{remainingRatioText(campaign)}</strong>
-            <em>Remaining</em>
+            <strong>{soldOut ? "Sold out" : remainingRatioText(campaign)}</strong>
+            <em>{soldOut ? "No packs left" : "Remaining"}</em>
           </div>
         </div>
         <ProgressTrack campaign={campaign} />
@@ -1578,10 +1600,10 @@ export function CampaignDetailPanel({
       <div
         className="gacha-detail-open-dock"
         role="region"
-        aria-label="Open this pack"
+        aria-label={soldOut ? "Pack sold out" : "Open this pack"}
       >
         <div className="gacha-detail-open-dock-info">
-          <p className="section-label">Open this pack</p>
+          <p className="section-label">{soldOut ? "Pack sold out" : "Open this pack"}</p>
           <strong>
             <CoinIcon /> {formatCoins(campaign.costCoins)}
             <span> / pack</span>
@@ -1608,7 +1630,7 @@ export function CampaignDetailPanel({
             </>
           ) : (
             <p className="admin-form-message gacha-detail-open-dock-disabled">
-              This pack is not ready to open yet. Please check back later.
+              {unavailableCopy}
             </p>
           )}
         </div>
