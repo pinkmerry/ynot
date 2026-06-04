@@ -2425,17 +2425,25 @@ function adminPrizeCardSearchText(card: CardCatalogItem) {
 
 function AdminPrizeCardImage({
   imageUrl,
+  fallbackUrl,
   name,
   code,
 }: {
   imageUrl?: string | null;
+  // Used when the primary (sub-SKU) image is missing or fails to load, so
+  // the thumbnail can fall back to the catalog product image before giving up.
+  fallbackUrl?: string | null;
   name: string;
   code?: string | null;
 }) {
-  const [hasImageError, setHasImageError] = useState(false);
+  const [failedUrls, setFailedUrls] = useState<Set<string>>(() => new Set());
   const fallback = (code?.trim() || name.trim() || "Prize").slice(0, 12);
+  const candidates = [imageUrl, fallbackUrl].filter(
+    (url): url is string => Boolean(url && url.trim()),
+  );
+  const activeUrl = candidates.find((url) => !failedUrls.has(url)) ?? null;
 
-  if (!imageUrl || hasImageError) {
+  if (!activeUrl) {
     return (
       <span className="admin-prize-card-thumb admin-prize-card-placeholder">
         <strong>{fallback}</strong>
@@ -2449,9 +2457,12 @@ function AdminPrizeCardImage({
     <img
       alt={`${code ? `${code} ` : ""}${name}`}
       className="admin-prize-card-thumb"
+      key={activeUrl}
       loading="lazy"
-      onError={() => setHasImageError(true)}
-      src={imageUrl}
+      onError={() =>
+        setFailedUrls((prev) => new Set(prev).add(activeUrl))
+      }
+      src={activeUrl}
     />
   );
 }
@@ -4275,6 +4286,13 @@ export function AdminCampaignForm({
                         selectedCard,
                         prize.stockUnitKey,
                       );
+                      const selectedStockGroup =
+                        stockGroups.find(
+                          (group) => group.key === selectedStockUnitKey,
+                        ) ?? null;
+                      const selectedStockImageUrl =
+                        selectedStockGroup?.units.find((unit) => unit.imageUrl)
+                          ?.imageUrl ?? null;
                       return (
                         <article
                           className={`admin-prize-table-row tier-${option.value}`}
@@ -4284,7 +4302,8 @@ export function AdminCampaignForm({
                             {selectedCard ? (
                               <AdminPrizeCardImage
                                 code={selectedCard.code}
-                                imageUrl={selectedCard.photoUrl}
+                                imageUrl={selectedStockImageUrl}
+                                fallbackUrl={selectedCard.photoUrl}
                                 name={selectedCard.name}
                               />
                             ) : (
