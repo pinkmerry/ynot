@@ -36,16 +36,20 @@ function primaryItemLabel(request: YnotShippingRequest) {
   const item = request.items?.[0];
   if (!item) return "No items linked";
   const suffix =
-    (request.items?.length ?? 0) > 1 ? ` +${(request.items?.length ?? 1) - 1}` : "";
+    (request.items?.length ?? 0) > 1
+      ? ` +${(request.items?.length ?? 1) - 1}`
+      : "";
   return `${item.cardName}${suffix}`;
 }
 
 function statusCounts(requests: YnotShippingRequest[]) {
   return {
-    submitted: requests.filter((request) => request.status === "submitted").length,
+    submitted: requests.filter((request) => request.status === "submitted")
+      .length,
     packing: requests.filter((request) => request.status === "packing").length,
     shipped: requests.filter((request) => request.status === "shipped").length,
-    delivered: requests.filter((request) => request.status === "delivered").length,
+    delivered: requests.filter((request) => request.status === "delivered")
+      .length,
   };
 }
 
@@ -57,7 +61,8 @@ export function AdminShippingConsole({
   const router = useRouter();
   const counts = useMemo(() => statusCounts(requests), [requests]);
   const [selectedId, setSelectedId] = useState(requests[0]?.id ?? "");
-  const selected = requests.find((request) => request.id === selectedId) ?? requests[0];
+  const selected =
+    requests.find((request) => request.id === selectedId) ?? requests[0];
   const [status, setStatus] = useState<YnotShippingRequest["status"]>(
     selected?.status ?? "submitted",
   );
@@ -178,7 +183,9 @@ export function AdminShippingConsole({
                             {request.customer?.displayName ?? "Unknown user"}
                           </div>
                           <div className="row-sub mono" style={{ fontSize: 11 }}>
-                            {request.customer?.email ?? request.customer?.profileId ?? "-"}
+                            {request.customer?.email ??
+                              request.customer?.profileId ??
+                              "-"}
                           </div>
                         </td>
                         <td>{primaryItemLabel(request)}</td>
@@ -220,8 +227,22 @@ export function AdminShippingConsole({
                 <div className="list-row">
                   <AdminIcon name="users" />
                   <div>
-                    <strong>{selected.customer?.displayName ?? "Unknown user"}</strong>
+                    <strong>
+                      {selected.customer?.displayName ?? "Unknown user"}
+                    </strong>
                     <div className="row-sub">{selected.customer?.email ?? "-"}</div>
+                    <div className="row-sub">
+                      Phone: {selected.customer?.phone ?? "-"}
+                    </div>
+                    <div className="row-sub">
+                      LINE:{" "}
+                      {selected.customer?.lineDisplayName ??
+                        selected.customer?.lineUserId ??
+                        "not linked"}
+                    </div>
+                    <div className="row-sub mono">
+                      Profile: {selected.customer?.profileId ?? "-"}
+                    </div>
                     {selected.customer?.profileId ? (
                       <Link href={`/admin/users/${selected.customer.profileId}`}>
                         Open User 360
@@ -245,11 +266,23 @@ export function AdminShippingConsole({
                     <div>
                       <strong>{item.cardName}</strong>
                       <div className="row-sub">
-                        {item.cardCode ?? "No code"} | {item.sourceCampaignTitle ?? "No pack"}
+                        {item.cardCode ?? "No code"} |{" "}
+                        {item.sourceCampaignTitle ?? "No pack"}
                       </div>
                       <div className="row-sub">
-                        {item.sourceOpenCode ? `Open ${item.sourceOpenCode}` : "No open code"}
-                        {item.sourceOpenPosition ? ` | Position ${item.sourceOpenPosition}` : ""}
+                        {item.sourceOpenCode
+                          ? `Open ${item.sourceOpenCode}`
+                          : "No open code"}
+                        {item.sourceOpenPosition
+                          ? ` | Position ${item.sourceOpenPosition}`
+                          : ""}
+                        {item.sourcePrizeTierLabel
+                          ? ` | ${item.sourcePrizeTierLabel}`
+                          : ""}
+                      </div>
+                      <div className="row-sub">
+                        Status: {item.status ?? "unknown"}
+                        {item.serialNo ? ` | Serial ${item.serialNo}` : ""}
                       </div>
                     </div>
                   </div>
@@ -257,29 +290,65 @@ export function AdminShippingConsole({
               </div>
 
               <div className="grid gap-2">
-                <label className="field">
-                  <span>Status</span>
-                  <select value={status} onChange={(event) => setStatus(event.target.value as YnotShippingRequest["status"])}>
+                <div className="field">
+                  <label>Status</label>
+                  <select
+                    className="select"
+                    value={status}
+                    onChange={(event) =>
+                      setStatus(
+                        event.target.value as YnotShippingRequest["status"],
+                      )
+                    }
+                  >
                     <option value="submitted">Submitted</option>
                     <option value="packing">Packing</option>
                     <option value="shipped">Shipped</option>
                     <option value="delivered">Delivered</option>
                     <option value="cancelled">Cancelled</option>
                   </select>
-                </label>
-                <label className="field">
-                  <span>Tracking provider</span>
-                  <input value={trackingProvider} onChange={(event) => setTrackingProvider(event.target.value)} />
-                </label>
-                <label className="field">
-                  <span>Tracking number</span>
-                  <input value={trackingNumber} onChange={(event) => setTrackingNumber(event.target.value)} />
-                </label>
-                <label className="field">
-                  <span>Admin note</span>
-                  <input value={note} onChange={(event) => setNote(event.target.value)} />
-                </label>
-                <button className="btn btn-primary" type="button" disabled={isPending} onClick={submit}>
+                </div>
+                <div className="field">
+                  <label>Tracking provider</label>
+                  <input
+                    className="input"
+                    value={trackingProvider}
+                    onChange={(event) => setTrackingProvider(event.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>Tracking number</label>
+                  <input
+                    className="input"
+                    value={trackingNumber}
+                    onChange={(event) => setTrackingNumber(event.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>Admin note</label>
+                  <input
+                    className="input"
+                    placeholder={selected.adminNote ?? "Add fulfilment note"}
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                  />
+                </div>
+                {selected.customerNote ? (
+                  <div className="text-mute" style={{ fontSize: 12 }}>
+                    Customer note: {selected.customerNote}
+                  </div>
+                ) : null}
+                {selected.adminNote ? (
+                  <div className="text-mute" style={{ fontSize: 12 }}>
+                    Current admin note: {selected.adminNote}
+                  </div>
+                ) : null}
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  disabled={isPending}
+                  onClick={submit}
+                >
                   <AdminIcon name="check" />
                   Update shipping
                 </button>
@@ -301,6 +370,9 @@ export function AdminShippingConsole({
                           <div className="row-sub mono">
                             {event.trackingProvider} | {event.trackingNumber}
                           </div>
+                        ) : null}
+                        {event.note ? (
+                          <div className="row-sub">{event.note}</div>
                         ) : null}
                       </div>
                     </div>
