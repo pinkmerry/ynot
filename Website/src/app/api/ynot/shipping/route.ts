@@ -93,8 +93,11 @@ function shippingErrorMessage(message?: string) {
   if (message.includes("collection_items_required")) {
     return "Select at least one card.";
   }
+  if (message.includes("shipping_minimum_coin_value_required")) {
+    return "A total of 1,000 coins or more in selected cards is required for shipping.";
+  }
   if (message.includes("valid_shipping_address_required")) {
-    return "Choose a valid shipping address.";
+    return "Complete your recipient name, phone, and full shipping address before requesting shipping.";
   }
   if (message.includes("duplicate_collection_items")) {
     return "Each card can only be selected once.";

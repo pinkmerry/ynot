@@ -23,16 +23,28 @@ export async function PATCH(request: Request) {
   const shippingRequestId = typeof body?.shippingRequestId === "string" ? body.shippingRequestId : "";
   const status = isShippingStatus(body?.status) ? body.status : null;
   if (!shippingRequestId || !status) return Response.json({ error: "shippingRequestId and valid status are required." }, { status: 400 });
-  const trackingProvider = typeof body?.trackingProvider === "string" ? body.trackingProvider.slice(0, 120) : null;
-  const trackingNumber = typeof body?.trackingNumber === "string" ? body.trackingNumber.slice(0, 120) : null;
+  const trackingProvider =
+    typeof body?.trackingProvider === "string"
+      ? body.trackingProvider.trim().slice(0, 120)
+      : "";
+  const trackingNumber =
+    typeof body?.trackingNumber === "string"
+      ? body.trackingNumber.trim().slice(0, 120)
+      : "";
+  if (status === "shipped" && (!trackingProvider || !trackingNumber)) {
+    return Response.json(
+      { error: "Tracking provider and tracking number are required before marking a shipment shipped." },
+      { status: 400 },
+    );
+  }
   const adminNote = typeof body?.note === "string" ? body.note.slice(0, 500) : null;
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase.rpc("update_shipping_request_status", {
     p_shipping_request_id: shippingRequestId,
     p_admin_id: admin.adminId,
     p_status: status,
-    p_tracking_provider: trackingProvider,
-    p_tracking_number: trackingNumber,
+    p_tracking_provider: trackingProvider || null,
+    p_tracking_number: trackingNumber || null,
     p_admin_note: adminNote,
   });
   if (error) return Response.json({ error: error.message }, { status: 409 });

@@ -680,8 +680,8 @@ export type Database = {
         Relationships: [];
       };
       shipping_requests: {
-        Row: { id: string; public_code: string; profile_id: string; address_id: string | null; status: "draft" | "submitted" | "packing" | "shipped" | "delivered" | "cancelled"; shipping_fee_coins: number; tracking_provider: string | null; tracking_number: string | null; customer_note: string | null; admin_note: string | null; idempotency_key: string | null; created_at: string; updated_at: string };
-        Insert: { id?: string; public_code?: string; profile_id: string; address_id?: string | null; status?: "draft" | "submitted" | "packing" | "shipped" | "delivered" | "cancelled"; shipping_fee_coins?: number; tracking_provider?: string | null; tracking_number?: string | null; customer_note?: string | null; admin_note?: string | null; idempotency_key?: string | null; created_at?: string; updated_at?: string };
+        Row: { id: string; public_code: string; profile_id: string; address_id: string | null; address_snapshot: Json; status: "draft" | "submitted" | "packing" | "shipped" | "delivered" | "cancelled"; shipping_fee_coins: number; tracking_provider: string | null; tracking_number: string | null; customer_note: string | null; admin_note: string | null; idempotency_key: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; public_code?: string; profile_id: string; address_id?: string | null; address_snapshot?: Json; status?: "draft" | "submitted" | "packing" | "shipped" | "delivered" | "cancelled"; shipping_fee_coins?: number; tracking_provider?: string | null; tracking_number?: string | null; customer_note?: string | null; admin_note?: string | null; idempotency_key?: string | null; created_at?: string; updated_at?: string };
         Update: Partial<Database["public"]["Tables"]["shipping_requests"]["Insert"]>;
         Relationships: [];
       };
