@@ -228,7 +228,7 @@ test("customer campaign props hide house logic and internal prize inventory", ()
   const publicCampaignCall = between(
     dataSource,
     "const campaign = toYnotCampaign(",
-    "if (!includePrivateDetail && !campaign.openable) return [];",
+    "return [customerCampaign];",
   );
   assert.match(publicCampaignCall, /includePrivateDetail\s*\?\s*campaign\s*:\s*publicYnotCampaign\(campaign\)/);
 
@@ -390,9 +390,13 @@ test("legacy campaign card and detail disable open actions for sold-out packs", 
   assert.match(campaignCard, /const soldOut = isCampaignSoldOut\(campaign\);/);
   assert.match(campaignCard, /\{soldOut \? \(/);
   assert.match(campaignCard, />\s*Sold out\s*<\/button>/);
+  assert.match(
+    campaignCard,
+    /\{soldOut \? \(\s*<button[\s\S]*className="primary-action"[\s\S]*disabled[\s\S]*>\s*Sold out\s*<\/button>\s*\) : \(\s*<Link[\s\S]*className="primary-action"[\s\S]*href=\{`\/gacha\/\$\{campaign\.slug\}\/open`\}[\s\S]*>\s*Open\s*<\/Link>\s*\)\}/,
+  );
   assert.doesNotMatch(
     campaignCard,
-    /<Link className="primary-action" href=\{`\/gacha\/\$\{campaign\.slug\}\/open`\}>\s*Open\s*<\/Link>/,
+    /<div className="product-actions">\s*<Link className="secondary-action" href=\{`\/gacha\/\$\{campaign\.slug\}`\}>[\s\S]*?Details[\s\S]*?<\/Link>\s*<Link className="primary-action" href=\{`\/gacha\/\$\{campaign\.slug\}\/open`\}>[\s\S]*?Open[\s\S]*?<\/Link>\s*<\/div>/,
   );
 
   const campaignDetailPanel = between(
