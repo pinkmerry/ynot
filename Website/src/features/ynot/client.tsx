@@ -3256,7 +3256,7 @@ function prizeDraftTierLabel(displayTier: PrizeDisplayTier) {
 
 export function AdminCampaignForm({
   categories = [],
-  cards = [],
+  cards: cardsProp = [],
   editingCampaign,
   editingPrizes,
   editingCategoryId,
@@ -3268,6 +3268,30 @@ export function AdminCampaignForm({
   editingCategoryId?: string;
 }) {
   const router = useRouter();
+  // When the page can't load the catalog server-side (the live-pack editor skips
+  // it so getAdminCards' stock RPCs don't share the heavy dashboard slice's
+  // Cloudflare Worker subrequest budget), fetch it client-side in its own
+  // request, which has a fresh budget.
+  const [clientCards, setClientCards] = useState<CardCatalogItem[]>([]);
+  useEffect(() => {
+    if (cardsProp.length) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/ynot/admin/cards");
+        const data = (await res.json().catch(() => null)) as {
+          cards?: CardCatalogItem[];
+        } | null;
+        if (!cancelled && Array.isArray(data?.cards)) setClientCards(data.cards);
+      } catch {
+        // leave clientCards empty; the picker shows "no catalog items".
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cardsProp.length]);
+  const cards = cardsProp.length ? cardsProp : clientCards;
   const editMode = Boolean(editingCampaign);
   const defaultSeries: "pokemon" | "one_piece" =
     editingCampaign?.series ?? categories[0]?.legacySeries ?? "pokemon";
