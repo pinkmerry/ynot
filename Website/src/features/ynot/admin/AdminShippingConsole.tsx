@@ -7,6 +7,41 @@ import type { YnotShippingRequest } from "@/features/ynot/types";
 import { AdminIcon } from "./Icon";
 import { AdminPill, AdminStatusPill } from "./primitives";
 
+type AdminShippingActionStatus = Exclude<YnotShippingRequest["status"], "draft">;
+
+const shippingStatusLabels: Record<AdminShippingActionStatus, string> = {
+  submitted: "Submitted",
+  packing: "Packing",
+  shipped: "Shipped",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+};
+
+function nextShippingStatuses(
+  status: YnotShippingRequest["status"],
+): AdminShippingActionStatus[] {
+  switch (status) {
+    case "draft":
+      return ["submitted", "cancelled"];
+    case "submitted":
+      return ["submitted", "packing", "cancelled"];
+    case "packing":
+      return ["packing", "shipped", "cancelled"];
+    case "shipped":
+      return ["shipped", "delivered"];
+    case "delivered":
+      return ["delivered"];
+    case "cancelled":
+      return ["cancelled"];
+  }
+}
+
+function defaultActionStatus(
+  status: YnotShippingRequest["status"],
+): AdminShippingActionStatus {
+  return nextShippingStatuses(status)[0] ?? "submitted";
+}
+
 function formatDate(value?: string | null) {
   if (!value) return "-";
   const date = new Date(value);
@@ -63,8 +98,12 @@ export function AdminShippingConsole({
   const [selectedId, setSelectedId] = useState(requests[0]?.id ?? "");
   const selected =
     requests.find((request) => request.id === selectedId) ?? requests[0];
-  const [status, setStatus] = useState<YnotShippingRequest["status"]>(
-    selected?.status ?? "submitted",
+  const [status, setStatus] = useState<AdminShippingActionStatus>(
+    selected ? defaultActionStatus(selected.status) : "submitted",
+  );
+  const statusOptions = useMemo(
+    () => (selected ? nextShippingStatuses(selected.status) : []),
+    [selected],
   );
   const [trackingProvider, setTrackingProvider] = useState(
     selected?.trackingProvider ?? "",
@@ -78,7 +117,7 @@ export function AdminShippingConsole({
 
   function selectRequest(request: YnotShippingRequest) {
     setSelectedId(request.id);
-    setStatus(request.status);
+    setStatus(defaultActionStatus(request.status));
     setTrackingProvider(request.trackingProvider ?? "");
     setTrackingNumber(request.trackingNumber ?? "");
     setNote("");
@@ -296,16 +335,14 @@ export function AdminShippingConsole({
                     className="select"
                     value={status}
                     onChange={(event) =>
-                      setStatus(
-                        event.target.value as YnotShippingRequest["status"],
-                      )
+                      setStatus(event.target.value as AdminShippingActionStatus)
                     }
                   >
-                    <option value="submitted">Submitted</option>
-                    <option value="packing">Packing</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
+                    {statusOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {shippingStatusLabels[option]}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="field">

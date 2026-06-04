@@ -43,6 +43,14 @@ const adminShippingRoute = readFileSync(
   new URL("../src/app/api/ynot/admin/shipping/route.ts", import.meta.url),
   "utf8",
 );
+const adminShippingConsoleSource = readFileSync(
+  new URL("../src/features/ynot/admin/AdminShippingConsole.tsx", import.meta.url),
+  "utf8",
+);
+const personalInfoSource = readFileSync(
+  new URL("../src/features/ynot/cr/PersonalInfoExperience.tsx", import.meta.url),
+  "utf8",
+);
 const adminUserRouteSource = readOptionalUrl(
   new URL("../src/app/admin/users/[profileId]/page.tsx", import.meta.url),
 );
@@ -246,8 +254,33 @@ test("shipping request stores address snapshot and enforces complete address plu
 
 test("admin shipped transition requires tracking in route and database function", () => {
   assert.match(adminShippingRoute, /status === "shipped"/);
+  assert.match(adminShippingRoute, /status === "delivered"/);
   assert.match(adminShippingRoute, /Tracking provider and tracking number are required/);
   assert.match(shippingContextMigration, /shipping_tracking_required/);
+});
+
+test("admin shipping route rejects cross-origin status mutations", () => {
+  const beforeBodyParsing = sourceBefore(adminShippingRoute, "request.json()");
+
+  assert.match(beforeBodyParsing, /enforceSameOriginMutation\(request\)/);
+  assert.match(
+    beforeBodyParsing,
+    /\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*enforceSameOriginMutation\(request\)[\s\S]*if\s*\(\1\)\s*(?:return\s+\1|\{\s*return\s+\1;?\s*\})/,
+  );
+});
+
+test("admin shipping console only offers valid status transitions", () => {
+  const nextStatusesBody = functionBody(
+    adminShippingConsoleSource,
+    "nextShippingStatuses",
+  );
+
+  assert.match(nextStatusesBody, /case "submitted":[\s\S]*\["submitted", "packing", "cancelled"\]/);
+  assert.match(nextStatusesBody, /case "packing":[\s\S]*\["packing", "shipped", "cancelled"\]/);
+  assert.match(nextStatusesBody, /case "shipped":[\s\S]*\["shipped", "delivered"\]/);
+  assert.match(nextStatusesBody, /case "delivered":[\s\S]*\["delivered"\]/);
+  assert.match(nextStatusesBody, /case "cancelled":[\s\S]*\["cancelled"\]/);
+  assert.match(adminShippingConsoleSource, /statusOptions\.map/);
 });
 
 test("admin user directory links to User 360 and the detail route loads admin user history", () => {
@@ -260,11 +293,20 @@ test("admin user directory links to User 360 and the detail route loads admin us
 
 test("customer shipping history shows reward source pack and tracking details", () => {
   const orderListBlock = between(componentsSource, "export function OrderList", "export function AdminSectionShell");
+  const personalInfoShippingBlock = between(
+    personalInfoSource,
+    "function ShippingHistorySection",
+    undefined,
+  );
 
   assert.match(orderListBlock, /order\.items/);
   assert.match(orderListBlock, /sourceCampaignTitle/);
   assert.match(orderListBlock, /trackingProvider/);
   assert.match(orderListBlock, /trackingNumber/);
+  assert.match(personalInfoShippingBlock, /shippingRewardLabel\(shp\)/);
+  assert.match(personalInfoShippingBlock, /shippingSourceLabel\(shp\)/);
+  assert.match(personalInfoShippingBlock, /trackingProvider/);
+  assert.match(personalInfoShippingBlock, /trackingNumber/);
 });
 
 test("customer shipping panel requires a complete address and confirms reward lock before submit", () => {

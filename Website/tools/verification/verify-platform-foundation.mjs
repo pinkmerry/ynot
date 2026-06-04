@@ -257,7 +257,9 @@ checkText(
   /(?=[\s\S]*shipping_request_items)(?=[\s\S]*collection_items)(?=[\s\S]*profiles)(?=[\s\S]*user_addresses)(?=[\s\S]*gacha_opens)(?=[\s\S]*draw_rounds)(?=[\s\S]*audit_events)/,
   "getShipping",
 );
-check("src/app/api/ynot/admin/shipping/route.ts", "admin shipped status requires tracking", /status === "shipped"[\s\S]*Tracking provider and tracking number are required/);
+check("src/app/api/ynot/admin/shipping/route.ts", "admin shipped and delivered statuses require tracking", /status === "shipped"[\s\S]*status === "delivered"[\s\S]*Tracking provider and tracking number are required/);
+check("src/app/api/ynot/admin/shipping/route.ts", "admin shipping route rejects cross-origin status mutations", /enforceSameOriginMutation\(request\)[\s\S]*if \(crossOrigin\) return crossOrigin[\s\S]*request\.json/);
+check("src/features/ynot/admin/AdminShippingConsole.tsx", "admin shipping console limits status actions to valid transitions", /function nextShippingStatuses[\s\S]*case "submitted":[\s\S]*\["submitted", "packing", "cancelled"\][\s\S]*case "packing":[\s\S]*\["packing", "shipped", "cancelled"\][\s\S]*case "shipped":[\s\S]*\["shipped", "delivered"\][\s\S]*statusOptions\.map/);
 check("src/app/admin/users/[profileId]/page.tsx", "admin User 360 route renders user detail history", /getAdminUserDetail[\s\S]*AdminUser360/);
 const orderListSource = sliceBetween(
   "src/features/ynot/components.tsx",
@@ -265,11 +267,23 @@ const orderListSource = sliceBetween(
   "export function AdminSectionShell",
   "customer order list source slice",
 );
+const personalInfoShippingSource = sliceBetween(
+  "src/features/ynot/cr/PersonalInfoExperience.tsx",
+  "function ShippingHistorySection",
+  "",
+  "personal info shipping history source slice",
+);
 checkText(
   "customer shipping history shows item source and tracking",
   orderListSource,
   /order\.items[\s\S]*sourceCampaignTitle[\s\S]*trackingNumber/,
   "OrderList",
+);
+checkText(
+  "personal info shipment history shows item source and tracking",
+  personalInfoShippingSource,
+  /shippingRewardLabel\(shp\)[\s\S]*shippingSourceLabel\(shp\)[\s\S]*trackingNumber/,
+  "ShippingHistorySection",
 );
 const collectionConvertPanelSource = sliceBetween(
   "src/features/ynot/client.tsx",

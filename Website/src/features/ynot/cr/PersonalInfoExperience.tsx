@@ -859,6 +859,17 @@ function AddressesSection({ addresses }: { addresses: YnotAddress[] }) {
   );
 }
 
+function shippingRewardLabel(request: YnotShippingRequest) {
+  const firstItem = request.items?.[0];
+  const itemCount = request.items?.length ?? 0;
+  if (!firstItem) return "Reward details pending";
+  return `${firstItem.cardName}${itemCount > 1 ? ` +${itemCount - 1}` : ""}`;
+}
+
+function shippingSourceLabel(request: YnotShippingRequest) {
+  return request.items?.[0]?.sourceCampaignTitle ?? "Pack source pending";
+}
+
 function ShippingHistorySection({
   shipping,
 }: {
@@ -935,6 +946,15 @@ function ShippingHistorySection({
                 <strong style={{ fontSize: 13.5 }}>{shp.publicCode}</strong>
                 <small className="cr-mute" style={{ fontSize: 11 }}>
                   Created {new Date(shp.createdAt).toLocaleDateString()}
+                </small>
+              </div>
+              <div className="cr-stack" style={{ gap: 2 }}>
+                <span className="cr-eyebrow">Reward</span>
+                <span style={{ fontSize: 12.5 }}>
+                  {shippingRewardLabel(shp)}
+                </span>
+                <small className="cr-mute" style={{ fontSize: 11 }}>
+                  Pack: {shippingSourceLabel(shp)}
                 </small>
               </div>
               <div className="cr-stack" style={{ gap: 2 }}>

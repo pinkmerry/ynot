@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,8 @@ function isShippingStatus(value: unknown): value is ShippingStatus {
 
 export async function PATCH(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
   const admin = await resolveAdminSession();
   if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
   const limited = await enforceRateLimit(request, "ynot:admin:shipping", { limit: 60, windowMs: 60_000 }, admin.profileId);
@@ -31,9 +34,15 @@ export async function PATCH(request: Request) {
     typeof body?.trackingNumber === "string"
       ? body.trackingNumber.trim().slice(0, 120)
       : "";
-  if (status === "shipped" && (!trackingProvider || !trackingNumber)) {
+  if (
+    (status === "shipped" || status === "delivered") &&
+    (!trackingProvider || !trackingNumber)
+  ) {
     return Response.json(
-      { error: "Tracking provider and tracking number are required before marking a shipment shipped." },
+      {
+        error:
+          "Tracking provider and tracking number are required before marking a shipment shipped or delivered.",
+      },
       { status: 400 },
     );
   }
