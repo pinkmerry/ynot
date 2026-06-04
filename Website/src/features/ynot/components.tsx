@@ -1129,10 +1129,8 @@ export function MarketplaceExperience({
                   <strong className="marketplace-card-title">
                     {item.cardName}
                   </strong>
-                  {item.cardCertNumber ? (
-                    <span className="marketplace-card-grade">
-                      {item.cardGrade ?? "Graded"} · #{item.cardCertNumber}
-                    </span>
+                  {item.cardGrade ? (
+                    <span className="marketplace-card-grade">{item.cardGrade}</span>
                   ) : null}
                   <span className="marketplace-card-price">
                     <CoinIcon /> 0

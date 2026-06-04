@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type {
@@ -53,6 +54,7 @@ type PullRow = {
   id: string;
   cardName: string;
   cardCode: string;
+  imageUrl?: string | null;
   tier: Tier;
   status: StatusKey;
   series: string;
@@ -105,6 +107,7 @@ export function AllPullsExperience({
       id: c.id,
       cardName: c.cardName,
       cardCode: c.cardCode ?? "—",
+      imageUrl: c.imageUrl ?? null,
       tier: tierFromCollection(c),
       status: statusFromCollection(c.status),
       series: detectSeries(
@@ -126,6 +129,7 @@ export function AllPullsExperience({
           id: reward.id,
           cardName: reward.cardName,
           cardCode: reward.cardCode ?? "—",
+          imageUrl: reward.imageUrl ?? null,
           tier: tierFromReward(reward.displayTier),
           status: "owned" as StatusKey,
           series: detectSeries(open.campaignTitle),
@@ -404,9 +408,20 @@ export function AllPullsExperience({
                   width: 44,
                 }}
               >
-                <span style={{ fontSize: 8, opacity: 0.6 }}>
-                  {row.cardCode}
-                </span>
+                {row.imageUrl ? (
+                  <Image
+                    className="cr-coll-art-img"
+                    src={row.imageUrl}
+                    alt={row.cardName}
+                    fill
+                    sizes="44px"
+                    unoptimized
+                  />
+                ) : (
+                  <span style={{ fontSize: 8, opacity: 0.6 }}>
+                    {row.cardCode}
+                  </span>
+                )}
               </div>
               <div
                 className="cr-stack"

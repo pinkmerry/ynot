@@ -630,9 +630,9 @@ function CollectionTile({
       </div>
       <div className="cr-coll-body">
         <strong>{card.cardName}</strong>
-        {card.cardCertNumber ? (
+        {card.cardGrade ? (
           <small className="cr-mute" style={{ marginTop: 2 }}>
-            {card.cardGrade ?? "Graded"} · #{card.cardCertNumber}
+            {card.cardGrade}
           </small>
         ) : null}
         {card.bucket === "owned" && card.sellValueCoins > 0 && (

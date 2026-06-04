@@ -167,12 +167,45 @@ test("opening reward history carries a public image URL only", () => {
 
 test("collection card components render existing collection image URLs", () => {
   const componentsSource = readSource("../src/features/ynot/components.tsx");
+  const historyExperienceSource = readSource("../src/features/ynot/cr/HistoryExperience.tsx");
+  const collectionPageSource = readSource("../src/app/(store)/collection/page.tsx");
   const globalsSource = readSource("../src/app/globals.css");
 
   const collectionCard = componentsSource.match(/function CollectionCard[\s\S]*?^}/m)?.[0] ?? "";
   assert.match(collectionCard, /item\.imageUrl/);
   assert.match(collectionCard, /<img/);
   assert.match(collectionCard, /src=\{item\.imageUrl\}/);
+  assert.match(collectionPageSource, /HistoryExperience/);
+  assert.match(historyExperienceSource, /card\.imageUrl/);
+  assert.match(historyExperienceSource, /src=\{card\.imageUrl\}/);
   assert.match(globalsSource, /\.profile-reward-thumb/);
   assert.match(globalsSource, /\.collection-art img/);
+});
+
+test("all pulls reward history renders public image URLs", () => {
+  const allPullsSource = readSource("../src/features/ynot/cr/AllPullsExperience.tsx");
+
+  assert.match(allPullsSource, /imageUrl\?:\s*string\s*\|\s*null/);
+  assert.match(allPullsSource, /imageUrl:\s*c\.imageUrl\s*\?\?\s*null/);
+  assert.match(allPullsSource, /imageUrl:\s*reward\.imageUrl\s*\?\?\s*null/);
+  assert.match(allPullsSource, /row\.imageUrl/);
+  assert.match(allPullsSource, /src=\{row\.imageUrl\}/);
+});
+
+test("customer collection data does not expose stock cert identifiers", () => {
+  const typesSource = readSource("../src/features/ynot/types.ts");
+  const dataSource = readSource("../src/features/ynot/data.ts");
+  const componentsSource = readSource("../src/features/ynot/components.tsx");
+  const historyExperienceSource = readSource("../src/features/ynot/cr/HistoryExperience.tsx");
+  const collectionType =
+    typesSource.match(/export type YnotCollectionItem = \{[\s\S]*?export type YnotExchangeOrder/)?.[0] ??
+    "";
+  const collectionSource =
+    dataSource.match(/export async function getCollection[\s\S]*?export async function getGachaOpenHistory/)?.[0] ??
+    "";
+
+  assert.doesNotMatch(collectionType, /cardCertNumber|certNumber|gemrateId/);
+  assert.doesNotMatch(collectionSource, /cardCertNumber|cert_number|gemrateId/);
+  assert.doesNotMatch(componentsSource, /cardCertNumber/);
+  assert.doesNotMatch(historyExperienceSource, /cardCertNumber/);
 });

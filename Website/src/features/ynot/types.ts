@@ -174,7 +174,6 @@ export type YnotCollectionItem = {
   /** Identity of the specific won stock unit (overrides product-level grade). */
   cardCondition?: string | null;
   cardGradingService?: string | null;
-  cardCertNumber?: string | null;
   cardPrizeCategory?: string | null;
   cardSeries?: string | null;
   convertCoinValue?: number | null;

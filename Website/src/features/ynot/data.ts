@@ -2099,7 +2099,6 @@ export async function getCollection(
       grade: string | null;
       condition: string | null;
       gradingService: string | null;
-      certNumber: string | null;
       imageUrl: string | null;
     }
   >();
@@ -2139,7 +2138,7 @@ export async function getCollection(
       const units = await readOrEmpty("collection_stock_units", async () => {
         const { data, error } = await supabase
           .from("card_stock_units")
-          .select("id,grade,condition,grading_service,cert_number,image_url")
+          .select("id,grade,condition,grading_service,image_url")
           .in("id", stockUnitIds);
         if (error) throw error;
         return data ?? [];
@@ -2152,7 +2151,6 @@ export async function getCollection(
             grade: unit.grade ?? null,
             condition: unit.condition ?? null,
             gradingService: unit.grading_service ?? null,
-            certNumber: unit.cert_number ?? null,
             imageUrl: unit.image_url ?? null,
           });
         }
@@ -2188,7 +2186,6 @@ export async function getCollection(
       cardCondition: wonUnit?.condition ?? card?.condition ?? null,
       cardGradingService:
         wonUnit?.gradingService ?? card?.gradingService ?? null,
-      cardCertNumber: wonUnit?.certNumber ?? card?.certNumber ?? null,
       cardPrizeCategory: card?.prizeCategory ?? null,
       cardSeries: card?.series ?? null,
       imageUrl: wonUnit?.imageUrl ?? card?.photoUrl,
