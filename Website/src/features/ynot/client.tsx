@@ -11151,7 +11151,20 @@ export function AdminCampaignTable({
                     </span>
                   </td>
                   <td>{campaign.costCoins}</td>
-                  <td>{campaign.totalSlots}</td>
+                  <td>
+                    {campaign.totalSlots.toLocaleString()}
+                    {typeof campaign.remainingSlots === "number" ? (
+                      <span className="admin-pack-table-slug">
+                        {Math.max(
+                          0,
+                          campaign.totalSlots - campaign.remainingSlots,
+                        ).toLocaleString()}{" "}
+                        sold ·{" "}
+                        {Math.max(0, campaign.remainingSlots).toLocaleString()}{" "}
+                        left
+                      </span>
+                    ) : null}
+                  </td>
                   <td>{campaign.sortOrder ?? "—"}</td>
                   <td className="admin-pack-table-actions-col">
                     <a
