@@ -329,6 +329,10 @@ test("live pack re-materialization RPC locks the round and guards awarded units"
   );
   // Re-asserts the publish invariant before commit.
   assert.match(sql, /materialized_stock_must_match_planned_quantity/);
+  // seed_run_id (uuid column) must be cast from the text payload, or the insert
+  // fails with "column seed_run_id is of type uuid but expression is of type text".
+  assert.match(sql, /nullif\(btrim\(p_seed_run_id\), ''\)::uuid/);
+  assert.match(sql, /nullif\(btrim\(x\."seedRunId"\), ''\)::uuid/);
 });
 
 test("admin campaign route edits live packs in place via the RPC", () => {
