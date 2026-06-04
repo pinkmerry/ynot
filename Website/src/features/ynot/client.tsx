@@ -6620,7 +6620,7 @@ export function AdminCardForm({
   const [cardSet, setCardSet] = useState("");
   const [variant, setVariant] = useState("");
   const [catalogCategory, setCatalogCategory] =
-    useState<CatalogCategory>("single_cards");
+    useState<CatalogCategory>("Single Cards");
   const [imageUrl, setImageUrl] = useState("");
   const [imageStoragePath, setImageStoragePath] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -6814,19 +6814,12 @@ export function AdminCardForm({
                 />
               </AdminField>
               <AdminField label="Sub-category" required>
-                <select
-                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                <AdminCardOptionSelect
+                  kind="catalog_category"
                   value={catalogCategory}
-                  onChange={(event) =>
-                    setCatalogCategory(event.target.value as CatalogCategory)
-                  }
-                >
-                  {catalogCategoryOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setCatalogCategory}
+                  placeholder="Select sub-category…"
+                />
               </AdminField>
             </div>
           </section>
@@ -9110,7 +9103,7 @@ function AdminCardEditModal({
   const [cardSet, setCardSet] = useState(card.cardSet ?? "");
   const [variant, setVariant] = useState(card.variant ?? "");
   const [catalogCategory, setCatalogCategory] = useState<CatalogCategory>(
-    card.catalogCategory ?? "single_cards",
+    card.catalogCategory ?? "Single Cards",
   );
   const [imageUrl, setImageUrl] = useState(card.photoUrl ?? "");
   const [imageStoragePath, setImageStoragePath] = useState(
@@ -9289,20 +9282,16 @@ function AdminCardEditModal({
                 disabled={pending}
               />
             </div>
-            <label className="admin-field">
+            <div className="admin-field">
               <span>Prize catalog</span>
-              <select
+              <AdminCardOptionSelect
+                kind="catalog_category"
                 value={catalogCategory}
-                onChange={(e) => setCatalogCategory(e.target.value as CatalogCategory)}
+                onChange={setCatalogCategory}
+                placeholder="Select prize catalog…"
                 disabled={pending}
-              >
-                {catalogCategoryOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              />
+            </div>
             <div className="admin-field admin-field-wide admin-image-dropzone-field-wrap">
               <AdminImageDropzone
                 imageUrl={imageUrl}

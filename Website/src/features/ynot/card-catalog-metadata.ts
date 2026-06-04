@@ -1,11 +1,15 @@
 export type CardLanguage = "english" | "japanese" | "chinese";
-export type CatalogCategory =
+// Built-in catalog categories keep their slugs for fulfilment logic, but the
+// stored value is now free text (managed like sets/brands), so the public type
+// is a plain string. Use canonicalCatalogCategory() to recover a built-in slug.
+export type CatalogCategorySlug =
   | "single_cards"
   | "packs"
   | "boxes"
   | "cases"
   | "sets"
   | "supplies";
+export type CatalogCategory = string;
 export type CardCondition = "sealed" | "raw" | "graded";
 export type GradingService = "psa" | "bgs" | "cgc" | "other";
 
@@ -19,7 +23,7 @@ export const cardLanguageOptions: Array<{
 ];
 
 export const catalogCategoryOptions: Array<{
-  value: CatalogCategory;
+  value: CatalogCategorySlug;
   label: string;
 }> = [
   { value: "single_cards", label: "Single Cards" },
@@ -94,11 +98,36 @@ export function cardLanguageValue(value: unknown) {
   return optionValue(value, cardLanguageOptions);
 }
 
+const catalogCategorySlugSet = new Set<string>(
+  catalogCategoryOptions.map((option) => option.value),
+);
+const catalogCategorySlugByLabel = new Map<string, CatalogCategorySlug>(
+  catalogCategoryOptions.map((option) => [option.label.toLowerCase(), option.value]),
+);
+
+// Recover a built-in catalog slug from either the slug itself or its human
+// label (e.g. "Boxes" -> "boxes"). Custom free-text categories return null.
+export function canonicalCatalogCategory(
+  value: unknown,
+): CatalogCategorySlug | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (catalogCategorySlugSet.has(trimmed)) return trimmed as CatalogCategorySlug;
+  return catalogCategorySlugByLabel.get(trimmed.toLowerCase()) ?? null;
+}
+
+// Canonical comparison value: built-ins collapse to their slug (whether stored
+// as slug or label) so existing slug-based checks keep working; custom
+// free-text categories pass through unchanged.
 export function catalogCategoryValue(
   value: unknown,
   fallback: CatalogCategory = "single_cards",
-) {
-  return optionValue(value, catalogCategoryOptions) ?? fallback;
+): CatalogCategory {
+  const canonical = canonicalCatalogCategory(value);
+  if (canonical) return canonical;
+  if (typeof value === "string" && value.trim()) return value.trim();
+  return fallback;
 }
 
 export function cardConditionValue(
@@ -120,7 +149,10 @@ export function cardLanguageLabel(value: unknown) {
 }
 
 export function catalogCategoryLabel(value: unknown) {
-  return optionLabel(value, catalogCategoryOptions, "Single Cards");
+  const canonical = canonicalCatalogCategory(value);
+  if (canonical) return optionLabel(canonical, catalogCategoryOptions, "Single Cards");
+  // Custom free-text category — display exactly as the admin named it.
+  return typeof value === "string" && value.trim() ? value.trim() : "Single Cards";
 }
 
 export function cardConditionLabel(value: unknown) {

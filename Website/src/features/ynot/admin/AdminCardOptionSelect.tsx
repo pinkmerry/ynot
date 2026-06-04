@@ -7,7 +7,8 @@ export type CardOptionKind =
   | "variant"
   | "language"
   | "release_year"
-  | "brand";
+  | "brand"
+  | "catalog_category";
 
 type CardOption = { id: string; name: string };
 

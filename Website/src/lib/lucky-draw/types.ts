@@ -69,7 +69,7 @@ export type CardCatalogItem = Required<Pick<FeaturedCard, "catalogCardId">> &
     releaseYear?: number | null;
     cardSet?: string | null;
     variant?: string | null;
-    catalogCategory?: "single_cards" | "packs" | "boxes" | "cases" | "sets" | "supplies";
+    catalogCategory?: string;
     condition?: "sealed" | "raw" | "graded";
     gradingService?: "psa" | "bgs" | "cgc" | "other" | null;
     certNumber?: string | null;
