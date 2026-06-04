@@ -2998,30 +2998,50 @@ export async function getAdminAuditEvents({
   });
 }
 
+// Retry a transient query. Cloudflare Workers + the Supabase pooler can drop or
+// reject a request under concurrent load, which previously surfaced as an empty
+// admin catalog / "No sub-SKU stock" in the pack editor. An immediate retry
+// almost always succeeds once connections free up.
+async function retryQuery<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
 export async function getAdminCards() {
   if (!isSupabaseConfigured()) return [];
   const admin = await resolveAdminSession();
   if (!admin) return [];
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("admin_cards", async () => {
-    const cards = await getCardCatalog(supabase);
+    const cards = await retryQuery(() => getCardCatalog(supabase));
     if (!cards.length) return cards;
-    const stockRows = await readOrEmpty("card_stock_summary", async () => {
-      const { data, error } = await supabase.rpc("get_card_stock_summary", {
-        p_card_id: null,
-      });
-      if (error) throw error;
-      return cardStockSummariesFromJson(data);
-    });
+    const stockRows = await readOrEmpty("card_stock_summary", () =>
+      retryQuery(async () => {
+        const { data, error } = await supabase.rpc("get_card_stock_summary", {
+          p_card_id: null,
+        });
+        if (error) throw error;
+        return cardStockSummariesFromJson(data);
+      }),
+    );
     const stockByCard = new Map(stockRows.map((row) => [row.cardId, row]));
-    const subSkuRows = await readOrEmpty("card_stock_subsku_summary", async () => {
-      const { data, error } = await supabase.rpc(
-        "get_admin_card_stock_subsku_summary",
-        { p_card_id: null },
-      );
-      if (error) throw error;
-      return cardStockSubSkuSummariesFromJson(data);
-    });
+    const subSkuRows = await readOrEmpty("card_stock_subsku_summary", () =>
+      retryQuery(async () => {
+        const { data, error } = await supabase.rpc(
+          "get_admin_card_stock_subsku_summary",
+          { p_card_id: null },
+        );
+        if (error) throw error;
+        return cardStockSubSkuSummariesFromJson(data);
+      }),
+    );
 
     return cards.map((card) => {
       const stock = stockByCard.get(card.catalogCardId);
