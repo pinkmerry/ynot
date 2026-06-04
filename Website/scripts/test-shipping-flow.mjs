@@ -392,12 +392,10 @@ test("customer shipping history shows reward source pack and tracking details", 
 
   assert.match(orderListBlock, /order\.items/);
   assert.match(orderListBlock, /sourceCampaignTitle/);
-  assert.match(orderListBlock, /trackingProvider/);
-  assert.match(orderListBlock, /trackingNumber/);
+  assert.match(orderListBlock, /ynotShippingTrackingLabel\(order\)/);
   assert.match(personalInfoShippingBlock, /shippingRewardLabel\(shp\)/);
   assert.match(personalInfoShippingBlock, /shippingSourceLabel\(shp\)/);
-  assert.match(personalInfoShippingBlock, /trackingProvider/);
-  assert.match(personalInfoShippingBlock, /trackingNumber/);
+  assert.match(personalInfoShippingBlock, /ynotShippingTrackingLabel\(shp\)/);
 });
 
 test("customer shipping history uses friendly pickup labels instead of raw statuses", () => {

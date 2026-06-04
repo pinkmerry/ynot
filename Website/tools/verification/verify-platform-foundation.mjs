@@ -276,13 +276,13 @@ const personalInfoShippingSource = sliceBetween(
 checkText(
   "customer shipping history shows item source and tracking",
   orderListSource,
-  /order\.items[\s\S]*sourceCampaignTitle[\s\S]*trackingNumber/,
+  /order\.items[\s\S]*sourceCampaignTitle[\s\S]*ynotShippingTrackingLabel\(order\)/,
   "OrderList",
 );
 checkText(
   "personal info shipment history shows item source and tracking",
   personalInfoShippingSource,
-  /shippingRewardLabel\(shp\)[\s\S]*shippingSourceLabel\(shp\)[\s\S]*trackingNumber/,
+  /shippingRewardLabel\(shp\)[\s\S]*shippingSourceLabel\(shp\)[\s\S]*ynotShippingTrackingLabel\(shp\)/,
   "ShippingHistorySection",
 );
 const collectionConvertPanelSource = sliceBetween(

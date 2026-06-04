@@ -6,6 +6,11 @@ import type {
   YnotShippingRequest,
 } from "@/features/ynot/types";
 import {
+  isActiveYnotShippingStatus,
+  isFinalYnotShippingStatus,
+  ynotShippingTrackingLabel,
+} from "@/features/ynot/shipping-status";
+import {
   AdminCard,
   AdminCardHead,
   AdminIcon,
@@ -34,17 +39,12 @@ function shippingReward(request: YnotShippingRequest) {
   return `${first.cardName}${extra}`;
 }
 
-function trackingLabel(request: YnotShippingRequest) {
-  if (!request.trackingProvider || !request.trackingNumber) return "No tracking yet";
-  return `${request.trackingProvider} | ${request.trackingNumber}`;
-}
-
 export function AdminUser360({ detail }: { detail: YnotAdminUserDetail }) {
   const activeShipments = detail.shipping.filter(
-    (request) => request.status === "submitted" || request.status === "packing",
+    (request) => isActiveYnotShippingStatus(request.status),
   ).length;
   const shipped = detail.shipping.filter(
-    (request) => request.status === "shipped" || request.status === "delivered",
+    (request) => isFinalYnotShippingStatus(request.status),
   ).length;
   const defaultAddress = detail.addresses.find((address) => address.isDefault) ?? detail.addresses[0];
 
@@ -181,7 +181,7 @@ export function AdminUser360({ detail }: { detail: YnotAdminUserDetail }) {
                             <AdminStatusPill status={request.status} />
                           </td>
                           <td className="mono" style={{ fontSize: 11 }}>
-                            {trackingLabel(request)}
+                            {ynotShippingTrackingLabel(request)}
                           </td>
                           <td className="mono muted" style={{ fontSize: 11 }}>
                             {formatDate(request.createdAt)}
