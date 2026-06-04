@@ -7,6 +7,10 @@ const openRouteSource = readFileSync(
   new URL("../src/app/api/ynot/gacha/open/route.ts", import.meta.url),
   "utf8",
 );
+const gachaOpenPageSource = readFileSync(
+  new URL("../src/app/(store)/gacha/[campaignId]/open/page.tsx", import.meta.url),
+  "utf8",
+);
 const clientSource = readFileSync(
   new URL("../src/features/ynot/client.tsx", import.meta.url),
   "utf8",
@@ -243,6 +247,42 @@ test("customer campaign props hide house logic and internal prize inventory", ()
   assert.match(campaignCardBlock, /data-pack-id=\{showAdminEdit \? campaign\.id : campaign\.slug\}/);
 });
 
+test("public campaign list keeps sold-out packs visible but hides other not-openable packs", () => {
+  const impl = between(
+    dataSource,
+    "async function getCampaignsImpl",
+    "const getPublicCampaignsCached",
+  );
+  assert.match(
+    impl,
+    /campaigns\.filter\(\(campaign\) => campaign\.openable \|\| campaign\.soldOut\)/,
+  );
+  assert.doesNotMatch(
+    impl,
+    /campaigns\.filter\(\(campaign\) => campaign\.openable\)/,
+  );
+});
+
+test("non-admin dynamic campaign detail keeps sold-out public packs visible through public DTOs", () => {
+  const getCampaignBlock = between(
+    dataSource,
+    "export async function getCampaign",
+    "async function getPaymentMethodsImpl",
+  );
+  assert.match(
+    getCampaignBlock,
+    /const customerCampaign = includePrivateDetail \? campaign : publicYnotCampaign\(campaign\);/,
+  );
+  assert.match(
+    getCampaignBlock,
+    /if \(!includePrivateDetail && !campaign\.openable && !campaign\.soldOut\) return \[\];/,
+  );
+  assert.doesNotMatch(
+    getCampaignBlock,
+    /if \(!includePrivateDetail && !campaign\.openable\) return \[\];/,
+  );
+});
+
 test("pack-open reveal result does not expose raw internal open ids", () => {
   const resultMapper = between(
     openRouteSource,
@@ -324,6 +364,54 @@ test("pack-open browser payload uses public campaign slug and server resolves it
   assert.doesNotMatch(openRouteSource, /if \(!campaignId \|\| !isUuid\(campaignId\)\)/);
   assert.match(openRouteSource, /buildPreviewOpenResult\(resolvedCampaignId,\s*quantity\)/);
   assert.match(openRouteSource, /p_draw_round_id:\s*resolvedCampaignId/);
+});
+
+test("open page only renders auto-start reveal for openable campaigns", () => {
+  assert.match(
+    gachaOpenPageSource,
+    /if \(campaign && campaign\.openable && autoStart\)/,
+  );
+  assert.doesNotMatch(
+    gachaOpenPageSource,
+    /if \(campaign && autoStart\)/,
+  );
+  assert.match(
+    gachaOpenPageSource,
+    /if \(campaign\) \{\s*redirect\(`\/packs\/\$\{campaign\.slug\}`\);\s*\}/,
+  );
+});
+
+test("legacy campaign card and detail disable open actions for sold-out packs", () => {
+  const campaignCard = between(
+    componentsSource,
+    "export function CampaignCard",
+    "export function CampaignDetailPanel",
+  );
+  assert.match(campaignCard, /const soldOut = isCampaignSoldOut\(campaign\);/);
+  assert.match(campaignCard, /\{soldOut \? \(/);
+  assert.match(campaignCard, />\s*Sold out\s*<\/button>/);
+  assert.doesNotMatch(
+    campaignCard,
+    /<Link className="primary-action" href=\{`\/gacha\/\$\{campaign\.slug\}\/open`\}>\s*Open\s*<\/Link>/,
+  );
+
+  const campaignDetailPanel = between(
+    componentsSource,
+    "export function CampaignDetailPanel",
+    "export function RewardTierList",
+  );
+  assert.match(
+    campaignDetailPanel,
+    /const soldOut = isCampaignSoldOut\(campaign\);/,
+  );
+  assert.match(
+    campaignDetailPanel,
+    /const canOpen =\s*campaign\.demo \|\| \(!soldOut && \(campaign\.openable \|\| isDevAuthAllowed\(\)\)\);/,
+  );
+  assert.match(
+    campaignDetailPanel,
+    /const unavailableCopy = soldOut\s*\?\s*"Sold out"\s*:\s*"This pack is not ready to open yet\. Please check back later\.";/,
+  );
 });
 
 test("customer pull history does not expose raw open, reward, or campaign ids", () => {

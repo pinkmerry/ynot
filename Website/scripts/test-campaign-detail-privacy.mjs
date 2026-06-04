@@ -27,6 +27,28 @@ test("cached public detail loader returns only the public projection", () => {
   );
 });
 
+test("cached public detail loader returns sold-out campaigns through the public projection", () => {
+  const impl = sliceBetween(
+    "async function loadPublicCampaignDetailImpl",
+    "const getPublicCampaignDetailCached",
+  );
+  assert.match(
+    impl,
+    /if \(!campaign\.openable && !campaign\.soldOut\) return null;/,
+    "sold-out public packs must reach the customer detail renderer",
+  );
+  assert.doesNotMatch(
+    impl,
+    /if \(!campaign\.openable\) return null;/,
+    "sold-out public packs must not be treated as missing campaigns",
+  );
+  assert.match(
+    impl,
+    /return publicYnotCampaign\(campaign\);/,
+    "sold-out public packs must still use the public projection",
+  );
+});
+
 test("cached public detail loader excludes test campaigns", () => {
   const impl = sliceBetween(
     "async function loadPublicCampaignDetailImpl",
