@@ -1549,6 +1549,102 @@ async function canReadTestCampaign(
   return Boolean(data);
 }
 
+// Customer-facing pack detail for a public, APPROVED, NON-TEST campaign. This
+// is identical for every non-admin viewer, so it is cached by slug. The
+// function is viewer-independent on purpose: it must not read cookies/headers
+// (unstable_cache forbids that) and it returns ONLY publicYnotCampaign(...),
+// so house odds / logicMode / raw tiers / stock identity / internal UUIDs are
+// stripped before anything is cached. Admins and test-campaign testers never
+// reach this path (see getCampaign), so a private detail view can never be
+// written into or served from this shared cache.
+async function loadPublicCampaignDetailImpl(
+  slug: string,
+): Promise<YnotCampaign | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createServiceSupabaseClient();
+  const rows = await readOrEmpty("campaign_detail_public", async () => {
+    const baseSelect = () =>
+      supabase
+        .from("draw_rounds")
+        .select("*")
+        .in("status", ["live", "closed"])
+        .eq("visibility", "public")
+        .eq("is_test", false)
+        .eq("slug", slug)
+        .limit(1);
+    let { data, error } = await baseSelect().eq("approval_status", "approved");
+    if (error && isMissingColumnError(error, "approval_status")) {
+      ({ data, error } = await baseSelect());
+    }
+    if (error) throw error;
+    return data ?? [];
+  });
+  const row = rows[0];
+  if (!row) return null;
+
+  const [categories, categoryLinks, inventoryRows] = await Promise.all([
+    getStoreCategories({ includeTest: false }),
+    readOrEmpty("campaign_detail_public_categories", async () => {
+      const { data: links, error: linksError } = await supabase
+        .from("draw_round_categories")
+        .select("*")
+        .eq("draw_round_id", row.id);
+      if (linksError) throw linksError;
+      return links ?? [];
+    }),
+    readOrEmpty("campaign_detail_public_inventory", async () => {
+      const { data: inventory, error: inventoryError } = await supabase.rpc(
+        "get_draw_round_inventory_summary",
+        { p_draw_round_id: row.id, p_profile_id: null },
+      );
+      if (inventoryError) throw inventoryError;
+      return inventorySummariesFromJson(inventory);
+    }),
+  ]);
+  const categoriesById = new Map(
+    categories.map((category) => [category.id, category]),
+  );
+  const linkedCategories = categoryLinks
+    .map((link) => categoriesById.get(link.category_id))
+    .filter((category): category is YnotCategory => Boolean(category));
+  const inventory = inventoryRows[0];
+  // Public-only projection: sensitive odds, locked prizes, and stock targets
+  // are excluded here. The dynamic path (getCampaign for admins) uses
+  // includePrivateDetail to gate these same fields.
+  const publicPrizeLineup = await getPublicPrizeLineup(supabase, row, inventory, {
+    includeLocked: false,
+    includeSensitiveOdds: false,
+    includeStockTarget: false,
+  });
+  let publicReadiness: CampaignPrizeReadiness | null = null;
+  try {
+    publicReadiness = await getCampaignPrizeReadiness(supabase, row.id);
+  } catch (error) {
+    recordDataIssue("campaign_detail_public_prize_readiness", error);
+  }
+  const campaign = toYnotCampaign(
+    row,
+    linkedCategories,
+    inventory,
+    publicPrizeLineup,
+    publicReadiness,
+  );
+  if (!campaign.openable) return null;
+  return publicYnotCampaign(campaign);
+}
+
+// Tagged "campaigns" so EVERY existing admin mutation that already calls
+// revalidateTag("campaigns", "max") (publish, approve, odds, stock, lifecycle,
+// cost, reorder) busts this cache too. 30s TTL is the safety net for customer
+// opens that change stock; the open_gacha_campaign RPC remains the atomic
+// source of truth, so a briefly-stale "openable" badge cannot oversell.
+const getPublicCampaignDetailCached = (slug: string): Promise<YnotCampaign | null> =>
+  unstable_cache(
+    () => loadPublicCampaignDetailImpl(slug),
+    ["ynot-campaign-detail-public-v1", slug],
+    { tags: ["campaigns", "campaign-detail"], revalidate: 30 },
+  )();
+
 export async function getCampaign(
   campaignIdOrSlug: string,
   options: { allowTestForCurrentViewer?: boolean; viewer?: YnotViewer } = {},
@@ -1578,9 +1674,20 @@ export async function getCampaign(
     );
   }
 
+  const viewer = options.viewer ?? (await getYnotViewer());
+
+  // Non-admin viewers of a public, non-test pack (looked up by slug) get the
+  // cached public projection. Admins, UUID lookups, and test-campaign testers
+  // fall through to the dynamic per-viewer path below, so private detail is
+  // never cached or shared. Cache returns null for not-found / not-openable /
+  // test packs, which correctly falls through.
+  if (!viewer.isAdmin && !looksLikeUuid(campaignLookup)) {
+    const cached = await getPublicCampaignDetailCached(campaignLookup);
+    if (cached) return cached;
+  }
+
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("campaign_detail", async () => {
-    const viewer = options.viewer ?? (await getYnotViewer());
     const includePrivateDetail = viewer.isAdmin;
     const rawCampaignLookup = looksLikeUuid(campaignLookup);
     if (rawCampaignLookup && !includePrivateDetail) return [];

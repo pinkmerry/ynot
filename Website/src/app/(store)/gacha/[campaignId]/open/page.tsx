@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { EmptyState, PageHeader, YnotShell } from "@/features/ynot/components";
-import { GachaOpenPanel } from "@/features/ynot/client";
+import { GachaOpenPanelLazy } from "@/features/ynot/cr/GachaOpenPanelLazy";
 import { getCampaign, getTierAnimations, getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export default async function GachaOpenPage({
   if (campaign && autoStart) {
     const tierAnimations = await getTierAnimations();
     return (
-      <GachaOpenPanel
+      <GachaOpenPanelLazy
         campaign={campaign}
         authenticated={data.viewer.authenticated}
         initialQuantity={initialQuantity}
