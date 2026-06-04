@@ -29,18 +29,15 @@ function loadTsModule(path) {
   return cjsModule.exports;
 }
 
-test("public sub-SKU image helper prefers stock-unit image and falls back to catalog image", () => {
+test("public sub-SKU image helper returns only exact stock-unit images", () => {
   const helper = loadTsModule("../src/features/ynot/public-subsku-images.ts");
 
   assert.equal(
-    helper.publicSubSkuImageUrl(" https://cdn.example/unit.png ", "https://cdn.example/card.png"),
+    helper.publicSubSkuImageUrl(" https://cdn.example/unit.png "),
     "https://cdn.example/unit.png",
   );
-  assert.equal(
-    helper.publicSubSkuImageUrl("", "https://cdn.example/card.png"),
-    "https://cdn.example/card.png",
-  );
-  assert.equal(helper.publicSubSkuImageUrl(null, "   "), null);
+  assert.equal(helper.publicSubSkuImageUrl(""), null);
+  assert.equal(helper.publicSubSkuImageUrl(null), null);
 });
 
 test("public sub-SKU image helper builds server-only image maps from linked prize units", () => {
@@ -103,8 +100,10 @@ test("public pack detail prize lineups prefer linked sub-SKU images", () => {
   );
   assert.match(
     dataSource,
-    /cardImageUrl:\s*publicSubSkuImageUrl\(\s*prizeImageByPrizeId\.get\(prize\.id\),\s*card\?\.image_url\s*\?\?\s*null\s*\)/,
+    /cardImageUrl:\s*publicSubSkuImageUrl\(\s*prizeImageByPrizeId\.get\(prize\.id\)\s*\)/,
   );
+  assert.doesNotMatch(dataSource, /fetchPrizeCardUnitImages/);
+  assert.doesNotMatch(dataSource, /unitImages\.get\(prize\.card_id\)/);
 });
 
 test("public prize preview still strips internal stock and house fields", () => {
@@ -136,6 +135,7 @@ test("pack opening API resolves awarded stock-unit image without exposing intern
     routeSource,
     /\.from\("card_stock_units"\)[\s\S]*\.select\("id,image_url"\)/,
   );
+  assert.doesNotMatch(routeSource, /item\.imageUrl\s*\?\?\s*card\?\.image_url/);
   assert.doesNotMatch(publicOpenItemType, /cardId|prizeUnitId|draw_round|card_stock|tier\?:/);
   assert.doesNotMatch(toPublicOpenItem, /cardId:|prizeUnitId:|draw_round_prize_unit_id|card_stock_unit_id/);
 });
@@ -159,10 +159,34 @@ test("opening reward history carries a public image URL only", () => {
   );
   assert.match(
     historySource,
-    /imageUrl:\s*publicSubSkuImageUrl\(\s*rewardImageByOpenItemId\.get\(item\.id\),\s*card\?\.photoUrl\s*\?\?\s*null,?\s*\)/,
+    /imageUrl:\s*publicSubSkuImageUrl\(\s*rewardImageByOpenItemId\.get\(item\.id\)\s*\)/,
   );
+  assert.doesNotMatch(historySource, /wonUnit\?\.imageUrl\s*\?\?\s*card\?\.photoUrl/);
+  assert.doesNotMatch(historySource, /card\?\.photoUrl\s*\?\?\s*null/);
   assert.match(profileTabsSource, /profile-reward-thumb/);
   assert.match(profileTabsSource, /reward\.imageUrl/);
+});
+
+test("shipping history images come from the won stock unit only", () => {
+  const dataSource = readSource("../src/features/ynot/data.ts");
+  const shippingSource =
+    dataSource.match(/export async function getShipping[\s\S]*?export async function getAddresses/)?.[0] ??
+    "";
+
+  assert.match(
+    shippingSource,
+    /\.from\("draw_round_prize_units"\)[\s\S]*\.select\("collection_item_id,gacha_open_item_id,card_stock_unit_id"\)/,
+  );
+  assert.match(
+    shippingSource,
+    /\.from\("card_stock_units"\)[\s\S]*\.select\("id,image_url"\)/,
+  );
+  assert.match(shippingSource, /imageByCollectionItemId/);
+  assert.match(
+    shippingSource,
+    /imageUrl:\s*item\s*\?\s*imageByCollectionItemId\.get\(item\.id\)\s*\?\?\s*null\s*:\s*null/,
+  );
+  assert.doesNotMatch(shippingSource, /imageUrl:\s*card\?\.photoUrl/);
 });
 
 test("collection card components render existing collection image URLs", () => {

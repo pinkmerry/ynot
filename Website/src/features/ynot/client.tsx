@@ -3392,9 +3392,18 @@ export function AdminCampaignForm({
     () => new Map(campaignCatalogCards.map((card) => [card.catalogCardId, card])),
     [campaignCatalogCards],
   );
+  // True when the pack already owns inventory tied to this campaign — either
+  // reserved (pending owner review) or allocated/materialized (live/closed). In
+  // those cases the campaign's own units must count as available in the
+  // readiness check, otherwise every existing prize reports a phantom "needs N
+  // but 0 available" shortage even though its stock is already committed here.
+  const editsExistingCampaignInventory =
+    editingCampaign?.approvalStatus === "pending_review" ||
+    editingCampaign?.status === "live" ||
+    editingCampaign?.status === "closed";
   const reservedForEditingCampaignByCardId = useMemo(() => {
     const counts = new Map<string, number>();
-    if (editingCampaign?.approvalStatus !== "pending_review") return counts;
+    if (!editsExistingCampaignInventory) return counts;
     for (const prize of editingPrizes ?? []) {
       if (!prize.cardId) continue;
       counts.set(
@@ -3404,7 +3413,7 @@ export function AdminCampaignForm({
       );
     }
     return counts;
-  }, [editingCampaign?.approvalStatus, editingPrizes]);
+  }, [editsExistingCampaignInventory, editingPrizes]);
   const prizeStockSummaries = useMemo<PrizeStockSummary[]>(() => {
     const cardIds = [
       ...new Set(activePrizeDrafts.map((prize) => prize.cardId).filter(Boolean)),
@@ -3423,20 +3432,19 @@ export function AdminCampaignForm({
   const stockShortages = useMemo(
     () =>
       buildPrizeStockShortages({
-        includeReservedForCampaign:
-          editingCampaign?.approvalStatus === "pending_review",
+        includeReservedForCampaign: editsExistingCampaignInventory,
         prizes: activePrizeDrafts.map((prize) => ({
           cardId: prize.cardId,
           quantity: prizeUnitCount(prize),
         })),
         stockSummaries: prizeStockSummaries,
       }),
-    [activePrizeDrafts, editingCampaign?.approvalStatus, prizeStockSummaries],
+    [activePrizeDrafts, editsExistingCampaignInventory, prizeStockSummaries],
   );
   const stockBlockers = stockShortageBlockers(stockShortages);
   const reservedForEditingCampaignByStockKey = useMemo(() => {
     const counts = new Map<string, number>();
-    if (editingCampaign?.approvalStatus !== "pending_review") return counts;
+    if (!editsExistingCampaignInventory) return counts;
     for (const prize of editingPrizes ?? []) {
       if (!prize.cardId || !prize.intendedStockUnitKey) continue;
       const key = `${prize.cardId}\u001f${prize.intendedStockUnitKey}`;
@@ -3447,7 +3455,7 @@ export function AdminCampaignForm({
       );
     }
     return counts;
-  }, [editingCampaign?.approvalStatus, editingPrizes]);
+  }, [editsExistingCampaignInventory, editingPrizes]);
   const stockUnitShortages = useMemo<PrizeStockUnitShortage[]>(() => {
     const requiredByStockKey = new Map<
       string,
@@ -3475,10 +3483,9 @@ export function AdminCampaignForm({
         (candidate) => candidate.key === entry.groupKey,
       );
       if (!group) return [];
-      const reservedUnits =
-        editingCampaign?.approvalStatus === "pending_review"
-          ? (reservedForEditingCampaignByStockKey.get(key) ?? 0)
-          : 0;
+      const reservedUnits = editsExistingCampaignInventory
+        ? (reservedForEditingCampaignByStockKey.get(key) ?? 0)
+        : 0;
       const usableUnits = group.availableUnits + reservedUnits;
       if (entry.requiredUnits <= usableUnits) return [];
       return [
@@ -3494,7 +3501,7 @@ export function AdminCampaignForm({
   }, [
     activePrizeDrafts,
     cardsById,
-    editingCampaign?.approvalStatus,
+    editsExistingCampaignInventory,
     reservedForEditingCampaignByStockKey,
   ]);
   const stockUnitBlockers = stockUnitShortages.map(stockUnitShortageMessage);
@@ -3940,16 +3947,23 @@ export function AdminCampaignForm({
     <section className="admin-pack-form admin-pack-form-horizontal soft-card">
       <div className="admin-pack-builder-head">
         <div>
-          <span>{editMode ? "Edit random pack" : "New random pack"}</span>
+          <span>
+            {editMode ? "Edit random pack" : "New random pack"}
+            {editMode && editingCampaign?.packCode
+              ? ` · ${editingCampaign.packCode}`
+              : ""}
+          </span>
           <h3>
             {editMode
               ? `Edit "${editingCampaign?.titleEn || editingCampaign?.titleTh || "pack"}"`
               : "Create pack draft with prizes"}
           </h3>
           <p>
-            {editMode
-              ? "Update campaign fields and prize list. Saving puts the pack back to draft/private and requires fresh owner review."
-              : "Build the campaign, prize list, and owner-review readiness in one full-width workflow."}
+            {!editMode
+              ? "Build the campaign, prize list, and owner-review readiness in one full-width workflow."
+              : editingCampaign?.status === "live"
+                ? "Update fields and the prize list. Changes apply immediately to this LIVE pack — prize/slot edits re-materialize stock atomically and awarded prizes are kept. The pack stays live; no re-approval needed."
+                : "Update campaign fields and prize list. Saving puts the pack back to draft/private and requires fresh owner review."}
           </p>
         </div>
         <strong
@@ -11086,14 +11100,13 @@ export function AdminCampaignTable({
               <th>Status</th>
               <th>Price</th>
               <th>Slots</th>
-              <th>Order</th>
               <th className="admin-pack-table-actions-col">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="admin-pack-table-empty">
+                <td colSpan={7} className="admin-pack-table-empty">
                   No packs match this view.
                 </td>
               </tr>
@@ -11125,6 +11138,11 @@ export function AdminCampaignTable({
                     >
                       {campaign.titleTh || campaign.titleEn}
                     </a>
+                    {campaign.packCode ? (
+                      <span className="admin-pack-table-code">
+                        {campaign.packCode}
+                      </span>
+                    ) : null}
                     <span className="admin-pack-table-slug">
                       /{campaign.slug}
                     </span>
@@ -11142,8 +11160,20 @@ export function AdminCampaignTable({
                     </span>
                   </td>
                   <td>{campaign.costCoins}</td>
-                  <td>{campaign.totalSlots}</td>
-                  <td>{campaign.sortOrder ?? "—"}</td>
+                  <td>
+                    {campaign.totalSlots.toLocaleString()}
+                    {typeof campaign.remainingSlots === "number" ? (
+                      <span className="admin-pack-table-slug">
+                        {Math.max(
+                          0,
+                          campaign.totalSlots - campaign.remainingSlots,
+                        ).toLocaleString()}{" "}
+                        sold ·{" "}
+                        {Math.max(0, campaign.remainingSlots).toLocaleString()}{" "}
+                        left
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="admin-pack-table-actions-col">
                     <a
                       href={`/gacha/${campaign.slug}`}

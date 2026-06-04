@@ -15,11 +15,8 @@ function cleanText(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-export function publicSubSkuImageUrl(
-  stockUnitImageUrl: unknown,
-  fallbackImageUrl: unknown,
-) {
-  return cleanText(stockUnitImageUrl) ?? cleanText(fallbackImageUrl);
+export function publicSubSkuImageUrl(stockUnitImageUrl: unknown) {
+  return cleanText(stockUnitImageUrl);
 }
 
 function stockUnitImageById(stockUnits: PublicStockUnitImageRow[]) {

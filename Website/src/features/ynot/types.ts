@@ -10,6 +10,7 @@ export type YnotViewer = {
 export type YnotCampaign = {
   id: string;
   slug: string;
+  packCode?: string | null;
   status: "draft" | "live" | "closed" | "archived";
   approvalStatus?: YnotApprovalStatus;
   titleTh: string;

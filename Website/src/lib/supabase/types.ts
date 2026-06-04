@@ -213,6 +213,7 @@ export type Database = {
           title_en: string;
           price_thb: number;
           total_slots: number;
+          pack_code: string | null;
           order_code_prefix: string;
           facebook_live_url: string | null;
           youtube_embed_url: string | null;
@@ -263,6 +264,7 @@ export type Database = {
           title_en: string;
           price_thb: number;
           total_slots: number;
+          pack_code?: string | null;
           order_code_prefix?: string;
           facebook_live_url?: string | null;
           youtube_embed_url?: string | null;

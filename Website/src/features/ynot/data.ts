@@ -612,10 +612,7 @@ async function getPublicPrizeLineupsBatch(
           cardId: prize.card_id,
           cardCode: card?.card_code ?? null,
           cardGrade: card?.grade ?? null,
-          cardImageUrl: publicSubSkuImageUrl(
-            prizeImageByPrizeId.get(prize.id),
-            card?.image_url ?? null
-          ),
+          cardImageUrl: publicSubSkuImageUrl(prizeImageByPrizeId.get(prize.id)),
           cardImageStoragePath: card?.image_storage_path ?? null,
           cardPrizeCategory: card?.prize_category ?? null,
           cardName: card?.name ?? "Mystery reward",
@@ -708,10 +705,7 @@ async function getPublicPrizeLineup(
         cardId: prize.card_id,
         cardCode: card?.card_code ?? null,
         cardGrade: card?.grade ?? null,
-        cardImageUrl: publicSubSkuImageUrl(
-          prizeImageByPrizeId.get(prize.id),
-          card?.image_url ?? null
-        ),
+        cardImageUrl: publicSubSkuImageUrl(prizeImageByPrizeId.get(prize.id)),
         cardImageStoragePath: card?.image_storage_path ?? null,
         cardPrizeCategory: card?.prize_category ?? null,
         cardName: card?.name ?? "Mystery reward",
@@ -851,6 +845,7 @@ function toYnotCampaign(
     openable,
     soldOut,
     adminRemoved,
+    packCode: row.pack_code,
     sortOrder: row.sort_order,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
@@ -2188,7 +2183,7 @@ export async function getCollection(
         wonUnit?.gradingService ?? card?.gradingService ?? null,
       cardPrizeCategory: card?.prizeCategory ?? null,
       cardSeries: card?.series ?? null,
-      imageUrl: wonUnit?.imageUrl ?? card?.photoUrl,
+      imageUrl: wonUnit?.imageUrl ?? null,
       status: item.status,
       serialNo: item.serial_no,
       acquiredAt: item.acquired_at,
@@ -2347,10 +2342,7 @@ export async function getGachaOpenHistory(
         id: `${publicCode}-${item.result_position ?? index + 1}`,
         cardName: card?.name ?? "Mystery reward",
         cardCode: card?.code,
-        imageUrl: publicSubSkuImageUrl(
-          rewardImageByOpenItemId.get(item.id),
-          card?.photoUrl ?? null,
-        ),
+        imageUrl: publicSubSkuImageUrl(rewardImageByOpenItemId.get(item.id)),
         displayTier,
         valueThb: item.value_thb,
         resultPosition: item.result_position,
@@ -2575,17 +2567,40 @@ export async function getShipping(
         })
       : [];
     const sourceOpenItemIdByCollectionItem = new Map<string, string>();
+    const imageByCollectionItemId = new Map<string, string>();
     if (collectionItemIds.length) {
       const prizeUnitRows = await readOrEmpty(
         "shipping_prize_units",
         async () => {
           const { data, error } = await supabase
             .from("draw_round_prize_units")
-            .select("collection_item_id,gacha_open_item_id")
+            .select("collection_item_id,gacha_open_item_id,card_stock_unit_id")
             .in("collection_item_id", collectionItemIds);
           if (error) throw error;
           return data ?? [];
         },
+      );
+      const stockUnitIds = [
+        ...new Set(
+          prizeUnitRows
+            .map((row) => row.card_stock_unit_id)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ];
+      const stockUnits = stockUnitIds.length
+        ? await readOrEmpty("shipping_stock_unit_images", async () => {
+            const { data, error } = await supabase
+              .from("card_stock_units")
+              .select("id,image_url")
+              .in("id", stockUnitIds);
+            if (error) throw error;
+            return data ?? [];
+          })
+        : [];
+      const stockImageById = new Map(
+        stockUnits
+          .filter((unit) => unit.id && unit.image_url)
+          .map((unit) => [unit.id, unit.image_url as string]),
       );
       for (const row of prizeUnitRows) {
         if (row.collection_item_id && row.gacha_open_item_id) {
@@ -2593,6 +2608,12 @@ export async function getShipping(
             row.collection_item_id,
             row.gacha_open_item_id,
           );
+        }
+        const imageUrl = row.card_stock_unit_id
+          ? stockImageById.get(row.card_stock_unit_id)
+          : null;
+        if (row.collection_item_id && imageUrl) {
+          imageByCollectionItemId.set(row.collection_item_id, imageUrl);
         }
       }
     }
@@ -2700,7 +2721,7 @@ export async function getShipping(
       group.push({
         cardName: card?.name ?? "Mystery card",
         cardCode: card?.code ?? null,
-        imageUrl: card?.photoUrl ?? null,
+        imageUrl: item ? imageByCollectionItemId.get(item.id) ?? null : null,
         status: item?.status ?? null,
         serialNo: item?.serial_no ?? null,
         acquiredAt: item?.acquired_at ?? null,
@@ -3282,10 +3303,7 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         cardName: card?.name ?? "Card",
         cardCode: card?.card_code ?? null,
         cardGrade: card?.grade ?? null,
-        cardImageUrl: publicSubSkuImageUrl(
-          prizeImageByPrizeId.get(prize.id),
-          card?.image_url ?? null
-        ),
+        cardImageUrl: publicSubSkuImageUrl(prizeImageByPrizeId.get(prize.id)),
         cardImageStoragePath: card?.image_storage_path ?? null,
         cardPrizeCategory: card?.prize_category ?? null,
         tier: prize.tier,
