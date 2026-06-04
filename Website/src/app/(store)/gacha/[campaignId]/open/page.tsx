@@ -20,7 +20,7 @@ export default async function GachaOpenPage({
   const campaign = await getCampaign(campaignId, { allowTestForCurrentViewer: true, viewer: data.viewer });
   const initialQuantity = Math.max(1, Math.min(100, Math.round(Number(query.qty) || 1)));
   const autoStart = query.auto === "1";
-  if (campaign && autoStart) {
+  if (campaign && campaign.openable && autoStart) {
     const tierAnimations = await getTierAnimations();
     return (
       <GachaOpenPanelLazy
