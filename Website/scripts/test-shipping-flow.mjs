@@ -54,6 +54,9 @@ const personalInfoSource = readFileSync(
 const adminUserRouteSource = readOptionalUrl(
   new URL("../src/app/admin/users/[profileId]/page.tsx", import.meta.url),
 );
+const adminUser360Source = readOptionalUrl(
+  new URL("../src/features/ynot/admin/AdminUser360.tsx", import.meta.url),
+);
 const shippingContextMigration = readOptionalUrl(
   new URL("../../Database/supabase/migrations/20260604100000_shipping_operations_context.sql", import.meta.url),
 );
@@ -412,6 +415,23 @@ test("customer shipping history uses friendly pickup labels instead of raw statu
   assert.match(orderListBlock, /ynotShippingStatusCustomerLabel/);
   assert.match(personalInfoShippingBlock, /ynotShippingStatusCustomerLabel/);
   assert.doesNotMatch(personalInfoShippingBlock, /shp\.status\.replace\(/);
+  assert.match(personalInfoShippingBlock, /label: "Completed"/);
+  assert.doesNotMatch(personalInfoShippingBlock, /label: "Delivered"/);
+});
+
+test("shipping audit history uses friendly pickup status labels", () => {
+  const timelineLabelBody = functionBody(dataSource, "shippingTimelineLabel");
+  const adminUserTimelineBlock = between(
+    adminUser360Source,
+    "Support timeline",
+    "</AdminCard>",
+  );
+
+  assert.match(timelineLabelBody, /status === "ready_for_pickup"[\s\S]*Marked ready for pickup/);
+  assert.match(timelineLabelBody, /status === "picked_up"[\s\S]*Marked picked up/);
+  assert.match(adminUserTimelineBlock, /ynotShippingStatusLabel\(event\.previousStatus\)/);
+  assert.match(adminUserTimelineBlock, /ynotShippingStatusLabel\(event\.status\)/);
+  assert.doesNotMatch(adminUserTimelineBlock, /event\.previousStatus \? `\$\{event\.previousStatus\} -> `/);
 });
 
 test("customer shipping panel requires a complete address and confirms reward lock before submit", () => {

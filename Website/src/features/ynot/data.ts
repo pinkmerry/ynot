@@ -2361,6 +2361,8 @@ function shippingTimelineLabel(eventType: string, status?: string | null) {
   if (eventType === "shipping_submitted") return "Shipping requested";
   if (eventType === "shipping_status_updated") {
     if (status === "packing") return "Marked packing";
+    if (status === "ready_for_pickup") return "Marked ready for pickup";
+    if (status === "picked_up") return "Marked picked up";
     if (status === "shipped") return "Marked shipped";
     if (status === "delivered") return "Marked delivered";
     if (status === "cancelled") return "Cancelled";

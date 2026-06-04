@@ -880,11 +880,11 @@ function ShippingHistorySection({
 }: {
   shipping: YnotShippingRequest[];
 }) {
-  const [filter, setFilter] = useState<"all" | "open" | "delivered">("all");
+  const [filter, setFilter] = useState<"all" | "open" | "completed">("all");
 
   const filtered = shipping.filter((shp) => {
     if (filter === "all") return true;
-    if (filter === "delivered") return isFinalYnotShippingStatus(shp.status);
+    if (filter === "completed") return isFinalYnotShippingStatus(shp.status);
     return !isFinalYnotShippingStatus(shp.status);
   });
 
@@ -900,8 +900,8 @@ function ShippingHistorySection({
             [
               { id: "all", label: "All" },
               { id: "open", label: "In progress" },
-              { id: "delivered", label: "Delivered" },
-            ] as { id: "all" | "open" | "delivered"; label: string }[]
+              { id: "completed", label: "Completed" },
+            ] as { id: "all" | "open" | "completed"; label: string }[]
           ).map((f) => (
             <button
               key={f.id}

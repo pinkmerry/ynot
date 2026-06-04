@@ -8,6 +8,7 @@ import type {
 import {
   isActiveYnotShippingStatus,
   isFinalYnotShippingStatus,
+  ynotShippingStatusLabel,
   ynotShippingTrackingLabel,
 } from "@/features/ynot/shipping-status";
 import {
@@ -340,8 +341,8 @@ export function AdminUser360({ detail }: { detail: YnotAdminUserDetail }) {
                     <strong>{event.label}</strong>
                     <div className="row-sub">{formatDate(event.createdAt)}</div>
                     <div className="row-sub">
-                      {event.previousStatus ? `${event.previousStatus} -> ` : ""}
-                      {event.status ?? "status unchanged"}
+                      {event.previousStatus ? `${ynotShippingStatusLabel(event.previousStatus)} -> ` : ""}
+                      {event.status ? ynotShippingStatusLabel(event.status) : "status unchanged"}
                     </div>
                     {event.trackingNumber ? (
                       <div className="row-sub mono">
