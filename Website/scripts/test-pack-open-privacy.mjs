@@ -155,6 +155,26 @@ test("pack-open API response is mapped through a public result shape", () => {
   assert.doesNotMatch(publicItem, /weight/);
   assert.doesNotMatch(publicItem, /unlockAtSoldPct/);
   assert.doesNotMatch(publicItem, /soldPct/);
+  // Raw prize tier ("high"/"normal") must never ship to customers; only the
+  // customer-facing displayTier rarity may travel in the public open item.
+  assert.doesNotMatch(publicItem, /\btier:/);
+  assert.match(publicItem, /displayTier:/);
+
+  const publicItemType = between(
+    openRouteSource,
+    "type PublicOpenItem = {",
+    "type PublicOpenResult = {",
+  );
+  assert.doesNotMatch(publicItemType, /\btier:/);
+  assert.match(publicItemType, /displayTier:/);
+
+  const openItemType = between(
+    typesSource,
+    "export type YnotGachaOpenItem",
+    "export type YnotGachaOpenResult",
+  );
+  assert.doesNotMatch(openItemType, /\btier:/);
+  assert.match(openItemType, /displayTier:/);
 
   const postHandler = between(
     openRouteSource,
@@ -180,6 +200,10 @@ test("customer campaign props hide house logic and internal prize inventory", ()
   assert.doesNotMatch(publicPrize, /tierRank:/);
   assert.doesNotMatch(publicPrize, /sourceType:/);
   assert.doesNotMatch(publicPrize, /intendedStock/);
+  // Raw weighting-class tier must not ship to customers; displayTier carries
+  // the customer-facing rarity instead.
+  assert.doesNotMatch(publicPrize, /\btier:/);
+  assert.match(publicPrize, /displayTier:/);
 
   const publicCampaign = between(
     dataSource,
@@ -313,6 +337,18 @@ test("customer pull history does not expose raw open, reward, or campaign ids", 
   assert.doesNotMatch(historyMapper, /id:\s*item\.id/);
   assert.match(historyMapper, /id:\s*publicCode/);
   assert.match(historyMapper, /id:\s*`\$\{publicCode\}-\$\{item\.result_position \?\? index \+ 1\}`/);
+  // Reward rarity must travel as a customer-safe displayTier, never the raw
+  // "high"/"normal" prize tier read straight off the open item.
+  assert.doesNotMatch(historyMapper, /tier:\s*item\.tier/);
+  assert.match(historyMapper, /displayTier/);
+
+  const openRewardType = between(
+    typesSource,
+    "export type YnotGachaOpenReward",
+    "export type YnotGachaOpenHistory",
+  );
+  assert.doesNotMatch(openRewardType, /\btier\?:/);
+  assert.match(openRewardType, /displayTier\?:/);
 
   const openHistoryType = between(
     typesSource,

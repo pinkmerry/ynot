@@ -819,9 +819,10 @@ function publicPrizePreview(prize: YnotPrizePreview, index: number): YnotPrizePr
     cardCode: prize.cardCode,
     cardGrade: prize.cardGrade,
     cardImageUrl: prize.cardImageUrl,
+    // Raw prize tier ("high"/"normal") is intentionally omitted; customers see
+    // rarity only through displayTier / displayTierLabel below.
     cardPrizeCategory: prize.cardPrizeCategory,
     cardName: prize.cardName,
-    tier: prize.tier,
     rank: index + 1,
     valueThb: prize.valueThb,
     convertCoinValue: prize.convertCoinValue,
@@ -2188,6 +2189,37 @@ export async function getGachaOpenHistory(
     }),
   ]);
 
+  // Join the source prize so rewards can carry an accurate customer-facing
+  // displayTier (rainbow/gold/silver/bronze) instead of the raw "high"/"normal"
+  // weighting class. Mirrors how getCollection resolves prize display tiers.
+  const prizeIds = Array.from(
+    new Set(
+      items
+        .map((item) => item.draw_round_prize_id)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+  const prizesById = new Map<
+    string,
+    Pick<
+      Database["public"]["Tables"]["draw_round_prizes"]["Row"],
+      "id" | "tier" | "rank" | "metadata"
+    >
+  >();
+  if (prizeIds.length) {
+    const prizes = await readOrEmpty("gacha_history_source_prizes", async () => {
+      const { data, error } = await supabase
+        .from("draw_round_prizes")
+        .select("id,tier,rank,metadata")
+        .in("id", prizeIds);
+      if (error) throw error;
+      return data ?? [];
+    });
+    for (const prize of prizes ?? []) {
+      prizesById.set(prize.id, prize);
+    }
+  }
+
   const cardsById = new Map(cards.map((card) => [card.catalogCardId, card]));
   const campaignsById = new Map(
     campaigns.map((campaign) => [campaign.id, campaign]),
@@ -2204,11 +2236,17 @@ export async function getGachaOpenHistory(
     const campaign = campaignsById.get(open.draw_round_id);
     const rewards = (itemsByOpenId.get(open.id) ?? []).map((item, index) => {
       const card = cardsById.get(item.card_id);
+      const prize = item.draw_round_prize_id
+        ? prizesById.get(item.draw_round_prize_id)
+        : undefined;
+      const displayTier = prize
+        ? displayTierFromPrizeMetadata(prize)
+        : prizeDisplayTierValue(item.tier);
       return {
         id: `${publicCode}-${item.result_position ?? index + 1}`,
         cardName: card?.name ?? "Mystery reward",
         cardCode: card?.code,
-        tier: item.tier,
+        displayTier,
         valueThb: item.value_thb,
         resultPosition: item.result_position,
       };

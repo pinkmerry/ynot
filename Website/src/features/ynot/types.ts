@@ -223,7 +223,7 @@ export type YnotGachaOpenReward = {
   id: string;
   cardName: string;
   cardCode?: string | null;
-  tier?: string | null;
+  displayTier?: "rainbow" | "gold" | "silver" | "bronze" | null;
   valueThb?: number | null;
   resultPosition: number;
 };
@@ -244,7 +244,6 @@ export type YnotGachaOpenHistory = {
 export type YnotGachaOpenItem = {
   name: string;
   imageUrl: string | null;
-  tier: "normal" | "high" | string;
   displayTier: "rainbow" | "gold" | "silver" | "bronze";
   valueThb: number | null;
   position: number;
@@ -277,7 +276,7 @@ export type YnotPrizePreview = {
   cardImageStoragePath?: string | null;
   cardPrizeCategory?: string | null;
   cardName: string;
-  tier: "normal" | "high";
+  tier?: "normal" | "high";
   rank: number;
   valueThb?: number | null;
   convertCoinValue?: number;

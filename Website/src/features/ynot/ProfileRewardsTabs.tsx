@@ -182,7 +182,7 @@ export function ProfileRewardsTabs({
                     <div>
                       <strong>{reward.cardName}</strong>
                       <em>
-                        {reward.tier ?? "reward"} · {reward.openCode} ·{" "}
+                        {reward.displayTier ?? "reward"} · {reward.openCode} ·{" "}
                         {formatDate(reward.openedAt)}
                       </em>
                     </div>

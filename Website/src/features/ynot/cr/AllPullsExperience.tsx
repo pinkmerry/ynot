@@ -126,7 +126,7 @@ export function AllPullsExperience({
           id: reward.id,
           cardName: reward.cardName,
           cardCode: reward.cardCode ?? "—",
-          tier: tierFromReward(reward.tier),
+          tier: tierFromReward(reward.displayTier),
           status: "owned" as StatusKey,
           series: detectSeries(open.campaignTitle),
           fromPack: open.campaignTitle,

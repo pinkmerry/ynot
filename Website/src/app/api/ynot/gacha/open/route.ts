@@ -42,7 +42,6 @@ type PublicDisplayTier = "rainbow" | "gold" | "silver" | "bronze";
 type PublicOpenItem = {
   name: string;
   imageUrl: string | null;
-  tier: string;
   displayTier: PublicDisplayTier;
   valueThb: number | null;
   position: number;
@@ -131,11 +130,12 @@ async function resolveOpenCampaignId(campaignId: string, profileId: string) {
 }
 
 function toPublicOpenItem(item: RawOpenItem, index: number): PublicOpenItem {
+  // Derive the customer-facing rarity from the raw tier internally, but never
+  // ship the raw "high"/"normal" prize tier to customers.
   const tier = readString(item.tier, "normal");
   return {
     name: readString(item.name, "Mystery card"),
     imageUrl: typeof item.imageUrl === "string" && item.imageUrl ? item.imageUrl : null,
-    tier,
     displayTier: normalizeDisplayTier(item.displayTier, tier),
     valueThb: readNumber(item.valueThb),
     position: readPositiveInteger(item.position, index + 1),
