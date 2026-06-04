@@ -1757,7 +1757,11 @@ const getPublicCampaignDetailCached = (slug: string): Promise<YnotCampaign | nul
 
 export async function getCampaign(
   campaignIdOrSlug: string,
-  options: { allowTestForCurrentViewer?: boolean; viewer?: YnotViewer } = {},
+  options: {
+    allowTestForCurrentViewer?: boolean;
+    bypassPublicCache?: boolean;
+    viewer?: YnotViewer;
+  } = {},
 ) {
   const campaignLookup = campaignIdOrSlug.trim();
   if (!options.allowTestForCurrentViewer) {
@@ -1786,12 +1790,10 @@ export async function getCampaign(
 
   const viewer = options.viewer ?? (await getYnotViewer());
 
-  // Non-admin viewers of a public, non-test pack (looked up by slug) get the
-  // cached public projection. Admins, UUID lookups, and test-campaign testers
-  // fall through to the dynamic per-viewer path below, so private detail is
-  // never cached or shared. Cache returns null for not-found / not-visible /
-  // test packs, which correctly falls through.
-  if (!viewer.isAdmin && !looksLikeUuid(campaignLookup)) {
+  // Non-admin viewers of a public, non-test pack (looked up by slug) usually
+  // get the cached public projection. Open-entry pages can opt out so stale
+  // cached openable state cannot auto-start a sold-out pack.
+  if (!options.bypassPublicCache && !viewer.isAdmin && !looksLikeUuid(campaignLookup)) {
     const cached = await getPublicCampaignDetailCached(campaignLookup);
     if (cached) return cached;
   }
