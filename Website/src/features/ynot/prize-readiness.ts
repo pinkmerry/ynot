@@ -17,6 +17,7 @@ import {
   type PrizeStockSummary,
   type StockReadinessPrize,
 } from "./stock-readiness";
+import { aggregateNonVoidPrizeUnitCounts } from "./prize-unit-counts";
 
 type SupabaseClient = ReturnType<typeof createServiceSupabaseClient>;
 type DrawRoundRow = Database["public"]["Tables"]["draw_rounds"]["Row"];
@@ -264,22 +265,6 @@ async function getPrizeStockSummaryRows(
       stockSubSkuSummariesFromJson(response.data),
     ),
   };
-}
-
-async function countPrizeUnits(
-  supabase: SupabaseClient,
-  prizeId: string,
-  status?: Database["public"]["Tables"]["draw_round_prize_units"]["Row"]["status"],
-) {
-  let query = supabase
-    .from("draw_round_prize_units")
-    .select("id", { count: "exact", head: true })
-    .eq("draw_round_prize_id", prizeId);
-  if (status) query = query.eq("status", status);
-  else query = query.neq("status", "void");
-  const { count, error } = await query;
-  if (error) throw error;
-  return count ?? 0;
 }
 
 async function countCampaignReservations(
@@ -618,14 +603,19 @@ export async function getCampaignPrizeReadiness(
   const nonVoidUnitsByPrizeId = new Map<string, number>();
 
   if (!usePlannedInventory) {
-    const prizeUnitCounts = await Promise.all(
-      prizeIds.map(async (prizeId) => {
-        const [nonVoidCount, availableCount] = await Promise.all([
-          countPrizeUnits(supabase, prizeId),
-          countPrizeUnits(supabase, prizeId, "available"),
-        ]);
-        return { prizeId, nonVoidCount, availableCount };
-      }),
+    // One bulk read of non-void units for the whole campaign, aggregated in
+    // memory, instead of 2 count(*) round-trips per prize. The old loop was the
+    // N+1 storm that dominated customer pack-detail latency. Uses the
+    // draw_round_prize_units_round_status_idx (draw_round_id, status) index.
+    const { data: unitRows, error: unitRowsError } = await supabase
+      .from("draw_round_prize_units")
+      .select("draw_round_prize_id,status")
+      .eq("draw_round_id", campaignId)
+      .neq("status", "void");
+    if (unitRowsError) throw unitRowsError;
+    const prizeUnitCounts = aggregateNonVoidPrizeUnitCounts(
+      prizeIds,
+      unitRows ?? [],
     );
 
     for (const { prizeId, nonVoidCount, availableCount } of prizeUnitCounts) {
