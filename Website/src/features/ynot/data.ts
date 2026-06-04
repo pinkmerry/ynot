@@ -3071,6 +3071,35 @@ export async function getAdminCards() {
   });
 }
 
+// Admin prize lineup for a single campaign, loaded on its own so the pack
+// editor can fetch it client-side. The full dashboard slice loads inventory +
+// readiness for a live pack (many materialized units) and can exhaust the
+// Cloudflare Worker subrequest budget before the lineup query runs, leaving the
+// editor with an empty lineup. This path is light (~3 queries) and runs in its
+// own request with a fresh budget.
+export async function getAdminCampaignPrizeLineup(
+  campaignId: string,
+): Promise<YnotPrizePreview[]> {
+  if (!isSupabaseConfigured()) return [];
+  const admin = await resolveAdminSession();
+  if (!admin) return [];
+  const supabase = createServiceSupabaseClient();
+  return readOrEmpty("admin_campaign_prize_lineup", async () => {
+    const { data: row, error } = await retryQuery(async () =>
+      supabase.from("draw_rounds").select("*").eq("id", campaignId).maybeSingle(),
+    );
+    if (error) throw error;
+    if (!row) return [];
+    return retryQuery(() =>
+      getPublicPrizeLineup(supabase, row as DrawRoundRow, undefined, {
+        includeLocked: true,
+        includeSensitiveOdds: true,
+        includeStockTarget: true,
+      }),
+    );
+  });
+}
+
 export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
   if (!isSupabaseConfigured()) return [];
   const admin = await resolveAdminSession();

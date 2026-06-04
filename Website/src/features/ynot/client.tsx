@@ -3254,46 +3254,52 @@ function prizeDraftTierLabel(displayTier: PrizeDisplayTier) {
   return `${prizeDisplayTierLabel(displayTier)} tier`;
 }
 
-// Loads the admin catalog client-side, then mounts the editor. The pack editor
-// page can't fetch getAdminCards server-side: the heavy prize-lineup dashboard
-// slice exhausts the Cloudflare Worker subrequest budget for that request, which
-// starves getAdminCards' stock RPCs and empties the catalog. Fetching here is a
-// separate request with its own budget, and waiting for the catalog before
-// mounting the form means each saved prize resolves its real category + sub-SKU
-// stock on first render.
+// Loads the admin catalog AND the campaign's saved prize lineup client-side,
+// then mounts the editor. Neither can be fetched reliably in the editor page's
+// server request: the dashboard slice loads a live pack's inventory + readiness
+// (many materialized units) and exhausts the Cloudflare Worker subrequest
+// budget, so getAdminCards' stock RPCs and the prize-lineup query both come back
+// empty (blank catalog + a default prize template). Each fetch here is its own
+// request with a fresh budget, and we wait for both before mounting the form so
+// every saved prize resolves its real card, category and sub-SKU stock on the
+// first render.
 export function AdminCampaignEditForm({
   categories,
   editingCampaign,
-  editingPrizes,
   editingCategoryId,
 }: {
   categories?: YnotCategory[];
   editingCampaign: YnotCampaign;
-  editingPrizes: YnotPrizePreview[];
   editingCategoryId?: string;
 }) {
   const [cards, setCards] = useState<CardCatalogItem[] | null>(null);
+  const [prizes, setPrizes] = useState<YnotPrizePreview[] | null>(null);
+  const campaignId = editingCampaign.id;
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      let loaded: CardCatalogItem[] = [];
-      try {
-        const res = await fetch("/api/ynot/admin/cards");
-        const data = (await res.json().catch(() => null)) as {
-          cards?: CardCatalogItem[];
-        } | null;
-        if (Array.isArray(data?.cards)) loaded = data.cards;
-      } catch {
-        loaded = [];
-      }
-      if (!cancelled) setCards(loaded);
+      const [cardsData, lineupData] = await Promise.all([
+        fetch("/api/ynot/admin/cards")
+          .then((res) => res.json())
+          .catch(() => null) as Promise<{ cards?: CardCatalogItem[] } | null>,
+        fetch(`/api/ynot/admin/campaigns/${campaignId}/lineup`)
+          .then((res) => res.json())
+          .catch(() => null) as Promise<{
+          prizeLineup?: YnotPrizePreview[];
+        } | null>,
+      ]);
+      if (cancelled) return;
+      setCards(Array.isArray(cardsData?.cards) ? cardsData.cards : []);
+      setPrizes(
+        Array.isArray(lineupData?.prizeLineup) ? lineupData.prizeLineup : [],
+      );
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [campaignId]);
 
-  if (cards === null) {
+  if (cards === null || prizes === null) {
     return (
       <p className="admin-card-catalog-empty-usage">Loading prize catalog…</p>
     );
@@ -3304,7 +3310,7 @@ export function AdminCampaignEditForm({
       categories={categories}
       cards={cards}
       editingCampaign={editingCampaign}
-      editingPrizes={editingPrizes}
+      editingPrizes={prizes}
       editingCategoryId={editingCategoryId}
     />
   );

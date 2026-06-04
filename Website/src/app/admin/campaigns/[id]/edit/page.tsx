@@ -19,19 +19,18 @@ export default async function EditCampaignPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // Do NOT load the admin catalog (getAdminCards) here. The prize-lineup
-  // dashboard slice already consumes much of the Cloudflare Worker subrequest
-  // budget for this request; running getAdminCards' stock RPCs in the same
-  // request starved them and emptied the catalog ("No catalog items" / "No
-  // sub-SKU stock"). AdminCampaignForm fetches the catalog client-side instead,
-  // in its own request with a fresh budget.
+  // Keep this request light: only the campaign header + categories load here
+  // (for the status gate and title). The admin catalog AND the prize lineup are
+  // both fetched client-side by AdminCampaignEditForm, each in its own request
+  // with a fresh Cloudflare Worker subrequest budget. Loading the catalog stock
+  // RPCs or a live pack's heavy prize-lineup/inventory in this same request
+  // exhausted the budget and emptied the catalog / prize list.
   const data = await getYnotDashboardSlice({
     campaigns: true,
     campaignVisibility: "admin",
     campaignIdOrSlug: id,
     campaignLimit: 1,
     categories: true,
-    campaignPrizeLineups: true,
   });
   const campaign = data.campaigns.find((entry) => entry.id === id);
   if (!campaign) return notFound();
@@ -88,7 +87,6 @@ export default async function EditCampaignPage({
             <AdminCampaignEditForm
               categories={data.categories}
               editingCampaign={campaign}
-              editingPrizes={campaign.prizeLineup ?? []}
               editingCategoryId={campaign.categoryIds?.[0]}
             />
           </div>
