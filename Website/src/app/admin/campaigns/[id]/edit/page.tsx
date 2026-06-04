@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
-import { AdminCampaignForm } from "@/features/ynot/client";
+import { AdminCampaignEditForm } from "@/features/ynot/client";
 import { AdminGate } from "@/features/ynot/components";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
 import {
@@ -85,7 +85,7 @@ export default async function EditCampaignPage({
         <AdminCard>
           <AdminCardHead label="Draft pack" title="Pack studio · edit" />
           <div className="card-pad">
-            <AdminCampaignForm
+            <AdminCampaignEditForm
               categories={data.categories}
               editingCampaign={campaign}
               editingPrizes={campaign.prizeLineup ?? []}

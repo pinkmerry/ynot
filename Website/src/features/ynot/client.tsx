@@ -3254,9 +3254,65 @@ function prizeDraftTierLabel(displayTier: PrizeDisplayTier) {
   return `${prizeDisplayTierLabel(displayTier)} tier`;
 }
 
+// Loads the admin catalog client-side, then mounts the editor. The pack editor
+// page can't fetch getAdminCards server-side: the heavy prize-lineup dashboard
+// slice exhausts the Cloudflare Worker subrequest budget for that request, which
+// starves getAdminCards' stock RPCs and empties the catalog. Fetching here is a
+// separate request with its own budget, and waiting for the catalog before
+// mounting the form means each saved prize resolves its real category + sub-SKU
+// stock on first render.
+export function AdminCampaignEditForm({
+  categories,
+  editingCampaign,
+  editingPrizes,
+  editingCategoryId,
+}: {
+  categories?: YnotCategory[];
+  editingCampaign: YnotCampaign;
+  editingPrizes: YnotPrizePreview[];
+  editingCategoryId?: string;
+}) {
+  const [cards, setCards] = useState<CardCatalogItem[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let loaded: CardCatalogItem[] = [];
+      try {
+        const res = await fetch("/api/ynot/admin/cards");
+        const data = (await res.json().catch(() => null)) as {
+          cards?: CardCatalogItem[];
+        } | null;
+        if (Array.isArray(data?.cards)) loaded = data.cards;
+      } catch {
+        loaded = [];
+      }
+      if (!cancelled) setCards(loaded);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (cards === null) {
+    return (
+      <p className="admin-card-catalog-empty-usage">Loading prize catalog…</p>
+    );
+  }
+
+  return (
+    <AdminCampaignForm
+      categories={categories}
+      cards={cards}
+      editingCampaign={editingCampaign}
+      editingPrizes={editingPrizes}
+      editingCategoryId={editingCategoryId}
+    />
+  );
+}
+
 export function AdminCampaignForm({
   categories = [],
-  cards: cardsProp = [],
+  cards = [],
   editingCampaign,
   editingPrizes,
   editingCategoryId,
@@ -3268,30 +3324,6 @@ export function AdminCampaignForm({
   editingCategoryId?: string;
 }) {
   const router = useRouter();
-  // When the page can't load the catalog server-side (the live-pack editor skips
-  // it so getAdminCards' stock RPCs don't share the heavy dashboard slice's
-  // Cloudflare Worker subrequest budget), fetch it client-side in its own
-  // request, which has a fresh budget.
-  const [clientCards, setClientCards] = useState<CardCatalogItem[]>([]);
-  useEffect(() => {
-    if (cardsProp.length) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/ynot/admin/cards");
-        const data = (await res.json().catch(() => null)) as {
-          cards?: CardCatalogItem[];
-        } | null;
-        if (!cancelled && Array.isArray(data?.cards)) setClientCards(data.cards);
-      } catch {
-        // leave clientCards empty; the picker shows "no catalog items".
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [cardsProp.length]);
-  const cards = cardsProp.length ? cardsProp : clientCards;
   const editMode = Boolean(editingCampaign);
   const defaultSeries: "pokemon" | "one_piece" =
     editingCampaign?.series ?? categories[0]?.legacySeries ?? "pokemon";
