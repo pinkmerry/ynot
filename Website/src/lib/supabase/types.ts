@@ -214,6 +214,8 @@ export type Database = {
           price_thb: number;
           total_slots: number;
           pack_code: string | null;
+          last_prize_card_id: string | null;
+          last_prize_metadata: Json | null;
           order_code_prefix: string;
           facebook_live_url: string | null;
           youtube_embed_url: string | null;
@@ -265,6 +267,8 @@ export type Database = {
           price_thb: number;
           total_slots: number;
           pack_code?: string | null;
+          last_prize_card_id?: string | null;
+          last_prize_metadata?: Json | null;
           order_code_prefix?: string;
           facebook_live_url?: string | null;
           youtube_embed_url?: string | null;
