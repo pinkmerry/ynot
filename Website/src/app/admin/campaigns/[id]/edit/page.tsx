@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { AdminCampaignForm } from "@/features/ynot/client";
 import { AdminGate } from "@/features/ynot/components";
-import { getAdminCards, getYnotDashboardSlice } from "@/features/ynot/data";
+import { getYnotDashboardSlice } from "@/features/ynot/data";
 import {
   AdminCard,
   AdminCardHead,
@@ -19,12 +19,12 @@ export default async function EditCampaignPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // Fetch sequentially, not in Promise.all: the prize-lineup dashboard slice
-  // fires many concurrent Supabase requests, and running getAdminCards (which
-  // includes the sub-SKU stock summary RPC) alongside it can exceed the
-  // Cloudflare Worker simultaneous-connection limit, silently dropping the
-  // sub-SKU summary so every prize row shows "No sub-SKU stock". Serializing the
-  // two keeps getAdminCards' stock RPC from competing for connections.
+  // Do NOT load the admin catalog (getAdminCards) here. The prize-lineup
+  // dashboard slice already consumes much of the Cloudflare Worker subrequest
+  // budget for this request; running getAdminCards' stock RPCs in the same
+  // request starved them and emptied the catalog ("No catalog items" / "No
+  // sub-SKU stock"). AdminCampaignForm fetches the catalog client-side instead,
+  // in its own request with a fresh budget.
   const data = await getYnotDashboardSlice({
     campaigns: true,
     campaignVisibility: "admin",
@@ -33,7 +33,6 @@ export default async function EditCampaignPage({
     categories: true,
     campaignPrizeLineups: true,
   });
-  const cards = await getAdminCards();
   const campaign = data.campaigns.find((entry) => entry.id === id);
   if (!campaign) return notFound();
 
@@ -88,7 +87,6 @@ export default async function EditCampaignPage({
           <div className="card-pad">
             <AdminCampaignForm
               categories={data.categories}
-              cards={cards}
               editingCampaign={campaign}
               editingPrizes={campaign.prizeLineup ?? []}
               editingCategoryId={campaign.categoryIds?.[0]}
