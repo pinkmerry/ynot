@@ -1380,11 +1380,15 @@ async function getCampaignsImpl(
     const inventoryByCampaign = new Map(
       inventoryRows.map((summary) => [summary.drawRoundId, summary]),
     );
+    const rowById = new Map(rows.map((row) => [row.id, row]));
     const readinessRows = includeReadiness
       ? await Promise.all(
           campaignIds.map(async (campaignId) => {
             try {
-              return await getCampaignPrizeReadiness(supabase, campaignId);
+              return await getCampaignPrizeReadiness(supabase, campaignId, {
+                row: rowById.get(campaignId),
+                inventory: inventoryByCampaign.get(campaignId),
+              });
             } catch (error) {
               recordDataIssue("campaign_prize_readiness", error);
               return null;
@@ -1618,7 +1622,10 @@ async function loadPublicCampaignDetailImpl(
   });
   let publicReadiness: CampaignPrizeReadiness | null = null;
   try {
-    publicReadiness = await getCampaignPrizeReadiness(supabase, row.id);
+    publicReadiness = await getCampaignPrizeReadiness(supabase, row.id, {
+      row,
+      inventory,
+    });
   } catch (error) {
     recordDataIssue("campaign_detail_public_prize_readiness", error);
   }
@@ -1757,7 +1764,10 @@ export async function getCampaign(
     });
     let readiness: CampaignPrizeReadiness | null = null;
     try {
-      readiness = await getCampaignPrizeReadiness(supabase, row.id);
+      readiness = await getCampaignPrizeReadiness(supabase, row.id, {
+        row,
+        inventory,
+      });
     } catch (error) {
       recordDataIssue("campaign_detail_prize_readiness", error);
     }

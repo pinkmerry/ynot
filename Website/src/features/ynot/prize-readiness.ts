@@ -564,29 +564,45 @@ export function validatePrizeDraftsForSave(
 export async function getCampaignPrizeReadiness(
   supabase: SupabaseClient,
   campaignId: string,
+  preloaded?: { row?: DrawRoundRow; inventory?: InventorySummary },
 ): Promise<CampaignPrizeReadiness> {
-  const { data: row, error: campaignError } = await supabase
-    .from("draw_rounds")
-    .select("*")
-    .eq("id", campaignId)
-    .single();
-  if (campaignError) throw campaignError;
+  // Callers on the pack-detail / storefront paths have usually just loaded the
+  // draw_round row and run the inventory-summary RPC. Reuse those to skip two
+  // redundant round-trips per render: there is no cross-request cache on the
+  // current Cloudflare deployment, so every render otherwise re-fetches the row
+  // and re-runs the RPC that the caller already has. Prize rows are always read
+  // fresh here, since callers hold a filtered (customer) lineup, not the raw set.
+  let row = preloaded?.row;
+  if (!row) {
+    const { data, error: campaignError } = await supabase
+      .from("draw_rounds")
+      .select("*")
+      .eq("id", campaignId)
+      .single();
+    if (campaignError) throw campaignError;
+    row = data;
+  }
 
-  const [{ data: inventoryJson, error: inventoryError }, { data: prizes, error: prizesError }] =
-    await Promise.all([
-      supabase.rpc("get_draw_round_inventory_summary", {
-        p_draw_round_id: campaignId,
-        p_profile_id: null,
-      }),
-      supabase
+  const [inventory, prizes] = await Promise.all([
+    preloaded?.inventory !== undefined
+      ? Promise.resolve(preloaded.inventory)
+      : (async () => {
+          const { data, error } = await supabase.rpc(
+            "get_draw_round_inventory_summary",
+            { p_draw_round_id: campaignId, p_profile_id: null },
+          );
+          if (error) throw error;
+          return inventorySummariesFromJson(data)[0];
+        })(),
+    (async () => {
+      const { data, error } = await supabase
         .from("draw_round_prizes")
         .select("*")
-        .eq("draw_round_id", campaignId),
-    ]);
-  if (inventoryError) throw inventoryError;
-  if (prizesError) throw prizesError;
-
-  const inventory = inventorySummariesFromJson(inventoryJson)[0];
+        .eq("draw_round_id", campaignId);
+      if (error) throw error;
+      return data ?? [];
+    })(),
+  ]);
   const soldPct = soldPctForCampaign(row, inventory);
   const logicMode = randomLogicMode(row.logic_snapshot);
   const visiblePrizes = (prizes ?? []).filter(
