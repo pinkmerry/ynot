@@ -242,7 +242,7 @@ checkText(
 checkText(
   "shipping request DTO carries fulfilment context",
   shippingRequestTypeSource,
-  /items\?: YnotShippingItem\[\][\s\S]*customer\?: YnotShippingCustomer \| null[\s\S]*addressSnapshot\?: YnotShippingAddressSnapshot \| null[\s\S]*timeline\?: YnotShippingTimelineEvent\[\]/,
+  /(?=[\s\S]*items\?: YnotShippingItem\[\])(?=[\s\S]*customer\?: YnotShippingCustomer \| null)(?=[\s\S]*addressSnapshot\?: YnotShippingAddressSnapshot \| null)(?=[\s\S]*timeline\?: YnotShippingTimelineEvent\[\])/,
   "YnotShippingRequest",
 );
 const shippingLoaderSource = sliceBetween(
@@ -254,7 +254,7 @@ const shippingLoaderSource = sliceBetween(
 checkText(
   "shipping loader enriches admin fulfilment context",
   shippingLoaderSource,
-  /shipping_request_items[\s\S]*collection_items[\s\S]*profiles[\s\S]*user_addresses[\s\S]*gacha_opens[\s\S]*draw_rounds[\s\S]*audit_events/,
+  /(?=[\s\S]*shipping_request_items)(?=[\s\S]*collection_items)(?=[\s\S]*profiles)(?=[\s\S]*user_addresses)(?=[\s\S]*gacha_opens)(?=[\s\S]*draw_rounds)(?=[\s\S]*audit_events)/,
   "getShipping",
 );
 check("src/app/api/ynot/admin/shipping/route.ts", "admin shipped status requires tracking", /status === "shipped"[\s\S]*Tracking provider and tracking number are required/);
