@@ -3954,9 +3954,11 @@ export function AdminCampaignForm({
               : "Create pack draft with prizes"}
           </h3>
           <p>
-            {editMode
-              ? "Update campaign fields and prize list. Saving puts the pack back to draft/private and requires fresh owner review."
-              : "Build the campaign, prize list, and owner-review readiness in one full-width workflow."}
+            {!editMode
+              ? "Build the campaign, prize list, and owner-review readiness in one full-width workflow."
+              : editingCampaign?.status === "live"
+                ? "Update fields and the prize list. Changes apply immediately to this LIVE pack — prize/slot edits re-materialize stock atomically and awarded prizes are kept. The pack stays live; no re-approval needed."
+                : "Update campaign fields and prize list. Saving puts the pack back to draft/private and requires fresh owner review."}
           </p>
         </div>
         <strong
