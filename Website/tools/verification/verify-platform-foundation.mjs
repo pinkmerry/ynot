@@ -257,9 +257,16 @@ checkText(
   /(?=[\s\S]*shipping_request_items)(?=[\s\S]*collection_items)(?=[\s\S]*profiles)(?=[\s\S]*user_addresses)(?=[\s\S]*gacha_opens)(?=[\s\S]*draw_rounds)(?=[\s\S]*audit_events)/,
   "getShipping",
 );
-check("src/app/api/ynot/admin/shipping/route.ts", "admin shipped and delivered statuses require tracking", /status === "shipped"[\s\S]*status === "delivered"[\s\S]*Tracking provider and tracking number are required/);
+const adminShippingTrackingGuard = sliceBetween(
+  "src/app/api/ynot/admin/shipping/route.ts",
+  "if (\n    status === \"shipped\"",
+  "const adminNote",
+  "admin shipping tracking guard",
+);
+checkText("admin shipped status requires tracking", adminShippingTrackingGuard, /status === "shipped"[\s\S]*Tracking provider and tracking number are required before marking a shipment shipped\./, "admin shipping tracking guard");
+notCheckText("admin delivered status does not require tracking", adminShippingTrackingGuard, /status === "delivered"/, "admin shipping tracking guard");
 check("src/app/api/ynot/admin/shipping/route.ts", "admin shipping route rejects cross-origin status mutations", /enforceSameOriginMutation\(request\)[\s\S]*if \(crossOrigin\) return crossOrigin[\s\S]*request\.json/);
-check("src/features/ynot/admin/AdminShippingConsole.tsx", "admin shipping console limits status actions to valid transitions", /function nextShippingStatuses[\s\S]*case "submitted":[\s\S]*\["submitted", "packing", "cancelled"\][\s\S]*case "packing":[\s\S]*\["packing", "shipped", "cancelled"\][\s\S]*case "shipped":[\s\S]*\["shipped", "delivered"\][\s\S]*statusOptions\.map/);
+check("src/features/ynot/admin/AdminShippingConsole.tsx", "admin shipping console allows direct pickup and event delivery transitions", /function nextShippingStatuses[\s\S]*case "submitted":[\s\S]*\["submitted", "packing", "ready_for_pickup", "shipped", "delivered", "cancelled"\][\s\S]*case "packing":[\s\S]*\["packing", "ready_for_pickup", "shipped", "delivered", "cancelled"\][\s\S]*case "ready_for_pickup":[\s\S]*\["ready_for_pickup", "picked_up", "delivered", "cancelled"\][\s\S]*statusOptions\.map/);
 check("src/app/admin/users/[profileId]/page.tsx", "admin User 360 route renders user detail history", /getAdminUserDetail[\s\S]*AdminUser360/);
 const orderListSource = sliceBetween(
   "src/features/ynot/components.tsx",
@@ -276,13 +283,13 @@ const personalInfoShippingSource = sliceBetween(
 checkText(
   "customer shipping history shows item source and tracking",
   orderListSource,
-  /order\.items[\s\S]*sourceCampaignTitle[\s\S]*trackingNumber/,
+  /order\.items[\s\S]*sourceCampaignTitle[\s\S]*ynotShippingTrackingLabel\(order\)/,
   "OrderList",
 );
 checkText(
   "personal info shipment history shows item source and tracking",
   personalInfoShippingSource,
-  /shippingRewardLabel\(shp\)[\s\S]*shippingSourceLabel\(shp\)[\s\S]*trackingNumber/,
+  /shippingRewardLabel\(shp\)[\s\S]*shippingSourceLabel\(shp\)[\s\S]*ynotShippingTrackingLabel\(shp\)/,
   "ShippingHistorySection",
 );
 const collectionConvertPanelSource = sliceBetween(
@@ -547,6 +554,11 @@ check("src/app/api/ynot/admin/users/route.ts", "admin users API restricts all ro
 check("src/app/admin/users/page.tsx", "admin users page hides role form from non-owners", /data\.viewer\.adminRole === "owner"[\s\S]*<AdminUserRoleForm[\s\S]*Owner only/);
 check("src/app/api/ynot/admin/merge-requests/route.ts", "admin identity review API uses identity-only RPCs", /approve_identity_review_request[\s\S]*reject_identity_review_request/);
 check("src/app/api/ynot/admin/shipping/route.ts", "admin shipping route uses transaction-safe status RPC", /supabase\.rpc\("update_shipping_request_status"[\s\S]*p_shipping_request_id[\s\S]*p_admin_id[\s\S]*p_status/);
+check("src/features/ynot/admin/AdminShippingConsole.tsx", "admin shipping selected request starts with status action bar", /admin-shipping-action-bar[\s\S]*admin-shipping-status-select[\s\S]*Update shipping/);
+check("src/features/ynot/admin/AdminShippingConsole.tsx", "admin shipping detail sections are collapsible", /function ShippingDetailSection[\s\S]*<details[\s\S]*Reward and pack source[\s\S]*Timeline/);
+check("src/features/ynot/shipping-status.ts", "shipping pickup statuses have friendly labels", /ready_for_pickup[\s\S]*Ready for pickup[\s\S]*picked_up[\s\S]*Picked up/);
+check("src/app/api/ynot/admin/shipping/route.ts", "admin pickup and delivered statuses do not require tracking", /ready_for_pickup[\s\S]*picked_up[\s\S]*delivered[\s\S]*status === "shipped"/);
+check("../Database/supabase/migrations/20260604160000_shipping_event_handoff_statuses.sql", "shipping event handoff RPC requires tracking only for shipped", /submitted', 'packing', 'ready_for_pickup', 'shipped', 'delivered', 'cancelled'[\s\S]*ready_for_pickup', 'picked_up', 'delivered', 'cancelled'[\s\S]*if p_status = 'shipped'[\s\S]*shipping_tracking_required/);
 check("src/features/ynot/components.tsx", "shell passes admin state into drawer", /isAdmin=\{renderViewer\.isAdmin\}/);
 check("src/features/ynot/StorePreferences.tsx", "admin routes are hidden unless viewer is admin", /isAdmin &&[\s\S]*href="\/admin"/);
 check("src/features/ynot/components.tsx", "non-admin admin route gets denial state", /Admin access is required/);

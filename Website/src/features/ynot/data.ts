@@ -495,6 +495,43 @@ function isOwnerReviewLineupRow(row: DrawRoundRow) {
   );
 }
 
+// Most catalog cards carry their photo on the stock unit (the graded slab scan),
+// not the product row, so prize lineups fall back to a representative unit image
+// when the product image_url is empty — otherwise the storefront shows a blank
+// gradient even though the admin prize builder shows the real card.
+async function fetchPrizeCardUnitImages(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  cardIds: string[],
+): Promise<Map<string, { imageUrl: string | null; imageStoragePath: string | null }>> {
+  const map = new Map<
+    string,
+    { imageUrl: string | null; imageStoragePath: string | null }
+  >();
+  if (!cardIds.length) return map;
+  const rows = await readSupabaseRows<{
+    card_id: string;
+    image_url: string | null;
+    image_storage_path: string | null;
+  }>("prize_lineup_unit_images", () =>
+    supabase
+      .from("card_stock_units")
+      .select("card_id,image_url,image_storage_path,created_at")
+      .in("card_id", cardIds)
+      .not("image_url", "is", null)
+      .neq("status", "deleted")
+      .order("created_at", { ascending: true }),
+  );
+  for (const row of rows) {
+    if (row.image_url && !map.has(row.card_id)) {
+      map.set(row.card_id, {
+        imageUrl: row.image_url,
+        imageStoragePath: row.image_storage_path,
+      });
+    }
+  }
+  return map;
+}
+
 async function getPublicPrizeLineupsBatch(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   rows: DrawRoundRow[],
@@ -552,6 +589,7 @@ async function getPublicPrizeLineupsBatch(
       )
     : [];
   const cardById = new Map(cards.map((card) => [card.id, card]));
+  const unitImages = await fetchPrizeCardUnitImages(supabase, cardIds);
 
   for (const row of rows) {
     const visible = visiblePrizesByCampaign.get(row.id) ?? [];
@@ -560,13 +598,15 @@ async function getPublicPrizeLineupsBatch(
         const counts = plannedPrizeUnitCounts(prize);
         const displayTier = displayTierFromPrizeMetadata(prize);
         const card = cardById.get(prize.card_id);
+        const unitImage = unitImages.get(prize.card_id);
         return {
           id: prize.id,
           cardId: prize.card_id,
           cardCode: card?.card_code ?? null,
           cardGrade: card?.grade ?? null,
-          cardImageUrl: card?.image_url ?? null,
-          cardImageStoragePath: card?.image_storage_path ?? null,
+          cardImageUrl: card?.image_url ?? unitImage?.imageUrl ?? null,
+          cardImageStoragePath:
+            card?.image_storage_path ?? unitImage?.imageStoragePath ?? null,
           cardPrizeCategory: card?.prize_category ?? null,
           cardName: card?.name ?? "Mystery reward",
           tier: prize.tier,
@@ -642,19 +682,22 @@ async function getPublicPrizeLineup(
       )
     : [];
   const cardById = new Map(cards.map((card) => [card.id, card]));
+  const unitImages = await fetchPrizeCardUnitImages(supabase, cardIds);
 
   return visiblePrizes
     .map((prize) => {
       const counts = plannedPrizeUnitCounts(prize);
       const displayTier = displayTierFromPrizeMetadata(prize);
       const card = cardById.get(prize.card_id);
+      const unitImage = unitImages.get(prize.card_id);
       return {
         id: prize.id,
         cardId: prize.card_id,
         cardCode: card?.card_code ?? null,
         cardGrade: card?.grade ?? null,
-        cardImageUrl: card?.image_url ?? null,
-        cardImageStoragePath: card?.image_storage_path ?? null,
+        cardImageUrl: card?.image_url ?? unitImage?.imageUrl ?? null,
+        cardImageStoragePath:
+          card?.image_storage_path ?? unitImage?.imageStoragePath ?? null,
         cardPrizeCategory: card?.prize_category ?? null,
         cardName: card?.name ?? "Mystery reward",
         tier: prize.tier,
@@ -793,6 +836,7 @@ function toYnotCampaign(
     openable,
     soldOut,
     adminRemoved,
+    packCode: row.pack_code,
     sortOrder: row.sort_order,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
@@ -1350,7 +1394,17 @@ async function getCampaignsImpl(
 
     let prizeLineupsByCampaign = new Map<string, YnotPrizePreview[]>();
     if (options.includePrivate && includePrizeLineups) {
-      const prizeLineupRows = rows.filter(isOwnerReviewLineupRow);
+      // Owner-review packs always need their lineup. Live/closed packs need it
+      // too now that admins can edit a published pack in place — without this
+      // they're excluded and the editor falls back to a blank default template.
+      // This block is admin-only (includePrivate) and the batch builder is O(2)
+      // queries regardless of how many campaigns match, so widening is cheap.
+      const prizeLineupRows = rows.filter(
+        (row) =>
+          isOwnerReviewLineupRow(row) ||
+          row.status === "live" ||
+          row.status === "closed",
+      );
       try {
         prizeLineupsByCampaign = await getPublicPrizeLineupsBatch(
           supabase,
@@ -2468,6 +2522,8 @@ function shippingTimelineLabel(eventType: string, status?: string | null) {
   if (eventType === "shipping_submitted") return "Shipping requested";
   if (eventType === "shipping_status_updated") {
     if (status === "packing") return "Marked packing";
+    if (status === "ready_for_pickup") return "Marked ready for pickup";
+    if (status === "picked_up") return "Marked picked up";
     if (status === "shipped") return "Marked shipped";
     if (status === "delivered") return "Marked delivered";
     if (status === "cancelled") return "Cancelled";
@@ -3105,30 +3161,50 @@ export async function getAdminAuditEvents({
   });
 }
 
+// Retry a transient query. Cloudflare Workers + the Supabase pooler can drop or
+// reject a request under concurrent load, which previously surfaced as an empty
+// admin catalog / "No sub-SKU stock" in the pack editor. An immediate retry
+// almost always succeeds once connections free up.
+async function retryQuery<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
 export async function getAdminCards() {
   if (!isSupabaseConfigured()) return [];
   const admin = await resolveAdminSession();
   if (!admin) return [];
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("admin_cards", async () => {
-    const cards = await getCardCatalog(supabase);
+    const cards = await retryQuery(() => getCardCatalog(supabase));
     if (!cards.length) return cards;
-    const stockRows = await readOrEmpty("card_stock_summary", async () => {
-      const { data, error } = await supabase.rpc("get_card_stock_summary", {
-        p_card_id: null,
-      });
-      if (error) throw error;
-      return cardStockSummariesFromJson(data);
-    });
+    const stockRows = await readOrEmpty("card_stock_summary", () =>
+      retryQuery(async () => {
+        const { data, error } = await supabase.rpc("get_card_stock_summary", {
+          p_card_id: null,
+        });
+        if (error) throw error;
+        return cardStockSummariesFromJson(data);
+      }),
+    );
     const stockByCard = new Map(stockRows.map((row) => [row.cardId, row]));
-    const subSkuRows = await readOrEmpty("card_stock_subsku_summary", async () => {
-      const { data, error } = await supabase.rpc(
-        "get_admin_card_stock_subsku_summary",
-        { p_card_id: null },
-      );
-      if (error) throw error;
-      return cardStockSubSkuSummariesFromJson(data);
-    });
+    const subSkuRows = await readOrEmpty("card_stock_subsku_summary", () =>
+      retryQuery(async () => {
+        const { data, error } = await supabase.rpc(
+          "get_admin_card_stock_subsku_summary",
+          { p_card_id: null },
+        );
+        if (error) throw error;
+        return cardStockSubSkuSummariesFromJson(data);
+      }),
+    );
 
     return cards.map((card) => {
       const stock = stockByCard.get(card.catalogCardId);
@@ -3143,6 +3219,35 @@ export async function getAdminCards() {
         stockUnits: [],
       };
     });
+  });
+}
+
+// Admin prize lineup for a single campaign, loaded on its own so the pack
+// editor can fetch it client-side. The full dashboard slice loads inventory +
+// readiness for a live pack (many materialized units) and can exhaust the
+// Cloudflare Worker subrequest budget before the lineup query runs, leaving the
+// editor with an empty lineup. This path is light (~3 queries) and runs in its
+// own request with a fresh budget.
+export async function getAdminCampaignPrizeLineup(
+  campaignId: string,
+): Promise<YnotPrizePreview[]> {
+  if (!isSupabaseConfigured()) return [];
+  const admin = await resolveAdminSession();
+  if (!admin) return [];
+  const supabase = createServiceSupabaseClient();
+  return readOrEmpty("admin_campaign_prize_lineup", async () => {
+    const { data: row, error } = await retryQuery(async () =>
+      supabase.from("draw_rounds").select("*").eq("id", campaignId).maybeSingle(),
+    );
+    if (error) throw error;
+    if (!row) return [];
+    return retryQuery(() =>
+      getPublicPrizeLineup(supabase, row as DrawRoundRow, undefined, {
+        includeLocked: true,
+        includeSensitiveOdds: true,
+        includeStockTarget: true,
+      }),
+    );
   });
 }
 

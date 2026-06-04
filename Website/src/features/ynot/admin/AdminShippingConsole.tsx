@@ -2,20 +2,18 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { type ReactNode, useMemo, useState, useTransition } from "react";
+import {
+  isActiveYnotShippingStatus,
+  isFinalYnotShippingStatus,
+  ynotShippingStatusLabels,
+  ynotShippingTrackingLabel,
+} from "@/features/ynot/shipping-status";
 import type { YnotShippingRequest } from "@/features/ynot/types";
-import { AdminIcon } from "./Icon";
+import { AdminIcon, type AdminIconName } from "./Icon";
 import { AdminPill, AdminStatusPill } from "./primitives";
 
 type AdminShippingActionStatus = Exclude<YnotShippingRequest["status"], "draft">;
-
-const shippingStatusLabels: Record<AdminShippingActionStatus, string> = {
-  submitted: "Submitted",
-  packing: "Packing",
-  shipped: "Shipped",
-  delivered: "Delivered",
-  cancelled: "Cancelled",
-};
 
 function nextShippingStatuses(
   status: YnotShippingRequest["status"],
@@ -24,13 +22,17 @@ function nextShippingStatuses(
     case "draft":
       return ["submitted", "cancelled"];
     case "submitted":
-      return ["submitted", "packing", "cancelled"];
+      return ["submitted", "packing", "ready_for_pickup", "shipped", "delivered", "cancelled"];
     case "packing":
-      return ["packing", "shipped", "cancelled"];
+      return ["packing", "ready_for_pickup", "shipped", "delivered", "cancelled"];
+    case "ready_for_pickup":
+      return ["ready_for_pickup", "picked_up", "delivered", "cancelled"];
     case "shipped":
       return ["shipped", "delivered"];
     case "delivered":
       return ["delivered"];
+    case "picked_up":
+      return ["picked_up"];
     case "cancelled":
       return ["cancelled"];
   }
@@ -40,6 +42,10 @@ function defaultActionStatus(
   status: YnotShippingRequest["status"],
 ): AdminShippingActionStatus {
   return nextShippingStatuses(status)[0] ?? "submitted";
+}
+
+function isTrackingRequiredForStatus(status: AdminShippingActionStatus) {
+  return status === "shipped";
 }
 
 function formatDate(value?: string | null) {
@@ -77,15 +83,50 @@ function primaryItemLabel(request: YnotShippingRequest) {
   return `${item.cardName}${suffix}`;
 }
 
+function secondaryItemLabel(request: YnotShippingRequest) {
+  const item = request.items?.[0];
+  if (!item) return "Reward details pending";
+  const source = item.sourceCampaignTitle ?? "Pack source pending";
+  return `${source}${item.sourceOpenCode ? ` | ${item.sourceOpenCode}` : ""}`;
+}
+
 function statusCounts(requests: YnotShippingRequest[]) {
   return {
-    submitted: requests.filter((request) => request.status === "submitted")
-      .length,
+    submitted: requests.filter((request) => request.status === "submitted").length,
     packing: requests.filter((request) => request.status === "packing").length,
+    readyForPickup: requests.filter((request) => request.status === "ready_for_pickup").length,
     shipped: requests.filter((request) => request.status === "shipped").length,
-    delivered: requests.filter((request) => request.status === "delivered")
-      .length,
+    final: requests.filter((request) => isFinalYnotShippingStatus(request.status)).length,
+    active: requests.filter((request) => isActiveYnotShippingStatus(request.status)).length,
   };
+}
+
+function ShippingDetailSection({
+  title,
+  summary,
+  icon,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  summary: ReactNode;
+  icon: AdminIconName;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details className="admin-shipping-detail-section" open={defaultOpen}>
+      <summary>
+        <span className="admin-shipping-detail-title">
+          <AdminIcon name={icon} />
+          <strong>{title}</strong>
+        </span>
+        <span className="admin-shipping-detail-summary">{summary}</span>
+        <AdminIcon name="chev-d" />
+      </summary>
+      <div className="admin-shipping-detail-body">{children}</div>
+    </details>
+  );
 }
 
 export function AdminShippingConsole({
@@ -114,6 +155,7 @@ export function AdminShippingConsole({
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const trackingRequired = isTrackingRequiredForStatus(status);
 
   function selectRequest(request: YnotShippingRequest) {
     setSelectedId(request.id);
@@ -157,8 +199,8 @@ export function AdminShippingConsole({
   }
 
   return (
-    <div className="grid gap-4">
-      <div className="kpi-grid">
+    <div className="grid gap-4 admin-shipping-console">
+      <div className="kpi-grid admin-shipping-kpis">
         <div className="kpi">
           <div className="label">Submitted</div>
           <div className="value">{counts.submitted}</div>
@@ -168,32 +210,39 @@ export function AdminShippingConsole({
           <div className="value">{counts.packing}</div>
         </div>
         <div className="kpi">
+          <div className="label">Ready pickup</div>
+          <div className="value">{counts.readyForPickup}</div>
+        </div>
+        <div className="kpi">
           <div className="label">Shipped</div>
           <div className="value">{counts.shipped}</div>
         </div>
         <div className="kpi">
-          <div className="label">Delivered</div>
-          <div className="value">{counts.delivered}</div>
+          <div className="label">Final</div>
+          <div className="value">{counts.final}</div>
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(380px,520px)]">
         <section className="card">
           <div className="card-head">
             <div>
               <p className="section-label">Queue</p>
               <h3>Shipping requests · {requests.length}</h3>
             </div>
+            <AdminPill kind={counts.active ? "warn" : "default"}>
+              {counts.active} active
+            </AdminPill>
           </div>
-          <div className="tbl-wrap">
+          <div className="tbl-wrap admin-shipping-queue">
             <table className="tbl">
               <thead>
                 <tr>
+                  <th>Status</th>
                   <th>Order</th>
                   <th>User</th>
                   <th>Reward</th>
                   <th>Pack</th>
-                  <th>Status</th>
                   <th>Tracking</th>
                   <th>Created</th>
                 </tr>
@@ -208,20 +257,33 @@ export function AdminShippingConsole({
                 ) : (
                   requests.map((request) => {
                     const primaryItem = request.items?.[0];
+                    const isSelected = selected?.id === request.id;
                     return (
                       <tr
                         key={request.id}
+                        className={`admin-shipping-row${isSelected ? " selected" : ""}`}
                         onClick={() => selectRequest(request)}
-                        style={{ cursor: "pointer" }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            selectRequest(request);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Select shipping request ${request.publicCode}`}
                       >
-                        <td className="mono" style={{ fontWeight: 700 }}>
+                        <td className="admin-shipping-queue-status-cell">
+                          <AdminStatusPill status={request.status} />
+                        </td>
+                        <td className="mono admin-shipping-code">
                           {request.publicCode}
                         </td>
                         <td>
                           <div className="row-title">
                             {request.customer?.displayName ?? "Unknown user"}
                           </div>
-                          <div className="row-sub mono" style={{ fontSize: 11 }}>
+                          <div className="row-sub mono">
                             {request.customer?.email ??
                               request.customer?.profileId ??
                               "-"}
@@ -229,15 +291,10 @@ export function AdminShippingConsole({
                         </td>
                         <td>{primaryItemLabel(request)}</td>
                         <td>{primaryItem?.sourceCampaignTitle ?? "-"}</td>
-                        <td>
-                          <AdminStatusPill status={request.status} />
+                        <td className="mono admin-shipping-tracking-cell">
+                          {ynotShippingTrackingLabel(request)}
                         </td>
-                        <td className="mono" style={{ fontSize: 11 }}>
-                          {request.trackingProvider && request.trackingNumber
-                            ? `${request.trackingProvider} | ${request.trackingNumber}`
-                            : "-"}
-                        </td>
-                        <td className="mono muted" style={{ fontSize: 11 }}>
+                        <td className="mono muted admin-shipping-date-cell">
                           {formatDate(request.createdAt)}
                         </td>
                       </tr>
@@ -249,20 +306,101 @@ export function AdminShippingConsole({
           </div>
         </section>
 
-        <aside className="card">
+        <aside className="card admin-shipping-selected-card">
           {!selected ? (
             <div className="muted">Select a shipping request.</div>
           ) : (
-            <div className="grid gap-4">
-              <div className="card-head">
-                <div>
+            <div className="grid gap-3">
+              <div className="admin-shipping-action-bar">
+                <div className="admin-shipping-action-main">
                   <p className="section-label">Selected request</p>
-                  <h3>{selected.publicCode}</h3>
+                  <div className="admin-shipping-selected-title">
+                    <h3>{selected.publicCode}</h3>
+                    <AdminStatusPill status={selected.status} />
+                  </div>
+                  <p className="row-sub">
+                    {primaryItemLabel(selected)} · {selected.customer?.displayName ?? "Unknown user"}
+                  </p>
                 </div>
-                <AdminStatusPill status={selected.status} />
+                <div className="admin-shipping-action-controls">
+                  <label className="field">
+                    <span>Status</span>
+                    <select
+                      className="select admin-shipping-status-select"
+                      value={status}
+                      onChange={(event) =>
+                        setStatus(event.target.value as AdminShippingActionStatus)
+                      }
+                    >
+                      {statusOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {ynotShippingStatusLabels[option]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    disabled={isPending}
+                    onClick={submit}
+                  >
+                    <AdminIcon name="check" />
+                    Update shipping
+                  </button>
+                  {trackingRequired ? (
+                    <AdminPill kind="warn">Tracking required</AdminPill>
+                  ) : null}
+                </div>
+                {message ? <p className="text-mute">{message}</p> : null}
               </div>
 
-              <div className="list">
+              <ShippingDetailSection
+                title="Reward and pack source"
+                summary={secondaryItemLabel(selected)}
+                icon="gift"
+                defaultOpen
+              >
+                <div className="grid gap-2">
+                  {(selected.items ?? []).length === 0 ? (
+                    <AdminPill kind="default">No linked rewards</AdminPill>
+                  ) : (
+                    selected.items?.map((item, index) => (
+                      <div className="list-row" key={`${item.cardName}-${index}`}>
+                        <AdminIcon name="gift" />
+                        <div>
+                          <strong>{item.cardName}</strong>
+                          <div className="row-sub">
+                            {item.cardCode ?? "No code"} |{" "}
+                            {item.sourceCampaignTitle ?? "No pack"}
+                          </div>
+                          <div className="row-sub">
+                            {item.sourceOpenCode
+                              ? `Open ${item.sourceOpenCode}`
+                              : "No open code"}
+                            {item.sourceOpenPosition
+                              ? ` | Position ${item.sourceOpenPosition}`
+                              : ""}
+                            {item.sourcePrizeTierLabel
+                              ? ` | ${item.sourcePrizeTierLabel}`
+                              : ""}
+                          </div>
+                          <div className="row-sub">
+                            Status: {item.status ?? "unknown"}
+                            {item.serialNo ? ` | Serial ${item.serialNo}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ShippingDetailSection>
+
+              <ShippingDetailSection
+                title="Customer"
+                summary={selected.customer?.displayName ?? "Unknown user"}
+                icon="users"
+              >
                 <div className="list-row">
                   <AdminIcon name="users" />
                   <div>
@@ -289,133 +427,101 @@ export function AdminShippingConsole({
                     ) : null}
                   </div>
                 </div>
+              </ShippingDetailSection>
+
+              <ShippingDetailSection
+                title="Address"
+                summary={selected.addressSnapshot?.province ?? "Address snapshot"}
+                icon="truck"
+              >
                 <div className="list-row">
                   <AdminIcon name="truck" />
                   <div>
                     <strong>Address snapshot</strong>
                     <div className="row-sub">{formatAddress(selected)}</div>
+                    {selected.addressSnapshot?.deliveryNote ? (
+                      <div className="row-sub">
+                        Note: {selected.addressSnapshot.deliveryNote}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
-              </div>
+              </ShippingDetailSection>
 
-              <div className="grid gap-2">
-                {(selected.items ?? []).map((item, index) => (
-                  <div className="list-row" key={`${item.cardName}-${index}`}>
-                    <AdminIcon name="gift" />
-                    <div>
-                      <strong>{item.cardName}</strong>
-                      <div className="row-sub">
-                        {item.cardCode ?? "No code"} |{" "}
-                        {item.sourceCampaignTitle ?? "No pack"}
-                      </div>
-                      <div className="row-sub">
-                        {item.sourceOpenCode
-                          ? `Open ${item.sourceOpenCode}`
-                          : "No open code"}
-                        {item.sourceOpenPosition
-                          ? ` | Position ${item.sourceOpenPosition}`
-                          : ""}
-                        {item.sourcePrizeTierLabel
-                          ? ` | ${item.sourcePrizeTierLabel}`
-                          : ""}
-                      </div>
-                      <div className="row-sub">
-                        Status: {item.status ?? "unknown"}
-                        {item.serialNo ? ` | Serial ${item.serialNo}` : ""}
-                      </div>
+              <ShippingDetailSection
+                title="Tracking"
+                summary={ynotShippingTrackingLabel(selected)}
+                icon="truck"
+                defaultOpen={trackingRequired}
+              >
+                <div className="grid gap-2">
+                  <label className="field">
+                    <span>Tracking provider</span>
+                    <input
+                      className="input"
+                      value={trackingProvider}
+                      onChange={(event) => setTrackingProvider(event.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Tracking number</span>
+                    <input
+                      className="input"
+                      value={trackingNumber}
+                      onChange={(event) => setTrackingNumber(event.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Admin note</span>
+                    <input
+                      className="input"
+                      placeholder={selected.adminNote ?? "Add fulfilment note"}
+                      value={note}
+                      onChange={(event) => setNote(event.target.value)}
+                    />
+                  </label>
+                  {selected.customerNote ? (
+                    <div className="text-mute" style={{ fontSize: 12 }}>
+                      Customer note: {selected.customerNote}
                     </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid gap-2">
-                <div className="field">
-                  <label>Status</label>
-                  <select
-                    className="select"
-                    value={status}
-                    onChange={(event) =>
-                      setStatus(event.target.value as AdminShippingActionStatus)
-                    }
-                  >
-                    {statusOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {shippingStatusLabels[option]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field">
-                  <label>Tracking provider</label>
-                  <input
-                    className="input"
-                    value={trackingProvider}
-                    onChange={(event) => setTrackingProvider(event.target.value)}
-                  />
-                </div>
-                <div className="field">
-                  <label>Tracking number</label>
-                  <input
-                    className="input"
-                    value={trackingNumber}
-                    onChange={(event) => setTrackingNumber(event.target.value)}
-                  />
-                </div>
-                <div className="field">
-                  <label>Admin note</label>
-                  <input
-                    className="input"
-                    placeholder={selected.adminNote ?? "Add fulfilment note"}
-                    value={note}
-                    onChange={(event) => setNote(event.target.value)}
-                  />
-                </div>
-                {selected.customerNote ? (
-                  <div className="text-mute" style={{ fontSize: 12 }}>
-                    Customer note: {selected.customerNote}
-                  </div>
-                ) : null}
-                {selected.adminNote ? (
-                  <div className="text-mute" style={{ fontSize: 12 }}>
-                    Current admin note: {selected.adminNote}
-                  </div>
-                ) : null}
-                <button
-                  className="btn btn-primary"
-                  type="button"
-                  disabled={isPending}
-                  onClick={submit}
-                >
-                  <AdminIcon name="check" />
-                  Update shipping
-                </button>
-                {message ? <p className="text-mute">{message}</p> : null}
-              </div>
-
-              <div className="grid gap-2">
-                <p className="section-label">Timeline</p>
-                {(selected.timeline ?? []).length === 0 ? (
-                  <AdminPill kind="default">No audit events</AdminPill>
-                ) : (
-                  selected.timeline?.map((event) => (
-                    <div className="list-row" key={event.id}>
-                      <AdminIcon name="clock" />
-                      <div>
-                        <strong>{event.label}</strong>
-                        <div className="row-sub">{formatDate(event.createdAt)}</div>
-                        {event.trackingNumber ? (
-                          <div className="row-sub mono">
-                            {event.trackingProvider} | {event.trackingNumber}
-                          </div>
-                        ) : null}
-                        {event.note ? (
-                          <div className="row-sub">{event.note}</div>
-                        ) : null}
-                      </div>
+                  ) : null}
+                  {selected.adminNote ? (
+                    <div className="text-mute" style={{ fontSize: 12 }}>
+                      Current admin note: {selected.adminNote}
                     </div>
-                  ))
-                )}
-              </div>
+                  ) : null}
+                </div>
+              </ShippingDetailSection>
+
+              <ShippingDetailSection
+                title="Timeline"
+                summary={`${selected.timeline?.length ?? 0} events`}
+                icon="clock"
+              >
+                <div className="grid gap-2">
+                  {(selected.timeline ?? []).length === 0 ? (
+                    <AdminPill kind="default">No audit events</AdminPill>
+                  ) : (
+                    selected.timeline?.map((event) => (
+                      <div className="list-row" key={event.id}>
+                        <AdminIcon name="clock" />
+                        <div>
+                          <strong>{event.label}</strong>
+                          <div className="row-sub">{formatDate(event.createdAt)}</div>
+                          {event.trackingNumber ? (
+                            <div className="row-sub mono">
+                              {event.trackingProvider ?? "tracking"} | {event.trackingNumber}
+                            </div>
+                          ) : null}
+                          {event.note ? (
+                            <div className="row-sub">{event.note}</div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ShippingDetailSection>
             </div>
           )}
         </aside>

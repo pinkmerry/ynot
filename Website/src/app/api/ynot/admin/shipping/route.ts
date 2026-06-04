@@ -8,7 +8,15 @@ import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 export const dynamic = "force-dynamic";
 
 type ShippingStatus = Exclude<Database["public"]["Tables"]["shipping_requests"]["Row"]["status"], "draft">;
-const statuses = new Set<ShippingStatus>(["submitted", "packing", "shipped", "delivered", "cancelled"]);
+const statuses = new Set<ShippingStatus>([
+  "submitted",
+  "packing",
+  "ready_for_pickup",
+  "picked_up",
+  "shipped",
+  "delivered",
+  "cancelled",
+]);
 
 function isShippingStatus(value: unknown): value is ShippingStatus {
   return typeof value === "string" && statuses.has(value as ShippingStatus);
@@ -35,13 +43,13 @@ export async function PATCH(request: Request) {
       ? body.trackingNumber.trim().slice(0, 120)
       : "";
   if (
-    (status === "shipped" || status === "delivered") &&
+    status === "shipped" &&
     (!trackingProvider || !trackingNumber)
   ) {
     return Response.json(
       {
         error:
-          "Tracking provider and tracking number are required before marking a shipment shipped or delivered.",
+          "Tracking provider and tracking number are required before marking a shipment shipped.",
       },
       { status: 400 },
     );

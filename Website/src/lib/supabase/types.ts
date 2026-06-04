@@ -213,6 +213,7 @@ export type Database = {
           title_en: string;
           price_thb: number;
           total_slots: number;
+          pack_code: string | null;
           order_code_prefix: string;
           facebook_live_url: string | null;
           youtube_embed_url: string | null;
@@ -263,6 +264,7 @@ export type Database = {
           title_en: string;
           price_thb: number;
           total_slots: number;
+          pack_code?: string | null;
           order_code_prefix?: string;
           facebook_live_url?: string | null;
           youtube_embed_url?: string | null;
@@ -680,8 +682,8 @@ export type Database = {
         Relationships: [];
       };
       shipping_requests: {
-        Row: { id: string; public_code: string; profile_id: string; address_id: string | null; address_snapshot: Json; status: "draft" | "submitted" | "packing" | "shipped" | "delivered" | "cancelled"; shipping_fee_coins: number; tracking_provider: string | null; tracking_number: string | null; customer_note: string | null; admin_note: string | null; idempotency_key: string | null; created_at: string; updated_at: string };
-        Insert: { id?: string; public_code?: string; profile_id: string; address_id?: string | null; address_snapshot?: Json; status?: "draft" | "submitted" | "packing" | "shipped" | "delivered" | "cancelled"; shipping_fee_coins?: number; tracking_provider?: string | null; tracking_number?: string | null; customer_note?: string | null; admin_note?: string | null; idempotency_key?: string | null; created_at?: string; updated_at?: string };
+        Row: { id: string; public_code: string; profile_id: string; address_id: string | null; address_snapshot: Json; status: "draft" | "submitted" | "packing" | "ready_for_pickup" | "picked_up" | "shipped" | "delivered" | "cancelled"; shipping_fee_coins: number; tracking_provider: string | null; tracking_number: string | null; customer_note: string | null; admin_note: string | null; idempotency_key: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; public_code?: string; profile_id: string; address_id?: string | null; address_snapshot?: Json; status?: "draft" | "submitted" | "packing" | "ready_for_pickup" | "picked_up" | "shipped" | "delivered" | "cancelled"; shipping_fee_coins?: number; tracking_provider?: string | null; tracking_number?: string | null; customer_note?: string | null; admin_note?: string | null; idempotency_key?: string | null; created_at?: string; updated_at?: string };
         Update: Partial<Database["public"]["Tables"]["shipping_requests"]["Insert"]>;
         Relationships: [];
       };
@@ -979,6 +981,7 @@ export type Database = {
       };
       card_stock_unit_matches_prize_filter: { Args: { p_unit: Database["public"]["Tables"]["card_stock_units"]["Row"]; p_prize_metadata: Json | null }; Returns: boolean };
       release_campaign_reservations: { Args: { p_draw_round_id: string; p_admin_id: string; p_reason?: string | null; p_note?: string | null }; Returns: Json };
+      edit_live_campaign_inventory: { Args: { p_draw_round_id: string; p_admin_id: string; p_prizes: Json }; Returns: Json };
       submit_campaign_review: { Args: { p_draw_round_id: string; p_admin_id: string; p_logic_snapshot?: Json | null; p_note?: string | null }; Returns: Json };
       approve_campaign_inventory: { Args: { p_draw_round_id: string; p_owner_admin_id: string; p_logic_snapshot?: Json | null; p_note?: string | null }; Returns: Json };
       publish_campaign: { Args: { p_draw_round_id: string; p_owner_admin_id: string; p_note?: string | null }; Returns: Json };
@@ -995,7 +998,7 @@ export type Database = {
         Args: {
           p_shipping_request_id: string;
           p_admin_id: string;
-          p_status: "submitted" | "packing" | "shipped" | "delivered" | "cancelled";
+          p_status: "submitted" | "packing" | "ready_for_pickup" | "picked_up" | "shipped" | "delivered" | "cancelled";
           p_tracking_provider?: string | null;
           p_tracking_number?: string | null;
           p_admin_note?: string | null;

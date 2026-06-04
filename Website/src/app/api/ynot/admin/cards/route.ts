@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { getAdminCards } from "@/features/ynot/data";
 import { prizeCategoryValue } from "@/features/ynot/prize-category";
 import {
   cardConditionValue,
@@ -12,6 +13,29 @@ import {
 } from "@/features/ynot/card-catalog-metadata";
 
 export const dynamic = "force-dynamic";
+
+// Admin catalog cards (with stock + sub-SKU groups) for client-side fetching.
+// The pack editor loads this in its own request so getAdminCards' stock RPCs do
+// not share a Cloudflare Worker subrequest budget with the heavy prize-lineup
+// dashboard slice (which would otherwise starve them and empty the catalog).
+export async function GET(request: Request) {
+  if (!isSupabaseConfigured()) {
+    return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  }
+  const admin = await resolveAdminSession();
+  if (!admin) {
+    return Response.json({ error: "Admin access is required." }, { status: 403 });
+  }
+  const limited = await enforceRateLimit(
+    request,
+    "ynot:admin:cards-list",
+    { limit: 120, windowMs: 60_000 },
+    admin.profileId,
+  );
+  if (limited) return limited;
+  const cards = await getAdminCards();
+  return Response.json({ cards });
+}
 
 const adminCardMutationRateLimit = { limit: 180, windowMs: 60_000 };
 

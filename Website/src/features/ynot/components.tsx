@@ -57,6 +57,10 @@ import {
   prizeDisplayTierValue,
 } from "./prize-tier";
 import { getWallet } from "./data";
+import {
+  ynotShippingStatusCustomerLabel,
+  ynotShippingTrackingLabel,
+} from "./shipping-status";
 
 const defaultHomeFilter: HomeFilterState = {
   series: "all",
@@ -2123,10 +2127,7 @@ export function OrderList({
       ? `${firstItem.cardName}${itemCount > 1 ? ` +${itemCount - 1}` : ""}`
       : "Reward details pending";
     const packLabel = firstItem?.sourceCampaignTitle ?? "Pack source pending";
-    const trackingLabel =
-      order.trackingProvider && order.trackingNumber
-        ? `${order.trackingProvider} | ${order.trackingNumber}`
-        : "Tracking not added yet";
+    const trackingLabel = ynotShippingTrackingLabel(order);
 
     return (
       <div className="mt-3 grid gap-1 text-xs text-[var(--text-muted)]">
@@ -2153,7 +2154,13 @@ export function OrderList({
             <div key={order.id} className="request-card">
               <div className="flex items-center justify-between gap-3">
                 <p className="font-mono font-bold">{order.publicCode}</p>
-                <StatusBadge status={order.status} />
+                <StatusBadge
+                  status={
+                    "items" in order
+                      ? ynotShippingStatusCustomerLabel(order.status)
+                      : order.status
+                  }
+                />
               </div>
               <p className="txt-mono mt-2 text-xs">
                 Created {new Date(order.createdAt).toLocaleString()}

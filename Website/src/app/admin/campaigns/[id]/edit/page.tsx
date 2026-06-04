@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
-import { AdminCampaignForm } from "@/features/ynot/client";
+import { AdminCampaignEditForm } from "@/features/ynot/client";
 import { AdminGate } from "@/features/ynot/components";
-import { getAdminCards, getYnotDashboardSlice } from "@/features/ynot/data";
+import { getYnotDashboardSlice } from "@/features/ynot/data";
 import {
   AdminCard,
   AdminCardHead,
@@ -19,21 +19,24 @@ export default async function EditCampaignPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [data, cards] = await Promise.all([
-    getYnotDashboardSlice({
-      campaigns: true,
-      campaignVisibility: "admin",
-      campaignIdOrSlug: id,
-      campaignLimit: 1,
-      categories: true,
-      campaignPrizeLineups: true,
-    }),
-    getAdminCards(),
-  ]);
+  // Keep this request light: only the campaign header + categories load here
+  // (for the status gate and title). The admin catalog AND the prize lineup are
+  // both fetched client-side by AdminCampaignEditForm, each in its own request
+  // with a fresh Cloudflare Worker subrequest budget. Loading the catalog stock
+  // RPCs or a live pack's heavy prize-lineup/inventory in this same request
+  // exhausted the budget and emptied the catalog / prize list.
+  const data = await getYnotDashboardSlice({
+    campaigns: true,
+    campaignVisibility: "admin",
+    campaignIdOrSlug: id,
+    campaignLimit: 1,
+    categories: true,
+  });
   const campaign = data.campaigns.find((entry) => entry.id === id);
   if (!campaign) return notFound();
 
-  if (campaign.status !== "draft") {
+  const isLiveEdit = campaign.status === "live";
+  if (campaign.status !== "draft" && !isLiveEdit) {
     return (
       <AdminGate viewer={data.viewer}>
         <AdminFrame
@@ -42,7 +45,7 @@ export default async function EditCampaignPage({
           trail={["Admin", "Pack studio", "Random packs", "Edit"]}
           eyebrow="Edit random pack"
           title={campaign.titleEn || campaign.titleTh || "Pack editor"}
-          desc={`This pack is "${campaign.status}". Only packs in draft state can be edited. Archive the pack and create a new draft to make changes.`}
+          desc={`This pack is "${campaign.status}". Only draft or live packs can be edited. Archive the pack and create a new draft to make changes.`}
           actions={
             <Link href="/admin/campaigns" className="btn">
               <AdminIcon name="chev-r" /> Back to all packs
@@ -51,7 +54,7 @@ export default async function EditCampaignPage({
         >
           <AdminCard>
             <div className="card-pad text-mute">
-              Locked — only drafts are editable. Archive this pack first.
+              Locked — only draft or live packs are editable.
             </div>
           </AdminCard>
         </AdminFrame>
@@ -65,9 +68,13 @@ export default async function EditCampaignPage({
         viewer={data.viewer}
         active="/admin/campaigns"
         trail={["Admin", "Pack studio", "Random packs", "Edit"]}
-        eyebrow="Edit random pack"
+        eyebrow={isLiveEdit ? "Edit LIVE random pack" : "Edit random pack"}
         title={`Editing: ${campaign.titleEn || campaign.titleTh || campaign.slug}`}
-        desc="Update every campaign field and prize allocation. Saving puts the pack back into draft/private and requires a fresh owner approval before it can go live again."
+        desc={
+          isLiveEdit
+            ? "⚠️ This pack is LIVE. Changes apply immediately to customers — prize/slot edits re-materialize stock atomically (awarded prizes are kept). The pack stays live; no re-approval needed."
+            : "Update every campaign field and prize allocation. Saving puts the pack back into draft/private and requires a fresh owner approval before it can go live again."
+        }
         actions={
           <Link href="/admin/campaigns" className="btn">
             ← Back to all packs
@@ -77,11 +84,9 @@ export default async function EditCampaignPage({
         <AdminCard>
           <AdminCardHead label="Draft pack" title="Pack studio · edit" />
           <div className="card-pad">
-            <AdminCampaignForm
+            <AdminCampaignEditForm
               categories={data.categories}
-              cards={cards}
               editingCampaign={campaign}
-              editingPrizes={campaign.prizeLineup ?? []}
               editingCategoryId={campaign.categoryIds?.[0]}
             />
           </div>

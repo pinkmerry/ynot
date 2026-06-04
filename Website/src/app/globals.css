@@ -23669,6 +23669,15 @@ html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-slug {
   font-size: 11px !important;
   letter-spacing: 0.04em !important;
 }
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-code {
+  display: block !important;
+  margin-top: 3px !important;
+  color: rgba(245, 245, 245, 0.78) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em !important;
+  font-variant-numeric: tabular-nums !important;
+}
 html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-series {
   font-size: 11px !important;
   letter-spacing: 0.12em !important;
@@ -31444,7 +31453,150 @@ html[data-ynot-theme] .admin-frame .admin-stock-unit-image-clear {
   padding: 0;
 }
 
+html[data-ynot-theme] .admin-frame .admin-shipping-console {
+  --shipping-panel-border: rgba(255, 255, 255, 0.1);
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-kpis.kpi-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-queue .tbl {
+  min-width: 940px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-row {
+  cursor: pointer;
+  outline: 0;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-row.selected {
+  background: rgba(241, 215, 124, 0.08);
+  box-shadow: inset 3px 0 0 rgba(241, 215, 124, 0.85);
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-row:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(241, 215, 124, 0.9);
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-queue-status-cell {
+  min-width: 150px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-code {
+  font-weight: 850;
+  min-width: 92px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-tracking-cell,
+html[data-ynot-theme] .admin-frame .admin-shipping-date-cell {
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-selected-card {
+  align-self: start;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-action-bar {
+  background: rgba(241, 215, 124, 0.07);
+  border: 1px solid rgba(241, 215, 124, 0.22);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-selected-title {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-selected-title h3 {
+  margin: 0;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-action-controls {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-status-select {
+  min-height: 42px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-detail-section {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--shipping-panel-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-detail-section summary {
+  align-items: center;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(150px, auto) minmax(0, 1fr) auto;
+  list-style: none;
+  padding: 11px 12px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-detail-section summary::-webkit-details-marker {
+  display: none;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-detail-title {
+  align-items: center;
+  color: var(--a-fg, #f4efe1) !important;
+  display: inline-flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-detail-summary {
+  color: var(--a-muted, #9b9daf) !important;
+  font-size: 0.78rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-detail-body {
+  border-top: 1px solid var(--shipping-panel-border);
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-detail-section[open] > summary {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+html[data-ynot-theme] .admin-frame .admin-shipping-detail-section[open] summary svg:last-child {
+  transform: rotate(180deg);
+}
+
 @media (max-width: 720px) {
+  html[data-ynot-theme] .admin-frame .admin-shipping-kpis.kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  html[data-ynot-theme] .admin-frame .admin-shipping-action-controls {
+    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html[data-ynot-theme] .admin-frame .admin-shipping-detail-section summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  html[data-ynot-theme] .admin-frame .admin-shipping-detail-summary {
+    grid-column: 1 / -1;
+    white-space: normal;
+  }
   html[data-ynot-theme] .admin-frame .admin-stock-sku-main {
     grid-template-columns: minmax(0, 1fr);
   }

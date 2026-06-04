@@ -60,6 +60,8 @@ const STATUS_MAP: Record<string, [string, string]> = {
   archived: ["archived", "Archived"],
   submitted: ["review", "Submitted"],
   packing: ["warn", "Packing"],
+  ready_for_pickup: ["warn", "Ready for pickup"],
+  picked_up: ["live", "Picked up"],
   shipped: ["closed", "Shipped"],
   delivered: ["live", "Delivered"],
   completed: ["live", "Completed"],

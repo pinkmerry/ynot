@@ -6,6 +6,11 @@ import type {
   YnotShippingRequest,
   YnotViewer,
 } from "../types";
+import {
+  isFinalYnotShippingStatus,
+  ynotShippingStatusCustomerLabel,
+  ynotShippingTrackingLabel,
+} from "../shipping-status";
 import { Ico } from "./Icons";
 import { Modal, PageHead, useToast } from "./UiKit";
 
@@ -875,12 +880,12 @@ function ShippingHistorySection({
 }: {
   shipping: YnotShippingRequest[];
 }) {
-  const [filter, setFilter] = useState<"all" | "open" | "delivered">("all");
+  const [filter, setFilter] = useState<"all" | "open" | "completed">("all");
 
   const filtered = shipping.filter((shp) => {
     if (filter === "all") return true;
-    if (filter === "delivered") return shp.status === "delivered";
-    return shp.status !== "delivered" && shp.status !== "cancelled";
+    if (filter === "completed") return isFinalYnotShippingStatus(shp.status);
+    return !isFinalYnotShippingStatus(shp.status);
   });
 
   return (
@@ -895,8 +900,8 @@ function ShippingHistorySection({
             [
               { id: "all", label: "All" },
               { id: "open", label: "In progress" },
-              { id: "delivered", label: "Delivered" },
-            ] as { id: "all" | "open" | "delivered"; label: string }[]
+              { id: "completed", label: "Completed" },
+            ] as { id: "all" | "open" | "completed"; label: string }[]
           ).map((f) => (
             <button
               key={f.id}
@@ -960,21 +965,19 @@ function ShippingHistorySection({
               <div className="cr-stack" style={{ gap: 2 }}>
                 <span className="cr-eyebrow">Tracking</span>
                 <span className="cr-mono" style={{ fontSize: 11.5 }}>
-                  {shp.trackingProvider && shp.trackingNumber
-                    ? `${shp.trackingProvider} · ${shp.trackingNumber}`
-                    : "Pending pickup"}
+                  {ynotShippingTrackingLabel(shp)}
                 </span>
               </div>
               <span
                 className={`cr-pill ${
-                  shp.status === "delivered"
-                    ? "cr-pill-mint"
-                    : shp.status === "cancelled"
+                  shp.status === "cancelled"
                       ? "cr-pill-rose"
+                      : isFinalYnotShippingStatus(shp.status)
+                        ? "cr-pill-mint"
                       : "cr-pill-blue"
                 }`}
               >
-                {shp.status.replace(/_/g, " ")}
+                {ynotShippingStatusCustomerLabel(shp.status)}
               </span>
             </div>
           ))

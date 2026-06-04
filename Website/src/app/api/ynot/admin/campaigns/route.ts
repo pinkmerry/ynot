@@ -369,6 +369,65 @@ async function saveInitialPrizes(
   }
 }
 
+// Build the prize rows passed to edit_live_campaign_inventory. Mirrors
+// saveInitialPrizes' metadata computation but emits the camelCase shape the RPC
+// reads via jsonb_to_recordset.
+function liveEditPrizeRpcRows(
+  prizes: PrizeDraftInput[],
+  adminId: string,
+  isTest: boolean,
+  seedRunId: string | null,
+) {
+  return prizes.map((prize) => {
+    const metadata = isRecord(prize.metadata) ? prize.metadata : {};
+    const catalogCategory = catalogCategoryValue(
+      metadata.catalogCategory,
+      catalogCategoryForPrizeCategory(metadata.prizeCategory),
+    );
+    const prizeCategory = prizeCategoryForCatalogCategory(catalogCategory);
+    return {
+      cardId: prize.cardId,
+      tier: prize.tier,
+      rank: prize.rank,
+      valueThb: prize.valueThb,
+      convertCoinValue: prize.convertCoinValue,
+      weight: prize.weight,
+      unlockAtSoldPct: prize.unlockAtSoldPct,
+      plannedQuantity: prize.quantity,
+      isTest,
+      seedRunId,
+      metadata: {
+        ...metadata,
+        catalogCategory,
+        catalogCategoryLabel: catalogCategoryLabel(catalogCategory),
+        prizeCategory,
+        prizeCategoryLabel: prizeCategoryLabel(prizeCategory),
+        sourceType: prizeSourceType(prizeCategory),
+        plannedByAdminId: adminId,
+      },
+    };
+  });
+}
+
+function liveCampaignEditErrorMessage(message?: string) {
+  if (!message) return "Live pack could not be updated.";
+  if (message.includes("campaign_not_live_editable"))
+    return "This pack is not live, so it cannot be edited in place.";
+  if (message.includes("prize_has_awarded_units"))
+    return "A prize you removed already has awarded units — hide it instead of removing it.";
+  if (message.includes("cannot_reduce_below_awarded"))
+    return "You cannot set a prize quantity below the number already awarded to customers.";
+  if (message.includes("prize_identity_locked_after_award"))
+    return "You cannot change a prize's card or sub-SKU after units have been awarded.";
+  if (message.includes("cannot_reduce_slots_below_consumed"))
+    return "You cannot reduce slots below the number already opened or awarded.";
+  if (message.includes("insufficient_card_stock"))
+    return "Not enough matching stock to materialize the new prize quantities.";
+  if (message.includes("launch_prize_pool_required"))
+    return "A live pack needs at least one prize unit in the pool.";
+  return message;
+}
+
 async function bodyJson(request: Request): Promise<CampaignBody | null> {
   return request.json().catch(() => null) as Promise<CampaignBody | null>;
 }
@@ -638,6 +697,111 @@ export async function PATCH(request: Request) {
         hint: currentError.hint ?? null,
       },
     );
+  }
+  if (current.status === "live") {
+    // In-place edit of a LIVE pack. Prize/slot changes go through the atomic
+    // re-materialization RPC (which locks the round to serialize against opens);
+    // cosmetic/scalar fields are applied with a normal update. total_slots is
+    // owned by the RPC (= sum of planned quantities), never the form.
+    const livePrizes = Array.isArray(body.initialPrizes)
+      ? initialPrizesForAdminRole(
+          normalizePrizeDrafts(body.initialPrizes),
+          admin.adminRole,
+        )
+      : null;
+    if (livePrizes) {
+      try {
+        if (livePrizes.length) await assertPrizeCardsExist(supabase, livePrizes);
+      } catch (prizeError) {
+        return adminErrorResponse(
+          "CAMPAIGN_PRIZE_INVALID",
+          prizeError instanceof Error
+            ? prizeError.message
+            : "Prize inventory is not ready.",
+          400,
+        );
+      }
+      const { error: rpcError } = await supabase.rpc(
+        "edit_live_campaign_inventory",
+        {
+          p_draw_round_id: campaignId,
+          p_admin_id: admin.adminId,
+          p_prizes: liveEditPrizeRpcRows(
+            livePrizes,
+            admin.adminId,
+            Boolean(body.isTest),
+            text(body.seedRunId, 80) || null,
+          ),
+        },
+      );
+      if (rpcError) {
+        return adminErrorResponse(
+          rpcError.code ?? "LIVE_PACK_EDIT_FAILED",
+          liveCampaignEditErrorMessage(rpcError.message),
+          409,
+          { detail: rpcError.details ?? null, hint: rpcError.hint ?? null },
+        );
+      }
+    }
+    const livePatch: Database["public"]["Tables"]["draw_rounds"]["Update"] = {
+      ...patch,
+    };
+    delete livePatch.total_slots;
+    delete livePatch.status;
+    delete livePatch.visibility;
+    if (
+      body.openQuantityOptions !== undefined ||
+      body.bundleConfig !== undefined ||
+      body.slotGrid !== undefined
+    ) {
+      livePatch.logic_snapshot = logicSnapshotWithOpenOptions(
+        current.logic_snapshot,
+        body.openQuantityOptions,
+        {
+          bundleConfig: (body as Record<string, unknown>).bundleConfig,
+          slotGrid: (body as Record<string, unknown>).slotGrid,
+        },
+      );
+    }
+    if (Object.keys(livePatch).length) {
+      const { error: updateError } = await supabase
+        .from("draw_rounds")
+        .update(livePatch)
+        .eq("id", campaignId);
+      if (updateError) {
+        return adminErrorResponse(
+          updateError.code ?? "CAMPAIGN_UPDATE_FAILED",
+          updateError.message,
+          409,
+          { detail: updateError.details ?? null, hint: updateError.hint ?? null },
+        );
+      }
+    }
+    if (body.categoryIds !== undefined) {
+      try {
+        await replaceCampaignCategories(
+          supabase,
+          campaignId,
+          idArrayValue(body.categoryIds),
+        );
+      } catch (categoryError) {
+        return adminErrorResponse(
+          "CAMPAIGN_CATEGORY_ASSIGNMENT_FAILED",
+          categoryError instanceof Error
+            ? categoryError.message
+            : "Campaign category assignment failed.",
+          409,
+        );
+      }
+    }
+    await supabase.from("audit_events").insert({
+      actor_admin_id: admin.adminId,
+      event_type: "campaign_updated_live",
+      draw_round_id: campaignId,
+      metadata: { live: true, replacedPrizes: Array.isArray(body.initialPrizes) },
+    });
+    revalidateTag("campaigns", "max");
+    return Response.json({ ok: true, status: "live", visibility: "public" });
   }
   if (current.status !== "draft") {
     return adminErrorResponse(

@@ -1,6 +1,7 @@
 import { AdminShippingConsole } from "@/features/ynot/admin/AdminShippingConsole";
 import { AdminGate } from "@/features/ynot/components";
 import { getShipping, getYnotDashboardSlice } from "@/features/ynot/data";
+import { isActiveYnotShippingStatus } from "@/features/ynot/shipping-status";
 import { AdminFrame, AdminIcon } from "@/features/ynot/admin";
 
 export const dynamic = "force-dynamic";
@@ -10,9 +11,7 @@ export default async function AdminShippingPage() {
     getYnotDashboardSlice({ wallet: false }),
     getShipping(undefined, true),
   ]);
-  const active = shipping.filter(
-    (request) => request.status === "submitted" || request.status === "packing",
-  ).length;
+  const active = shipping.filter((request) => isActiveYnotShippingStatus(request.status)).length;
 
   return (
     <AdminGate viewer={data.viewer}>
@@ -22,7 +21,7 @@ export default async function AdminShippingPage() {
         trail={["Admin", "Operations", "Shipping"]}
         eyebrow="Admin shipping"
         title="Shipping fulfilment"
-        desc="Review every customer shipment with user, reward, pack source, address, tracking, and status history."
+        desc="Review shipment status first, then expand customer, address, reward, tracking, and timeline details only when needed."
         badges={{ "/admin/shipping": active || undefined }}
         actions={
           <span className="btn btn-primary">
