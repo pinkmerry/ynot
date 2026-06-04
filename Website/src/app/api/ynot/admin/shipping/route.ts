@@ -8,7 +8,15 @@ import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 export const dynamic = "force-dynamic";
 
 type ShippingStatus = Exclude<Database["public"]["Tables"]["shipping_requests"]["Row"]["status"], "draft">;
-const statuses = new Set<ShippingStatus>(["submitted", "packing", "shipped", "delivered", "cancelled"]);
+const statuses = new Set<ShippingStatus>([
+  "submitted",
+  "packing",
+  "ready_for_pickup",
+  "picked_up",
+  "shipped",
+  "delivered",
+  "cancelled",
+]);
 
 function isShippingStatus(value: unknown): value is ShippingStatus {
   return typeof value === "string" && statuses.has(value as ShippingStatus);

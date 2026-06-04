@@ -207,6 +207,8 @@ export type YnotShippingStatus =
   | "draft"
   | "submitted"
   | "packing"
+  | "ready_for_pickup"
+  | "picked_up"
   | "shipped"
   | "delivered"
   | "cancelled";
