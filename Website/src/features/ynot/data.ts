@@ -2928,6 +2928,18 @@ export async function getAdminUserDetail(
       return data ?? [];
     }),
   ]);
+  const auditTimelineById = new Map<string, YnotShippingTimelineEvent>();
+  for (const event of auditRows.map(shippingTimelineEvent)) {
+    auditTimelineById.set(event.id, event);
+  }
+  for (const request of shipping) {
+    for (const event of request.timeline ?? []) {
+      auditTimelineById.set(event.id, event);
+    }
+  }
+  const auditTimeline = Array.from(auditTimelineById.values()).sort(
+    (a, b) => new Date(b.createdAt).valueOf() - new Date(a.createdAt).valueOf(),
+  );
 
   return {
     profile: {
@@ -2963,7 +2975,7 @@ export async function getAdminUserDetail(
       referenceType: entry.reference_type,
       createdAt: entry.created_at,
     })),
-    auditTimeline: auditRows.map(shippingTimelineEvent),
+    auditTimeline,
   };
 }
 

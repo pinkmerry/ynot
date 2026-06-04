@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminMergeActions, AdminUserRoleForm } from "@/features/ynot/client";
 import { AdminGate } from "@/features/ynot/components";
 import {
@@ -84,13 +85,14 @@ export default async function AdminUsersPage() {
                   <th>Status</th>
                   <th>Admin role</th>
                   <th>Created</th>
+                  <th>User 360</th>
                   <th>Role action</th>
                 </tr>
               </thead>
               <tbody>
                 {users.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="muted" style={{ padding: 24 }}>
+                    <td colSpan={7} className="muted" style={{ padding: 24 }}>
                       No users loaded. Apply migrations and seed/admin data first.
                     </td>
                   </tr>
@@ -159,6 +161,15 @@ export default async function AdminUsersPage() {
                         </td>
                         <td className="mono muted" style={{ fontSize: 11 }}>
                           {new Date(user.createdAt).toLocaleDateString()}
+                        </td>
+                        <td>
+                          <Link
+                            className="btn btn-ghost"
+                            href={`/admin/users/${user.id}`}
+                            prefetch={false}
+                          >
+                            Open User 360
+                          </Link>
                         </td>
                         <td>
                           {data.viewer.adminRole === "owner" ? (
