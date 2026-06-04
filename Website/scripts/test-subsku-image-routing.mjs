@@ -119,3 +119,23 @@ test("public prize preview still strips internal stock and house fields", () => 
   assert.doesNotMatch(publicPrizePreview, /certNumber/);
   assert.doesNotMatch(publicPrizePreview, /gemrateId/);
 });
+
+test("pack opening API resolves awarded stock-unit image without exposing internal IDs", () => {
+  const routeSource = readSource("../src/app/api/ynot/gacha/open/route.ts");
+  const publicOpenItemType = routeSource.match(/type PublicOpenItem = \{[\s\S]*?\};/)?.[0] ?? "";
+  const toPublicOpenItem = routeSource.match(/function toPublicOpenItem[\s\S]*?function toPublicOpenResult/)?.[0] ?? "";
+
+  assert.match(routeSource, /stockImageUrlByPrizeUnitId/);
+  assert.match(routeSource, /publicSubSkuImageUrl/);
+  assert.match(routeSource, /draw_round_prize_unit_id/);
+  assert.match(
+    routeSource,
+    /\.from\("draw_round_prize_units"\)[\s\S]*\.select\("id,card_stock_unit_id,status"\)/,
+  );
+  assert.match(
+    routeSource,
+    /\.from\("card_stock_units"\)[\s\S]*\.select\("id,image_url"\)/,
+  );
+  assert.doesNotMatch(publicOpenItemType, /cardId|prizeUnitId|draw_round|card_stock|tier\?:/);
+  assert.doesNotMatch(toPublicOpenItem, /cardId:|prizeUnitId:|draw_round_prize_unit_id|card_stock_unit_id/);
+});

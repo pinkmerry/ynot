@@ -5,6 +5,12 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
+import {
+  publicSubSkuImageUrl,
+  stockImageUrlByPrizeUnitId,
+  type PublicPrizeUnitImageRow,
+  type PublicStockUnitImageRow,
+} from "@/features/ynot/public-subsku-images";
 
 export const dynamic = "force-dynamic";
 
@@ -182,10 +188,8 @@ async function hydrateItems(
   profileId: string,
 ): Promise<RawOpenItem[]> {
   if (!items.length) return items;
-  const needsHydration = items.some(
-    (item) => !item.name || !item.imageUrl || !item.displayTier,
-  );
-  if (!needsHydration) return items;
+  // Always hydrate through the awarded prize unit so the reveal can prefer the
+  // exact sub-SKU image, even when the RPC already returned catalog details.
 
   const supabase = createServiceSupabaseClient();
   const { data: open, error: openError } = await supabase
@@ -202,7 +206,7 @@ async function hydrateItems(
   const { data: openItems, error: openItemsError } = await supabase
     .from("gacha_open_items")
     .select(
-      "card_id,draw_round_prize_id,result_position,tier,value_thb",
+      "card_id,draw_round_prize_id,draw_round_prize_unit_id,result_position,tier,value_thb",
     )
     .eq("gacha_open_id", openId);
   if (openItemsError || !openItems?.length) return items;
@@ -217,8 +221,15 @@ async function hydrateItems(
         .filter((value): value is string => Boolean(value)),
     ),
   );
+  const prizeUnitIds = Array.from(
+    new Set(
+      openItems
+        .map((row) => row.draw_round_prize_unit_id)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
 
-  const [cardsResult, prizesResult] = await Promise.all([
+  const [cardsResult, prizesResult, prizeUnitsResult] = await Promise.all([
     cardIds.length
       ? supabase
           .from("cards")
@@ -231,6 +242,12 @@ async function hydrateItems(
           .select("id,tier,rank,metadata")
           .in("id", prizeIds)
       : Promise.resolve({ data: [], error: null }),
+    prizeUnitIds.length
+      ? supabase
+          .from("draw_round_prize_units")
+          .select("id,card_stock_unit_id,status")
+          .in("id", prizeUnitIds)
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   const cardById = new Map<string, { name: string; image_url: string | null }>();
@@ -240,6 +257,23 @@ async function hydrateItems(
       image_url: card.image_url ?? null,
     });
   }
+  const stockUnitIds = Array.from(
+    new Set(
+      (prizeUnitsResult.data ?? [])
+        .map((row) => row.card_stock_unit_id)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+  const stockUnitsResult = stockUnitIds.length
+    ? await supabase
+        .from("card_stock_units")
+        .select("id,image_url")
+        .in("id", stockUnitIds)
+    : { data: [] as PublicStockUnitImageRow[], error: null };
+  const imageByPrizeUnitId = stockImageUrlByPrizeUnitId(
+    (prizeUnitsResult.data ?? []) as PublicPrizeUnitImageRow[],
+    (stockUnitsResult.data ?? []) as PublicStockUnitImageRow[],
+  );
   const prizeById = new Map<
     string,
     { tier: string | null; rank: number | null; displayTier: string | null }
@@ -279,11 +313,17 @@ async function hydrateItems(
       item.displayTier ??
       prize?.displayTier ??
       deriveDisplayTier(tier, prize?.rank ?? 99);
+    const prizeUnitId =
+      openItem?.draw_round_prize_unit_id ??
+      (typeof item.prizeUnitId === "string" ? item.prizeUnitId : null);
     return {
       ...item,
       cardId,
       name: item.name ?? card?.name ?? "Mystery card",
-      imageUrl: item.imageUrl ?? card?.image_url ?? null,
+      imageUrl: publicSubSkuImageUrl(
+        prizeUnitId ? imageByPrizeUnitId.get(prizeUnitId) : null,
+        item.imageUrl ?? card?.image_url ?? null,
+      ),
       tier,
       displayTier,
       valueThb: item.valueThb ?? openItem?.value_thb ?? null,
