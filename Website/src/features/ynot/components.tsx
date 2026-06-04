@@ -2021,9 +2021,12 @@ function CollectionCard({ item }: { item: YnotCollectionItem }) {
   return (
     <article className="collection-card vertical">
       <div className="collection-art large">
-        <span>
-          {item.imageUrl ? "Card image" : (item.cardCode ?? "YNot Card")}
-        </span>
+        {item.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- Collection images are Supabase/storage URLs managed by admins.
+          <img src={item.imageUrl} alt={item.cardName} loading="lazy" />
+        ) : (
+          <span>{item.cardCode ?? "YNot Card"}</span>
+        )}
       </div>
       <h3 className="title-s mt-4">{item.cardName}</h3>
       <p className="txt-mono mt-1 text-xs">

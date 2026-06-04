@@ -315,6 +315,7 @@ export type YnotGachaOpenReward = {
   id: string;
   cardName: string;
   cardCode?: string | null;
+  imageUrl?: string | null;
   displayTier?: "rainbow" | "gold" | "silver" | "bronze" | null;
   valueThb?: number | null;
   resultPosition: number;

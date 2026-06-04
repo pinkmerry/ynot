@@ -178,7 +178,18 @@ export function ProfileRewardsTabs({
               <div className="profile-reward-list">
                 {rewardHistory.map((reward) => (
                   <div key={reward.id} className="profile-reward-row">
-                    <span>{reward.resultPosition}</span>
+                    <span className="profile-reward-thumb">
+                      {reward.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- Reward images are Supabase/storage URLs managed by admins.
+                        <img
+                          src={reward.imageUrl}
+                          alt={reward.cardName}
+                          loading="lazy"
+                        />
+                      ) : (
+                        reward.resultPosition
+                      )}
+                    </span>
                     <div>
                       <strong>{reward.cardName}</strong>
                       <em>

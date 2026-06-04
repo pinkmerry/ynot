@@ -12838,6 +12838,26 @@ html[data-ynot-theme="light"] .profile-empty-note {
   width: 34px;
 }
 
+.profile-reward-thumb {
+  overflow: hidden;
+  position: relative;
+}
+
+.profile-reward-thumb img,
+.collection-art img {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.profile-reward-thumb img {
+  object-fit: cover;
+}
+
+.collection-art img {
+  object-fit: contain;
+}
+
 .profile-reward-row b {
   color: var(--prototype-cyan);
   font-family: var(--font-mono), "Geist Mono", ui-monospace, monospace;

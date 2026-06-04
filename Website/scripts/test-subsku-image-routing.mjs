@@ -139,3 +139,40 @@ test("pack opening API resolves awarded stock-unit image without exposing intern
   assert.doesNotMatch(publicOpenItemType, /cardId|prizeUnitId|draw_round|card_stock|tier\?:/);
   assert.doesNotMatch(toPublicOpenItem, /cardId:|prizeUnitId:|draw_round_prize_unit_id|card_stock_unit_id/);
 });
+
+test("opening reward history carries a public image URL only", () => {
+  const typesSource = readSource("../src/features/ynot/types.ts");
+  const dataSource = readSource("../src/features/ynot/data.ts");
+  const profileTabsSource = readSource("../src/features/ynot/ProfileRewardsTabs.tsx");
+  const historySource =
+    dataSource.match(/export async function getGachaOpenHistory[\s\S]*?export async function getExchanges/)?.[0] ??
+    "";
+
+  const rewardType = typesSource.match(/export type YnotGachaOpenReward = \{[\s\S]*?\};/)?.[0] ?? "";
+  assert.match(rewardType, /imageUrl\?:\s*string\s*\|\s*null/);
+  assert.doesNotMatch(rewardType, /card_stock_unit_id|draw_round_prize_unit_id|prizeUnitId|certNumber|gemrateId|weight|unlockAtSoldPct/);
+
+  assert.match(historySource, /stockImageUrlByOpenItemId/);
+  assert.match(
+    historySource,
+    /\.from\("draw_round_prize_units"\)[\s\S]*\.select\("gacha_open_item_id,card_stock_unit_id,status"\)[\s\S]*\.in\("gacha_open_id", openIds\)/,
+  );
+  assert.match(
+    historySource,
+    /imageUrl:\s*publicSubSkuImageUrl\(\s*rewardImageByOpenItemId\.get\(item\.id\),\s*card\?\.photoUrl\s*\?\?\s*null,?\s*\)/,
+  );
+  assert.match(profileTabsSource, /profile-reward-thumb/);
+  assert.match(profileTabsSource, /reward\.imageUrl/);
+});
+
+test("collection card components render existing collection image URLs", () => {
+  const componentsSource = readSource("../src/features/ynot/components.tsx");
+  const globalsSource = readSource("../src/app/globals.css");
+
+  const collectionCard = componentsSource.match(/function CollectionCard[\s\S]*?^}/m)?.[0] ?? "";
+  assert.match(collectionCard, /item\.imageUrl/);
+  assert.match(collectionCard, /<img/);
+  assert.match(collectionCard, /src=\{item\.imageUrl\}/);
+  assert.match(globalsSource, /\.profile-reward-thumb/);
+  assert.match(globalsSource, /\.collection-art img/);
+});

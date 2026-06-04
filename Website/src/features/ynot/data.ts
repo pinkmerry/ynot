@@ -65,6 +65,7 @@ import {
 } from "./stock-sku-usage";
 import {
   publicSubSkuImageUrl,
+  stockImageUrlByOpenItemId,
   stockImageUrlByPrizeId,
   type PublicPrizeUnitImageRow,
   type PublicStockUnitImageRow,
@@ -2291,6 +2292,38 @@ export async function getGachaOpenHistory(
     }
   }
 
+  const rewardPrizeUnits = openIds.length
+    ? await readOrEmpty("gacha_history_prize_unit_images", async () => {
+        const { data, error } = await supabase
+          .from("draw_round_prize_units")
+          .select("gacha_open_item_id,card_stock_unit_id,status")
+          .in("gacha_open_id", openIds);
+        if (error) throw error;
+        return data ?? [];
+      })
+    : [];
+  const rewardStockUnitIds = [
+    ...new Set(
+      rewardPrizeUnits
+        .map((unit) => unit.card_stock_unit_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const rewardStockUnits = rewardStockUnitIds.length
+    ? await readOrEmpty("gacha_history_stock_unit_images", async () => {
+        const { data, error } = await supabase
+          .from("card_stock_units")
+          .select("id,image_url")
+          .in("id", rewardStockUnitIds);
+        if (error) throw error;
+        return data ?? [];
+      })
+    : [];
+  const rewardImageByOpenItemId = stockImageUrlByOpenItemId(
+    rewardPrizeUnits as PublicPrizeUnitImageRow[],
+    rewardStockUnits as PublicStockUnitImageRow[],
+  );
+
   const cardsById = new Map(cards.map((card) => [card.catalogCardId, card]));
   const campaignsById = new Map(
     campaigns.map((campaign) => [campaign.id, campaign]),
@@ -2317,6 +2350,10 @@ export async function getGachaOpenHistory(
         id: `${publicCode}-${item.result_position ?? index + 1}`,
         cardName: card?.name ?? "Mystery reward",
         cardCode: card?.code,
+        imageUrl: publicSubSkuImageUrl(
+          rewardImageByOpenItemId.get(item.id),
+          card?.photoUrl ?? null,
+        ),
         displayTier,
         valueThb: item.value_thb,
         resultPosition: item.result_position,
