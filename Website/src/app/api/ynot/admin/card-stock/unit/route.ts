@@ -18,7 +18,7 @@ function stockUnitErrorMessage(message?: string) {
   if (!message) return "Stock unit could not be updated.";
   if (message.includes("active_admin_required")) return "Admin access is required.";
   if (message.includes("stock_unit_required")) return "unitId is required.";
-  if (message.includes("stock_unit_not_editable")) return "Unit not found or not editable (must be available).";
+  if (message.includes("stock_unit_not_editable")) return "Unit not found or not editable (archived or deleted units are locked).";
   if (message.includes("stock_unit_not_removable")) return "Unit not found or not removable (must be available).";
   if (message.includes("invalid_condition")) return "Choose a valid stock condition.";
   if (message.includes("graded_stock_identity_required")) return "Choose a grade and grading service for graded stock.";

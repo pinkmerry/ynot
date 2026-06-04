@@ -163,6 +163,18 @@ test("editable stock-unit rows preserve existing image storage paths", () => {
   assert.match(clientSource, /useState\(\s*unit\.imageStoragePath \?\? ""/);
 });
 
+test("editable stock-unit list includes units a pack reserves or allocates", () => {
+  // The list endpoint must surface reserved/allocated units, not just available,
+  // so the per-unit Edit UI appears for units already used in a pack.
+  assert.match(
+    cardStockUnitsRouteSource,
+    /\.in\(\s*"status"\s*,\s*\[\s*"available"\s*,\s*"reserved"\s*,\s*"allocated"\s*\]\s*\)/,
+  );
+  assert.doesNotMatch(cardStockUnitsRouteSource, /\.eq\(\s*"status"\s*,\s*"available"\s*\)/);
+  // The manage-units section gates on all editable units, not only available.
+  assert.match(clientSource, /const editableUnits =\s*\n?\s*group\.availableUnits \+ group\.reservedUnits \+ group\.allocatedUnits/);
+});
+
 test("random-pack save serializes the validated visible sub-SKU selection", () => {
   assert.match(
     clientSource,
@@ -258,6 +270,21 @@ test("single stock-unit edit and delete use transaction-safe RPCs", () => {
   assert.match(sql, /card_stock_unit_deleted/);
   assert.match(sql, /grant execute on function public\.edit_card_stock_unit/i);
   assert.match(sql, /grant execute on function public\.delete_card_stock_unit/i);
+});
+
+test("editing a stock unit is allowed while a pack reserves or allocates it", () => {
+  const sql = migrationSql();
+  // The latest edit RPC must accept reserved/allocated units so admins can fix
+  // a unit's identity or image after a pack uses it.
+  assert.match(
+    sql,
+    /create\s+or\s+replace\s+function\s+public\.edit_card_stock_unit[\s\S]*status\s+in\s*\(\s*'available'\s*,\s*'reserved'\s*,\s*'allocated'\s*\)[\s\S]*stock_unit_not_editable/i,
+  );
+  // Deletion stays restricted to available units so a pack slot is never orphaned.
+  assert.match(
+    sql,
+    /create\s+or\s+replace\s+function\s+public\.delete_card_stock_unit[\s\S]*and\s+status\s*=\s*'available'[\s\S]*stock_unit_not_removable/i,
+  );
 });
 
 test("admin stock-unit route calls RPCs instead of split update plus ledger writes", () => {
