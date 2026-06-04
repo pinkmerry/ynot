@@ -14,6 +14,8 @@ export type YnotCampaign = {
   // Last One Prize: optional bonus card for whoever opens the final pack.
   lastPrizeCardId?: string | null;
   lastPrizeStockUnitKey?: string | null;
+  // Resolved view of the last prize (card name + sub-SKU image) for display.
+  lastPrizePreview?: YnotLastPrizePreview | null;
   status: "draft" | "live" | "closed" | "archived";
   approvalStatus?: YnotApprovalStatus;
   titleTh: string;
@@ -53,6 +55,14 @@ export type YnotCampaign = {
   prizeLineup?: YnotPrizePreview[];
   convertDeadlineDays?: number | null;
   demo?: boolean;
+};
+
+export type YnotLastPrizePreview = {
+  cardId: string;
+  cardName: string;
+  cardCode?: string | null;
+  cardImageUrl?: string | null;
+  stockLabel?: string | null;
 };
 
 export type YnotApprovalStatus =

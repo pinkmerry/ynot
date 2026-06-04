@@ -1255,6 +1255,10 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   background: linear-gradient(135deg, #f5e6d3, #ead4b8);
   border-color: rgba(201, 142, 92, 0.32);
 }
+.cr-tier-banner.last-prize {
+  background: linear-gradient(135deg, #fff1cf 0%, #ffe0a3 45%, #ffd27a 100%);
+  border-color: rgba(196, 138, 20, 0.42);
+}
 .cr-tier-swatch {
   width: 44px;
   height: 44px;
@@ -1283,6 +1287,10 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
 .cr-tier-swatch.bronze {
   background: linear-gradient(135deg, #d99a6b, #985830);
   color: #2d1a0a;
+}
+.cr-tier-swatch.last-prize {
+  background: linear-gradient(135deg, #ffd76a, #e0a316);
+  color: #4a2e08;
 }
 .cr-tier-text {
   display: flex;
@@ -1974,6 +1982,7 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
 .cr-coll-art.gold { background: linear-gradient(150deg, #fff3c0, #d9a022); color: #5c3f06; }
 .cr-coll-art.silver { background: linear-gradient(150deg, #f3f3f5, #c8c8d0); color: #3a3a3f; }
 .cr-coll-art.bronze { background: linear-gradient(150deg, #ead4b8, #c98e5c); color: #4a2e0e; }
+.cr-coll-art.last-prize { background: linear-gradient(150deg, #fff0c4, #e8b341); color: #5c3f06; }
 .cr-coll-tier {
   position: absolute;
   top: 8px;
