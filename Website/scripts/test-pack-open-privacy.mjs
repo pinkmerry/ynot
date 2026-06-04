@@ -369,6 +369,11 @@ test("pack-open browser payload uses public campaign slug and server resolves it
 test("open page only renders auto-start reveal for openable campaigns", () => {
   assert.match(
     gachaOpenPageSource,
+    /getCampaign\(campaignId,\s*\{\s*allowTestForCurrentViewer:\s*true,\s*bypassPublicCache:\s*true,\s*viewer:\s*data\.viewer,\s*\}\)/,
+    "open entrypoints must bypass cached public detail so stale openable state cannot auto-start a sold-out pack",
+  );
+  assert.match(
+    gachaOpenPageSource,
     /if \(campaign && campaign\.openable && autoStart\)/,
   );
   assert.doesNotMatch(
@@ -378,6 +383,24 @@ test("open page only renders auto-start reveal for openable campaigns", () => {
   assert.match(
     gachaOpenPageSource,
     /if \(campaign\) \{\s*redirect\(`\/packs\/\$\{campaign\.slug\}`\);\s*\}/,
+  );
+});
+
+test("public campaign detail cache is bypassable for fresh openability gates", () => {
+  const getCampaignBlock = between(
+    dataSource,
+    "export async function getCampaign",
+    "async function getPaymentMethodsImpl",
+  );
+  assert.match(
+    getCampaignBlock,
+    /bypassPublicCache\?: boolean;/,
+    "getCampaign should expose an explicit cache bypass option for open-entry freshness",
+  );
+  assert.match(
+    getCampaignBlock,
+    /if \(!options\.bypassPublicCache && !viewer\.isAdmin && !looksLikeUuid\(campaignLookup\)\)/,
+    "public detail cache must be skipped when callers need fresh sold-out/openable state",
   );
 });
 
