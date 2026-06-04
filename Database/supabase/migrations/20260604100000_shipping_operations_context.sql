@@ -28,6 +28,18 @@ before update of address_snapshot on public.shipping_requests
 for each row
 execute function public.prevent_shipping_address_snapshot_update();
 
+create index if not exists audit_events_shipping_request_created_idx
+  on public.audit_events(shipping_request_id, created_at)
+  where shipping_request_id is not null;
+
+create index if not exists audit_events_actor_profile_created_idx
+  on public.audit_events(actor_profile_id, created_at desc)
+  where actor_profile_id is not null;
+
+create index if not exists draw_round_prize_units_collection_item_open_item_idx
+  on public.draw_round_prize_units(collection_item_id, gacha_open_item_id)
+  where collection_item_id is not null;
+
 create or replace function public.request_shipping_for_items(
   p_profile_id uuid,
   p_address_id uuid,

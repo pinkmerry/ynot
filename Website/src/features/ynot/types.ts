@@ -203,20 +203,110 @@ export type YnotExchangeOrder = {
   adminNote?: string | null;
 };
 
+export type YnotShippingStatus =
+  | "draft"
+  | "submitted"
+  | "packing"
+  | "shipped"
+  | "delivered"
+  | "cancelled";
+
+export type YnotShippingCustomer = {
+  profileId: string;
+  displayName: string;
+  email?: string | null;
+  lineDisplayName?: string | null;
+  lineUserId?: string | null;
+  phone?: string | null;
+  status?: string | null;
+  createdAt?: string | null;
+  lastSeenAt?: string | null;
+};
+
+export type YnotShippingAddressSnapshot = {
+  label?: string | null;
+  recipientName?: string | null;
+  phone?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  subdistrict?: string | null;
+  district?: string | null;
+  province?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  deliveryNote?: string | null;
+};
+
+export type YnotShippingItem = {
+  cardName: string;
+  cardCode?: string | null;
+  imageUrl?: string | null;
+  status?: YnotCollectionItem["status"] | null;
+  serialNo?: string | null;
+  acquiredAt?: string | null;
+  sourceCampaignTitle?: string | null;
+  sourceCampaignSlug?: string | null;
+  sourceOpenCode?: string | null;
+  sourceOpenPosition?: number | null;
+  sourcePrizeTierLabel?: string | null;
+  sourcePrizeValueThb?: number | null;
+};
+
+export type YnotShippingTimelineEvent = {
+  id: string;
+  eventType: string;
+  label: string;
+  createdAt: string;
+  actorLabel?: string | null;
+  previousStatus?: string | null;
+  status?: string | null;
+  trackingProvider?: string | null;
+  trackingNumber?: string | null;
+  note?: string | null;
+};
+
 export type YnotShippingRequest = {
   id: string;
   publicCode: string;
-  status:
-    | "draft"
-    | "submitted"
-    | "packing"
-    | "shipped"
-    | "delivered"
-    | "cancelled";
+  profileId?: string;
+  status: YnotShippingStatus;
   trackingProvider?: string | null;
   trackingNumber?: string | null;
   createdAt: string;
+  updatedAt?: string | null;
+  customerNote?: string | null;
   adminNote?: string | null;
+  shippingFeeCoins?: number;
+  customer?: YnotShippingCustomer | null;
+  addressSnapshot?: YnotShippingAddressSnapshot | null;
+  items?: YnotShippingItem[];
+  timeline?: YnotShippingTimelineEvent[];
+};
+
+export type YnotWalletLedgerEntry = {
+  id: string;
+  entryType: string;
+  amountCoins: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  referenceType?: string | null;
+  createdAt: string;
+};
+
+export type YnotAdminUserDetail = {
+  profile: YnotShippingCustomer & {
+    fullName?: string | null;
+    avatarUrl?: string | null;
+    preferredLanguage?: "th" | "en" | string | null;
+  };
+  wallet: YnotWallet;
+  addresses: YnotAddress[];
+  collection: YnotCollectionItem[];
+  gachaOpens: YnotGachaOpenHistory[];
+  shipping: YnotShippingRequest[];
+  topUps: YnotTopUp[];
+  walletLedger: YnotWalletLedgerEntry[];
+  auditTimeline: YnotShippingTimelineEvent[];
 };
 
 export type YnotGachaOpenReward = {

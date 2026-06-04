@@ -17,6 +17,7 @@ import { addressActionToken } from "@/lib/ynot/address-action-tokens";
 import { collectionItemActionToken } from "@/lib/ynot/collection-action-tokens";
 import { paymentMethodActionToken } from "@/lib/ynot/payment-method-action-tokens";
 import type {
+  YnotAdminUserDetail,
   YnotCampaign,
   YnotCollectionItem,
   YnotDashboardData,
@@ -33,7 +34,10 @@ import type {
   YnotPrizePreview,
   YnotRandomLogicMode,
   YnotRankingRow,
+  YnotShippingAddressSnapshot,
+  YnotShippingItem,
   YnotShippingRequest,
+  YnotShippingTimelineEvent,
   YnotTierAnimation,
   YnotTopUp,
   YnotViewer,
@@ -2302,30 +2306,366 @@ function publicExchangeOrder(order: YnotExchangeOrder): YnotExchangeOrder {
   };
 }
 
+function shippingAddressSnapshotFromValue(
+  value: unknown,
+): YnotShippingAddressSnapshot | null {
+  if (!isRecord(value)) return null;
+  const snapshot = {
+    label: metadataString(value, "label") ?? null,
+    recipientName: metadataString(value, "recipientName") ?? null,
+    phone: metadataString(value, "phone") ?? null,
+    addressLine1: metadataString(value, "addressLine1") ?? null,
+    addressLine2: metadataString(value, "addressLine2") ?? null,
+    subdistrict: metadataString(value, "subdistrict") ?? null,
+    district: metadataString(value, "district") ?? null,
+    province: metadataString(value, "province") ?? null,
+    postalCode: metadataString(value, "postalCode") ?? null,
+    country: metadataString(value, "country") ?? null,
+    deliveryNote: metadataString(value, "deliveryNote") ?? null,
+  };
+  return Object.values(snapshot).some((field) => field !== null)
+    ? snapshot
+    : null;
+}
+
+function shippingAddressSnapshotFromAddress(
+  address?: Database["public"]["Tables"]["user_addresses"]["Row"],
+): YnotShippingAddressSnapshot | null {
+  if (!address) return null;
+  return {
+    label: address.label,
+    recipientName: address.recipient_name,
+    phone: address.phone,
+    addressLine1: address.address_line1,
+    addressLine2: address.address_line2,
+    subdistrict: address.subdistrict,
+    district: address.district,
+    province: address.province,
+    postalCode: address.postal_code,
+    country: address.country,
+    deliveryNote: address.delivery_note,
+  };
+}
+
+function addressSnapshotFromRow(
+  row: Database["public"]["Tables"]["shipping_requests"]["Row"],
+  address?: Database["public"]["Tables"]["user_addresses"]["Row"],
+): YnotShippingAddressSnapshot | null {
+  return (
+    shippingAddressSnapshotFromValue(row.address_snapshot) ??
+    shippingAddressSnapshotFromAddress(address)
+  );
+}
+
+function shippingTimelineLabel(eventType: string, status?: string | null) {
+  if (eventType === "shipping_submitted") return "Shipping requested";
+  if (eventType === "shipping_status_updated") {
+    if (status === "packing") return "Marked packing";
+    if (status === "shipped") return "Marked shipped";
+    if (status === "delivered") return "Marked delivered";
+    if (status === "cancelled") return "Cancelled";
+  }
+  return eventType.replaceAll("_", " ");
+}
+
+function shippingTimelineEvent(
+  row: Database["public"]["Tables"]["audit_events"]["Row"],
+): YnotShippingTimelineEvent {
+  const metadata = isRecord(row.metadata) ? row.metadata : {};
+  const status = metadataString(metadata, "status") ?? null;
+  return {
+    id: row.id,
+    eventType: row.event_type,
+    label: shippingTimelineLabel(row.event_type, status),
+    createdAt: row.created_at,
+    previousStatus: metadataString(metadata, "previousStatus") ?? null,
+    status,
+    trackingProvider: metadataString(metadata, "trackingProvider") ?? null,
+    trackingNumber: metadataString(metadata, "trackingNumber") ?? null,
+    note: metadataString(metadata, "adminNote") ?? null,
+  };
+}
+
 export async function getShipping(
   profileId?: string,
   includeAll = false,
 ): Promise<YnotShippingRequest[]> {
   if ((!profileId && !includeAll) || !isSupabaseConfigured()) return [];
+  if (includeAll && !(await resolveAdminSession())) return [];
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("shipping", async () => {
     let query = supabase
       .from("shipping_requests")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(80);
+      .limit(includeAll ? 200 : 80);
     if (!includeAll && profileId) query = query.eq("profile_id", profileId);
     const { data, error } = await query;
     if (error) throw error;
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      publicCode: row.public_code,
-      status: row.status,
-      trackingProvider: row.tracking_provider,
-      trackingNumber: row.tracking_number,
-      createdAt: row.created_at,
-      adminNote: row.admin_note,
-    }));
+    const rows = data ?? [];
+    if (!rows.length) return [];
+
+    const requestIds = rows.map((row) => row.id);
+    const profileIds = Array.from(new Set(rows.map((row) => row.profile_id)));
+    const addressIds = Array.from(
+      new Set(
+        rows
+          .map((row) => row.address_id)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    );
+
+    const [shippingItems, profiles, addresses, auditRows] = await Promise.all([
+      readOrEmpty("shipping_request_items", async () => {
+        const { data, error } = await supabase
+          .from("shipping_request_items")
+          .select("*")
+          .in("shipping_request_id", requestIds)
+          .order("created_at", { ascending: true });
+        if (error) throw error;
+        return data ?? [];
+      }),
+      readOrEmpty("shipping_profiles", async () => {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select(
+            "id,email,display_name,line_display_name,line_user_id,phone,profile_status,created_at,last_seen_at",
+          )
+          .in("id", profileIds);
+        if (error) throw error;
+        return data ?? [];
+      }),
+      addressIds.length
+        ? readOrEmpty("shipping_addresses", async () => {
+            const { data, error } = await supabase
+              .from("user_addresses")
+              .select("*")
+              .in("id", addressIds);
+            if (error) throw error;
+            return data ?? [];
+          })
+        : Promise.resolve(
+            [] as Database["public"]["Tables"]["user_addresses"]["Row"][],
+          ),
+      readOrEmpty("shipping_audit_events", async () => {
+        const { data, error } = await supabase
+          .from("audit_events")
+          .select("*")
+          .in("shipping_request_id", requestIds)
+          .order("created_at", { ascending: true });
+        if (error) throw error;
+        return data ?? [];
+      }),
+    ]);
+
+    const collectionItemIds = Array.from(
+      new Set(shippingItems.map((item) => item.collection_item_id)),
+    );
+    const collectionItems = collectionItemIds.length
+      ? await readOrEmpty("shipping_collection_items", async () => {
+          const { data, error } = await supabase
+            .from("collection_items")
+            .select("*")
+            .in("id", collectionItemIds);
+          if (error) throw error;
+          return data ?? [];
+        })
+      : [];
+    const sourceOpenItemIdByCollectionItem = new Map<string, string>();
+    if (collectionItemIds.length) {
+      const prizeUnitRows = await readOrEmpty(
+        "shipping_prize_units",
+        async () => {
+          const { data, error } = await supabase
+            .from("draw_round_prize_units")
+            .select("collection_item_id,gacha_open_item_id")
+            .in("collection_item_id", collectionItemIds);
+          if (error) throw error;
+          return data ?? [];
+        },
+      );
+      for (const row of prizeUnitRows) {
+        if (row.collection_item_id && row.gacha_open_item_id) {
+          sourceOpenItemIdByCollectionItem.set(
+            row.collection_item_id,
+            row.gacha_open_item_id,
+          );
+        }
+      }
+    }
+    const gachaSourceIds = Array.from(
+      new Set(
+        collectionItems
+          .filter((item) => item.source_type === "gacha_open" && item.source_id)
+          .map((item) => item.source_id as string),
+      ),
+    );
+
+    const gachaOpens = gachaSourceIds.length
+      ? await readOrEmpty("shipping_gacha_opens", async () => {
+          const { data, error } = await supabase
+            .from("gacha_opens")
+            .select("*")
+            .in("id", gachaSourceIds);
+          if (error) throw error;
+          return data ?? [];
+        })
+      : [];
+    const drawRoundIds = Array.from(
+      new Set(gachaOpens.map((open) => open.draw_round_id)),
+    );
+    const [campaigns, openItems, cards] = await Promise.all([
+      drawRoundIds.length
+        ? readOrEmpty("shipping_draw_rounds", async () => {
+            const { data, error } = await supabase
+              .from("draw_rounds")
+              .select("id,slug,title_th,title_en")
+              .in("id", drawRoundIds);
+            if (error) throw error;
+            return data ?? [];
+          })
+        : Promise.resolve([]),
+      gachaSourceIds.length
+        ? readOrEmpty("shipping_gacha_open_items", async () => {
+            const { data, error } = await supabase
+              .from("gacha_open_items")
+              .select(
+                "id,gacha_open_id,card_id,draw_round_prize_id,tier,value_thb,result_position",
+              )
+              .in("gacha_open_id", gachaSourceIds)
+              .order("result_position", { ascending: true });
+            if (error) throw error;
+            return data ?? [];
+          })
+        : Promise.resolve([]),
+      readOrEmpty("shipping_card_catalog", async () => getCardCatalog(supabase)),
+    ]);
+
+    const prizeIds = Array.from(
+      new Set(
+        openItems
+          .map((openItem) => openItem.draw_round_prize_id)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    );
+    const prizes = prizeIds.length
+      ? await readOrEmpty("shipping_source_prizes", async () => {
+          const { data, error } = await supabase
+            .from("draw_round_prizes")
+            .select("id,tier,rank,value_thb,metadata")
+            .in("id", prizeIds);
+          if (error) throw error;
+          return data ?? [];
+        })
+      : [];
+
+    const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
+    const addressById = new Map(addresses.map((address) => [address.id, address]));
+    const collectionItemById = new Map(
+      collectionItems.map((item) => [item.id, item]),
+    );
+    const cardsById = new Map(cards.map((card) => [card.catalogCardId, card]));
+    const openById = new Map(gachaOpens.map((open) => [open.id, open]));
+    const campaignById = new Map(campaigns.map((campaign) => [campaign.id, campaign]));
+    const prizesById = new Map(prizes.map((prize) => [prize.id, prize]));
+
+    const openItemsById = new Map(
+      openItems.map((openItem) => [openItem.id, openItem]),
+    );
+
+    const shippingItemsByRequestId = new Map<string, YnotShippingItem[]>();
+    for (const shippingItem of shippingItems) {
+      const item = collectionItemById.get(shippingItem.collection_item_id);
+      const card = cardsById.get(shippingItem.card_id ?? item?.card_id ?? "");
+      const open = item?.source_id ? openById.get(item.source_id) : undefined;
+      const campaign = open ? campaignById.get(open.draw_round_id) : undefined;
+      const directOpenItemId = item
+        ? sourceOpenItemIdByCollectionItem.get(item.id)
+        : undefined;
+      const sourceOpenItem = directOpenItemId
+        ? openItemsById.get(directOpenItemId)
+        : undefined;
+      const sourcePrize = sourceOpenItem?.draw_round_prize_id
+        ? prizesById.get(sourceOpenItem.draw_round_prize_id)
+        : undefined;
+      const sourcePrizeTier = sourcePrize
+        ? displayTierFromPrizeMetadata(sourcePrize)
+        : sourceOpenItem
+          ? prizeDisplayTierValue(sourceOpenItem.tier)
+          : null;
+      const group = shippingItemsByRequestId.get(shippingItem.shipping_request_id) ?? [];
+      group.push({
+        cardName: card?.name ?? "Mystery card",
+        cardCode: card?.code ?? null,
+        imageUrl: card?.photoUrl ?? null,
+        status: item?.status ?? null,
+        serialNo: item?.serial_no ?? null,
+        acquiredAt: item?.acquired_at ?? null,
+        sourceCampaignTitle: campaign
+          ? campaign.title_en ?? campaign.title_th ?? null
+          : null,
+        sourceCampaignSlug: campaign?.slug ?? null,
+        sourceOpenCode: open?.public_code ?? null,
+        sourceOpenPosition: sourceOpenItem?.result_position ?? null,
+        sourcePrizeTierLabel: sourcePrizeTier
+          ? metadataString(sourcePrize?.metadata, "displayTierLabel") ??
+            prizeDisplayTierLabel(sourcePrizeTier)
+          : null,
+        sourcePrizeValueThb:
+          sourceOpenItem?.value_thb ?? sourcePrize?.value_thb ?? null,
+      });
+      shippingItemsByRequestId.set(shippingItem.shipping_request_id, group);
+    }
+
+    const timelineByShippingRequestId = new Map<
+      string,
+      YnotShippingTimelineEvent[]
+    >();
+    for (const row of auditRows) {
+      if (!row.shipping_request_id) continue;
+      const group = timelineByShippingRequestId.get(row.shipping_request_id) ?? [];
+      group.push(shippingTimelineEvent(row));
+      timelineByShippingRequestId.set(row.shipping_request_id, group);
+    }
+
+    return rows.map((row) => {
+      const profile = profileById.get(row.profile_id);
+      return {
+        id: row.id,
+        publicCode: row.public_code,
+        profileId: row.profile_id,
+        status: row.status,
+        trackingProvider: row.tracking_provider,
+        trackingNumber: row.tracking_number,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        customerNote: row.customer_note,
+        adminNote: row.admin_note,
+        shippingFeeCoins: row.shipping_fee_coins,
+        customer: profile
+          ? {
+              profileId: profile.id,
+              displayName:
+                profile.display_name ??
+                profile.line_display_name ??
+                "YNot Customer",
+              email: profile.email,
+              lineDisplayName: profile.line_display_name,
+              lineUserId: profile.line_user_id,
+              phone: profile.phone,
+              status: profile.profile_status,
+              createdAt: profile.created_at,
+              lastSeenAt: profile.last_seen_at,
+            }
+          : null,
+        addressSnapshot: addressSnapshotFromRow(
+          row,
+          row.address_id ? addressById.get(row.address_id) : undefined,
+        ),
+        items: shippingItemsByRequestId.get(row.id) ?? [],
+        timeline: timelineByShippingRequestId.get(row.id) ?? [],
+      };
+    });
   });
 }
 
@@ -2335,6 +2675,9 @@ function publicShippingRequest(
   return {
     ...request,
     id: request.publicCode,
+    profileId: undefined,
+    customer: null,
+    timeline: [],
     adminNote: null,
   };
 }
@@ -2525,6 +2868,103 @@ export async function getAdminUsers() {
       };
     });
   });
+}
+
+export async function getAdminUserDetail(
+  profileId: string,
+): Promise<YnotAdminUserDetail | null> {
+  if (!profileId || !isSupabaseConfigured()) return null;
+  const admin = await resolveAdminSession();
+  if (!admin) return null;
+  const supabase = createServiceSupabaseClient();
+  const profileRows = await readOrEmpty("admin_user_detail_profile", async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", profileId)
+      .limit(1);
+    if (error) throw error;
+    return data ?? [];
+  });
+  const profile = profileRows[0];
+  if (!profile) return null;
+
+  const [
+    wallet,
+    addresses,
+    collection,
+    gachaOpens,
+    shipping,
+    topUps,
+    walletLedger,
+    auditRows,
+  ] = await Promise.all([
+    getWallet(profileId),
+    getAddresses(profileId),
+    getCollection(profileId),
+    getGachaOpenHistory(profileId),
+    getShipping(profileId),
+    getTopUps(profileId, false, { includeSensitiveSlipDetails: true }),
+    readOrEmpty("admin_user_wallet_ledger", async () => {
+      const { data, error } = await supabase
+        .from("coin_ledger")
+        .select(
+          "id,entry_type,amount_coins,balance_before,balance_after,reference_type,created_at",
+        )
+        .eq("profile_id", profileId)
+        .order("created_at", { ascending: false })
+        .limit(80);
+      if (error) throw error;
+      return data ?? [];
+    }),
+    readOrEmpty("admin_user_audit", async () => {
+      const { data, error } = await supabase
+        .from("audit_events")
+        .select("*")
+        .eq("actor_profile_id", profileId)
+        .order("created_at", { ascending: false })
+        .limit(80);
+      if (error) throw error;
+      return data ?? [];
+    }),
+  ]);
+
+  return {
+    profile: {
+      profileId: profile.id,
+      displayName:
+        profile.display_name ??
+        profile.line_display_name ??
+        profile.full_name ??
+        "YNot Customer",
+      fullName: profile.full_name,
+      avatarUrl: profile.avatar_url,
+      email: profile.email,
+      lineDisplayName: profile.line_display_name,
+      lineUserId: profile.line_user_id,
+      phone: profile.phone,
+      status: profile.profile_status,
+      preferredLanguage: profile.preferred_language,
+      createdAt: profile.created_at,
+      lastSeenAt: profile.last_seen_at,
+    },
+    wallet,
+    addresses,
+    collection,
+    gachaOpens,
+    shipping,
+    topUps,
+    walletLedger: walletLedger.map((entry) => ({
+      id: entry.id,
+      entryType: entry.entry_type,
+      amountCoins: entry.amount_coins,
+      balanceBefore: entry.balance_before,
+      balanceAfter: entry.balance_after,
+      referenceType: entry.reference_type,
+      createdAt: entry.created_at,
+    })),
+    auditTimeline: auditRows.map(shippingTimelineEvent),
+  };
 }
 
 export async function getAdminAuditEvents({
