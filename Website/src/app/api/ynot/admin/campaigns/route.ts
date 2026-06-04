@@ -57,6 +57,8 @@ type CampaignBody = {
   seedRunId?: unknown;
   convertDeadlineDays?: unknown;
   initialPrizes?: unknown;
+  lastPrizeCardId?: unknown;
+  lastPrizeMetadata?: unknown;
 };
 
 function convertDeadlineValue(value: unknown): number | null | undefined {
@@ -204,6 +206,16 @@ function campaignPatch(body: CampaignBody): Database["public"]["Tables"]["draw_r
     is_test: body.isTest === undefined ? undefined : booleanValue(body.isTest),
     seed_run_id: body.seedRunId === undefined ? undefined : text(body.seedRunId, 80) || null,
     convert_deadline_days: convertDeadlineValue(body.convertDeadlineDays),
+    last_prize_card_id:
+      body.lastPrizeCardId === undefined
+        ? undefined
+        : text(body.lastPrizeCardId, 80) || null,
+    last_prize_metadata:
+      body.lastPrizeMetadata === undefined
+        ? undefined
+        : isRecord(body.lastPrizeMetadata)
+          ? (body.lastPrizeMetadata as Json)
+          : null,
   };
 }
 

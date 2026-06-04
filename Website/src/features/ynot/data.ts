@@ -837,6 +837,9 @@ function toYnotCampaign(
     soldOut,
     adminRemoved,
     packCode: row.pack_code,
+    lastPrizeCardId: row.last_prize_card_id ?? null,
+    lastPrizeStockUnitKey:
+      metadataString(row.last_prize_metadata, "stockUnitGroupKey") ?? null,
     sortOrder: row.sort_order,
     startsAt: row.starts_at,
     endsAt: row.ends_at,

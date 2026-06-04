@@ -3371,6 +3371,14 @@ export function AdminCampaignForm({
       ? prizeLineupToDrafts(editingPrizes, cards, defaultTotalSlots)
       : createInitialPrizeDrafts(cards, defaultTotalSlots),
   );
+  // Last One Prize: a bonus card for whoever opens the final pack. Stored on the
+  // campaign (not the prize pool), so it never touches slot/odds logic.
+  const [lastPrizeCardId, setLastPrizeCardId] = useState(
+    editingCampaign?.lastPrizeCardId ?? "",
+  );
+  const [lastPrizeStockUnitKey, setLastPrizeStockUnitKey] = useState(
+    editingCampaign?.lastPrizeStockUnitKey ?? "",
+  );
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const sortedDraftPrizes = useMemo(
@@ -3913,6 +3921,16 @@ export function AdminCampaignForm({
               },
             };
           }),
+          lastPrizeCardId: lastPrizeCardId || null,
+          lastPrizeMetadata: (() => {
+            const card = lastPrizeCardId
+              ? cardsById.get(lastPrizeCardId)
+              : null;
+            const key = validStockUnitKey(card, lastPrizeStockUnitKey);
+            return card && key
+              ? stockUnitSelectionMetadata(card, key)
+              : null;
+          })(),
         };
         if (editMode && editingCampaign) {
           await patchJson("/api/ynot/admin/campaigns", {
@@ -4662,6 +4680,140 @@ export function AdminCampaignForm({
                 </section>
               );
             })}
+            {(() => {
+              const lastCard = lastPrizeCardId
+                ? (cardsById.get(lastPrizeCardId) ?? null)
+                : null;
+              const lastGroups = lastCard ? stockSkuGroups(lastCard) : [];
+              const lastSelectedKey = validStockUnitKey(
+                lastCard,
+                lastPrizeStockUnitKey,
+              );
+              const lastSelectedGroup =
+                lastGroups.find((group) => group.key === lastSelectedKey) ??
+                null;
+              const lastImageUrl =
+                lastSelectedGroup?.units.find((unit) => unit.imageUrl)
+                  ?.imageUrl ?? null;
+              return (
+                <section className="admin-prize-tier-section admin-prize-tier-last-prize">
+                  <div className="admin-prize-tier-head">
+                    <div>
+                      <span>Last prize</span>
+                      <strong>Last One Prize · bonus</strong>
+                      <p>
+                        Awarded to whoever opens the final pack — on top of
+                        their normal pull. Not part of the pool and does not
+                        affect odds. Leave empty for no last prize.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="admin-prize-table">
+                    <div className="admin-prize-table-head">
+                      <span>Tier #</span>
+                      <span>Prize item</span>
+                      <span>Sub-SKU stock</span>
+                      <span>Sub-category</span>
+                      <span>Qty</span>
+                      <span>Convert coins</span>
+                      <span>Action</span>
+                    </div>
+                    <article className="admin-prize-table-row tier-last-prize">
+                      <div className="admin-prize-rank-cell">
+                        {lastCard ? (
+                          <AdminPrizeCardImage
+                            code={lastCard.code}
+                            imageUrl={lastImageUrl}
+                            fallbackUrl={lastCard.photoUrl}
+                            name={lastCard.name}
+                          />
+                        ) : (
+                          <span className="admin-prize-card-thumb admin-prize-card-placeholder">
+                            <strong>★</strong>
+                            <small>No image</small>
+                          </span>
+                        )}
+                      </div>
+                      <div className="admin-field admin-prize-card-field">
+                        <span>Prize item</span>
+                        <div className="admin-prize-rank-label">
+                          <strong>★</strong>
+                          <span>Last</span>
+                        </div>
+                        <AdminPrizeCardPicker
+                          cards={campaignCatalogCards}
+                          disabled={!campaignCatalogCards.length}
+                          showPreview={false}
+                          showSearch
+                          value={lastPrizeCardId}
+                          onChange={(cardId) => {
+                            const next =
+                              campaignCatalogCards.find(
+                                (card) => card.catalogCardId === cardId,
+                              ) ?? null;
+                            setLastPrizeCardId(cardId);
+                            setLastPrizeStockUnitKey(defaultStockUnitKey(next));
+                          }}
+                          testIdPrefix="campaign-last-prize"
+                        />
+                      </div>
+                      <label className="admin-field admin-prize-stock-sku-field">
+                        <span>Sub-SKU stock</span>
+                        <select
+                          disabled={!lastGroups.length}
+                          value={lastSelectedKey}
+                          onChange={(event) =>
+                            setLastPrizeStockUnitKey(event.target.value)
+                          }
+                        >
+                          {lastGroups.length ? (
+                            <option value="">Choose sub-SKU stock</option>
+                          ) : (
+                            <option value="">
+                              {lastCard
+                                ? "No sub-SKU stock"
+                                : "Choose item first"}
+                            </option>
+                          )}
+                          {lastGroups.map((group) => (
+                            <option key={group.key} value={group.key}>
+                              {group.sku} · {group.label} ·{" "}
+                              {group.availableUnits}/{group.totalUnits} stock
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className="admin-field">
+                        <span>Sub-category</span>
+                        <span className="admin-prize-static-cell">Bonus</span>
+                      </div>
+                      <div className="admin-field">
+                        <span>Qty</span>
+                        <span className="admin-prize-static-cell">1</span>
+                      </div>
+                      <div className="admin-field">
+                        <span>Convert coins</span>
+                        <span className="admin-prize-static-cell">—</span>
+                      </div>
+                      <div className="admin-field admin-prize-action-field">
+                        <span>Action</span>
+                        <button
+                          className="admin-prize-remove"
+                          disabled={!lastPrizeCardId}
+                          onClick={() => {
+                            setLastPrizeCardId("");
+                            setLastPrizeStockUnitKey("");
+                          }}
+                          type="button"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </article>
+                  </div>
+                </section>
+              );
+            })()}
           </div>
         </section>
 
