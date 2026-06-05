@@ -9691,6 +9691,11 @@ html[data-ynot-theme="light"] .gacha-detail-open-dock-info strong span {
   z-index: 1600;
 }
 
+.admin-prize-combobox__popover--portal {
+  position: fixed;
+  z-index: 10000;
+}
+
 .admin-prize-combobox__search {
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -9729,6 +9734,12 @@ html[data-ynot-theme="light"] .gacha-detail-open-dock-info strong span {
   padding: 6px;
 }
 
+.admin-prize-combobox__popover--portal .admin-prize-combobox__menu {
+  flex: 1 1 auto;
+  max-height: none;
+  min-height: 0;
+}
+
 .admin-prize-combobox__menu em {
   color: var(--admin-muted);
   font-size: 0.64rem;
@@ -9752,6 +9763,17 @@ html[data-ynot-theme="light"] .gacha-detail-open-dock-info strong span {
   width: 100%;
 }
 
+html[data-ynot-theme] body .admin-prize-combobox__popover button.admin-prize-combobox__option,
+.admin-prize-combobox__popover button.admin-prize-combobox__option {
+  align-items: flex-start !important;
+  display: block !important;
+  height: auto !important;
+  justify-content: flex-start !important;
+  min-height: 42px !important;
+  padding: 8px 10px !important;
+  white-space: normal !important;
+}
+
 .admin-prize-combobox__option:hover,
 .admin-prize-combobox__option.is-selected {
   background: rgba(255, 255, 255, 0.07);
@@ -9763,6 +9785,7 @@ html[data-ynot-theme="light"] .gacha-detail-open-dock-info strong span {
   font-weight: 800;
   line-height: 1.35;
   overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .admin-prize-combobox__menu p {
@@ -31345,10 +31368,10 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-row-footer-id {
 
 /* --- Admin: convert coins input column --- */
 html[data-ynot-theme] .admin-frame .admin-prize-table-head {
-  grid-template-columns: 90px minmax(180px, 1fr) minmax(220px, 1.1fr) 130px 80px 120px auto;
+  grid-template-columns: 90px minmax(180px, 1fr) minmax(220px, 1.1fr) 130px 80px 110px 120px auto;
 }
 html[data-ynot-theme] .admin-frame .admin-prize-table-row {
-  grid-template-columns: 90px minmax(180px, 1fr) minmax(220px, 1.1fr) 130px 80px 120px auto;
+  grid-template-columns: 90px minmax(180px, 1fr) minmax(220px, 1.1fr) 130px 80px 110px 120px auto;
 }
 html[data-ynot-theme] .admin-frame .admin-prize-stock-sku-field {
   display: flex;

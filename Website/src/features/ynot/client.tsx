@@ -1,7 +1,14 @@
 "use client";
 
-import type { MouseEvent, ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import type { CSSProperties, MouseEvent, ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -2445,10 +2452,13 @@ function prizeCatalogCardsFor(
       (!series || cardMatchesCampaignSeries(card, series)),
   );
   if (catalogCategory !== "single_cards") return categorizedCards;
-  if (canPrizeDisplayTierUseRandomPsa10(displayTier)) {
-    return categorizedCards.filter(isRandomPsa10Card);
-  }
-  return categorizedCards.filter((card) => !isRandomPsa10Card(card));
+  const randomPsa10Cards = canPrizeDisplayTierUseRandomPsa10(displayTier)
+    ? categorizedCards.filter(isRandomPsa10Card)
+    : [];
+  const specificCards = categorizedCards.filter(
+    (card) => !isRandomPsa10Card(card),
+  );
+  return [...randomPsa10Cards, ...specificCards];
 }
 
 function cardMatchesCampaignSeries(
@@ -2975,37 +2985,107 @@ function AdminPrizeCardPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({});
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const selectedCard =
     cards.find((card) => card.catalogCardId === value) ?? null;
   const normalizedQuery = query.trim().toLowerCase();
-  const visibleCards = useMemo(() => {
+  const matchingCards = useMemo(() => {
     if (!normalizedQuery) return cards;
     return cards.filter((card) =>
       adminPrizeCardSearchText(card).includes(normalizedQuery),
     );
   }, [cards, normalizedQuery]);
-  const listedCards = visibleCards
+  const matchingCardIds = useMemo(
+    () => new Set(matchingCards.map((card) => card.catalogCardId)),
+    [matchingCards],
+  );
+  const listedCards = matchingCards
     .filter((card) => card.catalogCardId !== selectedCard?.catalogCardId)
     .slice(0, 80);
   const hiddenMatchCount = Math.max(
     0,
-    visibleCards.filter(
+    matchingCards.filter(
       (card) => card.catalogCardId !== selectedCard?.catalogCardId,
     ).length - listedCards.length,
+  );
+  const browseCards = normalizedQuery
+    ? cards
+        .filter(
+          (card) =>
+            card.catalogCardId !== selectedCard?.catalogCardId &&
+            !matchingCardIds.has(card.catalogCardId),
+        )
+        .slice(0, 80)
+    : [];
+  const hiddenBrowseCount = Math.max(
+    0,
+    cards.filter(
+      (card) =>
+        card.catalogCardId !== selectedCard?.catalogCardId &&
+        !matchingCardIds.has(card.catalogCardId),
+    ).length - browseCards.length,
   );
   const selectedValue = selectedCard?.catalogCardId ?? "";
   const listboxId = `${testIdPrefix}-listbox`;
 
+  const closePicker = useCallback(() => {
+    setOpen(false);
+    setQuery("");
+  }, []);
+
+  const updatePopoverPosition = useCallback(() => {
+    if (!triggerRef.current || typeof window === "undefined") return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const viewportPadding = 12;
+    const gap = 8;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const width = Math.min(
+      Math.max(rect.width, 520),
+      Math.max(300, viewportWidth - viewportPadding * 2),
+    );
+    const left = Math.min(
+      Math.max(viewportPadding, rect.left),
+      Math.max(viewportPadding, viewportWidth - width - viewportPadding),
+    );
+    const belowSpace = viewportHeight - rect.bottom - gap - viewportPadding;
+    const aboveSpace = rect.top - gap - viewportPadding;
+    const openAbove = belowSpace < 240 && aboveSpace > belowSpace;
+    const availableHeight = openAbove ? aboveSpace : belowSpace;
+    const maxHeight = Math.max(180, Math.min(360, availableHeight));
+    const top = openAbove
+      ? Math.max(viewportPadding, rect.top - gap - maxHeight)
+      : Math.min(
+          viewportHeight - viewportPadding - maxHeight,
+          rect.bottom + gap,
+        );
+    setPopoverStyle({
+      left,
+      maxHeight,
+      top,
+      width,
+    });
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     function onDocPointer(event: globalThis.MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        setOpen(false);
+      const target = event.target as Node;
+      if (
+        rootRef.current?.contains(target) ||
+        popoverRef.current?.contains(target)
+      ) {
+        return;
+      }
+      if (rootRef.current) {
+        closePicker();
       }
     }
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") closePicker();
     }
     document.addEventListener("mousedown", onDocPointer);
     document.addEventListener("keydown", onKey);
@@ -3013,13 +3093,134 @@ function AdminPrizeCardPicker({
       document.removeEventListener("mousedown", onDocPointer);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [closePicker, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePopoverPosition();
+    window.addEventListener("resize", updatePopoverPosition);
+    window.addEventListener("scroll", updatePopoverPosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePopoverPosition);
+      window.removeEventListener("scroll", updatePopoverPosition, true);
+    };
+  }, [open, updatePopoverPosition]);
 
   function selectCard(cardId: string) {
     onChange(cardId);
     setOpen(false);
     setQuery("");
   }
+
+  const popover =
+    open && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="admin-prize-combobox__popover admin-prize-combobox__popover--portal"
+            ref={popoverRef}
+            style={popoverStyle}
+          >
+            <label className="admin-prize-combobox__search">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="7" cy="7" r="4.5" />
+                <path d="M11 11l3 3" />
+              </svg>
+              <input
+                aria-label="Search prize item by model code or name"
+                autoFocus
+                placeholder="Search model code or name"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </label>
+            <div
+              className="admin-prize-combobox__menu"
+              id={listboxId}
+              role="listbox"
+            >
+              {selectedCard && (
+                <>
+                  <em>Selected</em>
+                  <button
+                    aria-selected="true"
+                    className="admin-prize-combobox__option is-selected"
+                    onClick={() => selectCard(selectedCard.catalogCardId)}
+                    role="option"
+                    type="button"
+                  >
+                    <strong>{adminPrizeCardOptionLabel(selectedCard)}</strong>
+                  </button>
+                </>
+              )}
+              {normalizedQuery ? (
+                listedCards.length > 0 ? (
+                  <em>Search results</em>
+                ) : (
+                  <p>
+                    No catalog item matches that search. You can still browse
+                    all catalog items below.
+                  </p>
+                )
+              ) : (
+                listedCards.length > 0 && <em>Catalog items</em>
+              )}
+              {listedCards.map((card) => (
+                <button
+                  aria-selected={card.catalogCardId === selectedValue}
+                  className="admin-prize-combobox__option"
+                  key={card.catalogCardId}
+                  onClick={() => selectCard(card.catalogCardId)}
+                  role="option"
+                  type="button"
+                >
+                  <strong>{adminPrizeCardOptionLabel(card)}</strong>
+                </button>
+              ))}
+              {hiddenMatchCount > 0 && (
+                <p>
+                  Showing first {listedCards.length.toLocaleString()}. Keep
+                  typing to narrow {hiddenMatchCount.toLocaleString()} more.
+                </p>
+              )}
+              {normalizedQuery && browseCards.length > 0 && (
+                <>
+                  <em>Browse all items</em>
+                  {browseCards.map((card) => (
+                    <button
+                      aria-selected={card.catalogCardId === selectedValue}
+                      className="admin-prize-combobox__option"
+                      key={card.catalogCardId}
+                      onClick={() => selectCard(card.catalogCardId)}
+                      role="option"
+                      type="button"
+                    >
+                      <strong>{adminPrizeCardOptionLabel(card)}</strong>
+                    </button>
+                  ))}
+                  {hiddenBrowseCount > 0 && (
+                    <p>
+                      Showing first {browseCards.length.toLocaleString()} browse
+                      items. Clear search to see all{" "}
+                      {(browseCards.length + hiddenBrowseCount).toLocaleString()}.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
     <div
@@ -3055,7 +3256,11 @@ function AdminPrizeCardPicker({
               </span>
               <span>
                 <strong>{cards.length ? emptyLabel : "No item available"}</strong>
-                <small>{cards.length ? "Choose a visible card before saving." : missingLabel}</small>
+                <small>
+                  {cards.length
+                    ? "Choose a visible card before saving."
+                    : missingLabel}
+                </small>
               </span>
             </>
           )}
@@ -3069,80 +3274,41 @@ function AdminPrizeCardPicker({
           className="admin-prize-combobox__trigger"
           data-testid={`${testIdPrefix}-select`}
           disabled={disabled || !cards.length}
-          onClick={() => setOpen((current) => !current)}
+          ref={triggerRef}
+          onClick={() => {
+            if (open) {
+              closePicker();
+              return;
+            }
+            updatePopoverPosition();
+            setOpen(true);
+          }}
           role="combobox"
           type="button"
         >
           <strong>
-            {selectedCard ? adminPrizeCardOptionLabel(selectedCard) : cards.length ? emptyLabel : missingLabel}
+            {selectedCard
+              ? adminPrizeCardOptionLabel(selectedCard)
+              : cards.length
+                ? emptyLabel
+                : missingLabel}
           </strong>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <path d="M4 6l4 4 4-4" />
           </svg>
         </button>
-        {open && (
-          <div className="admin-prize-combobox__popover">
-            <label className="admin-prize-combobox__search">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="7" cy="7" r="4.5" />
-                <path d="M11 11l3 3" />
-              </svg>
-              <input
-                aria-label="Search prize item by model code or name"
-                autoFocus
-                placeholder="Search model code or name"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </label>
-            <div
-              className="admin-prize-combobox__menu"
-              id={listboxId}
-              role="listbox"
-            >
-              {selectedCard && (
-                <>
-                  <em>Selected</em>
-                  <button
-                    aria-selected="true"
-                    className="admin-prize-combobox__option is-selected"
-                    onClick={() => selectCard(selectedCard.catalogCardId)}
-                    role="option"
-                    type="button"
-                  >
-                    <strong>{adminPrizeCardOptionLabel(selectedCard)}</strong>
-                  </button>
-                </>
-              )}
-              {listedCards.length > 0 && <em>Catalog items</em>}
-              {listedCards.map((card) => (
-                <button
-                  aria-selected={card.catalogCardId === selectedValue}
-                  className="admin-prize-combobox__option"
-                  key={card.catalogCardId}
-                  onClick={() => selectCard(card.catalogCardId)}
-                  role="option"
-                  type="button"
-                >
-                  <strong>{adminPrizeCardOptionLabel(card)}</strong>
-                </button>
-              ))}
-              {hiddenMatchCount > 0 && (
-                <p>
-                  Showing first {listedCards.length.toLocaleString()}. Keep typing
-                  to narrow {hiddenMatchCount.toLocaleString()} more.
-                </p>
-              )}
-              {!visibleCards.length && (
-                <p>No catalog item matches that search.</p>
-              )}
-            </div>
-          </div>
-        )}
+        {popover}
       </div>
-      {cards.length > 0 && !visibleCards.length && (
-        <small>No catalog item matches that search.</small>
-      )}
     </div>
   );
 }
@@ -4563,7 +4729,7 @@ export function AdminCampaignForm({
                       </strong>
                       <p>
                         {option.value === "bronze"
-                          ? "Lowest/base tier. PSA10 uses the Random PSA10 catalog item; other categories only show matching catalog items."
+                          ? "Lowest/base tier. You can choose Random PSA10 or a specific matching catalog item."
                           : `${option.label} uses specific catalog prizes and never shows the Random PSA10 base item.`}
                       </p>
                     </div>

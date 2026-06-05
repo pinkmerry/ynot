@@ -103,9 +103,47 @@ describe("random pack bundled prizes", () => {
 
   it("uses an admin combobox instead of a full-page native select", () => {
     const client = read("Website/src/features/ynot/client.tsx");
+    const css = read("Website/src/app/globals.css");
     assert.match(client, /role="combobox"/);
     assert.match(client, /role="listbox"/);
+    assert.match(client, /createPortal\(/);
     assert.match(client, /admin-prize-combobox__menu/);
-    assert.doesNotMatch(client, /showSearch=\{false\}[\s\S]*AdminPrizeCardPicker/);
+    assert.match(client, /Browse all items/);
+    assert.match(client, /No catalog item matches that search[\s\S]*browse/);
+    assert.match(css, /admin-prize-combobox__popover--portal/);
+    assert.match(
+      css,
+      /button\.admin-prize-combobox__option[\s\S]*height:\s*auto\s*!important/,
+    );
+    assert.match(
+      css,
+      /admin-prize-table-head \{\s*grid-template-columns: 90px minmax\(180px, 1fr\) minmax\(220px, 1\.1fr\) 130px 80px 110px 120px auto;/,
+    );
+    assert.doesNotMatch(
+      client,
+      /showSearch=\{false\}[\s\S]*AdminPrizeCardPicker/,
+    );
+  });
+
+  it("keeps bronze single-card catalog prizes selectable beside Random PSA10", () => {
+    const client = read("Website/src/features/ynot/client.tsx");
+    const catalogFilter = between(
+      client,
+      "function prizeCatalogCardsFor",
+      "function cardMatchesCampaignSeries",
+    );
+    assert.match(
+      catalogFilter,
+      /const randomPsa10Cards = canPrizeDisplayTierUseRandomPsa10/,
+    );
+    assert.match(catalogFilter, /const specificCards = categorizedCards\.filter/);
+    assert.match(
+      catalogFilter,
+      /return \[\.\.\.randomPsa10Cards, \.\.\.specificCards\]/,
+    );
+    assert.doesNotMatch(
+      catalogFilter,
+      /return categorizedCards\.filter\(isRandomPsa10Card\)/,
+    );
   });
 });
