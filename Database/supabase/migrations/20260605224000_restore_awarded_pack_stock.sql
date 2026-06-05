@@ -100,9 +100,111 @@ begin
     from _restore_sources sources
     join public.card_stock_units stock
       on stock.id = sources.source_stock_unit_id
-    where stock.status = 'available'
+    where stock.status <> 'allocated'
   ) then
-    raise exception 'source_stock_already_available';
+    raise exception 'source_stock_not_consumed';
+  end if;
+
+  create temporary table _eligible_restore_sources on commit drop as
+  with normal_awards as (
+    select distinct on (sources.source_stock_unit_id)
+      sources.source_stock_unit_id,
+      coalesce(sources.source_kind, 'normal_prize') as source_kind,
+      coalesce(sources.source_campaign_slug, round.slug) as source_campaign_slug,
+      coalesce(sources.source_draw_round_id, prize_unit.draw_round_id) as source_draw_round_id,
+      coalesce(sources.source_draw_round_prize_unit_id, prize_unit.id) as source_draw_round_prize_unit_id,
+      coalesce(sources.source_draw_round_prize_id, prize_unit.draw_round_prize_id) as source_draw_round_prize_id,
+      coalesce(sources.source_collection_item_id, prize_unit.collection_item_id) as source_collection_item_id,
+      coalesce(sources.source_gacha_open_id, prize_unit.gacha_open_id) as source_gacha_open_id,
+      coalesce(sources.source_gacha_open_item_id, prize_unit.gacha_open_item_id) as source_gacha_open_item_id
+    from _restore_sources sources
+    join public.card_stock_units stock
+      on stock.id = sources.source_stock_unit_id
+     and stock.status = 'allocated'
+    join public.draw_round_prize_units prize_unit
+      on prize_unit.card_stock_unit_id = sources.source_stock_unit_id
+     and prize_unit.status = 'awarded'
+    join public.draw_rounds round
+      on round.id = prize_unit.draw_round_id
+    where (sources.source_kind is null or sources.source_kind = 'normal_prize')
+      and (sources.source_draw_round_id is null or sources.source_draw_round_id = prize_unit.draw_round_id)
+      and (
+        sources.source_draw_round_prize_unit_id is null
+        or sources.source_draw_round_prize_unit_id = prize_unit.id
+      )
+      and (
+        sources.source_draw_round_prize_id is null
+        or sources.source_draw_round_prize_id = prize_unit.draw_round_prize_id
+      )
+      and (
+        sources.source_collection_item_id is null
+        or sources.source_collection_item_id = prize_unit.collection_item_id
+      )
+      and (
+        sources.source_gacha_open_id is null
+        or sources.source_gacha_open_id = prize_unit.gacha_open_id
+      )
+      and (
+        sources.source_gacha_open_item_id is null
+        or sources.source_gacha_open_item_id = prize_unit.gacha_open_item_id
+      )
+    order by sources.source_stock_unit_id, prize_unit.awarded_at nulls last, prize_unit.id
+  ),
+  last_prize_awards as (
+    select distinct on (sources.source_stock_unit_id)
+      sources.source_stock_unit_id,
+      coalesce(sources.source_kind, 'last_prize') as source_kind,
+      coalesce(sources.source_campaign_slug, round.slug) as source_campaign_slug,
+      coalesce(sources.source_draw_round_id, round.id) as source_draw_round_id,
+      null::uuid as source_draw_round_prize_unit_id,
+      null::uuid as source_draw_round_prize_id,
+      coalesce(sources.source_collection_item_id, round.last_prize_collection_item_id) as source_collection_item_id,
+      coalesce(sources.source_gacha_open_id, round.last_prize_awarded_open_id) as source_gacha_open_id,
+      coalesce(
+        sources.source_gacha_open_item_id,
+        app_private.uuid_from_text(stock.metadata #>> '{lastPrizeAward,gachaOpenItemId}')
+      ) as source_gacha_open_item_id
+    from _restore_sources sources
+    join public.card_stock_units stock
+      on stock.id = sources.source_stock_unit_id
+     and stock.status = 'allocated'
+    join public.draw_rounds round
+      on round.last_prize_stock_unit_id = sources.source_stock_unit_id
+     and round.last_prize_awarded_at is not null
+    where (sources.source_kind is null or sources.source_kind = 'last_prize')
+      and (sources.source_draw_round_id is null or sources.source_draw_round_id = round.id)
+      and sources.source_draw_round_prize_unit_id is null
+      and sources.source_draw_round_prize_id is null
+      and (
+        sources.source_collection_item_id is null
+        or sources.source_collection_item_id = round.last_prize_collection_item_id
+      )
+      and (
+        sources.source_gacha_open_id is null
+        or sources.source_gacha_open_id = round.last_prize_awarded_open_id
+      )
+      and (
+        sources.source_gacha_open_item_id is null
+        or sources.source_gacha_open_item_id = app_private.uuid_from_text(stock.metadata #>> '{lastPrizeAward,gachaOpenItemId}')
+      )
+    order by sources.source_stock_unit_id, round.last_prize_awarded_at nulls last, round.id
+  )
+  select distinct on (eligible.source_stock_unit_id) *
+  from (
+    select * from normal_awards
+    union all
+    select * from last_prize_awards
+  ) eligible
+  order by eligible.source_stock_unit_id, case when eligible.source_kind = 'last_prize' then 0 else 1 end;
+
+  if exists (
+    select 1
+    from _restore_sources sources
+    left join _eligible_restore_sources eligible
+      on eligible.source_stock_unit_id = sources.source_stock_unit_id
+    where eligible.source_stock_unit_id is null
+  ) then
+    raise exception 'restore_source_not_awarded';
   end if;
 
   create temporary table _inserted_restore_units on commit drop as
@@ -168,7 +270,7 @@ begin
       nullif(source_unit.image_url, ''),
       nullif(source_unit.image_storage_path, ''),
       1
-    from _restore_sources sources
+    from _eligible_restore_sources sources
     join public.card_stock_units source_unit
       on source_unit.id = sources.source_stock_unit_id
     on conflict (source_type, source_id)
@@ -196,7 +298,7 @@ begin
     sources.source_gacha_open_id,
     sources.source_gacha_open_item_id
   from public.card_stock_units replacement
-  join _restore_sources sources
+  join _eligible_restore_sources sources
     on replacement.source_type = 'production_stock_restore'
    and replacement.source_id = sources.source_stock_unit_id::text
    and replacement.status <> 'deleted';

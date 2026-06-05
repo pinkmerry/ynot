@@ -32,6 +32,19 @@ test("pack stock restore creates replacement stock without releasing awarded row
   assert.doesNotMatch(migration, /update public\.draw_round_prize_units|delete from public\.draw_round_prize_units/);
 });
 
+test("pack stock restore RPC accepts only proven awarded pack sources", () => {
+  const migration = read("../Database/supabase/migrations/20260605224000_restore_awarded_pack_stock.sql");
+  assert.match(migration, /stock\.status <> 'allocated'[\s\S]*raise exception 'source_stock_not_consumed'/);
+  assert.match(migration, /create temporary table _eligible_restore_sources/);
+  assert.match(migration, /join public\.draw_round_prize_units prize_unit[\s\S]*prize_unit\.status = 'awarded'/);
+  assert.match(migration, /join public\.draw_rounds round[\s\S]*round\.last_prize_stock_unit_id = sources\.source_stock_unit_id[\s\S]*round\.last_prize_awarded_at is not null/);
+  assert.match(migration, /sources\.source_draw_round_prize_unit_id is null/);
+  assert.match(migration, /sources\.source_collection_item_id = round\.last_prize_collection_item_id/);
+  assert.match(migration, /sources\.source_gacha_open_id = round\.last_prize_awarded_open_id/);
+  assert.match(migration, /raise exception 'restore_source_not_awarded'/);
+  assert.doesNotMatch(migration, /from _restore_sources sources\n\s+join public\.card_stock_units source_unit/);
+});
+
 test("pack stock restore keeps unique slab identifiers private metadata-only", () => {
   const source = read("tools/ops/restore-pack-stock.mjs");
   const migration = read("../Database/supabase/migrations/20260605224000_restore_awarded_pack_stock.sql");
