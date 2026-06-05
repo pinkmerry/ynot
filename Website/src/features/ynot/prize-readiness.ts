@@ -8,6 +8,7 @@ import {
   prizeDisplayTierValue,
   type PrizeDisplayTier,
 } from "./prize-tier";
+import { plannedQuantityForPrize } from "./bundle-quantity";
 import {
   buildPrizeStockSelectionIssues,
   buildPrizeStockShortages,
@@ -60,6 +61,7 @@ export type PrizeDraftInput = {
   valueThb: number | null;
   convertCoinValue: number;
   quantity: number;
+  bundleQuantity?: number | string | null;
   weight: number;
   unlockAtSoldPct: number;
   metadata?: Json;
@@ -510,10 +512,13 @@ export function validatePrizeDraftsForSave(
     stockSummaries: PrizeStockSummary[];
   },
 ) {
-  const totalPrizeUnits = prizes.reduce((sum, prize) => sum + prize.quantity, 0);
+  const totalPrizeUnits = prizes.reduce(
+    (sum, prize) => sum + plannedQuantityForPrize(prize),
+    0,
+  );
   const initialEligiblePrizeUnits = prizes
     .filter((prize) => prizeEligibleAtSoldPct(prize, logicMode, 0))
-    .reduce((sum, prize) => sum + prize.quantity, 0);
+    .reduce((sum, prize) => sum + plannedQuantityForPrize(prize), 0);
   const highPrizeRows = prizes.filter((prize) => prize.tier === "high").length;
   const displayTierCounts = countByDisplayTier(prizes);
   const topPrizeRows = displayTierCounts.rainbow;
@@ -666,20 +671,20 @@ export async function getCampaignPrizeReadiness(
   let stockBlockers: string[] = [];
   if (usePlannedInventory) {
     totalPrizeUnits = visiblePrizes.reduce(
-      (sum, prize) => sum + Math.max(0, Number(prize.planned_quantity ?? 0)),
+      (sum, prize) => sum + plannedQuantityForPrize(prize),
       0,
     );
     availablePrizeUnits = totalPrizeUnits;
     eligiblePrizeUnits = visiblePrizes
       .filter((prize) => prizeEligibleAtSoldPct(prize, logicMode, soldPct))
       .reduce(
-        (sum, prize) => sum + Math.max(0, Number(prize.planned_quantity ?? 0)),
+        (sum, prize) => sum + plannedQuantityForPrize(prize),
         0,
       );
     initialEligiblePrizeUnits = visiblePrizes
       .filter((prize) => prizeEligibleAtSoldPct(prize, logicMode, 0))
       .reduce(
-        (sum, prize) => sum + Math.max(0, Number(prize.planned_quantity ?? 0)),
+        (sum, prize) => sum + plannedQuantityForPrize(prize),
         0,
       );
     const stockSummaries = await getPrizeStockSummaries(supabase, visiblePrizes, {
@@ -719,7 +724,7 @@ export async function getCampaignPrizeReadiness(
   );
   const unitBackedPrizes = usePlannedInventory
     ? visiblePrizes.filter(
-        (prize) => Math.max(0, Number(prize.planned_quantity ?? 0)) > 0,
+        (prize) => plannedQuantityForPrize(prize) > 0,
       )
     : visiblePrizes.filter(
         (prize) => (nonVoidUnitsByPrizeId.get(prize.id) ?? 0) > 0,
