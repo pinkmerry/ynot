@@ -73,6 +73,7 @@ test("admin create pack form shows explicit 4:3 banner guidance", () => {
 
 test("customer pack card and detail hero prefer banner image with fallback fan", () => {
   const components = source("src/features/ynot/components.tsx");
+  const packList = source("src/features/ynot/cr/YPackExperience.tsx");
   const detail = source("src/features/ynot/cr/PackDetailExperience.tsx");
   const globalCss = source("src/app/globals.css");
   const detailCss = source("src/features/ynot/cr/theme.css");
@@ -81,9 +82,14 @@ test("customer pack card and detail hero prefer banner image with fallback fan",
   assert.match(components, /className="campaign-art-banner-image"/);
   assert.match(components, /!hasBannerImage && heroPrizes\.length/);
   assert.match(globalCss, /\.campaign-art \.campaign-art-banner-image/);
+  assert.match(packList, /campaign\.bannerImageUrl\?\.trim\(\)/);
+  assert.match(packList, /className="cr-pack-art-image"/);
+  assert.match(packList, /!hasBannerImage && \(/);
   assert.match(detail, /campaign\.bannerImageUrl\?\.trim\(\)/);
   assert.match(detail, /className="cr-detail-hero-image"/);
   assert.match(detail, /!hasBannerImage && <HeroFan campaign=\{campaign\} \/>/);
+  assert.match(detailCss, /\.cr-pack-art\.has-banner-image/);
+  assert.match(detailCss, /\.cr-pack-art-image/);
   assert.match(detailCss, /\.cr-detail-hero-art\.has-banner-image/);
   assert.match(detailCss, /aspect-ratio: 4 \/ 3;/);
 });

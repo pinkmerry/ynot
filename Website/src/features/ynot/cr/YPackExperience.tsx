@@ -358,15 +358,27 @@ function PackCard({
   const isHot = (campaign.displayTags ?? []).some((tag) =>
     tag.toLowerCase().includes("hot"),
   );
+  const bannerImageUrl = campaign.bannerImageUrl?.trim() ?? "";
+  const hasBannerImage = Boolean(bannerImageUrl);
 
   return (
     <div className="cr-pack-card" data-disabled={soldOut}>
       <Link
         href={detailHref}
-        className={`cr-pack-art ${campaign.series}`}
+        className={`cr-pack-art ${campaign.series}${hasBannerImage ? " has-banner-image" : ""}`}
         aria-label={`View ${campaign.titleEn || campaign.titleTh} details`}
         style={{ display: "flex", textDecoration: "none" }}
       >
+        {hasBannerImage ? (
+          // eslint-disable-next-line @next/next/no-img-element -- Pack banners are user-managed Supabase assets.
+          <img
+            alt=""
+            aria-hidden="true"
+            className="cr-pack-art-image"
+            loading="lazy"
+            src={bannerImageUrl}
+          />
+        ) : null}
         {isHot && <span className="cr-pack-art-sticker">Hot</span>}
         {soldOut && (
           <span
@@ -392,12 +404,16 @@ function PackCard({
             {remaining}/{campaign.totalSlots}
           </span>
         )}
-        <div style={{ textAlign: "center" }}>
-          <div className="cr-pack-art-eyebrow">
-            {seriesLabel(campaign.series).toUpperCase()}
+        {!hasBannerImage && (
+          <div className="cr-pack-art-fallback">
+            <div className="cr-pack-art-eyebrow">
+              {seriesLabel(campaign.series).toUpperCase()}
+            </div>
+            <div className="cr-pack-art-glyph">
+              {seriesGlyph(campaign.series)}
+            </div>
           </div>
-          <div className="cr-pack-art-glyph">{seriesGlyph(campaign.series)}</div>
-        </div>
+        )}
       </Link>
       <div className="cr-pack-card-body">
         <div>
