@@ -262,6 +262,13 @@ function metadataString(metadata: unknown, key: string) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function metadataInteger(metadata: unknown, key: string) {
+  if (!isRecord(metadata)) return null;
+  const parsed = Math.round(Number(metadata[key]));
+  if (!Number.isFinite(parsed)) return null;
+  return parsed;
+}
+
 function metadataNumber(metadata: unknown, key: string) {
   if (!isRecord(metadata)) return undefined;
   const parsed = Number(metadata[key]);
@@ -950,6 +957,10 @@ function toYnotCampaign(
     lastPrizeCardId: row.last_prize_card_id ?? null,
     lastPrizeStockUnitKey:
       metadataString(row.last_prize_metadata, "stockUnitGroupKey") ?? null,
+    lastPrizeCatalogCategory:
+      metadataString(row.last_prize_metadata, "catalogCategory") ?? null,
+    lastPrizeConvertCoinValue:
+      metadataInteger(row.last_prize_metadata, "convertCoinValue"),
     sortOrder: row.sort_order,
     startsAt: row.starts_at,
     endsAt: row.ends_at,

@@ -15,6 +15,8 @@ export type YnotCampaign = {
   hasLastPrize?: boolean;
   lastPrizeCardId?: string | null;
   lastPrizeStockUnitKey?: string | null;
+  lastPrizeCatalogCategory?: string | null;
+  lastPrizeConvertCoinValue?: number | null;
   // Resolved view of the last prize (card name + sub-SKU image) for display.
   lastPrizePreview?: YnotLastPrizePreview | null;
   status: "draft" | "live" | "closed" | "archived";

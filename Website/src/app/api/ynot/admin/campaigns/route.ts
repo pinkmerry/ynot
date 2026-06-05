@@ -144,6 +144,55 @@ function metadataString(metadata: unknown, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+const convertCoinValueMax = 10_000_000;
+
+function clampConvertCoinValue(value: unknown) {
+  const parsed = Math.round(Number(value));
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return Math.min(convertCoinValueMax, parsed);
+}
+
+function sanitizedLastPrizeStockFilter(value: unknown) {
+  if (!isRecord(value)) return null;
+  const certNumber = text(value.certNumber, 60);
+  const grade = text(value.grade, 40);
+  const condition = text(value.condition, 24);
+  const gradingService = text(value.gradingService, 24);
+  const gemrateId = text(value.gemrateId, 60);
+  const filter: Record<string, string> = {};
+  if (certNumber) filter.certNumber = certNumber;
+  if (grade) filter.grade = grade;
+  if (condition) filter.condition = condition;
+  if (gradingService) filter.gradingService = gradingService;
+  if (gemrateId) filter.gemrateId = gemrateId;
+  return Object.keys(filter).length ? filter : null;
+}
+
+function lastPrizeMetadataValue(value: unknown): Json | null {
+  if (!isRecord(value)) return null;
+  const catalogCategory = catalogCategoryValue(value.catalogCategory);
+  const prizeCategory = prizeCategoryForCatalogCategory(catalogCategory);
+  const stockUnitGroupKey = text(value.stockUnitGroupKey, 220);
+  const stockSku = text(value.stockSku, 120);
+  const label = text(value.label, 220);
+  const stockUnitFilter = sanitizedLastPrizeStockFilter(value.stockUnitFilter);
+
+  return {
+    ...(stockUnitGroupKey ? { stockUnitGroupKey } : {}),
+    ...(stockSku ? { stockSku } : {}),
+    ...(label ? { label } : {}),
+    ...(stockUnitFilter ? { stockUnitFilter } : {}),
+    catalogCategory,
+    catalogCategoryLabel: catalogCategoryLabel(catalogCategory),
+    prizeCategory,
+    prizeCategoryLabel: prizeCategoryLabel(prizeCategory),
+    sourceType: prizeSourceType(prizeCategory),
+    quantity: 1,
+    convertCoinValue: clampConvertCoinValue(value.convertCoinValue),
+    lastPrize: true,
+  } as Json;
+}
+
 function prizeDraftDisplayTier(prize: PrizeDraftInput) {
   const displayTier = metadataString(prize.metadata, "displayTier");
   if (displayTier) return prizeDisplayTierValue(displayTier);
@@ -220,9 +269,7 @@ function campaignPatch(body: CampaignBody): Database["public"]["Tables"]["draw_r
     last_prize_metadata:
       body.lastPrizeMetadata === undefined
         ? undefined
-        : isRecord(body.lastPrizeMetadata)
-          ? (body.lastPrizeMetadata as Json)
-          : null,
+        : lastPrizeMetadataValue(body.lastPrizeMetadata),
   };
 }
 
