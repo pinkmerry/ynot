@@ -8233,11 +8233,11 @@ function adminCardCatalogDetails(card: CardCatalogItem) {
   // stock units, not the catalog card, and are not editable from "Edit
   // card", so they are intentionally omitted from the card detail grid.
   return [
-    { label: "Language", value: cardLanguageLabel(card.language) },
+    { label: "Model code", value: card.modelCode ?? card.code },
+    { label: "Card number", value: card.cardNumber },
     { label: "Release year", value: card.releaseYear },
     { label: "Set", value: card.cardSet },
     { label: "Variant", value: card.variant },
-    { label: "Prize catalog", value: catalogCategoryLabel(card.catalogCategory) },
   ];
 }
 
