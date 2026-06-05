@@ -6,27 +6,61 @@ import vm from "node:vm";
 import ts from "typescript";
 
 const require = createRequire(import.meta.url);
-const source = readFileSync(
-  new URL("../src/features/ynot/stock-readiness.ts", import.meta.url),
-  "utf8",
-);
-const { outputText } = ts.transpileModule(source, {
-  compilerOptions: {
-    module: ts.ModuleKind.CommonJS,
-    target: ts.ScriptTarget.ES2022,
-  },
-});
-const cjsModule = { exports: {} };
-vm.runInNewContext(outputText, {
-  exports: cjsModule.exports,
-  module: cjsModule,
+
+function readText(relativePath) {
+  return readFileSync(new URL(relativePath, import.meta.url), "utf8");
+}
+
+function transpile(relativePath) {
+  const source = readText(relativePath);
+  return ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+}
+
+const bundleModule = { exports: {} };
+vm.runInNewContext(transpile("../src/features/ynot/bundle-quantity.ts"), {
+  exports: bundleModule.exports,
+  module: bundleModule,
   require,
 });
+
+const cjsModule = { exports: {} };
+const testRequire = (specifier) => {
+  if (specifier === "./bundle-quantity") return bundleModule.exports;
+  return require(specifier);
+};
+vm.runInNewContext(transpile("../src/features/ynot/stock-readiness.ts"), {
+  exports: cjsModule.exports,
+  module: cjsModule,
+  require: testRequire,
+});
 const readiness = cjsModule.exports;
+
+const readinessSource = readText("../src/features/ynot/stock-readiness.ts");
 
 function plain(value) {
   return JSON.parse(JSON.stringify(value));
 }
+
+test("stock readiness uses the shared bundle quantity helpers", () => {
+  assert.match(readinessSource, /from "\.\/bundle-quantity"/);
+  assert.doesNotMatch(
+    readinessSource,
+    /function normalizeBundleQuantity\(/,
+  );
+  assert.doesNotMatch(
+    readinessSource,
+    /function plannedQuantityForPrize\(/,
+  );
+  assert.doesNotMatch(
+    readinessSource,
+    /function bundledStockUnitRequirement\(/,
+  );
+});
 
 test("sub-SKU stock readiness counts the selected stockUnitGroupKey instead of the whole card", () => {
   const shortages = readiness.buildPrizeStockShortages({

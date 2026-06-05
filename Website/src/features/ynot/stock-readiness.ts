@@ -1,3 +1,9 @@
+import {
+  bundledStockUnitRequirement,
+  normalizeBundleQuantity,
+  plannedQuantityForPrize,
+} from "./bundle-quantity";
+
 export type StockReadinessPrize = {
   cardId?: string | null;
   card_id?: string | null;
@@ -61,46 +67,6 @@ function stringOrEmpty(value: unknown) {
 function numberOrZero(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
-}
-
-const defaultBundleQuantity = 1;
-const maxBundleQuantity = 100;
-
-function normalizeBundleQuantity(value: unknown): number {
-  const numeric =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number.parseInt(value, 10)
-        : defaultBundleQuantity;
-  if (!Number.isFinite(numeric)) return defaultBundleQuantity;
-  const integer = Math.trunc(numeric);
-  if (integer < defaultBundleQuantity) return defaultBundleQuantity;
-  if (integer > maxBundleQuantity) return maxBundleQuantity;
-  return integer;
-}
-
-function plannedQuantityForPrize(prize: {
-  quantity?: unknown;
-  plannedQuantity?: unknown;
-  planned_quantity?: unknown;
-}): number {
-  const raw = prize.quantity ?? prize.plannedQuantity ?? prize.planned_quantity ?? 0;
-  const numeric = typeof raw === "number" ? raw : Number.parseInt(String(raw), 10);
-  if (!Number.isFinite(numeric)) return 0;
-  return Math.max(0, Math.trunc(numeric));
-}
-
-function bundledStockUnitRequirement(prize: {
-  quantity?: unknown;
-  plannedQuantity?: unknown;
-  planned_quantity?: unknown;
-  bundleQuantity?: unknown;
-  bundle_quantity?: unknown;
-}): number {
-  const planned = plannedQuantityForPrize(prize);
-  const bundle = normalizeBundleQuantity(prize.bundleQuantity ?? prize.bundle_quantity);
-  return planned * bundle;
 }
 
 export function stockCardIdForPrize(prize: StockReadinessPrize) {
