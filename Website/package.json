@@ -38,6 +38,7 @@
     "test:pack-open-privacy": "node --test scripts/test-pack-open-privacy.mjs",
     "test:campaign-detail-privacy": "node --test scripts/test-campaign-detail-privacy.mjs",
     "test:stock-sku-usage": "node --test scripts/test-stock-sku-usage.mjs",
+    "test:stock-restore-tool": "node --test scripts/test-stock-restore-tool.mjs",
     "test:subsku-images": "node --test scripts/test-subsku-image-routing.mjs",
     "test:last-prize-stock-link": "node --test scripts/test-last-prize-stock-link.mjs",
     "test:prize-unit-counts": "node --test scripts/test-prize-unit-counts.mjs",
@@ -49,7 +50,8 @@
     "verify:hardening": "npm run test:uploads && npm run test:production-security-regressions && node tools/verification/verify-hardening.mjs && node tools/verification/verify-rls-coverage.mjs",
     "verify:production-env": "YNOT_ENV=production node tools/verification/verify-production-env.mjs",
     "verify:production-test": "node tools/verification/verify-production-test-readiness.mjs",
-    "verify:production-db": "node tools/verification/check-production-supabase-readiness.mjs"
+    "verify:production-db": "node tools/verification/check-production-supabase-readiness.mjs",
+    "ops:restore-pack-stock": "node tools/ops/restore-pack-stock.mjs"
   },
   "dependencies": {
     "@line/liff": "^2.28.0",
