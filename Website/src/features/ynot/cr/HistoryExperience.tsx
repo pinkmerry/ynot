@@ -710,6 +710,7 @@ function ShipModal({
     isDefault: addresses.length === 0,
   });
   const [addressMessage, setAddressMessage] = useState("");
+  const [addressSavePending, setAddressSavePending] = useState(false);
   const selectedAddress = addresses.find((address) => address.id === addressId);
 
   function updateAddressField(key: keyof typeof newAddress, value: string | boolean) {
@@ -717,52 +718,63 @@ function ShipModal({
   }
 
   async function saveAddress() {
+    if (addressSavePending) return;
     setAddressMessage("");
-    const response = await fetch("/api/ynot/addresses", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        ...newAddress,
-        isDefault: addresses.length === 0 ? true : newAddress.isDefault,
-      }),
-    });
-    const payload: unknown = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(
-        isRecord(payload) && typeof payload.error === "string"
-          ? payload.error
-          : "Could not save address.",
-      );
+    setAddressSavePending(true);
+    try {
+      const response = await fetch("/api/ynot/addresses", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...newAddress,
+          isDefault: addresses.length === 0 ? true : newAddress.isDefault,
+        }),
+      });
+      const payload: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          isRecord(payload) && typeof payload.error === "string"
+            ? payload.error
+            : "Could not save address.",
+        );
+      }
+      const address =
+        isRecord(payload) && isRecord(payload.address)
+          ? (payload.address as YnotAddress)
+          : null;
+      if (!address) throw new Error("Address could not be saved.");
+      onAddressSaved(address);
+      setAddressId(address.id);
+      setAddingAddress(false);
+      setNewAddress({
+        label: "Home",
+        recipientName: "",
+        phone: "",
+        addressLine1: "",
+        addressLine2: "",
+        subdistrict: "",
+        district: "",
+        province: "",
+        postalCode: "",
+        country: "Thailand",
+        deliveryNote: "",
+        isDefault: false,
+      });
+      setAddressMessage("Address saved and selected.");
+    } finally {
+      setAddressSavePending(false);
     }
-    const address =
-      isRecord(payload) && isRecord(payload.address)
-        ? (payload.address as YnotAddress)
-        : null;
-    if (!address) throw new Error("Address could not be saved.");
-    onAddressSaved(address);
-    setAddressId(address.id);
-    setAddingAddress(false);
-    setNewAddress({
-      label: "Home",
-      recipientName: "",
-      phone: "",
-      addressLine1: "",
-      addressLine2: "",
-      subdistrict: "",
-      district: "",
-      province: "",
-      postalCode: "",
-      country: "Thailand",
-      deliveryNote: "",
-      isDefault: false,
-    });
-    setAddressMessage("Address saved and selected.");
+  }
+
+  function handleClose() {
+    if (addressSavePending) return;
+    onClose();
   }
 
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       eyebrow="Confirm"
       title={`Ship ${cards.length} card${cards.length === 1 ? "" : "s"} to your address`}
       size="md"
@@ -771,8 +783,8 @@ function ShipModal({
           <button
             type="button"
             className="cr-btn"
-            onClick={onClose}
-            disabled={submitting}
+            onClick={handleClose}
+            disabled={addressSavePending || submitting}
           >
             Cancel
           </button>
@@ -780,7 +792,7 @@ function ShipModal({
             type="button"
             className="cr-btn cr-btn-primary"
             onClick={() => onConfirm(addressId)}
-            disabled={submitting || !isCompleteShippingAddress(selectedAddress)}
+            disabled={addressSavePending || submitting || !isCompleteShippingAddress(selectedAddress)}
           >
             <Ico name="truck" size={14} />{" "}
             {submitting ? "Submitting…" : "Request shipping"}
@@ -802,7 +814,7 @@ function ShipModal({
               type="button"
               className="cr-btn cr-btn-primary cr-btn-sm"
               onClick={() => setAddingAddress((current) => !current)}
-              disabled={submitting}
+              disabled={submitting || addressSavePending}
             >
               <Ico name="plus" size={12} /> Add a new address
             </button>
@@ -842,7 +854,7 @@ function ShipModal({
                     type="radio"
                     name="ship-addr"
                     checked={addressId === a.id}
-                    disabled={!complete || submitting}
+                    disabled={!complete || submitting || addressSavePending}
                     onChange={() => setAddressId(a.id)}
                     style={{ marginTop: 4 }}
                   />
@@ -924,7 +936,7 @@ function ShipModal({
                 <input
                   type="checkbox"
                   checked={newAddress.isDefault}
-                  disabled={addresses.length === 0}
+                  disabled={addresses.length === 0 || addressSavePending}
                   onChange={(e) => updateAddressField("isDefault", e.target.checked)}
                 />
                 <span className="cr-mute">Make this my default shipping address</span>
@@ -933,14 +945,14 @@ function ShipModal({
                 <button
                   type="button"
                   className="cr-btn cr-btn-primary cr-btn-sm"
-                  disabled={submitting}
+                  disabled={addressSavePending || submitting}
                   onClick={() => {
                     void saveAddress().catch((error) => {
                       setAddressMessage(error instanceof Error ? error.message : "Could not save address.");
                     });
                   }}
                 >
-                  Save and use this address
+                  {addressSavePending ? "Saving…" : "Save and use this address"}
                 </button>
               </div>
             </div>

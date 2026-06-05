@@ -1,6 +1,7 @@
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import type { ProfileInfo } from "@/lib/lucky-draw/types";
 import {
   ensureDefaultAddressFromProfile,
@@ -102,6 +103,9 @@ export async function PATCH(request: Request) {
     if (!isSupabaseConfigured()) {
       return jsonNoStore({ error: "Supabase is not configured." }, { status: 503 });
     }
+
+    const crossOrigin = enforceSameOriginMutation(request);
+    if (crossOrigin) return crossOrigin;
 
     const session = await resolveCurrentProfile();
     if (!session?.profileId) {

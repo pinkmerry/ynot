@@ -517,6 +517,15 @@ test("address creation API requires explicit country before saving", () => {
   assert.doesNotMatch(addressRoute, /country: requiredAddress\.country \?\? "Thailand"/);
 });
 
+test("address creation API rejects cross-origin address mutations before auth work", () => {
+  const postHandler = addressRoute.slice(addressRoute.indexOf("export async function POST"));
+  const beforeAuth = postHandler.slice(0, postHandler.indexOf("resolveCurrentProfile()"));
+
+  assert.match(addressRoute, /import \{ enforceSameOriginMutation \} from "@\/lib\/security\/same-origin"/);
+  assert.match(beforeAuth, /const crossOrigin = enforceSameOriginMutation\(request\)/);
+  assert.match(beforeAuth, /if \(crossOrigin\) return crossOrigin/);
+});
+
 test("collection ship modal lets users choose existing address or add a new one inline", () => {
   const history = readFileSync(
     new URL("../src/features/ynot/cr/HistoryExperience.tsx", import.meta.url),
@@ -533,6 +542,23 @@ test("collection ship modal lets users choose existing address or add a new one 
   assert.match(history, /setAddressId\(address\.id\)/);
 });
 
+test("collection ship modal prevents duplicate inline address saves while pending", () => {
+  const history = readFileSync(
+    new URL("../src/features/ynot/cr/HistoryExperience.tsx", import.meta.url),
+    "utf8",
+  );
+  const shipModal = history.slice(history.indexOf("function ShipModal"));
+
+  assert.match(shipModal, /const \[addressSavePending, setAddressSavePending\] = useState\(false\)/);
+  assert.match(shipModal, /if \(addressSavePending\) return/);
+  assert.match(shipModal, /setAddressSavePending\(true\)/);
+  assert.match(shipModal, /finally \{[\s\S]*setAddressSavePending\(false\)/);
+  assert.match(shipModal, /disabled=\{submitting \|\| addressSavePending\}/);
+  assert.match(shipModal, /disabled=\{!complete \|\| submitting \|\| addressSavePending\}/);
+  assert.match(shipModal, /disabled=\{addressSavePending \|\| submitting\}/);
+  assert.match(shipModal, /\{addressSavePending \? "Saving…" : "Save and use this address"\}/);
+});
+
 test("collection ship modal disables incomplete saved addresses before submit", () => {
   const history = readFileSync(
     new URL("../src/features/ynot/cr/HistoryExperience.tsx", import.meta.url),
@@ -541,10 +567,10 @@ test("collection ship modal disables incomplete saved addresses before submit", 
 
   assert.match(history, /const missingFields = missingShippingAddressFields\(a\)/);
   assert.match(history, /const complete = missingFields\.length === 0/);
-  assert.match(history, /disabled=\{!complete \|\| submitting\}/);
+  assert.match(history, /disabled=\{!complete \|\| submitting \|\| addressSavePending\}/);
   assert.match(history, /Missing \{missingFields\.join\(", "\)\}/);
   assert.match(history, /const selectedAddress = addresses\.find\(\(address\) => address\.id === addressId\)/);
-  assert.match(history, /disabled=\{submitting \|\| !isCompleteShippingAddress\(selectedAddress\)\}/);
+  assert.match(history, /disabled=\{addressSavePending \|\| submitting \|\| !isCompleteShippingAddress\(selectedAddress\)\}/);
 });
 
 test("legacy shipping page shares newly saved addresses between form and request panel", () => {

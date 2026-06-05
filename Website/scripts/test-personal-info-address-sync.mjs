@@ -65,6 +65,16 @@ test("profile API keeps profile fields separate from shipping address fields", (
   assert.match(route, /const addresses = await ensureDefaultAddressFromProfile\(session\.profileId, supabase\)/);
 });
 
+test("profile API rejects cross-origin profile PII mutations before auth work", () => {
+  const route = readProject("src/app/api/lucky-draw/profile/route.ts");
+  const patchHandler = route.slice(route.indexOf("export async function PATCH"));
+  const beforeAuth = patchHandler.slice(0, patchHandler.indexOf("resolveCurrentProfile()"));
+
+  assert.match(route, /import \{ enforceSameOriginMutation \} from "@\/lib\/security\/same-origin"/);
+  assert.match(beforeAuth, /const crossOrigin = enforceSameOriginMutation\(request\)/);
+  assert.match(beforeAuth, /if \(crossOrigin\) return crossOrigin/);
+});
+
 test("dashboard address loader uses lazy profile backfill", () => {
   const dataFile = readProject("src/features/ynot/data.ts");
   const getAddressesBlock = dataFile.slice(

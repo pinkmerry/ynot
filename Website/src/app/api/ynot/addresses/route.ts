@@ -4,6 +4,7 @@ import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
   const session = await resolveCurrentProfile();
   if (!session?.profileId) return Response.json({ error: "Login is required." }, { status: 401 });
   const limited = await enforceRateLimit(request, "ynot:addresses:save", { limit: 12, windowMs: 60_000 }, session.profileId);
