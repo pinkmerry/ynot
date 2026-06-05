@@ -1286,6 +1286,7 @@ async function readOrEmpty<T>(
 
 type CampaignQueryOptions = {
   includePrivate?: boolean;
+  includeSoldOutPublic?: boolean;
   limit?: number | null;
   includeReadiness?: boolean;
   includePrizeLineups?: boolean;
@@ -1303,6 +1304,8 @@ async function getCampaignsImpl(
     const includePrizeLineups =
       options.includePrizeLineups ?? Boolean(options.includePrivate);
     const campaignIdOrSlug = options.campaignIdOrSlug?.trim();
+    const includeSoldOutPublic =
+      options.includeSoldOutPublic ?? Boolean(campaignIdOrSlug);
     const loadRows = (requireApproval: boolean) => {
       let query = supabase
         .from("draw_rounds")
@@ -1323,7 +1326,10 @@ async function getCampaignsImpl(
         // queue.
         return query.in("status", ["live", "closed", "draft"]);
       }
-      query = query.eq("visibility", "public").eq("status", "live");
+      query = query.eq("visibility", "public");
+      query = includeSoldOutPublic
+        ? query.in("status", ["live", "closed"])
+        : query.eq("status", "live");
       return requireApproval
         ? query.eq("approval_status", "approved")
         : query;
@@ -1457,7 +1463,11 @@ async function getCampaignsImpl(
     });
     return options.includePrivate
       ? campaigns
-      : campaigns.filter((campaign) => campaign.openable || campaign.soldOut);
+      : campaigns.filter(
+          (campaign) =>
+            campaign.openable ||
+            (includeSoldOutPublic && campaign.soldOut),
+        );
   });
 }
 
@@ -1468,7 +1478,19 @@ const getPublicCampaignsCached = unstable_cache(
       limit: null,
       includeReadiness: false,
     }),
-  ["ynot-campaigns-public-v3-all"],
+  ["ynot-campaigns-public-v4-all"],
+  { tags: ["campaigns"], revalidate: 60 },
+);
+
+const getPublicCampaignsWithSoldOutCached = unstable_cache(
+  () =>
+    getCampaignsImpl({
+      includePrivate: false,
+      includeSoldOutPublic: true,
+      limit: null,
+      includeReadiness: false,
+    }),
+  ["ynot-campaigns-public-v1-related-sold-out"],
   { tags: ["campaigns"], revalidate: 60 },
 );
 
@@ -1476,7 +1498,10 @@ export async function getCampaigns(
   options: CampaignQueryOptions = {},
 ): Promise<YnotCampaign[]> {
   if (options.includePrivate) return getCampaignsImpl(options);
-  const campaigns = await getPublicCampaignsCached();
+  if (options.campaignIdOrSlug) return getCampaignsImpl(options);
+  const campaigns = await (options.includeSoldOutPublic
+    ? getPublicCampaignsWithSoldOutCached()
+    : getPublicCampaignsCached());
   return typeof options.limit === "number"
     ? campaigns.slice(0, options.limit)
     : campaigns;
@@ -3675,6 +3700,7 @@ export type YnotDashboardSelector = {
   campaignReadiness?: boolean;
   campaignPrizeLineups?: boolean;
   campaignIdOrSlug?: string;
+  includeSoldOutCampaigns?: boolean;
   platformHealth?: boolean;
 };
 
@@ -3732,6 +3758,7 @@ export async function getYnotDashboardSlice(
         ? campaignVisibility === "admin"
           ? getCampaigns({
               includePrivate: viewer.isAdmin || isDevAuthAllowed(),
+              includeSoldOutPublic: selector.includeSoldOutCampaigns,
               limit: selector.campaignLimit,
               includeReadiness: selector.campaignReadiness,
               includePrizeLineups: selector.campaignPrizeLineups,
@@ -3739,6 +3766,7 @@ export async function getYnotDashboardSlice(
             })
           : getCampaigns({
               includePrivate: false,
+              includeSoldOutPublic: selector.includeSoldOutCampaigns,
               limit: selector.campaignLimit,
               campaignIdOrSlug: selector.campaignIdOrSlug,
             })

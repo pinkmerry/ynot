@@ -11,6 +11,10 @@ const gachaOpenPageSource = readFileSync(
   new URL("../src/app/(store)/gacha/[campaignId]/open/page.tsx", import.meta.url),
   "utf8",
 );
+const packsPageSource = readFileSync(
+  new URL("../src/app/(store)/packs/page.tsx", import.meta.url),
+  "utf8",
+);
 const clientSource = readFileSync(
   new URL("../src/features/ynot/client.tsx", import.meta.url),
   "utf8",
@@ -247,7 +251,7 @@ test("customer campaign props hide house logic and internal prize inventory", ()
   assert.match(campaignCardBlock, /data-pack-id=\{showAdminEdit \? campaign\.id : campaign\.slug\}/);
 });
 
-test("public campaign list keeps sold-out packs visible but hides other not-openable packs", () => {
+test("related public campaign feeds can show sold-out packs without widening every feed", () => {
   const impl = between(
     dataSource,
     "async function getCampaignsImpl",
@@ -255,12 +259,44 @@ test("public campaign list keeps sold-out packs visible but hides other not-open
   );
   assert.match(
     impl,
-    /campaigns\.filter\(\(campaign\) => campaign\.openable \|\| campaign\.soldOut\)/,
+    /includeSoldOutPublic\s*=\s*options\.includeSoldOutPublic \?\? Boolean\(campaignIdOrSlug\)/,
+  );
+  assert.match(
+    impl,
+    /query = includeSoldOutPublic\s*\?\s*query\.in\("status", \["live", "closed"\]\)\s*:\s*query\.eq\("status", "live"\);/,
+  );
+  assert.match(
+    impl,
+    /campaign\.openable \|\|\s*\(includeSoldOutPublic && campaign\.soldOut\)/,
   );
   assert.doesNotMatch(
     impl,
     /campaigns\.filter\(\(campaign\) => campaign\.openable\)/,
   );
+
+  const getCampaignsBlock = between(
+    dataSource,
+    "export async function getCampaigns",
+    "async function getStoreCategoriesImpl",
+  );
+  assert.match(
+    getCampaignsBlock,
+    /if \(options\.campaignIdOrSlug\) return getCampaignsImpl\(options\);/,
+  );
+  assert.match(
+    getCampaignsBlock,
+    /options\.includeSoldOutPublic\s*\?\s*getPublicCampaignsWithSoldOutCached\(\)\s*:\s*getPublicCampaignsCached\(\)/,
+  );
+  const dashboardSliceBlock = between(
+    dataSource,
+    "export async function getYnotDashboardSlice",
+    "export function getYnotDashboardData",
+  );
+  assert.match(
+    dashboardSliceBlock,
+    /includePrivate: viewer\.isAdmin \|\| isDevAuthAllowed\(\),\s*includeSoldOutPublic: selector\.includeSoldOutCampaigns,/,
+  );
+  assert.match(packsPageSource, /includeSoldOutCampaigns:\s*true/);
 });
 
 test("non-admin dynamic campaign detail keeps sold-out public packs visible through public DTOs", () => {

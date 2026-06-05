@@ -38,6 +38,7 @@ export default async function PacksPage({
   const data = await getYnotDashboardSlice({
     campaigns: true,
     campaignVisibility: "admin",
+    includeSoldOutCampaigns: true,
     campaignLimit: null,
     campaignReadiness: false,
     wallet: true,
