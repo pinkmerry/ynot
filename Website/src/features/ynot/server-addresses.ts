@@ -158,7 +158,12 @@ export async function ensureDefaultAddressFromProfile(
     .select(userAddressSelect)
     .single();
 
-  if (insertError) throw insertError;
+  if (insertError) {
+    if (insertError.code === "23505") {
+      return readAddressRows(supabase, profileId);
+    }
+    throw insertError;
+  }
   return inserted ? [inserted as UserAddressRow] : existing;
 }
 

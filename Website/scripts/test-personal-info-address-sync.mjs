@@ -33,6 +33,14 @@ test("server address helper requires explicit profile country before lazy backfi
   assert.doesNotMatch(helper, /country: completeProfileAddress\.country \?\? "Thailand"/);
 });
 
+test("server address helper rereads addresses after racing default insert", () => {
+  const helper = readProject("src/features/ynot/server-addresses.ts");
+
+  assert.match(helper, /if \(insertError\.code === "23505"\)/);
+  assert.match(helper, /return readAddressRows\(supabase, profileId\)/);
+  assert.match(helper, /throw insertError/);
+});
+
 test("server address helper maps saved address rows to full action-token DTOs", () => {
   const helper = readProject("src/features/ynot/server-addresses.ts");
 

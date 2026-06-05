@@ -3,6 +3,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 const dataSource = readFileSync(new URL("../src/features/ynot/data.ts", import.meta.url), "utf8");
+const serverAddressesSource = readFileSync(
+  new URL("../src/features/ynot/server-addresses.ts", import.meta.url),
+  "utf8",
+);
 const openRouteSource = readFileSync(
   new URL("../src/app/api/ynot/gacha/open/route.ts", import.meta.url),
   "utf8",
@@ -632,9 +636,16 @@ test("customer addresses use opaque action tokens and hide database error detail
     "export async function getAddresses",
     "async function getRankingsImpl",
   );
-  assert.match(addressMapper, /id:\s*await addressActionToken\(profileId,\s*row\.id\)/);
+  const publicAddressMapper = between(
+    serverAddressesSource,
+    "export async function toYnotAddress",
+    "function profileRowToAddressInput",
+  );
+  assert.match(addressMapper, /getProfileAddresses\(profileId\)/);
+  assert.match(publicAddressMapper, /id:\s*await addressActionToken\(profileId,\s*row\.id\)/);
   assert.doesNotMatch(addressMapper, /id:\s*row\.id/);
-  assert.match(addressesRouteSource, /addressActionToken\(session\.profileId,\s*data\.id\)/);
+  assert.doesNotMatch(publicAddressMapper, /id:\s*row\.id/);
+  assert.match(addressesRouteSource, /toYnotAddress\(session\.profileId,\s*data as UserAddressRow\)/);
   assert.doesNotMatch(addressesRouteSource, /address:\s*\{\s*id:\s*data\.id/);
   assert.match(shippingRouteSource, /normalizeAddressActionToken/);
   assert.match(shippingRouteSource, /resolveAddressActionToken/);
