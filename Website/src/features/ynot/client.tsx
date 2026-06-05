@@ -9340,6 +9340,44 @@ export function AdminCardCatalogPanel({
     });
   }
 
+  function purgeArchivedStock(card: CardCatalogItem, row: AdminCardCatalogRow) {
+    if (
+      !window.confirm(
+        `Permanently delete ${row.stockArchived.toLocaleString()} archived stock unit${row.stockArchived === 1 ? "" : "s"} of "${card.name}"?\n\nThese are already removed (kept only for history). This frees the count and can't be undone.`,
+      )
+    )
+      return;
+    startTransition(async () => {
+      try {
+        setMessage("");
+        const res = await fetch(
+          "/api/ynot/admin/card-stock/purge-archived",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cardId: card.catalogCardId }),
+          },
+        );
+        const payload = (await res.json().catch(() => null)) as
+          | { error?: string; result?: { deleted?: number } }
+          | null;
+        if (!res.ok) {
+          throw new Error(payload?.error || "Could not purge archived stock.");
+        }
+        setMessage(
+          `Purged ${Number(payload?.result?.deleted ?? 0).toLocaleString()} archived stock unit(s).`,
+        );
+        router.refresh();
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not purge archived stock.",
+        );
+      }
+    });
+  }
+
   function updateStockDraftQuantity(quantity: string) {
     setStockDraft((current) => (current ? { ...current, quantity } : current));
   }
@@ -9957,6 +9995,17 @@ export function AdminCardCatalogPanel({
                         >
                           Edit card
                         </button>
+                        {row.stockArchived > 0 ? (
+                          <button
+                            className="plain-button"
+                            disabled={isPending}
+                            type="button"
+                            title={`Permanently delete ${row.stockArchived} archived stock unit(s) (owner only)`}
+                            onClick={() => purgeArchivedStock(card, row)}
+                          >
+                            Purge archived ({row.stockArchived.toLocaleString()})
+                          </button>
+                        ) : null}
                       </div>
                       <button
                         className="plain-button admin-card-catalog-delete-btn"
