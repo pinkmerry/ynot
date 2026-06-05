@@ -520,24 +520,53 @@ async function readPrizeUnitImageUrlsByPrizeId(
         .select("id,draw_round_prize_id,card_stock_unit_id,status")
         .in("draw_round_prize_id", prizeIds),
   );
-  const stockUnitIds = [
-    ...new Set(
-      prizeUnits
-        .map((unit) => unit.card_stock_unit_id)
-        .filter((id): id is string => Boolean(id)),
-    ),
-  ];
-  const stockUnits = stockUnitIds.length
-    ? await readSupabaseRows<PublicStockUnitImageRow>(
-        `${label}_stock_unit_images`,
-        () =>
-          supabase
-            .from("card_stock_units")
-            .select("id,image_url")
-            .in("id", stockUnitIds),
-      )
-    : [];
-  return stockImageUrlByPrizeId(prizeUnits, stockUnits);
+  // We only need ONE representative image per prize. A mystery tier can hold
+  // hundreds of prize units (e.g. a 1000-slot random pack), so collecting every
+  // unit's stock id builds a 30k+ char IN(...) URL that the REST layer rejects
+  // (400) — which silently dropped images for the ENTIRE lineup, not just the big
+  // tier. Keep only a few candidate stock ids per prize and look them up in
+  // bounded batches so the URL stays small regardless of pack size.
+  const PER_PRIZE = 6;
+  const candidatesByPrize = new Map<string, string[]>();
+  for (const unit of prizeUnits) {
+    if (unit.status === "void") continue;
+    const prizeId = unit.draw_round_prize_id;
+    const stockId = unit.card_stock_unit_id;
+    if (!prizeId || !stockId) continue;
+    const list = candidatesByPrize.get(prizeId);
+    if (!list) candidatesByPrize.set(prizeId, [stockId]);
+    else if (list.length < PER_PRIZE) list.push(stockId);
+  }
+  const stockUnitIds = [...new Set([...candidatesByPrize.values()].flat())];
+  const imageByStockId = new Map<string, string>();
+  const BATCH = 100;
+  for (let i = 0; i < stockUnitIds.length; i += BATCH) {
+    const batch = stockUnitIds.slice(i, i + BATCH);
+    const rows = await readSupabaseRows<PublicStockUnitImageRow>(
+      `${label}_stock_unit_images`,
+      () =>
+        supabase.from("card_stock_units").select("id,image_url").in("id", batch),
+    );
+    for (const row of rows) {
+      const id = typeof row.id === "string" ? row.id : null;
+      const img =
+        typeof row.image_url === "string" && row.image_url.trim()
+          ? row.image_url.trim()
+          : null;
+      if (id && img && !imageByStockId.has(id)) imageByStockId.set(id, img);
+    }
+  }
+  const out = new Map<string, string>();
+  for (const [prizeId, ids] of candidatesByPrize) {
+    for (const id of ids) {
+      const img = imageByStockId.get(id);
+      if (img) {
+        out.set(prizeId, img);
+        break;
+      }
+    }
+  }
+  return out;
 }
 
 // Last One Prize is stored on draw_rounds, not in draw_round_prizes. It counts
