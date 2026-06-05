@@ -31501,6 +31501,10 @@ html[data-ynot-theme] .admin-frame .admin-stock-unit-image-btn {
 html[data-ynot-theme] .admin-frame .admin-stock-unit-image:hover .admin-stock-unit-image-btn {
   background: rgba(255, 255, 255, 0.1);
 }
+html[data-ynot-theme] .admin-frame .admin-stock-unit-image.is-dragging .admin-stock-unit-image-btn {
+  border-color: rgba(245, 184, 0, 0.7);
+  background: rgba(245, 184, 0, 0.16);
+}
 html[data-ynot-theme] .admin-frame .admin-stock-unit-image-clear {
   font-size: 11px;
   color: #f0a0a0;

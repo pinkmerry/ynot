@@ -7649,6 +7649,7 @@ function AdminStockUnitRow({
     unit.imageStoragePath ?? "",
   );
   const [uploading, setUploading] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const [busy, startBusy] = useTransition();
   const [msg, setMsg] = useState("");
   // Editing is allowed even while a pack holds the unit (reserved/allocated) so
@@ -7781,7 +7782,22 @@ function AdminStockUnitRow({
             placeholder="GemRate ID"
             onChange={(event) => setGemrateId(event.target.value)}
           />
-          <label className="admin-stock-unit-image">
+          <label
+            className={`admin-stock-unit-image${dragging ? " is-dragging" : ""}`}
+            onDragOver={(event) => {
+              if (uploading) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "copy";
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDragging(false);
+              if (uploading) return;
+              void handleImageFile(event.dataTransfer.files?.[0] ?? null);
+            }}
+          >
             {imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -7798,9 +7814,11 @@ function AdminStockUnitRow({
             <span className="admin-stock-unit-image-btn">
               {uploading
                 ? "Uploading..."
-                : imageUrl
-                  ? "Change image"
-                  : "Upload image"}
+                : dragging
+                  ? "Drop image"
+                  : imageUrl
+                    ? "Change / drop image"
+                    : "Upload / drop image"}
             </span>
             <input
               type="file"
