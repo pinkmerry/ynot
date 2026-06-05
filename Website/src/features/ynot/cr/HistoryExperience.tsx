@@ -7,6 +7,7 @@ import type {
   YnotAddress,
   YnotCollectionItem,
 } from "../types";
+import { QuantityBadge } from "../QuantityBadge";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { Modal, PageHead, useToast } from "./UiKit";
 
@@ -618,6 +619,7 @@ function CollectionTile({
           />
         ) : null}
         <span className="cr-coll-tier">{card.tier.toUpperCase()}</span>
+        <QuantityBadge quantity={card.bundleQuantity} />
         <span className={`cr-coll-status ${card.bucket}`}>{label}</span>
         <span className="cr-coll-code">
           {collectionDisplayCode(card)}

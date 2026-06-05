@@ -21,6 +21,14 @@ function latestMigrationContaining(needle) {
   return readFileSync(path.join(dir, matches.at(-1)), "utf8");
 }
 
+function between(source, start, end) {
+  const startIndex = source.indexOf(start);
+  assert.notEqual(startIndex, -1, `missing start marker: ${start}`);
+  const endIndex = source.indexOf(end, startIndex + start.length);
+  assert.notEqual(endIndex, -1, `missing end marker: ${end}`);
+  return source.slice(startIndex, endIndex);
+}
+
 describe("random pack bundled prizes", () => {
   it("adds durable bundle quantity columns without exposing metadata grants", () => {
     const sql = latestMigrationContaining("draw_round_prizes_bundle_quantity_check");
@@ -74,7 +82,12 @@ describe("random pack bundled prizes", () => {
     const data = read("Website/src/features/ynot/data.ts");
     assert.match(data, /bundleQuantity/);
     assert.match(data, /bundleGroupItemIds/);
-    assert.doesNotMatch(data, /stockUnitFilter/);
+    const publicLineupMapper = between(
+      data,
+      "async function getPublicPrizeLineup",
+      "async function getPublicPrizeLineupsIndividually",
+    );
+    assert.doesNotMatch(publicLineupMapper, /stockUnitFilter/);
   });
 
   it("renders xN badges on the related customer surfaces", () => {

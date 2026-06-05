@@ -71,6 +71,7 @@ import {
   type PublicPrizeUnitImageRow,
   type PublicStockUnitImageRow,
 } from "./public-subsku-images";
+import { normalizeBundleQuantity, publicBundleQuantity } from "./bundle-quantity";
 
 const dataIssueStorage = new AsyncLocalStorage<YnotDataIssue[]>();
 
@@ -725,6 +726,7 @@ async function getPublicPrizeLineupsBatch(
           rank: prize.rank,
           valueThb: prize.value_thb,
           convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
+          bundleQuantity: publicBundleQuantity(prize.bundle_quantity),
           plannedQuantity: counts.total,
           availableUnits: counts.available || undefined,
           totalUnits: counts.total || undefined,
@@ -818,6 +820,7 @@ async function getPublicPrizeLineup(
         rank: prize.rank,
         valueThb: prize.value_thb,
         convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
+        bundleQuantity: publicBundleQuantity(prize.bundle_quantity),
         plannedQuantity: counts.total,
         availableUnits: counts.available || undefined,
         totalUnits: counts.total || undefined,
@@ -987,6 +990,7 @@ function publicPrizePreview(prize: YnotPrizePreview, index: number): YnotPrizePr
     rank: index + 1,
     valueThb: prize.valueThb,
     convertCoinValue: prize.convertCoinValue,
+    bundleQuantity: prize.bundleQuantity,
     prizeCategory: prize.prizeCategory,
     prizeCategoryLabel: prize.prizeCategoryLabel,
     displayTier: prize.displayTier,
@@ -2289,7 +2293,7 @@ export async function getCollection(
         const { data, error } = await supabase
           .from("gacha_open_items")
           .select(
-            "id,gacha_open_id,card_id,draw_round_prize_id,tier,value_thb,result_position",
+            "id,gacha_open_id,card_id,draw_round_prize_id,tier,value_thb,result_position,bundle_quantity",
           )
           .in("gacha_open_id", gachaSourceIds)
           .order("result_position", { ascending: true });
@@ -2403,6 +2407,30 @@ export async function getCollection(
     }
   }
 
+  const actionTokenByItemId = new Map<string, string>();
+  await Promise.all(
+    collectionItemIds.map(async (itemId) => {
+      actionTokenByItemId.set(
+        itemId,
+        await collectionItemActionToken(profileId, itemId),
+      );
+    }),
+  );
+
+  const collectionItemRowsByOpenItemId = new Map<string, typeof items>();
+  for (const item of items) {
+    const openItemId = sourceOpenItemIdByCollectionItem.get(item.id);
+    if (!openItemId) continue;
+    const group = collectionItemRowsByOpenItemId.get(openItemId) ?? [];
+    group.push(item);
+    collectionItemRowsByOpenItemId.set(openItemId, group);
+  }
+  for (const group of collectionItemRowsByOpenItemId.values()) {
+    group.sort((left, right) =>
+      (left.serial_no ?? left.id).localeCompare(right.serial_no ?? right.id),
+    );
+  }
+
   const cardsById = new Map(cards.map((card) => [card.catalogCardId, card]));
   return Promise.all(items.map(async (item) => {
     const card = cardsById.get(item.card_id);
@@ -2415,6 +2443,23 @@ export async function getCollection(
       : item.source_id
         ? openItemsByOpenAndCard.get(`${item.source_id}:${item.card_id}`)?.shift()
         : undefined;
+    const bundleGroupRows = directOpenItemId
+      ? collectionItemRowsByOpenItemId.get(directOpenItemId) ?? []
+      : [];
+    const bundleQuantity = publicBundleQuantity(
+      sourceOpenItem?.bundle_quantity ?? bundleGroupRows.length,
+    );
+    const bundleGroupItemIds = bundleQuantity
+      ? bundleGroupRows
+          .map((row) => actionTokenByItemId.get(row.id))
+          .filter((id): id is string => Boolean(id))
+      : undefined;
+    const bundleIndex = bundleQuantity
+      ? Math.max(
+          1,
+          bundleGroupRows.findIndex((row) => row.id === item.id) + 1,
+        )
+      : undefined;
     const sourcePrize = sourceOpenItem?.draw_round_prize_id
       ? prizesById.get(sourceOpenItem.draw_round_prize_id)
       : undefined;
@@ -2434,6 +2479,12 @@ export async function getCollection(
       cardPrizeCategory: card?.prizeCategory ?? null,
       cardSeries: card?.series ?? null,
       imageUrl: wonUnit?.imageUrl ?? null,
+      bundleQuantity,
+      bundleIndex,
+      bundleGroupId: bundleQuantity
+        ? bundleGroupItemIds?.[0] ?? actionTokenByItemId.get(item.id) ?? null
+        : null,
+      bundleGroupItemIds,
       status: item.status,
       serialNo: item.serial_no,
       acquiredAt: item.acquired_at,
@@ -2593,6 +2644,7 @@ export async function getGachaOpenHistory(
         cardName: card?.name ?? "Mystery reward",
         cardCode: card?.code,
         imageUrl: publicSubSkuImageUrl(rewardImageByOpenItemId.get(item.id)),
+        bundleQuantity: publicBundleQuantity(item.bundle_quantity),
         displayTier,
         valueThb: item.value_thb,
         resultPosition: item.result_position,
@@ -3560,6 +3612,7 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         rank: prize.rank,
         valueThb: prize.value_thb,
         convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
+        bundleQuantity: normalizeBundleQuantity(prize.bundle_quantity),
         weight: Number(prize.weight ?? 1),
         unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
         prizeCategory: metadataString(prize.metadata, "prizeCategory"),

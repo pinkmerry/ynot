@@ -8,6 +8,7 @@ import type {
   YnotPrizePreview,
 } from "../types";
 import { normalizeOpenQuantityOptions } from "../open-quantity";
+import { QuantityBadge } from "../QuantityBadge";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { Modal, PageHead, useToast } from "./UiKit";
 
@@ -354,6 +355,7 @@ export function PackDetailExperience({
                               {initials(prize.cardName)}
                             </span>
                           )}
+                          <QuantityBadge quantity={prize.bundleQuantity} />
                         </div>
                         <div className="cr-prize-card-name">
                           {prize.cardName}
