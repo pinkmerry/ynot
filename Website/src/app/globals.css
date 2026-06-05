@@ -30438,7 +30438,24 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-row-thumb {
   height: 168px;
   justify-content: center;
   overflow: hidden;
+  position: relative;
   width: 132px;
+}
+html[data-ynot-theme] .admin-frame .admin-card-catalog-inv-badge {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  text-align: center;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(13, 20, 17, 0.82);
+  color: #f7dc82;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
 }
 
 html[data-ynot-theme] .admin-frame .admin-card-catalog-row-thumb .admin-prize-card-thumb {
