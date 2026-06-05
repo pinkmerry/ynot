@@ -1002,6 +1002,7 @@ export type Database = {
       card_stock_unit_matches_prize_filter: { Args: { p_unit: Database["public"]["Tables"]["card_stock_units"]["Row"]; p_prize_metadata: Json | null }; Returns: boolean };
       release_campaign_reservations: { Args: { p_draw_round_id: string; p_admin_id: string; p_reason?: string | null; p_note?: string | null }; Returns: Json };
       edit_live_campaign_inventory: { Args: { p_draw_round_id: string; p_admin_id: string; p_prizes: Json }; Returns: Json };
+      purge_test_draw_round: { Args: { p_draw_round_id: string; p_admin_id: string }; Returns: Json };
       submit_campaign_review: { Args: { p_draw_round_id: string; p_admin_id: string; p_logic_snapshot?: Json | null; p_note?: string | null }; Returns: Json };
       approve_campaign_inventory: { Args: { p_draw_round_id: string; p_owner_admin_id: string; p_logic_snapshot?: Json | null; p_note?: string | null }; Returns: Json };
       publish_campaign: { Args: { p_draw_round_id: string; p_owner_admin_id: string; p_note?: string | null }; Returns: Json };
