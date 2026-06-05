@@ -3794,6 +3794,20 @@ export function AdminCampaignForm({
   const [lastPrizeStockUnitKey, setLastPrizeStockUnitKey] = useState(
     editingCampaign?.lastPrizeStockUnitKey ?? "",
   );
+  const [lastPrizeCatalogCategory, setLastPrizeCatalogCategory] =
+    useState<CatalogCategory>(() => {
+      const savedCard = cards.find(
+        (card) => card.catalogCardId === editingCampaign?.lastPrizeCardId,
+      );
+      return catalogCategoryValue(
+        editingCampaign?.lastPrizeCatalogCategory ??
+          savedCard?.catalogCategory ??
+          "single_cards",
+      );
+    });
+  const [lastPrizeConvertCoinValue, setLastPrizeConvertCoinValue] = useState(
+    clampConvertCoinValue(editingCampaign?.lastPrizeConvertCoinValue ?? 0),
+  );
   const [draftPrizes, setDraftPrizes] = useState<CampaignPrizeDraft[]>(() =>
     editingPrizes && editingPrizes.length
       ? prizeLineupToDrafts(
@@ -3840,9 +3854,21 @@ export function AdminCampaignForm({
     () => new Map(campaignCatalogCards.map((card) => [card.catalogCardId, card])),
     [campaignCatalogCards],
   );
+  const lastPrizeItemOptions = useMemo(
+    () =>
+      prizeCatalogCardsFor(
+        campaignCatalogCards,
+        lastPrizeCatalogCategory,
+        "bronze",
+        series,
+      ),
+    [campaignCatalogCards, lastPrizeCatalogCategory, series],
+  );
   const selectedLastPrizeCard = lastPrizeCardId
-    ? (cardsById.get(lastPrizeCardId) ?? null)
+    ? (lastPrizeItemOptions.find((card) => card.catalogCardId === lastPrizeCardId) ??
+      null)
     : null;
+  const lastPrizeSelectedCardId = selectedLastPrizeCard ? lastPrizeCardId : "";
   const lastPrizeGroups = selectedLastPrizeCard
     ? stockSkuGroups(selectedLastPrizeCard)
     : [];
@@ -4183,7 +4209,7 @@ export function AdminCampaignForm({
 
   function updateLastPrizeSelection(cardId: string) {
     const next =
-      campaignCatalogCards.find((card) => card.catalogCardId === cardId) ??
+      lastPrizeItemOptions.find((card) => card.catalogCardId === cardId) ??
       null;
     setLastPrizeCardId(cardId);
     setLastPrizeStockUnitKey(defaultStockUnitKey(next));
@@ -4196,9 +4222,24 @@ export function AdminCampaignForm({
     );
   }
 
+  function updateLastPrizeCatalogCategory(nextCategory: CatalogCategory) {
+    const catalogCategory = catalogCategoryValue(nextCategory);
+    const itemOptions = prizeCatalogCardsFor(
+      campaignCatalogCards,
+      catalogCategory,
+      "bronze",
+      series,
+    );
+    const defaultCard = itemOptions[0] ?? null;
+    setLastPrizeCatalogCategory(catalogCategory);
+    setLastPrizeCardId(defaultCard?.catalogCardId ?? "");
+    setLastPrizeStockUnitKey(defaultStockUnitKey(defaultCard));
+  }
+
   function clearLastPrizeSelection() {
     setLastPrizeCardId("");
     setLastPrizeStockUnitKey("");
+    setLastPrizeConvertCoinValue(0);
     setDraftPrizes((current) =>
       withLowestTierRemainder(
         current,
@@ -4467,12 +4508,29 @@ export function AdminCampaignForm({
           lastPrizeCardId: lastPrizeCardId || null,
           lastPrizeMetadata: (() => {
             const card = lastPrizeCardId
-              ? cardsById.get(lastPrizeCardId)
+              ? lastPrizeItemOptions.find(
+                  (candidate) => candidate.catalogCardId === lastPrizeCardId,
+                )
               : null;
+            if (!card) return null;
             const key = validStockUnitKey(card, lastPrizeStockUnitKey);
-            return card && key
+            const catalogCategory = catalogCategoryValue(lastPrizeCatalogCategory);
+            const prizeCategory =
+              prizeCategoryForCatalogCategory(catalogCategory);
+            const stockMetadata = key
               ? stockUnitSelectionMetadata(card, key)
               : null;
+            return {
+              catalogCategory,
+              catalogCategoryLabel: catalogCategoryLabel(catalogCategory),
+              prizeCategory,
+              prizeCategoryLabel: prizeCategoryLabel(prizeCategory),
+              sourceType: prizeSourceType(prizeCategory),
+              quantity: 1,
+              convertCoinValue: clampConvertCoinValue(lastPrizeConvertCoinValue),
+              ...(stockMetadata ?? {}),
+              ...(stockMetadata?.stockLabel ? { label: stockMetadata.stockLabel } : {}),
+            };
           })(),
         };
         if (editMode && editingCampaign) {
@@ -5346,13 +5404,19 @@ export function AdminCampaignForm({
                           <span>Last</span>
                         </div>
                         <AdminPrizeCardPicker
-                          cards={campaignCatalogCards}
-                          disabled={!campaignCatalogCards.length}
+                          cards={lastPrizeItemOptions}
+                          disabled={!lastPrizeItemOptions.length}
                           showPreview={false}
-                          value={lastPrizeCardId}
+                          value={lastPrizeSelectedCardId}
                           onChange={updateLastPrizeSelection}
                           testIdPrefix="campaign-last-prize"
                         />
+                        {!lastPrizeItemOptions.length && (
+                          <small>
+                            Add a {catalogCategoryLabel(lastPrizeCatalogCategory)}{" "}
+                            catalog item first.
+                          </small>
+                        )}
                       </div>
                       <label className="admin-field admin-prize-stock-sku-field">
                         <span>Sub-SKU stock</span>
@@ -5380,18 +5444,44 @@ export function AdminCampaignForm({
                           ))}
                         </select>
                       </label>
-                      <div className="admin-field">
+                      <label className="admin-field">
                         <span>Sub-category</span>
-                        <span className="admin-prize-static-cell">Final slot</span>
-                      </div>
-                      <div className="admin-field">
+                        <select
+                          value={lastPrizeCatalogCategory}
+                          onChange={(event) =>
+                            updateLastPrizeCatalogCategory(
+                              event.target.value as CatalogCategory,
+                            )
+                          }
+                        >
+                          {catalogCategoryOptions.map((categoryOption) => (
+                            <option
+                              key={categoryOption.value}
+                              value={categoryOption.value}
+                            >
+                              {categoryOption.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="admin-field">
                         <span>Qty</span>
-                        <span className="admin-prize-static-cell">1</span>
-                      </div>
-                      <div className="admin-field">
+                        <input readOnly type="number" value={1} />
+                      </label>
+                      <label className="admin-field admin-prize-convert-field">
                         <span>Convert coins</span>
-                        <span className="admin-prize-static-cell">—</span>
-                      </div>
+                        <input
+                          min={0}
+                          max={convertCoinValueMax}
+                          type="number"
+                          value={lastPrizeConvertCoinValue}
+                          onChange={(event) =>
+                            setLastPrizeConvertCoinValue(
+                              clampConvertCoinValue(event.target.value),
+                            )
+                          }
+                        />
+                      </label>
                       <div className="admin-field admin-prize-action-field">
                         <span>Action</span>
                         <button
