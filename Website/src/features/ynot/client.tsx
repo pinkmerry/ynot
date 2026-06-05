@@ -9378,10 +9378,12 @@ export function AdminCardCatalogPanel({
                   <div className="admin-card-catalog-row-titles">
                     <strong className="admin-card-catalog-row-name">
                       {card.name}
+                      {card.printLabel ? (
+                        <span className="admin-card-catalog-row-printlabel">
+                          {card.printLabel}
+                        </span>
+                      ) : null}
                     </strong>
-                    {card.printLabel ? (
-                      <p className="admin-muted-line">{card.printLabel}</p>
-                    ) : null}
                     <p className="admin-muted-line">
                       {[card.releaseYear, card.series]
                         .filter(Boolean)
