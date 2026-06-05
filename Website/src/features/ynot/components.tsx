@@ -1854,6 +1854,8 @@ function CampaignArtwork({
           .filter((prize) => Boolean(prize.cardImageUrl))
           .slice(0, 5)
       : [];
+  const bannerImageUrl = campaign.bannerImageUrl?.trim() ?? "";
+  const hasBannerImage = Boolean(bannerImageUrl);
   const hasPackAsset = Boolean(
     campaign.demo &&
     allowDemoStorefront() &&
@@ -1861,10 +1863,20 @@ function CampaignArtwork({
   );
   return (
     <div
-      className={`campaign-art ${campaign.series === "pokemon" ? "pokemon" : "one-piece"} ${hasPackAsset ? "has-asset" : ""} ${heroPrizes.length ? "has-prize-preview" : ""} ${large ? "large" : ""} ${clean ? "clean-art" : ""} ${quiet ? "quiet-art" : ""}`}
+      className={`campaign-art ${campaign.series === "pokemon" ? "pokemon" : "one-piece"} ${hasPackAsset || hasBannerImage ? "has-asset" : ""} ${hasBannerImage ? "has-banner-image" : ""} ${!hasBannerImage && heroPrizes.length ? "has-prize-preview" : ""} ${large ? "large" : ""} ${clean ? "clean-art" : ""} ${quiet ? "quiet-art" : ""}`}
     >
       <span className="art-glow" aria-hidden />
-      {heroPrizes.length ? (
+      {hasBannerImage ? (
+        // eslint-disable-next-line @next/next/no-img-element -- Pack banners are user-managed Supabase assets.
+        <img
+          alt=""
+          aria-hidden="true"
+          className="campaign-art-banner-image"
+          loading="lazy"
+          src={bannerImageUrl}
+        />
+      ) : null}
+      {!hasBannerImage && heroPrizes.length ? (
         <div className="campaign-art-prize-fan" aria-label="Featured prizes">
           {heroPrizes.map((prize, index) => (
             <span
@@ -1877,7 +1889,7 @@ function CampaignArtwork({
           ))}
         </div>
       ) : null}
-      {clean && !quiet && !hasPackAsset && (
+      {clean && !quiet && !hasPackAsset && !hasBannerImage && (
         <span className="clean-pack-cover" aria-hidden>
           <span className="clean-cover-kicker">
             {campaign.categoryLabel ?? seriesLabel(campaign.series)}

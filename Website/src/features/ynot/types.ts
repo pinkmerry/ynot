@@ -52,6 +52,8 @@ export type YnotCampaign = {
   isTest?: boolean;
   heroLabel?: string;
   displayTags?: string[];
+  bannerImageUrl?: string | null;
+  bannerImageStoragePath?: string | null;
   openQuantityOptions?: number[];
   prizeLineup?: YnotPrizePreview[];
   convertDeadlineDays?: number | null;

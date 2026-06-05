@@ -221,6 +221,8 @@ export type Database = {
           youtube_embed_url: string | null;
           promptpay_id: string | null;
           promptpay_qr_image_url: string | null;
+          banner_image_url: string | null;
+          banner_image_storage_path: string | null;
           featured_cards: Json;
           chase_cards: Json;
           display_tags: string[];
@@ -274,6 +276,8 @@ export type Database = {
           youtube_embed_url?: string | null;
           promptpay_id?: string | null;
           promptpay_qr_image_url?: string | null;
+          banner_image_url?: string | null;
+          banner_image_storage_path?: string | null;
           featured_cards?: Json;
           chase_cards?: Json;
           display_tags?: string[];

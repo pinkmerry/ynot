@@ -1030,6 +1030,35 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
 .cr-detail-hero-art.football { background: linear-gradient(140deg, #1a4a2e, #0a2814 60%, #2a7a48); }
 .cr-detail-hero-art.basketball { background: linear-gradient(140deg, #b04017, #7a2a0f 60%, #d36028); }
 
+.cr-detail-hero-art.has-banner-image {
+  aspect-ratio: 4 / 3;
+  background: #0b0f0d;
+}
+
+.cr-detail-hero-image {
+  display: block;
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+  position: absolute;
+  width: 100%;
+  z-index: 0;
+}
+
+.cr-detail-hero-art.has-banner-image .cr-hero-glow {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.22)),
+    radial-gradient(circle at 50% 90%, rgba(0, 0, 0, 0.26), transparent 68%);
+  z-index: 1;
+}
+
+.cr-detail-hero-art.has-banner-image .cr-pack-art-sticker,
+.cr-detail-hero-art.has-banner-image .cr-hero-stock,
+.cr-detail-hero-art.has-banner-image .cr-hero-eyebrow,
+.cr-detail-hero-art.has-banner-image .cr-hero-footer {
+  z-index: 2;
+}
+
 /* Glow behind the fan of cards */
 .cr-hero-glow {
   position: absolute;

@@ -966,6 +966,8 @@ function toYnotCampaign(
       linkedCategories.map((category) => category.nameEn).join(", ") ||
       (row.series === "pokemon" ? "Pokemon" : "One Piece"),
     displayTags: safeDisplayTags(row),
+    bannerImageUrl: row.banner_image_url ?? null,
+    bannerImageStoragePath: row.banner_image_storage_path ?? null,
     openQuantityOptions: normalizeOpenQuantityOptions(row.logic_snapshot),
     prizeLineup,
     convertDeadlineDays:
@@ -1025,6 +1027,7 @@ function publicYnotCampaign(campaign: YnotCampaign): YnotCampaign {
       Boolean(campaign.lastPrizeCardId || campaign.lastPrizePreview),
     lastPrizeCardId: undefined,
     lastPrizeStockUnitKey: undefined,
+    bannerImageStoragePath: undefined,
     prizeLineup: publicPrizeLineup(campaign.prizeLineup),
   };
 }

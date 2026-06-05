@@ -36,6 +36,10 @@ import { adminErrorResponse } from "@/lib/ynot/admin-api-errors";
 
 export const dynamic = "force-dynamic";
 
+const campaignBannerBucketName = "lucky-draw-assets";
+const campaignBannerPathPattern =
+  /^campaign-banners\/\d{4}-\d{2}-\d{2}\/\d+-[0-9a-f-]{36}-[a-z0-9._-]+\.(jpg|png|webp)$/;
+
 type CampaignBody = {
   campaignId?: unknown;
   slug?: unknown;
@@ -47,6 +51,8 @@ type CampaignBody = {
   mode?: unknown;
   priceThb?: unknown;
   costCoins?: unknown;
+  bannerImageUrl?: unknown;
+  bannerImageStoragePath?: unknown;
   totalSlots?: unknown;
   displayTags?: unknown;
   sortOrder?: unknown;
@@ -231,6 +237,129 @@ function isDirectPublishPatch(
     patch.status === "live" ||
     patch.visibility === "public"
   );
+}
+
+type CampaignBannerImagePatchResult =
+  | {
+      ok: true;
+      patch: Pick<
+        Database["public"]["Tables"]["draw_rounds"]["Update"],
+        "banner_image_url" | "banner_image_storage_path"
+      >;
+    }
+  | { ok: false; response: Response };
+
+async function verifyUploadedCampaignBannerImage(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  requestedPath: string,
+) {
+  const slashIndex = requestedPath.lastIndexOf("/");
+  const folder = requestedPath.slice(0, slashIndex);
+  const fileName = requestedPath.slice(slashIndex + 1);
+  const { data, error } = await supabase.storage
+    .from(campaignBannerBucketName)
+    .list(folder, { limit: 1, search: fileName });
+
+  if (error) {
+    return {
+      ok: false as const,
+      response: adminErrorResponse(
+        "CAMPAIGN_BANNER_STORAGE_VERIFY_FAILED",
+        "Could not verify the uploaded pack banner image.",
+        500,
+        { detail: error.message },
+      ),
+    };
+  }
+
+  const exists = (data ?? []).some((item) => item.name === fileName);
+  if (!exists) {
+    return {
+      ok: false as const,
+      response: adminErrorResponse(
+        "CAMPAIGN_BANNER_UPLOAD_NOT_FOUND",
+        "Pack banner image upload was not found. Upload it again before saving.",
+        400,
+      ),
+    };
+  }
+
+  return { ok: true as const };
+}
+
+async function campaignBannerImagePatch(
+  body: CampaignBody,
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+): Promise<CampaignBannerImagePatchResult> {
+  if (
+    body.bannerImageUrl === undefined &&
+    body.bannerImageStoragePath === undefined
+  ) {
+    return { ok: true, patch: {} };
+  }
+
+  const requestedPath = text(body.bannerImageStoragePath, 1000);
+  const requestedUrl = text(body.bannerImageUrl, 1000);
+  if (!requestedPath && !requestedUrl) {
+    return {
+      ok: true,
+      patch: {
+        banner_image_url: null,
+        banner_image_storage_path: null,
+      },
+    };
+  }
+
+  if (!requestedPath) {
+    return {
+      ok: false,
+      response: adminErrorResponse(
+        "CAMPAIGN_BANNER_STORAGE_PATH_REQUIRED",
+        "Pack banner image must be uploaded before it can be saved.",
+        400,
+      ),
+    };
+  }
+
+  if (!campaignBannerPathPattern.test(requestedPath)) {
+    return {
+      ok: false,
+      response: adminErrorResponse(
+        "CAMPAIGN_BANNER_STORAGE_PATH_INVALID",
+        "Pack banner image must come from the admin banner upload flow.",
+        400,
+      ),
+    };
+  }
+
+  const verifiedUpload = await verifyUploadedCampaignBannerImage(
+    supabase,
+    requestedPath,
+  );
+  if (!verifiedUpload.ok) return verifiedUpload;
+
+  const { data } = supabase.storage
+    .from(campaignBannerBucketName)
+    .getPublicUrl(requestedPath);
+
+  if (requestedUrl && requestedUrl !== data.publicUrl) {
+    return {
+      ok: false,
+      response: adminErrorResponse(
+        "CAMPAIGN_BANNER_URL_INVALID",
+        "Pack banner URL does not match the uploaded storage object.",
+        400,
+      ),
+    };
+  }
+
+  return {
+    ok: true,
+    patch: {
+      banner_image_url: data.publicUrl,
+      banner_image_storage_path: requestedPath,
+    },
+  };
 }
 
 function initialPrizesForAdminRole(
@@ -543,6 +672,9 @@ export async function POST(request: Request) {
   const patch = campaignPatch(body);
   const titles = campaignTitleValues(body);
   const requestedPublish = isDirectPublishPatch(patch);
+  const supabase = createServiceSupabaseClient();
+  const bannerPatch = await campaignBannerImagePatch(body, supabase);
+  if (!bannerPatch.ok) return bannerPatch.response;
   const insert: Database["public"]["Tables"]["draw_rounds"]["Insert"] = {
     slug: slugValue(body.slug),
     title_th: titles.titleTh,
@@ -553,6 +685,7 @@ export async function POST(request: Request) {
     mode: patch.mode ?? "instant_gacha",
     price_thb: patch.price_thb ?? 100,
     cost_coins: patch.cost_coins ?? 1,
+    ...bannerPatch.patch,
     total_slots: patch.total_slots ?? 100,
     convert_deadline_days:
       patch.convert_deadline_days === undefined ? 14 : patch.convert_deadline_days,
@@ -572,7 +705,6 @@ export async function POST(request: Request) {
     normalizePrizeDrafts(body.initialPrizes),
     admin.adminRole,
   );
-  const supabase = createServiceSupabaseClient();
   let prizeValidation: ReturnType<typeof validatePrizeDraftsForSave>;
   try {
     if (initialPrizes.length) await assertPrizeCardsExist(supabase, initialPrizes);
@@ -695,6 +827,8 @@ export async function PATCH(request: Request) {
     );
   }
   const supabase = createServiceSupabaseClient();
+  const bannerPatch = await campaignBannerImagePatch(body, supabase);
+  if (!bannerPatch.ok) return bannerPatch.response;
   const { data: current, error: currentError } = await supabase
     .from("draw_rounds")
     .select("id,status,approval_status,logic_snapshot,total_slots")
@@ -758,6 +892,7 @@ export async function PATCH(request: Request) {
     }
     const livePatch: Database["public"]["Tables"]["draw_rounds"]["Update"] = {
       ...patch,
+      ...bannerPatch.patch,
     };
     delete livePatch.total_slots;
     delete livePatch.status;
@@ -904,6 +1039,7 @@ export async function PATCH(request: Request) {
 
   const reviewPatch: Database["public"]["Tables"]["draw_rounds"]["Update"] = {
     ...patch,
+    ...bannerPatch.patch,
     ...(body.openQuantityOptions === undefined &&
     body.bundleConfig === undefined &&
     body.slotGrid === undefined

@@ -251,6 +251,40 @@ async function uploadAdminPaymentQrImage(
   };
 }
 
+async function uploadAdminCampaignBannerImage(
+  file: File,
+  details: { slug?: string; title?: string },
+): Promise<AdminCardImageUpload> {
+  const form = new FormData();
+  form.set("file", file);
+  if (details.slug) form.set("slug", details.slug);
+  if (details.title) form.set("title", details.title);
+
+  const response = await fetch("/api/ynot/admin/campaigns/banner-image", {
+    method: "POST",
+    body: form,
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new AdminRequestError(requestErrorMessage(payload), {
+      code: isRecord(payload) ? stringValue(payload.code) || undefined : undefined,
+      payload,
+      status: response.status,
+    });
+  }
+  if (
+    !isRecord(payload) ||
+    !stringValue(payload.imageUrl) ||
+    !stringValue(payload.storagePath)
+  ) {
+    throw new Error("Upload response did not include a banner image URL.");
+  }
+  return {
+    imageUrl: stringValue(payload.imageUrl),
+    storagePath: stringValue(payload.storagePath),
+  };
+}
+
 export function AdminRouteLink({
   children,
   className,
@@ -3620,8 +3654,16 @@ export function AdminCampaignForm({
   const [mode, setMode] = useState<"instant_gacha" | "slot_pick">(
     editingCampaign?.mode ?? "instant_gacha",
   );
-  const [priceThb, setPriceThb] = useState(editingCampaign?.priceThb ?? 100);
   const [costCoins, setCostCoins] = useState(editingCampaign?.costCoins ?? 1);
+  const [bannerImageUrl, setBannerImageUrl] = useState(
+    editingCampaign?.bannerImageUrl ?? "",
+  );
+  const [bannerImageStoragePath, setBannerImageStoragePath] = useState(
+    editingCampaign?.bannerImageStoragePath ?? "",
+  );
+  const [bannerImageFile, setBannerImageFile] = useState<File | null>(null);
+  const [bannerObjectPreviewUrl, setBannerObjectPreviewUrl] = useState("");
+  const bannerObjectPreviewUrlRef = useRef("");
   const [totalSlots, setTotalSlots] = useState(defaultTotalSlots);
   const [convertDeadlineDays, setConvertDeadlineDays] = useState<number>(() => {
     const stored = editingCampaign?.convertDeadlineDays;
@@ -3659,6 +3701,14 @@ export function AdminCampaignForm({
     "info",
   );
   const [isPending, startTransition] = useTransition();
+  useEffect(() => {
+    return () => {
+      if (bannerObjectPreviewUrlRef.current) {
+        URL.revokeObjectURL(bannerObjectPreviewUrlRef.current);
+      }
+    };
+  }, []);
+  const bannerPreviewUrl = bannerObjectPreviewUrl || bannerImageUrl;
   const sortedDraftPrizes = useMemo(
     () => assignPrizeDraftRanks(draftPrizes),
     [draftPrizes],
@@ -4156,18 +4206,49 @@ export function AdminCampaignForm({
     });
   }
 
+  function clearBannerFilePreview() {
+    if (bannerObjectPreviewUrlRef.current) {
+      URL.revokeObjectURL(bannerObjectPreviewUrlRef.current);
+      bannerObjectPreviewUrlRef.current = "";
+    }
+    setBannerImageFile(null);
+    setBannerObjectPreviewUrl("");
+  }
+
+  function chooseBannerImageFile(file: File) {
+    clearBannerFilePreview();
+    const objectUrl = URL.createObjectURL(file);
+    bannerObjectPreviewUrlRef.current = objectUrl;
+    setBannerImageFile(file);
+    setBannerObjectPreviewUrl(objectUrl);
+  }
+
   function submit() {
     startTransition(async () => {
       try {
         if (prizeBlockers.length) throw new Error(prizeBlockers[0]);
+        let nextBannerImageUrl = bannerImageUrl;
+        let nextBannerImageStoragePath = bannerImageStoragePath;
+        if (bannerImageFile) {
+          const uploaded = await uploadAdminCampaignBannerImage(bannerImageFile, {
+            slug,
+            title: titleEn || titleTh,
+          });
+          nextBannerImageUrl = uploaded.imageUrl;
+          nextBannerImageStoragePath = uploaded.storagePath;
+          setBannerImageUrl(uploaded.imageUrl);
+          setBannerImageStoragePath(uploaded.storagePath);
+          clearBannerFilePreview();
+        }
         const basePayload = {
           slug,
           titleTh,
           titleEn,
           series,
           mode,
-          priceThb,
           costCoins,
+          bannerImageUrl: nextBannerImageUrl || null,
+          bannerImageStoragePath: nextBannerImageStoragePath || null,
           totalSlots,
           displayTags,
           openQuantityOptions,
@@ -4357,6 +4438,66 @@ export function AdminCampaignForm({
                 placeholder="Pack title"
               />
             </label>
+            <div className="admin-field admin-field-wide admin-campaign-banner-field">
+              <span>Pack banner image</span>
+              <div className="admin-campaign-banner-upload">
+                <div className="admin-campaign-banner-preview">
+                  {bannerPreviewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- Admin previews user-managed Supabase assets before save.
+                    <img src={bannerPreviewUrl} alt="Pack banner preview" />
+                  ) : (
+                    <div className="admin-campaign-banner-placeholder">
+                      <strong>4:3 image</strong>
+                      <small>Pack page and detail hero banner</small>
+                    </div>
+                  )}
+                </div>
+                <div className="admin-campaign-banner-actions">
+                  <label className="btn small admin-campaign-banner-button">
+                    <input
+                      accept="image/jpeg,image/png,image/webp"
+                      type="file"
+                      onChange={(event) => {
+                        const file = event.currentTarget.files?.[0] ?? null;
+                        if (!file) return;
+                        if (!adminImageUploadTypes.has(file.type)) {
+                          setMessageTone("error");
+                          setMessage("Pack banner image must be JPG, PNG, or WEBP.");
+                          event.currentTarget.value = "";
+                          return;
+                        }
+                        if (file.size > maxAdminImageUploadBytes) {
+                          setMessageTone("error");
+                          setMessage("Pack banner image must be 10 MB or smaller.");
+                          event.currentTarget.value = "";
+                          return;
+                        }
+                        chooseBannerImageFile(file);
+                        setMessage("");
+                      }}
+                    />
+                    Choose image
+                  </label>
+                  {(bannerPreviewUrl || bannerImageUrl) && (
+                    <button
+                      className="btn small ghost"
+                      type="button"
+                      onClick={() => {
+                        clearBannerFilePreview();
+                        setBannerImageUrl("");
+                        setBannerImageStoragePath("");
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+              <small>
+                Accepted ratio 4:3. Recommended 1600 x 1200. JPG, PNG, or WEBP
+                up to 10 MB.
+              </small>
+            </div>
             <div className="admin-field admin-field-wide">
               <span>Open mode</span>
               <div className="tabs" style={{ width: "100%" }}>
@@ -4411,16 +4552,6 @@ export function AdminCampaignForm({
                   updateTotalSlots(Number(event.target.value))
                 }
                 placeholder="100"
-              />
-            </label>
-            <label className="admin-field">
-              <span>Price THB</span>
-              <input
-                min={1}
-                type="number"
-                value={priceThb}
-                onChange={(event) => setPriceThb(Number(event.target.value))}
-                placeholder="150"
               />
             </label>
             <label className="admin-field">

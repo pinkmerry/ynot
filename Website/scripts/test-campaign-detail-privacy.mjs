@@ -38,6 +38,18 @@ test("public prize preview allows bundle quantity but hides internal stock plann
   assert.doesNotMatch(preview, /stockUnitGroupKey/);
 });
 
+test("public campaign projection hides pack banner storage path", () => {
+  const projection = sliceBetween(
+    "function publicYnotCampaign",
+    "function localOwnerMockPrizeLineup",
+  );
+  assert.match(
+    projection,
+    /bannerImageStoragePath:\s*undefined/,
+    "customer campaign props must not include internal Supabase storage paths",
+  );
+});
+
 test("cached public detail loader returns sold-out campaigns through the public projection", () => {
   const impl = sliceBetween(
     "async function loadPublicCampaignDetailImpl",

@@ -142,6 +142,8 @@ export function PackDetailExperience({
   const enoughStock = remaining >= qty;
   const openable = Boolean(campaign.openable);
   const unavailableReason = openUnavailableReason(campaign);
+  const bannerImageUrl = campaign.bannerImageUrl?.trim() ?? "";
+  const hasBannerImage = Boolean(bannerImageUrl);
   const stockPct = Math.max(
     0,
     Math.min(100, Math.round((remaining / Math.max(1, campaign.totalSlots)) * 100)),
@@ -184,8 +186,19 @@ export function PackDetailExperience({
       />
 
       <div className="cr-detail-hero-wrap">
-        <div className={`cr-detail-hero-art ${campaign.series}`}>
+        <div
+          className={`cr-detail-hero-art ${campaign.series}${hasBannerImage ? " has-banner-image" : ""}`}
+        >
           <span className="cr-hero-glow" aria-hidden />
+          {hasBannerImage ? (
+            // eslint-disable-next-line @next/next/no-img-element -- Pack banners are user-managed Supabase assets.
+            <img
+              alt=""
+              aria-hidden="true"
+              className="cr-detail-hero-image"
+              src={bannerImageUrl}
+            />
+          ) : null}
           {(campaign.displayTags ?? []).some((tag) =>
             tag.toLowerCase().includes("hot"),
           ) && <span className="cr-pack-art-sticker">Hot</span>}
@@ -216,7 +229,7 @@ export function PackDetailExperience({
           <span className="cr-hero-eyebrow">
             {seriesLabel(campaign.series).toUpperCase()}
           </span>
-          <HeroFan campaign={campaign} />
+          {!hasBannerImage && <HeroFan campaign={campaign} />}
           <span className="cr-hero-footer">
             {(campaign.titleEn || campaign.titleTh).toUpperCase()}
           </span>
