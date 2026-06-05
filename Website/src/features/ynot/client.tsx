@@ -9022,12 +9022,14 @@ export function AdminCardCatalogPanel({
                       {card.name}
                     </strong>
                     <p className="admin-muted-line">
+                      {[card.releaseYear, card.series]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    <p className="admin-muted-line">
                       {[
                         card.modelCode ?? card.code ?? "no model code",
-                        catalogCategoryLabel(card.catalogCategory),
-                        cardConditionLabel(card.condition),
-                        card.grade || "Ungraded",
-                        card.series,
+                        card.variant,
                       ]
                         .filter(Boolean)
                         .join(" · ")}
