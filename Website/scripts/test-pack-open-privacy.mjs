@@ -228,15 +228,31 @@ test("customer campaign props hide house logic and internal prize inventory", ()
     "function localOwnerMockPrizeLineup",
   );
   assert.match(publicCampaign, /id:\s*campaign\.slug/);
-  assert.match(publicCampaign, /logicMode:\s*undefined/);
-  assert.match(publicCampaign, /totalPrizeUnits:\s*undefined/);
-  assert.match(publicCampaign, /availablePrizeUnits:\s*undefined/);
-  assert.match(publicCampaign, /eligiblePrizeUnits:\s*undefined/);
-  assert.match(publicCampaign, /initialEligiblePrizeUnits:\s*undefined/);
-  assert.match(publicCampaign, /awardedPrizeUnits:\s*undefined/);
-  assert.match(publicCampaign, /voidPrizeUnits:\s*undefined/);
-  assert.match(publicCampaign, /readinessBlockers:\s*undefined/);
-  assert.match(publicCampaign, /categoryIds:\s*undefined/);
+  assert.doesNotMatch(
+    publicCampaign,
+    /\.\.\.campaign/,
+    "public campaign projection must not spread raw campaign objects into client props",
+  );
+  for (const privateField of [
+    "logicMode",
+    "totalPrizeUnits",
+    "availablePrizeUnits",
+    "eligiblePrizeUnits",
+    "initialEligiblePrizeUnits",
+    "awardedPrizeUnits",
+    "voidPrizeUnits",
+    "readinessBlockers",
+    "categoryIds",
+    "lastPrizeCardId",
+    "lastPrizeStockUnitKey",
+    "bannerImageStoragePath",
+  ]) {
+    assert.doesNotMatch(
+      publicCampaign,
+      new RegExp(`${privateField}:`),
+      `${privateField} must not be serialized in public campaign props, even as undefined`,
+    );
+  }
 
   const publicCampaignCall = between(
     dataSource,
@@ -305,6 +321,7 @@ test("related public campaign feeds can show sold-out packs without widening eve
     dashboardSliceBlock,
     /includePrivate: viewer\.isAdmin \|\| isDevAuthAllowed\(\),\s*includeSoldOutPublic: selector\.includeSoldOutCampaigns,/,
   );
+  assert.match(packsPageSource, /campaignVisibility:\s*"public"/);
   assert.match(packsPageSource, /includeSoldOutCampaigns:\s*true/);
 });
 

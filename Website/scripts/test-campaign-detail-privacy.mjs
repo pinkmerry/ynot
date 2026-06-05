@@ -43,11 +43,12 @@ test("public campaign projection hides pack banner storage path", () => {
     "function publicYnotCampaign",
     "function localOwnerMockPrizeLineup",
   );
-  assert.match(
+  assert.doesNotMatch(
     projection,
-    /bannerImageStoragePath:\s*undefined/,
-    "customer campaign props must not include internal Supabase storage paths",
+    /bannerImageStoragePath:/,
+    "customer campaign props must not include internal Supabase storage paths, even as undefined",
   );
+  assert.doesNotMatch(projection, /\.\.\.campaign/);
 });
 
 test("cached public detail loader returns sold-out campaigns through the public projection", () => {

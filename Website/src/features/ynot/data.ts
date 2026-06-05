@@ -1003,32 +1003,38 @@ function publicPrizeLineup(prizes?: YnotPrizePreview[]) {
 }
 
 function publicYnotCampaign(campaign: YnotCampaign): YnotCampaign {
+  const prizeLineup = publicPrizeLineup(campaign.prizeLineup);
   return {
-    ...campaign,
     id: campaign.slug,
-    approvalStatus: undefined,
-    totalPrizeUnits: undefined,
-    availablePrizeUnits: undefined,
-    eligiblePrizeUnits: undefined,
-    initialEligiblePrizeUnits: undefined,
-    awardedPrizeUnits: undefined,
-    voidPrizeUnits: undefined,
-    readinessBlockers: undefined,
-    adminRemoved: undefined,
-    sortOrder: undefined,
-    approvalRequestedAt: undefined,
-    approvedAt: undefined,
-    approvalNotes: undefined,
-    logicMode: undefined,
-    isTest: undefined,
-    categoryIds: undefined,
+    slug: campaign.slug,
+    status: campaign.status,
+    titleTh: campaign.titleTh,
+    titleEn: campaign.titleEn,
+    series: campaign.series,
+    priceThb: campaign.priceThb,
+    costCoins: campaign.costCoins,
+    mode: campaign.mode,
+    visibility: campaign.visibility,
+    totalSlots: campaign.totalSlots,
+    startsAt: campaign.startsAt,
+    endsAt: campaign.endsAt,
+    remainingSlots: campaign.remainingSlots,
+    openable: campaign.openable,
+    soldOut: campaign.soldOut,
+    categorySlugs: campaign.categorySlugs,
+    categoryLabel: campaign.categoryLabel,
+    heroLabel: campaign.heroLabel,
+    displayTags: campaign.displayTags,
+    bannerImageUrl: campaign.bannerImageUrl ?? null,
+    openQuantityOptions: campaign.openQuantityOptions,
+    convertDeadlineDays: campaign.convertDeadlineDays,
     hasLastPrize:
       campaign.hasLastPrize ??
       Boolean(campaign.lastPrizeCardId || campaign.lastPrizePreview),
-    lastPrizeCardId: undefined,
-    lastPrizeStockUnitKey: undefined,
-    bannerImageStoragePath: undefined,
-    prizeLineup: publicPrizeLineup(campaign.prizeLineup),
+    ...(campaign.lastPrizePreview
+      ? { lastPrizePreview: campaign.lastPrizePreview }
+      : {}),
+    ...(prizeLineup ? { prizeLineup } : {}),
   };
 }
 
