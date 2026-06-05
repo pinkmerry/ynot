@@ -8688,6 +8688,15 @@ function adminCardCatalogRowSearchText(row: AdminCardCatalogRow) {
     gradingServiceLabel(card.gradingService),
     card.certNumber,
     card.gemrateId,
+    // Cert / GemRate identity lives on the sub-SKU stock units, so index every
+    // sub-SKU's code, label (which carries "#cert"), and raw cert / GemRate id
+    // so the catalog is searchable by a specific slab's cert number.
+    ...stockSkuGroups(card).flatMap((group) => [
+      group.sku,
+      group.label,
+      ...group.units.map((unit) => unit.certNumber),
+      ...group.units.map((unit) => unit.gemrateId),
+    ]),
     prizeCategoryLabel(card.prizeCategory),
     card.catalogCardId,
     card.searchName,
