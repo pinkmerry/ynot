@@ -14289,6 +14289,30 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
     var(--card-ring) border-box;
   box-shadow: 0 0 32px var(--card-glow, rgba(0, 0, 0, 0.5));
 }
+/* Last One Prize reveal card — gold frame + corner badge. The gold ring/glow
+   come from the inline --card-ring/--card-glow set on the <li>; this reinforces
+   it and styles the "LAST ONE PRIZE!" pill. */
+.gacha-reveal-card.last-prize .gacha-reveal-card-frame {
+  box-shadow: 0 0 36px rgba(224, 163, 22, 0.55);
+}
+.gacha-reveal-card-last-prize {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd76a, #e0a316);
+  color: #4a2e08;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(13, 20, 17, 0.28);
+  pointer-events: none;
+}
 .gacha-reveal-card-frame::before {
   content: none;
 }

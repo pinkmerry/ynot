@@ -30,6 +30,7 @@ type RawOpenItem = {
   valueThb?: number | null;
   position?: number;
   prizeUnitId?: string | null;
+  isLastPrize?: boolean;
   [key: string]: unknown;
 };
 
@@ -43,7 +44,7 @@ type RawOpenResult = {
   [key: string]: unknown;
 };
 
-type PublicDisplayTier = "rainbow" | "gold" | "silver" | "bronze";
+type PublicDisplayTier = "rainbow" | "gold" | "silver" | "bronze" | "last_prize";
 
 type PublicOpenItem = {
   name: string;
@@ -51,6 +52,7 @@ type PublicOpenItem = {
   displayTier: PublicDisplayTier;
   valueThb: number | null;
   position: number;
+  isLastPrize?: boolean;
 };
 
 type PublicOpenResult = {
@@ -96,7 +98,8 @@ function normalizeDisplayTier(
     value === "rainbow" ||
     value === "gold" ||
     value === "silver" ||
-    value === "bronze"
+    value === "bronze" ||
+    value === "last_prize"
   ) {
     return value;
   }
@@ -139,13 +142,15 @@ function toPublicOpenItem(item: RawOpenItem, index: number): PublicOpenItem {
   // Derive the customer-facing rarity from the raw tier internally, but never
   // ship the raw "high"/"normal" prize tier to customers.
   const tier = readString(item.tier, "normal");
-  return {
+  const publicItem: PublicOpenItem = {
     name: readString(item.name, "Mystery card"),
     imageUrl: typeof item.imageUrl === "string" && item.imageUrl ? item.imageUrl : null,
     displayTier: normalizeDisplayTier(item.displayTier, tier),
     valueThb: readNumber(item.valueThb),
     position: readPositiveInteger(item.position, index + 1),
   };
+  if (item.isLastPrize === true) publicItem.isLastPrize = true;
+  return publicItem;
 }
 
 function toPublicOpenResult(raw: RawOpenResult, items: RawOpenItem[]): PublicOpenResult {
@@ -299,6 +304,20 @@ async function hydrateItems(
   );
 
   return items.map((item) => {
+    // Last-prize awards have no draw_round_prize_unit_id, so the prize-unit /
+    // stock-unit image hydration below would null their image. Preserve the
+    // RPC-provided imageUrl, displayTier='last_prize', and isLastPrize flag.
+    if (item.isLastPrize === true) {
+      return {
+        ...item,
+        displayTier: "last_prize",
+        isLastPrize: true,
+        imageUrl:
+          typeof item.imageUrl === "string" && item.imageUrl
+            ? item.imageUrl
+            : null,
+      };
+    }
     const openItem =
       typeof item.position === "number"
         ? itemsByPosition.get(item.position)

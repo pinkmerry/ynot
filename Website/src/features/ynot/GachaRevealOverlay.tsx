@@ -440,6 +440,7 @@ export function GachaRevealOverlay({
           <ul className="gacha-reveal-grid" data-quantity={items.length}>
             {items.map((item) => {
               const tier = prizeDisplayTierConfig(item.displayTier);
+              const isLastPrize = item.isLastPrize === true;
               const itemImageUrl = isUploadedQuestionPlaceholder(item)
                 ? null
                 : item.imageUrl;
@@ -449,16 +450,28 @@ export function GachaRevealOverlay({
               return (
                 <li
                   key={item.position}
-                  className="gacha-reveal-card"
-                  data-tier={tier.value}
+                  className={`gacha-reveal-card${isLastPrize ? " last-prize" : ""}`}
+                  data-tier={isLastPrize ? "last-prize" : tier.value}
                   style={
                     {
-                      "--card-ring": tier.animation.ringColor,
-                      "--card-glow": tier.animation.glowColor,
+                      "--card-ring": isLastPrize
+                        ? "linear-gradient(135deg, #ffd76a, #e0a316)"
+                        : tier.animation.ringColor,
+                      "--card-glow": isLastPrize
+                        ? "rgba(224, 163, 22, 0.55)"
+                        : tier.animation.glowColor,
                     } as CSSProperties
                   }
                 >
                   <div className="gacha-reveal-card-frame">
+                    {isLastPrize && (
+                      <span
+                        className="gacha-reveal-card-last-prize"
+                        aria-label="Last one prize"
+                      >
+                        LAST ONE PRIZE!
+                      </span>
+                    )}
                     {itemImageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
