@@ -159,7 +159,11 @@ test("pack-open API response is mapped through a public result shape", () => {
     "function toPublicOpenItem",
     "function toPublicOpenResult",
   );
+  assert.match(publicItem, /bundleQuantity:\s*publicBundleQuantity/);
   assert.doesNotMatch(publicItem, /prizeUnitId/);
+  assert.doesNotMatch(publicItem, /drawRoundPrizeUnitIds/);
+  assert.doesNotMatch(publicItem, /stockUnitGroupKey/);
+  assert.doesNotMatch(publicItem, /stockUnitFilter/);
   assert.doesNotMatch(publicItem, /weight/);
   assert.doesNotMatch(publicItem, /unlockAtSoldPct/);
   assert.doesNotMatch(publicItem, /soldPct/);
@@ -173,6 +177,11 @@ test("pack-open API response is mapped through a public result shape", () => {
     "type PublicOpenItem = {",
     "type PublicOpenResult = {",
   );
+  assert.match(publicItemType, /bundleQuantity\?: number/);
+  assert.doesNotMatch(publicItemType, /prizeUnitId/);
+  assert.doesNotMatch(publicItemType, /drawRoundPrizeUnitIds/);
+  assert.doesNotMatch(publicItemType, /stockUnitGroupKey/);
+  assert.doesNotMatch(publicItemType, /stockUnitFilter/);
   assert.doesNotMatch(publicItemType, /\btier:/);
   assert.match(publicItemType, /displayTier:/);
 

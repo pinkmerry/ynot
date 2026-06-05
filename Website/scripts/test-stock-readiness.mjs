@@ -84,6 +84,18 @@ test("sub-SKU stock readiness counts the selected stockUnitGroupKey instead of t
   ]);
 });
 
+test("bundled prizes multiply only the physical stock units", () => {
+  assert.equal(
+    readiness.stockUnitsForPrize({
+      plannedQuantity: 2,
+      bundleQuantity: 3,
+      cardId: "card-a",
+      stockUnitGroupKey: "card-a::packs",
+    }),
+    6,
+  );
+});
+
 test("stock readiness blocks catalog prizes that omit a selected sub-SKU", () => {
   const issues = readiness.buildPrizeStockSelectionIssues({
     prizes: [

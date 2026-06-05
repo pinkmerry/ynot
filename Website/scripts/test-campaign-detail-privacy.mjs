@@ -27,6 +27,17 @@ test("cached public detail loader returns only the public projection", () => {
   );
 });
 
+test("public prize preview allows bundle quantity but hides internal stock planning", () => {
+  const preview = sliceBetween(
+    "function publicPrizePreview",
+    "function publicPrizeLineup",
+  );
+  assert.match(preview, /bundleQuantity:\s*prize\.bundleQuantity/);
+  assert.doesNotMatch(preview, /plannedQuantity/);
+  assert.doesNotMatch(preview, /stockUnitFilter/);
+  assert.doesNotMatch(preview, /stockUnitGroupKey/);
+});
+
 test("cached public detail loader returns sold-out campaigns through the public projection", () => {
   const impl = sliceBetween(
     "async function loadPublicCampaignDetailImpl",
