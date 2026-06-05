@@ -38,7 +38,6 @@ import { GachaRevealOverlay } from "./GachaRevealOverlay";
 import { QuantityBadge } from "./QuantityBadge";
 import {
   adminCardDuplicateUsage,
-  findAdminCardDuplicate,
   type AdminCardCatalogSortMode,
   type AdminCardDuplicateUsage,
   type AdminCardSeriesFilter,
@@ -7529,10 +7528,9 @@ export function AdminPrizeCreateActions({
 }
 
 export function AdminCardForm({
-  cards,
   prizes,
 }: {
-  cards: CardCatalogItem[];
+  cards?: CardCatalogItem[];
   prizes: YnotPrizePoolItem[];
 }) {
   const router = useRouter();
@@ -7564,10 +7562,10 @@ export function AdminCardForm({
     useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
-  const duplicateCard = useMemo(
-    () => findAdminCardDuplicate(cards, { code, name }),
-    [cards, code, name],
-  );
+  // Duplicate product names / model codes are allowed now (e.g. box variations
+  // under one model code), so the create form never blocks on a match — every
+  // save creates a new card. Use "Edit card" to change an existing one.
+  const duplicateCard = useMemo<CardCatalogItem | null>(() => null, []);
   const duplicateUsage = useMemo(
     () => (duplicateCard ? adminCardDuplicateUsage(duplicateCard, prizes) : null),
     [duplicateCard, prizes],

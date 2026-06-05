@@ -365,41 +365,14 @@ export async function POST(request: Request) {
 
   const patch = cardPatch(body) as CardInsert;
   const supabase = createServiceSupabaseClient();
-  const existingQuery = patch.search_code
-    ? supabase
-        .from("cards")
-        .select("id,name,card_code,series,grade,image_url,image_storage_path")
-        .eq("search_code", patch.search_code)
-        .limit(1)
-    : supabase
-        .from("cards")
-        .select("id,name,card_code,series,grade,image_url,image_storage_path")
-        .eq("search_name", patch.search_name)
-        .limit(2);
-  const { data: existing, error: existingError } = await existingQuery;
-  if (existingError) return Response.json({ error: existingError.message }, { status: 409 });
-
-  if (!patch.search_code && existing && existing.length > 1) {
-    return Response.json(
-      {
-        ok: false,
-        code: "CARD_DUPLICATE_NAME_AMBIGUOUS",
-        matches: existing.map(duplicateCardPayload),
-        message:
-          "Multiple existing cards use this name. Add a unique model code or edit the exact existing card from the catalog.",
-      },
-      { status: 409 },
-    );
-  }
-
-  if (existing?.[0] && !booleanValue(body.confirmOverwrite)) {
-    return duplicateCardResponse(supabase, existing[0]);
-  }
-
-  const query = existing?.[0]
-    ? supabase.from("cards").update(patch).eq("id", existing[0].id).select("*").single()
-    : supabase.from("cards").insert(patch).select("*").single();
-  const { data, error } = await query;
+  // Duplicate product names / model codes are allowed (e.g. several box
+  // variations under one model code), so every create inserts a NEW card. To
+  // change an existing card, use "Edit card" (PATCH) which targets it by id.
+  const { data, error } = await supabase
+    .from("cards")
+    .insert(patch)
+    .select("*")
+    .single();
   if (error) return Response.json({ error: error.message }, { status: 409 });
 
   await supabase.from("audit_events").insert({ actor_admin_id: admin.adminId, event_type: "card_saved", collection_item_id: null, metadata: { cardId: data.id, code: data.card_code } });
