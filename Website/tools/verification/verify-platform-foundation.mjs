@@ -562,7 +562,7 @@ check("../Database/supabase/migrations/20260604160000_shipping_event_handoff_sta
 check("src/features/ynot/components.tsx", "shell passes admin state into drawer", /isAdmin=\{renderViewer\.isAdmin\}/);
 check("src/features/ynot/StorePreferences.tsx", "admin routes are hidden unless viewer is admin", /isAdmin &&[\s\S]*href="\/admin"/);
 check("src/features/ynot/components.tsx", "non-admin admin route gets denial state", /Admin access is required/);
-check("src/features/ynot/data.ts", "public campaign reads filter to live openable packs only", /query = query\.eq\("visibility", "public"\)\.eq\("status", "live"\)[\s\S]*campaigns\.filter\(\(campaign\) => campaign\.openable\)/);
+check("src/features/ynot/data.ts", "public campaign reads keep sold-out packs on explicit sold-out feeds only", /query = query\.eq\("visibility", "public"\)[\s\S]*includeSoldOutPublic[\s\S]*query\.in\("status", \["live", "closed"\]\)[\s\S]*query\.eq\("status", "live"\)[\s\S]*campaign\.openable[\s\S]*includeSoldOutPublic && campaign\.soldOut/);
 check("src/features/ynot/data.ts", "admin dashboard can request private campaigns explicitly", /getCampaigns\(\{[\s\S]*includePrivate: viewer\.isAdmin[\s\S]*includeReadiness: selector\.campaignReadiness[\s\S]*includePrizeLineups: selector\.campaignPrizeLineups/);
 check("src/app/admin/page.tsx", "admin dashboard keeps heavy campaign readiness on demand", /campaignReadiness: false[\s\S]*campaignPrizeLineups: false/);
 check("src/features/ynot/data.ts", "admin user and audit data readers exist", /getAdminUsers[\s\S]*getAdminAuditEvents/);

@@ -3,6 +3,8 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { shouldUseSecureCookies } from "@/lib/security/cookies";
+import { hardenSupabaseCookieOptions } from "./cookie-options";
 import type { Database } from "./types";
 
 function supabaseUrl() {
@@ -19,6 +21,7 @@ function supabasePublishableKey() {
 
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
+  const secure = shouldUseSecureCookies();
 
   return createServerClient<Database>(supabaseUrl(), supabasePublishableKey(), {
     cookies: {
@@ -27,7 +30,13 @@ export async function createSupabaseServerClient() {
       },
       setAll(cookiesToSet) {
         try {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(
+              name,
+              value,
+              hardenSupabaseCookieOptions(options, secure),
+            ),
+          );
         } catch {
           // Server Components cannot write cookies. src/middleware.ts refreshes sessions for them.
         }

@@ -12,6 +12,7 @@ import type {
   YnotCollectionItem,
   YnotDashboardData,
   YnotExchangeOrder,
+  YnotOwnerApprovalRequest,
   YnotPaymentMethod,
   YnotPrizePreview,
   YnotRankingRow,
@@ -36,13 +37,6 @@ import {
   StoreLanguageToggle,
   StoreSettingsMenu,
 } from "./StorePreferences";
-import {
-  AdminCategoryRowActions,
-  OwnerApprovalQueue,
-  PackDeleteButton,
-  PackOrderControls,
-  PackPickerLauncher,
-} from "./StorefrontAdminControls";
 import { PackDragDrop } from "./PackDragDrop";
 import {
   DEMO_PACK_ORDER_COOKIE,
@@ -285,6 +279,101 @@ type PackReorderInfo = {
   nextId: string | null;
   nextSortOrder: number | null;
 };
+
+async function AdminPackPickerLauncher({
+  enabled,
+  variant,
+  targetTier,
+}: {
+  enabled: boolean;
+  variant?: "card" | "button";
+  targetTier?: PackTier;
+}) {
+  if (!enabled) return null;
+  const { PackPickerLauncher } = await import("./StorefrontAdminControls");
+  return <PackPickerLauncher variant={variant} targetTier={targetTier} />;
+}
+
+async function AdminPackManagementControls({
+  enabled,
+  campaignId,
+  campaignTitle,
+  variant,
+  reorderInfo,
+}: {
+  enabled: boolean;
+  campaignId: string;
+  campaignTitle: string;
+  variant: "card" | "feature";
+  reorderInfo?: PackReorderInfo | null;
+}) {
+  if (!enabled) return null;
+  const { PackDeleteButton, PackOrderControls } = await import(
+    "./StorefrontAdminControls"
+  );
+  return (
+    <>
+      <PackDeleteButton
+        campaignId={campaignId}
+        campaignTitle={campaignTitle}
+        variant={variant}
+      />
+      {reorderInfo && (
+        <PackOrderControls
+          campaignId={reorderInfo.campaignId}
+          position={reorderInfo.position}
+          currentSortOrder={reorderInfo.currentSortOrder}
+          prevId={reorderInfo.prevId}
+          prevSortOrder={reorderInfo.prevSortOrder}
+          nextId={reorderInfo.nextId}
+          nextSortOrder={reorderInfo.nextSortOrder}
+          canMoveUp={!!reorderInfo.prevId}
+          canMoveDown={!!reorderInfo.nextId}
+          variant={variant}
+        />
+      )}
+    </>
+  );
+}
+
+async function AdminOwnerApprovalQueue({
+  enabled,
+  requests,
+  viewerRole,
+}: {
+  enabled: boolean;
+  requests: YnotOwnerApprovalRequest[];
+  viewerRole?: "owner" | "admin" | "staff" | null;
+}) {
+  if (!enabled) return null;
+  const { OwnerApprovalQueue } = await import("./StorefrontAdminControls");
+  return <OwnerApprovalQueue requests={requests} viewerRole={viewerRole} />;
+}
+
+async function AdminCategoryRowActionsSlot({
+  categoryId,
+  categorySlug,
+  categoryName,
+  packCount,
+  isLegacySeries,
+}: {
+  categoryId: string;
+  categorySlug: string;
+  categoryName: string;
+  packCount: number;
+  isLegacySeries: boolean;
+}) {
+  const { AdminCategoryRowActions } = await import("./StorefrontAdminControls");
+  return (
+    <AdminCategoryRowActions
+      categoryId={categoryId}
+      categorySlug={categorySlug}
+      categoryName={categoryName}
+      packCount={packCount}
+      isLegacySeries={isLegacySeries}
+    />
+  );
+}
 
 /** Build the neighbour map used by the admin reorder UI. Campaigns without an
  *  explicit `sortOrder` get a synthetic value derived from their position so
@@ -880,7 +969,7 @@ export async function PacksExperience({
         <div className="catalog-toolbar packs-toolbar">
           <h1>Y-Packs</h1>
           <p>{`${campaigns.length} slab pack${campaigns.length === 1 ? "" : "s"}`}</p>
-          {isAdmin && <PackPickerLauncher variant="button" />}
+          <AdminPackPickerLauncher enabled={isAdmin} variant="button" />
         </div>
 
         {(featuredCampaignsList.length > 0 || isAdmin) && (
@@ -952,27 +1041,13 @@ export async function PacksExperience({
                       Edit
                     </Link>
                   )}
-                  {isAdmin && (
-                    <PackDeleteButton
-                      campaignId={campaign.id}
-                      campaignTitle={campaign.titleEn || campaign.titleTh}
-                      variant="feature"
-                    />
-                  )}
-                  {isAdmin && info && (
-                    <PackOrderControls
-                      campaignId={info.campaignId}
-                      position={info.position}
-                      currentSortOrder={info.currentSortOrder}
-                      prevId={info.prevId}
-                      prevSortOrder={info.prevSortOrder}
-                      nextId={info.nextId}
-                      nextSortOrder={info.nextSortOrder}
-                      canMoveUp={!!info.prevId}
-                      canMoveDown={!!info.nextId}
-                      variant="feature"
-                    />
-                  )}
+                  <AdminPackManagementControls
+                    enabled={isAdmin}
+                    campaignId={campaign.id}
+                    campaignTitle={campaign.titleEn || campaign.titleTh}
+                    variant="feature"
+                    reorderInfo={info}
+                  />
                 </div>
               );
             })}
@@ -981,9 +1056,9 @@ export async function PacksExperience({
                 grid distributes cards evenly (1/1, 1/2, 1/3 …) without
                 an empty slot stealing a column. Admin can still add more
                 packs via the "+ Add pack" button near the heading. */}
-            {isAdmin && featuredCampaignsList.length === 0 && (
-              <PackPickerLauncher />
-            )}
+            <AdminPackPickerLauncher
+              enabled={isAdmin && featuredCampaignsList.length === 0}
+            />
           </section>
         )}
 
@@ -1029,12 +1104,11 @@ export async function PacksExperience({
                       <p className="packs-tier-subtitle">
                         {tierCampaigns.length} slab{tierCampaigns.length === 1 ? "" : "s"}/pack
                       </p>
-                      {isAdmin && (
-                        <PackPickerLauncher
-                          variant="button"
-                          targetTier={tier}
-                        />
-                      )}
+                      <AdminPackPickerLauncher
+                        enabled={isAdmin}
+                        variant="button"
+                        targetTier={tier}
+                      />
                     </header>
                     <section
                       className="home-pack-board product-section"
@@ -1383,27 +1457,13 @@ export function CampaignCard({
               Edit
             </Link>
           )}
-          {showAdminEdit && reorderInfo && (
-            <PackDeleteButton
-              campaignId={reorderInfo.campaignId}
-              campaignTitle={title}
-              variant="card"
-            />
-          )}
-          {showAdminEdit && reorderInfo && (
-            <PackOrderControls
-              campaignId={reorderInfo.campaignId}
-              position={reorderInfo.position}
-              currentSortOrder={reorderInfo.currentSortOrder}
-              prevId={reorderInfo.prevId}
-              prevSortOrder={reorderInfo.prevSortOrder}
-              nextId={reorderInfo.nextId}
-              nextSortOrder={reorderInfo.nextSortOrder}
-              canMoveUp={!!reorderInfo.prevId}
-              canMoveDown={!!reorderInfo.nextId}
-              variant="card"
-            />
-          )}
+          <AdminPackManagementControls
+            enabled={showAdminEdit && Boolean(reorderInfo)}
+            campaignId={reorderInfo?.campaignId ?? campaign.id}
+            campaignTitle={title}
+            variant="card"
+            reorderInfo={reorderInfo}
+          />
         </div>
         <h3 className="title-m pack-card-title">{title}</h3>
       </div>
@@ -2415,12 +2475,11 @@ export function AdminControlCenter({ data }: { data: YnotDashboardData }) {
         </div>
       </section>
 
-      {data.viewer.adminRole === "owner" && (
-        <OwnerApprovalQueue
-          requests={data.ownerApprovalRequests}
-          viewerRole={data.viewer.adminRole}
-        />
-      )}
+      <AdminOwnerApprovalQueue
+        enabled={data.viewer.adminRole === "owner"}
+        requests={data.ownerApprovalRequests}
+        viewerRole={data.viewer.adminRole}
+      />
 
       <section
         className="admin-clean-section"
@@ -2607,7 +2666,7 @@ export function AdminCategoryManager({
                   >
                     Preview storefront
                   </Link>
-                  <AdminCategoryRowActions
+                  <AdminCategoryRowActionsSlot
                     categoryId={category.id}
                     categorySlug={category.slug}
                     categoryName={category.nameEn || category.nameTh}

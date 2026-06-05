@@ -32,6 +32,7 @@
     "test:rate-limits": "node --test scripts/test-rate-limit-config.mjs",
     "test:card-catalog-metadata": "node --test scripts/test-card-catalog-metadata.mjs",
     "test:gacha-open-bundle": "node --test scripts/test-gacha-open-bundle.mjs",
+    "test:production-security-regressions": "node --test scripts/test-production-security-regressions.mjs",
     "test:pack-open-privacy": "node --test scripts/test-pack-open-privacy.mjs",
     "test:campaign-detail-privacy": "node --test scripts/test-campaign-detail-privacy.mjs",
     "test:stock-sku-usage": "node --test scripts/test-stock-sku-usage.mjs",
@@ -42,7 +43,7 @@
     "test:identity-review-db-safety": "node --test scripts/test-identity-review-db-safety.mjs",
     "test:auth-session-hardening": "node --test scripts/test-auth-session-hardening.mjs",
     "test:personal-info": "node --test scripts/test-personal-info-address-sync.mjs",
-    "verify:hardening": "npm run test:uploads && node tools/verification/verify-hardening.mjs && node tools/verification/verify-rls-coverage.mjs",
+    "verify:hardening": "npm run test:uploads && npm run test:production-security-regressions && node tools/verification/verify-hardening.mjs && node tools/verification/verify-rls-coverage.mjs",
     "verify:production-env": "YNOT_ENV=production node tools/verification/verify-production-env.mjs",
     "verify:production-test": "node tools/verification/verify-production-test-readiness.mjs",
     "verify:production-db": "node tools/verification/check-production-supabase-readiness.mjs"

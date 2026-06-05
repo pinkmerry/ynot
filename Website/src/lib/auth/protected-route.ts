@@ -1,7 +1,10 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
-import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
+import {
+  resolveAdminSession,
+  resolveCurrentProfile,
+} from "@/lib/auth/resolve-current-profile";
 
 const localBase = "https://ynot.local";
 
@@ -29,4 +32,14 @@ export async function requireCurrentProfile(next: string) {
   const session = await resolveCurrentProfile();
   if (!session) redirect(loginRedirectPath(next));
   return session;
+}
+
+export async function requireAdminRoute(next: string) {
+  const session = await resolveCurrentProfile();
+  if (!session) redirect(loginRedirectPath(next));
+
+  const adminSession = await resolveAdminSession(session);
+  if (!adminSession) redirect("/");
+
+  return adminSession;
 }
