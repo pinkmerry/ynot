@@ -533,10 +533,9 @@ async function readPrizeUnitImageUrlsByPrizeId(
   return stockImageUrlByPrizeId(prizeUnits, stockUnits);
 }
 
-// Last One Prize is stored OUTSIDE the prize pool (draw_rounds columns), so it
-// has no draw_round_prize / unit rows to read. Resolve a display preview by
-// matching the chosen sub-SKU (cert/grade from metadata) to a stock unit image,
-// falling back to the product image. Read-only: never touches award state.
+// Last One Prize is stored on draw_rounds, not in draw_round_prizes. It counts
+// as the final reward slot, but this preview remains display-only: resolve the
+// chosen sub-SKU image without exposing the private filter metadata.
 async function resolveLastPrizePreview(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   row: DrawRoundRow,

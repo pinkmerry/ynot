@@ -734,6 +734,14 @@ export async function getCampaignPrizeReadiness(
     0,
     inventory?.remainingSlots ?? row.total_slots,
   );
+  const lastPrizeTotalUnits = row.last_prize_card_id ? 1 : 0;
+  const lastPrizeAvailableUnits =
+    row.last_prize_card_id && !row.last_prize_awarded_at ? 1 : 0;
+  const lastPrizeEligibleUnits =
+    lastPrizeAvailableUnits > 0 && remainingSlots <= 1 ? 1 : 0;
+  const totalRewardUnits = totalPrizeUnits + lastPrizeTotalUnits;
+  const availableRewardUnits = availablePrizeUnits + lastPrizeAvailableUnits;
+  const eligibleRewardUnits = eligiblePrizeUnits + lastPrizeEligibleUnits;
   const unitBackedPrizes = usePlannedInventory
     ? visiblePrizes.filter(
         (prize) => plannedQuantityForPrize(prize) > 0,
@@ -745,7 +753,7 @@ export async function getCampaignPrizeReadiness(
   const readiness = {
     campaignId,
     soldPct,
-    soldOut: remainingSlots <= 0 || availablePrizeUnits <= 0,
+    soldOut: remainingSlots <= 0 || availableRewardUnits <= 0,
     totalSlots: row.total_slots,
     remainingSlots,
     prizeRows: unitBackedPrizes.length,
@@ -753,9 +761,9 @@ export async function getCampaignPrizeReadiness(
     topPrizeRows: displayTierCounts.rainbow,
     highPoolRows: displayTierCounts.gold + displayTierCounts.silver,
     normalPrizeRows: unitBackedPrizes.filter((prize) => prize.tier === "normal").length,
-    totalPrizeUnits,
-    availablePrizeUnits,
-    eligiblePrizeUnits,
+    totalPrizeUnits: totalRewardUnits,
+    availablePrizeUnits: availableRewardUnits,
+    eligiblePrizeUnits: eligibleRewardUnits,
     initialEligiblePrizeUnits,
   };
   const blockers = buildReadinessBlockers({ ...readiness, stockBlockers });

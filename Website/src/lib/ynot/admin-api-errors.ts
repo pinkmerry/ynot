@@ -166,7 +166,11 @@ export const campaignLifecycleErrorMap: KnownErrorMap = {
   },
   planned_prize_quantity_must_equal_total_slots: {
     code: "CAMPAIGN_PRIZE_QUANTITY_MISMATCH",
-    error: "Prize quantity must equal the total pack quantity before owner review.",
+    error: "Normal prize quantity plus Last Prize must equal the total pack quantity before owner review.",
+  },
+  last_prize_stock_required: {
+    code: "CAMPAIGN_LAST_PRIZE_STOCK_REQUIRED",
+    error: "Last Prize needs 1 matching available stock unit before owner review or publish.",
   },
   launch_prize_pool_required: {
     code: "CAMPAIGN_LAUNCH_PRIZE_POOL_REQUIRED",

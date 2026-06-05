@@ -216,6 +216,10 @@ export type Database = {
           pack_code: string | null;
           last_prize_card_id: string | null;
           last_prize_metadata: Json | null;
+          last_prize_awarded_at: string | null;
+          last_prize_awarded_open_id: string | null;
+          last_prize_stock_unit_id: string | null;
+          last_prize_collection_item_id: string | null;
           order_code_prefix: string;
           facebook_live_url: string | null;
           youtube_embed_url: string | null;
@@ -271,6 +275,10 @@ export type Database = {
           pack_code?: string | null;
           last_prize_card_id?: string | null;
           last_prize_metadata?: Json | null;
+          last_prize_awarded_at?: string | null;
+          last_prize_awarded_open_id?: string | null;
+          last_prize_stock_unit_id?: string | null;
+          last_prize_collection_item_id?: string | null;
           order_code_prefix?: string;
           facebook_live_url?: string | null;
           youtube_embed_url?: string | null;

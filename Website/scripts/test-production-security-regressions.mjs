@@ -193,8 +193,8 @@ test("public last-prize contract hides internal identity fields", () => {
     "function localOwnerMockPrizeLineup",
   );
   assert.match(projection, /hasLastPrize:/);
-  assert.match(projection, /lastPrizeCardId:\s*undefined/);
-  assert.match(projection, /lastPrizeStockUnitKey:\s*undefined/);
+  assert.doesNotMatch(projection, /lastPrizeCardId:/);
+  assert.doesNotMatch(projection, /lastPrizeStockUnitKey:/);
 
   const previewResolver = sliceBetween(
     dataSource,

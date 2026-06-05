@@ -72,6 +72,50 @@ describe("random pack bundled prizes", () => {
     assert.match(sql, /for claimed_unit in/i);
   });
 
+  it("keeps Last One Prize as the final slot in the latest open RPC", () => {
+    const sql = latestMigrationContaining("last_prize_final_slot");
+    const openRpc = between(
+      sql,
+      "create or replace function public.open_gacha_campaign",
+      "revoke all on function public.open_gacha_campaign",
+    );
+    assert.match(openRpc, /last_prize_needed/);
+    assert.match(
+      openRpc,
+      /normal_units_needed := p_quantity - case when last_prize_needed then 1 else 0 end/i,
+    );
+    assert.match(openRpc, /available_unit_count < normal_units_needed/i);
+    assert.match(openRpc, /'tier', 'last_prize'/);
+    assert.match(openRpc, /'displayTier', 'last_prize'/);
+    assert.match(openRpc, /'isLastPrize', true/);
+    assert.match(openRpc, /'bundleQuantity', 1/);
+    assert.match(openRpc, /open_row\.public_code \|\| '-LP'/);
+    assert.match(openRpc, /'reason', 'last_prize_final_slot'/);
+    assert.doesNotMatch(openRpc, /p_quantity \+ 1/);
+    assert.doesNotMatch(openRpc, /'stockUnitId'/);
+
+    assert.match(sql, /last_prize_normal_prize_target/);
+    assert.match(sql, /last_prize_stock_required/);
+    assert.match(sql, /v_public_total_slots/);
+  });
+
+  it("applies live Last Prize edits before live slot rebalancing", () => {
+    const campaignsRoute = read("Website/src/app/api/ynot/admin/campaigns/route.ts");
+    const liveBlock = between(
+      campaignsRoute,
+      'if (current.status === "live") {',
+      'if (current.status !== "draft")',
+    );
+
+    assert.match(liveBlock, /last_prize_metadata/);
+    assert.match(liveBlock, /preRpcLastPrizePatch/);
+    assert.match(liveBlock, /CAMPAIGN_LAST_PRIZE_LIVE_EDIT_REQUIRES_PRIZES/);
+    assert.match(liveBlock, /shouldPreApplyLastPrize[\s\S]*edit_live_campaign_inventory/);
+    assert.match(liveBlock, /last_prize_card_id: current\.last_prize_card_id/);
+    assert.match(liveBlock, /delete livePatch\.last_prize_card_id/);
+    assert.match(liveBlock, /delete livePatch\.last_prize_metadata/);
+  });
+
   it("public APIs allow bundleQuantity but keep internal reward data private", () => {
     const openRoute = read("Website/src/app/api/ynot/gacha/open/route.ts");
     assert.match(openRoute, /bundleQuantity\?: number/);

@@ -3498,16 +3498,26 @@ function withLowestTierRemainder(
   return assignPrizeDraftRanks(adjustedRows);
 }
 
+function normalPrizeTarget(totalSlots: number, lastPrizeCardId?: string | null) {
+  const normalizedTotalSlots = Math.max(1, Math.round(Number(totalSlots) || 1));
+  return Math.max(0, normalizedTotalSlots - (lastPrizeCardId ? 1 : 0));
+}
+
+function lastPrizeUnitCount(lastPrizeCardId?: string | null) {
+  return lastPrizeCardId ? 1 : 0;
+}
+
 function createInitialPrizeDrafts(
   cards: CardCatalogItem[],
   totalSlots = 100,
+  lastPrizeCardId?: string | null,
 ): CampaignPrizeDraft[] {
   const rows = prizeDisplayTierOptions.flatMap((option) =>
     Array.from({ length: option.defaultCount }, (_, index) =>
       createPrizeDraft(option.value, index, cards),
     ),
   );
-  return withLowestTierRemainder(rows, totalSlots, cards);
+  return withLowestTierRemainder(rows, normalPrizeTarget(totalSlots, lastPrizeCardId), cards);
 }
 
 /** Convert an existing campaign's prize lineup into the editor's draft format
@@ -3516,9 +3526,10 @@ function prizeLineupToDrafts(
   prizes: YnotPrizePreview[],
   cards: CardCatalogItem[],
   totalSlots: number,
+  lastPrizeCardId?: string | null,
 ): CampaignPrizeDraft[] {
   if (!prizes.length) {
-    return createInitialPrizeDrafts(cards, totalSlots);
+    return createInitialPrizeDrafts(cards, totalSlots, lastPrizeCardId);
   }
   const drafts = prizes.map((prize, index): CampaignPrizeDraft => {
     const displayTier = prizeDisplayTierValueFromPreview(prize);
@@ -3550,7 +3561,7 @@ function prizeLineupToDrafts(
       unlockAtSoldPct: Math.max(0, Math.min(100, prize.unlockAtSoldPct ?? 0)),
     };
   });
-  return withLowestTierRemainder(drafts, totalSlots, cards);
+  return withLowestTierRemainder(drafts, normalPrizeTarget(totalSlots, lastPrizeCardId), cards);
 }
 
 function prizeDisplayTierValueFromPreview(prize: YnotPrizePreview): PrizeDisplayTier {
@@ -3683,18 +3694,25 @@ export function AdminCampaignForm({
     reveal: "stamp_on_pick" | "reveal_on_close";
     blockRepick: boolean;
   }>({ layout: "10x10", reveal: "stamp_on_pick", blockRepick: true });
-  const [draftPrizes, setDraftPrizes] = useState<CampaignPrizeDraft[]>(() =>
-    editingPrizes && editingPrizes.length
-      ? prizeLineupToDrafts(editingPrizes, cards, defaultTotalSlots)
-      : createInitialPrizeDrafts(cards, defaultTotalSlots),
-  );
-  // Last One Prize: a bonus card for whoever opens the final pack. Stored on the
-  // campaign (not the prize pool), so it never touches slot/odds logic.
   const [lastPrizeCardId, setLastPrizeCardId] = useState(
     editingCampaign?.lastPrizeCardId ?? "",
   );
   const [lastPrizeStockUnitKey, setLastPrizeStockUnitKey] = useState(
     editingCampaign?.lastPrizeStockUnitKey ?? "",
+  );
+  const [draftPrizes, setDraftPrizes] = useState<CampaignPrizeDraft[]>(() =>
+    editingPrizes && editingPrizes.length
+      ? prizeLineupToDrafts(
+          editingPrizes,
+          cards,
+          defaultTotalSlots,
+          editingCampaign?.lastPrizeCardId,
+        )
+      : createInitialPrizeDrafts(
+          cards,
+          defaultTotalSlots,
+          editingCampaign?.lastPrizeCardId,
+        ),
   );
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState<"info" | "success" | "error">(
@@ -3728,6 +3746,23 @@ export function AdminCampaignForm({
     () => new Map(campaignCatalogCards.map((card) => [card.catalogCardId, card])),
     [campaignCatalogCards],
   );
+  const selectedLastPrizeCard = lastPrizeCardId
+    ? (cardsById.get(lastPrizeCardId) ?? null)
+    : null;
+  const lastPrizeGroups = selectedLastPrizeCard
+    ? stockSkuGroups(selectedLastPrizeCard)
+    : [];
+  const lastPrizeSelectedKey = validStockUnitKey(
+    selectedLastPrizeCard,
+    lastPrizeStockUnitKey,
+  );
+  const lastPrizeSelectedGroup =
+    lastPrizeGroups.find((group) => group.key === lastPrizeSelectedKey) ?? null;
+  const lastPrizeImageUrl =
+    lastPrizeSelectedGroup?.units.find((unit) => unit.imageUrl)?.imageUrl ??
+    null;
+  const lastPrizeCount = lastPrizeUnitCount(lastPrizeCardId);
+  const normalPrizeSlots = normalPrizeTarget(totalSlots, lastPrizeCardId);
   // True when the pack already owns inventory tied to this campaign — either
   // reserved (pending owner review) or allocated/materialized (live/closed). In
   // those cases the campaign's own units must count as available in the
@@ -3848,9 +3883,10 @@ export function AdminCampaignForm({
     (sum, prize) => sum + Math.max(0, Math.round(Number(prize.quantity) || 0)),
     0,
   );
+  const configuredRewardUnits = configuredPrizeUnits + lastPrizeCount;
   const configuredStockUnits = activePrizeDrafts.reduce(
     (sum, prize) => sum + prizeRequiredStockUnits(prize),
-    0,
+    lastPrizeCount,
   );
   const initialUnlockedUnits = activePrizeDrafts.reduce(
     (sum, prize) => sum + Math.max(0, Math.round(Number(prize.quantity) || 0)),
@@ -3944,13 +3980,26 @@ export function AdminCampaignForm({
       ? "Add at least one Prize Catalog item for the selected brand first."
       : "",
     !activePrizeDrafts.length ? "Choose prize inventory before saving." : "",
-    configuredPrizeUnits !== totalSlots
-      ? "Prize quantity must equal the total pack quantity."
+    configuredRewardUnits !== totalSlots
+      ? "Normal prize quantity plus Last Prize must equal the total pack quantity."
       : "",
     ...stockBlockers,
     ...stockUnitBlockers,
     missingStockUnitRows.length
       ? "Choose sub-SKU stock for every active prize row."
+      : "",
+    lastPrizeCardId && lastPrizeGroups.length && !lastPrizeSelectedKey
+      ? "Choose sub-SKU stock for the Last Prize."
+      : "",
+    lastPrizeCardId &&
+    lastPrizeSelectedGroup &&
+    lastPrizeSelectedGroup.availableUnits <= 0
+      ? "Last Prize needs 1 matching stock unit."
+      : "",
+    lastPrizeCardId &&
+    !lastPrizeGroups.length &&
+    (selectedLastPrizeCard?.stockAvailable ?? 0) <= 0
+      ? "Last Prize needs 1 available stock unit."
       : "",
     initialUnlockedUnits <= 0
       ? "At least one prize must be available in the launch pool."
@@ -3987,9 +4036,11 @@ export function AdminCampaignForm({
     }),
     {
       label: "Prize unit coverage",
-      primary: `${configuredPrizeUnits.toLocaleString()}/${totalSlots.toLocaleString()}`,
-      secondary: "units configured",
-      ready: configuredPrizeUnits === totalSlots,
+      primary: `${configuredRewardUnits.toLocaleString()}/${totalSlots.toLocaleString()}`,
+      secondary: lastPrizeCount
+        ? `${configuredPrizeUnits.toLocaleString()} normal + 1 last`
+        : "units configured",
+      ready: configuredRewardUnits === totalSlots,
     },
     {
       label: "Global stock",
@@ -4030,7 +4081,34 @@ export function AdminCampaignForm({
         current.map((prize) =>
           prize.localId === localId ? { ...prize, ...patch } : prize,
         ),
-        totalSlots,
+        normalPrizeSlots,
+        campaignCatalogCards,
+      ),
+    );
+  }
+
+  function updateLastPrizeSelection(cardId: string) {
+    const next =
+      campaignCatalogCards.find((card) => card.catalogCardId === cardId) ??
+      null;
+    setLastPrizeCardId(cardId);
+    setLastPrizeStockUnitKey(defaultStockUnitKey(next));
+    setDraftPrizes((current) =>
+      withLowestTierRemainder(
+        current,
+        normalPrizeTarget(totalSlots, cardId),
+        campaignCatalogCards,
+      ),
+    );
+  }
+
+  function clearLastPrizeSelection() {
+    setLastPrizeCardId("");
+    setLastPrizeStockUnitKey("");
+    setDraftPrizes((current) =>
+      withLowestTierRemainder(
+        current,
+        normalPrizeTarget(totalSlots, ""),
         campaignCatalogCards,
       ),
     );
@@ -4063,7 +4141,7 @@ export function AdminCampaignForm({
               : defaultStockUnitKey(nextCard),
           };
         }),
-        totalSlots,
+        normalPrizeTarget(totalSlots, lastPrizeCardId),
         nextCampaignCards,
       ),
     );
@@ -4097,7 +4175,11 @@ export function AdminCampaignForm({
     );
     setTotalSlots(normalizedTotalSlots);
     setDraftPrizes((current) =>
-      withLowestTierRemainder(current, normalizedTotalSlots, campaignCatalogCards),
+      withLowestTierRemainder(
+        current,
+        normalPrizeTarget(normalizedTotalSlots, lastPrizeCardId),
+        campaignCatalogCards,
+      ),
     );
   }
 
@@ -4116,7 +4198,7 @@ export function AdminCampaignForm({
               createPrizeDraft(displayTier, index, campaignCatalogCards),
             ),
           ],
-          totalSlots,
+          normalPrizeSlots,
           campaignCatalogCards,
         );
       }
@@ -4124,7 +4206,7 @@ export function AdminCampaignForm({
       if (activeTiers.size <= 1) return current;
       return withLowestTierRemainder(
         current.filter((prize) => prize.displayTier !== displayTier),
-        totalSlots,
+        normalPrizeSlots,
         campaignCatalogCards,
       );
     });
@@ -4147,7 +4229,7 @@ export function AdminCampaignForm({
             ),
           ),
         ],
-        totalSlots,
+        normalPrizeSlots,
         campaignCatalogCards,
       ),
     );
@@ -4155,7 +4237,7 @@ export function AdminCampaignForm({
 
   function fillLowestTierRemainder() {
     setDraftPrizes((current) =>
-      withLowestTierRemainder(current, totalSlots, campaignCatalogCards),
+      withLowestTierRemainder(current, normalPrizeSlots, campaignCatalogCards),
     );
   }
 
@@ -4168,7 +4250,7 @@ export function AdminCampaignForm({
         current.map((prize) =>
           prize.displayTier === displayTier ? { ...prize, ...patch } : prize,
         ),
-        totalSlots,
+        normalPrizeSlots,
         campaignCatalogCards,
       ),
     );
@@ -4189,7 +4271,7 @@ export function AdminCampaignForm({
     setDraftPrizes((current) =>
       withLowestTierRemainder(
         current.filter((prize) => prize.localId !== localId),
-        totalSlots,
+        normalPrizeSlots,
         campaignCatalogCards,
       ),
     );
@@ -4309,8 +4391,8 @@ export function AdminCampaignForm({
           setMessageTone("success");
           setMessage(
             isRecord(result) && result.status === "live"
-              ? `✓ "${packLabel}" saved — pack is live and changes apply now (${configuredPrizeUnits.toLocaleString()} prize units). No owner review needed.`
-              : `✓ "${packLabel}" saved with ${configuredPrizeUnits.toLocaleString()} prize units. Submit owner review to re-publish.`,
+              ? `✓ "${packLabel}" saved — pack is live and changes apply now (${configuredRewardUnits.toLocaleString()} reward units). No owner review needed.`
+              : `✓ "${packLabel}" saved with ${configuredRewardUnits.toLocaleString()} reward units. Submit owner review to re-publish.`,
           );
         } else {
           const payload = await postJson("/api/ynot/admin/campaigns", {
@@ -4320,7 +4402,7 @@ export function AdminCampaignForm({
           });
           setMessageTone("success");
           setMessage(
-            `✓ Random pack ${payload.campaign?.slug ?? slug} saved as draft with ${configuredPrizeUnits.toLocaleString()} prize units.`,
+            `✓ Random pack ${payload.campaign?.slug ?? slug} saved as draft with ${configuredRewardUnits.toLocaleString()} reward units.`,
           );
         }
         router.refresh();
@@ -5124,30 +5206,16 @@ export function AdminCampaignForm({
               );
             })}
             {(() => {
-              const lastCard = lastPrizeCardId
-                ? (cardsById.get(lastPrizeCardId) ?? null)
-                : null;
-              const lastGroups = lastCard ? stockSkuGroups(lastCard) : [];
-              const lastSelectedKey = validStockUnitKey(
-                lastCard,
-                lastPrizeStockUnitKey,
-              );
-              const lastSelectedGroup =
-                lastGroups.find((group) => group.key === lastSelectedKey) ??
-                null;
-              const lastImageUrl =
-                lastSelectedGroup?.units.find((unit) => unit.imageUrl)
-                  ?.imageUrl ?? null;
               return (
                 <section className="admin-prize-tier-section admin-prize-tier-last-prize">
                   <div className="admin-prize-tier-head">
                     <div>
                       <span>Last prize</span>
-                      <strong>Last One Prize · bonus</strong>
+                      <strong>Last One Prize · final slot</strong>
                       <p>
-                        Awarded to whoever opens the final pack — on top of
-                        their normal pull. Not part of the pool and does not
-                        affect odds. Leave empty for no last prize.
+                        Counts as 1 prize in the total pack quantity. When set,
+                        the normal prize rows should cover one fewer slot and
+                        the final opener receives this item.
                       </p>
                     </div>
                   </div>
@@ -5163,12 +5231,12 @@ export function AdminCampaignForm({
                     </div>
                     <article className="admin-prize-table-row tier-last-prize">
                       <div className="admin-prize-rank-cell">
-                        {lastCard ? (
+                        {selectedLastPrizeCard ? (
                           <AdminPrizeCardImage
-                            code={lastCard.code}
-                            imageUrl={lastImageUrl}
-                            fallbackUrl={lastCard.photoUrl}
-                            name={lastCard.name}
+                            code={selectedLastPrizeCard.code}
+                            imageUrl={lastPrizeImageUrl}
+                            fallbackUrl={selectedLastPrizeCard.photoUrl}
+                            name={selectedLastPrizeCard.name}
                           />
                         ) : (
                           <span className="admin-prize-card-thumb admin-prize-card-placeholder">
@@ -5188,36 +5256,29 @@ export function AdminCampaignForm({
                           disabled={!campaignCatalogCards.length}
                           showPreview={false}
                           value={lastPrizeCardId}
-                          onChange={(cardId) => {
-                            const next =
-                              campaignCatalogCards.find(
-                                (card) => card.catalogCardId === cardId,
-                              ) ?? null;
-                            setLastPrizeCardId(cardId);
-                            setLastPrizeStockUnitKey(defaultStockUnitKey(next));
-                          }}
+                          onChange={updateLastPrizeSelection}
                           testIdPrefix="campaign-last-prize"
                         />
                       </div>
                       <label className="admin-field admin-prize-stock-sku-field">
                         <span>Sub-SKU stock</span>
                         <select
-                          disabled={!lastGroups.length}
-                          value={lastSelectedKey}
+                          disabled={!lastPrizeGroups.length}
+                          value={lastPrizeSelectedKey}
                           onChange={(event) =>
                             setLastPrizeStockUnitKey(event.target.value)
                           }
                         >
-                          {lastGroups.length ? (
+                          {lastPrizeGroups.length ? (
                             <option value="">Choose sub-SKU stock</option>
                           ) : (
                             <option value="">
-                              {lastCard
+                              {selectedLastPrizeCard
                                 ? "No sub-SKU stock"
                                 : "Choose item first"}
                             </option>
                           )}
-                          {lastGroups.map((group) => (
+                          {lastPrizeGroups.map((group) => (
                             <option key={group.key} value={group.key}>
                               {group.sku} · {group.label} ·{" "}
                               {group.availableUnits}/{group.totalUnits} stock
@@ -5227,7 +5288,7 @@ export function AdminCampaignForm({
                       </label>
                       <div className="admin-field">
                         <span>Sub-category</span>
-                        <span className="admin-prize-static-cell">Bonus</span>
+                        <span className="admin-prize-static-cell">Final slot</span>
                       </div>
                       <div className="admin-field">
                         <span>Qty</span>
@@ -5242,10 +5303,7 @@ export function AdminCampaignForm({
                         <button
                           className="admin-prize-remove"
                           disabled={!lastPrizeCardId}
-                          onClick={() => {
-                            setLastPrizeCardId("");
-                            setLastPrizeStockUnitKey("");
-                          }}
+                          onClick={clearLastPrizeSelection}
                           type="button"
                         >
                           Clear
@@ -5268,7 +5326,7 @@ export function AdminCampaignForm({
             <div>
               <span>Prize units</span>
               <strong>
-                {configuredPrizeUnits.toLocaleString()}/
+                {configuredRewardUnits.toLocaleString()}/
                 {totalSlots.toLocaleString()}
               </strong>
             </div>

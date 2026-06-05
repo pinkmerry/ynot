@@ -226,6 +226,24 @@ function campaignPatch(body: CampaignBody): Database["public"]["Tables"]["draw_r
   };
 }
 
+function lastPrizeNormalPrizeTarget(
+  totalSlots: number,
+  lastPrizeCardId?: string | null,
+) {
+  const normalizedTotalSlots = Math.max(1, Math.round(Number(totalSlots) || 1));
+  return Math.max(0, normalizedTotalSlots - (lastPrizeCardId ? 1 : 0));
+}
+
+function nextLastPrizeCardId(
+  patch: Database["public"]["Tables"]["draw_rounds"]["Update"],
+  currentLastPrizeCardId?: string | null,
+) {
+  if (patch.last_prize_card_id !== undefined) {
+    return patch.last_prize_card_id ?? null;
+  }
+  return currentLastPrizeCardId ?? null;
+}
+
 function publishAttemptMessage() {
   return "Direct live/public publish is locked. Submit the random pack for owner review, then publish from the owner approval queue.";
 }
@@ -689,6 +707,8 @@ export async function POST(request: Request) {
     total_slots: patch.total_slots ?? 100,
     convert_deadline_days:
       patch.convert_deadline_days === undefined ? 14 : patch.convert_deadline_days,
+    last_prize_card_id: patch.last_prize_card_id ?? null,
+    last_prize_metadata: patch.last_prize_metadata ?? null,
     display_tags: patch.display_tags ?? displayTagsValue(body.displayTags, patch.series ?? "pokemon"),
     sort_order: patch.sort_order ?? 100,
     order_code_prefix: "YN",
@@ -711,7 +731,10 @@ export async function POST(request: Request) {
     const stockSummaries = await getPrizeStockSummaries(supabase, initialPrizes);
     prizeValidation = validatePrizeDraftsForSave(
       initialPrizes,
-      insert.total_slots,
+      lastPrizeNormalPrizeTarget(
+        insert.total_slots,
+        patch.last_prize_card_id ?? null,
+      ),
       "pure_random",
       { stockSummaries },
     );
@@ -831,7 +854,7 @@ export async function PATCH(request: Request) {
   if (!bannerPatch.ok) return bannerPatch.response;
   const { data: current, error: currentError } = await supabase
     .from("draw_rounds")
-    .select("id,status,approval_status,logic_snapshot,total_slots")
+    .select("id,status,approval_status,logic_snapshot,total_slots,last_prize_card_id,last_prize_metadata")
     .eq("id", campaignId)
     .single();
   if (currentError) {
@@ -856,6 +879,39 @@ export async function PATCH(request: Request) {
           admin.adminRole,
         )
       : null;
+    const preRpcLastPrizePatch: Database["public"]["Tables"]["draw_rounds"]["Update"] = {};
+    if (patch.last_prize_card_id !== undefined) {
+      preRpcLastPrizePatch.last_prize_card_id = patch.last_prize_card_id;
+    }
+    if (patch.last_prize_metadata !== undefined) {
+      preRpcLastPrizePatch.last_prize_metadata = patch.last_prize_metadata;
+    }
+    const shouldPreApplyLastPrize =
+      livePrizes !== null && Object.keys(preRpcLastPrizePatch).length > 0;
+    if (livePrizes === null && Object.keys(preRpcLastPrizePatch).length > 0) {
+      return adminErrorResponse(
+        "CAMPAIGN_LAST_PRIZE_LIVE_EDIT_REQUIRES_PRIZES",
+        "Last Prize live edits must include the prize rows so total slots can be rebalanced.",
+        400,
+      );
+    }
+    if (shouldPreApplyLastPrize) {
+      const { error: lastPrizePreApplyError } = await supabase
+        .from("draw_rounds")
+        .update(preRpcLastPrizePatch)
+        .eq("id", campaignId);
+      if (lastPrizePreApplyError) {
+        return adminErrorResponse(
+          lastPrizePreApplyError.code ?? "CAMPAIGN_LAST_PRIZE_UPDATE_FAILED",
+          lastPrizePreApplyError.message,
+          409,
+          {
+            detail: lastPrizePreApplyError.details ?? null,
+            hint: lastPrizePreApplyError.hint ?? null,
+          },
+        );
+      }
+    }
     if (livePrizes) {
       try {
         if (livePrizes.length) await assertPrizeCardsExist(supabase, livePrizes);
@@ -882,6 +938,15 @@ export async function PATCH(request: Request) {
         },
       );
       if (rpcError) {
+        if (shouldPreApplyLastPrize) {
+          await supabase
+            .from("draw_rounds")
+            .update({
+              last_prize_card_id: current.last_prize_card_id,
+              last_prize_metadata: current.last_prize_metadata,
+            })
+            .eq("id", campaignId);
+        }
         return adminErrorResponse(
           rpcError.code ?? "LIVE_PACK_EDIT_FAILED",
           liveCampaignEditErrorMessage(rpcError.message),
@@ -894,6 +959,10 @@ export async function PATCH(request: Request) {
       ...patch,
       ...bannerPatch.patch,
     };
+    if (shouldPreApplyLastPrize) {
+      delete livePatch.last_prize_card_id;
+      delete livePatch.last_prize_metadata;
+    }
     delete livePatch.total_slots;
     delete livePatch.status;
     delete livePatch.visibility;
@@ -987,7 +1056,10 @@ export async function PATCH(request: Request) {
       );
       const prizeValidation = validatePrizeDraftsForSave(
         replacementPrizes,
-        patch.total_slots ?? current.total_slots,
+        lastPrizeNormalPrizeTarget(
+          patch.total_slots ?? current.total_slots,
+          nextLastPrizeCardId(patch, current.last_prize_card_id),
+        ),
         "pure_random",
         {
           includeReservedForCampaign:

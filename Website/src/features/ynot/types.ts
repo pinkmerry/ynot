@@ -11,7 +11,7 @@ export type YnotCampaign = {
   id: string;
   slug: string;
   packCode?: string | null;
-  // Last One Prize: optional bonus card for whoever opens the final pack.
+  // Last One Prize: optional final-slot card for whoever opens the last pack.
   hasLastPrize?: boolean;
   lastPrizeCardId?: string | null;
   lastPrizeStockUnitKey?: string | null;
