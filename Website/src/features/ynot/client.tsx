@@ -8300,6 +8300,11 @@ function adminCardApiRowToCatalogItem(
     stockReserved: previous?.stockReserved ?? 0,
     stockAllocated: previous?.stockAllocated ?? 0,
     stockArchived: previous?.stockArchived ?? 0,
+    // Editing a card never changes its stock, so carry the sub-SKU detail over
+    // from the previous row — otherwise the breakdown collapses to "detailed
+    // sub-SKU rows are not loaded yet" until a manual refresh.
+    stockUnits: previous?.stockUnits,
+    stockSkuGroups: previous?.stockSkuGroups,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
