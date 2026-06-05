@@ -41,6 +41,7 @@ vm.runInNewContext(transpile("../src/features/ynot/stock-readiness.ts"), {
 const readiness = cjsModule.exports;
 
 const readinessSource = readText("../src/features/ynot/stock-readiness.ts");
+const prizeReadinessSource = readText("../src/features/ynot/prize-readiness.ts");
 
 const prizeModule = { exports: {} };
 const prizeRequire = (specifier) => {
@@ -104,6 +105,18 @@ test("stock readiness uses the shared bundle quantity helpers", () => {
   assert.doesNotMatch(
     readinessSource,
     /function bundledStockUnitRequirement\(/,
+  );
+});
+
+test("campaign readiness preserves zero remaining slots for final open", () => {
+  assert.match(
+    prizeReadinessSource,
+    /remainingSlots:\s*optionalNumber\(item\.remainingSlots\)/,
+    "readiness must treat remainingSlots: 0 as sold out, not unknown",
+  );
+  assert.doesNotMatch(
+    prizeReadinessSource,
+    /remainingSlots:\s*numberOrZero\(item\.remainingSlots\)\s*\|\|\s*undefined/,
   );
 });
 

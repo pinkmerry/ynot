@@ -130,6 +130,12 @@ function numberOrZero(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function optionalNumber(value: unknown) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function numberOrDefault(value: unknown, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -183,8 +189,8 @@ function inventorySummariesFromJson(value: unknown): InventorySummary[] {
     return [
       {
         drawRoundId: item.drawRoundId,
-        totalSlots: numberOrZero(item.totalSlots) || undefined,
-        remainingSlots: numberOrZero(item.remainingSlots) || undefined,
+        totalSlots: optionalNumber(item.totalSlots),
+        remainingSlots: optionalNumber(item.remainingSlots),
         totalUnits: numberOrZero(item.totalUnits),
         availableUnits: numberOrZero(item.availableUnits),
         awardedUnits: numberOrZero(item.awardedUnits),

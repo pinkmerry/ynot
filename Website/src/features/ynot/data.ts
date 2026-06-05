@@ -105,6 +105,12 @@ function numericValue(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function optionalNumericValue(value: unknown) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function cardStockSummariesFromJson(value: unknown): CardStockSummaryRow[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
@@ -222,12 +228,12 @@ function inventorySummariesFromJson(value: unknown): InventorySummary[] {
     return [
       {
         drawRoundId: item.drawRoundId,
-        totalSlots: Number(item.totalSlots) || undefined,
-        remainingSlots: Number(item.remainingSlots) || undefined,
-        totalUnits: Number(item.totalUnits) || 0,
-        availableUnits: Number(item.availableUnits) || 0,
-        awardedUnits: Number(item.awardedUnits) || 0,
-        voidUnits: Number(item.voidUnits) || 0,
+        totalSlots: optionalNumericValue(item.totalSlots),
+        remainingSlots: optionalNumericValue(item.remainingSlots),
+        totalUnits: optionalNumericValue(item.totalUnits) ?? 0,
+        availableUnits: optionalNumericValue(item.availableUnits) ?? 0,
+        awardedUnits: optionalNumericValue(item.awardedUnits) ?? 0,
+        voidUnits: optionalNumericValue(item.voidUnits) ?? 0,
       },
     ];
   });
@@ -882,13 +888,9 @@ function toYnotCampaign(
   const plannedPrizeUnitFallback =
     plannedPrizeUnits > 0 ? plannedPrizeUnits : undefined;
   const materializedTotalUnits =
-    inventory?.totalUnits && inventory.totalUnits > 0
-      ? inventory.totalUnits
-      : undefined;
+    inventory?.totalUnits === undefined ? undefined : inventory.totalUnits;
   const materializedAvailableUnits =
-    inventory?.availableUnits && inventory.availableUnits > 0
-      ? inventory.availableUnits
-      : undefined;
+    inventory?.availableUnits === undefined ? undefined : inventory.availableUnits;
   const remainingSlots = readiness?.remainingSlots ?? inventory?.remainingSlots;
   const availablePrizeUnits =
     readiness?.availablePrizeUnits ??

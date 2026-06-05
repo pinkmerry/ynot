@@ -60,6 +60,37 @@ test("cached public detail loader returns sold-out campaigns through the public 
   );
 });
 
+test("campaign inventory mapper preserves zero remaining slots for final open", () => {
+  const inventoryMapper = sliceBetween(
+    "function inventorySummariesFromJson",
+    "function soldPctForCampaign",
+  );
+  assert.match(
+    inventoryMapper,
+    /remainingSlots:\s*optionalNumericValue\(item\.remainingSlots\)/,
+    "remainingSlots: 0 must survive the JSON mapper after the final prize is opened",
+  );
+  assert.doesNotMatch(
+    inventoryMapper,
+    /remainingSlots:\s*Number\(item\.remainingSlots\)\s*\|\|\s*undefined/,
+    "remainingSlots: 0 must not be collapsed into undefined",
+  );
+
+  const campaignMapper = sliceBetween(
+    "function toYnotCampaign",
+    "function publicPrizePreview",
+  );
+  assert.match(
+    campaignMapper,
+    /inventory\?\.availableUnits === undefined \? undefined : inventory\.availableUnits/,
+    "availableUnits: 0 must be preserved so sold-out fallback stays true",
+  );
+  assert.doesNotMatch(
+    campaignMapper,
+    /inventory\?\.availableUnits && inventory\.availableUnits > 0/,
+  );
+});
+
 test("cached public detail loader excludes test campaigns", () => {
   const impl = sliceBetween(
     "async function loadPublicCampaignDetailImpl",
