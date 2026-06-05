@@ -1003,6 +1003,7 @@ export type Database = {
       release_campaign_reservations: { Args: { p_draw_round_id: string; p_admin_id: string; p_reason?: string | null; p_note?: string | null }; Returns: Json };
       edit_live_campaign_inventory: { Args: { p_draw_round_id: string; p_admin_id: string; p_prizes: Json }; Returns: Json };
       purge_test_draw_round: { Args: { p_draw_round_id: string; p_admin_id: string }; Returns: Json };
+      purge_archived_card_stock: { Args: { p_card_id: string; p_admin_id: string }; Returns: Json };
       submit_campaign_review: { Args: { p_draw_round_id: string; p_admin_id: string; p_logic_snapshot?: Json | null; p_note?: string | null }; Returns: Json };
       approve_campaign_inventory: { Args: { p_draw_round_id: string; p_owner_admin_id: string; p_logic_snapshot?: Json | null; p_note?: string | null }; Returns: Json };
       publish_campaign: { Args: { p_draw_round_id: string; p_owner_admin_id: string; p_note?: string | null }; Returns: Json };
