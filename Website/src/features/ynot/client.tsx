@@ -9501,6 +9501,14 @@ export function AdminCardCatalogPanel({
                   (group) => group.key === currentStockDraft.stockUnitKey,
                 ) ?? removableStockGroups[0] ?? null
               : null;
+          // When the catalog card has no product image of its own, borrow a
+          // sub-SKU stock photo as a preview and badge it so it's clear the
+          // image is from inventory, not the card itself.
+          const repSubSkuImage =
+            stockSkuGroups(card)
+              .flatMap((group) => group.units)
+              .find((unit) => unit.imageUrl)?.imageUrl ?? null;
+          const showInventoryPreview = !card.photoUrl && Boolean(repSubSkuImage);
           return (
             <article
               className={`admin-card-catalog-row${card.isTest ? " is-test" : ""}`}
@@ -9510,8 +9518,14 @@ export function AdminCardCatalogPanel({
                 <AdminPrizeCardImage
                   code={card.code}
                   imageUrl={card.photoUrl}
+                  fallbackUrl={repSubSkuImage}
                   name={card.name}
                 />
+                {showInventoryPreview ? (
+                  <span className="admin-card-catalog-inv-badge">
+                    Inventory preview
+                  </span>
+                ) : null}
               </div>
               <div className="admin-card-catalog-body">
                 <header className="admin-card-catalog-row-head">
