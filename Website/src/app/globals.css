@@ -31315,6 +31315,40 @@ html[data-ynot-theme] .admin-frame .admin-stock-sku-identity {
   min-width: 0;
 }
 
+html[data-ynot-theme] .admin-frame .admin-stock-sku-lead {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Representative card image for the sub-SKU (click to open full size). */
+html[data-ynot-theme] .admin-frame .admin-stock-sku-thumb {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  display: flex;
+  flex: 0 0 auto;
+  height: 64px;
+  justify-content: center;
+  overflow: hidden;
+  width: 46px;
+}
+html[data-ynot-theme] .admin-frame .admin-stock-sku-thumb img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+html[data-ynot-theme] .admin-frame .admin-stock-sku-thumb.is-empty {
+  color: var(--a-muted, #9b9daf);
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 /* Human-readable identity (grade · cert) is the primary line; the long machine
    SKU is demoted to a small muted gold chip beneath it. */
 html[data-ynot-theme] .admin-frame .admin-stock-sku-code {
@@ -31445,6 +31479,21 @@ html[data-ynot-theme] .admin-frame .admin-stock-unit-row {
 }
 html[data-ynot-theme] .admin-frame .admin-stock-unit-row + .admin-stock-unit-row {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+html[data-ynot-theme] .admin-frame .admin-stock-unit-thumb {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  display: block;
+  flex: 0 0 auto;
+  height: 60px;
+  overflow: hidden;
+  width: 44px;
+}
+html[data-ynot-theme] .admin-frame .admin-stock-unit-thumb img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 html[data-ynot-theme] .admin-frame .admin-stock-unit-label {
   color: #f7dc82 !important;

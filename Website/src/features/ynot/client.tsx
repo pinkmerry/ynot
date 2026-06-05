@@ -7867,19 +7867,16 @@ function AdminStockUnitRow({
   return (
     <li className="admin-stock-unit-row">
       {unit.imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={unit.imageUrl}
-          alt=""
+        <a
+          href={unit.imageUrl}
+          target="_blank"
+          rel="noreferrer"
           className="admin-stock-unit-thumb"
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 6,
-            objectFit: "cover",
-            flex: "0 0 auto",
-          }}
-        />
+          title="Open full image"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={unit.imageUrl} alt="" />
+        </a>
       ) : null}
       <span className="admin-stock-unit-label">
         {unit.grade || cardConditionLabel(unit.condition)}
@@ -8095,12 +8092,32 @@ function AdminStockSkuBreakdown({
               (sum, usage) => sum + usage.units,
               0,
             );
+            const repImage =
+              group.units.find((unit) => unit.imageUrl)?.imageUrl ?? null;
             return (
               <article className="admin-stock-sku-row" key={group.key}>
                 <div className="admin-stock-sku-main">
-                  <div className="admin-stock-sku-identity">
-                    <strong>{group.label}</strong>
-                    <code className="admin-stock-sku-code">{group.sku}</code>
+                  <div className="admin-stock-sku-lead">
+                    {repImage ? (
+                      <a
+                        className="admin-stock-sku-thumb"
+                        href={repImage}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Open full image"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={repImage} alt={group.label} />
+                      </a>
+                    ) : (
+                      <span className="admin-stock-sku-thumb is-empty" aria-hidden>
+                        No image
+                      </span>
+                    )}
+                    <div className="admin-stock-sku-identity">
+                      <strong>{group.label}</strong>
+                      <code className="admin-stock-sku-code">{group.sku}</code>
+                    </div>
                   </div>
                   <small>
                     {group.availableUnits.toLocaleString()}/
