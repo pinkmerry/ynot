@@ -8098,8 +8098,10 @@ function AdminStockSkuBreakdown({
             return (
               <article className="admin-stock-sku-row" key={group.key}>
                 <div className="admin-stock-sku-main">
-                  <code className="admin-stock-sku-code">{group.sku}</code>
-                  <strong>{group.label}</strong>
+                  <div className="admin-stock-sku-identity">
+                    <strong>{group.label}</strong>
+                    <code className="admin-stock-sku-code">{group.sku}</code>
+                  </div>
                   <small>
                     {group.availableUnits.toLocaleString()}/
                     {group.totalUnits.toLocaleString()} available

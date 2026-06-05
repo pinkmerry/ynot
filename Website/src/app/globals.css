@@ -31302,28 +31302,40 @@ html[data-ynot-theme] .admin-frame .admin-stock-sku-row {
 
 html[data-ynot-theme] .admin-frame .admin-stock-sku-main {
   align-items: center;
-  display: grid;
-  gap: 6px 10px;
-  grid-template-columns: minmax(220px, auto) minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  justify-content: space-between;
 }
 
+html[data-ynot-theme] .admin-frame .admin-stock-sku-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* Human-readable identity (grade · cert) is the primary line; the long machine
+   SKU is demoted to a small muted gold chip beneath it. */
 html[data-ynot-theme] .admin-frame .admin-stock-sku-code {
-  background: rgba(241, 215, 124, 0.1) !important;
-  border: 1px solid rgba(241, 215, 124, 0.34) !important;
-  border-radius: 8px;
-  color: #f7dc82 !important;
+  align-self: flex-start;
+  background: rgba(241, 215, 124, 0.08) !important;
+  border: 1px solid rgba(241, 215, 124, 0.22) !important;
+  border-radius: 6px;
+  color: #cdbe85 !important;
   font-family: "Geist Mono", ui-monospace, monospace !important;
-  font-size: 0.78rem;
-  font-weight: 900;
-  letter-spacing: 0.03em;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   overflow-wrap: anywhere;
-  padding: 5px 8px;
+  padding: 2px 7px;
 }
 
 html[data-ynot-theme] .admin-frame .admin-stock-sku-main strong {
   color: var(--a-fg, #f4efe1) !important;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   font-weight: 850;
+  letter-spacing: -0.01em;
 }
 
 html[data-ynot-theme] .admin-frame .admin-stock-sku-main small {
