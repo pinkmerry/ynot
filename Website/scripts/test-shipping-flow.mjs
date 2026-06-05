@@ -6,6 +6,10 @@ const shippingRoute = readFileSync(
   new URL("../src/app/api/ynot/shipping/route.ts", import.meta.url),
   "utf8",
 );
+const addressRoute = readFileSync(
+  new URL("../src/app/api/ynot/addresses/route.ts", import.meta.url),
+  "utf8",
+);
 const platformVerifier = readFileSync(
   new URL("../tools/verification/verify-platform-foundation.mjs", import.meta.url),
   "utf8",
@@ -449,10 +453,153 @@ test("shipping audit history uses friendly pickup status labels", () => {
 test("customer shipping panel requires a complete address and confirms reward lock before submit", () => {
   const convertPanelBlock = between(clientSource, "export function CollectionConvertPanel", "export function AdminTopUpActions");
 
-  assert.match(convertPanelBlock, /function isCompleteShippingAddress/);
+  assert.match(clientSource, /from "\.\/address-utils"/);
+  assert.match(convertPanelBlock, /isCompleteShippingAddress\(selectedAddress\)/);
   assert.match(convertPanelBlock, /showShippingConfirm/);
   assert.match(convertPanelBlock, /This reward will be locked/);
   assert.match(convertPanelBlock, /SHIPPING_REQUEST_MIN_COINS/);
+});
+
+test("shipping address completeness helper matches the shipping RPC required fields", () => {
+  const helper = readFileSync(
+    new URL("../src/features/ynot/address-utils.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(helper, /export const REQUIRED_SHIPPING_ADDRESS_FIELDS/);
+  assert.match(helper, /key: "recipientName", label: "recipient name"/);
+  assert.match(helper, /key: "phone", label: "phone"/);
+  assert.match(helper, /key: "addressLine1", label: "address line 1"/);
+  assert.match(helper, /key: "subdistrict", label: "subdistrict"/);
+  assert.match(helper, /key: "district", label: "district"/);
+  assert.match(helper, /key: "province", label: "province"/);
+  assert.match(helper, /key: "postalCode", label: "postal code"/);
+  assert.match(helper, /key: "country", label: "country"/);
+  assert.match(helper, /export function missingShippingAddressFields/);
+  assert.match(helper, /export function isCompleteShippingAddress/);
+});
+
+test("customer shipping UIs reuse the shared complete-address helper", () => {
+  const history = readFileSync(
+    new URL("../src/features/ynot/cr/HistoryExperience.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(history, /from "..\/address-utils"/);
+  assert.match(history, /isCompleteShippingAddress/);
+  assert.match(history, /missingShippingAddressFields/);
+  assert.doesNotMatch(history, /function isCompleteShippingAddress\(address/);
+  assert.match(clientSource, /from "\.\/address-utils"/);
+  assert.match(clientSource, /isCompleteShippingAddress/);
+  assert.doesNotMatch(clientSource, /function isCompleteShippingAddress\(address/);
+});
+
+test("address creation API validates and returns a full selectable address DTO", () => {
+  assert.match(addressRoute, /import \{[\s\S]*toYnotAddress[\s\S]*\} from "@\/features\/ynot\/server-addresses"/);
+  assert.match(addressRoute, /const recipientName = clean\(body\?\.recipientName, 120\)/);
+  assert.match(addressRoute, /const phone = clean\(body\?\.phone, 40\)/);
+  assert.match(addressRoute, /const subdistrict = clean\(body\?\.subdistrict, 100\)/);
+  assert.match(addressRoute, /const district = clean\(body\?\.district, 100\)/);
+  assert.match(addressRoute, /const province = clean\(body\?\.province, 100\)/);
+  assert.match(addressRoute, /const postalCode = clean\(body\?\.postalCode, 20\)/);
+  assert.match(addressRoute, /if \(\[recipientName, phone, addressLine1, subdistrict, district, province, postalCode, country\]\.some\(\(value\) => !value\)\)/);
+  assert.match(addressRoute, /address: await toYnotAddress\(session\.profileId, data as UserAddressRow\)/);
+  assert.doesNotMatch(addressRoute, /address: \{\s*id: await addressActionToken/);
+});
+
+test("address creation API requires explicit country before saving", () => {
+  assert.match(addressRoute, /const country = clean\(body\?\.country, 80\);/);
+  assert.match(addressRoute, /if \(\[recipientName, phone, addressLine1, subdistrict, district, province, postalCode, country\]\.some\(\(value\) => !value\)\)/);
+  assert.match(addressRoute, /const requiredAddress = \{[\s\S]*country,[\s\S]*\} as const satisfies Record<string, string>/);
+  assert.match(addressRoute, /country: requiredAddress\.country,/);
+  assert.doesNotMatch(addressRoute, /const country = clean\(body\?\.country, 80\) \?\? "Thailand"/);
+  assert.doesNotMatch(addressRoute, /country: country \?\? "Thailand"/);
+  assert.doesNotMatch(addressRoute, /country: requiredAddress\.country \?\? "Thailand"/);
+});
+
+test("address creation API rejects cross-origin address mutations before auth work", () => {
+  const postHandler = addressRoute.slice(addressRoute.indexOf("export async function POST"));
+  const beforeAuth = postHandler.slice(0, postHandler.indexOf("resolveCurrentProfile()"));
+
+  assert.match(addressRoute, /import \{ enforceSameOriginMutation \} from "@\/lib\/security\/same-origin"/);
+  assert.match(beforeAuth, /const crossOrigin = enforceSameOriginMutation\(request\)/);
+  assert.match(beforeAuth, /if \(crossOrigin\) return crossOrigin/);
+});
+
+test("collection ship modal lets users choose existing address or add a new one inline", () => {
+  const history = readFileSync(
+    new URL("../src/features/ynot/cr/HistoryExperience.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(history, /const \[addressRows, setAddressRows\] = useState\(addresses\)/);
+  assert.match(history, /function handleAddressSaved\(address: YnotAddress\)/);
+  assert.match(history, /<ShipModal[\s\S]*addresses=\{addressRows\}[\s\S]*onAddressSaved=\{handleAddressSaved\}/);
+  assert.match(history, /const \[addingAddress, setAddingAddress\] = useState\(false\)/);
+  assert.match(history, /Add a new address/);
+  assert.match(history, /saveAddress\(\)/);
+  assert.match(history, /onAddressSaved\(address\)/);
+  assert.match(history, /setAddressId\(address\.id\)/);
+});
+
+test("collection ship modal prevents duplicate inline address saves while pending", () => {
+  const history = readFileSync(
+    new URL("../src/features/ynot/cr/HistoryExperience.tsx", import.meta.url),
+    "utf8",
+  );
+  const shipModal = history.slice(history.indexOf("function ShipModal"));
+
+  assert.match(shipModal, /const \[addressSavePending, setAddressSavePending\] = useState\(false\)/);
+  assert.match(shipModal, /if \(addressSavePending\) return/);
+  assert.match(shipModal, /setAddressSavePending\(true\)/);
+  assert.match(shipModal, /finally \{[\s\S]*setAddressSavePending\(false\)/);
+  assert.match(shipModal, /disabled=\{submitting \|\| addressSavePending\}/);
+  assert.match(shipModal, /disabled=\{!complete \|\| submitting \|\| addressSavePending\}/);
+  assert.match(shipModal, /disabled=\{addressSavePending \|\| submitting\}/);
+  assert.match(shipModal, /\{addressSavePending \? "Saving…" : "Save and use this address"\}/);
+});
+
+test("collection ship modal disables incomplete saved addresses before submit", () => {
+  const history = readFileSync(
+    new URL("../src/features/ynot/cr/HistoryExperience.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(history, /const missingFields = missingShippingAddressFields\(a\)/);
+  assert.match(history, /const complete = missingFields\.length === 0/);
+  assert.match(history, /disabled=\{!complete \|\| submitting \|\| addressSavePending\}/);
+  assert.match(history, /Missing \{missingFields\.join\(", "\)\}/);
+  assert.match(history, /const selectedAddress = addresses\.find\(\(address\) => address\.id === addressId\)/);
+  assert.match(history, /disabled=\{addressSavePending \|\| submitting \|\| !isCompleteShippingAddress\(selectedAddress\)\}/);
+});
+
+test("legacy shipping page shares newly saved addresses between form and request panel", () => {
+  const shippingPage = readFileSync(
+    new URL("../src/app/(store)/shipping/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(clientSource, /export function AddressForm\(\{ addresses, onAddressSaved \}/);
+  assert.match(clientSource, /subdistrict, setSubdistrict/);
+  assert.match(clientSource, /country, setCountry/);
+  assert.match(clientSource, /label, setLabel/);
+  assert.match(clientSource, /onAddressSaved\?\.\(payload\.address as YnotAddress\)/);
+  assert.match(clientSource, /export function ShippingRequestExperience/);
+  assert.match(clientSource, /const \[addressRows, setAddressRows\] = useState\(addresses\)/);
+  assert.match(clientSource, /const \[selectedAddressId, setSelectedAddressId\] = useState\(/);
+  assert.match(clientSource, /function syncAddress\(address: YnotAddress\) \{[\s\S]*setSelectedAddressId\(address\.id\)/);
+  assert.match(clientSource, /<CollectionConvertPanel[\s\S]*addresses=\{addressRows\}[\s\S]*selectedAddressId=\{selectedAddressId\}[\s\S]*onSelectedAddressIdChange=\{setSelectedAddressId\}/);
+  assert.match(clientSource, /<AddressForm addresses=\{addressRows\} onAddressSaved=\{syncAddress\} \/>/);
+  assert.match(clientSource, /const requestedAddressId = selectedAddressId \?\? localAddressId/);
+  assert.match(clientSource, /const activeAddressId =[\s\S]*addresses\.find\(\(address\) => address\.id === requestedAddressId\)\?\.id[\s\S]*addresses\.find\(\(address\) => address\.isDefault\)\?\.id[\s\S]*addresses\[0\]\?\.id[\s\S]*""/);
+  assert.match(clientSource, /addressId: activeAddressId/);
+  assert.match(clientSource, /value=\{activeAddressId\}/);
+  assert.match(clientSource, /onChange=\{\(event\) => updateAddressId\(event\.target\.value\)\}/);
+  assert.doesNotMatch(clientSource, /setAddressId\(nextAddressId\)/);
+  assert.match(shippingPage, /import \{ ShippingRequestExperience \} from "@\/features\/ynot\/client"/);
+  assert.match(shippingPage, /<ShippingRequestExperience collection=\{data\.collection\} addresses=\{data\.addresses\} \/>/);
+  assert.doesNotMatch(shippingPage, /<CollectionConvertPanel collection=\{data\.collection\} addresses=\{data\.addresses\} \/>/);
+  assert.doesNotMatch(shippingPage, /<AddressForm addresses=\{data\.addresses\} \/>/);
 });
 
 test("platform verifier covers customer shipping hardening", () => {

@@ -13,7 +13,6 @@ import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { isMissingColumnError } from "@/lib/supabase/schema-compat";
 import type { Database } from "@/lib/supabase/types";
-import { addressActionToken } from "@/lib/ynot/address-action-tokens";
 import { collectionItemActionToken } from "@/lib/ynot/collection-action-tokens";
 import { paymentMethodActionToken } from "@/lib/ynot/payment-method-action-tokens";
 import type {
@@ -72,6 +71,7 @@ import {
   type PublicStockUnitImageRow,
 } from "./public-subsku-images";
 import { normalizeBundleQuantity, publicBundleQuantity } from "./bundle-quantity";
+import { getProfileAddresses } from "./server-addresses";
 
 const dataIssueStorage = new AsyncLocalStorage<YnotDataIssue[]>();
 
@@ -3120,34 +3120,7 @@ function publicShippingRequest(
 
 export async function getAddresses(profileId?: string): Promise<YnotAddress[]> {
   if (!profileId || !isSupabaseConfigured()) return [];
-  const supabase = createServiceSupabaseClient();
-  return readOrEmpty("addresses", async () => {
-    const { data, error } = await supabase
-      .from("user_addresses")
-      .select("*")
-      .eq("profile_id", profileId)
-      .order("is_default", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(20);
-    if (error) throw error;
-    return Promise.all(
-      (data ?? []).map(async (row) => ({
-        id: await addressActionToken(profileId, row.id),
-        label: row.label,
-        recipientName: row.recipient_name,
-        phone: row.phone,
-        addressLine1: row.address_line1,
-        addressLine2: row.address_line2,
-        subdistrict: row.subdistrict,
-        district: row.district,
-        province: row.province,
-        postalCode: row.postal_code,
-        country: row.country,
-        deliveryNote: row.delivery_note,
-        isDefault: row.is_default,
-      })),
-    );
-  });
+  return readOrEmpty("addresses", () => getProfileAddresses(profileId));
 }
 
 async function getRankingsImpl(): Promise<YnotRankingRow[]> {
