@@ -7312,6 +7312,7 @@ export function AdminCardForm({
   const [releaseYear, setReleaseYear] = useState("");
   const [cardSet, setCardSet] = useState("");
   const [variant, setVariant] = useState("");
+  const [printLabel, setPrintLabel] = useState("");
   const [catalogCategory, setCatalogCategory] =
     useState<CatalogCategory>("Single Cards");
   const [imageUrl, setImageUrl] = useState("");
@@ -7388,6 +7389,7 @@ export function AdminCardForm({
           releaseYear: releaseYear || null,
           cardSet,
           variant,
+          printLabel,
           catalogCategory,
           prizeCategory: prizeCategoryForCatalogCategory(catalogCategory),
           imageUrl: nextImageUrl,
@@ -7566,6 +7568,14 @@ export function AdminCardForm({
                   value={variant}
                   onChange={setVariant}
                   placeholder="Select variant…"
+                />
+              </AdminField>
+              <AdminField label="Print label">
+                <AdminCardOptionSelect
+                  kind="print_label"
+                  value={printLabel}
+                  onChange={setPrintLabel}
+                  placeholder="Select print label…"
                 />
               </AdminField>
             </div>
@@ -8625,6 +8635,7 @@ function adminCardApiRowToCatalogItem(
     releaseYear: row.release_year,
     cardSet: row.card_set,
     variant: row.variant,
+    printLabel: row.print_label,
     catalogCategory: row.catalog_category,
     condition: row.condition,
     gradingService: row.grading_service,
@@ -9851,6 +9862,7 @@ function AdminCardEditModal({
   );
   const [cardSet, setCardSet] = useState(card.cardSet ?? "");
   const [variant, setVariant] = useState(card.variant ?? "");
+  const [printLabel, setPrintLabel] = useState(card.printLabel ?? "");
   const [catalogCategory, setCatalogCategory] = useState<CatalogCategory>(
     card.catalogCategory ?? "Single Cards",
   );
@@ -9918,6 +9930,7 @@ function AdminCardEditModal({
           releaseYear: releaseYear || null,
           cardSet,
           variant,
+          printLabel,
           catalogCategory,
           prizeCategory: prizeCategoryForCatalogCategory(catalogCategory),
           imageUrl: nextImageUrl || null,
@@ -10028,6 +10041,16 @@ function AdminCardEditModal({
                 value={variant}
                 onChange={setVariant}
                 placeholder="Select variant…"
+                disabled={pending}
+              />
+            </div>
+            <div className="admin-field">
+              <span>Print label</span>
+              <AdminCardOptionSelect
+                kind="print_label"
+                value={printLabel}
+                onChange={setPrintLabel}
+                placeholder="Select print label…"
                 disabled={pending}
               />
             </div>

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 export type CardOptionKind =
   | "set"
   | "variant"
+  | "print_label"
   | "language"
   | "release_year"
   | "brand"
