@@ -721,7 +721,9 @@ async function getPublicPrizeLineupsBatch(
           cardId: prize.card_id,
           cardCode: card?.card_code ?? null,
           cardGrade: card?.grade ?? null,
-          cardImageUrl: publicSubSkuImageUrl(prizeImageByPrizeId.get(prize.id)),
+          cardImageUrl:
+          publicSubSkuImageUrl(prizeImageByPrizeId.get(prize.id)) ??
+          publicSubSkuImageUrl(card?.image_url),
           cardImageStoragePath: card?.image_storage_path ?? null,
           cardPrizeCategory: card?.prize_category ?? null,
           cardName: card?.name ?? "Mystery reward",
@@ -815,7 +817,9 @@ async function getPublicPrizeLineup(
         cardId: prize.card_id,
         cardCode: card?.card_code ?? null,
         cardGrade: card?.grade ?? null,
-        cardImageUrl: publicSubSkuImageUrl(prizeImageByPrizeId.get(prize.id)),
+        cardImageUrl:
+          publicSubSkuImageUrl(prizeImageByPrizeId.get(prize.id)) ??
+          publicSubSkuImageUrl(card?.image_url),
         cardImageStoragePath: card?.image_storage_path ?? null,
         cardPrizeCategory: card?.prize_category ?? null,
         cardName: card?.name ?? "Mystery reward",
@@ -3645,7 +3649,9 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         cardName: card?.name ?? "Card",
         cardCode: card?.card_code ?? null,
         cardGrade: card?.grade ?? null,
-        cardImageUrl: publicSubSkuImageUrl(prizeImageByPrizeId.get(prize.id)),
+        cardImageUrl:
+          publicSubSkuImageUrl(prizeImageByPrizeId.get(prize.id)) ??
+          publicSubSkuImageUrl(card?.image_url),
         cardImageStoragePath: card?.image_storage_path ?? null,
         cardPrizeCategory: card?.prize_category ?? null,
         tier: prize.tier,
