@@ -7118,6 +7118,38 @@ function AdminCampaignStatusRow({
     });
   }
 
+  function purgeCampaign() {
+    const confirmed = window.confirm(
+      `PURGE "${campaign.titleEn || campaign.titleTh}" permanently?\n\n` +
+        `This DELETES the pack and ALL its play data (opens, owned cards, slots, prizes), ` +
+        `REFUNDS the coins spent opening it, and releases its stock back to inventory.\n\n` +
+        `This cannot be undone. Only non-live packs can be purged.`,
+    );
+    if (!confirmed) return;
+    startTransition(async () => {
+      try {
+        setMessage("");
+        const payload = await requestJson(
+          "/api/ynot/admin/campaigns/purge",
+          { campaignId: campaign.id },
+          "POST",
+        );
+        const result = isRecord(payload?.result) ? payload.result : null;
+        setMessage(
+          `Purged. Refunded ${Number(result?.refundedCoins ?? 0).toLocaleString()} coins · ` +
+            `released ${Number(result?.releasedStockUnits ?? 0).toLocaleString()} stock · ` +
+            `removed ${Number(result?.deletedOpens ?? 0).toLocaleString()} opens.`,
+        );
+        onCampaignChange(campaign.id, { adminRemoved: true });
+        router.refresh();
+      } catch (error) {
+        setMessage(
+          error instanceof Error ? error.message : "Pack could not be purged.",
+        );
+      }
+    });
+  }
+
   return (
     <article className="admin-pack-row">
       <div className="admin-pack-row-main">
@@ -7262,6 +7294,17 @@ function AdminCampaignStatusRow({
             type="button"
           >
             Remove pack
+          </button>
+        )}
+        {isOwner && status !== "live" && visibility !== "public" && (
+          <button
+            className="danger-button"
+            disabled={isPending}
+            onClick={purgeCampaign}
+            type="button"
+            title="Permanently delete this non-live pack, refund its coins, and release its stock"
+          >
+            Purge (test)
           </button>
         )}
       </div>
