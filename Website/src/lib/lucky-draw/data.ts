@@ -170,6 +170,7 @@ function toCatalogItem(row: CardRow): CardCatalogItem {
     releaseYear: row.release_year,
     cardSet: row.card_set,
     variant: row.variant,
+    printLabel: row.print_label,
     catalogCategory: row.catalog_category,
     condition: row.condition,
     gradingService: row.grading_service,

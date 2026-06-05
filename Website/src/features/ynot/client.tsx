@@ -9388,6 +9388,7 @@ export function AdminCardCatalogPanel({
                       {[
                         card.modelCode ?? card.code ?? "no model code",
                         card.variant,
+                        card.printLabel,
                       ]
                         .filter(Boolean)
                         .join(" · ")}
