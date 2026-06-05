@@ -588,7 +588,10 @@ test("legacy shipping page shares newly saved addresses between form and request
   assert.match(clientSource, /const \[addressRows, setAddressRows\] = useState\(addresses\)/);
   assert.match(clientSource, /<CollectionConvertPanel collection=\{collection\} addresses=\{addressRows\} \/>/);
   assert.match(clientSource, /<AddressForm addresses=\{addressRows\} onAddressSaved=\{syncAddress\} \/>/);
-  assert.match(clientSource, /useEffect\(\(\) => \{[\s\S]*setAddressId\(nextAddressId\)/);
+  assert.match(clientSource, /const activeAddressId =[\s\S]*addresses\.find\(\(address\) => address\.id === addressId\)\?\.id[\s\S]*addresses\.find\(\(address\) => address\.isDefault\)\?\.id[\s\S]*addresses\[0\]\?\.id[\s\S]*""/);
+  assert.match(clientSource, /addressId: activeAddressId/);
+  assert.match(clientSource, /value=\{activeAddressId\}/);
+  assert.doesNotMatch(clientSource, /setAddressId\(nextAddressId\)/);
   assert.match(shippingPage, /import \{ ShippingRequestExperience \} from "@\/features\/ynot\/client"/);
   assert.match(shippingPage, /<ShippingRequestExperience collection=\{data\.collection\} addresses=\{data\.addresses\} \/>/);
   assert.doesNotMatch(shippingPage, /<CollectionConvertPanel collection=\{data\.collection\} addresses=\{data\.addresses\} \/>/);

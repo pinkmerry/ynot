@@ -1353,15 +1353,6 @@ export function CollectionConvertPanel({
     // Source-open item mapping is not available in the collection rows yet.
   }, [autoConvertOnLoad, prefilterOpenId]);
 
-  useEffect(() => {
-    const nextAddressId =
-      addresses.find((address) => address.id === addressId)?.id ??
-      addresses.find((address) => address.isDefault)?.id ??
-      addresses[0]?.id ??
-      "";
-    setAddressId(nextAddressId);
-  }, [addresses, addressId]);
-
   function toggle(id: string) {
     setSelected((current) => {
       const next = new Set(current);
@@ -1381,9 +1372,14 @@ export function CollectionConvertPanel({
     () => ownedItems.filter((item) => selected.has(item.id)),
     [ownedItems, selected],
   );
+  const activeAddressId =
+    addresses.find((address) => address.id === addressId)?.id ??
+    addresses.find((address) => address.isDefault)?.id ??
+    addresses[0]?.id ??
+    "";
   const selectedAddress = useMemo(
-    () => addresses.find((address) => address.id === addressId),
-    [addresses, addressId],
+    () => addresses.find((address) => address.id === activeAddressId),
+    [addresses, activeAddressId],
   );
   const selectedConvertableItems = useMemo(
     () =>
@@ -1452,7 +1448,7 @@ export function CollectionConvertPanel({
         }
         const payload = await postJson("/api/ynot/shipping", {
           collectionItemIds: selectedItems.map((item) => item.id),
-          addressId,
+          addressId: activeAddressId,
           idempotencyKey: crypto.randomUUID(),
         });
         setMessage({
@@ -1625,7 +1621,7 @@ export function CollectionConvertPanel({
         {addresses.length ? (
           <select
             className="collection-convert-dock-address"
-            value={addressId}
+            value={activeAddressId}
             onChange={(event) => setAddressId(event.target.value)}
             disabled={isPending}
           >
