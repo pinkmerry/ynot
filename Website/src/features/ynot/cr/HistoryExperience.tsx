@@ -7,6 +7,10 @@ import type {
   YnotAddress,
   YnotCollectionItem,
 } from "../types";
+import {
+  isCompleteShippingAddress,
+  missingShippingAddressFields,
+} from "../address-utils";
 import { QuantityBadge } from "../QuantityBadge";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { Modal, PageHead, useToast } from "./UiKit";
@@ -104,6 +108,7 @@ export function HistoryExperience({
   const [seriesFilter, setSeriesFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [addressRows, setAddressRows] = useState(addresses);
   const [sellOpen, setSellOpen] = useState(false);
   const [shipOpen, setShipOpen] = useState(false);
   const [submitting, startSubmit] = useTransition();
@@ -163,6 +168,17 @@ export function HistoryExperience({
 
   function clearSelection() {
     setSelected(new Set());
+  }
+
+  function handleAddressSaved(address: YnotAddress) {
+    setAddressRows((current) => {
+      const withoutCurrent = current
+        .filter((row) => row.id !== address.id)
+        .map((row) => (address.isDefault ? { ...row, isDefault: false } : row));
+      return address.isDefault
+        ? [address, ...withoutCurrent]
+        : [...withoutCurrent, address];
+    });
   }
 
   function selectAll() {
@@ -572,9 +588,10 @@ export function HistoryExperience({
 
       <ShipModal
         open={shipOpen}
-        addresses={addresses}
+        addresses={addressRows}
         cards={selectedCards}
         submitting={submitting}
+        onAddressSaved={handleAddressSaved}
         onClose={() => {
           if (!submitting) setShipOpen(false);
         }}
@@ -662,6 +679,7 @@ function ShipModal({
   addresses,
   cards,
   submitting,
+  onAddressSaved,
   onClose,
   onConfirm,
 }: {
@@ -669,12 +687,77 @@ function ShipModal({
   addresses: YnotAddress[];
   cards: EnrichedItem[];
   submitting: boolean;
+  onAddressSaved: (address: YnotAddress) => void;
   onClose: () => void;
   onConfirm: (addressId: string) => void;
 }) {
   const defaultAddress =
     addresses.find((a) => a.isDefault) ?? addresses[0] ?? null;
   const [addressId, setAddressId] = useState<string>(defaultAddress?.id ?? "");
+  const [addingAddress, setAddingAddress] = useState(false);
+  const [newAddress, setNewAddress] = useState({
+    label: "Home",
+    recipientName: "",
+    phone: "",
+    addressLine1: "",
+    addressLine2: "",
+    subdistrict: "",
+    district: "",
+    province: "",
+    postalCode: "",
+    country: "Thailand",
+    deliveryNote: "",
+    isDefault: addresses.length === 0,
+  });
+  const [addressMessage, setAddressMessage] = useState("");
+  const selectedAddress = addresses.find((address) => address.id === addressId);
+
+  function updateAddressField(key: keyof typeof newAddress, value: string | boolean) {
+    setNewAddress((current) => ({ ...current, [key]: value }));
+  }
+
+  async function saveAddress() {
+    setAddressMessage("");
+    const response = await fetch("/api/ynot/addresses", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ...newAddress,
+        isDefault: addresses.length === 0 ? true : newAddress.isDefault,
+      }),
+    });
+    const payload: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(
+        isRecord(payload) && typeof payload.error === "string"
+          ? payload.error
+          : "Could not save address.",
+      );
+    }
+    const address =
+      isRecord(payload) && isRecord(payload.address)
+        ? (payload.address as YnotAddress)
+        : null;
+    if (!address) throw new Error("Address could not be saved.");
+    onAddressSaved(address);
+    setAddressId(address.id);
+    setAddingAddress(false);
+    setNewAddress({
+      label: "Home",
+      recipientName: "",
+      phone: "",
+      addressLine1: "",
+      addressLine2: "",
+      subdistrict: "",
+      district: "",
+      province: "",
+      postalCode: "",
+      country: "Thailand",
+      deliveryNote: "",
+      isDefault: false,
+    });
+    setAddressMessage("Address saved and selected.");
+  }
 
   return (
     <Modal
@@ -697,7 +780,7 @@ function ShipModal({
             type="button"
             className="cr-btn cr-btn-primary"
             onClick={() => onConfirm(addressId)}
-            disabled={submitting || !addressId}
+            disabled={submitting || !isCompleteShippingAddress(selectedAddress)}
           >
             <Ico name="truck" size={14} />{" "}
             {submitting ? "Submitting…" : "Request shipping"}
@@ -711,78 +794,160 @@ function ShipModal({
           Thailand.
         </p>
 
-        {addresses.length === 0 ? (
-          <div
-            style={{
-              padding: 20,
-              textAlign: "center",
-              border: "1px dashed var(--cr-line-strong)",
-              borderRadius: "var(--cr-r-md)",
-              background: "var(--cr-paper-2)",
-            }}
-          >
-            <strong style={{ display: "block", marginBottom: 6 }}>
-              No shipping address saved
-            </strong>
-            <small className="cr-mute">
-              Add one on the Personal Info page first.
-            </small>
-            <Link
-              href="/profile/personal-info"
-              className="cr-btn cr-btn-primary cr-btn-sm"
-              style={{ marginTop: 12, display: "inline-flex" }}
-            >
-              <Ico name="plus" size={12} /> Add address
-            </Link>
-          </div>
-        ) : (
-          <div className="cr-stack" style={{ gap: 8 }}>
+        <div className="cr-stack" style={{ gap: 10 }}>
+          <div className="cr-row" style={{ gap: 10, alignItems: "center" }}>
             <span className="cr-eyebrow">Ship to</span>
-            {addresses.map((a) => (
-              <label
-                key={a.id}
-                className={`cr-addr-card ${
-                  addressId === a.id ? "default" : ""
-                }`}
-                style={{ cursor: "pointer" }}
-              >
-                <input
-                  type="radio"
-                  name="ship-addr"
-                  checked={addressId === a.id}
-                  onChange={() => setAddressId(a.id)}
-                  style={{ marginTop: 4 }}
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <h4>{a.label}</h4>
-                  {a.recipientName && (
-                    <div className="lines">
-                      <strong style={{ color: "var(--cr-ink)" }}>
-                        {a.recipientName}
-                      </strong>
-                      {a.phone ? ` · ${a.phone}` : ""}
-                    </div>
-                  )}
-                  <div className="lines">{a.addressLine1}</div>
-                  {a.addressLine2 && (
-                    <div className="lines">{a.addressLine2}</div>
-                  )}
-                  <div className="lines">
-                    {[a.subdistrict, a.district, a.province, a.postalCode]
-                      .filter(Boolean)
-                      .join(" ")}
-                  </div>
-                  {a.deliveryNote && (
-                    <small className="cr-mute">{a.deliveryNote}</small>
-                  )}
-                </div>
-                {a.isDefault && (
-                  <span className="cr-pill cr-pill-ink">Default</span>
-                )}
-              </label>
-            ))}
+            <span style={{ flex: 1 }} />
+            <button
+              type="button"
+              className="cr-btn cr-btn-primary cr-btn-sm"
+              onClick={() => setAddingAddress((current) => !current)}
+              disabled={submitting}
+            >
+              <Ico name="plus" size={12} /> Add a new address
+            </button>
           </div>
-        )}
+
+          {addresses.length === 0 ? (
+            <div
+              style={{
+                padding: 20,
+                textAlign: "center",
+                border: "1px dashed var(--cr-line-strong)",
+                borderRadius: "var(--cr-r-md)",
+                background: "var(--cr-paper-2)",
+              }}
+            >
+              <strong style={{ display: "block", marginBottom: 6 }}>
+                No shipping address saved
+              </strong>
+              <small className="cr-mute">
+                Add one here and it will be selected for this request.
+              </small>
+            </div>
+          ) : (
+            addresses.map((a) => {
+              const missingFields = missingShippingAddressFields(a);
+              const complete = missingFields.length === 0;
+              return (
+                <label
+                  key={a.id}
+                  className={`cr-addr-card ${addressId === a.id ? "default" : ""}`}
+                  style={{
+                    cursor: complete ? "pointer" : "not-allowed",
+                    opacity: complete ? 1 : 0.62,
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="ship-addr"
+                    checked={addressId === a.id}
+                    disabled={!complete || submitting}
+                    onChange={() => setAddressId(a.id)}
+                    style={{ marginTop: 4 }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h4>{a.label}</h4>
+                    {a.recipientName && (
+                      <div className="lines">
+                        <strong style={{ color: "var(--cr-ink)" }}>
+                          {a.recipientName}
+                        </strong>
+                        {a.phone ? ` · ${a.phone}` : ""}
+                      </div>
+                    )}
+                    <div className="lines">{a.addressLine1}</div>
+                    {a.addressLine2 && <div className="lines">{a.addressLine2}</div>}
+                    <div className="lines">
+                      {[a.subdistrict, a.district, a.province, a.postalCode]
+                        .filter(Boolean)
+                        .join(" ")}
+                    </div>
+                    {!complete && (
+                      <small className="cr-mute">
+                        Missing {missingFields.join(", ")}
+                      </small>
+                    )}
+                    {a.deliveryNote && <small className="cr-mute">{a.deliveryNote}</small>}
+                  </div>
+                  {a.isDefault && <span className="cr-pill cr-pill-ink">Default</span>}
+                </label>
+              );
+            })
+          )}
+
+          {addingAddress && (
+            <div className="cr-section" style={{ padding: 14 }}>
+              <div className="cr-grid-2">
+                <label className="cr-field">
+                  <span>Label</span>
+                  <input value={newAddress.label} onChange={(e) => updateAddressField("label", e.target.value)} />
+                </label>
+                <label className="cr-field">
+                  <span>Recipient name</span>
+                  <input value={newAddress.recipientName} onChange={(e) => updateAddressField("recipientName", e.target.value)} />
+                </label>
+                <label className="cr-field">
+                  <span>Phone</span>
+                  <input value={newAddress.phone} onChange={(e) => updateAddressField("phone", e.target.value)} />
+                </label>
+                <label className="cr-field cr-field-full">
+                  <span>Address line 1</span>
+                  <input value={newAddress.addressLine1} onChange={(e) => updateAddressField("addressLine1", e.target.value)} />
+                </label>
+                <label className="cr-field cr-field-full">
+                  <span>Address line 2</span>
+                  <input value={newAddress.addressLine2} onChange={(e) => updateAddressField("addressLine2", e.target.value)} />
+                </label>
+                <label className="cr-field">
+                  <span>Subdistrict</span>
+                  <input value={newAddress.subdistrict} onChange={(e) => updateAddressField("subdistrict", e.target.value)} />
+                </label>
+                <label className="cr-field">
+                  <span>District</span>
+                  <input value={newAddress.district} onChange={(e) => updateAddressField("district", e.target.value)} />
+                </label>
+                <label className="cr-field">
+                  <span>Province</span>
+                  <input value={newAddress.province} onChange={(e) => updateAddressField("province", e.target.value)} />
+                </label>
+                <label className="cr-field">
+                  <span>Postal code</span>
+                  <input value={newAddress.postalCode} onChange={(e) => updateAddressField("postalCode", e.target.value)} />
+                </label>
+                <label className="cr-field">
+                  <span>Country</span>
+                  <input value={newAddress.country} onChange={(e) => updateAddressField("country", e.target.value)} />
+                </label>
+              </div>
+              <label className="cr-row" style={{ gap: 8, marginTop: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={newAddress.isDefault}
+                  disabled={addresses.length === 0}
+                  onChange={(e) => updateAddressField("isDefault", e.target.checked)}
+                />
+                <span className="cr-mute">Make this my default shipping address</span>
+              </label>
+              <div className="cr-row" style={{ gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+                <button
+                  type="button"
+                  className="cr-btn cr-btn-primary cr-btn-sm"
+                  disabled={submitting}
+                  onClick={() => {
+                    void saveAddress().catch((error) => {
+                      setAddressMessage(error instanceof Error ? error.message : "Could not save address.");
+                    });
+                  }}
+                >
+                  Save and use this address
+                </button>
+              </div>
+            </div>
+          )}
+
+          {addressMessage && <small className="cr-mute">{addressMessage}</small>}
+        </div>
       </div>
     </Modal>
   );

@@ -1,9 +1,9 @@
 import { getAddresses } from "@/features/ynot/data";
+import { toYnotAddress, type UserAddressRow } from "@/features/ynot/server-addresses";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
-import { addressActionToken } from "@/lib/ynot/address-action-tokens";
 
 export const dynamic = "force-dynamic";
 
@@ -36,8 +36,22 @@ export async function POST(request: Request) {
   const limited = await enforceRateLimit(request, "ynot:addresses:save", { limit: 12, windowMs: 60_000 }, session.profileId);
   if (limited) return limited;
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const recipientName = clean(body?.recipientName, 120);
+  const phone = clean(body?.phone, 40);
   const addressLine1 = clean(body?.addressLine1, 180);
-  if (!addressLine1) return Response.json({ error: "Address line 1 is required." }, { status: 400 });
+  const addressLine2 = clean(body?.addressLine2, 180);
+  const subdistrict = clean(body?.subdistrict, 100);
+  const district = clean(body?.district, 100);
+  const province = clean(body?.province, 100);
+  const postalCode = clean(body?.postalCode, 20);
+  const country = clean(body?.country, 80) ?? "Thailand";
+  const deliveryNote = clean(body?.deliveryNote, 240);
+  if ([recipientName, phone, addressLine1, subdistrict, district, province, postalCode, country].some((value) => !value)) {
+    return Response.json(
+      { error: "Complete recipient name, phone, and full shipping address before saving." },
+      { status: 400 },
+    );
+  }
   const supabase = createServiceSupabaseClient();
   const shouldBeDefault = Boolean(body?.isDefault);
   const { data: inserted, error: insertError } = await supabase
@@ -45,16 +59,16 @@ export async function POST(request: Request) {
     .insert({
       profile_id: session.profileId,
       label: clean(body?.label, 40) ?? "Default",
-      recipient_name: clean(body?.recipientName, 120),
-      phone: clean(body?.phone, 40),
-      address_line1: addressLine1,
-      address_line2: clean(body?.addressLine2, 180),
-      subdistrict: clean(body?.subdistrict, 100),
-      district: clean(body?.district, 100),
-      province: clean(body?.province, 100),
-      postal_code: clean(body?.postalCode, 20),
-      country: clean(body?.country, 80) ?? "Thailand",
-      delivery_note: clean(body?.deliveryNote, 240),
+      recipient_name: recipientName,
+      phone,
+      address_line1: addressLine1 ?? "",
+      address_line2: addressLine2,
+      subdistrict,
+      district,
+      province,
+      postal_code: postalCode,
+      country: country ?? "Thailand",
+      delivery_note: deliveryNote,
       is_default: false,
     })
     .select("*")
@@ -82,11 +96,7 @@ export async function POST(request: Request) {
 
   return Response.json(
     {
-      address: {
-        id: await addressActionToken(session.profileId, data.id),
-        label: data.label,
-        addressLine1: data.address_line1,
-      },
+      address: await toYnotAddress(session.profileId, data as UserAddressRow),
     },
     { status: 201 },
   );

@@ -97,6 +97,7 @@ import {
   type PrizeDisplayTier,
 } from "./prize-tier";
 import { topUpPackages } from "./top-up-packages";
+import { isCompleteShippingAddress } from "./address-utils";
 
 export class AdminRequestError extends Error {
   code?: string;
@@ -884,28 +885,51 @@ export function GachaOpenPanel({
   );
 }
 
-export function AddressForm({ addresses }: { addresses: YnotAddress[] }) {
+export function AddressForm({ addresses, onAddressSaved }: { addresses: YnotAddress[]; onAddressSaved?: (address: YnotAddress) => void }) {
+  const [label, setLabel] = useState("Home");
   const [recipientName, setRecipientName] = useState("");
   const [phone, setPhone] = useState("");
   const [addressLine1, setAddressLine1] = useState("");
+  const [addressLine2, setAddressLine2] = useState("");
+  const [subdistrict, setSubdistrict] = useState("");
   const [district, setDistrict] = useState("");
   const [province, setProvince] = useState("");
   const [postalCode, setPostalCode] = useState("");
+  const [country, setCountry] = useState("Thailand");
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   function submit() {
     startTransition(async () => {
       try {
-        await postJson("/api/ynot/addresses", {
+        const payload = await postJson("/api/ynot/addresses", {
+          label,
           recipientName,
           phone,
           addressLine1,
+          addressLine2,
+          subdistrict,
           district,
           province,
           postalCode,
+          country,
           isDefault: !addresses.length,
         });
-        setMessage("Address saved. Refresh to see it in your saved addresses.");
+        if (isRecord(payload) && isRecord(payload.address)) {
+          onAddressSaved?.(payload.address as YnotAddress);
+          setLabel("Home");
+          setRecipientName("");
+          setPhone("");
+          setAddressLine1("");
+          setAddressLine2("");
+          setSubdistrict("");
+          setDistrict("");
+          setProvince("");
+          setPostalCode("");
+          setCountry("Thailand");
+          setMessage("Address saved and selected.");
+          return;
+        }
+        setMessage("Address saved.");
       } catch (error) {
         setMessage(
           error instanceof Error
@@ -937,6 +961,12 @@ export function AddressForm({ addresses }: { addresses: YnotAddress[] }) {
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <input
           className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+          placeholder="Label"
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+        />
+        <input
+          className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
           placeholder="Recipient name"
           value={recipientName}
           onChange={(event) => setRecipientName(event.target.value)}
@@ -954,7 +984,19 @@ export function AddressForm({ addresses }: { addresses: YnotAddress[] }) {
         value={addressLine1}
         onChange={(event) => setAddressLine1(event.target.value)}
       />
+      <input
+        className="mt-3 h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4"
+        placeholder="Address line 2"
+        value={addressLine2}
+        onChange={(event) => setAddressLine2(event.target.value)}
+      />
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <input
+          className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+          placeholder="Subdistrict"
+          value={subdistrict}
+          onChange={(event) => setSubdistrict(event.target.value)}
+        />
         <input
           className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
           placeholder="District"
@@ -974,6 +1016,12 @@ export function AddressForm({ addresses }: { addresses: YnotAddress[] }) {
           onChange={(event) => setPostalCode(event.target.value)}
         />
       </div>
+      <input
+        className="mt-3 h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4"
+        placeholder="Country"
+        value={country}
+        onChange={(event) => setCountry(event.target.value)}
+      />
       <button
         className="gold-button mt-4 w-full rounded-2xl px-4 py-3 text-sm font-black"
         disabled={isPending}
@@ -988,6 +1036,34 @@ export function AddressForm({ addresses }: { addresses: YnotAddress[] }) {
         </p>
       )}
     </section>
+  );
+}
+
+export function ShippingRequestExperience({
+  collection,
+  addresses,
+}: {
+  collection: YnotCollectionItem[];
+  addresses: YnotAddress[];
+}) {
+  const [addressRows, setAddressRows] = useState(addresses);
+
+  function syncAddress(address: YnotAddress) {
+    setAddressRows((current) => {
+      const withoutCurrent = current
+        .filter((row) => row.id !== address.id)
+        .map((row) => (address.isDefault ? { ...row, isDefault: false } : row));
+      return address.isDefault
+        ? [address, ...withoutCurrent]
+        : [...withoutCurrent, address];
+    });
+  }
+
+  return (
+    <>
+      <CollectionConvertPanel collection={collection} addresses={addressRows} />
+      <AddressForm addresses={addressRows} onAddressSaved={syncAddress} />
+    </>
   );
 }
 
@@ -1269,17 +1345,6 @@ export function CollectionConvertPanel({
   const [currentTimeMs] = useState(() => Date.now());
   const [isPending, startTransition] = useTransition();
 
-  function isCompleteShippingAddress(address?: YnotAddress) {
-    return Boolean(
-      address?.recipientName?.trim() &&
-        address.phone?.trim() &&
-        address.addressLine1?.trim() &&
-        address.district?.trim() &&
-        address.province?.trim() &&
-        address.postalCode?.trim(),
-    );
-  }
-
   // When the user clicks "Convert to coins" on the pack-open reveal screen,
   // we land here with ?from=<openId>&action=convert. Auto-select the cards
   // pulled in that open so the confirm modal can pop right away.
@@ -1287,6 +1352,15 @@ export function CollectionConvertPanel({
     if (!prefilterOpenId || !autoConvertOnLoad) return;
     // Source-open item mapping is not available in the collection rows yet.
   }, [autoConvertOnLoad, prefilterOpenId]);
+
+  useEffect(() => {
+    const nextAddressId =
+      addresses.find((address) => address.id === addressId)?.id ??
+      addresses.find((address) => address.isDefault)?.id ??
+      addresses[0]?.id ??
+      "";
+    setAddressId(nextAddressId);
+  }, [addresses, addressId]);
 
   function toggle(id: string) {
     setSelected((current) => {
