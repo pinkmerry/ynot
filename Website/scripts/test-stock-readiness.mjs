@@ -42,6 +42,51 @@ const readiness = cjsModule.exports;
 
 const readinessSource = readText("../src/features/ynot/stock-readiness.ts");
 
+const prizeModule = { exports: {} };
+const prizeRequire = (specifier) => {
+  if (specifier === "server-only") return {};
+  if (specifier === "./bundle-quantity") return bundleModule.exports;
+  if (specifier === "./stock-readiness") return readiness;
+  if (specifier === "./prize-tier") {
+    return {
+      prizeDisplayTierOptions: [
+        { value: "rainbow" },
+        { value: "gold" },
+        { value: "silver" },
+        { value: "bronze" },
+      ],
+      prizeDisplayTierValue(value) {
+        if (
+          value === "rainbow" ||
+          value === "gold" ||
+          value === "silver" ||
+          value === "bronze"
+        ) {
+          return value;
+        }
+        return "bronze";
+      },
+    };
+  }
+  if (specifier === "./prize-unit-counts") {
+    return { aggregateNonVoidPrizeUnitCounts: () => new Map() };
+  }
+  if (
+    specifier === "@/lib/supabase/server" ||
+    specifier === "@/lib/supabase/schema-compat" ||
+    specifier === "@/lib/supabase/types"
+  ) {
+    return {};
+  }
+  return require(specifier);
+};
+vm.runInNewContext(transpile("../src/features/ynot/prize-readiness.ts"), {
+  exports: prizeModule.exports,
+  module: prizeModule,
+  require: prizeRequire,
+});
+const prizeReadiness = prizeModule.exports;
+
 function plain(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -109,6 +154,7 @@ test("sub-SKU stock readiness counts the selected stockUnitGroupKey instead of t
       stockUnitGroupKey: "graded\u001fPSA 10 (Gem Mint)\u001fpsa\u001f\u001f",
       stockSku: "OP09-118-JP-MANGA-PSA10",
       label: "OP09-118-JP - GOLD D. ROGER / PSA · PSA 10 (Gem Mint)",
+      plannedUnits: 5,
       requiredUnits: 5,
       availableUnits: 2,
       reservedUnits: 0,
@@ -128,6 +174,48 @@ test("bundled prizes multiply only the physical stock units", () => {
     }),
     6,
   );
+});
+
+test("normalized prize drafts preserve bundle quantity for stock validation", () => {
+  const prizes = prizeReadiness.normalizePrizeDrafts([
+    {
+      cardId: "card-a",
+      tier: "normal",
+      rank: 1,
+      quantity: 2,
+      bundleQuantity: 3,
+      weight: 1,
+      unlockAtSoldPct: 0,
+      convertCoinValue: 100,
+      metadata: {},
+    },
+  ]);
+
+  assert.equal(prizes.length, 1);
+  assert.equal(prizes[0].quantity, 2);
+  assert.equal(prizes[0].bundleQuantity, 3);
+
+  const result = prizeReadiness.validatePrizeDraftsForSave(
+    prizes,
+    2,
+    "pure_random",
+    {
+      stockSummaries: [
+        {
+          cardId: "card-a",
+          cardCode: "CARD-A",
+          cardName: "Bundle Test",
+          stockAvailable: 5,
+          reservedForCampaign: 0,
+        },
+      ],
+    },
+  );
+
+  assert.equal(result.ready, false);
+  assert.equal(result.totalPrizeUnits, 2);
+  assert.match(result.blockers.join("\n"), /needs 6 stock units/);
+  assert.match(result.blockers.join("\n"), /2 win slots x 3 per win/);
 });
 
 test("stock readiness blocks catalog prizes that omit a selected sub-SKU", () => {

@@ -8,7 +8,10 @@ import {
   prizeDisplayTierValue,
   type PrizeDisplayTier,
 } from "./prize-tier";
-import { plannedQuantityForPrize } from "./bundle-quantity";
+import {
+  normalizeBundleQuantity,
+  plannedQuantityForPrize,
+} from "./bundle-quantity";
 import {
   buildPrizeStockSelectionIssues,
   buildPrizeStockShortages,
@@ -495,6 +498,9 @@ export function normalizePrizeDrafts(value: unknown): PrizeDraftInput[] {
         valueThb: numberOrZero(row.valueThb) > 0 ? Math.round(numberOrZero(row.valueThb)) : null,
         convertCoinValue,
         quantity,
+        bundleQuantity: normalizeBundleQuantity(
+          row.bundleQuantity ?? row.bundle_quantity,
+        ),
         weight,
         unlockAtSoldPct,
         metadata: (isRecord(row.metadata) ? row.metadata : {}) as Json,
