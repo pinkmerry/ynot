@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpower-subagent-driven-development (recommended) or superpower-executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Show sold-out public Y-Packs as sold out on every customer-facing pack surface while keeping opening, reward assignment, history, collection, and public data privacy unchanged.
+**Goal:** Show sold-out public Y-Packs as sold out on related customer pack surfaces while keeping generic campaign feeds, opening, reward assignment, history, collection, and public data privacy unchanged.
 
 **Architecture:** Keep `open_gacha_campaign` and `/api/ynot/gacha/open` as the only reward-assignment authority. Widen public campaign readers so sold-out packs can reach existing UI, then harden all open entrypoints so only `campaign.openable` campaigns can enter the reveal flow. Preserve existing public DTOs for prize lineup, reveal items, history, collection, and shipping images.
 
@@ -12,13 +12,14 @@
 
 ## Scope And Decision
 
-Implement option 1 from the discussion: show sold-out packs on all customer pack-related pages.
+Implement option 1 from the discussion with the later scope clarification: show sold-out packs only on related customer pack pages and flows.
 
-- `/packs` should include live, public, approved sold-out packs.
+- `/packs` should opt into live/closed, public, approved sold-out packs.
 - `/packs/:slug` should render the CR pack detail and sold-out dock.
 - `/gacha/:slug` should render the legacy detail and sold-out disabled state.
 - `/gacha/:slug/open?auto=1` should not render the reveal auto-start page when the pack is sold out.
-- Any older homepage or campaign-card surface using `CampaignCard` should say `Sold out` and disable its open action.
+- Generic public campaign feeds should stay openable-only unless they explicitly opt into sold-out visibility for a related pack page.
+- Any related legacy campaign-card surface using `CampaignCard` should say `Sold out` and disable its open action.
 - `/api/ynot/gacha/open` should stay unchanged. The RPC already rejects exhausted stock and writes rewards atomically.
 - Reward history and collection data calling should stay unchanged except for tests proving they still use public image URLs and hide internal IDs.
 
@@ -29,7 +30,8 @@ Implement option 1 from the discussion: show sold-out packs on all customer pack
 - Modify: `Website/scripts/test-pack-open-privacy.mjs`
   - Adds static tests for public list visibility, dynamic detail visibility, open-page auto-start gating, legacy detail disabled sold-out state, and unchanged public reward/history DTO privacy.
 - Modify: `Website/src/features/ynot/data.ts`
-  - Changes public campaign list/detail filtering from `openable` only to `openable || soldOut`.
+  - Adds explicit opt-in sold-out visibility for related public campaign lists.
+  - Changes public detail filtering from `openable` only to `openable || soldOut`.
   - Keeps `publicYnotCampaign` as the only customer projection.
   - Bumps public cache keys to avoid stale cached null/list responses.
 - Modify: `Website/src/app/(store)/gacha/[campaignId]/open/page.tsx`
@@ -98,7 +100,7 @@ const gachaOpenPageSource = readFileSync(
 Append these tests to `Website/scripts/test-pack-open-privacy.mjs` after `"customer campaign props hide house logic and internal prize inventory"`:
 
 ```js
-test("public campaign list keeps sold-out packs visible but hides other not-openable packs", () => {
+test("related public campaign feeds can show sold-out packs without widening every feed", () => {
   const impl = between(
     dataSource,
     "async function getCampaignsImpl",
@@ -106,7 +108,11 @@ test("public campaign list keeps sold-out packs visible but hides other not-open
   );
   assert.match(
     impl,
-    /campaigns\.filter\(\(campaign\) => campaign\.openable \|\| campaign\.soldOut\)/,
+    /includeSoldOutPublic\s*=\s*options\.includeSoldOutPublic \?\? Boolean\(campaignIdOrSlug\)/,
+  );
+  assert.match(
+    impl,
+    /campaign\.openable \|\|\s*\(includeSoldOutPublic && campaign\.soldOut\)/,
   );
   assert.doesNotMatch(
     impl,
@@ -202,7 +208,7 @@ Expected:
 
 ```text
 FAIL cached public detail loader returns sold-out campaigns through the public projection
-FAIL public campaign list keeps sold-out packs visible but hides other not-openable packs
+FAIL related public campaign feeds can show sold-out packs without widening every feed
 FAIL non-admin dynamic campaign detail keeps sold-out public packs visible through public DTOs
 FAIL open page only renders auto-start reveal for openable campaigns
 FAIL legacy campaign card and detail disable open actions for sold-out packs
@@ -848,9 +854,9 @@ Missing campaign
 
 Spec coverage:
 
-- Sold-out public pack list visibility is covered by Task 2.
+- Related public pack list visibility is covered by Task 2.
 - Sold-out public pack detail visibility is covered by Task 2.
-- Sold-out visibility on every customer pack-related page is covered by Task 3, including older `CampaignCard` surfaces and `/gacha/:slug` detail.
+- Sold-out visibility on related customer pack pages is covered by Task 3, including older `CampaignCard` surfaces and `/gacha/:slug` detail.
 - Legacy `/gacha/:slug` detail behavior is covered by Task 3.
 - Open route safety is covered by Task 3.
 - Reward and collection data-calling privacy is covered by Task 4.
