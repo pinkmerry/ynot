@@ -1,8 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import type { YnotCampaign, YnotPrizePreview } from "../types";
+import { useEffect, useState } from "react";
+import type {
+  YnotCampaign,
+  YnotLastPrizePreview,
+  YnotPrizePreview,
+} from "../types";
 import { normalizeOpenQuantityOptions } from "../open-quantity";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { Modal, PageHead, useToast } from "./UiKit";
@@ -96,6 +100,35 @@ export function PackDetailExperience({
   const [rawQty, setQty] = useState<number>(openQty[0] ?? 1);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [fetchedLastPrize, setFetchedLastPrize] =
+    useState<YnotLastPrizePreview | null>(null);
+
+  // The last-prize card+image lookup is starved by the detail page's server
+  // subrequest budget, so fetch it client-side (fresh budget) when the server
+  // projection didn't already include it.
+  useEffect(() => {
+    if (campaign.lastPrizePreview || !campaign.lastPrizeCardId) return;
+    let active = true;
+    fetch(`/api/ynot/packs/${encodeURIComponent(campaign.slug)}/last-prize`, {
+      cache: "no-store",
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: unknown) => {
+        if (!active) return;
+        const preview =
+          payload && typeof payload === "object" && "lastPrizePreview" in payload
+            ? (payload as { lastPrizePreview: YnotLastPrizePreview | null })
+                .lastPrizePreview
+            : null;
+        if (preview) setFetchedLastPrize(preview);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [campaign.lastPrizePreview, campaign.lastPrizeCardId, campaign.slug]);
+
+  const lastPrize = campaign.lastPrizePreview ?? fetchedLastPrize;
 
   // Keep qty bounded to whichever options are actually available right now.
   const qty = openQty.includes(rawQty) ? rawQty : (openQty[0] ?? 1);
@@ -331,7 +364,7 @@ export function PackDetailExperience({
                 </div>
               ))
             )}
-            {campaign.lastPrizePreview ? (
+            {lastPrize ? (
               <div>
                 <div className="cr-tier-banner last-prize">
                   <span className="cr-tier-swatch last-prize" aria-hidden>
@@ -349,20 +382,20 @@ export function PackDetailExperience({
                 <div className="cr-prize-grid">
                   <div className="cr-prize-card">
                     <div className="cr-prize-card-art cr-coll-art last-prize">
-                      {campaign.lastPrizePreview.cardImageUrl ? (
+                      {lastPrize.cardImageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={campaign.lastPrizePreview.cardImageUrl}
-                          alt={campaign.lastPrizePreview.cardName}
+                          src={lastPrize.cardImageUrl}
+                          alt={lastPrize.cardName}
                         />
                       ) : (
                         <span className="cr-prize-card-art-placeholder">
-                          {initials(campaign.lastPrizePreview.cardName)}
+                          {initials(lastPrize.cardName)}
                         </span>
                       )}
                     </div>
                     <div className="cr-prize-card-name">
-                      {campaign.lastPrizePreview.cardName}
+                      {lastPrize.cardName}
                     </div>
                   </div>
                 </div>

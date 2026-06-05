@@ -604,6 +604,26 @@ async function resolveLastPrizePreview(
   };
 }
 
+// Public, client-fetched resolver for the pack detail page. The same query run
+// inline on the (heavy) detail page gets starved by the Cloudflare Worker
+// subrequest budget and silently returns null, so the customer page fetches the
+// last-prize preview separately — its own request has a fresh budget.
+export async function getLastPrizePreviewForCampaign(
+  slugOrId: string,
+): Promise<YnotLastPrizePreview | null> {
+  if (!isSupabaseConfigured()) return null;
+  const lookup = slugOrId.trim();
+  if (!lookup) return null;
+  const supabase = createServiceSupabaseClient();
+  const column = looksLikeUuid(lookup) ? "id" : "slug";
+  const rows = await readSupabaseRows<DrawRoundRow>("last_prize_lookup", () =>
+    supabase.from("draw_rounds").select("*").eq(column, lookup).limit(1),
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return resolveLastPrizePreview(supabase, row);
+}
+
 function isOwnerReviewLineupRow(row: DrawRoundRow) {
   const approvalStatus = normalizeApprovalStatus(
     row.approval_status,
