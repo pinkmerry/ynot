@@ -2376,40 +2376,60 @@ export async function getCollection(
   const collectionItemIds = items
     .map((item) => item.id)
     .filter((id): id is string => Boolean(id));
+  const stockUnitIdByItem = new Map<string, string>();
+  const stockUnitIds = new Set<string>();
+  for (const item of items) {
+    if (item.gacha_open_item_id) {
+      sourceOpenItemIdByCollectionItem.set(item.id, item.gacha_open_item_id);
+    }
+    if (item.card_stock_unit_id) {
+      stockUnitIdByItem.set(item.id, item.card_stock_unit_id);
+      stockUnitIds.add(item.card_stock_unit_id);
+    }
+  }
   if (collectionItemIds.length) {
-    // 1) collection item → its won stock unit id
-    const prizeUnitRows = await readOrEmpty(
-      "collection_prize_units",
-      async () => {
-        const { data, error } = await supabase
-          .from("draw_round_prize_units")
-          .select("collection_item_id,gacha_open_item_id,card_stock_unit_id")
-          .in("collection_item_id", collectionItemIds);
-        if (error) throw error;
-        return data ?? [];
-      },
+    const missingExactLinkItemIds = collectionItemIds.filter(
+      (itemId) =>
+        !stockUnitIdByItem.has(itemId) ||
+        !sourceOpenItemIdByCollectionItem.has(itemId),
     );
-    const stockUnitIdByItem = new Map<string, string>();
-    const stockUnitIds: string[] = [];
-    for (const row of prizeUnitRows) {
-      const itemId = row.collection_item_id;
-      const openItemId = row.gacha_open_item_id;
-      const unitId = row.card_stock_unit_id;
-      if (itemId && openItemId) {
-        sourceOpenItemIdByCollectionItem.set(itemId, openItemId);
-      }
-      if (itemId && unitId) {
-        stockUnitIdByItem.set(itemId, unitId);
-        stockUnitIds.push(unitId);
+    if (missingExactLinkItemIds.length) {
+      // Legacy fallback: pre-link rows can still resolve via prize units.
+      const prizeUnitRows = await readOrEmpty(
+        "collection_prize_units",
+        async () => {
+          const { data, error } = await supabase
+            .from("draw_round_prize_units")
+            .select("collection_item_id,gacha_open_item_id,card_stock_unit_id")
+            .in("collection_item_id", missingExactLinkItemIds);
+          if (error) throw error;
+          return data ?? [];
+        },
+      );
+      for (const row of prizeUnitRows) {
+        const itemId = row.collection_item_id;
+        const openItemId = row.gacha_open_item_id;
+        const unitId = row.card_stock_unit_id;
+        if (
+          itemId &&
+          openItemId &&
+          !sourceOpenItemIdByCollectionItem.has(itemId)
+        ) {
+          sourceOpenItemIdByCollectionItem.set(itemId, openItemId);
+        }
+        if (itemId && unitId && !stockUnitIdByItem.has(itemId)) {
+          stockUnitIdByItem.set(itemId, unitId);
+          stockUnitIds.add(unitId);
+        }
       }
     }
     // 2) load those units' identity, then map back to the collection item
-    if (stockUnitIds.length) {
+    if (stockUnitIds.size) {
       const units = await readOrEmpty("collection_stock_units", async () => {
         const { data, error } = await supabase
           .from("card_stock_units")
           .select("id,grade,condition,grading_service,image_url")
-          .in("id", stockUnitIds);
+          .in("id", [...stockUnitIds]);
         if (error) throw error;
         return data ?? [];
       });
@@ -2499,7 +2519,7 @@ export async function getCollection(
         wonUnit?.gradingService ?? card?.gradingService ?? null,
       cardPrizeCategory: card?.prizeCategory ?? null,
       cardSeries: card?.series ?? null,
-      imageUrl: wonUnit?.imageUrl ?? null,
+      imageUrl: publicSubSkuImageUrl(wonUnit?.imageUrl),
       bundleQuantity,
       bundleIndex,
       bundleGroupId: bundleQuantity
@@ -2891,52 +2911,78 @@ export async function getShipping(
       : [];
     const sourceOpenItemIdByCollectionItem = new Map<string, string>();
     const imageByCollectionItemId = new Map<string, string>();
+    const stockUnitIdByCollectionItem = new Map<string, string>();
+    const stockUnitIds = new Set<string>();
+    for (const item of collectionItems) {
+      if (item.gacha_open_item_id) {
+        sourceOpenItemIdByCollectionItem.set(item.id, item.gacha_open_item_id);
+      }
+      if (item.card_stock_unit_id) {
+        stockUnitIdByCollectionItem.set(item.id, item.card_stock_unit_id);
+        stockUnitIds.add(item.card_stock_unit_id);
+      }
+    }
     if (collectionItemIds.length) {
-      const prizeUnitRows = await readOrEmpty(
-        "shipping_prize_units",
-        async () => {
-          const { data, error } = await supabase
-            .from("draw_round_prize_units")
-            .select("collection_item_id,gacha_open_item_id,card_stock_unit_id")
-            .in("collection_item_id", collectionItemIds);
-          if (error) throw error;
-          return data ?? [];
-        },
+      const missingExactLinkItemIds = collectionItemIds.filter(
+        (itemId) =>
+          !stockUnitIdByCollectionItem.has(itemId) ||
+          !sourceOpenItemIdByCollectionItem.has(itemId),
       );
-      const stockUnitIds = [
-        ...new Set(
-          prizeUnitRows
-            .map((row) => row.card_stock_unit_id)
-            .filter((id): id is string => Boolean(id)),
-        ),
-      ];
-      const stockUnits = stockUnitIds.length
+      if (missingExactLinkItemIds.length) {
+        const prizeUnitRows = await readOrEmpty(
+          "shipping_prize_units",
+          async () => {
+            const { data, error } = await supabase
+              .from("draw_round_prize_units")
+              .select("collection_item_id,gacha_open_item_id,card_stock_unit_id")
+              .in("collection_item_id", missingExactLinkItemIds);
+            if (error) throw error;
+            return data ?? [];
+          },
+        );
+        for (const row of prizeUnitRows) {
+          const itemId = row.collection_item_id;
+          if (
+            itemId &&
+            row.gacha_open_item_id &&
+            !sourceOpenItemIdByCollectionItem.has(itemId)
+          ) {
+            sourceOpenItemIdByCollectionItem.set(
+              itemId,
+              row.gacha_open_item_id,
+            );
+          }
+          if (
+            itemId &&
+            row.card_stock_unit_id &&
+            !stockUnitIdByCollectionItem.has(itemId)
+          ) {
+            stockUnitIdByCollectionItem.set(itemId, row.card_stock_unit_id);
+            stockUnitIds.add(row.card_stock_unit_id);
+          }
+        }
+      }
+      const stockUnits = stockUnitIds.size
         ? await readOrEmpty("shipping_stock_unit_images", async () => {
             const { data, error } = await supabase
               .from("card_stock_units")
               .select("id,image_url")
-              .in("id", stockUnitIds);
+              .in("id", [...stockUnitIds]);
             if (error) throw error;
             return data ?? [];
           })
         : [];
       const stockImageById = new Map(
         stockUnits
-          .filter((unit) => unit.id && unit.image_url)
-          .map((unit) => [unit.id, unit.image_url as string]),
+          .map((unit) => [unit.id, publicSubSkuImageUrl(unit.image_url)])
+          .filter(
+            (entry): entry is [string, string] => Boolean(entry[0] && entry[1]),
+          ),
       );
-      for (const row of prizeUnitRows) {
-        if (row.collection_item_id && row.gacha_open_item_id) {
-          sourceOpenItemIdByCollectionItem.set(
-            row.collection_item_id,
-            row.gacha_open_item_id,
-          );
-        }
-        const imageUrl = row.card_stock_unit_id
-          ? stockImageById.get(row.card_stock_unit_id)
-          : null;
-        if (row.collection_item_id && imageUrl) {
-          imageByCollectionItemId.set(row.collection_item_id, imageUrl);
+      for (const [itemId, stockUnitId] of stockUnitIdByCollectionItem) {
+        const imageUrl = stockImageById.get(stockUnitId);
+        if (imageUrl) {
+          imageByCollectionItemId.set(itemId, imageUrl);
         }
       }
     }
