@@ -21,6 +21,18 @@ test("server address helper lazily creates one default address from complete pro
   assert.match(helper, /\.insert\(\{[\s\S]*label: "Profile default"[\s\S]*is_default: true/);
 });
 
+test("server address helper requires explicit profile country before lazy backfill", () => {
+  const helper = readProject("src/features/ynot/server-addresses.ts");
+
+  assert.match(helper, /country: row\.country,/);
+  assert.match(helper, /if \(!isCompleteShippingAddress\(profileAddress\)\)/);
+  assert.match(helper, /const completeProfileAddress = profileAddress as CompleteProfileAddress/);
+  assert.match(helper, /country: completeProfileAddress\.country,/);
+  assert.doesNotMatch(helper, /country: row\.country \?\? "Thailand"/);
+  assert.doesNotMatch(helper, /country: profileAddress\.country \?\? "Thailand"/);
+  assert.doesNotMatch(helper, /country: completeProfileAddress\.country \?\? "Thailand"/);
+});
+
 test("server address helper maps saved address rows to full action-token DTOs", () => {
   const helper = readProject("src/features/ynot/server-addresses.ts");
 

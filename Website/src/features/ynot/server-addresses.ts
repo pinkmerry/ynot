@@ -42,6 +42,17 @@ export type UserAddressRow = {
   is_default: boolean;
 };
 
+type CompleteProfileAddress = YnotAddress & {
+  recipientName: string;
+  phone: string;
+  addressLine1: string;
+  subdistrict: string;
+  district: string;
+  province: string;
+  postalCode: string;
+  country: string;
+};
+
 export function toPublicAddressShape(row: UserAddressRow): Omit<YnotAddress, "id"> {
   return {
     label: row.label,
@@ -79,7 +90,7 @@ function profileRowToAddressInput(row: ProfileAddressRow): Omit<YnotAddress, "id
     district: row.district,
     province: row.province,
     postalCode: row.postal_code,
-    country: row.country ?? "Thailand",
+    country: row.country,
     deliveryNote: row.delivery_note,
   };
 }
@@ -125,22 +136,23 @@ export async function ensureDefaultAddressFromProfile(
   if (!isCompleteShippingAddress(profileAddress)) {
     return existing;
   }
+  const completeProfileAddress = profileAddress as CompleteProfileAddress;
 
   const { data: inserted, error: insertError } = await supabase
     .from("user_addresses")
     .insert({
       profile_id: profileId,
       label: "Profile default",
-      recipient_name: profileAddress.recipientName,
-      phone: profileAddress.phone,
-      address_line1: profileAddress.addressLine1,
-      address_line2: profileAddress.addressLine2,
-      subdistrict: profileAddress.subdistrict,
-      district: profileAddress.district,
-      province: profileAddress.province,
-      postal_code: profileAddress.postalCode,
-      country: profileAddress.country ?? "Thailand",
-      delivery_note: profileAddress.deliveryNote,
+      recipient_name: completeProfileAddress.recipientName,
+      phone: completeProfileAddress.phone,
+      address_line1: completeProfileAddress.addressLine1,
+      address_line2: completeProfileAddress.addressLine2,
+      subdistrict: completeProfileAddress.subdistrict,
+      district: completeProfileAddress.district,
+      province: completeProfileAddress.province,
+      postal_code: completeProfileAddress.postalCode,
+      country: completeProfileAddress.country,
+      delivery_note: completeProfileAddress.deliveryNote,
       is_default: true,
     })
     .select(userAddressSelect)

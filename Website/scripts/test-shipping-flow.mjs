@@ -507,6 +507,16 @@ test("address creation API validates and returns a full selectable address DTO",
   assert.doesNotMatch(addressRoute, /address: \{\s*id: await addressActionToken/);
 });
 
+test("address creation API requires explicit country before saving", () => {
+  assert.match(addressRoute, /const country = clean\(body\?\.country, 80\);/);
+  assert.match(addressRoute, /if \(\[recipientName, phone, addressLine1, subdistrict, district, province, postalCode, country\]\.some\(\(value\) => !value\)\)/);
+  assert.match(addressRoute, /const requiredAddress = \{[\s\S]*country,[\s\S]*\} as const satisfies Record<string, string>/);
+  assert.match(addressRoute, /country: requiredAddress\.country,/);
+  assert.doesNotMatch(addressRoute, /const country = clean\(body\?\.country, 80\) \?\? "Thailand"/);
+  assert.doesNotMatch(addressRoute, /country: country \?\? "Thailand"/);
+  assert.doesNotMatch(addressRoute, /country: requiredAddress\.country \?\? "Thailand"/);
+});
+
 test("collection ship modal lets users choose existing address or add a new one inline", () => {
   const history = readFileSync(
     new URL("../src/features/ynot/cr/HistoryExperience.tsx", import.meta.url),

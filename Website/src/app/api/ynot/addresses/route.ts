@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   const district = clean(body?.district, 100);
   const province = clean(body?.province, 100);
   const postalCode = clean(body?.postalCode, 20);
-  const country = clean(body?.country, 80) ?? "Thailand";
+  const country = clean(body?.country, 80);
   const deliveryNote = clean(body?.deliveryNote, 240);
   if ([recipientName, phone, addressLine1, subdistrict, district, province, postalCode, country].some((value) => !value)) {
     return Response.json(
@@ -52,6 +52,19 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  if (!recipientName || !phone || !addressLine1 || !subdistrict || !district || !province || !postalCode || !country) {
+    throw new Error("Address validation invariant failed.");
+  }
+  const requiredAddress = {
+    recipientName,
+    phone,
+    addressLine1,
+    subdistrict,
+    district,
+    province,
+    postalCode,
+    country,
+  } as const satisfies Record<string, string>;
   const supabase = createServiceSupabaseClient();
   const shouldBeDefault = Boolean(body?.isDefault);
   const { data: inserted, error: insertError } = await supabase
@@ -59,15 +72,15 @@ export async function POST(request: Request) {
     .insert({
       profile_id: session.profileId,
       label: clean(body?.label, 40) ?? "Default",
-      recipient_name: recipientName,
-      phone,
-      address_line1: addressLine1 ?? "",
+      recipient_name: requiredAddress.recipientName,
+      phone: requiredAddress.phone,
+      address_line1: requiredAddress.addressLine1,
       address_line2: addressLine2,
-      subdistrict,
-      district,
-      province,
-      postal_code: postalCode,
-      country: country ?? "Thailand",
+      subdistrict: requiredAddress.subdistrict,
+      district: requiredAddress.district,
+      province: requiredAddress.province,
+      postal_code: requiredAddress.postalCode,
+      country: requiredAddress.country,
       delivery_note: deliveryNote,
       is_default: false,
     })
