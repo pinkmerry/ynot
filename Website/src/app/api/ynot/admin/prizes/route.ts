@@ -28,6 +28,10 @@ import {
 } from "@/features/ynot/prize-tier";
 import { getPrizeStockSummaries } from "@/features/ynot/prize-readiness";
 import {
+  bundledStockUnitRequirement,
+  normalizeBundleQuantity,
+} from "@/features/ynot/bundle-quantity";
+import {
   buildPrizeStockSelectionIssues,
   buildPrizeStockShortages,
   stockSelectionBlockers,
@@ -47,6 +51,7 @@ type PrizeBody = {
   unlockAtSoldPct?: unknown;
   prizeId?: unknown;
   quantity?: unknown;
+  bundleQuantity?: unknown;
   isTest?: unknown;
   seedRunId?: unknown;
   metadata?: unknown;
@@ -70,6 +75,7 @@ type PrizeSaveRow = Pick<
   | "weight"
   | "unlock_at_sold_pct"
   | "planned_quantity"
+  | "bundle_quantity"
   | "metadata"
 >;
 type AdminSession = NonNullable<Awaited<ReturnType<typeof resolveAdminSession>>>;
@@ -232,9 +238,10 @@ async function savePrizeRow(
   weight: number | undefined,
   unlockAtSoldPct: number | undefined,
   requiresPlannedQuantity: boolean,
+  bundleQuantity: number,
 ) {
   const selectColumns =
-    "id,draw_round_id,card_id,tier,rank,value_thb,weight,unlock_at_sold_pct,planned_quantity,metadata";
+    "id,draw_round_id,card_id,tier,rank,value_thb,weight,unlock_at_sold_pct,planned_quantity,bundle_quantity,metadata";
   const savePatch = (rowPatch: typeof patch) =>
     existingPrizeId
       ? supabase
@@ -253,6 +260,7 @@ async function savePrizeRow(
   if (error && isMissingColumnError(error)) {
     if (
       requiresPlannedQuantity ||
+      bundleQuantity !== 1 ||
       (weight ?? 1) !== 1 ||
       (unlockAtSoldPct ?? 0) !== 0
     ) {
@@ -276,6 +284,7 @@ async function savePrizeRow(
         ...data,
         weight: 1,
         unlock_at_sold_pct: 0,
+        bundle_quantity: 1,
       } as PrizeSaveRow;
     }
   }
@@ -294,7 +303,7 @@ async function validatePlannedPrizeStock(
 ) {
   const { data: currentPrizes, error } = await supabase
     .from("draw_round_prizes")
-    .select("id,card_id,planned_quantity,metadata")
+    .select("id,card_id,planned_quantity,bundle_quantity,metadata")
     .eq("draw_round_id", campaignId);
   if (error) {
     return Response.json(
@@ -313,17 +322,22 @@ async function validatePlannedPrizeStock(
     selectedPrize.quantity === null || selectedPrize.quantity === undefined
       ? Math.max(0, Math.round(Number(existingPrize?.planned_quantity ?? 0)))
       : Math.max(0, Math.round(Number(selectedPrize.quantity)));
+  const selectedBundleQuantity = normalizeBundleQuantity(
+    selectedPrize.bundleQuantity ?? existingPrize?.bundle_quantity ?? 1,
+  );
   const plannedPrizes: StockReadinessPrize[] = (currentPrizes ?? [])
     .filter((prize) => prize.id !== existingPrizeId)
     .map((prize) => ({
       card_id: prize.card_id,
       planned_quantity: prize.planned_quantity,
+      bundle_quantity: prize.bundle_quantity,
       metadata: prize.metadata,
     }));
   if (selectedQuantity > 0) {
     plannedPrizes.push({
       ...selectedPrize,
       quantity: selectedQuantity,
+      bundleQuantity: selectedBundleQuantity,
     });
   }
   if (!plannedPrizes.length) return null;
@@ -475,6 +489,7 @@ export async function POST(request: Request) {
   const tier = tierValue(body.tier);
   const rank = rankValue(body.rank);
   const quantity = quantityValue(body.quantity);
+  const bundleQuantity = normalizeBundleQuantity(body.bundleQuantity);
   const valueThb =
     body.valueThb === undefined ? undefined : moneyValue(body.valueThb);
   const weight = body.weight === undefined ? undefined : weightValue(body.weight);
@@ -559,6 +574,7 @@ export async function POST(request: Request) {
       {
         cardId,
         quantity,
+        bundleQuantity,
         metadata,
       },
     );
@@ -582,6 +598,7 @@ export async function POST(request: Request) {
     if (quantity !== null) {
       patch.planned_quantity = quantity;
     }
+    patch.bundle_quantity = bundleQuantity;
     if (body.isTest !== undefined || body.seedRunId !== undefined) {
       patch.is_test = booleanValue(body.isTest);
       patch.seed_run_id = text(body.seedRunId, 80) || null;
@@ -595,6 +612,7 @@ export async function POST(request: Request) {
       weight,
       unlockAtSoldPct,
       quantity !== null,
+      bundleQuantity,
     );
     if (result.schemaMissing) return randomPackSchemaMissingResponse();
     data = result.data;
@@ -615,6 +633,8 @@ export async function POST(request: Request) {
       ? null
       : {
           plannedQuantity: data.planned_quantity,
+          bundleQuantity: data.bundle_quantity,
+          requiredStockUnits: bundledStockUnitRequirement(data),
           materialized: false,
         };
 
@@ -629,9 +649,16 @@ export async function POST(request: Request) {
       rank: savedRank,
       tierRank,
       quantity,
+      bundleQuantity,
+      requiredStockUnits: bundledStockUnitRequirement({
+        quantity: data.planned_quantity,
+        bundleQuantity: data.bundle_quantity,
+      }),
       weight: weight ?? "unchanged",
       unlockAtSoldPct: unlockAtSoldPct ?? "unchanged",
-      prizeMetadata: metadata,
+      catalogCategory,
+      prizeCategory,
+      displayTier,
       approvalStatus: "not_submitted",
     },
   });
