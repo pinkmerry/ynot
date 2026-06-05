@@ -174,6 +174,10 @@ export type YnotCollectionItem = {
   cardName: string;
   cardCode?: string | null;
   imageUrl?: string | null;
+  bundleQuantity?: number;
+  bundleIndex?: number;
+  bundleGroupId?: string | null;
+  bundleGroupItemIds?: string[];
   status:
     | "owned"
     | "locked"
@@ -329,6 +333,7 @@ export type YnotGachaOpenReward = {
   cardName: string;
   cardCode?: string | null;
   imageUrl?: string | null;
+  bundleQuantity?: number;
   displayTier?: "rainbow" | "gold" | "silver" | "bronze" | null;
   valueThb?: number | null;
   resultPosition: number;
@@ -350,6 +355,7 @@ export type YnotGachaOpenHistory = {
 export type YnotGachaOpenItem = {
   name: string;
   imageUrl: string | null;
+  bundleQuantity?: number;
   displayTier: "rainbow" | "gold" | "silver" | "bronze";
   valueThb: number | null;
   position: number;
@@ -387,6 +393,7 @@ export type YnotPrizePreview = {
   rank: number;
   valueThb?: number | null;
   convertCoinValue?: number;
+  bundleQuantity?: number;
   plannedQuantity?: number;
   availableUnits?: number;
   totalUnits?: number;
@@ -443,6 +450,7 @@ export type YnotPrizePoolItem = {
   rank: number;
   valueThb?: number | null;
   convertCoinValue?: number;
+  bundleQuantity?: number;
   weight: number;
   unlockAtSoldPct: number;
   prizeCategory?: string;

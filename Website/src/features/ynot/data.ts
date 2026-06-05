@@ -71,6 +71,7 @@ import {
   type PublicPrizeUnitImageRow,
   type PublicStockUnitImageRow,
 } from "./public-subsku-images";
+import { normalizeBundleQuantity, publicBundleQuantity } from "./bundle-quantity";
 
 const dataIssueStorage = new AsyncLocalStorage<YnotDataIssue[]>();
 
@@ -103,6 +104,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function numericValue(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function optionalNumericValue(value: unknown) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function cardStockSummariesFromJson(value: unknown): CardStockSummaryRow[] {
@@ -222,12 +229,12 @@ function inventorySummariesFromJson(value: unknown): InventorySummary[] {
     return [
       {
         drawRoundId: item.drawRoundId,
-        totalSlots: Number(item.totalSlots) || undefined,
-        remainingSlots: Number(item.remainingSlots) || undefined,
-        totalUnits: Number(item.totalUnits) || 0,
-        availableUnits: Number(item.availableUnits) || 0,
-        awardedUnits: Number(item.awardedUnits) || 0,
-        voidUnits: Number(item.voidUnits) || 0,
+        totalSlots: optionalNumericValue(item.totalSlots),
+        remainingSlots: optionalNumericValue(item.remainingSlots),
+        totalUnits: optionalNumericValue(item.totalUnits) ?? 0,
+        availableUnits: optionalNumericValue(item.availableUnits) ?? 0,
+        awardedUnits: optionalNumericValue(item.awardedUnits) ?? 0,
+        voidUnits: optionalNumericValue(item.voidUnits) ?? 0,
       },
     ];
   });
@@ -719,6 +726,7 @@ async function getPublicPrizeLineupsBatch(
           rank: prize.rank,
           valueThb: prize.value_thb,
           convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
+          bundleQuantity: publicBundleQuantity(prize.bundle_quantity),
           plannedQuantity: counts.total,
           availableUnits: counts.available || undefined,
           totalUnits: counts.total || undefined,
@@ -812,6 +820,7 @@ async function getPublicPrizeLineup(
         rank: prize.rank,
         valueThb: prize.value_thb,
         convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
+        bundleQuantity: publicBundleQuantity(prize.bundle_quantity),
         plannedQuantity: counts.total,
         availableUnits: counts.available || undefined,
         totalUnits: counts.total || undefined,
@@ -882,13 +891,9 @@ function toYnotCampaign(
   const plannedPrizeUnitFallback =
     plannedPrizeUnits > 0 ? plannedPrizeUnits : undefined;
   const materializedTotalUnits =
-    inventory?.totalUnits && inventory.totalUnits > 0
-      ? inventory.totalUnits
-      : undefined;
+    inventory?.totalUnits === undefined ? undefined : inventory.totalUnits;
   const materializedAvailableUnits =
-    inventory?.availableUnits && inventory.availableUnits > 0
-      ? inventory.availableUnits
-      : undefined;
+    inventory?.availableUnits === undefined ? undefined : inventory.availableUnits;
   const remainingSlots = readiness?.remainingSlots ?? inventory?.remainingSlots;
   const availablePrizeUnits =
     readiness?.availablePrizeUnits ??
@@ -985,6 +990,7 @@ function publicPrizePreview(prize: YnotPrizePreview, index: number): YnotPrizePr
     rank: index + 1,
     valueThb: prize.valueThb,
     convertCoinValue: prize.convertCoinValue,
+    bundleQuantity: prize.bundleQuantity,
     prizeCategory: prize.prizeCategory,
     prizeCategoryLabel: prize.prizeCategoryLabel,
     displayTier: prize.displayTier,
@@ -1388,6 +1394,7 @@ async function readOrEmpty<T>(
 
 type CampaignQueryOptions = {
   includePrivate?: boolean;
+  includeSoldOutPublic?: boolean;
   limit?: number | null;
   includeReadiness?: boolean;
   includePrizeLineups?: boolean;
@@ -1405,6 +1412,8 @@ async function getCampaignsImpl(
     const includePrizeLineups =
       options.includePrizeLineups ?? Boolean(options.includePrivate);
     const campaignIdOrSlug = options.campaignIdOrSlug?.trim();
+    const includeSoldOutPublic =
+      options.includeSoldOutPublic ?? Boolean(campaignIdOrSlug);
     const loadRows = (requireApproval: boolean) => {
       let query = supabase
         .from("draw_rounds")
@@ -1425,7 +1434,10 @@ async function getCampaignsImpl(
         // queue.
         return query.in("status", ["live", "closed", "draft"]);
       }
-      query = query.eq("visibility", "public").eq("status", "live");
+      query = query.eq("visibility", "public");
+      query = includeSoldOutPublic
+        ? query.in("status", ["live", "closed"])
+        : query.eq("status", "live");
       return requireApproval
         ? query.eq("approval_status", "approved")
         : query;
@@ -1563,7 +1575,11 @@ async function getCampaignsImpl(
     });
     return options.includePrivate
       ? campaigns
-      : campaigns.filter((campaign) => campaign.openable);
+      : campaigns.filter(
+          (campaign) =>
+            campaign.openable ||
+            (includeSoldOutPublic && campaign.soldOut),
+        );
   });
 }
 
@@ -1574,7 +1590,19 @@ const getPublicCampaignsCached = unstable_cache(
       limit: null,
       includeReadiness: false,
     }),
-  ["ynot-campaigns-public-v2-all"],
+  ["ynot-campaigns-public-v4-all"],
+  { tags: ["campaigns"], revalidate: 60 },
+);
+
+const getPublicCampaignsWithSoldOutCached = unstable_cache(
+  () =>
+    getCampaignsImpl({
+      includePrivate: false,
+      includeSoldOutPublic: true,
+      limit: null,
+      includeReadiness: false,
+    }),
+  ["ynot-campaigns-public-v1-related-sold-out"],
   { tags: ["campaigns"], revalidate: 60 },
 );
 
@@ -1582,7 +1610,10 @@ export async function getCampaigns(
   options: CampaignQueryOptions = {},
 ): Promise<YnotCampaign[]> {
   if (options.includePrivate) return getCampaignsImpl(options);
-  const campaigns = await getPublicCampaignsCached();
+  if (options.campaignIdOrSlug) return getCampaignsImpl(options);
+  const campaigns = await (options.includeSoldOutPublic
+    ? getPublicCampaignsWithSoldOutCached()
+    : getPublicCampaignsCached());
   return typeof options.limit === "number"
     ? campaigns.slice(0, options.limit)
     : campaigns;
@@ -1738,7 +1769,7 @@ async function loadPublicCampaignDetailImpl(
     publicPrizeLineup,
     publicReadiness,
   );
-  if (!campaign.openable) return null;
+  if (!campaign.openable && !campaign.soldOut) return null;
   campaign.lastPrizePreview = await resolveLastPrizePreview(supabase, row);
   return publicYnotCampaign(campaign);
 }
@@ -1751,13 +1782,17 @@ async function loadPublicCampaignDetailImpl(
 const getPublicCampaignDetailCached = (slug: string): Promise<YnotCampaign | null> =>
   unstable_cache(
     () => loadPublicCampaignDetailImpl(slug),
-    ["ynot-campaign-detail-public-v1", slug],
+    ["ynot-campaign-detail-public-v2", slug],
     { tags: ["campaigns", "campaign-detail"], revalidate: 30 },
   )();
 
 export async function getCampaign(
   campaignIdOrSlug: string,
-  options: { allowTestForCurrentViewer?: boolean; viewer?: YnotViewer } = {},
+  options: {
+    allowTestForCurrentViewer?: boolean;
+    bypassPublicCache?: boolean;
+    viewer?: YnotViewer;
+  } = {},
 ) {
   const campaignLookup = campaignIdOrSlug.trim();
   if (!options.allowTestForCurrentViewer) {
@@ -1786,12 +1821,10 @@ export async function getCampaign(
 
   const viewer = options.viewer ?? (await getYnotViewer());
 
-  // Non-admin viewers of a public, non-test pack (looked up by slug) get the
-  // cached public projection. Admins, UUID lookups, and test-campaign testers
-  // fall through to the dynamic per-viewer path below, so private detail is
-  // never cached or shared. Cache returns null for not-found / not-openable /
-  // test packs, which correctly falls through.
-  if (!viewer.isAdmin && !looksLikeUuid(campaignLookup)) {
+  // Non-admin viewers of a public, non-test pack (looked up by slug) usually
+  // get the cached public projection. Open-entry pages can opt out so stale
+  // cached openable state cannot auto-start a sold-out pack.
+  if (!options.bypassPublicCache && !viewer.isAdmin && !looksLikeUuid(campaignLookup)) {
     const cached = await getPublicCampaignDetailCached(campaignLookup);
     if (cached) return cached;
   }
@@ -1883,7 +1916,7 @@ export async function getCampaign(
     );
     campaign.lastPrizePreview = await resolveLastPrizePreview(supabase, row);
     const customerCampaign = includePrivateDetail ? campaign : publicYnotCampaign(campaign);
-    if (!includePrivateDetail && !campaign.openable) return [];
+    if (!includePrivateDetail && !campaign.openable && !campaign.soldOut) return [];
     return [customerCampaign];
   }).then(
     (campaigns) =>
@@ -2260,7 +2293,7 @@ export async function getCollection(
         const { data, error } = await supabase
           .from("gacha_open_items")
           .select(
-            "id,gacha_open_id,card_id,draw_round_prize_id,tier,value_thb,result_position",
+            "id,gacha_open_id,card_id,draw_round_prize_id,tier,value_thb,result_position,bundle_quantity",
           )
           .in("gacha_open_id", gachaSourceIds)
           .order("result_position", { ascending: true });
@@ -2374,6 +2407,30 @@ export async function getCollection(
     }
   }
 
+  const actionTokenByItemId = new Map<string, string>();
+  await Promise.all(
+    collectionItemIds.map(async (itemId) => {
+      actionTokenByItemId.set(
+        itemId,
+        await collectionItemActionToken(profileId, itemId),
+      );
+    }),
+  );
+
+  const collectionItemRowsByOpenItemId = new Map<string, typeof items>();
+  for (const item of items) {
+    const openItemId = sourceOpenItemIdByCollectionItem.get(item.id);
+    if (!openItemId) continue;
+    const group = collectionItemRowsByOpenItemId.get(openItemId) ?? [];
+    group.push(item);
+    collectionItemRowsByOpenItemId.set(openItemId, group);
+  }
+  for (const group of collectionItemRowsByOpenItemId.values()) {
+    group.sort((left, right) =>
+      (left.serial_no ?? left.id).localeCompare(right.serial_no ?? right.id),
+    );
+  }
+
   const cardsById = new Map(cards.map((card) => [card.catalogCardId, card]));
   return Promise.all(items.map(async (item) => {
     const card = cardsById.get(item.card_id);
@@ -2386,6 +2443,23 @@ export async function getCollection(
       : item.source_id
         ? openItemsByOpenAndCard.get(`${item.source_id}:${item.card_id}`)?.shift()
         : undefined;
+    const bundleGroupRows = directOpenItemId
+      ? collectionItemRowsByOpenItemId.get(directOpenItemId) ?? []
+      : [];
+    const bundleQuantity = publicBundleQuantity(
+      sourceOpenItem?.bundle_quantity ?? bundleGroupRows.length,
+    );
+    const bundleGroupItemIds = bundleQuantity
+      ? bundleGroupRows
+          .map((row) => actionTokenByItemId.get(row.id))
+          .filter((id): id is string => Boolean(id))
+      : undefined;
+    const bundleIndex = bundleQuantity
+      ? Math.max(
+          1,
+          bundleGroupRows.findIndex((row) => row.id === item.id) + 1,
+        )
+      : undefined;
     const sourcePrize = sourceOpenItem?.draw_round_prize_id
       ? prizesById.get(sourceOpenItem.draw_round_prize_id)
       : undefined;
@@ -2405,6 +2479,12 @@ export async function getCollection(
       cardPrizeCategory: card?.prizeCategory ?? null,
       cardSeries: card?.series ?? null,
       imageUrl: wonUnit?.imageUrl ?? null,
+      bundleQuantity,
+      bundleIndex,
+      bundleGroupId: bundleQuantity
+        ? bundleGroupItemIds?.[0] ?? actionTokenByItemId.get(item.id) ?? null
+        : null,
+      bundleGroupItemIds,
       status: item.status,
       serialNo: item.serial_no,
       acquiredAt: item.acquired_at,
@@ -2564,6 +2644,7 @@ export async function getGachaOpenHistory(
         cardName: card?.name ?? "Mystery reward",
         cardCode: card?.code,
         imageUrl: publicSubSkuImageUrl(rewardImageByOpenItemId.get(item.id)),
+        bundleQuantity: publicBundleQuantity(item.bundle_quantity),
         displayTier,
         valueThb: item.value_thb,
         resultPosition: item.result_position,
@@ -3531,6 +3612,7 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         rank: prize.rank,
         valueThb: prize.value_thb,
         convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
+        bundleQuantity: normalizeBundleQuantity(prize.bundle_quantity),
         weight: Number(prize.weight ?? 1),
         unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),
         prizeCategory: metadataString(prize.metadata, "prizeCategory"),
@@ -3787,6 +3869,7 @@ export type YnotDashboardSelector = {
   campaignReadiness?: boolean;
   campaignPrizeLineups?: boolean;
   campaignIdOrSlug?: string;
+  includeSoldOutCampaigns?: boolean;
   platformHealth?: boolean;
 };
 
@@ -3844,6 +3927,7 @@ export async function getYnotDashboardSlice(
         ? campaignVisibility === "admin"
           ? getCampaigns({
               includePrivate: viewer.isAdmin || isDevAuthAllowed(),
+              includeSoldOutPublic: selector.includeSoldOutCampaigns,
               limit: selector.campaignLimit,
               includeReadiness: selector.campaignReadiness,
               includePrizeLineups: selector.campaignPrizeLineups,
@@ -3851,6 +3935,7 @@ export async function getYnotDashboardSlice(
             })
           : getCampaigns({
               includePrivate: false,
+              includeSoldOutPublic: selector.includeSoldOutCampaigns,
               limit: selector.campaignLimit,
               campaignIdOrSlug: selector.campaignIdOrSlug,
             })

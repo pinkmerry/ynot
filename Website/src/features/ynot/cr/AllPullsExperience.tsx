@@ -7,6 +7,7 @@ import type {
   YnotCollectionItem,
   YnotGachaOpenHistory,
 } from "../types";
+import { QuantityBadge } from "../QuantityBadge";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { PageHead } from "./UiKit";
 
@@ -55,6 +56,7 @@ type PullRow = {
   cardName: string;
   cardCode: string;
   imageUrl?: string | null;
+  bundleQuantity?: number;
   tier: Tier;
   status: StatusKey;
   series: string;
@@ -108,6 +110,7 @@ export function AllPullsExperience({
       cardName: c.cardName,
       cardCode: c.cardCode ?? "—",
       imageUrl: c.imageUrl ?? null,
+      bundleQuantity: c.bundleQuantity,
       tier: tierFromCollection(c),
       status: statusFromCollection(c.status),
       series: detectSeries(
@@ -130,6 +133,7 @@ export function AllPullsExperience({
           cardName: reward.cardName,
           cardCode: reward.cardCode ?? "—",
           imageUrl: reward.imageUrl ?? null,
+          bundleQuantity: reward.bundleQuantity,
           tier: tierFromReward(reward.displayTier),
           status: "owned" as StatusKey,
           series: detectSeries(open.campaignTitle),
@@ -422,6 +426,7 @@ export function AllPullsExperience({
                     {row.cardCode}
                   </span>
                 )}
+                <QuantityBadge quantity={row.bundleQuantity} />
               </div>
               <div
                 className="cr-stack"

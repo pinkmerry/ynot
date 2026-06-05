@@ -27,6 +27,70 @@ test("cached public detail loader returns only the public projection", () => {
   );
 });
 
+test("public prize preview allows bundle quantity but hides internal stock planning", () => {
+  const preview = sliceBetween(
+    "function publicPrizePreview",
+    "function publicPrizeLineup",
+  );
+  assert.match(preview, /bundleQuantity:\s*prize\.bundleQuantity/);
+  assert.doesNotMatch(preview, /plannedQuantity/);
+  assert.doesNotMatch(preview, /stockUnitFilter/);
+  assert.doesNotMatch(preview, /stockUnitGroupKey/);
+});
+
+test("cached public detail loader returns sold-out campaigns through the public projection", () => {
+  const impl = sliceBetween(
+    "async function loadPublicCampaignDetailImpl",
+    "const getPublicCampaignDetailCached",
+  );
+  assert.match(
+    impl,
+    /if \(!campaign\.openable && !campaign\.soldOut\) return null;/,
+    "sold-out public packs must reach the customer detail renderer",
+  );
+  assert.doesNotMatch(
+    impl,
+    /if \(!campaign\.openable\) return null;/,
+    "sold-out public packs must not be treated as missing campaigns",
+  );
+  assert.match(
+    impl,
+    /return publicYnotCampaign\(campaign\);/,
+    "sold-out public packs must still use the public projection",
+  );
+});
+
+test("campaign inventory mapper preserves zero remaining slots for final open", () => {
+  const inventoryMapper = sliceBetween(
+    "function inventorySummariesFromJson",
+    "function soldPctForCampaign",
+  );
+  assert.match(
+    inventoryMapper,
+    /remainingSlots:\s*optionalNumericValue\(item\.remainingSlots\)/,
+    "remainingSlots: 0 must survive the JSON mapper after the final prize is opened",
+  );
+  assert.doesNotMatch(
+    inventoryMapper,
+    /remainingSlots:\s*Number\(item\.remainingSlots\)\s*\|\|\s*undefined/,
+    "remainingSlots: 0 must not be collapsed into undefined",
+  );
+
+  const campaignMapper = sliceBetween(
+    "function toYnotCampaign",
+    "function publicPrizePreview",
+  );
+  assert.match(
+    campaignMapper,
+    /inventory\?\.availableUnits === undefined \? undefined : inventory\.availableUnits/,
+    "availableUnits: 0 must be preserved so sold-out fallback stays true",
+  );
+  assert.doesNotMatch(
+    campaignMapper,
+    /inventory\?\.availableUnits && inventory\.availableUnits > 0/,
+  );
+});
+
 test("cached public detail loader excludes test campaigns", () => {
   const impl = sliceBetween(
     "async function loadPublicCampaignDetailImpl",

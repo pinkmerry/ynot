@@ -27,6 +27,7 @@ import {
   catalogCategoryLabel,
   catalogCategoryValue,
 } from "@/features/ynot/card-catalog-metadata";
+import { normalizeBundleQuantity } from "@/features/ynot/bundle-quantity";
 import {
   canPrizeDisplayTierUseRandomPsa10,
   prizeDisplayTierValue,
@@ -356,6 +357,7 @@ async function saveInitialPrizes(
         weight: prize.weight,
         unlock_at_sold_pct: prize.unlockAtSoldPct,
         planned_quantity: prize.quantity,
+        bundle_quantity: normalizeBundleQuantity(prize.bundleQuantity),
         is_test: isTest,
         seed_run_id: seedRunId,
         metadata: {
@@ -406,6 +408,7 @@ function liveEditPrizeRpcRows(
       weight: prize.weight,
       unlockAtSoldPct: prize.unlockAtSoldPct,
       plannedQuantity: prize.quantity,
+      "bundleQuantity": normalizeBundleQuantity(prize.bundleQuantity),
       isTest,
       seedRunId,
       metadata: {

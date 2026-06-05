@@ -9,6 +9,10 @@ import {
   type PrizeDisplayTier,
 } from "./prize-tier";
 import {
+  normalizeBundleQuantity,
+  plannedQuantityForPrize,
+} from "./bundle-quantity";
+import {
   buildPrizeStockSelectionIssues,
   buildPrizeStockShortages,
   stockCardIdForPrize,
@@ -60,6 +64,7 @@ export type PrizeDraftInput = {
   valueThb: number | null;
   convertCoinValue: number;
   quantity: number;
+  bundleQuantity?: number | string | null;
   weight: number;
   unlockAtSoldPct: number;
   metadata?: Json;
@@ -125,6 +130,12 @@ function numberOrZero(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function optionalNumber(value: unknown) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function numberOrDefault(value: unknown, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -178,8 +189,8 @@ function inventorySummariesFromJson(value: unknown): InventorySummary[] {
     return [
       {
         drawRoundId: item.drawRoundId,
-        totalSlots: numberOrZero(item.totalSlots) || undefined,
-        remainingSlots: numberOrZero(item.remainingSlots) || undefined,
+        totalSlots: optionalNumber(item.totalSlots),
+        remainingSlots: optionalNumber(item.remainingSlots),
         totalUnits: numberOrZero(item.totalUnits),
         availableUnits: numberOrZero(item.availableUnits),
         awardedUnits: numberOrZero(item.awardedUnits),
@@ -493,6 +504,9 @@ export function normalizePrizeDrafts(value: unknown): PrizeDraftInput[] {
         valueThb: numberOrZero(row.valueThb) > 0 ? Math.round(numberOrZero(row.valueThb)) : null,
         convertCoinValue,
         quantity,
+        bundleQuantity: normalizeBundleQuantity(
+          row.bundleQuantity ?? row.bundle_quantity,
+        ),
         weight,
         unlockAtSoldPct,
         metadata: (isRecord(row.metadata) ? row.metadata : {}) as Json,
@@ -510,10 +524,13 @@ export function validatePrizeDraftsForSave(
     stockSummaries: PrizeStockSummary[];
   },
 ) {
-  const totalPrizeUnits = prizes.reduce((sum, prize) => sum + prize.quantity, 0);
+  const totalPrizeUnits = prizes.reduce(
+    (sum, prize) => sum + plannedQuantityForPrize(prize),
+    0,
+  );
   const initialEligiblePrizeUnits = prizes
     .filter((prize) => prizeEligibleAtSoldPct(prize, logicMode, 0))
-    .reduce((sum, prize) => sum + prize.quantity, 0);
+    .reduce((sum, prize) => sum + plannedQuantityForPrize(prize), 0);
   const highPrizeRows = prizes.filter((prize) => prize.tier === "high").length;
   const displayTierCounts = countByDisplayTier(prizes);
   const topPrizeRows = displayTierCounts.rainbow;
@@ -666,20 +683,20 @@ export async function getCampaignPrizeReadiness(
   let stockBlockers: string[] = [];
   if (usePlannedInventory) {
     totalPrizeUnits = visiblePrizes.reduce(
-      (sum, prize) => sum + Math.max(0, Number(prize.planned_quantity ?? 0)),
+      (sum, prize) => sum + plannedQuantityForPrize(prize),
       0,
     );
     availablePrizeUnits = totalPrizeUnits;
     eligiblePrizeUnits = visiblePrizes
       .filter((prize) => prizeEligibleAtSoldPct(prize, logicMode, soldPct))
       .reduce(
-        (sum, prize) => sum + Math.max(0, Number(prize.planned_quantity ?? 0)),
+        (sum, prize) => sum + plannedQuantityForPrize(prize),
         0,
       );
     initialEligiblePrizeUnits = visiblePrizes
       .filter((prize) => prizeEligibleAtSoldPct(prize, logicMode, 0))
       .reduce(
-        (sum, prize) => sum + Math.max(0, Number(prize.planned_quantity ?? 0)),
+        (sum, prize) => sum + plannedQuantityForPrize(prize),
         0,
       );
     const stockSummaries = await getPrizeStockSummaries(supabase, visiblePrizes, {
@@ -719,7 +736,7 @@ export async function getCampaignPrizeReadiness(
   );
   const unitBackedPrizes = usePlannedInventory
     ? visiblePrizes.filter(
-        (prize) => Math.max(0, Number(prize.planned_quantity ?? 0)) > 0,
+        (prize) => plannedQuantityForPrize(prize) > 0,
       )
     : visiblePrizes.filter(
         (prize) => (nonVoidUnitsByPrizeId.get(prize.id) ?? 0) > 0,

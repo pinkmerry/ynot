@@ -7,6 +7,14 @@ const openRouteSource = readFileSync(
   new URL("../src/app/api/ynot/gacha/open/route.ts", import.meta.url),
   "utf8",
 );
+const gachaOpenPageSource = readFileSync(
+  new URL("../src/app/(store)/gacha/[campaignId]/open/page.tsx", import.meta.url),
+  "utf8",
+);
+const packsPageSource = readFileSync(
+  new URL("../src/app/(store)/packs/page.tsx", import.meta.url),
+  "utf8",
+);
 const clientSource = readFileSync(
   new URL("../src/features/ynot/client.tsx", import.meta.url),
   "utf8",
@@ -151,7 +159,11 @@ test("pack-open API response is mapped through a public result shape", () => {
     "function toPublicOpenItem",
     "function toPublicOpenResult",
   );
+  assert.match(publicItem, /bundleQuantity:\s*publicBundleQuantity/);
   assert.doesNotMatch(publicItem, /prizeUnitId/);
+  assert.doesNotMatch(publicItem, /drawRoundPrizeUnitIds/);
+  assert.doesNotMatch(publicItem, /stockUnitGroupKey/);
+  assert.doesNotMatch(publicItem, /stockUnitFilter/);
   assert.doesNotMatch(publicItem, /weight/);
   assert.doesNotMatch(publicItem, /unlockAtSoldPct/);
   assert.doesNotMatch(publicItem, /soldPct/);
@@ -165,6 +177,11 @@ test("pack-open API response is mapped through a public result shape", () => {
     "type PublicOpenItem = {",
     "type PublicOpenResult = {",
   );
+  assert.match(publicItemType, /bundleQuantity\?: number/);
+  assert.doesNotMatch(publicItemType, /prizeUnitId/);
+  assert.doesNotMatch(publicItemType, /drawRoundPrizeUnitIds/);
+  assert.doesNotMatch(publicItemType, /stockUnitGroupKey/);
+  assert.doesNotMatch(publicItemType, /stockUnitFilter/);
   assert.doesNotMatch(publicItemType, /\btier:/);
   assert.match(publicItemType, /displayTier:/);
 
@@ -224,7 +241,7 @@ test("customer campaign props hide house logic and internal prize inventory", ()
   const publicCampaignCall = between(
     dataSource,
     "const campaign = toYnotCampaign(",
-    "if (!includePrivateDetail && !campaign.openable) return [];",
+    "return [customerCampaign];",
   );
   assert.match(publicCampaignCall, /includePrivateDetail\s*\?\s*campaign\s*:\s*publicYnotCampaign\(campaign\)/);
 
@@ -241,6 +258,74 @@ test("customer campaign props hide house logic and internal prize inventory", ()
     "export function CampaignDetailPanel",
   );
   assert.match(campaignCardBlock, /data-pack-id=\{showAdminEdit \? campaign\.id : campaign\.slug\}/);
+});
+
+test("related public campaign feeds can show sold-out packs without widening every feed", () => {
+  const impl = between(
+    dataSource,
+    "async function getCampaignsImpl",
+    "const getPublicCampaignsCached",
+  );
+  assert.match(
+    impl,
+    /includeSoldOutPublic\s*=\s*options\.includeSoldOutPublic \?\? Boolean\(campaignIdOrSlug\)/,
+  );
+  assert.match(
+    impl,
+    /query = includeSoldOutPublic\s*\?\s*query\.in\("status", \["live", "closed"\]\)\s*:\s*query\.eq\("status", "live"\);/,
+  );
+  assert.match(
+    impl,
+    /campaign\.openable \|\|\s*\(includeSoldOutPublic && campaign\.soldOut\)/,
+  );
+  assert.doesNotMatch(
+    impl,
+    /campaigns\.filter\(\(campaign\) => campaign\.openable\)/,
+  );
+
+  const getCampaignsBlock = between(
+    dataSource,
+    "export async function getCampaigns",
+    "async function getStoreCategoriesImpl",
+  );
+  assert.match(
+    getCampaignsBlock,
+    /if \(options\.campaignIdOrSlug\) return getCampaignsImpl\(options\);/,
+  );
+  assert.match(
+    getCampaignsBlock,
+    /options\.includeSoldOutPublic\s*\?\s*getPublicCampaignsWithSoldOutCached\(\)\s*:\s*getPublicCampaignsCached\(\)/,
+  );
+  const dashboardSliceBlock = between(
+    dataSource,
+    "export async function getYnotDashboardSlice",
+    "export function getYnotDashboardData",
+  );
+  assert.match(
+    dashboardSliceBlock,
+    /includePrivate: viewer\.isAdmin \|\| isDevAuthAllowed\(\),\s*includeSoldOutPublic: selector\.includeSoldOutCampaigns,/,
+  );
+  assert.match(packsPageSource, /includeSoldOutCampaigns:\s*true/);
+});
+
+test("non-admin dynamic campaign detail keeps sold-out public packs visible through public DTOs", () => {
+  const getCampaignBlock = between(
+    dataSource,
+    "export async function getCampaign",
+    "async function getPaymentMethodsImpl",
+  );
+  assert.match(
+    getCampaignBlock,
+    /const customerCampaign = includePrivateDetail \? campaign : publicYnotCampaign\(campaign\);/,
+  );
+  assert.match(
+    getCampaignBlock,
+    /if \(!includePrivateDetail && !campaign\.openable && !campaign\.soldOut\) return \[\];/,
+  );
+  assert.doesNotMatch(
+    getCampaignBlock,
+    /if \(!includePrivateDetail && !campaign\.openable\) return \[\];/,
+  );
 });
 
 test("pack-open reveal result does not expose raw internal open ids", () => {
@@ -324,6 +409,81 @@ test("pack-open browser payload uses public campaign slug and server resolves it
   assert.doesNotMatch(openRouteSource, /if \(!campaignId \|\| !isUuid\(campaignId\)\)/);
   assert.match(openRouteSource, /buildPreviewOpenResult\(resolvedCampaignId,\s*quantity\)/);
   assert.match(openRouteSource, /p_draw_round_id:\s*resolvedCampaignId/);
+});
+
+test("open page only renders auto-start reveal for openable campaigns", () => {
+  assert.match(
+    gachaOpenPageSource,
+    /getCampaign\(campaignId,\s*\{\s*allowTestForCurrentViewer:\s*true,\s*bypassPublicCache:\s*true,\s*viewer:\s*data\.viewer,\s*\}\)/,
+    "open entrypoints must bypass cached public detail so stale openable state cannot auto-start a sold-out pack",
+  );
+  assert.match(
+    gachaOpenPageSource,
+    /if \(campaign && campaign\.openable && autoStart\)/,
+  );
+  assert.doesNotMatch(
+    gachaOpenPageSource,
+    /if \(campaign && autoStart\)/,
+  );
+  assert.match(
+    gachaOpenPageSource,
+    /if \(campaign\) \{\s*redirect\(`\/packs\/\$\{campaign\.slug\}`\);\s*\}/,
+  );
+});
+
+test("public campaign detail cache is bypassable for fresh openability gates", () => {
+  const getCampaignBlock = between(
+    dataSource,
+    "export async function getCampaign",
+    "async function getPaymentMethodsImpl",
+  );
+  assert.match(
+    getCampaignBlock,
+    /bypassPublicCache\?: boolean;/,
+    "getCampaign should expose an explicit cache bypass option for open-entry freshness",
+  );
+  assert.match(
+    getCampaignBlock,
+    /if \(!options\.bypassPublicCache && !viewer\.isAdmin && !looksLikeUuid\(campaignLookup\)\)/,
+    "public detail cache must be skipped when callers need fresh sold-out/openable state",
+  );
+});
+
+test("legacy campaign card and detail disable open actions for sold-out packs", () => {
+  const campaignCard = between(
+    componentsSource,
+    "export function CampaignCard",
+    "export function CampaignDetailPanel",
+  );
+  assert.match(campaignCard, /const soldOut = isCampaignSoldOut\(campaign\);/);
+  assert.match(campaignCard, /\{soldOut \? \(/);
+  assert.match(campaignCard, />\s*Sold out\s*<\/button>/);
+  assert.match(
+    campaignCard,
+    /\{soldOut \? \(\s*<button[\s\S]*className="primary-action"[\s\S]*disabled[\s\S]*>\s*Sold out\s*<\/button>\s*\) : \(\s*<Link[\s\S]*className="primary-action"[\s\S]*href=\{`\/gacha\/\$\{campaign\.slug\}\/open`\}[\s\S]*>\s*Open\s*<\/Link>\s*\)\}/,
+  );
+  assert.doesNotMatch(
+    campaignCard,
+    /<div className="product-actions">\s*<Link className="secondary-action" href=\{`\/gacha\/\$\{campaign\.slug\}`\}>[\s\S]*?Details[\s\S]*?<\/Link>\s*<Link className="primary-action" href=\{`\/gacha\/\$\{campaign\.slug\}\/open`\}>[\s\S]*?Open[\s\S]*?<\/Link>\s*<\/div>/,
+  );
+
+  const campaignDetailPanel = between(
+    componentsSource,
+    "export function CampaignDetailPanel",
+    "export function RewardTierList",
+  );
+  assert.match(
+    campaignDetailPanel,
+    /const soldOut = isCampaignSoldOut\(campaign\);/,
+  );
+  assert.match(
+    campaignDetailPanel,
+    /const canOpen =\s*campaign\.demo \|\| \(!soldOut && \(campaign\.openable \|\| isDevAuthAllowed\(\)\)\);/,
+  );
+  assert.match(
+    campaignDetailPanel,
+    /const unavailableCopy = soldOut\s*\?\s*"Sold out"\s*:\s*"This pack is not ready to open yet\. Please check back later\.";/,
+  );
 });
 
 test("customer pull history does not expose raw open, reward, or campaign ids", () => {

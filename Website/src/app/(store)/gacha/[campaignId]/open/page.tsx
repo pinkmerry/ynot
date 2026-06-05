@@ -17,10 +17,14 @@ export default async function GachaOpenPage({
     searchParams ?? Promise.resolve({} as { qty?: string; auto?: string }),
     getYnotDashboardSlice({ wallet: true }),
   ]);
-  const campaign = await getCampaign(campaignId, { allowTestForCurrentViewer: true, viewer: data.viewer });
+  const campaign = await getCampaign(campaignId, {
+    allowTestForCurrentViewer: true,
+    bypassPublicCache: true,
+    viewer: data.viewer,
+  });
   const initialQuantity = Math.max(1, Math.min(100, Math.round(Number(query.qty) || 1)));
   const autoStart = query.auto === "1";
-  if (campaign && autoStart) {
+  if (campaign && campaign.openable && autoStart) {
     const tierAnimations = await getTierAnimations();
     return (
       <GachaOpenPanelLazy

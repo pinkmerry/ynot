@@ -421,6 +421,7 @@ export type Database = {
           weight: number;
           unlock_at_sold_pct: number;
           planned_quantity: number;
+          bundle_quantity: number;
           is_test: boolean;
           seed_run_id: string | null;
           metadata: Json;
@@ -438,6 +439,7 @@ export type Database = {
           weight?: number;
           unlock_at_sold_pct?: number;
           planned_quantity?: number;
+          bundle_quantity?: number;
           is_test?: boolean;
           seed_run_id?: string | null;
           metadata?: Json;
@@ -662,8 +664,8 @@ export type Database = {
         Relationships: [];
       };
       gacha_open_items: {
-        Row: { id: string; gacha_open_id: string; card_id: string; draw_round_prize_id: string | null; draw_round_prize_unit_id: string | null; tier: string | null; value_thb: number | null; result_position: number; created_at: string };
-        Insert: { id?: string; gacha_open_id: string; card_id: string; draw_round_prize_id?: string | null; draw_round_prize_unit_id?: string | null; tier?: string | null; value_thb?: number | null; result_position?: number; created_at?: string };
+        Row: { id: string; gacha_open_id: string; card_id: string; draw_round_prize_id: string | null; draw_round_prize_unit_id: string | null; bundle_quantity: number; tier: string | null; value_thb: number | null; result_position: number; created_at: string };
+        Insert: { id?: string; gacha_open_id: string; card_id: string; draw_round_prize_id?: string | null; draw_round_prize_unit_id?: string | null; bundle_quantity?: number; tier?: string | null; value_thb?: number | null; result_position?: number; created_at?: string };
         Update: Partial<Database["public"]["Tables"]["gacha_open_items"]["Insert"]>;
         Relationships: [];
       };

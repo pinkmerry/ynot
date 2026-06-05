@@ -1,11 +1,19 @@
+import {
+  bundledStockUnitRequirement,
+  normalizeBundleQuantity,
+  plannedQuantityForPrize,
+} from "./bundle-quantity";
+
 export type StockReadinessPrize = {
   cardId?: string | null;
   card_id?: string | null;
   cardName?: string | null;
   cardCode?: string | null;
-  quantity?: number | null;
-  plannedQuantity?: number | null;
-  planned_quantity?: number | null;
+  quantity?: number | string | null;
+  plannedQuantity?: number | string | null;
+  planned_quantity?: number | string | null;
+  bundleQuantity?: number | string | null;
+  bundle_quantity?: number | string | null;
   metadata?: unknown;
 };
 
@@ -31,6 +39,9 @@ export type PrizeStockShortage = {
   stockUnitGroupKey?: string;
   stockSku?: string | null;
   label: string;
+  plannedUnits: number;
+  bundleQuantity?: number | null;
+  bundleDescription?: string;
   requiredUnits: number;
   availableUnits: number;
   reservedUnits: number;
@@ -65,15 +76,18 @@ export function stockCardIdForPrize(prize: StockReadinessPrize) {
   return stringOrEmpty(prize.cardId ?? prize.card_id);
 }
 
+export function bundleQuantityForPrize(prize: StockReadinessPrize) {
+  return normalizeBundleQuantity(prize.bundleQuantity ?? prize.bundle_quantity);
+}
+
 export function stockUnitsForPrize(prize: StockReadinessPrize) {
-  return Math.max(
-    0,
-    Math.round(
-      numberOrZero(
-        prize.quantity ?? prize.plannedQuantity ?? prize.planned_quantity,
-      ),
-    ),
-  );
+  const planned = plannedQuantityForPrize(prize);
+  const bundle = bundleQuantityForPrize(prize);
+  return bundledStockUnitRequirement({
+    ...prize,
+    quantity: planned,
+    bundleQuantity: bundle,
+  });
 }
 
 function labelForPrize(
@@ -141,7 +155,7 @@ export function buildPrizeStockSelectionIssues({
       return [];
     }
     const cardId = stockCardIdForPrize(prize);
-    const quantity = stockUnitsForPrize(prize);
+    const quantity = plannedQuantityForPrize(prize);
     if (!cardId || quantity <= 0 || stockGroupKeyForPrize(prize)) return [];
 
     const summary = summaryByCardId.get(cardId);
@@ -171,6 +185,8 @@ export function buildPrizeStockShortages({
   stockSummaries: PrizeStockSummary[];
 }) {
   const requiredByTarget = new Map<string, number>();
+  const plannedByTarget = new Map<string, number>();
+  const bundlesByTarget = new Map<string, Set<number>>();
   const prizeByTarget = new Map<string, StockReadinessPrize>();
 
   for (const prize of prizes) {
@@ -178,11 +194,20 @@ export function buildPrizeStockShortages({
       continue;
     }
     const cardId = stockCardIdForPrize(prize);
+    const plannedUnits = plannedQuantityForPrize(prize);
+    const bundleQuantity = bundleQuantityForPrize(prize);
     const quantity = stockUnitsForPrize(prize);
     if (!cardId || quantity <= 0) continue;
     const groupKey = stockGroupKeyForPrize(prize);
     const targetKey = `${cardId}\u001e${groupKey}`;
     requiredByTarget.set(targetKey, (requiredByTarget.get(targetKey) ?? 0) + quantity);
+    plannedByTarget.set(
+      targetKey,
+      (plannedByTarget.get(targetKey) ?? 0) + plannedUnits,
+    );
+    const bundles = bundlesByTarget.get(targetKey) ?? new Set<number>();
+    bundles.add(bundleQuantity);
+    bundlesByTarget.set(targetKey, bundles);
     if (!prizeByTarget.has(targetKey)) prizeByTarget.set(targetKey, prize);
   }
 
@@ -220,6 +245,13 @@ export function buildPrizeStockShortages({
         : 0;
       const usableUnits = availableUnits + reservedUnits;
       if (requiredUnits <= usableUnits) return [];
+      const bundleValues = Array.from(bundlesByTarget.get(targetKey) ?? [])
+        .filter((value) => value > 0)
+        .sort((a, b) => a - b);
+      const plannedUnits = plannedByTarget.get(targetKey) ?? requiredUnits;
+      const singleBundleQuantity =
+        bundleValues.length === 1 ? bundleValues[0] : null;
+      const bundleDescription = bundleValues.map((value) => `x${value}`).join(", ");
       return [
         {
           cardId,
@@ -227,6 +259,13 @@ export function buildPrizeStockShortages({
           stockSku:
             stockGroup?.sku ?? stringOrEmpty(stockSelectionMetadata(prize)?.stockSku) ?? null,
           label: labelForPrize(cardId, prize, summary, stockGroup),
+          plannedUnits,
+          ...(singleBundleQuantity && singleBundleQuantity > 1
+            ? { bundleQuantity: singleBundleQuantity }
+            : {}),
+          ...(bundleDescription && bundleDescription !== "x1"
+            ? { bundleDescription }
+            : {}),
           requiredUnits,
           availableUnits,
           reservedUnits,
@@ -243,7 +282,13 @@ export function stockShortageMessage(shortage: PrizeStockShortage) {
     shortage.reservedUnits > 0
       ? `${shortage.usableUnits.toLocaleString()} usable stock units (${shortage.availableUnits.toLocaleString()} global available + ${shortage.reservedUnits.toLocaleString()} already reserved for this pack)`
       : `${shortage.availableUnits.toLocaleString()} global stock units`;
-  return `Card "${shortage.label}" needs ${shortage.requiredUnits.toLocaleString()} prize units but only ${availableText} are available.`;
+  const bundledText =
+    shortage.bundleQuantity && shortage.bundleQuantity > 1
+      ? ` (${shortage.plannedUnits.toLocaleString()} win slots x ${shortage.bundleQuantity.toLocaleString()} per win)`
+      : shortage.bundleDescription && shortage.bundleDescription !== "x1"
+        ? ` (${shortage.plannedUnits.toLocaleString()} win slots across ${shortage.bundleDescription} bundles)`
+        : "";
+  return `Card "${shortage.label}" needs ${shortage.requiredUnits.toLocaleString()} stock units${bundledText} but only ${availableText} are available.`;
 }
 
 export function stockShortageBlockers(shortages: PrizeStockShortage[]) {

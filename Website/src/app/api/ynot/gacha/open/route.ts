@@ -11,6 +11,7 @@ import {
   type PublicPrizeUnitImageRow,
   type PublicStockUnitImageRow,
 } from "@/features/ynot/public-subsku-images";
+import { publicBundleQuantity } from "@/features/ynot/bundle-quantity";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ type RawOpenItem = {
   position?: number;
   prizeUnitId?: string | null;
   isLastPrize?: boolean;
+  bundleQuantity?: number;
   [key: string]: unknown;
 };
 
@@ -53,6 +55,7 @@ type PublicOpenItem = {
   valueThb: number | null;
   position: number;
   isLastPrize?: boolean;
+  bundleQuantity?: number;
 };
 
 type PublicOpenResult = {
@@ -148,6 +151,7 @@ function toPublicOpenItem(item: RawOpenItem, index: number): PublicOpenItem {
     displayTier: normalizeDisplayTier(item.displayTier, tier),
     valueThb: readNumber(item.valueThb),
     position: readPositiveInteger(item.position, index + 1),
+    bundleQuantity: publicBundleQuantity(item.bundleQuantity),
   };
   if (item.isLastPrize === true) publicItem.isLastPrize = true;
   return publicItem;
@@ -211,7 +215,7 @@ async function hydrateItems(
   const { data: openItems, error: openItemsError } = await supabase
     .from("gacha_open_items")
     .select(
-      "card_id,draw_round_prize_id,draw_round_prize_unit_id,result_position,tier,value_thb",
+      "card_id,draw_round_prize_id,draw_round_prize_unit_id,result_position,tier,value_thb,bundle_quantity",
     )
     .eq("gacha_open_id", openId);
   if (openItemsError || !openItems?.length) return items;
@@ -345,6 +349,11 @@ async function hydrateItems(
       tier,
       displayTier,
       valueThb: item.valueThb ?? openItem?.value_thb ?? null,
+      bundleQuantity:
+        item.bundleQuantity ??
+        (typeof openItem?.bundle_quantity === "number"
+          ? openItem.bundle_quantity
+          : undefined),
     };
   });
 }
