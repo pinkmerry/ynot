@@ -353,6 +353,7 @@ export type YnotGachaOpenItem = {
   displayTier: "rainbow" | "gold" | "silver" | "bronze";
   valueThb: number | null;
   position: number;
+  isLastPrize?: boolean;
 };
 
 export type YnotGachaOpenResult = {
