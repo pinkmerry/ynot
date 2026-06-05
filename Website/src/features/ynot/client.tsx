@@ -9379,6 +9379,9 @@ export function AdminCardCatalogPanel({
                     <strong className="admin-card-catalog-row-name">
                       {card.name}
                     </strong>
+                    {card.printLabel ? (
+                      <p className="admin-muted-line">{card.printLabel}</p>
+                    ) : null}
                     <p className="admin-muted-line">
                       {[card.releaseYear, card.series]
                         .filter(Boolean)
@@ -9388,7 +9391,6 @@ export function AdminCardCatalogPanel({
                       {[
                         card.modelCode ?? card.code ?? "no model code",
                         card.variant,
-                        card.printLabel,
                       ]
                         .filter(Boolean)
                         .join(" · ")}
