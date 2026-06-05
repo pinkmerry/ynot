@@ -108,7 +108,7 @@ export function PackDetailExperience({
   // subrequest budget, so fetch it client-side (fresh budget) when the server
   // projection didn't already include it.
   useEffect(() => {
-    if (campaign.lastPrizePreview || !campaign.lastPrizeCardId) return;
+    if (campaign.lastPrizePreview || !campaign.hasLastPrize) return;
     let active = true;
     fetch(`/api/ynot/packs/${encodeURIComponent(campaign.slug)}/last-prize`, {
       cache: "no-store",
@@ -127,7 +127,7 @@ export function PackDetailExperience({
     return () => {
       active = false;
     };
-  }, [campaign.lastPrizePreview, campaign.lastPrizeCardId, campaign.slug]);
+  }, [campaign.lastPrizePreview, campaign.hasLastPrize, campaign.slug]);
 
   const lastPrize = campaign.lastPrizePreview ?? fetchedLastPrize;
 

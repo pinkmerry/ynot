@@ -1,16 +1,23 @@
 import type { NextConfig } from "next";
 
-// CSP is enforced. 'unsafe-inline' on script-src is required because Next.js 16
-// still emits inline runtime scripts; switching to nonce-based CSP needs
-// middleware support that the current Cloudflare Worker setup does not yet
-// wire up. 'unsafe-eval' is needed for the LIFF SDK. Other directives
-// (frame-ancestors, object-src, base-uri, form-action) still provide
-// meaningful clickjacking and form-hijack protection even with relaxed scripts.
+const isDevelopment = process.env.NODE_ENV === "development";
+
+// CSP is enforced. 'unsafe-inline' on script-src is retained because this
+// deployment does not yet run the per-request nonce proxy required by Next.js
+// for strict inline script CSP. Next's current docs require 'unsafe-eval' only
+// for development debugging, so production does not include it.
+const scriptSrc = [
+  "'self'",
+  "'unsafe-inline'",
+  ...(isDevelopment ? ["'unsafe-eval'"] : []),
+  "https://static.line-scdn.net",
+].join(" ");
+
 const cspDirectives = [
   "default-src 'self'",
   // Scripts: self + inline (Next.js runtime). Add hosts as needed for
-  // third-party widgets. unsafe-eval kept for LIFF SDK compatibility.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.line-scdn.net",
+  // third-party widgets.
+  `script-src ${scriptSrc}`,
   // Styles: self + inline (Tailwind injects inline styles in some flows).
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   // Images: self + data URLs + https everywhere (avatar/card images from

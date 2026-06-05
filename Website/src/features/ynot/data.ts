@@ -554,7 +554,6 @@ async function resolveLastPrizePreview(
       : "";
   const grade =
     filter && typeof filter.grade === "string" ? filter.grade.trim() : "";
-  const stockLabel = metadataString(metadata, "stockLabel") ?? null;
 
   const cards = await readSupabaseRows<{
     id: string;
@@ -603,11 +602,9 @@ async function resolveLastPrizePreview(
     null;
 
   return {
-    cardId: card.id,
     cardName: card.name ?? card.card_code ?? "Last prize",
     cardCode: card.card_code ?? null,
     cardImageUrl,
-    stockLabel,
   };
 }
 
@@ -950,6 +947,7 @@ function toYnotCampaign(
     soldOut,
     adminRemoved,
     packCode: row.pack_code,
+    hasLastPrize: Boolean(row.last_prize_card_id),
     lastPrizeCardId: row.last_prize_card_id ?? null,
     lastPrizeStockUnitKey:
       metadataString(row.last_prize_metadata, "stockUnitGroupKey") ?? null,
@@ -1022,6 +1020,11 @@ function publicYnotCampaign(campaign: YnotCampaign): YnotCampaign {
     logicMode: undefined,
     isTest: undefined,
     categoryIds: undefined,
+    hasLastPrize:
+      campaign.hasLastPrize ??
+      Boolean(campaign.lastPrizeCardId || campaign.lastPrizePreview),
+    lastPrizeCardId: undefined,
+    lastPrizeStockUnitKey: undefined,
     prizeLineup: publicPrizeLineup(campaign.prizeLineup),
   };
 }
@@ -1770,7 +1773,6 @@ async function loadPublicCampaignDetailImpl(
     publicReadiness,
   );
   if (!campaign.openable && !campaign.soldOut) return null;
-  campaign.lastPrizePreview = await resolveLastPrizePreview(supabase, row);
   return publicYnotCampaign(campaign);
 }
 

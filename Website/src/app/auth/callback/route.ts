@@ -12,6 +12,7 @@ import {
   sessionCookieOptions,
 } from "@/lib/lucky-draw/session";
 import { shouldUseSecureCookies } from "@/lib/security/cookies";
+import { hardenSupabaseCookieOptions } from "@/lib/supabase/cookie-options";
 import type { Database } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,7 @@ export async function GET(request: Request) {
   // reach the browser.
   response.headers.set("cache-control", "private, no-store");
   const cookieStore = await cookies();
+  const secure = shouldUseSecureCookies(request);
 
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -61,7 +63,11 @@ export async function GET(request: Request) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
+            response.cookies.set(
+              name,
+              value,
+              hardenSupabaseCookieOptions(options, secure),
+            );
           });
         },
       },
@@ -96,7 +102,6 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const secure = shouldUseSecureCookies(request);
   if (user) {
     const profile = await ensureProfileForUser(user, lineSession?.profileId ?? null);
     const sessionVersion = await fetchSessionVersion(profile.id);
