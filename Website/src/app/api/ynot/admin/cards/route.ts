@@ -51,6 +51,7 @@ type CardBody = {
   releaseYear?: unknown;
   cardSet?: unknown;
   variant?: unknown;
+  printLabel?: unknown;
   catalogCategory?: unknown;
   condition?: unknown;
   gradingService?: unknown;
@@ -246,6 +247,9 @@ function cardPatch(
   }
   if (!options.partial || body.variant !== undefined) {
     patch.variant = text(body.variant, 160) || null;
+  }
+  if (!options.partial || body.printLabel !== undefined) {
+    patch.print_label = text(body.printLabel, 160) || null;
   }
   if (!options.partial || body.catalogCategory !== undefined) {
     // Store the human label / custom name as-is; fulfilment logic canonicalizes

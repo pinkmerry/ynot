@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 type OptionKind =
   | "set"
   | "variant"
+  | "print_label"
   | "language"
   | "release_year"
   | "brand"
@@ -16,6 +17,7 @@ type OptionKind =
 const OPTION_KINDS: OptionKind[] = [
   "set",
   "variant",
+  "print_label",
   "language",
   "release_year",
   "brand",
