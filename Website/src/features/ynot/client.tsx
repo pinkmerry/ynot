@@ -8525,6 +8525,96 @@ function AdminSubSkuPackUsageList({
   );
 }
 
+// Inline "set the total unit count" control for a NON-GRADED sub-SKU. Typing a
+// target and pressing Set adds or removes units (via the existing card-stock
+// adjust RPC) until the sub-SKU holds that many. Graded sub-SKUs are excluded —
+// each slab is a unique cert, so they can't be bulk-counted.
+function AdminSubSkuQuantity({
+  cardId,
+  group,
+}: {
+  cardId: string;
+  group: StockSkuGroup;
+}) {
+  const router = useRouter();
+  const isGraded = group.units.some(
+    (unit) => unit.condition === "graded" || Boolean(unit.certNumber),
+  );
+  const [target, setTarget] = useState(String(group.totalUnits));
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  if (isGraded) return null;
+
+  function applyCount() {
+    const next = Math.max(0, Math.min(10000, Math.round(Number(target) || 0)));
+    const delta = next - group.totalUnits;
+    if (delta === 0) {
+      setMsg("No change.");
+      return;
+    }
+    if (delta < 0 && Math.abs(delta) > group.availableUnits) {
+      setMsg(
+        `Only ${group.availableUnits.toLocaleString()} free to remove (rest are in packs).`,
+      );
+      return;
+    }
+    setBusy(true);
+    setMsg("");
+    void (async () => {
+      try {
+        const res = await fetch("/api/ynot/admin/card-stock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cardId,
+            quantityDelta: delta,
+            condition: group.units[0]?.condition ?? "raw",
+            stockUnitGroupKey: group.key,
+            reason: delta > 0 ? "admin_stock_added" : "admin_stock_removed",
+          }),
+        });
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => null)) as
+            | { error?: string; message?: string }
+            | null;
+          throw new Error(
+            payload?.error || payload?.message || "Could not set quantity.",
+          );
+        }
+        router.refresh();
+      } catch (error) {
+        setMsg(error instanceof Error ? error.message : "Could not set quantity.");
+      } finally {
+        setBusy(false);
+      }
+    })();
+  }
+
+  return (
+    <div className="admin-stock-sku-qty">
+      <span className="admin-stock-sku-qty-label">Set quantity</span>
+      <input
+        className="admin-stock-sku-qty-input"
+        type="number"
+        min={0}
+        max={10000}
+        value={target}
+        disabled={busy}
+        onChange={(event) => setTarget(event.target.value)}
+      />
+      <button
+        type="button"
+        className="admin-stock-sku-qty-btn"
+        onClick={applyCount}
+        disabled={busy}
+      >
+        {busy ? "Saving…" : "Set"}
+      </button>
+      {msg && <span className="admin-stock-sku-qty-msg">{msg}</span>}
+    </div>
+  );
+}
+
 function AdminSubSkuManageUnits({
   cardId,
   group,
@@ -8689,6 +8779,7 @@ function AdminStockSkuBreakdown({
                     </span>
                   ) : null}
                 </div>
+                <AdminSubSkuQuantity cardId={card.catalogCardId} group={group} />
                 <AdminSubSkuPackUsageList usages={packUsages} />
                 <AdminSubSkuManageUnits cardId={card.catalogCardId} group={group} />
               </article>
