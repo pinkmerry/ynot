@@ -1066,15 +1066,15 @@ const marketplaceSort = [
 ] as const;
 
 /** Marketplace page — arenaclub.com/marketplace inspired in FOG mint theme.
- *  Filter pills on top, sort dropdown, then card listing grid. Reuses the
- *  user's collection items as for-sale placeholders until a real marketplace
- *  catalog exists. */
-export function MarketplaceExperience({
-  data,
-}: {
-  data: YnotDashboardData;
-}) {
-  const items = data.collection;
+ *  Filter pills on top, sort dropdown, then card listing grid.
+ *
+ *  There is no marketplace listing backend yet, so there are no listings to
+ *  show. We intentionally do NOT mirror the viewer's own collection here —
+ *  that surfaced owned/seeded cards (e.g. "OP16 Pack") as misleading
+ *  0-priced placeholder "listings". Real listings will populate `items` once
+ *  a marketplace catalog exists; until then the page renders its empty state. */
+export function MarketplaceExperience() {
+  const items: YnotCollectionItem[] = [];
 
   return (
     <div className="store-home-grid marketplace-page">
@@ -1084,10 +1084,11 @@ export function MarketplaceExperience({
           <p>{`${items.length} listing${items.length === 1 ? "" : "s"}`}</p>
         </div>
 
-        <div
-          className="marketplace-controls"
-          aria-label="Marketplace filters"
-        >
+        {items.length > 0 && (
+          <div
+            className="marketplace-controls"
+            aria-label="Marketplace filters"
+          >
           <div className="marketplace-filters">
             {marketplaceFilters.map((f, index) => (
               <button
@@ -1110,7 +1111,8 @@ export function MarketplaceExperience({
               ))}
             </select>
           </label>
-        </div>
+          </div>
+        )}
 
         <section
           className="marketplace-grid"

@@ -75,31 +75,48 @@ function openUnavailableReason(campaign: YnotCampaign): string {
 }
 
 type SortKey = "recommended" | "price-asc" | "price-desc" | "almost-out";
-type TagKey = "all" | "new" | "psa10";
-
-function normalizeTag(tag: string | undefined): TagKey {
-  if (tag === "new" || tag === "psa10") return tag;
-  return "all";
-}
 
 function normalizedTagText(value: string): string {
   return value.toLowerCase().replace(/[\s_-]+/g, "");
 }
 
-function campaignMatchesTag(campaign: YnotCampaign, tag: TagKey): boolean {
-  if (tag === "all") return true;
-  const tags = campaign.displayTags ?? [];
-  if (tag === "new") {
-    return tags.some((item) => normalizedTagText(item) === "new");
+/** Customer-facing card tags an admin attached to a pack at creation time
+ *  (draw_rounds.display_tags), trimmed and emptied of blanks. */
+function campaignTags(campaign: YnotCampaign): string[] {
+  return (campaign.displayTags ?? []).map((tag) => tag.trim()).filter(Boolean);
+}
+
+/** True when a pack carries the given customer card tag (case/spacing
+ *  insensitive). An empty tag means "no tag filter", so it matches all. */
+function campaignHasTag(campaign: YnotCampaign, tag: string): boolean {
+  const target = normalizedTagText(tag);
+  if (!target) return true;
+  return campaignTags(campaign).some(
+    (item) => normalizedTagText(item) === target,
+  );
+}
+
+/** Distinct customer card tags across every pack, de-duplicated
+ *  case-insensitively while preserving the first spelling/order seen. Drives
+ *  the filter chips so the strip always mirrors what admins tagged in
+ *  "create packs" — no hardcoded tag list. */
+function collectCampaignTags(campaigns: YnotCampaign[]): string[] {
+  const seen = new Map<string, string>();
+  for (const campaign of campaigns) {
+    for (const tag of campaignTags(campaign)) {
+      const key = normalizedTagText(tag);
+      if (key && !seen.has(key)) seen.set(key, tag);
+    }
   }
-  const searchable = [
-    ...tags,
-    campaign.titleEn,
-    campaign.titleTh,
-    campaign.categoryLabel ?? "",
-    ...(campaign.categorySlugs ?? []),
-  ].filter(Boolean);
-  return searchable.some((item) => normalizedTagText(item).includes("psa10"));
+  return Array.from(seen.values());
+}
+
+/** Resolve an incoming ?tag= value (e.g. "psa10") to the actual tag spelling
+ *  present in the data ("PSA10"); returns "" when it matches nothing. */
+function resolveInitialTag(initialTag: string, tags: string[]): string {
+  const target = normalizedTagText(initialTag);
+  if (!target || target === "all") return "";
+  return tags.find((tag) => normalizedTagText(tag) === target) ?? "";
 }
 
 export type YPackExperienceProps = {
@@ -113,10 +130,12 @@ export function YPackExperience({
   campaigns,
   balanceCoins,
   initialSeries = "all",
-  initialTag = "all",
+  initialTag = "",
 }: YPackExperienceProps) {
   const [category, setCategory] = useState<string>(initialSeries);
-  const [tag, setTag] = useState<TagKey>(normalizeTag(initialTag));
+  const [tag, setTag] = useState<string>(() =>
+    resolveInitialTag(initialTag, collectCampaignTags(campaigns)),
+  );
   const [sort, setSort] = useState<SortKey>("recommended");
   const [search, setSearch] = useState("");
   const [openState, setOpenState] = useState<{
@@ -149,16 +168,26 @@ export function YPackExperience({
     return map;
   }, [campaigns]);
 
-  const psa10Count = useMemo(
-    () => campaigns.filter((campaign) => campaignMatchesTag(campaign, "psa10")).length,
-    [campaigns],
-  );
+  // Customer card tags present across the packs, plus how many packs carry
+  // each — both derived from the data so the chips track "create packs".
+  const availableTags = useMemo(() => collectCampaignTags(campaigns), [campaigns]);
+
+  const tagCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const campaign of campaigns) {
+      const unique = new Set(
+        campaignTags(campaign).map((item) => normalizedTagText(item)),
+      );
+      for (const key of unique) map[key] = (map[key] ?? 0) + 1;
+    }
+    return map;
+  }, [campaigns]);
 
   const filtered = useMemo(() => {
     let list = campaigns.filter(
       (c) =>
         (category === "all" || c.series === category) &&
-        campaignMatchesTag(c, tag),
+        campaignHasTag(c, tag),
     );
     if (search.trim()) {
       const needle = search.toLowerCase();
@@ -198,13 +227,28 @@ export function YPackExperience({
             <span className="count">{counts[series] ?? 0}</span>
           </button>
         ))}
-        <button
-          type="button"
-          className={tag === "psa10" ? "active" : ""}
-          onClick={() => setTag((current) => (current === "psa10" ? "all" : "psa10"))}
-        >
-          PSA 10 <span className="count">{psa10Count}</span>
-        </button>
+        {availableTags.map((label) => {
+          const active = normalizedTagText(tag) === normalizedTagText(label);
+          return (
+            <button
+              key={label}
+              type="button"
+              className={active ? "active" : ""}
+              onClick={() =>
+                setTag((current) =>
+                  normalizedTagText(current) === normalizedTagText(label)
+                    ? ""
+                    : label,
+                )
+              }
+            >
+              {label}{" "}
+              <span className="count">
+                {tagCounts[normalizedTagText(label)] ?? 0}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="cr-toolbar">

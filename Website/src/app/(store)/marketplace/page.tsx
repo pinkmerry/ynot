@@ -13,7 +13,6 @@ export default async function MarketplacePage() {
 
   const data = await getYnotDashboardSlice({
     wallet: true,
-    collection: true,
   });
 
   return (
@@ -21,7 +20,7 @@ export default async function MarketplacePage() {
       viewer={data.viewer}
       walletBalance={data.wallet.balanceCoins}
     >
-      <MarketplaceExperience data={data} />
+      <MarketplaceExperience />
     </YnotShell>
   );
 }

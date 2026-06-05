@@ -187,7 +187,6 @@ const headerMegaMenus: Record<
         { label: "All Packs", href: "/packs" },
         { label: "Pokemon", href: "/packs?series=pokemon" },
         { label: "One Piece", href: "/packs?series=one_piece" },
-        { label: "PSA 10", href: "/packs?tag=psa10" },
       ],
       features: [
         {
@@ -254,7 +253,6 @@ const headerMegaMenus: Record<
         { label: "Y-Packs ทั้งหมด", href: "/packs" },
         { label: "Pokemon", href: "/packs?series=pokemon" },
         { label: "One Piece", href: "/packs?series=one_piece" },
-        { label: "PSA 10", href: "/packs?tag=psa10" },
       ],
       features: [
         {

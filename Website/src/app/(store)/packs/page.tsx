@@ -18,8 +18,6 @@ const validSeriesParams = new Set([
   "multi_sport",
 ]);
 
-const validTagParams = new Set(["all", "new", "psa10"]);
-
 export default async function PacksPage({
   searchParams,
 }: {
@@ -31,9 +29,15 @@ export default async function PacksPage({
     : params?.series;
   const initialSeries =
     seriesParam && validSeriesParams.has(seriesParam) ? seriesParam : "all";
+  // The tag filter is sourced from each pack's customer card tags
+  // (draw_rounds.display_tags), so any tag value is valid here — the
+  // experience resolves it against the tags actually present and ignores
+  // unknown values. Trim/cap only to keep the remount key sane.
   const tagParam = Array.isArray(params?.tag) ? params.tag[0] : params?.tag;
   const initialTag =
-    tagParam && validTagParams.has(tagParam) ? tagParam : "all";
+    typeof tagParam === "string" && tagParam.trim()
+      ? tagParam.trim().slice(0, 40)
+      : "";
 
   const data = await getYnotDashboardSlice({
     campaigns: true,
