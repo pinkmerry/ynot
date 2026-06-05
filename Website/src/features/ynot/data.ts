@@ -27,6 +27,7 @@ import type {
   YnotCategory,
   YnotExchangeOrder,
   YnotGachaOpenHistory,
+  YnotLastPrizePreview,
   YnotOwnerApprovalRequest,
   YnotPaymentMethod,
   YnotPlatformHealth,
@@ -523,6 +524,84 @@ async function readPrizeUnitImageUrlsByPrizeId(
       )
     : [];
   return stockImageUrlByPrizeId(prizeUnits, stockUnits);
+}
+
+// Last One Prize is stored OUTSIDE the prize pool (draw_rounds columns), so it
+// has no draw_round_prize / unit rows to read. Resolve a display preview by
+// matching the chosen sub-SKU (cert/grade from metadata) to a stock unit image,
+// falling back to the product image. Read-only: never touches award state.
+async function resolveLastPrizePreview(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  row: DrawRoundRow,
+): Promise<YnotLastPrizePreview | null> {
+  const cardId = row.last_prize_card_id;
+  if (!cardId) return null;
+  const metadata = row.last_prize_metadata;
+  const filter =
+    isRecord(metadata) && isRecord(metadata.stockUnitFilter)
+      ? metadata.stockUnitFilter
+      : null;
+  const certNumber =
+    filter && typeof filter.certNumber === "string"
+      ? filter.certNumber.trim()
+      : "";
+  const grade =
+    filter && typeof filter.grade === "string" ? filter.grade.trim() : "";
+  const stockLabel = metadataString(metadata, "stockLabel") ?? null;
+
+  const cards = await readSupabaseRows<{
+    id: string;
+    card_code: string | null;
+    name: string | null;
+    image_url: string | null;
+  }>("last_prize_card", () =>
+    supabase
+      .from("cards")
+      .select("id,card_code,name,image_url")
+      .eq("id", cardId)
+      .limit(1),
+  );
+  const card = cards[0];
+  if (!card) return null;
+
+  const units = await readSupabaseRows<{
+    image_url: string | null;
+    cert_number: string | null;
+    grade: string | null;
+    status: string | null;
+  }>("last_prize_stock_units", () =>
+    supabase
+      .from("card_stock_units")
+      .select("image_url,cert_number,grade,status")
+      .eq("card_id", cardId)
+      .neq("status", "deleted"),
+  );
+  // Prefer the exact sub-SKU the admin selected (cert match, then grade match),
+  // and among candidates prefer one that actually has an image.
+  const withImage = (u: { image_url: string | null }) => Boolean(u.image_url);
+  const certMatches = certNumber
+    ? units.filter((u) => (u.cert_number ?? "").trim() === certNumber)
+    : [];
+  const gradeMatches = grade
+    ? units.filter((u) => (u.grade ?? "").trim() === grade)
+    : [];
+  const pickFrom = (list: typeof units) =>
+    list.find(withImage) ?? list[0] ?? null;
+  const matchedUnit =
+    pickFrom(certMatches) ?? pickFrom(gradeMatches) ?? pickFrom(units);
+
+  const cardImageUrl =
+    publicSubSkuImageUrl(matchedUnit?.image_url) ??
+    publicSubSkuImageUrl(card.image_url) ??
+    null;
+
+  return {
+    cardId: card.id,
+    cardName: card.name ?? card.card_code ?? "Last prize",
+    cardCode: card.card_code ?? null,
+    cardImageUrl,
+    stockLabel,
+  };
 }
 
 function isOwnerReviewLineupRow(row: DrawRoundRow) {
@@ -1640,6 +1719,7 @@ async function loadPublicCampaignDetailImpl(
     publicReadiness,
   );
   if (!campaign.openable) return null;
+  campaign.lastPrizePreview = await resolveLastPrizePreview(supabase, row);
   return publicYnotCampaign(campaign);
 }
 
@@ -1781,6 +1861,7 @@ export async function getCampaign(
       prizeLineup,
       readiness,
     );
+    campaign.lastPrizePreview = await resolveLastPrizePreview(supabase, row);
     const customerCampaign = includePrivateDetail ? campaign : publicYnotCampaign(campaign);
     if (!includePrivateDetail && !campaign.openable) return [];
     return [customerCampaign];

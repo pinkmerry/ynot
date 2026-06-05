@@ -331,6 +331,43 @@ export function PackDetailExperience({
                 </div>
               ))
             )}
+            {campaign.lastPrizePreview ? (
+              <div>
+                <div className="cr-tier-banner last-prize">
+                  <span className="cr-tier-swatch last-prize" aria-hidden>
+                    ★
+                  </span>
+                  <span className="cr-tier-text">
+                    <strong className="cr-tier-title">Last One Prize</strong>
+                    <span className="cr-tier-sub">
+                      Bonus for whoever opens the final pack — on top of the
+                      normal pull
+                    </span>
+                  </span>
+                  <span className="cr-tier-count">Bonus</span>
+                </div>
+                <div className="cr-prize-grid">
+                  <div className="cr-prize-card">
+                    <div className="cr-prize-card-art cr-coll-art last-prize">
+                      {campaign.lastPrizePreview.cardImageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={campaign.lastPrizePreview.cardImageUrl}
+                          alt={campaign.lastPrizePreview.cardName}
+                        />
+                      ) : (
+                        <span className="cr-prize-card-art-placeholder">
+                          {initials(campaign.lastPrizePreview.cardName)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="cr-prize-card-name">
+                      {campaign.lastPrizePreview.cardName}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
 
