@@ -532,14 +532,11 @@ export async function POST(request: Request) {
   }
   if (prizeCategory === "psa10_card") {
     const isRandomPsa10 = isRandomPsa10PrizeCard(card);
-    const allowedForTier = canPrizeDisplayTierUseRandomPsa10(displayTier)
-      ? isRandomPsa10
-      : !isRandomPsa10;
-    if (!allowedForTier) {
+    if (isRandomPsa10 && !canPrizeDisplayTierUseRandomPsa10(displayTier)) {
       return Response.json(
         {
           error:
-            "PSA10 prize item does not match the selected display tier. Bronze uses Random PSA10; Rainbow, Gold, and Silver use specific PSA10 cards.",
+            "Random PSA10 can only be used on Bronze. Specific catalog prize items can be used on any tier.",
         },
         { status: 400 },
       );

@@ -9675,10 +9675,12 @@ html[data-ynot-theme="light"] .gacha-detail-open-dock-info strong span {
 }
 
 .admin-prize-combobox__popover {
+  --admin-muted: rgba(244, 239, 225, 0.62);
   background: var(--a-surface, #1c1d22);
   border: 1px solid var(--a-border-strong, rgba(255, 255, 255, 0.14));
   border-radius: 14px;
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+  color: #f4efe1;
   display: flex;
   flex-direction: column;
   left: 0;
@@ -9714,7 +9716,8 @@ html[data-ynot-theme="light"] .gacha-detail-open-dock-info strong span {
   border: 0 !important;
   border-radius: 0 !important;
   box-shadow: none !important;
-  color: inherit !important;
+  caret-color: var(--a-gold, #f4c542);
+  color: #f4efe1 !important;
   flex: 1 1 auto;
   font: inherit;
   height: auto !important;
@@ -9722,6 +9725,11 @@ html[data-ynot-theme="light"] .gacha-detail-open-dock-info strong span {
   min-width: 0;
   outline: none !important;
   padding: 0 !important;
+}
+
+.admin-prize-combobox__search input::placeholder {
+  color: rgba(244, 239, 225, 0.52);
+  opacity: 1;
 }
 
 .admin-prize-combobox__menu {

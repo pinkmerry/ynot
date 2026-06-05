@@ -307,7 +307,7 @@ async function assertPrizeCardsExist(
   if (mismatched) {
     throw new Error("One or more selected prize items do not match the selected sub-category.");
   }
-  const psa10TierMismatched = prizes.some((prize) => {
+  const randomPsa10TierMismatched = prizes.some((prize) => {
     const metadata = isRecord(prize.metadata) ? prize.metadata : {};
     const catalogCategory = catalogCategoryValue(
       metadata.catalogCategory,
@@ -319,13 +319,11 @@ async function assertPrizeCardsExist(
     if (!card) return true;
     const displayTier = prizeDraftDisplayTier(prize);
     const isRandomPsa10 = isRandomPsa10PrizeCard(card);
-    return canPrizeDisplayTierUseRandomPsa10(displayTier)
-      ? !isRandomPsa10
-      : isRandomPsa10;
+    return isRandomPsa10 && !canPrizeDisplayTierUseRandomPsa10(displayTier);
   });
-  if (psa10TierMismatched) {
+  if (randomPsa10TierMismatched) {
     throw new Error(
-      "PSA10 prize item does not match the selected display tier. Bronze uses Random PSA10; Rainbow, Gold, and Silver use specific PSA10 cards.",
+      "Random PSA10 can only be used on Bronze. Specific catalog prize items can be used on any tier.",
     );
   }
 }

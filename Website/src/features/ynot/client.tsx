@@ -4729,8 +4729,8 @@ export function AdminCampaignForm({
                       </strong>
                       <p>
                         {option.value === "bronze"
-                          ? "Lowest/base tier. You can choose Random PSA10 or a specific matching catalog item."
-                          : `${option.label} uses specific catalog prizes and never shows the Random PSA10 base item.`}
+                          ? "Lowest/base tier. Random PSA10 is available for Single Cards; every sub-category can use matching catalog items."
+                          : `${option.label} uses matching catalog items from every sub-category and never shows the Random PSA10 base item.`}
                       </p>
                     </div>
                     <div className="admin-tier-count-controls">

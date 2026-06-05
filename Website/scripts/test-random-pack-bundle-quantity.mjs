@@ -113,6 +113,15 @@ describe("random pack bundled prizes", () => {
     assert.match(css, /admin-prize-combobox__popover--portal/);
     assert.match(
       css,
+      /admin-prize-combobox__popover \{[\s\S]*color:\s*#f4efe1;/,
+    );
+    assert.match(
+      css,
+      /admin-prize-combobox__search input \{[\s\S]*color:\s*#f4efe1\s*!important;/,
+    );
+    assert.match(css, /admin-prize-combobox__search input::placeholder/);
+    assert.match(
+      css,
       /button\.admin-prize-combobox__option[\s\S]*height:\s*auto\s*!important/,
     );
     assert.match(
@@ -125,12 +134,16 @@ describe("random pack bundled prizes", () => {
     );
   });
 
-  it("keeps bronze single-card catalog prizes selectable beside Random PSA10", () => {
+  it("keeps bronze catalog item selection available for every sub-category", () => {
     const client = read("Website/src/features/ynot/client.tsx");
     const catalogFilter = between(
       client,
       "function prizeCatalogCardsFor",
       "function cardMatchesCampaignSeries",
+    );
+    assert.match(
+      catalogFilter,
+      /if \(catalogCategory !== "single_cards"\) return categorizedCards;/,
     );
     assert.match(
       catalogFilter,
@@ -144,6 +157,34 @@ describe("random pack bundled prizes", () => {
     assert.doesNotMatch(
       catalogFilter,
       /return categorizedCards\.filter\(isRandomPsa10Card\)/,
+    );
+
+    const campaignsRoute = read("Website/src/app/api/ynot/admin/campaigns/route.ts");
+    const campaignValidator = between(
+      campaignsRoute,
+      "const randomPsa10TierMismatched",
+      "if (randomPsa10TierMismatched)",
+    );
+    assert.match(
+      campaignValidator,
+      /isRandomPsa10 && !canPrizeDisplayTierUseRandomPsa10\(displayTier\)/,
+    );
+    assert.doesNotMatch(campaignValidator, /\? !isRandomPsa10\s*: isRandomPsa10/);
+
+    const prizesRoute = read("Website/src/app/api/ynot/admin/prizes/route.ts");
+    const livePrizeValidator = between(
+      prizesRoute,
+      'if (prizeCategory === "psa10_card")',
+      "const reviewReset",
+    );
+    assert.match(
+      livePrizeValidator,
+      /isRandomPsa10 && !canPrizeDisplayTierUseRandomPsa10\(displayTier\)/,
+    );
+    assert.doesNotMatch(livePrizeValidator, /allowedForTier/);
+    assert.match(
+      client,
+      /every sub-category can use matching catalog items/,
     );
   });
 });
