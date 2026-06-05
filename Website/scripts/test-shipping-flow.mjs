@@ -586,11 +586,15 @@ test("legacy shipping page shares newly saved addresses between form and request
   assert.match(clientSource, /onAddressSaved\?\.\(payload\.address as YnotAddress\)/);
   assert.match(clientSource, /export function ShippingRequestExperience/);
   assert.match(clientSource, /const \[addressRows, setAddressRows\] = useState\(addresses\)/);
-  assert.match(clientSource, /<CollectionConvertPanel collection=\{collection\} addresses=\{addressRows\} \/>/);
+  assert.match(clientSource, /const \[selectedAddressId, setSelectedAddressId\] = useState\(/);
+  assert.match(clientSource, /function syncAddress\(address: YnotAddress\) \{[\s\S]*setSelectedAddressId\(address\.id\)/);
+  assert.match(clientSource, /<CollectionConvertPanel[\s\S]*addresses=\{addressRows\}[\s\S]*selectedAddressId=\{selectedAddressId\}[\s\S]*onSelectedAddressIdChange=\{setSelectedAddressId\}/);
   assert.match(clientSource, /<AddressForm addresses=\{addressRows\} onAddressSaved=\{syncAddress\} \/>/);
-  assert.match(clientSource, /const activeAddressId =[\s\S]*addresses\.find\(\(address\) => address\.id === addressId\)\?\.id[\s\S]*addresses\.find\(\(address\) => address\.isDefault\)\?\.id[\s\S]*addresses\[0\]\?\.id[\s\S]*""/);
+  assert.match(clientSource, /const requestedAddressId = selectedAddressId \?\? localAddressId/);
+  assert.match(clientSource, /const activeAddressId =[\s\S]*addresses\.find\(\(address\) => address\.id === requestedAddressId\)\?\.id[\s\S]*addresses\.find\(\(address\) => address\.isDefault\)\?\.id[\s\S]*addresses\[0\]\?\.id[\s\S]*""/);
   assert.match(clientSource, /addressId: activeAddressId/);
   assert.match(clientSource, /value=\{activeAddressId\}/);
+  assert.match(clientSource, /onChange=\{\(event\) => updateAddressId\(event\.target\.value\)\}/);
   assert.doesNotMatch(clientSource, /setAddressId\(nextAddressId\)/);
   assert.match(shippingPage, /import \{ ShippingRequestExperience \} from "@\/features\/ynot\/client"/);
   assert.match(shippingPage, /<ShippingRequestExperience collection=\{data\.collection\} addresses=\{data\.addresses\} \/>/);

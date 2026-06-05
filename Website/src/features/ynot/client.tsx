@@ -1047,6 +1047,13 @@ export function ShippingRequestExperience({
   addresses: YnotAddress[];
 }) {
   const [addressRows, setAddressRows] = useState(addresses);
+  const initialSelectedAddressId =
+    addresses.find((address) => address.isDefault)?.id ??
+    addresses[0]?.id ??
+    "";
+  const [selectedAddressId, setSelectedAddressId] = useState(
+    initialSelectedAddressId,
+  );
 
   function syncAddress(address: YnotAddress) {
     setAddressRows((current) => {
@@ -1057,11 +1064,17 @@ export function ShippingRequestExperience({
         ? [address, ...withoutCurrent]
         : [...withoutCurrent, address];
     });
+    setSelectedAddressId(address.id);
   }
 
   return (
     <>
-      <CollectionConvertPanel collection={collection} addresses={addressRows} />
+      <CollectionConvertPanel
+        collection={collection}
+        addresses={addressRows}
+        selectedAddressId={selectedAddressId}
+        onSelectedAddressIdChange={setSelectedAddressId}
+      />
       <AddressForm addresses={addressRows} onAddressSaved={syncAddress} />
     </>
   );
@@ -1320,11 +1333,15 @@ const SHIPPING_REQUEST_MIN_COINS = 1000;
 export function CollectionConvertPanel({
   collection,
   addresses = [],
+  selectedAddressId,
+  onSelectedAddressIdChange,
   prefilterOpenId,
   autoConvertOnLoad,
 }: {
   collection: YnotCollectionItem[];
   addresses?: YnotAddress[];
+  selectedAddressId?: string;
+  onSelectedAddressIdChange?: (addressId: string) => void;
   prefilterOpenId?: string | null;
   autoConvertOnLoad?: boolean;
 }) {
@@ -1335,7 +1352,7 @@ export function CollectionConvertPanel({
   );
   const ownedIds = useMemo(() => ownedItems.map((item) => item.id), [ownedItems]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [addressId, setAddressId] = useState(addresses[0]?.id ?? "");
+  const [localAddressId, setLocalAddressId] = useState(addresses[0]?.id ?? "");
   const [message, setMessage] = useState<{
     tone: "success" | "error";
     text: string;
@@ -1367,13 +1384,21 @@ export function CollectionConvertPanel({
   function reset() {
     setSelected(new Set());
   }
+  function updateAddressId(nextAddressId: string) {
+    if (onSelectedAddressIdChange) {
+      onSelectedAddressIdChange(nextAddressId);
+      return;
+    }
+    setLocalAddressId(nextAddressId);
+  }
 
   const selectedItems = useMemo(
     () => ownedItems.filter((item) => selected.has(item.id)),
     [ownedItems, selected],
   );
+  const requestedAddressId = selectedAddressId ?? localAddressId;
   const activeAddressId =
-    addresses.find((address) => address.id === addressId)?.id ??
+    addresses.find((address) => address.id === requestedAddressId)?.id ??
     addresses.find((address) => address.isDefault)?.id ??
     addresses[0]?.id ??
     "";
@@ -1622,7 +1647,7 @@ export function CollectionConvertPanel({
           <select
             className="collection-convert-dock-address"
             value={activeAddressId}
-            onChange={(event) => setAddressId(event.target.value)}
+            onChange={(event) => updateAddressId(event.target.value)}
             disabled={isPending}
           >
             {addresses.map((address) => (
