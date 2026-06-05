@@ -75,10 +75,12 @@ function text(value: unknown, max = 180) {
 }
 
 function cardCode(value: unknown) {
+  // Keep "/" so Pokemon-style codes like "110/080" survive (card# / set total).
+  // The sub-SKU key/SKU stays slash-free because normalizeSkuPart compacts it.
   const clean = text(value, 48)
     .toUpperCase()
-    .replace(/[^A-Z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^A-Z0-9._/-]+/g, "-")
+    .replace(/^[-/]+|[-/]+$/g, "");
   return clean || null;
 }
 
