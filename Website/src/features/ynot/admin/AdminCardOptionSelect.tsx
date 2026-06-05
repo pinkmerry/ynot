@@ -215,6 +215,14 @@ export function AdminCardOptionSelect({
                     </span>
                     {value}
                   </button>
+                  <button
+                    type="button"
+                    className="admin-option-select-clear"
+                    onClick={() => selectOption("")}
+                    title="Clear selection"
+                  >
+                    Clear
+                  </button>
                 </div>
               </>
             )}
