@@ -30400,6 +30400,14 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-row-name {
   letter-spacing: -0.01em;
   line-height: 1.25;
 }
+/* Print label shown inline after the card name, in muted/lighter type. */
+html[data-ynot-theme] .admin-frame .admin-card-catalog-row-printlabel {
+  color: var(--a-muted, #9b9daf);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  margin-left: 8px;
+}
 
 html[data-ynot-theme] .admin-frame .admin-card-catalog-row-head .admin-muted-line {
   color: var(--a-muted, #9b9daf) !important;
