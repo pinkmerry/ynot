@@ -43,6 +43,24 @@ export function bundledStockUnitRequirement(prize: {
   return planned * bundle;
 }
 
+export function stockUnitsToWinSlots(
+  stockUnits: unknown,
+  bundleQuantity: unknown,
+  plannedQuantity?: unknown,
+): number {
+  const physical =
+    typeof stockUnits === "number"
+      ? stockUnits
+      : Number.parseInt(String(stockUnits ?? 0), 10);
+  if (!Number.isFinite(physical) || physical <= 0) return 0;
+  const slots = Math.floor(
+    Math.trunc(physical) / normalizeBundleQuantity(bundleQuantity),
+  );
+  if (plannedQuantity === undefined) return slots;
+  const planned = plannedQuantityForPrize({ quantity: plannedQuantity });
+  return Math.min(slots, planned);
+}
+
 export function bundledConvertCoinValue(
   perUnitConvertCoinValue: unknown,
   bundleQuantity: unknown,

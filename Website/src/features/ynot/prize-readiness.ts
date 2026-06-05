@@ -11,6 +11,7 @@ import {
 import {
   normalizeBundleQuantity,
   plannedQuantityForPrize,
+  stockUnitsToWinSlots,
 } from "./bundle-quantity";
 import {
   buildPrizeStockSelectionIssues,
@@ -664,18 +665,29 @@ export async function getCampaignPrizeReadiness(
     const prizeUnitCounts = aggregateNonVoidPrizeUnitCounts(prizeIds, unitRows);
 
     for (const { prizeId, nonVoidCount, availableCount } of prizeUnitCounts) {
-      if (nonVoidCount <= 0) continue;
-      totalPrizeUnits += nonVoidCount;
-      nonVoidUnitsByPrizeId.set(prizeId, nonVoidCount);
-      if (availableCount <= 0) continue;
-      availablePrizeUnits += availableCount;
       const prize = prizeById.get(prizeId);
       if (!prize) continue;
+      const plannedQuantity = plannedQuantityForPrize(prize);
+      const totalWinSlots = stockUnitsToWinSlots(
+        nonVoidCount,
+        prize.bundle_quantity,
+        plannedQuantity,
+      );
+      const availableWinSlots = stockUnitsToWinSlots(
+        availableCount,
+        prize.bundle_quantity,
+        plannedQuantity,
+      );
+      if (totalWinSlots <= 0) continue;
+      totalPrizeUnits += totalWinSlots;
+      nonVoidUnitsByPrizeId.set(prizeId, nonVoidCount);
+      if (availableWinSlots <= 0) continue;
+      availablePrizeUnits += availableWinSlots;
       if (prizeEligibleAtSoldPct(prize, logicMode, soldPct)) {
-        eligiblePrizeUnits += availableCount;
+        eligiblePrizeUnits += availableWinSlots;
       }
       if (prizeEligibleAtSoldPct(prize, logicMode, 0)) {
-        initialEligiblePrizeUnits += availableCount;
+        initialEligiblePrizeUnits += availableWinSlots;
       }
     }
   }

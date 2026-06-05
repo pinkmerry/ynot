@@ -41,6 +41,14 @@ describe("random pack bundled prizes", () => {
   });
 
   it("keeps planned quantity as slot count and multiplies only physical stock", () => {
+    const bundleQuantity = read("Website/src/features/ynot/bundle-quantity.ts");
+    assert.match(bundleQuantity, /export function stockUnitsToWinSlots/);
+    assert.match(
+      bundleQuantity,
+      /Math\.floor\([\s\S]*Math\.trunc\(physical\) \/ normalizeBundleQuantity\(bundleQuantity\)/,
+    );
+    assert.match(bundleQuantity, /return Math\.min\(slots, planned\)/);
+
     const readiness = read("Website/src/features/ynot/stock-readiness.ts");
     assert.match(readiness, /bundleQuantityForPrize/);
     assert.match(readiness, /stockUnitsForPrize[\s\S]*planned[\s\S]*bundle/i);
@@ -48,7 +56,8 @@ describe("random pack bundled prizes", () => {
 
     const prizeReadiness = read("Website/src/features/ynot/prize-readiness.ts");
     assert.match(prizeReadiness, /bundleQuantity\?: number/);
-    assert.match(prizeReadiness, /totalPrizeUnits[\s\S]*plannedQuantityForPrize/i);
+    assert.match(prizeReadiness, /stockUnitsToWinSlots/);
+    assert.match(prizeReadiness, /availablePrizeUnits[\s\S]*availableWinSlots/i);
   });
 
   it("serializes bundle quantity through admin create and live edit APIs", () => {
