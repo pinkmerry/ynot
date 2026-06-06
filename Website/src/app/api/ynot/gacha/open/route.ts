@@ -363,6 +363,7 @@ async function hydrateItems(
       name: item.name ?? card?.name ?? "Mystery card",
       imageUrl: publicSubSkuImageUrl(
         prizeUnitId ? imageByPrizeUnitId.get(prizeUnitId) : null,
+        item.imageUrl ?? card?.image_url ?? null,
       ),
       tier,
       displayTier,

@@ -2770,7 +2770,7 @@ export async function getCollection(
         wonUnit?.gradingService ?? card?.gradingService ?? null,
       cardPrizeCategory: card?.prizeCategory ?? null,
       cardSeries: card?.series ?? null,
-      imageUrl: publicSubSkuImageUrl(wonUnit?.imageUrl),
+      imageUrl: publicSubSkuImageUrl(wonUnit?.imageUrl, card?.photoUrl),
       bundleQuantity,
       bundleIndex,
       bundleGroupId: bundleQuantity
@@ -2935,7 +2935,10 @@ export async function getGachaOpenHistory(
         id: `${publicCode}-${item.result_position ?? index + 1}`,
         cardName: card?.name ?? "Mystery reward",
         cardCode: card?.code,
-        imageUrl: publicSubSkuImageUrl(rewardImageByOpenItemId.get(item.id)),
+        imageUrl: publicSubSkuImageUrl(
+          rewardImageByOpenItemId.get(item.id),
+          card?.photoUrl,
+        ),
         bundleQuantity: publicBundleQuantity(item.bundle_quantity),
         displayTier,
         valueThb: item.value_thb,

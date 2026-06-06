@@ -94,7 +94,7 @@ test("customer collection and shipping hydrate images from private stock links w
   assert.match(collectionSource, /item\.card_stock_unit_id/);
   assert.match(collectionSource, /item\.gacha_open_item_id/);
   assert.match(collectionSource, /\.from\("card_stock_units"\)[\s\S]*\.select\("id,grade,condition,grading_service,image_url"\)/);
-  assert.match(collectionSource, /imageUrl:\s*publicSubSkuImageUrl\(wonUnit\?\.imageUrl\)/);
+  assert.match(collectionSource, /imageUrl:\s*publicSubSkuImageUrl\(\s*wonUnit\?\.imageUrl,\s*card\?\.photoUrl,?\s*\)/);
   assert.match(shippingSource, /item\.card_stock_unit_id/);
   assert.match(shippingSource, /imageByCollectionItemId/);
 

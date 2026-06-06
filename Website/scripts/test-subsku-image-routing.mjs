@@ -105,7 +105,7 @@ test("public pack detail prize lineups prefer linked sub-SKU images", () => {
   );
   assert.match(
     dataSource,
-    /cardImageUrl:\s*publicSubSkuImageUrl\(\s*prizeImageByPrizeId\.get\(prize\.id\),\s*card\?\.image_url\s*\)/,
+    /cardImageUrl:\s*publicSubSkuImageUrl\(\s*prizeImageByPrizeId\.get\(prize\.id\),\s*card\?\.image_url,?\s*\)/,
   );
   assert.doesNotMatch(dataSource, /fetchPrizeCardUnitImages/);
   assert.doesNotMatch(dataSource, /unitImages\.get\(prize\.card_id\)/);
@@ -142,7 +142,7 @@ test("pack opening API resolves awarded stock-unit image without exposing intern
   );
   assert.match(
     routeSource,
-    /imageUrl:\s*publicSubSkuImageUrl\(\s*prizeUnitId\s*\?\s*imageByPrizeUnitId\.get\(prizeUnitId\)\s*:\s*null,\s*item\.imageUrl\s*\?\?\s*card\?\.image_url\s*\?\?\s*null\s*\)/,
+    /imageUrl:\s*publicSubSkuImageUrl\(\s*prizeUnitId\s*\?\s*imageByPrizeUnitId\.get\(prizeUnitId\)\s*:\s*null,\s*item\.imageUrl\s*\?\?\s*card\?\.image_url\s*\?\?\s*null,?\s*\)/,
   );
   assert.doesNotMatch(publicOpenItemType, /cardId|prizeUnitId|draw_round|card_stock|tier\?:/);
   assert.doesNotMatch(toPublicOpenItem, /cardId:|prizeUnitId:|draw_round_prize_unit_id|card_stock_unit_id/);
@@ -167,7 +167,7 @@ test("opening reward history carries a public image URL only", () => {
   );
   assert.match(
     historySource,
-    /imageUrl:\s*publicSubSkuImageUrl\(\s*rewardImageByOpenItemId\.get\(item\.id\),\s*card\?\.photoUrl\s*\)/,
+    /imageUrl:\s*publicSubSkuImageUrl\(\s*rewardImageByOpenItemId\.get\(item\.id\),\s*card\?\.photoUrl,?\s*\)/,
   );
   assert.match(profileTabsSource, /profile-reward-thumb/);
   assert.match(profileTabsSource, /reward\.imageUrl/);
