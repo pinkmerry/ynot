@@ -69,7 +69,12 @@ test("hydration fallback is based on missing public reveal fields only", () => {
   );
   assertShape(helper, /typeof item\.name === "string"/, "public name field");
   assertShape(helper, /typeof item\.displayTier === "string"/, "public tier field");
-  assertShape(helper, /"imageUrl" in item/, "public image field");
+  assertShape(
+    helper,
+    /typeof item\.imageUrl === "string" && item\.imageUrl\.trim\(\)\.length > 0/,
+    "non-last-prize public image value",
+  );
+  assertShape(helper, /item\.isLastPrize === true/, "last-prize image exception");
   assertShape(helper, /typeof item\.position === "number"/, "public position field");
   assertShape(helper, /"valueThb" in item/, "public value field");
   assertNoShape(helper, /draw_round_prizes/, "private backend lookup");

@@ -195,7 +195,8 @@ function hasPublicRevealFields(item: RawOpenItem) {
   return (
     typeof item.name === "string" &&
     typeof item.displayTier === "string" &&
-    "imageUrl" in item &&
+    (item.isLastPrize === true ||
+      (typeof item.imageUrl === "string" && item.imageUrl.trim().length > 0)) &&
     typeof item.position === "number" &&
     "valueThb" in item
   );
