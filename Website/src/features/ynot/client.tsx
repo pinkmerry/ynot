@@ -12357,13 +12357,32 @@ export function AdminCampaignTable({
                       </>
                     )}
                     {campaign.status === "live" && (
-                      <a
-                        href={`/admin/campaigns/${campaign.id}/edit`}
-                        className="admin-pack-table-action"
-                        title="Edit this LIVE pack in place — changes apply immediately and re-materialize stock"
-                      >
-                        Edit live
-                      </a>
+                      <>
+                        <a
+                          href={`/admin/ynot/live-packs/${campaign.slug}/monitor`}
+                          className="admin-pack-table-action"
+                          title="Open the read-only live situation dashboard"
+                        >
+                          Monitor
+                        </a>
+                        <a
+                          href={`/admin/campaigns/${campaign.id}/edit`}
+                          className="admin-pack-table-action"
+                          title="Edit this LIVE pack in place — changes apply immediately and re-materialize stock"
+                        >
+                          Edit live
+                        </a>
+                      </>
+                    )}
+                    {campaign.status !== "live" &&
+                      (campaign.status === "closed" || campaign.soldOut) && (
+                        <a
+                          href={`/admin/ynot/live-packs/${campaign.slug}/monitor`}
+                          className="admin-pack-table-action"
+                          title="Open the read-only pack situation dashboard"
+                        >
+                          Monitor
+                        </a>
                     )}
                     {campaign.status !== "archived" && (
                       <button

@@ -976,6 +976,7 @@ export type Database = {
       open_gacha_campaign: { Args: { p_profile_id: string; p_draw_round_id: string; p_quantity?: number; p_idempotency_key?: string | null }; Returns: Json };
       profile_can_open_test_draw_round: { Args: { p_draw_round_id: string; p_profile_id: string }; Returns: boolean };
       get_draw_round_inventory_summary: { Args: { p_draw_round_id?: string | null; p_profile_id?: string | null }; Returns: Json };
+      get_admin_pack_monitor_prize_units: { Args: { p_draw_round_id: string; p_admin_id: string; p_winners_per_prize?: number }; Returns: Json };
       ensure_draw_round_prize_units: { Args: { p_draw_round_prize_id: string; p_total_units: number; p_admin_id: string; p_seed_run_id?: string | null }; Returns: Json };
       get_card_stock_summary: { Args: { p_card_id?: string | null }; Returns: Json };
       get_admin_card_stock_subsku_summary: { Args: { p_card_id?: string | null }; Returns: Json };

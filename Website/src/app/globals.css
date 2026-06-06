@@ -7829,6 +7829,181 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
   min-width: 0;
 }
 
+.admin-dashboard-pack-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.admin-pack-monitor {
+  display: grid;
+  gap: 20px;
+}
+
+.admin-monitor-summary {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.admin-monitor-summary > div,
+.admin-monitor-prize-counts > div {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 13px;
+}
+
+.admin-monitor-summary span,
+.admin-monitor-prize-counts span,
+.admin-monitor-section-label {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 1000;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.admin-monitor-summary strong,
+.admin-monitor-prize-counts strong {
+  font-size: 1.05rem;
+  font-weight: 1000;
+  letter-spacing: -0.025em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-monitor-prize-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-monitor-prize-row {
+  align-items: start;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(260px, 1.4fr) minmax(200px, 0.7fr) minmax(160px, 0.55fr) minmax(260px, 1fr);
+  padding: 14px;
+}
+
+.admin-monitor-prize-main {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-width: 0;
+}
+
+.admin-monitor-prize-image {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  display: inline-flex;
+  height: 68px;
+  justify-content: center;
+  overflow: hidden;
+  width: 50px;
+}
+
+.admin-monitor-prize-image img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.admin-monitor-prize-title {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-monitor-prize-title strong {
+  font-size: 1rem;
+  font-weight: 1000;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-monitor-prize-main p,
+.admin-monitor-empty {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+  line-height: 1.4;
+  margin: 4px 0 0;
+}
+
+.admin-monitor-prize-counts {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-monitor-prize-progress {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.admin-monitor-prize-progress > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.admin-monitor-winners {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-monitor-winner-row {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-top: 8px;
+}
+
+.admin-monitor-winner-row strong,
+.admin-monitor-winner-row span,
+.admin-monitor-winner-row em {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-monitor-winner-row strong {
+  font-size: 0.86rem;
+  font-weight: 1000;
+}
+
+.admin-monitor-winner-row span,
+.admin-monitor-winner-row em {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.admin-monitor-winner-row > div:last-child {
+  text-align: right;
+}
+
 .owner-prize-odds-table-head,
 .owner-prize-odds-row {
   grid-template-columns:
@@ -7860,6 +8035,19 @@ html[data-ynot-theme="light"] .clean-pack-card .pack-remaining-line {
 
   .admin-pack-row-list-horizontal {
     grid-template-columns: 1fr;
+  }
+
+  .admin-monitor-summary,
+  .admin-monitor-prize-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-monitor-winner-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-monitor-winner-row > div:last-child {
+    text-align: left;
   }
 }
 

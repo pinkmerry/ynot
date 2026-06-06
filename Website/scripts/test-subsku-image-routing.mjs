@@ -6,6 +6,10 @@ import vm from "node:vm";
 import ts from "typescript";
 
 const require = createRequire(import.meta.url);
+const openRpcImageMigrationSource = readFileSync(
+  new URL("../../Database/supabase/migrations/20260606020000_open_gacha_subsku_reveal_image.sql", import.meta.url),
+  "utf8",
+);
 
 function readSource(path) {
   return readFileSync(new URL(path, import.meta.url), "utf8");
@@ -94,18 +98,19 @@ test("public pack detail prize lineups prefer linked sub-SKU images", () => {
   const dataSource = readSource("../src/features/ynot/data.ts");
 
   assert.match(dataSource, /publicSubSkuImageUrl/);
-  assert.match(dataSource, /stockImageUrlByPrizeId/);
+  assert.match(dataSource, /readPrizeUnitImageUrlsByPrizeId/);
+  assert.match(dataSource, /const PRIZE_BATCH = 150/);
   assert.match(
     dataSource,
-    /\.from\("draw_round_prize_units"\)[\s\S]*\.select\("id,draw_round_prize_id,card_stock_unit_id,status"\)/,
+    /\.from\("card_stock_units"\)[\s\S]*\.select\("allocated_draw_round_prize_id,image_url"\)[\s\S]*\.eq\("allocated_draw_round_id", drawRoundId\)[\s\S]*\.in\("allocated_draw_round_prize_id", batch\)/,
   );
   assert.match(
     dataSource,
-    /\.from\("card_stock_units"\)[\s\S]*\.select\("id,image_url"\)/,
+    /cardImageUrl:\s*publicSubSkuImageUrl\(\s*prizeImageByPrizeId\.get\(prize\.id\)\s*\)\s*\?\?\s*publicSubSkuImageUrl\(card\?\.image_url\)\s*\?\?\s*publicSubSkuImageUrl\(\s*lineupPreviewImageByCardId\.get\(prize\.card_id\)\s*\)/,
   );
   assert.match(
     dataSource,
-    /cardImageUrl:\s*publicSubSkuImageUrl\(\s*prizeImageByPrizeId\.get\(prize\.id\),\s*card\?\.image_url,?\s*\)/,
+    /cardImageUrl:\s*publicSubSkuImageUrl\(\s*prizeImageByPrizeId\.get\(prize\.id\)\)\s*\?\?\s*publicSubSkuImageUrl\(card\?\.image_url\)/,
   );
   assert.doesNotMatch(dataSource, /fetchPrizeCardUnitImages/);
   assert.doesNotMatch(dataSource, /unitImages\.get\(prize\.card_id\)/);
@@ -146,6 +151,22 @@ test("pack opening API resolves awarded stock-unit image without exposing intern
   );
   assert.doesNotMatch(publicOpenItemType, /cardId|prizeUnitId|draw_round|card_stock|tier\?:/);
   assert.doesNotMatch(toPublicOpenItem, /cardId:|prizeUnitId:|draw_round_prize_unit_id|card_stock_unit_id/);
+});
+
+test("pack opening RPC returns sub-SKU image before the fast reveal skips hydration", () => {
+  assert.match(openRpcImageMigrationSource, /public\.open_gacha_campaign\(uuid,uuid,integer,text\)/);
+  assert.match(openRpcImageMigrationSource, /coalesce\(stock\.image_url, cards\.image_url\)/);
+  assert.match(
+    openRpcImageMigrationSource,
+    /left join public\.card_stock_units stock[\s\S]*on stock\.id = units\.card_stock_unit_id/,
+  );
+  assert.match(
+    openRpcImageMigrationSource,
+    /left join public\.draw_round_prize_units prize_unit[\s\S]*on prize_unit\.id = items\.draw_round_prize_unit_id[\s\S]*left join public\.card_stock_units stock[\s\S]*on stock\.id = prize_unit\.card_stock_unit_id/,
+  );
+  assert.match(openRpcImageMigrationSource, /fn like '%''imageUrl'', cards\.image_url,%'/);
+  assert.doesNotMatch(openRpcImageMigrationSource, /update public\.(cards|card_stock_units|draw_round_prize_units|collection_items|gacha_open_items)/);
+  assert.doesNotMatch(openRpcImageMigrationSource, /delete from public\./);
 });
 
 test("opening reward history carries a public image URL only", () => {
