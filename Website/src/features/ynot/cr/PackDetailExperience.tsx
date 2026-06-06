@@ -8,6 +8,7 @@ import type {
   YnotPrizePreview,
 } from "../types";
 import { normalizeOpenQuantityOptions } from "../open-quantity";
+import { createOpenIntentId } from "../open-intent";
 import { QuantityBadge } from "../QuantityBadge";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { Modal, PageHead, useToast } from "./UiKit";
@@ -172,9 +173,15 @@ export function PackDetailExperience({
   }
   function confirmAndOpen() {
     setSubmitting(true);
+    const intent = createOpenIntentId();
+    const query = new URLSearchParams({
+      qty: String(qty),
+      auto: "1",
+      intent,
+    });
     // auto=1 fires the open immediately on arrival so the reveal animation
     // plays without a second confirm screen. See GachaOpenPanel autoStart.
-    router.push(`/gacha/${campaign.slug}/open?qty=${qty}&auto=1`);
+    router.push(`/gacha/${campaign.slug}/open?${query.toString()}`);
   }
 
   return (

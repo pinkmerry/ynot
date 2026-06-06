@@ -311,6 +311,60 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["draw_rounds"]["Insert"]>;
         Relationships: [];
       };
+      draw_round_live_revisions: {
+        Row: {
+          id: string;
+          draw_round_id: string;
+          status:
+            | "pending_review"
+            | "approved"
+            | "rejected"
+            | "published"
+            | "cancelled";
+          requested_by_admin_id: string;
+          reviewed_by_admin_id: string | null;
+          published_by_admin_id: string | null;
+          base_updated_at: string;
+          scalar_patch: Json;
+          logic_snapshot: Json | null;
+          category_ids: string[] | null;
+          prize_snapshot: Json;
+          note: string | null;
+          review_note: string | null;
+          publish_note: string | null;
+          created_at: string;
+          updated_at: string;
+          reviewed_at: string | null;
+          published_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          draw_round_id: string;
+          status?:
+            | "pending_review"
+            | "approved"
+            | "rejected"
+            | "published"
+            | "cancelled";
+          requested_by_admin_id: string;
+          reviewed_by_admin_id?: string | null;
+          published_by_admin_id?: string | null;
+          base_updated_at: string;
+          scalar_patch?: Json;
+          logic_snapshot?: Json | null;
+          category_ids?: string[] | null;
+          prize_snapshot?: Json;
+          note?: string | null;
+          review_note?: string | null;
+          publish_note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          reviewed_at?: string | null;
+          published_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["draw_round_live_revisions"]["Insert"]>;
+        Relationships: [];
+      };
       seed_runs: {
         Row: { id: string; seed_key: string; label: string; environment: "local" | "staging" | "production"; status: "planned" | "dry_run" | "applied" | "hidden" | "cleanup_started" | "cleaned" | "failed"; applied_by_admin_id: string | null; metadata: Json; created_at: string; updated_at: string };
         Insert: { id?: string; seed_key: string; label: string; environment?: "local" | "staging" | "production"; status?: "planned" | "dry_run" | "applied" | "hidden" | "cleanup_started" | "cleaned" | "failed"; applied_by_admin_id?: string | null; metadata?: Json; created_at?: string; updated_at?: string };
@@ -1003,6 +1057,8 @@ export type Database = {
       card_stock_unit_matches_prize_filter: { Args: { p_unit: Database["public"]["Tables"]["card_stock_units"]["Row"]; p_prize_metadata: Json | null }; Returns: boolean };
       release_campaign_reservations: { Args: { p_draw_round_id: string; p_admin_id: string; p_reason?: string | null; p_note?: string | null }; Returns: Json };
       edit_live_campaign_inventory: { Args: { p_draw_round_id: string; p_admin_id: string; p_prizes: Json }; Returns: Json };
+      publish_live_campaign_revision: { Args: { p_revision_id: string; p_owner_admin_id: string; p_note?: string | null }; Returns: Json };
+      get_live_pack_monitor: { Args: { p_draw_round_id: string }; Returns: Json };
       purge_test_draw_round: { Args: { p_draw_round_id: string; p_admin_id: string }; Returns: Json };
       purge_archived_card_stock: { Args: { p_card_id: string; p_admin_id: string }; Returns: Json };
       submit_campaign_review: { Args: { p_draw_round_id: string; p_admin_id: string; p_logic_snapshot?: Json | null; p_note?: string | null }; Returns: Json };

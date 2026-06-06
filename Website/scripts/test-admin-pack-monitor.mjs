@@ -96,7 +96,7 @@ test("admin pack monitor data loader exists and returns the safe contract", () =
   const loaderSource = between(
     dataSource,
     "export async function getAdminPackMonitor",
-    "export async function",
+    "function liveRevisionPrizeRows",
   );
 
   assert.match(loaderSource, /YnotPackMonitor/);

@@ -27,6 +27,8 @@ import type {
   YnotExchangeOrder,
   YnotGachaOpenHistory,
   YnotLastPrizePreview,
+  YnotLivePackMonitor,
+  YnotLivePackRevisionReview,
   YnotOwnerApprovalRequest,
   YnotPackMonitor,
   YnotPaymentMethod,
@@ -4062,6 +4064,92 @@ export async function getAdminPackMonitor(
       winnerRows: outPrizeUnits,
     },
   };
+}
+
+function liveRevisionPrizeRows(value: unknown): YnotLivePackRevisionReview["prizeRows"] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const tier = item.tier === "high" ? "high" : "normal";
+    const rank = Math.round(numericValue(item.rank));
+    const cardId = typeof item.cardId === "string" ? item.cardId : "";
+    if (!cardId || !rank) return [];
+    return [
+      {
+        prizeKey: `${tier}:${rank}`,
+        cardId,
+        tier,
+        rank,
+        plannedQuantity: Math.max(0, Math.round(numericValue(item.plannedQuantity))),
+        bundleQuantity: normalizeBundleQuantity(item.bundleQuantity),
+        convertCoinValue: Math.max(0, Math.round(numericValue(item.convertCoinValue))),
+        valueThb:
+          item.valueThb === null || item.valueThb === undefined
+            ? null
+            : Math.max(0, Math.round(numericValue(item.valueThb))),
+        weight: numericValue(item.weight) || 1,
+        unlockAtSoldPct: numericValue(item.unlockAtSoldPct),
+      },
+    ];
+  });
+}
+
+export async function getLivePackRevisionReview(
+  campaignId: string,
+): Promise<YnotLivePackRevisionReview | null> {
+  if (!isSupabaseConfigured()) return null;
+  const admin = await resolveAdminSession();
+  if (admin?.adminRole !== "owner" && !isDevAuthAllowed()) return null;
+  const supabase = createServiceSupabaseClient();
+  try {
+    const { data, error } = await supabase
+      .from("draw_round_live_revisions")
+      .select("*")
+      .eq("draw_round_id", campaignId)
+      .in("status", ["pending_review", "approved"])
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return {
+      id: data.id,
+      campaignId: data.draw_round_id,
+      status: data.status,
+      requestedAt: data.created_at,
+      updatedAt: data.updated_at,
+      reviewedAt: data.reviewed_at,
+      baseUpdatedAt: data.base_updated_at,
+      note: data.note,
+      reviewNote: data.review_note,
+      scalarPatch: isRecord(data.scalar_patch)
+        ? (data.scalar_patch as Record<string, unknown>)
+        : {},
+      prizeRows: liveRevisionPrizeRows(data.prize_snapshot),
+    };
+  } catch (error) {
+    recordDataIssue("live_pack_revision_review", error);
+    return null;
+  }
+}
+
+export async function getLivePackMonitor(
+  campaignId: string,
+): Promise<YnotLivePackMonitor | null> {
+  if (!isSupabaseConfigured()) return null;
+  const admin = await resolveAdminSession();
+  if (!admin) return null;
+  const supabase = createServiceSupabaseClient();
+  try {
+    const { data, error } = await supabase.rpc("get_live_pack_monitor", {
+      p_draw_round_id: campaignId,
+    });
+    if (error) throw error;
+    return data as YnotLivePackMonitor;
+  } catch (error) {
+    recordDataIssue("live_pack_monitor", error);
+    return null;
+  }
 }
 
 export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {

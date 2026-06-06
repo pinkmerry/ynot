@@ -21,6 +21,8 @@ import type {
   YnotCategory,
   YnotCollectionItem,
   YnotGachaOpenResult,
+  YnotLivePackMonitor,
+  YnotLivePackRevisionReview,
   YnotOwnerApprovalRequest,
   YnotPaymentMethod,
   YnotPrizePoolItem,
@@ -63,6 +65,7 @@ import {
   type StockSkuGroup,
   type StockSkuPackUsage,
 } from "./stock-sku-usage";
+import { openIntentIdempotencyKey, stripOpenAutoStartUrl } from "./open-intent";
 import {
   catalogCategoryForPrizeCategory,
   prizeCategoryLabel,
@@ -706,6 +709,7 @@ export function GachaOpenPanel({
   initialQuantity = 1,
   tierAnimations,
   autoStart = false,
+  openIntentId,
   immersive = false,
 }: {
   campaign: YnotCampaign;
@@ -716,6 +720,7 @@ export function GachaOpenPanel({
    *  screen). Used when the user just confirmed in the Y-Pack flow and
    *  expects the reveal animation to play right away. */
   autoStart?: boolean;
+  openIntentId?: string | null;
   immersive?: boolean;
 }) {
   const router = useRouter();
@@ -750,10 +755,15 @@ export function GachaOpenPanel({
         const payload = await postJson("/api/ynot/gacha/open", {
           campaignId: campaign.slug,
           quantity: targetQuantity,
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: openIntentIdempotencyKey(
+            openIntentId ?? null,
+            campaign.id,
+            targetQuantity,
+          ),
         });
         const result = (payload?.result ?? null) as YnotGachaOpenResult | null;
         if (result && Array.isArray(result.items)) {
+          stripOpenAutoStartUrl();
           setRevealResult(result);
         } else {
           setOpeningOverlayVisible(false);
@@ -779,7 +789,7 @@ export function GachaOpenPanel({
   function handleRevealClose() {
     setOpeningOverlayVisible(false);
     setRevealResult(null);
-    router.push("/collection");
+    router.replace("/collection");
   }
 
   const handleRevealFinish = useCallback(() => {
@@ -4542,8 +4552,8 @@ export function AdminCampaignForm({
             editingCampaign.titleEn || editingCampaign.titleTh || "pack";
           setMessageTone("success");
           setMessage(
-            isRecord(result) && result.status === "live"
-              ? `✓ "${packLabel}" saved — pack is live and changes apply now (${configuredRewardUnits.toLocaleString()} reward units). No owner review needed.`
+            isRecord(result) && result.requiresOwnerReview === true
+              ? `✓ "${packLabel}" live edit saved for owner review. Existing players and rewards stay unchanged until publish.`
               : `✓ "${packLabel}" saved with ${configuredRewardUnits.toLocaleString()} reward units. Submit owner review to re-publish.`,
           );
         } else {
@@ -4588,7 +4598,7 @@ export function AdminCampaignForm({
             {!editMode
               ? "Build the campaign, prize list, and owner-review readiness in one full-width workflow."
               : editingCampaign?.status === "live"
-                ? "Update fields and the prize list. Changes apply immediately to this LIVE pack — prize/slot edits re-materialize stock atomically and awarded prizes are kept. The pack stays live; no re-approval needed."
+                ? "Update fields and the prize list. Saving creates an owner-reviewed live revision; existing opens, bags, and rewards stay unchanged until publish."
                 : "Update campaign fields and prize list. Saving puts the pack back to draft/private and requires fresh owner review."}
           </p>
         </div>
@@ -7088,6 +7098,417 @@ export function AdminOwnerReview({
           </section>
         </div>
       </div>
+    </AdminFrame>
+  );
+}
+
+function monitorTierLabel(tier: string) {
+  return tier === "high" ? "High" : tier === "normal" ? "Normal" : tier;
+}
+
+export function LivePackMonitor({
+  campaignId,
+  initialMonitor,
+}: {
+  campaignId: string;
+  initialMonitor: YnotLivePackMonitor;
+}) {
+  const [monitor, setMonitor] = useState(initialMonitor);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
+  const campaign = monitor.campaign;
+  const openedPct = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round((campaign.openedSlots / Math.max(1, campaign.totalSlots)) * 100),
+    ),
+  );
+
+  async function refresh() {
+    setRefreshing(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/ynot/admin/campaigns/${campaignId}/monitor`,
+        { cache: "no-store" },
+      );
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(requestErrorMessage(payload));
+      }
+      setMonitor(payload.monitor as YnotLivePackMonitor);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Monitor refresh failed.");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  return (
+    <div className="admin-live-monitor">
+      <div className="kpi-grid">
+        <div className="kpi">
+          <div className="label">Opened</div>
+          <strong>{campaign.openedSlots.toLocaleString()}</strong>
+          <span className="text-mute">{openedPct}% of pack slots</span>
+        </div>
+        <div className="kpi">
+          <div className="label">Left</div>
+          <strong>{campaign.remainingSlots.toLocaleString()}</strong>
+          <span className="text-mute">{campaign.totalSlots.toLocaleString()} total</span>
+        </div>
+        <div className="kpi">
+          <div className="label">Open orders</div>
+          <strong>{campaign.openCount.toLocaleString()}</strong>
+          <span className="text-mute">
+            {campaign.lastOpenedAt
+              ? new Date(campaign.lastOpenedAt).toLocaleString()
+              : "No opens yet"}
+          </span>
+        </div>
+        <div className="kpi">
+          <div className="label">Revision</div>
+          <strong>{monitor.pendingRevision?.status ?? "Clear"}</strong>
+          <span className="text-mute">
+            {monitor.pendingRevision ? "Owner action needed" : "No pending edit"}
+          </span>
+        </div>
+      </div>
+
+      <section className="card" style={{ marginTop: 16 }}>
+        <div className="card-head">
+          <div>
+            <p className="section-label">Prize situation</p>
+            <h3>Left and out by reward</h3>
+          </div>
+          <div className="admin-pack-table-actions-col">
+            {monitor.pendingRevision ? (
+              <Link
+                className="admin-pack-table-action admin-pack-table-action-review"
+                href={`/admin/campaigns/${campaignId}/review`}
+              >
+                Review revision
+              </Link>
+            ) : null}
+            <Link
+              className="admin-pack-table-action"
+              href={`/admin/campaigns/${campaignId}/edit`}
+            >
+              Edit live pack
+            </Link>
+            <button
+              type="button"
+              className="admin-pack-table-action"
+              onClick={refresh}
+              disabled={refreshing}
+            >
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+        </div>
+        {error ? (
+          <p className="admin-pack-table-error" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <div className="admin-pack-table-scroll">
+          <table className="admin-pack-table-grid">
+            <thead>
+              <tr>
+                <th>Reward</th>
+                <th>Tier</th>
+                <th>Out</th>
+                <th>Left</th>
+                <th>Planned</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monitor.prizes.map((prize) => (
+                <tr key={prize.prizeKey}>
+                  <td>
+                    <div className="admin-pack-table-title-link">
+                      {prize.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- Admin monitor previews user-managed Supabase assets.
+                        <img
+                          src={prize.imageUrl}
+                          alt=""
+                          style={{
+                            width: 36,
+                            height: 46,
+                            objectFit: "cover",
+                            borderRadius: 6,
+                            marginRight: 10,
+                            verticalAlign: "middle",
+                          }}
+                        />
+                      ) : null}
+                      {prize.cardName}
+                    </div>
+                    <span className="admin-pack-table-slug">
+                      {prize.cardCode ?? "No code"}
+                      {prize.bundleQuantity > 1
+                        ? ` · ${prize.bundleQuantity} cards per win`
+                        : ""}
+                    </span>
+                  </td>
+                  <td>{monitorTierLabel(prize.tier)} #{prize.rank}</td>
+                  <td>{prize.outWins.toLocaleString()}</td>
+                  <td>{prize.leftWins.toLocaleString()}</td>
+                  <td>{prize.plannedWins.toLocaleString()}</td>
+                </tr>
+              ))}
+              {!monitor.prizes.length ? (
+                <tr>
+                  <td colSpan={5} className="admin-pack-table-empty">
+                    No prize rows found.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="card" style={{ marginTop: 16 }}>
+        <div className="card-head">
+          <div>
+            <p className="section-label">Recent outs</p>
+            <h3>Latest customer wins</h3>
+          </div>
+          <span className="text-mute">
+            Loaded {new Date(monitor.loadedAt).toLocaleTimeString()}
+          </span>
+        </div>
+        <div className="admin-pack-table-scroll">
+          <table className="admin-pack-table-grid">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Reward</th>
+                <th>Open</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monitor.recentAwards.map((award) => (
+                <tr key={award.openKey ?? `${award.openCode}-${award.cardCode ?? award.cardName}`}>
+                  <td>{award.customerLabel}</td>
+                  <td>
+                    <span className="admin-pack-table-title-link">
+                      {award.cardName}
+                    </span>
+                    <span className="admin-pack-table-slug">
+                      {award.cardCode ?? "No code"}
+                    </span>
+                  </td>
+                  <td>{award.openCode}</td>
+                  <td>{new Date(award.openedAt).toLocaleString()}</td>
+                </tr>
+              ))}
+              {!monitor.recentAwards.length ? (
+                <tr>
+                  <td colSpan={4} className="admin-pack-table-empty">
+                    No rewards are out yet.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function liveRevisionPatchEntries(revision: YnotLivePackRevisionReview) {
+  return Object.entries(revision.scalarPatch).filter(([, value]) => value !== undefined);
+}
+
+export function LivePackRevisionReview({
+  viewer,
+  campaign,
+  revision,
+}: {
+  viewer: YnotViewer;
+  campaign: YnotCampaign;
+  revision: YnotLivePackRevisionReview;
+}) {
+  const router = useRouter();
+  const [note, setNote] = useState("");
+  const [message, setMessage] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function send(action: "approve" | "reject" | "publish") {
+    setMessage("");
+    startTransition(async () => {
+      try {
+        await postJson("/api/ynot/admin/campaigns/live-revisions", {
+          revisionId: revision.id,
+          action,
+          note,
+        });
+        setMessage(
+          action === "publish"
+            ? "Live revision published. Existing opens and customer bags were preserved."
+            : action === "approve"
+              ? "Live revision approved. Publish when ready."
+              : "Live revision rejected.",
+        );
+        if (action === "publish") {
+          router.replace(`/admin/campaigns/${campaign.id}/monitor`);
+        } else {
+          router.refresh();
+        }
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Live revision action failed.",
+        );
+      }
+    });
+  }
+
+  const patchEntries = liveRevisionPatchEntries(revision);
+  return (
+    <AdminFrame
+      viewer={viewer}
+      active="/admin/campaigns"
+      trail={["Admin", "Pack studio", "Random packs", `Live review · ${campaign.slug}`]}
+      eyebrow="Live revision review"
+      title={`Review live edit · ${campaign.titleEn || campaign.titleTh}`}
+      desc="Owner-only review for a live pack edit. Publishing applies the approved changes while keeping existing opens, bags, and reward history."
+      actions={
+        <>
+          <Link className="btn" href={`/admin/campaigns/${campaign.id}/monitor`}>
+            <AdminIcon name="chev-r" /> Monitor
+          </Link>
+          <button
+            type="button"
+            className="btn btn-danger"
+            disabled={isPending}
+            onClick={() => send("reject")}
+          >
+            Reject
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={isPending || revision.status === "approved"}
+            onClick={() => send("approve")}
+          >
+            Approve
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={isPending || revision.status !== "approved"}
+            onClick={() => send("publish")}
+          >
+            Publish live
+          </button>
+        </>
+      }
+    >
+      <div className="kpi-grid">
+        <div className="kpi">
+          <div className="label">Status</div>
+          <strong>{revision.status}</strong>
+          <span className="text-mute">
+            Requested {new Date(revision.requestedAt).toLocaleString()}
+          </span>
+        </div>
+        <div className="kpi">
+          <div className="label">Prize rows</div>
+          <strong>{revision.prizeRows.length.toLocaleString()}</strong>
+          <span className="text-mute">Owner economics visible here only</span>
+        </div>
+        <div className="kpi">
+          <div className="label">Pack baseline</div>
+          <strong>{new Date(revision.baseUpdatedAt).toLocaleDateString()}</strong>
+          <span className="text-mute">Publishes only if baseline still matches</span>
+        </div>
+      </div>
+
+      {message ? (
+        <p className="admin-pack-table-error" role="status">
+          {message}
+        </p>
+      ) : null}
+
+      <section className="card" style={{ marginTop: 16 }}>
+        <div className="card-head">
+          <div>
+            <p className="section-label">Pack changes</p>
+            <h3>Fields waiting to publish</h3>
+          </div>
+        </div>
+        <div className="card-pad">
+          {patchEntries.length ? (
+            <pre className="mono" style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+              {patchEntries
+                .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+                .join("\n")}
+            </pre>
+          ) : (
+            <p className="text-mute">No scalar field changes.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="card" style={{ marginTop: 16 }}>
+        <div className="card-head">
+          <div>
+            <p className="section-label">Prize logic</p>
+            <h3>Owner review snapshot</h3>
+          </div>
+        </div>
+        <div className="admin-pack-table-scroll">
+          <table className="admin-pack-table-grid">
+            <thead>
+              <tr>
+                <th>Row</th>
+                <th>Qty</th>
+                <th>Bundle</th>
+                <th>Weight</th>
+                <th>Unlock</th>
+                <th>Coins</th>
+              </tr>
+            </thead>
+            <tbody>
+              {revision.prizeRows.map((prize) => (
+                <tr key={prize.prizeKey}>
+                  <td>{prize.prizeKey}</td>
+                  <td>{prize.plannedQuantity.toLocaleString()}</td>
+                  <td>{prize.bundleQuantity.toLocaleString()}</td>
+                  <td>{prize.weight.toLocaleString()}</td>
+                  <td>{prize.unlockAtSoldPct}%</td>
+                  <td>{prize.convertCoinValue.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="card" style={{ marginTop: 16 }}>
+        <div className="card-head">
+          <div>
+            <p className="section-label">Owner note</p>
+            <h3>Publish note</h3>
+          </div>
+        </div>
+        <div className="card-pad">
+          <textarea
+            className="textarea"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Optional owner note..."
+            style={{ minHeight: 90 }}
+          />
+        </div>
+      </section>
     </AdminFrame>
   );
 }
@@ -12360,30 +12781,30 @@ export function AdminCampaignTable({
                       <>
                         <a
                           href={`/admin/ynot/live-packs/${campaign.slug}/monitor`}
-                          className="admin-pack-table-action"
-                          title="Open the read-only live situation dashboard"
+                          className="admin-pack-table-action admin-pack-table-action-review"
+                          title="Open the manual-refresh live pack monitor"
                         >
                           Monitor
                         </a>
                         <a
                           href={`/admin/campaigns/${campaign.id}/edit`}
                           className="admin-pack-table-action"
-                          title="Edit this LIVE pack in place — changes apply immediately and re-materialize stock"
+                          title="Edit this live pack and send changes to owner review"
                         >
-                          Edit live
+                          Edit live pack
                         </a>
                       </>
                     )}
                     {campaign.status !== "live" &&
-                      (campaign.status === "closed" || campaign.soldOut) && (
+                    (campaign.status === "closed" || campaign.soldOut) ? (
                         <a
                           href={`/admin/ynot/live-packs/${campaign.slug}/monitor`}
                           className="admin-pack-table-action"
-                          title="Open the read-only pack situation dashboard"
+                          title="Open the manual-refresh pack situation dashboard"
                         >
                           Monitor
                         </a>
-                    )}
+                      ) : null}
                     {campaign.status !== "archived" && (
                       <button
                         type="button"

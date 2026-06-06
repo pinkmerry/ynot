@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { YnotCampaign } from "../types";
 import { normalizeOpenQuantityOptions } from "../open-quantity";
+import { createOpenIntentId } from "../open-intent";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { Modal, PageHead, useToast } from "./UiKit";
 
@@ -523,11 +524,17 @@ function OpenPackModal({
       return;
     }
     setSubmitting(true);
+    const intent = createOpenIntentId();
+    const query = new URLSearchParams({
+      qty: String(qty),
+      auto: "1",
+      intent,
+    });
     // The cinematic open page handles the actual reveal animation + collection
     // update. We route there with the chosen quantity and auto=1 so the open
     // fires immediately on arrival (no second "START PULL" screen) and the
     // animation plays right after this modal confirms.
-    router.push(`/gacha/${campaign.slug}/open?qty=${qty}&auto=1`);
+    router.push(`/gacha/${campaign.slug}/open?${query.toString()}`);
   }
 
   return (

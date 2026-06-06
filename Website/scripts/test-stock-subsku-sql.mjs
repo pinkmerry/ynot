@@ -335,12 +335,14 @@ test("live pack re-materialization RPC locks the round and guards awarded units"
   assert.match(sql, /nullif\(btrim\(x\."seedRunId"\), ''\)::uuid/);
 });
 
-test("admin campaign route edits live packs in place via the RPC", () => {
-  // Live packs route through the re-materialization RPC...
-  assert.match(adminCampaignRouteSource, /rpc\(\s*"edit_live_campaign_inventory"/);
+test("admin campaign route stages live pack edits for owner revision", () => {
+  // Live packs now create a reviewable revision; the publish RPC remains in SQL.
+  assert.match(adminCampaignRouteSource, /createLivePackRevision/);
+  assert.match(adminCampaignRouteSource, /requiresOwnerReview: true/);
   assert.match(adminCampaignRouteSource, /current\.status === "live"/);
   // ...while non-live, non-draft packs stay locked.
   assert.match(adminCampaignRouteSource, /CAMPAIGN_MUST_BE_DRAFT/);
-  // The form/list exposes the live editor entry point.
-  assert.match(clientSource, /Edit live/);
+  // The form/list exposes monitor plus the live editor entry point.
+  assert.match(clientSource, /Monitor/);
+  assert.match(clientSource, /Edit live pack/);
 });

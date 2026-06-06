@@ -97,6 +97,86 @@ export type YnotOwnerApprovalRequest = {
   mock?: boolean;
 };
 
+export type LiveRevisionStatus =
+  | "pending_review"
+  | "approved"
+  | "rejected"
+  | "published"
+  | "cancelled";
+
+export type YnotLivePackRevisionReview = {
+  id: string;
+  campaignId: string;
+  status: LiveRevisionStatus;
+  requestedAt: string;
+  updatedAt: string;
+  reviewedAt?: string | null;
+  baseUpdatedAt: string;
+  note?: string | null;
+  reviewNote?: string | null;
+  scalarPatch: Record<string, unknown>;
+  prizeRows: Array<{
+    prizeKey: string;
+    cardId: string;
+    tier: "normal" | "high";
+    rank: number;
+    plannedQuantity: number;
+    bundleQuantity: number;
+    convertCoinValue: number;
+    valueThb?: number | null;
+    weight: number;
+    unlockAtSoldPct: number;
+  }>;
+};
+
+export type YnotLivePackMonitor = {
+  campaign: {
+    id: string;
+    slug: string;
+    packCode?: string | null;
+    titleTh: string;
+    titleEn: string;
+    status: string;
+    visibility: string;
+    totalSlots: number;
+    openedSlots: number;
+    remainingSlots: number;
+    openCount: number;
+    lastOpenedAt?: string | null;
+    updatedAt: string;
+  };
+  prizes: Array<{
+    prizeKey: string;
+    tier: string;
+    rank: number;
+    cardName: string;
+    cardCode?: string | null;
+    imageUrl?: string | null;
+    plannedWins: number;
+    bundleQuantity: number;
+    leftWins: number;
+    outWins: number;
+  }>;
+  recentAwards: Array<{
+    openKey?: string;
+    openCode: string;
+    openedAt: string;
+    customerLabel: string;
+    cardName: string;
+    cardCode?: string | null;
+    imageUrl?: string | null;
+    tier?: string | null;
+    bundleQuantity: number;
+  }>;
+  pendingRevision?: {
+    status: LiveRevisionStatus;
+    requestedAt: string;
+    updatedAt: string;
+    reviewedAt?: string | null;
+  } | null;
+  loadedAt: string;
+};
+
 export type YnotCategory = {
   id: string;
   slug: string;
