@@ -191,6 +191,20 @@ function openErrorMessage(message: string | undefined) {
   }
 }
 
+function hasPublicRevealFields(item: RawOpenItem) {
+  return (
+    typeof item.name === "string" &&
+    typeof item.displayTier === "string" &&
+    "imageUrl" in item &&
+    typeof item.position === "number" &&
+    "valueThb" in item
+  );
+}
+
+function needsOpenItemHydration(items: RawOpenItem[]) {
+  return !items.every(hasPublicRevealFields);
+}
+
 async function hydrateItems(
   items: RawOpenItem[],
   openId: string,
@@ -545,6 +559,9 @@ export async function POST(request: Request) {
   const raw = (data ?? {}) as RawOpenResult;
   const openId = typeof raw.openId === "string" ? raw.openId : "";
   const items = Array.isArray(raw.items) ? raw.items : [];
-  const hydrated = openId ? await hydrateItems(items, openId, session.profileId) : items;
-  return Response.json({ result: toPublicOpenResult(raw, hydrated) });
+  const shouldHydrate = Boolean(openId && needsOpenItemHydration(items));
+  const resultItems = shouldHydrate
+    ? await hydrateItems(items, openId, session.profileId)
+    : items;
+  return Response.json({ result: toPublicOpenResult(raw, resultItems) });
 }

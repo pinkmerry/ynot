@@ -1885,6 +1885,117 @@ const getPublicCampaignDetailCached = (slug: string): Promise<YnotCampaign | nul
     { tags: ["campaigns", "campaign-detail"], revalidate: 30 },
   )();
 
+const OPEN_CAMPAIGN_SELECT = [
+  "id",
+  "slug",
+  "status",
+  "approval_status",
+  "approval_requested_at",
+  "approved_at",
+  "approval_notes",
+  "logic_snapshot",
+  "series",
+  "title_th",
+  "title_en",
+  "price_thb",
+  "total_slots",
+  "pack_code",
+  "last_prize_card_id",
+  "last_prize_metadata",
+  "banner_image_url",
+  "banner_image_storage_path",
+  "display_tags",
+  "mode",
+  "cost_coins",
+  "visibility",
+  "sort_order",
+  "starts_at",
+  "ends_at",
+  "is_test",
+  "test_metadata",
+  "convert_deadline_days",
+  "created_at",
+].join(",");
+
+export async function getOpenCampaignForReveal(
+  campaignIdOrSlug: string,
+  viewer: YnotViewer,
+) {
+  const campaignLookup = campaignIdOrSlug.trim();
+  if (!campaignLookup) return null;
+  if (!isSupabaseConfigured()) {
+    return (
+      (allowDemoStorefront()
+        ? featuredCampaigns.find(
+            (campaign) => campaign.slug === campaignLookup,
+          )
+        : undefined) ?? null
+    );
+  }
+
+  const supabase = createServiceSupabaseClient();
+  return readOrEmpty("open_campaign_for_reveal", async () => {
+    const includePrivateDetail = viewer.isAdmin;
+    const rawCampaignLookup = looksLikeUuid(campaignLookup);
+    if (rawCampaignLookup && !includePrivateDetail) return [];
+    const loadRow = (requireApproval: boolean) => {
+      let query = supabase
+        .from("draw_rounds")
+        .select(OPEN_CAMPAIGN_SELECT)
+        .limit(1);
+      query = includePrivateDetail
+        ? query.in("status", ["live", "closed", "draft"])
+        : query.in("status", ["live", "closed"]).eq("visibility", "public");
+      if (requireApproval && !includePrivateDetail)
+        query = query.eq("approval_status", "approved");
+      return rawCampaignLookup
+        ? query.eq("id", campaignLookup)
+        : query.eq("slug", campaignLookup);
+    };
+    let { data, error } = await loadRow(true);
+    if (error && isMissingColumnError(error, "approval_status")) {
+      ({ data, error } = await loadRow(false));
+    }
+    if (error) throw error;
+    const row = data?.[0] as DrawRoundRow | undefined;
+    if (!row) return [];
+    if (
+      row.is_test &&
+      !includePrivateDetail &&
+      !(await canReadTestCampaign(supabase, row.id, viewer))
+    )
+      return [];
+
+    const inventoryRows = await readOrEmpty("open_campaign_for_reveal_inventory", async () => {
+      const { data: inventory, error: inventoryError } = await supabase.rpc(
+        "get_draw_round_inventory_summary",
+        {
+          p_draw_round_id: row.id,
+          p_profile_id: viewer.profileId ?? null,
+        },
+      );
+      if (inventoryError) throw inventoryError;
+      return inventorySummariesFromJson(inventory);
+    });
+    const campaign = toYnotCampaign(row, [], inventoryRows[0]);
+    const customerCampaign = includePrivateDetail
+      ? campaign
+      : publicYnotCampaign(campaign);
+    if (!includePrivateDetail && !campaign.openable && !campaign.soldOut)
+      return [];
+    return [customerCampaign];
+  }).then(
+    (campaigns) =>
+      campaigns[0] ??
+      (allowDemoStorefront()
+        ? featuredCampaigns.find(
+            (campaign) => campaign.slug === campaignLookup,
+          )
+        : undefined) ??
+      null,
+  );
+}
+
 export async function getCampaign(
   campaignIdOrSlug: string,
   options: {

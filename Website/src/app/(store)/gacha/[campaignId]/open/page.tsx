@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { EmptyState, PageHeader, YnotShell } from "@/features/ynot/components";
 import { GachaOpenPanelLazy } from "@/features/ynot/cr/GachaOpenPanelLazy";
-import { getCampaign, getTierAnimations, getYnotDashboardSlice } from "@/features/ynot/data";
+import { getOpenCampaignForReveal, getTierAnimations, getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +17,7 @@ export default async function GachaOpenPage({
     searchParams ?? Promise.resolve({} as { qty?: string; auto?: string }),
     getYnotDashboardSlice({ wallet: true }),
   ]);
-  const campaign = await getCampaign(campaignId, {
-    allowTestForCurrentViewer: true,
-    bypassPublicCache: true,
-    viewer: data.viewer,
-  });
+  const campaign = await getOpenCampaignForReveal(campaignId, data.viewer);
   const initialQuantity = Math.max(1, Math.min(100, Math.round(Number(query.qty) || 1)));
   const autoStart = query.auto === "1";
   if (campaign && campaign.openable && autoStart) {
