@@ -2058,7 +2058,7 @@ export async function getOpenCampaignForReveal(
       return inventorySummariesFromJson(inventory);
     });
     const campaign = toOpenRevealCampaign(row, inventoryRows[0]);
-    const customerCampaign = campaign;
+    const customerCampaign = includePrivateDetail ? campaign : publicYnotCampaign(campaign);
     if (!includePrivateDetail && !campaign.openable && !campaign.soldOut)
       return [];
     return [customerCampaign];
