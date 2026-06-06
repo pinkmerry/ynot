@@ -32,6 +32,7 @@ type RawOpenItem = {
   position?: number;
   prizeUnitId?: string | null;
   isLastPrize?: boolean;
+  imageResolvedFromStockUnit?: boolean;
   bundleQuantity?: number;
   [key: string]: unknown;
 };
@@ -192,13 +193,17 @@ function openErrorMessage(message: string | undefined) {
 }
 
 function hasPublicRevealFields(item: RawOpenItem) {
+  const hasExactRevealImage =
+    item.isLastPrize === true ||
+    (item.imageResolvedFromStockUnit === true &&
+      typeof item.imageUrl === "string" &&
+      item.imageUrl.trim().length > 0);
   return (
     typeof item.name === "string" &&
     item.name.trim().length > 0 &&
     typeof item.displayTier === "string" &&
     item.displayTier.trim().length > 0 &&
-    (item.isLastPrize === true ||
-      (typeof item.imageUrl === "string" && item.imageUrl.trim().length > 0)) &&
+    hasExactRevealImage &&
     typeof item.position === "number" &&
     Number.isFinite(item.position) &&
     "valueThb" in item
@@ -215,8 +220,8 @@ async function hydrateItems(
   profileId: string,
 ): Promise<RawOpenItem[]> {
   if (!items.length) return items;
-  // Always hydrate through the awarded prize unit so the reveal can prefer the
-  // exact sub-SKU image, even when the RPC already returned catalog details.
+  // Hydrate legacy/unproven RPC payloads through the awarded prize unit so the
+  // reveal can prefer the exact sub-SKU image instead of the catalog image.
 
   const supabase = createServiceSupabaseClient();
   const { data: open, error: openError } = await supabase
@@ -357,14 +362,13 @@ async function hydrateItems(
     const prizeUnitId =
       openItem?.draw_round_prize_unit_id ??
       (typeof item.prizeUnitId === "string" ? item.prizeUnitId : null);
+    const stockImageUrl = prizeUnitId ? imageByPrizeUnitId.get(prizeUnitId) : null;
     return {
       ...item,
       cardId,
       name: item.name ?? card?.name ?? "Mystery card",
-      imageUrl: publicSubSkuImageUrl(
-        prizeUnitId ? imageByPrizeUnitId.get(prizeUnitId) : null,
-        item.imageUrl ?? card?.image_url ?? null,
-      ),
+      imageUrl: publicSubSkuImageUrl(stockImageUrl, item.imageUrl ?? card?.image_url ?? null),
+      imageResolvedFromStockUnit: Boolean(stockImageUrl),
       tier,
       displayTier,
       valueThb: item.valueThb ?? openItem?.value_thb ?? null,

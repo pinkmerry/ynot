@@ -14,6 +14,13 @@ const dataSource = readFileSync(
   new URL("../src/features/ynot/data.ts", import.meta.url),
   "utf8",
 );
+const inventorySummaryMigrationSource = readFileSync(
+  new URL(
+    "../../Database/supabase/migrations/20260607010000_open_entry_eligible_inventory_summary.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 function between(source, start, end, label) {
   const startIndex = source.indexOf(start);
@@ -31,7 +38,7 @@ function assertNoShape(source, regex, label) {
   assert.ok(!regex.test(source), `unexpected shape: ${label}`);
 }
 
-test("successful pack open does not hydrate after every reveal-ready RPC result", () => {
+test("successful pack open does not hydrate after stock-image-proven RPC results", () => {
   assertShape(
     openRouteSource,
     /function needsOpenItemHydration\(items: RawOpenItem\[\]\)/,
@@ -60,7 +67,7 @@ test("successful pack open does not hydrate after every reveal-ready RPC result"
   );
 });
 
-test("hydration fallback is based on missing public reveal fields only", () => {
+test("hydration fallback requires exact stock-image proof for normal awards", () => {
   const helper = between(
     openRouteSource,
     "function hasPublicRevealFields",
@@ -71,10 +78,20 @@ test("hydration fallback is based on missing public reveal fields only", () => {
   assertShape(helper, /typeof item\.displayTier === "string"/, "public tier field");
   assertShape(
     helper,
-    /typeof item\.imageUrl === "string" && item\.imageUrl\.trim\(\)\.length > 0/,
-    "non-last-prize public image value",
+    /item\.imageResolvedFromStockUnit === true/,
+    "stock-unit image proof field",
+  );
+  assertShape(
+    helper,
+    /typeof item\.imageUrl === "string"[\s\S]*item\.imageUrl\.trim\(\)\.length > 0/,
+    "proved public image value",
   );
   assertShape(helper, /item\.isLastPrize === true/, "last-prize image exception");
+  assertNoShape(
+    helper,
+    /item\.isLastPrize === true \|\|\s*\(\s*typeof item\.imageUrl === "string"/,
+    "plain catalog image fast path",
+  );
   assertShape(helper, /typeof item\.position === "number"/, "public position field");
   assertShape(helper, /"valueThb" in item/, "public value field");
   assertNoShape(helper, /draw_round_prizes/, "private backend lookup");
@@ -106,12 +123,62 @@ test("lightweight open-entry loader avoids full campaign detail reads", () => {
     "export async function getCampaign",
     "open-entry loader",
   );
+  const openEntryProjection = between(
+    dataSource,
+    "function toOpenRevealCampaign",
+    "export async function getCampaign",
+    "open-entry projection",
+  );
   assertShape(loader, /OPEN_CAMPAIGN_SELECT/, "lightweight campaign selection");
   assertShape(loader, /get_draw_round_inventory_summary/, "inventory summary read");
+  assertShape(openEntryProjection, /eligiblePrizeUnits/, "eligible inventory aggregate");
+  assertShape(
+    openEntryProjection,
+    /hasOpenableInventory/,
+    "explicit openability inventory gate",
+  );
+  assertShape(
+    openEntryProjection,
+    /logicMode === "inventory_gated"/,
+    "locked inventory fallback gate",
+  );
   assertNoShape(loader, /getPublicPrizeLineup/, "full detail helper");
   assertNoShape(loader, /getCampaignPrizeReadiness/, "readiness helper");
   assertNoShape(loader, /resolveLastPrizePreview/, "preview helper");
   assertNoShape(loader, /draw_round_prizes/, "private backend lookup");
   assertNoShape(loader, /draw_round_prize_units/, "private backend lookup");
   assertNoShape(loader, /card_stock_units/, "private backend lookup");
+});
+
+test("inventory summary exposes public openable aggregates for the open-entry loader", () => {
+  assertShape(
+    inventorySummaryMigrationSource,
+    /'availableWinSlots'/,
+    "playable win-slot aggregate",
+  );
+  assertShape(
+    inventorySummaryMigrationSource,
+    /'eligibleUnits'/,
+    "eligible/openable aggregate",
+  );
+  assertShape(
+    inventorySummaryMigrationSource,
+    /floor\(puc\.available_physical_units::numeric \/ puc\.bundle_quantity\)/,
+    "bundle physical-units to playable-slots math",
+  );
+  assertShape(
+    inventorySummaryMigrationSource,
+    /puc\.unlock_at_sold_pct <= ri\.sold_pct/,
+    "inventory-gated unlock parity",
+  );
+  assertShape(
+    inventorySummaryMigrationSource,
+    /last_prize_eligible_units/,
+    "final-slot last-prize openability",
+  );
+  assertNoShape(
+    inventorySummaryMigrationSource,
+    /'unlockAtSoldPct'|'weight'|'stockUnitGroupKey'|'certNumber'|'gemrateId'/,
+    "private fields in public summary JSON",
+  );
 });

@@ -94,18 +94,22 @@ test("public pack detail prize lineups prefer linked sub-SKU images", () => {
   const dataSource = readSource("../src/features/ynot/data.ts");
 
   assert.match(dataSource, /publicSubSkuImageUrl/);
-  assert.match(dataSource, /stockImageUrlByPrizeId/);
+  assert.match(dataSource, /readPrizeUnitImageUrlsByPrizeId/);
   assert.match(
     dataSource,
-    /\.from\("draw_round_prize_units"\)[\s\S]*\.select\("id,draw_round_prize_id,card_stock_unit_id,status"\)/,
+    /\.from\("card_stock_units"\)[\s\S]*\.select\("allocated_draw_round_prize_id,image_url"\)/,
   );
   assert.match(
     dataSource,
-    /\.from\("card_stock_units"\)[\s\S]*\.select\("id,image_url"\)/,
+    /\.in\("allocated_draw_round_prize_id", batch\)/,
   );
   assert.match(
     dataSource,
-    /cardImageUrl:\s*publicSubSkuImageUrl\(\s*prizeImageByPrizeId\.get\(prize\.id\),\s*card\?\.image_url,?\s*\)/,
+    /const prizeImageByPrizeId = await readPrizeUnitImageUrlsByPrizeId\(/,
+  );
+  assert.match(
+    dataSource,
+    /publicSubSkuImageUrl\(prizeImageByPrizeId\.get\(prize\.id\)\) \?\?[\s\S]*publicSubSkuImageUrl\(card\?\.image_url\)/,
   );
   assert.doesNotMatch(dataSource, /fetchPrizeCardUnitImages/);
   assert.doesNotMatch(dataSource, /unitImages\.get\(prize\.card_id\)/);
@@ -131,6 +135,8 @@ test("pack opening API resolves awarded stock-unit image without exposing intern
 
   assert.match(routeSource, /stockImageUrlByPrizeUnitId/);
   assert.match(routeSource, /publicSubSkuImageUrl/);
+  assert.match(routeSource, /imageResolvedFromStockUnit/);
+  assert.match(routeSource, /item\.imageResolvedFromStockUnit === true/);
   assert.match(routeSource, /draw_round_prize_unit_id/);
   assert.match(
     routeSource,
@@ -142,7 +148,11 @@ test("pack opening API resolves awarded stock-unit image without exposing intern
   );
   assert.match(
     routeSource,
-    /imageUrl:\s*publicSubSkuImageUrl\(\s*prizeUnitId\s*\?\s*imageByPrizeUnitId\.get\(prizeUnitId\)\s*:\s*null,\s*item\.imageUrl\s*\?\?\s*card\?\.image_url\s*\?\?\s*null,?\s*\)/,
+    /const stockImageUrl = prizeUnitId \? imageByPrizeUnitId\.get\(prizeUnitId\) : null;/,
+  );
+  assert.match(
+    routeSource,
+    /imageUrl:\s*publicSubSkuImageUrl\(stockImageUrl,\s*item\.imageUrl\s*\?\?\s*card\?\.image_url\s*\?\?\s*null,?\s*\)/,
   );
   assert.doesNotMatch(publicOpenItemType, /cardId|prizeUnitId|draw_round|card_stock|tier\?:/);
   assert.doesNotMatch(toPublicOpenItem, /cardId:|prizeUnitId:|draw_round_prize_unit_id|card_stock_unit_id/);
