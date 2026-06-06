@@ -215,32 +215,14 @@ export default async function AdminPage() {
                           : "—"}
                       </td>
                       <td>
-                        <div className="admin-dashboard-pack-actions">
-                          {(c.status === "live" ||
-                            c.status === "closed" ||
-                            c.soldOut) && (
-                            <Link
-                              href={`/admin/ynot/live-packs/${c.slug}/monitor`}
-                              className="btn btn-sm btn-ghost"
-                              prefetch={false}
-                              aria-label={`Monitor ${c.titleEn || c.titleTh}`}
-                            >
-                              Monitor
-                              <AdminIcon name="chev-r" size={12} />
-                            </Link>
-                          )}
-                          {(c.status === "live" || c.status === "draft") && (
-                            <Link
-                              href={`/admin/campaigns/${c.id}/edit`}
-                              className="btn btn-sm"
-                              prefetch={false}
-                              aria-label={`Edit ${c.titleEn || c.titleTh}`}
-                            >
-                              <AdminIcon name="edit" size={12} />
-                              {c.status === "live" ? "Edit live pack" : "Edit pack"}
-                            </Link>
-                          )}
-                        </div>
+                        <Link
+                          href={`/admin/campaigns/${c.id}/edit`}
+                          className="btn btn-sm btn-ghost"
+                          prefetch={false}
+                          aria-label="More"
+                        >
+                          <AdminIcon name="chev-r" size={12} />
+                        </Link>
                       </td>
                     </tr>
                   ))}
