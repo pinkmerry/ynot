@@ -26,3 +26,22 @@ test("lazy wrapper code-splits the panel via next/dynamic", () => {
   assert.match(lazySource, /from\s+["']next\/dynamic["']/);
   assert.match(lazySource, /import\(["']\.\.\/client["']\)/);
 });
+
+test("auto-open page uses the lightweight reveal-entry loader", () => {
+  assert.ok(
+    /getOpenCampaignForReveal/.test(openPageSource),
+    "open page should use the reveal-entry loader",
+  );
+  assert.ok(
+    /getOpenCampaignForReveal\(campaignId, data\.viewer\)/.test(openPageSource),
+    "open page should load reveal entry data for the current viewer",
+  );
+  assert.ok(
+    !/getCampaign\(campaignId/.test(openPageSource),
+    "open page should not load full campaign detail",
+  );
+  assert.ok(
+    !/bypassPublicCache/.test(openPageSource),
+    "open page should not bypass the full-detail public cache",
+  );
+});

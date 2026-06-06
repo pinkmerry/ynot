@@ -433,22 +433,31 @@ test("pack-open browser payload uses public campaign slug and server resolves it
 });
 
 test("open page only renders auto-start reveal for openable campaigns", () => {
-  assert.match(
-    gachaOpenPageSource,
-    /getCampaign\(campaignId,\s*\{\s*allowTestForCurrentViewer:\s*true,\s*bypassPublicCache:\s*true,\s*viewer:\s*data\.viewer,\s*\}\)/,
-    "open entrypoints must bypass cached public detail so stale openable state cannot auto-start a sold-out pack",
+  assert.ok(
+    /getOpenCampaignForReveal\(campaignId, data\.viewer\)/.test(gachaOpenPageSource),
+    "open entrypoints should load lightweight reveal-entry data for the current viewer",
   );
-  assert.match(
-    gachaOpenPageSource,
-    /if \(campaign && campaign\.openable && autoStart\)/,
+  assert.ok(
+    !/getCampaign\(campaignId/.test(gachaOpenPageSource),
+    "open entrypoints should not load full campaign detail",
   );
-  assert.doesNotMatch(
-    gachaOpenPageSource,
-    /if \(campaign && autoStart\)/,
+  assert.ok(
+    !/bypassPublicCache/.test(gachaOpenPageSource),
+    "open entrypoints should not bypass the full-detail public cache",
   );
-  assert.match(
-    gachaOpenPageSource,
-    /if \(campaign\) \{\s*redirect\(`\/packs\/\$\{campaign\.slug\}`\);\s*\}/,
+  assert.ok(
+    /if \(campaign && campaign\.openable && autoStart\)/.test(gachaOpenPageSource),
+    "auto-start should require an openable campaign",
+  );
+  assert.ok(
+    !/if \(campaign && autoStart\)/.test(gachaOpenPageSource),
+    "auto-start should not ignore campaign openability",
+  );
+  assert.ok(
+    /if \(campaign\) \{\s*redirect\(`\/packs\/\$\{campaign\.slug\}`\);\s*\}/.test(
+      gachaOpenPageSource,
+    ),
+    "closed reveal entries should redirect to the public pack page",
   );
 });
 
@@ -458,15 +467,30 @@ test("public campaign detail cache is bypassable for fresh openability gates", (
     "export async function getCampaign",
     "async function getPaymentMethodsImpl",
   );
-  assert.match(
-    getCampaignBlock,
-    /bypassPublicCache\?: boolean;/,
-    "getCampaign should expose an explicit cache bypass option for open-entry freshness",
+  const revealLoaderBlock = between(
+    dataSource,
+    "export async function getOpenCampaignForReveal",
+    "export async function getCampaign",
   );
-  assert.match(
-    getCampaignBlock,
-    /if \(!options\.bypassPublicCache && !viewer\.isAdmin && !looksLikeUuid\(campaignLookup\)\)/,
-    "public detail cache must be skipped when callers need fresh sold-out/openable state",
+  assert.ok(
+    /bypassPublicCache\?: boolean;/.test(getCampaignBlock),
+    "getCampaign should keep the full-detail cache bypass option",
+  );
+  assert.ok(
+    /get_draw_round_inventory_summary/.test(revealLoaderBlock),
+    "reveal-entry loader should read the lightweight inventory summary",
+  );
+  assert.ok(
+    !/getPublicPrizeLineup/.test(revealLoaderBlock),
+    "reveal-entry loader should not load public prize lineup detail",
+  );
+  assert.ok(
+    !/getCampaignPrizeReadiness/.test(revealLoaderBlock),
+    "reveal-entry loader should not load prize readiness detail",
+  );
+  assert.ok(
+    !/resolveLastPrizePreview/.test(revealLoaderBlock),
+    "reveal-entry loader should not resolve last-prize preview detail",
   );
 });
 
