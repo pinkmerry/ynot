@@ -512,58 +512,36 @@ async function readPrizeUnitImageUrlsByPrizeId(
   label: string,
 ) {
   if (!prizeIds.length) return new Map<string, string>();
-  const prizeUnits = await readSupabaseRows<PublicPrizeUnitImageRow>(
-    `${label}_prize_units`,
-    () =>
-      supabase
-        .from("draw_round_prize_units")
-        .select("id,draw_round_prize_id,card_stock_unit_id,status")
-        .in("draw_round_prize_id", prizeIds),
-  );
-  // We only need ONE representative image per prize. A mystery tier can hold
-  // hundreds of prize units (e.g. a 1000-slot random pack), so collecting every
-  // unit's stock id builds a 30k+ char IN(...) URL that the REST layer rejects
-  // (400) — which silently dropped images for the ENTIRE lineup, not just the big
-  // tier. Keep only a few candidate stock ids per prize and look them up in
-  // bounded batches so the URL stays small regardless of pack size.
-  const PER_PRIZE = 6;
-  const candidatesByPrize = new Map<string, string[]>();
-  for (const unit of prizeUnits) {
-    if (unit.status === "void") continue;
-    const prizeId = unit.draw_round_prize_id;
-    const stockId = unit.card_stock_unit_id;
-    if (!prizeId || !stockId) continue;
-    const list = candidatesByPrize.get(prizeId);
-    if (!list) candidatesByPrize.set(prizeId, [stockId]);
-    else if (list.length < PER_PRIZE) list.push(stockId);
-  }
-  const stockUnitIds = [...new Set([...candidatesByPrize.values()].flat())];
-  const imageByStockId = new Map<string, string>();
-  const BATCH = 100;
-  for (let i = 0; i < stockUnitIds.length; i += BATCH) {
-    const batch = stockUnitIds.slice(i, i + BATCH);
-    const rows = await readSupabaseRows<PublicStockUnitImageRow>(
-      `${label}_stock_unit_images`,
+  // Resolve ONE representative image per prize straight from the stock units
+  // allocated to each prize, fetching ONLY units that actually carry an image.
+  // Going via every prize unit instead pulled the round's whole slot table —
+  // ~1000 rows for a 1000-slot pack, of which maybe 25 have an image — which
+  // inflated the worker's CPU/memory toward the Cloudflare 1102 "exceeded resource
+  // limits" failure (and, when collected into one IN(...), a 400 from URL length).
+  // The image-bearing allocated units are a small set, fetched in bounded batches.
+  const out = new Map<string, string>();
+  const PRIZE_BATCH = 150;
+  for (let i = 0; i < prizeIds.length; i += PRIZE_BATCH) {
+    const batch = prizeIds.slice(i, i + PRIZE_BATCH);
+    const rows = await readSupabaseRows<{
+      allocated_draw_round_prize_id: string | null;
+      image_url: string | null;
+    }>(
+      `${label}_allocated_images`,
       () =>
-        supabase.from("card_stock_units").select("id,image_url").in("id", batch),
+        supabase
+          .from("card_stock_units")
+          .select("allocated_draw_round_prize_id,image_url")
+          .in("allocated_draw_round_prize_id", batch)
+          .not("image_url", "is", null),
     );
     for (const row of rows) {
-      const id = typeof row.id === "string" ? row.id : null;
+      const prizeId = row.allocated_draw_round_prize_id;
       const img =
         typeof row.image_url === "string" && row.image_url.trim()
           ? row.image_url.trim()
           : null;
-      if (id && img && !imageByStockId.has(id)) imageByStockId.set(id, img);
-    }
-  }
-  const out = new Map<string, string>();
-  for (const [prizeId, ids] of candidatesByPrize) {
-    for (const id of ids) {
-      const img = imageByStockId.get(id);
-      if (img) {
-        out.set(prizeId, img);
-        break;
-      }
+      if (prizeId && img && !out.has(prizeId)) out.set(prizeId, img);
     }
   }
   return out;
