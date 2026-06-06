@@ -194,10 +194,13 @@ function openErrorMessage(message: string | undefined) {
 function hasPublicRevealFields(item: RawOpenItem) {
   return (
     typeof item.name === "string" &&
+    item.name.trim().length > 0 &&
     typeof item.displayTier === "string" &&
+    item.displayTier.trim().length > 0 &&
     (item.isLastPrize === true ||
       (typeof item.imageUrl === "string" && item.imageUrl.trim().length > 0)) &&
     typeof item.position === "number" &&
+    Number.isFinite(item.position) &&
     "valueThb" in item
   );
 }
