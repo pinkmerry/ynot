@@ -43,6 +43,7 @@
     "test:last-prize-stock-link": "node --test scripts/test-last-prize-stock-link.mjs",
     "test:prize-unit-counts": "node --test scripts/test-prize-unit-counts.mjs",
     "test:campaign-detail-perf": "node --test scripts/test-campaign-detail-perf.mjs",
+    "test:gacha-open-performance": "node --test scripts/test-gacha-open-performance-shape.mjs",
     "test:stock-readiness": "node --test scripts/test-stock-readiness.mjs && node --test scripts/test-stock-subsku-sql.mjs && npm run test:subsku-images",
     "test:identity-review-db-safety": "node --test scripts/test-identity-review-db-safety.mjs",
     "test:auth-session-hardening": "node --test scripts/test-auth-session-hardening.mjs",
