@@ -653,6 +653,47 @@ function isOwnerReviewLineupRow(row: DrawRoundRow) {
   );
 }
 
+// Representative ("inventory preview") image for a card: any non-deleted stock
+// unit of the card that carries an image. Last-resort fallback for a prize whose
+// allocated slab has no photo AND whose card has no catalog image — some packs are
+// built from un-photographed units while a photographed copy sits elsewhere in
+// stock. Mirrors the admin catalog's inventory-preview. Bounded + batched by card.
+async function readCardRepresentativeImages(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  cardIds: string[],
+  label: string,
+) {
+  const uniq = [...new Set(cardIds)];
+  const out = new Map<string, string>();
+  if (!uniq.length) return out;
+  const BATCH = 100;
+  for (let i = 0; i < uniq.length; i += BATCH) {
+    const batch = uniq.slice(i, i + BATCH);
+    const rows = await readSupabaseRows<{
+      card_id: string | null;
+      image_url: string | null;
+    }>(
+      `${label}_card_rep_images`,
+      () =>
+        supabase
+          .from("card_stock_units")
+          .select("card_id,image_url")
+          .in("card_id", batch)
+          .in("status", ["available", "allocated", "reserved"])
+          .not("image_url", "is", null),
+    );
+    for (const row of rows) {
+      const cardId = row.card_id;
+      const img =
+        typeof row.image_url === "string" && row.image_url.trim()
+          ? row.image_url.trim()
+          : null;
+      if (cardId && img && !out.has(cardId)) out.set(cardId, img);
+    }
+  }
+  return out;
+}
+
 async function getPublicPrizeLineupsBatch(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   rows: DrawRoundRow[],
@@ -715,6 +756,17 @@ async function getPublicPrizeLineupsBatch(
     allVisible.map((prize) => prize.id),
     "campaign_prize_lineup_images",
   );
+  const lineupPreviewImageByCardId = await readCardRepresentativeImages(
+    supabase,
+    allVisible
+      .filter(
+        (prize) =>
+          !prizeImageByPrizeId.get(prize.id) &&
+          !cardById.get(prize.card_id)?.image_url,
+      )
+      .map((prize) => prize.card_id),
+    "campaign_prize_lineup",
+  );
 
   for (const row of rows) {
     const visible = visiblePrizesByCampaign.get(row.id) ?? [];
@@ -729,8 +781,11 @@ async function getPublicPrizeLineupsBatch(
           cardCode: card?.card_code ?? null,
           cardGrade: card?.grade ?? null,
           cardImageUrl:
-          publicSubSkuImageUrl(prizeImageByPrizeId.get(prize.id)) ??
-          publicSubSkuImageUrl(card?.image_url),
+            publicSubSkuImageUrl(prizeImageByPrizeId.get(prize.id)) ??
+            publicSubSkuImageUrl(card?.image_url) ??
+            publicSubSkuImageUrl(
+              lineupPreviewImageByCardId.get(prize.card_id),
+            ),
           cardImageStoragePath: card?.image_storage_path ?? null,
           cardPrizeCategory: card?.prize_category ?? null,
           cardName: card?.name ?? "Mystery reward",
@@ -813,6 +868,17 @@ async function getPublicPrizeLineup(
     visiblePrizes.map((prize) => prize.id),
     "campaign_detail_prize_lineup_images",
   );
+  const lineupPreviewImageByCardId = await readCardRepresentativeImages(
+    supabase,
+    visiblePrizes
+      .filter(
+        (prize) =>
+          !prizeImageByPrizeId.get(prize.id) &&
+          !cardById.get(prize.card_id)?.image_url,
+      )
+      .map((prize) => prize.card_id),
+    "campaign_detail_prize_lineup",
+  );
 
   return visiblePrizes
     .map((prize) => {
@@ -826,7 +892,8 @@ async function getPublicPrizeLineup(
         cardGrade: card?.grade ?? null,
         cardImageUrl:
           publicSubSkuImageUrl(prizeImageByPrizeId.get(prize.id)) ??
-          publicSubSkuImageUrl(card?.image_url),
+          publicSubSkuImageUrl(card?.image_url) ??
+          publicSubSkuImageUrl(lineupPreviewImageByCardId.get(prize.card_id)),
         cardImageStoragePath: card?.image_storage_path ?? null,
         cardPrizeCategory: card?.prize_category ?? null,
         cardName: card?.name ?? "Mystery reward",
