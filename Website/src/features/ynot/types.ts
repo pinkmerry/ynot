@@ -419,15 +419,12 @@ export type YnotPrizePreview = {
 };
 
 export type YnotPackMonitorPrizeUnit = {
-  prizeUnitId: string;
   status: string;
   openedAt?: string | null;
   ownerLabel?: string | null;
   ownerEmail?: string | null;
   ownerLineUserId?: string | null;
   publicOpenCode?: string | null;
-  openId?: string | null;
-  openItemId?: string | null;
 };
 
 export type YnotPackMonitorPrize = {

@@ -104,6 +104,9 @@ test("admin pack monitor data loader exists and returns the safe contract", () =
   assert.match(loaderSource, /summary:/);
   assert.match(loaderSource, /prizes:/);
   assert.match(loaderSource, /totals:/);
+  assert.match(loaderSource, /ADMIN_PACK_MONITOR_WINNERS_PER_PRIZE_LIMIT/);
+  assert.match(loaderSource, /displayedWinnerUnits/);
+  assert.match(loaderSource, /winnerRows: outPrizeUnits/);
 
   for (const token of PRIVATE_MONITOR_TOKENS) {
     assert.doesNotMatch(
@@ -122,6 +125,11 @@ test("admin pack monitor page renders no house/private stock identifiers", () =>
   assert.match(pageSource, /remaining/i);
   assert.match(pageSource, /sold[- ]?out/i);
   assert.match(pageSource, /winner/i);
+  assert.match(pageSource, /dynamic = "force-dynamic"/);
+  assert.match(pageSource, /revalidate = 0/);
+  assert.match(pageSource, /connection/);
+  assert.match(pageSource, /latest \{prize\.winners\.length\.toLocaleString\(\)\}/);
+  assert.doesNotMatch(pageSource, /setInterval|router\.refresh|refreshInterval/);
 
   for (const token of PRIVATE_MONITOR_TOKENS) {
     assert.doesNotMatch(
@@ -132,12 +140,25 @@ test("admin pack monitor page renders no house/private stock identifiers", () =>
   }
 });
 
-test("admin random packs panel links to the monitor without private query params", () => {
+test("admin random pack surfaces link to the monitor without private query params", () => {
+  const dashboardSource = read("../src/app/admin/page.tsx");
   const clientSource = read("../src/features/ynot/client.tsx");
-  const panelSource = between(clientSource, "function RandomPacksPanel", "function");
+  const tableSource = between(
+    clientSource,
+    "export function AdminCampaignTable",
+    "function DeletePackConfirmModal",
+  );
 
-  assert.match(panelSource, /\/admin\/ynot\/live-packs\/[^"']+\/monitor/);
-  assert.doesNotMatch(panelSource, /stockUnitFilter/);
-  assert.doesNotMatch(panelSource, /cardStockUnitId/);
-  assert.doesNotMatch(panelSource, /drawRoundPrizeUnitId/);
+  assert.match(
+    dashboardSource,
+    /\/admin\/ynot\/live-packs\/\$\{c\.slug\}\/monitor/,
+  );
+  assert.match(dashboardSource, /\/admin\/campaigns\/\$\{c\.id\}\/edit/);
+  assert.match(
+    tableSource,
+    /\/admin\/ynot\/live-packs\/\$\{campaign\.slug\}\/monitor/,
+  );
+  assert.doesNotMatch(`${dashboardSource}\n${tableSource}`, /stockUnitFilter/);
+  assert.doesNotMatch(`${dashboardSource}\n${tableSource}`, /cardStockUnitId/);
+  assert.doesNotMatch(`${dashboardSource}\n${tableSource}`, /drawRoundPrizeUnitId/);
 });
