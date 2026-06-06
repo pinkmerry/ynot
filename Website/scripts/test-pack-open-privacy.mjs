@@ -486,6 +486,12 @@ test("public campaign detail cache is bypassable for fresh openability gates", (
     "reveal-entry loader should read the lightweight inventory summary",
   );
   assert.ok(
+    /const customerCampaign = includePrivateDetail \? campaign : publicYnotCampaign\(campaign\);/.test(
+      revealLoaderBlock,
+    ),
+    "reveal-entry loader should strip server-only openability details before client props",
+  );
+  assert.ok(
     !/getPublicPrizeLineup/.test(revealLoaderBlock),
     "reveal-entry loader should not load public prize lineup detail",
   );

@@ -214,6 +214,8 @@ type InventorySummary = {
   remainingSlots?: number;
   totalUnits?: number;
   availableUnits?: number;
+  availableWinSlots?: number;
+  eligibleUnits?: number;
   awardedUnits?: number;
   voidUnits?: number;
 };
@@ -271,6 +273,8 @@ function inventorySummariesFromJson(value: unknown): InventorySummary[] {
         remainingSlots: optionalNumericValue(item.remainingSlots),
         totalUnits: optionalNumericValue(item.totalUnits) ?? 0,
         availableUnits: optionalNumericValue(item.availableUnits) ?? 0,
+        availableWinSlots: optionalNumericValue(item.availableWinSlots),
+        eligibleUnits: optionalNumericValue(item.eligibleUnits),
         awardedUnits: optionalNumericValue(item.awardedUnits) ?? 0,
         voidUnits: optionalNumericValue(item.voidUnits) ?? 0,
       },
@@ -2002,7 +2006,16 @@ function toOpenRevealCampaign(
     inferredApprovalStatus(row.status),
   );
   const remainingSlots = inventory?.remainingSlots ?? row.total_slots;
-  const availablePrizeUnits = inventory?.availableUnits ?? 0;
+  const logicMode = normalizeRandomLogicMode(row.logic_snapshot);
+  const availablePrizeUnits =
+    inventory?.availableWinSlots ?? inventory?.availableUnits ?? 0;
+  const eligiblePrizeUnits = inventory?.eligibleUnits;
+  const hasOpenableInventory =
+    eligiblePrizeUnits === undefined
+      ? logicMode === "inventory_gated"
+        ? false
+        : availablePrizeUnits > 0
+      : eligiblePrizeUnits > 0;
   const soldOut = remainingSlots <= 0 || availablePrizeUnits <= 0;
   const adminRemoved = isOwnerRemoved(row.test_metadata);
   const openable =
@@ -2010,7 +2023,8 @@ function toOpenRevealCampaign(
     row.visibility === "public" &&
     approvalStatus === "approved" &&
     !adminRemoved &&
-    !soldOut;
+    !soldOut &&
+    hasOpenableInventory;
 
   return {
     id: row.slug,
@@ -2029,6 +2043,8 @@ function toOpenRevealCampaign(
     endsAt: row.ends_at,
     remainingSlots,
     availablePrizeUnits,
+    eligiblePrizeUnits,
+    logicMode,
     openable,
     soldOut,
     bannerImageUrl: row.banner_image_url ?? null,
@@ -2103,7 +2119,7 @@ export async function getOpenCampaignForReveal(
       return inventorySummariesFromJson(inventory);
     });
     const campaign = toOpenRevealCampaign(row, inventoryRows[0]);
-    const customerCampaign = campaign;
+    const customerCampaign = includePrivateDetail ? campaign : publicYnotCampaign(campaign);
     if (!includePrivateDetail && !campaign.openable && !campaign.soldOut)
       return [];
     return [customerCampaign];
