@@ -258,12 +258,17 @@ test("customer campaign props hide house logic and internal prize inventory", ()
     );
   }
 
-  const publicCampaignCall = between(
+  const dynamicCampaignDetail = between(
     dataSource,
-    "const campaign = toYnotCampaign(",
-    "return [customerCampaign];",
+    "export async function getCampaign",
+    "async function getPaymentMethodsImpl",
   );
-  assert.match(publicCampaignCall, /includePrivateDetail\s*\?\s*campaign\s*:\s*publicYnotCampaign\(campaign\)/);
+  assert.ok(
+    /includePrivateDetail\s*\?\s*campaign\s*:\s*publicYnotCampaign\(campaign\)/.test(
+      dynamicCampaignDetail,
+    ),
+    "dynamic public campaign detail must return publicYnotCampaign for non-admin viewers",
+  );
 
   const packsFeatureBlock = between(
     componentsSource,

@@ -1890,32 +1890,96 @@ const OPEN_CAMPAIGN_SELECT = [
   "slug",
   "status",
   "approval_status",
-  "approval_requested_at",
-  "approved_at",
-  "approval_notes",
   "logic_snapshot",
   "series",
   "title_th",
   "title_en",
   "price_thb",
   "total_slots",
-  "pack_code",
   "last_prize_card_id",
-  "last_prize_metadata",
   "banner_image_url",
-  "banner_image_storage_path",
-  "display_tags",
   "mode",
   "cost_coins",
   "visibility",
-  "sort_order",
   "starts_at",
   "ends_at",
   "is_test",
   "test_metadata",
   "convert_deadline_days",
-  "created_at",
 ].join(",");
+
+type OpenCampaignRow = Pick<
+  DrawRoundRow,
+  | "id"
+  | "slug"
+  | "status"
+  | "approval_status"
+  | "logic_snapshot"
+  | "series"
+  | "title_th"
+  | "title_en"
+  | "price_thb"
+  | "total_slots"
+  | "last_prize_card_id"
+  | "banner_image_url"
+  | "mode"
+  | "cost_coins"
+  | "visibility"
+  | "starts_at"
+  | "ends_at"
+  | "is_test"
+  | "test_metadata"
+  | "convert_deadline_days"
+>;
+
+function toOpenRevealCampaign(
+  row: OpenCampaignRow,
+  inventory?: InventorySummary,
+): YnotCampaign {
+  const approvalStatus = normalizeApprovalStatus(
+    row.approval_status,
+    inferredApprovalStatus(row.status),
+  );
+  const remainingSlots = inventory?.remainingSlots ?? row.total_slots;
+  const availablePrizeUnits = inventory?.availableUnits ?? 0;
+  const soldOut = remainingSlots <= 0 || availablePrizeUnits <= 0;
+  const adminRemoved = isOwnerRemoved(row.test_metadata);
+  const openable =
+    row.status === "live" &&
+    row.visibility === "public" &&
+    approvalStatus === "approved" &&
+    !adminRemoved &&
+    !soldOut;
+
+  return {
+    id: row.slug,
+    slug: row.slug,
+    status: row.status,
+    approvalStatus,
+    titleTh: row.title_th,
+    titleEn: row.title_en,
+    series: row.series,
+    priceThb: row.price_thb,
+    costCoins: row.cost_coins ?? Math.max(1, Math.ceil(row.price_thb / 100)),
+    mode: row.mode,
+    visibility: row.visibility,
+    totalSlots: row.total_slots,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    remainingSlots,
+    availablePrizeUnits,
+    openable,
+    soldOut,
+    bannerImageUrl: row.banner_image_url ?? null,
+    openQuantityOptions: normalizeOpenQuantityOptions(row.logic_snapshot),
+    convertDeadlineDays:
+      typeof row.convert_deadline_days === "number" &&
+      row.convert_deadline_days > 0
+        ? row.convert_deadline_days
+        : null,
+    hasLastPrize: Boolean(row.last_prize_card_id),
+  };
+}
 
 export async function getOpenCampaignForReveal(
   campaignIdOrSlug: string,
@@ -1957,7 +2021,7 @@ export async function getOpenCampaignForReveal(
       ({ data, error } = await loadRow(false));
     }
     if (error) throw error;
-    const row = data?.[0] as DrawRoundRow | undefined;
+    const row = data?.[0] as OpenCampaignRow | undefined;
     if (!row) return [];
     if (
       row.is_test &&
@@ -1977,10 +2041,8 @@ export async function getOpenCampaignForReveal(
       if (inventoryError) throw inventoryError;
       return inventorySummariesFromJson(inventory);
     });
-    const campaign = toYnotCampaign(row, [], inventoryRows[0]);
-    const customerCampaign = includePrivateDetail
-      ? campaign
-      : publicYnotCampaign(campaign);
+    const campaign = toOpenRevealCampaign(row, inventoryRows[0]);
+    const customerCampaign = campaign;
     if (!includePrivateDetail && !campaign.openable && !campaign.soldOut)
       return [];
     return [customerCampaign];
