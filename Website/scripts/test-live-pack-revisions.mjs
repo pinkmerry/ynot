@@ -46,3 +46,15 @@ test("admin live row exposes monitor and edit revision actions", () => {
   assert.match(client, />\s*Edit live pack\s*</);
   assert.doesNotMatch(client, /changes apply immediately and re-materialize stock/);
 });
+
+test("admin live row surfaces owner review status before republish", () => {
+  assert.match(client, /liveRevisionStatus/);
+  assert.match(client, /Needs owner review/);
+  assert.match(client, /Review & republish/);
+  assert.match(client, /viewerRole === "owner"/);
+  assert.match(client, /\/admin\/campaigns\/\$\{campaign\.id\}\/review/);
+});
+
+test("live revision review returns owner to the public monitor route after publish", () => {
+  assert.match(client, /router\.replace\(`\/admin\/ynot\/live-packs\/\$\{campaign\.slug\}\/monitor`\)/);
+});

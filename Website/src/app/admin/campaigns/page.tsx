@@ -164,7 +164,10 @@ export default async function AdminCampaignsPage() {
             }
           />
           <div className="card-pad">
-            <AdminCampaignTable campaigns={data.campaigns} />
+            <AdminCampaignTable
+              campaigns={data.campaigns}
+              viewerRole={data.viewer.adminRole ?? null}
+            />
           </div>
         </AdminCard>
 

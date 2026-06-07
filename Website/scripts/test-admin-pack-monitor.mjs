@@ -122,10 +122,32 @@ test("admin pack monitor data loader exists and returns the safe contract", () =
   }
 });
 
+test("live revision status lookup is compact and avoids owner economics", () => {
+  const dataSource = read("../src/features/ynot/data.ts");
+  const statusLoaderSource = between(
+    dataSource,
+    "export async function getLivePackRevisionStatus",
+    "export async function getLivePackRevisionReview",
+  );
+
+  assert.match(statusLoaderSource, /draw_round_live_revisions/);
+  assert.match(statusLoaderSource, /draw_round_id,status,created_at,updated_at,reviewed_at/);
+  assert.match(statusLoaderSource, /\.in\("status", \["pending_review", "approved"\]\)/);
+  assert.doesNotMatch(statusLoaderSource, /prize_snapshot/);
+  assert.doesNotMatch(statusLoaderSource, /scalar_patch/);
+  assert.doesNotMatch(statusLoaderSource, /logic_snapshot/);
+  assert.doesNotMatch(statusLoaderSource, /weight/);
+  assert.doesNotMatch(statusLoaderSource, /unlock_at_sold_pct/);
+});
+
 test("admin pack monitor page renders no house/private stock identifiers", () => {
   const pageSource = read("../src/app/admin/ynot/live-packs/[slug]/monitor/page.tsx");
 
   assert.match(pageSource, /getAdminPackMonitor/);
+  assert.match(pageSource, /getLivePackRevisionStatus/);
+  assert.match(pageSource, /Needs owner review/);
+  assert.match(pageSource, /Review & republish/);
+  assert.match(pageSource, /\/admin\/campaigns\/\$\{summary\.campaignId\}\/review/);
   assert.match(pageSource, /YnotPackMonitor/);
   assert.match(pageSource, /remaining/i);
   assert.match(pageSource, /sold[- ]?out/i);

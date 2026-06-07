@@ -28,6 +28,7 @@ import type {
   YnotGachaOpenHistory,
   YnotLastPrizePreview,
   YnotLivePackMonitor,
+  YnotLivePackRevisionStatus,
   YnotLivePackRevisionReview,
   YnotOwnerApprovalRequest,
   YnotPackMonitor,
@@ -1568,6 +1569,56 @@ type CampaignQueryOptions = {
   campaignIdOrSlug?: string;
 };
 
+const ACTIVE_LIVE_REVISION_STATUSES = ["pending_review", "approved"] as const;
+
+type LiveRevisionStatusRow = {
+  draw_round_id: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  reviewed_at: string | null;
+};
+
+function livePackRevisionStatusFromRow(
+  row: LiveRevisionStatusRow,
+): YnotLivePackRevisionStatus {
+  return {
+    campaignId: row.draw_round_id,
+    status:
+      row.status === "approved" ||
+      row.status === "rejected" ||
+      row.status === "published" ||
+      row.status === "cancelled"
+        ? row.status
+        : "pending_review",
+    requestedAt: row.created_at,
+    updatedAt: row.updated_at,
+    reviewedAt: row.reviewed_at,
+  };
+}
+
+async function getLivePackRevisionStatusMap(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  campaignIds: string[],
+): Promise<Map<string, YnotLivePackRevisionStatus>> {
+  const uniqueIds = [...new Set(campaignIds)];
+  if (!uniqueIds.length) return new Map();
+  const { data, error } = await supabase
+    .from("draw_round_live_revisions")
+    .select("draw_round_id,status,created_at,updated_at,reviewed_at")
+    .in("draw_round_id", uniqueIds)
+    .in("status", ACTIVE_LIVE_REVISION_STATUSES)
+    .order("updated_at", { ascending: false });
+  if (error) throw error;
+  const byCampaign = new Map<string, YnotLivePackRevisionStatus>();
+  for (const row of (data ?? []) as LiveRevisionStatusRow[]) {
+    if (!byCampaign.has(row.draw_round_id)) {
+      byCampaign.set(row.draw_round_id, livePackRevisionStatusFromRow(row));
+    }
+  }
+  return byCampaign;
+}
+
 async function getCampaignsImpl(
   options: CampaignQueryOptions = {},
 ): Promise<YnotCampaign[]> {
@@ -1623,7 +1674,7 @@ async function getCampaignsImpl(
       (row) => options.includePrivate || row.is_test !== true,
     );
     const campaignIds = rows.map((row) => row.id);
-    const [categories, categoryLinks, inventoryRows] = await Promise.all([
+    const [categories, categoryLinks, inventoryRows, liveRevisionStatuses] = await Promise.all([
       getStoreCategories({ includeTest: Boolean(options.includePrivate) }),
       readOrEmpty("campaign_categories", async () => {
         if (!campaignIds.length) return [];
@@ -1648,6 +1699,12 @@ async function getCampaignsImpl(
         if (inventoryError) throw inventoryError;
         return inventorySummariesFromJson(inventory);
       }),
+      options.includePrivate
+        ? getLivePackRevisionStatusMap(supabase, campaignIds).catch((error) => {
+            recordDataIssue("campaign_live_revision_status", error);
+            return new Map<string, YnotLivePackRevisionStatus>();
+          })
+        : Promise.resolve(new Map<string, YnotLivePackRevisionStatus>()),
     ]);
     const categoriesById = new Map(
       categories.map((category) => [category.id, category]),
@@ -1738,6 +1795,13 @@ async function getCampaignsImpl(
         prizeLineupsByCampaign.get(row.id),
         readinessByCampaign.get(row.id),
       );
+      const liveRevision = liveRevisionStatuses.get(row.id);
+      if (liveRevision) {
+        campaign.liveRevisionStatus = liveRevision.status;
+        campaign.liveRevisionRequestedAt = liveRevision.requestedAt;
+        campaign.liveRevisionUpdatedAt = liveRevision.updatedAt;
+        campaign.liveRevisionReviewedAt = liveRevision.reviewedAt;
+      }
       return options.includePrivate ? campaign : publicYnotCampaign(campaign);
     });
     return options.includePrivate
@@ -4092,6 +4156,32 @@ function liveRevisionPrizeRows(value: unknown): YnotLivePackRevisionReview["priz
       },
     ];
   });
+}
+
+export async function getLivePackRevisionStatus(
+  campaignId: string,
+): Promise<YnotLivePackRevisionStatus | null> {
+  if (!isSupabaseConfigured()) return null;
+  const admin = await resolveAdminSession();
+  if (!admin && !isDevAuthAllowed()) return null;
+  const supabase = createServiceSupabaseClient();
+  try {
+    const { data, error } = await supabase
+      .from("draw_round_live_revisions")
+      .select("draw_round_id,status,created_at,updated_at,reviewed_at")
+      .eq("draw_round_id", campaignId)
+      .in("status", ["pending_review", "approved"])
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data
+      ? livePackRevisionStatusFromRow(data as LiveRevisionStatusRow)
+      : null;
+  } catch (error) {
+    recordDataIssue("live_pack_revision_status", error);
+    return null;
+  }
 }
 
 export async function getLivePackRevisionReview(

@@ -2,7 +2,11 @@ import Link from "next/link";
 import { connection } from "next/server";
 
 import { AdminGate } from "@/features/ynot/components";
-import { getAdminPackMonitor, getYnotViewer } from "@/features/ynot/data";
+import {
+  getAdminPackMonitor,
+  getLivePackRevisionStatus,
+  getYnotViewer,
+} from "@/features/ynot/data";
 import {
   AdminBar,
   AdminCard,
@@ -166,6 +170,17 @@ export default async function AdminLivePackMonitorPage({
   }
 
   const { summary, totals } = monitor;
+  const liveRevision = await getLivePackRevisionStatus(summary.campaignId);
+  const liveRevisionNeedsReview = liveRevision?.status === "pending_review";
+  const liveRevisionReadyToPublish = liveRevision?.status === "approved";
+  const ownerCanReviewLiveRevision =
+    viewer.adminRole === "owner" &&
+    (liveRevisionNeedsReview || liveRevisionReadyToPublish);
+  const liveRevisionLabel = liveRevisionNeedsReview
+    ? "Needs owner review"
+    : liveRevisionReadyToPublish
+      ? "Owner approved"
+      : null;
 
   return (
     <AdminGate viewer={viewer}>
@@ -185,6 +200,23 @@ export default async function AdminLivePackMonitorPage({
             >
               <AdminIcon name="edit" /> Edit live pack
             </Link>
+            {liveRevisionLabel ? (
+              <span className="chip mono">
+                {liveRevisionLabel}
+              </span>
+            ) : null}
+            {ownerCanReviewLiveRevision ? (
+              <Link
+                href={`/admin/campaigns/${summary.campaignId}/review`}
+                className="btn"
+                prefetch={false}
+              >
+                <AdminIcon name="sparkles" />{" "}
+                {liveRevisionReadyToPublish
+                  ? "Republish live"
+                  : "Review & republish"}
+              </Link>
+            ) : null}
             <Link href="/admin" className="btn btn-primary" prefetch={false}>
               <AdminIcon name="grid" /> Dashboard
             </Link>

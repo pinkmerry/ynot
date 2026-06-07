@@ -7356,7 +7356,7 @@ export function LivePackRevisionReview({
               : "Live revision rejected.",
         );
         if (action === "publish") {
-          router.replace(`/admin/campaigns/${campaign.id}/monitor`);
+          router.replace(`/admin/ynot/live-packs/${campaign.slug}/monitor`);
         } else {
           router.refresh();
         }
@@ -7381,7 +7381,10 @@ export function LivePackRevisionReview({
       desc="Owner-only review for a live pack edit. Publishing applies the approved changes while keeping existing opens, bags, and reward history."
       actions={
         <>
-          <Link className="btn" href={`/admin/campaigns/${campaign.id}/monitor`}>
+          <Link
+            className="btn"
+            href={`/admin/ynot/live-packs/${campaign.slug}/monitor`}
+          >
             <AdminIcon name="chev-r" /> Monitor
           </Link>
           <button
@@ -12294,8 +12297,10 @@ type AdminTableStatus = (typeof STATUS_TABS)[number]["key"];
 
 export function AdminCampaignTable({
   campaigns,
+  viewerRole = null,
 }: {
   campaigns: YnotCampaign[];
+  viewerRole?: YnotViewer["adminRole"];
 }) {
   const router = useRouter();
   const [activeStatus, setActiveStatus] = useState<AdminTableStatus>("all");
@@ -12660,6 +12665,22 @@ export function AdminCampaignTable({
                 campaign.approvalStatus === "pending_review";
               const alreadyApproved = campaign.approvalStatus === "approved";
               const reviewBlocker = campaign.readinessBlockers?.[0];
+              const liveRevisionStatus =
+                campaign.status === "live"
+                  ? campaign.liveRevisionStatus ?? null
+                  : null;
+              const liveRevisionNeedsReview =
+                liveRevisionStatus === "pending_review";
+              const liveRevisionReadyToPublish =
+                liveRevisionStatus === "approved";
+              const liveRevisionLabel = liveRevisionNeedsReview
+                ? "Needs owner review"
+                : liveRevisionReadyToPublish
+                  ? "Owner approved"
+                  : null;
+              const ownerCanReviewLiveRevision =
+                viewerRole === "owner" &&
+                (liveRevisionNeedsReview || liveRevisionReadyToPublish);
               return (
                 <tr
                   key={campaign.id}
@@ -12793,6 +12814,33 @@ export function AdminCampaignTable({
                         >
                           Edit live pack
                         </a>
+                        {liveRevisionLabel ? (
+                          <span
+                            className="admin-pack-table-action-note"
+                            title={
+                              liveRevisionNeedsReview
+                                ? "This live edit must be reviewed by the owner before it can be republished."
+                                : "The owner approved this live edit. Publish it from the review page."
+                            }
+                          >
+                            {liveRevisionLabel}
+                          </span>
+                        ) : null}
+                        {ownerCanReviewLiveRevision ? (
+                          <a
+                            href={`/admin/campaigns/${campaign.id}/review`}
+                            className="admin-pack-table-action admin-pack-table-action-review"
+                            title={
+                              liveRevisionReadyToPublish
+                                ? "Open owner review and republish this approved live edit"
+                                : "Open owner review for this live edit"
+                            }
+                          >
+                            {liveRevisionReadyToPublish
+                              ? "Republish live"
+                              : "Review & republish"}
+                          </a>
+                        ) : null}
                       </>
                     )}
                     {campaign.status !== "live" &&

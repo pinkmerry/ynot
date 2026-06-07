@@ -24241,6 +24241,15 @@ html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-action:
   background: #ffffff !important;
   color: #141414 !important;
 }
+html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-action-note {
+  color: #f4c542 !important;
+  display: inline-block !important;
+  font-size: 10px !important;
+  letter-spacing: 0.08em !important;
+  margin-left: 8px !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+}
 html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-action-danger:hover:not(:disabled) {
   background: #c2410c !important;
   color: #ffffff !important;

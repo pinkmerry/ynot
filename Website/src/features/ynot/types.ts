@@ -36,6 +36,10 @@ export type YnotCampaign = {
   approvalRequestedAt?: string | null;
   approvedAt?: string | null;
   approvalNotes?: string | null;
+  liveRevisionStatus?: LiveRevisionStatus | null;
+  liveRevisionRequestedAt?: string | null;
+  liveRevisionUpdatedAt?: string | null;
+  liveRevisionReviewedAt?: string | null;
   logicMode?: YnotRandomLogicMode;
   remainingSlots?: number;
   totalPrizeUnits?: number;
@@ -103,6 +107,14 @@ export type LiveRevisionStatus =
   | "rejected"
   | "published"
   | "cancelled";
+
+export type YnotLivePackRevisionStatus = {
+  campaignId: string;
+  status: LiveRevisionStatus;
+  requestedAt: string;
+  updatedAt: string;
+  reviewedAt?: string | null;
+};
 
 export type YnotLivePackRevisionReview = {
   id: string;
