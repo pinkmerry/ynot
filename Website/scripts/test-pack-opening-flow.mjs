@@ -26,21 +26,15 @@ test("auto-start open uses intent-derived idempotency and strips replay URL afte
   assert.match(helper, /export function createOpenIntentId/);
   assert.match(helper, /export function normalizeOpenIntentId/);
   assert.match(helper, /export function openIntentIdempotencyKey/);
-  assert.match(helper, /chunkIndex = 0/);
-  assert.match(helper, /part-\$\{safeChunkIndex\}/);
   assert.match(helper, /export function stripOpenAutoStartUrl/);
   assert.match(helper, /url\.searchParams\.delete\("auto"\)/);
 
   const client = read("src/features/ynot/client.tsx");
   const fireOpen = client.match(/function fireOpen[\s\S]*?function openAgain/)?.[0] ?? "";
-  assert.match(client, /const GACHA_OPEN_RPC_CHUNK_SIZE = 20;/);
-  assert.match(client, /function openQuantityChunks/);
-  assert.match(client, /function mergeOpenResults/);
-  assert.match(fireOpen, /for \(const chunk of chunks\)/);
   assert.match(fireOpen, /openIntentIdempotencyKey/);
-  assert.match(fireOpen, /openIntentId \?\? createOpenIntentId\(\)/);
-  assert.match(fireOpen, /quantity: chunk\.quantity/);
-  assert.match(fireOpen, /chunk\.index/);
+  assert.match(fireOpen, /openIntentId \?\? null/);
+  assert.match(fireOpen, /quantity: targetQuantity/);
+  assert.doesNotMatch(fireOpen, /for \(const chunk of chunks\)/);
   assert.match(fireOpen, /stripOpenAutoStartUrl\(\)/);
   assert.doesNotMatch(fireOpen, /crypto\.randomUUID\(\)/);
   assert.match(client, /router\.replace\("\/collection"\)/);

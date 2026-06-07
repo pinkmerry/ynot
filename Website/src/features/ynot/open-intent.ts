@@ -16,17 +16,14 @@ export function openIntentIdempotencyKey(
   intentId: string | null,
   campaignId: string,
   quantity: number,
-  chunkIndex = 0,
 ) {
   const normalized = normalizeOpenIntentId(intentId);
   const safeCampaign = campaignId.trim().toLowerCase();
   const safeQuantity = Math.max(1, Math.round(Number(quantity) || 1));
-  const safeChunkIndex = Math.max(0, Math.round(Number(chunkIndex) || 0));
-  const chunkSuffix = safeChunkIndex > 0 ? `:part-${safeChunkIndex}` : "";
   if (normalized) {
-    return `${openIntentPrefix}:${safeCampaign}:${safeQuantity}:${normalized}${chunkSuffix}`;
+    return `${openIntentPrefix}:${safeCampaign}:${safeQuantity}:${normalized}`;
   }
-  return `${openIntentPrefix}:${safeCampaign}:${safeQuantity}:${createOpenIntentId()}${chunkSuffix}`;
+  return `${openIntentPrefix}:${safeCampaign}:${safeQuantity}:${createOpenIntentId()}`;
 }
 
 export function stripOpenAutoStartUrl() {

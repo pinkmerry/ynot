@@ -78,20 +78,26 @@ test("pack open API has request, profile-unit, and IP-unit launch guards", () =>
   assert.match(openRouteSource, /const gachaOpenRequestRateLimit = \{/);
   assert.match(openRouteSource, /const gachaOpenProfileUnitRateLimit = \{/);
   assert.match(openRouteSource, /const gachaOpenIpUnitRateLimit = \{/);
-  assert.match(openRouteSource, /const MAX_GACHA_OPEN_QUANTITY_PER_REQUEST = 20;/);
+  assert.match(openRouteSource, /const MAX_OPEN_HYDRATION_ITEMS = 20;/);
   assert.match(openRouteSource, /scope: "ynot:gacha:open:units"/);
   assert.match(openRouteSource, /scope: "ynot:gacha:open:units:ip"/);
   assert.match(openRouteSource, /cost: quantity/);
-  assert.match(openRouteSource, /open_quantity_chunk_required/);
+  assert.match(openRouteSource, /quantity < 1 \|\| quantity > 100/);
+  assert.match(openRouteSource, /items\.length <= MAX_OPEN_HYDRATION_ITEMS/);
+  assert.doesNotMatch(openRouteSource, /open_quantity_chunk_required/);
 });
 
-test("100-pack opens are chunked before calling the API", () => {
-  assert.match(clientSource, /const GACHA_OPEN_RPC_CHUNK_SIZE = 20;/);
-  assert.match(clientSource, /function openQuantityChunks/);
-  assert.match(clientSource, /function mergeOpenResults/);
-  assert.match(clientSource, /for \(const chunk of chunks\)/);
-  assert.match(clientSource, /quantity: chunk\.quantity/);
-  assert.match(clientSource, /chunk\.index/);
-  assert.match(openIntentSource, /chunkIndex = 0/);
-  assert.match(openIntentSource, /part-\$\{safeChunkIndex\}/);
+test("100-pack opens remain one weighted API call", () => {
+  const fireOpen = sourceBlock(
+    clientSource,
+    "function fireOpen",
+    "function openAgain",
+    "fire open handler",
+  );
+  assert.match(fireOpen, /postJson\("\/api\/ynot\/gacha\/open"/);
+  assert.match(fireOpen, /quantity: targetQuantity/);
+  assert.match(fireOpen, /openIntentIdempotencyKey\(\s*openIntentId \?\? null,\s*campaign\.id,\s*targetQuantity/s);
+  assert.doesNotMatch(fireOpen, /for \(const chunk of chunks\)/);
+  assert.doesNotMatch(clientSource, /GACHA_OPEN_RPC_CHUNK_SIZE|openQuantityChunks|mergeOpenResults/);
+  assert.doesNotMatch(openIntentSource, /chunkIndex|part-\$\{safeChunkIndex\}/);
 });

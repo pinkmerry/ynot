@@ -65,11 +65,7 @@ import {
   type StockSkuGroup,
   type StockSkuPackUsage,
 } from "./stock-sku-usage";
-import {
-  createOpenIntentId,
-  openIntentIdempotencyKey,
-  stripOpenAutoStartUrl,
-} from "./open-intent";
+import { openIntentIdempotencyKey, stripOpenAutoStartUrl } from "./open-intent";
 import {
   catalogCategoryForPrizeCategory,
   prizeCategoryLabel,
@@ -179,61 +175,6 @@ async function requestJson(url: string, body: unknown, method = "POST") {
 
 async function postJson(url: string, body: unknown) {
   return requestJson(url, body, "POST");
-}
-
-const GACHA_OPEN_RPC_CHUNK_SIZE = 20;
-const GACHA_OPEN_CHUNK_DELAY_MS = 150;
-
-type GachaOpenQuantityChunk = {
-  index: number;
-  quantity: number;
-  isLast: boolean;
-};
-
-function openQuantityChunks(totalQuantity: number): GachaOpenQuantityChunk[] {
-  const safeQuantity = Math.max(1, Math.round(Number(totalQuantity) || 1));
-  const chunks: GachaOpenQuantityChunk[] = [];
-  let remaining = safeQuantity;
-  let index = 0;
-  while (remaining > 0) {
-    const quantity = Math.min(remaining, GACHA_OPEN_RPC_CHUNK_SIZE);
-    remaining -= quantity;
-    chunks.push({ index, quantity, isLast: remaining <= 0 });
-    index += 1;
-  }
-  return chunks;
-}
-
-function waitForOpenChunkWindow(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
-function mergeOpenResults(results: YnotGachaOpenResult[]): YnotGachaOpenResult | null {
-  if (!results.length) return null;
-  if (results.length === 1) return results[0];
-  const publicCodes = results
-    .map((result) => result.publicCode)
-    .filter((value): value is string => typeof value === "string" && value.length > 0);
-  const openIds = results
-    .map((result) => result.openId)
-    .filter((value): value is string => typeof value === "string" && value.length > 0);
-  let hasCostCoins = false;
-  let costCoins = 0;
-  const items = results.flatMap((result) => {
-    if (typeof result.costCoins === "number" && Number.isFinite(result.costCoins)) {
-      hasCostCoins = true;
-      costCoins += result.costCoins;
-    }
-    return result.items;
-  }).map((item, index) => ({ ...item, position: index + 1 }));
-  return {
-    status: "completed",
-    openId: `${openIds[0] ?? publicCodes[0] ?? "open"}-bulk-${results.length}`,
-    publicCode: publicCodes[0] ?? openIds[0] ?? "",
-    ...(hasCostCoins ? { costCoins } : {}),
-    items,
-    ...(results.every((result) => result.replayed === true) ? { replayed: true } : {}),
-  };
 }
 
 function retryAfterMessage(error: unknown) {
@@ -817,32 +758,18 @@ export function GachaOpenPanel({
   function fireOpen(targetQuantity: number) {
     setRevealRunId((current) => current + 1);
     startTransition(async () => {
-      const results: YnotGachaOpenResult[] = [];
       try {
         setMessage("");
-        const runIntent = openIntentId ?? createOpenIntentId();
-        const chunks = openQuantityChunks(targetQuantity);
-        for (const chunk of chunks) {
-          const payload = await postJson("/api/ynot/gacha/open", {
-            campaignId: campaign.slug,
-            quantity: chunk.quantity,
-            idempotencyKey: openIntentIdempotencyKey(
-              runIntent,
-              campaign.id,
-              targetQuantity,
-              chunk.index,
-            ),
-          });
-          const chunkResult = (payload?.result ?? null) as YnotGachaOpenResult | null;
-          if (!chunkResult || !Array.isArray(chunkResult.items)) {
-            throw new Error("Open succeeded but no items were returned.");
-          }
-          results.push(chunkResult);
-          if (!chunk.isLast) {
-            await waitForOpenChunkWindow(GACHA_OPEN_CHUNK_DELAY_MS);
-          }
-        }
-        const result = mergeOpenResults(results);
+        const payload = await postJson("/api/ynot/gacha/open", {
+          campaignId: campaign.slug,
+          quantity: targetQuantity,
+          idempotencyKey: openIntentIdempotencyKey(
+            openIntentId ?? null,
+            campaign.id,
+            targetQuantity,
+          ),
+        });
+        const result = (payload?.result ?? null) as YnotGachaOpenResult | null;
         if (result && Array.isArray(result.items)) {
           stripOpenAutoStartUrl();
           setRevealResult(result);

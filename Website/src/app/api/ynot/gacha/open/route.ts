@@ -32,7 +32,7 @@ const gachaOpenIpUnitRateLimit = {
   limit: 600,
   windowMs: 60_000,
 };
-const MAX_GACHA_OPEN_QUANTITY_PER_REQUEST = 20;
+const MAX_OPEN_HYDRATION_ITEMS = 20;
 
 type RawOpenItem = {
   cardId?: string;
@@ -563,16 +563,6 @@ export async function POST(request: Request) {
   const idempotencyKey = normalizeIdempotencyKey(body?.idempotencyKey);
   if (!campaignId) return Response.json({ error: "Campaign is required." }, { status: 400 });
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) return Response.json({ error: "Quantity must be between 1 and 100." }, { status: 400 });
-  if (quantity > MAX_GACHA_OPEN_QUANTITY_PER_REQUEST) {
-    return Response.json(
-      {
-        error: `Open quantity is temporarily limited to ${MAX_GACHA_OPEN_QUANTITY_PER_REQUEST} packs per request.`,
-        code: "open_quantity_chunk_required",
-        maxQuantity: MAX_GACHA_OPEN_QUANTITY_PER_REQUEST,
-      },
-      { status: 400 },
-    );
-  }
   if (!idempotencyKey) return Response.json({ error: "Invalid idempotency key." }, { status: 400 });
   const profileUnitLimited = await enforceRateLimit(
     request,
@@ -619,7 +609,11 @@ export async function POST(request: Request) {
   const raw = (data ?? {}) as RawOpenResult;
   const openId = typeof raw.openId === "string" ? raw.openId : "";
   const items = Array.isArray(raw.items) ? raw.items : [];
-  const shouldHydrate = Boolean(openId && needsOpenItemHydration(items));
+  const shouldHydrate = Boolean(
+    openId &&
+      items.length <= MAX_OPEN_HYDRATION_ITEMS &&
+      needsOpenItemHydration(items),
+  );
   const resultItems = shouldHydrate
     ? await hydrateItems(items, openId, session.profileId)
     : items;
