@@ -65,7 +65,11 @@ import {
   type StockSkuGroup,
   type StockSkuPackUsage,
 } from "./stock-sku-usage";
-import { openIntentIdempotencyKey, stripOpenAutoStartUrl } from "./open-intent";
+import {
+  createOpenIntentId,
+  openIntentIdempotencyKey,
+  stripOpenAutoStartUrl,
+} from "./open-intent";
 import {
   catalogCategoryForPrizeCategory,
   prizeCategoryLabel,
@@ -175,6 +179,69 @@ async function requestJson(url: string, body: unknown, method = "POST") {
 
 async function postJson(url: string, body: unknown) {
   return requestJson(url, body, "POST");
+}
+
+const GACHA_OPEN_RPC_CHUNK_SIZE = 20;
+const GACHA_OPEN_CHUNK_DELAY_MS = 150;
+
+type GachaOpenQuantityChunk = {
+  index: number;
+  quantity: number;
+  isLast: boolean;
+};
+
+function openQuantityChunks(totalQuantity: number): GachaOpenQuantityChunk[] {
+  const safeQuantity = Math.max(1, Math.round(Number(totalQuantity) || 1));
+  const chunks: GachaOpenQuantityChunk[] = [];
+  let remaining = safeQuantity;
+  let index = 0;
+  while (remaining > 0) {
+    const quantity = Math.min(remaining, GACHA_OPEN_RPC_CHUNK_SIZE);
+    remaining -= quantity;
+    chunks.push({ index, quantity, isLast: remaining <= 0 });
+    index += 1;
+  }
+  return chunks;
+}
+
+function waitForOpenChunkWindow(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function mergeOpenResults(results: YnotGachaOpenResult[]): YnotGachaOpenResult | null {
+  if (!results.length) return null;
+  if (results.length === 1) return results[0];
+  const publicCodes = results
+    .map((result) => result.publicCode)
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  const openIds = results
+    .map((result) => result.openId)
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  let hasCostCoins = false;
+  let costCoins = 0;
+  const items = results.flatMap((result) => {
+    if (typeof result.costCoins === "number" && Number.isFinite(result.costCoins)) {
+      hasCostCoins = true;
+      costCoins += result.costCoins;
+    }
+    return result.items;
+  }).map((item, index) => ({ ...item, position: index + 1 }));
+  return {
+    status: "completed",
+    openId: `${openIds[0] ?? publicCodes[0] ?? "open"}-bulk-${results.length}`,
+    publicCode: publicCodes[0] ?? openIds[0] ?? "",
+    ...(hasCostCoins ? { costCoins } : {}),
+    items,
+    ...(results.every((result) => result.replayed === true) ? { replayed: true } : {}),
+  };
+}
+
+function retryAfterMessage(error: unknown) {
+  if (!(error instanceof AdminRequestError) || error.status !== 429) return null;
+  if (!isRecord(error.payload)) return null;
+  const seconds = Math.ceil(Number(error.payload.retryAfterSeconds));
+  if (!Number.isFinite(seconds) || seconds < 1) return null;
+  return `Too many pack opens right now. Please wait ${seconds} seconds and try again.`;
 }
 
 async function patchJson(url: string, body: unknown) {
@@ -750,18 +817,32 @@ export function GachaOpenPanel({
   function fireOpen(targetQuantity: number) {
     setRevealRunId((current) => current + 1);
     startTransition(async () => {
+      const results: YnotGachaOpenResult[] = [];
       try {
         setMessage("");
-        const payload = await postJson("/api/ynot/gacha/open", {
-          campaignId: campaign.slug,
-          quantity: targetQuantity,
-          idempotencyKey: openIntentIdempotencyKey(
-            openIntentId ?? null,
-            campaign.id,
-            targetQuantity,
-          ),
-        });
-        const result = (payload?.result ?? null) as YnotGachaOpenResult | null;
+        const runIntent = openIntentId ?? createOpenIntentId();
+        const chunks = openQuantityChunks(targetQuantity);
+        for (const chunk of chunks) {
+          const payload = await postJson("/api/ynot/gacha/open", {
+            campaignId: campaign.slug,
+            quantity: chunk.quantity,
+            idempotencyKey: openIntentIdempotencyKey(
+              runIntent,
+              campaign.id,
+              targetQuantity,
+              chunk.index,
+            ),
+          });
+          const chunkResult = (payload?.result ?? null) as YnotGachaOpenResult | null;
+          if (!chunkResult || !Array.isArray(chunkResult.items)) {
+            throw new Error("Open succeeded but no items were returned.");
+          }
+          results.push(chunkResult);
+          if (!chunk.isLast) {
+            await waitForOpenChunkWindow(GACHA_OPEN_CHUNK_DELAY_MS);
+          }
+        }
+        const result = mergeOpenResults(results);
         if (result && Array.isArray(result.items)) {
           stripOpenAutoStartUrl();
           setRevealResult(result);
@@ -772,7 +853,8 @@ export function GachaOpenPanel({
       } catch (error) {
         setOpeningOverlayVisible(false);
         setMessage(
-          error instanceof Error ? error.message : "Could not open gacha.",
+          retryAfterMessage(error) ??
+            (error instanceof Error ? error.message : "Could not open gacha."),
         );
       }
     });
@@ -4111,7 +4193,7 @@ export function AdminCampaignForm({
       : "",
     !activePrizeDrafts.length ? "Choose prize inventory before saving." : "",
     configuredRewardUnits !== totalSlots
-      ? "Normal prize quantity plus Last Prize must equal the total pack quantity."
+      ? "Prize quantity must equal the total pack quantity. Normal prize quantity plus Last Prize must match the pack total."
       : "",
     ...stockBlockers,
     ...stockUnitBlockers,
@@ -5989,6 +6071,19 @@ function ownerReviewRecommendationReason(
   return "No custom weights or unlock gates are set, so pure random is the cleanest match.";
 }
 
+function ownerReviewStableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => ownerReviewStableStringify(item)).join(",")}]`;
+  }
+  if (isRecord(value)) {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${ownerReviewStableStringify(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? String(value);
+}
+
 function ownerReviewComparisonDrawCount(totalPulls: number, drawSampleSize: number) {
   const selectedDraws = Math.max(1, Math.round(drawSampleSize || 0));
   const packSize = Math.max(1, Math.round(totalPulls || selectedDraws));
@@ -6100,15 +6195,20 @@ export function AdminOwnerReview({
   campaign,
   prizes,
   approvalRequest,
+  liveRevision = null,
 }: {
   viewer: YnotViewer;
   campaign: YnotCampaign;
   prizes: YnotPrizePreview[];
   approvalRequest: YnotOwnerApprovalRequest | null;
+  liveRevision?: YnotLivePackRevisionReview | null;
 }) {
   const router = useRouter();
+  const isLiveRevision = Boolean(liveRevision);
   const logicSnapshotRaw =
-    approvalRequest && isRecord((approvalRequest as { snapshot?: unknown }).snapshot)
+    liveRevision?.logicSnapshot && isRecord(liveRevision.logicSnapshot)
+      ? liveRevision.logicSnapshot
+      : approvalRequest && isRecord((approvalRequest as { snapshot?: unknown }).snapshot)
       ? ((approvalRequest as { snapshot?: unknown }).snapshot as Record<string, unknown>)
       : null;
   const persistedOverrides =
@@ -6127,25 +6227,46 @@ export function AdminOwnerReview({
     logicSnapshotRaw && isRecord(logicSnapshotRaw.published)
       ? (logicSnapshotRaw.published as Record<string, unknown>)
       : null;
-
-  const [logicMode, setLogicMode] = useState<OwnerReviewLogicMode>(
-    (campaign.logicMode ?? "weighted_templates") as OwnerReviewLogicMode,
-  );
-  const [guarantees] = useState<
-    Record<"single" | "ten" | "hundred", OwnerReviewGuarantee>
-  >({
+  const persistedLogicMode = (typeof logicSnapshotRaw?.mode === "string"
+    ? logicSnapshotRaw.mode
+    : campaign.logicMode ?? "weighted_templates") as OwnerReviewLogicMode;
+  const persistedOwnerGuarantees: Record<
+    "single" | "ten" | "hundred",
+    OwnerReviewGuarantee
+  > = {
     single: ownerReviewReadGuarantee(persistedGuarantees?.single),
     ten: ownerReviewReadGuarantee(persistedGuarantees?.ten),
     hundred: ownerReviewReadGuarantee(persistedGuarantees?.hundred),
-  });
+  };
+
+  const [logicMode, setLogicMode] = useState<OwnerReviewLogicMode>(
+    persistedLogicMode,
+  );
+  const [guarantees] = useState<
+    Record<"single" | "ten" | "hundred", OwnerReviewGuarantee>
+  >(persistedOwnerGuarantees);
   const [cardEdits, setCardEdits] = useState<Record<string, OwnerReviewCardEdit>>(
     persistedByCard ?? {},
   );
-  const [notes, setNotes] = useState(campaign.approvalNotes ?? "");
+  const [notes, setNotes] = useState(
+    liveRevision?.reviewNote ?? campaign.approvalNotes ?? "",
+  );
   const [drawSampleSize, setDrawSampleSize] = useState<number>(1000);
   const [simResult, setSimResult] = useState<OwnerReviewSimResult | null>(null);
   const [message, setMessage] = useState<string>("");
   const [isPending, startTransition] = useTransition();
+  const liveRevisionPersistedStateKey = ownerReviewStableStringify({
+    logicMode: persistedLogicMode,
+    guarantees: persistedOwnerGuarantees,
+    cardEdits: persistedByCard ?? {},
+  });
+  const liveRevisionCurrentStateKey = ownerReviewStableStringify({
+    logicMode,
+    guarantees,
+    cardEdits,
+  });
+  const liveRevisionHasUnsavedChanges =
+    isLiveRevision && liveRevisionCurrentStateKey !== liveRevisionPersistedStateKey;
 
   const effectivePrizes = useMemo(
     () =>
@@ -6357,10 +6478,60 @@ export function AdminOwnerReview({
     );
   }
 
+  async function postLiveRevisionAction(
+    action: Exclude<OwnerReviewAction, "request_changes">,
+  ) {
+    if (!liveRevision) throw new Error("Live revision was not found.");
+    return requestJson(
+      "/api/ynot/admin/campaigns/live-revisions",
+      {
+        revisionId: liveRevision.id,
+        action,
+        logicMode,
+        note: notes,
+        overrides: {
+          byCard: cardEdits,
+          guarantees,
+        },
+        guarantees,
+      },
+      "POST",
+    );
+  }
+
   function sendAction(action: OwnerReviewAction | "approve_and_publish") {
     setMessage("");
     startTransition(async () => {
       try {
+        if (isLiveRevision) {
+          if (action === "approve_and_publish") {
+            await postLiveRevisionAction("approve");
+            setMessage("Live revision approved. Publish when ready.");
+            router.refresh();
+            return;
+          }
+          const liveAction = action === "request_changes" ? "reject" : action;
+          await postLiveRevisionAction(liveAction);
+          const liveMessages: Record<
+            Exclude<OwnerReviewAction, "request_changes">,
+            string
+          > = {
+            save_logic:
+              "Live revision changes saved. Owner approval is required before republish.",
+            approve: "Live revision approved with current logic. Publish when ready.",
+            reject: "Live revision rejected.",
+            publish:
+              "Live revision published. Existing opens and customer bags were preserved.",
+          };
+          setMessage(liveMessages[liveAction]);
+          if (liveAction === "publish") {
+            router.replace(`/admin/ynot/live-packs/${campaign.slug}/monitor`);
+          } else {
+            router.refresh();
+          }
+          return;
+        }
+
         if (action === "approve_and_publish") {
           await postOwnerReviewAction("approve");
           setMessage("Approved. Use Publish live after the page refreshes.");
@@ -6389,17 +6560,22 @@ export function AdminOwnerReview({
   }
 
   const pendingStatus =
+    liveRevision?.status ??
     campaign.approvalStatus ??
     (approvalRequest?.approvalStatus as YnotApprovalStatus | undefined) ??
     "not_submitted";
   const alreadyApproved = pendingStatus === "approved";
   const alreadyPublished =
-    campaign.status === "live" && campaign.visibility === "public";
+    !isLiveRevision && campaign.status === "live" && campaign.visibility === "public";
 
   const headerActions = (
     <>
       <Link
-        href="/admin/campaigns"
+        href={
+          isLiveRevision
+            ? `/admin/ynot/live-packs/${campaign.slug}/monitor`
+            : "/admin/campaigns"
+        }
         className="btn"
         prefetch={false}
         style={{ marginRight: "auto" }}
@@ -6414,39 +6590,79 @@ export function AdminOwnerReview({
         <span className="d" />
         {pendingStatus === "pending_review" ? "Pending review" : pendingStatus}
       </span>
-      <button
-        type="button"
-        className="btn btn-danger"
-        disabled={isPending}
-        onClick={() => sendAction("reject")}
-      >
-        <AdminIcon name="x" size={12} />
-        Reject
-      </button>
-      <button
-        type="button"
-        className="btn"
-        disabled={isPending}
-        onClick={() => sendAction("request_changes")}
-      >
-        <AdminIcon name="warning" size={12} />
-        Request changes
-      </button>
-      <button
-        type="button"
-        className="btn btn-primary"
-        disabled={isPending || alreadyPublished}
-        onClick={() =>
-          sendAction(alreadyApproved ? "publish" : "approve_and_publish")
-        }
-      >
-        <AdminIcon name="check" size={12} />
-        {alreadyPublished
-          ? "Published"
-          : alreadyApproved
-            ? "Publish live"
-            : "Approve inventory"}
-      </button>
+      {liveRevisionHasUnsavedChanges && (
+        <span className="pill review">
+          <span className="d" />
+          Unsaved changes
+        </span>
+      )}
+      {isLiveRevision ? (
+        <>
+          <button
+            type="button"
+            className="btn btn-danger"
+            disabled={isPending}
+            onClick={() => sendAction("reject")}
+          >
+            <AdminIcon name="x" size={12} />
+            Reject
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={isPending || (alreadyApproved && !liveRevisionHasUnsavedChanges)}
+            onClick={() => sendAction("approve")}
+          >
+            <AdminIcon name="check" size={12} />
+            {liveRevisionHasUnsavedChanges ? "Approve changes" : "Approve"}
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={isPending || !alreadyApproved || liveRevisionHasUnsavedChanges}
+            onClick={() => sendAction("publish")}
+          >
+            <AdminIcon name="check" size={12} />
+            Republish live
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="btn btn-danger"
+            disabled={isPending}
+            onClick={() => sendAction("reject")}
+          >
+            <AdminIcon name="x" size={12} />
+            Reject
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={isPending}
+            onClick={() => sendAction("request_changes")}
+          >
+            <AdminIcon name="warning" size={12} />
+            Request changes
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={isPending || alreadyPublished}
+            onClick={() =>
+              sendAction(alreadyApproved ? "publish" : "approve_and_publish")
+            }
+          >
+            <AdminIcon name="check" size={12} />
+            {alreadyPublished
+              ? "Published"
+              : alreadyApproved
+                ? "Publish live"
+                : "Approve inventory"}
+          </button>
+        </>
+      )}
     </>
   );
 
@@ -6461,10 +6677,19 @@ export function AdminOwnerReview({
     <AdminFrame
       viewer={viewer}
       active="/admin/campaigns"
-      trail={["Admin", "Pack studio", "Random packs", `Review · ${campaign.slug}`]}
-      eyebrow="Owner approval"
-      title={`Review · ${campaign.titleEn || campaign.titleTh}`}
-      desc="Tune draw logic, simulate opens, and approve or request changes. Owner-only — staff cannot publish."
+      trail={[
+        "Admin",
+        "Pack studio",
+        "Random packs",
+        `${isLiveRevision ? "Live review" : "Review"} · ${campaign.slug}`,
+      ]}
+      eyebrow={isLiveRevision ? "Live revision review" : "Owner approval"}
+      title={`${isLiveRevision ? "Review live edit" : "Review"} · ${campaign.titleEn || campaign.titleTh}`}
+      desc={
+        isLiveRevision
+          ? "Tune the pending live revision, simulate opens, then approve and republish. Existing opens, bags, and reward history stay unchanged until publish."
+          : "Tune draw logic, simulate opens, and approve or request changes. Owner-only — staff cannot publish."
+      }
       actions={headerActions}
     >
       <div className="kpi-grid">
@@ -6534,11 +6759,18 @@ export function AdminOwnerReview({
                   className="btn btn-sm"
                   disabled={isPending}
                   onClick={() => {
-                    setCardEdits({});
-                    setMessage("Reset to admin draft (unsaved).");
+                    setCardEdits(isLiveRevision ? persistedByCard ?? {} : {});
+                    if (isLiveRevision) {
+                      setLogicMode(persistedLogicMode);
+                    }
+                    setMessage(
+                      isLiveRevision
+                        ? "Reset to pending live revision values (unsaved)."
+                        : "Reset to admin draft (unsaved).",
+                    );
                   }}
                 >
-                  Reset to admin draft
+                  {isLiveRevision ? "Reset revision edits" : "Reset to admin draft"}
                 </button>
                 <button
                   type="button"
@@ -6547,7 +6779,7 @@ export function AdminOwnerReview({
                   onClick={() => sendAction("save_logic")}
                 >
                   <AdminIcon name="check" size={12} />
-                  Save overrides
+                  {isLiveRevision ? "Save live revision changes" : "Save overrides"}
                 </button>
               </div>
             )}
@@ -7464,7 +7696,7 @@ export function LivePackRevisionReview({
         <div className="card-head">
           <div>
             <p className="section-label">Prize logic</p>
-            <h3>Owner review snapshot</h3>
+            <h3>Pending prize logic</h3>
           </div>
         </div>
         <div className="admin-pack-table-scroll">

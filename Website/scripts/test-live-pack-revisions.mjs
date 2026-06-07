@@ -35,6 +35,17 @@ test("live revision action route is owner-only and same-origin guarded", () => {
   assert.match(revisionRoute, /enforceSameOriginMutation/);
   assert.match(revisionRoute, /admin\.adminRole !== "owner"/);
   assert.match(revisionRoute, /publish_live_campaign_revision/);
+  assert.match(revisionRoute, /save_logic/);
+  assert.match(revisionRoute, /action === "save_logic" \|\| action === "approve"/);
+  assert.match(
+    revisionRoute,
+    /const nextStatus = action === "approve" \? "approved" : "pending_review"/,
+  );
+  assert.match(revisionRoute, /from\("draw_rounds"\)[\s\S]*select\("logic_snapshot"\)/);
+  assert.match(revisionRoute, /revision\.logic_snapshot \?\? campaign\.logic_snapshot/);
+  assert.match(revisionRoute, /prize_snapshot/);
+  assert.match(revisionRoute, /logic_snapshot/);
+  assert.match(revisionRoute, /status:\s*nextStatus/);
   assert.match(revisionRoute, /action === "approve"/);
   assert.match(revisionRoute, /"reject" \| "publish"/);
   assert.match(revisionRoute, /actionValue/);
@@ -57,4 +68,22 @@ test("admin live row surfaces owner review status before republish", () => {
 
 test("live revision review returns owner to the public monitor route after publish", () => {
   assert.match(client, /router\.replace\(`\/admin\/ynot\/live-packs\/\$\{campaign\.slug\}\/monitor`\)/);
+});
+
+test("live revision review reuses the random logic editor instead of the snapshot table", () => {
+  const reviewPage = read("src/app/admin/campaigns/[id]/review/page.tsx");
+  assert.doesNotMatch(reviewPage, /<LivePackRevisionReview/);
+  assert.doesNotMatch(
+    reviewPage,
+    /import \{[^\n}]*LivePackRevisionReview[^\n}]*\} from "@\/features\/ynot\/client"/,
+  );
+  assert.match(reviewPage, /liveRevision=\{liveRevision\}/);
+  assert.match(reviewPage, /prizes=\{liveRevision\.prizes\}/);
+  assert.match(client, /liveRevision\?:\s*YnotLivePackRevisionReview \| null/);
+  assert.match(client, /isLiveRevision/);
+  assert.match(client, /\/api\/ynot\/admin\/campaigns\/live-revisions/);
+  assert.match(client, /liveRevisionHasUnsavedChanges/);
+  assert.match(client, /alreadyApproved && !liveRevisionHasUnsavedChanges/);
+  assert.match(client, /!alreadyApproved \|\| liveRevisionHasUnsavedChanges/);
+  assert.doesNotMatch(client, /Owner review snapshot/);
 });

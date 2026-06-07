@@ -4158,6 +4158,67 @@ function liveRevisionPrizeRows(value: unknown): YnotLivePackRevisionReview["priz
   });
 }
 
+async function liveRevisionPrizePreviews(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  prizeRows: YnotLivePackRevisionReview["prizeRows"],
+): Promise<YnotPrizePreview[]> {
+  const cardIds = [...new Set(prizeRows.map((row) => row.cardId).filter(Boolean))];
+  const cards = cardIds.length
+    ? await readSupabaseRows<PrizeLineupCardRow>(
+        "live_revision_review_cards",
+        () =>
+          supabase
+            .from("cards")
+            .select(
+              "id,name,card_code,grade,image_url,image_storage_path,prize_category",
+            )
+            .in("id", cardIds),
+      )
+    : [];
+  const cardById = new Map(cards.map((card) => [card.id, card]));
+  const representativeImageByCardId = await readCardRepresentativeImages(
+    supabase,
+    cardIds,
+    "live_revision_review",
+  );
+
+  return prizeRows.map((row) => {
+    const card = cardById.get(row.cardId);
+    const displayTier =
+      row.tier === "high" && row.rank <= 3
+        ? "rainbow"
+        : row.tier === "high"
+          ? "gold"
+          : "bronze";
+    return {
+      id: row.prizeKey,
+      cardId: row.cardId,
+      cardCode: card?.card_code ?? null,
+      cardGrade: card?.grade ?? null,
+      cardImageUrl: publicSubSkuImageUrl(
+        representativeImageByCardId.get(row.cardId),
+        card?.image_url,
+      ),
+      cardImageStoragePath: card?.image_storage_path ?? null,
+      cardPrizeCategory: card?.prize_category ?? null,
+      cardName: card?.name ?? "Mystery reward",
+      tier: row.tier,
+      rank: row.rank,
+      valueThb: row.valueThb ?? null,
+      convertCoinValue: row.convertCoinValue,
+      bundleQuantity: row.bundleQuantity,
+      plannedQuantity: row.plannedQuantity,
+      availableUnits: row.plannedQuantity,
+      totalUnits: row.plannedQuantity,
+      weight: row.weight,
+      unlockAtSoldPct: row.unlockAtSoldPct,
+      displayTier,
+      displayTierLabel: prizeDisplayTierLabel(displayTier),
+      tierRank: row.rank,
+    };
+  });
+}
+
 export async function getLivePackRevisionStatus(
   campaignId: string,
 ): Promise<YnotLivePackRevisionStatus | null> {
@@ -4202,6 +4263,7 @@ export async function getLivePackRevisionReview(
       .maybeSingle();
     if (error) throw error;
     if (!data) return null;
+    const prizeRows = liveRevisionPrizeRows(data.prize_snapshot);
     return {
       id: data.id,
       campaignId: data.draw_round_id,
@@ -4215,7 +4277,11 @@ export async function getLivePackRevisionReview(
       scalarPatch: isRecord(data.scalar_patch)
         ? (data.scalar_patch as Record<string, unknown>)
         : {},
-      prizeRows: liveRevisionPrizeRows(data.prize_snapshot),
+      logicSnapshot: isRecord(data.logic_snapshot)
+        ? (data.logic_snapshot as Record<string, unknown>)
+        : null,
+      prizeRows,
+      prizes: await liveRevisionPrizePreviews(supabase, prizeRows),
     };
   } catch (error) {
     recordDataIssue("live_pack_revision_review", error);

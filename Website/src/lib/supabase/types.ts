@@ -1085,6 +1085,15 @@ export type Database = {
         Returns: Json;
       };
       consume_api_rate_limit: { Args: { p_key: string; p_limit: number; p_window_seconds: number }; Returns: Json };
+      consume_api_rate_limit_weighted: {
+        Args: {
+          p_key: string;
+          p_limit: number;
+          p_window_seconds: number;
+          p_cost?: number;
+        };
+        Returns: Json;
+      };
       purge_expired_api_rate_limits: { Args: Record<string, never>; Returns: number };
       link_identity_to_existing_profile: {
         Args: { p_source_profile_id: string; p_target_profile_id: string; p_reason?: string };

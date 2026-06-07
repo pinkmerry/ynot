@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AdminCard, AdminFrame, AdminIcon } from "@/features/ynot/admin";
-import { AdminOwnerReview, LivePackRevisionReview } from "@/features/ynot/client";
+import { AdminOwnerReview } from "@/features/ynot/client";
 import { AdminGate } from "@/features/ynot/components";
 import {
   getLivePackRevisionReview,
@@ -73,10 +73,12 @@ export default async function OwnerReviewPage({
   if (campaign.status === "live" && liveRevision) {
     return (
       <AdminGate viewer={data.viewer}>
-        <LivePackRevisionReview
+        <AdminOwnerReview
           viewer={data.viewer}
           campaign={campaign}
-          revision={liveRevision}
+          prizes={liveRevision.prizes}
+          approvalRequest={approvalRequest ?? null}
+          liveRevision={liveRevision}
         />
       </AdminGate>
     );

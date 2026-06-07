@@ -127,6 +127,7 @@ export type YnotLivePackRevisionReview = {
   note?: string | null;
   reviewNote?: string | null;
   scalarPatch: Record<string, unknown>;
+  logicSnapshot: Record<string, unknown> | null;
   prizeRows: Array<{
     prizeKey: string;
     cardId: string;
@@ -139,6 +140,7 @@ export type YnotLivePackRevisionReview = {
     weight: number;
     unlockAtSoldPct: number;
   }>;
+  prizes: YnotPrizePreview[];
 };
 
 export type YnotLivePackMonitor = {

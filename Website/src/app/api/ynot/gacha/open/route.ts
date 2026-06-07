@@ -15,12 +15,24 @@ import { publicBundleQuantity } from "@/features/ynot/bundle-quantity";
 
 export const dynamic = "force-dynamic";
 
-const gachaOpenRateLimit = {
+const gachaOpenRequestRateLimit = {
   // Customers can chain "open again" quickly after reveal animations. Keep
   // the limit high enough for real play, while still blocking scripted bursts.
+  scope: "ynot:gacha:open",
+  limit: 30,
+  windowMs: 60_000,
+};
+const gachaOpenProfileUnitRateLimit = {
+  scope: "ynot:gacha:open:units",
   limit: 120,
   windowMs: 60_000,
 };
+const gachaOpenIpUnitRateLimit = {
+  scope: "ynot:gacha:open:units:ip",
+  limit: 600,
+  windowMs: 60_000,
+};
+const MAX_GACHA_OPEN_QUANTITY_PER_REQUEST = 20;
 
 type RawOpenItem = {
   cardId?: string;
@@ -535,15 +547,54 @@ export async function POST(request: Request) {
   if (!session?.profileId) return Response.json({ error: "Login is required." }, { status: 401 });
   const blocked = await requireVerifiedAnchor(session);
   if (blocked) return blocked;
-  const limited = await enforceRateLimit(request, "ynot:gacha:open", gachaOpenRateLimit, session.profileId);
-  if (limited) return limited;
+  const requestLimited = await enforceRateLimit(
+    request,
+    gachaOpenRequestRateLimit.scope,
+    {
+      limit: gachaOpenRequestRateLimit.limit,
+      windowMs: gachaOpenRequestRateLimit.windowMs,
+    },
+    session.profileId,
+  );
+  if (requestLimited) return requestLimited;
   const body = await request.json().catch(() => null) as { campaignId?: unknown; quantity?: unknown; idempotencyKey?: unknown } | null;
   const campaignId = typeof body?.campaignId === "string" ? body.campaignId.trim() : "";
   const quantity = Number(body?.quantity ?? 1);
   const idempotencyKey = normalizeIdempotencyKey(body?.idempotencyKey);
   if (!campaignId) return Response.json({ error: "Campaign is required." }, { status: 400 });
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) return Response.json({ error: "Quantity must be between 1 and 100." }, { status: 400 });
+  if (quantity > MAX_GACHA_OPEN_QUANTITY_PER_REQUEST) {
+    return Response.json(
+      {
+        error: `Open quantity is temporarily limited to ${MAX_GACHA_OPEN_QUANTITY_PER_REQUEST} packs per request.`,
+        code: "open_quantity_chunk_required",
+        maxQuantity: MAX_GACHA_OPEN_QUANTITY_PER_REQUEST,
+      },
+      { status: 400 },
+    );
+  }
   if (!idempotencyKey) return Response.json({ error: "Invalid idempotency key." }, { status: 400 });
+  const profileUnitLimited = await enforceRateLimit(
+    request,
+    gachaOpenProfileUnitRateLimit.scope,
+    {
+      limit: gachaOpenProfileUnitRateLimit.limit,
+      windowMs: gachaOpenProfileUnitRateLimit.windowMs,
+      cost: quantity,
+    },
+    session.profileId,
+  );
+  if (profileUnitLimited) return profileUnitLimited;
+  const ipUnitLimited = await enforceRateLimit(
+    request,
+    gachaOpenIpUnitRateLimit.scope,
+    {
+      limit: gachaOpenIpUnitRateLimit.limit,
+      windowMs: gachaOpenIpUnitRateLimit.windowMs,
+      cost: quantity,
+    },
+  );
+  if (ipUnitLimited) return ipUnitLimited;
 
   const resolvedCampaignId = await resolveOpenCampaignId(campaignId, session.profileId);
   if (!resolvedCampaignId) return Response.json({ error: "Campaign is required." }, { status: 400 });

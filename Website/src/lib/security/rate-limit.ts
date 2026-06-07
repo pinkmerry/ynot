@@ -6,6 +6,7 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 type RateLimitOptions = {
   limit: number;
   windowMs: number;
+  cost?: number;
 };
 
 type Bucket = {
@@ -45,23 +46,34 @@ function cleanup(currentTime: number) {
 
 function requestIp(request: Request) {
   const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwardedFor || request.headers.get("x-real-ip") || request.headers.get("cf-connecting-ip") || "unknown-ip";
+  return request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || forwardedFor || "unknown-ip";
+}
+
+function normalizedRateLimitCost(options: RateLimitOptions) {
+  const cost = Math.ceil(Number(options.cost ?? 1));
+  return Number.isFinite(cost) && cost > 0 ? cost : 1;
 }
 
 function checkInMemoryRateLimit(key: string, options: RateLimitOptions): RateLimitResult {
   const currentTime = now();
+  const cost = normalizedRateLimitCost(options);
   cleanup(currentTime);
   const existing = buckets.get(key);
   if (!existing || existing.resetAt <= currentTime) {
-    buckets.set(key, { count: 1, resetAt: currentTime + options.windowMs });
-    return { allowed: true, remaining: Math.max(0, options.limit - 1), resetAt: currentTime + options.windowMs };
+    const resetAt = currentTime + options.windowMs;
+    buckets.set(key, { count: cost, resetAt });
+    return {
+      allowed: cost <= options.limit,
+      remaining: Math.max(0, options.limit - cost),
+      resetAt,
+    };
   }
 
-  if (existing.count >= options.limit) {
+  if (existing.count + cost > options.limit) {
     return { allowed: false, remaining: 0, resetAt: existing.resetAt };
   }
 
-  existing.count += 1;
+  existing.count += cost;
   return { allowed: true, remaining: Math.max(0, options.limit - existing.count), resetAt: existing.resetAt };
 }
 
@@ -82,11 +94,13 @@ function parseSupabaseLimitResult(value: unknown, fallbackResetAt: number): Rate
 
 async function checkSupabaseRateLimit(key: string, options: RateLimitOptions): Promise<RateLimitResult> {
   const fallbackResetAt = now() + options.windowMs;
+  const cost = normalizedRateLimitCost(options);
   const supabase = createServiceSupabaseClient();
-  const { data, error } = await supabase.rpc("consume_api_rate_limit", {
+  const { data, error } = await supabase.rpc("consume_api_rate_limit_weighted", {
     p_key: key,
     p_limit: options.limit,
     p_window_seconds: Math.max(1, Math.ceil(options.windowMs / 1000)),
+    p_cost: cost,
   });
   if (error) throw error;
   return parseSupabaseLimitResult(data, fallbackResetAt) ?? { allowed: false, remaining: 0, resetAt: fallbackResetAt };
