@@ -52,8 +52,13 @@ test("successful pack open does not hydrate after stock-image-proven RPC results
   );
   assertShape(
     postHandler,
-    /const shouldHydrate = Boolean\(openId && needsOpenItemHydration\(items\)\);/,
-    "conditional hydration decision",
+    /const shouldHydrate = Boolean\(\s*openId &&\s*items\.length <= MAX_OPEN_HYDRATION_ITEMS &&\s*needsOpenItemHydration\(items\),\s*\);/,
+    "bounded conditional hydration decision",
+  );
+  assertShape(
+    openRouteSource,
+    /const MAX_OPEN_HYDRATION_ITEMS = 20;/,
+    "hydration fallback item cap",
   );
   assertShape(
     postHandler,
