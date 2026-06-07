@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
@@ -8,6 +8,20 @@ const migration = read("../Database/supabase/migrations/20260607120000_live_pack
 const campaignRoute = read("src/app/api/ynot/admin/campaigns/route.ts");
 const revisionRoute = read("src/app/api/ynot/admin/campaigns/live-revisions/route.ts");
 const client = read("src/features/ynot/client.tsx");
+const migrationDir = new URL("../../Database/supabase/migrations/", import.meta.url);
+
+function latestFunctionSource(functionName) {
+  const definitions = [];
+  for (const file of readdirSync(migrationDir).filter((name) => name.endsWith(".sql")).sort()) {
+    const source = readFileSync(new URL(file, migrationDir), "utf8");
+    const pattern = new RegExp(
+      `create or replace function public\\.${functionName}\\([\\s\\S]*?\\n\\$\\$;`,
+      "g",
+    );
+    for (const match of source.matchAll(pattern)) definitions.push(match[0]);
+  }
+  return definitions.at(-1) ?? "";
+}
 
 test("migration stages live edits and publishes through owner-reviewed RPC", () => {
   assert.match(migration, /create table if not exists public\.draw_round_live_revisions/);
@@ -17,6 +31,19 @@ test("migration stages live edits and publishes through owner-reviewed RPC", () 
   assert.match(migration, /is_active = true/);
   assert.doesNotMatch(migration, /and active = true/);
   assert.match(migration, /grant execute on function public\.publish_live_campaign_revision/);
+});
+
+test("live revision publish keeps CASE branches typed for uuid fields", () => {
+  const publishFunction = latestFunctionSource("publish_live_campaign_revision");
+  assert.match(publishFunction, /create or replace function public\.publish_live_campaign_revision/);
+  assert.match(
+    publishFunction,
+    /seed_run_id = case[\s\S]*nullif\(revision\.scalar_patch->>'seed_run_id', ''\)::uuid[\s\S]*else campaign\.seed_run_id[\s\S]*end,/,
+  );
+  assert.doesNotMatch(
+    publishFunction,
+    /then nullif\(revision\.scalar_patch->>'seed_run_id', ''\)\s*\n\s*else campaign\.seed_run_id/,
+  );
 });
 
 test("live campaign PATCH creates a pending revision instead of editing live inventory", () => {
