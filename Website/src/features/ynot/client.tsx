@@ -65,7 +65,11 @@ import {
   type StockSkuGroup,
   type StockSkuPackUsage,
 } from "./stock-sku-usage";
-import { openIntentIdempotencyKey, stripOpenAutoStartUrl } from "./open-intent";
+import {
+  createOpenIntentId,
+  openIntentIdempotencyKey,
+  stripOpenAutoStartUrl,
+} from "./open-intent";
 import {
   catalogCategoryForPrizeCategory,
   prizeCategoryLabel,
@@ -745,17 +749,33 @@ export function GachaOpenPanel({
   );
   const [revealRunId, setRevealRunId] = useState(0);
   const [openingOverlayVisible, setOpeningOverlayVisible] = useState(autoStart);
+  const [remainingState, setRemainingState] = useState<
+    NonNullable<YnotGachaOpenResult["remaining"]>
+  >({
+    remainingSlots: campaign.remainingSlots,
+    eligibleUnits: campaign.eligiblePrizeUnits,
+    availablePrizeUnits: campaign.availablePrizeUnits,
+  });
+  const openRequestInFlightRef = useRef(false);
   const [, startTransition] = useTransition();
+  const availableOpenUnits =
+    remainingState.eligibleUnits ??
+    remainingState.availableWinSlots ??
+    remainingState.availablePrizeUnits ??
+    Number.POSITIVE_INFINITY;
   const remainingOpenUnits = Math.min(
-    campaign.remainingSlots ?? Number.POSITIVE_INFINITY,
-    campaign.availablePrizeUnits ?? Number.POSITIVE_INFINITY,
+    remainingState.remainingSlots ?? Number.POSITIVE_INFINITY,
+    availableOpenUnits,
   );
+  const visibleRemainingSlots = remainingState.remainingSlots ?? remainingOpenUnits;
 
   function quantityDisabled(option: number) {
     return Number.isFinite(remainingOpenUnits) && option > remainingOpenUnits;
   }
 
-  function fireOpen(targetQuantity: number) {
+  function fireOpen(targetQuantity: number, intentId?: string | null) {
+    if (openRequestInFlightRef.current) return;
+    openRequestInFlightRef.current = true;
     setRevealRunId((current) => current + 1);
     startTransition(async () => {
       try {
@@ -764,13 +784,19 @@ export function GachaOpenPanel({
           campaignId: campaign.slug,
           quantity: targetQuantity,
           idempotencyKey: openIntentIdempotencyKey(
-            openIntentId ?? null,
+            intentId ?? openIntentId ?? null,
             campaign.id,
             targetQuantity,
           ),
         });
         const result = (payload?.result ?? null) as YnotGachaOpenResult | null;
         if (result && Array.isArray(result.items)) {
+          if (result.remaining) {
+            setRemainingState((current) => ({
+              ...current,
+              ...result.remaining,
+            }));
+          }
           stripOpenAutoStartUrl();
           setRevealResult(result);
         } else {
@@ -783,16 +809,19 @@ export function GachaOpenPanel({
           retryAfterMessage(error) ??
             (error instanceof Error ? error.message : "Could not open gacha."),
         );
+      } finally {
+        openRequestInFlightRef.current = false;
       }
     });
   }
 
   function openAgain(nextQuantity: number) {
+    if (openRequestInFlightRef.current) return;
     setQuantity(nextQuantity);
     setMessage("");
     setOpeningOverlayVisible(true);
     setRevealResult(null);
-    fireOpen(nextQuantity);
+    fireOpen(nextQuantity, createOpenIntentId());
   }
 
   function handleRevealClose() {
@@ -853,6 +882,7 @@ export function GachaOpenPanel({
       onFinish={handleRevealFinish}
       onOpenAgain={openAgain}
       openAgainOptions={openAgainOptions}
+      remainingSlots={visibleRemainingSlots}
     />
   ) : null;
 

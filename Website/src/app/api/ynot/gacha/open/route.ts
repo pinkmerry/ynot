@@ -55,11 +55,19 @@ type RawOpenResult = {
   publicCode?: unknown;
   costCoins?: unknown;
   items?: unknown;
+  remaining?: unknown;
   replayed?: unknown;
   [key: string]: unknown;
 };
 
 type PublicDisplayTier = "rainbow" | "gold" | "silver" | "bronze" | "last_prize";
+
+type PublicOpenRemaining = {
+  remainingSlots?: number;
+  availablePrizeUnits?: number;
+  eligibleUnits?: number;
+  availableWinSlots?: number;
+};
 
 type PublicOpenItem = {
   name: string;
@@ -77,8 +85,33 @@ type PublicOpenResult = {
   publicCode: string;
   costCoins?: number;
   items: PublicOpenItem[];
+  remaining?: PublicOpenRemaining;
   replayed?: boolean;
 };
+
+function sanitizeOpenRemaining(value: unknown): PublicOpenRemaining | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const remaining = value as Record<string, unknown>;
+  const readRemainingNumber = (raw: unknown) => {
+    const number = Number(raw);
+    return Number.isFinite(number) && number >= 0 ? number : undefined;
+  };
+  const availablePrizeUnits =
+    readRemainingNumber(remaining.availableWinSlots) ??
+    readRemainingNumber(remaining.availableUnits);
+  const result: PublicOpenRemaining = {};
+  const fields = [
+    ["remainingSlots", remaining.remainingSlots],
+    ["availablePrizeUnits", availablePrizeUnits],
+    ["eligibleUnits", remaining.eligibleUnits],
+    ["availableWinSlots", remaining.availableWinSlots],
+  ] as const;
+  for (const [key, raw] of fields) {
+    const number = readRemainingNumber(raw);
+    if (number !== undefined) result[key] = number;
+  }
+  return Object.keys(result).length ? result : undefined;
+}
 
 function deriveDisplayTier(tier: string | null | undefined, rank: number) {
   if (tier === "high" && rank <= 3) return "rainbow";
@@ -180,6 +213,8 @@ function toPublicOpenResult(raw: RawOpenResult, items: RawOpenItem[]): PublicOpe
   };
   const costCoins = readNumber(raw.costCoins);
   if (costCoins !== null) result.costCoins = costCoins;
+  const remaining = sanitizeOpenRemaining(raw.remaining);
+  if (remaining) result.remaining = remaining;
   if (raw.replayed === true) result.replayed = true;
   return result;
 }

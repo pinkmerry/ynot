@@ -469,6 +469,12 @@ export type YnotGachaOpenResult = {
   publicCode: string;
   costCoins?: number;
   items: YnotGachaOpenItem[];
+  remaining?: {
+    remainingSlots?: number;
+    availablePrizeUnits?: number;
+    eligibleUnits?: number;
+    availableWinSlots?: number;
+  };
   replayed?: boolean;
 };
 

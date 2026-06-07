@@ -363,7 +363,9 @@ test("pack-open reveal result does not expose raw internal open ids", () => {
   assert.doesNotMatch(resultMapper, /openId:\s*readString\(raw\.openId\)/);
   assert.match(resultMapper, /openId:\s*publicCode/);
   assert.doesNotMatch(resultMapper, /logicMode/);
-  assert.doesNotMatch(resultMapper, /remaining/);
+  assert.match(resultMapper, /sanitizeOpenRemaining\(raw\.remaining\)/);
+  assert.doesNotMatch(resultMapper, /result\.remaining\s*=\s*raw\.remaining/);
+  assert.doesNotMatch(resultMapper, /drawRoundId|totalUnits|awardedUnits|reservedUnits|voidUnits/);
   assert.doesNotMatch(resultMapper, /weight/);
   assert.doesNotMatch(resultMapper, /unlockAtSoldPct/);
 });

@@ -8,6 +8,8 @@ const openRouteSource = read("src/app/api/ynot/gacha/open/route.ts");
 const rateLimitSource = read("src/lib/security/rate-limit.ts");
 const openIntentSource = read("src/features/ynot/open-intent.ts");
 const clientSource = read("src/features/ynot/client.tsx");
+const typesSource = read("src/features/ynot/types.ts");
+const wranglerCiSource = read("wrangler.website.ci.jsonc");
 
 function latestMigrationWithSuffix(suffix) {
   const migrationsDir = new URL("../../Database/supabase/migrations/", import.meta.url);
@@ -94,10 +96,92 @@ test("100-pack opens remain one weighted API call", () => {
     "function openAgain",
     "fire open handler",
   );
+  const openAgain = sourceBlock(
+    clientSource,
+    "function openAgain",
+    "function handleRevealClose",
+    "open again handler",
+  );
   assert.match(fireOpen, /postJson\("\/api\/ynot\/gacha\/open"/);
   assert.match(fireOpen, /quantity: targetQuantity/);
-  assert.match(fireOpen, /openIntentIdempotencyKey\(\s*openIntentId \?\? null,\s*campaign\.id,\s*targetQuantity/s);
+  assert.match(
+    fireOpen,
+    /openIntentIdempotencyKey\(\s*intentId \?\? openIntentId \?\? null,\s*campaign\.id,\s*targetQuantity/s,
+  );
+  assert.match(fireOpen, /if \(openRequestInFlightRef\.current\) return/);
   assert.doesNotMatch(fireOpen, /for \(const chunk of chunks\)/);
+  assert.match(clientSource, /createOpenIntentId/);
+  assert.match(openAgain, /if \(openRequestInFlightRef\.current\) return/);
+  assert.match(openAgain, /fireOpen\(nextQuantity,\s*createOpenIntentId\(\)\)/);
   assert.doesNotMatch(clientSource, /GACHA_OPEN_RPC_CHUNK_SIZE|openQuantityChunks|mergeOpenResults/);
   assert.doesNotMatch(openIntentSource, /chunkIndex|part-\$\{safeChunkIndex\}/);
+});
+
+test("CI deploy config keeps paid CPU limit for pack-open protection", () => {
+  assert.match(wranglerCiSource, /"limits"\s*:\s*\{\s*"cpu_ms"\s*:\s*30000\s*\}/s);
+});
+
+test("pack open API exposes only sanitized RPC remaining fields", () => {
+  const rawOpenResultType = sourceBlock(
+    openRouteSource,
+    "type RawOpenResult = {",
+    "type PublicDisplayTier",
+    "raw open result type",
+  );
+  const publicOpenResultType = sourceBlock(
+    openRouteSource,
+    "type PublicOpenResult = {",
+    "function deriveDisplayTier",
+    "public open result type",
+  );
+  const sanitizer = sourceBlock(
+    openRouteSource,
+    "function sanitizeOpenRemaining",
+    "function deriveDisplayTier",
+    "remaining sanitizer",
+  );
+  const publicMapper = sourceBlock(
+    openRouteSource,
+    "function toPublicOpenResult",
+    "function openErrorMessage",
+    "public result mapper",
+  );
+  const resultType = sourceBlock(
+    typesSource,
+    "export type YnotGachaOpenResult = {",
+    "export type YnotTierAnimation",
+    "client open result type",
+  );
+
+  assert.match(rawOpenResultType, /remaining\?: unknown/);
+  assert.match(publicOpenResultType, /remaining\?: PublicOpenRemaining/);
+  assert.match(
+    sanitizer,
+    /availablePrizeUnits[\s\S]*remaining\.availableWinSlots[\s\S]*remaining\.availableUnits/,
+  );
+  assert.match(sanitizer, /remainingSlots|eligibleUnits|availableWinSlots/);
+  assert.doesNotMatch(sanitizer, /\.from\(|\.rpc\(|createServiceSupabaseClient/);
+  assert.match(publicMapper, /const remaining = sanitizeOpenRemaining\(raw\.remaining\)/);
+  assert.match(publicMapper, /if \(remaining\) result\.remaining = remaining/);
+  assert.match(resultType, /remaining\?: \{/);
+  assert.match(resultType, /remainingSlots\?: number/);
+  assert.match(resultType, /availablePrizeUnits\?: number/);
+  assert.match(resultType, /eligibleUnits\?: number/);
+  assert.match(resultType, /availableWinSlots\?: number/);
+});
+
+test("idempotent replay responses include fresh remaining stock from the RPC", () => {
+  const migration = latestMigrationWithSuffix("_open_gacha_replay_remaining.sql");
+
+  assert.match(
+    migration,
+    /pg_get_functiondef\(\s*'public\.open_gacha_campaign\(uuid,uuid,integer,text\)'::regprocedure\s*\)/,
+  );
+  assert.match(migration, /'replayed', true/);
+  assert.match(migration, /'remaining'/);
+  assert.match(
+    migration,
+    /get_draw_round_inventory_summary\(\s*existing_open\.draw_round_id,\s*p_profile_id\s*\)/,
+  );
+  assert.doesNotMatch(migration, /draw_round_id\s*=\s*p_draw_round_id/);
 });
