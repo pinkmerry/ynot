@@ -36,6 +36,7 @@ type UnitBody = {
   gemrateId?: unknown;
   imageUrl?: unknown;
   imageStoragePath?: unknown;
+  stockSkuId?: unknown;
 };
 
 async function guard(request: Request) {
@@ -116,6 +117,7 @@ export async function PATCH(request: Request) {
     p_gemrate_id: gemrateId,
     p_image_url: text(body?.imageUrl, 600) || null,
     p_image_storage_path: text(body?.imageStoragePath, 400) || null,
+    p_stock_sku_id: text(body?.stockSkuId, 80) || null,
   });
 
   if (error) {

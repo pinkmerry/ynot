@@ -30,6 +30,7 @@ type CardStockBody = {
   imageUrl?: unknown;
   imageStoragePath?: unknown;
   stockUnitGroupKey?: unknown;
+  stockSkuId?: unknown;
 };
 
 function text(value: unknown, max = 160) {
@@ -92,14 +93,16 @@ export async function POST(request: Request) {
 
   const reason = text(body?.reason, 80) || "admin_adjustment";
   const sourceId = text(body?.sourceId, 120) || null;
+  const stockSkuId = text(body?.stockSkuId, 80) || null;
   const stockUnitGroupKey = text(body?.stockUnitGroupKey, 240);
-  if (delta < 0 && !stockUnitGroupKey) {
+  if (delta < 0 && !stockSkuId && !stockUnitGroupKey) {
     return Response.json(
       { error: "Choose a stock sub-SKU before removing stock." },
       { status: 400 },
     );
   }
-  const removeGroup = delta < 0 ? groupKeyParts(stockUnitGroupKey) : null;
+  const removeGroup =
+    delta < 0 && !stockSkuId ? groupKeyParts(stockUnitGroupKey) : null;
   if (removeGroup && !CONDITIONS.has(removeGroup.condition)) {
     return Response.json(
       { error: "The selected stock sub-SKU is invalid." },
@@ -162,29 +165,55 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServiceSupabaseClient();
-  const { data, error } = await supabase.rpc("adjust_card_stock_units", {
-    p_card_id: cardId,
-    p_quantity_delta: delta,
-    p_admin_id: admin.adminId,
-    p_source_type: reason,
-    p_source_id: sourceId,
-    p_metadata: {
-      adjustedByAdminId: admin.adminId,
-      reason,
-      sourceId,
-      stockUnitGroupKey: stockUnitGroupKey || null,
-    } satisfies Json,
-    p_condition: condition,
-    p_grade: grade,
-    p_grading_service: gradingService,
-    p_cert_number: certNumber,
-    p_gemrate_id: gemrateId,
-    p_image_url: imageUrl,
-    p_image_storage_path: imageStoragePath,
-  });
+  const rpcName = stockSkuId
+    ? "adjust_stock_sku_units"
+    : "adjust_card_stock_units";
+  const adjustment = stockSkuId
+    ? await supabase.rpc("adjust_stock_sku_units", {
+        p_stock_sku_id: stockSkuId,
+        p_quantity_delta: delta,
+        p_admin_id: admin.adminId,
+        p_source_type: reason,
+        p_source_id: sourceId,
+        p_metadata: {
+          adjustedByAdminId: admin.adminId,
+          reason,
+          sourceId,
+          stockSkuId,
+          stockUnitGroupKey: stockUnitGroupKey || null,
+        } satisfies Json,
+        p_condition: condition,
+        p_grade: grade,
+        p_grading_service: gradingService,
+        p_cert_number: certNumber,
+        p_gemrate_id: gemrateId,
+        p_image_url: imageUrl,
+        p_image_storage_path: imageStoragePath,
+      })
+    : await supabase.rpc("adjust_card_stock_units", {
+        p_card_id: cardId,
+        p_quantity_delta: delta,
+        p_admin_id: admin.adminId,
+        p_source_type: reason,
+        p_source_id: sourceId,
+        p_metadata: {
+          adjustedByAdminId: admin.adminId,
+          reason,
+          sourceId,
+          stockUnitGroupKey: stockUnitGroupKey || null,
+        } satisfies Json,
+        p_condition: condition,
+        p_grade: grade,
+        p_grading_service: gradingService,
+        p_cert_number: certNumber,
+        p_gemrate_id: gemrateId,
+        p_image_url: imageUrl,
+        p_image_storage_path: imageStoragePath,
+      });
+  const { data, error } = adjustment;
 
   if (error) {
-    if (isMissingFunctionError(error, "adjust_card_stock_units")) {
+    if (isMissingFunctionError(error, rpcName)) {
       return randomPackSchemaMissingResponse();
     }
     return mappedAdminErrorResponse(error, cardStockErrorMap, {
@@ -202,6 +231,7 @@ export async function POST(request: Request) {
       quantityDelta: delta,
       reason,
       sourceId,
+      stockSkuId,
       stockUnitGroupKey: stockUnitGroupKey || null,
     },
   });

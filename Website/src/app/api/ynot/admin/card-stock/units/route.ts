@@ -45,46 +45,51 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const cardId = text(url.searchParams.get("cardId"), 80);
+  const stockSkuId = text(url.searchParams.get("stockSkuId"), 80);
   const groupKey = text(url.searchParams.get("groupKey"), 240);
   const limit = Math.min(
     200,
     Math.max(1, Math.trunc(Number(url.searchParams.get("limit") ?? 100) || 100)),
   );
-  if (!cardId || !groupKey) {
+  if (!cardId || (!stockSkuId && !groupKey)) {
     return Response.json(
-      { error: "cardId and groupKey are required." },
+      { error: "cardId and stockSkuId or groupKey are required." },
       { status: 400 },
     );
   }
 
-  const group = groupKeyParts(groupKey);
+  const group = stockSkuId ? null : groupKeyParts(groupKey);
   const supabase = createServiceSupabaseClient();
   let query = supabase
     .from("card_stock_units")
     .select(
-      "id,condition,grade,grading_service,cert_number,gemrate_id,image_url,image_storage_path,status,quantity",
+      "id,stock_sku_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,image_storage_path,status,quantity",
     )
     .eq("card_id", cardId)
     // Include units a pack already holds so admins can edit their identity /
     // image; archived and deleted units stay hidden.
     .in("status", ["available", "reserved", "allocated"])
-    .eq("condition", group.condition)
     .order("created_at", { ascending: true })
     .limit(limit);
 
-  if (group.condition === "graded") {
-    query = group.grade
-      ? query.eq("grade", group.grade)
-      : query.or("grade.is.null,grade.eq.");
-    query = group.gradingService
-      ? query.eq("grading_service", group.gradingService)
-      : query.or("grading_service.is.null,grading_service.eq.");
-    query = group.certNumber
-      ? query.eq("cert_number", group.certNumber)
-      : query.or("cert_number.is.null,cert_number.eq.");
-    query = group.gemrateId
-      ? query.eq("gemrate_id", group.gemrateId)
-      : query.or("gemrate_id.is.null,gemrate_id.eq.");
+  if (stockSkuId) {
+    query = query.eq("stock_sku_id", stockSkuId);
+  } else if (group) {
+    query = query.eq("condition", group.condition);
+    if (group.condition === "graded") {
+      query = group.grade
+        ? query.eq("grade", group.grade)
+        : query.or("grade.is.null,grade.eq.");
+      query = group.gradingService
+        ? query.eq("grading_service", group.gradingService)
+        : query.or("grading_service.is.null,grading_service.eq.");
+      query = group.certNumber
+        ? query.eq("cert_number", group.certNumber)
+        : query.or("cert_number.is.null,cert_number.eq.");
+      query = group.gemrateId
+        ? query.eq("gemrate_id", group.gemrateId)
+        : query.or("gemrate_id.is.null,gemrate_id.eq.");
+    }
   }
 
   const { data, error } = await query;
@@ -102,6 +107,7 @@ export async function GET(request: Request) {
     ok: true,
     units: (data ?? []).map((unit) => ({
       id: unit.id,
+      stockSkuId: unit.stock_sku_id,
       condition: unit.condition,
       grade: unit.grade,
       gradingService: unit.grading_service,
