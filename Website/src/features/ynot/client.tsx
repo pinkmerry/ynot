@@ -70,6 +70,7 @@ import {
 } from "./stock-sku-usage";
 import {
   mainSkuActionLabels,
+  mainSkuCategoryType,
   mainSkuStockSummary,
   stockQuantityLabel,
   stockUnitKindLabel as presentationStockUnitKindLabel,
@@ -8759,8 +8760,7 @@ export function AdminCardStockUnitForm({
       (group) => group.stockSkuId === selectedStockSkuId,
     ) ?? null;
   const isCardSubSku = selectedSubSkuGroup?.unitKind === "card";
-  const cardConditionApplies = !selectedSubSkuGroup || isCardSubSku;
-  const isGraded = cardConditionApplies && condition === "graded";
+  const isGraded = isCardSubSku && condition === "graded";
   const hasCert = isGraded && certNumber.trim().length > 0;
   // A cert pins one physical slab, so it can only attach to a single unit.
   const effectiveCount = hasCert
@@ -8770,6 +8770,17 @@ export function AdminCardStockUnitForm({
   const addButtonQuantityLabel = selectedSubSkuGroup
     ? stockQuantityLabel(effectiveCount, selectedSubSkuGroup.unitKind)
     : countLabel(effectiveCount, "unit");
+  const selectedSubSkuTypeLabel = selectedSubSkuGroup
+    ? presentationStockUnitKindLabel(selectedSubSkuGroup.unitKind)
+    : "Sub-SKU";
+  const quantityFieldLabel = selectedSubSkuGroup
+    ? `How many ${stockSkuUnitNoun(selectedSubSkuGroup.unitKind, 2)}`
+    : "How many";
+  const stockUnitImageHint = isCardSubSku
+    ? "Photo of this specific card or slab. Leave empty to use the Sub-SKU or Main SKU image."
+    : selectedSubSkuGroup
+      ? `Optional ${stockSkuUnitNoun(selectedSubSkuGroup.unitKind, 1)} image. Leave empty to use the Sub-SKU or Main SKU image.`
+      : "Optional stock image. Leave empty to use the Sub-SKU or Main SKU image.";
 
   function replaceUnitPreviewUrl(nextUrl: string, objectUrl = false) {
     if (imagePreviewObjectUrlRef.current) {
@@ -8892,8 +8903,26 @@ export function AdminCardStockUnitForm({
             ))}
           </select>
         </AdminField>
-        {cardConditionApplies ? (
-          <AdminField label="Condition">
+        {selectedSubSkuGroup ? (
+          <div className="admin-subsku-stock-selected">
+            <span>{selectedSubSkuTypeLabel} Sub-SKU</span>
+            <strong>{selectedSubSkuGroup.sku}</strong>
+            <em>
+              {stockQuantityLabel(
+                selectedSubSkuGroup.availableUnits,
+                selectedSubSkuGroup.unitKind,
+              )}{" "}
+              available /{" "}
+              {stockQuantityLabel(
+                selectedSubSkuGroup.totalUnits,
+                selectedSubSkuGroup.unitKind,
+              )}{" "}
+              total
+            </em>
+          </div>
+        ) : null}
+        {isCardSubSku ? (
+          <AdminField label="Card condition">
             <select
               className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
               value={condition}
@@ -8908,19 +8937,19 @@ export function AdminCardStockUnitForm({
               ))}
             </select>
           </AdminField>
-        ) : (
+        ) : selectedSubSkuGroup ? (
           <AdminField
-            label="Condition"
+            label="Stock identity"
             hint={`${presentationStockUnitKindLabel(selectedSubSkuGroup?.unitKind ?? "other")} Sub-SKUs do not use card grading fields.`}
           >
             <input
               className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-              value="Sealed"
+              value={`${selectedSubSkuTypeLabel} stock`}
               disabled
               readOnly
             />
           </AdminField>
-        )}
+        ) : null}
         {isGraded ? (
           <>
             <AdminField label="Grade" required>
@@ -8975,7 +9004,7 @@ export function AdminCardStockUnitForm({
           </>
         ) : null}
         <AdminField
-          label="How many"
+          label={quantityFieldLabel}
           hint={hasCert ? "Locked to 1 because a cert is set." : undefined}
         >
           <input
@@ -8995,7 +9024,7 @@ export function AdminCardStockUnitForm({
             previewUrl={imagePreviewUrl}
             manualUrl={imageUrl}
             label="Stock unit image (optional)"
-            hint="Photo of this specific slab. Leave empty to use the Main SKU image."
+            hint={stockUnitImageHint}
             onFileChange={(file) => {
               setImageFile(file);
               if (file) {
@@ -9527,6 +9556,10 @@ function AdminSubSkuQuantity({
       group.imageStoragePath ??
       group.units.find((unit) => unit.imageStoragePath)?.imageStoragePath ??
       null;
+    const quantityCondition =
+      group.stockSkuId && group.unitKind !== "card"
+        ? undefined
+        : group.units[0]?.condition ?? "raw";
     setBusy(true);
     setMsg("");
     void (async () => {
@@ -9538,9 +9571,7 @@ function AdminSubSkuQuantity({
             cardId,
             quantityDelta: delta,
             stockSkuId: group.stockSkuId ?? undefined,
-            condition: group.stockSkuId
-              ? undefined
-              : group.units[0]?.condition ?? "raw",
+            condition: quantityCondition,
             stockUnitGroupKey: group.key,
             imageUrl: delta > 0 ? stockImageUrl : undefined,
             imageStoragePath: delta > 0 ? stockImageStoragePath : undefined,
@@ -9673,16 +9704,41 @@ const stockSkuUnitKindOptions: Array<{
   value: AdminStockSkuUnitKind;
   label: string;
 }> = [
-  { value: "pack", label: "Pack" },
-  { value: "box", label: "Box" },
   { value: "card", label: "Card" },
+  { value: "box", label: "Box" },
+  { value: "pack", label: "Pack" },
   { value: "other", label: "Other" },
 ];
 
-function adminStockSkuUnitKind(value: unknown): AdminStockSkuUnitKind {
+function adminStockSkuUnitKind(
+  value: unknown,
+  fallback: AdminStockSkuUnitKind = "other",
+): AdminStockSkuUnitKind {
   return value === "card" || value === "pack" || value === "box" || value === "other"
     ? value
-    : "pack";
+    : fallback;
+}
+
+function defaultStockSkuUnitKindForCard(card: Pick<CardCatalogItem, "catalogCategory">) {
+  return adminStockSkuUnitKind(mainSkuCategoryType(card.catalogCategory), "other");
+}
+
+function stockSkuCodePlaceholder(
+  unitKind: AdminStockSkuUnitKind,
+  card: Pick<CardCatalogItem, "code" | "modelCode">,
+) {
+  const base = (card.modelCode ?? card.code ?? "SKU").trim().toUpperCase() || "SKU";
+  if (unitKind === "box") return `${base}-BOX-SEALED`;
+  if (unitKind === "pack") return `${base}-PACK-SEALED`;
+  if (unitKind === "card") return `${base}-RAW`;
+  return `${base}-ITEM`;
+}
+
+function stockSkuLabelPlaceholder(unitKind: AdminStockSkuUnitKind) {
+  if (unitKind === "box") return "Sealed booster box";
+  if (unitKind === "pack") return "Sealed booster pack";
+  if (unitKind === "card") return "Raw card / PSA 10 slab";
+  return "Accessory or other item";
 }
 
 function stockSkuUnitNoun(
@@ -9779,10 +9835,11 @@ function AdminStockSkuEditor({
       candidate.unitKind === "pack" &&
       candidate.stockSkuId !== group?.stockSkuId,
   );
+  const defaultUnitKind = defaultStockSkuUnitKindForCard(card);
   const [sku, setSku] = useState(group?.sku ?? "");
   const [label, setLabel] = useState(group?.label ?? "");
   const [unitKind, setUnitKind] = useState<AdminStockSkuUnitKind>(
-    adminStockSkuUnitKind(group?.unitKind),
+    adminStockSkuUnitKind(group?.unitKind, defaultUnitKind),
   );
   const [childStockSkuId, setChildStockSkuId] = useState(
     group?.childStockSkuId ?? "",
@@ -9829,7 +9886,7 @@ function AdminStockSkuEditor({
         if (!isEditing) {
           setSku("");
           setLabel("");
-          setUnitKind("pack");
+          setUnitKind(defaultUnitKind);
           setChildStockSkuId("");
           setChildQuantity("");
           setImageUrl("");
@@ -9850,7 +9907,7 @@ function AdminStockSkuEditor({
           <input
             value={sku}
             disabled={busy}
-            placeholder="OP16-JP-PACK"
+            placeholder={stockSkuCodePlaceholder(unitKind, card)}
             onChange={(event) => setSku(event.target.value)}
           />
         </label>
@@ -9859,7 +9916,7 @@ function AdminStockSkuEditor({
           <input
             value={label}
             disabled={busy}
-            placeholder="OP16 Japanese Booster Pack"
+            placeholder={stockSkuLabelPlaceholder(unitKind)}
             onChange={(event) => setLabel(event.target.value)}
           />
         </label>
@@ -10043,6 +10100,8 @@ function AdminStockSkuBreakdown({
               group.imageUrl ??
               group.units.find((unit) => unit.imageUrl)?.imageUrl ??
               null;
+            const hasPackEquivalent =
+              group.unitKind === "box" || group.unitKind === "pack";
             const missingPackConversion =
               group.unitKind === "box" && !group.childQuantity;
             const availablePackEquivalent =
@@ -10058,13 +10117,17 @@ function AdminStockSkuBreakdown({
                   ? Math.max(0, group.totalUnits)
                   : Math.max(0, Math.trunc(Number(group.packEquivalent ?? 0)));
             const packEquivalentLabel =
-              missingPackConversion
-                ? "Not calculated"
-                : `${stockQuantityLabel(availablePackEquivalent, "pack")} left`;
+              !hasPackEquivalent
+                ? "-"
+                : missingPackConversion
+                  ? "Not calculated"
+                  : `${stockQuantityLabel(availablePackEquivalent, "pack")} left`;
             const packEquivalentDetail =
-              missingPackConversion
-                ? "Set packs inside 1 box"
-                : group.unitKind === "box" && group.childQuantity
+              !hasPackEquivalent
+                ? `Counted as ${stockSkuUnitNoun(group.unitKind, 2)}`
+                : missingPackConversion
+                  ? "Set packs inside 1 box"
+                  : group.unitKind === "box" && group.childQuantity
                   ? `${stockQuantityLabel(group.availableUnits, "box")} x ${group.childQuantity.toLocaleString()} = ${stockQuantityLabel(availablePackEquivalent, "pack")} left · ${stockQuantityLabel(group.totalUnits, "box")} x ${group.childQuantity.toLocaleString()} = ${stockQuantityLabel(totalPackEquivalent, "pack")} total`
                   : totalPackEquivalent !== availablePackEquivalent
                     ? `${stockQuantityLabel(totalPackEquivalent, "pack")} total`
@@ -11204,7 +11267,7 @@ export function AdminCardCatalogPanel({
                     </span>
                     {row.prizes.length > 0 && (
                       <span className="admin-card-catalog-tag-pill is-info">
-                        {row.prizes.length.toLocaleString()} pack
+                        {row.prizes.length.toLocaleString()} prize slot
                         {row.prizes.length === 1 ? "" : "s"}
                       </span>
                     )}
@@ -11245,7 +11308,7 @@ export function AdminCardCatalogPanel({
                       {row.packTotalUnits.toLocaleString()}
                     </strong>
                     <small>
-                      {row.prizes.length.toLocaleString()} pack slot
+                      {row.prizes.length.toLocaleString()} prize slot
                       {row.prizes.length === 1 ? "" : "s"} ·{" "}
                       {row.packAwardedUnits.toLocaleString()} awarded
                       {row.packVoidUnits
@@ -11425,7 +11488,7 @@ export function AdminCardCatalogPanel({
                         type="button"
                         title={
                           row.prizes.length > 0
-                            ? `Cannot delete - ${row.prizes.length} pack prize slot${row.prizes.length === 1 ? "" : "s"} still reference this Main SKU.`
+                            ? `Cannot delete - ${row.prizes.length} random pack prize slot${row.prizes.length === 1 ? "" : "s"} still reference this Main SKU.`
                             : row.stockTotal - row.stockArchived > 0
                               ? `Cannot delete - ${row.stockTotal - row.stockArchived} active stock unit${row.stockTotal - row.stockArchived === 1 ? "" : "s"} still exist. Use "Remove stock" until 0/${row.stockTotal} first.`
                               : `Delete "${card.name}" permanently`
