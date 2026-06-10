@@ -8717,8 +8717,24 @@ export function AdminCardStockUnitForm({
   initialCardId?: string;
 }) {
   const router = useRouter();
+  const initialSelectedCard =
+    cards.find((card) => card.catalogCardId === initialCardId) ?? null;
+  const initialUnitKind = initialSelectedCard
+    ? defaultStockSkuUnitKindForCard(initialSelectedCard)
+    : "card";
   const [cardId, setCardId] = useState(initialCardId ?? "");
-  const [selectedStockSkuId, setSelectedStockSkuId] = useState("");
+  const [subSkuCode, setSubSkuCode] = useState(
+    initialSelectedCard
+      ? stockSkuDefaultCode(initialUnitKind, initialSelectedCard)
+      : "",
+  );
+  const [subSkuLabel, setSubSkuLabel] = useState(
+    initialSelectedCard
+      ? stockSkuDefaultLabel(initialUnitKind, initialSelectedCard)
+      : "",
+  );
+  const [unitKind, setUnitKind] =
+    useState<AdminStockSkuUnitKind>(initialUnitKind);
   const [condition, setCondition] = useState<CardCondition>("raw");
   const [grade, setGrade] = useState("");
   const [gradingService, setGradingService] = useState<GradingService | "">("");
@@ -8755,63 +8771,53 @@ export function AdminCardStockUnitForm({
         : [],
     [selectedCard],
   );
-  const selectedSubSkuGroup =
-    selectableSubSkuGroups.find(
-      (group) => group.stockSkuId === selectedStockSkuId,
-    ) ?? null;
-  const isCardSubSku = selectedSubSkuGroup?.unitKind === "card";
+  const isCardSubSku = unitKind === "card";
   const isGraded = isCardSubSku && condition === "graded";
   const hasCert = isGraded && certNumber.trim().length > 0;
   // A cert pins one physical slab, so it can only attach to a single unit.
   const effectiveCount = hasCert
     ? 1
     : Math.min(10000, Math.max(1, Math.trunc(Number(count) || 1)));
-  const selectedStockSkuValue = selectedSubSkuGroup ? selectedStockSkuId : "";
-  const addButtonQuantityLabel = selectedSubSkuGroup
-    ? stockQuantityLabel(effectiveCount, selectedSubSkuGroup.unitKind)
-    : countLabel(effectiveCount, "unit");
-  const selectedSubSkuTypeLabel = selectedSubSkuGroup
-    ? presentationStockUnitKindLabel(selectedSubSkuGroup.unitKind)
-    : "Sub-SKU";
-  const selectedSubSkuDisplay = selectedSubSkuGroup
-    ? cardSubSkuBucketDisplay(selectedSubSkuGroup)
-    : null;
+  const addButtonQuantityLabel = stockQuantityLabel(effectiveCount, unitKind);
+  const selectedSubSkuTypeLabel = presentationStockUnitKindLabel(unitKind);
+  const cleanSubSkuCode = subSkuCode.trim();
+  const cleanSubSkuLabel = subSkuLabel.trim();
+  const matchingSubSkuGroup = selectableSubSkuGroups.find(
+    (group) =>
+      group.sku.trim().toLowerCase() === cleanSubSkuCode.toLowerCase(),
+  );
   const quantityFieldLabel = isCardSubSku
     ? "How many cards"
-    : selectedSubSkuGroup
-      ? `How many ${stockSkuUnitNoun(selectedSubSkuGroup.unitKind, 2)}`
-      : "How many";
+    : `How many ${stockSkuUnitNoun(unitKind, 2)}`;
   const stockUnitImageHint = isCardSubSku
     ? "Photo of this specific card or slab. Leave empty to use the Sub-SKU or Main SKU image."
-    : selectedSubSkuGroup
-      ? `Optional ${stockSkuUnitNoun(selectedSubSkuGroup.unitKind, 1)} image. Leave empty to use the Sub-SKU or Main SKU image.`
-      : "Optional stock image. Leave empty to use the Sub-SKU or Main SKU image.";
+    : `Optional ${stockSkuUnitNoun(unitKind, 1)} image. Leave empty to use the Sub-SKU or Main SKU image.`;
 
-  function applySelectedSubSkuDefaults(nextGroup: StockSkuGroup | null) {
-    if (!nextGroup || nextGroup.unitKind !== "card") {
-      setCondition("raw");
-      setGrade("");
-      setGradingService("");
-      setCertNumber("");
-      setGemrateId("");
-      return;
-    }
-    const referenceUnit =
-      nextGroup.units.find(
-        (unit) =>
-          unit.condition === "graded" || unit.grade || unit.gradingService,
-      ) ?? nextGroup.units[0];
-    const nextCondition =
-      referenceUnit?.condition === "graded" ? "graded" : "raw";
-    setCondition(nextCondition);
-    setGrade(nextCondition === "graded" ? referenceUnit?.grade ?? "" : "");
-    setGradingService(
-      nextCondition === "graded"
-        ? ((referenceUnit?.gradingService as GradingService | null) ?? "")
-        : "",
-    );
+  function resetUnitIdentity() {
+    setCondition("raw");
+    setGrade("");
+    setGradingService("");
     setCertNumber("");
     setGemrateId("");
+  }
+
+  function applyMainSkuDefaults(nextCard: CardCatalogItem | null) {
+    const nextUnitKind = nextCard ? defaultStockSkuUnitKindForCard(nextCard) : "card";
+    setUnitKind(nextUnitKind);
+    setSubSkuCode(nextCard ? stockSkuDefaultCode(nextUnitKind, nextCard) : "");
+    setSubSkuLabel(nextCard ? stockSkuDefaultLabel(nextUnitKind, nextCard) : "");
+    resetUnitIdentity();
+  }
+
+  function applyUnitKindDefaults(nextUnitKind: AdminStockSkuUnitKind) {
+    setUnitKind(nextUnitKind);
+    setSubSkuCode(
+      selectedCard ? stockSkuDefaultCode(nextUnitKind, selectedCard) : "",
+    );
+    setSubSkuLabel(
+      selectedCard ? stockSkuDefaultLabel(nextUnitKind, selectedCard) : "",
+    );
+    if (nextUnitKind !== "card") resetUnitIdentity();
   }
 
   function replaceUnitPreviewUrl(nextUrl: string, objectUrl = false) {
@@ -8823,6 +8829,35 @@ export function AdminCardStockUnitForm({
     setImagePreviewUrl(nextUrl);
   }
 
+  async function ensureSubSkuBucket(nextImageUrl: string) {
+    if (!selectedCard || !cardId) {
+      throw new Error("Select a Main SKU first.");
+    }
+    if (!cleanSubSkuCode) {
+      throw new Error("Sub-SKU code is required.");
+    }
+    if (!cleanSubSkuLabel) {
+      throw new Error("Sub-SKU label is required.");
+    }
+    if (matchingSubSkuGroup?.stockSkuId) return matchingSubSkuGroup.stockSkuId;
+
+    const payload = await postJson("/api/ynot/admin/stock-skus", {
+      cardId,
+      sku: cleanSubSkuCode,
+      label: cleanSubSkuLabel,
+      unitKind,
+      imageUrl: nextImageUrl || undefined,
+    });
+    const stockSku = isRecord(payload) ? payload.stockSku : null;
+    const stockSkuId = isRecord(stockSku)
+      ? stringValue(stockSku.stockSkuId)
+      : "";
+    if (!stockSkuId) {
+      throw new Error("Sub-SKU could not be created.");
+    }
+    return stockSkuId;
+  }
+
   function submit() {
     startTransition(async () => {
       try {
@@ -8831,8 +8866,12 @@ export function AdminCardStockUnitForm({
           setMessage("Select a Main SKU first.");
           return;
         }
-        if (!selectedSubSkuGroup) {
-          setMessage("Choose a Sub-SKU before adding stock.");
+        if (!cleanSubSkuCode) {
+          setMessage("Sub-SKU code is required.");
+          return;
+        }
+        if (!cleanSubSkuLabel) {
+          setMessage("Sub-SKU label is required.");
           return;
         }
         if (isGraded && !gradingService) {
@@ -8853,11 +8892,12 @@ export function AdminCardStockUnitForm({
           nextImageUrl = uploaded.imageUrl;
           nextImageStoragePath = uploaded.storagePath;
         }
+        const stockSkuId = await ensureSubSkuBucket(nextImageUrl);
         await postJson("/api/ynot/admin/card-stock", {
           cardId,
           quantityDelta: effectiveCount,
           reason: "admin_catalog",
-          stockSkuId: selectedStockSkuId,
+          stockSkuId,
           ...(isCardSubSku
             ? {
                 condition,
@@ -8871,7 +8911,7 @@ export function AdminCardStockUnitForm({
           imageStoragePath: nextImageStoragePath,
         });
         setMessage(
-          `Added ${stockQuantityLabel(effectiveCount, selectedSubSkuGroup.unitKind)} to ${selectedSubSkuDisplay?.sku ?? selectedSubSkuGroup.sku}.`,
+          `Added ${stockQuantityLabel(effectiveCount, unitKind)} to ${cleanSubSkuCode}.`,
         );
         setCertNumber("");
         setGemrateId("");
@@ -8896,78 +8936,69 @@ export function AdminCardStockUnitForm({
             value={cardId}
             onChange={(nextCardId) => {
               setCardId(nextCardId);
-              setSelectedStockSkuId("");
-              applySelectedSubSkuDefaults(null);
+              applyMainSkuDefaults(
+                cards.find((card) => card.catalogCardId === nextCardId) ?? null,
+              );
             }}
             placeholder="Select Main SKU…"
             searchPlaceholder="Search Main SKU…"
             options={mainSkuOptions}
           />
         </AdminField>
+        <AdminField label="Sub-SKU code" required>
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={subSkuCode}
+            disabled={!cardId}
+            placeholder={
+              selectedCard ? stockSkuDefaultCode(unitKind, selectedCard) : "SKU"
+            }
+            onChange={(event) => setSubSkuCode(event.target.value.toUpperCase())}
+          />
+        </AdminField>
         <AdminField
-          label="Sub-SKU"
+          label="Sub-SKU label"
           required
-          hint={
-            !cardId
-              ? "Select a Main SKU first."
-              : selectableSubSkuGroups.length
-                ? "Choose the existing Sub-SKU bucket this stock should increase. Condition, grade, and cert are entered below per physical card."
-                : "Create a Sub-SKU on this Main SKU before adding stock."
-          }
+        >
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={subSkuLabel}
+            disabled={!cardId}
+            placeholder={stockSkuDefaultLabel(unitKind, selectedCard)}
+            onChange={(event) => setSubSkuLabel(event.target.value)}
+          />
+        </AdminField>
+        <AdminField
+          label="Sub-SKU type"
+          hint="Create or reuse this stock bucket first, then add the physical units below."
         >
           <select
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={selectedStockSkuValue}
-            disabled={!cardId || !selectableSubSkuGroups.length}
-            onChange={(event) => {
-              const nextStockSkuId = event.target.value;
-              setSelectedStockSkuId(nextStockSkuId);
-              applySelectedSubSkuDefaults(
-                selectableSubSkuGroups.find(
-                  (group) => group.stockSkuId === nextStockSkuId,
-                ) ?? null,
-              );
-            }}
+            value={unitKind}
+            disabled={!cardId}
+            onChange={(event) =>
+              applyUnitKindDefaults(event.target.value as AdminStockSkuUnitKind)
+            }
           >
-            <option value="">
-              {!cardId
-                ? "Select Main SKU first"
-                : selectableSubSkuGroups.length
-                  ? "Choose Sub-SKU…"
-                  : "No Sub-SKU exists yet"}
-            </option>
-            {selectableSubSkuGroups.map((group) => {
-              const display = cardSubSkuBucketDisplay(group);
-              return (
-                <option key={group.stockSkuId} value={group.stockSkuId}>
-                  {display.sku} · {presentationStockUnitKindLabel(group.unitKind)} ·{" "}
-                  {stockQuantityLabel(group.totalUnits, group.unitKind)} total
-                </option>
-              );
-            })}
+            {stockSkuUnitKindOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </AdminField>
-        {selectedSubSkuGroup && selectedSubSkuDisplay ? (
-          <div className="admin-subsku-stock-selected">
-            <span>{selectedSubSkuTypeLabel} Sub-SKU</span>
-            <strong>{selectedSubSkuDisplay.sku}</strong>
-            <em>
-              {stockQuantityLabel(
-                selectedSubSkuGroup.availableUnits,
-                selectedSubSkuGroup.unitKind,
-              )}{" "}
-              available /{" "}
-              {stockQuantityLabel(
-                selectedSubSkuGroup.totalUnits,
-                selectedSubSkuGroup.unitKind,
-              )}{" "}
-              total
-            </em>
-            {selectedSubSkuDisplay.hiddenUnitIdentity ? (
-              <small>Condition, grade, and cert stay on individual card units.</small>
-            ) : null}
-          </div>
-        ) : null}
+        <div className="admin-subsku-stock-selected">
+          <span>{selectedSubSkuTypeLabel} Sub-SKU</span>
+          <strong>{cleanSubSkuCode || "New Sub-SKU"}</strong>
+          <em>
+            {matchingSubSkuGroup
+              ? "Existing bucket will be reused."
+              : "New bucket will be created."}
+          </em>
+          {isCardSubSku ? (
+            <small>Condition, grade, and cert stay on individual card units.</small>
+          ) : null}
+        </div>
         {isCardSubSku ? (
           <AdminField label="Selected condition">
             <select
@@ -8984,10 +9015,10 @@ export function AdminCardStockUnitForm({
               ))}
             </select>
           </AdminField>
-        ) : selectedSubSkuGroup ? (
+        ) : (
           <AdminField
             label="Stock identity"
-            hint={`${presentationStockUnitKindLabel(selectedSubSkuGroup?.unitKind ?? "other")} Sub-SKUs do not use card grading fields.`}
+            hint={`${selectedSubSkuTypeLabel} Sub-SKUs do not use card grading fields.`}
           >
             <input
               className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
@@ -8996,7 +9027,7 @@ export function AdminCardStockUnitForm({
               readOnly
             />
           </AdminField>
-        ) : null}
+        )}
         {isGraded ? (
           <>
             <AdminField label="Grade service" required>
@@ -9100,7 +9131,9 @@ export function AdminCardStockUnitForm({
         className="admin-form-submit"
         onClick={submit}
         type="button"
-        disabled={isPending || !selectedSubSkuGroup}
+        disabled={
+          isPending || !cardId || !cleanSubSkuCode || !cleanSubSkuLabel
+        }
       >
         {isPending ? "Adding..." : `Add ${addButtonQuantityLabel}`}
       </button>
@@ -9965,15 +9998,36 @@ function stockSkuCodePlaceholder(
   const base = (card.modelCode ?? card.code ?? "SKU").trim().toUpperCase() || "SKU";
   if (unitKind === "box") return `${base}-BOX-SEALED`;
   if (unitKind === "pack") return `${base}-PACK-SEALED`;
-  if (unitKind === "card") return `${base}-RAW`;
+  if (unitKind === "card") return base;
   return `${base}-ITEM`;
+}
+
+function stockSkuDefaultCode(
+  unitKind: AdminStockSkuUnitKind,
+  card: Pick<CardCatalogItem, "code" | "modelCode" | "searchCode">,
+) {
+  const base =
+    (card.modelCode ?? card.code ?? card.searchCode ?? "SKU").trim().toUpperCase() ||
+    "SKU";
+  if (unitKind === "card") return base;
+  return stockSkuCodePlaceholder(unitKind, card);
 }
 
 function stockSkuLabelPlaceholder(unitKind: AdminStockSkuUnitKind) {
   if (unitKind === "box") return "Sealed booster box";
   if (unitKind === "pack") return "Sealed booster pack";
-  if (unitKind === "card") return "Raw card / PSA 10 slab";
+  if (unitKind === "card") return "Card stock bucket";
   return "Accessory or other item";
+}
+
+function stockSkuDefaultLabel(
+  unitKind: AdminStockSkuUnitKind,
+  card: Pick<CardCatalogItem, "name"> | null,
+) {
+  if (unitKind === "card") return "Card stock bucket";
+  if (unitKind === "box") return "Sealed box";
+  if (unitKind === "pack") return "Loose pack";
+  return card?.name ? `${card.name} item` : "Other item";
 }
 
 function escapeRegExp(value: string) {

@@ -163,7 +163,7 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  const stockSkuId = requestedStockSkuId.value;
+  let stockSkuId = requestedStockSkuId.value;
   const cardId = requestedCardId.value;
   const childStockSkuId = requestedChildStockSkuId.value;
   const clearConversionRule = body?.clearConversionRule === true;
@@ -193,6 +193,31 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServiceSupabaseClient();
+  if (!stockSkuId && cardId) {
+    const { data: existingRows, error: existingError } = await supabase
+      .from("stock_skus")
+      .select("id, sku_code")
+      .eq("card_id", cardId)
+      .eq("is_active", true);
+    if (existingError) {
+      return Response.json(
+        {
+          error: "Stock SKU could not be saved.",
+          code: "STOCK_SKU_LOOKUP_FAILED",
+        },
+        { status: 409 },
+      );
+    }
+    const existing = Array.isArray(existingRows)
+      ? existingRows.find(
+          (row) =>
+            typeof row.id === "string" &&
+            typeof row.sku_code === "string" &&
+            row.sku_code.trim().toLowerCase() === sku.toLowerCase(),
+        )
+      : null;
+    if (existing) stockSkuId = existing.id;
+  }
   const { data, error } = await supabase.rpc("upsert_stock_sku", {
     p_stock_sku_id: stockSkuId,
     p_card_id: cardId,

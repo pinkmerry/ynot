@@ -52,6 +52,9 @@ test("stock SKU route is admin-only and calls summary/upsert RPCs", () => {
   assert.match(stockSkusRoute, /p_clear_conversion_rule: clearConversionRule/);
   assert.match(stockSkusRoute, /requestedStockSkuId\.invalid/);
   assert.match(stockSkusRoute, /requestedChildStockSkuId\.invalid/);
+  assert.match(stockSkusRoute, /let stockSkuId = requestedStockSkuId\.value/);
+  assert.match(stockSkusRoute, /\.from\("stock_skus"\)/);
+  assert.match(stockSkusRoute, /row\.sku_code\.trim\(\)\.toLowerCase\(\) === sku\.toLowerCase\(\)/);
   assert.doesNotMatch(
     stockSkusRoute,
     /Response\.json\(\{\s*error:\s*error\.message/,
@@ -180,17 +183,24 @@ test("admin catalog UI and data loader use first-class stock SKU identity", () =
   assert.match(adminClient, /random pack prize slot/);
   assert.match(adminClient, /Main SKU name/);
   assert.match(adminClient, /Select Main SKU/);
-  assert.match(adminClient, /selectedStockSkuId/);
-  assert.match(adminClient, /setSelectedStockSkuId/);
-  assert.match(adminClient, /Choose a Sub-SKU before adding stock\./);
+  assert.match(adminClient, /Sub-SKU code/);
+  assert.match(adminClient, /Sub-SKU label/);
+  assert.match(adminClient, /Sub-SKU type/);
+  assert.match(adminClient, /ensureSubSkuBucket/);
+  assert.match(adminClient, /New bucket will be created/);
+  assert.match(adminClient, /Existing bucket will be reused/);
+  assert.doesNotMatch(adminClient, /Choose Sub-SKU…/);
   assert.match(adminClient, /Create a Sub-SKU before adding stock to this Main SKU\./);
   assert.match(adminClient, /function cardSubSkuBucketDisplay/);
   assert.match(adminClient, /CERT-\[A-Z0-9._-\]\+\$/);
   assert.match(adminClient, /const display = cardSubSkuBucketDisplay\(group\)/);
-  assert.match(adminClient, /const selectedSubSkuDisplay = selectedSubSkuGroup/);
+  assert.match(adminClient, /function stockSkuDefaultCode/);
+  assert.match(adminClient, /if \(unitKind === "card"\) return base/);
   const addCardStockFlow = [
     'label="Main SKU"',
-    'label="Sub-SKU"',
+    'label="Sub-SKU code"',
+    'label="Sub-SKU label"',
+    'label="Sub-SKU type"',
     'label="Selected condition"',
     'label="Grade service"',
     'label="Grade number"',
@@ -205,7 +215,7 @@ test("admin catalog UI and data loader use first-class stock SKU identity", () =
   assert.deepEqual(
     [...addCardStockFlow].sort((left, right) => left - right),
     addCardStockFlow,
-    "Add Sub-SKU stock should follow Main SKU > Sub-SKU > condition > service > grade > cert > quantity",
+    "Add Sub-SKU stock should follow Main SKU > Sub-SKU fields > condition > service > grade > cert > quantity",
   );
   assert.match(adminClient, /const quantityFieldLabel = isCardSubSku\s*\?\s*"How many cards"/);
   assert.match(adminClient, /Unique per physical card/);
@@ -220,13 +230,13 @@ test("admin catalog UI and data loader use first-class stock SKU identity", () =
     adminClient,
     /<AdminCardSubSkuInlineStock cardId=\{card\.catalogCardId\} group=\{group\} \/>/,
   );
-  assert.match(adminClient, /stockSkuId: selectedStockSkuId/);
-  assert.match(adminClient, /const isCardSubSku = selectedSubSkuGroup\?\.unitKind === "card"/);
+  assert.match(adminClient, /const stockSkuId = await ensureSubSkuBucket\(nextImageUrl\)/);
+  assert.match(adminClient, /const isCardSubSku = unitKind === "card"/);
   assert.match(adminClient, /\.\.\.\(isCardSubSku[\s\S]*?\{\s*condition,/);
-  assert.doesNotMatch(adminClient, /stockSkuId: selectedStockSkuId,\s*\n\s*condition,/);
+  assert.doesNotMatch(adminClient, /stockSkuId: selectedStockSkuId/);
   assert.match(adminClient, /Sub-SKUs do not use card grading fields/);
-  assert.match(adminClient, /stockQuantityLabel\(effectiveCount, selectedSubSkuGroup\.unitKind\)/);
-  assert.match(adminClient, /disabled=\{isPending \|\| !selectedSubSkuGroup\}/);
+  assert.match(adminClient, /stockQuantityLabel\(effectiveCount, unitKind\)/);
+  assert.match(adminClient, /isPending \|\| !cardId \|\| !cleanSubSkuCode \|\| !cleanSubSkuLabel/);
   assert.doesNotMatch(adminClient, /reason: "admin_catalog",\s*\n\s*condition,/);
   assert.match(adminClient, /Related pack product/);
   assert.match(adminClient, /View \{editableUnits\.toLocaleString\(\)\} individual/);
