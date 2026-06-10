@@ -4220,14 +4220,14 @@ export function AdminCampaignForm({
       ready: configuredRewardUnits === totalSlots,
     },
     {
-      label: "Global stock",
+      label: "Main SKU stock",
       primary: stockShortages.length
         ? `${stockShortages.length.toLocaleString()} shortage${stockShortages.length === 1 ? "" : "s"}`
         : "Covered",
       secondary:
         editingCampaign?.approvalStatus === "pending_review"
           ? "available + this pack reservation"
-          : "available card stock",
+          : "available Main SKU stock",
       ready: stockShortages.length === 0,
     },
     {
@@ -8236,7 +8236,7 @@ type PrizeCreateModalKind = "card" | "stock";
 
 /**
  * Header actions for the Prize catalog page. Replaces the two always-visible
- * "Create catalog item" / "Add stock units" forms with a pair of buttons that
+ * "Create Main SKU" / "Add Sub-SKU stock" forms with a pair of buttons that
  * each open the corresponding form in a modal, keeping the page focused on the
  * catalog table.
  */
@@ -8286,7 +8286,7 @@ export function AdminPrizeCreateActions({
           onClick={() => setOpenModal("card")}
         >
           <AdminIcon name="plus" size={14} />
-          Add card
+          Create Main SKU
         </button>
         <button
           type="button"
@@ -8294,7 +8294,7 @@ export function AdminPrizeCreateActions({
           onClick={() => setOpenModal("stock")}
         >
           <AdminIcon name="plus" size={14} />
-          Add stock
+          Add Sub-SKU stock
         </button>
       </div>
 
@@ -8318,7 +8318,7 @@ export function AdminPrizeCreateActions({
                 ×
               </button>
               <h2 className="admin-modal-title" style={{ color: "#fff" }}>
-                {openModal === "card" ? "Create catalog item" : "Add stock units"}
+                {openModal === "card" ? "Create Main SKU" : "Add Sub-SKU stock"}
               </h2>
             </header>
             <div
@@ -8376,7 +8376,7 @@ export function AdminCardForm({
   const [isPending, startTransition] = useTransition();
   // Duplicate product names / model codes are allowed now (e.g. box variations
   // under one model code), so the create form never blocks on a match — every
-  // save creates a new card. Use "Edit card" to change an existing one.
+  // save creates a new Main SKU. Use "Edit Main SKU" to change an existing one.
   const duplicateCard = useMemo<CardCatalogItem | null>(() => null, []);
   const duplicateUsage = useMemo(
     () => (duplicateCard ? adminCardDuplicateUsage(duplicateCard, prizes) : null),
@@ -8534,7 +8534,7 @@ export function AdminCardForm({
           <section className="admin-form-section">
             <p className="admin-form-section-label">Basic</p>
             <div className="admin-form-grid">
-              <AdminField label="Product name" required>
+              <AdminField label="Main SKU name" required>
                 <input
                   className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
                   value={name}
@@ -8624,7 +8624,7 @@ export function AdminCardForm({
           </section>
 
           {/* Condition / grade / grading service / cert / GemRate live in the
-              "Add stock units" form — those describe the physical item (unit),
+              "Add Sub-SKU stock" form — those describe the physical item (unit),
               not the product identity. */}
           <section className="admin-form-section">
             <p className="admin-form-section-label">Image</p>
@@ -8637,7 +8637,7 @@ export function AdminCardForm({
                   manualUrl={imageUrl}
                   cardCode={code}
                   cardName={name}
-                  label="Card image"
+                  label="Main SKU image"
                   hint="Drag &amp; drop a JPG / PNG / WEBP, or paste a URL. Uploaded to Supabase storage."
                   onFileChange={(file) => {
                     setImageFile(file);
@@ -8693,8 +8693,8 @@ export function AdminCardForm({
             ? "Uploading..."
             : "Saving..."
           : duplicateCard
-            ? "Update existing card"
-            : "Save catalog item"}
+            ? "Update existing Main SKU"
+            : "Save Main SKU"}
       </button>
       {message && <p className="admin-form-message">{message}</p>}
     </section>
@@ -8760,7 +8760,7 @@ export function AdminCardStockUnitForm({
       try {
         setMessage("");
         if (!cardId) {
-          setMessage("Select a product card first.");
+          setMessage("Select a Main SKU first.");
           return;
         }
         if (isGraded && !grade.trim()) {
@@ -8814,12 +8814,12 @@ export function AdminCardStockUnitForm({
   return (
     <section className="admin-panel admin-form-panel soft-card">
       <div className="admin-form-grid">
-        <AdminField label="Product card" required>
+        <AdminField label="Main SKU" required>
           <AdminSearchableSelect
             value={cardId}
             onChange={setCardId}
-            placeholder="Select product…"
-            searchPlaceholder="Search product…"
+            placeholder="Select Main SKU…"
+            searchPlaceholder="Search Main SKU…"
             options={productCardOptions}
           />
         </AdminField>
@@ -8911,8 +8911,8 @@ export function AdminCardStockUnitForm({
             imageFile={imageFile}
             previewUrl={imagePreviewUrl}
             manualUrl={imageUrl}
-            label="Unit image (optional)"
-            hint="Photo of this specific slab. Leave empty to use the product image."
+            label="Stock unit image (optional)"
+            hint="Photo of this specific slab. Leave empty to use the Main SKU image."
             onFileChange={(file) => {
               setImageFile(file);
               if (file) {
@@ -10678,7 +10678,7 @@ export function AdminCardCatalogPanel({
     const requestedQuantity = Math.max(1, Math.round(Number(stockDraft.quantity) || 0));
 
     if (stockDraft.mode === "remove" && row.stockAvailable <= 0) {
-      setMessage("No available global stock can be removed for this card.");
+      setMessage("No available Main SKU stock can be removed for this Main SKU.");
       return;
     }
     let selectedRemoveGroup: StockSkuGroup | null = null;
@@ -10689,7 +10689,7 @@ export function AdminCardCatalogPanel({
         stockSkuGroups(card).find((group) => group.key === stockDraft.stockUnitKey) ??
         null;
       if (!selectedRemoveGroup) {
-        setMessage("Choose a stock sub-SKU before removing stock.");
+        setMessage("Choose a Sub-SKU before removing stock.");
         return;
       }
       stockUnitGroupKey = selectedRemoveGroup.key;
@@ -10717,8 +10717,8 @@ export function AdminCardCatalogPanel({
         });
         setMessage(
           quantityDelta > 0
-            ? `${countLabel(requestedQuantity, "global stock unit")} added. Draft packs can reserve it during owner review.`
-            : `${countLabel(requestedQuantity, "available global stock unit")} removed.`,
+            ? `${countLabel(requestedQuantity, "Main SKU stock unit")} added. Draft packs can reserve it during owner review.`
+            : `${countLabel(requestedQuantity, "available Main SKU stock unit")} removed.`,
         );
         setStockDraft(null);
         router.refresh();
@@ -10726,7 +10726,7 @@ export function AdminCardCatalogPanel({
         setMessage(
           error instanceof Error
             ? error.message
-            : "Global stock could not be adjusted.",
+            : "Main SKU stock could not be adjusted.",
         );
       } finally {
         setPendingCardId("");
@@ -10959,7 +10959,7 @@ export function AdminCardCatalogPanel({
               }
             />
             <AdminCatalogFilterOption
-              label="With global stock"
+              label="With Main SKU stock"
               count={facets.stocked}
               selected={stockFilter.has("stock")}
               onClick={() =>
@@ -10993,7 +10993,7 @@ export function AdminCardCatalogPanel({
             </span>
             <span className="admin-card-catalog-summary-dot admin-card-catalog-summary-dot-gold" aria-hidden="true" />
             <strong>{stockedCount.toLocaleString()}</strong>
-            <span>with global stock</span>
+            <span>with Main SKU stock</span>
           </p>
 
           <div
@@ -11148,40 +11148,40 @@ export function AdminCardCatalogPanel({
                         <span>
                           {currentStockDraft.mode === "remove"
                             ? "Remove stock"
-                            : "Add stock"}
+                            : "Add Sub-SKU stock"}
                         </span>
-	                        <strong>
-	                          {currentStockDraft.mode === "remove"
-	                            ? selectedRemoveGroup
-	                              ? `${selectedRemoveGroup.availableUnits.toLocaleString()} available`
-	                              : "Choose sub-SKU"
-	                            : "Global stock"}
-	                        </strong>
-	                      </div>
-	                      {currentStockDraft.mode === "remove" ? (
-	                        <label className="admin-stock-confirm-field">
-	                          <span>Stock sub-SKU</span>
-	                          <select
-	                            disabled={stockPending || !removableStockGroups.length}
-	                            value={selectedRemoveGroup?.key ?? ""}
-	                            onChange={(event) =>
-	                              updateStockDraftSubSku(event.target.value)
-	                            }
-	                          >
-	                            {!removableStockGroups.length ? (
-	                              <option value="">No available sub-SKU</option>
-	                            ) : null}
-	                            {removableStockGroups.map((group) => (
-	                              <option key={group.key} value={group.key}>
-	                                {group.sku} · {group.label} ·{" "}
-	                                {group.availableUnits.toLocaleString()} available
-	                              </option>
-	                            ))}
-	                          </select>
-	                        </label>
-	                      ) : null}
-	                      <label className="admin-stock-confirm-field">
-	                        <span>Quantity</span>
+                        <strong>
+                          {currentStockDraft.mode === "remove"
+                            ? selectedRemoveGroup
+                              ? `${selectedRemoveGroup.availableUnits.toLocaleString()} available`
+                              : "Choose sub-SKU"
+                            : "Main SKU stock"}
+                        </strong>
+                      </div>
+                      {currentStockDraft.mode === "remove" ? (
+                        <label className="admin-stock-confirm-field">
+                          <span>Sub-SKU</span>
+                          <select
+                            disabled={stockPending || !removableStockGroups.length}
+                            value={selectedRemoveGroup?.key ?? ""}
+                            onChange={(event) =>
+                              updateStockDraftSubSku(event.target.value)
+                            }
+                          >
+                            {!removableStockGroups.length ? (
+                              <option value="">No available sub-SKU</option>
+                            ) : null}
+                            {removableStockGroups.map((group) => (
+                              <option key={group.key} value={group.key}>
+                                {group.sku} · {group.label} ·{" "}
+                                {group.availableUnits.toLocaleString()} available
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                      <label className="admin-stock-confirm-field">
+                        <span>Quantity</span>
 	                        <input
                           aria-label={`Stock quantity for ${card.name}`}
                           disabled={stockPending}
@@ -11258,7 +11258,7 @@ export function AdminCardCatalogPanel({
                             setStockUnitModalCard(card);
                           }}
                         >
-                          + Add stock
+                          + Add Sub-SKU stock
                         </button>
 	                        <button
 	                          className="plain-button"
@@ -11276,7 +11276,7 @@ export function AdminCardCatalogPanel({
                           type="button"
                           onClick={() => setEditingCard(card)}
                         >
-                          Edit card
+                          Edit Main SKU
                         </button>
                         {row.stockArchived > 0 ? (
                           <button
@@ -11296,14 +11296,14 @@ export function AdminCardCatalogPanel({
                         type="button"
                         title={
                           row.prizes.length > 0
-                            ? `Cannot delete - ${row.prizes.length} pack prize slot${row.prizes.length === 1 ? "" : "s"} still reference this card.`
+                            ? `Cannot delete - ${row.prizes.length} pack prize slot${row.prizes.length === 1 ? "" : "s"} still reference this Main SKU.`
                             : row.stockTotal - row.stockArchived > 0
                               ? `Cannot delete - ${row.stockTotal - row.stockArchived} active stock unit${row.stockTotal - row.stockArchived === 1 ? "" : "s"} still exist. Use "Remove stock" until 0/${row.stockTotal} first.`
                               : `Delete "${card.name}" permanently`
                         }
                         onClick={() => setDeleteTarget({ card, row })}
                       >
-                        Delete card
+                        Delete Main SKU
                       </button>
                     </div>
                   )}
@@ -11327,7 +11327,7 @@ export function AdminCardCatalogPanel({
                     <div className="admin-card-catalog-prize-table">
                       <div className="admin-card-catalog-prize-head">
                         <span>Random pack</span>
-                        <span>Card / stock</span>
+                        <span>Main SKU / Sub-SKU</span>
                         <span>Tier</span>
                         <span>Weight</span>
                         <span>Unlock</span>
@@ -11507,7 +11507,7 @@ function AdminCardStockUnitModal({
             ×
           </button>
           <h2 className="admin-modal-title" style={{ color: "#fff" }}>
-            Add stock units
+            Add Sub-SKU stock
           </h2>
           <p className="admin-modal-subtitle">
             Main SKU selected: {card.modelCode ?? card.code ?? card.catalogCardId} ·{" "}
@@ -11656,17 +11656,17 @@ function AdminCardEditModal({
       <div className="admin-modal admin-card-edit-modal" role="document">
         <header className="admin-modal-head">
           <h2 className="admin-modal-title" style={{ color: "#fff" }}>
-            Edit card
+            Edit Main SKU
           </h2>
           <p className="admin-modal-subtitle">
             Updates apply immediately. Customer collection rows that already
-            reference this card keep the new name + image after refresh.
+            reference this Main SKU keep the new name + image after refresh.
           </p>
         </header>
         <div className="admin-card-edit-modal-body">
           <div className="admin-form-grid admin-card-edit-grid">
             <label className="admin-field">
-              <span>Name</span>
+              <span>Main SKU name</span>
               <input value={name} onChange={(e) => setName(e.target.value)} disabled={pending} />
             </label>
             <label className="admin-field">
@@ -11755,7 +11755,7 @@ function AdminCardEditModal({
                 manualUrl={imageUrl}
                 cardCode={code}
                 cardName={name || card.name}
-                label="Card image"
+                label="Main SKU image"
                 hint="Drag &amp; drop a JPG / PNG / WEBP, or paste a URL. Uploaded to Supabase storage."
                 disabled={pending}
                 onFileChange={(file) => {
@@ -11827,7 +11827,7 @@ function AdminCardEditModal({
             disabled={pending || !name.trim()}
             style={{ background: "linear-gradient(135deg, #f4c542, #df9824)", color: "#161616" }}
           >
-            {pending ? "Saving…" : "Save card"}
+            {pending ? "Saving…" : "Save Main SKU"}
           </button>
         </footer>
       </div>
@@ -11881,11 +11881,11 @@ function AdminCardDeleteModal({
     >
       <div className="admin-modal admin-modal-danger" role="document">
         <header className="admin-modal-head">
-          <h2 className="admin-modal-title">Delete card &quot;{card.name}&quot; permanently?</h2>
+          <h2 className="admin-modal-title">Delete Main SKU &quot;{card.name}&quot; permanently?</h2>
           <p className="admin-modal-subtitle">
-            This removes the card from the catalog forever. Eligibility is
+            This removes the Main SKU from the catalog forever. Eligibility is
             re-checked on the server — if any pack prize slot or active stock
-            unit still references this card, the delete will be refused.
+            unit still references this Main SKU, the delete will be refused.
           </p>
         </header>
         {error && (
@@ -11904,7 +11904,7 @@ function AdminCardDeleteModal({
             disabled={pending}
             autoFocus
           >
-            {pending ? "Deleting…" : "Delete card"}
+            {pending ? "Deleting…" : "Delete Main SKU"}
           </button>
         </footer>
       </div>
@@ -11976,7 +11976,7 @@ export function AdminPrizeInventoryPanel({
           <h3 className="title-m">Cards assigned to random packs</h3>
           <p className="admin-muted-line">
             These quantities belong to each random pack. Draft packs store a
-            plan first; owner review reserves global stock.
+            plan first; owner review reserves Main SKU stock.
           </p>
         </div>
         <span className="status-pill">{inventoryCards.length} cards</span>

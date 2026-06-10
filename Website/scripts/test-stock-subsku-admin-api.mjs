@@ -138,6 +138,24 @@ test("admin catalog UI and data loader use first-class stock SKU identity", () =
     `${adminClient}\n${stockSkuPresentation}`,
     /Set packs per box and choose a child Pack Sub-SKU/,
   );
+  assert.doesNotMatch(adminClient, />\s*Edit card\s*</);
+  assert.doesNotMatch(adminClient, />\s*Delete card\s*</);
+  assert.doesNotMatch(adminClient, />\s*Add stock\s*</);
+  assert.doesNotMatch(adminClient, /Global stock/);
+  assert.doesNotMatch(adminClient, /global stock/);
+  assert.doesNotMatch(adminClient, /Product card/);
+  assert.doesNotMatch(adminClient, /Card \/ stock/);
+  assert.doesNotMatch(adminClient, /Unit image/);
+  assert.match(adminClient, />\s*Edit Main SKU\s*</);
+  assert.match(adminClient, />\s*Delete Main SKU\s*</);
+  assert.match(adminClient, />\s*Add Sub-SKU stock\s*</);
+  assert.match(adminClient, /Card image/);
+  assert.match(adminClient, /Main SKU image/);
+  assert.match(adminClient, /With Main SKU stock/);
+  assert.match(adminClient, /Main SKU \/ Sub-SKU/);
+  assert.match(adminClient, /Stock unit image/);
+  assert.match(adminClient, /Main SKU name/);
+  assert.match(adminClient, /Select Main SKU/);
   assert.match(adminClient, /Related pack product/);
   assert.match(adminClient, /View \{editableUnits\.toLocaleString\(\)\} individual/);
   assert.match(adminClient, /allRows=\{rows\}/);
