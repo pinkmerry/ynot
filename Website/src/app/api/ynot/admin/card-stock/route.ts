@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import {
   isMissingFunctionError,
   randomPackSchemaMissingResponse,
@@ -68,6 +69,8 @@ export async function POST(request: Request) {
       { status: 503 },
     );
   }
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
   const admin = await resolveAdminSession();
   if (!admin) {
     return Response.json(
@@ -98,7 +101,7 @@ export async function POST(request: Request) {
   const requestedStockSkuId = text(body?.stockSkuId, 80);
   if (requestedStockSkuId && !UUID_PATTERN.test(requestedStockSkuId)) {
     return Response.json(
-      { error: "Choose a valid Sub SKU before adjusting stock." },
+      { error: "Choose a valid Sub-SKU before adjusting stock." },
       { status: 400 },
     );
   }

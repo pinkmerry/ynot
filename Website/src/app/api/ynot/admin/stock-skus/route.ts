@@ -71,7 +71,7 @@ async function guard(request: Request, key: string) {
 function stockSkuErrorMessage(message?: string) {
   if (!message) return "Stock SKU could not be saved.";
   if (message.includes("invalid_stock_sku_kind")) {
-    return "Choose a valid Sub SKU type.";
+    return "Choose a valid Sub-SKU type.";
   }
   if (message.includes("card_required")) return "Choose a product first.";
   if (message.includes("invalid_child_quantity")) {
@@ -79,19 +79,19 @@ function stockSkuErrorMessage(message?: string) {
   }
   if (message.includes("stock_sku_not_found")) return "Stock SKU was not found.";
   if (message.includes("child_stock_sku_not_found")) {
-    return "Child Sub SKU was not found.";
+    return "Child Sub-SKU was not found.";
   }
   if (message.includes("child_stock_sku_must_be_pack")) {
-    return "A box must convert into a pack Sub SKU.";
+    return "A box must convert into a pack Sub-SKU.";
   }
   if (message.includes("child_stock_sku_conversion_in_use")) {
-    return "This pack Sub SKU is used by a box conversion rule.";
+    return "This pack Sub-SKU is used by a box conversion rule.";
   }
   if (message.includes("stock_sku_unit_kind_locked")) {
-    return "Remove or move active stock before changing this Sub SKU type.";
+    return "Remove or move active stock before changing this Sub-SKU type.";
   }
   if (message.includes("conversion_cross_card_not_allowed")) {
-    return "Box and pack Sub SKUs must belong to the same product.";
+    return "Box and pack Sub-SKUs must belong to the same product.";
   }
   return "Stock SKU could not be saved.";
 }
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
   const unitKind = unitKindRaw || null;
   if (unitKind !== null && !UNIT_KINDS.has(unitKind)) {
     return Response.json(
-      { error: "Choose a valid Sub SKU type." },
+      { error: "Choose a valid Sub-SKU type." },
       { status: 400 },
     );
   }
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
   const requestedChildStockSkuId = optionalUuid(body?.childStockSkuId);
   if (requestedStockSkuId.invalid) {
     return Response.json(
-      { error: "Choose a valid Sub SKU." },
+      { error: "Choose a valid Sub-SKU." },
       { status: 400 },
     );
   }
@@ -159,7 +159,7 @@ export async function POST(request: Request) {
   }
   if (requestedChildStockSkuId.invalid) {
     return Response.json(
-      { error: "Choose a valid child Sub SKU." },
+      { error: "Choose a valid child Sub-SKU." },
       { status: 400 },
     );
   }
@@ -180,10 +180,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "Choose a product first." }, { status: 400 });
   }
   if (!sku) {
-    return Response.json({ error: "Sub SKU code is required." }, { status: 400 });
+    return Response.json({ error: "Sub-SKU code is required." }, { status: 400 });
   }
   if (!label) {
-    return Response.json({ error: "Sub SKU label is required." }, { status: 400 });
+    return Response.json({ error: "Sub-SKU label is required." }, { status: 400 });
   }
   if (unitKind === "box" && childStockSkuId && !childQuantity) {
     return Response.json(

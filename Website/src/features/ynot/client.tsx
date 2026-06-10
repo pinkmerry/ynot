@@ -8732,12 +8732,6 @@ export function AdminCardStockUnitForm({
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const isGraded = condition === "graded";
-  const hasCert = isGraded && certNumber.trim().length > 0;
-  // A cert pins one physical slab, so it can only attach to a single unit.
-  const effectiveCount = hasCert
-    ? 1
-    : Math.min(10000, Math.max(1, Math.trunc(Number(count) || 1)));
   const mainSkuOptions = useMemo(
     () =>
       cards.map((card) => ({
@@ -8764,6 +8758,14 @@ export function AdminCardStockUnitForm({
     selectableSubSkuGroups.find(
       (group) => group.stockSkuId === selectedStockSkuId,
     ) ?? null;
+  const isCardSubSku = selectedSubSkuGroup?.unitKind === "card";
+  const cardConditionApplies = !selectedSubSkuGroup || isCardSubSku;
+  const isGraded = cardConditionApplies && condition === "graded";
+  const hasCert = isGraded && certNumber.trim().length > 0;
+  // A cert pins one physical slab, so it can only attach to a single unit.
+  const effectiveCount = hasCert
+    ? 1
+    : Math.min(10000, Math.max(1, Math.trunc(Number(count) || 1)));
   const selectedStockSkuValue = selectedSubSkuGroup ? selectedStockSkuId : "";
   const addButtonQuantityLabel = selectedSubSkuGroup
     ? stockQuantityLabel(effectiveCount, selectedSubSkuGroup.unitKind)
@@ -8813,11 +8815,15 @@ export function AdminCardStockUnitForm({
           quantityDelta: effectiveCount,
           reason: "admin_catalog",
           stockSkuId: selectedStockSkuId,
-          condition,
-          grade: isGraded ? grade.trim() : "",
-          gradingService: isGraded ? gradingService || "" : "",
-          certNumber: isGraded ? certNumber.trim() : "",
-          gemrateId: isGraded ? gemrateId.trim() : "",
+          ...(isCardSubSku
+            ? {
+                condition,
+                grade: isGraded ? grade.trim() : "",
+                gradingService: isGraded ? gradingService || "" : "",
+                certNumber: isGraded ? certNumber.trim() : "",
+                gemrateId: isGraded ? gemrateId.trim() : "",
+              }
+            : {}),
           imageUrl: nextImageUrl,
           imageStoragePath: nextImageStoragePath,
         });
@@ -8886,21 +8892,35 @@ export function AdminCardStockUnitForm({
             ))}
           </select>
         </AdminField>
-        <AdminField label="Condition">
-          <select
-            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={condition}
-            onChange={(event) =>
-              setCondition(event.target.value as CardCondition)
-            }
+        {cardConditionApplies ? (
+          <AdminField label="Condition">
+            <select
+              className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+              value={condition}
+              onChange={(event) =>
+                setCondition(event.target.value as CardCondition)
+              }
+            >
+              {cardConditionOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </AdminField>
+        ) : (
+          <AdminField
+            label="Condition"
+            hint={`${presentationStockUnitKindLabel(selectedSubSkuGroup?.unitKind ?? "other")} Sub-SKUs do not use card grading fields.`}
           >
-            {cardConditionOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </AdminField>
+            <input
+              className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+              value="Sealed"
+              disabled
+              readOnly
+            />
+          </AdminField>
+        )}
         {isGraded ? (
           <>
             <AdminField label="Grade" required>
@@ -9786,8 +9806,8 @@ function AdminStockSkuEditor({
         const cleanSku = sku.trim();
         const cleanLabel = label.trim();
         const packsPerBox = Math.max(0, Math.round(Number(childQuantity) || 0));
-        if (!cleanSku) throw new Error("Sub SKU code is required.");
-        if (!cleanLabel) throw new Error("Sub SKU label is required.");
+        if (!cleanSku) throw new Error("Sub-SKU code is required.");
+        if (!cleanLabel) throw new Error("Sub-SKU label is required.");
         if (unitKind === "box" && childStockSkuId && packsPerBox <= 0) {
           throw new Error("Set how many packs are inside this box.");
         }
@@ -9805,7 +9825,7 @@ function AdminStockSkuEditor({
             unitKind === "box" && childStockSkuId ? packsPerBox : null,
           clearConversionRule: unitKind === "box" && !childStockSkuId,
         });
-        setMessage(isEditing ? "Sub SKU saved." : "Sub SKU created.");
+        setMessage(isEditing ? "Sub-SKU saved." : "Sub-SKU created.");
         if (!isEditing) {
           setSku("");
           setLabel("");
@@ -9816,17 +9836,17 @@ function AdminStockSkuEditor({
         }
         router.refresh();
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Sub SKU could not be saved.");
+        setMessage(error instanceof Error ? error.message : "Sub-SKU could not be saved.");
       }
     });
   }
 
   return (
     <details className="admin-stock-sku-editor">
-      <summary>{isEditing ? "Edit Sub SKU" : "+ Add Sub SKU"}</summary>
+      <summary>{isEditing ? "Edit Sub-SKU" : "+ Add Sub-SKU"}</summary>
       <div className="admin-stock-sku-editor-grid">
         <label>
-          <span>Sub SKU code</span>
+          <span>Sub-SKU code</span>
           <input
             value={sku}
             disabled={busy}
@@ -9912,7 +9932,7 @@ function AdminStockSkuEditor({
       </div>
       <div className="admin-stock-sku-editor-actions">
         <button type="button" disabled={busy} onClick={save}>
-          {busy ? "Saving..." : isEditing ? "Save Sub SKU" : "Create Sub SKU"}
+          {busy ? "Saving..." : isEditing ? "Save Sub-SKU" : "Create Sub-SKU"}
         </button>
         {message ? <span>{message}</span> : null}
       </div>

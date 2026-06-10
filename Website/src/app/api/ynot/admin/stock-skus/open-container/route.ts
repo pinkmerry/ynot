@@ -39,10 +39,10 @@ function openErrorMessage(message?: string) {
     return "Not enough available boxes to open.";
   }
   if (message.includes("conversion_cross_card_not_allowed")) {
-    return "Box and pack Sub SKUs must belong to the same product.";
+    return "Box and pack Sub-SKUs must belong to the same product.";
   }
   if (message.includes("invalid_conversion_rule_unit_kind")) {
-    return "Only box Sub SKUs can be opened into pack Sub SKUs.";
+    return "Only box Sub-SKUs can be opened into pack Sub-SKUs.";
   }
   if (message.includes("invalid_open_quantity")) {
     return "Open quantity must be between 1 and 1000 boxes.";

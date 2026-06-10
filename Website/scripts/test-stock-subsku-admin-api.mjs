@@ -69,10 +69,12 @@ test("open container route is admin-only and calls open_stock_container", () => 
 });
 
 test("legacy stock routes require stockSkuId for adds but keep old remove fallback", () => {
+  assert.match(cardStockRoute, /enforceSameOriginMutation/);
   assert.match(cardStockRoute, /stockSkuId/);
   assert.match(cardStockRoute, /UUID_PATTERN/);
   assert.match(cardStockRoute, /requestedStockSkuId && !UUID_PATTERN\.test/);
   assert.match(cardStockRoute, /delta > 0 && !stockSkuId/);
+  assert.match(cardStockRoute, /Choose a valid Sub-SKU before adjusting stock\./);
   assert.match(cardStockRoute, /Choose a Sub-SKU before adding stock\./);
   assert.match(cardStockRoute, /conditionRaw \|\| \(stockSkuId \? null : "raw"\)/);
   assert.match(cardStockRoute, /rpc\("adjust_stock_sku_units"/);
@@ -166,6 +168,10 @@ test("admin catalog UI and data loader use first-class stock SKU identity", () =
   assert.match(adminClient, /Choose a Sub-SKU before adding stock\./);
   assert.match(adminClient, /Create a Sub-SKU before adding stock to this Main SKU\./);
   assert.match(adminClient, /stockSkuId: selectedStockSkuId/);
+  assert.match(adminClient, /const isCardSubSku = selectedSubSkuGroup\?\.unitKind === "card"/);
+  assert.match(adminClient, /\.\.\.\(isCardSubSku[\s\S]*?\{\s*condition,/);
+  assert.doesNotMatch(adminClient, /stockSkuId: selectedStockSkuId,\s*\n\s*condition,/);
+  assert.match(adminClient, /Sub-SKUs do not use card grading fields/);
   assert.match(adminClient, /stockQuantityLabel\(effectiveCount, selectedSubSkuGroup\.unitKind\)/);
   assert.match(adminClient, /disabled=\{isPending \|\| !selectedSubSkuGroup\}/);
   assert.doesNotMatch(adminClient, /reason: "admin_catalog",\s*\n\s*condition,/);
@@ -186,6 +192,10 @@ test("admin catalog UI and data loader use first-class stock SKU identity", () =
   assert.match(adminClient, /Different products can use different pack counts/);
   assert.match(adminClient, /Create a Pack Sub-SKU first, then set packs per box/);
   assert.match(adminClient, /Set how many packs are inside one sealed box/);
+  assert.doesNotMatch(
+    `${adminClient}\n${cardStockRoute}\n${stockSkusRoute}\n${openContainerRoute}`,
+    /Sub SKUs?|Sub SKU/,
+  );
   assert.match(adminClient, /aria-describedby=\{boxPackHintId\}/);
   assert.match(adminCss, /admin-stock-sku-editor-hint/);
   assert.match(adminCss, /admin-stock-sku-editor-grid small/);
