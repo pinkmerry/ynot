@@ -39,6 +39,7 @@
     "test:pack-open-privacy": "node --test scripts/test-pack-open-privacy.mjs",
     "test:campaign-detail-privacy": "node --test scripts/test-campaign-detail-privacy.mjs",
     "test:stock-sku-usage": "node --test scripts/test-stock-sku-usage.mjs",
+    "test:stock-subsku-conversion": "node --test scripts/test-stock-subsku-conversion.mjs",
     "test:stock-restore-tool": "node --test scripts/test-stock-restore-tool.mjs",
     "test:subsku-images": "node --test scripts/test-subsku-image-routing.mjs",
     "test:last-prize-stock-link": "node --test scripts/test-last-prize-stock-link.mjs",
