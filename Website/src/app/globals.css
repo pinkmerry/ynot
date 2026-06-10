@@ -32484,6 +32484,13 @@ html[data-ynot-theme] .admin-frame .admin-stock-sku-code {
   padding: 2px 7px;
 }
 
+html[data-ynot-theme] .admin-frame .admin-stock-sku-code-note {
+  color: var(--a-muted, #9b9daf) !important;
+  font-size: 0.64rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 html[data-ynot-theme] .admin-frame .admin-stock-sku-identity {
   display: grid;
   gap: 4px;
@@ -32580,6 +32587,13 @@ html[data-ynot-theme] .admin-frame .admin-subsku-stock-selected strong {
 html[data-ynot-theme] .admin-frame .admin-subsku-stock-selected em {
   color: var(--a-fg-dim, #c8c8d8) !important;
   margin-left: auto;
+}
+
+html[data-ynot-theme] .admin-frame .admin-subsku-stock-selected small {
+  color: var(--a-muted, #9b9daf) !important;
+  flex-basis: 100%;
+  font-size: 0.68rem;
+  font-weight: 800;
 }
 
 html[data-ynot-theme] .admin-frame .admin-stock-sku-note {
@@ -32705,6 +32719,31 @@ html[data-ynot-theme] .admin-frame .admin-stock-sku-qty-msg {
   color: var(--a-muted, #9b9daf);
   font-size: 0.72rem;
   font-weight: 700;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-card-add {
+  align-items: end;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 10px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-card-add-field {
+  display: grid;
+  gap: 4px;
+  min-width: min(160px, 100%);
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-card-add-field span {
+  color: var(--a-muted, #9b9daf) !important;
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-card-add .admin-stock-sku-qty-input {
+  min-height: 38px;
+  width: min(190px, 100%);
 }
 
 html[data-ynot-theme] .admin-frame .admin-stock-sku-editor {
@@ -32950,6 +32989,18 @@ html[data-ynot-theme] .admin-frame .admin-stock-unit-edit-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 6px;
+}
+html[data-ynot-theme] .admin-frame .admin-stock-unit-edit-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+html[data-ynot-theme] .admin-frame .admin-stock-unit-edit-field span {
+  color: var(--a-muted, #9b9daf) !important;
+  font-size: 0.64rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 html[data-ynot-theme] .admin-frame .admin-stock-unit-input {
   height: 36px;

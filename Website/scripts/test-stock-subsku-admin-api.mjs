@@ -184,6 +184,42 @@ test("admin catalog UI and data loader use first-class stock SKU identity", () =
   assert.match(adminClient, /setSelectedStockSkuId/);
   assert.match(adminClient, /Choose a Sub-SKU before adding stock\./);
   assert.match(adminClient, /Create a Sub-SKU before adding stock to this Main SKU\./);
+  assert.match(adminClient, /function cardSubSkuBucketDisplay/);
+  assert.match(adminClient, /CERT-\[A-Z0-9._-\]\+\$/);
+  assert.match(adminClient, /const display = cardSubSkuBucketDisplay\(group\)/);
+  assert.match(adminClient, /const selectedSubSkuDisplay = selectedSubSkuGroup/);
+  const addCardStockFlow = [
+    'label="Main SKU"',
+    'label="Sub-SKU"',
+    'label="Selected condition"',
+    'label="Grade service"',
+    'label="Grade number"',
+    'label="Cert number"',
+    'label={quantityFieldLabel}',
+  ].map((needle) => adminClient.indexOf(needle));
+  assert.deepEqual(
+    addCardStockFlow.every((index) => index >= 0),
+    true,
+    "Add Sub-SKU stock should expose the card-stock flow labels",
+  );
+  assert.deepEqual(
+    [...addCardStockFlow].sort((left, right) => left - right),
+    addCardStockFlow,
+    "Add Sub-SKU stock should follow Main SKU > Sub-SKU > condition > service > grade > cert > quantity",
+  );
+  assert.match(adminClient, /const quantityFieldLabel = isCardSubSku\s*\?\s*"How many cards"/);
+  assert.match(adminClient, /Unique per physical card/);
+  assert.match(adminClient, /admin-stock-unit-edit-field[\s\S]*Selected condition/);
+  assert.match(adminClient, /admin-stock-unit-edit-field[\s\S]*Grade service/);
+  assert.match(adminClient, /admin-stock-unit-edit-field[\s\S]*Grade number/);
+  assert.match(adminClient, /admin-stock-unit-edit-field[\s\S]*Cert number/);
+  assert.match(adminClient, /function AdminCardSubSkuInlineStock/);
+  assert.match(adminClient, /className="admin-stock-sku-qty admin-stock-sku-card-add"/);
+  assert.match(adminClient, /Add card stock/);
+  assert.match(
+    adminClient,
+    /<AdminCardSubSkuInlineStock cardId=\{card\.catalogCardId\} group=\{group\} \/>/,
+  );
   assert.match(adminClient, /stockSkuId: selectedStockSkuId/);
   assert.match(adminClient, /const isCardSubSku = selectedSubSkuGroup\?\.unitKind === "card"/);
   assert.match(adminClient, /\.\.\.\(isCardSubSku[\s\S]*?\{\s*condition,/);

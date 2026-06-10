@@ -8773,14 +8773,46 @@ export function AdminCardStockUnitForm({
   const selectedSubSkuTypeLabel = selectedSubSkuGroup
     ? presentationStockUnitKindLabel(selectedSubSkuGroup.unitKind)
     : "Sub-SKU";
-  const quantityFieldLabel = selectedSubSkuGroup
-    ? `How many ${stockSkuUnitNoun(selectedSubSkuGroup.unitKind, 2)}`
-    : "How many";
+  const selectedSubSkuDisplay = selectedSubSkuGroup
+    ? cardSubSkuBucketDisplay(selectedSubSkuGroup)
+    : null;
+  const quantityFieldLabel = isCardSubSku
+    ? "How many cards"
+    : selectedSubSkuGroup
+      ? `How many ${stockSkuUnitNoun(selectedSubSkuGroup.unitKind, 2)}`
+      : "How many";
   const stockUnitImageHint = isCardSubSku
     ? "Photo of this specific card or slab. Leave empty to use the Sub-SKU or Main SKU image."
     : selectedSubSkuGroup
       ? `Optional ${stockSkuUnitNoun(selectedSubSkuGroup.unitKind, 1)} image. Leave empty to use the Sub-SKU or Main SKU image.`
       : "Optional stock image. Leave empty to use the Sub-SKU or Main SKU image.";
+
+  function applySelectedSubSkuDefaults(nextGroup: StockSkuGroup | null) {
+    if (!nextGroup || nextGroup.unitKind !== "card") {
+      setCondition("raw");
+      setGrade("");
+      setGradingService("");
+      setCertNumber("");
+      setGemrateId("");
+      return;
+    }
+    const referenceUnit =
+      nextGroup.units.find(
+        (unit) =>
+          unit.condition === "graded" || unit.grade || unit.gradingService,
+      ) ?? nextGroup.units[0];
+    const nextCondition =
+      referenceUnit?.condition === "graded" ? "graded" : "raw";
+    setCondition(nextCondition);
+    setGrade(nextCondition === "graded" ? referenceUnit?.grade ?? "" : "");
+    setGradingService(
+      nextCondition === "graded"
+        ? ((referenceUnit?.gradingService as GradingService | null) ?? "")
+        : "",
+    );
+    setCertNumber("");
+    setGemrateId("");
+  }
 
   function replaceUnitPreviewUrl(nextUrl: string, objectUrl = false) {
     if (imagePreviewObjectUrlRef.current) {
@@ -8803,12 +8835,12 @@ export function AdminCardStockUnitForm({
           setMessage("Choose a Sub-SKU before adding stock.");
           return;
         }
-        if (isGraded && !grade.trim()) {
-          setMessage("Choose a grade for graded stock.");
+        if (isGraded && !gradingService) {
+          setMessage("Choose a grade service for graded stock.");
           return;
         }
-        if (isGraded && !gradingService) {
-          setMessage("Choose a grading service for graded stock.");
+        if (isGraded && !grade.trim()) {
+          setMessage("Choose a grade number for graded stock.");
           return;
         }
         let nextImageUrl = imageUrl.trim();
@@ -8839,7 +8871,7 @@ export function AdminCardStockUnitForm({
           imageStoragePath: nextImageStoragePath,
         });
         setMessage(
-          `Added ${stockQuantityLabel(effectiveCount, selectedSubSkuGroup.unitKind)} to ${selectedSubSkuGroup.sku}.`,
+          `Added ${stockQuantityLabel(effectiveCount, selectedSubSkuGroup.unitKind)} to ${selectedSubSkuDisplay?.sku ?? selectedSubSkuGroup.sku}.`,
         );
         setCertNumber("");
         setGemrateId("");
@@ -8865,6 +8897,7 @@ export function AdminCardStockUnitForm({
             onChange={(nextCardId) => {
               setCardId(nextCardId);
               setSelectedStockSkuId("");
+              applySelectedSubSkuDefaults(null);
             }}
             placeholder="Select Main SKU…"
             searchPlaceholder="Search Main SKU…"
@@ -8878,7 +8911,7 @@ export function AdminCardStockUnitForm({
             !cardId
               ? "Select a Main SKU first."
               : selectableSubSkuGroups.length
-                ? "Choose the exact stock bucket this stock should increase."
+                ? "Choose the existing Sub-SKU bucket this stock should increase. Condition, grade, and cert are entered below per physical card."
                 : "Create a Sub-SKU on this Main SKU before adding stock."
           }
         >
@@ -8886,7 +8919,15 @@ export function AdminCardStockUnitForm({
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
             value={selectedStockSkuValue}
             disabled={!cardId || !selectableSubSkuGroups.length}
-            onChange={(event) => setSelectedStockSkuId(event.target.value)}
+            onChange={(event) => {
+              const nextStockSkuId = event.target.value;
+              setSelectedStockSkuId(nextStockSkuId);
+              applySelectedSubSkuDefaults(
+                selectableSubSkuGroups.find(
+                  (group) => group.stockSkuId === nextStockSkuId,
+                ) ?? null,
+              );
+            }}
           >
             <option value="">
               {!cardId
@@ -8895,18 +8936,21 @@ export function AdminCardStockUnitForm({
                   ? "Choose Sub-SKU…"
                   : "No Sub-SKU exists yet"}
             </option>
-            {selectableSubSkuGroups.map((group) => (
-              <option key={group.stockSkuId} value={group.stockSkuId}>
-                {group.sku} · {presentationStockUnitKindLabel(group.unitKind)} ·{" "}
-                {stockQuantityLabel(group.totalUnits, group.unitKind)} total
-              </option>
-            ))}
+            {selectableSubSkuGroups.map((group) => {
+              const display = cardSubSkuBucketDisplay(group);
+              return (
+                <option key={group.stockSkuId} value={group.stockSkuId}>
+                  {display.sku} · {presentationStockUnitKindLabel(group.unitKind)} ·{" "}
+                  {stockQuantityLabel(group.totalUnits, group.unitKind)} total
+                </option>
+              );
+            })}
           </select>
         </AdminField>
-        {selectedSubSkuGroup ? (
+        {selectedSubSkuGroup && selectedSubSkuDisplay ? (
           <div className="admin-subsku-stock-selected">
             <span>{selectedSubSkuTypeLabel} Sub-SKU</span>
-            <strong>{selectedSubSkuGroup.sku}</strong>
+            <strong>{selectedSubSkuDisplay.sku}</strong>
             <em>
               {stockQuantityLabel(
                 selectedSubSkuGroup.availableUnits,
@@ -8919,10 +8963,13 @@ export function AdminCardStockUnitForm({
               )}{" "}
               total
             </em>
+            {selectedSubSkuDisplay.hiddenUnitIdentity ? (
+              <small>Condition, grade, and cert stay on individual card units.</small>
+            ) : null}
           </div>
         ) : null}
         {isCardSubSku ? (
-          <AdminField label="Card condition">
+          <AdminField label="Selected condition">
             <select
               className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
               value={condition}
@@ -8952,21 +8999,7 @@ export function AdminCardStockUnitForm({
         ) : null}
         {isGraded ? (
           <>
-            <AdminField label="Grade" required>
-              <select
-                className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-                value={grade}
-                onChange={(event) => setGrade(event.target.value)}
-              >
-                <option value="">-- Select --</option>
-                {cardGradeOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </AdminField>
-            <AdminField label="Grading service" required>
+            <AdminField label="Grade service" required>
               <select
                 className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
                 value={gradingService}
@@ -8982,9 +9015,23 @@ export function AdminCardStockUnitForm({
                 ))}
               </select>
             </AdminField>
+            <AdminField label="Grade number" required>
+              <select
+                className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                value={grade}
+                onChange={(event) => setGrade(event.target.value)}
+              >
+                <option value="">-- Select --</option>
+                {cardGradeOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </AdminField>
             <AdminField
               label="Cert number"
-              hint="Unique per slab — adding a cert forces a single unit."
+              hint="Unique per physical card. Adding a cert locks this add to 1 card."
             >
               <input
                 className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
@@ -9099,6 +9146,21 @@ function editableUnitIdentityValue(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
 }
 
+function AdminStockUnitEditField({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="admin-stock-unit-edit-field">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
+
 function editableUnitIdentityChanged(
   unit: NonNullable<CardCatalogItem["stockUnits"]>[number],
   next: {
@@ -9201,12 +9263,12 @@ function AdminStockUnitRow({
     startBusy(async () => {
       try {
         setMsg("");
-        if (condition === "graded" && !grade.trim()) {
-          setMsg("Choose a grade for graded stock.");
+        if (condition === "graded" && !gradingService) {
+          setMsg("Choose a grade service for graded stock.");
           return;
         }
-        if (condition === "graded" && !gradingService) {
-          setMsg("Choose a grading service for graded stock.");
+        if (condition === "graded" && !grade.trim()) {
+          setMsg("Choose a grade number for graded stock.");
           return;
         }
         const nextIdentity = {
@@ -9258,61 +9320,71 @@ function AdminStockUnitRow({
     return (
       <li className="admin-stock-unit-row is-editing">
         <div className="admin-stock-unit-edit-grid">
-          <select
-            className="admin-stock-unit-input"
-            value={condition}
-            onChange={(event) =>
-              setCondition(event.target.value as CardCondition)
-            }
-          >
-            {cardConditionOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <select
-            className="admin-stock-unit-input"
-            value={grade}
-            disabled={condition !== "graded"}
-            onChange={(event) => setGrade(event.target.value)}
-          >
-            <option value="">-- Grade --</option>
-            {cardGradeOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-          <select
-            className="admin-stock-unit-input"
-            value={gradingService}
-            disabled={condition !== "graded"}
-            onChange={(event) =>
-              setGradingService(event.target.value as GradingService | "")
-            }
-          >
-            <option value="">-- Service --</option>
-            {gradingServiceOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <input
-            className="admin-stock-unit-input"
-            value={certNumber}
-            disabled={condition !== "graded"}
-            placeholder="Cert #"
-            onChange={(event) => setCertNumber(event.target.value)}
-          />
-          <input
-            className="admin-stock-unit-input"
-            value={gemrateId}
-            disabled={condition !== "graded"}
-            placeholder="GemRate ID"
-            onChange={(event) => setGemrateId(event.target.value)}
-          />
+          <AdminStockUnitEditField label="Selected condition">
+            <select
+              className="admin-stock-unit-input"
+              value={condition}
+              onChange={(event) =>
+                setCondition(event.target.value as CardCondition)
+              }
+            >
+              {cardConditionOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </AdminStockUnitEditField>
+          <AdminStockUnitEditField label="Grade service">
+            <select
+              className="admin-stock-unit-input"
+              value={gradingService}
+              disabled={condition !== "graded"}
+              onChange={(event) =>
+                setGradingService(event.target.value as GradingService | "")
+              }
+            >
+              <option value="">-- Service --</option>
+              {gradingServiceOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </AdminStockUnitEditField>
+          <AdminStockUnitEditField label="Grade number">
+            <select
+              className="admin-stock-unit-input"
+              value={grade}
+              disabled={condition !== "graded"}
+              onChange={(event) => setGrade(event.target.value)}
+            >
+              <option value="">-- Grade --</option>
+              {cardGradeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </AdminStockUnitEditField>
+          <AdminStockUnitEditField label="Cert number">
+            <input
+              className="admin-stock-unit-input"
+              value={certNumber}
+              disabled={condition !== "graded"}
+              placeholder="Cert #"
+              onChange={(event) => setCertNumber(event.target.value)}
+            />
+          </AdminStockUnitEditField>
+          <AdminStockUnitEditField label="GemRate ID">
+            <input
+              className="admin-stock-unit-input"
+              value={gemrateId}
+              disabled={condition !== "graded"}
+              placeholder="GemRate ID"
+              onChange={(event) => setGemrateId(event.target.value)}
+            />
+          </AdminStockUnitEditField>
           <label
             className={`admin-stock-unit-image${dragging ? " is-dragging" : ""}`}
             onDragOver={(event) => {
@@ -9471,8 +9543,10 @@ function prizeStockUsageSummary(prize: YnotPrizePoolItem) {
 
 function AdminSubSkuPackUsageList({
   usages,
+  displaySku,
 }: {
   usages: StockSkuPackUsage[];
+  displaySku?: string;
 }) {
   if (!usages.length) {
     return (
@@ -9494,7 +9568,7 @@ function AdminSubSkuPackUsageList({
               {prizeUsageTierLabel(usage)} · {usage.source === "intended" ? "draft target" : "reserved stock"}
             </small>
           </span>
-          <code>{usage.sku}</code>
+          <code>{displaySku ?? usage.sku}</code>
           <span>
             {usage.availableUnits.toLocaleString()}/
             {usage.units.toLocaleString()} available
@@ -9505,6 +9579,167 @@ function AdminSubSkuPackUsageList({
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function AdminCardSubSkuInlineStock({
+  cardId,
+  group,
+}: {
+  cardId: string;
+  group: StockSkuGroup;
+}) {
+  const router = useRouter();
+  const referenceUnit =
+    group.units.find(
+      (unit) => unit.condition === "graded" || unit.grade || unit.gradingService,
+    ) ?? group.units[0];
+  const [condition, setCondition] = useState<CardCondition>(
+    (referenceUnit?.condition as CardCondition) || "raw",
+  );
+  const [gradingService, setGradingService] = useState<GradingService | "">(
+    (referenceUnit?.gradingService as GradingService) ?? "",
+  );
+  const [grade, setGrade] = useState(referenceUnit?.grade ?? "");
+  const [certNumber, setCertNumber] = useState("");
+  const [count, setCount] = useState("1");
+  const [busy, startBusy] = useTransition();
+  const [msg, setMsg] = useState("");
+  const isGraded = condition === "graded";
+  const hasCert = isGraded && certNumber.trim().length > 0;
+  const effectiveCount = hasCert
+    ? 1
+    : Math.min(10000, Math.max(1, Math.trunc(Number(count) || 1)));
+  const display = cardSubSkuBucketDisplay(group);
+
+  function addStock() {
+    startBusy(async () => {
+      try {
+        setMsg("");
+        if (isGraded && !gradingService) {
+          setMsg("Choose a grade service for graded stock.");
+          return;
+        }
+        if (isGraded && !grade.trim()) {
+          setMsg("Choose a grade number for graded stock.");
+          return;
+        }
+        if (!group.stockSkuId) {
+          setMsg("Create a Sub-SKU before adding stock to this Main SKU.");
+          return;
+        }
+        await postJson("/api/ynot/admin/card-stock", {
+          cardId,
+          quantityDelta: effectiveCount,
+          reason: "admin_stock_added",
+          stockSkuId: group.stockSkuId,
+          condition,
+          gradingService: isGraded ? gradingService || "" : "",
+          grade: isGraded ? grade.trim() : "",
+          certNumber: isGraded ? certNumber.trim() : "",
+        });
+        setMsg(`Added ${stockQuantityLabel(effectiveCount, "card")} to ${display.sku}.`);
+        setCertNumber("");
+        router.refresh();
+      } catch (error) {
+        setMsg(error instanceof Error ? error.message : "Could not add card stock.");
+      }
+    });
+  }
+
+  return (
+    <div className="admin-stock-sku-qty admin-stock-sku-card-add">
+      <span className="admin-stock-sku-qty-label">Add card stock</span>
+      <label className="admin-stock-sku-card-add-field">
+        <span>Selected condition</span>
+        <select
+          className="admin-stock-sku-qty-input"
+          value={condition}
+          disabled={busy}
+          onChange={(event) => setCondition(event.target.value as CardCondition)}
+        >
+          {cardConditionOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {isGraded ? (
+        <>
+          <label className="admin-stock-sku-card-add-field">
+            <span>Grade service</span>
+            <select
+              className="admin-stock-sku-qty-input"
+              value={gradingService}
+              disabled={busy}
+              onChange={(event) =>
+                setGradingService(event.target.value as GradingService | "")
+              }
+            >
+              <option value="">-- Service --</option>
+              {gradingServiceOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="admin-stock-sku-card-add-field">
+            <span>Grade number</span>
+            <select
+              className="admin-stock-sku-qty-input"
+              value={grade}
+              disabled={busy}
+              onChange={(event) => setGrade(event.target.value)}
+            >
+              <option value="">-- Grade --</option>
+              {cardGradeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="admin-stock-sku-card-add-field">
+            <span>Cert number</span>
+            <input
+              className="admin-stock-sku-qty-input"
+              value={certNumber}
+              disabled={busy}
+              placeholder="154130791"
+              onChange={(event) => setCertNumber(event.target.value)}
+            />
+          </label>
+        </>
+      ) : null}
+      <label className="admin-stock-sku-card-add-field">
+        <span>How many cards</span>
+        <input
+          className="admin-stock-sku-qty-input"
+          type="number"
+          min={1}
+          max={10000}
+          value={hasCert ? 1 : count}
+          disabled={busy || hasCert}
+          onChange={(event) => setCount(event.target.value)}
+        />
+      </label>
+      <button
+        type="button"
+        className="admin-stock-sku-qty-btn"
+        disabled={busy}
+        onClick={addStock}
+      >
+        {busy ? "Adding..." : `Add ${stockQuantityLabel(effectiveCount, "card")}`}
+      </button>
+      {hasCert ? (
+        <span className="admin-stock-sku-qty-msg">
+          Unique per physical card, so cert adds 1 card.
+        </span>
+      ) : null}
+      {msg ? <span className="admin-stock-sku-qty-msg">{msg}</span> : null}
     </div>
   );
 }
@@ -9739,6 +9974,48 @@ function stockSkuLabelPlaceholder(unitKind: AdminStockSkuUnitKind) {
   if (unitKind === "pack") return "Sealed booster pack";
   if (unitKind === "card") return "Raw card / PSA 10 slab";
   return "Accessory or other item";
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function cardSubSkuBucketDisplay(group: StockSkuGroup) {
+  if (group.unitKind !== "card") {
+    return {
+      label: group.label,
+      sku: group.sku,
+      hiddenUnitIdentity: false,
+    };
+  }
+  const rawSku = group.sku.trim();
+  const withoutCert = rawSku.replace(/-CERT-[A-Z0-9._-]+$/i, "");
+  const sku =
+    withoutCert
+      .replace(/-(?:PSA|BGS|CGC|OTHER|GRADED)(?:[-_ ]?\d+(?:\.\d+)?)?$/i, "")
+      .replace(/-(?:RAW|SEALED)$/i, "") || rawSku;
+  let label = group.label.trim();
+  const certs = new Set(
+    group.units
+      .map((unit) => unit.certNumber?.trim() ?? "")
+      .filter(Boolean),
+  );
+  const certFromSku = rawSku.match(/-CERT-([A-Z0-9._-]+)$/i)?.[1];
+  if (certFromSku) certs.add(certFromSku);
+  for (const cert of certs) {
+    const escaped = escapeRegExp(cert);
+    label = label
+      .replace(new RegExp(`\\s*[·-]\\s*#?${escaped}\\s*$`, "i"), "")
+      .replace(new RegExp(`\\s*#${escaped}\\s*$`, "i"), "");
+  }
+  if (/^(?:PSA|BGS|CGC|Other|Graded)(?:\s*[·-]\s*.+)?$/i.test(label)) {
+    label = "Card stock bucket";
+  }
+  return {
+    label: label || "Card stock bucket",
+    sku,
+    hiddenUnitIdentity: sku !== rawSku || label !== group.label.trim(),
+  };
 }
 
 function stockSkuUnitNoun(
@@ -10089,6 +10366,7 @@ function AdminStockSkuBreakdown({
             <span role="columnheader">Conversion</span>
           </div>
           {groups.map((group) => {
+            const display = cardSubSkuBucketDisplay(group);
             const stockRow = subSkuRows.find((candidate) => candidate.key === group.key);
             if (!stockRow) return null;
             const packUsages = usageByGroup.get(group.key) ?? [];
@@ -10147,7 +10425,7 @@ function AdminStockSkuBreakdown({
                       title="Open full image"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={repImage} alt={group.label} />
+                      <img src={repImage} alt={display.label} />
                     </a>
                   ) : (
                     <span className="admin-stock-sku-thumb is-empty" aria-hidden>
@@ -10155,8 +10433,13 @@ function AdminStockSkuBreakdown({
                     </span>
                   )}
                   <span className="admin-stock-sku-identity">
-                    <strong>{group.label}</strong>
-                    <code className="admin-stock-sku-code">{group.sku}</code>
+                    <strong>{display.label}</strong>
+                    <code className="admin-stock-sku-code">{display.sku}</code>
+                    {display.hiddenUnitIdentity ? (
+                      <small className="admin-stock-sku-code-note">
+                        Condition, grade, and cert are on individual card units.
+                      </small>
+                    ) : null}
                   </span>
                 </div>
                 <span className="admin-stock-sku-cell admin-stock-sku-stat" role="cell">
@@ -10248,12 +10531,16 @@ function AdminStockSkuBreakdown({
                   </div>
                 ) : null}
 
-	                <AdminSubSkuQuantity cardId={card.catalogCardId} group={group} />
+                {group.unitKind === "card" && group.stockSkuId ? (
+                  <AdminCardSubSkuInlineStock cardId={card.catalogCardId} group={group} />
+                ) : (
+                  <AdminSubSkuQuantity cardId={card.catalogCardId} group={group} />
+                )}
                 {group.stockSkuId ? (
                   <AdminStockSkuEditor card={card} group={group} groups={groups} />
                 ) : null}
                 <AdminOpenBoxButton group={group} />
-	                <AdminSubSkuPackUsageList usages={packUsages} />
+	                <AdminSubSkuPackUsageList usages={packUsages} displaySku={display.sku} />
                 <AdminSubSkuManageUnits cardId={card.catalogCardId} group={group} />
               </article>
             );

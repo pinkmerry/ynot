@@ -77,8 +77,8 @@ test("database and APIs require grade plus grading service for graded stock", ()
     cardStockUnitRouteSource,
     /condition\s+===\s+"graded"[\s\S]*!grade[\s\S]*!gradingService/,
   );
-  assert.match(clientSource, /Choose a grade for graded stock/);
-  assert.match(clientSource, /Choose a grading service for graded stock/);
+  assert.match(clientSource, /Choose a grade service for graded stock/);
+  assert.match(clientSource, /Choose a grade number for graded stock/);
 });
 
 test("database exposes batched prize stock summaries for readiness checks", () => {
