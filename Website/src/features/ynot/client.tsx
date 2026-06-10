@@ -8764,20 +8764,10 @@ export function AdminCardStockUnitForm({
     selectableSubSkuGroups.find(
       (group) => group.stockSkuId === selectedStockSkuId,
     ) ?? null;
+  const selectedStockSkuValue = selectedSubSkuGroup ? selectedStockSkuId : "";
   const addButtonQuantityLabel = selectedSubSkuGroup
     ? stockQuantityLabel(effectiveCount, selectedSubSkuGroup.unitKind)
     : countLabel(effectiveCount, "unit");
-
-  useEffect(() => {
-    if (
-      selectedStockSkuId &&
-      !selectableSubSkuGroups.some(
-        (group) => group.stockSkuId === selectedStockSkuId,
-      )
-    ) {
-      setSelectedStockSkuId("");
-    }
-  }, [selectableSubSkuGroups, selectedStockSkuId]);
 
   function replaceUnitPreviewUrl(nextUrl: string, objectUrl = false) {
     if (imagePreviewObjectUrlRef.current) {
@@ -8877,7 +8867,7 @@ export function AdminCardStockUnitForm({
         >
           <select
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={selectedStockSkuId}
+            value={selectedStockSkuValue}
             disabled={!cardId || !selectableSubSkuGroups.length}
             onChange={(event) => setSelectedStockSkuId(event.target.value)}
           >
