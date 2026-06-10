@@ -39,6 +39,8 @@ function text(value: unknown, max = 160) {
 
 const CONDITIONS = new Set(["sealed", "raw", "graded"]);
 const GRADING_SERVICES = new Set(["psa", "bgs", "cgc", "other"]);
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function groupKeyParts(groupKey: string) {
   const [condition = "", grade = "", gradingService = "", certNumber = "", gemrateId = ""] =
@@ -93,7 +95,14 @@ export async function POST(request: Request) {
 
   const reason = text(body?.reason, 80) || "admin_adjustment";
   const sourceId = text(body?.sourceId, 120) || null;
-  const stockSkuId = text(body?.stockSkuId, 80) || null;
+  const requestedStockSkuId = text(body?.stockSkuId, 80);
+  if (requestedStockSkuId && !UUID_PATTERN.test(requestedStockSkuId)) {
+    return Response.json(
+      { error: "Choose a valid Sub SKU before adjusting stock." },
+      { status: 400 },
+    );
+  }
+  const stockSkuId = requestedStockSkuId || null;
   const stockUnitGroupKey = text(body?.stockUnitGroupKey, 240);
   if (delta < 0 && !stockSkuId && !stockUnitGroupKey) {
     return Response.json(
@@ -112,11 +121,12 @@ export async function POST(request: Request) {
 
   // Positive deltas create units; negative deltas must target one sub-SKU.
   const conditionRaw = text(body?.condition, 16).toLowerCase();
+  if (conditionRaw && !CONDITIONS.has(conditionRaw)) {
+    return Response.json({ error: "Choose a valid condition." }, { status: 400 });
+  }
   const condition =
     delta > 0
-      ? CONDITIONS.has(conditionRaw)
-        ? conditionRaw
-        : "raw"
+      ? conditionRaw || (stockSkuId ? null : "raw")
       : removeGroup?.condition ?? null;
   const gradingRaw = text(body?.gradingService, 16).toLowerCase();
   const gradingService =

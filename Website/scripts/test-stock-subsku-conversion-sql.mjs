@@ -42,7 +42,12 @@ test("migration exposes summary and mutation RPCs", () => {
   assert.match(migration, /'legacyStockUnitGroupKey', case[\s\S]*stock_sku_counts\.legacy_condition/i);
   assert.match(migration, /legacy_subsku_rows[\s\S]*'stockSkuId', null::uuid/i);
   assert.match(migration, /legacy_subsku_rows[\s\S]*'sourceStockSkuId', legacy\.stock_sku_id/i);
-  assert.match(migration, /legacy_subsku_counts[\s\S]*group by[\s\S]*normalized\.stock_sku_id/i);
+  assert.match(migration, /legacy_normalized_subsku[\s\S]*sku\.unit_kind as stock_unit_kind/i);
+  assert.match(migration, /coalesce\(sku\.unit_kind, ''\) <> 'box'/i);
+  assert.doesNotMatch(
+    migration,
+    /legacy_subsku_counts[\s\S]*group by[\s\S]*normalized\.stock_sku_id[\s\S]*active_rules/i,
+  );
   assert.match(migration, /grant execute on function public\.open_stock_container/i);
   assert.match(migration, /revoke all on function app_private\.ensure_default_stock_sku/i);
   assert.match(migration, /grant execute on function app_private\.ensure_default_stock_sku/i);
@@ -65,6 +70,8 @@ test("migration patches related stock movement and live revision RPCs", () => {
   assert.match(migration, /v_stock_sku_id := v_unit\.stock_sku_id/i);
   assert.match(migration, /app_private\.ensure_default_stock_sku\(\s*v_unit\.card_id/i);
   assert.match(migration, /stock_sku_id = v_stock_sku_id/i);
+  assert.match(migration, /card_stock_unit_matches_prize_filter[\s\S]*sku\.unit_kind <> 'box'/i);
+  assert.match(migration, /adjust_card_stock_units[\s\S]*sku\.unit_kind <> 'box'/i);
 });
 
 test("open_stock_container atomically consumes box units and creates child pack units", () => {

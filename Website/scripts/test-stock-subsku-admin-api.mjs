@@ -33,6 +33,9 @@ test("stock SKU route is admin-only and calls summary/upsert RPCs", () => {
   assert.match(stockSkusRoute, /rpc\("upsert_stock_sku"/);
   assert.match(stockSkusRoute, /unitKind/);
   assert.match(stockSkusRoute, /childQuantity/);
+  assert.match(stockSkusRoute, /const unitKind = unitKindRaw \|\| null/);
+  assert.match(stockSkusRoute, /requestedStockSkuId\.invalid/);
+  assert.match(stockSkusRoute, /requestedChildStockSkuId\.invalid/);
   assert.doesNotMatch(
     stockSkusRoute,
     /Response\.json\(\{\s*error:\s*error\.message/,
@@ -51,6 +54,9 @@ test("open container route is admin-only and calls open_stock_container", () => 
 
 test("legacy stock routes understand stockSkuId but keep old group fallback", () => {
   assert.match(cardStockRoute, /stockSkuId/);
+  assert.match(cardStockRoute, /UUID_PATTERN/);
+  assert.match(cardStockRoute, /requestedStockSkuId && !UUID_PATTERN\.test/);
+  assert.match(cardStockRoute, /conditionRaw \|\| \(stockSkuId \? null : "raw"\)/);
   assert.match(cardStockRoute, /rpc\("adjust_stock_sku_units"/);
   assert.match(cardStockRoute, /rpc\("adjust_card_stock_units"/);
   assert.match(cardStockUnitRoute, /stockSkuId/);

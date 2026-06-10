@@ -19,9 +19,12 @@ function text(value: unknown, max = 180) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
-function uuidText(value: unknown) {
+function optionalUuid(value: unknown) {
   const clean = text(value, 80);
-  return UUID_PATTERN.test(clean) ? clean : "";
+  if (!clean) return { value: null, invalid: false };
+  return UUID_PATTERN.test(clean)
+    ? { value: clean, invalid: false }
+    : { value: null, invalid: true };
 }
 
 function positiveInt(value: unknown, max = 1000) {
@@ -88,7 +91,11 @@ export async function GET(request: Request) {
   if (gate.error) return gate.error;
 
   const url = new URL(request.url);
-  const cardId = uuidText(url.searchParams.get("cardId")) || null;
+  const requestedCardId = optionalUuid(url.searchParams.get("cardId"));
+  if (requestedCardId.invalid) {
+    return Response.json({ error: "Choose a valid product." }, { status: 400 });
+  }
+  const cardId = requestedCardId.value;
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase.rpc("get_admin_stock_sku_summary", {
     p_card_id: cardId,
@@ -121,10 +128,34 @@ export async function POST(request: Request) {
   > | null;
 
   const unitKindRaw = text(body?.unitKind, 20);
-  const unitKind = UNIT_KINDS.has(unitKindRaw) ? unitKindRaw : "other";
-  const stockSkuId = uuidText(body?.stockSkuId) || null;
-  const cardId = uuidText(body?.cardId) || null;
-  const childStockSkuId = uuidText(body?.childStockSkuId) || null;
+  const unitKind = unitKindRaw || null;
+  if (unitKind !== null && !UNIT_KINDS.has(unitKind)) {
+    return Response.json(
+      { error: "Choose a valid Sub SKU type." },
+      { status: 400 },
+    );
+  }
+  const requestedStockSkuId = optionalUuid(body?.stockSkuId);
+  const requestedCardId = optionalUuid(body?.cardId);
+  const requestedChildStockSkuId = optionalUuid(body?.childStockSkuId);
+  if (requestedStockSkuId.invalid) {
+    return Response.json(
+      { error: "Choose a valid Sub SKU." },
+      { status: 400 },
+    );
+  }
+  if (requestedCardId.invalid) {
+    return Response.json({ error: "Choose a valid product." }, { status: 400 });
+  }
+  if (requestedChildStockSkuId.invalid) {
+    return Response.json(
+      { error: "Choose a valid child Sub SKU." },
+      { status: 400 },
+    );
+  }
+  const stockSkuId = requestedStockSkuId.value;
+  const cardId = requestedCardId.value;
+  const childStockSkuId = requestedChildStockSkuId.value;
   const childQuantity =
     body?.childQuantity === undefined ||
     body?.childQuantity === null ||

@@ -610,6 +610,7 @@ as $$
       stock.id,
       stock.card_id,
       stock.stock_sku_id,
+      sku.unit_kind as stock_unit_kind,
       stock.status,
       stock.created_at,
       coalesce(nullif(stock.condition, ''), 'raw') as condition,
@@ -636,7 +637,9 @@ as $$
       nullif(stock.image_url, '') as image_url
     from public.card_stock_units stock
     join requested_cards requested on requested.card_id = stock.card_id
+    left join public.stock_skus sku on sku.id = stock.stock_sku_id
     where stock.status not in ('deleted', 'archived')
+      and coalesce(sku.unit_kind, '') <> 'box'
   ),
   legacy_subsku_counts as (
     select
@@ -655,7 +658,6 @@ as $$
     from legacy_normalized_subsku normalized
     group by
       normalized.card_id,
-      normalized.stock_sku_id,
       normalized.condition,
       normalized.grade,
       normalized.grading_service,
@@ -1084,29 +1086,39 @@ begin
     into selected_ids
     from (
       select id
-      from public.card_stock_units
-      where card_id = p_card_id
-        and status = 'available'
+      from public.card_stock_units stock
+      where stock.card_id = p_card_id
+        and stock.status = 'available'
         and (
           (
             v_stock_sku_id is not null
-            and stock_sku_id = v_stock_sku_id
+            and stock.stock_sku_id = v_stock_sku_id
           )
           or (
             v_stock_sku_id is null
-            and coalesce(nullif(condition, ''), 'raw') = v_condition
+            and coalesce(nullif(stock.condition, ''), 'raw') = v_condition
+            and (
+              v_condition <> 'sealed'
+              or stock.stock_sku_id is null
+              or exists (
+                select 1
+                from public.stock_skus sku
+                where sku.id = stock.stock_sku_id
+                  and sku.unit_kind <> 'box'
+              )
+            )
             and (
               v_condition <> 'graded'
               or (
-                coalesce(grade, '') = coalesce(v_grade, '')
-                and coalesce(grading_service, '') = coalesce(v_grading_service, '')
-                and coalesce(cert_number, '') = coalesce(v_cert, '')
-                and coalesce(gemrate_id, '') = coalesce(nullif(p_gemrate_id, ''), '')
+                coalesce(stock.grade, '') = coalesce(v_grade, '')
+                and coalesce(stock.grading_service, '') = coalesce(v_grading_service, '')
+                and coalesce(stock.cert_number, '') = coalesce(v_cert, '')
+                and coalesce(stock.gemrate_id, '') = coalesce(nullif(p_gemrate_id, ''), '')
               )
             )
           )
         )
-      order by created_at desc, id desc
+      order by stock.created_at desc, stock.id desc
       limit abs(p_quantity_delta)
       for update skip locked
     ) selected;
@@ -1671,7 +1683,17 @@ begin
   end if;
 
   if filter_condition <> 'graded' then
-    return coalesce(nullif(p_unit.condition, ''), 'raw') = filter_condition;
+    return coalesce(nullif(p_unit.condition, ''), 'raw') = filter_condition
+      and (
+        filter_condition <> 'sealed'
+        or p_unit.stock_sku_id is null
+        or exists (
+          select 1
+          from public.stock_skus sku
+          where sku.id = p_unit.stock_sku_id
+            and sku.unit_kind <> 'box'
+        )
+      );
   end if;
 
   return coalesce(nullif(p_unit.condition, ''), 'raw') = filter_condition
