@@ -99,9 +99,76 @@ test("summarizes Main SKU stock across box and pack Sub-SKUs", () => {
       totalUnits: 214,
       availableUnits: 1,
     },
+    cards: {
+      totalUnits: 0,
+      availableUnits: 0,
+    },
+    others: {
+      totalUnits: 0,
+      availableUnits: 0,
+    },
     packEquivalentFromBoxes: 2520,
     totalPossiblePacks: 2734,
     headline: "0 boxes left · 1 pack left",
+  });
+});
+
+test("summarizes card-only Main SKU stock with a card headline", () => {
+  assert.deepEqual(
+    plain(
+      presentation.mainSkuStockSummary([
+        { ...cardGroup, totalUnits: 3, availableUnits: 2 },
+      ]),
+    ),
+    {
+      totalUnits: 3,
+      availableUnits: 2,
+      boxes: {
+        totalUnits: 0,
+        availableUnits: 0,
+      },
+      packs: {
+        totalUnits: 0,
+        availableUnits: 0,
+      },
+      cards: {
+        totalUnits: 3,
+        availableUnits: 2,
+      },
+      others: {
+        totalUnits: 0,
+        availableUnits: 0,
+      },
+      packEquivalentFromBoxes: 0,
+      totalPossiblePacks: 0,
+      headline: "2 cards left",
+    },
+  );
+});
+
+test("summarizes empty Main SKU stock with a neutral headline", () => {
+  assert.deepEqual(plain(presentation.mainSkuStockSummary([])), {
+    totalUnits: 0,
+    availableUnits: 0,
+    boxes: {
+      totalUnits: 0,
+      availableUnits: 0,
+    },
+    packs: {
+      totalUnits: 0,
+      availableUnits: 0,
+    },
+    cards: {
+      totalUnits: 0,
+      availableUnits: 0,
+    },
+    others: {
+      totalUnits: 0,
+      availableUnits: 0,
+    },
+    packEquivalentFromBoxes: 0,
+    totalPossiblePacks: 0,
+    headline: "No stock yet",
   });
 });
 
@@ -182,6 +249,14 @@ test("sanitizes non-numeric and negative stock counts", () => {
       },
       packs: {
         totalUnits: 2,
+        availableUnits: 0,
+      },
+      cards: {
+        totalUnits: 0,
+        availableUnits: 0,
+      },
+      others: {
+        totalUnits: 0,
         availableUnits: 0,
       },
       packEquivalentFromBoxes: 0,

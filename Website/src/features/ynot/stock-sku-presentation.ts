@@ -24,6 +24,14 @@ export type MainSkuStockSummary = {
     totalUnits: number;
     availableUnits: number;
   };
+  cards: {
+    totalUnits: number;
+    availableUnits: number;
+  };
+  others: {
+    totalUnits: number;
+    availableUnits: number;
+  };
   packEquivalentFromBoxes: number;
   totalPossiblePacks: number;
   headline: string;
@@ -111,9 +119,44 @@ function groupPackEquivalentFromBoxes(group: StockSkuGroup) {
   return childQuantity > 0 ? totalUnits * childQuantity : 0;
 }
 
+function summaryHeadline({
+  boxes,
+  packs,
+  cards,
+  others,
+  totalUnits,
+}: {
+  boxes: MainSkuStockSummary["boxes"];
+  packs: MainSkuStockSummary["packs"];
+  cards: MainSkuStockSummary["cards"];
+  others: MainSkuStockSummary["others"];
+  totalUnits: number;
+}) {
+  if (totalUnits <= 0) return "No stock yet";
+
+  if (boxes.totalUnits > 0 || packs.totalUnits > 0) {
+    return `${stockQuantityLabel(boxes.availableUnits, "box")} left · ${stockQuantityLabel(
+      packs.availableUnits,
+      "pack",
+    )} left`;
+  }
+
+  if (cards.totalUnits > 0 && others.totalUnits > 0) {
+    return `${stockQuantityLabel(cards.availableUnits, "card")} left · ${stockQuantityLabel(
+      others.availableUnits,
+      "other",
+    )} left`;
+  }
+
+  if (cards.totalUnits > 0) return `${stockQuantityLabel(cards.availableUnits, "card")} left`;
+  return `${stockQuantityLabel(others.availableUnits, "other")} left`;
+}
+
 export function mainSkuStockSummary(groups: StockSkuGroup[]): MainSkuStockSummary {
   const boxes = { totalUnits: 0, availableUnits: 0 };
   const packs = { totalUnits: 0, availableUnits: 0 };
+  const cards = { totalUnits: 0, availableUnits: 0 };
+  const others = { totalUnits: 0, availableUnits: 0 };
   let totalUnits = 0;
   let availableUnits = 0;
   let packEquivalentFromBoxes = 0;
@@ -135,6 +178,16 @@ export function mainSkuStockSummary(groups: StockSkuGroup[]): MainSkuStockSummar
       packs.totalUnits += groupTotal;
       packs.availableUnits += groupAvailable;
     }
+
+    if (type === "card") {
+      cards.totalUnits += groupTotal;
+      cards.availableUnits += groupAvailable;
+    }
+
+    if (type === "other") {
+      others.totalUnits += groupTotal;
+      others.availableUnits += groupAvailable;
+    }
   }
 
   return {
@@ -142,12 +195,11 @@ export function mainSkuStockSummary(groups: StockSkuGroup[]): MainSkuStockSummar
     availableUnits,
     boxes,
     packs,
+    cards,
+    others,
     packEquivalentFromBoxes,
     totalPossiblePacks: packEquivalentFromBoxes + packs.totalUnits,
-    headline: `${stockQuantityLabel(boxes.availableUnits, "box")} left · ${stockQuantityLabel(
-      packs.availableUnits,
-      "pack",
-    )} left`,
+    headline: summaryHeadline({ boxes, packs, cards, others, totalUnits }),
   };
 }
 
