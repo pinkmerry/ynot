@@ -8717,6 +8717,7 @@ export function AdminCardStockUnitForm({
 }) {
   const router = useRouter();
   const [cardId, setCardId] = useState(initialCardId ?? "");
+  const [selectedStockSkuId, setSelectedStockSkuId] = useState("");
   const [condition, setCondition] = useState<CardCondition>("raw");
   const [grade, setGrade] = useState("");
   const [gradingService, setGradingService] = useState<GradingService | "">("");
@@ -8737,7 +8738,7 @@ export function AdminCardStockUnitForm({
   const effectiveCount = hasCert
     ? 1
     : Math.min(10000, Math.max(1, Math.trunc(Number(count) || 1)));
-  const productCardOptions = useMemo(
+  const mainSkuOptions = useMemo(
     () =>
       cards.map((card) => ({
         value: card.catalogCardId,
@@ -8745,6 +8746,38 @@ export function AdminCardStockUnitForm({
       })),
     [cards],
   );
+  const selectedCard = useMemo(
+    () => cards.find((card) => card.catalogCardId === cardId) ?? null,
+    [cardId, cards],
+  );
+  const selectableSubSkuGroups = useMemo(
+    () =>
+      selectedCard
+        ? stockSkuGroups(selectedCard).filter(
+            (group): group is StockSkuGroup & { stockSkuId: string } =>
+              Boolean(group.stockSkuId),
+          )
+        : [],
+    [selectedCard],
+  );
+  const selectedSubSkuGroup =
+    selectableSubSkuGroups.find(
+      (group) => group.stockSkuId === selectedStockSkuId,
+    ) ?? null;
+  const addButtonQuantityLabel = selectedSubSkuGroup
+    ? stockQuantityLabel(effectiveCount, selectedSubSkuGroup.unitKind)
+    : countLabel(effectiveCount, "unit");
+
+  useEffect(() => {
+    if (
+      selectedStockSkuId &&
+      !selectableSubSkuGroups.some(
+        (group) => group.stockSkuId === selectedStockSkuId,
+      )
+    ) {
+      setSelectedStockSkuId("");
+    }
+  }, [selectableSubSkuGroups, selectedStockSkuId]);
 
   function replaceUnitPreviewUrl(nextUrl: string, objectUrl = false) {
     if (imagePreviewObjectUrlRef.current) {
@@ -8761,6 +8794,10 @@ export function AdminCardStockUnitForm({
         setMessage("");
         if (!cardId) {
           setMessage("Select a Main SKU first.");
+          return;
+        }
+        if (!selectedSubSkuGroup) {
+          setMessage("Choose a Sub-SKU before adding stock.");
           return;
         }
         if (isGraded && !grade.trim()) {
@@ -8785,6 +8822,7 @@ export function AdminCardStockUnitForm({
           cardId,
           quantityDelta: effectiveCount,
           reason: "admin_catalog",
+          stockSkuId: selectedStockSkuId,
           condition,
           grade: isGraded ? grade.trim() : "",
           gradingService: isGraded ? gradingService || "" : "",
@@ -8794,7 +8832,7 @@ export function AdminCardStockUnitForm({
           imageStoragePath: nextImageStoragePath,
         });
         setMessage(
-          `Added ${effectiveCount} ${condition} unit${effectiveCount > 1 ? "s" : ""}.`,
+          `Added ${stockQuantityLabel(effectiveCount, selectedSubSkuGroup.unitKind)} to ${selectedSubSkuGroup.sku}.`,
         );
         setCertNumber("");
         setGemrateId("");
@@ -8817,11 +8855,46 @@ export function AdminCardStockUnitForm({
         <AdminField label="Main SKU" required>
           <AdminSearchableSelect
             value={cardId}
-            onChange={setCardId}
+            onChange={(nextCardId) => {
+              setCardId(nextCardId);
+              setSelectedStockSkuId("");
+            }}
             placeholder="Select Main SKU…"
             searchPlaceholder="Search Main SKU…"
-            options={productCardOptions}
+            options={mainSkuOptions}
           />
+        </AdminField>
+        <AdminField
+          label="Sub-SKU"
+          required
+          hint={
+            !cardId
+              ? "Select a Main SKU first."
+              : selectableSubSkuGroups.length
+                ? "Choose the exact stock bucket this stock should increase."
+                : "Create a Sub-SKU on this Main SKU before adding stock."
+          }
+        >
+          <select
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={selectedStockSkuId}
+            disabled={!cardId || !selectableSubSkuGroups.length}
+            onChange={(event) => setSelectedStockSkuId(event.target.value)}
+          >
+            <option value="">
+              {!cardId
+                ? "Select Main SKU first"
+                : selectableSubSkuGroups.length
+                  ? "Choose Sub-SKU…"
+                  : "No Sub-SKU exists yet"}
+            </option>
+            {selectableSubSkuGroups.map((group) => (
+              <option key={group.stockSkuId} value={group.stockSkuId}>
+                {group.sku} · {presentationStockUnitKindLabel(group.unitKind)} ·{" "}
+                {stockQuantityLabel(group.totalUnits, group.unitKind)} total
+              </option>
+            ))}
+          </select>
         </AdminField>
         <AdminField label="Condition">
           <select
@@ -8941,9 +9014,9 @@ export function AdminCardStockUnitForm({
         className="admin-form-submit"
         onClick={submit}
         type="button"
-        disabled={isPending}
+        disabled={isPending || !selectedSubSkuGroup}
       >
-        {isPending ? "Adding..." : `Add ${effectiveCount} unit${effectiveCount > 1 ? "s" : ""}`}
+        {isPending ? "Adding..." : `Add ${addButtonQuantityLabel}`}
       </button>
       {message && <p className="admin-form-message">{message}</p>}
     </section>
@@ -9430,6 +9503,10 @@ function AdminSubSkuQuantity({
       setMsg(
         `Only ${group.availableUnits.toLocaleString()} free to remove (rest are in packs).`,
       );
+      return;
+    }
+    if (delta > 0 && !group.stockSkuId) {
+      setMsg("Create a Sub-SKU before adding stock to this Main SKU.");
       return;
     }
     const stockImageUrl =
@@ -11182,14 +11259,14 @@ export function AdminCardCatalogPanel({
                       ) : null}
                       <label className="admin-stock-confirm-field">
                         <span>Quantity</span>
-	                        <input
+                        <input
                           aria-label={`Stock quantity for ${card.name}`}
                           disabled={stockPending}
-	                          max={
-	                            currentStockDraft.mode === "remove"
-	                              ? selectedRemoveGroup?.availableUnits ?? 0
-	                              : 10000
-	                          }
+                          max={
+                            currentStockDraft.mode === "remove"
+                              ? selectedRemoveGroup?.availableUnits ?? 0
+                              : 10000
+                          }
                           min={1}
                           type="number"
                           value={currentStockDraft.quantity}
@@ -11197,17 +11274,17 @@ export function AdminCardCatalogPanel({
                             updateStockDraftQuantity(
                               currentStockDraft.mode === "remove"
                                 ? String(
-	                                    Math.min(
-	                                      Math.max(
-	                                        1,
-	                                        Math.round(Number(event.target.value) || 1),
-	                                      ),
-	                                      Math.max(
-	                                        1,
-	                                        selectedRemoveGroup?.availableUnits ?? 0,
-	                                      ),
-	                                    ),
-	                                  )
+                                    Math.min(
+                                      Math.max(
+                                        1,
+                                        Math.round(Number(event.target.value) || 1),
+                                      ),
+                                      Math.max(
+                                        1,
+                                        selectedRemoveGroup?.availableUnits ?? 0,
+                                      ),
+                                    ),
+                                  )
                                 : event.target.value,
                             )
                           }
@@ -11220,12 +11297,12 @@ export function AdminCardCatalogPanel({
                               ? "danger-button"
                               : "gold-button"
                           }
-	                          disabled={
-	                            stockPending ||
-	                            (currentStockDraft.mode === "remove" &&
-	                              (!selectedRemoveGroup ||
-	                                selectedRemoveGroup.availableUnits <= 0))
-	                          }
+                          disabled={
+                            stockPending ||
+                            (currentStockDraft.mode === "remove" &&
+                              (!selectedRemoveGroup ||
+                                selectedRemoveGroup.availableUnits <= 0))
+                          }
                           type="button"
                           onClick={() => confirmStockAdjustment(card, row)}
                         >
@@ -11260,12 +11337,10 @@ export function AdminCardCatalogPanel({
                         >
                           + Add Sub-SKU stock
                         </button>
-	                        <button
-	                          className="plain-button"
-	                          disabled={
-	                            isPending || !removableStockGroups.length
-	                          }
-	                          type="button"
+                        <button
+                          className="plain-button"
+                          disabled={isPending || !removableStockGroups.length}
+                          type="button"
                           onClick={() => openStockAdjustment(card, row, "remove")}
                         >
                           − Remove stock

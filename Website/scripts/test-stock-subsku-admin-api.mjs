@@ -67,13 +67,17 @@ test("open container route is admin-only and calls open_stock_container", () => 
   assert.doesNotMatch(openContainerRoute, /card_stock_units"\)\.insert/);
 });
 
-test("legacy stock routes understand stockSkuId but keep old group fallback", () => {
+test("legacy stock routes require stockSkuId for adds but keep old remove fallback", () => {
   assert.match(cardStockRoute, /stockSkuId/);
   assert.match(cardStockRoute, /UUID_PATTERN/);
   assert.match(cardStockRoute, /requestedStockSkuId && !UUID_PATTERN\.test/);
+  assert.match(cardStockRoute, /delta > 0 && !stockSkuId/);
+  assert.match(cardStockRoute, /Choose a Sub-SKU before adding stock\./);
   assert.match(cardStockRoute, /conditionRaw \|\| \(stockSkuId \? null : "raw"\)/);
   assert.match(cardStockRoute, /rpc\("adjust_stock_sku_units"/);
   assert.match(cardStockRoute, /rpc\("adjust_card_stock_units"/);
+  assert.match(cardStockRoute, /Main SKU stock could not be adjusted/);
+  assert.doesNotMatch(cardStockRoute, /Global stock could not be adjusted/);
   assert.match(cardStockUnitRoute, /stockSkuId/);
   assert.match(cardStockUnitRoute, /p_stock_sku_id/);
   assert.match(cardStockUnitsRoute, /stock_sku_id/);
@@ -156,6 +160,14 @@ test("admin catalog UI and data loader use first-class stock SKU identity", () =
   assert.match(adminClient, /Stock unit image/);
   assert.match(adminClient, /Main SKU name/);
   assert.match(adminClient, /Select Main SKU/);
+  assert.match(adminClient, /selectedStockSkuId/);
+  assert.match(adminClient, /setSelectedStockSkuId/);
+  assert.match(adminClient, /Choose a Sub-SKU before adding stock\./);
+  assert.match(adminClient, /Create a Sub-SKU before adding stock to this Main SKU\./);
+  assert.match(adminClient, /stockSkuId: selectedStockSkuId/);
+  assert.match(adminClient, /stockQuantityLabel\(effectiveCount, selectedSubSkuGroup\.unitKind\)/);
+  assert.match(adminClient, /disabled=\{isPending \|\| !selectedSubSkuGroup\}/);
+  assert.doesNotMatch(adminClient, /reason: "admin_catalog",\s*\n\s*condition,/);
   assert.match(adminClient, /Related pack product/);
   assert.match(adminClient, /View \{editableUnits\.toLocaleString\(\)\} individual/);
   assert.match(adminClient, /allRows=\{rows\}/);

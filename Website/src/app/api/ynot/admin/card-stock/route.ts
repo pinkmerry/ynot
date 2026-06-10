@@ -103,6 +103,12 @@ export async function POST(request: Request) {
     );
   }
   const stockSkuId = requestedStockSkuId || null;
+  if (delta > 0 && !stockSkuId) {
+    return Response.json(
+      { error: "Choose a Sub-SKU before adding stock." },
+      { status: 400 },
+    );
+  }
   const stockUnitGroupKey = text(body?.stockUnitGroupKey, 240);
   if (delta < 0 && !stockSkuId && !stockUnitGroupKey) {
     return Response.json(
@@ -228,7 +234,7 @@ export async function POST(request: Request) {
     }
     return mappedAdminErrorResponse(error, cardStockErrorMap, {
       code: "CARD_STOCK_ADJUST_FAILED",
-      error: "Global stock could not be adjusted.",
+      error: "Main SKU stock could not be adjusted.",
       status: 409,
     });
   }
