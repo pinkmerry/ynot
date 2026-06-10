@@ -69,6 +69,13 @@ import {
   type StockSkuPackUsage,
 } from "./stock-sku-usage";
 import {
+  mainSkuActionLabels,
+  mainSkuStockSummary,
+  stockQuantityLabel,
+  stockUnitKindLabel as presentationStockUnitKindLabel,
+  subSkuStockRows,
+} from "./stock-sku-presentation";
+import {
   createOpenIntentId,
   openIntentIdempotencyKey,
   stripOpenAutoStartUrl,
@@ -9530,6 +9537,7 @@ function AdminSubSkuManageUnits({
   }
 
   if (editableUnits <= 0) return null;
+  const unitLabel = stockSkuUnitNoun(group.unitKind, editableUnits);
 
   return (
     <details
@@ -9539,8 +9547,7 @@ function AdminSubSkuManageUnits({
       }}
     >
       <summary>
-        Manage {editableUnits.toLocaleString()} unit
-        {editableUnits === 1 ? "" : "s"}
+        View {editableUnits.toLocaleString()} individual {unitLabel}
       </summary>
       {loading ? (
         <p className="admin-card-catalog-empty-usage">Loading units...</p>
@@ -9589,6 +9596,84 @@ function adminStockSkuUnitKind(value: unknown): AdminStockSkuUnitKind {
   return value === "card" || value === "pack" || value === "box" || value === "other"
     ? value
     : "pack";
+}
+
+function stockSkuUnitNoun(
+  value: string | null | undefined,
+  count: number,
+  options: { sentence?: boolean } = {},
+) {
+  const plural = Math.abs(count) !== 1;
+  let noun: string;
+  switch (value) {
+    case "box":
+      noun = plural ? "boxes" : "box";
+      break;
+    case "pack":
+      noun = plural ? "packs" : "pack";
+      break;
+    case "card":
+      noun = plural ? "cards" : "card";
+      break;
+    case "other":
+      noun = plural ? "items" : "item";
+      break;
+    default:
+      noun = plural ? "units" : "unit";
+      break;
+  }
+  return options.sentence ? noun : noun.toLowerCase();
+}
+
+function normalizedRelatedStockCode(card: CardCatalogItem) {
+  return (card.modelCode ?? card.code ?? card.searchCode ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+function cardLooksLikePackProduct(card: CardCatalogItem, groups: StockSkuGroup[]) {
+  return (
+    String(card.catalogCategory ?? "").toLowerCase().includes("pack") ||
+    card.name.toLowerCase().includes("pack") ||
+    groups.some((group) => group.unitKind === "pack")
+  );
+}
+
+function relatedPackProductRows(
+  card: CardCatalogItem,
+  allRows: AdminCardCatalogRow[],
+) {
+  const code = normalizedRelatedStockCode(card);
+  if (!code) return [];
+  return allRows
+    .filter((candidate) => candidate.card.catalogCardId !== card.catalogCardId)
+    .map((candidate) => ({
+      row: candidate,
+      groups: stockSkuGroups(candidate.card),
+    }))
+    .filter(
+      ({ row: candidate, groups }) =>
+        normalizedRelatedStockCode(candidate.card) === code &&
+        cardLooksLikePackProduct(candidate.card, groups),
+    )
+    .slice(0, 3);
+}
+
+function relatedPackTotals(groups: StockSkuGroup[], row: AdminCardCatalogRow) {
+  const packGroups = groups.filter((group) => group.unitKind === "pack");
+  if (!packGroups.length) {
+    return {
+      available: row.stockAvailable,
+      total: row.stockTotal,
+    };
+  }
+  return packGroups.reduce(
+    (totals, group) => ({
+      available: totals.available + group.availableUnits,
+      total: totals.total + group.totalUnits,
+    }),
+    { available: 0, total: 0 },
+  );
 }
 
 function AdminStockSkuEditor({
@@ -9805,34 +9890,33 @@ function AdminOpenBoxButton({ group }: { group: StockSkuGroup }) {
 function AdminStockSkuBreakdown({
   card,
   row,
+  allRows,
 }: {
   card: CardCatalogItem;
   row: AdminCardCatalogRow;
+  allRows: AdminCardCatalogRow[];
 }) {
   const groups = stockSkuGroups(card);
+  const labels = mainSkuActionLabels(card.catalogCategory);
   const assignedUnits = prizeAssignmentQuantity(row.prizes);
   const usageByGroup = stockSkuPackUsageByGroup(groups, row.prizes);
   const activeUnits = Math.max(0, row.stockTotal - row.stockArchived);
-  const availablePackEquivalent = groups.reduce(
-    (sum, group) => sum + Math.max(0, Math.trunc(Number(group.availablePackEquivalent ?? 0))),
-    0,
-  );
+  const relatedPacks = relatedPackProductRows(card, allRows);
+  const stockSummary = mainSkuStockSummary(groups);
+  const subSkuRows = subSkuStockRows(groups);
 
   return (
     <details className="admin-card-stock-breakdown">
       <summary className="admin-card-stock-summary">
-        <span>Stock sub-SKUs</span>
+        <span>Sub-SKU stock</span>
         <strong>
           {groups.length
-            ? `${groups.length.toLocaleString()} sub-SKU${groups.length === 1 ? "" : "s"}`
-            : "No sub-SKU detail"}
-          {assignedUnits ? ` · ${assignedUnits.toLocaleString()} assigned to packs` : ""}
+            ? `${groups.length.toLocaleString()} Sub-SKU${groups.length === 1 ? "" : "s"} · ${stockSummary.headline}`
+            : "No Sub-SKU stock"}
         </strong>
         <em>
-          {row.stockAvailable.toLocaleString()}/{activeUnits.toLocaleString()} active
-          {availablePackEquivalent
-            ? ` · ${availablePackEquivalent.toLocaleString()} packs`
-            : ""}
+          {labels.stockSummary} {row.stockAvailable.toLocaleString()}/
+          {activeUnits.toLocaleString()} active
         </em>
       </summary>
 
@@ -9841,8 +9925,19 @@ function AdminStockSkuBreakdown({
       </div>
 
       {groups.length ? (
-        <div className="admin-stock-sku-list">
+        <div className="admin-stock-sku-table" role="table" aria-label="Sub-SKU stock">
+          <div className="admin-stock-sku-table-head" role="row">
+            <span role="columnheader">Sub-SKU</span>
+            <span role="columnheader">Type</span>
+            <span role="columnheader">Available</span>
+            <span role="columnheader">Allocated</span>
+            <span role="columnheader">Total</span>
+            <span role="columnheader">Pack equivalent</span>
+            <span role="columnheader">Conversion</span>
+          </div>
           {groups.map((group) => {
+            const stockRow = subSkuRows.find((candidate) => candidate.key === group.key);
+            if (!stockRow) return null;
             const packUsages = usageByGroup.get(group.key) ?? [];
             const packUsageUnits = packUsages.reduce(
               (sum, usage) => sum + usage.units,
@@ -9852,68 +9947,113 @@ function AdminStockSkuBreakdown({
               group.imageUrl ??
               group.units.find((unit) => unit.imageUrl)?.imageUrl ??
               null;
+            const missingPackConversion =
+              group.unitKind === "box" && !group.childQuantity;
+            const packEquivalent =
+              group.unitKind === "box" && group.childQuantity
+                ? Math.max(0, group.totalUnits) * group.childQuantity
+                : group.unitKind === "pack"
+                  ? Math.max(0, group.totalUnits)
+                  : Math.max(0, Math.trunc(Number(group.packEquivalent ?? 0)));
+            const packEquivalentLabel =
+              packEquivalent > 0 ? stockQuantityLabel(packEquivalent, "pack") : "-";
             return (
-              <article className="admin-stock-sku-row" key={group.key}>
-                <div className="admin-stock-sku-main">
-                  <div className="admin-stock-sku-lead">
-                    {repImage ? (
-                      <a
-                        className="admin-stock-sku-thumb"
-                        href={repImage}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Open full image"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={repImage} alt={group.label} />
-                      </a>
-                    ) : (
-                      <span className="admin-stock-sku-thumb is-empty" aria-hidden>
-                        No image
-                      </span>
-                    )}
-                    <div className="admin-stock-sku-identity">
-                      <strong>{group.label}</strong>
-                      <code className="admin-stock-sku-code">{group.sku}</code>
-                    </div>
-                  </div>
-                  <small>
-                    {group.availableUnits.toLocaleString()}/
-                    {group.totalUnits.toLocaleString()} available
-                  </small>
+              <article className="admin-stock-sku-row" key={group.key} role="row">
+                <div
+                  className="admin-stock-sku-cell admin-stock-sku-cell-main"
+                  role="cell"
+                >
+                  {repImage ? (
+                    <a
+                      className="admin-stock-sku-thumb"
+                      href={repImage}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Open full image"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={repImage} alt={group.label} />
+                    </a>
+                  ) : (
+                    <span className="admin-stock-sku-thumb is-empty" aria-hidden>
+                      No image
+                    </span>
+                  )}
+                  <span className="admin-stock-sku-identity">
+                    <strong>{group.label}</strong>
+                    <code className="admin-stock-sku-code">{group.sku}</code>
+                  </span>
                 </div>
+                <span className="admin-stock-sku-cell" role="cell">
+                  <span className="admin-stock-sku-kind">
+                    {presentationStockUnitKindLabel(group.unitKind)}
+                  </span>
+                </span>
+                <strong className="admin-stock-sku-cell admin-stock-sku-number" role="cell">
+                  {stockRow.availableLabel}
+                </strong>
+                <span className="admin-stock-sku-cell admin-stock-sku-number" role="cell">
+                  {stockQuantityLabel(group.allocatedUnits, group.unitKind)}
+                </span>
+                <span className="admin-stock-sku-cell admin-stock-sku-number" role="cell">
+                  {stockRow.totalLabel}
+                </span>
+                <span className="admin-stock-sku-cell admin-stock-sku-number" role="cell">
+                  {packEquivalentLabel}
+                </span>
+                <span className="admin-stock-sku-cell" role="cell">
+                  {stockRow.conversionLabel}
+                </span>
+
                 <div className="admin-stock-sku-statuses">
-                  {group.availableUnits ? (
-                    <span>{group.availableUnits.toLocaleString()} available</span>
-                  ) : null}
                   {group.reservedUnits ? (
-                    <span>{group.reservedUnits.toLocaleString()} reserved</span>
-                  ) : null}
-                  {group.allocatedUnits ? (
-                    <span>{group.allocatedUnits.toLocaleString()} allocated</span>
+                    <span>{stockQuantityLabel(group.reservedUnits, group.unitKind)} reserved</span>
                   ) : null}
 	                  {packUsageUnits ? (
 	                    <span>
                       {packUsageUnits.toLocaleString()} used in{" "}
-                      {packUsages.length.toLocaleString()} pack row
+                      {packUsages.length.toLocaleString()} random pack row
                       {packUsages.length === 1 ? "" : "s"}
 	                    </span>
 	                  ) : null}
-                  {group.unitKind ? <span>{group.unitKind}</span> : null}
-                  {group.availablePackEquivalent !== null &&
-                  group.availablePackEquivalent !== undefined ? (
-                    <span>
-                      {group.availablePackEquivalent.toLocaleString()} pack
-                      {group.availablePackEquivalent === 1 ? "" : "s"} left
-                    </span>
-                  ) : null}
-                  {group.unitKind === "box" && group.childQuantity ? (
-                    <span>
-                      1 box = {group.childQuantity.toLocaleString()}{" "}
-                      {group.childSku || group.childLabel || "packs"}
-                    </span>
-                  ) : null}
 	                </div>
+
+                {stockRow.warning ? (
+                  <div className="admin-stock-sku-note is-warning">
+                    {stockRow.warning}
+                  </div>
+                ) : null}
+
+                {missingPackConversion && relatedPacks.length ? (
+                  <div className="admin-stock-sku-related">
+                    <div className="admin-stock-sku-related-head">
+                      <span>Related pack product</span>
+                      <strong>{relatedPacks.length.toLocaleString()} found</strong>
+                    </div>
+                    {relatedPacks.map(({ row: relatedRow, groups: relatedGroups }) => {
+                      const totals = relatedPackTotals(relatedGroups, relatedRow);
+                      const packGroup =
+                        relatedGroups.find((candidate) => candidate.unitKind === "pack") ??
+                        relatedGroups[0];
+                      return (
+                        <div
+                          className="admin-stock-sku-related-row"
+                          key={relatedRow.card.catalogCardId}
+                        >
+                          <span>
+                            <strong>{relatedRow.card.name}</strong>
+                            <small>{packGroup?.sku ?? relatedRow.card.code}</small>
+                          </span>
+                          <em>
+                            {stockQuantityLabel(totals.available, "pack")} left /{" "}
+                            {stockQuantityLabel(totals.total, "pack")} total
+                          </em>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
 	                <AdminSubSkuQuantity cardId={card.catalogCardId} group={group} />
                 {group.stockSkuId ? (
                   <AdminStockSkuEditor card={card} group={group} groups={groups} />
@@ -9927,9 +10067,9 @@ function AdminStockSkuBreakdown({
         </div>
       ) : (
         <p className="admin-card-catalog-empty-usage">
-          {activeUnits
-            ? "Stock exists for this main SKU, but detailed sub-SKU rows are not loaded yet."
-            : "Create the first Sub SKU for this main SKU before adding pack or box stock."}
+          {assignedUnits || activeUnits
+            ? "Main SKU stock exists, but no editable Sub-SKU rows are loaded yet."
+            : "Create the first Sub-SKU before adding stock to this Main SKU."}
         </p>
       )}
     </details>
@@ -10954,7 +11094,7 @@ export function AdminCardCatalogPanel({
 
                 <div className="admin-card-catalog-metrics">
                   <div className="admin-card-catalog-metric">
-                    <span>Global stock</span>
+                    <span>Main SKU stock</span>
                     <strong>
                       {row.stockAvailable.toLocaleString()}/
                       {row.stockTotal.toLocaleString()}
@@ -10968,7 +11108,7 @@ export function AdminCardCatalogPanel({
                     </small>
                   </div>
                   <div className="admin-card-catalog-metric">
-                    <span>Prize pool</span>
+                    <span>Random pack stock</span>
                     <strong>
                       {row.packAvailableUnits.toLocaleString()}/
                       {row.packTotalUnits.toLocaleString()}
@@ -10983,7 +11123,7 @@ export function AdminCardCatalogPanel({
                     </small>
                   </div>
                   <div className="admin-card-catalog-metric">
-                    <span>Assignments</span>
+                    <span>Random pack assignments</span>
                     <strong>{row.prizes.length.toLocaleString()}</strong>
                     <small>
                       {row.prizes.length
@@ -10999,7 +11139,7 @@ export function AdminCardCatalogPanel({
                   </div>
                 </div>
 
-                <AdminStockSkuBreakdown card={card} row={row} />
+                <AdminStockSkuBreakdown card={card} row={row} allRows={rows} />
 
                 <div className="admin-card-stock-actions">
                   {currentStockDraft ? (

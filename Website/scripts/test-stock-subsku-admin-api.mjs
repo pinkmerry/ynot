@@ -33,6 +33,7 @@ const localStockSubSkuAccess = read(
 );
 const adminClient = read("../src/features/ynot/client.tsx");
 const adminData = read("../src/features/ynot/data.ts");
+const stockSkuPresentation = read("../src/features/ynot/stock-sku-presentation.ts");
 const stockSkuUsage = read("../src/features/ynot/stock-sku-usage.ts");
 const schemaCompat = read("../src/lib/supabase/schema-compat.ts");
 
@@ -125,6 +126,21 @@ test("admin catalog UI and data loader use first-class stock SKU identity", () =
   assert.match(adminClient, /fetchEditableStockUnits\(cardId, group\.key, group\.stockSkuId\)/);
   assert.match(adminClient, /function editableUnitIdentityChanged/);
   assert.match(adminClient, /\.\.\.\(keepCurrentStockSkuId \? \{ stockSkuId: unit\.stockSkuId \} : \{\}\)/);
+  assert.match(adminClient, /Conversion/);
+  assert.match(adminClient, /Sub-SKU stock/);
+  assert.match(adminClient, /Main SKU stock/);
+  assert.match(adminClient, /Random pack stock/);
+  assert.match(adminClient, /Random pack assignments/);
+  assert.match(adminClient, /subSkuStockRows\(groups\)/);
+  assert.match(adminClient, /mainSkuStockSummary\(groups\)/);
+  assert.match(adminClient, /Pack equivalent/);
+  assert.match(
+    `${adminClient}\n${stockSkuPresentation}`,
+    /Set packs per box and choose a child Pack Sub-SKU/,
+  );
+  assert.match(adminClient, /Related pack product/);
+  assert.match(adminClient, /View \{editableUnits\.toLocaleString\(\)\} individual/);
+  assert.match(adminClient, /allRows=\{rows\}/);
   assert.doesNotMatch(
     adminClient,
     /stockSkuId:\s*unit\.stockSkuId\s*\?\?\s*undefined/,
@@ -133,7 +149,7 @@ test("admin catalog UI and data loader use first-class stock SKU identity", () =
     adminClient,
     /if \(!groups\.length && !activeUnits && !assignedUnits\) return null;/,
   );
-  assert.match(adminClient, /Create the first Sub SKU for this main SKU/);
+  assert.match(adminClient, /Create the first Sub-SKU before adding stock to this Main SKU/);
   assert.match(adminClient, /availablePackEquivalent/);
   assert.match(stockSkuUsage, /function summaryStockUnitIdentity/);
   assert.match(stockSkuUsage, /parsedLegacyStockUnitKey\(legacyStockUnitGroupKey\(row\)\)/);
