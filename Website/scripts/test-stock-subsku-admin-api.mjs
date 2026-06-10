@@ -154,7 +154,7 @@ test("admin catalog UI and data loader use first-class stock SKU identity", () =
   assert.match(adminClient, />\s*Edit Main SKU\s*</);
   assert.match(adminClient, />\s*Delete Main SKU\s*</);
   assert.match(adminClient, />\s*Add Sub-SKU stock\s*</);
-  assert.match(adminClient, /Card image/);
+  assert.match(adminClient, /Drop an item image here/);
   assert.match(adminClient, /Main SKU image/);
   assert.match(adminClient, /With Main SKU stock/);
   assert.match(adminClient, /Main SKU \/ Sub-SKU/);

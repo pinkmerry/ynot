@@ -2789,7 +2789,7 @@ function AdminImageDropzone({
   disabled,
   cardCode,
   cardName,
-  label = "Card image",
+  label = "Main SKU image",
   hint = "JPG, PNG, or WEBP. Uploaded to Supabase storage.",
 }: {
   imageUrl: string;
@@ -2872,7 +2872,7 @@ function AdminImageDropzone({
             openFilePicker();
           }
         }}
-        aria-label={`Upload image for ${cardName?.trim() || "card"}`}
+        aria-label={`Upload image for ${cardName?.trim() || "catalog item"}`}
       >
         <div className="admin-image-dropzone-thumb">
           <AdminPrizeCardImage
@@ -2883,7 +2883,7 @@ function AdminImageDropzone({
         </div>
         <div className="admin-image-dropzone-body">
           <strong className="admin-image-dropzone-title">
-            {hasPreview ? "Image ready" : "Drop a card image here"}
+            {hasPreview ? "Image ready" : "Drop an item image here"}
           </strong>
           <p className="admin-image-dropzone-hint">{hint}</p>
           <div className="admin-image-dropzone-actions">
