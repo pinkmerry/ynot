@@ -220,7 +220,7 @@ export function stockSkuWarning(group: StockSkuGroup) {
     stockUnitKindType(group.unitKind) === "box" &&
     stockSkuConversionLabel(group) === "Pack conversion not set"
   ) {
-    return "Set packs per box and choose a child Pack Sub-SKU before opening boxes.";
+    return "Set packs per box and choose a child Pack Sub-SKU before opening boxes. Pack totals are calculated as boxes multiplied by packs per box only after this conversion is set.";
   }
   return null;
 }

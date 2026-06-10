@@ -9891,10 +9891,10 @@ function AdminStockSkuEditor({
         {unitKind === "box" ? (
           <>
             <div className="admin-stock-sku-editor-hint" id={boxPackHintId}>
-              Set how many packs are inside one sealed box. Different products can use different pack counts, for example One Piece 24, Pokemon 30, or Pokemon 36.
+              Set how many packs are inside one sealed box. Conversion rule: boxes x packs inside 1 box = pack equivalent. Create the Pack Sub-SKU under this same Main SKU first, then choose it here. Different products can use different pack counts, for example One Piece 24, Pokemon 30, or Pokemon 36.
             </div>
             <label>
-              <span>Child pack SKU</span>
+              <span>Pack Sub-SKU created from this box</span>
               <select
                 aria-describedby={boxPackHintId}
                 value={childStockSkuId}
@@ -9903,8 +9903,8 @@ function AdminStockSkuEditor({
               >
                 <option value="">
                   {packOptions.length
-                    ? "Choose child Pack Sub-SKU"
-                    : "Create a Pack Sub-SKU first, then set packs per box"}
+                    ? "Choose Pack Sub-SKU"
+                    : "Create a Pack Sub-SKU first, then set packs per box on this Main SKU"}
                 </option>
                 {packOptions.map((option) => (
                   <option key={option.stockSkuId ?? option.key} value={option.stockSkuId ?? ""}>
@@ -9914,7 +9914,7 @@ function AdminStockSkuEditor({
               </select>
             </label>
             <label>
-              <span>Packs per box</span>
+              <span>Packs per box (inside 1 box)</span>
               <input
                 aria-describedby={boxPackHintId}
                 type="number"
@@ -9925,7 +9925,7 @@ function AdminStockSkuEditor({
                 placeholder="24"
                 onChange={(event) => setChildQuantity(event.target.value)}
               />
-              <small>Use 30 for boxes that contain 30 packs.</small>
+              <small>This value is saved when you create or edit the Box Sub-SKU.</small>
             </label>
           </>
         ) : null}
@@ -10045,14 +10045,30 @@ function AdminStockSkuBreakdown({
               null;
             const missingPackConversion =
               group.unitKind === "box" && !group.childQuantity;
-            const packEquivalent =
+            const availablePackEquivalent =
+              group.unitKind === "box" && group.childQuantity
+                ? Math.max(0, group.availableUnits) * group.childQuantity
+                : group.unitKind === "pack"
+                  ? Math.max(0, group.availableUnits)
+                  : Math.max(0, Math.trunc(Number(group.packEquivalent ?? 0)));
+            const totalPackEquivalent =
               group.unitKind === "box" && group.childQuantity
                 ? Math.max(0, group.totalUnits) * group.childQuantity
                 : group.unitKind === "pack"
                   ? Math.max(0, group.totalUnits)
                   : Math.max(0, Math.trunc(Number(group.packEquivalent ?? 0)));
             const packEquivalentLabel =
-              packEquivalent > 0 ? stockQuantityLabel(packEquivalent, "pack") : "-";
+              missingPackConversion
+                ? "Not calculated"
+                : `${stockQuantityLabel(availablePackEquivalent, "pack")} left`;
+            const packEquivalentDetail =
+              missingPackConversion
+                ? "Set packs inside 1 box"
+                : group.unitKind === "box" && group.childQuantity
+                  ? `${stockQuantityLabel(group.availableUnits, "box")} x ${group.childQuantity.toLocaleString()} = ${stockQuantityLabel(availablePackEquivalent, "pack")} left · ${stockQuantityLabel(group.totalUnits, "box")} x ${group.childQuantity.toLocaleString()} = ${stockQuantityLabel(totalPackEquivalent, "pack")} total`
+                  : totalPackEquivalent !== availablePackEquivalent
+                    ? `${stockQuantityLabel(totalPackEquivalent, "pack")} total`
+                    : null;
             return (
               <article className="admin-stock-sku-row" key={group.key} role="row">
                 <div
@@ -10080,25 +10096,44 @@ function AdminStockSkuBreakdown({
                     <code className="admin-stock-sku-code">{group.sku}</code>
                   </span>
                 </div>
-                <span className="admin-stock-sku-cell" role="cell">
+                <span className="admin-stock-sku-cell admin-stock-sku-stat" role="cell">
+                  <small>Stock type</small>
                   <span className="admin-stock-sku-kind">
                     {presentationStockUnitKindLabel(group.unitKind)}
                   </span>
                 </span>
-                <strong className="admin-stock-sku-cell admin-stock-sku-number" role="cell">
-                  {stockRow.availableLabel}
-                </strong>
-                <span className="admin-stock-sku-cell admin-stock-sku-number" role="cell">
-                  {stockQuantityLabel(group.allocatedUnits, group.unitKind)}
+                <span
+                  className="admin-stock-sku-cell admin-stock-sku-number admin-stock-sku-stat"
+                  role="cell"
+                >
+                  <small>Available global</small>
+                  <strong>{stockRow.availableLabel}</strong>
                 </span>
-                <span className="admin-stock-sku-cell admin-stock-sku-number" role="cell">
-                  {stockRow.totalLabel}
+                <span
+                  className="admin-stock-sku-cell admin-stock-sku-number admin-stock-sku-stat"
+                  role="cell"
+                >
+                  <small>Allocated in random packs</small>
+                  <strong>{stockQuantityLabel(group.allocatedUnits, group.unitKind)}</strong>
                 </span>
-                <span className="admin-stock-sku-cell admin-stock-sku-number" role="cell">
-                  {packEquivalentLabel}
+                <span
+                  className="admin-stock-sku-cell admin-stock-sku-number admin-stock-sku-stat"
+                  role="cell"
+                >
+                  <small>Total in system</small>
+                  <strong>{stockRow.totalLabel}</strong>
                 </span>
-                <span className="admin-stock-sku-cell" role="cell">
-                  {stockRow.conversionLabel}
+                <span
+                  className="admin-stock-sku-cell admin-stock-sku-number admin-stock-sku-stat"
+                  role="cell"
+                >
+                  <small>Pack equivalent</small>
+                  <strong>{packEquivalentLabel}</strong>
+                  {packEquivalentDetail ? <em>{packEquivalentDetail}</em> : null}
+                </span>
+                <span className="admin-stock-sku-cell admin-stock-sku-stat" role="cell">
+                  <small>Conversion rule</small>
+                  <strong>{stockRow.conversionLabel}</strong>
                 </span>
 
                 <div className="admin-stock-sku-statuses">

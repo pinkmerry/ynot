@@ -222,11 +222,11 @@ test("warns when a Box Sub-SKU cannot convert into child Pack stock", () => {
   );
   assert.equal(
     presentation.stockSkuWarning(missingChildPack),
-    "Set packs per box and choose a child Pack Sub-SKU before opening boxes.",
+    "Set packs per box and choose a child Pack Sub-SKU before opening boxes. Pack totals are calculated as boxes multiplied by packs per box only after this conversion is set.",
   );
   assert.equal(
     presentation.subSkuStockRows([missingChildPack])[0].warning,
-    "Set packs per box and choose a child Pack Sub-SKU before opening boxes.",
+    "Set packs per box and choose a child Pack Sub-SKU before opening boxes. Pack totals are calculated as boxes multiplied by packs per box only after this conversion is set.",
   );
 });
 

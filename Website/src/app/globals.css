@@ -32405,6 +32405,36 @@ html[data-ynot-theme] .admin-frame .admin-stock-sku-cell {
   overflow-wrap: anywhere;
 }
 
+html[data-ynot-theme] .admin-frame .admin-stock-sku-stat {
+  align-content: center;
+  display: grid;
+  gap: 3px;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-stat small {
+  color: var(--a-muted, #9b9daf) !important;
+  font-size: 0.56rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-stat strong {
+  color: var(--a-fg, #f4efe1) !important;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-stat em {
+  color: var(--a-muted, #9b9daf) !important;
+  font-size: 0.66rem;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
 html[data-ynot-theme] .admin-frame .admin-stock-sku-cell-main {
   align-items: center;
   display: flex;
