@@ -32,6 +32,7 @@ const localStockSubSkuAccess = read(
   "../src/features/ynot/local-stock-subsku-access.ts",
 );
 const adminClient = read("../src/features/ynot/client.tsx");
+const adminCss = read("../src/app/globals.css");
 const adminData = read("../src/features/ynot/data.ts");
 const stockSkuPresentation = read("../src/features/ynot/stock-sku-presentation.ts");
 const stockSkuUsage = read("../src/features/ynot/stock-sku-usage.ts");
@@ -181,6 +182,13 @@ test("admin catalog UI and data loader use first-class stock SKU identity", () =
   );
   assert.match(adminClient, /Create the first Sub-SKU before adding stock to this Main SKU/);
   assert.match(adminClient, /availablePackEquivalent/);
+  assert.match(adminClient, /Packs per box/);
+  assert.match(adminClient, /Different products can use different pack counts/);
+  assert.match(adminClient, /Create a Pack Sub-SKU first, then set packs per box/);
+  assert.match(adminClient, /Set how many packs are inside one sealed box/);
+  assert.match(adminClient, /aria-describedby=\{boxPackHintId\}/);
+  assert.match(adminCss, /admin-stock-sku-editor-hint/);
+  assert.match(adminCss, /admin-stock-sku-editor-grid small/);
   assert.match(stockSkuUsage, /function summaryStockUnitIdentity/);
   assert.match(stockSkuUsage, /parsedLegacyStockUnitKey\(legacyStockUnitGroupKey\(row\)\)/);
   assert.match(stockSkuUsage, /stockSkuId\?: string \| null/);

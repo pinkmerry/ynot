@@ -9787,6 +9787,7 @@ function AdminStockSkuEditor({
   const [message, setMessage] = useState("");
   const isEditing = Boolean(group?.stockSkuId);
   const unitKindLocked = isEditing && Math.max(0, group?.totalUnits ?? 0) > 0;
+  const boxPackHintId = `box-pack-hint-${group?.stockSkuId ?? card.catalogCardId}`;
 
   function save() {
     startBusy(async () => {
@@ -9879,15 +9880,21 @@ function AdminStockSkuEditor({
         </label>
         {unitKind === "box" ? (
           <>
+            <div className="admin-stock-sku-editor-hint" id={boxPackHintId}>
+              Set how many packs are inside one sealed box. Different products can use different pack counts, for example One Piece 24, Pokemon 30, or Pokemon 36.
+            </div>
             <label>
               <span>Child pack SKU</span>
               <select
+                aria-describedby={boxPackHintId}
                 value={childStockSkuId}
                 disabled={busy || !packOptions.length}
                 onChange={(event) => setChildStockSkuId(event.target.value)}
               >
                 <option value="">
-                  {packOptions.length ? "Choose pack SKU" : "Create a pack SKU first"}
+                  {packOptions.length
+                    ? "Choose child Pack Sub-SKU"
+                    : "Create a Pack Sub-SKU first, then set packs per box"}
                 </option>
                 {packOptions.map((option) => (
                   <option key={option.stockSkuId ?? option.key} value={option.stockSkuId ?? ""}>
@@ -9899,6 +9906,7 @@ function AdminStockSkuEditor({
             <label>
               <span>Packs per box</span>
               <input
+                aria-describedby={boxPackHintId}
                 type="number"
                 min={1}
                 max={1000}
@@ -9907,6 +9915,7 @@ function AdminStockSkuEditor({
                 placeholder="24"
                 onChange={(event) => setChildQuantity(event.target.value)}
               />
+              <small>Use 30 for boxes that contain 30 packs.</small>
             </label>
           </>
         ) : null}

@@ -32676,6 +32676,25 @@ html[data-ynot-theme] .admin-frame .admin-stock-sku-editor-grid span {
   text-transform: uppercase;
 }
 
+html[data-ynot-theme] .admin-frame .admin-stock-sku-editor-hint {
+  background: rgba(241, 215, 124, 0.08);
+  border: 1px solid rgba(241, 215, 124, 0.18);
+  border-radius: 8px;
+  color: var(--a-fg-dim, #c8c8d8) !important;
+  font-size: 0.72rem;
+  font-weight: 800;
+  grid-column: 1 / -1;
+  line-height: 1.45;
+  padding: 9px 10px;
+  text-wrap: pretty;
+}
+
+html[data-ynot-theme] .admin-frame .admin-stock-sku-editor-grid small {
+  color: var(--a-muted, #9b9daf) !important;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
 html[data-ynot-theme] .admin-frame .admin-stock-sku-editor-grid input,
 html[data-ynot-theme] .admin-frame .admin-stock-sku-editor-grid select {
   background: rgba(0, 0, 0, 0.24);
