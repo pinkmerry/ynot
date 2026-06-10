@@ -271,7 +271,8 @@ create or replace function public.upsert_stock_sku(
   p_parent_stock_sku_id uuid default null,
   p_child_stock_sku_id uuid default null,
   p_child_quantity integer default null,
-  p_admin_id uuid default null
+  p_admin_id uuid default null,
+  p_clear_conversion_rule boolean default false
 )
 returns jsonb
 language plpgsql
@@ -331,6 +332,15 @@ begin
     end if;
 
     target_kind := coalesce(normalized_kind, existing_sku.unit_kind);
+    if target_kind <> existing_sku.unit_kind and exists (
+      select 1
+      from public.card_stock_units stock
+      where stock.stock_sku_id = existing_sku.id
+        and stock.status not in ('deleted', 'archived')
+    ) then
+      raise exception 'stock_sku_unit_kind_locked';
+    end if;
+
     if target_kind <> 'pack' and exists (
       select 1
       from public.stock_sku_conversion_rules rule
@@ -362,6 +372,16 @@ begin
   end if;
 
   if saved_sku.unit_kind <> 'box' then
+    update public.stock_sku_conversion_rules
+    set is_active = false,
+        updated_at = now()
+    where parent_stock_sku_id = saved_sku.id
+      and is_active;
+  end if;
+
+  if saved_sku.unit_kind = 'box'
+    and p_clear_conversion_rule
+    and p_child_stock_sku_id is null then
     update public.stock_sku_conversion_rules
     set is_active = false,
         updated_at = now()
@@ -684,18 +704,23 @@ as $$
           'stockSkuId', sku.id,
           'stockUnitGroupKey', concat('stock-sku:', sku.id::text),
           'legacyStockUnitGroupKey', case
-            when stock_sku_counts.legacy_condition is not null then concat_ws(
+            when coalesce(stock_sku_counts.legacy_condition, nullif(sku.metadata -> 'backfillIdentity' ->> 'condition', '')) is not null then concat_ws(
               chr(31),
-              stock_sku_counts.legacy_condition,
-              coalesce(stock_sku_counts.legacy_grade, ''),
-              coalesce(stock_sku_counts.legacy_grading_service, ''),
-              coalesce(stock_sku_counts.legacy_cert_number, ''),
-              coalesce(stock_sku_counts.legacy_gemrate_id, '')
+              coalesce(stock_sku_counts.legacy_condition, nullif(sku.metadata -> 'backfillIdentity' ->> 'condition', '')),
+              coalesce(stock_sku_counts.legacy_grade, nullif(sku.metadata -> 'backfillIdentity' ->> 'grade', ''), ''),
+              coalesce(stock_sku_counts.legacy_grading_service, nullif(sku.metadata -> 'backfillIdentity' ->> 'gradingService', ''), ''),
+              coalesce(stock_sku_counts.legacy_cert_number, nullif(sku.metadata -> 'backfillIdentity' ->> 'certNumber', ''), ''),
+              coalesce(stock_sku_counts.legacy_gemrate_id, nullif(sku.metadata -> 'backfillIdentity' ->> 'gemrateId', ''), '')
             )
           end,
           'sku', sku.sku_code,
           'label', sku.label,
           'unitKind', sku.unit_kind,
+          'condition', coalesce(stock_sku_counts.legacy_condition, nullif(sku.metadata -> 'backfillIdentity' ->> 'condition', '')),
+          'grade', coalesce(stock_sku_counts.legacy_grade, nullif(sku.metadata -> 'backfillIdentity' ->> 'grade', '')),
+          'gradingService', coalesce(stock_sku_counts.legacy_grading_service, nullif(sku.metadata -> 'backfillIdentity' ->> 'gradingService', '')),
+          'certNumber', coalesce(stock_sku_counts.legacy_cert_number, nullif(sku.metadata -> 'backfillIdentity' ->> 'certNumber', '')),
+          'gemrateId', coalesce(stock_sku_counts.legacy_gemrate_id, nullif(sku.metadata -> 'backfillIdentity' ->> 'gemrateId', '')),
           'imageUrl', coalesce(nullif(sku.image_url, ''), stock_sku_counts.sample_unit_image_url),
           'imageStoragePath', sku.image_storage_path,
           'totalUnits', coalesce(stock_sku_counts.total_units, 0),
@@ -879,8 +904,8 @@ begin
         case when normalized_condition = 'graded' then nullif(p_grading_service, '') else null end,
         case when normalized_condition = 'graded' then nullif(p_cert_number, '') else null end,
         case when normalized_condition = 'graded' then nullif(p_gemrate_id, '') else null end,
-        nullif(p_image_url, ''),
-        nullif(p_image_storage_path, ''),
+        coalesce(nullif(p_image_url, ''), sku_row.image_url),
+        coalesce(nullif(p_image_storage_path, ''), sku_row.image_storage_path),
         coalesce(nullif(p_source_type, ''), 'admin_stock_adjusted'),
         nullif(p_source_id, ''),
         p_admin_id,
@@ -1280,8 +1305,8 @@ begin
         'container_child_created',
         parent_unit.id::text,
         p_admin_id,
-        null,
-        null,
+        child_sku.image_url,
+        child_sku.image_storage_path,
         jsonb_build_object(
           'createdByOpeningStockUnitId', parent_unit.id,
           'openedByAdminId', p_admin_id,
@@ -1429,6 +1454,22 @@ begin
     raise exception 'stock_unit_not_editable';
   end if;
 
+  if v_stock_sku_id is not null
+    and (
+      coalesce(nullif(v_unit.condition, ''), 'raw') <> v_condition
+      or (
+        v_condition = 'graded'
+        and (
+          coalesce(v_unit.grade, '') <> coalesce(v_grade, '')
+          or coalesce(v_unit.grading_service, '') <> coalesce(v_grading_service, '')
+          or coalesce(v_unit.cert_number, '') <> coalesce(v_cert_number, '')
+          or coalesce(v_unit.gemrate_id, '') <> coalesce(v_gemrate_id, '')
+        )
+      )
+    ) then
+    v_stock_sku_id := null;
+  end if;
+
   if v_stock_sku_id is not null and not exists (
     select 1
     from public.stock_skus sku
@@ -1449,14 +1490,19 @@ begin
     raise exception 'stock_cert_number_already_used';
   end if;
 
-  if v_stock_sku_id is null
-    and coalesce(nullif(v_unit.condition, ''), 'raw') = v_condition
-    and coalesce(v_unit.grade, '') = coalesce(v_grade, '')
-    and coalesce(v_unit.grading_service, '') = coalesce(v_grading_service, '')
-    and coalesce(v_unit.cert_number, '') = coalesce(v_cert_number, '')
-    and coalesce(v_unit.gemrate_id, '') = coalesce(v_gemrate_id, '') then
-    v_stock_sku_id := v_unit.stock_sku_id;
-  end if;
+	  if v_stock_sku_id is null
+	    and coalesce(nullif(v_unit.condition, ''), 'raw') = v_condition
+	    and (
+	      v_condition <> 'graded'
+	      or (
+	        coalesce(v_unit.grade, '') = coalesce(v_grade, '')
+	        and coalesce(v_unit.grading_service, '') = coalesce(v_grading_service, '')
+	        and coalesce(v_unit.cert_number, '') = coalesce(v_cert_number, '')
+	        and coalesce(v_unit.gemrate_id, '') = coalesce(v_gemrate_id, '')
+	      )
+	    ) then
+	    v_stock_sku_id := v_unit.stock_sku_id;
+	  end if;
   if v_stock_sku_id is null then
     v_stock_sku_id := app_private.ensure_default_stock_sku(
       v_unit.card_id,
@@ -1798,7 +1844,7 @@ revoke all on table public.stock_sku_conversion_rules from public, anon, authent
 grant all on table public.stock_skus to service_role;
 grant all on table public.stock_sku_conversion_rules to service_role;
 
-revoke all on function public.upsert_stock_sku(uuid, uuid, text, text, text, text, text, uuid, uuid, integer, uuid) from public, anon, authenticated;
+revoke all on function public.upsert_stock_sku(uuid, uuid, text, text, text, text, text, uuid, uuid, integer, uuid, boolean) from public, anon, authenticated;
 revoke all on function public.get_admin_stock_sku_summary(uuid) from public, anon, authenticated;
 revoke all on function public.get_admin_prize_stock_summaries(uuid[]) from public, anon, authenticated;
 revoke all on function public.adjust_stock_sku_units(uuid, integer, uuid, text, text, jsonb, text, text, text, text, text, text, text) from public, anon, authenticated;
@@ -1808,7 +1854,7 @@ revoke all on function public.edit_card_stock_unit(uuid, uuid, text, text, text,
 revoke all on function public.card_stock_unit_matches_prize_filter(public.card_stock_units, jsonb) from public, anon, authenticated;
 revoke all on function app_private.ensure_default_stock_sku(uuid, text, text, text, text, text, text, text) from public, anon, authenticated;
 
-grant execute on function public.upsert_stock_sku(uuid, uuid, text, text, text, text, text, uuid, uuid, integer, uuid) to service_role;
+grant execute on function public.upsert_stock_sku(uuid, uuid, text, text, text, text, text, uuid, uuid, integer, uuid, boolean) to service_role;
 grant execute on function public.get_admin_stock_sku_summary(uuid) to service_role;
 grant execute on function public.get_admin_prize_stock_summaries(uuid[]) to service_role;
 grant execute on function public.adjust_stock_sku_units(uuid, integer, uuid, text, text, jsonb, text, text, text, text, text, text, text) to service_role;

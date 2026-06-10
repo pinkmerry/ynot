@@ -24,6 +24,17 @@ const shippingRoute = read("../src/app/api/ynot/shipping/route.ts");
 const adminShippingRoute = read("../src/app/api/ynot/admin/shipping/route.ts");
 const collectionConvertRoute = read("../src/app/api/ynot/collection/convert/route.ts");
 const exchangeRoute = read("../src/app/api/ynot/exchange/route.ts");
+const localReadinessPage = read("../src/app/(store)/local-readiness/page.tsx");
+const localStockSubSkuPage = read(
+  "../src/app/(store)/local-stock-subsku-test/page.tsx",
+);
+const localStockSubSkuAccess = read(
+  "../src/features/ynot/local-stock-subsku-access.ts",
+);
+const adminClient = read("../src/features/ynot/client.tsx");
+const adminData = read("../src/features/ynot/data.ts");
+const stockSkuUsage = read("../src/features/ynot/stock-sku-usage.ts");
+const schemaCompat = read("../src/lib/supabase/schema-compat.ts");
 
 test("stock SKU route is admin-only and calls summary/upsert RPCs", () => {
   assert.match(stockSkusRoute, /resolveAdminSession/);
@@ -33,7 +44,10 @@ test("stock SKU route is admin-only and calls summary/upsert RPCs", () => {
   assert.match(stockSkusRoute, /rpc\("upsert_stock_sku"/);
   assert.match(stockSkusRoute, /unitKind/);
   assert.match(stockSkusRoute, /childQuantity/);
+  assert.match(stockSkusRoute, /clearConversionRule/);
   assert.match(stockSkusRoute, /const unitKind = unitKindRaw \|\| null/);
+  assert.match(stockSkusRoute, /hasOwn\(body,\s*"imageUrl"\)/);
+  assert.match(stockSkusRoute, /p_clear_conversion_rule: clearConversionRule/);
   assert.match(stockSkusRoute, /requestedStockSkuId\.invalid/);
   assert.match(stockSkusRoute, /requestedChildStockSkuId\.invalid/);
   assert.doesNotMatch(
@@ -76,4 +90,74 @@ test("thin detail and admin routes call stock-aware data loaders or unchanged RP
   assert.match(adminShippingRoute, /update_shipping_request_status/);
   assert.match(collectionConvertRoute, /handleCardConversionRequest/);
   assert.match(exchangeRoute, /handleCardConversionRequest/);
+});
+
+test("admin catalog UI and data loader use first-class stock SKU identity", () => {
+  assert.match(adminData, /rpc\("get_admin_prize_stock_summaries"/);
+  assert.match(adminData, /cardStockSubSkuSummariesFromPrizeStockJson/);
+  assert.match(adminData, /subSkuSummaries/);
+  assert.match(adminData, /rpc\("get_admin_stock_sku_summary"/);
+  assert.match(adminData, /function readPrizePoolStockUnitRows/);
+  assert.match(adminData, /function readPrizePoolStockSkuRows/);
+  assert.match(adminData, /isMissingColumnError\(error,\s*"stock_sku_id"\)/);
+  assert.match(adminData, /prize_pool_stock_unit_identities_legacy/);
+  assert.match(adminData, /"id,sku_code,label"/);
+  assert.match(adminData, /const stockSku = stockUnit\.stock_sku_id/);
+  assert.match(adminData, /sku: stockSku\?\.sku_code \?\? stockUnitSku/);
+  assert.match(adminData, /label: stockSku\?\.label \?\? stockUnitDisplayLabel/);
+  assert.match(
+    adminData,
+    /isMissingFunctionError\(\s*batch\.error,\s*"get_admin_prize_stock_summaries"/,
+  );
+  assert.match(adminData, /isMissingFunctionError\(error,\s*"get_admin_stock_sku_summary"\)/);
+  assert.match(adminData, /"id,card_id,stock_sku_id,condition,grade/);
+  assert.match(adminClient, /function AdminStockSkuEditor/);
+  assert.match(adminClient, /preferredPrizeStockSkuGroup\(stockSkuGroups\(card\)\)/);
+  assert.match(adminClient, /\/api\/ynot\/admin\/stock-skus"/);
+  assert.match(adminClient, /\/api\/ynot\/admin\/stock-skus\/open-container/);
+  assert.match(adminClient, /stockSkuId: group\.stockSkuId \?\? undefined/);
+  assert.match(adminClient, /imageUrl: delta > 0 \? stockImageUrl : undefined/);
+  assert.match(adminClient, /imageStoragePath: delta > 0 \? stockImageStoragePath : undefined/);
+  assert.match(adminClient, /const unitKindLocked = isEditing && Math\.max\(0, group\?\.totalUnits \?\? 0\) > 0/);
+  assert.match(adminClient, /disabled=\{busy \|\| unitKindLocked\}/);
+  assert.match(adminClient, /clearConversionRule: unitKind === "box" && !childStockSkuId/);
+  assert.match(adminClient, /identityUnknown/);
+  assert.match(adminClient, /fetchEditableStockUnits\(cardId, group\.key, group\.stockSkuId\)/);
+  assert.match(adminClient, /function editableUnitIdentityChanged/);
+  assert.match(adminClient, /\.\.\.\(keepCurrentStockSkuId \? \{ stockSkuId: unit\.stockSkuId \} : \{\}\)/);
+  assert.doesNotMatch(
+    adminClient,
+    /stockSkuId:\s*unit\.stockSkuId\s*\?\?\s*undefined/,
+  );
+  assert.doesNotMatch(
+    adminClient,
+    /if \(!groups\.length && !activeUnits && !assignedUnits\) return null;/,
+  );
+  assert.match(adminClient, /Create the first Sub SKU for this main SKU/);
+  assert.match(adminClient, /availablePackEquivalent/);
+  assert.match(stockSkuUsage, /function summaryStockUnitIdentity/);
+  assert.match(stockSkuUsage, /parsedLegacyStockUnitKey\(legacyStockUnitGroupKey\(row\)\)/);
+  assert.match(stockSkuUsage, /stockSkuId\?: string \| null/);
+  assert.match(stockSkuUsage, /stockUnitSelectionMetadata[\s\S]*stockSkuId: group\.stockSkuId/);
+});
+
+test("localhost stock rehearsal page is gated from public production users", () => {
+  assert.match(localStockSubSkuAccess, /localhost/);
+  assert.match(localStockSubSkuAccess, /127\.0\.0\.1/);
+  assert.match(localStockSubSkuAccess, /\[::1\]/);
+  assert.match(localStockSubSkuPage, /headers\(\)/);
+  assert.match(localStockSubSkuPage, /isLocalStockSubSkuHost\(host\)/);
+  assert.match(localStockSubSkuPage, /isDevAuthAllowed/);
+  assert.match(localStockSubSkuPage, /viewer\.isAdmin/);
+  assert.match(localStockSubSkuPage, /redirect\("\/packs"\)/);
+  assert.match(localReadinessPage, /showLocalStockTest/);
+  assert.match(localReadinessPage, /isLocalStockSubSkuHost\(host\)/);
+  assert.match(localReadinessPage, /viewer\.isAdmin \|\| isDevAuthAllowed\(\)/);
+});
+
+test("schema compatibility detects PostgREST missing-RPC cache errors", () => {
+  assert.match(schemaCompat, /PGRST202/);
+  assert.match(schemaCompat, /schema cache/i);
+  assert.match(schemaCompat, /could not find the function/i);
+  assert.match(schemaCompat, /could not find .*column.*schema cache/i);
 });

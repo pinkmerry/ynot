@@ -34,12 +34,15 @@ test("migration exposes summary and mutation RPCs", () => {
   assert.match(migration, /create or replace function public\.get_admin_stock_sku_summary/i);
   assert.match(migration, /create or replace function public\.get_admin_prize_stock_summaries/i);
   assert.match(migration, /create or replace function public\.upsert_stock_sku/i);
+  assert.match(migration, /p_clear_conversion_rule boolean default false/i);
   assert.match(migration, /create or replace function public\.adjust_stock_sku_units/i);
   assert.match(migration, /create or replace function public\.adjust_card_stock_units/i);
   assert.match(migration, /create or replace function public\.open_stock_container/i);
   assert.match(migration, /'stockSkuId'/);
   assert.match(migration, /concat\('stock-sku:', sku\.id::text\)/);
   assert.match(migration, /'legacyStockUnitGroupKey', case[\s\S]*stock_sku_counts\.legacy_condition/i);
+  assert.match(migration, /sku\.metadata -> 'backfillIdentity' ->> 'condition'/i);
+  assert.match(migration, /'condition', coalesce\(stock_sku_counts\.legacy_condition/i);
   assert.match(migration, /legacy_subsku_rows[\s\S]*'stockSkuId', null::uuid/i);
   assert.match(migration, /legacy_subsku_rows[\s\S]*'sourceStockSkuId', legacy\.stock_sku_id/i);
   assert.match(migration, /legacy_normalized_subsku[\s\S]*sku\.unit_kind as stock_unit_kind/i);
@@ -65,7 +68,12 @@ test("migration patches related stock movement and live revision RPCs", () => {
   assert.match(migration, /publish_live_campaign_revision/i);
   assert.match(migration, /stockSkuId/i);
   assert.match(migration, /unit_kind = coalesce\(normalized_kind, unit_kind\)/i);
+  assert.match(
+    migration,
+    /if v_stock_sku_id is not null[\s\S]*coalesce\(nullif\(v_unit\.condition, ''\), 'raw'\) <> v_condition[\s\S]*v_stock_sku_id := null;/i,
+  );
   assert.match(migration, /coalesce\(nullif\(v_unit\.condition, ''\), 'raw'\) = v_condition/i);
+  assert.match(migration, /v_condition <> 'graded'[\s\S]*coalesce\(v_unit\.grade, ''\) = coalesce\(v_grade, ''\)/i);
   assert.match(migration, /coalesce\(v_unit\.cert_number, ''\) = coalesce\(v_cert_number, ''\)/i);
   assert.match(migration, /v_stock_sku_id := v_unit\.stock_sku_id/i);
   assert.match(migration, /app_private\.ensure_default_stock_sku\(\s*v_unit\.card_id/i);
@@ -83,6 +91,8 @@ test("open_stock_container atomically consumes box units and creates child pack 
   assert.match(migration, /'container_child_created'/i);
   assert.match(migration, /'archived'/i);
   assert.match(migration, /'stock_created'/i);
+  assert.match(migration, /coalesce\(nullif\(p_image_url, ''\), sku_row\.image_url\)/i);
+  assert.match(migration, /child_sku\.image_url,\s*\n\s*child_sku\.image_storage_path,/i);
   assert.doesNotMatch(migration, /status = 'allocated'[\s\S]{0,120}open_stock_container/i);
 });
 
@@ -91,7 +101,10 @@ test("stock SKU mutations validate conversion ownership and ledger exact inserte
   assert.match(migration, /conversion_cross_card_not_allowed/i);
   assert.match(migration, /child_stock_sku_must_be_pack/i);
   assert.match(migration, /child_stock_sku_conversion_in_use/i);
+  assert.match(migration, /stock_sku_unit_kind_locked/i);
   assert.match(migration, /target_kind <> 'pack'[\s\S]*child_stock_sku_id = existing_sku\.id/i);
+  assert.match(migration, /target_kind <> existing_sku\.unit_kind[\s\S]*card_stock_units stock[\s\S]*status not in \('deleted', 'archived'\)/i);
+  assert.match(migration, /p_clear_conversion_rule[\s\S]*parent_stock_sku_id = saved_sku\.id/i);
   assert.match(migration, /invalid_conversion_rule_unit_kind/i);
   assert.match(migration, /parent_sku\.unit_kind <> 'box' or child_sku\.unit_kind <> 'pack'/i);
   assert.match(migration, /app_private\.ensure_default_stock_sku\(/);

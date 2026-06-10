@@ -1061,6 +1061,7 @@ export type Database = {
           p_child_stock_sku_id?: string | null;
           p_child_quantity?: number | null;
           p_admin_id?: string | null;
+          p_clear_conversion_rule?: boolean | null;
         };
         Returns: Json;
       };

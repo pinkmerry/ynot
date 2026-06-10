@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { PageHeader, YnotShell } from "@/features/ynot/components";
 import { getYnotViewer } from "@/features/ynot/data";
+import { isLocalStockSubSkuHost } from "@/features/ynot/local-stock-subsku-access";
 import { adminContentStudioLocalSummary, phaseReadinessItems, type PhaseReadinessState } from "@/features/ynot/phase-readiness";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +22,9 @@ const statusTone: Record<PhaseReadinessState, string> = {
 
 export default async function LocalReadinessPage() {
   const viewer = await getYnotViewer();
+  const host = (await headers()).get("host");
+  const showLocalStockTest =
+    isLocalStockSubSkuHost(host) || viewer.isAdmin || isDevAuthAllowed();
   return (
     <YnotShell viewer={viewer}>
       <PageHeader
@@ -41,6 +47,9 @@ export default async function LocalReadinessPage() {
           <span>Supabase ref: szjoarkijeaspazbrchc</span>
           <span>LIFF + Website: same DB</span>
           <span>Production writes: gated</span>
+          {showLocalStockTest ? (
+            <Link href="/local-stock-subsku-test">Stock Sub SKU test</Link>
+          ) : null}
         </div>
       </section>
 

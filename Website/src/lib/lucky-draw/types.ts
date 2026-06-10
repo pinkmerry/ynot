@@ -90,6 +90,9 @@ export type CardCatalogItem = Required<Pick<FeaturedCard, "catalogCardId">> &
     /** Individual graded / sealed / cert-bearing units (not plain raw bulk). */
     stockUnits?: Array<{
       id: string;
+      stockSkuId?: string | null;
+      stockUnitGroupKey?: string | null;
+      unitKind?: string | null;
       condition: string;
       grade: string | null;
       gradingService: string | null;
@@ -105,12 +108,31 @@ export type CardCatalogItem = Required<Pick<FeaturedCard, "catalogCardId">> &
       key: string;
       label: string;
       sku: string;
+      stockSkuId?: string | null;
+      sourceStockSkuId?: string | null;
+      legacyStockUnitGroupKey?: string | boolean | null;
+      unitKind?: string | null;
+      identityKnown?: boolean;
+      imageUrl?: string | null;
+      sampleUnitImageUrl?: string | null;
+      imageStoragePath?: string | null;
       totalUnits: number;
       availableUnits: number;
       reservedUnits: number;
       allocatedUnits: number;
+      archivedUnits?: number | null;
+      packEquivalent?: number | null;
+      availablePackEquivalent?: number | null;
+      conversionRuleId?: string | null;
+      childStockSkuId?: string | null;
+      childSku?: string | null;
+      childLabel?: string | null;
+      childQuantity?: number | null;
       units: Array<{
         id: string;
+        stockSkuId?: string | null;
+        stockUnitGroupKey?: string | null;
+        unitKind?: string | null;
         condition: string;
         grade: string | null;
         gradingService: string | null;

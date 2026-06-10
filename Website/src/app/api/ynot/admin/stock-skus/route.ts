@@ -34,6 +34,10 @@ function positiveInt(value: unknown, max = 1000) {
     : null;
 }
 
+function hasOwn(body: Record<string, unknown> | null, key: string) {
+  return Boolean(body && Object.prototype.hasOwnProperty.call(body, key));
+}
+
 async function guard(request: Request, key: string) {
   if (!isSupabaseConfigured()) {
     return {
@@ -79,6 +83,12 @@ function stockSkuErrorMessage(message?: string) {
   }
   if (message.includes("child_stock_sku_must_be_pack")) {
     return "A box must convert into a pack Sub SKU.";
+  }
+  if (message.includes("child_stock_sku_conversion_in_use")) {
+    return "This pack Sub SKU is used by a box conversion rule.";
+  }
+  if (message.includes("stock_sku_unit_kind_locked")) {
+    return "Remove or move active stock before changing this Sub SKU type.";
   }
   if (message.includes("conversion_cross_card_not_allowed")) {
     return "Box and pack Sub SKUs must belong to the same product.";
@@ -156,6 +166,7 @@ export async function POST(request: Request) {
   const stockSkuId = requestedStockSkuId.value;
   const cardId = requestedCardId.value;
   const childStockSkuId = requestedChildStockSkuId.value;
+  const clearConversionRule = body?.clearConversionRule === true;
   const childQuantity =
     body?.childQuantity === undefined ||
     body?.childQuantity === null ||
@@ -188,12 +199,15 @@ export async function POST(request: Request) {
     p_sku_code: sku,
     p_label: label,
     p_unit_kind: unitKind,
-    p_image_url: text(body?.imageUrl, 600) || null,
-    p_image_storage_path: text(body?.imageStoragePath, 400) || null,
+    p_image_url: hasOwn(body, "imageUrl") ? text(body?.imageUrl, 600) : null,
+    p_image_storage_path: hasOwn(body, "imageStoragePath")
+      ? text(body?.imageStoragePath, 400)
+      : null,
     p_parent_stock_sku_id: null,
     p_child_stock_sku_id: childStockSkuId,
     p_child_quantity: childQuantity,
     p_admin_id: admin.adminId,
+    p_clear_conversion_rule: clearConversionRule,
   });
   if (error) {
     if (isMissingFunctionError(error, "upsert_stock_sku")) {

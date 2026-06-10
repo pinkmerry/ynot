@@ -11,7 +11,10 @@ import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { getCardCatalog, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { isMissingColumnError } from "@/lib/supabase/schema-compat";
+import {
+  isMissingColumnError,
+  isMissingFunctionError,
+} from "@/lib/supabase/schema-compat";
 import type { Database } from "@/lib/supabase/types";
 import { collectionItemActionToken } from "@/lib/ynot/collection-action-tokens";
 import { paymentMethodActionToken } from "@/lib/ynot/payment-method-action-tokens";
@@ -137,24 +140,56 @@ function cardStockSubSkuSummariesFromJson(value: unknown): StockSkuSummaryRow[] 
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
     if (!isRecord(item) || typeof item.cardId !== "string") return [];
+    const imageUrl =
+      optionalStringValue(item.imageUrl) ??
+      optionalStringValue(item.sampleUnitImageUrl) ??
+      null;
     return [
       {
         cardId: item.cardId,
+        stockSkuId: optionalStringValue(item.stockSkuId) ?? null,
+        sourceStockSkuId: optionalStringValue(item.sourceStockSkuId) ?? null,
+        stockUnitGroupKey: optionalStringValue(item.stockUnitGroupKey) ?? null,
+        legacyStockUnitGroupKey:
+          typeof item.legacyStockUnitGroupKey === "boolean"
+            ? item.legacyStockUnitGroupKey
+            : optionalStringValue(item.legacyStockUnitGroupKey) ?? null,
         sampleUnitId: typeof item.sampleUnitId === "string" ? item.sampleUnitId : null,
+        sku: optionalStringValue(item.sku) ?? null,
+        label: optionalStringValue(item.label) ?? null,
+        unitKind: optionalStringValue(item.unitKind) ?? null,
         condition: typeof item.condition === "string" ? item.condition : null,
         grade: typeof item.grade === "string" ? item.grade : null,
         gradingService:
           typeof item.gradingService === "string" ? item.gradingService : null,
         certNumber: typeof item.certNumber === "string" ? item.certNumber : null,
         gemrateId: typeof item.gemrateId === "string" ? item.gemrateId : null,
-        imageUrl: typeof item.imageUrl === "string" ? item.imageUrl : null,
+        imageUrl,
+        sampleUnitImageUrl: optionalStringValue(item.sampleUnitImageUrl) ?? null,
+        imageStoragePath: optionalStringValue(item.imageStoragePath) ?? null,
         totalUnits: numericValue(item.totalUnits),
         availableUnits: numericValue(item.availableUnits),
         reservedUnits: numericValue(item.reservedUnits),
         allocatedUnits: numericValue(item.allocatedUnits),
+        archivedUnits: numericValue(item.archivedUnits),
+        packEquivalent: optionalNumericValue(item.packEquivalent) ?? null,
+        availablePackEquivalent:
+          optionalNumericValue(item.availablePackEquivalent) ?? null,
+        conversionRuleId: optionalStringValue(item.conversionRuleId) ?? null,
+        childStockSkuId: optionalStringValue(item.childStockSkuId) ?? null,
+        childSku: optionalStringValue(item.childSku) ?? null,
+        childLabel: optionalStringValue(item.childLabel) ?? null,
+        childQuantity: optionalNumericValue(item.childQuantity) ?? null,
       },
     ];
   });
+}
+
+function cardStockSubSkuSummariesFromPrizeStockJson(
+  value: unknown,
+): StockSkuSummaryRow[] {
+  if (!isRecord(value)) return [];
+  return cardStockSubSkuSummariesFromJson(value.subSkuSummaries);
 }
 
 function optionalStringValue(value: unknown) {
@@ -387,6 +422,7 @@ type PrizePoolStockUnitRow = Pick<
   Database["public"]["Tables"]["card_stock_units"]["Row"],
   | "id"
   | "card_id"
+  | "stock_sku_id"
   | "condition"
   | "grade"
   | "grading_service"
@@ -394,6 +430,11 @@ type PrizePoolStockUnitRow = Pick<
   | "gemrate_id"
   | "image_url"
   | "status"
+>;
+
+type PrizePoolStockSkuRow = Pick<
+  Database["public"]["Tables"]["stock_skus"]["Row"],
+  "id" | "sku_code" | "label"
 >;
 
 type PrizePoolUnitRow = Pick<
@@ -489,6 +530,7 @@ function cardForStockSku(card: PrizePoolCardRow): CardCatalogItem {
 function stockUnitForSku(unit: PrizePoolStockUnitRow) {
   return {
     id: unit.id,
+    stockSkuId: unit.stock_sku_id ?? null,
     condition: unit.condition,
     grade: unit.grade,
     gradingService: unit.grading_service,
@@ -502,6 +544,7 @@ function stockUnitForSku(unit: PrizePoolStockUnitRow) {
 function prizePoolStockUnitUsages(
   prizeUnits: PrizePoolUnitRow[],
   stockUnitById: Map<string, PrizePoolStockUnitRow>,
+  stockSkuById: Map<string, PrizePoolStockSkuRow>,
   cardById: Map<string, PrizePoolCardRow>,
 ) {
   const usageByPrize = new Map<string, Map<string, StockSkuUsageDetail>>();
@@ -512,7 +555,12 @@ function prizePoolStockUnitUsages(
     const card = cardById.get(stockUnit.card_id);
     if (!card) continue;
     const displayUnit = stockUnitForSku(stockUnit);
-    const groupKey = stockUnitGroupKey(displayUnit);
+    const groupKey = stockUnit.stock_sku_id
+      ? `stock-sku:${stockUnit.stock_sku_id}`
+      : stockUnitGroupKey(displayUnit);
+    const stockSku = stockUnit.stock_sku_id
+      ? stockSkuById.get(stockUnit.stock_sku_id)
+      : null;
     const prizeUsage =
       usageByPrize.get(prizeUnit.draw_round_prize_id) ??
       new Map<string, StockSkuUsageDetail>();
@@ -520,8 +568,8 @@ function prizePoolStockUnitUsages(
       prizeUsage.get(groupKey) ??
       ({
         groupKey,
-        sku: stockUnitSku(cardForStockSku(card), displayUnit),
-        label: stockUnitDisplayLabel(displayUnit),
+        sku: stockSku?.sku_code ?? stockUnitSku(cardForStockSku(card), displayUnit),
+        label: stockSku?.label ?? stockUnitDisplayLabel(displayUnit),
         totalUnits: 0,
         availableUnits: 0,
         awardedUnits: 0,
@@ -561,6 +609,60 @@ async function readSupabaseRows<T>(
     recordDataIssue(label, error);
     return [];
   }
+}
+
+async function readPrizePoolStockUnitRows(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  stockUnitIds: string[],
+): Promise<PrizePoolStockUnitRow[]> {
+  const fullSelect =
+    "id,card_id,stock_sku_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status";
+  const legacySelect =
+    "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status";
+  try {
+    const { data, error } = await supabase
+      .from("card_stock_units")
+      .select(fullSelect)
+      .in("id", stockUnitIds);
+    if (!error) return data ?? [];
+    if (!isMissingColumnError(error, "stock_sku_id")) {
+      recordDataIssue("prize_pool_stock_unit_identities", error);
+      return [];
+    }
+  } catch (error) {
+    if (!isMissingColumnError(error, "stock_sku_id")) {
+      recordDataIssue("prize_pool_stock_unit_identities", error);
+      return [];
+    }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("card_stock_units")
+      .select(legacySelect)
+      .in("id", stockUnitIds);
+    if (error) {
+      recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
+      return [];
+    }
+    return (data ?? []).map((unit) => ({ ...unit, stock_sku_id: null }));
+  } catch (error) {
+    recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
+    return [];
+  }
+}
+
+async function readPrizePoolStockSkuRows(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  stockSkuIds: string[],
+): Promise<PrizePoolStockSkuRow[]> {
+  if (!stockSkuIds.length) return [];
+  return readSupabaseRows<PrizePoolStockSkuRow>("prize_pool_stock_skus", () =>
+    supabase
+      .from("stock_skus")
+      .select("id,sku_code,label")
+      .in("id", stockSkuIds),
+  );
 }
 
 async function readPrizeUnitImageUrlsByPrizeId(
@@ -3895,14 +3997,36 @@ export async function getAdminCards() {
       }),
     );
     const stockByCard = new Map(stockRows.map((row) => [row.cardId, row]));
+    const cardIds = cards.map((card) => card.catalogCardId).filter(Boolean);
     const subSkuRows = await readOrEmpty("card_stock_subsku_summary", () =>
       retryQuery(async () => {
-        const { data, error } = await supabase.rpc(
+        const batch = await supabase.rpc("get_admin_prize_stock_summaries", {
+          p_card_ids: cardIds,
+        });
+        if (!batch.error) {
+          return cardStockSubSkuSummariesFromPrizeStockJson(batch.data);
+        }
+        if (
+          !isMissingFunctionError(
+            batch.error,
+            "get_admin_prize_stock_summaries",
+          )
+        ) {
+          throw batch.error;
+        }
+        const { data, error } = await supabase.rpc("get_admin_stock_sku_summary", {
+          p_card_id: null,
+        });
+        if (!error) return cardStockSubSkuSummariesFromJson(data);
+        if (!isMissingFunctionError(error, "get_admin_stock_sku_summary")) {
+          throw error;
+        }
+        const fallback = await supabase.rpc(
           "get_admin_card_stock_subsku_summary",
           { p_card_id: null },
         );
-        if (error) throw error;
-        return cardStockSubSkuSummariesFromJson(data);
+        if (fallback.error) throw fallback.error;
+        return cardStockSubSkuSummariesFromJson(fallback.data);
       }),
     );
 
@@ -4368,20 +4492,20 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
       ),
     ];
     const stockUnits = stockUnitIds.length
-      ? await readSupabaseRows<PrizePoolStockUnitRow>(
-          "prize_pool_stock_unit_identities",
-          () =>
-            supabase
-              .from("card_stock_units")
-              .select(
-                "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status",
-              )
-              .in("id", stockUnitIds),
-        )
+      ? await readPrizePoolStockUnitRows(supabase, stockUnitIds)
       : [];
+    const stockSkuIds = [
+      ...new Set(
+        stockUnits
+          .map((unit) => unit.stock_sku_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const stockSkus = await readPrizePoolStockSkuRows(supabase, stockSkuIds);
     const stockUsageByPrizeId = prizePoolStockUnitUsages(
       prizeUnits,
       new Map(stockUnits.map((unit) => [unit.id, unit])),
+      new Map(stockSkus.map((sku) => [sku.id, sku])),
       cardById,
     );
     const prizeImageByPrizeId = stockImageUrlByPrizeId(prizeUnits, stockUnits);

@@ -59,6 +59,9 @@ import {
   type PrizeStockSummary,
 } from "./stock-readiness";
 import {
+  findStockSkuGroupByKey,
+  preferredPrizeStockSkuGroup,
+  resolveStockSkuGroupKey,
   stockSkuGroups,
   stockSkuPackUsageByGroup,
   stockUnitSelectionMetadata,
@@ -2653,12 +2656,7 @@ function firstCatalogCardId(cards: CardCatalogItem[]) {
 
 function defaultStockUnitKey(card: CardCatalogItem | null | undefined) {
   if (!card) return "";
-  const groups = stockSkuGroups(card);
-  return (
-    groups.find((group) => group.availableUnits > 0)?.key ??
-    groups[0]?.key ??
-    ""
-  );
+  return preferredPrizeStockSkuGroup(stockSkuGroups(card))?.key ?? "";
 }
 
 function defaultRemovableStockUnitKey(card: CardCatalogItem | null | undefined) {
@@ -2671,9 +2669,7 @@ function validStockUnitKey(
   key: string | null | undefined,
 ) {
   if (!card) return "";
-  const groups = stockSkuGroups(card);
-  if (key && groups.some((group) => group.key === key)) return key;
-  return "";
+  return resolveStockSkuGroupKey(stockSkuGroups(card), key);
 }
 
 type PrizeStockUnitShortage = {
@@ -3989,7 +3985,11 @@ export function AdminCampaignForm({
     if (!editsExistingCampaignInventory) return counts;
     for (const prize of editingPrizes ?? []) {
       if (!prize.cardId || !prize.intendedStockUnitKey) continue;
-      const key = `${prize.cardId}\u001f${prize.intendedStockUnitKey}`;
+      const card = cardsById.get(prize.cardId);
+      const groupKey =
+        validStockUnitKey(card, prize.intendedStockUnitKey) ||
+        prize.intendedStockUnitKey;
+      const key = `${prize.cardId}\u001f${groupKey}`;
       counts.set(
         key,
         (counts.get(key) ?? 0) +
@@ -3998,7 +3998,7 @@ export function AdminCampaignForm({
       );
     }
     return counts;
-  }, [editsExistingCampaignInventory, editingPrizes]);
+  }, [cardsById, editsExistingCampaignInventory, editingPrizes]);
   const stockUnitShortages = useMemo<PrizeStockUnitShortage[]>(() => {
     const requiredByStockKey = new Map<
       string,
@@ -4022,8 +4022,9 @@ export function AdminCampaignForm({
     }
 
     return Array.from(requiredByStockKey.entries()).flatMap(([key, entry]) => {
-      const group = stockSkuGroups(entry.card).find(
-        (candidate) => candidate.key === entry.groupKey,
+      const group = findStockSkuGroupByKey(
+        stockSkuGroups(entry.card),
+        entry.groupKey,
       );
       if (!group) return [];
       const reservedUnits = editsExistingCampaignInventory
@@ -5239,8 +5240,10 @@ export function AdminCampaignForm({
                           (group) => group.key === selectedStockUnitKey,
                         ) ?? null;
                       const selectedStockImageUrl =
+                        selectedStockGroup?.imageUrl ??
                         selectedStockGroup?.units.find((unit) => unit.imageUrl)
-                          ?.imageUrl ?? null;
+                          ?.imageUrl ??
+                        null;
                       return (
                         <article
                           className={`admin-prize-table-row tier-${option.value}`}
@@ -5311,12 +5314,16 @@ export function AdminCampaignForm({
                                     : "Choose item first"}
                                 </option>
                               )}
-                              {stockGroups.map((group) => (
-                                <option key={group.key} value={group.key}>
-                                  {group.sku} · {group.label} ·{" "}
-                                  {group.availableUnits}/{group.totalUnits} stock
-                                </option>
-                              ))}
+	                              {stockGroups.map((group) => (
+	                                <option key={group.key} value={group.key}>
+	                                  {group.sku} · {group.label} ·{" "}
+	                                  {group.availableUnits}/{group.totalUnits} stock
+                                    {group.availablePackEquivalent !== null &&
+                                    group.availablePackEquivalent !== undefined
+                                      ? ` · ${group.availablePackEquivalent} packs`
+                                      : ""}
+	                                </option>
+	                              ))}
                             </select>
                           </label>
                           <label className="admin-field">
@@ -8952,12 +8959,14 @@ async function requestUnitJson(
 async function fetchEditableStockUnits(
   cardId: string,
   groupKey: string,
+  stockSkuId?: string | null,
 ): Promise<NonNullable<CardCatalogItem["stockUnits"]>> {
   const params = new URLSearchParams({
     cardId,
-    groupKey,
     limit: "200",
   });
+  if (stockSkuId) params.set("stockSkuId", stockSkuId);
+  else params.set("groupKey", groupKey);
   const res = await fetch(`/api/ynot/admin/card-stock/units?${params}`);
   const data = (await res.json().catch(() => ({}))) as {
     error?: string;
@@ -8965,6 +8974,56 @@ async function fetchEditableStockUnits(
   };
   if (!res.ok) throw new Error(data.error || "Could not load units.");
   return data.units ?? [];
+}
+
+function editableUnitIdentityValue(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function editableUnitIdentityChanged(
+  unit: NonNullable<CardCatalogItem["stockUnits"]>[number],
+  next: {
+    condition: string;
+    grade: string;
+    gradingService: string;
+    certNumber: string;
+    gemrateId: string;
+  },
+) {
+  const originalCondition = editableUnitIdentityValue(unit.condition || "raw");
+  const nextCondition = editableUnitIdentityValue(next.condition || "raw");
+  const originalGrade =
+    originalCondition === "graded" ? editableUnitIdentityValue(unit.grade) : "";
+  const nextGrade =
+    nextCondition === "graded" ? editableUnitIdentityValue(next.grade) : "";
+  const originalGradingService =
+    originalCondition === "graded"
+      ? editableUnitIdentityValue(unit.gradingService)
+      : "";
+  const nextGradingService =
+    nextCondition === "graded"
+      ? editableUnitIdentityValue(next.gradingService)
+      : "";
+  const originalCertNumber =
+    originalCondition === "graded"
+      ? editableUnitIdentityValue(unit.certNumber)
+      : "";
+  const nextCertNumber =
+    nextCondition === "graded" ? editableUnitIdentityValue(next.certNumber) : "";
+  const originalGemrateId =
+    originalCondition === "graded"
+      ? editableUnitIdentityValue(unit.gemrateId)
+      : "";
+  const nextGemrateId =
+    nextCondition === "graded" ? editableUnitIdentityValue(next.gemrateId) : "";
+
+  return (
+    originalCondition !== nextCondition ||
+    originalGrade !== nextGrade ||
+    originalGradingService !== nextGradingService ||
+    originalCertNumber !== nextCertNumber ||
+    originalGemrateId !== nextGemrateId
+  );
 }
 
 /** One row in the catalog's per-unit breakdown — editable + removable when the
@@ -9031,13 +9090,23 @@ function AdminStockUnitRow({
           setMsg("Choose a grading service for graded stock.");
           return;
         }
-        await requestUnitJson("PATCH", {
-          unitId: unit.id,
+        const nextIdentity = {
           condition,
           grade: condition === "graded" ? grade.trim() : "",
           gradingService: condition === "graded" ? gradingService || "" : "",
           certNumber: condition === "graded" ? certNumber : "",
           gemrateId: condition === "graded" ? gemrateId : "",
+        };
+        const keepCurrentStockSkuId =
+          unit.stockSkuId && !editableUnitIdentityChanged(unit, nextIdentity);
+        await requestUnitJson("PATCH", {
+          unitId: unit.id,
+          ...(keepCurrentStockSkuId ? { stockSkuId: unit.stockSkuId } : {}),
+          condition: nextIdentity.condition,
+          grade: nextIdentity.grade,
+          gradingService: nextIdentity.gradingService,
+          certNumber: nextIdentity.certNumber,
+          gemrateId: nextIdentity.gemrateId,
           imageUrl,
           imageStoragePath,
         });
@@ -9336,10 +9405,12 @@ function AdminSubSkuQuantity({
   const isGraded = group.units.some(
     (unit) => unit.condition === "graded" || Boolean(unit.certNumber),
   );
+  const identityUnknown =
+    group.unitKind === "card" && group.stockSkuId && group.identityKnown === false;
   const [target, setTarget] = useState(String(group.totalUnits));
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
-  if (isGraded) return null;
+  if (isGraded || identityUnknown) return null;
 
   function applyCount() {
     const next = Math.max(0, Math.min(10000, Math.round(Number(target) || 0)));
@@ -9354,6 +9425,14 @@ function AdminSubSkuQuantity({
       );
       return;
     }
+    const stockImageUrl =
+      group.imageUrl ??
+      group.units.find((unit) => unit.imageUrl)?.imageUrl ??
+      null;
+    const stockImageStoragePath =
+      group.imageStoragePath ??
+      group.units.find((unit) => unit.imageStoragePath)?.imageStoragePath ??
+      null;
     setBusy(true);
     setMsg("");
     void (async () => {
@@ -9364,8 +9443,13 @@ function AdminSubSkuQuantity({
           body: JSON.stringify({
             cardId,
             quantityDelta: delta,
-            condition: group.units[0]?.condition ?? "raw",
+            stockSkuId: group.stockSkuId ?? undefined,
+            condition: group.stockSkuId
+              ? undefined
+              : group.units[0]?.condition ?? "raw",
             stockUnitGroupKey: group.key,
+            imageUrl: delta > 0 ? stockImageUrl : undefined,
+            imageStoragePath: delta > 0 ? stockImageStoragePath : undefined,
             reason: delta > 0 ? "admin_stock_added" : "admin_stock_removed",
           }),
         });
@@ -9432,7 +9516,7 @@ function AdminSubSkuManageUnits({
     try {
       setError("");
       setLoading(true);
-      setUnits(await fetchEditableStockUnits(cardId, group.key));
+      setUnits(await fetchEditableStockUnits(cardId, group.key, group.stockSkuId));
       setLoaded(true);
     } catch (loadError) {
       setError(
@@ -9489,6 +9573,235 @@ function AdminSubSkuManageUnits({
   );
 }
 
+type AdminStockSkuUnitKind = "card" | "pack" | "box" | "other";
+
+const stockSkuUnitKindOptions: Array<{
+  value: AdminStockSkuUnitKind;
+  label: string;
+}> = [
+  { value: "pack", label: "Pack" },
+  { value: "box", label: "Box" },
+  { value: "card", label: "Card" },
+  { value: "other", label: "Other" },
+];
+
+function adminStockSkuUnitKind(value: unknown): AdminStockSkuUnitKind {
+  return value === "card" || value === "pack" || value === "box" || value === "other"
+    ? value
+    : "pack";
+}
+
+function AdminStockSkuEditor({
+  card,
+  group,
+  groups,
+}: {
+  card: CardCatalogItem;
+  group?: StockSkuGroup;
+  groups: StockSkuGroup[];
+}) {
+  const router = useRouter();
+  const packOptions = groups.filter(
+    (candidate) =>
+      candidate.stockSkuId &&
+      candidate.unitKind === "pack" &&
+      candidate.stockSkuId !== group?.stockSkuId,
+  );
+  const [sku, setSku] = useState(group?.sku ?? "");
+  const [label, setLabel] = useState(group?.label ?? "");
+  const [unitKind, setUnitKind] = useState<AdminStockSkuUnitKind>(
+    adminStockSkuUnitKind(group?.unitKind),
+  );
+  const [childStockSkuId, setChildStockSkuId] = useState(
+    group?.childStockSkuId ?? "",
+  );
+  const [childQuantity, setChildQuantity] = useState(
+    group?.childQuantity ? String(group.childQuantity) : "",
+  );
+  const [imageUrl, setImageUrl] = useState(
+    group?.imageUrl ?? group?.units.find((unit) => unit.imageUrl)?.imageUrl ?? "",
+  );
+  const [busy, startBusy] = useTransition();
+  const [message, setMessage] = useState("");
+  const isEditing = Boolean(group?.stockSkuId);
+  const unitKindLocked = isEditing && Math.max(0, group?.totalUnits ?? 0) > 0;
+
+  function save() {
+    startBusy(async () => {
+      try {
+        setMessage("");
+        const cleanSku = sku.trim();
+        const cleanLabel = label.trim();
+        const packsPerBox = Math.max(0, Math.round(Number(childQuantity) || 0));
+        if (!cleanSku) throw new Error("Sub SKU code is required.");
+        if (!cleanLabel) throw new Error("Sub SKU label is required.");
+        if (unitKind === "box" && childStockSkuId && packsPerBox <= 0) {
+          throw new Error("Set how many packs are inside this box.");
+        }
+        await postJson("/api/ynot/admin/stock-skus", {
+          stockSkuId: group?.stockSkuId ?? undefined,
+          cardId: card.catalogCardId,
+          sku: cleanSku,
+          label: cleanLabel,
+          unitKind,
+          imageUrl: imageUrl.trim(),
+          imageStoragePath:
+            imageUrl.trim() === (group?.imageUrl ?? "") ? undefined : "",
+          childStockSkuId: unitKind === "box" ? childStockSkuId || null : null,
+          childQuantity:
+            unitKind === "box" && childStockSkuId ? packsPerBox : null,
+          clearConversionRule: unitKind === "box" && !childStockSkuId,
+        });
+        setMessage(isEditing ? "Sub SKU saved." : "Sub SKU created.");
+        if (!isEditing) {
+          setSku("");
+          setLabel("");
+          setUnitKind("pack");
+          setChildStockSkuId("");
+          setChildQuantity("");
+          setImageUrl("");
+        }
+        router.refresh();
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Sub SKU could not be saved.");
+      }
+    });
+  }
+
+  return (
+    <details className="admin-stock-sku-editor">
+      <summary>{isEditing ? "Edit Sub SKU" : "+ Add Sub SKU"}</summary>
+      <div className="admin-stock-sku-editor-grid">
+        <label>
+          <span>Sub SKU code</span>
+          <input
+            value={sku}
+            disabled={busy}
+            placeholder="OP16-JP-PACK"
+            onChange={(event) => setSku(event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Label</span>
+          <input
+            value={label}
+            disabled={busy}
+            placeholder="OP16 Japanese Booster Pack"
+            onChange={(event) => setLabel(event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Type</span>
+          <select
+            value={unitKind}
+            disabled={busy || unitKindLocked}
+            onChange={(event) =>
+              setUnitKind(event.target.value as AdminStockSkuUnitKind)
+            }
+          >
+            {stockSkuUnitKindOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Image URL</span>
+          <input
+            value={imageUrl}
+            disabled={busy}
+            placeholder="https://..."
+            onChange={(event) => setImageUrl(event.target.value)}
+          />
+        </label>
+        {unitKind === "box" ? (
+          <>
+            <label>
+              <span>Child pack SKU</span>
+              <select
+                value={childStockSkuId}
+                disabled={busy || !packOptions.length}
+                onChange={(event) => setChildStockSkuId(event.target.value)}
+              >
+                <option value="">
+                  {packOptions.length ? "Choose pack SKU" : "Create a pack SKU first"}
+                </option>
+                {packOptions.map((option) => (
+                  <option key={option.stockSkuId ?? option.key} value={option.stockSkuId ?? ""}>
+                    {option.sku} · {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Packs per box</span>
+              <input
+                type="number"
+                min={1}
+                max={1000}
+                value={childQuantity}
+                disabled={busy || !childStockSkuId}
+                placeholder="24"
+                onChange={(event) => setChildQuantity(event.target.value)}
+              />
+            </label>
+          </>
+        ) : null}
+      </div>
+      <div className="admin-stock-sku-editor-actions">
+        <button type="button" disabled={busy} onClick={save}>
+          {busy ? "Saving..." : isEditing ? "Save Sub SKU" : "Create Sub SKU"}
+        </button>
+        {message ? <span>{message}</span> : null}
+      </div>
+    </details>
+  );
+}
+
+function AdminOpenBoxButton({ group }: { group: StockSkuGroup }) {
+  const router = useRouter();
+  const [busy, startBusy] = useTransition();
+  const [message, setMessage] = useState("");
+  if (group.unitKind !== "box" || !group.stockSkuId || !group.childStockSkuId) {
+    return null;
+  }
+  const canOpen = group.availableUnits > 0;
+
+  function openBox() {
+    startBusy(async () => {
+      try {
+        setMessage("");
+        await postJson("/api/ynot/admin/stock-skus/open-container", {
+          parentStockSkuId: group.stockSkuId,
+          quantity: 1,
+          note: "admin opened box into child packs",
+        });
+        setMessage(
+          `Opened 1 box into ${Number(group.childQuantity ?? 0).toLocaleString()} packs.`,
+        );
+        router.refresh();
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Box could not be opened.");
+      }
+    });
+  }
+
+  return (
+    <div className="admin-stock-sku-open-box">
+      <button type="button" disabled={busy || !canOpen} onClick={openBox}>
+        {busy ? "Opening..." : "Open 1 box"}
+      </button>
+      <span>
+        {group.childQuantity
+          ? `Creates ${group.childQuantity.toLocaleString()} ${group.childSku || "pack"} units`
+          : "Set packs per box before opening"}
+      </span>
+      {message ? <em>{message}</em> : null}
+    </div>
+  );
+}
+
 function AdminStockSkuBreakdown({
   card,
   row,
@@ -9500,7 +9813,10 @@ function AdminStockSkuBreakdown({
   const assignedUnits = prizeAssignmentQuantity(row.prizes);
   const usageByGroup = stockSkuPackUsageByGroup(groups, row.prizes);
   const activeUnits = Math.max(0, row.stockTotal - row.stockArchived);
-  if (!groups.length && !activeUnits && !assignedUnits) return null;
+  const availablePackEquivalent = groups.reduce(
+    (sum, group) => sum + Math.max(0, Math.trunc(Number(group.availablePackEquivalent ?? 0))),
+    0,
+  );
 
   return (
     <details className="admin-card-stock-breakdown">
@@ -9514,8 +9830,15 @@ function AdminStockSkuBreakdown({
         </strong>
         <em>
           {row.stockAvailable.toLocaleString()}/{activeUnits.toLocaleString()} active
+          {availablePackEquivalent
+            ? ` · ${availablePackEquivalent.toLocaleString()} packs`
+            : ""}
         </em>
       </summary>
+
+      <div className="admin-stock-sku-toolbar">
+        <AdminStockSkuEditor card={card} groups={groups} />
+      </div>
 
       {groups.length ? (
         <div className="admin-stock-sku-list">
@@ -9526,7 +9849,9 @@ function AdminStockSkuBreakdown({
               0,
             );
             const repImage =
-              group.units.find((unit) => unit.imageUrl)?.imageUrl ?? null;
+              group.imageUrl ??
+              group.units.find((unit) => unit.imageUrl)?.imageUrl ??
+              null;
             return (
               <article className="admin-stock-sku-row" key={group.key}>
                 <div className="admin-stock-sku-main">
@@ -9567,16 +9892,34 @@ function AdminStockSkuBreakdown({
                   {group.allocatedUnits ? (
                     <span>{group.allocatedUnits.toLocaleString()} allocated</span>
                   ) : null}
-                  {packUsageUnits ? (
-                    <span>
+	                  {packUsageUnits ? (
+	                    <span>
                       {packUsageUnits.toLocaleString()} used in{" "}
                       {packUsages.length.toLocaleString()} pack row
                       {packUsages.length === 1 ? "" : "s"}
+	                    </span>
+	                  ) : null}
+                  {group.unitKind ? <span>{group.unitKind}</span> : null}
+                  {group.availablePackEquivalent !== null &&
+                  group.availablePackEquivalent !== undefined ? (
+                    <span>
+                      {group.availablePackEquivalent.toLocaleString()} pack
+                      {group.availablePackEquivalent === 1 ? "" : "s"} left
                     </span>
                   ) : null}
-                </div>
-                <AdminSubSkuQuantity cardId={card.catalogCardId} group={group} />
-                <AdminSubSkuPackUsageList usages={packUsages} />
+                  {group.unitKind === "box" && group.childQuantity ? (
+                    <span>
+                      1 box = {group.childQuantity.toLocaleString()}{" "}
+                      {group.childSku || group.childLabel || "packs"}
+                    </span>
+                  ) : null}
+	                </div>
+	                <AdminSubSkuQuantity cardId={card.catalogCardId} group={group} />
+                {group.stockSkuId ? (
+                  <AdminStockSkuEditor card={card} group={group} groups={groups} />
+                ) : null}
+                <AdminOpenBoxButton group={group} />
+	                <AdminSubSkuPackUsageList usages={packUsages} />
                 <AdminSubSkuManageUnits cardId={card.catalogCardId} group={group} />
               </article>
             );
@@ -9584,8 +9927,9 @@ function AdminStockSkuBreakdown({
         </div>
       ) : (
         <p className="admin-card-catalog-empty-usage">
-          Stock exists for this main SKU, but detailed sub-SKU rows are not
-          loaded yet.
+          {activeUnits
+            ? "Stock exists for this main SKU, but detailed sub-SKU rows are not loaded yet."
+            : "Create the first Sub SKU for this main SKU before adding pack or box stock."}
         </p>
       )}
     </details>
@@ -10199,6 +10543,7 @@ export function AdminCardCatalogPanel({
     }
     let selectedRemoveGroup: StockSkuGroup | null = null;
     let stockUnitGroupKey: string | undefined;
+    let stockSkuId: string | undefined;
     if (stockDraft.mode === "remove") {
       selectedRemoveGroup =
         stockSkuGroups(card).find((group) => group.key === stockDraft.stockUnitKey) ??
@@ -10208,6 +10553,7 @@ export function AdminCardCatalogPanel({
         return;
       }
       stockUnitGroupKey = selectedRemoveGroup.key;
+      stockSkuId = selectedRemoveGroup.stockSkuId ?? undefined;
       if (requestedQuantity > selectedRemoveGroup.availableUnits) {
         setMessage(
           `Only ${selectedRemoveGroup.availableUnits.toLocaleString()} available units can be removed for ${selectedRemoveGroup.sku}.`,
@@ -10227,6 +10573,7 @@ export function AdminCardCatalogPanel({
           quantityDelta,
           reason: quantityDelta > 0 ? "admin_stock_added" : "admin_stock_removed",
           stockUnitGroupKey,
+          stockSkuId,
         });
         setMessage(
           quantityDelta > 0

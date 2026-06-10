@@ -15,7 +15,12 @@ function errorText(error: unknown) {
 export function isMissingColumnError(error: unknown, column?: string) {
   const maybe = error as SupabaseErrorLike;
   const text = errorText(error);
-  if (maybe?.code !== "42703" && !/column .* does not exist/i.test(text)) {
+  const missingColumn =
+    maybe?.code === "42703" ||
+    /column .* does not exist/i.test(text) ||
+    ((maybe?.code ?? "").startsWith("PGRST") &&
+      /could not find .*column.*schema cache/i.test(text));
+  if (!missingColumn) {
     return false;
   }
   return column ? text.includes(column) : true;
@@ -24,7 +29,12 @@ export function isMissingColumnError(error: unknown, column?: string) {
 export function isMissingFunctionError(error: unknown, functionName?: string) {
   const maybe = error as SupabaseErrorLike;
   const text = errorText(error);
-  if (maybe?.code !== "42883" && !/function .* does not exist/i.test(text)) {
+  const missingFunction =
+    maybe?.code === "42883" ||
+    /function .* does not exist/i.test(text) ||
+    (maybe?.code === "PGRST202" &&
+      /could not find the function .* in the schema cache/i.test(text));
+  if (!missingFunction) {
     return false;
   }
   return functionName ? text.includes(functionName) : true;

@@ -42,6 +42,7 @@
     "test:stock-subsku-conversion": "node --test scripts/test-stock-subsku-conversion.mjs",
     "test:stock-subsku-conversion-sql": "node --test scripts/test-stock-subsku-conversion-sql.mjs",
     "test:stock-subsku-admin-api": "node --test scripts/test-stock-subsku-admin-api.mjs",
+    "test:local-stock-subsku-flow": "node --test scripts/test-local-stock-subsku-flow.mjs",
     "smoke:stock-subsku-db": "node scripts/smoke-stock-subsku-db.mjs",
     "test:stock-restore-tool": "node --test scripts/test-stock-restore-tool.mjs",
     "test:subsku-images": "node --test scripts/test-subsku-image-routing.mjs",
