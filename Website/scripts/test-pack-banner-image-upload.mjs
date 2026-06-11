@@ -45,15 +45,25 @@ test("admin campaign API accepts only uploaded banner image paths", () => {
   );
 });
 
-test("admin banner upload route is guarded and validates image uploads", () => {
+test("admin campaign API allows AVIF banner storage paths from the upload flow", () => {
+  const route = source("src/app/api/ynot/admin/campaigns/route.ts");
+
+  assert.match(route, /campaignBannerPathPattern/);
+  assert.match(route, /\(jpg\|png\|webp\|avif\)/);
+  assert.match(route, /campaignBannerPathPattern\.test\(requestedPath\)/);
+});
+
+test("admin banner upload route is guarded and validates visual image uploads", () => {
   const route = source("src/app/api/ynot/admin/campaigns/banner-image/route.ts");
 
   assert.match(route, /resolveAdminSession/);
   assert.match(route, /ynot:admin:campaigns:banner-image/);
   assert.match(route, /requestExceedsUploadLimit\(request, maxSlipBytes\)/);
-  assert.match(route, /allowedSlipTypes\.has\(file\.type\)/);
+  assert.match(route, /allowedVisualAssetTypes\.has\(file\.type\)/);
+  assert.match(route, /allowedVisualAssetTypes\.has\(magicCheck\.contentType\)/);
   assert.match(route, /verifyImageMagicBytes\(file\)/);
   assert.match(route, /campaign-banners\/\$\{day\}/);
+  assert.match(route, /extensionForVerifiedImage\(magicCheck\.contentType\)/);
   assert.match(route, /campaign_banner_image_uploaded/);
 });
 

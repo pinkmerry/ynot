@@ -3,22 +3,16 @@ import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import {
-  allowedSlipTypes,
+  allowedVisualAssetTypes,
+  extensionForVerifiedImage,
   maxSlipBytes,
   requestExceedsUploadLimit,
   verifyImageMagicBytes,
-  type VerifiedImageContentType,
 } from "@/lib/uploads/magic-bytes";
 
 export const dynamic = "force-dynamic";
 
 const bucketName = "lucky-draw-assets";
-
-function extensionFor(type: VerifiedImageContentType) {
-  if (type === "image/png") return "png";
-  if (type === "image/webp") return "webp";
-  return "jpg";
-}
 
 function safePathPart(value: unknown) {
   const clean =
@@ -77,9 +71,9 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!allowedSlipTypes.has(file.type)) {
+  if (!allowedVisualAssetTypes.has(file.type)) {
     return Response.json(
-      { error: "Pack banner image must be JPG, PNG, or WEBP." },
+      { error: "Pack banner image must be JPG, PNG, WEBP, or AVIF." },
       { status: 400 },
     );
   }
@@ -96,11 +90,18 @@ export async function POST(request: Request) {
     return Response.json({ error: magicCheck.error }, { status: 400 });
   }
 
+  if (!allowedVisualAssetTypes.has(magicCheck.contentType)) {
+    return Response.json(
+      { error: "Pack banner image must be JPG, PNG, WEBP, or AVIF." },
+      { status: 400 },
+    );
+  }
+
   const supabase = createServiceSupabaseClient();
   const now = new Date();
   const day = now.toISOString().slice(0, 10);
   const label = safePathPart(form.get("slug") || form.get("title") || file.name);
-  const ext = extensionFor(magicCheck.contentType);
+  const ext = extensionForVerifiedImage(magicCheck.contentType);
   const path = `campaign-banners/${day}/${Date.now()}-${crypto.randomUUID()}-${label}.${ext}`;
   const { error: uploadError } = await supabase.storage
     .from(bucketName)

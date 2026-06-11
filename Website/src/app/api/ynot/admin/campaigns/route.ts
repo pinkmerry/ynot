@@ -38,7 +38,7 @@ export const dynamic = "force-dynamic";
 
 const campaignBannerBucketName = "lucky-draw-assets";
 const campaignBannerPathPattern =
-  /^campaign-banners\/\d{4}-\d{2}-\d{2}\/\d+-[0-9a-f-]{36}-[a-z0-9._-]+\.(jpg|png|webp)$/;
+  /^campaign-banners\/\d{4}-\d{2}-\d{2}\/\d+-[0-9a-f-]{36}-[a-z0-9._-]+\.(jpg|png|webp|avif)$/;
 
 type CampaignBody = {
   campaignId?: unknown;
