@@ -97,13 +97,18 @@ test("YNOT admin visual upload controls accept AVIF while QR controls do not", (
     client,
     /const paymentQrImageUploadTypes = new Set\(\["image\/jpeg", "image\/png", "image\/webp"\]\)/,
   );
-  assert.match(client, /const adminVisualImageAccept = "image\/jpeg,image\/png,image\/webp,image\/avif";/);
+  assert.match(
+    client,
+    /const adminVisualImageAccept = "image\/jpeg,image\/png,image\/webp,image\/avif,\.jpg,\.jpeg,\.png,\.webp,\.avif";/,
+  );
   assert.match(client, /const paymentQrImageAccept = "image\/jpeg,image\/png,image\/webp";/);
   assert.match(client, /function adminVisualImageFileLooksAllowed\(file: File\)/);
   assert.match(client, /file\.type === "application\/octet-stream"/);
   assert.match(client, /adminVisualImageExtensionPattern\.test\(file\.name\)/);
   assert.match(client, /Use a JPG, PNG, WEBP, or AVIF image\./);
   assert.match(client, /Pack banner image must be JPG, PNG, WEBP, or AVIF\./);
+  assert.match(client, /Drag &amp; drop a JPG \/ PNG \/ WEBP \/ AVIF, or paste a URL\./);
+  assert.doesNotMatch(client, /Drag &amp; drop a JPG \/ PNG \/ WEBP, or paste a URL\./);
 
   const qrDropzoneStart = client.indexOf("function AdminQrImageDropzone");
   const qrDropzoneEnd = client.indexOf("function AdminCategoryManager");

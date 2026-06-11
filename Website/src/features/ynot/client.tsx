@@ -2781,7 +2781,7 @@ function formatFileSize(bytes: number): string {
 }
 
 const maxAdminImageUploadBytes = 10 * 1024 * 1024;
-const adminVisualImageAccept = "image/jpeg,image/png,image/webp,image/avif";
+const adminVisualImageAccept = "image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif";
 const paymentQrImageAccept = "image/jpeg,image/png,image/webp";
 const adminVisualImageUploadTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
 const paymentQrImageUploadTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -8655,7 +8655,7 @@ export function AdminCardForm({
                   cardCode={code}
                   cardName={name}
                   label="Main SKU image"
-                  hint="Drag &amp; drop a JPG / PNG / WEBP, or paste a URL. Uploaded to Supabase storage."
+                  hint="Drag &amp; drop a JPG / PNG / WEBP / AVIF, or paste a URL. Uploaded to Supabase storage."
                   onFileChange={(file) => {
                     setImageFile(file);
                     if (file) {
@@ -12309,7 +12309,7 @@ function AdminCardEditModal({
                 cardCode={code}
                 cardName={name || card.name}
                 label="Main SKU image"
-                hint="Drag &amp; drop a JPG / PNG / WEBP, or paste a URL. Uploaded to Supabase storage."
+                hint="Drag &amp; drop a JPG / PNG / WEBP / AVIF, or paste a URL. Uploaded to Supabase storage."
                 disabled={pending}
                 onFileChange={(file) => {
                   setImageFile(file);
