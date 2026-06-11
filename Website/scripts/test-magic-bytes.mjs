@@ -17,6 +17,14 @@ const JPEG_SIGNATURE = [0xff, 0xd8, 0xff];
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const WEBP_RIFF_PREFIX = [0x52, 0x49, 0x46, 0x46];
 const WEBP_FORMAT_MARKER = [0x57, 0x45, 0x42, 0x50];
+const BMFF_FTYP_MARKER = [0x66, 0x74, 0x79, 0x70];
+const allowedSlipTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const allowedVisualAssetTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+]);
 
 function matches(bytes, signature, offset = 0) {
   if (bytes.byteLength < offset + signature.length) return false;
@@ -26,8 +34,25 @@ function matches(bytes, signature, offset = 0) {
   return true;
 }
 
+function ascii(bytes, offset, length) {
+  if (bytes.byteLength < offset + length) return "";
+  return String.fromCharCode(...bytes.slice(offset, offset + length));
+}
+
+function hasAvifBrand(bytes) {
+  if (!matches(bytes, BMFF_FTYP_MARKER, 4)) return false;
+  if (ascii(bytes, 8, 4) === "avif" || ascii(bytes, 8, 4) === "avis") {
+    return true;
+  }
+  for (let offset = 16; offset + 4 <= bytes.byteLength; offset += 4) {
+    const brand = ascii(bytes, offset, 4);
+    if (brand === "avif" || brand === "avis") return true;
+  }
+  return false;
+}
+
 async function verifyImageMagicBytes(file) {
-  const header = await file.slice(0, 12).arrayBuffer();
+  const header = await file.slice(0, 64).arrayBuffer();
   const bytes = new Uint8Array(header);
 
   if (bytes.byteLength < 3) {
@@ -42,7 +67,13 @@ async function verifyImageMagicBytes(file) {
   if (matches(bytes, WEBP_RIFF_PREFIX) && matches(bytes, WEBP_FORMAT_MARKER, 8)) {
     return { ok: true, contentType: "image/webp" };
   }
-  return { ok: false, error: "File content does not match a supported image type (JPEG, PNG, or WebP)." };
+  if (hasAvifBrand(bytes)) {
+    return { ok: true, contentType: "image/avif" };
+  }
+  return {
+    ok: false,
+    error: "File content does not match a supported image type (JPEG, PNG, WebP, or AVIF).",
+  };
 }
 
 function fileFromBytes(arrayLike, name = "input.bin", type = "application/octet-stream") {
@@ -66,6 +97,62 @@ test("accepts WebP header (RIFF....WEBP)", async () => {
   const file = fileFromBytes([0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50], "a.webp", "image/webp");
   const result = await verifyImageMagicBytes(file);
   assert.deepEqual(result, { ok: true, contentType: "image/webp" });
+});
+
+test("accepts AVIF header with avif major brand", async () => {
+  const file = fileFromBytes(
+    [
+      0x00, 0x00, 0x00, 0x20,
+      0x66, 0x74, 0x79, 0x70,
+      0x61, 0x76, 0x69, 0x66,
+      0x00, 0x00, 0x00, 0x00,
+      0x61, 0x76, 0x69, 0x66,
+    ],
+    "a.avif",
+    "image/avif",
+  );
+  const result = await verifyImageMagicBytes(file);
+  assert.deepEqual(result, { ok: true, contentType: "image/avif" });
+});
+
+test("accepts AVIF header with avif compatible brand", async () => {
+  const file = fileFromBytes(
+    [
+      0x00, 0x00, 0x00, 0x20,
+      0x66, 0x74, 0x79, 0x70,
+      0x6d, 0x69, 0x66, 0x31,
+      0x00, 0x00, 0x00, 0x00,
+      0x61, 0x76, 0x69, 0x66,
+    ],
+    "compatible.avif",
+    "image/avif",
+  );
+  const result = await verifyImageMagicBytes(file);
+  assert.deepEqual(result, { ok: true, contentType: "image/avif" });
+});
+
+test("rejects BMFF file without AVIF brand", async () => {
+  const file = fileFromBytes(
+    [
+      0x00, 0x00, 0x00, 0x20,
+      0x66, 0x74, 0x79, 0x70,
+      0x6d, 0x70, 0x34, 0x32,
+      0x00, 0x00, 0x00, 0x00,
+      0x6d, 0x70, 0x34, 0x32,
+    ],
+    "video-ish.avif",
+    "image/avif",
+  );
+  const result = await verifyImageMagicBytes(file);
+  assert.equal(result.ok, false);
+});
+
+test("purpose allowlists let visual assets use AVIF but keep slips on JPG PNG WEBP", () => {
+  assert.equal(allowedVisualAssetTypes.has("image/avif"), true);
+  assert.equal(allowedSlipTypes.has("image/avif"), false);
+  assert.equal(allowedSlipTypes.has("image/jpeg"), true);
+  assert.equal(allowedSlipTypes.has("image/png"), true);
+  assert.equal(allowedSlipTypes.has("image/webp"), true);
 });
 
 test("rejects HTML payload declared as JPEG", async () => {
@@ -112,6 +199,22 @@ test("YNOT admin image uploads reject oversized bodies before form parsing", () 
     assert.match(route, /requestExceedsUploadLimit\(request,\s*maxSlipBytes\)/);
     assert.match(route, /status:\s*413/);
     assert.match(route, /requestExceedsUploadLimit\(request,\s*maxSlipBytes\)[\s\S]*request\.formData\(\)/);
+  }
+});
+
+test("slip and QR routes re-check the verified content type against the slip allowlist", () => {
+  const ynotWalletRoute = readSource("../src/app/api/ynot/wallet/route.ts");
+  const luckyDrawCheckoutRoute = readSource("../src/app/api/lucky-draw/route.ts");
+  const ynotQrRoute = readSource("../src/app/api/ynot/admin/payment-methods/qr-image/route.ts");
+  const luckyDrawQrRoute = readSource("../src/app/api/lucky-draw/admin/qr/route.ts");
+
+  for (const route of [
+    ynotWalletRoute,
+    luckyDrawCheckoutRoute,
+    ynotQrRoute,
+    luckyDrawQrRoute,
+  ]) {
+    assert.match(route, /allowedSlipTypes\.has\(magicCheck\.contentType\)/);
   }
 });
 

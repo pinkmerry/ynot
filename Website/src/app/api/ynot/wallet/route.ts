@@ -131,6 +131,7 @@ export async function POST(request: Request) {
   if (slipFile.size > maxSlipBytes) return jsonNoStore({ error: "Slip must be 10 MB or smaller." }, { status: 400 });
   const magicCheck = await verifyImageMagicBytes(slipFile);
   if (!magicCheck.ok) return jsonNoStore({ error: magicCheck.error }, { status: 400 });
+  if (!allowedSlipTypes.has(magicCheck.contentType)) return jsonNoStore({ error: "Slip must be JPG, PNG, or WEBP." }, { status: 400 });
 
   const supabase = createServiceSupabaseClient();
   let paymentMethodId: string | null;

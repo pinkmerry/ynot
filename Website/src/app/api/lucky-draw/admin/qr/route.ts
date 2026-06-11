@@ -1,15 +1,9 @@
 import { getActiveDraw, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { allowedSlipTypes, maxSlipBytes, verifyImageMagicBytes, type VerifiedImageContentType } from "@/lib/uploads/magic-bytes";
+import { allowedSlipTypes, extensionForVerifiedImage, maxSlipBytes, verifyImageMagicBytes } from "@/lib/uploads/magic-bytes";
 
 const bucketName = "lucky-draw-assets";
-
-function extensionFor(type: VerifiedImageContentType) {
-  if (type === "image/png") return "png";
-  if (type === "image/webp") return "webp";
-  return "jpg";
-}
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
@@ -39,6 +33,9 @@ export async function POST(request: Request) {
   if (!magicCheck.ok) {
     return Response.json({ error: magicCheck.error }, { status: 400 });
   }
+  if (!allowedSlipTypes.has(magicCheck.contentType)) {
+    return Response.json({ error: "QR image must be JPG, PNG, or WEBP." }, { status: 400 });
+  }
 
   const supabase = createServiceSupabaseClient();
   const activeDraw = await getActiveDraw(supabase);
@@ -46,7 +43,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "No draw round exists yet." }, { status: 404 });
   }
 
-  const path = `payment-qr/${activeDraw.id}-${Date.now()}.${extensionFor(magicCheck.contentType)}`;
+  const path = `payment-qr/${activeDraw.id}-${Date.now()}.${extensionForVerifiedImage(magicCheck.contentType)}`;
   const { error: uploadError } = await supabase.storage.from(bucketName).upload(path, file, {
     contentType: magicCheck.contentType,
     upsert: true,

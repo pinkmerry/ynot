@@ -4,21 +4,15 @@ import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import {
   allowedSlipTypes,
+  extensionForVerifiedImage,
   maxSlipBytes,
   requestExceedsUploadLimit,
   verifyImageMagicBytes,
-  type VerifiedImageContentType,
 } from "@/lib/uploads/magic-bytes";
 
 export const dynamic = "force-dynamic";
 
 const bucketName = "lucky-draw-assets";
-
-function extensionFor(type: VerifiedImageContentType) {
-  if (type === "image/png") return "png";
-  if (type === "image/webp") return "webp";
-  return "jpg";
-}
 
 function safePathPart(value: unknown) {
   const clean =
@@ -95,6 +89,12 @@ export async function POST(request: Request) {
   if (!magicCheck.ok) {
     return Response.json({ error: magicCheck.error }, { status: 400 });
   }
+  if (!allowedSlipTypes.has(magicCheck.contentType)) {
+    return Response.json(
+      { error: "QR image must be JPG, PNG, or WEBP." },
+      { status: 400 },
+    );
+  }
 
   const supabase = createServiceSupabaseClient();
   const now = new Date();
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
   const label = safePathPart(
     form.get("code") || form.get("displayName") || file.name,
   );
-  const ext = extensionFor(magicCheck.contentType);
+  const ext = extensionForVerifiedImage(magicCheck.contentType);
   const path = `payment-qr/ynot-methods/${day}/${Date.now()}-${crypto.randomUUID()}-${label}.${ext}`;
   const { error: uploadError } = await supabase.storage
     .from(bucketName)
