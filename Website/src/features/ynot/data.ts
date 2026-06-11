@@ -1148,7 +1148,8 @@ function toYnotCampaign(
   const materializedTotalUnits =
     inventory?.totalUnits === undefined ? undefined : inventory.totalUnits;
   const materializedAvailableUnits =
-    inventory?.availableUnits === undefined ? undefined : inventory.availableUnits;
+    inventory?.availableWinSlots ??
+    (inventory?.availableUnits === undefined ? undefined : inventory.availableUnits);
   const remainingSlots = readiness?.remainingSlots ?? inventory?.remainingSlots;
   const availablePrizeUnits =
     readiness?.availablePrizeUnits ??
@@ -1157,6 +1158,7 @@ function toYnotCampaign(
     inventory?.availableUnits;
   const eligiblePrizeUnits =
     readiness?.eligiblePrizeUnits ??
+    inventory?.eligibleUnits ??
     (approvalStatus === "pending_review" ? availablePrizeUnits : undefined);
   const soldOut =
     readiness?.soldOut ??
@@ -1281,6 +1283,8 @@ function publicYnotCampaign(campaign: YnotCampaign): YnotCampaign {
     startsAt: campaign.startsAt,
     endsAt: campaign.endsAt,
     remainingSlots: campaign.remainingSlots,
+    availablePrizeUnits: campaign.availablePrizeUnits,
+    eligiblePrizeUnits: campaign.eligiblePrizeUnits,
     openable: campaign.openable,
     soldOut: campaign.soldOut,
     categorySlugs: campaign.categorySlugs,

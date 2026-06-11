@@ -49,6 +49,7 @@
     "test:stock-restore-tool": "node --test scripts/test-stock-restore-tool.mjs",
     "test:subsku-images": "node --test scripts/test-subsku-image-routing.mjs",
     "test:last-prize-stock-link": "node --test scripts/test-last-prize-stock-link.mjs",
+    "test:final-open-quantity": "node --test scripts/test-final-open-quantity.mjs",
     "test:prize-unit-counts": "node --test scripts/test-prize-unit-counts.mjs",
     "test:admin-pack-monitor": "node --test scripts/test-admin-pack-monitor.mjs",
     "test:campaign-detail-perf": "node --test scripts/test-campaign-detail-perf.mjs",

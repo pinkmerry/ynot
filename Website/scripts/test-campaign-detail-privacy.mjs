@@ -51,6 +51,17 @@ test("public campaign projection hides pack banner storage path", () => {
   assert.doesNotMatch(projection, /\.\.\.campaign/);
 });
 
+test("public campaign projection preserves safe aggregate openability counts", () => {
+  const projection = sliceBetween(
+    "function publicYnotCampaign",
+    "function localOwnerMockPrizeLineup",
+  );
+  assert.match(projection, /availablePrizeUnits:\s*campaign\.availablePrizeUnits/);
+  assert.match(projection, /eligiblePrizeUnits:\s*campaign\.eligiblePrizeUnits/);
+  assert.doesNotMatch(projection, /initialEligiblePrizeUnits:/);
+  assert.doesNotMatch(projection, /readinessBlockers:/);
+});
+
 test("cached public detail loader returns sold-out campaigns through the public projection", () => {
   const impl = sliceBetween(
     "async function loadPublicCampaignDetailImpl",
@@ -101,6 +112,23 @@ test("campaign inventory mapper preserves zero remaining slots for final open", 
   assert.doesNotMatch(
     campaignMapper,
     /inventory\?\.availableUnits && inventory\.availableUnits > 0/,
+  );
+});
+
+test("campaign mapper uses openable win-slot aggregates before physical stock counts", () => {
+  const mapper = sliceBetween(
+    "function toYnotCampaign",
+    "function publicPrizeLineup",
+  );
+  assert.match(
+    mapper,
+    /inventory\?\.availableWinSlots \?\?[\s\S]*inventory\?\.availableUnits/,
+    "public pack list modal must use openable win slots before physical units",
+  );
+  assert.match(
+    mapper,
+    /readiness\?\.eligiblePrizeUnits \?\?[\s\S]*inventory\?\.eligibleUnits/,
+    "public pack list modal must preserve eligible public aggregate counts",
   );
 });
 

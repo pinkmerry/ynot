@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 
 const openRouteSource = readFileSync(
@@ -14,11 +14,14 @@ const dataSource = readFileSync(
   new URL("../src/features/ynot/data.ts", import.meta.url),
   "utf8",
 );
+const migrationsDir = new URL("../../Database/supabase/migrations/", import.meta.url);
+const inventorySummaryMigrationName = readdirSync(migrationsDir)
+  .filter((name) => name.endsWith("_last_prize_final_quantity_summary.sql"))
+  .sort()
+  .at(-1);
+assert.ok(inventorySummaryMigrationName, "missing final quantity inventory summary migration");
 const inventorySummaryMigrationSource = readFileSync(
-  new URL(
-    "../../Database/supabase/migrations/20260607010000_open_entry_eligible_inventory_summary.sql",
-    import.meta.url,
-  ),
+  new URL(inventorySummaryMigrationName, migrationsDir),
   "utf8",
 );
 
@@ -178,8 +181,18 @@ test("inventory summary exposes public openable aggregates for the open-entry lo
   );
   assertShape(
     inventorySummaryMigrationSource,
-    /last_prize_eligible_units/,
-    "final-slot last-prize openability",
+    /last_prize_available_units/,
+    "final-slot last-prize availability",
+  );
+  assertShape(
+    inventorySummaryMigrationSource,
+    /ri\.remaining_slots <= coalesce\(nwc\.available_win_slots, 0\) \+ coalesce\(lpc\.last_prize_available_units, 0\)/,
+    "Last Prize counts when available aggregate can finish",
+  );
+  assertShape(
+    inventorySummaryMigrationSource,
+    /ri\.remaining_slots <= coalesce\(nwc\.eligible_win_slots, 0\) \+ coalesce\(lpc\.last_prize_available_units, 0\)/,
+    "Last Prize counts when eligible aggregate can finish",
   );
   assertNoShape(
     inventorySummaryMigrationSource,

@@ -28,6 +28,13 @@ vm.runInNewContext(transpile("../src/features/ynot/bundle-quantity.ts"), {
   require,
 });
 
+const openQuantityModule = { exports: {} };
+vm.runInNewContext(transpile("../src/features/ynot/open-quantity.ts"), {
+  exports: openQuantityModule.exports,
+  module: openQuantityModule,
+  require,
+});
+
 const cjsModule = { exports: {} };
 const testRequire = (specifier) => {
   if (specifier === "./bundle-quantity") return bundleModule.exports;
@@ -47,6 +54,7 @@ const prizeModule = { exports: {} };
 const prizeRequire = (specifier) => {
   if (specifier === "server-only") return {};
   if (specifier === "./bundle-quantity") return bundleModule.exports;
+  if (specifier === "./open-quantity") return openQuantityModule.exports;
   if (specifier === "./stock-readiness") return readiness;
   if (specifier === "./prize-tier") {
     return {
@@ -117,6 +125,25 @@ test("campaign readiness preserves zero remaining slots for final open", () => {
   assert.doesNotMatch(
     prizeReadinessSource,
     /remainingSlots:\s*numberOrZero\(item\.remainingSlots\)\s*\|\|\s*undefined/,
+  );
+});
+
+test("campaign readiness trusts public inventory summary aggregates for final prize openability", () => {
+  assert.match(
+    prizeReadinessSource,
+    /availableWinSlots:\s*optionalNumber\(item\.availableWinSlots\)/,
+  );
+  assert.match(
+    prizeReadinessSource,
+    /eligibleUnits:\s*optionalNumber\(item\.eligibleUnits\)/,
+  );
+  assert.match(
+    prizeReadinessSource,
+    /const availableRewardUnits =\s*inventory\?\.availableWinSlots \?\?/,
+  );
+  assert.match(
+    prizeReadinessSource,
+    /const eligibleRewardUnits =\s*inventory\?\.eligibleUnits \?\?/,
   );
 });
 

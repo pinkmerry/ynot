@@ -26,6 +26,7 @@ import {
   aggregateNonVoidPrizeUnitCounts,
   type PrizeUnitStatusRow,
 } from "./prize-unit-counts";
+import { finalPrizeAwareOpenableWinSlots } from "./open-quantity";
 
 type SupabaseClient = ReturnType<typeof createServiceSupabaseClient>;
 type DrawRoundRow = Database["public"]["Tables"]["draw_rounds"]["Row"];
@@ -38,6 +39,8 @@ type InventorySummary = {
   remainingSlots?: number;
   totalUnits?: number;
   availableUnits?: number;
+  availableWinSlots?: number;
+  eligibleUnits?: number;
   awardedUnits?: number;
   voidUnits?: number;
 };
@@ -194,6 +197,8 @@ function inventorySummariesFromJson(value: unknown): InventorySummary[] {
         remainingSlots: optionalNumber(item.remainingSlots),
         totalUnits: numberOrZero(item.totalUnits),
         availableUnits: numberOrZero(item.availableUnits),
+        availableWinSlots: optionalNumber(item.availableWinSlots),
+        eligibleUnits: optionalNumber(item.eligibleUnits),
         awardedUnits: numberOrZero(item.awardedUnits),
         voidUnits: numberOrZero(item.voidUnits),
       },
@@ -749,11 +754,21 @@ export async function getCampaignPrizeReadiness(
   const lastPrizeTotalUnits = row.last_prize_card_id ? 1 : 0;
   const lastPrizeAvailableUnits =
     row.last_prize_card_id && !row.last_prize_awarded_at ? 1 : 0;
-  const lastPrizeEligibleUnits =
-    lastPrizeAvailableUnits > 0 && remainingSlots <= 1 ? 1 : 0;
   const totalRewardUnits = totalPrizeUnits + lastPrizeTotalUnits;
-  const availableRewardUnits = availablePrizeUnits + lastPrizeAvailableUnits;
-  const eligibleRewardUnits = eligiblePrizeUnits + lastPrizeEligibleUnits;
+  const availableRewardUnits =
+    inventory?.availableWinSlots ??
+    finalPrizeAwareOpenableWinSlots({
+      remainingSlots,
+      normalOpenableWinSlots: availablePrizeUnits,
+      finalPrizeAvailableUnits: lastPrizeAvailableUnits,
+    });
+  const eligibleRewardUnits =
+    inventory?.eligibleUnits ??
+    finalPrizeAwareOpenableWinSlots({
+      remainingSlots,
+      normalOpenableWinSlots: eligiblePrizeUnits,
+      finalPrizeAvailableUnits: lastPrizeAvailableUnits,
+    });
   const unitBackedPrizes = usePlannedInventory
     ? visiblePrizes.filter(
         (prize) => plannedQuantityForPrize(prize) > 0,

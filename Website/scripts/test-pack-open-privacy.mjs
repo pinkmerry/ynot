@@ -232,6 +232,8 @@ test("customer campaign props hide house logic and internal prize inventory", ()
     "function localOwnerMockPrizeLineup",
   );
   assert.match(publicCampaign, /id:\s*campaign\.slug/);
+  assert.match(publicCampaign, /availablePrizeUnits:\s*campaign\.availablePrizeUnits/);
+  assert.match(publicCampaign, /eligiblePrizeUnits:\s*campaign\.eligiblePrizeUnits/);
   assert.doesNotMatch(
     publicCampaign,
     /\.\.\.campaign/,
@@ -240,8 +242,6 @@ test("customer campaign props hide house logic and internal prize inventory", ()
   for (const privateField of [
     "logicMode",
     "totalPrizeUnits",
-    "availablePrizeUnits",
-    "eligiblePrizeUnits",
     "initialEligiblePrizeUnits",
     "awardedPrizeUnits",
     "voidPrizeUnits",

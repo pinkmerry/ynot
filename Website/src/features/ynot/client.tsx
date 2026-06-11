@@ -46,7 +46,9 @@ import {
 } from "./admin-card-catalog-helpers";
 import {
   allowedOpenQuantityOptions,
+  isOpenQuantityAvailable,
   normalizeOpenQuantityOptions,
+  openQuantityLimit,
 } from "./open-quantity";
 import {
   defaultBundleQuantity,
@@ -769,19 +771,21 @@ export function GachaOpenPanel({
   });
   const openRequestInFlightRef = useRef(false);
   const [, startTransition] = useTransition();
-  const availableOpenUnits =
-    remainingState.eligibleUnits ??
-    remainingState.availableWinSlots ??
-    remainingState.availablePrizeUnits ??
-    Number.POSITIVE_INFINITY;
-  const remainingOpenUnits = Math.min(
-    remainingState.remainingSlots ?? Number.POSITIVE_INFINITY,
-    availableOpenUnits,
-  );
+  const remainingOpenUnits = openQuantityLimit({
+    remainingSlots: remainingState.remainingSlots,
+    eligibleUnits: remainingState.eligibleUnits,
+    availableWinSlots: remainingState.availableWinSlots,
+    availablePrizeUnits: remainingState.availablePrizeUnits,
+  });
   const visibleRemainingSlots = remainingState.remainingSlots ?? remainingOpenUnits;
 
   function quantityDisabled(option: number) {
-    return Number.isFinite(remainingOpenUnits) && option > remainingOpenUnits;
+    return !isOpenQuantityAvailable(option, {
+      remainingSlots: remainingState.remainingSlots,
+      eligibleUnits: remainingState.eligibleUnits,
+      availableWinSlots: remainingState.availableWinSlots,
+      availablePrizeUnits: remainingState.availablePrizeUnits,
+    });
   }
 
   function fireOpen(targetQuantity: number, intentId?: string | null) {

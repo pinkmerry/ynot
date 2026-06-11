@@ -3,6 +3,58 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+const quantityHelpers = ["openQuantityLimit", "isOpenQuantityAvailable"];
+const privateLogicTerms = [
+  "stockUnitGroupKey",
+  "unlock_at_sold_pct",
+  "last_prize_metadata",
+];
+
+function namedImportsFrom(source, modulePath) {
+  return [...source.matchAll(
+    /import\s+(?:type\s+)?\{([\s\S]*?)\}\s+from\s+["']([^"']+)["'];/g,
+  )]
+    .filter((match) => match[2] === modulePath)
+    .map((match) => match[1])
+    .join("\n");
+}
+
+function sourceWithoutImports(source) {
+  return source.replace(
+    /import\s+(?:type\s+)?\{[\s\S]*?\}\s+from\s+["'][^"']+["'];/g,
+    "",
+  );
+}
+
+function assertImportsQuantityHelpers(label, source, modulePath) {
+  const imports = namedImportsFrom(source, modulePath);
+  assert.ok(imports, `${label} imports from ${modulePath}`);
+  for (const helper of quantityHelpers) {
+    assert.match(imports, new RegExp(`\\b${helper}\\b`), `${label} imports ${helper}`);
+  }
+}
+
+function assertUsesQuantityHelpers(label, source) {
+  const body = sourceWithoutImports(source);
+  for (const helper of quantityHelpers) {
+    assert.match(body, new RegExp(`\\b${helper}\\(`), `${label} uses ${helper}`);
+  }
+}
+
+function assertNoPrivateLogicTerms(label, source) {
+  for (const term of privateLogicTerms) {
+    assert.doesNotMatch(source, new RegExp(`\\b${term}\\b`), `${label} does not expose ${term}`);
+  }
+}
+
+function sectionBetween(source, startPattern, endPattern, label) {
+  const start = source.search(startPattern);
+  assert.notEqual(start, -1, `${label} start section exists`);
+  const rest = source.slice(start);
+  const end = rest.search(endPattern);
+  assert.notEqual(end, -1, `${label} end section exists`);
+  return rest.slice(0, end);
+}
 
 test("open confirmation creates a stable intent before auto-start reveal", () => {
   const detail = read("src/features/ynot/cr/PackDetailExperience.tsx");
@@ -81,11 +133,11 @@ test("repeat pull options use locally updated remaining stock from open result",
   assert.match(panel, /eligibleUnits: campaign\.eligiblePrizeUnits/);
   assert.match(panel, /campaign\.availablePrizeUnits/);
   assert.match(panel, /remainingState\.remainingSlots/);
-  assert.match(
-    panel,
-    /remainingState\.eligibleUnits \?\?[\s\S]*remainingState\.availableWinSlots \?\?[\s\S]*remainingState\.availablePrizeUnits \?\?/,
-  );
+  assert.match(panel, /const remainingOpenUnits = openQuantityLimit\(\{/);
+  assert.match(panel, /eligibleUnits: remainingState\.eligibleUnits/);
+  assert.match(panel, /availableWinSlots: remainingState\.availableWinSlots/);
   assert.match(panel, /remainingState\.availablePrizeUnits/);
+  assert.match(panel, /return !isOpenQuantityAvailable\(option, \{/);
   assert.match(fireOpen, /if \(result\.remaining\) \{/);
   assert.match(fireOpen, /setRemainingState\(\(current\) => \(\{/);
   assert.match(fireOpen, /\.\.\.current/);
@@ -95,4 +147,42 @@ test("repeat pull options use locally updated remaining stock from open result",
   assert.match(overlay, /remainingSlots\?: number/);
   assert.match(overlay, /Number\.isFinite\(remainingSlots\)/);
   assert.match(overlay, /gacha-reveal-repeat-stock-left/);
+});
+
+test("public open quantity surfaces share final-slot helpers without exposing private logic terms", () => {
+  const helper = read("src/features/ynot/open-quantity.ts");
+  const client = read("src/features/ynot/client.tsx");
+  const detail = read("src/features/ynot/cr/PackDetailExperience.tsx");
+  const yPack = read("src/features/ynot/cr/YPackExperience.tsx");
+  const revealPanel = sectionBetween(
+    client,
+    /export function GachaOpenPanel\b/,
+    /export function AddressForm\b/,
+    "GachaOpenPanel",
+  );
+  const yPackModal = sectionBetween(
+    yPack,
+    /function OpenPackModal\b/,
+    /\n}\s*$/,
+    "OpenPackModal",
+  );
+
+  assertImportsQuantityHelpers("reveal page", client, "./open-quantity");
+  assertImportsQuantityHelpers("pack detail", detail, "../open-quantity");
+  assertImportsQuantityHelpers("Y-Pack modal", yPack, "../open-quantity");
+  assertUsesQuantityHelpers("reveal page", revealPanel);
+  assertUsesQuantityHelpers("pack detail", detail);
+  assertUsesQuantityHelpers("Y-Pack modal", yPackModal);
+
+  for (const exportName of quantityHelpers) {
+    assert.match(
+      helper,
+      new RegExp(`export\\s+(?:function|const)\\s+${exportName}\\b`),
+      `open-quantity exports ${exportName}`,
+    );
+  }
+
+  assertNoPrivateLogicTerms("reveal page", revealPanel);
+  assertNoPrivateLogicTerms("pack detail", detail);
+  assertNoPrivateLogicTerms("Y-Pack modal", yPackModal);
 });
