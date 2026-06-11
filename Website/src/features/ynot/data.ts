@@ -779,9 +779,10 @@ async function readPrizeUnitImageUrlsByPrizeId(
   return out;
 }
 
-// Last One Prize is stored on draw_rounds, not in draw_round_prizes. It counts
-// as the final reward slot, but this preview remains display-only: resolve the
-// chosen sub-SKU image without exposing the private filter metadata.
+// Last One Prize is stored on draw_rounds, not in draw_round_prizes. It is a
+// bonus for the final opener (on top of their normal pull), and this preview
+// remains display-only: resolve the chosen sub-SKU image without exposing the
+// private filter metadata.
 async function resolveLastPrizePreview(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   row: DrawRoundRow,

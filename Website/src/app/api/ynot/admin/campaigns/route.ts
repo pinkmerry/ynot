@@ -273,12 +273,13 @@ function campaignPatch(body: CampaignBody): Database["public"]["Tables"]["draw_r
   };
 }
 
+// The Last Prize is a bonus for the final opener — it no longer occupies a
+// slot, so normal prize rows must cover every slot regardless.
 function lastPrizeNormalPrizeTarget(
   totalSlots: number,
-  lastPrizeCardId?: string | null,
+  _lastPrizeCardId?: string | null,
 ) {
-  const normalizedTotalSlots = Math.max(1, Math.round(Number(totalSlots) || 1));
-  return Math.max(0, normalizedTotalSlots - (lastPrizeCardId ? 1 : 0));
+  return Math.max(1, Math.round(Number(totalSlots) || 1));
 }
 
 function nextLastPrizeCardId(
