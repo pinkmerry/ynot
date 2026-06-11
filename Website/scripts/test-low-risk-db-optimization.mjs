@@ -86,6 +86,10 @@ test("category and audit timeline reads use explicit projections", () => {
     dataSource,
     /const AUDIT_EVENT_TIMELINE_SELECT = "id,event_type,metadata,created_at";/,
   );
+  assert.match(
+    dataSource,
+    /const SHIPPING_AUDIT_EVENT_TIMELINE_SELECT =\s*`\$\{AUDIT_EVENT_TIMELINE_SELECT\},shipping_request_id`;/,
+  );
 
   const categoryReadBlocks = [
     sourceBlock(
@@ -116,12 +120,12 @@ test("category and audit timeline reads use explicit projections", () => {
   const shippingAuditTimelineQuery = sourceBlock(
     dataSource,
     'readOrEmpty("shipping_audit_events"',
-    "const events = auditEvents",
+    "const collectionItemIds = Array.from(",
     "shipping audit timeline query",
   );
   assert.match(
     shippingAuditTimelineQuery,
-    /\.select\(AUDIT_EVENT_TIMELINE_SELECT\)/,
+    /\.select\(SHIPPING_AUDIT_EVENT_TIMELINE_SELECT\)/,
   );
   assert.doesNotMatch(shippingAuditTimelineQuery, /\.select\("\*"\)/);
 

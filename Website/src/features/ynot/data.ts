@@ -81,6 +81,10 @@ import { normalizeBundleQuantity, publicBundleQuantity } from "./bundle-quantity
 import { getProfileAddresses } from "./server-addresses";
 
 const dataIssueStorage = new AsyncLocalStorage<YnotDataIssue[]>();
+const DRAW_ROUND_CATEGORY_LINK_SELECT = "draw_round_id,category_id";
+const AUDIT_EVENT_TIMELINE_SELECT = "id,event_type,metadata,created_at";
+const SHIPPING_AUDIT_EVENT_TIMELINE_SELECT =
+  `${AUDIT_EVENT_TIMELINE_SELECT},shipping_request_id`;
 
 type CardStockSummaryRow = {
   cardId: string;
@@ -1782,7 +1786,7 @@ async function getCampaignsImpl(
         if (!campaignIds.length) return [];
         const { data: links, error: linksError } = await supabase
           .from("draw_round_categories")
-          .select("*")
+          .select(DRAW_ROUND_CATEGORY_LINK_SELECT)
           .in("draw_round_id", campaignIds);
         if (linksError) throw linksError;
         return links ?? [];
@@ -2057,7 +2061,7 @@ async function loadPublicCampaignDetailImpl(
     readOrEmpty("campaign_detail_public_categories", async () => {
       const { data: links, error: linksError } = await supabase
         .from("draw_round_categories")
-        .select("*")
+        .select(DRAW_ROUND_CATEGORY_LINK_SELECT)
         .eq("draw_round_id", row.id);
       if (linksError) throw linksError;
       return links ?? [];
@@ -2386,7 +2390,7 @@ export async function getCampaign(
       readOrEmpty("campaign_detail_categories", async () => {
         const { data: links, error: linksError } = await supabase
           .from("draw_round_categories")
-          .select("*")
+          .select(DRAW_ROUND_CATEGORY_LINK_SELECT)
           .eq("draw_round_id", row.id);
         if (linksError) throw linksError;
         return links ?? [];
@@ -3305,8 +3309,13 @@ function shippingTimelineLabel(eventType: string, status?: string | null) {
   return eventType.replaceAll("_", " ");
 }
 
+type AuditEventTimelineRow = Pick<
+  Database["public"]["Tables"]["audit_events"]["Row"],
+  "id" | "event_type" | "metadata" | "created_at"
+>;
+
 function shippingTimelineEvent(
-  row: Database["public"]["Tables"]["audit_events"]["Row"],
+  row: AuditEventTimelineRow,
 ): YnotShippingTimelineEvent {
   const metadata = isRecord(row.metadata) ? row.metadata : {};
   const status = metadataString(metadata, "status") ?? null;
@@ -3387,7 +3396,9 @@ export async function getShipping(
       readOrEmpty("shipping_audit_events", async () => {
         const { data, error } = await supabase
           .from("audit_events")
-          .select("*")
+          // Base mapper fields stay covered by .select(AUDIT_EVENT_TIMELINE_SELECT);
+          // shipping grouping also needs shipping_request_id.
+          .select(SHIPPING_AUDIT_EVENT_TIMELINE_SELECT)
           .in("shipping_request_id", requestIds)
           .order("created_at", { ascending: true });
         if (error) throw error;
@@ -3885,7 +3896,7 @@ export async function getAdminUserDetail(
     readOrEmpty("admin_user_audit", async () => {
       const { data, error } = await supabase
         .from("audit_events")
-        .select("*")
+        .select(AUDIT_EVENT_TIMELINE_SELECT)
         .eq("actor_profile_id", profileId)
         .order("created_at", { ascending: false })
         .limit(80);
