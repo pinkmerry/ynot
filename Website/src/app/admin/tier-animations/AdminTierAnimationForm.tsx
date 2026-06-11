@@ -116,8 +116,8 @@ export function AdminTierAnimationForm({ tier }: Props) {
       </label>
 
       <label className="admin-tier-form-field">
-        <span>Replace poster image (optional, png / jpg / webp)</span>
-        <input type="file" name="poster" accept="image/png,image/jpeg,image/webp" />
+        <span>Replace poster image (optional, png / jpg / webp / avif)</span>
+        <input type="file" name="poster" accept="image/png,image/jpeg,image/webp,image/avif" />
       </label>
 
       <label className="admin-tier-form-field">

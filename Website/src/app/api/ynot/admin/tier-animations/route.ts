@@ -3,6 +3,11 @@ import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import {
+  allowedVisualAssetTypes,
+  extensionForVerifiedImage,
+  verifyImageMagicBytes,
+} from "@/lib/uploads/magic-bytes";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +20,23 @@ const ALLOWED_AUDIO_MIME = new Set([
   "audio/wav",
   "audio/ogg",
 ]);
+const ALLOWED_POSTER_MIME = new Set(["image/png", "image/jpeg", "image/webp", "image/avif"]);
+const EXTENSION_BY_MIME = new Map([
+  ["image/png", "png"],
+  ["image/jpeg", "jpg"],
+  ["image/webp", "webp"],
+  ["image/avif", "avif"],
+  ["video/mp4", "mp4"],
+  ["video/webm", "webm"],
+  ["audio/mpeg", "mp3"],
+  ["audio/mp3", "mp3"],
+  ["audio/wav", "wav"],
+  ["audio/ogg", "ogg"],
+]);
 
-function pickExtension(file: File, fallback: string) {
+function extensionForUpload(file: File, fallback: string) {
+  const mapped = EXTENSION_BY_MIME.get(file.type);
+  if (mapped) return mapped;
   const name = file.name?.toLowerCase() ?? "";
   const dot = name.lastIndexOf(".");
   if (dot > -1 && dot < name.length - 1) return name.slice(dot + 1);
@@ -76,12 +96,22 @@ export async function POST(request: Request) {
     if (file.size > MAX_BYTES) throw new Error(`${kind} exceeds 20MB limit.`);
     if (file.type && !allowed.has(file.type))
       throw new Error(`${kind} type ${file.type} is not allowed.`);
-    const ext = pickExtension(file, fallbackExt);
+    let contentType = file.type || undefined;
+    let ext = extensionForUpload(file, fallbackExt);
+    if (kind === "poster") {
+      const magicCheck = await verifyImageMagicBytes(file);
+      if (!magicCheck.ok) throw new Error(magicCheck.error);
+      if (!allowedVisualAssetTypes.has(magicCheck.contentType)) {
+        throw new Error("poster type is not allowed.");
+      }
+      contentType = magicCheck.contentType;
+      ext = extensionForVerifiedImage(magicCheck.contentType);
+    }
     const path = `${tier}/${kind}-${Date.now()}.${ext}`;
     const { error: uploadError } = await supabase.storage
       .from("tier-animations")
       .upload(path, file.stream(), {
-        contentType: file.type || undefined,
+        contentType,
         upsert: true,
       });
     if (uploadError) throw new Error(uploadError.message);
@@ -110,7 +140,7 @@ export async function POST(request: Request) {
       updates.poster_url = await uploadAndGetUrl(
         posterFile,
         "poster",
-        new Set(["image/png", "image/jpeg", "image/webp"]),
+        ALLOWED_POSTER_MIME,
         "png",
       );
     }

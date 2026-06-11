@@ -37,6 +37,7 @@
     "test:random-pack-bundles": "node --test scripts/test-random-pack-bundle-quantity.mjs",
     "test:production-security-regressions": "node --test scripts/test-production-security-regressions.mjs",
     "test:pack-banner-images": "node --test scripts/test-pack-banner-image-upload.mjs",
+    "test:admin-avif-images": "node --test scripts/test-admin-avif-image-surfaces.mjs",
     "test:pack-open-privacy": "node --test scripts/test-pack-open-privacy.mjs",
     "test:campaign-detail-privacy": "node --test scripts/test-campaign-detail-privacy.mjs",
     "test:stock-sku-usage": "node --test scripts/test-stock-sku-usage.mjs",

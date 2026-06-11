@@ -2781,7 +2781,10 @@ function formatFileSize(bytes: number): string {
 }
 
 const maxAdminImageUploadBytes = 10 * 1024 * 1024;
-const adminImageUploadTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const adminVisualImageAccept = "image/jpeg,image/png,image/webp,image/avif";
+const paymentQrImageAccept = "image/jpeg,image/png,image/webp";
+const adminVisualImageUploadTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
+const paymentQrImageUploadTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function AdminImageDropzone({
   imageUrl,
@@ -2795,7 +2798,7 @@ function AdminImageDropzone({
   cardCode,
   cardName,
   label = "Main SKU image",
-  hint = "JPG, PNG, or WEBP. Uploaded to Supabase storage.",
+  hint = "JPG, PNG, WEBP, or AVIF. Uploaded to Supabase storage.",
 }: {
   imageUrl: string;
   imageFile: File | null;
@@ -2826,8 +2829,8 @@ function AdminImageDropzone({
   function handleFiles(files: FileList | null) {
     if (!files || !files.length) return;
     const file = files[0];
-    if (!adminImageUploadTypes.has(file.type)) {
-      setFileError("Use a JPG, PNG, or WEBP image.");
+    if (!adminVisualImageUploadTypes.has(file.type)) {
+      setFileError("Use a JPG, PNG, WEBP, or AVIF image.");
       onFileChange(null);
       if (inputRef.current) inputRef.current.value = "";
       return;
@@ -2957,7 +2960,7 @@ function AdminImageDropzone({
         </div>
         <input
           ref={inputRef}
-          accept="image/jpeg,image/png,image/webp"
+          accept={adminVisualImageAccept}
           className="admin-image-dropzone-input"
           disabled={disabled}
           onChange={(event) => handleFiles(event.target.files)}
@@ -3008,7 +3011,7 @@ function AdminQrImageDropzone({
   function handleFiles(files: FileList | null) {
     if (!files || !files.length) return;
     const file = files[0];
-    if (!adminImageUploadTypes.has(file.type)) {
+    if (!paymentQrImageUploadTypes.has(file.type)) {
       setFileError("Use a JPG, PNG, or WEBP image.");
       onFileChange(null);
       if (inputRef.current) inputRef.current.value = "";
@@ -3138,7 +3141,7 @@ function AdminQrImageDropzone({
         </div>
         <input
           ref={inputRef}
-          accept="image/jpeg,image/png,image/webp"
+          accept={paymentQrImageAccept}
           className="admin-image-dropzone-input"
           disabled={disabled}
           onChange={(event) => handleFiles(event.target.files)}
@@ -4751,14 +4754,14 @@ export function AdminCampaignForm({
                 <div className="admin-campaign-banner-actions">
                   <label className="btn small admin-campaign-banner-button">
                     <input
-                      accept="image/jpeg,image/png,image/webp"
+                      accept={adminVisualImageAccept}
                       type="file"
                       onChange={(event) => {
                         const file = event.currentTarget.files?.[0] ?? null;
                         if (!file) return;
-                        if (!adminImageUploadTypes.has(file.type)) {
+                        if (!adminVisualImageUploadTypes.has(file.type)) {
                           setMessageTone("error");
-                          setMessage("Pack banner image must be JPG, PNG, or WEBP.");
+                          setMessage("Pack banner image must be JPG, PNG, WEBP, or AVIF.");
                           event.currentTarget.value = "";
                           return;
                         }
@@ -4790,7 +4793,7 @@ export function AdminCampaignForm({
                 </div>
               </div>
               <small>
-                Accepted ratio 4:3. Recommended 1600 x 1200. JPG, PNG, or WEBP
+                Accepted ratio 4:3. Recommended 1600 x 1200. JPG, PNG, WEBP, or AVIF
                 up to 10 MB.
               </small>
             </div>
@@ -9280,6 +9283,10 @@ function AdminStockUnitRow({
 
   async function handleImageFile(file: File | null) {
     if (!file) return;
+    if (!adminVisualImageUploadTypes.has(file.type)) {
+      setMsg("Use a JPG, PNG, WEBP, or AVIF image.");
+      return;
+    }
     try {
       setMsg("");
       setUploading(true);
@@ -9462,7 +9469,7 @@ function AdminStockUnitRow({
             </span>
             <input
               type="file"
-              accept="image/png,image/jpeg,image/webp"
+              accept={adminVisualImageAccept}
               style={{ display: "none" }}
               disabled={uploading}
               onChange={(event) =>

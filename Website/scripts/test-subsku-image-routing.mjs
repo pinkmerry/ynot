@@ -41,8 +41,16 @@ test("public sub-SKU image helper prefers exact stock-unit image and falls back 
     "https://cdn.example/unit.png",
   );
   assert.equal(
+    helper.publicSubSkuImageUrl(" https://cdn.example/unit.avif ", "https://cdn.example/catalog.png"),
+    "https://cdn.example/unit.avif",
+  );
+  assert.equal(
     helper.publicSubSkuImageUrl("", " https://cdn.example/catalog.png "),
     "https://cdn.example/catalog.png",
+  );
+  assert.equal(
+    helper.publicSubSkuImageUrl("", " https://cdn.example/catalog.avif "),
+    "https://cdn.example/catalog.avif",
   );
   assert.equal(helper.publicSubSkuImageUrl(null, "https://cdn.example/catalog.png"), "https://cdn.example/catalog.png");
   assert.equal(helper.publicSubSkuImageUrl("", ""), null);
