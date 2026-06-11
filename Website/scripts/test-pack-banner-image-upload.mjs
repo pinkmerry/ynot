@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("..", import.meta.url));
 
 function source(path) {
   return readFileSync(join(root, path), "utf8");
@@ -11,7 +12,7 @@ function source(path) {
 
 test("draw_rounds stores optional pack banner image fields", () => {
   const migration = source(
-    "../Database/supabase/migrations/20260605200000_pack_banner_images.sql",
+    "../Database/supabase/migrations/20260605200001_pack_banner_images.sql",
   );
   const types = source("src/lib/supabase/types.ts");
 
