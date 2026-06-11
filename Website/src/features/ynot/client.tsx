@@ -2785,6 +2785,15 @@ const adminVisualImageAccept = "image/jpeg,image/png,image/webp,image/avif";
 const paymentQrImageAccept = "image/jpeg,image/png,image/webp";
 const adminVisualImageUploadTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
 const paymentQrImageUploadTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const adminVisualImageExtensionPattern = /\.(?:jpe?g|png|webp|avif)$/i;
+
+function adminVisualImageFileLooksAllowed(file: File) {
+  if (adminVisualImageUploadTypes.has(file.type)) return true;
+  return (
+    (!file.type || file.type === "application/octet-stream") &&
+    adminVisualImageExtensionPattern.test(file.name)
+  );
+}
 
 function AdminImageDropzone({
   imageUrl,
@@ -2829,7 +2838,7 @@ function AdminImageDropzone({
   function handleFiles(files: FileList | null) {
     if (!files || !files.length) return;
     const file = files[0];
-    if (!adminVisualImageUploadTypes.has(file.type)) {
+    if (!adminVisualImageFileLooksAllowed(file)) {
       setFileError("Use a JPG, PNG, WEBP, or AVIF image.");
       onFileChange(null);
       if (inputRef.current) inputRef.current.value = "";
@@ -4759,7 +4768,7 @@ export function AdminCampaignForm({
                       onChange={(event) => {
                         const file = event.currentTarget.files?.[0] ?? null;
                         if (!file) return;
-                        if (!adminVisualImageUploadTypes.has(file.type)) {
+                        if (!adminVisualImageFileLooksAllowed(file)) {
                           setMessageTone("error");
                           setMessage("Pack banner image must be JPG, PNG, WEBP, or AVIF.");
                           event.currentTarget.value = "";
@@ -9283,7 +9292,7 @@ function AdminStockUnitRow({
 
   async function handleImageFile(file: File | null) {
     if (!file) return;
-    if (!adminVisualImageUploadTypes.has(file.type)) {
+    if (!adminVisualImageFileLooksAllowed(file)) {
       setMsg("Use a JPG, PNG, WEBP, or AVIF image.");
       return;
     }

@@ -3,6 +3,7 @@ import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import {
   allowedVisualAssetTypes,
+  declaredVisualAssetTypeLooksSupported,
   extensionForVerifiedImage,
   maxSlipBytes,
   verifyImageMagicBytes,
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Card image file is required." }, { status: 400 });
   }
 
-  if (!allowedVisualAssetTypes.has(file.type)) {
+  if (!declaredVisualAssetTypeLooksSupported(file.type)) {
     return Response.json({ error: "Card image must be JPG, PNG, WEBP, or AVIF." }, { status: 400 });
   }
 

@@ -59,7 +59,7 @@ test("admin banner upload route is guarded and validates visual image uploads", 
   assert.match(route, /resolveAdminSession/);
   assert.match(route, /ynot:admin:campaigns:banner-image/);
   assert.match(route, /requestExceedsUploadLimit\(request, maxSlipBytes\)/);
-  assert.match(route, /allowedVisualAssetTypes\.has\(file\.type\)/);
+  assert.match(route, /declaredVisualAssetTypeLooksSupported\(file\.type\)/);
   assert.match(route, /allowedVisualAssetTypes\.has\(magicCheck\.contentType\)/);
   assert.match(route, /verifyImageMagicBytes\(file\)/);
   assert.match(route, /campaign-banners\/\$\{day\}/);

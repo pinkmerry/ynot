@@ -22,6 +22,15 @@ export const allowedVisualAssetTypes: ReadonlySet<string> = new Set([
   "image/avif",
 ]);
 
+export function declaredVisualAssetTypeLooksSupported(type: string) {
+  const normalized = type.trim().toLowerCase();
+  return (
+    !normalized ||
+    normalized === "application/octet-stream" ||
+    allowedVisualAssetTypes.has(normalized)
+  );
+}
+
 export type VerifyImageMagicBytesResult =
   | { ok: true; contentType: VerifiedImageContentType }
   | { ok: false; error: string };

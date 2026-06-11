@@ -4,6 +4,7 @@ import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import {
   allowedVisualAssetTypes,
+  declaredVisualAssetTypeLooksSupported,
   extensionForVerifiedImage,
   maxSlipBytes,
   requestExceedsUploadLimit,
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!allowedVisualAssetTypes.has(file.type)) {
+  if (!declaredVisualAssetTypeLooksSupported(file.type)) {
     return Response.json(
       { error: "Pack banner image must be JPG, PNG, WEBP, or AVIF." },
       { status: 400 },

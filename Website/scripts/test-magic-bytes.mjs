@@ -26,6 +26,15 @@ const allowedVisualAssetTypes = new Set([
   "image/avif",
 ]);
 
+function declaredVisualAssetTypeLooksSupported(type) {
+  const normalized = type.trim().toLowerCase();
+  return (
+    !normalized ||
+    normalized === "application/octet-stream" ||
+    allowedVisualAssetTypes.has(normalized)
+  );
+}
+
 function matches(bytes, signature, offset = 0) {
   if (bytes.byteLength < offset + signature.length) return false;
   for (let i = 0; i < signature.length; i += 1) {
@@ -155,6 +164,27 @@ test("purpose allowlists let visual assets use AVIF but keep slips on JPG PNG WE
   assert.equal(allowedSlipTypes.has("image/webp"), true);
 });
 
+test("visual asset declared-type gate allows missing or generic MIME before magic verification", async () => {
+  const avifBytes = [
+    0x00, 0x00, 0x00, 0x20,
+    0x66, 0x74, 0x79, 0x70,
+    0x61, 0x76, 0x69, 0x66,
+    0x00, 0x00, 0x00, 0x00,
+    0x61, 0x76, 0x69, 0x66,
+  ];
+
+  assert.equal(declaredVisualAssetTypeLooksSupported("image/avif"), true);
+  assert.equal(declaredVisualAssetTypeLooksSupported(""), true);
+  assert.equal(declaredVisualAssetTypeLooksSupported("application/octet-stream"), true);
+  assert.equal(declaredVisualAssetTypeLooksSupported("text/html"), false);
+  assert.equal(allowedSlipTypes.has(""), false);
+  assert.equal(allowedSlipTypes.has("application/octet-stream"), false);
+  assert.deepEqual(
+    await verifyImageMagicBytes(fileFromBytes(avifBytes, "generic.avif", "application/octet-stream")),
+    { ok: true, contentType: "image/avif" },
+  );
+});
+
 test("rejects HTML payload declared as JPEG", async () => {
   const html = "<!DOCTYPE html><html><body>x</body></html>";
   const bytes = new TextEncoder().encode(html);
@@ -199,6 +229,19 @@ test("YNOT admin image uploads reject oversized bodies before form parsing", () 
     assert.match(route, /requestExceedsUploadLimit\(request,\s*maxSlipBytes\)/);
     assert.match(route, /status:\s*413/);
     assert.match(route, /requestExceedsUploadLimit\(request,\s*maxSlipBytes\)[\s\S]*request\.formData\(\)/);
+  }
+});
+
+test("admin visual upload routes allow missing declared MIME but still verify bytes", () => {
+  const ynotCardRoute = readSource("../src/app/api/ynot/admin/cards/image/route.ts");
+  const ynotBannerRoute = readSource("../src/app/api/ynot/admin/campaigns/banner-image/route.ts");
+  const legacyCardRoute = readSource("../src/app/api/lucky-draw/admin/card-image/route.ts");
+
+  for (const route of [ynotCardRoute, ynotBannerRoute, legacyCardRoute]) {
+    assert.match(route, /declaredVisualAssetTypeLooksSupported\(file\.type\)/);
+    assert.match(route, /verifyImageMagicBytes\(file\)/);
+    assert.match(route, /allowedVisualAssetTypes\.has\(magicCheck\.contentType\)/);
+    assert.doesNotMatch(route, /allowedVisualAssetTypes\.has\(file\.type\)/);
   }
 });
 

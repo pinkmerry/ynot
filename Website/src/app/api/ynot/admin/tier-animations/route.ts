@@ -5,6 +5,7 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import {
   allowedVisualAssetTypes,
+  declaredVisualAssetTypeLooksSupported,
   extensionForVerifiedImage,
   verifyImageMagicBytes,
 } from "@/lib/uploads/magic-bytes";
@@ -94,11 +95,12 @@ export async function POST(request: Request) {
     fallbackExt: string,
   ): Promise<string> {
     if (file.size > MAX_BYTES) throw new Error(`${kind} exceeds 20MB limit.`);
-    if (file.type && !allowed.has(file.type))
-      throw new Error(`${kind} type ${file.type} is not allowed.`);
     let contentType = file.type || undefined;
     let ext = extensionForUpload(file, fallbackExt);
     if (kind === "poster") {
+      if (!declaredVisualAssetTypeLooksSupported(file.type)) {
+        throw new Error("poster type is not allowed.");
+      }
       const magicCheck = await verifyImageMagicBytes(file);
       if (!magicCheck.ok) throw new Error(magicCheck.error);
       if (!allowedVisualAssetTypes.has(magicCheck.contentType)) {
@@ -106,6 +108,8 @@ export async function POST(request: Request) {
       }
       contentType = magicCheck.contentType;
       ext = extensionForVerifiedImage(magicCheck.contentType);
+    } else if (file.type && !allowed.has(file.type)) {
+      throw new Error(`${kind} type ${file.type} is not allowed.`);
     }
     const path = `${tier}/${kind}-${Date.now()}.${ext}`;
     const { error: uploadError } = await supabase.storage

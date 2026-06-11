@@ -99,6 +99,9 @@ test("YNOT admin visual upload controls accept AVIF while QR controls do not", (
   );
   assert.match(client, /const adminVisualImageAccept = "image\/jpeg,image\/png,image\/webp,image\/avif";/);
   assert.match(client, /const paymentQrImageAccept = "image\/jpeg,image\/png,image\/webp";/);
+  assert.match(client, /function adminVisualImageFileLooksAllowed\(file: File\)/);
+  assert.match(client, /file\.type === "application\/octet-stream"/);
+  assert.match(client, /adminVisualImageExtensionPattern\.test\(file\.name\)/);
   assert.match(client, /Use a JPG, PNG, WEBP, or AVIF image\./);
   assert.match(client, /Pack banner image must be JPG, PNG, WEBP, or AVIF\./);
 
@@ -131,6 +134,7 @@ test("tier animation poster controls accept AVIF", () => {
   assert.match(form, /accept="image\/png,image\/jpeg,image\/webp,image\/avif"/);
   assert.match(route, /ALLOWED_POSTER_MIME = new Set\(\["image\/png", "image\/jpeg", "image\/webp", "image\/avif"\]\)/);
   assert.match(route, /allowedVisualAssetTypes/);
+  assert.match(route, /declaredVisualAssetTypeLooksSupported/);
   assert.match(route, /verifyImageMagicBytes/);
   assert.match(route, /extensionForVerifiedImage/);
   assert.match(route, /kind === "poster"[\s\S]*verifyImageMagicBytes\(file\)/);
