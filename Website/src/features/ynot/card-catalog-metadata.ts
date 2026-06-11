@@ -8,6 +8,7 @@ export type CatalogCategorySlug =
   | "boxes"
   | "cases"
   | "sets"
+  | "sealed"
   | "supplies";
 export type CatalogCategory = string;
 export type CardCondition = "sealed" | "raw" | "graded";
@@ -31,6 +32,7 @@ export const catalogCategoryOptions: Array<{
   { value: "boxes", label: "Boxes" },
   { value: "cases", label: "Cases" },
   { value: "sets", label: "Sets" },
+  { value: "sealed", label: "Sealed" },
   { value: "supplies", label: "Supplies" },
 ];
 
