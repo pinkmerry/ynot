@@ -131,6 +131,10 @@ function liveRevisionErrorMessage(message?: string) {
     return "The live pack changed after this revision was created. Save the edit again before publishing.";
   if (message.includes("campaign_not_live_editable"))
     return "This pack is not live anymore.";
+  if (message.includes("reserved_stock_identity_mismatch"))
+    return "Reserved stock no longer matches the intended prize identity. Refresh stock selection before publishing.";
+  if (message.includes("prize_unit_identity_mismatch"))
+    return "Prize stock identity mismatch detected. Review intended card vs materialized stock before publishing.";
   return message;
 }
 

@@ -38,7 +38,7 @@ test("readiness paginates the prize-unit read to survive PostgREST max_rows", ()
 test("readiness can reuse a preloaded row + inventory to skip redundant fetches", () => {
   assert.match(
     readinessSource,
-    /preloaded\?\s*:\s*\{\s*row\?\s*:\s*DrawRoundRow;\s*inventory\?\s*:\s*InventorySummary\s*\}/,
+    /preloaded\?\s*:\s*\{[\s\S]*row\?\s*:\s*DrawRoundRow;[\s\S]*inventory\?\s*:\s*InventorySummary;[\s\S]*\}/,
     "getCampaignPrizeReadiness must accept an optional preloaded { row, inventory }",
   );
   assert.match(
@@ -52,7 +52,7 @@ test("customer detail paths pass preloaded row + inventory into readiness", () =
   // Both the cached public loader and the dynamic getCampaign path already hold
   // the row + inventory, so they must hand them to readiness (no re-fetch).
   const calls = dataSource.match(
-    /getCampaignPrizeReadiness\(supabase, row\.id, \{\s*row,\s*inventory,\s*\}\)/g,
+    /getCampaignPrizeReadiness\(supabase, row\.id, \{[\s\S]*?row,\s*inventory,[\s\S]*?\}\)/g,
   );
   assert.ok(
     calls && calls.length >= 2,

@@ -28,6 +28,7 @@
     "verify:phase-readiness": "node tools/verification/verify-phase-readiness.mjs",
     "test:uploads": "node --test scripts/test-magic-bytes.mjs",
     "test:low-risk-db-optimization": "node --test scripts/test-low-risk-db-optimization.mjs",
+    "test:prize-unit-identity-guards": "node --test scripts/test-prize-unit-identity-guards.mjs",
     "test:top-up-flow": "node --test scripts/test-top-up-flow.mjs",
     "test:shipping-flow": "node --test scripts/test-shipping-flow.mjs",
     "test:rate-limits": "node --test scripts/test-rate-limit-config.mjs",

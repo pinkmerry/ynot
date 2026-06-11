@@ -176,6 +176,63 @@ test("groups stock units by sub-SKU and summarizes pack usage per sub-SKU", () =
   );
 });
 
+test("materialized pack usage carries actual stock identity and infers mismatches", () => {
+  const groups = stockSku.stockSkuGroups(rogerCard);
+  const psaGroup = groups.find((group) => group.sku.endsWith("-PSA10"));
+  assert.ok(psaGroup);
+
+  const usageByGroup = stockSku.stockSkuPackUsageByGroup(groups, [
+    {
+      id: "mismatch-prize",
+      cardId: "intended-card",
+      campaignTitle: "Identity drift pack",
+      displayTier: "rainbow",
+      tier: "high",
+      rank: 1,
+      tierRank: 1,
+      plannedQuantity: 1,
+      totalUnits: 1,
+      availableUnits: 1,
+      awardedUnits: 0,
+      voidUnits: 0,
+      stockUnitUsages: [
+        {
+          groupKey: psaGroup.key,
+          sku: psaGroup.sku,
+          label: psaGroup.label,
+          actualStockCardId: "actual-card",
+          actualStockSkuId: "actual-stock-sku",
+          totalUnits: 1,
+          availableUnits: 1,
+          awardedUnits: 0,
+          voidUnits: 0,
+        },
+      ],
+    },
+  ]);
+
+  assert.deepEqual(
+    plain(
+      usageByGroup.get(psaGroup.key).map((usage) => ({
+        prizeId: usage.prizeId,
+        actualStockCardId: usage.actualStockCardId,
+        actualStockSkuId: usage.actualStockSkuId,
+        identityMismatch: usage.identityMismatch,
+        source: usage.source,
+      })),
+    ),
+    [
+      {
+        prizeId: "mismatch-prize",
+        actualStockCardId: "actual-card",
+        actualStockSkuId: "actual-stock-sku",
+        identityMismatch: true,
+        source: "materialized",
+      },
+    ],
+  );
+});
+
 test("builds stock sub-SKU groups from server summary rows without raw unit fan-out", () => {
   const groups = stockSku.stockSkuGroupsFromSummaryRows(rogerCard, [
     {

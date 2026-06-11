@@ -10448,6 +10448,9 @@ function AdminStockSkuBreakdown({
               (sum, usage) => sum + usage.units,
               0,
             );
+            const identityMismatchUsageCount = packUsages.filter(
+              (usage) => usage.identityMismatch,
+            ).length;
             const repImage =
               group.imageUrl ??
               group.units.find((unit) => unit.imageUrl)?.imageUrl ??
@@ -10560,14 +10563,20 @@ function AdminStockSkuBreakdown({
                   {group.reservedUnits ? (
                     <span>{stockQuantityLabel(group.reservedUnits, group.unitKind)} reserved</span>
                   ) : null}
-	                  {packUsageUnits ? (
-	                    <span>
+                  {packUsageUnits ? (
+                    <span>
                       {packUsageUnits.toLocaleString()} used in{" "}
                       {packUsages.length.toLocaleString()} random pack row
                       {packUsages.length === 1 ? "" : "s"}
-	                    </span>
-	                  ) : null}
-	                </div>
+                    </span>
+                  ) : null}
+                  {identityMismatchUsageCount ? (
+                    <span>
+                      {identityMismatchUsageCount.toLocaleString()} identity mismatch
+                      {identityMismatchUsageCount === 1 ? "" : "es"}
+                    </span>
+                  ) : null}
+                </div>
 
                 {stockRow.warning ? (
                   <div className="admin-stock-sku-note is-warning">
@@ -10614,7 +10623,7 @@ function AdminStockSkuBreakdown({
                   <AdminStockSkuEditor card={card} group={group} groups={groups} />
                 ) : null}
                 <AdminOpenBoxButton group={group} />
-	                <AdminSubSkuPackUsageList usages={packUsages} displaySku={display.sku} />
+                <AdminSubSkuPackUsageList usages={packUsages} displaySku={display.sku} />
                 <AdminSubSkuManageUnits cardId={card.catalogCardId} group={group} />
               </article>
             );

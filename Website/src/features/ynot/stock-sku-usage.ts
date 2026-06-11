@@ -63,6 +63,9 @@ export type StockSkuUsageDetail = {
   groupKey: string;
   sku: string;
   label: string;
+  actualStockCardId?: string | null;
+  actualStockSkuId?: string | null;
+  identityMismatch?: boolean;
   totalUnits: number;
   availableUnits: number;
   awardedUnits: number;
@@ -71,6 +74,7 @@ export type StockSkuUsageDetail = {
 
 export type StockSkuPrizeUsageSource = {
   id: string;
+  cardId?: string | null;
   campaignTitle: string;
   displayTier?: string | null;
   displayGroup?: string | null;
@@ -98,11 +102,45 @@ export type StockSkuPackUsage = {
   tierRank?: number | null;
   sku: string;
   label: string;
+  actualStockCardId?: string | null;
+  actualStockSkuId?: string | null;
+  identityMismatch?: boolean;
   units: number;
   availableUnits: number;
   awardedUnits: number;
   voidUnits: number;
   source: "materialized" | "intended";
+};
+
+export type PrizeUnitIdentityMismatchReasonFlags = {
+  unitCardMismatch: boolean;
+  stockCardMismatch: boolean;
+  missingStockUnit: boolean;
+  stockFilterMismatch: boolean;
+};
+
+export type ParsedPrizeUnitIdentityMismatch = {
+  drawRoundId: string;
+  prizeId: string;
+  prizeUnitId: string;
+  status: string;
+  prizeCardId?: string | null;
+  unitCardId?: string | null;
+  stockCardId?: string | null;
+  stockUnitId?: string | null;
+  stockSkuId?: string | null;
+  stockLabel?: string | null;
+  intendedStockUnitGroupKey?: string | null;
+  intendedStockSkuId?: string | null;
+  intendedStockSku?: string | null;
+  intendedStockLabel?: string | null;
+  intendedStockUnitFilter?: Record<string, unknown> | null;
+  reason: PrizeUnitIdentityMismatchReasonFlags;
+  primaryReason?:
+    | "unitCardMismatch"
+    | "stockCardMismatch"
+    | "missingStockUnit"
+    | "stockFilterMismatch";
 };
 
 export type StockUnitSelectionMetadata = {
@@ -118,6 +156,97 @@ export type StockUnitSelectionMetadata = {
     gemrateId: string;
   };
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function optionalString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function reasonFlagsFromValue(value: unknown): PrizeUnitIdentityMismatchReasonFlags {
+  if (isRecord(value)) {
+    return {
+      unitCardMismatch: value.unitCardMismatch === true,
+      stockCardMismatch: value.stockCardMismatch === true,
+      missingStockUnit: value.missingStockUnit === true,
+      stockFilterMismatch: value.stockFilterMismatch === true,
+    };
+  }
+  return {
+    unitCardMismatch: value === "unitCardMismatch",
+    stockCardMismatch: value === "stockCardMismatch",
+    missingStockUnit: value === "missingStockUnit",
+    stockFilterMismatch: value === "stockFilterMismatch",
+  };
+}
+
+function primaryReasonFromFlags(
+  reason: PrizeUnitIdentityMismatchReasonFlags,
+): ParsedPrizeUnitIdentityMismatch["primaryReason"] {
+  if (reason.unitCardMismatch) return "unitCardMismatch";
+  if (reason.missingStockUnit) return "missingStockUnit";
+  if (reason.stockCardMismatch) return "stockCardMismatch";
+  if (reason.stockFilterMismatch) return "stockFilterMismatch";
+  return undefined;
+}
+
+export function normalizePrizeUnitIdentityMismatches(
+  value: unknown,
+): ParsedPrizeUnitIdentityMismatch[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const drawRoundId = optionalString(item.drawRoundId);
+    const prizeId = optionalString(item.prizeId);
+    const prizeUnitId = optionalString(item.prizeUnitId);
+    const status = optionalString(item.status);
+    const reason = reasonFlagsFromValue(item.reason);
+    const primaryReason =
+      optionalString(item.primaryReason) ?? primaryReasonFromFlags(reason);
+    if (
+      !drawRoundId ||
+      !prizeId ||
+      !prizeUnitId ||
+      !status ||
+      (!reason.unitCardMismatch &&
+        !reason.stockCardMismatch &&
+        !reason.missingStockUnit &&
+        !reason.stockFilterMismatch)
+    ) {
+      return [];
+    }
+    return [
+      {
+        drawRoundId,
+        prizeId,
+        prizeUnitId,
+        status,
+        prizeCardId: optionalString(item.prizeCardId),
+        unitCardId: optionalString(item.unitCardId),
+        stockCardId: optionalString(item.stockCardId),
+        stockUnitId: optionalString(item.stockUnitId),
+        stockSkuId: optionalString(item.stockSkuId),
+        stockLabel: optionalString(item.stockLabel),
+        intendedStockUnitGroupKey: optionalString(item.intendedStockUnitGroupKey),
+        intendedStockSkuId: optionalString(item.intendedStockSkuId),
+        intendedStockSku: optionalString(item.intendedStockSku),
+        intendedStockLabel: optionalString(item.intendedStockLabel),
+        intendedStockUnitFilter: isRecord(item.intendedStockUnitFilter)
+          ? item.intendedStockUnitFilter
+          : null,
+        reason,
+        ...(primaryReason === "unitCardMismatch" ||
+        primaryReason === "stockCardMismatch" ||
+        primaryReason === "missingStockUnit" ||
+        primaryReason === "stockFilterMismatch"
+          ? { primaryReason }
+          : {}),
+      },
+    ];
+  });
+}
 
 function normalizedText(value: unknown, max = 48) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -515,6 +644,15 @@ export function stockSkuPackUsageByGroup(
         tierRank: prize.tierRank,
         sku: group?.sku ?? usage.sku,
         label: group?.label ?? usage.label,
+        actualStockCardId: usage.actualStockCardId ?? null,
+        actualStockSkuId: usage.actualStockSkuId ?? null,
+        identityMismatch:
+          usage.identityMismatch ??
+          Boolean(
+            prize.cardId &&
+              usage.actualStockCardId &&
+              prize.cardId !== usage.actualStockCardId,
+          ),
         units: Math.max(0, Math.trunc(Number(usage.totalUnits || 0))),
         availableUnits: Math.max(0, Math.trunc(Number(usage.availableUnits || 0))),
         awardedUnits: Math.max(0, Math.trunc(Number(usage.awardedUnits || 0))),
@@ -536,6 +674,9 @@ export function stockSkuPackUsageByGroup(
       tierRank: prize.tierRank,
       sku: prize.intendedStockSku || group.sku,
       label: prize.intendedStockLabel || group.label,
+      actualStockCardId: null,
+      actualStockSkuId: null,
+      identityMismatch: false,
       units: Math.max(0, Math.trunc(Number(prize.plannedQuantity || 0))),
       availableUnits: Math.max(0, Math.trunc(Number(prize.availableUnits || 0))),
       awardedUnits: Math.max(0, Math.trunc(Number(prize.awardedUnits || 0))),

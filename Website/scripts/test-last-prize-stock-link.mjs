@@ -102,7 +102,7 @@ test("customer collection and shipping hydrate images from private stock links w
   assert.doesNotMatch(collectionSource, /cardStockUnitId:|gachaOpenItemId:|certNumber:|gemrateId:|stockUnitFilter:/);
 });
 
-test("public campaign projection does not leak last prize admin metadata or house logic", () => {
+test("public campaign projection does not leak last prize admin metadata or private house logic", () => {
   const dataSource = read("../src/features/ynot/data.ts");
   const publicCampaign = between(
     dataSource,
@@ -122,9 +122,10 @@ test("public campaign projection does not leak last prize admin metadata or hous
     "logicMode",
     "readinessBlockers",
     "bannerImageStoragePath",
-    "totalPrizeUnits",
-    "availablePrizeUnits"
+    "totalPrizeUnits"
   ]) {
     assert.doesNotMatch(publicCampaign, new RegExp(`${privateField}:`), `${privateField} must stay private`);
   }
+  assert.match(publicCampaign, /availablePrizeUnits:\s*campaign\.availablePrizeUnits/);
+  assert.match(publicCampaign, /eligiblePrizeUnits:\s*campaign\.eligiblePrizeUnits/);
 });

@@ -168,6 +168,14 @@ test("pack-open API response is mapped through a public result shape", () => {
   assert.doesNotMatch(publicItem, /drawRoundPrizeUnitIds/);
   assert.doesNotMatch(publicItem, /stockUnitGroupKey/);
   assert.doesNotMatch(publicItem, /stockUnitFilter/);
+  assert.doesNotMatch(publicItem, /stockSkuId/);
+  assert.doesNotMatch(publicItem, /stockLabel/);
+  assert.doesNotMatch(publicItem, /stockUnitId/);
+  assert.doesNotMatch(publicItem, /identityMismatch/);
+  assert.doesNotMatch(publicItem, /primaryReason/);
+  assert.doesNotMatch(publicItem, /intendedStock/);
+  assert.doesNotMatch(publicItem, /logicMode/);
+  assert.doesNotMatch(publicItem, /logic_snapshot/);
   assert.doesNotMatch(publicItem, /weight/);
   assert.doesNotMatch(publicItem, /unlockAtSoldPct/);
   assert.doesNotMatch(publicItem, /soldPct/);
@@ -186,6 +194,14 @@ test("pack-open API response is mapped through a public result shape", () => {
   assert.doesNotMatch(publicItemType, /drawRoundPrizeUnitIds/);
   assert.doesNotMatch(publicItemType, /stockUnitGroupKey/);
   assert.doesNotMatch(publicItemType, /stockUnitFilter/);
+  assert.doesNotMatch(publicItemType, /stockSkuId/);
+  assert.doesNotMatch(publicItemType, /stockLabel/);
+  assert.doesNotMatch(publicItemType, /stockUnitId/);
+  assert.doesNotMatch(publicItemType, /identityMismatch/);
+  assert.doesNotMatch(publicItemType, /primaryReason/);
+  assert.doesNotMatch(publicItemType, /intendedStock/);
+  assert.doesNotMatch(publicItemType, /logicMode/);
+  assert.doesNotMatch(publicItemType, /logic_snapshot/);
   assert.doesNotMatch(publicItemType, /\btier:/);
   assert.match(publicItemType, /displayTier:/);
 
@@ -195,6 +211,14 @@ test("pack-open API response is mapped through a public result shape", () => {
     "export type YnotGachaOpenResult",
   );
   assert.doesNotMatch(openItemType, /\btier:/);
+  assert.doesNotMatch(openItemType, /identityMismatch/);
+  assert.doesNotMatch(openItemType, /primaryReason/);
+  assert.doesNotMatch(openItemType, /intendedStock/);
+  assert.doesNotMatch(openItemType, /stockSkuId/);
+  assert.doesNotMatch(openItemType, /stockLabel/);
+  assert.doesNotMatch(openItemType, /stockUnitId/);
+  assert.doesNotMatch(openItemType, /logicMode/);
+  assert.doesNotMatch(openItemType, /logic_snapshot/);
   assert.match(openItemType, /displayTier:/);
 
   const postHandler = between(
@@ -241,6 +265,9 @@ test("customer campaign props hide house logic and internal prize inventory", ()
   );
   for (const privateField of [
     "logicMode",
+    "logic_snapshot",
+    "identityMismatchCount",
+    "identityMismatches",
     "totalPrizeUnits",
     "initialEligiblePrizeUnits",
     "awardedPrizeUnits",
@@ -250,6 +277,13 @@ test("customer campaign props hide house logic and internal prize inventory", ()
     "lastPrizeCardId",
     "lastPrizeStockUnitKey",
     "bannerImageStoragePath",
+    "intendedStockUnitKey",
+    "intendedStockSku",
+    "intendedStockLabel",
+    "stockUnitGroupKey",
+    "stockUnitFilter",
+    "stockSkuId",
+    "stockLabel",
   ]) {
     assert.doesNotMatch(
       publicCampaign,
@@ -363,11 +397,32 @@ test("pack-open reveal result does not expose raw internal open ids", () => {
   assert.doesNotMatch(resultMapper, /openId:\s*readString\(raw\.openId\)/);
   assert.match(resultMapper, /openId:\s*publicCode/);
   assert.doesNotMatch(resultMapper, /logicMode/);
+  assert.doesNotMatch(resultMapper, /logic_snapshot/);
   assert.match(resultMapper, /sanitizeOpenRemaining\(raw\.remaining\)/);
   assert.doesNotMatch(resultMapper, /result\.remaining\s*=\s*raw\.remaining/);
-  assert.doesNotMatch(resultMapper, /drawRoundId|totalUnits|awardedUnits|reservedUnits|voidUnits/);
-  assert.doesNotMatch(resultMapper, /weight/);
-  assert.doesNotMatch(resultMapper, /unlockAtSoldPct/);
+  assert.doesNotMatch(
+    resultMapper,
+    /drawRoundId|totalUnits|awardedUnits|reservedUnits|voidUnits/,
+  );
+  for (const privateField of [
+    "weight",
+    "unlockAtSoldPct",
+    "identityMismatch",
+    "identityMismatches",
+    "identityMismatchCount",
+    "primaryReason",
+    "intendedStock",
+    "stockSkuId",
+    "stockLabel",
+    "stockUnitId",
+    "raw.openId",
+  ]) {
+    assert.doesNotMatch(
+      resultMapper,
+      new RegExp(privateField.replace(".", "\\.")),
+      `${privateField} must not pass through the public open result mapper`,
+    );
+  }
 });
 
 test("customer pack pages do not describe stock-sensitive house logic", () => {

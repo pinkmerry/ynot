@@ -49,6 +49,9 @@ export type YnotCampaign = {
   awardedPrizeUnits?: number;
   voidPrizeUnits?: number;
   readinessBlockers?: string[];
+  identityMismatchCount?: number;
+  identityMismatches?: YnotPrizeUnitIdentityMismatch[];
+  identityMismatchCheckFailed?: boolean;
   openable?: boolean;
   soldOut?: boolean;
   adminRemoved?: boolean;
@@ -64,6 +67,35 @@ export type YnotCampaign = {
   prizeLineup?: YnotPrizePreview[];
   convertDeadlineDays?: number | null;
   demo?: boolean;
+};
+
+export type YnotPrizeUnitIdentityMismatch = {
+  drawRoundId: string;
+  prizeId: string;
+  prizeUnitId: string;
+  status: string;
+  prizeCardId?: string | null;
+  unitCardId?: string | null;
+  stockCardId?: string | null;
+  stockUnitId?: string | null;
+  stockSkuId?: string | null;
+  stockLabel?: string | null;
+  intendedStockUnitGroupKey?: string | null;
+  intendedStockSkuId?: string | null;
+  intendedStockSku?: string | null;
+  intendedStockLabel?: string | null;
+  intendedStockUnitFilter?: Record<string, unknown> | null;
+  reason: {
+    unitCardMismatch: boolean;
+    stockCardMismatch: boolean;
+    missingStockUnit: boolean;
+    stockFilterMismatch: boolean;
+  };
+  primaryReason?:
+    | "unitCardMismatch"
+    | "stockCardMismatch"
+    | "missingStockUnit"
+    | "stockFilterMismatch";
 };
 
 export type YnotLastPrizePreview = {
@@ -188,6 +220,9 @@ export type YnotLivePackMonitor = {
     updatedAt: string;
     reviewedAt?: string | null;
   } | null;
+  identityMismatchCount?: number;
+  identityMismatches?: YnotPrizeUnitIdentityMismatch[];
+  identityMismatchCheckFailed?: boolean;
   loadedAt: string;
 };
 
@@ -563,6 +598,9 @@ export type YnotPackMonitorSummary = {
 export type YnotPackMonitor = {
   summary: YnotPackMonitorSummary;
   prizes: YnotPackMonitorPrize[];
+  identityMismatchCount?: number;
+  identityMismatches?: YnotPrizeUnitIdentityMismatch[];
+  identityMismatchCheckFailed?: boolean;
   totals: {
     totalPrizeUnits: number;
     remainingPrizeUnits: number;
@@ -628,6 +666,9 @@ export type YnotPrizePoolItem = {
     groupKey: string;
     sku: string;
     label: string;
+    actualStockCardId?: string | null;
+    actualStockSkuId?: string | null;
+    identityMismatch?: boolean;
     totalUnits: number;
     availableUnits: number;
     awardedUnits: number;

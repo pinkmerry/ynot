@@ -37,6 +37,7 @@ import type {
   YnotPackMonitor,
   YnotPaymentMethod,
   YnotPlatformHealth,
+  YnotPrizeUnitIdentityMismatch,
   YnotPrizePoolItem,
   YnotPrizePreview,
   YnotRandomLogicMode,
@@ -67,6 +68,7 @@ import {
   stockUnitGroupKey,
   stockSkuGroupsFromSummaryRows,
   stockUnitSku,
+  normalizePrizeUnitIdentityMismatches,
   type StockSkuSummaryRow,
   type StockSkuUsageDetail,
 } from "./stock-sku-usage";
@@ -446,6 +448,12 @@ type PrizePoolUnitRow = Pick<
   "card_stock_unit_id" | "draw_round_prize_id" | "status"
 >;
 
+type PrizeUnitIdentityMismatch = YnotPrizeUnitIdentityMismatch;
+type PrizeUnitIdentityMismatchResult = {
+  mismatches: PrizeUnitIdentityMismatch[];
+  failed: boolean;
+};
+
 type MonitorPrizeRow =
   Database["public"]["Tables"]["draw_round_prizes"]["Row"];
 
@@ -550,6 +558,7 @@ function prizePoolStockUnitUsages(
   stockUnitById: Map<string, PrizePoolStockUnitRow>,
   stockSkuById: Map<string, PrizePoolStockSkuRow>,
   cardById: Map<string, PrizePoolCardRow>,
+  prizeCardIdByPrizeId: Map<string, string>,
 ) {
   const usageByPrize = new Map<string, Map<string, StockSkuUsageDetail>>();
   for (const prizeUnit of prizeUnits) {
@@ -574,6 +583,10 @@ function prizePoolStockUnitUsages(
         groupKey,
         sku: stockSku?.sku_code ?? stockUnitSku(cardForStockSku(card), displayUnit),
         label: stockSku?.label ?? stockUnitDisplayLabel(displayUnit),
+        actualStockCardId: stockUnit.card_id,
+        actualStockSkuId: stockUnit.stock_sku_id ?? null,
+        identityMismatch:
+          stockUnit.card_id !== prizeCardIdByPrizeId.get(prizeUnit.draw_round_prize_id),
         totalUnits: 0,
         availableUnits: 0,
         awardedUnits: 0,
@@ -613,6 +626,51 @@ async function readSupabaseRows<T>(
     recordDataIssue(label, error);
     return [];
   }
+}
+
+async function getPrizeUnitIdentityMismatches(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  campaignId: string,
+): Promise<PrizeUnitIdentityMismatchResult> {
+  try {
+    const rpc = supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => PromiseLike<{ data: unknown; error: unknown }>;
+    const { data, error } = await rpc(
+      "get_draw_round_prize_unit_identity_mismatches",
+      { p_draw_round_id: campaignId },
+    );
+    if (error) {
+      recordDataIssue("prize_unit_identity_mismatches", error);
+      return { mismatches: [], failed: true };
+    }
+    return {
+      mismatches: normalizePrizeUnitIdentityMismatches(data),
+      failed: false,
+    };
+  } catch (error) {
+    recordDataIssue("prize_unit_identity_mismatches", error);
+    return { mismatches: [], failed: true };
+  }
+}
+
+async function getPrizeUnitIdentityMismatchesByCampaign(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  campaignIds: string[],
+): Promise<Map<string, PrizeUnitIdentityMismatchResult>> {
+  const out = new Map<string, PrizeUnitIdentityMismatchResult>();
+  const uniqueCampaignIds = [...new Set(campaignIds.filter(Boolean))];
+  if (!uniqueCampaignIds.length) return out;
+  await Promise.all(
+    uniqueCampaignIds.map(async (campaignId) => {
+      out.set(
+        campaignId,
+        await getPrizeUnitIdentityMismatches(supabase, campaignId),
+      );
+    }),
+  );
+  return out;
 }
 
 async function readPrizePoolStockUnitRows(
@@ -1132,7 +1190,14 @@ function toYnotCampaign(
   inventory?: InventorySummary,
   prizeLineup?: YnotPrizePreview[],
   readiness?: CampaignPrizeReadiness | null,
+  identityMismatchResult: PrizeUnitIdentityMismatchResult = {
+    mismatches: [],
+    failed: false,
+  },
 ): YnotCampaign {
+  const identityMismatches = identityMismatchResult.mismatches;
+  const identityMismatchCheckFailed =
+    identityMismatchResult.failed || readiness?.identityMismatchCheckFailed || false;
   const approvalStatus = normalizeApprovalStatus(
     row.approval_status,
     inferredApprovalStatus(row.status),
@@ -1178,7 +1243,7 @@ function toYnotCampaign(
     !adminRemoved &&
     !soldOut &&
     hasOpenableInventory;
-  return {
+  const campaign = {
     id: row.id,
     slug: row.slug,
     status: row.status,
@@ -1203,6 +1268,10 @@ function toYnotCampaign(
     awardedPrizeUnits: inventory?.awardedUnits,
     voidPrizeUnits: inventory?.voidUnits,
     readinessBlockers: readiness?.blockers,
+    identityMismatchCount:
+      identityMismatches.length || readiness?.identityMismatchCount || 0,
+    identityMismatches,
+    identityMismatchCheckFailed: identityMismatchCheckFailed || undefined,
     openable,
     soldOut,
     adminRemoved,
@@ -1238,7 +1307,12 @@ function toYnotCampaign(
       typeof row.convert_deadline_days === "number" && row.convert_deadline_days > 0
         ? row.convert_deadline_days
         : null,
+  } satisfies YnotCampaign & {
+    identityMismatchCount: number;
+    identityMismatches: PrizeUnitIdentityMismatch[];
+    identityMismatchCheckFailed?: boolean;
   };
+  return campaign;
 }
 
 function publicPrizePreview(prize: YnotPrizePreview, index: number): YnotPrizePreview {
@@ -1836,6 +1910,7 @@ async function getCampaignsImpl(
               return await getCampaignPrizeReadiness(supabase, campaignId, {
                 row: rowById.get(campaignId),
                 inventory: inventoryByCampaign.get(campaignId),
+                includeIdentityMismatches: options.includePrivate,
               });
             } catch (error) {
               recordDataIssue("campaign_prize_readiness", error);
@@ -1852,6 +1927,9 @@ async function getCampaignsImpl(
         )
         .map((readiness) => [readiness.campaignId, readiness]),
     );
+    const identityMismatchesByCampaign = options.includePrivate
+      ? await getPrizeUnitIdentityMismatchesByCampaign(supabase, campaignIds)
+      : new Map<string, PrizeUnitIdentityMismatchResult>();
 
     let prizeLineupsByCampaign = new Map<string, YnotPrizePreview[]>();
     if (options.includePrivate && includePrizeLineups) {
@@ -1904,6 +1982,7 @@ async function getCampaignsImpl(
         inventory,
         prizeLineupsByCampaign.get(row.id),
         readinessByCampaign.get(row.id),
+        identityMismatchesByCampaign.get(row.id),
       );
       const liveRevision = liveRevisionStatuses.get(row.id);
       if (liveRevision) {
@@ -2428,16 +2507,21 @@ export async function getCampaign(
       readiness = await getCampaignPrizeReadiness(supabase, row.id, {
         row,
         inventory,
+        includeIdentityMismatches: includePrivateDetail,
       });
     } catch (error) {
       recordDataIssue("campaign_detail_prize_readiness", error);
     }
+    const identityMismatchResult = includePrivateDetail
+      ? await getPrizeUnitIdentityMismatches(supabase, row.id)
+      : undefined;
     const campaign = toYnotCampaign(
       row,
       linkedCategories,
       inventory,
       prizeLineup,
       readiness,
+      identityMismatchResult,
     );
     campaign.lastPrizePreview = await resolveLastPrizePreview(supabase, row);
     const customerCampaign = includePrivateDetail ? campaign : publicYnotCampaign(campaign);
@@ -4133,6 +4217,12 @@ export async function getAdminPackMonitor(
   if (!campaign) return null;
 
   const supabase = createServiceSupabaseClient();
+  const identityMismatchResult = campaign.identityMismatches
+    ? {
+        mismatches: campaign.identityMismatches,
+        failed: Boolean(campaign.identityMismatchCheckFailed),
+      }
+    : await getPrizeUnitIdentityMismatches(supabase, campaign.id);
   const { data: prizes, error: prizesError } = await supabase
     .from("draw_round_prizes")
     .select("*")
@@ -4259,6 +4349,13 @@ export async function getAdminPackMonitor(
       updatedAt,
     },
     prizes: monitorPrizes,
+    identityMismatchCount:
+      identityMismatchResult.mismatches.length ||
+      campaign.identityMismatchCount ||
+      0,
+    identityMismatches: identityMismatchResult.mismatches,
+    identityMismatchCheckFailed:
+      identityMismatchResult.failed || campaign.identityMismatchCheckFailed || undefined,
     totals: {
       totalPrizeUnits,
       remainingPrizeUnits,
@@ -4440,7 +4537,16 @@ export async function getLivePackMonitor(
       p_draw_round_id: campaignId,
     });
     if (error) throw error;
-    return data as YnotLivePackMonitor;
+    const identityMismatchResult = await getPrizeUnitIdentityMismatches(
+      supabase,
+      campaignId,
+    );
+    return {
+      ...(data as YnotLivePackMonitor),
+      identityMismatchCount: identityMismatchResult.mismatches.length,
+      identityMismatches: identityMismatchResult.mismatches,
+      identityMismatchCheckFailed: identityMismatchResult.failed || undefined,
+    };
   } catch (error) {
     recordDataIssue("live_pack_monitor", error);
     return null;
@@ -4522,6 +4628,7 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
       new Map(stockUnits.map((unit) => [unit.id, unit])),
       new Map(stockSkus.map((sku) => [sku.id, sku])),
       cardById,
+      new Map(visiblePrizes.map((prize) => [prize.id, prize.card_id])),
     );
     const prizeImageByPrizeId = stockImageUrlByPrizeId(prizeUnits, stockUnits);
     return visiblePrizes.map((prize) => {
