@@ -301,22 +301,66 @@ export function Ico({ name, size = 16, className }: IcoProps) {
   }
 }
 
-export function CoinPip({ size = 14 }: { size?: number }) {
+// YNOT brand coin — single source of truth for every coin icon.
+// The real favicon trident (B1) recolored via CSS mask of the git-tracked PNG,
+// inside a thin ring. `color` defaults to currentColor: it reads black on light
+// surfaces (prices) and light on dark surfaces (header pill) automatically, so the
+// coin stays visible everywhere. `size` may be a number (px) or any CSS length.
+export const COIN_GREEN = "#05A66B";
+const COIN_MASK = "url(/ynot-logo-512.png)";
+
+export function CoinMark({
+  size = "1em",
+  color = "currentColor",
+}: {
+  size?: number | string;
+  color?: string;
+}) {
+  const dim = typeof size === "number" ? `${size}px` : size;
+  const border =
+    typeof size === "number"
+      ? `${Math.max(1, size * 0.06)}px`
+      : `max(1px, calc(${size} * 0.06))`;
   return (
     <span
       aria-hidden
       style={{
-        display: "inline-block",
-        width: size,
-        height: size,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxSizing: "border-box",
+        width: dim,
+        height: dim,
         borderRadius: "50%",
-        background:
-          "radial-gradient(circle at 32% 28%, #fff3c0, #d9a022 70%, #8a6a14)",
-        boxShadow: "inset 0 -1px 0 rgba(0,0,0,0.1)",
+        border: `${border} solid ${color}`,
+        color,
         flexShrink: 0,
+        overflow: "hidden",
+        verticalAlign: "-0.15em",
       }}
-    />
+    >
+      <span
+        style={{
+          width: "68%",
+          height: "68%",
+          background: color,
+          transform: "translateY(7.4%)",
+          WebkitMaskImage: COIN_MASK,
+          maskImage: COIN_MASK,
+          WebkitMaskSize: "contain",
+          maskSize: "contain",
+          WebkitMaskRepeat: "no-repeat",
+          maskRepeat: "no-repeat",
+          WebkitMaskPosition: "center",
+          maskPosition: "center",
+        }}
+      />
+    </span>
   );
+}
+
+export function CoinPip({ size = 14 }: { size?: number }) {
+  return <CoinMark size={size} />;
 }
 
 export function formatCoins(n: number): string {

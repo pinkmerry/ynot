@@ -14,6 +14,7 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { signOutAction } from "@/features/auth/actions";
 import type { HomeFilterState, HomeSortOption } from "./types";
+import { CoinMark } from "./cr/Icons";
 
 type Language = "en" | "th";
 type Theme = "dark" | "light";
@@ -1018,40 +1019,8 @@ export function StoreHeaderRightNav({
         <div className="store-profile-section store-profile-balance">
           <span className="store-profile-section-label">{account.balance}</span>
           <div className="store-profile-coins-row">
-            <span className="store-profile-coins-mark" aria-hidden>
-              {/* Silver coin disc with a clean letter Y in editorial
-                  green — two diagonals meet at centre, then a stem drops
-                  straight down. Reads as a proper "Y" rather than the
-                  trident-style wordmark glyph. */}
-              <svg
-                viewBox="0 0 48 48"
-                width="100%"
-                height="100%"
-                focusable="false"
-                className="store-profile-coins-mark-svg"
-              >
-                <defs>
-                  <radialGradient id="ynot-coin-face" cx="50%" cy="35%" r="65%">
-                    <stop offset="0%" stopColor="#f5f7f9" />
-                    <stop offset="60%" stopColor="#cfd5db" />
-                    <stop offset="100%" stopColor="#9aa1a8" />
-                  </radialGradient>
-                </defs>
-                {/* Coin body */}
-                <circle cx="24" cy="24" r="23" fill="url(#ynot-coin-face)" stroke="#6b7176" strokeWidth="1" />
-                {/* Concentric circuit hairline (single accent ring) */}
-                <circle cx="24" cy="24" r="19.5" fill="none" stroke="#05a66b" strokeWidth="0.6" opacity="0.5" />
-                {/* Clean letter Y — diagonals + vertical stem */}
-                <path
-                  d="M14 13 L24 25 L34 13 M24 25 L24 36"
-                  fill="none"
-                  stroke="#05a66b"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
+            {/* Brand coin (C1) — unified site-wide trident mark */}
+            <CoinMark size={28} />
             <span className="store-profile-coins-label">{account.coinsLabel}</span>
             <span className="store-profile-coins-value">
               {typeof balance === "number" ? balance.toLocaleString() : "0"}

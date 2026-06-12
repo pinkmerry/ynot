@@ -35,7 +35,7 @@
   --cr-coin-ink: #8a6a14;
 
   /* typography */
-  --cr-font: "Helvetica Neue", Helvetica, "Inter", Arial, sans-serif;
+  --cr-font: Helvetica, Arial, "Inter", sans-serif;
   --cr-font-mono: "JetBrains Mono", "Geist Mono", ui-monospace, monospace;
   --cr-tracking: 0.14em;
 
@@ -70,6 +70,21 @@
   width: 100%;
   margin: -16px 0 0;
   padding: 16px 0 0;
+}
+/* Pack detail (.ac-root) has a white surface, so the top bleed isn't needed —
+   drop the -16px margin + 16px top padding (they cancelled out anyway). */
+.cr-root.cr-root-embedded:has(.ac-root) {
+  margin-top: 0;
+  padding-top: 0;
+}
+/* Pack detail page: plain white surface instead of the mint background.
+   Scoped via :has() to the pack detail page only (.cr-detail-centered is
+   unique to PackDetailExperience), so other store pages keep the mint bg. */
+.cr-root:has(.cr-detail-centered),
+.cr-root:has(.ac-root),
+.cr-root:has(.ah-root) {
+  --cr-bg: #ffffff;
+  background: #ffffff;
 }
 .cr-root,
 .cr-root * {
@@ -145,7 +160,7 @@
 }
 .cr-page--packs .cr-h1 {
   color: #1a1a1a;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 22px;
   font-weight: 800;
   letter-spacing: 0.04em;

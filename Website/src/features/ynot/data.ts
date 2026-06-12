@@ -330,6 +330,8 @@ type PrizeLineupCardRow = {
   image_url?: string | null;
   image_storage_path?: string | null;
   prize_category?: string | null;
+  release_year?: number | null;
+  series?: string | null;
 };
 
 type PrizePoolCardRow = PrizeLineupCardRow & {
@@ -745,7 +747,7 @@ async function getPublicPrizeLineupsBatch(
           supabase
             .from("cards")
             .select(
-              "id,name,card_code,grade,image_url,image_storage_path,prize_category",
+              "id,name,card_code,grade,image_url,image_storage_path,prize_category,release_year,series",
             )
             .in("id", cardIds),
       )
@@ -780,6 +782,8 @@ async function getPublicPrizeLineupsBatch(
           cardId: prize.card_id,
           cardCode: card?.card_code ?? null,
           cardGrade: card?.grade ?? null,
+          cardReleaseYear: card?.release_year ?? null,
+          cardBrand: card?.series ?? null,
           cardImageUrl:
             publicSubSkuImageUrl(prizeImageByPrizeId.get(prize.id)) ??
             publicSubSkuImageUrl(card?.image_url) ??
@@ -857,7 +861,7 @@ async function getPublicPrizeLineup(
           supabase
             .from("cards")
             .select(
-              "id,name,card_code,grade,image_url,image_storage_path,prize_category",
+              "id,name,card_code,grade,image_url,image_storage_path,prize_category,release_year,series",
             )
             .in("id", cardIds),
       )
@@ -890,6 +894,8 @@ async function getPublicPrizeLineup(
         cardId: prize.card_id,
         cardCode: card?.card_code ?? null,
         cardGrade: card?.grade ?? null,
+        cardReleaseYear: card?.release_year ?? null,
+        cardBrand: card?.series ?? null,
         cardImageUrl:
           publicSubSkuImageUrl(prizeImageByPrizeId.get(prize.id)) ??
           publicSubSkuImageUrl(card?.image_url) ??
@@ -1070,6 +1076,8 @@ function publicPrizePreview(prize: YnotPrizePreview, index: number): YnotPrizePr
     id: `public-prize-${index + 1}`,
     cardCode: prize.cardCode,
     cardGrade: prize.cardGrade,
+    cardReleaseYear: prize.cardReleaseYear,
+    cardBrand: prize.cardBrand,
     cardImageUrl: prize.cardImageUrl,
     // Raw prize tier ("high"/"normal") is intentionally omitted; customers see
     // rarity only through displayTier / displayTierLabel below.
@@ -1845,11 +1853,11 @@ async function loadPublicCampaignDetailImpl(
     .map((link) => categoriesById.get(link.category_id))
     .filter((category): category is YnotCategory => Boolean(category));
   const inventory = inventoryRows[0];
-  // Public-only projection: sensitive odds, locked prizes, and stock targets
-  // are excluded here. The dynamic path (getCampaign for admins) uses
-  // includePrivateDetail to gate these same fields.
+  // Public projection: sensitive odds and stock targets stay hidden, but locked
+  // tiers (e.g. Rainbow/Grand-prize chase cards that unlock as the pack sells)
+  // ARE shown so customers can preview the full lineup.
   const publicPrizeLineup = await getPublicPrizeLineup(supabase, row, inventory, {
-    includeLocked: false,
+    includeLocked: true,
     includeSensitiveOdds: false,
     includeStockTarget: false,
   });
@@ -1993,7 +2001,7 @@ export async function getCampaign(
       .filter((category): category is YnotCategory => Boolean(category));
     const inventory = inventoryRows[0];
     const prizeLineup = await getPublicPrizeLineup(supabase, row, inventory, {
-      includeLocked: includePrivateDetail,
+      includeLocked: true,
       includeSensitiveOdds: includePrivateDetail,
       includeStockTarget: includePrivateDetail,
     });
@@ -3723,6 +3731,8 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         cardName: card?.name ?? "Card",
         cardCode: card?.card_code ?? null,
         cardGrade: card?.grade ?? null,
+        cardReleaseYear: card?.release_year ?? null,
+        cardBrand: card?.series ?? null,
         cardImageUrl:
           publicSubSkuImageUrl(prizeImageByPrizeId.get(prize.id)) ??
           publicSubSkuImageUrl(card?.image_url),

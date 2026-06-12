@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Shell } from "@/features/ynot/cr/Shell";
-import { PackDetailExperience } from "@/features/ynot/cr/PackDetailExperience";
+import { PackDetailArena } from "@/features/ynot/cr/PackDetailArena";
 import { PageHead } from "@/features/ynot/cr/UiKit";
 import { YnotShell } from "@/features/ynot/components";
 import { getCampaign, getYnotDashboardSlice } from "@/features/ynot/data";
@@ -27,7 +27,7 @@ export default async function PackDetailPage({
     <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
       <Shell>
         {campaign ? (
-          <PackDetailExperience
+          <PackDetailArena
             campaign={campaign}
             balanceCoins={data.wallet.balanceCoins}
           />

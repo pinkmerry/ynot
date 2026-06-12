@@ -45,6 +45,13 @@ const TIER_GLYPH: Record<TierKey, string> = {
   silver: "S",
   bronze: "B",
 };
+// Soft accent per tier for the featured-prize spotlight (tuned for the light theme).
+const TIER_ACCENT: Record<TierKey, string> = {
+  rainbow: "#8b5cf6",
+  gold: "#d9a022",
+  silver: "#9aa6b2",
+  bronze: "#c0844f",
+};
 
 function prizeDisplayTier(prize: YnotPrizePreview): TierKey {
   const dt = (prize.displayTier ?? "").toLowerCase();
@@ -100,6 +107,9 @@ export function PackDetailExperience({
   const openQty = normalizeOpenQuantityOptions(campaign.openQuantityOptions);
   const [rawQty, setQty] = useState<number>(openQty[0] ?? 1);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [featuredPrize, setFeaturedPrize] = useState<YnotPrizePreview | null>(
+    null,
+  );
   const [submitting, setSubmitting] = useState(false);
   const [fetchedLastPrize, setFetchedLastPrize] =
     useState<YnotLastPrizePreview | null>(null);
@@ -154,6 +164,11 @@ export function PackDetailExperience({
   const presentTiers = TIER_ORDER.filter((t) => groupedPrizes[t].length > 0);
   const totalPrizeCards = (campaign.prizeLineup ?? []).length;
   const containsRainbow = presentTiers.includes("rainbow");
+
+  // Featured prize shown in the rotating display case (defaults to top tier).
+  const flatPrizes = presentTiers.flatMap((t) => groupedPrizes[t]);
+  const featured = featuredPrize ?? flatPrizes[0] ?? null;
+  const featuredTier = featured ? prizeDisplayTier(featured) : "bronze";
 
   function tryOpen() {
     if (!openable) {
@@ -330,7 +345,138 @@ export function PackDetailExperience({
                 Prize lineup will appear once admins assign cards to this pack.
               </p>
             ) : (
-              presentTiers.map((tier) => (
+              <>
+                {featured ? (
+                  <div className="cr-feat">
+                    <div className="cr-feat-stage">
+                      <span
+                        className="cr-feat-glow"
+                        aria-hidden
+                        style={{
+                          background: `radial-gradient(circle, ${TIER_ACCENT[featuredTier]}, transparent 65%)`,
+                        }}
+                      />
+                      <div className="cr-feat-card">
+                        {featured.cardImageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={featured.cardImageUrl}
+                            alt={featured.cardName}
+                          />
+                        ) : (
+                          <span className="cr-feat-placeholder">
+                            {initials(featured.cardName)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="cr-feat-info">
+                      <strong className="cr-feat-name">
+                        {featured.cardName}
+                      </strong>
+                      <span className="cr-feat-meta">
+                        {TIER_TITLE[featuredTier]}
+                        {featured.cardGrade ? ` · ${featured.cardGrade}` : ""}
+                      </span>
+                      <small className="cr-feat-hint">
+                        แตะการ์ดด้านล่างเพื่อดูตัวอย่าง
+                      </small>
+                    </div>
+                    <style jsx>{`
+                      .cr-feat {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 12px;
+                        padding: 20px 18px 22px;
+                        border-radius: 22px;
+                        background: linear-gradient(180deg, #ffffff, #f3faf2);
+                        border: 1px solid var(--cr-line, #e2ebe1);
+                        box-shadow: var(--cr-shadow-1);
+                      }
+                      .cr-feat-stage {
+                        position: relative;
+                        width: 100%;
+                        height: 300px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        perspective: 1100px;
+                      }
+                      .cr-feat-glow {
+                        position: absolute;
+                        width: 62%;
+                        height: 70%;
+                        border-radius: 50%;
+                        filter: blur(46px);
+                        opacity: 0.42;
+                        z-index: 0;
+                      }
+                      .cr-feat-card {
+                        position: relative;
+                        z-index: 1;
+                        height: 90%;
+                        transform-style: preserve-3d;
+                        animation: cr-feat-turn 5.5s ease-in-out infinite;
+                      }
+                      .cr-feat-card img {
+                        height: 100%;
+                        width: auto;
+                        max-width: 100%;
+                        object-fit: contain;
+                        display: block;
+                        filter: drop-shadow(0 22px 26px rgba(13, 20, 17, 0.38));
+                      }
+                      .cr-feat-placeholder {
+                        font-size: 48px;
+                        font-weight: 800;
+                        color: var(--cr-mute);
+                      }
+                      @keyframes cr-feat-turn {
+                        0%,
+                        100% {
+                          transform: rotateY(-22deg) translateY(0) scale(1);
+                        }
+                        50% {
+                          transform: rotateY(22deg) translateY(-14px) scale(1.04);
+                        }
+                      }
+                      .cr-feat-info {
+                        text-align: center;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 3px;
+                      }
+                      .cr-feat-name {
+                        font-size: 16px;
+                        font-weight: 800;
+                        color: var(--cr-ink);
+                      }
+                      .cr-feat-meta {
+                        font-size: 12.5px;
+                        font-weight: 600;
+                        color: var(--cr-mute);
+                      }
+                      .cr-feat-hint {
+                        font-size: 11px;
+                        color: var(--cr-mute-2, #8a948e);
+                        margin-top: 4px;
+                      }
+                      :global(.cr-prize-card) {
+                        transition: transform 0.15s ease;
+                      }
+                      :global(.cr-prize-card:hover) {
+                        transform: translateY(-3px);
+                      }
+                      :global(.cr-prize-card.is-featured) {
+                        outline: 2px solid var(--cr-mint, #1ea864);
+                        outline-offset: 2px;
+                        border-radius: 14px;
+                      }
+                    `}</style>
+                  </div>
+                ) : null}
+                {presentTiers.map((tier) => (
                 <div key={tier}>
                   <div className={`cr-tier-banner ${tier}`}>
                     <span
@@ -354,7 +500,17 @@ export function PackDetailExperience({
                     {groupedPrizes[tier].map((prize, i) => (
                       <div
                         key={`${prize.id}-${i}`}
-                        className="cr-prize-card"
+                        className={`cr-prize-card${featured === prize ? " is-featured" : ""}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setFeaturedPrize(prize)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setFeaturedPrize(prize);
+                          }
+                        }}
+                        style={{ cursor: "pointer" }}
                       >
                         <div className={`cr-prize-card-art cr-coll-art ${tier}`}>
                           {prize.cardImageUrl ? (
@@ -377,7 +533,8 @@ export function PackDetailExperience({
                     ))}
                   </div>
                 </div>
-              ))
+                ))}
+              </>
             )}
             {lastPrize ? (
               <div>

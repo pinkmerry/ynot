@@ -12,6 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CoinMark } from "./cr/Icons";
 import type { CardCatalogItem, ProfileInfo } from "@/lib/lucky-draw/types";
 import type { Database } from "@/lib/supabase/types";
 import type {
@@ -1575,7 +1576,7 @@ export function CollectionConvertPanel({
                 </span>
                 {convertable ? (
                   <span className="collection-convert-row-coin">
-                    <span className="collection-convert-row-coin-dot" aria-hidden="true" />
+                    <CoinMark size={14} />
                     <strong>{coinValue.toLocaleString()}</strong>
                     <small>coin</small>
                   </span>
@@ -1619,7 +1620,7 @@ export function CollectionConvertPanel({
           <div className="collection-convert-dock-count">
             <strong>Selecting {selectedItems.length} card{selectedItems.length === 1 ? "" : "s"}</strong>
             <span>
-              <span className="collection-convert-dock-coin-dot" aria-hidden="true" />
+              <CoinMark size={14} />
               {selectedTotalCoins.toLocaleString()} coin
             </span>
           </div>
@@ -9765,7 +9766,7 @@ export function AdminCardCatalogPanel({
               onClick={() => setSeriesFilter("all")}
             />
             <AdminCatalogFilterOption
-              label="Pokémon"
+              label="Pokemon"
               count={facets.pokemon}
               selected={seriesFilter === "Pokemon"}
               onClick={() => setSeriesFilter("Pokemon")}

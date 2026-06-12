@@ -26,6 +26,7 @@ import {
   rewardTiers,
 } from "./storefront-content";
 import { allowDemoStorefront, productionSafetyLabel } from "./runtime-flags";
+import { CoinMark } from "./cr/Icons";
 import { FilterScrollGuard } from "./FilterScrollGuard";
 import { HeaderScrollEffect } from "./HeaderScrollEffect";
 import { normalizeOpenQuantityOptions } from "./open-quantity";
@@ -623,64 +624,11 @@ function YnotFooter() {
 }
 
 function TopUpCoinIcon() {
+  // Brand coin in the header balance pill. filter:none overrides the legacy
+  // orange glow on .header-coin-mark so the green mark doesn't get an orange halo.
   return (
-    <span aria-hidden className="header-coin-mark">
-      <svg viewBox="0 0 24 24" width="1em" height="1em" focusable="false">
-        <defs>
-          <radialGradient id="coinFace" cx="50%" cy="38%" r="65%">
-            <stop offset="0%" stopColor="#ffd089" />
-            <stop offset="55%" stopColor="#ff8a1f" />
-            <stop offset="100%" stopColor="#b94e00" />
-          </radialGradient>
-          <linearGradient id="coinRim" x1="50%" y1="0%" x2="50%" y2="100%">
-            <stop offset="0%" stopColor="#ffe6c2" stopOpacity="0.95" />
-            <stop offset="100%" stopColor="#7a3000" stopOpacity="0.85" />
-          </linearGradient>
-          <radialGradient id="coinShine" cx="36%" cy="28%" r="32%">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="12" cy="12" r="10.5" fill="url(#coinFace)" />
-        <circle
-          cx="12"
-          cy="12"
-          r="10.5"
-          fill="none"
-          stroke="url(#coinRim)"
-          strokeWidth="1"
-        />
-        <circle
-          cx="12"
-          cy="12"
-          r="8.6"
-          fill="none"
-          stroke="#ffffff"
-          strokeOpacity="0.18"
-          strokeWidth="0.6"
-        />
-        <ellipse
-          cx="9.5"
-          cy="8.2"
-          rx="5"
-          ry="2.6"
-          fill="url(#coinShine)"
-        />
-        <path
-          d="M12 7.6 V16.4 M7.6 12 H16.4"
-          stroke="#1a0d00"
-          strokeOpacity="0.92"
-          strokeWidth="1.9"
-          strokeLinecap="round"
-        />
-        <path
-          d="M12 7.6 V16.4 M7.6 12 H16.4"
-          stroke="#fff1d6"
-          strokeOpacity="0.35"
-          strokeWidth="0.6"
-          strokeLinecap="round"
-        />
-      </svg>
+    <span aria-hidden className="header-coin-mark" style={{ filter: "none" }}>
+      <CoinMark />
     </span>
   );
 }
@@ -1939,24 +1887,7 @@ function PrizeCard({
 export function CoinIcon() {
   return (
     <span aria-label="coin" className="coin-icon" role="img">
-      <svg
-        viewBox="0 0 24 24"
-        width="1em"
-        height="1em"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-        focusable="false"
-      >
-        <circle cx="12" cy="12" r="10" />
-        <circle cx="12" cy="12" r="6.5" strokeOpacity="0.65" />
-        <circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none" />
-        <path d="M2.5 12 H5 M19 12 H21.5 M12 2.5 V5 M12 19 V21.5" strokeOpacity="0.55" />
-        <path d="M7.4 7.4 L9 9 M15 9 L16.6 7.4 M7.4 16.6 L9 15 M15 15 L16.6 16.6" strokeOpacity="0.35" />
-      </svg>
+      <CoinMark />
     </span>
   );
 }

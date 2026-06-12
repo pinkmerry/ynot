@@ -1,4 +1,5 @@
 import type { SVGProps } from "react";
+import { CoinMark } from "../cr/Icons";
 
 export type AdminIconName =
   | "grid" | "stack" | "gift" | "tag" | "users" | "coin" | "truck" | "swap"
@@ -68,13 +69,8 @@ export function AdminIcon({
         </svg>
       );
     case "coin":
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="12" r="8" />
-          <path d="M9 9c0 3 6 1 6 4 0 1.5-1.5 2-3 2s-3-.7-3-2" />
-          <path d="M12 7v1.5M12 15v1.5" />
-        </svg>
-      );
+      // Brand coin (C1) — unified site-wide trident mark.
+      return <CoinMark size={size} />;
     case "truck":
       return (
         <svg {...common}>

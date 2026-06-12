@@ -85,7 +85,7 @@ body {
     ),
     linear-gradient(135deg, #07070f 0%, #0d1220 52%, #150b18 100%);
   color: var(--foreground);
-  font-family: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  font-family: Helvetica, Arial, "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
 }
 
 button,
@@ -14990,7 +14990,7 @@ html[data-ynot-theme="light"] .status-pill,
 html[data-ynot-theme="light"] .soft-pill,
 html[data-ynot-theme="light"] .ranking-tabs span {
   font-family:
-    var(--font-prompt), var(--font-inter),
+    Helvetica, Arial, var(--font-prompt), var(--font-inter),
     "SF Pro", system-ui, -apple-system, BlinkMacSystemFont,
     "Noto Sans Thai", "Sukhumvit Set", "Thonburi",
     sans-serif !important;
@@ -15007,7 +15007,7 @@ html[data-ynot-theme="light"] .brand-tagline,
 html[data-ynot-theme="light"] .ynot-eyebrow,
 html[data-ynot-theme="light"] .section-label {
   font-family:
-    var(--font-prompt), var(--font-inter),
+    Helvetica, Arial, var(--font-prompt), var(--font-inter),
     "SF Pro Display", "Inter", system-ui,
     "Noto Sans Thai", "Sukhumvit Set", sans-serif !important;
   letter-spacing: -0.01em;
@@ -15233,7 +15233,8 @@ html[data-ynot-theme="light"] .storefront-header::after {
 html[data-ynot-theme="light"] .store-topbar {
   background: #ffffff !important;
   color: #1a1a1a !important;
-  border-bottom: 1px solid rgba(26, 26, 26, 0.08) !important;
+  /* Visible hairline divider to match the yfifteen (FOG) header gridline. */
+  border-bottom: 1px solid rgb(0, 0, 0) !important;
 }
 
 /* Hamburger button — bare 2-line mark on DARK topbar (white icon).
@@ -15407,7 +15408,8 @@ html[data-ynot-theme="light"] .store-topbar {
   visibility: visible;
   background: #ffffff !important;
   color: #1a1a1a !important;
-  border-bottom: 1px solid rgba(26, 26, 26, 0.08) !important;
+  /* Visible hairline divider to match the yfifteen (FOG) header gridline. */
+  border-bottom: 1px solid rgb(0, 0, 0) !important;
 }
 @media (max-width: 640px) {
   html[data-ynot-theme="light"] .store-topbar {
@@ -16772,6 +16774,11 @@ body:has(> .ynot-home-mint) {
   padding: 0;
   margin: 0;
 }
+/* Top + bottom hairline divider framing the footer (yfifteen FOG gridline). */
+html[data-ynot-theme="light"] .ynot-footer {
+  border-top: 1px solid rgb(0, 0, 0);
+  border-bottom: 1px solid rgb(0, 0, 0);
+}
 .ynot-footer-topbar {
   width: 100%;
   height: 50px;
@@ -16790,7 +16797,8 @@ body:has(> .ynot-home-mint) {
 
 .ynot-footer-copyright-row {
   width: 100%;
-  background: #ffffff;
+  /* Match the footer surface (mint) instead of white. */
+  background: #ebf8eb;
   padding: 14px 2.60417vw;
   box-sizing: border-box;
   display: flex;
@@ -16844,7 +16852,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .ynot-copy-symbol {
   max-width: 432px;
 }
 .ynot-newsletter-title {
-  font-family: var(--font-plex-sans), var(--font-plex-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-plex-sans), var(--font-plex-thai), system-ui, sans-serif;
   font-weight: 400;
   font-size: 13px;
   line-height: 1.33333em;
@@ -17661,7 +17669,7 @@ html[data-ynot-theme="light"] .store-topbar-left {
   padding-bottom: 12px;
 }
 .store-profile-title {
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 16px;
   font-weight: 500;
   letter-spacing: 0.05em;
@@ -17689,7 +17697,7 @@ html[data-ynot-theme="light"] .store-topbar-left {
   padding: 8px 0;
 }
 .store-profile-section-label {
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 11px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -17737,7 +17745,7 @@ html[data-ynot-theme="light"] .store-topbar-left {
   flex: 1 1 auto;
 }
 .store-profile-identity-name {
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 17px;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -17747,7 +17755,7 @@ html[data-ynot-theme="light"] .store-topbar-left {
   white-space: nowrap;
 }
 .store-profile-identity-edit {
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -17786,7 +17794,7 @@ html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-
   height: 100%;
 }
 .store-profile-edit {
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 13px;
   color: #1a1a1a;
   text-decoration: none;
@@ -17809,7 +17817,7 @@ html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-
   align-items: center;
   gap: 10px;
   padding: 6px 0;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
 }
 .store-profile-coins-mark {
   display: inline-flex;
@@ -17878,7 +17886,7 @@ html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-
   background: transparent;
   border: 0;
   padding: 6px 0;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 13px;
   font-weight: 500;
   color: var(--jt-green, #05a66b);
@@ -17901,7 +17909,7 @@ html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-
   flex-direction: column;
   gap: 8px;
   padding: 4px 0 8px;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 13px;
   line-height: 1.55;
   color: #1a1a1a;
@@ -17937,7 +17945,7 @@ html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-
   justify-content: center;
   background: #ffd866;
   color: #1a1a1a;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -17973,7 +17981,7 @@ html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-
   padding: 0;
   background: transparent;
   border: 0;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 14px;
   font-weight: 300;
   letter-spacing: 0.18em;
@@ -18067,7 +18075,7 @@ html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-
   border: 1px solid rgba(26, 26, 26, 0.16);
   border-radius: 4px;
   color: #1a1a1a;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -18100,7 +18108,7 @@ html[data-ynot-profile-open="true"][data-ynot-route-home="true"][data-header-at-
   border: 1px solid rgba(26, 26, 26, 0.16);
   border-radius: 4px;
   color: #1a1a1a;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -18155,7 +18163,7 @@ html[data-ynot-theme="light"] .auth-top-bar {
 }
 html[data-ynot-theme="light"] .auth-top-bar h1 {
   color: #1a1a1a !important;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
   font-size: 20px !important;
   font-weight: 500 !important;
   letter-spacing: 0.05em !important;
@@ -18182,7 +18190,7 @@ html[data-ynot-theme="light"] .auth-hero-mark {
 }
 html[data-ynot-theme="light"] .sequence-label {
   color: rgba(26, 26, 26, 0.55) !important;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
   font-size: 10px !important;
   letter-spacing: 0.22em !important;
   text-transform: uppercase !important;
@@ -18199,7 +18207,7 @@ html[data-ynot-theme="light"] .auth-social {
   border: 1px solid rgba(26, 26, 26, 0.16) !important;
   border-radius: 4px !important;
   color: #1a1a1a !important;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
   font-size: 12px !important;
   font-weight: 500 !important;
   letter-spacing: 0.12em !important;
@@ -18251,7 +18259,7 @@ html[data-ynot-theme="light"] .auth-phone form input[type="text"] {
   border: 1px solid rgba(26, 26, 26, 0.16) !important;
   border-radius: 4px !important;
   color: #1a1a1a !important;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
   font-size: 14px !important;
   letter-spacing: 0.02em !important;
   outline: none !important;
@@ -18272,7 +18280,7 @@ html[data-ynot-theme="light"] .auth-phone .gold-button {
   border: 1px solid #1a1a1a !important;
   border-radius: 4px !important;
   color: #ffffff !important;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
   font-size: 12px !important;
   font-weight: 600 !important;
   letter-spacing: 0.18em !important;
@@ -18326,7 +18334,7 @@ html[data-ynot-theme="light"] .admin-panel-head h2,
 html[data-ynot-theme="light"] .admin-panel-head h3,
 html[data-ynot-theme="light"] .admin-section-head h2 {
   color: #1a1a1a !important;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
   font-weight: 500 !important;
   letter-spacing: 0.04em !important;
   text-transform: uppercase !important;
@@ -18389,7 +18397,7 @@ html[data-ynot-theme="light"] .app-shell textarea:not(.ynot-newsletter-input) {
   border-radius: 4px !important;
   color: #1a1a1a !important;
   padding: 10px 14px !important;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
 }
 html[data-ynot-theme="light"] .store-shell input:not(.ynot-newsletter-input):not([type="checkbox"]):not([type="radio"]),
 html[data-ynot-theme="light"] .app-shell input:not(.ynot-newsletter-input):not([type="checkbox"]):not([type="radio"]) {
@@ -18441,7 +18449,7 @@ html[data-ynot-theme="light"] .packs-toolbar {
   padding: 0 !important;
 }
 html[data-ynot-theme="light"] .packs-toolbar h1 {
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
   font-size: 22px !important;
   font-weight: 600 !important;
   letter-spacing: 0.04em !important;
@@ -18659,7 +18667,7 @@ html[data-ynot-theme="light"] .packs-toolbar p {
   margin-bottom: 12px;
 }
 .packs-feature-title {
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 28px;
   line-height: 1.05;
   letter-spacing: -0.01em;
@@ -18706,7 +18714,7 @@ html[data-ynot-theme="light"] .marketplace-toolbar {
   padding: 0 !important;
 }
 html[data-ynot-theme="light"] .marketplace-toolbar h1 {
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif !important;
   font-size: 22px !important;
   font-weight: 600 !important;
   letter-spacing: 0.04em !important;
@@ -18739,7 +18747,7 @@ html[data-ynot-theme="light"] .marketplace-toolbar p {
   border: 1px solid rgba(26, 26, 26, 0.16);
   border-radius: 9999px;
   color: #1a1a1a;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -18753,7 +18761,7 @@ html[data-ynot-theme="light"] .marketplace-toolbar p {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -18790,7 +18798,7 @@ html[data-ynot-theme="light"] .marketplace-toolbar p {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 56px;
   font-weight: 700;
   color: rgba(26, 26, 26, 0.20);
@@ -18808,7 +18816,7 @@ html[data-ynot-theme="light"] .marketplace-toolbar p {
   color: rgba(26, 26, 26, 0.55);
 }
 .marketplace-card-title {
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -18872,7 +18880,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .series-essentials-headin
 html[lang][data-ynot-theme][data-ynot-language][class] .series-essentials-heading .i18n-en,
 html[lang][data-ynot-theme][data-ynot-language][class] .series-essentials-heading .i18n-th {
   text-align: center;
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif !important;
   font-size: 25px !important;
   font-weight: 400 !important;
   line-height: 1.2 !important;
@@ -18941,7 +18949,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .series-essentials-headin
   border: 1px solid #000;
   background: transparent;
   color: #1a1a1a;
-  font-family: var(--font-prompt), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-prompt), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 16px;
   font-weight: 400;
   letter-spacing: 0.05em;
@@ -19000,7 +19008,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .series-essentials-headin
   text-align: center;
 }
 .featured-drop-title {
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: clamp(36px, 7vw, 96px);
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -19019,7 +19027,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .series-essentials-headin
   background: #1a1a1a;
   border: 1px solid #1a1a1a;
   color: #ffffff;
-  font-family: var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.22em;
@@ -19068,7 +19076,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] *,
 html[lang][data-ynot-theme][data-ynot-language][class] *::before,
 html[lang][data-ynot-theme][data-ynot-language][class] *::after {
   font-family:
-    var(--font-prompt),
+    Helvetica, Arial, var(--font-prompt),
     "Prompt Fallback",
     "Noto Sans Thai",
     "Sukhumvit Set",
@@ -19214,7 +19222,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"] * {
     border: 0 !important;
     box-shadow: none !important;
     font-family:
-      var(--font-prompt),
+      Helvetica, Arial, var(--font-prompt),
       var(--font-noto-thai),
       "Prompt Fallback",
       system-ui,
@@ -19270,7 +19278,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"] * {
     display: block !important;
     color: currentColor !important;
     font-family:
-      var(--font-prompt),
+      Helvetica, Arial, var(--font-prompt),
       var(--font-noto-thai),
       "Prompt Fallback",
       system-ui,
@@ -19682,7 +19690,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"] * {
     padding: 7px 14px !important;
     min-height: 0 !important;
     font-family:
-      var(--font-prompt),
+      Helvetica, Arial, var(--font-prompt),
       var(--font-noto-thai),
       "Prompt Fallback",
       system-ui,
@@ -19807,7 +19815,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"] * {
     border: 0 !important;
     color: currentColor !important;
     font-family:
-      var(--font-prompt),
+      Helvetica, Arial, var(--font-prompt),
       var(--font-noto-thai),
       "Prompt Fallback",
       system-ui,
@@ -19867,7 +19875,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] [class*="font-mono"] * {
     margin: 0 !important;
     color: currentColor !important;
     font-family:
-      var(--font-prompt),
+      Helvetica, Arial, var(--font-prompt),
       var(--font-noto-thai),
       "Prompt Fallback",
       system-ui,
@@ -20124,7 +20132,7 @@ html[data-ynot-theme="light"] .admin-workspace .btn {
   border: 1px solid rgba(255, 255, 255, 0.32) !important;
   border-radius: 0 !important;
   color: #f5f5f5 !important;
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif !important;
   font-size: 12px !important;
   font-weight: 500 !important;
   letter-spacing: 0.12em !important;
@@ -20153,7 +20161,7 @@ html[data-ynot-theme="light"] .admin-workspace button[class*="primary"] {
   border: 1px solid #05a66b !important;
   border-radius: 0 !important;
   color: #ffffff !important;
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif !important;
   font-size: 12px !important;
   font-weight: 600 !important;
   letter-spacing: 0.12em !important;
@@ -20174,7 +20182,7 @@ html[data-ynot-theme="light"] .admin-workspace button[class*="danger"] {
   border: 1px solid #ef4444 !important;
   border-radius: 0 !important;
   color: #f87171 !important;
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif !important;
   font-size: 12px !important;
   font-weight: 600 !important;
   letter-spacing: 0.12em !important;
@@ -20197,7 +20205,7 @@ html[data-ynot-theme="light"] .admin-workspace textarea {
   border: 1px solid rgba(255, 255, 255, 0.22) !important;
   border-radius: 0 !important;
   color: #f5f5f5 !important;
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif !important;
   font-size: 14px !important;
   padding: 10px 12px !important;
   box-shadow: none !important;
@@ -20495,7 +20503,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading .pack
 }
 html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
   margin: 0 !important;
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif !important;
   font-size: 24px !important;
   font-weight: 800 !important;
   letter-spacing: 0 !important;
@@ -20506,7 +20514,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
 }
 html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-subtitle {
   margin: 0 0 16px !important;
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif !important;
   font-size: 14px !important;
   font-weight: 400 !important;
   letter-spacing: 0 !important;
@@ -20549,7 +20557,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading + .ho
   align-items: center;
   padding: 3px 10px;
   border-radius: 999px;
-  font-family: var(--font-prompt), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -20596,7 +20604,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-heading + .ho
   border: 1px solid rgba(15, 23, 42, 0.2);
   border-radius: 999px;
   background: #ffffff;
-  font-family: var(--font-prompt), system-ui, sans-serif;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -20743,7 +20751,7 @@ html[data-ynot-theme="light"] .packs-tier-subtitle {
    brand voice stays intact while the proportions match FoG. */
 html[lang][data-ynot-theme][data-ynot-language][class] .packs-toolbar h1,
 html[lang][data-ynot-theme][data-ynot-language][class] .packs-tier-title {
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif !important;
   font-size: 25px !important;
   font-weight: 400 !important;
   letter-spacing: 0.04em !important;
@@ -20901,7 +20909,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .pack-admin-edit {
   border: 1px solid #000000 !important;
   border-radius: 999px !important;
   color: #000000 !important;
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif !important;
   font-size: 11px !important;
   font-weight: 600 !important;
   letter-spacing: 0.12em !important;
@@ -20956,7 +20964,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .pack-order-controls {
   background: rgba(255, 255, 255, 0.92) !important;
   border: 1px solid #000000 !important;
   border-radius: 999px !important;
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif !important;
   font-size: 10px !important;
   letter-spacing: 0.08em !important;
   line-height: 1 !important;
@@ -21142,7 +21150,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-drawer {
   overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif !important;
   backface-visibility: hidden !important;
   will-change: transform !important;
 }
@@ -21518,7 +21526,7 @@ html[data-ynot-menu-open="true"][data-ynot-route-home="true"][data-header-at-top
 html[data-ynot-profile-open="true"] .store-topbar {
   background: #ffffff !important;
   background-image: none !important;
-  border-bottom: 1px solid rgba(26, 26, 26, 0.08) !important;
+  border-bottom: 1px solid rgb(0, 0, 0) !important;
   box-shadow: none !important;
 }
 
@@ -21706,7 +21714,7 @@ html[lang][data-ynot-theme="light"][data-ynot-language][data-ynot-profile-open="
     linear-gradient(180deg, #f7f7f4 0%, #eeeeea 46%, #d9ddd4 100%);
   color: #111111;
   font-family:
-    var(--font-prompt),
+    Helvetica, Arial, var(--font-prompt),
     var(--font-noto-thai),
     "Helvetica Neue",
     Arial,
@@ -23611,7 +23619,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .packs-feature-card--plac
   border: 1.5px dashed #000000 !important;
   color: #000000 !important;
   text-decoration: none !important;
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif !important;
   letter-spacing: 0.12em !important;
   text-transform: uppercase !important;
   transition: background 0.14s ease, transform 0.14s ease !important;
@@ -23644,7 +23652,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-overlay {
   display: flex !important;
   align-items: stretch !important;
   justify-content: center !important;
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif !important;
 }
 html[lang][data-ynot-theme][data-ynot-language][class] .pack-picker-backdrop {
   position: absolute !important;
@@ -23829,7 +23837,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-search 
   border: 1px solid rgba(255, 255, 255, 0.22) !important;
   border-radius: 0 !important;
   color: #f5f5f5 !important;
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif !important;
   font-size: 13px !important;
 }
 html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-search:focus {
@@ -23933,7 +23941,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-grid {
   border-collapse: collapse !important;
   background: #0a0a0a !important;
   color: #f5f5f5 !important;
-  font-family: var(--font-prompt), system-ui, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-prompt), system-ui, sans-serif !important;
   font-size: 13px !important;
 }
 html[lang][data-ynot-theme][data-ynot-language][class] .admin-pack-table-grid thead th {
@@ -24669,7 +24677,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   border-radius: 0 !important;
   box-shadow: none !important;
   padding: 32px !important;
-  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
 }
 
 /* All typography is sans editorial — no Prompt round corners in the admin. */
@@ -24690,7 +24698,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
 .admin-redesign-reference textarea,
 .admin-redesign-reference strong,
 .admin-redesign-reference em {
-  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
 }
 
 /* Headings */
@@ -24733,7 +24741,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
 .admin-redesign-reference .admin-page-eyebrow,
 .admin-redesign-reference .admin-panel-compact-head > span:first-child {
   color: var(--admin-accent) !important;
-  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
   font-size: 11px !important;
   font-weight: 700 !important;
   letter-spacing: 0.18em !important;
@@ -24854,7 +24862,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   border: 1px solid var(--admin-accent) !important;
   border-radius: 0 !important;
   color: #14110d !important;
-  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
   font-size: 12px !important;
   font-weight: 700 !important;
   letter-spacing: 0.18em !important;
@@ -24889,7 +24897,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   border: 1px solid var(--admin-line-strong) !important;
   border-radius: 0 !important;
   color: var(--admin-text) !important;
-  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
   font-size: 11px !important;
   font-weight: 700 !important;
   letter-spacing: 0.15em !important;
@@ -24945,7 +24953,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   border-bottom: 1px solid var(--admin-line-strong) !important;
   border-radius: 0 !important;
   color: var(--admin-text) !important;
-  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
   font-size: 15px !important;
   font-weight: 500 !important;
   letter-spacing: -0.005em !important;
@@ -24991,7 +24999,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   border-left: 0 !important;
   border-right: 0 !important;
   color: var(--admin-muted) !important;
-  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
   font-size: 10px !important;
   font-weight: 700 !important;
   letter-spacing: 0.18em !important;
@@ -25049,7 +25057,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   border: 1px solid var(--admin-line-strong) !important;
   border-radius: 0 !important;
   color: var(--admin-muted) !important;
-  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
   font-size: 10px !important;
   font-weight: 700 !important;
   letter-spacing: 0.15em !important;
@@ -25091,7 +25099,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   border-bottom: 2px solid transparent !important;
   border-radius: 0 !important;
   color: var(--admin-muted) !important;
-  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
   font-size: 11px !important;
   font-weight: 700 !important;
   letter-spacing: 0.15em !important;
@@ -25423,7 +25431,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   border: 1px solid var(--admin-line-strong) !important;
   border-radius: 0 !important;
   color: var(--admin-muted) !important;
-  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
   font-size: 12px !important;
   font-weight: 700 !important;
   letter-spacing: 0.06em !important;
@@ -25491,7 +25499,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   border: 1px solid var(--admin-line-strong) !important;
   border-radius: 0 !important;
   color: var(--admin-muted) !important;
-  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
   font-size: 10px !important;
   font-weight: 700 !important;
   letter-spacing: 0.18em !important;
@@ -25532,7 +25540,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] .store-admin-link {
   border: 1px solid var(--admin-line-strong) !important;
   border-radius: 0 !important;
   color: var(--admin-text) !important;
-  font-family: var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-family: Helvetica, Arial, var(--font-inter), "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
   font-size: 12px !important;
   font-weight: 700 !important;
   letter-spacing: 0.18em !important;
@@ -25987,7 +25995,7 @@ html.admin-autohide-scroll.is-scrolling::-webkit-scrollbar-thumb:hover {
 
   --a-shadow-card: 0 1px 0 rgba(255,255,255,0.04) inset, 0 12px 40px rgba(0,0,0,0.32);
 
-  font-family: "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: Helvetica, Arial, "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
   font-feature-settings: "ss01", "cv11";
   background: radial-gradient(circle at top left, rgba(244,197,66,0.06), transparent 36rem),
               linear-gradient(135deg, #07070f 0%, #0d1220 52%, #150b18 100%);
@@ -27444,7 +27452,7 @@ html[data-ynot-theme] .admin-frame .owner-approval-card :where(.owner-approval-c
   grid-template-columns: 256px minmax(0, 1fr);
   background: var(--a-bg);
   color: var(--a-fg);
-  font-family: "Inter", "Noto Sans Thai", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  font-family: Helvetica, Arial, "Inter", "Noto Sans Thai", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
   font-feature-settings: "cv11", "tnum";
   letter-spacing: -0.011em;
 }
@@ -28433,7 +28441,7 @@ html[data-ynot-theme] .admin-frame .owner-approval-card :where(.owner-approval-c
   --a-control-h: 2rem;
   --a-field-h: 2.25rem;
 
-  font-family: var(--font-inter), var(--font-noto-thai), -apple-system,
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), -apple-system,
     BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif !important;
   font-feature-settings: "cv11", "ss01", "kern";
   letter-spacing: -0.011em;
@@ -28922,7 +28930,7 @@ html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame li,
 html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame small,
 html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame strong,
 html[lang][data-ynot-theme][data-ynot-language][class] body .admin-frame em {
-  font-family: var(--font-inter), var(--font-noto-thai), -apple-system,
+  font-family: Helvetica, Arial, var(--font-inter), var(--font-noto-thai), -apple-system,
     BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif !important;
 }
 

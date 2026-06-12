@@ -388,6 +388,8 @@ export type YnotPrizePreview = {
   cardId?: string;
   cardCode?: string | null;
   cardGrade?: string | null;
+  cardReleaseYear?: number | null;
+  cardBrand?: string | null;
   cardImageUrl?: string | null;
   cardImageStoragePath?: string | null;
   cardPrizeCategory?: string | null;
