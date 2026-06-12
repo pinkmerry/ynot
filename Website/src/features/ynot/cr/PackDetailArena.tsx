@@ -217,11 +217,24 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
   const move = (d: number) => setCenter((c) => n ? ((c + d) % n + n) % n : 0);
   const title = campaign.titleTh || campaign.titleEn;
   const seriesLabel = SERIES_LABEL[campaign.series] ?? campaign.series;
+  const bannerImageUrl = campaign.bannerImageUrl?.trim() ?? "";
+  const hasBannerImage = Boolean(bannerImageUrl);
 
   const offsets = [-2, -1, 0, 1, 2];
 
   return (
     <div className="ac-root">
+      {hasBannerImage ? (
+        <section className="ac-hero" aria-label={`${title} banner`}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- Pack banners are user-managed Supabase assets. */}
+          <img
+            alt=""
+            aria-hidden="true"
+            className="ac-hero-media"
+            src={bannerImageUrl}
+          />
+        </section>
+      ) : null}
 
       <main className="ac-main">
         {/* LEFT — fanned carousel */}
@@ -651,12 +664,12 @@ const baseCss = `
   }
   /* HERO */
   .ac-hero {
-    position: relative; width: 100vw; left: 50%; right: 50%;
-    margin-left: -50vw; margin-right: -50vw;
-    aspect-ratio: 4 / 1; min-height: 220px; max-height: 440px;
-    overflow: hidden; background: #0e1116;
+    position: relative; width: min(1450px, calc(100vw - 32px));
+    margin: 28px auto 0; aspect-ratio: 16 / 9; min-height: 220px;
+    max-height: min(72vh, 720px); overflow: hidden; background: #fff;
+    border-radius: 20px; box-shadow: 0 18px 44px rgba(13, 20, 17, 0.14);
   }
-  .ac-hero-media { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ac-hero-media { width: 100%; height: 100%; object-fit: contain; display: block; background: #fff; }
   .ac-hero-ph { position: absolute; inset: 0; background: linear-gradient(120deg, #cfe0f5 0%, #e7dcf0 45%, #f7d8c9 100%); }
 
   /* proportional columns (~3/4 : 1/4) — 1065:360 is the tuned full-width design,
