@@ -128,6 +128,9 @@ export async function POST(request: Request) {
   if (magicCheck && !magicCheck.ok) {
     return Response.json({ error: magicCheck.error }, { status: 400 });
   }
+  if (magicCheck && !allowedSlipTypes.has(magicCheck.contentType)) {
+    return Response.json({ error: "Slip must be JPG, PNG, or WEBP." }, { status: 400 });
+  }
 
   const supabase = createServiceSupabaseClient();
   const activeDraw = await getActiveDraw(supabase, {

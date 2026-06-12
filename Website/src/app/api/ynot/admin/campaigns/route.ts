@@ -38,7 +38,7 @@ export const dynamic = "force-dynamic";
 
 const campaignBannerBucketName = "lucky-draw-assets";
 const campaignBannerPathPattern =
-  /^campaign-banners\/\d{4}-\d{2}-\d{2}\/\d+-[0-9a-f-]{36}-[a-z0-9._-]+\.(jpg|png|webp)$/;
+  /^campaign-banners\/\d{4}-\d{2}-\d{2}\/\d+-[0-9a-f-]{36}-[a-z0-9._-]+\.(jpg|png|webp|avif)$/;
 
 type CampaignBody = {
   campaignId?: unknown;
@@ -273,12 +273,13 @@ function campaignPatch(body: CampaignBody): Database["public"]["Tables"]["draw_r
   };
 }
 
+// The Last Prize is a bonus for the final opener — it no longer occupies a
+// slot, so normal prize rows must cover every slot regardless.
 function lastPrizeNormalPrizeTarget(
   totalSlots: number,
-  lastPrizeCardId?: string | null,
+  _lastPrizeCardId?: string | null,
 ) {
-  const normalizedTotalSlots = Math.max(1, Math.round(Number(totalSlots) || 1));
-  return Math.max(0, normalizedTotalSlots - (lastPrizeCardId ? 1 : 0));
+  return Math.max(1, Math.round(Number(totalSlots) || 1));
 }
 
 function nextLastPrizeCardId(
@@ -635,6 +636,187 @@ function liveCampaignEditErrorMessage(message?: string) {
   return message;
 }
 
+type LivePrizeRow = Pick<
+  Database["public"]["Tables"]["draw_round_prizes"]["Row"],
+  | "card_id"
+  | "tier"
+  | "rank"
+  | "value_thb"
+  | "convert_coin_value"
+  | "weight"
+  | "unlock_at_sold_pct"
+  | "planned_quantity"
+  | "bundle_quantity"
+  | "metadata"
+>;
+
+function livePrizeKey(prize: Pick<PrizeDraftInput, "tier" | "rank">) {
+  return `${prize.tier}:${prize.rank}`;
+}
+
+function livePrizeDraftFromRow(row: LivePrizeRow): PrizeDraftInput {
+  return {
+    cardId: row.card_id,
+    tier: row.tier,
+    rank: row.rank,
+    valueThb: row.value_thb,
+    convertCoinValue: row.convert_coin_value,
+    weight: row.weight,
+    unlockAtSoldPct: row.unlock_at_sold_pct,
+    quantity: row.planned_quantity,
+    bundleQuantity: normalizeBundleQuantity(row.bundle_quantity),
+    metadata: row.metadata,
+  };
+}
+
+async function loadLivePrizeDrafts(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  campaignId: string,
+) {
+  const { data, error } = await supabase
+    .from("draw_round_prizes")
+    .select(
+      "card_id,tier,rank,value_thb,convert_coin_value,weight,unlock_at_sold_pct,planned_quantity,bundle_quantity,metadata",
+    )
+    .eq("draw_round_id", campaignId)
+    .order("tier", { ascending: true })
+    .order("rank", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((row) => livePrizeDraftFromRow(row as LivePrizeRow));
+}
+
+function preserveLivePrizeSensitiveFields(
+  prizes: PrizeDraftInput[],
+  baselinePrizes: PrizeDraftInput[],
+  adminRole: "owner" | "admin" | "staff",
+) {
+  if (adminRole === "owner") return prizes;
+  const baselineByTierRank = new Map(
+    baselinePrizes.map((prize) => [livePrizeKey(prize), prize]),
+  );
+  return prizes.map((prize) => {
+    const baseline = baselineByTierRank.get(livePrizeKey(prize));
+    if (!baseline) {
+      throw new Error(
+        "Owner approval is required before adding a new live prize row.",
+      );
+    }
+    return {
+      ...prize,
+      valueThb: baseline.valueThb,
+      weight: baseline.weight,
+      unlockAtSoldPct: baseline.unlockAtSoldPct,
+    };
+  });
+}
+
+function jsonPatchFromDefinedValues(
+  patch: Database["public"]["Tables"]["draw_rounds"]["Update"],
+) {
+  return Object.fromEntries(
+    Object.entries(patch).filter(([, value]) => value !== undefined),
+  ) as Json;
+}
+
+async function createLivePackRevision({
+  supabase,
+  campaignId,
+  adminId,
+  adminRole,
+  body,
+  patch,
+  bannerPatch,
+  current,
+}: {
+  supabase: ReturnType<typeof createServiceSupabaseClient>;
+  campaignId: string;
+  adminId: string;
+  adminRole: "owner" | "admin" | "staff";
+  body: CampaignBody;
+  patch: Database["public"]["Tables"]["draw_rounds"]["Update"];
+  bannerPatch: Pick<
+    Database["public"]["Tables"]["draw_rounds"]["Update"],
+    "banner_image_url" | "banner_image_storage_path"
+  >;
+  current: Pick<
+    Database["public"]["Tables"]["draw_rounds"]["Row"],
+    "logic_snapshot" | "updated_at" | "is_test" | "seed_run_id"
+  >;
+}) {
+  const baselinePrizes = await loadLivePrizeDrafts(supabase, campaignId);
+  if (!baselinePrizes.length) {
+    throw new Error("Live prize configuration was not found.");
+  }
+  const requestedPrizes = Array.isArray(body.initialPrizes)
+    ? preserveLivePrizeSensitiveFields(
+        normalizePrizeDrafts(body.initialPrizes),
+        baselinePrizes,
+        adminRole,
+      )
+    : baselinePrizes;
+  if (requestedPrizes.length) {
+    await assertPrizeCardsExist(supabase, requestedPrizes);
+  }
+
+  const livePatch: Database["public"]["Tables"]["draw_rounds"]["Update"] = {
+    ...patch,
+    ...bannerPatch,
+  };
+  delete livePatch.total_slots;
+  delete livePatch.status;
+  delete livePatch.visibility;
+  delete livePatch.logic_snapshot;
+
+  const logicSnapshot =
+    body.openQuantityOptions !== undefined ||
+    body.bundleConfig !== undefined ||
+    body.slotGrid !== undefined
+      ? logicSnapshotWithOpenOptions(
+          current.logic_snapshot,
+          body.openQuantityOptions,
+          {
+            bundleConfig: (body as Record<string, unknown>).bundleConfig,
+            slotGrid: (body as Record<string, unknown>).slotGrid,
+          },
+        )
+      : null;
+
+  await supabase
+    .from("draw_round_live_revisions")
+    .update({
+      status: "cancelled",
+      review_note: "Replaced by a newer live revision.",
+    })
+    .eq("draw_round_id", campaignId)
+    .in("status", ["pending_review", "approved"]);
+
+  const { data, error } = await supabase
+    .from("draw_round_live_revisions")
+    .insert({
+      draw_round_id: campaignId,
+      requested_by_admin_id: adminId,
+      base_updated_at: current.updated_at,
+      scalar_patch: jsonPatchFromDefinedValues(livePatch),
+      logic_snapshot: logicSnapshot,
+      category_ids:
+        body.categoryIds === undefined ? null : idArrayValue(body.categoryIds),
+      prize_snapshot: liveEditPrizeRpcRows(
+        requestedPrizes,
+        adminId,
+        body.isTest === undefined ? current.is_test : booleanValue(body.isTest),
+        body.seedRunId === undefined
+          ? current.seed_run_id
+          : text(body.seedRunId, 80) || null,
+      ),
+      note: "Live edit saved for owner review.",
+    })
+    .select("id,status")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 async function bodyJson(request: Request): Promise<CampaignBody | null> {
   return request.json().catch(() => null) as Promise<CampaignBody | null>;
 }
@@ -901,7 +1083,7 @@ export async function PATCH(request: Request) {
   if (!bannerPatch.ok) return bannerPatch.response;
   const { data: current, error: currentError } = await supabase
     .from("draw_rounds")
-    .select("id,status,approval_status,logic_snapshot,total_slots,last_prize_card_id,last_prize_metadata")
+    .select("id,status,approval_status,logic_snapshot,total_slots,last_prize_card_id,last_prize_metadata,updated_at,is_test,seed_run_id")
     .eq("id", campaignId)
     .single();
   if (currentError) {
@@ -916,156 +1098,46 @@ export async function PATCH(request: Request) {
     );
   }
   if (current.status === "live") {
-    // In-place edit of a LIVE pack. Prize/slot changes go through the atomic
-    // re-materialization RPC (which locks the round to serialize against opens);
-    // cosmetic/scalar fields are applied with a normal update. total_slots is
-    // owned by the RPC (= sum of planned quantities), never the form.
-    const livePrizes = Array.isArray(body.initialPrizes)
-      ? initialPrizesForAdminRole(
-          normalizePrizeDrafts(body.initialPrizes),
-          admin.adminRole,
-        )
-      : null;
-    const preRpcLastPrizePatch: Database["public"]["Tables"]["draw_rounds"]["Update"] = {};
-    if (patch.last_prize_card_id !== undefined) {
-      preRpcLastPrizePatch.last_prize_card_id = patch.last_prize_card_id;
-    }
-    if (patch.last_prize_metadata !== undefined) {
-      preRpcLastPrizePatch.last_prize_metadata = patch.last_prize_metadata;
-    }
-    const shouldPreApplyLastPrize =
-      livePrizes !== null && Object.keys(preRpcLastPrizePatch).length > 0;
-    if (livePrizes === null && Object.keys(preRpcLastPrizePatch).length > 0) {
+    try {
+      const revision = await createLivePackRevision({
+        supabase,
+        campaignId,
+        adminId: admin.adminId,
+        adminRole: admin.adminRole,
+        body,
+        patch,
+        bannerPatch: bannerPatch.patch,
+        current,
+      });
+      await supabase.from("audit_events").insert({
+        actor_admin_id: admin.adminId,
+        event_type: "campaign_live_revision_requested",
+        draw_round_id: campaignId,
+        metadata: {
+          revisionId: revision.id,
+          replacedPrizes: Array.isArray(body.initialPrizes),
+        },
+      });
+      revalidateTag("campaigns", "max");
+      return Response.json({
+        ok: true,
+        status: "live",
+        visibility: "public",
+        approvalStatus: "pending_review",
+        requiresOwnerReview: true,
+        revisionId: revision.id,
+        message:
+          "Live pack changes were saved for owner approval. Existing opens, bags, and rewards stay unchanged until publish.",
+      });
+    } catch (revisionError) {
       return adminErrorResponse(
-        "CAMPAIGN_LAST_PRIZE_LIVE_EDIT_REQUIRES_PRIZES",
-        "Last Prize live edits must include the prize rows so total slots can be rebalanced.",
-        400,
+        "LIVE_PACK_REVISION_FAILED",
+        revisionError instanceof Error
+          ? liveCampaignEditErrorMessage(revisionError.message)
+          : "Live pack changes could not be saved for owner review.",
+        409,
       );
     }
-    if (shouldPreApplyLastPrize) {
-      const { error: lastPrizePreApplyError } = await supabase
-        .from("draw_rounds")
-        .update(preRpcLastPrizePatch)
-        .eq("id", campaignId);
-      if (lastPrizePreApplyError) {
-        return adminErrorResponse(
-          lastPrizePreApplyError.code ?? "CAMPAIGN_LAST_PRIZE_UPDATE_FAILED",
-          lastPrizePreApplyError.message,
-          409,
-          {
-            detail: lastPrizePreApplyError.details ?? null,
-            hint: lastPrizePreApplyError.hint ?? null,
-          },
-        );
-      }
-    }
-    if (livePrizes) {
-      try {
-        if (livePrizes.length) await assertPrizeCardsExist(supabase, livePrizes);
-      } catch (prizeError) {
-        return adminErrorResponse(
-          "CAMPAIGN_PRIZE_INVALID",
-          prizeError instanceof Error
-            ? prizeError.message
-            : "Prize inventory is not ready.",
-          400,
-        );
-      }
-      const { error: rpcError } = await supabase.rpc(
-        "edit_live_campaign_inventory",
-        {
-          p_draw_round_id: campaignId,
-          p_admin_id: admin.adminId,
-          p_prizes: liveEditPrizeRpcRows(
-            livePrizes,
-            admin.adminId,
-            Boolean(body.isTest),
-            text(body.seedRunId, 80) || null,
-          ),
-        },
-      );
-      if (rpcError) {
-        if (shouldPreApplyLastPrize) {
-          await supabase
-            .from("draw_rounds")
-            .update({
-              last_prize_card_id: current.last_prize_card_id,
-              last_prize_metadata: current.last_prize_metadata,
-            })
-            .eq("id", campaignId);
-        }
-        return adminErrorResponse(
-          rpcError.code ?? "LIVE_PACK_EDIT_FAILED",
-          liveCampaignEditErrorMessage(rpcError.message),
-          409,
-          { detail: rpcError.details ?? null, hint: rpcError.hint ?? null },
-        );
-      }
-    }
-    const livePatch: Database["public"]["Tables"]["draw_rounds"]["Update"] = {
-      ...patch,
-      ...bannerPatch.patch,
-    };
-    if (shouldPreApplyLastPrize) {
-      delete livePatch.last_prize_card_id;
-      delete livePatch.last_prize_metadata;
-    }
-    delete livePatch.total_slots;
-    delete livePatch.status;
-    delete livePatch.visibility;
-    if (
-      body.openQuantityOptions !== undefined ||
-      body.bundleConfig !== undefined ||
-      body.slotGrid !== undefined
-    ) {
-      livePatch.logic_snapshot = logicSnapshotWithOpenOptions(
-        current.logic_snapshot,
-        body.openQuantityOptions,
-        {
-          bundleConfig: (body as Record<string, unknown>).bundleConfig,
-          slotGrid: (body as Record<string, unknown>).slotGrid,
-        },
-      );
-    }
-    if (Object.keys(livePatch).length) {
-      const { error: updateError } = await supabase
-        .from("draw_rounds")
-        .update(livePatch)
-        .eq("id", campaignId);
-      if (updateError) {
-        return adminErrorResponse(
-          updateError.code ?? "CAMPAIGN_UPDATE_FAILED",
-          updateError.message,
-          409,
-          { detail: updateError.details ?? null, hint: updateError.hint ?? null },
-        );
-      }
-    }
-    if (body.categoryIds !== undefined) {
-      try {
-        await replaceCampaignCategories(
-          supabase,
-          campaignId,
-          idArrayValue(body.categoryIds),
-        );
-      } catch (categoryError) {
-        return adminErrorResponse(
-          "CAMPAIGN_CATEGORY_ASSIGNMENT_FAILED",
-          categoryError instanceof Error
-            ? categoryError.message
-            : "Campaign category assignment failed.",
-          409,
-        );
-      }
-    }
-    await supabase.from("audit_events").insert({
-      actor_admin_id: admin.adminId,
-      event_type: "campaign_updated_live",
-      draw_round_id: campaignId,
-      metadata: { live: true, replacedPrizes: Array.isArray(body.initialPrizes) },
-    });
-    revalidateTag("campaigns", "max");
-    return Response.json({ ok: true, status: "live", visibility: "public" });
   }
   if (current.status !== "draft") {
     return adminErrorResponse(

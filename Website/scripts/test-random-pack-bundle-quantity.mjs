@@ -108,21 +108,22 @@ describe("random pack bundled prizes", () => {
     assert.match(sql, /v_public_total_slots/);
   });
 
-  it("applies live Last Prize edits before live slot rebalancing", () => {
+  it("stages live Last Prize edits for owner-reviewed publish", () => {
     const campaignsRoute = read("Website/src/app/api/ynot/admin/campaigns/route.ts");
     const liveBlock = between(
       campaignsRoute,
       'if (current.status === "live") {',
       'if (current.status !== "draft")',
     );
+    const revisionMigration = latestMigrationContaining("draw_round_live_revisions");
 
-    assert.match(liveBlock, /last_prize_metadata/);
-    assert.match(liveBlock, /preRpcLastPrizePatch/);
-    assert.match(liveBlock, /CAMPAIGN_LAST_PRIZE_LIVE_EDIT_REQUIRES_PRIZES/);
-    assert.match(liveBlock, /shouldPreApplyLastPrize[\s\S]*edit_live_campaign_inventory/);
-    assert.match(liveBlock, /last_prize_card_id: current\.last_prize_card_id/);
-    assert.match(liveBlock, /delete livePatch\.last_prize_card_id/);
-    assert.match(liveBlock, /delete livePatch\.last_prize_metadata/);
+    assert.match(liveBlock, /createLivePackRevision/);
+    assert.match(liveBlock, /requiresOwnerReview: true/);
+    assert.doesNotMatch(liveBlock, /edit_live_campaign_inventory/);
+    assert.match(campaignsRoute, /last_prize_metadata/);
+    assert.match(revisionMigration, /last_prize_metadata = case/);
+    assert.match(revisionMigration, /revision\.scalar_patch \? 'last_prize_metadata'/);
+    assert.match(revisionMigration, /public\.edit_live_campaign_inventory/);
   });
 
   it("public APIs allow bundleQuantity but keep internal reward data private", () => {

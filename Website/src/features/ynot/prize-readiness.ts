@@ -26,6 +26,7 @@ import {
   aggregateNonVoidPrizeUnitCounts,
   type PrizeUnitStatusRow,
 } from "./prize-unit-counts";
+import { finalPrizeAwareOpenableWinSlots } from "./open-quantity";
 
 type SupabaseClient = ReturnType<typeof createServiceSupabaseClient>;
 type DrawRoundRow = Database["public"]["Tables"]["draw_rounds"]["Row"];
@@ -38,6 +39,8 @@ type InventorySummary = {
   remainingSlots?: number;
   totalUnits?: number;
   availableUnits?: number;
+  availableWinSlots?: number;
+  eligibleUnits?: number;
   awardedUnits?: number;
   voidUnits?: number;
 };
@@ -75,6 +78,8 @@ export type CampaignPrizeReadiness = {
   campaignId: string;
   ready: boolean;
   blockers: string[];
+  identityMismatchCount: number;
+  identityMismatchCheckFailed?: boolean;
   soldPct: number;
   soldOut: boolean;
   totalSlots: number;
@@ -194,6 +199,8 @@ function inventorySummariesFromJson(value: unknown): InventorySummary[] {
         remainingSlots: optionalNumber(item.remainingSlots),
         totalUnits: numberOrZero(item.totalUnits),
         availableUnits: numberOrZero(item.availableUnits),
+        availableWinSlots: optionalNumber(item.availableWinSlots),
+        eligibleUnits: optionalNumber(item.eligibleUnits),
         awardedUnits: numberOrZero(item.awardedUnits),
         voidUnits: numberOrZero(item.voidUnits),
       },
@@ -333,6 +340,8 @@ function buildReadinessBlockers(input: {
   availablePrizeUnits: number;
   eligiblePrizeUnits: number;
   initialEligiblePrizeUnits: number;
+  identityMismatchCount?: number;
+  identityMismatchCheckFailed?: boolean;
   stockBlockers?: string[];
 }) {
   const blockers: string[] = [];
@@ -357,8 +366,42 @@ function buildReadinessBlockers(input: {
   if (input.eligiblePrizeUnits <= 0) {
     blockers.push("No available prize is currently unlocked for customer pulls.");
   }
+  if (input.identityMismatchCheckFailed) {
+    blockers.push(
+      "Prize stock identity checker failed. Retry the check before publishing.",
+    );
+  }
+  if ((input.identityMismatchCount ?? 0) > 0) {
+    blockers.push(
+      "Prize stock identity mismatch detected. Review intended card vs materialized stock before publishing.",
+    );
+  }
   blockers.push(...(input.stockBlockers ?? []));
   return blockers;
+}
+
+async function countPrizeUnitIdentityMismatches(
+  supabase: SupabaseClient,
+  campaignId: string,
+) {
+  try {
+    const rpc = supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => PromiseLike<{ data: unknown; error: unknown }>;
+    const { data, error } = await rpc(
+      "get_draw_round_prize_unit_identity_mismatches",
+      { p_draw_round_id: campaignId },
+    );
+    if (error) {
+      console.warn("YNOT prize identity checker failed", error);
+      return { count: 0, failed: true };
+    }
+    return { count: Array.isArray(data) ? data.length : 0, failed: false };
+  } catch (error) {
+    console.warn("YNOT prize identity checker failed", error);
+    return { count: 0, failed: true };
+  }
 }
 
 export async function getPrizeStockSummaries(
@@ -582,7 +625,11 @@ export function validatePrizeDraftsForSave(
 export async function getCampaignPrizeReadiness(
   supabase: SupabaseClient,
   campaignId: string,
-  preloaded?: { row?: DrawRoundRow; inventory?: InventorySummary },
+  preloaded?: {
+    row?: DrawRoundRow;
+    inventory?: InventorySummary;
+    includeIdentityMismatches?: boolean;
+  },
 ): Promise<CampaignPrizeReadiness> {
   // Callers on the pack-detail / storefront paths have usually just loaded the
   // draw_round row and run the inventory-summary RPC. Reuse those to skip two
@@ -746,14 +793,27 @@ export async function getCampaignPrizeReadiness(
     0,
     inventory?.remainingSlots ?? row.total_slots,
   );
-  const lastPrizeTotalUnits = row.last_prize_card_id ? 1 : 0;
   const lastPrizeAvailableUnits =
     row.last_prize_card_id && !row.last_prize_awarded_at ? 1 : 0;
-  const lastPrizeEligibleUnits =
-    lastPrizeAvailableUnits > 0 && remainingSlots <= 1 ? 1 : 0;
-  const totalRewardUnits = totalPrizeUnits + lastPrizeTotalUnits;
-  const availableRewardUnits = availablePrizeUnits + lastPrizeAvailableUnits;
-  const eligibleRewardUnits = eligiblePrizeUnits + lastPrizeEligibleUnits;
+  // The Last Prize is a bonus on the final open, not a slot of its own, so it
+  // does not count toward slot coverage. It still feeds the final-prize-aware
+  // openability math below so legacy packs (materialized with one fewer
+  // normal unit than slots) stay openable to the end.
+  const totalRewardUnits = totalPrizeUnits;
+  const availableRewardUnits =
+    inventory?.availableWinSlots ??
+    finalPrizeAwareOpenableWinSlots({
+      remainingSlots,
+      normalOpenableWinSlots: availablePrizeUnits,
+      finalPrizeAvailableUnits: lastPrizeAvailableUnits,
+    });
+  const eligibleRewardUnits =
+    inventory?.eligibleUnits ??
+    finalPrizeAwareOpenableWinSlots({
+      remainingSlots,
+      normalOpenableWinSlots: eligiblePrizeUnits,
+      finalPrizeAvailableUnits: lastPrizeAvailableUnits,
+    });
   const unitBackedPrizes = usePlannedInventory
     ? visiblePrizes.filter(
         (prize) => plannedQuantityForPrize(prize) > 0,
@@ -778,9 +838,19 @@ export async function getCampaignPrizeReadiness(
     eligiblePrizeUnits: eligibleRewardUnits,
     initialEligiblePrizeUnits,
   };
-  const blockers = buildReadinessBlockers({ ...readiness, stockBlockers });
+  const identityMismatchCheck = preloaded?.includeIdentityMismatches
+    ? await countPrizeUnitIdentityMismatches(supabase, campaignId)
+    : { count: 0, failed: false };
+  const blockers = buildReadinessBlockers({
+    ...readiness,
+    identityMismatchCount: identityMismatchCheck.count,
+    identityMismatchCheckFailed: identityMismatchCheck.failed,
+    stockBlockers,
+  });
   return {
     ...readiness,
+    identityMismatchCount: identityMismatchCheck.count,
+    identityMismatchCheckFailed: identityMismatchCheck.failed || undefined,
     ready: blockers.length === 0,
     blockers,
   };

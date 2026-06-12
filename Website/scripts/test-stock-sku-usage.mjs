@@ -176,6 +176,63 @@ test("groups stock units by sub-SKU and summarizes pack usage per sub-SKU", () =
   );
 });
 
+test("materialized pack usage carries actual stock identity and infers mismatches", () => {
+  const groups = stockSku.stockSkuGroups(rogerCard);
+  const psaGroup = groups.find((group) => group.sku.endsWith("-PSA10"));
+  assert.ok(psaGroup);
+
+  const usageByGroup = stockSku.stockSkuPackUsageByGroup(groups, [
+    {
+      id: "mismatch-prize",
+      cardId: "intended-card",
+      campaignTitle: "Identity drift pack",
+      displayTier: "rainbow",
+      tier: "high",
+      rank: 1,
+      tierRank: 1,
+      plannedQuantity: 1,
+      totalUnits: 1,
+      availableUnits: 1,
+      awardedUnits: 0,
+      voidUnits: 0,
+      stockUnitUsages: [
+        {
+          groupKey: psaGroup.key,
+          sku: psaGroup.sku,
+          label: psaGroup.label,
+          actualStockCardId: "actual-card",
+          actualStockSkuId: "actual-stock-sku",
+          totalUnits: 1,
+          availableUnits: 1,
+          awardedUnits: 0,
+          voidUnits: 0,
+        },
+      ],
+    },
+  ]);
+
+  assert.deepEqual(
+    plain(
+      usageByGroup.get(psaGroup.key).map((usage) => ({
+        prizeId: usage.prizeId,
+        actualStockCardId: usage.actualStockCardId,
+        actualStockSkuId: usage.actualStockSkuId,
+        identityMismatch: usage.identityMismatch,
+        source: usage.source,
+      })),
+    ),
+    [
+      {
+        prizeId: "mismatch-prize",
+        actualStockCardId: "actual-card",
+        actualStockSkuId: "actual-stock-sku",
+        identityMismatch: true,
+        source: "materialized",
+      },
+    ],
+  );
+});
+
 test("builds stock sub-SKU groups from server summary rows without raw unit fan-out", () => {
   const groups = stockSku.stockSkuGroupsFromSummaryRows(rogerCard, [
     {
@@ -259,6 +316,267 @@ test("builds stock sub-SKU groups from server summary rows without raw unit fan-
       },
     ],
   );
+});
+
+test("builds first-class pack and box groups from stock SKU summary rows", () => {
+  const groups = stockSku.stockSkuGroupsFromSummaryRows(rogerCard, [
+    {
+      cardId: "card-roger",
+      stockSkuId: "op16-box",
+      stockUnitGroupKey: "stock-sku:op16-box",
+      sku: "OP16-JP-BOX",
+      label: "OP16 Booster Box",
+      unitKind: "box",
+      imageUrl: "/box.png",
+      totalUnits: 3,
+      availableUnits: 2,
+      reservedUnits: 0,
+      allocatedUnits: 0,
+      archivedUnits: 1,
+      packEquivalent: 72,
+      availablePackEquivalent: 48,
+      legacyStockUnitGroupKey: "sealed\u001f\u001f\u001f\u001f",
+      childStockSkuId: "op16-pack",
+      childSku: "OP16-JP-PACK",
+      childLabel: "OP16 Booster Pack",
+      childQuantity: 24,
+    },
+    {
+      cardId: "card-roger",
+      stockSkuId: "op16-pack",
+      stockUnitGroupKey: "stock-sku:op16-pack",
+      sku: "OP16-JP-PACK",
+      label: "OP16 Booster Pack",
+      unitKind: "pack",
+      imageUrl: null,
+      sampleUnitImageUrl: "/pack-unit.png",
+      totalUnits: 0,
+      availableUnits: 0,
+      reservedUnits: 0,
+      allocatedUnits: 0,
+      packEquivalent: 0,
+      availablePackEquivalent: 0,
+      legacyStockUnitGroupKey: "sealed\u001f\u001f\u001f\u001f",
+    },
+    {
+      cardId: "card-roger",
+      stockSkuId: null,
+      sourceStockSkuId: "op16-pack",
+      stockUnitGroupKey: "sealed\u001f\u001f\u001f\u001f",
+      legacyStockUnitGroupKey: true,
+      sku: "OP16-JP-PACK",
+      label: "Sealed",
+      unitKind: "pack",
+      totalUnits: 24,
+      availableUnits: 24,
+      reservedUnits: 0,
+      allocatedUnits: 0,
+      availablePackEquivalent: 24,
+    },
+  ]);
+
+  const box = groups.find((group) => group.stockSkuId === "op16-box");
+  const pack = groups.find((group) => group.stockSkuId === "op16-pack");
+  assert.ok(box);
+  assert.ok(pack);
+  assert.equal(groups.length, 2);
+  assert.equal(
+    groups.reduce((sum, group) => sum + (group.availablePackEquivalent ?? 0), 0),
+    48,
+  );
+  assert.equal(box.key, "stock-sku:op16-box");
+  assert.equal(box.sku, "OP16-JP-BOX");
+  assert.equal(box.unitKind, "box");
+  assert.equal(box.totalUnits, 2);
+  assert.equal(box.packEquivalent, 48);
+  assert.equal(box.availablePackEquivalent, 48);
+  assert.equal(box.childStockSkuId, "op16-pack");
+  assert.equal(box.childQuantity, 24);
+  assert.equal(pack.totalUnits, 0);
+  assert.equal(pack.key, "stock-sku:op16-pack");
+  assert.equal(pack.imageUrl, "/pack-unit.png");
+  assert.equal(stockSku.preferredPrizeStockSkuGroup(groups), pack);
+  assert.equal(stockSku.findStockSkuGroupByKey(groups, "sealed\u001f\u001f\u001f\u001f"), pack);
+  assert.deepEqual(plain(stockSku.stockUnitSelectionMetadata({
+    ...rogerCard,
+    stockSkuGroups: groups,
+  }, box.key)), {
+    stockUnitGroupKey: "stock-sku:op16-box",
+    stockSkuId: "op16-box",
+    stockSku: "OP16-JP-BOX",
+    stockLabel: "OP16 Booster Box",
+    stockUnitFilter: {
+      condition: "sealed",
+      grade: "",
+      gradingService: "",
+      certNumber: "",
+      gemrateId: "",
+    },
+  });
+  assert.deepEqual(plain(stockSku.stockUnitSelectionMetadata({
+    ...rogerCard,
+    stockSkuGroups: groups,
+  }, "sealed\u001f\u001f\u001f\u001f")), {
+    stockUnitGroupKey: "stock-sku:op16-pack",
+    stockSkuId: "op16-pack",
+    stockSku: "OP16-JP-PACK",
+    stockLabel: "OP16 Booster Pack",
+    stockUnitFilter: {
+      condition: "sealed",
+      grade: "",
+      gradingService: "",
+      certNumber: "",
+      gemrateId: "",
+    },
+  });
+  const usageByGroup = stockSku.stockSkuPackUsageByGroup(groups, [
+    {
+      id: "legacy-draft-prize",
+      campaignTitle: "Legacy draft pack",
+      displayTier: "bronze",
+      tier: "normal",
+      rank: 1,
+      tierRank: 1,
+      plannedQuantity: 3,
+      totalUnits: 3,
+      availableUnits: 3,
+      awardedUnits: 0,
+      voidUnits: 0,
+      intendedStockUnitKey: "sealed\u001f\u001f\u001f\u001f",
+      intendedStockSku: "OLD-SEALED",
+      intendedStockLabel: "Old sealed",
+    },
+  ]);
+  assert.equal(usageByGroup.get("stock-sku:op16-pack")[0].units, 3);
+});
+
+test("preserves migrated graded identity on first-class stock SKU rows", () => {
+  const groups = stockSku.stockSkuGroupsFromSummaryRows(rogerCard, [
+    {
+      cardId: "card-roger",
+      stockSkuId: "psa10-sku",
+      stockUnitGroupKey: "stock-sku:psa10-sku",
+      legacyStockUnitGroupKey: "graded\u001fPSA 10\u001fpsa\u001f12345678\u001f",
+      sku: "OP09-118-JP-PSA10",
+      label: "PSA 10 #12345678",
+      unitKind: "card",
+      totalUnits: 1,
+      availableUnits: 1,
+      reservedUnits: 0,
+      allocatedUnits: 0,
+    },
+  ]);
+
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].identityKnown, true);
+  assert.deepEqual(plain(groups[0].units[0]), {
+    id: "stock-sku:psa10-sku",
+    stockSkuId: "psa10-sku",
+    stockUnitGroupKey: "stock-sku:psa10-sku",
+    unitKind: "card",
+    condition: "graded",
+    grade: "PSA 10",
+    gradingService: "psa",
+    certNumber: "12345678",
+    gemrateId: null,
+    imageUrl: null,
+    imageStoragePath: null,
+    status: "summary",
+    quantity: 1,
+  });
+  assert.deepEqual(plain(stockSku.stockUnitSelectionMetadata({
+    ...rogerCard,
+    stockSkuGroups: groups,
+  }, "stock-sku:psa10-sku")?.stockUnitFilter), {
+    condition: "graded",
+    grade: "PSA 10",
+    gradingService: "psa",
+    certNumber: "12345678",
+    gemrateId: "",
+  });
+});
+
+test("marks empty first-class card SKUs without saved identity as unknown", () => {
+  const groups = stockSku.stockSkuGroupsFromSummaryRows(rogerCard, [
+    {
+      cardId: "card-roger",
+      stockSkuId: "empty-card-sku",
+      stockUnitGroupKey: "stock-sku:empty-card-sku",
+      sku: "OP09-118-JP-MANUAL",
+      label: "Manual card Sub SKU",
+      unitKind: "card",
+      totalUnits: 0,
+      availableUnits: 0,
+      reservedUnits: 0,
+      allocatedUnits: 0,
+    },
+    {
+      cardId: "card-roger",
+      stockSkuId: "empty-graded-sku",
+      stockUnitGroupKey: "stock-sku:empty-graded-sku",
+      sku: "OP09-118-JP-PSA10",
+      label: "PSA 10 #87654321",
+      unitKind: "card",
+      condition: "graded",
+      grade: "PSA 10",
+      gradingService: "psa",
+      certNumber: "87654321",
+      totalUnits: 0,
+      availableUnits: 0,
+      reservedUnits: 0,
+      allocatedUnits: 0,
+    },
+  ]);
+
+  const unknown = groups.find((group) => group.stockSkuId === "empty-card-sku");
+  const graded = groups.find((group) => group.stockSkuId === "empty-graded-sku");
+  assert.ok(unknown);
+  assert.ok(graded);
+  assert.equal(unknown.identityKnown, false);
+  assert.equal(unknown.units[0].condition, "raw");
+  assert.equal(graded.identityKnown, true);
+  assert.equal(graded.units[0].condition, "graded");
+  assert.equal(graded.units[0].certNumber, "87654321");
+});
+
+test("prefers pack or non-box groups for new prize stock defaults", () => {
+  const pack = {
+    key: "stock-sku:pack",
+    sku: "OP16-JP-PACK",
+    label: "Pack",
+    unitKind: "pack",
+    totalUnits: 0,
+    availableUnits: 0,
+    reservedUnits: 0,
+    allocatedUnits: 0,
+    units: [],
+  };
+  const box = {
+    key: "stock-sku:box",
+    sku: "OP16-JP-BOX",
+    label: "Box",
+    unitKind: "box",
+    totalUnits: 2,
+    availableUnits: 2,
+    reservedUnits: 0,
+    allocatedUnits: 0,
+    units: [],
+  };
+  const card = {
+    key: "stock-sku:card",
+    sku: "OP09-118-JP-RAW",
+    label: "Raw",
+    unitKind: "card",
+    totalUnits: 1,
+    availableUnits: 1,
+    reservedUnits: 0,
+    allocatedUnits: 0,
+    units: [],
+  };
+
+  assert.equal(stockSku.preferredPrizeStockSkuGroup([box, pack]), pack);
+  assert.equal(stockSku.preferredPrizeStockSkuGroup([box, card]), card);
+  assert.equal(stockSku.preferredPrizeStockSkuGroup([box]), box);
 });
 
 test("raw and sealed sub-SKUs ignore legacy Ungraded grade metadata", () => {

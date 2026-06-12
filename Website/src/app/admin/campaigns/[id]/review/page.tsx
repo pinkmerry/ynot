@@ -4,7 +4,10 @@ import { notFound } from "next/navigation";
 import { AdminCard, AdminFrame, AdminIcon } from "@/features/ynot/admin";
 import { AdminOwnerReview } from "@/features/ynot/client";
 import { AdminGate } from "@/features/ynot/components";
-import { getYnotDashboardSlice } from "@/features/ynot/data";
+import {
+  getLivePackRevisionReview,
+  getYnotDashboardSlice,
+} from "@/features/ynot/data";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +68,21 @@ export default async function OwnerReviewPage({
   const approvalRequest = data.ownerApprovalRequests.find(
     (entry) => entry.campaign.id === campaign.id,
   );
+  const liveRevision = await getLivePackRevisionReview(campaign.id);
+
+  if (campaign.status === "live" && liveRevision) {
+    return (
+      <AdminGate viewer={data.viewer}>
+        <AdminOwnerReview
+          viewer={data.viewer}
+          campaign={campaign}
+          prizes={liveRevision.prizes}
+          approvalRequest={approvalRequest ?? null}
+          liveRevision={liveRevision}
+        />
+      </AdminGate>
+    );
+  }
 
   return (
     <AdminGate viewer={data.viewer}>

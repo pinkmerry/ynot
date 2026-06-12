@@ -166,7 +166,7 @@ export const campaignLifecycleErrorMap: KnownErrorMap = {
   },
   planned_prize_quantity_must_equal_total_slots: {
     code: "CAMPAIGN_PRIZE_QUANTITY_MISMATCH",
-    error: "Normal prize quantity plus Last Prize must equal the total pack quantity before owner review.",
+    error: "Normal prize quantity must equal the total pack quantity before owner review. The Last Prize is an extra bonus and no longer fills a slot — re-save the pack so the lineup covers every slot.",
   },
   last_prize_stock_required: {
     code: "CAMPAIGN_LAST_PRIZE_STOCK_REQUIRED",

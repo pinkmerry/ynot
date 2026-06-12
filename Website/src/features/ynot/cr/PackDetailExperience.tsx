@@ -7,7 +7,12 @@ import type {
   YnotLastPrizePreview,
   YnotPrizePreview,
 } from "../types";
-import { normalizeOpenQuantityOptions } from "../open-quantity";
+import {
+  isOpenQuantityAvailable,
+  normalizeOpenQuantityOptions,
+  openQuantityLimit,
+} from "../open-quantity";
+import { createOpenIntentId } from "../open-intent";
 import { QuantityBadge } from "../QuantityBadge";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { Modal, PageHead, useToast } from "./UiKit";
@@ -145,11 +150,16 @@ export function PackDetailExperience({
   const qty = openQty.includes(rawQty) ? rawQty : (openQty[0] ?? 1);
 
   const remaining = campaign.remainingSlots ?? campaign.totalSlots;
+  const openableQuantityLimit = openQuantityLimit({
+    remainingSlots: remaining,
+    eligiblePrizeUnits: campaign.eligiblePrizeUnits,
+    availablePrizeUnits: campaign.availablePrizeUnits,
+  });
   const totalCost = campaign.costCoins * qty;
   const soldOut = campaign.soldOut || remaining <= 0;
   const lowStock = !soldOut && remaining > 0 && remaining / Math.max(1, campaign.totalSlots) < 0.2;
   const enoughCoins = balanceCoins >= totalCost;
-  const enoughStock = remaining >= qty;
+  const enoughStock = qty <= openableQuantityLimit;
   const openable = Boolean(campaign.openable);
   const unavailableReason = openUnavailableReason(campaign);
   const bannerImageUrl = campaign.bannerImageUrl?.trim() ?? "";
@@ -176,7 +186,7 @@ export function PackDetailExperience({
       return;
     }
     if (!enoughStock) {
-      toast("error", `Only ${remaining} packs left.`);
+      toast("error", `Only ${openableQuantityLimit} openable packs left.`);
       return;
     }
     if (!enoughCoins) {
@@ -187,9 +197,15 @@ export function PackDetailExperience({
   }
   function confirmAndOpen() {
     setSubmitting(true);
+    const intent = createOpenIntentId();
+    const query = new URLSearchParams({
+      qty: String(qty),
+      auto: "1",
+      intent,
+    });
     // auto=1 fires the open immediately on arrival so the reveal animation
     // plays without a second confirm screen. See GachaOpenPanel autoStart.
-    router.push(`/gacha/${campaign.slug}/open?qty=${qty}&auto=1`);
+    router.push(`/gacha/${campaign.slug}/open?${query.toString()}`);
   }
 
   return (
@@ -690,22 +706,29 @@ export function PackDetailExperience({
           </div>
 
           <div className="cr-dock-qty">
-            {openQty.map((q) => (
-              <button
-                key={q}
-                type="button"
-                className={`cr-dock-qty-btn ${qty === q ? "active" : ""}`}
-                onClick={() => setQty(q)}
-                disabled={remaining < q}
-                title={
-                  remaining < q
-                    ? `Only ${remaining} packs left`
-                    : `Open ${q} pack${q === 1 ? "" : "s"}`
-                }
-              >
-                ×{q}
-              </button>
-            ))}
+            {openQty.map((q) => {
+              const quantityAvailable = isOpenQuantityAvailable(q, {
+                remainingSlots: remaining,
+                eligiblePrizeUnits: campaign.eligiblePrizeUnits,
+                availablePrizeUnits: campaign.availablePrizeUnits,
+              });
+              return (
+                <button
+                  key={q}
+                  type="button"
+                  className={`cr-dock-qty-btn ${qty === q ? "active" : ""}`}
+                  onClick={() => setQty(q)}
+                  disabled={!quantityAvailable}
+                  title={
+                    !quantityAvailable
+                      ? `Only ${openableQuantityLimit} openable packs left`
+                      : `Open ${q} pack${q === 1 ? "" : "s"}`
+                  }
+                >
+                  ×{q}
+                </button>
+              );
+            })}
           </div>
 
           <div className="cr-dock-cta">
@@ -872,18 +895,29 @@ export function PackDetailExperience({
               className="cr-dock-qty"
               style={{ margin: "0 auto", width: "fit-content" }}
             >
-              {openQty.map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  className={`cr-dock-qty-btn ${qty === q ? "active" : ""}`}
-                  onClick={() => setQty(q)}
-                  disabled={remaining < q}
-                  title={remaining < q ? `Only ${remaining} packs left` : ""}
-                >
-                  ×{q}
-                </button>
-              ))}
+              {openQty.map((q) => {
+                const quantityAvailable = isOpenQuantityAvailable(q, {
+                  remainingSlots: remaining,
+                  eligiblePrizeUnits: campaign.eligiblePrizeUnits,
+                  availablePrizeUnits: campaign.availablePrizeUnits,
+                });
+                return (
+                  <button
+                    key={q}
+                    type="button"
+                    className={`cr-dock-qty-btn ${qty === q ? "active" : ""}`}
+                    onClick={() => setQty(q)}
+                    disabled={!quantityAvailable}
+                    title={
+                      !quantityAvailable
+                        ? `Only ${openableQuantityLimit} openable packs left`
+                        : ""
+                    }
+                  >
+                    ×{q}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

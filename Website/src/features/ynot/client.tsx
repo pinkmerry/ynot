@@ -22,6 +22,8 @@ import type {
   YnotCategory,
   YnotCollectionItem,
   YnotGachaOpenResult,
+  YnotLivePackMonitor,
+  YnotLivePackRevisionReview,
   YnotOwnerApprovalRequest,
   YnotPaymentMethod,
   YnotPrizePoolItem,
@@ -45,7 +47,9 @@ import {
 } from "./admin-card-catalog-helpers";
 import {
   allowedOpenQuantityOptions,
+  isOpenQuantityAvailable,
   normalizeOpenQuantityOptions,
+  openQuantityLimit,
 } from "./open-quantity";
 import {
   defaultBundleQuantity,
@@ -58,12 +62,28 @@ import {
   type PrizeStockSummary,
 } from "./stock-readiness";
 import {
+  findStockSkuGroupByKey,
+  preferredPrizeStockSkuGroup,
+  resolveStockSkuGroupKey,
   stockSkuGroups,
   stockSkuPackUsageByGroup,
   stockUnitSelectionMetadata,
   type StockSkuGroup,
   type StockSkuPackUsage,
 } from "./stock-sku-usage";
+import {
+  mainSkuActionLabels,
+  mainSkuCategoryType,
+  mainSkuStockSummary,
+  stockQuantityLabel,
+  stockUnitKindLabel as presentationStockUnitKindLabel,
+  subSkuStockRows,
+} from "./stock-sku-presentation";
+import {
+  createOpenIntentId,
+  openIntentIdempotencyKey,
+  stripOpenAutoStartUrl,
+} from "./open-intent";
 import {
   catalogCategoryForPrizeCategory,
   prizeCategoryLabel,
@@ -173,6 +193,14 @@ async function requestJson(url: string, body: unknown, method = "POST") {
 
 async function postJson(url: string, body: unknown) {
   return requestJson(url, body, "POST");
+}
+
+function retryAfterMessage(error: unknown) {
+  if (!(error instanceof AdminRequestError) || error.status !== 429) return null;
+  if (!isRecord(error.payload)) return null;
+  const seconds = Math.ceil(Number(error.payload.retryAfterSeconds));
+  if (!Number.isFinite(seconds) || seconds < 1) return null;
+  return `Too many pack opens right now. Please wait ${seconds} seconds and try again.`;
 }
 
 async function patchJson(url: string, body: unknown) {
@@ -707,6 +735,7 @@ export function GachaOpenPanel({
   initialQuantity = 1,
   tierAnimations,
   autoStart = false,
+  openIntentId,
   immersive = false,
 }: {
   campaign: YnotCampaign;
@@ -717,6 +746,7 @@ export function GachaOpenPanel({
    *  screen). Used when the user just confirmed in the Y-Pack flow and
    *  expects the reveal animation to play right away. */
   autoStart?: boolean;
+  openIntentId?: string | null;
   immersive?: boolean;
 }) {
   const router = useRouter();
@@ -733,17 +763,35 @@ export function GachaOpenPanel({
   );
   const [revealRunId, setRevealRunId] = useState(0);
   const [openingOverlayVisible, setOpeningOverlayVisible] = useState(autoStart);
+  const [remainingState, setRemainingState] = useState<
+    NonNullable<YnotGachaOpenResult["remaining"]>
+  >({
+    remainingSlots: campaign.remainingSlots,
+    eligibleUnits: campaign.eligiblePrizeUnits,
+    availablePrizeUnits: campaign.availablePrizeUnits,
+  });
+  const openRequestInFlightRef = useRef(false);
   const [, startTransition] = useTransition();
-  const remainingOpenUnits = Math.min(
-    campaign.remainingSlots ?? Number.POSITIVE_INFINITY,
-    campaign.availablePrizeUnits ?? Number.POSITIVE_INFINITY,
-  );
+  const remainingOpenUnits = openQuantityLimit({
+    remainingSlots: remainingState.remainingSlots,
+    eligibleUnits: remainingState.eligibleUnits,
+    availableWinSlots: remainingState.availableWinSlots,
+    availablePrizeUnits: remainingState.availablePrizeUnits,
+  });
+  const visibleRemainingSlots = remainingState.remainingSlots ?? remainingOpenUnits;
 
   function quantityDisabled(option: number) {
-    return Number.isFinite(remainingOpenUnits) && option > remainingOpenUnits;
+    return !isOpenQuantityAvailable(option, {
+      remainingSlots: remainingState.remainingSlots,
+      eligibleUnits: remainingState.eligibleUnits,
+      availableWinSlots: remainingState.availableWinSlots,
+      availablePrizeUnits: remainingState.availablePrizeUnits,
+    });
   }
 
-  function fireOpen(targetQuantity: number) {
+  function fireOpen(targetQuantity: number, intentId?: string | null) {
+    if (openRequestInFlightRef.current) return;
+    openRequestInFlightRef.current = true;
     setRevealRunId((current) => current + 1);
     startTransition(async () => {
       try {
@@ -751,10 +799,21 @@ export function GachaOpenPanel({
         const payload = await postJson("/api/ynot/gacha/open", {
           campaignId: campaign.slug,
           quantity: targetQuantity,
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: openIntentIdempotencyKey(
+            intentId ?? openIntentId ?? null,
+            campaign.id,
+            targetQuantity,
+          ),
         });
         const result = (payload?.result ?? null) as YnotGachaOpenResult | null;
         if (result && Array.isArray(result.items)) {
+          if (result.remaining) {
+            setRemainingState((current) => ({
+              ...current,
+              ...result.remaining,
+            }));
+          }
+          stripOpenAutoStartUrl();
           setRevealResult(result);
         } else {
           setOpeningOverlayVisible(false);
@@ -763,24 +822,28 @@ export function GachaOpenPanel({
       } catch (error) {
         setOpeningOverlayVisible(false);
         setMessage(
-          error instanceof Error ? error.message : "Could not open gacha.",
+          retryAfterMessage(error) ??
+            (error instanceof Error ? error.message : "Could not open gacha."),
         );
+      } finally {
+        openRequestInFlightRef.current = false;
       }
     });
   }
 
   function openAgain(nextQuantity: number) {
+    if (openRequestInFlightRef.current) return;
     setQuantity(nextQuantity);
     setMessage("");
     setOpeningOverlayVisible(true);
     setRevealResult(null);
-    fireOpen(nextQuantity);
+    fireOpen(nextQuantity, createOpenIntentId());
   }
 
   function handleRevealClose() {
     setOpeningOverlayVisible(false);
     setRevealResult(null);
-    router.push("/collection");
+    router.replace("/collection");
   }
 
   const handleRevealFinish = useCallback(() => {
@@ -835,6 +898,7 @@ export function GachaOpenPanel({
       onFinish={handleRevealFinish}
       onOpenAgain={openAgain}
       openAgainOptions={openAgainOptions}
+      remainingSlots={visibleRemainingSlots}
     />
   ) : null;
 
@@ -2605,12 +2669,7 @@ function firstCatalogCardId(cards: CardCatalogItem[]) {
 
 function defaultStockUnitKey(card: CardCatalogItem | null | undefined) {
   if (!card) return "";
-  const groups = stockSkuGroups(card);
-  return (
-    groups.find((group) => group.availableUnits > 0)?.key ??
-    groups[0]?.key ??
-    ""
-  );
+  return preferredPrizeStockSkuGroup(stockSkuGroups(card))?.key ?? "";
 }
 
 function defaultRemovableStockUnitKey(card: CardCatalogItem | null | undefined) {
@@ -2623,9 +2682,7 @@ function validStockUnitKey(
   key: string | null | undefined,
 ) {
   if (!card) return "";
-  const groups = stockSkuGroups(card);
-  if (key && groups.some((group) => group.key === key)) return key;
-  return "";
+  return resolveStockSkuGroupKey(stockSkuGroups(card), key);
 }
 
 type PrizeStockUnitShortage = {
@@ -2725,7 +2782,19 @@ function formatFileSize(bytes: number): string {
 }
 
 const maxAdminImageUploadBytes = 10 * 1024 * 1024;
-const adminImageUploadTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const adminVisualImageAccept = "image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif";
+const paymentQrImageAccept = "image/jpeg,image/png,image/webp";
+const adminVisualImageUploadTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
+const paymentQrImageUploadTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const adminVisualImageExtensionPattern = /\.(?:jpe?g|png|webp|avif)$/i;
+
+function adminVisualImageFileLooksAllowed(file: File) {
+  if (adminVisualImageUploadTypes.has(file.type)) return true;
+  return (
+    (!file.type || file.type === "application/octet-stream") &&
+    adminVisualImageExtensionPattern.test(file.name)
+  );
+}
 
 function AdminImageDropzone({
   imageUrl,
@@ -2738,8 +2807,8 @@ function AdminImageDropzone({
   disabled,
   cardCode,
   cardName,
-  label = "Card image",
-  hint = "JPG, PNG, or WEBP. Uploaded to Supabase storage.",
+  label = "Main SKU image",
+  hint = "JPG, PNG, WEBP, or AVIF. Uploaded to Supabase storage.",
 }: {
   imageUrl: string;
   imageFile: File | null;
@@ -2770,8 +2839,8 @@ function AdminImageDropzone({
   function handleFiles(files: FileList | null) {
     if (!files || !files.length) return;
     const file = files[0];
-    if (!adminImageUploadTypes.has(file.type)) {
-      setFileError("Use a JPG, PNG, or WEBP image.");
+    if (!adminVisualImageFileLooksAllowed(file)) {
+      setFileError("Use a JPG, PNG, WEBP, or AVIF image.");
       onFileChange(null);
       if (inputRef.current) inputRef.current.value = "";
       return;
@@ -2821,7 +2890,7 @@ function AdminImageDropzone({
             openFilePicker();
           }
         }}
-        aria-label={`Upload image for ${cardName?.trim() || "card"}`}
+        aria-label={`Upload image for ${cardName?.trim() || "catalog item"}`}
       >
         <div className="admin-image-dropzone-thumb">
           <AdminPrizeCardImage
@@ -2832,7 +2901,7 @@ function AdminImageDropzone({
         </div>
         <div className="admin-image-dropzone-body">
           <strong className="admin-image-dropzone-title">
-            {hasPreview ? "Image ready" : "Drop a card image here"}
+            {hasPreview ? "Image ready" : "Drop an item image here"}
           </strong>
           <p className="admin-image-dropzone-hint">{hint}</p>
           <div className="admin-image-dropzone-actions">
@@ -2901,7 +2970,7 @@ function AdminImageDropzone({
         </div>
         <input
           ref={inputRef}
-          accept="image/jpeg,image/png,image/webp"
+          accept={adminVisualImageAccept}
           className="admin-image-dropzone-input"
           disabled={disabled}
           onChange={(event) => handleFiles(event.target.files)}
@@ -2952,7 +3021,7 @@ function AdminQrImageDropzone({
   function handleFiles(files: FileList | null) {
     if (!files || !files.length) return;
     const file = files[0];
-    if (!adminImageUploadTypes.has(file.type)) {
+    if (!paymentQrImageUploadTypes.has(file.type)) {
       setFileError("Use a JPG, PNG, or WEBP image.");
       onFileChange(null);
       if (inputRef.current) inputRef.current.value = "";
@@ -3082,7 +3151,7 @@ function AdminQrImageDropzone({
         </div>
         <input
           ref={inputRef}
-          accept="image/jpeg,image/png,image/webp"
+          accept={paymentQrImageAccept}
           className="admin-image-dropzone-input"
           disabled={disabled}
           onChange={(event) => handleFiles(event.target.files)}
@@ -3593,9 +3662,10 @@ function withLowestTierRemainder(
   return assignPrizeDraftRanks(adjustedRows);
 }
 
-function normalPrizeTarget(totalSlots: number, lastPrizeCardId?: string | null) {
-  const normalizedTotalSlots = Math.max(1, Math.round(Number(totalSlots) || 1));
-  return Math.max(0, normalizedTotalSlots - (lastPrizeCardId ? 1 : 0));
+// The Last Prize is a bonus for the final opener — it no longer occupies a
+// slot, so normal prize rows must cover every slot regardless.
+function normalPrizeTarget(totalSlots: number, _lastPrizeCardId?: string | null) {
+  return Math.max(1, Math.round(Number(totalSlots) || 1));
 }
 
 function lastPrizeUnitCount(lastPrizeCardId?: string | null) {
@@ -3941,7 +4011,11 @@ export function AdminCampaignForm({
     if (!editsExistingCampaignInventory) return counts;
     for (const prize of editingPrizes ?? []) {
       if (!prize.cardId || !prize.intendedStockUnitKey) continue;
-      const key = `${prize.cardId}\u001f${prize.intendedStockUnitKey}`;
+      const card = cardsById.get(prize.cardId);
+      const groupKey =
+        validStockUnitKey(card, prize.intendedStockUnitKey) ||
+        prize.intendedStockUnitKey;
+      const key = `${prize.cardId}\u001f${groupKey}`;
       counts.set(
         key,
         (counts.get(key) ?? 0) +
@@ -3950,7 +4024,7 @@ export function AdminCampaignForm({
       );
     }
     return counts;
-  }, [editsExistingCampaignInventory, editingPrizes]);
+  }, [cardsById, editsExistingCampaignInventory, editingPrizes]);
   const stockUnitShortages = useMemo<PrizeStockUnitShortage[]>(() => {
     const requiredByStockKey = new Map<
       string,
@@ -3974,8 +4048,9 @@ export function AdminCampaignForm({
     }
 
     return Array.from(requiredByStockKey.entries()).flatMap(([key, entry]) => {
-      const group = stockSkuGroups(entry.card).find(
-        (candidate) => candidate.key === entry.groupKey,
+      const group = findStockSkuGroupByKey(
+        stockSkuGroups(entry.card),
+        entry.groupKey,
       );
       if (!group) return [];
       const reservedUnits = editsExistingCampaignInventory
@@ -4004,7 +4079,8 @@ export function AdminCampaignForm({
     (sum, prize) => sum + Math.max(0, Math.round(Number(prize.quantity) || 0)),
     0,
   );
-  const configuredRewardUnits = configuredPrizeUnits + lastPrizeCount;
+  // Last Prize is a bonus item, not a slot — coverage counts normal rows only.
+  const configuredRewardUnits = configuredPrizeUnits;
   const configuredStockUnits = activePrizeDrafts.reduce(
     (sum, prize) => sum + prizeRequiredStockUnits(prize),
     lastPrizeCount,
@@ -4102,7 +4178,7 @@ export function AdminCampaignForm({
       : "",
     !activePrizeDrafts.length ? "Choose prize inventory before saving." : "",
     configuredRewardUnits !== totalSlots
-      ? "Normal prize quantity plus Last Prize must equal the total pack quantity."
+      ? "Prize quantity must equal the total pack quantity. Normal prize rows must cover every pack; the Last Prize is an extra bonus on top."
       : "",
     ...stockBlockers,
     ...stockUnitBlockers,
@@ -4159,19 +4235,19 @@ export function AdminCampaignForm({
       label: "Prize unit coverage",
       primary: `${configuredRewardUnits.toLocaleString()}/${totalSlots.toLocaleString()}`,
       secondary: lastPrizeCount
-        ? `${configuredPrizeUnits.toLocaleString()} normal + 1 last`
+        ? `${configuredPrizeUnits.toLocaleString()} normal + 1 last bonus`
         : "units configured",
       ready: configuredRewardUnits === totalSlots,
     },
     {
-      label: "Global stock",
+      label: "Main SKU stock",
       primary: stockShortages.length
         ? `${stockShortages.length.toLocaleString()} shortage${stockShortages.length === 1 ? "" : "s"}`
         : "Covered",
       secondary:
         editingCampaign?.approvalStatus === "pending_review"
           ? "available + this pack reservation"
-          : "available card stock",
+          : "available Main SKU stock",
       ready: stockShortages.length === 0,
     },
     {
@@ -4543,8 +4619,8 @@ export function AdminCampaignForm({
             editingCampaign.titleEn || editingCampaign.titleTh || "pack";
           setMessageTone("success");
           setMessage(
-            isRecord(result) && result.status === "live"
-              ? `✓ "${packLabel}" saved — pack is live and changes apply now (${configuredRewardUnits.toLocaleString()} reward units). No owner review needed.`
+            isRecord(result) && result.requiresOwnerReview === true
+              ? `✓ "${packLabel}" live edit saved for owner review. Existing players and rewards stay unchanged until publish.`
               : `✓ "${packLabel}" saved with ${configuredRewardUnits.toLocaleString()} reward units. Submit owner review to re-publish.`,
           );
         } else {
@@ -4589,7 +4665,7 @@ export function AdminCampaignForm({
             {!editMode
               ? "Build the campaign, prize list, and owner-review readiness in one full-width workflow."
               : editingCampaign?.status === "live"
-                ? "Update fields and the prize list. Changes apply immediately to this LIVE pack — prize/slot edits re-materialize stock atomically and awarded prizes are kept. The pack stays live; no re-approval needed."
+                ? "Update fields and the prize list. Saving creates an owner-reviewed live revision; existing opens, bags, and rewards stay unchanged until publish."
                 : "Update campaign fields and prize list. Saving puts the pack back to draft/private and requires fresh owner review."}
           </p>
         </div>
@@ -4690,14 +4766,14 @@ export function AdminCampaignForm({
                 <div className="admin-campaign-banner-actions">
                   <label className="btn small admin-campaign-banner-button">
                     <input
-                      accept="image/jpeg,image/png,image/webp"
+                      accept={adminVisualImageAccept}
                       type="file"
                       onChange={(event) => {
                         const file = event.currentTarget.files?.[0] ?? null;
                         if (!file) return;
-                        if (!adminImageUploadTypes.has(file.type)) {
+                        if (!adminVisualImageFileLooksAllowed(file)) {
                           setMessageTone("error");
-                          setMessage("Pack banner image must be JPG, PNG, or WEBP.");
+                          setMessage("Pack banner image must be JPG, PNG, WEBP, or AVIF.");
                           event.currentTarget.value = "";
                           return;
                         }
@@ -4729,7 +4805,7 @@ export function AdminCampaignForm({
                 </div>
               </div>
               <small>
-                Accepted ratio 4:3. Recommended 1600 x 1200. JPG, PNG, or WEBP
+                Accepted ratio 4:3. Recommended 1600 x 1200. JPG, PNG, WEBP, or AVIF
                 up to 10 MB.
               </small>
             </div>
@@ -5191,8 +5267,10 @@ export function AdminCampaignForm({
                           (group) => group.key === selectedStockUnitKey,
                         ) ?? null;
                       const selectedStockImageUrl =
+                        selectedStockGroup?.imageUrl ??
                         selectedStockGroup?.units.find((unit) => unit.imageUrl)
-                          ?.imageUrl ?? null;
+                          ?.imageUrl ??
+                        null;
                       return (
                         <article
                           className={`admin-prize-table-row tier-${option.value}`}
@@ -5263,12 +5341,16 @@ export function AdminCampaignForm({
                                     : "Choose item first"}
                                 </option>
                               )}
-                              {stockGroups.map((group) => (
-                                <option key={group.key} value={group.key}>
-                                  {group.sku} · {group.label} ·{" "}
-                                  {group.availableUnits}/{group.totalUnits} stock
-                                </option>
-                              ))}
+	                              {stockGroups.map((group) => (
+	                                <option key={group.key} value={group.key}>
+	                                  {group.sku} · {group.label} ·{" "}
+	                                  {group.availableUnits}/{group.totalUnits} stock
+                                    {group.availablePackEquivalent !== null &&
+                                    group.availablePackEquivalent !== undefined
+                                      ? ` · ${group.availablePackEquivalent} packs`
+                                      : ""}
+	                                </option>
+	                              ))}
                             </select>
                           </label>
                           <label className="admin-field">
@@ -5364,11 +5446,11 @@ export function AdminCampaignForm({
                   <div className="admin-prize-tier-head">
                     <div>
                       <span>Last prize</span>
-                      <strong>Last One Prize · final slot</strong>
+                      <strong>Last One Prize · final-open bonus</strong>
                       <p>
-                        Counts as 1 prize in the total pack quantity. When set,
-                        the normal prize rows should cover one fewer slot and
-                        the final opener receives this item.
+                        Bonus item on top of the normal lineup. Normal prize
+                        rows still cover every pack; whoever opens the final
+                        pack receives their normal prize plus this item.
                       </p>
                     </div>
                   </div>
@@ -5980,6 +6062,19 @@ function ownerReviewRecommendationReason(
   return "No custom weights or unlock gates are set, so pure random is the cleanest match.";
 }
 
+function ownerReviewStableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => ownerReviewStableStringify(item)).join(",")}]`;
+  }
+  if (isRecord(value)) {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${ownerReviewStableStringify(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? String(value);
+}
+
 function ownerReviewComparisonDrawCount(totalPulls: number, drawSampleSize: number) {
   const selectedDraws = Math.max(1, Math.round(drawSampleSize || 0));
   const packSize = Math.max(1, Math.round(totalPulls || selectedDraws));
@@ -6091,15 +6186,20 @@ export function AdminOwnerReview({
   campaign,
   prizes,
   approvalRequest,
+  liveRevision = null,
 }: {
   viewer: YnotViewer;
   campaign: YnotCampaign;
   prizes: YnotPrizePreview[];
   approvalRequest: YnotOwnerApprovalRequest | null;
+  liveRevision?: YnotLivePackRevisionReview | null;
 }) {
   const router = useRouter();
+  const isLiveRevision = Boolean(liveRevision);
   const logicSnapshotRaw =
-    approvalRequest && isRecord((approvalRequest as { snapshot?: unknown }).snapshot)
+    liveRevision?.logicSnapshot && isRecord(liveRevision.logicSnapshot)
+      ? liveRevision.logicSnapshot
+      : approvalRequest && isRecord((approvalRequest as { snapshot?: unknown }).snapshot)
       ? ((approvalRequest as { snapshot?: unknown }).snapshot as Record<string, unknown>)
       : null;
   const persistedOverrides =
@@ -6118,25 +6218,46 @@ export function AdminOwnerReview({
     logicSnapshotRaw && isRecord(logicSnapshotRaw.published)
       ? (logicSnapshotRaw.published as Record<string, unknown>)
       : null;
-
-  const [logicMode, setLogicMode] = useState<OwnerReviewLogicMode>(
-    (campaign.logicMode ?? "weighted_templates") as OwnerReviewLogicMode,
-  );
-  const [guarantees] = useState<
-    Record<"single" | "ten" | "hundred", OwnerReviewGuarantee>
-  >({
+  const persistedLogicMode = (typeof logicSnapshotRaw?.mode === "string"
+    ? logicSnapshotRaw.mode
+    : campaign.logicMode ?? "weighted_templates") as OwnerReviewLogicMode;
+  const persistedOwnerGuarantees: Record<
+    "single" | "ten" | "hundred",
+    OwnerReviewGuarantee
+  > = {
     single: ownerReviewReadGuarantee(persistedGuarantees?.single),
     ten: ownerReviewReadGuarantee(persistedGuarantees?.ten),
     hundred: ownerReviewReadGuarantee(persistedGuarantees?.hundred),
-  });
+  };
+
+  const [logicMode, setLogicMode] = useState<OwnerReviewLogicMode>(
+    persistedLogicMode,
+  );
+  const [guarantees] = useState<
+    Record<"single" | "ten" | "hundred", OwnerReviewGuarantee>
+  >(persistedOwnerGuarantees);
   const [cardEdits, setCardEdits] = useState<Record<string, OwnerReviewCardEdit>>(
     persistedByCard ?? {},
   );
-  const [notes, setNotes] = useState(campaign.approvalNotes ?? "");
+  const [notes, setNotes] = useState(
+    liveRevision?.reviewNote ?? campaign.approvalNotes ?? "",
+  );
   const [drawSampleSize, setDrawSampleSize] = useState<number>(1000);
   const [simResult, setSimResult] = useState<OwnerReviewSimResult | null>(null);
   const [message, setMessage] = useState<string>("");
   const [isPending, startTransition] = useTransition();
+  const liveRevisionPersistedStateKey = ownerReviewStableStringify({
+    logicMode: persistedLogicMode,
+    guarantees: persistedOwnerGuarantees,
+    cardEdits: persistedByCard ?? {},
+  });
+  const liveRevisionCurrentStateKey = ownerReviewStableStringify({
+    logicMode,
+    guarantees,
+    cardEdits,
+  });
+  const liveRevisionHasUnsavedChanges =
+    isLiveRevision && liveRevisionCurrentStateKey !== liveRevisionPersistedStateKey;
 
   const effectivePrizes = useMemo(
     () =>
@@ -6348,10 +6469,60 @@ export function AdminOwnerReview({
     );
   }
 
+  async function postLiveRevisionAction(
+    action: Exclude<OwnerReviewAction, "request_changes">,
+  ) {
+    if (!liveRevision) throw new Error("Live revision was not found.");
+    return requestJson(
+      "/api/ynot/admin/campaigns/live-revisions",
+      {
+        revisionId: liveRevision.id,
+        action,
+        logicMode,
+        note: notes,
+        overrides: {
+          byCard: cardEdits,
+          guarantees,
+        },
+        guarantees,
+      },
+      "POST",
+    );
+  }
+
   function sendAction(action: OwnerReviewAction | "approve_and_publish") {
     setMessage("");
     startTransition(async () => {
       try {
+        if (isLiveRevision) {
+          if (action === "approve_and_publish") {
+            await postLiveRevisionAction("approve");
+            setMessage("Live revision approved. Publish when ready.");
+            router.refresh();
+            return;
+          }
+          const liveAction = action === "request_changes" ? "reject" : action;
+          await postLiveRevisionAction(liveAction);
+          const liveMessages: Record<
+            Exclude<OwnerReviewAction, "request_changes">,
+            string
+          > = {
+            save_logic:
+              "Live revision changes saved. Owner approval is required before republish.",
+            approve: "Live revision approved with current logic. Publish when ready.",
+            reject: "Live revision rejected.",
+            publish:
+              "Live revision published. Existing opens and customer bags were preserved.",
+          };
+          setMessage(liveMessages[liveAction]);
+          if (liveAction === "publish") {
+            router.replace(`/admin/ynot/live-packs/${campaign.slug}/monitor`);
+          } else {
+            router.refresh();
+          }
+          return;
+        }
+
         if (action === "approve_and_publish") {
           await postOwnerReviewAction("approve");
           setMessage("Approved. Use Publish live after the page refreshes.");
@@ -6380,17 +6551,22 @@ export function AdminOwnerReview({
   }
 
   const pendingStatus =
+    liveRevision?.status ??
     campaign.approvalStatus ??
     (approvalRequest?.approvalStatus as YnotApprovalStatus | undefined) ??
     "not_submitted";
   const alreadyApproved = pendingStatus === "approved";
   const alreadyPublished =
-    campaign.status === "live" && campaign.visibility === "public";
+    !isLiveRevision && campaign.status === "live" && campaign.visibility === "public";
 
   const headerActions = (
     <>
       <Link
-        href="/admin/campaigns"
+        href={
+          isLiveRevision
+            ? `/admin/ynot/live-packs/${campaign.slug}/monitor`
+            : "/admin/campaigns"
+        }
         className="btn"
         prefetch={false}
         style={{ marginRight: "auto" }}
@@ -6405,39 +6581,79 @@ export function AdminOwnerReview({
         <span className="d" />
         {pendingStatus === "pending_review" ? "Pending review" : pendingStatus}
       </span>
-      <button
-        type="button"
-        className="btn btn-danger"
-        disabled={isPending}
-        onClick={() => sendAction("reject")}
-      >
-        <AdminIcon name="x" size={12} />
-        Reject
-      </button>
-      <button
-        type="button"
-        className="btn"
-        disabled={isPending}
-        onClick={() => sendAction("request_changes")}
-      >
-        <AdminIcon name="warning" size={12} />
-        Request changes
-      </button>
-      <button
-        type="button"
-        className="btn btn-primary"
-        disabled={isPending || alreadyPublished}
-        onClick={() =>
-          sendAction(alreadyApproved ? "publish" : "approve_and_publish")
-        }
-      >
-        <AdminIcon name="check" size={12} />
-        {alreadyPublished
-          ? "Published"
-          : alreadyApproved
-            ? "Publish live"
-            : "Approve inventory"}
-      </button>
+      {liveRevisionHasUnsavedChanges && (
+        <span className="pill review">
+          <span className="d" />
+          Unsaved changes
+        </span>
+      )}
+      {isLiveRevision ? (
+        <>
+          <button
+            type="button"
+            className="btn btn-danger"
+            disabled={isPending}
+            onClick={() => sendAction("reject")}
+          >
+            <AdminIcon name="x" size={12} />
+            Reject
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={isPending || (alreadyApproved && !liveRevisionHasUnsavedChanges)}
+            onClick={() => sendAction("approve")}
+          >
+            <AdminIcon name="check" size={12} />
+            {liveRevisionHasUnsavedChanges ? "Approve changes" : "Approve"}
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={isPending || !alreadyApproved || liveRevisionHasUnsavedChanges}
+            onClick={() => sendAction("publish")}
+          >
+            <AdminIcon name="check" size={12} />
+            Republish live
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="btn btn-danger"
+            disabled={isPending}
+            onClick={() => sendAction("reject")}
+          >
+            <AdminIcon name="x" size={12} />
+            Reject
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={isPending}
+            onClick={() => sendAction("request_changes")}
+          >
+            <AdminIcon name="warning" size={12} />
+            Request changes
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={isPending || alreadyPublished}
+            onClick={() =>
+              sendAction(alreadyApproved ? "publish" : "approve_and_publish")
+            }
+          >
+            <AdminIcon name="check" size={12} />
+            {alreadyPublished
+              ? "Published"
+              : alreadyApproved
+                ? "Publish live"
+                : "Approve inventory"}
+          </button>
+        </>
+      )}
     </>
   );
 
@@ -6452,10 +6668,19 @@ export function AdminOwnerReview({
     <AdminFrame
       viewer={viewer}
       active="/admin/campaigns"
-      trail={["Admin", "Pack studio", "Random packs", `Review · ${campaign.slug}`]}
-      eyebrow="Owner approval"
-      title={`Review · ${campaign.titleEn || campaign.titleTh}`}
-      desc="Tune draw logic, simulate opens, and approve or request changes. Owner-only — staff cannot publish."
+      trail={[
+        "Admin",
+        "Pack studio",
+        "Random packs",
+        `${isLiveRevision ? "Live review" : "Review"} · ${campaign.slug}`,
+      ]}
+      eyebrow={isLiveRevision ? "Live revision review" : "Owner approval"}
+      title={`${isLiveRevision ? "Review live edit" : "Review"} · ${campaign.titleEn || campaign.titleTh}`}
+      desc={
+        isLiveRevision
+          ? "Tune the pending live revision, simulate opens, then approve and republish. Existing opens, bags, and reward history stay unchanged until publish."
+          : "Tune draw logic, simulate opens, and approve or request changes. Owner-only — staff cannot publish."
+      }
       actions={headerActions}
     >
       <div className="kpi-grid">
@@ -6525,11 +6750,18 @@ export function AdminOwnerReview({
                   className="btn btn-sm"
                   disabled={isPending}
                   onClick={() => {
-                    setCardEdits({});
-                    setMessage("Reset to admin draft (unsaved).");
+                    setCardEdits(isLiveRevision ? persistedByCard ?? {} : {});
+                    if (isLiveRevision) {
+                      setLogicMode(persistedLogicMode);
+                    }
+                    setMessage(
+                      isLiveRevision
+                        ? "Reset to pending live revision values (unsaved)."
+                        : "Reset to admin draft (unsaved).",
+                    );
                   }}
                 >
-                  Reset to admin draft
+                  {isLiveRevision ? "Reset revision edits" : "Reset to admin draft"}
                 </button>
                 <button
                   type="button"
@@ -6538,7 +6770,7 @@ export function AdminOwnerReview({
                   onClick={() => sendAction("save_logic")}
                 >
                   <AdminIcon name="check" size={12} />
-                  Save overrides
+                  {isLiveRevision ? "Save live revision changes" : "Save overrides"}
                 </button>
               </div>
             )}
@@ -7093,6 +7325,420 @@ export function AdminOwnerReview({
   );
 }
 
+function monitorTierLabel(tier: string) {
+  return tier === "high" ? "High" : tier === "normal" ? "Normal" : tier;
+}
+
+export function LivePackMonitor({
+  campaignId,
+  initialMonitor,
+}: {
+  campaignId: string;
+  initialMonitor: YnotLivePackMonitor;
+}) {
+  const [monitor, setMonitor] = useState(initialMonitor);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
+  const campaign = monitor.campaign;
+  const openedPct = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round((campaign.openedSlots / Math.max(1, campaign.totalSlots)) * 100),
+    ),
+  );
+
+  async function refresh() {
+    setRefreshing(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/ynot/admin/campaigns/${campaignId}/monitor`,
+        { cache: "no-store" },
+      );
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(requestErrorMessage(payload));
+      }
+      setMonitor(payload.monitor as YnotLivePackMonitor);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Monitor refresh failed.");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  return (
+    <div className="admin-live-monitor">
+      <div className="kpi-grid">
+        <div className="kpi">
+          <div className="label">Opened</div>
+          <strong>{campaign.openedSlots.toLocaleString()}</strong>
+          <span className="text-mute">{openedPct}% of pack slots</span>
+        </div>
+        <div className="kpi">
+          <div className="label">Left</div>
+          <strong>{campaign.remainingSlots.toLocaleString()}</strong>
+          <span className="text-mute">{campaign.totalSlots.toLocaleString()} total</span>
+        </div>
+        <div className="kpi">
+          <div className="label">Open orders</div>
+          <strong>{campaign.openCount.toLocaleString()}</strong>
+          <span className="text-mute">
+            {campaign.lastOpenedAt
+              ? new Date(campaign.lastOpenedAt).toLocaleString()
+              : "No opens yet"}
+          </span>
+        </div>
+        <div className="kpi">
+          <div className="label">Revision</div>
+          <strong>{monitor.pendingRevision?.status ?? "Clear"}</strong>
+          <span className="text-mute">
+            {monitor.pendingRevision ? "Owner action needed" : "No pending edit"}
+          </span>
+        </div>
+      </div>
+
+      <section className="card" style={{ marginTop: 16 }}>
+        <div className="card-head">
+          <div>
+            <p className="section-label">Prize situation</p>
+            <h3>Left and out by reward</h3>
+          </div>
+          <div className="admin-pack-table-actions-col">
+            {monitor.pendingRevision ? (
+              <Link
+                className="admin-pack-table-action admin-pack-table-action-review"
+                href={`/admin/campaigns/${campaignId}/review`}
+              >
+                Review revision
+              </Link>
+            ) : null}
+            <Link
+              className="admin-pack-table-action"
+              href={`/admin/campaigns/${campaignId}/edit`}
+            >
+              Edit live pack
+            </Link>
+            <button
+              type="button"
+              className="admin-pack-table-action"
+              onClick={refresh}
+              disabled={refreshing}
+            >
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+        </div>
+        {error ? (
+          <p className="admin-pack-table-error" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <div className="admin-pack-table-scroll">
+          <table className="admin-pack-table-grid">
+            <thead>
+              <tr>
+                <th>Reward</th>
+                <th>Tier</th>
+                <th>Out</th>
+                <th>Left</th>
+                <th>Planned</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monitor.prizes.map((prize) => (
+                <tr key={prize.prizeKey}>
+                  <td>
+                    <div className="admin-pack-table-title-link">
+                      {prize.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- Admin monitor previews user-managed Supabase assets.
+                        <img
+                          src={prize.imageUrl}
+                          alt=""
+                          style={{
+                            width: 36,
+                            height: 46,
+                            objectFit: "cover",
+                            borderRadius: 6,
+                            marginRight: 10,
+                            verticalAlign: "middle",
+                          }}
+                        />
+                      ) : null}
+                      {prize.cardName}
+                    </div>
+                    <span className="admin-pack-table-slug">
+                      {prize.cardCode ?? "No code"}
+                      {prize.bundleQuantity > 1
+                        ? ` · ${prize.bundleQuantity} cards per win`
+                        : ""}
+                    </span>
+                  </td>
+                  <td>{monitorTierLabel(prize.tier)} #{prize.rank}</td>
+                  <td>{prize.outWins.toLocaleString()}</td>
+                  <td>{prize.leftWins.toLocaleString()}</td>
+                  <td>{prize.plannedWins.toLocaleString()}</td>
+                </tr>
+              ))}
+              {!monitor.prizes.length ? (
+                <tr>
+                  <td colSpan={5} className="admin-pack-table-empty">
+                    No prize rows found.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="card" style={{ marginTop: 16 }}>
+        <div className="card-head">
+          <div>
+            <p className="section-label">Recent outs</p>
+            <h3>Latest customer wins</h3>
+          </div>
+          <span className="text-mute">
+            Loaded {new Date(monitor.loadedAt).toLocaleTimeString()}
+          </span>
+        </div>
+        <div className="admin-pack-table-scroll">
+          <table className="admin-pack-table-grid">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Reward</th>
+                <th>Open</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monitor.recentAwards.map((award) => (
+                <tr key={award.openKey ?? `${award.openCode}-${award.cardCode ?? award.cardName}`}>
+                  <td>{award.customerLabel}</td>
+                  <td>
+                    <span className="admin-pack-table-title-link">
+                      {award.cardName}
+                    </span>
+                    <span className="admin-pack-table-slug">
+                      {award.cardCode ?? "No code"}
+                    </span>
+                  </td>
+                  <td>{award.openCode}</td>
+                  <td>{new Date(award.openedAt).toLocaleString()}</td>
+                </tr>
+              ))}
+              {!monitor.recentAwards.length ? (
+                <tr>
+                  <td colSpan={4} className="admin-pack-table-empty">
+                    No rewards are out yet.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function liveRevisionPatchEntries(revision: YnotLivePackRevisionReview) {
+  return Object.entries(revision.scalarPatch).filter(([, value]) => value !== undefined);
+}
+
+export function LivePackRevisionReview({
+  viewer,
+  campaign,
+  revision,
+}: {
+  viewer: YnotViewer;
+  campaign: YnotCampaign;
+  revision: YnotLivePackRevisionReview;
+}) {
+  const router = useRouter();
+  const [note, setNote] = useState("");
+  const [message, setMessage] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function send(action: "approve" | "reject" | "publish") {
+    setMessage("");
+    startTransition(async () => {
+      try {
+        await postJson("/api/ynot/admin/campaigns/live-revisions", {
+          revisionId: revision.id,
+          action,
+          note,
+        });
+        setMessage(
+          action === "publish"
+            ? "Live revision published. Existing opens and customer bags were preserved."
+            : action === "approve"
+              ? "Live revision approved. Publish when ready."
+              : "Live revision rejected.",
+        );
+        if (action === "publish") {
+          router.replace(`/admin/ynot/live-packs/${campaign.slug}/monitor`);
+        } else {
+          router.refresh();
+        }
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Live revision action failed.",
+        );
+      }
+    });
+  }
+
+  const patchEntries = liveRevisionPatchEntries(revision);
+  return (
+    <AdminFrame
+      viewer={viewer}
+      active="/admin/campaigns"
+      trail={["Admin", "Pack studio", "Random packs", `Live review · ${campaign.slug}`]}
+      eyebrow="Live revision review"
+      title={`Review live edit · ${campaign.titleEn || campaign.titleTh}`}
+      desc="Owner-only review for a live pack edit. Publishing applies the approved changes while keeping existing opens, bags, and reward history."
+      actions={
+        <>
+          <Link
+            className="btn"
+            href={`/admin/ynot/live-packs/${campaign.slug}/monitor`}
+          >
+            <AdminIcon name="chev-r" /> Monitor
+          </Link>
+          <button
+            type="button"
+            className="btn btn-danger"
+            disabled={isPending}
+            onClick={() => send("reject")}
+          >
+            Reject
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={isPending || revision.status === "approved"}
+            onClick={() => send("approve")}
+          >
+            Approve
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={isPending || revision.status !== "approved"}
+            onClick={() => send("publish")}
+          >
+            Publish live
+          </button>
+        </>
+      }
+    >
+      <div className="kpi-grid">
+        <div className="kpi">
+          <div className="label">Status</div>
+          <strong>{revision.status}</strong>
+          <span className="text-mute">
+            Requested {new Date(revision.requestedAt).toLocaleString()}
+          </span>
+        </div>
+        <div className="kpi">
+          <div className="label">Prize rows</div>
+          <strong>{revision.prizeRows.length.toLocaleString()}</strong>
+          <span className="text-mute">Owner economics visible here only</span>
+        </div>
+        <div className="kpi">
+          <div className="label">Pack baseline</div>
+          <strong>{new Date(revision.baseUpdatedAt).toLocaleDateString()}</strong>
+          <span className="text-mute">Publishes only if baseline still matches</span>
+        </div>
+      </div>
+
+      {message ? (
+        <p className="admin-pack-table-error" role="status">
+          {message}
+        </p>
+      ) : null}
+
+      <section className="card" style={{ marginTop: 16 }}>
+        <div className="card-head">
+          <div>
+            <p className="section-label">Pack changes</p>
+            <h3>Fields waiting to publish</h3>
+          </div>
+        </div>
+        <div className="card-pad">
+          {patchEntries.length ? (
+            <pre className="mono" style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+              {patchEntries
+                .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+                .join("\n")}
+            </pre>
+          ) : (
+            <p className="text-mute">No scalar field changes.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="card" style={{ marginTop: 16 }}>
+        <div className="card-head">
+          <div>
+            <p className="section-label">Prize logic</p>
+            <h3>Pending prize logic</h3>
+          </div>
+        </div>
+        <div className="admin-pack-table-scroll">
+          <table className="admin-pack-table-grid">
+            <thead>
+              <tr>
+                <th>Row</th>
+                <th>Qty</th>
+                <th>Bundle</th>
+                <th>Weight</th>
+                <th>Unlock</th>
+                <th>Coins</th>
+              </tr>
+            </thead>
+            <tbody>
+              {revision.prizeRows.map((prize) => (
+                <tr key={prize.prizeKey}>
+                  <td>{prize.prizeKey}</td>
+                  <td>{prize.plannedQuantity.toLocaleString()}</td>
+                  <td>{prize.bundleQuantity.toLocaleString()}</td>
+                  <td>{prize.weight.toLocaleString()}</td>
+                  <td>{prize.unlockAtSoldPct}%</td>
+                  <td>{prize.convertCoinValue.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="card" style={{ marginTop: 16 }}>
+        <div className="card-head">
+          <div>
+            <p className="section-label">Owner note</p>
+            <h3>Publish note</h3>
+          </div>
+        </div>
+        <div className="card-pad">
+          <textarea
+            className="textarea"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Optional owner note..."
+            style={{ minHeight: 90 }}
+          />
+        </div>
+      </section>
+    </AdminFrame>
+  );
+}
+
 export function AdminCampaignActionPanel({
   campaigns,
   viewerRole,
@@ -7610,7 +8256,7 @@ type PrizeCreateModalKind = "card" | "stock";
 
 /**
  * Header actions for the Prize catalog page. Replaces the two always-visible
- * "Create catalog item" / "Add stock units" forms with a pair of buttons that
+ * "Create Main SKU" / "Add Sub-SKU stock" forms with a pair of buttons that
  * each open the corresponding form in a modal, keeping the page focused on the
  * catalog table.
  */
@@ -7660,7 +8306,7 @@ export function AdminPrizeCreateActions({
           onClick={() => setOpenModal("card")}
         >
           <AdminIcon name="plus" size={14} />
-          Add card
+          Create Main SKU
         </button>
         <button
           type="button"
@@ -7668,7 +8314,7 @@ export function AdminPrizeCreateActions({
           onClick={() => setOpenModal("stock")}
         >
           <AdminIcon name="plus" size={14} />
-          Add stock
+          Add Sub-SKU stock
         </button>
       </div>
 
@@ -7692,7 +8338,7 @@ export function AdminPrizeCreateActions({
                 ×
               </button>
               <h2 className="admin-modal-title" style={{ color: "#fff" }}>
-                {openModal === "card" ? "Create catalog item" : "Add stock units"}
+                {openModal === "card" ? "Create Main SKU" : "Add Sub-SKU stock"}
               </h2>
             </header>
             <div
@@ -7750,7 +8396,7 @@ export function AdminCardForm({
   const [isPending, startTransition] = useTransition();
   // Duplicate product names / model codes are allowed now (e.g. box variations
   // under one model code), so the create form never blocks on a match — every
-  // save creates a new card. Use "Edit card" to change an existing one.
+  // save creates a new Main SKU. Use "Edit Main SKU" to change an existing one.
   const duplicateCard = useMemo<CardCatalogItem | null>(() => null, []);
   const duplicateUsage = useMemo(
     () => (duplicateCard ? adminCardDuplicateUsage(duplicateCard, prizes) : null),
@@ -7908,7 +8554,7 @@ export function AdminCardForm({
           <section className="admin-form-section">
             <p className="admin-form-section-label">Basic</p>
             <div className="admin-form-grid">
-              <AdminField label="Product name" required>
+              <AdminField label="Main SKU name" required>
                 <input
                   className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
                   value={name}
@@ -7998,7 +8644,7 @@ export function AdminCardForm({
           </section>
 
           {/* Condition / grade / grading service / cert / GemRate live in the
-              "Add stock units" form — those describe the physical item (unit),
+              "Add Sub-SKU stock" form — those describe the physical item (unit),
               not the product identity. */}
           <section className="admin-form-section">
             <p className="admin-form-section-label">Image</p>
@@ -8011,8 +8657,8 @@ export function AdminCardForm({
                   manualUrl={imageUrl}
                   cardCode={code}
                   cardName={name}
-                  label="Card image"
-                  hint="Drag &amp; drop a JPG / PNG / WEBP, or paste a URL. Uploaded to Supabase storage."
+                  label="Main SKU image"
+                  hint="Drag &amp; drop a JPG / PNG / WEBP / AVIF, or paste a URL. Uploaded to Supabase storage."
                   onFileChange={(file) => {
                     setImageFile(file);
                     if (file) {
@@ -8067,8 +8713,8 @@ export function AdminCardForm({
             ? "Uploading..."
             : "Saving..."
           : duplicateCard
-            ? "Update existing card"
-            : "Save catalog item"}
+            ? "Update existing Main SKU"
+            : "Save Main SKU"}
       </button>
       {message && <p className="admin-form-message">{message}</p>}
     </section>
@@ -8090,7 +8736,24 @@ export function AdminCardStockUnitForm({
   initialCardId?: string;
 }) {
   const router = useRouter();
+  const initialSelectedCard =
+    cards.find((card) => card.catalogCardId === initialCardId) ?? null;
+  const initialUnitKind = initialSelectedCard
+    ? defaultStockSkuUnitKindForCard(initialSelectedCard)
+    : "card";
   const [cardId, setCardId] = useState(initialCardId ?? "");
+  const [subSkuCode, setSubSkuCode] = useState(
+    initialSelectedCard
+      ? stockSkuDefaultCode(initialUnitKind, initialSelectedCard)
+      : "",
+  );
+  const [subSkuLabel, setSubSkuLabel] = useState(
+    initialSelectedCard
+      ? stockSkuDefaultLabel(initialUnitKind, initialSelectedCard)
+      : "",
+  );
+  const [unitKind, setUnitKind] =
+    useState<AdminStockSkuUnitKind>(initialUnitKind);
   const [condition, setCondition] = useState<CardCondition>("raw");
   const [grade, setGrade] = useState("");
   const [gradingService, setGradingService] = useState<GradingService | "">("");
@@ -8105,13 +8768,7 @@ export function AdminCardStockUnitForm({
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const isGraded = condition === "graded";
-  const hasCert = isGraded && certNumber.trim().length > 0;
-  // A cert pins one physical slab, so it can only attach to a single unit.
-  const effectiveCount = hasCert
-    ? 1
-    : Math.min(10000, Math.max(1, Math.trunc(Number(count) || 1)));
-  const productCardOptions = useMemo(
+  const mainSkuOptions = useMemo(
     () =>
       cards.map((card) => ({
         value: card.catalogCardId,
@@ -8119,6 +8776,68 @@ export function AdminCardStockUnitForm({
       })),
     [cards],
   );
+  const selectedCard = useMemo(
+    () => cards.find((card) => card.catalogCardId === cardId) ?? null,
+    [cardId, cards],
+  );
+  const selectableSubSkuGroups = useMemo(
+    () =>
+      selectedCard
+        ? stockSkuGroups(selectedCard).filter(
+            (group): group is StockSkuGroup & { stockSkuId: string } =>
+              Boolean(group.stockSkuId),
+          )
+        : [],
+    [selectedCard],
+  );
+  const isCardSubSku = unitKind === "card";
+  const isGraded = isCardSubSku && condition === "graded";
+  const hasCert = isGraded && certNumber.trim().length > 0;
+  // A cert pins one physical slab, so it can only attach to a single unit.
+  const effectiveCount = hasCert
+    ? 1
+    : Math.min(10000, Math.max(1, Math.trunc(Number(count) || 1)));
+  const addButtonQuantityLabel = stockQuantityLabel(effectiveCount, unitKind);
+  const selectedSubSkuTypeLabel = presentationStockUnitKindLabel(unitKind);
+  const cleanSubSkuCode = subSkuCode.trim();
+  const cleanSubSkuLabel = subSkuLabel.trim();
+  const matchingSubSkuGroup = selectableSubSkuGroups.find(
+    (group) =>
+      group.sku.trim().toLowerCase() === cleanSubSkuCode.toLowerCase(),
+  );
+  const quantityFieldLabel = isCardSubSku
+    ? "How many cards"
+    : `How many ${stockSkuUnitNoun(unitKind, 2)}`;
+  const stockUnitImageHint = isCardSubSku
+    ? "Photo of this specific card or slab. Leave empty to use the Sub-SKU or Main SKU image."
+    : `Optional ${stockSkuUnitNoun(unitKind, 1)} image. Leave empty to use the Sub-SKU or Main SKU image.`;
+
+  function resetUnitIdentity() {
+    setCondition("raw");
+    setGrade("");
+    setGradingService("");
+    setCertNumber("");
+    setGemrateId("");
+  }
+
+  function applyMainSkuDefaults(nextCard: CardCatalogItem | null) {
+    const nextUnitKind = nextCard ? defaultStockSkuUnitKindForCard(nextCard) : "card";
+    setUnitKind(nextUnitKind);
+    setSubSkuCode(nextCard ? stockSkuDefaultCode(nextUnitKind, nextCard) : "");
+    setSubSkuLabel(nextCard ? stockSkuDefaultLabel(nextUnitKind, nextCard) : "");
+    resetUnitIdentity();
+  }
+
+  function applyUnitKindDefaults(nextUnitKind: AdminStockSkuUnitKind) {
+    setUnitKind(nextUnitKind);
+    setSubSkuCode(
+      selectedCard ? stockSkuDefaultCode(nextUnitKind, selectedCard) : "",
+    );
+    setSubSkuLabel(
+      selectedCard ? stockSkuDefaultLabel(nextUnitKind, selectedCard) : "",
+    );
+    if (nextUnitKind !== "card") resetUnitIdentity();
+  }
 
   function replaceUnitPreviewUrl(nextUrl: string, objectUrl = false) {
     if (imagePreviewObjectUrlRef.current) {
@@ -8129,20 +8848,57 @@ export function AdminCardStockUnitForm({
     setImagePreviewUrl(nextUrl);
   }
 
+  async function ensureSubSkuBucket(nextImageUrl: string) {
+    if (!selectedCard || !cardId) {
+      throw new Error("Select a Main SKU first.");
+    }
+    if (!cleanSubSkuCode) {
+      throw new Error("Sub-SKU code is required.");
+    }
+    if (!cleanSubSkuLabel) {
+      throw new Error("Sub-SKU label is required.");
+    }
+    if (matchingSubSkuGroup?.stockSkuId) return matchingSubSkuGroup.stockSkuId;
+
+    const payload = await postJson("/api/ynot/admin/stock-skus", {
+      cardId,
+      sku: cleanSubSkuCode,
+      label: cleanSubSkuLabel,
+      unitKind,
+      imageUrl: nextImageUrl || undefined,
+    });
+    const stockSku = isRecord(payload) ? payload.stockSku : null;
+    const stockSkuId = isRecord(stockSku)
+      ? stringValue(stockSku.stockSkuId)
+      : "";
+    if (!stockSkuId) {
+      throw new Error("Sub-SKU could not be created.");
+    }
+    return stockSkuId;
+  }
+
   function submit() {
     startTransition(async () => {
       try {
         setMessage("");
         if (!cardId) {
-          setMessage("Select a product card first.");
+          setMessage("Select a Main SKU first.");
           return;
         }
-        if (isGraded && !grade.trim()) {
-          setMessage("Choose a grade for graded stock.");
+        if (!cleanSubSkuCode) {
+          setMessage("Sub-SKU code is required.");
+          return;
+        }
+        if (!cleanSubSkuLabel) {
+          setMessage("Sub-SKU label is required.");
           return;
         }
         if (isGraded && !gradingService) {
-          setMessage("Choose a grading service for graded stock.");
+          setMessage("Choose a grade service for graded stock.");
+          return;
+        }
+        if (isGraded && !grade.trim()) {
+          setMessage("Choose a grade number for graded stock.");
           return;
         }
         let nextImageUrl = imageUrl.trim();
@@ -8155,20 +8911,26 @@ export function AdminCardStockUnitForm({
           nextImageUrl = uploaded.imageUrl;
           nextImageStoragePath = uploaded.storagePath;
         }
+        const stockSkuId = await ensureSubSkuBucket(nextImageUrl);
         await postJson("/api/ynot/admin/card-stock", {
           cardId,
           quantityDelta: effectiveCount,
           reason: "admin_catalog",
-          condition,
-          grade: isGraded ? grade.trim() : "",
-          gradingService: isGraded ? gradingService || "" : "",
-          certNumber: isGraded ? certNumber.trim() : "",
-          gemrateId: isGraded ? gemrateId.trim() : "",
+          stockSkuId,
+          ...(isCardSubSku
+            ? {
+                condition,
+                grade: isGraded ? grade.trim() : "",
+                gradingService: isGraded ? gradingService || "" : "",
+                certNumber: isGraded ? certNumber.trim() : "",
+                gemrateId: isGraded ? gemrateId.trim() : "",
+              }
+            : {}),
           imageUrl: nextImageUrl,
           imageStoragePath: nextImageStoragePath,
         });
         setMessage(
-          `Added ${effectiveCount} ${condition} unit${effectiveCount > 1 ? "s" : ""}.`,
+          `Added ${stockQuantityLabel(effectiveCount, unitKind)} to ${cleanSubSkuCode}.`,
         );
         setCertNumber("");
         setGemrateId("");
@@ -8188,47 +8950,106 @@ export function AdminCardStockUnitForm({
   return (
     <section className="admin-panel admin-form-panel soft-card">
       <div className="admin-form-grid">
-        <AdminField label="Product card" required>
+        <AdminField label="Main SKU" required>
           <AdminSearchableSelect
             value={cardId}
-            onChange={setCardId}
-            placeholder="Select product…"
-            searchPlaceholder="Search product…"
-            options={productCardOptions}
+            onChange={(nextCardId) => {
+              setCardId(nextCardId);
+              applyMainSkuDefaults(
+                cards.find((card) => card.catalogCardId === nextCardId) ?? null,
+              );
+            }}
+            placeholder="Select Main SKU…"
+            searchPlaceholder="Search Main SKU…"
+            options={mainSkuOptions}
           />
         </AdminField>
-        <AdminField label="Condition">
+        <AdminField label="Sub-SKU code" required>
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={subSkuCode}
+            disabled={!cardId}
+            placeholder={
+              selectedCard ? stockSkuDefaultCode(unitKind, selectedCard) : "SKU"
+            }
+            onChange={(event) => setSubSkuCode(event.target.value.toUpperCase())}
+          />
+        </AdminField>
+        <AdminField
+          label="Sub-SKU label"
+          required
+        >
+          <input
+            className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+            value={subSkuLabel}
+            disabled={!cardId}
+            placeholder={stockSkuDefaultLabel(unitKind, selectedCard)}
+            onChange={(event) => setSubSkuLabel(event.target.value)}
+          />
+        </AdminField>
+        <AdminField
+          label="Sub-SKU type"
+          hint="Create or reuse this stock bucket first, then add the physical units below."
+        >
           <select
             className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-            value={condition}
+            value={unitKind}
+            disabled={!cardId}
             onChange={(event) =>
-              setCondition(event.target.value as CardCondition)
+              applyUnitKindDefaults(event.target.value as AdminStockSkuUnitKind)
             }
           >
-            {cardConditionOptions.map((option) => (
+            {stockSkuUnitKindOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
           </select>
         </AdminField>
+        <div className="admin-subsku-stock-selected">
+          <span>{selectedSubSkuTypeLabel} Sub-SKU</span>
+          <strong>{cleanSubSkuCode || "New Sub-SKU"}</strong>
+          <em>
+            {matchingSubSkuGroup
+              ? "Existing bucket will be reused."
+              : "New bucket will be created."}
+          </em>
+          {isCardSubSku ? (
+            <small>Condition, grade, and cert stay on individual card units.</small>
+          ) : null}
+        </div>
+        {isCardSubSku ? (
+          <AdminField label="Selected condition">
+            <select
+              className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+              value={condition}
+              onChange={(event) =>
+                setCondition(event.target.value as CardCondition)
+              }
+            >
+              {cardConditionOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </AdminField>
+        ) : (
+          <AdminField
+            label="Stock identity"
+            hint={`${selectedSubSkuTypeLabel} Sub-SKUs do not use card grading fields.`}
+          >
+            <input
+              className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+              value={`${selectedSubSkuTypeLabel} stock`}
+              disabled
+              readOnly
+            />
+          </AdminField>
+        )}
         {isGraded ? (
           <>
-            <AdminField label="Grade" required>
-              <select
-                className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-                value={grade}
-                onChange={(event) => setGrade(event.target.value)}
-              >
-                <option value="">-- Select --</option>
-                {cardGradeOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </AdminField>
-            <AdminField label="Grading service" required>
+            <AdminField label="Grade service" required>
               <select
                 className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
                 value={gradingService}
@@ -8244,9 +9065,23 @@ export function AdminCardStockUnitForm({
                 ))}
               </select>
             </AdminField>
+            <AdminField label="Grade number" required>
+              <select
+                className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                value={grade}
+                onChange={(event) => setGrade(event.target.value)}
+              >
+                <option value="">-- Select --</option>
+                {cardGradeOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </AdminField>
             <AdminField
               label="Cert number"
-              hint="Unique per slab — adding a cert forces a single unit."
+              hint="Unique per physical card. Adding a cert locks this add to 1 card."
             >
               <input
                 className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
@@ -8266,7 +9101,7 @@ export function AdminCardStockUnitForm({
           </>
         ) : null}
         <AdminField
-          label="How many"
+          label={quantityFieldLabel}
           hint={hasCert ? "Locked to 1 because a cert is set." : undefined}
         >
           <input
@@ -8285,8 +9120,8 @@ export function AdminCardStockUnitForm({
             imageFile={imageFile}
             previewUrl={imagePreviewUrl}
             manualUrl={imageUrl}
-            label="Unit image (optional)"
-            hint="Photo of this specific slab. Leave empty to use the product image."
+            label="Stock unit image (optional)"
+            hint={stockUnitImageHint}
             onFileChange={(file) => {
               setImageFile(file);
               if (file) {
@@ -8315,9 +9150,11 @@ export function AdminCardStockUnitForm({
         className="admin-form-submit"
         onClick={submit}
         type="button"
-        disabled={isPending}
+        disabled={
+          isPending || !cardId || !cleanSubSkuCode || !cleanSubSkuLabel
+        }
       >
-        {isPending ? "Adding..." : `Add ${effectiveCount} unit${effectiveCount > 1 ? "s" : ""}`}
+        {isPending ? "Adding..." : `Add ${addButtonQuantityLabel}`}
       </button>
       {message && <p className="admin-form-message">{message}</p>}
     </section>
@@ -8340,12 +9177,14 @@ async function requestUnitJson(
 async function fetchEditableStockUnits(
   cardId: string,
   groupKey: string,
+  stockSkuId?: string | null,
 ): Promise<NonNullable<CardCatalogItem["stockUnits"]>> {
   const params = new URLSearchParams({
     cardId,
-    groupKey,
     limit: "200",
   });
+  if (stockSkuId) params.set("stockSkuId", stockSkuId);
+  else params.set("groupKey", groupKey);
   const res = await fetch(`/api/ynot/admin/card-stock/units?${params}`);
   const data = (await res.json().catch(() => ({}))) as {
     error?: string;
@@ -8353,6 +9192,71 @@ async function fetchEditableStockUnits(
   };
   if (!res.ok) throw new Error(data.error || "Could not load units.");
   return data.units ?? [];
+}
+
+function editableUnitIdentityValue(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function AdminStockUnitEditField({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="admin-stock-unit-edit-field">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function editableUnitIdentityChanged(
+  unit: NonNullable<CardCatalogItem["stockUnits"]>[number],
+  next: {
+    condition: string;
+    grade: string;
+    gradingService: string;
+    certNumber: string;
+    gemrateId: string;
+  },
+) {
+  const originalCondition = editableUnitIdentityValue(unit.condition || "raw");
+  const nextCondition = editableUnitIdentityValue(next.condition || "raw");
+  const originalGrade =
+    originalCondition === "graded" ? editableUnitIdentityValue(unit.grade) : "";
+  const nextGrade =
+    nextCondition === "graded" ? editableUnitIdentityValue(next.grade) : "";
+  const originalGradingService =
+    originalCondition === "graded"
+      ? editableUnitIdentityValue(unit.gradingService)
+      : "";
+  const nextGradingService =
+    nextCondition === "graded"
+      ? editableUnitIdentityValue(next.gradingService)
+      : "";
+  const originalCertNumber =
+    originalCondition === "graded"
+      ? editableUnitIdentityValue(unit.certNumber)
+      : "";
+  const nextCertNumber =
+    nextCondition === "graded" ? editableUnitIdentityValue(next.certNumber) : "";
+  const originalGemrateId =
+    originalCondition === "graded"
+      ? editableUnitIdentityValue(unit.gemrateId)
+      : "";
+  const nextGemrateId =
+    nextCondition === "graded" ? editableUnitIdentityValue(next.gemrateId) : "";
+
+  return (
+    originalCondition !== nextCondition ||
+    originalGrade !== nextGrade ||
+    originalGradingService !== nextGradingService ||
+    originalCertNumber !== nextCertNumber ||
+    originalGemrateId !== nextGemrateId
+  );
 }
 
 /** One row in the catalog's per-unit breakdown — editable + removable when the
@@ -8391,6 +9295,10 @@ function AdminStockUnitRow({
 
   async function handleImageFile(file: File | null) {
     if (!file) return;
+    if (!adminVisualImageFileLooksAllowed(file)) {
+      setMsg("Use a JPG, PNG, WEBP, or AVIF image.");
+      return;
+    }
     try {
       setMsg("");
       setUploading(true);
@@ -8411,21 +9319,31 @@ function AdminStockUnitRow({
     startBusy(async () => {
       try {
         setMsg("");
-        if (condition === "graded" && !grade.trim()) {
-          setMsg("Choose a grade for graded stock.");
-          return;
-        }
         if (condition === "graded" && !gradingService) {
-          setMsg("Choose a grading service for graded stock.");
+          setMsg("Choose a grade service for graded stock.");
           return;
         }
-        await requestUnitJson("PATCH", {
-          unitId: unit.id,
+        if (condition === "graded" && !grade.trim()) {
+          setMsg("Choose a grade number for graded stock.");
+          return;
+        }
+        const nextIdentity = {
           condition,
           grade: condition === "graded" ? grade.trim() : "",
           gradingService: condition === "graded" ? gradingService || "" : "",
           certNumber: condition === "graded" ? certNumber : "",
           gemrateId: condition === "graded" ? gemrateId : "",
+        };
+        const keepCurrentStockSkuId =
+          unit.stockSkuId && !editableUnitIdentityChanged(unit, nextIdentity);
+        await requestUnitJson("PATCH", {
+          unitId: unit.id,
+          ...(keepCurrentStockSkuId ? { stockSkuId: unit.stockSkuId } : {}),
+          condition: nextIdentity.condition,
+          grade: nextIdentity.grade,
+          gradingService: nextIdentity.gradingService,
+          certNumber: nextIdentity.certNumber,
+          gemrateId: nextIdentity.gemrateId,
           imageUrl,
           imageStoragePath,
         });
@@ -8458,61 +9376,71 @@ function AdminStockUnitRow({
     return (
       <li className="admin-stock-unit-row is-editing">
         <div className="admin-stock-unit-edit-grid">
-          <select
-            className="admin-stock-unit-input"
-            value={condition}
-            onChange={(event) =>
-              setCondition(event.target.value as CardCondition)
-            }
-          >
-            {cardConditionOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <select
-            className="admin-stock-unit-input"
-            value={grade}
-            disabled={condition !== "graded"}
-            onChange={(event) => setGrade(event.target.value)}
-          >
-            <option value="">-- Grade --</option>
-            {cardGradeOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-          <select
-            className="admin-stock-unit-input"
-            value={gradingService}
-            disabled={condition !== "graded"}
-            onChange={(event) =>
-              setGradingService(event.target.value as GradingService | "")
-            }
-          >
-            <option value="">-- Service --</option>
-            {gradingServiceOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <input
-            className="admin-stock-unit-input"
-            value={certNumber}
-            disabled={condition !== "graded"}
-            placeholder="Cert #"
-            onChange={(event) => setCertNumber(event.target.value)}
-          />
-          <input
-            className="admin-stock-unit-input"
-            value={gemrateId}
-            disabled={condition !== "graded"}
-            placeholder="GemRate ID"
-            onChange={(event) => setGemrateId(event.target.value)}
-          />
+          <AdminStockUnitEditField label="Selected condition">
+            <select
+              className="admin-stock-unit-input"
+              value={condition}
+              onChange={(event) =>
+                setCondition(event.target.value as CardCondition)
+              }
+            >
+              {cardConditionOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </AdminStockUnitEditField>
+          <AdminStockUnitEditField label="Grade service">
+            <select
+              className="admin-stock-unit-input"
+              value={gradingService}
+              disabled={condition !== "graded"}
+              onChange={(event) =>
+                setGradingService(event.target.value as GradingService | "")
+              }
+            >
+              <option value="">-- Service --</option>
+              {gradingServiceOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </AdminStockUnitEditField>
+          <AdminStockUnitEditField label="Grade number">
+            <select
+              className="admin-stock-unit-input"
+              value={grade}
+              disabled={condition !== "graded"}
+              onChange={(event) => setGrade(event.target.value)}
+            >
+              <option value="">-- Grade --</option>
+              {cardGradeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </AdminStockUnitEditField>
+          <AdminStockUnitEditField label="Cert number">
+            <input
+              className="admin-stock-unit-input"
+              value={certNumber}
+              disabled={condition !== "graded"}
+              placeholder="Cert #"
+              onChange={(event) => setCertNumber(event.target.value)}
+            />
+          </AdminStockUnitEditField>
+          <AdminStockUnitEditField label="GemRate ID">
+            <input
+              className="admin-stock-unit-input"
+              value={gemrateId}
+              disabled={condition !== "graded"}
+              placeholder="GemRate ID"
+              onChange={(event) => setGemrateId(event.target.value)}
+            />
+          </AdminStockUnitEditField>
           <label
             className={`admin-stock-unit-image${dragging ? " is-dragging" : ""}`}
             onDragOver={(event) => {
@@ -8553,7 +9481,7 @@ function AdminStockUnitRow({
             </span>
             <input
               type="file"
-              accept="image/png,image/jpeg,image/webp"
+              accept={adminVisualImageAccept}
               style={{ display: "none" }}
               disabled={uploading}
               onChange={(event) =>
@@ -8671,8 +9599,10 @@ function prizeStockUsageSummary(prize: YnotPrizePoolItem) {
 
 function AdminSubSkuPackUsageList({
   usages,
+  displaySku,
 }: {
   usages: StockSkuPackUsage[];
+  displaySku?: string;
 }) {
   if (!usages.length) {
     return (
@@ -8694,7 +9624,7 @@ function AdminSubSkuPackUsageList({
               {prizeUsageTierLabel(usage)} · {usage.source === "intended" ? "draft target" : "reserved stock"}
             </small>
           </span>
-          <code>{usage.sku}</code>
+          <code>{displaySku ?? usage.sku}</code>
           <span>
             {usage.availableUnits.toLocaleString()}/
             {usage.units.toLocaleString()} available
@@ -8705,6 +9635,167 @@ function AdminSubSkuPackUsageList({
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function AdminCardSubSkuInlineStock({
+  cardId,
+  group,
+}: {
+  cardId: string;
+  group: StockSkuGroup;
+}) {
+  const router = useRouter();
+  const referenceUnit =
+    group.units.find(
+      (unit) => unit.condition === "graded" || unit.grade || unit.gradingService,
+    ) ?? group.units[0];
+  const [condition, setCondition] = useState<CardCondition>(
+    (referenceUnit?.condition as CardCondition) || "raw",
+  );
+  const [gradingService, setGradingService] = useState<GradingService | "">(
+    (referenceUnit?.gradingService as GradingService) ?? "",
+  );
+  const [grade, setGrade] = useState(referenceUnit?.grade ?? "");
+  const [certNumber, setCertNumber] = useState("");
+  const [count, setCount] = useState("1");
+  const [busy, startBusy] = useTransition();
+  const [msg, setMsg] = useState("");
+  const isGraded = condition === "graded";
+  const hasCert = isGraded && certNumber.trim().length > 0;
+  const effectiveCount = hasCert
+    ? 1
+    : Math.min(10000, Math.max(1, Math.trunc(Number(count) || 1)));
+  const display = cardSubSkuBucketDisplay(group);
+
+  function addStock() {
+    startBusy(async () => {
+      try {
+        setMsg("");
+        if (isGraded && !gradingService) {
+          setMsg("Choose a grade service for graded stock.");
+          return;
+        }
+        if (isGraded && !grade.trim()) {
+          setMsg("Choose a grade number for graded stock.");
+          return;
+        }
+        if (!group.stockSkuId) {
+          setMsg("Create a Sub-SKU before adding stock to this Main SKU.");
+          return;
+        }
+        await postJson("/api/ynot/admin/card-stock", {
+          cardId,
+          quantityDelta: effectiveCount,
+          reason: "admin_stock_added",
+          stockSkuId: group.stockSkuId,
+          condition,
+          gradingService: isGraded ? gradingService || "" : "",
+          grade: isGraded ? grade.trim() : "",
+          certNumber: isGraded ? certNumber.trim() : "",
+        });
+        setMsg(`Added ${stockQuantityLabel(effectiveCount, "card")} to ${display.sku}.`);
+        setCertNumber("");
+        router.refresh();
+      } catch (error) {
+        setMsg(error instanceof Error ? error.message : "Could not add card stock.");
+      }
+    });
+  }
+
+  return (
+    <div className="admin-stock-sku-qty admin-stock-sku-card-add">
+      <span className="admin-stock-sku-qty-label">Add card stock</span>
+      <label className="admin-stock-sku-card-add-field">
+        <span>Selected condition</span>
+        <select
+          className="admin-stock-sku-qty-input"
+          value={condition}
+          disabled={busy}
+          onChange={(event) => setCondition(event.target.value as CardCondition)}
+        >
+          {cardConditionOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {isGraded ? (
+        <>
+          <label className="admin-stock-sku-card-add-field">
+            <span>Grade service</span>
+            <select
+              className="admin-stock-sku-qty-input"
+              value={gradingService}
+              disabled={busy}
+              onChange={(event) =>
+                setGradingService(event.target.value as GradingService | "")
+              }
+            >
+              <option value="">-- Service --</option>
+              {gradingServiceOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="admin-stock-sku-card-add-field">
+            <span>Grade number</span>
+            <select
+              className="admin-stock-sku-qty-input"
+              value={grade}
+              disabled={busy}
+              onChange={(event) => setGrade(event.target.value)}
+            >
+              <option value="">-- Grade --</option>
+              {cardGradeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="admin-stock-sku-card-add-field">
+            <span>Cert number</span>
+            <input
+              className="admin-stock-sku-qty-input"
+              value={certNumber}
+              disabled={busy}
+              placeholder="154130791"
+              onChange={(event) => setCertNumber(event.target.value)}
+            />
+          </label>
+        </>
+      ) : null}
+      <label className="admin-stock-sku-card-add-field">
+        <span>How many cards</span>
+        <input
+          className="admin-stock-sku-qty-input"
+          type="number"
+          min={1}
+          max={10000}
+          value={hasCert ? 1 : count}
+          disabled={busy || hasCert}
+          onChange={(event) => setCount(event.target.value)}
+        />
+      </label>
+      <button
+        type="button"
+        className="admin-stock-sku-qty-btn"
+        disabled={busy}
+        onClick={addStock}
+      >
+        {busy ? "Adding..." : `Add ${stockQuantityLabel(effectiveCount, "card")}`}
+      </button>
+      {hasCert ? (
+        <span className="admin-stock-sku-qty-msg">
+          Unique per physical card, so cert adds 1 card.
+        </span>
+      ) : null}
+      {msg ? <span className="admin-stock-sku-qty-msg">{msg}</span> : null}
     </div>
   );
 }
@@ -8724,10 +9815,12 @@ function AdminSubSkuQuantity({
   const isGraded = group.units.some(
     (unit) => unit.condition === "graded" || Boolean(unit.certNumber),
   );
+  const identityUnknown =
+    group.unitKind === "card" && group.stockSkuId && group.identityKnown === false;
   const [target, setTarget] = useState(String(group.totalUnits));
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
-  if (isGraded) return null;
+  if (isGraded || identityUnknown) return null;
 
   function applyCount() {
     const next = Math.max(0, Math.min(10000, Math.round(Number(target) || 0)));
@@ -8742,6 +9835,22 @@ function AdminSubSkuQuantity({
       );
       return;
     }
+    if (delta > 0 && !group.stockSkuId) {
+      setMsg("Create a Sub-SKU before adding stock to this Main SKU.");
+      return;
+    }
+    const stockImageUrl =
+      group.imageUrl ??
+      group.units.find((unit) => unit.imageUrl)?.imageUrl ??
+      null;
+    const stockImageStoragePath =
+      group.imageStoragePath ??
+      group.units.find((unit) => unit.imageStoragePath)?.imageStoragePath ??
+      null;
+    const quantityCondition =
+      group.stockSkuId && group.unitKind !== "card"
+        ? undefined
+        : group.units[0]?.condition ?? "raw";
     setBusy(true);
     setMsg("");
     void (async () => {
@@ -8752,8 +9861,11 @@ function AdminSubSkuQuantity({
           body: JSON.stringify({
             cardId,
             quantityDelta: delta,
-            condition: group.units[0]?.condition ?? "raw",
+            stockSkuId: group.stockSkuId ?? undefined,
+            condition: quantityCondition,
             stockUnitGroupKey: group.key,
+            imageUrl: delta > 0 ? stockImageUrl : undefined,
+            imageStoragePath: delta > 0 ? stockImageStoragePath : undefined,
             reason: delta > 0 ? "admin_stock_added" : "admin_stock_removed",
           }),
         });
@@ -8820,7 +9932,7 @@ function AdminSubSkuManageUnits({
     try {
       setError("");
       setLoading(true);
-      setUnits(await fetchEditableStockUnits(cardId, group.key));
+      setUnits(await fetchEditableStockUnits(cardId, group.key, group.stockSkuId));
       setLoaded(true);
     } catch (loadError) {
       setError(
@@ -8834,6 +9946,7 @@ function AdminSubSkuManageUnits({
   }
 
   if (editableUnits <= 0) return null;
+  const unitLabel = stockSkuUnitNoun(group.unitKind, editableUnits);
 
   return (
     <details
@@ -8843,8 +9956,7 @@ function AdminSubSkuManageUnits({
       }}
     >
       <summary>
-        Manage {editableUnits.toLocaleString()} unit
-        {editableUnits === 1 ? "" : "s"}
+        View {editableUnits.toLocaleString()} individual {unitLabel}
       </summary>
       {loading ? (
         <p className="admin-card-catalog-empty-usage">Loading units...</p>
@@ -8877,94 +9989,644 @@ function AdminSubSkuManageUnits({
   );
 }
 
+type AdminStockSkuUnitKind = "card" | "pack" | "box" | "other";
+
+const stockSkuUnitKindOptions: Array<{
+  value: AdminStockSkuUnitKind;
+  label: string;
+}> = [
+  { value: "card", label: "Card" },
+  { value: "box", label: "Box" },
+  { value: "pack", label: "Pack" },
+  { value: "other", label: "Other" },
+];
+
+function adminStockSkuUnitKind(
+  value: unknown,
+  fallback: AdminStockSkuUnitKind = "other",
+): AdminStockSkuUnitKind {
+  return value === "card" || value === "pack" || value === "box" || value === "other"
+    ? value
+    : fallback;
+}
+
+function defaultStockSkuUnitKindForCard(card: Pick<CardCatalogItem, "catalogCategory">) {
+  return adminStockSkuUnitKind(mainSkuCategoryType(card.catalogCategory), "other");
+}
+
+function stockSkuCodePlaceholder(
+  unitKind: AdminStockSkuUnitKind,
+  card: Pick<CardCatalogItem, "code" | "modelCode">,
+) {
+  const base = (card.modelCode ?? card.code ?? "SKU").trim().toUpperCase() || "SKU";
+  if (unitKind === "box") return `${base}-BOX-SEALED`;
+  if (unitKind === "pack") return `${base}-PACK-SEALED`;
+  if (unitKind === "card") return base;
+  return `${base}-ITEM`;
+}
+
+function stockSkuDefaultCode(
+  unitKind: AdminStockSkuUnitKind,
+  card: Pick<CardCatalogItem, "code" | "modelCode" | "searchCode">,
+) {
+  const base =
+    (card.modelCode ?? card.code ?? card.searchCode ?? "SKU").trim().toUpperCase() ||
+    "SKU";
+  if (unitKind === "card") return base;
+  return stockSkuCodePlaceholder(unitKind, card);
+}
+
+function stockSkuLabelPlaceholder(unitKind: AdminStockSkuUnitKind) {
+  if (unitKind === "box") return "Sealed booster box";
+  if (unitKind === "pack") return "Sealed booster pack";
+  if (unitKind === "card") return "Card stock bucket";
+  return "Accessory or other item";
+}
+
+function stockSkuDefaultLabel(
+  unitKind: AdminStockSkuUnitKind,
+  card: Pick<CardCatalogItem, "name"> | null,
+) {
+  if (unitKind === "card") return "Card stock bucket";
+  if (unitKind === "box") return "Sealed box";
+  if (unitKind === "pack") return "Loose pack";
+  return card?.name ? `${card.name} item` : "Other item";
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function cardSubSkuBucketDisplay(group: StockSkuGroup) {
+  if (group.unitKind !== "card") {
+    return {
+      label: group.label,
+      sku: group.sku,
+      hiddenUnitIdentity: false,
+    };
+  }
+  const rawSku = group.sku.trim();
+  const withoutCert = rawSku.replace(/-CERT-[A-Z0-9._-]+$/i, "");
+  const sku =
+    withoutCert
+      .replace(/-(?:PSA|BGS|CGC|OTHER|GRADED)(?:[-_ ]?\d+(?:\.\d+)?)?$/i, "")
+      .replace(/-(?:RAW|SEALED)$/i, "") || rawSku;
+  let label = group.label.trim();
+  const certs = new Set(
+    group.units
+      .map((unit) => unit.certNumber?.trim() ?? "")
+      .filter(Boolean),
+  );
+  const certFromSku = rawSku.match(/-CERT-([A-Z0-9._-]+)$/i)?.[1];
+  if (certFromSku) certs.add(certFromSku);
+  for (const cert of certs) {
+    const escaped = escapeRegExp(cert);
+    label = label
+      .replace(new RegExp(`\\s*[·-]\\s*#?${escaped}\\s*$`, "i"), "")
+      .replace(new RegExp(`\\s*#${escaped}\\s*$`, "i"), "");
+  }
+  if (/^(?:PSA|BGS|CGC|Other|Graded)(?:\s*[·-]\s*.+)?$/i.test(label)) {
+    label = "Card stock bucket";
+  }
+  return {
+    label: label || "Card stock bucket",
+    sku,
+    hiddenUnitIdentity: sku !== rawSku || label !== group.label.trim(),
+  };
+}
+
+function stockSkuUnitNoun(
+  value: string | null | undefined,
+  count: number,
+  options: { sentence?: boolean } = {},
+) {
+  const plural = Math.abs(count) !== 1;
+  let noun: string;
+  switch (value) {
+    case "box":
+      noun = plural ? "boxes" : "box";
+      break;
+    case "pack":
+      noun = plural ? "packs" : "pack";
+      break;
+    case "card":
+      noun = plural ? "cards" : "card";
+      break;
+    case "other":
+      noun = plural ? "items" : "item";
+      break;
+    default:
+      noun = plural ? "units" : "unit";
+      break;
+  }
+  return options.sentence ? noun : noun.toLowerCase();
+}
+
+function normalizedRelatedStockCode(card: CardCatalogItem) {
+  return (card.modelCode ?? card.code ?? card.searchCode ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+function cardLooksLikePackProduct(card: CardCatalogItem, groups: StockSkuGroup[]) {
+  return (
+    String(card.catalogCategory ?? "").toLowerCase().includes("pack") ||
+    card.name.toLowerCase().includes("pack") ||
+    groups.some((group) => group.unitKind === "pack")
+  );
+}
+
+function relatedPackProductRows(
+  card: CardCatalogItem,
+  allRows: AdminCardCatalogRow[],
+) {
+  const code = normalizedRelatedStockCode(card);
+  if (!code) return [];
+  return allRows
+    .filter((candidate) => candidate.card.catalogCardId !== card.catalogCardId)
+    .map((candidate) => ({
+      row: candidate,
+      groups: stockSkuGroups(candidate.card),
+    }))
+    .filter(
+      ({ row: candidate, groups }) =>
+        normalizedRelatedStockCode(candidate.card) === code &&
+        cardLooksLikePackProduct(candidate.card, groups),
+    )
+    .slice(0, 3);
+}
+
+function relatedPackTotals(groups: StockSkuGroup[], row: AdminCardCatalogRow) {
+  const packGroups = groups.filter((group) => group.unitKind === "pack");
+  if (!packGroups.length) {
+    return {
+      available: row.stockAvailable,
+      total: row.stockTotal,
+    };
+  }
+  return packGroups.reduce(
+    (totals, group) => ({
+      available: totals.available + group.availableUnits,
+      total: totals.total + group.totalUnits,
+    }),
+    { available: 0, total: 0 },
+  );
+}
+
+function AdminStockSkuEditor({
+  card,
+  group,
+  groups,
+}: {
+  card: CardCatalogItem;
+  group?: StockSkuGroup;
+  groups: StockSkuGroup[];
+}) {
+  const router = useRouter();
+  const packOptions = groups.filter(
+    (candidate) =>
+      candidate.stockSkuId &&
+      candidate.unitKind === "pack" &&
+      candidate.stockSkuId !== group?.stockSkuId,
+  );
+  const defaultUnitKind = defaultStockSkuUnitKindForCard(card);
+  const [sku, setSku] = useState(group?.sku ?? "");
+  const [label, setLabel] = useState(group?.label ?? "");
+  const [unitKind, setUnitKind] = useState<AdminStockSkuUnitKind>(
+    adminStockSkuUnitKind(group?.unitKind, defaultUnitKind),
+  );
+  const [childStockSkuId, setChildStockSkuId] = useState(
+    group?.childStockSkuId ?? "",
+  );
+  const [childQuantity, setChildQuantity] = useState(
+    group?.childQuantity ? String(group.childQuantity) : "",
+  );
+  const [imageUrl, setImageUrl] = useState(
+    group?.imageUrl ?? group?.units.find((unit) => unit.imageUrl)?.imageUrl ?? "",
+  );
+  const [busy, startBusy] = useTransition();
+  const [message, setMessage] = useState("");
+  const isEditing = Boolean(group?.stockSkuId);
+  const unitKindLocked = isEditing && Math.max(0, group?.totalUnits ?? 0) > 0;
+  const boxPackHintId = `box-pack-hint-${group?.stockSkuId ?? card.catalogCardId}`;
+
+  function save() {
+    startBusy(async () => {
+      try {
+        setMessage("");
+        const cleanSku = sku.trim();
+        const cleanLabel = label.trim();
+        const packsPerBox = Math.max(0, Math.round(Number(childQuantity) || 0));
+        if (!cleanSku) throw new Error("Sub-SKU code is required.");
+        if (!cleanLabel) throw new Error("Sub-SKU label is required.");
+        if (unitKind === "box" && childStockSkuId && packsPerBox <= 0) {
+          throw new Error("Set how many packs are inside this box.");
+        }
+        await postJson("/api/ynot/admin/stock-skus", {
+          stockSkuId: group?.stockSkuId ?? undefined,
+          cardId: card.catalogCardId,
+          sku: cleanSku,
+          label: cleanLabel,
+          unitKind,
+          imageUrl: imageUrl.trim(),
+          imageStoragePath:
+            imageUrl.trim() === (group?.imageUrl ?? "") ? undefined : "",
+          childStockSkuId: unitKind === "box" ? childStockSkuId || null : null,
+          childQuantity:
+            unitKind === "box" && childStockSkuId ? packsPerBox : null,
+          clearConversionRule: unitKind === "box" && !childStockSkuId,
+        });
+        setMessage(isEditing ? "Sub-SKU saved." : "Sub-SKU created.");
+        if (!isEditing) {
+          setSku("");
+          setLabel("");
+          setUnitKind(defaultUnitKind);
+          setChildStockSkuId("");
+          setChildQuantity("");
+          setImageUrl("");
+        }
+        router.refresh();
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Sub-SKU could not be saved.");
+      }
+    });
+  }
+
+  return (
+    <details className="admin-stock-sku-editor">
+      <summary>{isEditing ? "Edit Sub-SKU" : "+ Add Sub-SKU"}</summary>
+      <div className="admin-stock-sku-editor-grid">
+        <label>
+          <span>Sub-SKU code</span>
+          <input
+            value={sku}
+            disabled={busy}
+            placeholder={stockSkuCodePlaceholder(unitKind, card)}
+            onChange={(event) => setSku(event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Label</span>
+          <input
+            value={label}
+            disabled={busy}
+            placeholder={stockSkuLabelPlaceholder(unitKind)}
+            onChange={(event) => setLabel(event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Type</span>
+          <select
+            value={unitKind}
+            disabled={busy || unitKindLocked}
+            onChange={(event) =>
+              setUnitKind(event.target.value as AdminStockSkuUnitKind)
+            }
+          >
+            {stockSkuUnitKindOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Image URL</span>
+          <input
+            value={imageUrl}
+            disabled={busy}
+            placeholder="https://..."
+            onChange={(event) => setImageUrl(event.target.value)}
+          />
+        </label>
+        {unitKind === "box" ? (
+          <>
+            <div className="admin-stock-sku-editor-hint" id={boxPackHintId}>
+              Set how many packs are inside one sealed box. Conversion rule: boxes x packs inside 1 box = pack equivalent. Create the Pack Sub-SKU under this same Main SKU first, then choose it here. Different products can use different pack counts, for example One Piece 24, Pokemon 30, or Pokemon 36.
+            </div>
+            <label>
+              <span>Pack Sub-SKU created from this box</span>
+              <select
+                aria-describedby={boxPackHintId}
+                value={childStockSkuId}
+                disabled={busy || !packOptions.length}
+                onChange={(event) => setChildStockSkuId(event.target.value)}
+              >
+                <option value="">
+                  {packOptions.length
+                    ? "Choose Pack Sub-SKU"
+                    : "Create a Pack Sub-SKU first, then set packs per box on this Main SKU"}
+                </option>
+                {packOptions.map((option) => (
+                  <option key={option.stockSkuId ?? option.key} value={option.stockSkuId ?? ""}>
+                    {option.sku} · {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Packs per box (inside 1 box)</span>
+              <input
+                aria-describedby={boxPackHintId}
+                type="number"
+                min={1}
+                max={1000}
+                value={childQuantity}
+                disabled={busy || !childStockSkuId}
+                placeholder="24"
+                onChange={(event) => setChildQuantity(event.target.value)}
+              />
+              <small>This value is saved when you create or edit the Box Sub-SKU.</small>
+            </label>
+          </>
+        ) : null}
+      </div>
+      <div className="admin-stock-sku-editor-actions">
+        <button type="button" disabled={busy} onClick={save}>
+          {busy ? "Saving..." : isEditing ? "Save Sub-SKU" : "Create Sub-SKU"}
+        </button>
+        {message ? <span>{message}</span> : null}
+      </div>
+    </details>
+  );
+}
+
+function AdminOpenBoxButton({ group }: { group: StockSkuGroup }) {
+  const router = useRouter();
+  const [busy, startBusy] = useTransition();
+  const [message, setMessage] = useState("");
+  if (group.unitKind !== "box" || !group.stockSkuId || !group.childStockSkuId) {
+    return null;
+  }
+  const canOpen = group.availableUnits > 0;
+
+  function openBox() {
+    startBusy(async () => {
+      try {
+        setMessage("");
+        await postJson("/api/ynot/admin/stock-skus/open-container", {
+          parentStockSkuId: group.stockSkuId,
+          quantity: 1,
+          note: "admin opened box into child packs",
+        });
+        setMessage(
+          `Opened 1 box into ${Number(group.childQuantity ?? 0).toLocaleString()} packs.`,
+        );
+        router.refresh();
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Box could not be opened.");
+      }
+    });
+  }
+
+  return (
+    <div className="admin-stock-sku-open-box">
+      <button type="button" disabled={busy || !canOpen} onClick={openBox}>
+        {busy ? "Opening..." : "Open 1 box"}
+      </button>
+      <span>
+        {group.childQuantity
+          ? `Creates ${group.childQuantity.toLocaleString()} ${group.childSku || "pack"} units`
+          : "Set packs per box before opening"}
+      </span>
+      {message ? <em>{message}</em> : null}
+    </div>
+  );
+}
+
 function AdminStockSkuBreakdown({
   card,
   row,
+  allRows,
 }: {
   card: CardCatalogItem;
   row: AdminCardCatalogRow;
+  allRows: AdminCardCatalogRow[];
 }) {
   const groups = stockSkuGroups(card);
+  const labels = mainSkuActionLabels(card.catalogCategory);
   const assignedUnits = prizeAssignmentQuantity(row.prizes);
   const usageByGroup = stockSkuPackUsageByGroup(groups, row.prizes);
   const activeUnits = Math.max(0, row.stockTotal - row.stockArchived);
-  if (!groups.length && !activeUnits && !assignedUnits) return null;
+  const relatedPacks = relatedPackProductRows(card, allRows);
+  const stockSummary = mainSkuStockSummary(groups);
+  const subSkuRows = subSkuStockRows(groups);
 
   return (
     <details className="admin-card-stock-breakdown">
       <summary className="admin-card-stock-summary">
-        <span>Stock sub-SKUs</span>
+        <span>Sub-SKU stock</span>
         <strong>
           {groups.length
-            ? `${groups.length.toLocaleString()} sub-SKU${groups.length === 1 ? "" : "s"}`
-            : "No sub-SKU detail"}
-          {assignedUnits ? ` · ${assignedUnits.toLocaleString()} assigned to packs` : ""}
+            ? `${groups.length.toLocaleString()} Sub-SKU${groups.length === 1 ? "" : "s"} · ${stockSummary.headline}`
+            : "No Sub-SKU stock"}
         </strong>
         <em>
-          {row.stockAvailable.toLocaleString()}/{activeUnits.toLocaleString()} active
+          {labels.stockSummary} {row.stockAvailable.toLocaleString()}/
+          {activeUnits.toLocaleString()} active
         </em>
       </summary>
 
+      <div className="admin-stock-sku-toolbar">
+        <AdminStockSkuEditor card={card} groups={groups} />
+      </div>
+
       {groups.length ? (
-        <div className="admin-stock-sku-list">
+        <div className="admin-stock-sku-table" role="table" aria-label="Sub-SKU stock">
+          <div className="admin-stock-sku-table-head" role="row">
+            <span role="columnheader">Sub-SKU</span>
+            <span role="columnheader">Type</span>
+            <span role="columnheader">Available</span>
+            <span role="columnheader">Allocated</span>
+            <span role="columnheader">Total</span>
+            <span role="columnheader">Pack equivalent</span>
+            <span role="columnheader">Conversion</span>
+          </div>
           {groups.map((group) => {
+            const display = cardSubSkuBucketDisplay(group);
+            const stockRow = subSkuRows.find((candidate) => candidate.key === group.key);
+            if (!stockRow) return null;
             const packUsages = usageByGroup.get(group.key) ?? [];
             const packUsageUnits = packUsages.reduce(
               (sum, usage) => sum + usage.units,
               0,
             );
+            const identityMismatchUsageCount = packUsages.filter(
+              (usage) => usage.identityMismatch,
+            ).length;
             const repImage =
-              group.units.find((unit) => unit.imageUrl)?.imageUrl ?? null;
+              group.imageUrl ??
+              group.units.find((unit) => unit.imageUrl)?.imageUrl ??
+              null;
+            const hasPackEquivalent =
+              group.unitKind === "box" || group.unitKind === "pack";
+            const missingPackConversion =
+              group.unitKind === "box" && !group.childQuantity;
+            const availablePackEquivalent =
+              group.unitKind === "box" && group.childQuantity
+                ? Math.max(0, group.availableUnits) * group.childQuantity
+                : group.unitKind === "pack"
+                  ? Math.max(0, group.availableUnits)
+                  : Math.max(0, Math.trunc(Number(group.packEquivalent ?? 0)));
+            const totalPackEquivalent =
+              group.unitKind === "box" && group.childQuantity
+                ? Math.max(0, group.totalUnits) * group.childQuantity
+                : group.unitKind === "pack"
+                  ? Math.max(0, group.totalUnits)
+                  : Math.max(0, Math.trunc(Number(group.packEquivalent ?? 0)));
+            const packEquivalentLabel =
+              !hasPackEquivalent
+                ? "-"
+                : missingPackConversion
+                  ? "Not calculated"
+                  : `${stockQuantityLabel(availablePackEquivalent, "pack")} left`;
+            const packEquivalentDetail =
+              !hasPackEquivalent
+                ? `Counted as ${stockSkuUnitNoun(group.unitKind, 2)}`
+                : missingPackConversion
+                  ? "Set packs inside 1 box"
+                  : group.unitKind === "box" && group.childQuantity
+                  ? `${stockQuantityLabel(group.availableUnits, "box")} x ${group.childQuantity.toLocaleString()} = ${stockQuantityLabel(availablePackEquivalent, "pack")} left · ${stockQuantityLabel(group.totalUnits, "box")} x ${group.childQuantity.toLocaleString()} = ${stockQuantityLabel(totalPackEquivalent, "pack")} total`
+                  : totalPackEquivalent !== availablePackEquivalent
+                    ? `${stockQuantityLabel(totalPackEquivalent, "pack")} total`
+                    : null;
             return (
-              <article className="admin-stock-sku-row" key={group.key}>
-                <div className="admin-stock-sku-main">
-                  <div className="admin-stock-sku-lead">
-                    {repImage ? (
-                      <a
-                        className="admin-stock-sku-thumb"
-                        href={repImage}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Open full image"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={repImage} alt={group.label} />
-                      </a>
-                    ) : (
-                      <span className="admin-stock-sku-thumb is-empty" aria-hidden>
-                        No image
-                      </span>
-                    )}
-                    <div className="admin-stock-sku-identity">
-                      <strong>{group.label}</strong>
-                      <code className="admin-stock-sku-code">{group.sku}</code>
-                    </div>
-                  </div>
-                  <small>
-                    {group.availableUnits.toLocaleString()}/
-                    {group.totalUnits.toLocaleString()} available
-                  </small>
+              <article className="admin-stock-sku-row" key={group.key} role="row">
+                <div
+                  className="admin-stock-sku-cell admin-stock-sku-cell-main"
+                  role="cell"
+                >
+                  {repImage ? (
+                    <a
+                      className="admin-stock-sku-thumb"
+                      href={repImage}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Open full image"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={repImage} alt={display.label} />
+                    </a>
+                  ) : (
+                    <span className="admin-stock-sku-thumb is-empty" aria-hidden>
+                      No image
+                    </span>
+                  )}
+                  <span className="admin-stock-sku-identity">
+                    <strong>{display.label}</strong>
+                    <code className="admin-stock-sku-code">{display.sku}</code>
+                    {display.hiddenUnitIdentity ? (
+                      <small className="admin-stock-sku-code-note">
+                        Condition, grade, and cert are on individual card units.
+                      </small>
+                    ) : null}
+                  </span>
                 </div>
+                <span className="admin-stock-sku-cell admin-stock-sku-stat" role="cell">
+                  <small>Stock type</small>
+                  <span className="admin-stock-sku-kind">
+                    {presentationStockUnitKindLabel(group.unitKind)}
+                  </span>
+                </span>
+                <span
+                  className="admin-stock-sku-cell admin-stock-sku-number admin-stock-sku-stat"
+                  role="cell"
+                >
+                  <small>Available global</small>
+                  <strong>{stockRow.availableLabel}</strong>
+                </span>
+                <span
+                  className="admin-stock-sku-cell admin-stock-sku-number admin-stock-sku-stat"
+                  role="cell"
+                >
+                  <small>Allocated in random packs</small>
+                  <strong>{stockQuantityLabel(group.allocatedUnits, group.unitKind)}</strong>
+                </span>
+                <span
+                  className="admin-stock-sku-cell admin-stock-sku-number admin-stock-sku-stat"
+                  role="cell"
+                >
+                  <small>Total in system</small>
+                  <strong>{stockRow.totalLabel}</strong>
+                </span>
+                <span
+                  className="admin-stock-sku-cell admin-stock-sku-number admin-stock-sku-stat"
+                  role="cell"
+                >
+                  <small>Pack equivalent</small>
+                  <strong>{packEquivalentLabel}</strong>
+                  {packEquivalentDetail ? <em>{packEquivalentDetail}</em> : null}
+                </span>
+                <span className="admin-stock-sku-cell admin-stock-sku-stat" role="cell">
+                  <small>Conversion rule</small>
+                  <strong>{stockRow.conversionLabel}</strong>
+                </span>
+
                 <div className="admin-stock-sku-statuses">
-                  {group.availableUnits ? (
-                    <span>{group.availableUnits.toLocaleString()} available</span>
-                  ) : null}
                   {group.reservedUnits ? (
-                    <span>{group.reservedUnits.toLocaleString()} reserved</span>
-                  ) : null}
-                  {group.allocatedUnits ? (
-                    <span>{group.allocatedUnits.toLocaleString()} allocated</span>
+                    <span>{stockQuantityLabel(group.reservedUnits, group.unitKind)} reserved</span>
                   ) : null}
                   {packUsageUnits ? (
                     <span>
                       {packUsageUnits.toLocaleString()} used in{" "}
-                      {packUsages.length.toLocaleString()} pack row
+                      {packUsages.length.toLocaleString()} random pack row
                       {packUsages.length === 1 ? "" : "s"}
                     </span>
                   ) : null}
+                  {identityMismatchUsageCount ? (
+                    <span>
+                      {identityMismatchUsageCount.toLocaleString()} identity mismatch
+                      {identityMismatchUsageCount === 1 ? "" : "es"}
+                    </span>
+                  ) : null}
                 </div>
-                <AdminSubSkuQuantity cardId={card.catalogCardId} group={group} />
-                <AdminSubSkuPackUsageList usages={packUsages} />
+
+                {stockRow.warning ? (
+                  <div className="admin-stock-sku-note is-warning">
+                    {stockRow.warning}
+                  </div>
+                ) : null}
+
+                {missingPackConversion && relatedPacks.length ? (
+                  <div className="admin-stock-sku-related">
+                    <div className="admin-stock-sku-related-head">
+                      <span>Related pack product</span>
+                      <strong>{relatedPacks.length.toLocaleString()} found</strong>
+                    </div>
+                    {relatedPacks.map(({ row: relatedRow, groups: relatedGroups }) => {
+                      const totals = relatedPackTotals(relatedGroups, relatedRow);
+                      const packGroup =
+                        relatedGroups.find((candidate) => candidate.unitKind === "pack") ??
+                        relatedGroups[0];
+                      return (
+                        <div
+                          className="admin-stock-sku-related-row"
+                          key={relatedRow.card.catalogCardId}
+                        >
+                          <span>
+                            <strong>{relatedRow.card.name}</strong>
+                            <small>{packGroup?.sku ?? relatedRow.card.code}</small>
+                          </span>
+                          <em>
+                            {stockQuantityLabel(totals.available, "pack")} left /{" "}
+                            {stockQuantityLabel(totals.total, "pack")} total
+                          </em>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                {group.unitKind === "card" && group.stockSkuId ? (
+                  <AdminCardSubSkuInlineStock cardId={card.catalogCardId} group={group} />
+                ) : (
+                  <AdminSubSkuQuantity cardId={card.catalogCardId} group={group} />
+                )}
+                {group.stockSkuId ? (
+                  <AdminStockSkuEditor card={card} group={group} groups={groups} />
+                ) : null}
+                <AdminOpenBoxButton group={group} />
+                <AdminSubSkuPackUsageList usages={packUsages} displaySku={display.sku} />
                 <AdminSubSkuManageUnits cardId={card.catalogCardId} group={group} />
               </article>
             );
@@ -8972,8 +10634,9 @@ function AdminStockSkuBreakdown({
         </div>
       ) : (
         <p className="admin-card-catalog-empty-usage">
-          Stock exists for this main SKU, but detailed sub-SKU rows are not
-          loaded yet.
+          {assignedUnits || activeUnits
+            ? "Main SKU stock exists, but no editable Sub-SKU rows are loaded yet."
+            : "Create the first Sub-SKU before adding stock to this Main SKU."}
         </p>
       )}
     </details>
@@ -9582,20 +11245,22 @@ export function AdminCardCatalogPanel({
     const requestedQuantity = Math.max(1, Math.round(Number(stockDraft.quantity) || 0));
 
     if (stockDraft.mode === "remove" && row.stockAvailable <= 0) {
-      setMessage("No available global stock can be removed for this card.");
+      setMessage("No available Main SKU stock can be removed for this Main SKU.");
       return;
     }
     let selectedRemoveGroup: StockSkuGroup | null = null;
     let stockUnitGroupKey: string | undefined;
+    let stockSkuId: string | undefined;
     if (stockDraft.mode === "remove") {
       selectedRemoveGroup =
         stockSkuGroups(card).find((group) => group.key === stockDraft.stockUnitKey) ??
         null;
       if (!selectedRemoveGroup) {
-        setMessage("Choose a stock sub-SKU before removing stock.");
+        setMessage("Choose a Sub-SKU before removing stock.");
         return;
       }
       stockUnitGroupKey = selectedRemoveGroup.key;
+      stockSkuId = selectedRemoveGroup.stockSkuId ?? undefined;
       if (requestedQuantity > selectedRemoveGroup.availableUnits) {
         setMessage(
           `Only ${selectedRemoveGroup.availableUnits.toLocaleString()} available units can be removed for ${selectedRemoveGroup.sku}.`,
@@ -9615,11 +11280,12 @@ export function AdminCardCatalogPanel({
           quantityDelta,
           reason: quantityDelta > 0 ? "admin_stock_added" : "admin_stock_removed",
           stockUnitGroupKey,
+          stockSkuId,
         });
         setMessage(
           quantityDelta > 0
-            ? `${countLabel(requestedQuantity, "global stock unit")} added. Draft packs can reserve it during owner review.`
-            : `${countLabel(requestedQuantity, "available global stock unit")} removed.`,
+            ? `${countLabel(requestedQuantity, "Main SKU stock unit")} added. Draft packs can reserve it during owner review.`
+            : `${countLabel(requestedQuantity, "available Main SKU stock unit")} removed.`,
         );
         setStockDraft(null);
         router.refresh();
@@ -9627,7 +11293,7 @@ export function AdminCardCatalogPanel({
         setMessage(
           error instanceof Error
             ? error.message
-            : "Global stock could not be adjusted.",
+            : "Main SKU stock could not be adjusted.",
         );
       } finally {
         setPendingCardId("");
@@ -9860,7 +11526,7 @@ export function AdminCardCatalogPanel({
               }
             />
             <AdminCatalogFilterOption
-              label="With global stock"
+              label="With Main SKU stock"
               count={facets.stocked}
               selected={stockFilter.has("stock")}
               onClick={() =>
@@ -9894,7 +11560,7 @@ export function AdminCardCatalogPanel({
             </span>
             <span className="admin-card-catalog-summary-dot admin-card-catalog-summary-dot-gold" aria-hidden="true" />
             <strong>{stockedCount.toLocaleString()}</strong>
-            <span>with global stock</span>
+            <span>with Main SKU stock</span>
           </p>
 
           <div
@@ -9974,7 +11640,7 @@ export function AdminCardCatalogPanel({
                     </span>
                     {row.prizes.length > 0 && (
                       <span className="admin-card-catalog-tag-pill is-info">
-                        {row.prizes.length.toLocaleString()} pack
+                        {row.prizes.length.toLocaleString()} prize slot
                         {row.prizes.length === 1 ? "" : "s"}
                       </span>
                     )}
@@ -9995,7 +11661,7 @@ export function AdminCardCatalogPanel({
 
                 <div className="admin-card-catalog-metrics">
                   <div className="admin-card-catalog-metric">
-                    <span>Global stock</span>
+                    <span>Main SKU stock</span>
                     <strong>
                       {row.stockAvailable.toLocaleString()}/
                       {row.stockTotal.toLocaleString()}
@@ -10009,13 +11675,13 @@ export function AdminCardCatalogPanel({
                     </small>
                   </div>
                   <div className="admin-card-catalog-metric">
-                    <span>Prize pool</span>
+                    <span>Random pack stock</span>
                     <strong>
                       {row.packAvailableUnits.toLocaleString()}/
                       {row.packTotalUnits.toLocaleString()}
                     </strong>
                     <small>
-                      {row.prizes.length.toLocaleString()} pack slot
+                      {row.prizes.length.toLocaleString()} prize slot
                       {row.prizes.length === 1 ? "" : "s"} ·{" "}
                       {row.packAwardedUnits.toLocaleString()} awarded
                       {row.packVoidUnits
@@ -10024,7 +11690,7 @@ export function AdminCardCatalogPanel({
                     </small>
                   </div>
                   <div className="admin-card-catalog-metric">
-                    <span>Assignments</span>
+                    <span>Random pack assignments</span>
                     <strong>{row.prizes.length.toLocaleString()}</strong>
                     <small>
                       {row.prizes.length
@@ -10040,7 +11706,7 @@ export function AdminCardCatalogPanel({
                   </div>
                 </div>
 
-                <AdminStockSkuBreakdown card={card} row={row} />
+                <AdminStockSkuBreakdown card={card} row={row} allRows={rows} />
 
                 <div className="admin-card-stock-actions">
                   {currentStockDraft ? (
@@ -10049,48 +11715,48 @@ export function AdminCardCatalogPanel({
                         <span>
                           {currentStockDraft.mode === "remove"
                             ? "Remove stock"
-                            : "Add stock"}
+                            : "Add Sub-SKU stock"}
                         </span>
-	                        <strong>
-	                          {currentStockDraft.mode === "remove"
-	                            ? selectedRemoveGroup
-	                              ? `${selectedRemoveGroup.availableUnits.toLocaleString()} available`
-	                              : "Choose sub-SKU"
-	                            : "Global stock"}
-	                        </strong>
-	                      </div>
-	                      {currentStockDraft.mode === "remove" ? (
-	                        <label className="admin-stock-confirm-field">
-	                          <span>Stock sub-SKU</span>
-	                          <select
-	                            disabled={stockPending || !removableStockGroups.length}
-	                            value={selectedRemoveGroup?.key ?? ""}
-	                            onChange={(event) =>
-	                              updateStockDraftSubSku(event.target.value)
-	                            }
-	                          >
-	                            {!removableStockGroups.length ? (
-	                              <option value="">No available sub-SKU</option>
-	                            ) : null}
-	                            {removableStockGroups.map((group) => (
-	                              <option key={group.key} value={group.key}>
-	                                {group.sku} · {group.label} ·{" "}
-	                                {group.availableUnits.toLocaleString()} available
-	                              </option>
-	                            ))}
-	                          </select>
-	                        </label>
-	                      ) : null}
-	                      <label className="admin-stock-confirm-field">
-	                        <span>Quantity</span>
-	                        <input
+                        <strong>
+                          {currentStockDraft.mode === "remove"
+                            ? selectedRemoveGroup
+                              ? `${selectedRemoveGroup.availableUnits.toLocaleString()} available`
+                              : "Choose sub-SKU"
+                            : "Main SKU stock"}
+                        </strong>
+                      </div>
+                      {currentStockDraft.mode === "remove" ? (
+                        <label className="admin-stock-confirm-field">
+                          <span>Sub-SKU</span>
+                          <select
+                            disabled={stockPending || !removableStockGroups.length}
+                            value={selectedRemoveGroup?.key ?? ""}
+                            onChange={(event) =>
+                              updateStockDraftSubSku(event.target.value)
+                            }
+                          >
+                            {!removableStockGroups.length ? (
+                              <option value="">No available sub-SKU</option>
+                            ) : null}
+                            {removableStockGroups.map((group) => (
+                              <option key={group.key} value={group.key}>
+                                {group.sku} · {group.label} ·{" "}
+                                {group.availableUnits.toLocaleString()} available
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                      <label className="admin-stock-confirm-field">
+                        <span>Quantity</span>
+                        <input
                           aria-label={`Stock quantity for ${card.name}`}
                           disabled={stockPending}
-	                          max={
-	                            currentStockDraft.mode === "remove"
-	                              ? selectedRemoveGroup?.availableUnits ?? 0
-	                              : 10000
-	                          }
+                          max={
+                            currentStockDraft.mode === "remove"
+                              ? selectedRemoveGroup?.availableUnits ?? 0
+                              : 10000
+                          }
                           min={1}
                           type="number"
                           value={currentStockDraft.quantity}
@@ -10098,17 +11764,17 @@ export function AdminCardCatalogPanel({
                             updateStockDraftQuantity(
                               currentStockDraft.mode === "remove"
                                 ? String(
-	                                    Math.min(
-	                                      Math.max(
-	                                        1,
-	                                        Math.round(Number(event.target.value) || 1),
-	                                      ),
-	                                      Math.max(
-	                                        1,
-	                                        selectedRemoveGroup?.availableUnits ?? 0,
-	                                      ),
-	                                    ),
-	                                  )
+                                    Math.min(
+                                      Math.max(
+                                        1,
+                                        Math.round(Number(event.target.value) || 1),
+                                      ),
+                                      Math.max(
+                                        1,
+                                        selectedRemoveGroup?.availableUnits ?? 0,
+                                      ),
+                                    ),
+                                  )
                                 : event.target.value,
                             )
                           }
@@ -10121,12 +11787,12 @@ export function AdminCardCatalogPanel({
                               ? "danger-button"
                               : "gold-button"
                           }
-	                          disabled={
-	                            stockPending ||
-	                            (currentStockDraft.mode === "remove" &&
-	                              (!selectedRemoveGroup ||
-	                                selectedRemoveGroup.availableUnits <= 0))
-	                          }
+                          disabled={
+                            stockPending ||
+                            (currentStockDraft.mode === "remove" &&
+                              (!selectedRemoveGroup ||
+                                selectedRemoveGroup.availableUnits <= 0))
+                          }
                           type="button"
                           onClick={() => confirmStockAdjustment(card, row)}
                         >
@@ -10159,14 +11825,12 @@ export function AdminCardCatalogPanel({
                             setStockUnitModalCard(card);
                           }}
                         >
-                          + Add stock
+                          + Add Sub-SKU stock
                         </button>
-	                        <button
-	                          className="plain-button"
-	                          disabled={
-	                            isPending || !removableStockGroups.length
-	                          }
-	                          type="button"
+                        <button
+                          className="plain-button"
+                          disabled={isPending || !removableStockGroups.length}
+                          type="button"
                           onClick={() => openStockAdjustment(card, row, "remove")}
                         >
                           − Remove stock
@@ -10177,7 +11841,7 @@ export function AdminCardCatalogPanel({
                           type="button"
                           onClick={() => setEditingCard(card)}
                         >
-                          Edit card
+                          Edit Main SKU
                         </button>
                         {row.stockArchived > 0 ? (
                           <button
@@ -10197,14 +11861,14 @@ export function AdminCardCatalogPanel({
                         type="button"
                         title={
                           row.prizes.length > 0
-                            ? `Cannot delete - ${row.prizes.length} pack prize slot${row.prizes.length === 1 ? "" : "s"} still reference this card.`
+                            ? `Cannot delete - ${row.prizes.length} random pack prize slot${row.prizes.length === 1 ? "" : "s"} still reference this Main SKU.`
                             : row.stockTotal - row.stockArchived > 0
                               ? `Cannot delete - ${row.stockTotal - row.stockArchived} active stock unit${row.stockTotal - row.stockArchived === 1 ? "" : "s"} still exist. Use "Remove stock" until 0/${row.stockTotal} first.`
                               : `Delete "${card.name}" permanently`
                         }
                         onClick={() => setDeleteTarget({ card, row })}
                       >
-                        Delete card
+                        Delete Main SKU
                       </button>
                     </div>
                   )}
@@ -10228,7 +11892,7 @@ export function AdminCardCatalogPanel({
                     <div className="admin-card-catalog-prize-table">
                       <div className="admin-card-catalog-prize-head">
                         <span>Random pack</span>
-                        <span>Card / stock</span>
+                        <span>Main SKU / Sub-SKU</span>
                         <span>Tier</span>
                         <span>Weight</span>
                         <span>Unlock</span>
@@ -10408,7 +12072,7 @@ function AdminCardStockUnitModal({
             ×
           </button>
           <h2 className="admin-modal-title" style={{ color: "#fff" }}>
-            Add stock units
+            Add Sub-SKU stock
           </h2>
           <p className="admin-modal-subtitle">
             Main SKU selected: {card.modelCode ?? card.code ?? card.catalogCardId} ·{" "}
@@ -10557,17 +12221,17 @@ function AdminCardEditModal({
       <div className="admin-modal admin-card-edit-modal" role="document">
         <header className="admin-modal-head">
           <h2 className="admin-modal-title" style={{ color: "#fff" }}>
-            Edit card
+            Edit Main SKU
           </h2>
           <p className="admin-modal-subtitle">
             Updates apply immediately. Customer collection rows that already
-            reference this card keep the new name + image after refresh.
+            reference this Main SKU keep the new name + image after refresh.
           </p>
         </header>
         <div className="admin-card-edit-modal-body">
           <div className="admin-form-grid admin-card-edit-grid">
             <label className="admin-field">
-              <span>Name</span>
+              <span>Main SKU name</span>
               <input value={name} onChange={(e) => setName(e.target.value)} disabled={pending} />
             </label>
             <label className="admin-field">
@@ -10656,8 +12320,8 @@ function AdminCardEditModal({
                 manualUrl={imageUrl}
                 cardCode={code}
                 cardName={name || card.name}
-                label="Card image"
-                hint="Drag &amp; drop a JPG / PNG / WEBP, or paste a URL. Uploaded to Supabase storage."
+                label="Main SKU image"
+                hint="Drag &amp; drop a JPG / PNG / WEBP / AVIF, or paste a URL. Uploaded to Supabase storage."
                 disabled={pending}
                 onFileChange={(file) => {
                   setImageFile(file);
@@ -10728,7 +12392,7 @@ function AdminCardEditModal({
             disabled={pending || !name.trim()}
             style={{ background: "linear-gradient(135deg, #f4c542, #df9824)", color: "#161616" }}
           >
-            {pending ? "Saving…" : "Save card"}
+            {pending ? "Saving…" : "Save Main SKU"}
           </button>
         </footer>
       </div>
@@ -10782,11 +12446,11 @@ function AdminCardDeleteModal({
     >
       <div className="admin-modal admin-modal-danger" role="document">
         <header className="admin-modal-head">
-          <h2 className="admin-modal-title">Delete card &quot;{card.name}&quot; permanently?</h2>
+          <h2 className="admin-modal-title">Delete Main SKU &quot;{card.name}&quot; permanently?</h2>
           <p className="admin-modal-subtitle">
-            This removes the card from the catalog forever. Eligibility is
+            This removes the Main SKU from the catalog forever. Eligibility is
             re-checked on the server — if any pack prize slot or active stock
-            unit still references this card, the delete will be refused.
+            unit still references this Main SKU, the delete will be refused.
           </p>
         </header>
         {error && (
@@ -10805,7 +12469,7 @@ function AdminCardDeleteModal({
             disabled={pending}
             autoFocus
           >
-            {pending ? "Deleting…" : "Delete card"}
+            {pending ? "Deleting…" : "Delete Main SKU"}
           </button>
         </footer>
       </div>
@@ -10877,7 +12541,7 @@ export function AdminPrizeInventoryPanel({
           <h3 className="title-m">Cards assigned to random packs</h3>
           <p className="admin-muted-line">
             These quantities belong to each random pack. Draft packs store a
-            plan first; owner review reserves global stock.
+            plan first; owner review reserves Main SKU stock.
           </p>
         </div>
         <span className="status-pill">{inventoryCards.length} cards</span>
@@ -11874,8 +13538,10 @@ type AdminTableStatus = (typeof STATUS_TABS)[number]["key"];
 
 export function AdminCampaignTable({
   campaigns,
+  viewerRole = null,
 }: {
   campaigns: YnotCampaign[];
+  viewerRole?: YnotViewer["adminRole"];
 }) {
   const router = useRouter();
   const [activeStatus, setActiveStatus] = useState<AdminTableStatus>("all");
@@ -12240,6 +13906,22 @@ export function AdminCampaignTable({
                 campaign.approvalStatus === "pending_review";
               const alreadyApproved = campaign.approvalStatus === "approved";
               const reviewBlocker = campaign.readinessBlockers?.[0];
+              const liveRevisionStatus =
+                campaign.status === "live"
+                  ? campaign.liveRevisionStatus ?? null
+                  : null;
+              const liveRevisionNeedsReview =
+                liveRevisionStatus === "pending_review";
+              const liveRevisionReadyToPublish =
+                liveRevisionStatus === "approved";
+              const liveRevisionLabel = liveRevisionNeedsReview
+                ? "Needs owner review"
+                : liveRevisionReadyToPublish
+                  ? "Owner approved"
+                  : null;
+              const ownerCanReviewLiveRevision =
+                viewerRole === "owner" &&
+                (liveRevisionNeedsReview || liveRevisionReadyToPublish);
               return (
                 <tr
                   key={campaign.id}
@@ -12358,14 +14040,60 @@ export function AdminCampaignTable({
                       </>
                     )}
                     {campaign.status === "live" && (
-                      <a
-                        href={`/admin/campaigns/${campaign.id}/edit`}
-                        className="admin-pack-table-action"
-                        title="Edit this LIVE pack in place — changes apply immediately and re-materialize stock"
-                      >
-                        Edit live
-                      </a>
+                      <>
+                        <a
+                          href={`/admin/ynot/live-packs/${campaign.slug}/monitor`}
+                          className="admin-pack-table-action admin-pack-table-action-review"
+                          title="Open the manual-refresh live pack monitor"
+                        >
+                          Monitor
+                        </a>
+                        <a
+                          href={`/admin/campaigns/${campaign.id}/edit`}
+                          className="admin-pack-table-action"
+                          title="Edit this live pack and send changes to owner review"
+                        >
+                          Edit live pack
+                        </a>
+                        {liveRevisionLabel ? (
+                          <span
+                            className="admin-pack-table-action-note"
+                            title={
+                              liveRevisionNeedsReview
+                                ? "This live edit must be reviewed by the owner before it can be republished."
+                                : "The owner approved this live edit. Publish it from the review page."
+                            }
+                          >
+                            {liveRevisionLabel}
+                          </span>
+                        ) : null}
+                        {ownerCanReviewLiveRevision ? (
+                          <a
+                            href={`/admin/campaigns/${campaign.id}/review`}
+                            className="admin-pack-table-action admin-pack-table-action-review"
+                            title={
+                              liveRevisionReadyToPublish
+                                ? "Open owner review and republish this approved live edit"
+                                : "Open owner review for this live edit"
+                            }
+                          >
+                            {liveRevisionReadyToPublish
+                              ? "Republish live"
+                              : "Review & republish"}
+                          </a>
+                        ) : null}
+                      </>
                     )}
+                    {campaign.status !== "live" &&
+                    (campaign.status === "closed" || campaign.soldOut) ? (
+                        <a
+                          href={`/admin/ynot/live-packs/${campaign.slug}/monitor`}
+                          className="admin-pack-table-action"
+                          title="Open the manual-refresh pack situation dashboard"
+                        >
+                          Monitor
+                        </a>
+                      ) : null}
                     {campaign.status !== "archived" && (
                       <button
                         type="button"

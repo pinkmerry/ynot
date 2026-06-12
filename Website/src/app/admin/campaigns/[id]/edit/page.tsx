@@ -72,7 +72,7 @@ export default async function EditCampaignPage({
         title={`Editing: ${campaign.titleEn || campaign.titleTh || campaign.slug}`}
         desc={
           isLiveEdit
-            ? "⚠️ This pack is LIVE. Changes apply immediately to customers — prize/slot edits re-materialize stock atomically (awarded prizes are kept). The pack stays live; no re-approval needed."
+            ? "This pack is LIVE. Saving creates a pending owner-reviewed revision; the current live pack, existing opens, customer bags, and rewards stay unchanged until the owner publishes."
             : "Update every campaign field and prize allocation. Saving puts the pack back into draft/private and requires a fresh owner approval before it can go live again."
         }
         actions={

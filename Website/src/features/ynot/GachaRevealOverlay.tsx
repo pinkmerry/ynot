@@ -35,6 +35,7 @@ type Props = {
     disabled?: boolean;
     costCoins?: number;
   }>;
+  remainingSlots?: number;
   tierAnimations?: YnotTierAnimation[];
   forceAnimation?: boolean;
 };
@@ -122,6 +123,7 @@ export function GachaRevealOverlay({
   onFinish,
   onOpenAgain,
   openAgainOptions = [],
+  remainingSlots,
   tierAnimations,
   forceAnimation = false,
 }: Props) {
@@ -156,6 +158,10 @@ export function GachaRevealOverlay({
   const revealDurationMs = tierAsset?.videoUrl
     ? Math.max(1200, tierAsset.durationMs || animation.durationMs)
     : revealMotionDurationMs(motionRarity, quantity);
+  const remainingStockLabel =
+    typeof remainingSlots === "number" && Number.isFinite(remainingSlots)
+      ? `${Math.max(0, Math.floor(remainingSlots)).toLocaleString()} left`
+      : null;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [motionArmed, setMotionArmed] = useState(false);
@@ -493,25 +499,33 @@ export function GachaRevealOverlay({
 
           <footer className="gacha-reveal-summary-footer">
             {onOpenAgain && openAgainOptions.length > 0 && (
-              <div
-                className="gacha-reveal-repeat-row"
-                role="group"
-                aria-label="Pull again"
-              >
-                {openAgainOptions.map((option) => (
-                  <button
-                    key={option.quantity}
-                    type="button"
-                    className="gacha-reveal-repeat-action"
-                    disabled={option.disabled}
-                    onClick={() => onOpenAgain(option.quantity)}
-                  >
-                    <span>Pull x{option.quantity}</span>
-                    {typeof option.costCoins === "number" && (
-                      <small>{option.costCoins.toLocaleString()} coins</small>
-                    )}
-                  </button>
-                ))}
+              <div className="gacha-reveal-repeat-stack">
+                {remainingStockLabel && (
+                  <p className="gacha-reveal-repeat-stock-left" aria-live="polite">
+                    <span>Stock left</span>
+                    <strong>{remainingStockLabel}</strong>
+                  </p>
+                )}
+                <div
+                  className="gacha-reveal-repeat-row"
+                  role="group"
+                  aria-label="Pull again"
+                >
+                  {openAgainOptions.map((option) => (
+                    <button
+                      key={option.quantity}
+                      type="button"
+                      className="gacha-reveal-repeat-action"
+                      disabled={option.disabled}
+                      onClick={() => onOpenAgain(option.quantity)}
+                    >
+                      <span>Pull x{option.quantity}</span>
+                      {typeof option.costCoins === "number" && (
+                        <small>{option.costCoins.toLocaleString()} coins</small>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             <div className="gacha-reveal-dock" role="group" aria-label="Pack actions">

@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import {
   isMissingFunctionError,
   randomPackSchemaMissingResponse,
@@ -30,6 +31,7 @@ type CardStockBody = {
   imageUrl?: unknown;
   imageStoragePath?: unknown;
   stockUnitGroupKey?: unknown;
+  stockSkuId?: unknown;
 };
 
 function text(value: unknown, max = 160) {
@@ -38,6 +40,8 @@ function text(value: unknown, max = 160) {
 
 const CONDITIONS = new Set(["sealed", "raw", "graded"]);
 const GRADING_SERVICES = new Set(["psa", "bgs", "cgc", "other"]);
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function groupKeyParts(groupKey: string) {
   const [condition = "", grade = "", gradingService = "", certNumber = "", gemrateId = ""] =
@@ -65,6 +69,8 @@ export async function POST(request: Request) {
       { status: 503 },
     );
   }
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
   const admin = await resolveAdminSession();
   if (!admin) {
     return Response.json(
@@ -92,14 +98,29 @@ export async function POST(request: Request) {
 
   const reason = text(body?.reason, 80) || "admin_adjustment";
   const sourceId = text(body?.sourceId, 120) || null;
+  const requestedStockSkuId = text(body?.stockSkuId, 80);
+  if (requestedStockSkuId && !UUID_PATTERN.test(requestedStockSkuId)) {
+    return Response.json(
+      { error: "Choose a valid Sub-SKU before adjusting stock." },
+      { status: 400 },
+    );
+  }
+  const stockSkuId = requestedStockSkuId || null;
+  if (delta > 0 && !stockSkuId) {
+    return Response.json(
+      { error: "Choose a Sub-SKU before adding stock." },
+      { status: 400 },
+    );
+  }
   const stockUnitGroupKey = text(body?.stockUnitGroupKey, 240);
-  if (delta < 0 && !stockUnitGroupKey) {
+  if (delta < 0 && !stockSkuId && !stockUnitGroupKey) {
     return Response.json(
       { error: "Choose a stock sub-SKU before removing stock." },
       { status: 400 },
     );
   }
-  const removeGroup = delta < 0 ? groupKeyParts(stockUnitGroupKey) : null;
+  const removeGroup =
+    delta < 0 && !stockSkuId ? groupKeyParts(stockUnitGroupKey) : null;
   if (removeGroup && !CONDITIONS.has(removeGroup.condition)) {
     return Response.json(
       { error: "The selected stock sub-SKU is invalid." },
@@ -109,11 +130,12 @@ export async function POST(request: Request) {
 
   // Positive deltas create units; negative deltas must target one sub-SKU.
   const conditionRaw = text(body?.condition, 16).toLowerCase();
+  if (conditionRaw && !CONDITIONS.has(conditionRaw)) {
+    return Response.json({ error: "Choose a valid condition." }, { status: 400 });
+  }
   const condition =
     delta > 0
-      ? CONDITIONS.has(conditionRaw)
-        ? conditionRaw
-        : "raw"
+      ? conditionRaw || (stockSkuId ? null : "raw")
       : removeGroup?.condition ?? null;
   const gradingRaw = text(body?.gradingService, 16).toLowerCase();
   const gradingService =
@@ -162,34 +184,60 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServiceSupabaseClient();
-  const { data, error } = await supabase.rpc("adjust_card_stock_units", {
-    p_card_id: cardId,
-    p_quantity_delta: delta,
-    p_admin_id: admin.adminId,
-    p_source_type: reason,
-    p_source_id: sourceId,
-    p_metadata: {
-      adjustedByAdminId: admin.adminId,
-      reason,
-      sourceId,
-      stockUnitGroupKey: stockUnitGroupKey || null,
-    } satisfies Json,
-    p_condition: condition,
-    p_grade: grade,
-    p_grading_service: gradingService,
-    p_cert_number: certNumber,
-    p_gemrate_id: gemrateId,
-    p_image_url: imageUrl,
-    p_image_storage_path: imageStoragePath,
-  });
+  const rpcName = stockSkuId
+    ? "adjust_stock_sku_units"
+    : "adjust_card_stock_units";
+  const adjustment = stockSkuId
+    ? await supabase.rpc("adjust_stock_sku_units", {
+        p_stock_sku_id: stockSkuId,
+        p_quantity_delta: delta,
+        p_admin_id: admin.adminId,
+        p_source_type: reason,
+        p_source_id: sourceId,
+        p_metadata: {
+          adjustedByAdminId: admin.adminId,
+          reason,
+          sourceId,
+          stockSkuId,
+          stockUnitGroupKey: stockUnitGroupKey || null,
+        } satisfies Json,
+        p_condition: condition,
+        p_grade: grade,
+        p_grading_service: gradingService,
+        p_cert_number: certNumber,
+        p_gemrate_id: gemrateId,
+        p_image_url: imageUrl,
+        p_image_storage_path: imageStoragePath,
+      })
+    : await supabase.rpc("adjust_card_stock_units", {
+        p_card_id: cardId,
+        p_quantity_delta: delta,
+        p_admin_id: admin.adminId,
+        p_source_type: reason,
+        p_source_id: sourceId,
+        p_metadata: {
+          adjustedByAdminId: admin.adminId,
+          reason,
+          sourceId,
+          stockUnitGroupKey: stockUnitGroupKey || null,
+        } satisfies Json,
+        p_condition: condition,
+        p_grade: grade,
+        p_grading_service: gradingService,
+        p_cert_number: certNumber,
+        p_gemrate_id: gemrateId,
+        p_image_url: imageUrl,
+        p_image_storage_path: imageStoragePath,
+      });
+  const { data, error } = adjustment;
 
   if (error) {
-    if (isMissingFunctionError(error, "adjust_card_stock_units")) {
+    if (isMissingFunctionError(error, rpcName)) {
       return randomPackSchemaMissingResponse();
     }
     return mappedAdminErrorResponse(error, cardStockErrorMap, {
       code: "CARD_STOCK_ADJUST_FAILED",
-      error: "Global stock could not be adjusted.",
+      error: "Main SKU stock could not be adjusted.",
       status: 409,
     });
   }
@@ -202,6 +250,7 @@ export async function POST(request: Request) {
       quantityDelta: delta,
       reason,
       sourceId,
+      stockSkuId,
       stockUnitGroupKey: stockUnitGroupKey || null,
     },
   });

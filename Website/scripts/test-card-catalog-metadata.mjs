@@ -31,7 +31,7 @@ function plain(value) {
 test("exposes the requested catalog dropdown options", () => {
   assert.deepEqual(
     plain(metadata.catalogCategoryOptions.map((option) => option.label)),
-    ["Single Cards", "Packs", "Boxes", "Cases", "Sets", "Supplies"],
+    ["Single Cards", "Packs", "Boxes", "Cases", "Sets", "Sealed", "Supplies"],
   );
   assert.deepEqual(
     plain(metadata.cardConditionOptions.map((option) => option.label)),
@@ -87,6 +87,8 @@ test("treats catalog categories as managed free text with built-in canonicalizat
 
   // catalogCategoryValue collapses built-ins to their slug, custom passes through.
   assert.equal(metadata.catalogCategoryValue("Boxes"), "boxes");
+  assert.equal(metadata.catalogCategoryValue("Sealed"), "sealed");
+  assert.equal(metadata.catalogCategoryLabel("sealed"), "Sealed");
   assert.equal(metadata.catalogCategoryValue("Promo Box"), "Promo Box");
 
   // Labels display nicely for built-ins (slug or label) and verbatim for custom.

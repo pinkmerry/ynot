@@ -547,7 +547,7 @@ checkText(
 check("src/features/ynot/client.tsx", "admin campaign form blocks global stock shortage before save", /buildPrizeStockShortages[\s\S]*stockShortageBlockers[\s\S]*Global stock[\s\S]*disabled=\{isPending \|\| prizeBlockers\.length > 0\}/);
 check("src/features/ynot/client.tsx", "all packs submit owner review button disables on readiness blocker", /const reviewBlocker = campaign\.readinessBlockers\?\.\[0\][\s\S]*Boolean\(reviewBlocker\)[\s\S]*Submit owner review/);
 check("src/app/api/ynot/admin/cards/route.ts", "admin card API is admin gated", /resolveAdminSession[\s\S]*Admin access is required/);
-check("src/app/api/ynot/admin/cards/route.ts", "admin card API requires duplicate confirmation and blocks ambiguous name-only overwrite", /CARD_ALREADY_EXISTS[\s\S]*CARD_DUPLICATE_NAME_AMBIGUOUS[\s\S]*!booleanValue\(body\.confirmOverwrite\)/);
+check("src/app/api/ynot/admin/cards/route.ts", "admin card API creates duplicate-name cards without ambiguous overwrite", /Duplicate product names \/ model codes are allowed[\s\S]*every create inserts a NEW card[\s\S]*use "Edit card" \(PATCH\) which targets it by id/);
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API assigns draw_round_prizes through live rank allocation", /resolveAdminSession[\s\S]*resolvePrizeRank[\s\S]*from\("draw_round_prizes"\)[\s\S]*(?:insert|update)\(rowPatch\)/);
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API persists category metadata", /metadataValue[\s\S]*prizeCategory[\s\S]*sourceType[\s\S]*displayGroup[\s\S]*metadata,/);
 check("src/app/api/ynot/admin/users/route.ts", "admin users API restricts all role changes to owners", /admin\.adminRole !== "owner"[\s\S]*Only an owner can manage admin roles[\s\S]*from\("admin_users"\)\.upsert/);

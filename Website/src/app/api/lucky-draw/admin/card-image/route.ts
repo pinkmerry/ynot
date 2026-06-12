@@ -1,15 +1,15 @@
 import { getActiveDraw, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { allowedSlipTypes, maxSlipBytes, verifyImageMagicBytes, type VerifiedImageContentType } from "@/lib/uploads/magic-bytes";
+import {
+  allowedVisualAssetTypes,
+  declaredVisualAssetTypeLooksSupported,
+  extensionForVerifiedImage,
+  maxSlipBytes,
+  verifyImageMagicBytes,
+} from "@/lib/uploads/magic-bytes";
 
 const bucketName = "lucky-draw-assets";
-
-function extensionFor(type: VerifiedImageContentType) {
-  if (type === "image/png") return "png";
-  if (type === "image/webp") return "webp";
-  return "jpg";
-}
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
@@ -27,8 +27,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "Card image file is required." }, { status: 400 });
   }
 
-  if (!allowedSlipTypes.has(file.type)) {
-    return Response.json({ error: "Card image must be JPG, PNG, or WEBP." }, { status: 400 });
+  if (!declaredVisualAssetTypeLooksSupported(file.type)) {
+    return Response.json({ error: "Card image must be JPG, PNG, WEBP, or AVIF." }, { status: 400 });
   }
 
   if (file.size > maxSlipBytes) {
@@ -40,13 +40,17 @@ export async function POST(request: Request) {
     return Response.json({ error: magicCheck.error }, { status: 400 });
   }
 
+  if (!allowedVisualAssetTypes.has(magicCheck.contentType)) {
+    return Response.json({ error: "Card image must be JPG, PNG, WEBP, or AVIF." }, { status: 400 });
+  }
+
   const supabase = createServiceSupabaseClient();
   const activeDraw = await getActiveDraw(supabase);
   if (!activeDraw) {
     return Response.json({ error: "No draw round exists yet." }, { status: 404 });
   }
 
-  const path = `card-images/${activeDraw.id}/${Date.now()}.${extensionFor(magicCheck.contentType)}`;
+  const path = `card-images/${activeDraw.id}/${Date.now()}.${extensionForVerifiedImage(magicCheck.contentType)}`;
   const { error: uploadError } = await supabase.storage.from(bucketName).upload(path, file, {
     contentType: magicCheck.contentType,
     upsert: false,

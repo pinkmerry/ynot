@@ -11,7 +11,10 @@ import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { getCardCatalog, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { isMissingColumnError } from "@/lib/supabase/schema-compat";
+import {
+  isMissingColumnError,
+  isMissingFunctionError,
+} from "@/lib/supabase/schema-compat";
 import type { Database } from "@/lib/supabase/types";
 import { collectionItemActionToken } from "@/lib/ynot/collection-action-tokens";
 import { paymentMethodActionToken } from "@/lib/ynot/payment-method-action-tokens";
@@ -27,9 +30,14 @@ import type {
   YnotExchangeOrder,
   YnotGachaOpenHistory,
   YnotLastPrizePreview,
+  YnotLivePackMonitor,
+  YnotLivePackRevisionStatus,
+  YnotLivePackRevisionReview,
   YnotOwnerApprovalRequest,
+  YnotPackMonitor,
   YnotPaymentMethod,
   YnotPlatformHealth,
+  YnotPrizeUnitIdentityMismatch,
   YnotPrizePoolItem,
   YnotPrizePreview,
   YnotRandomLogicMode,
@@ -60,6 +68,7 @@ import {
   stockUnitGroupKey,
   stockSkuGroupsFromSummaryRows,
   stockUnitSku,
+  normalizePrizeUnitIdentityMismatches,
   type StockSkuSummaryRow,
   type StockSkuUsageDetail,
 } from "./stock-sku-usage";
@@ -74,6 +83,10 @@ import { normalizeBundleQuantity, publicBundleQuantity } from "./bundle-quantity
 import { getProfileAddresses } from "./server-addresses";
 
 const dataIssueStorage = new AsyncLocalStorage<YnotDataIssue[]>();
+const DRAW_ROUND_CATEGORY_LINK_SELECT = "draw_round_id,category_id";
+const AUDIT_EVENT_TIMELINE_SELECT = "id,event_type,metadata,created_at";
+const SHIPPING_AUDIT_EVENT_TIMELINE_SELECT =
+  `${AUDIT_EVENT_TIMELINE_SELECT},shipping_request_id`;
 
 type CardStockSummaryRow = {
   cardId: string;
@@ -133,21 +146,90 @@ function cardStockSubSkuSummariesFromJson(value: unknown): StockSkuSummaryRow[] 
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
     if (!isRecord(item) || typeof item.cardId !== "string") return [];
+    const imageUrl =
+      optionalStringValue(item.imageUrl) ??
+      optionalStringValue(item.sampleUnitImageUrl) ??
+      null;
     return [
       {
         cardId: item.cardId,
+        stockSkuId: optionalStringValue(item.stockSkuId) ?? null,
+        sourceStockSkuId: optionalStringValue(item.sourceStockSkuId) ?? null,
+        stockUnitGroupKey: optionalStringValue(item.stockUnitGroupKey) ?? null,
+        legacyStockUnitGroupKey:
+          typeof item.legacyStockUnitGroupKey === "boolean"
+            ? item.legacyStockUnitGroupKey
+            : optionalStringValue(item.legacyStockUnitGroupKey) ?? null,
         sampleUnitId: typeof item.sampleUnitId === "string" ? item.sampleUnitId : null,
+        sku: optionalStringValue(item.sku) ?? null,
+        label: optionalStringValue(item.label) ?? null,
+        unitKind: optionalStringValue(item.unitKind) ?? null,
         condition: typeof item.condition === "string" ? item.condition : null,
         grade: typeof item.grade === "string" ? item.grade : null,
         gradingService:
           typeof item.gradingService === "string" ? item.gradingService : null,
         certNumber: typeof item.certNumber === "string" ? item.certNumber : null,
         gemrateId: typeof item.gemrateId === "string" ? item.gemrateId : null,
-        imageUrl: typeof item.imageUrl === "string" ? item.imageUrl : null,
+        imageUrl,
+        sampleUnitImageUrl: optionalStringValue(item.sampleUnitImageUrl) ?? null,
+        imageStoragePath: optionalStringValue(item.imageStoragePath) ?? null,
         totalUnits: numericValue(item.totalUnits),
         availableUnits: numericValue(item.availableUnits),
         reservedUnits: numericValue(item.reservedUnits),
         allocatedUnits: numericValue(item.allocatedUnits),
+        archivedUnits: numericValue(item.archivedUnits),
+        packEquivalent: optionalNumericValue(item.packEquivalent) ?? null,
+        availablePackEquivalent:
+          optionalNumericValue(item.availablePackEquivalent) ?? null,
+        conversionRuleId: optionalStringValue(item.conversionRuleId) ?? null,
+        childStockSkuId: optionalStringValue(item.childStockSkuId) ?? null,
+        childSku: optionalStringValue(item.childSku) ?? null,
+        childLabel: optionalStringValue(item.childLabel) ?? null,
+        childQuantity: optionalNumericValue(item.childQuantity) ?? null,
+      },
+    ];
+  });
+}
+
+function cardStockSubSkuSummariesFromPrizeStockJson(
+  value: unknown,
+): StockSkuSummaryRow[] {
+  if (!isRecord(value)) return [];
+  return cardStockSubSkuSummariesFromJson(value.subSkuSummaries);
+}
+
+function optionalStringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function monitorPrizeStatsFromJson(value: unknown): MonitorPrizeStats[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item) || typeof item.prizeId !== "string") return [];
+    const winners = Array.isArray(item.winners)
+      ? item.winners.flatMap((winner) => {
+          if (!isRecord(winner)) return [];
+          return [
+            {
+              status: optionalStringValue(winner.status) ?? "awarded",
+              openedAt: optionalStringValue(winner.openedAt),
+              ownerLabel: optionalStringValue(winner.ownerLabel),
+              ownerEmail: optionalStringValue(winner.ownerEmail),
+              ownerLineUserId: optionalStringValue(winner.ownerLineUserId),
+              publicOpenCode: optionalStringValue(winner.publicOpenCode),
+            },
+          ];
+        })
+      : [];
+
+    return [
+      {
+        prizeId: item.prizeId,
+        totalUnits: numericValue(item.totalUnits),
+        remainingUnits: numericValue(item.remainingUnits),
+        outUnits: numericValue(item.outUnits),
+        updatedAt: optionalStringValue(item.updatedAt),
+        winners,
       },
     ];
   });
@@ -176,6 +258,8 @@ type InventorySummary = {
   remainingSlots?: number;
   totalUnits?: number;
   availableUnits?: number;
+  availableWinSlots?: number;
+  eligibleUnits?: number;
   awardedUnits?: number;
   voidUnits?: number;
 };
@@ -233,6 +317,8 @@ function inventorySummariesFromJson(value: unknown): InventorySummary[] {
         remainingSlots: optionalNumericValue(item.remainingSlots),
         totalUnits: optionalNumericValue(item.totalUnits) ?? 0,
         availableUnits: optionalNumericValue(item.availableUnits) ?? 0,
+        availableWinSlots: optionalNumericValue(item.availableWinSlots),
+        eligibleUnits: optionalNumericValue(item.eligibleUnits),
         awardedUnits: optionalNumericValue(item.awardedUnits) ?? 0,
         voidUnits: optionalNumericValue(item.voidUnits) ?? 0,
       },
@@ -344,6 +430,7 @@ type PrizePoolStockUnitRow = Pick<
   Database["public"]["Tables"]["card_stock_units"]["Row"],
   | "id"
   | "card_id"
+  | "stock_sku_id"
   | "condition"
   | "grade"
   | "grading_service"
@@ -353,10 +440,33 @@ type PrizePoolStockUnitRow = Pick<
   | "status"
 >;
 
+type PrizePoolStockSkuRow = Pick<
+  Database["public"]["Tables"]["stock_skus"]["Row"],
+  "id" | "sku_code" | "label"
+>;
+
 type PrizePoolUnitRow = Pick<
   Database["public"]["Tables"]["draw_round_prize_units"]["Row"],
   "card_stock_unit_id" | "draw_round_prize_id" | "status"
 >;
+
+type PrizeUnitIdentityMismatch = YnotPrizeUnitIdentityMismatch;
+type PrizeUnitIdentityMismatchResult = {
+  mismatches: PrizeUnitIdentityMismatch[];
+  failed: boolean;
+};
+
+type MonitorPrizeRow =
+  Database["public"]["Tables"]["draw_round_prizes"]["Row"];
+
+type MonitorPrizeStats = {
+  prizeId: string;
+  totalUnits: number;
+  remainingUnits: number;
+  outUnits: number;
+  updatedAt?: string | null;
+  winners: YnotPackMonitor["prizes"][number]["winners"];
+};
 
 type PrizeUnitCounts = {
   total: number;
@@ -434,6 +544,7 @@ function cardForStockSku(card: PrizePoolCardRow): CardCatalogItem {
 function stockUnitForSku(unit: PrizePoolStockUnitRow) {
   return {
     id: unit.id,
+    stockSkuId: unit.stock_sku_id ?? null,
     condition: unit.condition,
     grade: unit.grade,
     gradingService: unit.grading_service,
@@ -447,7 +558,9 @@ function stockUnitForSku(unit: PrizePoolStockUnitRow) {
 function prizePoolStockUnitUsages(
   prizeUnits: PrizePoolUnitRow[],
   stockUnitById: Map<string, PrizePoolStockUnitRow>,
+  stockSkuById: Map<string, PrizePoolStockSkuRow>,
   cardById: Map<string, PrizePoolCardRow>,
+  prizeCardIdByPrizeId: Map<string, string>,
 ) {
   const usageByPrize = new Map<string, Map<string, StockSkuUsageDetail>>();
   for (const prizeUnit of prizeUnits) {
@@ -457,7 +570,12 @@ function prizePoolStockUnitUsages(
     const card = cardById.get(stockUnit.card_id);
     if (!card) continue;
     const displayUnit = stockUnitForSku(stockUnit);
-    const groupKey = stockUnitGroupKey(displayUnit);
+    const groupKey = stockUnit.stock_sku_id
+      ? `stock-sku:${stockUnit.stock_sku_id}`
+      : stockUnitGroupKey(displayUnit);
+    const stockSku = stockUnit.stock_sku_id
+      ? stockSkuById.get(stockUnit.stock_sku_id)
+      : null;
     const prizeUsage =
       usageByPrize.get(prizeUnit.draw_round_prize_id) ??
       new Map<string, StockSkuUsageDetail>();
@@ -465,8 +583,12 @@ function prizePoolStockUnitUsages(
       prizeUsage.get(groupKey) ??
       ({
         groupKey,
-        sku: stockUnitSku(cardForStockSku(card), displayUnit),
-        label: stockUnitDisplayLabel(displayUnit),
+        sku: stockSku?.sku_code ?? stockUnitSku(cardForStockSku(card), displayUnit),
+        label: stockSku?.label ?? stockUnitDisplayLabel(displayUnit),
+        actualStockCardId: stockUnit.card_id,
+        actualStockSkuId: stockUnit.stock_sku_id ?? null,
+        identityMismatch:
+          stockUnit.card_id !== prizeCardIdByPrizeId.get(prizeUnit.draw_round_prize_id),
         totalUnits: 0,
         availableUnits: 0,
         awardedUnits: 0,
@@ -508,12 +630,111 @@ async function readSupabaseRows<T>(
   }
 }
 
+async function getPrizeUnitIdentityMismatches(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  campaignId: string,
+): Promise<PrizeUnitIdentityMismatchResult> {
+  try {
+    const rpc = supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => PromiseLike<{ data: unknown; error: unknown }>;
+    const { data, error } = await rpc(
+      "get_draw_round_prize_unit_identity_mismatches",
+      { p_draw_round_id: campaignId },
+    );
+    if (error) {
+      recordDataIssue("prize_unit_identity_mismatches", error);
+      return { mismatches: [], failed: true };
+    }
+    return {
+      mismatches: normalizePrizeUnitIdentityMismatches(data),
+      failed: false,
+    };
+  } catch (error) {
+    recordDataIssue("prize_unit_identity_mismatches", error);
+    return { mismatches: [], failed: true };
+  }
+}
+
+async function getPrizeUnitIdentityMismatchesByCampaign(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  campaignIds: string[],
+): Promise<Map<string, PrizeUnitIdentityMismatchResult>> {
+  const out = new Map<string, PrizeUnitIdentityMismatchResult>();
+  const uniqueCampaignIds = [...new Set(campaignIds.filter(Boolean))];
+  if (!uniqueCampaignIds.length) return out;
+  await Promise.all(
+    uniqueCampaignIds.map(async (campaignId) => {
+      out.set(
+        campaignId,
+        await getPrizeUnitIdentityMismatches(supabase, campaignId),
+      );
+    }),
+  );
+  return out;
+}
+
+async function readPrizePoolStockUnitRows(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  stockUnitIds: string[],
+): Promise<PrizePoolStockUnitRow[]> {
+  const fullSelect =
+    "id,card_id,stock_sku_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status";
+  const legacySelect =
+    "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status";
+  try {
+    const { data, error } = await supabase
+      .from("card_stock_units")
+      .select(fullSelect)
+      .in("id", stockUnitIds);
+    if (!error) return data ?? [];
+    if (!isMissingColumnError(error, "stock_sku_id")) {
+      recordDataIssue("prize_pool_stock_unit_identities", error);
+      return [];
+    }
+  } catch (error) {
+    if (!isMissingColumnError(error, "stock_sku_id")) {
+      recordDataIssue("prize_pool_stock_unit_identities", error);
+      return [];
+    }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("card_stock_units")
+      .select(legacySelect)
+      .in("id", stockUnitIds);
+    if (error) {
+      recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
+      return [];
+    }
+    return (data ?? []).map((unit) => ({ ...unit, stock_sku_id: null }));
+  } catch (error) {
+    recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
+    return [];
+  }
+}
+
+async function readPrizePoolStockSkuRows(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  stockSkuIds: string[],
+): Promise<PrizePoolStockSkuRow[]> {
+  if (!stockSkuIds.length) return [];
+  return readSupabaseRows<PrizePoolStockSkuRow>("prize_pool_stock_skus", () =>
+    supabase
+      .from("stock_skus")
+      .select("id,sku_code,label")
+      .in("id", stockSkuIds),
+  );
+}
+
 async function readPrizeUnitImageUrlsByPrizeId(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
-  prizeIds: string[],
+  prizes: Array<{ id: string; draw_round_id: string }>,
   label: string,
 ) {
-  if (!prizeIds.length) return new Map<string, string>();
+  if (!prizes.length) return new Map<string, string>();
   // Resolve ONE representative image per prize straight from the stock units
   // allocated to each prize, fetching ONLY units that actually carry an image.
   // Going via every prize unit instead pulled the round's whole slot table —
@@ -521,37 +742,49 @@ async function readPrizeUnitImageUrlsByPrizeId(
   // inflated the worker's CPU/memory toward the Cloudflare 1102 "exceeded resource
   // limits" failure (and, when collected into one IN(...), a 400 from URL length).
   // The image-bearing allocated units are a small set, fetched in bounded batches.
+  // Query by draw round as well as prize id so Postgres can use the existing
+  // (allocated_draw_round_id, allocated_draw_round_prize_id) index.
   const out = new Map<string, string>();
   const PRIZE_BATCH = 150;
-  for (let i = 0; i < prizeIds.length; i += PRIZE_BATCH) {
-    const batch = prizeIds.slice(i, i + PRIZE_BATCH);
-    const rows = await readSupabaseRows<{
-      allocated_draw_round_prize_id: string | null;
-      image_url: string | null;
-    }>(
-      `${label}_allocated_images`,
-      () =>
-        supabase
-          .from("card_stock_units")
-          .select("allocated_draw_round_prize_id,image_url")
-          .in("allocated_draw_round_prize_id", batch)
-          .not("image_url", "is", null),
-    );
-    for (const row of rows) {
-      const prizeId = row.allocated_draw_round_prize_id;
-      const img =
-        typeof row.image_url === "string" && row.image_url.trim()
-          ? row.image_url.trim()
-          : null;
-      if (prizeId && img && !out.has(prizeId)) out.set(prizeId, img);
+  const prizeIdsByRound = new Map<string, string[]>();
+  for (const prize of prizes) {
+    const ids = prizeIdsByRound.get(prize.draw_round_id) ?? [];
+    ids.push(prize.id);
+    prizeIdsByRound.set(prize.draw_round_id, ids);
+  }
+  for (const [drawRoundId, prizeIds] of prizeIdsByRound) {
+    for (let i = 0; i < prizeIds.length; i += PRIZE_BATCH) {
+      const batch = prizeIds.slice(i, i + PRIZE_BATCH);
+      const rows = await readSupabaseRows<{
+        allocated_draw_round_prize_id: string | null;
+        image_url: string | null;
+      }>(
+        `${label}_allocated_images`,
+        () =>
+          supabase
+            .from("card_stock_units")
+            .select("allocated_draw_round_prize_id,image_url")
+            .eq("allocated_draw_round_id", drawRoundId)
+            .in("allocated_draw_round_prize_id", batch)
+            .not("image_url", "is", null),
+      );
+      for (const row of rows) {
+        const prizeId = row.allocated_draw_round_prize_id;
+        const img =
+          typeof row.image_url === "string" && row.image_url.trim()
+            ? row.image_url.trim()
+            : null;
+        if (prizeId && img && !out.has(prizeId)) out.set(prizeId, img);
+      }
     }
   }
   return out;
 }
 
-// Last One Prize is stored on draw_rounds, not in draw_round_prizes. It counts
-// as the final reward slot, but this preview remains display-only: resolve the
-// chosen sub-SKU image without exposing the private filter metadata.
+// Last One Prize is stored on draw_rounds, not in draw_round_prizes. It is a
+// bonus for the final opener (on top of their normal pull), and this preview
+// remains display-only: resolve the chosen sub-SKU image without exposing the
+// private filter metadata.
 async function resolveLastPrizePreview(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   row: DrawRoundRow,
@@ -755,7 +988,7 @@ async function getPublicPrizeLineupsBatch(
   const cardById = new Map(cards.map((card) => [card.id, card]));
   const prizeImageByPrizeId = await readPrizeUnitImageUrlsByPrizeId(
     supabase,
-    allVisible.map((prize) => prize.id),
+    allVisible,
     "campaign_prize_lineup_images",
   );
   const lineupPreviewImageByCardId = await readCardRepresentativeImages(
@@ -869,7 +1102,7 @@ async function getPublicPrizeLineup(
   const cardById = new Map(cards.map((card) => [card.id, card]));
   const prizeImageByPrizeId = await readPrizeUnitImageUrlsByPrizeId(
     supabase,
-    visiblePrizes.map((prize) => prize.id),
+    visiblePrizes,
     "campaign_detail_prize_lineup_images",
   );
   const lineupPreviewImageByCardId = await readCardRepresentativeImages(
@@ -964,7 +1197,14 @@ function toYnotCampaign(
   inventory?: InventorySummary,
   prizeLineup?: YnotPrizePreview[],
   readiness?: CampaignPrizeReadiness | null,
+  identityMismatchResult: PrizeUnitIdentityMismatchResult = {
+    mismatches: [],
+    failed: false,
+  },
 ): YnotCampaign {
+  const identityMismatches = identityMismatchResult.mismatches;
+  const identityMismatchCheckFailed =
+    identityMismatchResult.failed || readiness?.identityMismatchCheckFailed || false;
   const approvalStatus = normalizeApprovalStatus(
     row.approval_status,
     inferredApprovalStatus(row.status),
@@ -980,7 +1220,8 @@ function toYnotCampaign(
   const materializedTotalUnits =
     inventory?.totalUnits === undefined ? undefined : inventory.totalUnits;
   const materializedAvailableUnits =
-    inventory?.availableUnits === undefined ? undefined : inventory.availableUnits;
+    inventory?.availableWinSlots ??
+    (inventory?.availableUnits === undefined ? undefined : inventory.availableUnits);
   const remainingSlots = readiness?.remainingSlots ?? inventory?.remainingSlots;
   const availablePrizeUnits =
     readiness?.availablePrizeUnits ??
@@ -989,6 +1230,7 @@ function toYnotCampaign(
     inventory?.availableUnits;
   const eligiblePrizeUnits =
     readiness?.eligiblePrizeUnits ??
+    inventory?.eligibleUnits ??
     (approvalStatus === "pending_review" ? availablePrizeUnits : undefined);
   const soldOut =
     readiness?.soldOut ??
@@ -1008,7 +1250,7 @@ function toYnotCampaign(
     !adminRemoved &&
     !soldOut &&
     hasOpenableInventory;
-  return {
+  const campaign = {
     id: row.id,
     slug: row.slug,
     status: row.status,
@@ -1033,6 +1275,10 @@ function toYnotCampaign(
     awardedPrizeUnits: inventory?.awardedUnits,
     voidPrizeUnits: inventory?.voidUnits,
     readinessBlockers: readiness?.blockers,
+    identityMismatchCount:
+      identityMismatches.length || readiness?.identityMismatchCount || 0,
+    identityMismatches,
+    identityMismatchCheckFailed: identityMismatchCheckFailed || undefined,
     openable,
     soldOut,
     adminRemoved,
@@ -1068,7 +1314,12 @@ function toYnotCampaign(
       typeof row.convert_deadline_days === "number" && row.convert_deadline_days > 0
         ? row.convert_deadline_days
         : null,
+  } satisfies YnotCampaign & {
+    identityMismatchCount: number;
+    identityMismatches: PrizeUnitIdentityMismatch[];
+    identityMismatchCheckFailed?: boolean;
   };
+  return campaign;
 }
 
 function publicPrizePreview(prize: YnotPrizePreview, index: number): YnotPrizePreview {
@@ -1115,6 +1366,8 @@ function publicYnotCampaign(campaign: YnotCampaign): YnotCampaign {
     startsAt: campaign.startsAt,
     endsAt: campaign.endsAt,
     remainingSlots: campaign.remainingSlots,
+    availablePrizeUnits: campaign.availablePrizeUnits,
+    eligiblePrizeUnits: campaign.eligiblePrizeUnits,
     openable: campaign.openable,
     soldOut: campaign.soldOut,
     categorySlugs: campaign.categorySlugs,
@@ -1509,6 +1762,56 @@ type CampaignQueryOptions = {
   campaignIdOrSlug?: string;
 };
 
+const ACTIVE_LIVE_REVISION_STATUSES = ["pending_review", "approved"] as const;
+
+type LiveRevisionStatusRow = {
+  draw_round_id: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  reviewed_at: string | null;
+};
+
+function livePackRevisionStatusFromRow(
+  row: LiveRevisionStatusRow,
+): YnotLivePackRevisionStatus {
+  return {
+    campaignId: row.draw_round_id,
+    status:
+      row.status === "approved" ||
+      row.status === "rejected" ||
+      row.status === "published" ||
+      row.status === "cancelled"
+        ? row.status
+        : "pending_review",
+    requestedAt: row.created_at,
+    updatedAt: row.updated_at,
+    reviewedAt: row.reviewed_at,
+  };
+}
+
+async function getLivePackRevisionStatusMap(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  campaignIds: string[],
+): Promise<Map<string, YnotLivePackRevisionStatus>> {
+  const uniqueIds = [...new Set(campaignIds)];
+  if (!uniqueIds.length) return new Map();
+  const { data, error } = await supabase
+    .from("draw_round_live_revisions")
+    .select("draw_round_id,status,created_at,updated_at,reviewed_at")
+    .in("draw_round_id", uniqueIds)
+    .in("status", ACTIVE_LIVE_REVISION_STATUSES)
+    .order("updated_at", { ascending: false });
+  if (error) throw error;
+  const byCampaign = new Map<string, YnotLivePackRevisionStatus>();
+  for (const row of (data ?? []) as LiveRevisionStatusRow[]) {
+    if (!byCampaign.has(row.draw_round_id)) {
+      byCampaign.set(row.draw_round_id, livePackRevisionStatusFromRow(row));
+    }
+  }
+  return byCampaign;
+}
+
 async function getCampaignsImpl(
   options: CampaignQueryOptions = {},
 ): Promise<YnotCampaign[]> {
@@ -1564,13 +1867,13 @@ async function getCampaignsImpl(
       (row) => options.includePrivate || row.is_test !== true,
     );
     const campaignIds = rows.map((row) => row.id);
-    const [categories, categoryLinks, inventoryRows] = await Promise.all([
+    const [categories, categoryLinks, inventoryRows, liveRevisionStatuses] = await Promise.all([
       getStoreCategories({ includeTest: Boolean(options.includePrivate) }),
       readOrEmpty("campaign_categories", async () => {
         if (!campaignIds.length) return [];
         const { data: links, error: linksError } = await supabase
           .from("draw_round_categories")
-          .select("*")
+          .select(DRAW_ROUND_CATEGORY_LINK_SELECT)
           .in("draw_round_id", campaignIds);
         if (linksError) throw linksError;
         return links ?? [];
@@ -1589,6 +1892,12 @@ async function getCampaignsImpl(
         if (inventoryError) throw inventoryError;
         return inventorySummariesFromJson(inventory);
       }),
+      options.includePrivate
+        ? getLivePackRevisionStatusMap(supabase, campaignIds).catch((error) => {
+            recordDataIssue("campaign_live_revision_status", error);
+            return new Map<string, YnotLivePackRevisionStatus>();
+          })
+        : Promise.resolve(new Map<string, YnotLivePackRevisionStatus>()),
     ]);
     const categoriesById = new Map(
       categories.map((category) => [category.id, category]),
@@ -1610,6 +1919,7 @@ async function getCampaignsImpl(
               return await getCampaignPrizeReadiness(supabase, campaignId, {
                 row: rowById.get(campaignId),
                 inventory: inventoryByCampaign.get(campaignId),
+                includeIdentityMismatches: options.includePrivate,
               });
             } catch (error) {
               recordDataIssue("campaign_prize_readiness", error);
@@ -1626,6 +1936,9 @@ async function getCampaignsImpl(
         )
         .map((readiness) => [readiness.campaignId, readiness]),
     );
+    const identityMismatchesByCampaign = options.includePrivate
+      ? await getPrizeUnitIdentityMismatchesByCampaign(supabase, campaignIds)
+      : new Map<string, PrizeUnitIdentityMismatchResult>();
 
     let prizeLineupsByCampaign = new Map<string, YnotPrizePreview[]>();
     if (options.includePrivate && includePrizeLineups) {
@@ -1678,7 +1991,15 @@ async function getCampaignsImpl(
         inventory,
         prizeLineupsByCampaign.get(row.id),
         readinessByCampaign.get(row.id),
+        identityMismatchesByCampaign.get(row.id),
       );
+      const liveRevision = liveRevisionStatuses.get(row.id);
+      if (liveRevision) {
+        campaign.liveRevisionStatus = liveRevision.status;
+        campaign.liveRevisionRequestedAt = liveRevision.requestedAt;
+        campaign.liveRevisionUpdatedAt = liveRevision.updatedAt;
+        campaign.liveRevisionReviewedAt = liveRevision.reviewedAt;
+      }
       return options.includePrivate ? campaign : publicYnotCampaign(campaign);
     });
     return options.includePrivate
@@ -1832,7 +2153,7 @@ async function loadPublicCampaignDetailImpl(
     readOrEmpty("campaign_detail_public_categories", async () => {
       const { data: links, error: linksError } = await supabase
         .from("draw_round_categories")
-        .select("*")
+        .select(DRAW_ROUND_CATEGORY_LINK_SELECT)
         .eq("draw_round_id", row.id);
       if (linksError) throw linksError;
       return links ?? [];
@@ -1892,6 +2213,191 @@ const getPublicCampaignDetailCached = (slug: string): Promise<YnotCampaign | nul
     ["ynot-campaign-detail-public-v2", slug],
     { tags: ["campaigns", "campaign-detail"], revalidate: 30 },
   )();
+
+const OPEN_CAMPAIGN_SELECT = [
+  "id",
+  "slug",
+  "status",
+  "approval_status",
+  "logic_snapshot",
+  "series",
+  "title_th",
+  "title_en",
+  "price_thb",
+  "total_slots",
+  "last_prize_card_id",
+  "banner_image_url",
+  "mode",
+  "cost_coins",
+  "visibility",
+  "starts_at",
+  "ends_at",
+  "is_test",
+  "test_metadata",
+  "convert_deadline_days",
+].join(",");
+
+type OpenCampaignRow = Pick<
+  DrawRoundRow,
+  | "id"
+  | "slug"
+  | "status"
+  | "approval_status"
+  | "logic_snapshot"
+  | "series"
+  | "title_th"
+  | "title_en"
+  | "price_thb"
+  | "total_slots"
+  | "last_prize_card_id"
+  | "banner_image_url"
+  | "mode"
+  | "cost_coins"
+  | "visibility"
+  | "starts_at"
+  | "ends_at"
+  | "is_test"
+  | "test_metadata"
+  | "convert_deadline_days"
+>;
+
+function toOpenRevealCampaign(
+  row: OpenCampaignRow,
+  inventory?: InventorySummary,
+): YnotCampaign {
+  const approvalStatus = normalizeApprovalStatus(
+    row.approval_status,
+    inferredApprovalStatus(row.status),
+  );
+  const remainingSlots = inventory?.remainingSlots ?? row.total_slots;
+  const logicMode = normalizeRandomLogicMode(row.logic_snapshot);
+  const availablePrizeUnits =
+    inventory?.availableWinSlots ?? inventory?.availableUnits ?? 0;
+  const eligiblePrizeUnits = inventory?.eligibleUnits;
+  const hasOpenableInventory =
+    eligiblePrizeUnits === undefined
+      ? logicMode === "inventory_gated"
+        ? false
+        : availablePrizeUnits > 0
+      : eligiblePrizeUnits > 0;
+  const soldOut = remainingSlots <= 0 || availablePrizeUnits <= 0;
+  const adminRemoved = isOwnerRemoved(row.test_metadata);
+  const openable =
+    row.status === "live" &&
+    row.visibility === "public" &&
+    approvalStatus === "approved" &&
+    !adminRemoved &&
+    !soldOut &&
+    hasOpenableInventory;
+
+  return {
+    id: row.slug,
+    slug: row.slug,
+    status: row.status,
+    approvalStatus,
+    titleTh: row.title_th,
+    titleEn: row.title_en,
+    series: row.series,
+    priceThb: row.price_thb,
+    costCoins: row.cost_coins ?? Math.max(1, Math.ceil(row.price_thb / 100)),
+    mode: row.mode,
+    visibility: row.visibility,
+    totalSlots: row.total_slots,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    remainingSlots,
+    availablePrizeUnits,
+    eligiblePrizeUnits,
+    logicMode,
+    openable,
+    soldOut,
+    bannerImageUrl: row.banner_image_url ?? null,
+    openQuantityOptions: normalizeOpenQuantityOptions(row.logic_snapshot),
+    convertDeadlineDays:
+      typeof row.convert_deadline_days === "number" &&
+      row.convert_deadline_days > 0
+        ? row.convert_deadline_days
+        : null,
+    hasLastPrize: Boolean(row.last_prize_card_id),
+  };
+}
+
+export async function getOpenCampaignForReveal(
+  campaignIdOrSlug: string,
+  viewer: YnotViewer,
+) {
+  const campaignLookup = campaignIdOrSlug.trim();
+  if (!campaignLookup) return null;
+  if (!isSupabaseConfigured()) {
+    return (
+      (allowDemoStorefront()
+        ? featuredCampaigns.find(
+            (campaign) => campaign.slug === campaignLookup,
+          )
+        : undefined) ?? null
+    );
+  }
+
+  const supabase = createServiceSupabaseClient();
+  return readOrEmpty("open_campaign_for_reveal", async () => {
+    const includePrivateDetail = viewer.isAdmin;
+    const rawCampaignLookup = looksLikeUuid(campaignLookup);
+    if (rawCampaignLookup && !includePrivateDetail) return [];
+    const loadRow = (requireApproval: boolean) => {
+      let query = supabase
+        .from("draw_rounds")
+        .select(OPEN_CAMPAIGN_SELECT)
+        .limit(1);
+      query = includePrivateDetail
+        ? query.in("status", ["live", "closed", "draft"])
+        : query.in("status", ["live", "closed"]).eq("visibility", "public");
+      if (requireApproval && !includePrivateDetail)
+        query = query.eq("approval_status", "approved");
+      return rawCampaignLookup
+        ? query.eq("id", campaignLookup)
+        : query.eq("slug", campaignLookup);
+    };
+    let { data, error } = await loadRow(true);
+    if (error && isMissingColumnError(error, "approval_status")) {
+      ({ data, error } = await loadRow(false));
+    }
+    if (error) throw error;
+    const row = data?.[0] as OpenCampaignRow | undefined;
+    if (!row) return [];
+    if (
+      row.is_test &&
+      !includePrivateDetail &&
+      !(await canReadTestCampaign(supabase, row.id, viewer))
+    )
+      return [];
+
+    const inventoryRows = await readOrEmpty("open_campaign_for_reveal_inventory", async () => {
+      const { data: inventory, error: inventoryError } = await supabase.rpc(
+        "get_draw_round_inventory_summary",
+        {
+          p_draw_round_id: row.id,
+          p_profile_id: viewer.profileId ?? null,
+        },
+      );
+      if (inventoryError) throw inventoryError;
+      return inventorySummariesFromJson(inventory);
+    });
+    const campaign = toOpenRevealCampaign(row, inventoryRows[0]);
+    const customerCampaign = includePrivateDetail ? campaign : publicYnotCampaign(campaign);
+    if (!includePrivateDetail && !campaign.openable && !campaign.soldOut)
+      return [];
+    return [customerCampaign];
+  }).then(
+    (campaigns) =>
+      campaigns[0] ??
+      (allowDemoStorefront()
+        ? featuredCampaigns.find(
+            (campaign) => campaign.slug === campaignLookup,
+          )
+        : undefined) ??
+      null,
+  );
+}
 
 export async function getCampaign(
   campaignIdOrSlug: string,
@@ -1976,7 +2482,7 @@ export async function getCampaign(
       readOrEmpty("campaign_detail_categories", async () => {
         const { data: links, error: linksError } = await supabase
           .from("draw_round_categories")
-          .select("*")
+          .select(DRAW_ROUND_CATEGORY_LINK_SELECT)
           .eq("draw_round_id", row.id);
         if (linksError) throw linksError;
         return links ?? [];
@@ -2010,16 +2516,21 @@ export async function getCampaign(
       readiness = await getCampaignPrizeReadiness(supabase, row.id, {
         row,
         inventory,
+        includeIdentityMismatches: includePrivateDetail,
       });
     } catch (error) {
       recordDataIssue("campaign_detail_prize_readiness", error);
     }
+    const identityMismatchResult = includePrivateDetail
+      ? await getPrizeUnitIdentityMismatches(supabase, row.id)
+      : undefined;
     const campaign = toYnotCampaign(
       row,
       linkedCategories,
       inventory,
       prizeLineup,
       readiness,
+      identityMismatchResult,
     );
     campaign.lastPrizePreview = await resolveLastPrizePreview(supabase, row);
     const customerCampaign = includePrivateDetail ? campaign : publicYnotCampaign(campaign);
@@ -2605,7 +3116,7 @@ export async function getCollection(
         wonUnit?.gradingService ?? card?.gradingService ?? null,
       cardPrizeCategory: card?.prizeCategory ?? null,
       cardSeries: card?.series ?? null,
-      imageUrl: publicSubSkuImageUrl(wonUnit?.imageUrl),
+      imageUrl: publicSubSkuImageUrl(wonUnit?.imageUrl, card?.photoUrl),
       bundleQuantity,
       bundleIndex,
       bundleGroupId: bundleQuantity
@@ -2770,7 +3281,10 @@ export async function getGachaOpenHistory(
         id: `${publicCode}-${item.result_position ?? index + 1}`,
         cardName: card?.name ?? "Mystery reward",
         cardCode: card?.code,
-        imageUrl: publicSubSkuImageUrl(rewardImageByOpenItemId.get(item.id)),
+        imageUrl: publicSubSkuImageUrl(
+          rewardImageByOpenItemId.get(item.id),
+          card?.photoUrl,
+        ),
         bundleQuantity: publicBundleQuantity(item.bundle_quantity),
         displayTier,
         valueThb: item.value_thb,
@@ -2892,8 +3406,13 @@ function shippingTimelineLabel(eventType: string, status?: string | null) {
   return eventType.replaceAll("_", " ");
 }
 
+type AuditEventTimelineRow = Pick<
+  Database["public"]["Tables"]["audit_events"]["Row"],
+  "id" | "event_type" | "metadata" | "created_at"
+>;
+
 function shippingTimelineEvent(
-  row: Database["public"]["Tables"]["audit_events"]["Row"],
+  row: AuditEventTimelineRow,
 ): YnotShippingTimelineEvent {
   const metadata = isRecord(row.metadata) ? row.metadata : {};
   const status = metadataString(metadata, "status") ?? null;
@@ -2974,7 +3493,9 @@ export async function getShipping(
       readOrEmpty("shipping_audit_events", async () => {
         const { data, error } = await supabase
           .from("audit_events")
-          .select("*")
+          // Base mapper fields stay covered by .select(AUDIT_EVENT_TIMELINE_SELECT);
+          // shipping grouping also needs shipping_request_id.
+          .select(SHIPPING_AUDIT_EVENT_TIMELINE_SELECT)
           .in("shipping_request_id", requestIds)
           .order("created_at", { ascending: true });
         if (error) throw error;
@@ -3472,7 +3993,7 @@ export async function getAdminUserDetail(
     readOrEmpty("admin_user_audit", async () => {
       const { data, error } = await supabase
         .from("audit_events")
-        .select("*")
+        .select(AUDIT_EVENT_TIMELINE_SELECT)
         .eq("actor_profile_id", profileId)
         .order("created_at", { ascending: false })
         .limit(80);
@@ -3584,14 +4105,36 @@ export async function getAdminCards() {
       }),
     );
     const stockByCard = new Map(stockRows.map((row) => [row.cardId, row]));
+    const cardIds = cards.map((card) => card.catalogCardId).filter(Boolean);
     const subSkuRows = await readOrEmpty("card_stock_subsku_summary", () =>
       retryQuery(async () => {
-        const { data, error } = await supabase.rpc(
+        const batch = await supabase.rpc("get_admin_prize_stock_summaries", {
+          p_card_ids: cardIds,
+        });
+        if (!batch.error) {
+          return cardStockSubSkuSummariesFromPrizeStockJson(batch.data);
+        }
+        if (
+          !isMissingFunctionError(
+            batch.error,
+            "get_admin_prize_stock_summaries",
+          )
+        ) {
+          throw batch.error;
+        }
+        const { data, error } = await supabase.rpc("get_admin_stock_sku_summary", {
+          p_card_id: null,
+        });
+        if (!error) return cardStockSubSkuSummariesFromJson(data);
+        if (!isMissingFunctionError(error, "get_admin_stock_sku_summary")) {
+          throw error;
+        }
+        const fallback = await supabase.rpc(
           "get_admin_card_stock_subsku_summary",
           { p_card_id: null },
         );
-        if (error) throw error;
-        return cardStockSubSkuSummariesFromJson(data);
+        if (fallback.error) throw fallback.error;
+        return cardStockSubSkuSummariesFromJson(fallback.data);
       }),
     );
 
@@ -3638,6 +4181,385 @@ export async function getAdminCampaignPrizeLineup(
       }),
     );
   });
+}
+
+function monitorVisiblePrize(prize: MonitorPrizeRow) {
+  return !isAdminHidden(prize.metadata);
+}
+
+const ADMIN_PACK_MONITOR_WINNERS_PER_PRIZE_LIMIT = 20;
+
+function monitorLatestTimestamp(
+  ...values: Array<string | null | undefined>
+) {
+  const timestamps = values
+    .map((value) => {
+      if (!value) return null;
+      const time = new Date(value).valueOf();
+      return Number.isNaN(time) ? null : { time, value };
+    })
+    .filter((value): value is { time: number; value: string } =>
+      Boolean(value),
+    )
+    .sort((left, right) => right.time - left.time);
+  return timestamps[0]?.value ?? null;
+}
+
+export async function getAdminPackMonitor(
+  campaignIdOrSlug: string,
+): Promise<YnotPackMonitor | null> {
+  if (!isSupabaseConfigured()) return null;
+  const admin = await resolveAdminSession();
+  if (!admin) return null;
+
+  const campaignLookup = campaignIdOrSlug.trim();
+  if (!campaignLookup) return null;
+
+  const [campaign] = await getCampaigns({
+    includePrivate: true,
+    includeSoldOutPublic: true,
+    campaignIdOrSlug: campaignLookup,
+    limit: 1,
+    includeReadiness: false,
+    includePrizeLineups: false,
+  });
+  if (!campaign) return null;
+
+  const supabase = createServiceSupabaseClient();
+  const identityMismatchResult = campaign.identityMismatches
+    ? {
+        mismatches: campaign.identityMismatches,
+        failed: Boolean(campaign.identityMismatchCheckFailed),
+      }
+    : await getPrizeUnitIdentityMismatches(supabase, campaign.id);
+  const { data: prizes, error: prizesError } = await supabase
+    .from("draw_round_prizes")
+    .select("*")
+    .eq("draw_round_id", campaign.id)
+    .order("tier", { ascending: true })
+    .order("rank", { ascending: true });
+  if (prizesError) throw prizesError;
+
+  const visiblePrizes = (prizes ?? []).filter(monitorVisiblePrize);
+  const cardIds = [...new Set(visiblePrizes.map((prize) => prize.card_id))];
+  const [cards, prizeImageByPrizeId, monitorStats] = await Promise.all([
+    cardIds.length
+      ? readSupabaseRows<PrizeLineupCardRow>("admin_pack_monitor_cards", () =>
+          supabase
+            .from("cards")
+            .select("id,name,card_code,grade,image_url,image_storage_path,prize_category")
+            .in("id", cardIds),
+        )
+      : Promise.resolve([]),
+    readPrizeUnitImageUrlsByPrizeId(
+      supabase,
+      visiblePrizes,
+      "admin_pack_monitor",
+    ),
+    (async () => {
+      const { data, error } = await supabase.rpc(
+        "get_admin_pack_monitor_prize_units",
+        {
+          p_draw_round_id: campaign.id,
+          p_admin_id: admin.adminId,
+          p_winners_per_prize: ADMIN_PACK_MONITOR_WINNERS_PER_PRIZE_LIMIT,
+        },
+      );
+      if (error) throw error;
+      return monitorPrizeStatsFromJson(data);
+    })(),
+  ]);
+  const cardById = new Map(cards.map((card) => [card.id, card]));
+  const statsByPrizeId = new Map(
+    monitorStats.map((stats) => [stats.prizeId, stats]),
+  );
+
+  const monitorPrizes = visiblePrizes
+    .map((prize) => {
+      const card = cardById.get(prize.card_id);
+      const counts = plannedPrizeUnitCounts(prize);
+      const stats = statsByPrizeId.get(prize.id);
+      const totalUnits = stats?.totalUnits ?? counts.total;
+      const remainingUnits = stats?.remainingUnits ?? counts.available;
+      const outUnits = stats?.outUnits ?? counts.awarded;
+      const displayTier = displayTierFromPrizeMetadata(prize);
+      return {
+        id: prize.id,
+        cardId: prize.card_id,
+        cardName: card?.name ?? "Mystery reward",
+        cardCode: card?.card_code ?? null,
+        cardGrade: card?.grade ?? null,
+        cardImageUrl: publicSubSkuImageUrl(
+          prizeImageByPrizeId.get(prize.id),
+          card?.image_url,
+        ),
+        tier: prize.tier,
+        displayTier,
+        plannedQuantity: counts.total,
+        remainingQuantity: remainingUnits,
+        outQuantity: outUnits,
+        totalUnits,
+        remainingUnits,
+        outUnits,
+        winners: stats?.winners ?? [],
+      };
+    })
+    .sort((left, right) => {
+      const byTier =
+        prizeDisplayTierOrder(left.displayTier) -
+        prizeDisplayTierOrder(right.displayTier);
+      return byTier || left.cardName.localeCompare(right.cardName);
+    });
+
+  const totalPrizeUnits = monitorPrizes.reduce(
+    (sum, prize) => sum + prize.totalUnits,
+    0,
+  );
+  const remainingPrizeUnits = monitorPrizes.reduce(
+    (sum, prize) => sum + prize.remainingUnits,
+    0,
+  );
+  const outPrizeUnits = monitorPrizes.reduce(
+    (sum, prize) => sum + prize.outUnits,
+    0,
+  );
+  const remainingSlots = Math.max(
+    0,
+    campaign.remainingSlots ?? campaign.totalSlots,
+  );
+  const soldCount = Math.max(0, campaign.totalSlots - remainingSlots);
+  const progressPct =
+    campaign.totalSlots > 0
+      ? Math.round(Math.min(100, (soldCount / campaign.totalSlots) * 100))
+      : 100;
+  const updatedAt = monitorLatestTimestamp(
+    campaign.createdAt,
+    ...monitorStats.map((stats) => stats.updatedAt),
+    ...monitorStats.flatMap((stats) =>
+      stats.winners.map((winner) => winner.openedAt),
+    ),
+  );
+
+  return {
+    summary: {
+      campaignId: campaign.id,
+      slug: campaign.slug,
+      title: campaign.titleEn || campaign.titleTh || campaign.slug,
+      status: campaign.status,
+      priceThb: campaign.priceThb,
+      totalSlots: campaign.totalSlots,
+      soldCount,
+      remainingSlots,
+      openedSlots: soldCount,
+      progressPct,
+      isSoldOut: Boolean(
+        campaign.soldOut || remainingSlots <= 0 || remainingPrizeUnits <= 0,
+      ),
+      updatedAt,
+    },
+    prizes: monitorPrizes,
+    identityMismatchCount:
+      identityMismatchResult.mismatches.length ||
+      campaign.identityMismatchCount ||
+      0,
+    identityMismatches: identityMismatchResult.mismatches,
+    identityMismatchCheckFailed:
+      identityMismatchResult.failed || campaign.identityMismatchCheckFailed || undefined,
+    totals: {
+      totalPrizeUnits,
+      remainingPrizeUnits,
+      outPrizeUnits,
+      prizeRows: monitorPrizes.length,
+      winnerRows: outPrizeUnits,
+    },
+  };
+}
+
+function liveRevisionPrizeRows(value: unknown): YnotLivePackRevisionReview["prizeRows"] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const tier = item.tier === "high" ? "high" : "normal";
+    const rank = Math.round(numericValue(item.rank));
+    const cardId = typeof item.cardId === "string" ? item.cardId : "";
+    if (!cardId || !rank) return [];
+    return [
+      {
+        prizeKey: `${tier}:${rank}`,
+        cardId,
+        tier,
+        rank,
+        plannedQuantity: Math.max(0, Math.round(numericValue(item.plannedQuantity))),
+        bundleQuantity: normalizeBundleQuantity(item.bundleQuantity),
+        convertCoinValue: Math.max(0, Math.round(numericValue(item.convertCoinValue))),
+        valueThb:
+          item.valueThb === null || item.valueThb === undefined
+            ? null
+            : Math.max(0, Math.round(numericValue(item.valueThb))),
+        weight: numericValue(item.weight) || 1,
+        unlockAtSoldPct: numericValue(item.unlockAtSoldPct),
+      },
+    ];
+  });
+}
+
+async function liveRevisionPrizePreviews(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  prizeRows: YnotLivePackRevisionReview["prizeRows"],
+): Promise<YnotPrizePreview[]> {
+  const cardIds = [...new Set(prizeRows.map((row) => row.cardId).filter(Boolean))];
+  const cards = cardIds.length
+    ? await readSupabaseRows<PrizeLineupCardRow>(
+        "live_revision_review_cards",
+        () =>
+          supabase
+            .from("cards")
+            .select(
+              "id,name,card_code,grade,image_url,image_storage_path,prize_category",
+            )
+            .in("id", cardIds),
+      )
+    : [];
+  const cardById = new Map(cards.map((card) => [card.id, card]));
+  const representativeImageByCardId = await readCardRepresentativeImages(
+    supabase,
+    cardIds,
+    "live_revision_review",
+  );
+
+  return prizeRows.map((row) => {
+    const card = cardById.get(row.cardId);
+    const displayTier =
+      row.tier === "high" && row.rank <= 3
+        ? "rainbow"
+        : row.tier === "high"
+          ? "gold"
+          : "bronze";
+    return {
+      id: row.prizeKey,
+      cardId: row.cardId,
+      cardCode: card?.card_code ?? null,
+      cardGrade: card?.grade ?? null,
+      cardImageUrl: publicSubSkuImageUrl(
+        representativeImageByCardId.get(row.cardId),
+        card?.image_url,
+      ),
+      cardImageStoragePath: card?.image_storage_path ?? null,
+      cardPrizeCategory: card?.prize_category ?? null,
+      cardName: card?.name ?? "Mystery reward",
+      tier: row.tier,
+      rank: row.rank,
+      valueThb: row.valueThb ?? null,
+      convertCoinValue: row.convertCoinValue,
+      bundleQuantity: row.bundleQuantity,
+      plannedQuantity: row.plannedQuantity,
+      availableUnits: row.plannedQuantity,
+      totalUnits: row.plannedQuantity,
+      weight: row.weight,
+      unlockAtSoldPct: row.unlockAtSoldPct,
+      displayTier,
+      displayTierLabel: prizeDisplayTierLabel(displayTier),
+      tierRank: row.rank,
+    };
+  });
+}
+
+export async function getLivePackRevisionStatus(
+  campaignId: string,
+): Promise<YnotLivePackRevisionStatus | null> {
+  if (!isSupabaseConfigured()) return null;
+  const admin = await resolveAdminSession();
+  if (!admin && !isDevAuthAllowed()) return null;
+  const supabase = createServiceSupabaseClient();
+  try {
+    const { data, error } = await supabase
+      .from("draw_round_live_revisions")
+      .select("draw_round_id,status,created_at,updated_at,reviewed_at")
+      .eq("draw_round_id", campaignId)
+      .in("status", ["pending_review", "approved"])
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data
+      ? livePackRevisionStatusFromRow(data as LiveRevisionStatusRow)
+      : null;
+  } catch (error) {
+    recordDataIssue("live_pack_revision_status", error);
+    return null;
+  }
+}
+
+export async function getLivePackRevisionReview(
+  campaignId: string,
+): Promise<YnotLivePackRevisionReview | null> {
+  if (!isSupabaseConfigured()) return null;
+  const admin = await resolveAdminSession();
+  if (admin?.adminRole !== "owner" && !isDevAuthAllowed()) return null;
+  const supabase = createServiceSupabaseClient();
+  try {
+    const { data, error } = await supabase
+      .from("draw_round_live_revisions")
+      .select("*")
+      .eq("draw_round_id", campaignId)
+      .in("status", ["pending_review", "approved"])
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const prizeRows = liveRevisionPrizeRows(data.prize_snapshot);
+    return {
+      id: data.id,
+      campaignId: data.draw_round_id,
+      status: data.status,
+      requestedAt: data.created_at,
+      updatedAt: data.updated_at,
+      reviewedAt: data.reviewed_at,
+      baseUpdatedAt: data.base_updated_at,
+      note: data.note,
+      reviewNote: data.review_note,
+      scalarPatch: isRecord(data.scalar_patch)
+        ? (data.scalar_patch as Record<string, unknown>)
+        : {},
+      logicSnapshot: isRecord(data.logic_snapshot)
+        ? (data.logic_snapshot as Record<string, unknown>)
+        : null,
+      prizeRows,
+      prizes: await liveRevisionPrizePreviews(supabase, prizeRows),
+    };
+  } catch (error) {
+    recordDataIssue("live_pack_revision_review", error);
+    return null;
+  }
+}
+
+export async function getLivePackMonitor(
+  campaignId: string,
+): Promise<YnotLivePackMonitor | null> {
+  if (!isSupabaseConfigured()) return null;
+  const admin = await resolveAdminSession();
+  if (!admin) return null;
+  const supabase = createServiceSupabaseClient();
+  try {
+    const { data, error } = await supabase.rpc("get_live_pack_monitor", {
+      p_draw_round_id: campaignId,
+    });
+    if (error) throw error;
+    const identityMismatchResult = await getPrizeUnitIdentityMismatches(
+      supabase,
+      campaignId,
+    );
+    return {
+      ...(data as YnotLivePackMonitor),
+      identityMismatchCount: identityMismatchResult.mismatches.length,
+      identityMismatches: identityMismatchResult.mismatches,
+      identityMismatchCheckFailed: identityMismatchResult.failed || undefined,
+    };
+  } catch (error) {
+    recordDataIssue("live_pack_monitor", error);
+    return null;
+  }
 }
 
 export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
@@ -3700,21 +4622,22 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
       ),
     ];
     const stockUnits = stockUnitIds.length
-      ? await readSupabaseRows<PrizePoolStockUnitRow>(
-          "prize_pool_stock_unit_identities",
-          () =>
-            supabase
-              .from("card_stock_units")
-              .select(
-                "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status",
-              )
-              .in("id", stockUnitIds),
-        )
+      ? await readPrizePoolStockUnitRows(supabase, stockUnitIds)
       : [];
+    const stockSkuIds = [
+      ...new Set(
+        stockUnits
+          .map((unit) => unit.stock_sku_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const stockSkus = await readPrizePoolStockSkuRows(supabase, stockSkuIds);
     const stockUsageByPrizeId = prizePoolStockUnitUsages(
       prizeUnits,
       new Map(stockUnits.map((unit) => [unit.id, unit])),
+      new Map(stockSkus.map((sku) => [sku.id, sku])),
       cardById,
+      new Map(visiblePrizes.map((prize) => [prize.id, prize.card_id])),
     );
     const prizeImageByPrizeId = stockImageUrlByPrizeId(prizeUnits, stockUnits);
     return visiblePrizes.map((prize) => {

@@ -11,7 +11,8 @@ export type YnotCampaign = {
   id: string;
   slug: string;
   packCode?: string | null;
-  // Last One Prize: optional final-slot card for whoever opens the last pack.
+  // Last One Prize: optional bonus card for whoever opens the last pack,
+  // awarded on top of their normal pull.
   hasLastPrize?: boolean;
   lastPrizeCardId?: string | null;
   lastPrizeStockUnitKey?: string | null;
@@ -36,6 +37,10 @@ export type YnotCampaign = {
   approvalRequestedAt?: string | null;
   approvedAt?: string | null;
   approvalNotes?: string | null;
+  liveRevisionStatus?: LiveRevisionStatus | null;
+  liveRevisionRequestedAt?: string | null;
+  liveRevisionUpdatedAt?: string | null;
+  liveRevisionReviewedAt?: string | null;
   logicMode?: YnotRandomLogicMode;
   remainingSlots?: number;
   totalPrizeUnits?: number;
@@ -45,6 +50,9 @@ export type YnotCampaign = {
   awardedPrizeUnits?: number;
   voidPrizeUnits?: number;
   readinessBlockers?: string[];
+  identityMismatchCount?: number;
+  identityMismatches?: YnotPrizeUnitIdentityMismatch[];
+  identityMismatchCheckFailed?: boolean;
   openable?: boolean;
   soldOut?: boolean;
   adminRemoved?: boolean;
@@ -60,6 +68,35 @@ export type YnotCampaign = {
   prizeLineup?: YnotPrizePreview[];
   convertDeadlineDays?: number | null;
   demo?: boolean;
+};
+
+export type YnotPrizeUnitIdentityMismatch = {
+  drawRoundId: string;
+  prizeId: string;
+  prizeUnitId: string;
+  status: string;
+  prizeCardId?: string | null;
+  unitCardId?: string | null;
+  stockCardId?: string | null;
+  stockUnitId?: string | null;
+  stockSkuId?: string | null;
+  stockLabel?: string | null;
+  intendedStockUnitGroupKey?: string | null;
+  intendedStockSkuId?: string | null;
+  intendedStockSku?: string | null;
+  intendedStockLabel?: string | null;
+  intendedStockUnitFilter?: Record<string, unknown> | null;
+  reason: {
+    unitCardMismatch: boolean;
+    stockCardMismatch: boolean;
+    missingStockUnit: boolean;
+    stockFilterMismatch: boolean;
+  };
+  primaryReason?:
+    | "unitCardMismatch"
+    | "stockCardMismatch"
+    | "missingStockUnit"
+    | "stockFilterMismatch";
 };
 
 export type YnotLastPrizePreview = {
@@ -80,6 +117,10 @@ export type YnotRandomLogicMode =
   | "weighted_templates"
   | "inventory_gated";
 
+export type YnotPrizeTier = "normal" | "high";
+
+export type YnotPrizeDisplayTier = "rainbow" | "gold" | "silver" | "bronze";
+
 export type YnotOwnerApprovalRequest = {
   id: string;
   campaign: YnotCampaign;
@@ -91,6 +132,99 @@ export type YnotOwnerApprovalRequest = {
   notificationLabel: string;
   summary: string[];
   mock?: boolean;
+};
+
+export type LiveRevisionStatus =
+  | "pending_review"
+  | "approved"
+  | "rejected"
+  | "published"
+  | "cancelled";
+
+export type YnotLivePackRevisionStatus = {
+  campaignId: string;
+  status: LiveRevisionStatus;
+  requestedAt: string;
+  updatedAt: string;
+  reviewedAt?: string | null;
+};
+
+export type YnotLivePackRevisionReview = {
+  id: string;
+  campaignId: string;
+  status: LiveRevisionStatus;
+  requestedAt: string;
+  updatedAt: string;
+  reviewedAt?: string | null;
+  baseUpdatedAt: string;
+  note?: string | null;
+  reviewNote?: string | null;
+  scalarPatch: Record<string, unknown>;
+  logicSnapshot: Record<string, unknown> | null;
+  prizeRows: Array<{
+    prizeKey: string;
+    cardId: string;
+    tier: "normal" | "high";
+    rank: number;
+    plannedQuantity: number;
+    bundleQuantity: number;
+    convertCoinValue: number;
+    valueThb?: number | null;
+    weight: number;
+    unlockAtSoldPct: number;
+  }>;
+  prizes: YnotPrizePreview[];
+};
+
+export type YnotLivePackMonitor = {
+  campaign: {
+    id: string;
+    slug: string;
+    packCode?: string | null;
+    titleTh: string;
+    titleEn: string;
+    status: string;
+    visibility: string;
+    totalSlots: number;
+    openedSlots: number;
+    remainingSlots: number;
+    openCount: number;
+    lastOpenedAt?: string | null;
+    updatedAt: string;
+  };
+  prizes: Array<{
+    prizeKey: string;
+    tier: string;
+    rank: number;
+    cardName: string;
+    cardCode?: string | null;
+    imageUrl?: string | null;
+    plannedWins: number;
+    bundleQuantity: number;
+    leftWins: number;
+    outWins: number;
+  }>;
+  recentAwards: Array<{
+    openKey?: string;
+    openCode: string;
+    openedAt: string;
+    customerLabel: string;
+    cardName: string;
+    cardCode?: string | null;
+    imageUrl?: string | null;
+    tier?: string | null;
+    bundleQuantity: number;
+  }>;
+  pendingRevision?: {
+    status: LiveRevisionStatus;
+    requestedAt: string;
+    updatedAt: string;
+    reviewedAt?: string | null;
+  } | null;
+  identityMismatchCount?: number;
+  identityMismatches?: YnotPrizeUnitIdentityMismatch[];
+  identityMismatchCheckFailed?: boolean;
+  loadedAt: string;
 };
 
 export type YnotCategory = {
@@ -371,6 +505,12 @@ export type YnotGachaOpenResult = {
   publicCode: string;
   costCoins?: number;
   items: YnotGachaOpenItem[];
+  remaining?: {
+    remainingSlots?: number;
+    availablePrizeUnits?: number;
+    eligibleUnits?: number;
+    availableWinSlots?: number;
+  };
   replayed?: boolean;
 };
 
@@ -414,6 +554,63 @@ export type YnotPrizePreview = {
   intendedStockUnitKey?: string | null;
   intendedStockSku?: string | null;
   intendedStockLabel?: string | null;
+};
+
+export type YnotPackMonitorPrizeUnit = {
+  status: string;
+  openedAt?: string | null;
+  ownerLabel?: string | null;
+  ownerEmail?: string | null;
+  ownerLineUserId?: string | null;
+  publicOpenCode?: string | null;
+};
+
+export type YnotPackMonitorPrize = {
+  id: string;
+  cardId: string;
+  cardName: string;
+  cardCode?: string | null;
+  cardGrade?: string | null;
+  cardImageUrl?: string | null;
+  tier: YnotPrizeTier;
+  displayTier?: YnotPrizeDisplayTier;
+  plannedQuantity: number;
+  remainingQuantity: number;
+  outQuantity: number;
+  totalUnits: number;
+  remainingUnits: number;
+  outUnits: number;
+  winners: YnotPackMonitorPrizeUnit[];
+};
+
+export type YnotPackMonitorSummary = {
+  campaignId: string;
+  slug: string;
+  title: string;
+  status: string;
+  priceThb: number;
+  totalSlots: number;
+  soldCount: number;
+  remainingSlots: number;
+  openedSlots: number;
+  progressPct: number;
+  isSoldOut: boolean;
+  updatedAt?: string | null;
+};
+
+export type YnotPackMonitor = {
+  summary: YnotPackMonitorSummary;
+  prizes: YnotPackMonitorPrize[];
+  identityMismatchCount?: number;
+  identityMismatches?: YnotPrizeUnitIdentityMismatch[];
+  identityMismatchCheckFailed?: boolean;
+  totals: {
+    totalPrizeUnits: number;
+    remainingPrizeUnits: number;
+    outPrizeUnits: number;
+    prizeRows: number;
+    winnerRows: number;
+  };
 };
 
 export type YnotAddress = {
@@ -472,6 +669,9 @@ export type YnotPrizePoolItem = {
     groupKey: string;
     sku: string;
     label: string;
+    actualStockCardId?: string | null;
+    actualStockSkuId?: string | null;
+    identityMismatch?: boolean;
     totalUnits: number;
     availableUnits: number;
     awardedUnits: number;

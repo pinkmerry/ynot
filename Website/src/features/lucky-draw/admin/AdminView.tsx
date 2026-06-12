@@ -581,7 +581,8 @@ function AdminCardEditor({
                   <input
                     className="hidden"
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/jpeg,image/png,image/webp,image/avif"
+                    aria-label="Upload featured card image (JPG, PNG, WEBP, or AVIF)"
                     onChange={(event) => void uploadFeaturedImage(index, event.target.files?.[0])}
                   />
                 </label>
@@ -651,7 +652,8 @@ function AdminCardEditor({
                   <input
                     className="hidden"
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/jpeg,image/png,image/webp,image/avif"
+                    aria-label="Upload high tier card image (JPG, PNG, WEBP, or AVIF)"
                     onChange={(event) => void uploadChaseImage(index, event.target.files?.[0])}
                   />
                 </label>

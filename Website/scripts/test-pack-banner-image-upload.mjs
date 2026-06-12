@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("..", import.meta.url));
 
 function source(path) {
   return readFileSync(join(root, path), "utf8");
@@ -11,7 +12,7 @@ function source(path) {
 
 test("draw_rounds stores optional pack banner image fields", () => {
   const migration = source(
-    "../Database/supabase/migrations/20260605200000_pack_banner_images.sql",
+    "../Database/supabase/migrations/20260605200001_pack_banner_images.sql",
   );
   const types = source("src/lib/supabase/types.ts");
 
@@ -44,15 +45,25 @@ test("admin campaign API accepts only uploaded banner image paths", () => {
   );
 });
 
-test("admin banner upload route is guarded and validates image uploads", () => {
+test("admin campaign API allows AVIF banner storage paths from the upload flow", () => {
+  const route = source("src/app/api/ynot/admin/campaigns/route.ts");
+
+  assert.match(route, /campaignBannerPathPattern/);
+  assert.match(route, /\(jpg\|png\|webp\|avif\)/);
+  assert.match(route, /campaignBannerPathPattern\.test\(requestedPath\)/);
+});
+
+test("admin banner upload route is guarded and validates visual image uploads", () => {
   const route = source("src/app/api/ynot/admin/campaigns/banner-image/route.ts");
 
   assert.match(route, /resolveAdminSession/);
   assert.match(route, /ynot:admin:campaigns:banner-image/);
   assert.match(route, /requestExceedsUploadLimit\(request, maxSlipBytes\)/);
-  assert.match(route, /allowedSlipTypes\.has\(file\.type\)/);
+  assert.match(route, /declaredVisualAssetTypeLooksSupported\(file\.type\)/);
+  assert.match(route, /allowedVisualAssetTypes\.has\(magicCheck\.contentType\)/);
   assert.match(route, /verifyImageMagicBytes\(file\)/);
   assert.match(route, /campaign-banners\/\$\{day\}/);
+  assert.match(route, /extensionForVerifiedImage\(magicCheck\.contentType\)/);
   assert.match(route, /campaign_banner_image_uploaded/);
 });
 

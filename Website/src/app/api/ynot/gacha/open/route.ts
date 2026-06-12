@@ -15,12 +15,24 @@ import { publicBundleQuantity } from "@/features/ynot/bundle-quantity";
 
 export const dynamic = "force-dynamic";
 
-const gachaOpenRateLimit = {
+const gachaOpenRequestRateLimit = {
   // Customers can chain "open again" quickly after reveal animations. Keep
   // the limit high enough for real play, while still blocking scripted bursts.
+  scope: "ynot:gacha:open",
+  limit: 30,
+  windowMs: 60_000,
+};
+const gachaOpenProfileUnitRateLimit = {
+  scope: "ynot:gacha:open:units",
   limit: 120,
   windowMs: 60_000,
 };
+const gachaOpenIpUnitRateLimit = {
+  scope: "ynot:gacha:open:units:ip",
+  limit: 600,
+  windowMs: 60_000,
+};
+const MAX_OPEN_HYDRATION_ITEMS = 20;
 
 type RawOpenItem = {
   cardId?: string;
@@ -32,6 +44,7 @@ type RawOpenItem = {
   position?: number;
   prizeUnitId?: string | null;
   isLastPrize?: boolean;
+  imageResolvedFromStockUnit?: boolean;
   bundleQuantity?: number;
   [key: string]: unknown;
 };
@@ -42,11 +55,19 @@ type RawOpenResult = {
   publicCode?: unknown;
   costCoins?: unknown;
   items?: unknown;
+  remaining?: unknown;
   replayed?: unknown;
   [key: string]: unknown;
 };
 
 type PublicDisplayTier = "rainbow" | "gold" | "silver" | "bronze" | "last_prize";
+
+type PublicOpenRemaining = {
+  remainingSlots?: number;
+  availablePrizeUnits?: number;
+  eligibleUnits?: number;
+  availableWinSlots?: number;
+};
 
 type PublicOpenItem = {
   name: string;
@@ -64,8 +85,33 @@ type PublicOpenResult = {
   publicCode: string;
   costCoins?: number;
   items: PublicOpenItem[];
+  remaining?: PublicOpenRemaining;
   replayed?: boolean;
 };
+
+function sanitizeOpenRemaining(value: unknown): PublicOpenRemaining | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const remaining = value as Record<string, unknown>;
+  const readRemainingNumber = (raw: unknown) => {
+    const number = Number(raw);
+    return Number.isFinite(number) && number >= 0 ? number : undefined;
+  };
+  const availablePrizeUnits =
+    readRemainingNumber(remaining.availableWinSlots) ??
+    readRemainingNumber(remaining.availableUnits);
+  const result: PublicOpenRemaining = {};
+  const fields = [
+    ["remainingSlots", remaining.remainingSlots],
+    ["availablePrizeUnits", availablePrizeUnits],
+    ["eligibleUnits", remaining.eligibleUnits],
+    ["availableWinSlots", remaining.availableWinSlots],
+  ] as const;
+  for (const [key, raw] of fields) {
+    const number = readRemainingNumber(raw);
+    if (number !== undefined) result[key] = number;
+  }
+  return Object.keys(result).length ? result : undefined;
+}
 
 function deriveDisplayTier(tier: string | null | undefined, rank: number) {
   if (tier === "high" && rank <= 3) return "rainbow";
@@ -167,6 +213,8 @@ function toPublicOpenResult(raw: RawOpenResult, items: RawOpenItem[]): PublicOpe
   };
   const costCoins = readNumber(raw.costCoins);
   if (costCoins !== null) result.costCoins = costCoins;
+  const remaining = sanitizeOpenRemaining(raw.remaining);
+  if (remaining) result.remaining = remaining;
   if (raw.replayed === true) result.replayed = true;
   return result;
 }
@@ -191,14 +239,36 @@ function openErrorMessage(message: string | undefined) {
   }
 }
 
+function hasPublicRevealFields(item: RawOpenItem) {
+  const hasExactRevealImage =
+    item.isLastPrize === true ||
+    (item.imageResolvedFromStockUnit === true &&
+      typeof item.imageUrl === "string" &&
+      item.imageUrl.trim().length > 0);
+  return (
+    typeof item.name === "string" &&
+    item.name.trim().length > 0 &&
+    typeof item.displayTier === "string" &&
+    item.displayTier.trim().length > 0 &&
+    hasExactRevealImage &&
+    typeof item.position === "number" &&
+    Number.isFinite(item.position) &&
+    "valueThb" in item
+  );
+}
+
+function needsOpenItemHydration(items: RawOpenItem[]) {
+  return !items.every(hasPublicRevealFields);
+}
+
 async function hydrateItems(
   items: RawOpenItem[],
   openId: string,
   profileId: string,
 ): Promise<RawOpenItem[]> {
   if (!items.length) return items;
-  // Always hydrate through the awarded prize unit so the reveal can prefer the
-  // exact sub-SKU image, even when the RPC already returned catalog details.
+  // Hydrate legacy/unproven RPC payloads through the awarded prize unit so the
+  // reveal can prefer the exact sub-SKU image instead of the catalog image.
 
   const supabase = createServiceSupabaseClient();
   const { data: open, error: openError } = await supabase
@@ -339,13 +409,13 @@ async function hydrateItems(
     const prizeUnitId =
       openItem?.draw_round_prize_unit_id ??
       (typeof item.prizeUnitId === "string" ? item.prizeUnitId : null);
+    const stockImageUrl = prizeUnitId ? imageByPrizeUnitId.get(prizeUnitId) : null;
     return {
       ...item,
       cardId,
       name: item.name ?? card?.name ?? "Mystery card",
-      imageUrl: publicSubSkuImageUrl(
-        prizeUnitId ? imageByPrizeUnitId.get(prizeUnitId) : null,
-      ),
+      imageUrl: publicSubSkuImageUrl(stockImageUrl, item.imageUrl ?? card?.image_url ?? null),
+      imageResolvedFromStockUnit: Boolean(stockImageUrl),
       tier,
       displayTier,
       valueThb: item.valueThb ?? openItem?.value_thb ?? null,
@@ -512,8 +582,16 @@ export async function POST(request: Request) {
   if (!session?.profileId) return Response.json({ error: "Login is required." }, { status: 401 });
   const blocked = await requireVerifiedAnchor(session);
   if (blocked) return blocked;
-  const limited = await enforceRateLimit(request, "ynot:gacha:open", gachaOpenRateLimit, session.profileId);
-  if (limited) return limited;
+  const requestLimited = await enforceRateLimit(
+    request,
+    gachaOpenRequestRateLimit.scope,
+    {
+      limit: gachaOpenRequestRateLimit.limit,
+      windowMs: gachaOpenRequestRateLimit.windowMs,
+    },
+    session.profileId,
+  );
+  if (requestLimited) return requestLimited;
   const body = await request.json().catch(() => null) as { campaignId?: unknown; quantity?: unknown; idempotencyKey?: unknown } | null;
   const campaignId = typeof body?.campaignId === "string" ? body.campaignId.trim() : "";
   const quantity = Number(body?.quantity ?? 1);
@@ -521,6 +599,27 @@ export async function POST(request: Request) {
   if (!campaignId) return Response.json({ error: "Campaign is required." }, { status: 400 });
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) return Response.json({ error: "Quantity must be between 1 and 100." }, { status: 400 });
   if (!idempotencyKey) return Response.json({ error: "Invalid idempotency key." }, { status: 400 });
+  const profileUnitLimited = await enforceRateLimit(
+    request,
+    gachaOpenProfileUnitRateLimit.scope,
+    {
+      limit: gachaOpenProfileUnitRateLimit.limit,
+      windowMs: gachaOpenProfileUnitRateLimit.windowMs,
+      cost: quantity,
+    },
+    session.profileId,
+  );
+  if (profileUnitLimited) return profileUnitLimited;
+  const ipUnitLimited = await enforceRateLimit(
+    request,
+    gachaOpenIpUnitRateLimit.scope,
+    {
+      limit: gachaOpenIpUnitRateLimit.limit,
+      windowMs: gachaOpenIpUnitRateLimit.windowMs,
+      cost: quantity,
+    },
+  );
+  if (ipUnitLimited) return ipUnitLimited;
 
   const resolvedCampaignId = await resolveOpenCampaignId(campaignId, session.profileId);
   if (!resolvedCampaignId) return Response.json({ error: "Campaign is required." }, { status: 400 });
@@ -545,6 +644,13 @@ export async function POST(request: Request) {
   const raw = (data ?? {}) as RawOpenResult;
   const openId = typeof raw.openId === "string" ? raw.openId : "";
   const items = Array.isArray(raw.items) ? raw.items : [];
-  const hydrated = openId ? await hydrateItems(items, openId, session.profileId) : items;
-  return Response.json({ result: toPublicOpenResult(raw, hydrated) });
+  const shouldHydrate = Boolean(
+    openId &&
+      items.length <= MAX_OPEN_HYDRATION_ITEMS &&
+      needsOpenItemHydration(items),
+  );
+  const resultItems = shouldHydrate
+    ? await hydrateItems(items, openId, session.profileId)
+    : items;
+  return Response.json({ result: toPublicOpenResult(raw, resultItems) });
 }

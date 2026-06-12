@@ -168,6 +168,14 @@ test("pack-open API response is mapped through a public result shape", () => {
   assert.doesNotMatch(publicItem, /drawRoundPrizeUnitIds/);
   assert.doesNotMatch(publicItem, /stockUnitGroupKey/);
   assert.doesNotMatch(publicItem, /stockUnitFilter/);
+  assert.doesNotMatch(publicItem, /stockSkuId/);
+  assert.doesNotMatch(publicItem, /stockLabel/);
+  assert.doesNotMatch(publicItem, /stockUnitId/);
+  assert.doesNotMatch(publicItem, /identityMismatch/);
+  assert.doesNotMatch(publicItem, /primaryReason/);
+  assert.doesNotMatch(publicItem, /intendedStock/);
+  assert.doesNotMatch(publicItem, /logicMode/);
+  assert.doesNotMatch(publicItem, /logic_snapshot/);
   assert.doesNotMatch(publicItem, /weight/);
   assert.doesNotMatch(publicItem, /unlockAtSoldPct/);
   assert.doesNotMatch(publicItem, /soldPct/);
@@ -186,6 +194,14 @@ test("pack-open API response is mapped through a public result shape", () => {
   assert.doesNotMatch(publicItemType, /drawRoundPrizeUnitIds/);
   assert.doesNotMatch(publicItemType, /stockUnitGroupKey/);
   assert.doesNotMatch(publicItemType, /stockUnitFilter/);
+  assert.doesNotMatch(publicItemType, /stockSkuId/);
+  assert.doesNotMatch(publicItemType, /stockLabel/);
+  assert.doesNotMatch(publicItemType, /stockUnitId/);
+  assert.doesNotMatch(publicItemType, /identityMismatch/);
+  assert.doesNotMatch(publicItemType, /primaryReason/);
+  assert.doesNotMatch(publicItemType, /intendedStock/);
+  assert.doesNotMatch(publicItemType, /logicMode/);
+  assert.doesNotMatch(publicItemType, /logic_snapshot/);
   assert.doesNotMatch(publicItemType, /\btier:/);
   assert.match(publicItemType, /displayTier:/);
 
@@ -195,6 +211,14 @@ test("pack-open API response is mapped through a public result shape", () => {
     "export type YnotGachaOpenResult",
   );
   assert.doesNotMatch(openItemType, /\btier:/);
+  assert.doesNotMatch(openItemType, /identityMismatch/);
+  assert.doesNotMatch(openItemType, /primaryReason/);
+  assert.doesNotMatch(openItemType, /intendedStock/);
+  assert.doesNotMatch(openItemType, /stockSkuId/);
+  assert.doesNotMatch(openItemType, /stockLabel/);
+  assert.doesNotMatch(openItemType, /stockUnitId/);
+  assert.doesNotMatch(openItemType, /logicMode/);
+  assert.doesNotMatch(openItemType, /logic_snapshot/);
   assert.match(openItemType, /displayTier:/);
 
   const postHandler = between(
@@ -232,6 +256,8 @@ test("customer campaign props hide house logic and internal prize inventory", ()
     "function localOwnerMockPrizeLineup",
   );
   assert.match(publicCampaign, /id:\s*campaign\.slug/);
+  assert.match(publicCampaign, /availablePrizeUnits:\s*campaign\.availablePrizeUnits/);
+  assert.match(publicCampaign, /eligiblePrizeUnits:\s*campaign\.eligiblePrizeUnits/);
   assert.doesNotMatch(
     publicCampaign,
     /\.\.\.campaign/,
@@ -239,9 +265,10 @@ test("customer campaign props hide house logic and internal prize inventory", ()
   );
   for (const privateField of [
     "logicMode",
+    "logic_snapshot",
+    "identityMismatchCount",
+    "identityMismatches",
     "totalPrizeUnits",
-    "availablePrizeUnits",
-    "eligiblePrizeUnits",
     "initialEligiblePrizeUnits",
     "awardedPrizeUnits",
     "voidPrizeUnits",
@@ -250,6 +277,13 @@ test("customer campaign props hide house logic and internal prize inventory", ()
     "lastPrizeCardId",
     "lastPrizeStockUnitKey",
     "bannerImageStoragePath",
+    "intendedStockUnitKey",
+    "intendedStockSku",
+    "intendedStockLabel",
+    "stockUnitGroupKey",
+    "stockUnitFilter",
+    "stockSkuId",
+    "stockLabel",
   ]) {
     assert.doesNotMatch(
       publicCampaign,
@@ -258,12 +292,17 @@ test("customer campaign props hide house logic and internal prize inventory", ()
     );
   }
 
-  const publicCampaignCall = between(
+  const dynamicCampaignDetail = between(
     dataSource,
-    "const campaign = toYnotCampaign(",
-    "return [customerCampaign];",
+    "export async function getCampaign",
+    "async function getPaymentMethodsImpl",
   );
-  assert.match(publicCampaignCall, /includePrivateDetail\s*\?\s*campaign\s*:\s*publicYnotCampaign\(campaign\)/);
+  assert.ok(
+    /includePrivateDetail\s*\?\s*campaign\s*:\s*publicYnotCampaign\(campaign\)/.test(
+      dynamicCampaignDetail,
+    ),
+    "dynamic public campaign detail must return publicYnotCampaign for non-admin viewers",
+  );
 
   const packsFeatureBlock = between(
     componentsSource,
@@ -358,9 +397,32 @@ test("pack-open reveal result does not expose raw internal open ids", () => {
   assert.doesNotMatch(resultMapper, /openId:\s*readString\(raw\.openId\)/);
   assert.match(resultMapper, /openId:\s*publicCode/);
   assert.doesNotMatch(resultMapper, /logicMode/);
-  assert.doesNotMatch(resultMapper, /remaining/);
-  assert.doesNotMatch(resultMapper, /weight/);
-  assert.doesNotMatch(resultMapper, /unlockAtSoldPct/);
+  assert.doesNotMatch(resultMapper, /logic_snapshot/);
+  assert.match(resultMapper, /sanitizeOpenRemaining\(raw\.remaining\)/);
+  assert.doesNotMatch(resultMapper, /result\.remaining\s*=\s*raw\.remaining/);
+  assert.doesNotMatch(
+    resultMapper,
+    /drawRoundId|totalUnits|awardedUnits|reservedUnits|voidUnits/,
+  );
+  for (const privateField of [
+    "weight",
+    "unlockAtSoldPct",
+    "identityMismatch",
+    "identityMismatches",
+    "identityMismatchCount",
+    "primaryReason",
+    "intendedStock",
+    "stockSkuId",
+    "stockLabel",
+    "stockUnitId",
+    "raw.openId",
+  ]) {
+    assert.doesNotMatch(
+      resultMapper,
+      new RegExp(privateField.replace(".", "\\.")),
+      `${privateField} must not pass through the public open result mapper`,
+    );
+  }
 });
 
 test("customer pack pages do not describe stock-sensitive house logic", () => {
@@ -433,22 +495,31 @@ test("pack-open browser payload uses public campaign slug and server resolves it
 });
 
 test("open page only renders auto-start reveal for openable campaigns", () => {
-  assert.match(
-    gachaOpenPageSource,
-    /getCampaign\(campaignId,\s*\{\s*allowTestForCurrentViewer:\s*true,\s*bypassPublicCache:\s*true,\s*viewer:\s*data\.viewer,\s*\}\)/,
-    "open entrypoints must bypass cached public detail so stale openable state cannot auto-start a sold-out pack",
+  assert.ok(
+    /getOpenCampaignForReveal\(campaignId, data\.viewer\)/.test(gachaOpenPageSource),
+    "open entrypoints should load lightweight reveal-entry data for the current viewer",
   );
-  assert.match(
-    gachaOpenPageSource,
-    /if \(campaign && campaign\.openable && autoStart\)/,
+  assert.ok(
+    !/getCampaign\(campaignId/.test(gachaOpenPageSource),
+    "open entrypoints should not load full campaign detail",
   );
-  assert.doesNotMatch(
-    gachaOpenPageSource,
-    /if \(campaign && autoStart\)/,
+  assert.ok(
+    !/bypassPublicCache/.test(gachaOpenPageSource),
+    "open entrypoints should not bypass the full-detail public cache",
   );
-  assert.match(
-    gachaOpenPageSource,
-    /if \(campaign\) \{\s*redirect\(`\/packs\/\$\{campaign\.slug\}`\);\s*\}/,
+  assert.ok(
+    /if \(campaign && campaign\.openable && autoStart\)/.test(gachaOpenPageSource),
+    "auto-start should require an openable campaign",
+  );
+  assert.ok(
+    !/if \(campaign && autoStart\)/.test(gachaOpenPageSource),
+    "auto-start should not ignore campaign openability",
+  );
+  assert.ok(
+    /if \(campaign\) \{\s*redirect\(`\/packs\/\$\{campaign\.slug\}`\);\s*\}/.test(
+      gachaOpenPageSource,
+    ),
+    "closed reveal entries should redirect to the public pack page",
   );
 });
 
@@ -458,15 +529,36 @@ test("public campaign detail cache is bypassable for fresh openability gates", (
     "export async function getCampaign",
     "async function getPaymentMethodsImpl",
   );
-  assert.match(
-    getCampaignBlock,
-    /bypassPublicCache\?: boolean;/,
-    "getCampaign should expose an explicit cache bypass option for open-entry freshness",
+  const revealLoaderBlock = between(
+    dataSource,
+    "export async function getOpenCampaignForReveal",
+    "export async function getCampaign",
   );
-  assert.match(
-    getCampaignBlock,
-    /if \(!options\.bypassPublicCache && !viewer\.isAdmin && !looksLikeUuid\(campaignLookup\)\)/,
-    "public detail cache must be skipped when callers need fresh sold-out/openable state",
+  assert.ok(
+    /bypassPublicCache\?: boolean;/.test(getCampaignBlock),
+    "getCampaign should keep the full-detail cache bypass option",
+  );
+  assert.ok(
+    /get_draw_round_inventory_summary/.test(revealLoaderBlock),
+    "reveal-entry loader should read the lightweight inventory summary",
+  );
+  assert.ok(
+    /const customerCampaign = includePrivateDetail \? campaign : publicYnotCampaign\(campaign\);/.test(
+      revealLoaderBlock,
+    ),
+    "reveal-entry loader should strip server-only openability details before client props",
+  );
+  assert.ok(
+    !/getPublicPrizeLineup/.test(revealLoaderBlock),
+    "reveal-entry loader should not load public prize lineup detail",
+  );
+  assert.ok(
+    !/getCampaignPrizeReadiness/.test(revealLoaderBlock),
+    "reveal-entry loader should not load prize readiness detail",
+  );
+  assert.ok(
+    !/resolveLastPrizePreview/.test(revealLoaderBlock),
+    "reveal-entry loader should not resolve last-prize preview detail",
   );
 });
 
