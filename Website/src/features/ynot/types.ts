@@ -120,6 +120,9 @@ export type YnotRandomLogicMode =
 export type YnotPrizeTier = "normal" | "high";
 
 export type YnotPrizeDisplayTier = "rainbow" | "gold" | "silver" | "bronze";
+export type YnotPublicPrizeDisplayTier =
+  | YnotPrizeDisplayTier
+  | "last_prize";
 
 export type YnotOwnerApprovalRequest = {
   id: string;
@@ -335,8 +338,9 @@ export type YnotCollectionItem = {
   convertExpiresAt?: string | null;
   sourceCampaignTitle?: string | null;
   sourceCampaignSlug?: string | null;
-  sourcePrizeTier?: "rainbow" | "gold" | "silver" | "bronze" | null;
+  sourcePrizeTier?: YnotPublicPrizeDisplayTier | null;
   sourcePrizeTierLabel?: string | null;
+  sourceIsLastPrize?: boolean;
   sourcePrizeValueThb?: number | null;
   sourceOpenPosition?: number | null;
 };
@@ -471,7 +475,8 @@ export type YnotGachaOpenReward = {
   cardCode?: string | null;
   imageUrl?: string | null;
   bundleQuantity?: number;
-  displayTier?: "rainbow" | "gold" | "silver" | "bronze" | null;
+  displayTier?: YnotPublicPrizeDisplayTier | null;
+  isLastPrize?: boolean;
   valueThb?: number | null;
   resultPosition: number;
 };
@@ -493,7 +498,7 @@ export type YnotGachaOpenItem = {
   name: string;
   imageUrl: string | null;
   bundleQuantity?: number;
-  displayTier: "rainbow" | "gold" | "silver" | "bronze";
+  displayTier: YnotPublicPrizeDisplayTier;
   valueThb: number | null;
   position: number;
   isLastPrize?: boolean;

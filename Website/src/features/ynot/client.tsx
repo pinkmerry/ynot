@@ -1612,6 +1612,11 @@ export function CollectionConvertPanel({
                         {gradeLabel}
                       </span>
                     ) : null}
+                    {item.sourceIsLastPrize ? (
+                      <span className="collection-convert-grade-pill is-last-prize">
+                        Last Prize
+                      </span>
+                    ) : null}
                     {item.cardCode ? (
                       <span className="collection-convert-row-code">
                         {item.cardCode}

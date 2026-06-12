@@ -132,6 +132,28 @@ test("campaign mapper uses openable win-slot aggregates before physical stock co
   );
 });
 
+test("campaign mapper does not use admin readiness blockers as customer open gate", () => {
+  const mapper = sliceBetween(
+    "function toYnotCampaign",
+    "function publicPrizeLineup",
+  );
+  const openGate = mapper.slice(
+    mapper.indexOf("const hasOpenableInventory"),
+    mapper.indexOf("const openable"),
+  );
+
+  assert.match(
+    openGate,
+    /readiness\s*\?\s*\(readiness\.eligiblePrizeUnits \?\? 0\) > 0\s*:/,
+    "customer openability should follow currently eligible stock from the public inventory summary",
+  );
+  assert.doesNotMatch(
+    openGate,
+    /readiness\.ready/,
+    "admin-only readiness blockers must not disable a customer open while the RPC has eligible stock",
+  );
+});
+
 test("cached public detail loader excludes test campaigns", () => {
   const impl = sliceBetween(
     "async function loadPublicCampaignDetailImpl",

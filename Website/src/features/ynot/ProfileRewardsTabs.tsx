@@ -117,10 +117,14 @@ export function ProfileRewardsTabs({
                 {collection.slice(0, 8).map((item) => (
                   <Link
                     key={item.id}
-                    className="profile-collection-card"
+                    className={`profile-collection-card${
+                      item.sourceIsLastPrize ? " is-last-prize" : ""
+                    }`}
                     href="/collection"
                   >
-                    <span>{item.cardCode ?? "CARD"}</span>
+                    <span>
+                      {item.sourceIsLastPrize ? "LAST PRIZE" : item.cardCode ?? "CARD"}
+                    </span>
                     <strong>{item.cardName}</strong>
                     <em>
                       {item.status.replaceAll("_", " ")} ·{" "}
@@ -177,7 +181,12 @@ export function ProfileRewardsTabs({
             {rewardHistory.length ? (
               <div className="profile-reward-list">
                 {rewardHistory.map((reward) => (
-                  <div key={reward.id} className="profile-reward-row">
+                  <div
+                    key={reward.id}
+                    className={`profile-reward-row${
+                      reward.isLastPrize ? " is-last-prize" : ""
+                    }`}
+                  >
                     <span className="profile-reward-thumb">
                       {reward.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element -- Reward images are Supabase/storage URLs managed by admins.
@@ -193,7 +202,7 @@ export function ProfileRewardsTabs({
                     <div>
                       <strong>{reward.cardName}</strong>
                       <em>
-                        {reward.displayTier ?? "reward"} · {reward.openCode} ·{" "}
+                        {reward.isLastPrize ? "Last Prize" : reward.displayTier ?? "reward"} · {reward.openCode} ·{" "}
                         {formatDate(reward.openedAt)}
                       </em>
                     </div>

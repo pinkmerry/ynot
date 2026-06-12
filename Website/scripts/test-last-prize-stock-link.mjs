@@ -85,6 +85,11 @@ test("customer collection and shipping hydrate images from private stock links w
     "export async function getShipping",
     "export async function getAddresses"
   );
+  const historySource = between(
+    dataSource,
+    "export async function getGachaOpenHistory",
+    "export async function getExchanges"
+  );
   const collectionType = between(
     typesSource,
     "export type YnotCollectionItem",
@@ -97,6 +102,12 @@ test("customer collection and shipping hydrate images from private stock links w
   assert.match(collectionSource, /imageUrl:\s*publicSubSkuImageUrl\(\s*wonUnit\?\.imageUrl,\s*card\?\.photoUrl,?\s*\)/);
   assert.match(shippingSource, /item\.card_stock_unit_id/);
   assert.match(shippingSource, /imageByCollectionItemId/);
+  assert.match(historySource, /gacha_history_collection_stock_links/);
+  assert.match(historySource, /\.from\("collection_items"\)[\s\S]*\.select\("gacha_open_item_id,card_stock_unit_id"\)/);
+  assert.match(
+    historySource,
+    /imageUrl:\s*publicSubSkuImageUrl\(\s*collectionImageByOpenItemId\.get\(item\.id\) \?\?[\s\S]*rewardImageByOpenItemId\.get\(item\.id\),\s*card\?\.photoUrl,?\s*\)/,
+  );
 
   assert.doesNotMatch(collectionType, /cardStockUnitId|gachaOpenItemId|certNumber|gemrateId|stockUnitFilter|weight|unlockAtSoldPct/);
   assert.doesNotMatch(collectionSource, /cardStockUnitId:|gachaOpenItemId:|certNumber:|gemrateId:|stockUnitFilter:/);

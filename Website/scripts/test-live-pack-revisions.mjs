@@ -23,6 +23,15 @@ function latestFunctionSource(functionName) {
   return definitions.at(-1) ?? "";
 }
 
+function latestMigrationContaining(needle) {
+  const matches = readdirSync(migrationDir)
+    .filter((name) => name.endsWith(".sql"))
+    .sort()
+    .filter((file) => readFileSync(new URL(file, migrationDir), "utf8").includes(needle));
+  assert.ok(matches.length > 0, `expected a migration containing ${needle}`);
+  return readFileSync(new URL(matches.at(-1), migrationDir), "utf8");
+}
+
 test("migration stages live edits and publishes through owner-reviewed RPC", () => {
   assert.match(migration, /create table if not exists public\.draw_round_live_revisions/);
   assert.match(migration, /create or replace function public\.publish_live_campaign_revision/);
@@ -56,6 +65,20 @@ test("live campaign PATCH creates a pending revision instead of editing live inv
   assert.match(campaignRoute, /preserveLivePrizeSensitiveFields/);
   assert.match(campaignRoute, /\$\{prize\.tier\}:\$\{prize\.rank\}/);
   assert.doesNotMatch(campaignRoute, /cardId:rank/);
+});
+
+test("awarded Last Prize identity cannot be changed by live revisions", () => {
+  const lockMigration = latestMigrationContaining("last_prize_identity_locked_after_award");
+
+  assert.match(campaignRoute, /lastPrizePatchChangesAwardedIdentity/);
+  assert.match(campaignRoute, /last_prize_awarded_at/);
+  assert.match(campaignRoute, /LAST_PRIZE_IDENTITY_LOCKED/);
+  assert.match(revisionRoute, /last_prize_identity_locked_after_award/);
+  assert.match(lockMigration, /campaign\.last_prize_awarded_at is not null/);
+  assert.match(lockMigration, /revision\.scalar_patch \? 'last_prize_card_id'/);
+  assert.match(lockMigration, /revision\.scalar_patch \? 'last_prize_metadata'/);
+  assert.match(lockMigration, /raise exception 'last_prize_identity_locked_after_award'/);
+  assert.doesNotMatch(lockMigration, /open_gacha_campaign/);
 });
 
 test("live revision action route is owner-only and same-origin guarded", () => {

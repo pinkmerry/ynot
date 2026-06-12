@@ -3,8 +3,8 @@
 /**
  * PackDetailArena — the real /packs/[slug] experience in the arenaclub.com
  * "slab pack" layout: full-bleed hero banner, fanned prize carousel + buy
- * panel (right), and an "Available slabs" section grouped by tier with hit
- * rates. Uses the REAL open-pack flow (quantity, balance/stock checks,
+ * panel (right), and an "Available slabs" section grouped by tier. Uses the
+ * REAL open-pack flow (quantity, balance/stock checks,
  * confirm modal, gacha navigation) ported from PackDetailExperience.
  */
 
@@ -58,13 +58,6 @@ function initials(name: string): string {
     .join("");
 }
 
-function formatRate(p: number): string {
-  if (p <= 0) return "—";
-  if (p >= 1) return `${p.toFixed(0)}%`;
-  if (p >= 0.1) return `${p.toFixed(1)}%`;
-  return `${p.toFixed(2)}%`;
-}
-
 type Slab = {
   key: string;
   name: string;
@@ -74,7 +67,6 @@ type Slab = {
   year: number | null;
   brand: string | null;
   tier: TierKey;
-  units: number;
 };
 
 export type PackDetailArenaProps = {
@@ -179,9 +171,8 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
     const byKey = new Map<string, Slab>();
     for (const p of campaign.prizeLineup ?? []) {
       const key = (p.cardCode?.trim() || p.cardName.trim().toLowerCase()) + "|" + (p.cardImageUrl ?? "");
-      const units = typeof p.availableUnits === "number" ? p.availableUnits : typeof p.totalUnits === "number" ? p.totalUnits : 1;
       const existing = byKey.get(key);
-      if (existing) { existing.units += units; continue; }
+      if (existing) continue;
       byKey.set(key, {
         key,
         name: p.cardName,
@@ -191,7 +182,6 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
         year: p.cardReleaseYear ?? null,
         brand: p.cardBrand ?? null,
         tier: tierOf(p),
-        units: Math.max(1, units),
       });
     }
     return [...byKey.values()].sort(
@@ -199,8 +189,6 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
     );
   }, [campaign.prizeLineup]);
 
-  const totalUnits = slabs.reduce((s, x) => s + x.units, 0) || 1;
-  const rateOf = (s: Slab) => (s.units / totalUnits) * 100;
   const grouped = useMemo(() => {
     const g: Record<TierKey, Slab[]> = { rainbow: [], gold: [], silver: [], bronze: [] };
     for (const s of slabs) g[s.tier].push(s);
@@ -229,11 +217,24 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
   const move = (d: number) => setCenter((c) => n ? ((c + d) % n + n) % n : 0);
   const title = campaign.titleTh || campaign.titleEn;
   const seriesLabel = SERIES_LABEL[campaign.series] ?? campaign.series;
+  const bannerImageUrl = campaign.bannerImageUrl?.trim() ?? "";
+  const hasBannerImage = Boolean(bannerImageUrl);
 
   const offsets = [-2, -1, 0, 1, 2];
 
   return (
     <div className="ac-root">
+      {hasBannerImage ? (
+        <section className="ac-hero" aria-label={`${title} banner`}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- Pack banners are user-managed Supabase assets. */}
+          <img
+            alt=""
+            aria-hidden="true"
+            className="ac-hero-media"
+            src={bannerImageUrl}
+          />
+        </section>
+      ) : null}
 
       <main className="ac-main">
         {/* LEFT — fanned carousel */}
@@ -269,7 +270,6 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
             {n > 1 && (
               <button className="ac-arrow ac-next" onClick={() => move(1)} aria-label="next">›</button>
             )}
-            {n > 0 && <span className="ac-rate-badge">{formatRate(rateOf(slabs[center]))}</span>}
           </div>
           {n > 0 && (
             <div className="ac-center-name">
@@ -609,7 +609,6 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                       <div className="ac-cl-row" key={s.key}>
                         <strong>{s.name}</strong>
                         {s.grade ? <span className="ac-cl-grade">{s.grade}</span> : null}
-                        <span className="ac-cl-rate">{formatRate(rateOf(s))}</span>
                       </div>
                     ))}
                   </div>
@@ -665,12 +664,12 @@ const baseCss = `
   }
   /* HERO */
   .ac-hero {
-    position: relative; width: 100vw; left: 50%; right: 50%;
-    margin-left: -50vw; margin-right: -50vw;
-    aspect-ratio: 4 / 1; min-height: 220px; max-height: 440px;
-    overflow: hidden; background: #0e1116;
+    position: relative; width: min(1450px, calc(100vw - 32px));
+    margin: 28px auto 0; aspect-ratio: 16 / 9; min-height: 220px;
+    max-height: min(72vh, 720px); overflow: hidden; background: #fff;
+    border-radius: 20px; box-shadow: 0 18px 44px rgba(13, 20, 17, 0.14);
   }
-  .ac-hero-media { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ac-hero-media { width: 100%; height: 100%; object-fit: contain; display: block; background: #fff; }
   .ac-hero-ph { position: absolute; inset: 0; background: linear-gradient(120deg, #cfe0f5 0%, #e7dcf0 45%, #f7d8c9 100%); }
 
   /* proportional columns (~3/4 : 1/4) — 1065:360 is the tuned full-width design,
@@ -686,7 +685,6 @@ const baseCss = `
   .ac-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 20; width: 42px; height: 42px; border-radius: 50%; border: none; cursor: pointer; background: rgba(255,255,255,0.85); color: #111; font-size: 22px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); }
   .ac-prev { left: 16px; } .ac-next { right: 16px; }
   .ac-arrow:hover { background: #fff; }
-  .ac-rate-badge { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 20; background: rgba(17,17,17,0.78); color: #fff; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; }
   .ac-center-name { text-align: center; margin-top: 12px; font-weight: 800; font-size: 16px; display: flex; gap: 10px; justify-content: center; align-items: center; }
   .ac-center-tier { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; }
 
@@ -747,7 +745,6 @@ const baseCss = `
   .ac-cl-row { display: flex; align-items: baseline; gap: 12px; padding: 15px 0; border-bottom: 1px solid #e5e7eb; }
   .ac-cl-row strong { flex: 1; font-size: 12px; font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase; color: #000; min-width: 0; }
   .ac-cl-grade { color: #757575; font-size: 11px; letter-spacing: 0.04em; white-space: nowrap; }
-  .ac-cl-rate { font-size: 12px; font-weight: 400; color: #000; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
   /* right-slide drawer — YFIFTEEN filter-drawer pattern (w-11/12 max-w-md,
      hairline left + header borders, small tracked title, square corners) */

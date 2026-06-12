@@ -966,7 +966,7 @@ export async function PacksExperience({
                     </span>
                   )}
                   <Link
-                    href={`/gacha/${campaign.slug}`}
+                    href={`/packs/${campaign.slug}`}
                     className={`packs-feature-card packs-feature-card--${palette}`}
                   >
                     <span className="packs-feature-eyebrow">
@@ -1226,7 +1226,7 @@ function SeriesEssentialsSection() {
 
 function MobileTorecaHero({ campaign }: { campaign?: YnotCampaign }) {
   const openHref = campaign
-    ? `/gacha/${campaign.slug}`
+    ? `/packs/${campaign.slug}`
     : "/packs";
   return (
     <section className="toreca-mobile-hero" aria-label="YNot mobile hero">
@@ -1419,7 +1419,7 @@ export function CampaignCard({
       </div>
       <Link
         className="pack-image-link"
-        href={`/gacha/${campaign.slug}`}
+        href={`/packs/${campaign.slug}`}
         aria-label={`View ${title}`}
       >
         <CampaignArtwork campaign={campaign} clean />
@@ -1440,7 +1440,7 @@ export function CampaignCard({
       </div>
       <ProgressTrack campaign={campaign} />
       <div className="product-actions">
-        <Link className="secondary-action" href={`/gacha/${campaign.slug}`}>
+        <Link className="secondary-action" href={`/packs/${campaign.slug}`}>
           Details
         </Link>
         {soldOut ? (
@@ -2044,7 +2044,9 @@ export function CollectionGrid({
 
 function CollectionCard({ item }: { item: YnotCollectionItem }) {
   return (
-    <article className="collection-card vertical">
+    <article
+      className={`collection-card vertical${item.sourceIsLastPrize ? " is-last-prize" : ""}`}
+    >
       <div className="collection-art large">
         {item.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- Collection images are Supabase/storage URLs managed by admins.
@@ -2053,9 +2055,15 @@ function CollectionCard({ item }: { item: YnotCollectionItem }) {
           <span>{item.cardCode ?? "YNot Card"}</span>
         )}
       </div>
+      {item.sourceIsLastPrize && (
+        <span className="collection-last-prize-badge">Last Prize</span>
+      )}
       <h3 className="title-s mt-4">{item.cardName}</h3>
       <p className="txt-mono mt-1 text-xs">
-        {item.serialNo ?? item.cardCode ?? "Collection reward"} · {item.status}
+        {item.sourceIsLastPrize
+          ? "Last Prize"
+          : item.serialNo ?? item.cardCode ?? "Collection reward"}{" "}
+        · {item.status}
       </p>
     </article>
   );

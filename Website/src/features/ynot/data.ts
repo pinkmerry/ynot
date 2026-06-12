@@ -62,6 +62,8 @@ import {
   prizeDisplayTierLabel,
   prizeDisplayTierOrder,
   prizeDisplayTierValue,
+  publicPrizeDisplayTierLabel,
+  publicPrizeDisplayTierValue,
 } from "./prize-tier";
 import {
   stockUnitDisplayLabel,
@@ -1239,8 +1241,10 @@ function toYnotCampaign(
         (availablePrizeUnits !== undefined && availablePrizeUnits <= 0),
     );
   const adminRemoved = isOwnerRemoved(row.test_metadata);
+  // Customer openability must match the atomic open RPC: if a live pack has an
+  // eligible public win slot, checker-only blockers should not disable opening.
   const hasOpenableInventory = readiness
-    ? (readiness.eligiblePrizeUnits ?? 0) > 0 && readiness.ready !== false
+    ? (readiness.eligiblePrizeUnits ?? 0) > 0
     : (availablePrizeUnits ?? 0) > 0 &&
       (remainingSlots ?? row.total_slots) > 0;
   const openable =
@@ -2507,7 +2511,7 @@ export async function getCampaign(
       .filter((category): category is YnotCategory => Boolean(category));
     const inventory = inventoryRows[0];
     const prizeLineup = await getPublicPrizeLineup(supabase, row, inventory, {
-      includeLocked: true,
+      includeLocked: includePrivateDetail,
       includeSensitiveOdds: includePrivateDetail,
       includeStockTarget: includePrivateDetail,
     });
@@ -3104,8 +3108,9 @@ export async function getCollection(
     const sourcePrizeTier = sourcePrize
       ? displayTierFromPrizeMetadata(sourcePrize)
       : sourceOpenItem
-        ? prizeDisplayTierValue(sourceOpenItem.tier)
+        ? publicPrizeDisplayTierValue(sourceOpenItem.tier)
         : null;
+    const sourceIsLastPrize = sourcePrizeTier === "last_prize";
     return {
       id: await collectionItemActionToken(profileId, item.id),
       cardName: card?.name ?? "Mystery card",
@@ -3138,8 +3143,9 @@ export async function getCollection(
       sourcePrizeTier,
       sourcePrizeTierLabel: sourcePrizeTier
         ? metadataString(sourcePrize?.metadata, "displayTierLabel") ??
-          prizeDisplayTierLabel(sourcePrizeTier)
+          publicPrizeDisplayTierLabel(sourcePrizeTier)
         : null,
+      sourceIsLastPrize,
       sourcePrizeValueThb:
         sourceOpenItem?.value_thb ?? sourcePrize?.value_thb ?? null,
       sourceOpenPosition: sourceOpenItem?.result_position ?? null,
@@ -3254,6 +3260,47 @@ export async function getGachaOpenHistory(
     rewardPrizeUnits as PublicPrizeUnitImageRow[],
     rewardStockUnits as PublicStockUnitImageRow[],
   );
+  const collectionStockLinks = openIds.length
+    ? await readOrEmpty("gacha_history_collection_stock_links", async () => {
+        const { data, error } = await supabase
+          .from("collection_items")
+          .select("gacha_open_item_id,card_stock_unit_id")
+          .eq("source_type", "gacha_open")
+          .in("source_id", openIds)
+          .not("gacha_open_item_id", "is", null)
+          .not("card_stock_unit_id", "is", null);
+        if (error) throw error;
+        return data ?? [];
+      })
+    : [];
+  const collectionStockUnitIds = [
+    ...new Set(
+      collectionStockLinks
+        .map((link) => link.card_stock_unit_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const collectionStockUnits = collectionStockUnitIds.length
+    ? await readOrEmpty("gacha_history_collection_stock_unit_images", async () => {
+        const { data, error } = await supabase
+          .from("card_stock_units")
+          .select("id,image_url")
+          .in("id", collectionStockUnitIds);
+        if (error) throw error;
+        return data ?? [];
+      })
+    : [];
+  const collectionStockImageById = new Map(
+    collectionStockUnits.map((unit) => [unit.id, unit.image_url ?? null]),
+  );
+  const collectionImageByOpenItemId = new Map<string, string>();
+  for (const link of collectionStockLinks) {
+    if (!link.gacha_open_item_id || !link.card_stock_unit_id) continue;
+    const imageUrl = collectionStockImageById.get(link.card_stock_unit_id);
+    if (imageUrl) {
+      collectionImageByOpenItemId.set(link.gacha_open_item_id, imageUrl);
+    }
+  }
 
   const cardsById = new Map(cards.map((card) => [card.catalogCardId, card]));
   const campaignsById = new Map(
@@ -3276,17 +3323,19 @@ export async function getGachaOpenHistory(
         : undefined;
       const displayTier = prize
         ? displayTierFromPrizeMetadata(prize)
-        : prizeDisplayTierValue(item.tier);
+        : publicPrizeDisplayTierValue(item.tier);
       return {
         id: `${publicCode}-${item.result_position ?? index + 1}`,
         cardName: card?.name ?? "Mystery reward",
         cardCode: card?.code,
         imageUrl: publicSubSkuImageUrl(
-          rewardImageByOpenItemId.get(item.id),
+          collectionImageByOpenItemId.get(item.id) ??
+            rewardImageByOpenItemId.get(item.id),
           card?.photoUrl,
         ),
         bundleQuantity: publicBundleQuantity(item.bundle_quantity),
         displayTier,
+        isLastPrize: displayTier === "last_prize",
         valueThb: item.value_thb,
         resultPosition: item.result_position,
       };
@@ -3691,7 +3740,7 @@ export async function getShipping(
       const sourcePrizeTier = sourcePrize
         ? displayTierFromPrizeMetadata(sourcePrize)
         : sourceOpenItem
-          ? prizeDisplayTierValue(sourceOpenItem.tier)
+          ? publicPrizeDisplayTierValue(sourceOpenItem.tier)
           : null;
       const group = shippingItemsByRequestId.get(shippingItem.shipping_request_id) ?? [];
       group.push({
@@ -3709,7 +3758,7 @@ export async function getShipping(
         sourceOpenPosition: sourceOpenItem?.result_position ?? null,
         sourcePrizeTierLabel: sourcePrizeTier
           ? metadataString(sourcePrize?.metadata, "displayTierLabel") ??
-            prizeDisplayTierLabel(sourcePrizeTier)
+            publicPrizeDisplayTierLabel(sourcePrizeTier)
           : null,
         sourcePrizeValueThb:
           sourceOpenItem?.value_thb ?? sourcePrize?.value_thb ?? null,

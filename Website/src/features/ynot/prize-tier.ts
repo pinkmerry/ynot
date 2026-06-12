@@ -1,4 +1,5 @@
 export type PrizeDisplayTier = "rainbow" | "gold" | "silver" | "bronze";
+export type PublicPrizeDisplayTier = PrizeDisplayTier | "last_prize";
 
 export type PrizeTierAnimationConfig = {
   durationMs: number;
@@ -9,8 +10,8 @@ export type PrizeTierAnimationConfig = {
   holdToContinue: boolean;
 };
 
-export const prizeDisplayTierOptions: Array<{
-  value: PrizeDisplayTier;
+type PrizeDisplayTierOption<T extends PublicPrizeDisplayTier = PrizeDisplayTier> = {
+  value: T;
   label: string;
   shortLabel: string;
   dbTier: "high" | "normal";
@@ -20,7 +21,9 @@ export const prizeDisplayTierOptions: Array<{
   defaultUnlockAtSoldPct: number;
   allowsRandomPsa10: boolean;
   animation: PrizeTierAnimationConfig;
-}> = [
+};
+
+export const prizeDisplayTierOptions: Array<PrizeDisplayTierOption> = [
   {
     value: "rainbow",
     label: "Rainbow",
@@ -103,6 +106,26 @@ export const prizeDisplayTierValues = prizeDisplayTierOptions.map(
   (option) => option.value,
 );
 
+const lastPrizeDisplayTierOption: PrizeDisplayTierOption<"last_prize"> = {
+  value: "last_prize",
+  label: "Last Prize",
+  shortLabel: "LP",
+  dbTier: "normal",
+  defaultCount: 0,
+  defaultQuantity: 1,
+  defaultWeight: 0,
+  defaultUnlockAtSoldPct: 100,
+  allowsRandomPsa10: false,
+  animation: {
+    durationMs: 4900,
+    ringColor: "linear-gradient(135deg,#fff0a8 0%,#ffd76a 35%,#e0a316 100%)",
+    glowColor: "rgba(224,163,22,0.9)",
+    particleCount: 72,
+    screenShake: true,
+    holdToContinue: true,
+  },
+};
+
 export function prizeDisplayTierValue(value: unknown): PrizeDisplayTier {
   if (prizeDisplayTierValues.includes(value as PrizeDisplayTier)) {
     return value as PrizeDisplayTier;
@@ -113,12 +136,23 @@ export function prizeDisplayTierValue(value: unknown): PrizeDisplayTier {
   return "bronze";
 }
 
+export function publicPrizeDisplayTierValue(value: unknown): PublicPrizeDisplayTier {
+  if (value === "last_prize") return "last_prize";
+  return prizeDisplayTierValue(value);
+}
+
 export function prizeDisplayTierLabel(value: unknown) {
   const tier = prizeDisplayTierValue(value);
   return (
     prizeDisplayTierOptions.find((option) => option.value === tier)?.label ??
     "Bronze"
   );
+}
+
+export function publicPrizeDisplayTierLabel(value: unknown) {
+  const tier = publicPrizeDisplayTierValue(value);
+  if (tier === "last_prize") return lastPrizeDisplayTierOption.label;
+  return prizeDisplayTierLabel(tier);
 }
 
 export function prizeDisplayTierConfig(value: unknown) {
@@ -129,12 +163,26 @@ export function prizeDisplayTierConfig(value: unknown) {
   );
 }
 
+export function publicPrizeDisplayTierConfig(
+  value: unknown,
+): PrizeDisplayTierOption<PublicPrizeDisplayTier> {
+  const tier = publicPrizeDisplayTierValue(value);
+  if (tier === "last_prize") return lastPrizeDisplayTierOption;
+  return prizeDisplayTierConfig(tier);
+}
+
 export function prizeDisplayTierOrder(value: unknown) {
   const tier = prizeDisplayTierValue(value);
   return Math.max(
     0,
     prizeDisplayTierOptions.findIndex((option) => option.value === tier),
   );
+}
+
+export function publicPrizeDisplayTierOrder(value: unknown) {
+  const tier = publicPrizeDisplayTierValue(value);
+  if (tier === "last_prize") return -1;
+  return prizeDisplayTierOrder(tier);
 }
 
 export function dbTierForPrizeDisplayTier(value: unknown) {
@@ -156,6 +204,18 @@ export function highestPrizeDisplayTier(
   return values.reduce<PrizeDisplayTier>((best, candidate) => {
     const candidateTier = prizeDisplayTierValue(candidate);
     return prizeDisplayTierOrder(candidateTier) < prizeDisplayTierOrder(best)
+      ? candidateTier
+      : best;
+  }, "bronze");
+}
+
+export function highestPublicPrizeDisplayTier(
+  values: ReadonlyArray<unknown>,
+): PublicPrizeDisplayTier {
+  if (!values.length) return "bronze";
+  return values.reduce<PublicPrizeDisplayTier>((best, candidate) => {
+    const candidateTier = publicPrizeDisplayTierValue(candidate);
+    return publicPrizeDisplayTierOrder(candidateTier) < publicPrizeDisplayTierOrder(best)
       ? candidateTier
       : best;
   }, "bronze");

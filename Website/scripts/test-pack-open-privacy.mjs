@@ -15,6 +15,10 @@ const gachaOpenPageSource = readFileSync(
   new URL("../src/app/(store)/gacha/[campaignId]/open/page.tsx", import.meta.url),
   "utf8",
 );
+const gachaDetailPageSource = readFileSync(
+  new URL("../src/app/(store)/gacha/[campaignId]/page.tsx", import.meta.url),
+  "utf8",
+);
 const packsPageSource = readFileSync(
   new URL("../src/app/(store)/packs/page.tsx", import.meta.url),
   "utf8",
@@ -562,7 +566,7 @@ test("public campaign detail cache is bypassable for fresh openability gates", (
   );
 });
 
-test("legacy campaign card and detail disable open actions for sold-out packs", () => {
+test("legacy campaign cards keep open route but send details to pack pages", () => {
   const campaignCard = between(
     componentsSource,
     "export function CampaignCard",
@@ -575,9 +579,24 @@ test("legacy campaign card and detail disable open actions for sold-out packs", 
     campaignCard,
     /\{soldOut \? \(\s*<button[\s\S]*className="primary-action"[\s\S]*disabled[\s\S]*>\s*Sold out\s*<\/button>\s*\) : \(\s*<Link[\s\S]*className="primary-action"[\s\S]*href=\{`\/gacha\/\$\{campaign\.slug\}\/open`\}[\s\S]*>\s*Open\s*<\/Link>\s*\)\}/,
   );
+  assert.match(
+    campaignCard,
+    /href=\{`\/packs\/\$\{campaign\.slug\}`\}/,
+    "legacy card details should use the CR pack-detail page",
+  );
   assert.doesNotMatch(
     campaignCard,
     /<div className="product-actions">\s*<Link className="secondary-action" href=\{`\/gacha\/\$\{campaign\.slug\}`\}>[\s\S]*?Details[\s\S]*?<\/Link>\s*<Link className="primary-action" href=\{`\/gacha\/\$\{campaign\.slug\}\/open`\}>[\s\S]*?Open[\s\S]*?<\/Link>\s*<\/div>/,
+  );
+  assert.match(
+    gachaDetailPageSource,
+    /redirect\(`\/packs\/\$\{campaign\.slug\}`\)/,
+    "legacy gacha detail URL should redirect to the pack-detail page",
+  );
+  assert.doesNotMatch(
+    componentsSource,
+    /\/gacha\/\$\{campaign\.slug\}`/,
+    "customer detail-style links should use /packs/:slug; only /gacha/:slug/open may remain",
   );
 
   const campaignDetailPanel = between(
