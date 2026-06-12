@@ -2044,7 +2044,9 @@ export function CollectionGrid({
 
 function CollectionCard({ item }: { item: YnotCollectionItem }) {
   return (
-    <article className="collection-card vertical">
+    <article
+      className={`collection-card vertical${item.sourceIsLastPrize ? " is-last-prize" : ""}`}
+    >
       <div className="collection-art large">
         {item.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- Collection images are Supabase/storage URLs managed by admins.
@@ -2053,9 +2055,15 @@ function CollectionCard({ item }: { item: YnotCollectionItem }) {
           <span>{item.cardCode ?? "YNot Card"}</span>
         )}
       </div>
+      {item.sourceIsLastPrize && (
+        <span className="collection-last-prize-badge">Last Prize</span>
+      )}
       <h3 className="title-s mt-4">{item.cardName}</h3>
       <p className="txt-mono mt-1 text-xs">
-        {item.serialNo ?? item.cardCode ?? "Collection reward"} · {item.status}
+        {item.sourceIsLastPrize
+          ? "Last Prize"
+          : item.serialNo ?? item.cardCode ?? "Collection reward"}{" "}
+        · {item.status}
       </p>
     </article>
   );

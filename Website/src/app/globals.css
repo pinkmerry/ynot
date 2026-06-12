@@ -13692,6 +13692,12 @@ html[data-ynot-theme="light"] .profile-empty-note {
   color: var(--prototype-cyan);
 }
 
+.profile-collection-card.is-last-prize,
+.profile-reward-row.is-last-prize {
+  border-color: rgba(224, 163, 22, 0.72);
+  box-shadow: inset 0 0 18px rgba(224, 163, 22, 0.12);
+}
+
 .profile-pack-card > span,
 .profile-collection-card > span {
   color: var(--prototype-cyan);
@@ -13700,6 +13706,10 @@ html[data-ynot-theme="light"] .profile-empty-note {
   font-weight: 1000;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.profile-collection-card.is-last-prize > span {
+  color: #ffd76a;
 }
 
 .profile-pack-card strong,
@@ -13819,6 +13829,12 @@ html[data-ynot-theme="light"] .profile-empty-note {
   font-family: var(--font-mono), "Geist Mono", ui-monospace, monospace;
   font-size: 0.82rem;
   white-space: nowrap;
+}
+
+.profile-reward-row.is-last-prize b,
+.profile-reward-row.is-last-prize > span {
+  border-color: rgba(224, 163, 22, 0.72);
+  color: #ffd76a;
 }
 
 .personal-info-page .profile-address-focus,
@@ -15269,6 +15285,25 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
   box-shadow: 0 2px 8px rgba(13, 20, 17, 0.28);
   pointer-events: none;
 }
+
+.collection-card.is-last-prize {
+  border-color: rgba(224, 163, 22, 0.72);
+}
+
+.collection-last-prize-badge {
+  align-self: start;
+  background: linear-gradient(135deg, #ffd76a, #e0a316);
+  color: #4a2e08;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin-top: 10px;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
 .gacha-reveal-card-frame::before {
   content: none;
 }
@@ -31916,6 +31951,13 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-row-footer-id {
   letter-spacing: 0.06em;
   color: var(--a-gold, #f4c542);
 }
+
+.collection-convert-grade-pill.is-last-prize {
+  background: linear-gradient(135deg, #ffd76a, #e0a316);
+  border-color: rgba(255, 215, 106, 0.72);
+  color: #4a2e08;
+}
+
 .collection-convert-row-code {
   font-family: "SFMono-Regular", ui-monospace, Menlo, monospace;
   font-size: 11px;

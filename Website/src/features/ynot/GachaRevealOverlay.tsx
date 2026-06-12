@@ -4,11 +4,11 @@ import { ArrowLeft } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  highestPrizeDisplayTier,
-  prizeDisplayTierConfig,
-  prizeDisplayTierLabel,
-  prizeDisplayTierOrder,
-  prizeTierAnimationConfig,
+  highestPublicPrizeDisplayTier,
+  publicPrizeDisplayTierConfig,
+  publicPrizeDisplayTierLabel,
+  publicPrizeDisplayTierOrder,
+  type PublicPrizeDisplayTier,
   type PrizeDisplayTier,
 } from "./prize-tier";
 import {
@@ -44,8 +44,8 @@ const TIER_SPIN_MS = 1450;
 const TIER_RESULT_MS = 1600;
 const SPOTLIGHT_MS = 2100;
 
-function revealRarity(tier: PrizeDisplayTier): PullRarity {
-  if (tier === "rainbow") return "jackpot";
+function revealRarity(tier: PublicPrizeDisplayTier): PullRarity {
+  if (tier === "last_prize" || tier === "rainbow") return "jackpot";
   if (tier === "gold") return "blackout";
   if (tier === "silver") return "rare";
   return "normal";
@@ -61,8 +61,8 @@ function revealMotionDurationMs(rarity: PullRarity, quantity: number) {
 function featuredRevealItem(items: YnotGachaOpenItem[]) {
   return items.reduce<YnotGachaOpenItem | null>((best, item) => {
     if (!best) return item;
-    const bestOrder = prizeDisplayTierOrder(best.displayTier);
-    const itemOrder = prizeDisplayTierOrder(item.displayTier);
+    const bestOrder = publicPrizeDisplayTierOrder(best.displayTier);
+    const itemOrder = publicPrizeDisplayTierOrder(item.displayTier);
     if (itemOrder < bestOrder) return item;
     if (itemOrder === bestOrder && item.position < best.position) return item;
     return best;
@@ -136,16 +136,17 @@ export function GachaRevealOverlay({
     () => result.items ?? [],
     [result.items],
   );
-  const highestTier = useMemo<PrizeDisplayTier>(
+  const highestTier = useMemo<PublicPrizeDisplayTier>(
     () =>
       items.length
-        ? highestPrizeDisplayTier(items.map((item) => item.displayTier))
+        ? highestPublicPrizeDisplayTier(items.map((item) => item.displayTier))
         : "bronze",
     [items],
   );
-  const animation = prizeTierAnimationConfig(highestTier);
-  const highestTierConfig = prizeDisplayTierConfig(highestTier);
-  const tierAsset = findTierAnimation(tierAnimations, highestTier);
+  const highestTierConfig = publicPrizeDisplayTierConfig(highestTier);
+  const animation = highestTierConfig.animation;
+  const tierAsset =
+    highestTier === "last_prize" ? null : findTierAnimation(tierAnimations, highestTier);
   const featuredItem = useMemo(() => featuredRevealItem(items), [items]);
   const featuredItemImageUrl = isUploadedQuestionPlaceholder(featuredItem)
     ? null
@@ -385,14 +386,14 @@ export function GachaRevealOverlay({
         >
           <div
             className="gacha-reveal-tier-card"
-            aria-label={`${prizeDisplayTierLabel(highestTier)} prize tier result`}
+            aria-label={`${publicPrizeDisplayTierLabel(highestTier)} prize tier result`}
           >
             <div className="gacha-reveal-tier-face gacha-reveal-tier-face-back">
               <span>YNOT</span>
             </div>
             <div className="gacha-reveal-tier-face gacha-reveal-tier-face-front">
               <span>Prize tier</span>
-              <strong>{prizeDisplayTierLabel(highestTier)}</strong>
+              <strong>{publicPrizeDisplayTierLabel(highestTier)}</strong>
               <small>
                 {items.length} {items.length === 1 ? "pull" : "pulls"}
               </small>
@@ -437,7 +438,7 @@ export function GachaRevealOverlay({
         <div className="gacha-reveal-stage gacha-reveal-summary">
           <header className="gacha-reveal-summary-header">
             <p className="gacha-reveal-summary-eyebrow">
-              {prizeDisplayTierLabel(highestTier).toUpperCase()} · {items.length}{" "}
+              {publicPrizeDisplayTierLabel(highestTier).toUpperCase()} · {items.length}{" "}
               {items.length === 1 ? "PULL" : "PULLS"}
             </p>
             <h2>Your haul</h2>
@@ -445,7 +446,7 @@ export function GachaRevealOverlay({
 
           <ul className="gacha-reveal-grid" data-quantity={items.length}>
             {items.map((item) => {
-              const tier = prizeDisplayTierConfig(item.displayTier);
+              const tier = publicPrizeDisplayTierConfig(item.displayTier);
               const isLastPrize = item.isLastPrize === true;
               const itemImageUrl = isUploadedQuestionPlaceholder(item)
                 ? null

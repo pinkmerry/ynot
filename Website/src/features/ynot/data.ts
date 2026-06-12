@@ -62,6 +62,8 @@ import {
   prizeDisplayTierLabel,
   prizeDisplayTierOrder,
   prizeDisplayTierValue,
+  publicPrizeDisplayTierLabel,
+  publicPrizeDisplayTierValue,
 } from "./prize-tier";
 import {
   stockUnitDisplayLabel,
@@ -3106,8 +3108,9 @@ export async function getCollection(
     const sourcePrizeTier = sourcePrize
       ? displayTierFromPrizeMetadata(sourcePrize)
       : sourceOpenItem
-        ? prizeDisplayTierValue(sourceOpenItem.tier)
+        ? publicPrizeDisplayTierValue(sourceOpenItem.tier)
         : null;
+    const sourceIsLastPrize = sourcePrizeTier === "last_prize";
     return {
       id: await collectionItemActionToken(profileId, item.id),
       cardName: card?.name ?? "Mystery card",
@@ -3140,8 +3143,9 @@ export async function getCollection(
       sourcePrizeTier,
       sourcePrizeTierLabel: sourcePrizeTier
         ? metadataString(sourcePrize?.metadata, "displayTierLabel") ??
-          prizeDisplayTierLabel(sourcePrizeTier)
+          publicPrizeDisplayTierLabel(sourcePrizeTier)
         : null,
+      sourceIsLastPrize,
       sourcePrizeValueThb:
         sourceOpenItem?.value_thb ?? sourcePrize?.value_thb ?? null,
       sourceOpenPosition: sourceOpenItem?.result_position ?? null,
@@ -3278,7 +3282,7 @@ export async function getGachaOpenHistory(
         : undefined;
       const displayTier = prize
         ? displayTierFromPrizeMetadata(prize)
-        : prizeDisplayTierValue(item.tier);
+        : publicPrizeDisplayTierValue(item.tier);
       return {
         id: `${publicCode}-${item.result_position ?? index + 1}`,
         cardName: card?.name ?? "Mystery reward",
@@ -3289,6 +3293,7 @@ export async function getGachaOpenHistory(
         ),
         bundleQuantity: publicBundleQuantity(item.bundle_quantity),
         displayTier,
+        isLastPrize: displayTier === "last_prize",
         valueThb: item.value_thb,
         resultPosition: item.result_position,
       };
@@ -3693,7 +3698,7 @@ export async function getShipping(
       const sourcePrizeTier = sourcePrize
         ? displayTierFromPrizeMetadata(sourcePrize)
         : sourceOpenItem
-          ? prizeDisplayTierValue(sourceOpenItem.tier)
+          ? publicPrizeDisplayTierValue(sourceOpenItem.tier)
           : null;
       const group = shippingItemsByRequestId.get(shippingItem.shipping_request_id) ?? [];
       group.push({
@@ -3711,7 +3716,7 @@ export async function getShipping(
         sourceOpenPosition: sourceOpenItem?.result_position ?? null,
         sourcePrizeTierLabel: sourcePrizeTier
           ? metadataString(sourcePrize?.metadata, "displayTierLabel") ??
-            prizeDisplayTierLabel(sourcePrizeTier)
+            publicPrizeDisplayTierLabel(sourcePrizeTier)
           : null,
         sourcePrizeValueThb:
           sourceOpenItem?.value_thb ?? sourcePrize?.value_thb ?? null,

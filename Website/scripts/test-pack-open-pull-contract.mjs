@@ -42,6 +42,10 @@ const openRoute = read("../src/app/api/ynot/gacha/open/route.ts");
 const client = read("../src/features/ynot/client.tsx");
 const revealOverlay = read("../src/features/ynot/GachaRevealOverlay.tsx");
 const data = read("../src/features/ynot/data.ts");
+const profileRewardsTabs = read("../src/features/ynot/ProfileRewardsTabs.tsx");
+const components = read("../src/features/ynot/components.tsx");
+const prizeTier = read("../src/features/ynot/prize-tier.ts");
+const ynotTypes = read("../src/features/ynot/types.ts");
 const stockSkuPresentation = read("../src/features/ynot/stock-sku-presentation.ts");
 const stockSkuUsage = read("../src/features/ynot/stock-sku-usage.ts");
 const stockSkuRoute = read("../src/app/api/ynot/admin/stock-skus/route.ts");
@@ -58,6 +62,9 @@ const replayRemainingMigration = read(
 );
 const finalQuantitySummaryMigration = read(
   "../../Database/supabase/migrations/20260611102846_last_prize_final_quantity_summary.sql",
+);
+const lastPrizeBonusMigration = read(
+  "../../Database/supabase/migrations/20260612090000_last_prize_bonus_award.sql",
 );
 const collectionLinkMigration = read(
   "../../Database/supabase/migrations/20260605223000_collection_item_stock_unit_last_prize.sql",
@@ -201,12 +208,62 @@ test("final-prize exact-left boundaries allow x1, x10, and x100 when the request
   }
 
   assert.match(openRpc, /last_prize_needed := campaign\.last_prize_card_id is not null[\s\S]*available_slot_count <= p_quantity;/);
-  assert.match(openRpc, /normal_units_needed := p_quantity - case when last_prize_needed then 1 else 0 end;/);
   assert.match(openRpc, /available_unit_count < normal_units_needed/);
   assert.match(openRpc, /if last_prize_needed and lp_collection_item_id is null and sold_pct >= 100 then/);
   assert.doesNotMatch(openRpc, /last_prize_needed[\s\S]{0,160}p_quantity\s*=\s*1/);
+  assert.match(lastPrizeBonusMigration, /normal_units_needed := p_quantity;/);
+  assert.match(lastPrizeBonusMigration, /last_prize_substitutes boolean := false/);
+  assert.match(lastPrizeBonusMigration, /if lp_bonus_item is not null then/);
+  assert.match(
+    lastPrizeBonusMigration,
+    /'position', case when last_prize_substitutes then position_index else p_quantity \+ 1 end/,
+  );
   assert.match(finalQuantitySummaryMigration, /last_prize_available_units/);
   assert.match(finalQuantitySummaryMigration, /ri\.remaining_slots <= coalesce\(nwc\.available_win_slots, 0\) \+ coalesce\(lpc\.last_prize_available_units, 0\)/);
+});
+
+test("Last Prize stays first-class in public reveal, history, and collection display", () => {
+  const historySource = between(
+    data,
+    "export async function getGachaOpenHistory",
+    "export async function getExchanges",
+    "pull history loader",
+  );
+  const collectionSource = between(
+    data,
+    "export async function getCollection",
+    "export async function getGachaOpenHistory",
+    "collection loader",
+  );
+
+  assert.match(prizeTier, /export type PublicPrizeDisplayTier = PrizeDisplayTier \| "last_prize"/);
+  assert.match(prizeTier, /export function publicPrizeDisplayTierValue/);
+  assert.match(prizeTier, /if \(value === "last_prize"\) return "last_prize"/);
+  assert.match(prizeTier, /label: "Last Prize"/);
+  assert.match(prizeTier, /export function publicPrizeDisplayTierOrder/);
+  assert.match(prizeTier, /if \(tier === "last_prize"\) return -1/);
+  assert.match(prizeTier, /export function highestPublicPrizeDisplayTier/);
+
+  assert.match(ynotTypes, /export type YnotPublicPrizeDisplayTier =[\s\S]*"last_prize"/);
+  assert.match(ynotTypes, /sourceIsLastPrize\?: boolean/);
+  assert.match(ynotTypes, /isLastPrize\?: boolean/);
+  assert.match(ynotTypes, /displayTier: YnotPublicPrizeDisplayTier/);
+
+  assert.match(revealOverlay, /highestPublicPrizeDisplayTier/);
+  assert.match(revealOverlay, /publicPrizeDisplayTierOrder/);
+  assert.match(revealOverlay, /tier === "last_prize" \|\| tier === "rainbow"/);
+  assert.match(revealOverlay, /highestTier === "last_prize" \? null : findTierAnimation/);
+  assert.match(revealOverlay, /LAST ONE PRIZE!/);
+
+  assert.match(collectionSource, /publicPrizeDisplayTierValue\(sourceOpenItem\.tier\)/);
+  assert.match(collectionSource, /const sourceIsLastPrize = sourcePrizeTier === "last_prize"/);
+  assert.match(collectionSource, /sourceIsLastPrize,/);
+  assert.match(historySource, /publicPrizeDisplayTierValue\(item\.tier\)/);
+  assert.match(historySource, /isLastPrize: displayTier === "last_prize"/);
+
+  assert.match(profileRewardsTabs, /item\.sourceIsLastPrize \? "LAST PRIZE"/);
+  assert.match(profileRewardsTabs, /reward\.isLastPrize \? "Last Prize"/);
+  assert.match(components, /collection-last-prize-badge/);
 });
 
 test("pulled prize images use the awarded stock-unit image in animation, summary, bag, and history", () => {
