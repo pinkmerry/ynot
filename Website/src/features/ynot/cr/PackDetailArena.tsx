@@ -799,9 +799,6 @@ const baseCss = `
     from { transform: scale(0.97); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
   }
-  @media (prefers-reduced-motion: reduce) {
-    .ac-lightbox, .ac-lightbox-turn { animation: none; }
-  }
   .ac-lightbox-x { position: absolute; top: 14px; right: 14px; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; background: none; border: none; padding: 0; cursor: pointer; color: #000; z-index: 3; }
   .ac-lightbox .ac-fan-ph { position: relative; z-index: 2; }
   .ac-lightbox-x:hover { opacity: 0.55; }
