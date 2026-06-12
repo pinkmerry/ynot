@@ -138,6 +138,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
+function stableJsonString(value: unknown): string {
+  if (value === undefined || value === null) return "null";
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableJsonString(item)).join(",")}]`;
+  }
+  if (isRecord(value)) {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJsonString(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 function metadataString(metadata: unknown, key: string) {
   if (!isRecord(metadata)) return "";
   const value = metadata[key];
@@ -290,6 +304,30 @@ function nextLastPrizeCardId(
     return patch.last_prize_card_id ?? null;
   }
   return currentLastPrizeCardId ?? null;
+}
+
+function lastPrizePatchChangesAwardedIdentity(
+  patch: Database["public"]["Tables"]["draw_rounds"]["Update"],
+  current: Pick<
+    Database["public"]["Tables"]["draw_rounds"]["Row"],
+    "last_prize_awarded_at" | "last_prize_card_id" | "last_prize_metadata"
+  >,
+) {
+  if (!current.last_prize_awarded_at) return false;
+  if (
+    patch.last_prize_card_id !== undefined &&
+    (patch.last_prize_card_id ?? null) !== (current.last_prize_card_id ?? null)
+  ) {
+    return true;
+  }
+  if (
+    patch.last_prize_metadata !== undefined &&
+    stableJsonString(patch.last_prize_metadata) !==
+      stableJsonString(current.last_prize_metadata)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function publishAttemptMessage() {
@@ -1083,7 +1121,7 @@ export async function PATCH(request: Request) {
   if (!bannerPatch.ok) return bannerPatch.response;
   const { data: current, error: currentError } = await supabase
     .from("draw_rounds")
-    .select("id,status,approval_status,logic_snapshot,total_slots,last_prize_card_id,last_prize_metadata,updated_at,is_test,seed_run_id")
+    .select("id,status,approval_status,logic_snapshot,total_slots,last_prize_card_id,last_prize_metadata,last_prize_awarded_at,updated_at,is_test,seed_run_id")
     .eq("id", campaignId)
     .single();
   if (currentError) {
@@ -1098,6 +1136,13 @@ export async function PATCH(request: Request) {
     );
   }
   if (current.status === "live") {
+    if (lastPrizePatchChangesAwardedIdentity(patch, current)) {
+      return adminErrorResponse(
+        "LAST_PRIZE_IDENTITY_LOCKED",
+        "Last Prize has already been awarded. You can edit future rewards and pack settings, but the awarded Last Prize card and convert settings are locked.",
+        409,
+      );
+    }
     try {
       const revision = await createLivePackRevision({
         supabase,

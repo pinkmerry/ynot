@@ -38,6 +38,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
+function hasOwn(value: Record<string, unknown>, key: string) {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function stableJsonString(value: unknown): string {
+  if (value === undefined || value === null) return "null";
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableJsonString(item)).join(",")}]`;
+  }
+  if (isRecord(value)) {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJsonString(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 function finiteNumber(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -135,7 +153,34 @@ function liveRevisionErrorMessage(message?: string) {
     return "Reserved stock no longer matches the intended prize identity. Refresh stock selection before publishing.";
   if (message.includes("prize_unit_identity_mismatch"))
     return "Prize stock identity mismatch detected. Review intended card vs materialized stock before publishing.";
+  if (message.includes("last_prize_identity_locked_after_award"))
+    return "Last Prize has already been awarded. Edit future rewards or pack settings separately; the awarded Last Prize card and convert settings are locked.";
   return message;
+}
+
+function liveRevisionChangesAwardedLastPrize(
+  scalarPatch: unknown,
+  campaign: {
+    last_prize_awarded_at: string | null;
+    last_prize_card_id: string | null;
+    last_prize_metadata: Json | null;
+  },
+) {
+  if (!campaign.last_prize_awarded_at || !isRecord(scalarPatch)) return false;
+  if (hasOwn(scalarPatch, "last_prize_card_id")) {
+    const rawCardId = scalarPatch.last_prize_card_id;
+    const nextCardId =
+      typeof rawCardId === "string" ? rawCardId.trim() || null : null;
+    if (nextCardId !== (campaign.last_prize_card_id ?? null)) return true;
+  }
+  if (
+    hasOwn(scalarPatch, "last_prize_metadata") &&
+    stableJsonString(scalarPatch.last_prize_metadata) !==
+      stableJsonString(campaign.last_prize_metadata)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export async function POST(request: Request) {
@@ -283,6 +328,47 @@ export async function POST(request: Request) {
   }
 
   if (action === "publish") {
+    const { data: revision, error: revisionError } = await supabase
+      .from("draw_round_live_revisions")
+      .select("id,draw_round_id,scalar_patch,status")
+      .eq("id", revisionId)
+      .maybeSingle();
+    if (revisionError || !revision) {
+      return adminErrorResponse(
+        revisionError?.code ?? "LIVE_REVISION_NOT_FOUND",
+        revisionError
+          ? liveRevisionErrorMessage(revisionError.message)
+          : "Live revision was not found.",
+        409,
+        revisionError
+          ? { detail: revisionError.details ?? null, hint: revisionError.hint ?? null }
+          : undefined,
+      );
+    }
+    const { data: campaign, error: campaignError } = await supabase
+      .from("draw_rounds")
+      .select("last_prize_awarded_at,last_prize_card_id,last_prize_metadata")
+      .eq("id", revision.draw_round_id)
+      .maybeSingle();
+    if (campaignError || !campaign) {
+      return adminErrorResponse(
+        campaignError?.code ?? "LIVE_REVISION_CAMPAIGN_NOT_FOUND",
+        campaignError
+          ? liveRevisionErrorMessage(campaignError.message)
+          : "Live pack was not found.",
+        409,
+        campaignError
+          ? { detail: campaignError.details ?? null, hint: campaignError.hint ?? null }
+          : undefined,
+      );
+    }
+    if (liveRevisionChangesAwardedLastPrize(revision.scalar_patch, campaign)) {
+      return adminErrorResponse(
+        "LAST_PRIZE_IDENTITY_LOCKED",
+        liveRevisionErrorMessage("last_prize_identity_locked_after_award"),
+        409,
+      );
+    }
     const { data, error } = await supabase.rpc(
       "publish_live_campaign_revision",
       {

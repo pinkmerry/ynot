@@ -44,6 +44,8 @@ const revealOverlay = read("../src/features/ynot/GachaRevealOverlay.tsx");
 const data = read("../src/features/ynot/data.ts");
 const profileRewardsTabs = read("../src/features/ynot/ProfileRewardsTabs.tsx");
 const components = read("../src/features/ynot/components.tsx");
+const crHistory = read("../src/features/ynot/cr/HistoryExperience.tsx");
+const crAllPulls = read("../src/features/ynot/cr/AllPullsExperience.tsx");
 const prizeTier = read("../src/features/ynot/prize-tier.ts");
 const ynotTypes = read("../src/features/ynot/types.ts");
 const stockSkuPresentation = read("../src/features/ynot/stock-sku-presentation.ts");
@@ -264,6 +266,12 @@ test("Last Prize stays first-class in public reveal, history, and collection dis
   assert.match(profileRewardsTabs, /item\.sourceIsLastPrize \? "LAST PRIZE"/);
   assert.match(profileRewardsTabs, /reward\.isLastPrize \? "Last Prize"/);
   assert.match(components, /collection-last-prize-badge/);
+  assert.match(crHistory, /sourceTier === "last_prize"/);
+  assert.match(crHistory, /return "last_prize"/);
+  assert.match(crHistory, /tier === "last_prize" \? "LAST PRIZE"/);
+  assert.match(crAllPulls, /sourceTier === "last_prize"/);
+  assert.match(crAllPulls, /t === "last_prize"/);
+  assert.match(crAllPulls, /last_prize: 5/);
 });
 
 test("pulled prize images use the awarded stock-unit image in animation, summary, bag, and history", () => {
@@ -320,7 +328,13 @@ test("pulled prize images use the awarded stock-unit image in animation, summary
   assert.match(collectionSource, /imageUrl:\s*publicSubSkuImageUrl\(wonUnit\?\.imageUrl,\s*card\?\.photoUrl\)/);
 
   assert.match(historySource, /stockImageUrlByOpenItemId/);
-  assert.match(historySource, /imageUrl:\s*publicSubSkuImageUrl\(\s*rewardImageByOpenItemId\.get\(item\.id\),\s*card\?\.photoUrl,?\s*\)/);
+  assert.match(historySource, /gacha_history_collection_stock_links/);
+  assert.match(historySource, /\.from\("collection_items"\)[\s\S]*\.select\("gacha_open_item_id,card_stock_unit_id"\)/);
+  assert.match(historySource, /collectionImageByOpenItemId\.get\(item\.id\) \?\?[\s\S]*rewardImageByOpenItemId\.get\(item\.id\)/);
+  assert.match(
+    historySource,
+    /imageUrl:\s*publicSubSkuImageUrl\(\s*collectionImageByOpenItemId\.get\(item\.id\) \?\?[\s\S]*rewardImageByOpenItemId\.get\(item\.id\),\s*card\?\.photoUrl,?\s*\)/,
+  );
 });
 
 test("awards land in user bag with exact open item, prize unit, collection item, and bundle links", () => {

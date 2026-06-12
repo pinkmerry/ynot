@@ -3260,6 +3260,47 @@ export async function getGachaOpenHistory(
     rewardPrizeUnits as PublicPrizeUnitImageRow[],
     rewardStockUnits as PublicStockUnitImageRow[],
   );
+  const collectionStockLinks = openIds.length
+    ? await readOrEmpty("gacha_history_collection_stock_links", async () => {
+        const { data, error } = await supabase
+          .from("collection_items")
+          .select("gacha_open_item_id,card_stock_unit_id")
+          .eq("source_type", "gacha_open")
+          .in("source_id", openIds)
+          .not("gacha_open_item_id", "is", null)
+          .not("card_stock_unit_id", "is", null);
+        if (error) throw error;
+        return data ?? [];
+      })
+    : [];
+  const collectionStockUnitIds = [
+    ...new Set(
+      collectionStockLinks
+        .map((link) => link.card_stock_unit_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const collectionStockUnits = collectionStockUnitIds.length
+    ? await readOrEmpty("gacha_history_collection_stock_unit_images", async () => {
+        const { data, error } = await supabase
+          .from("card_stock_units")
+          .select("id,image_url")
+          .in("id", collectionStockUnitIds);
+        if (error) throw error;
+        return data ?? [];
+      })
+    : [];
+  const collectionStockImageById = new Map(
+    collectionStockUnits.map((unit) => [unit.id, unit.image_url ?? null]),
+  );
+  const collectionImageByOpenItemId = new Map<string, string>();
+  for (const link of collectionStockLinks) {
+    if (!link.gacha_open_item_id || !link.card_stock_unit_id) continue;
+    const imageUrl = collectionStockImageById.get(link.card_stock_unit_id);
+    if (imageUrl) {
+      collectionImageByOpenItemId.set(link.gacha_open_item_id, imageUrl);
+    }
+  }
 
   const cardsById = new Map(cards.map((card) => [card.catalogCardId, card]));
   const campaignsById = new Map(
@@ -3288,7 +3329,8 @@ export async function getGachaOpenHistory(
         cardName: card?.name ?? "Mystery reward",
         cardCode: card?.code,
         imageUrl: publicSubSkuImageUrl(
-          rewardImageByOpenItemId.get(item.id),
+          collectionImageByOpenItemId.get(item.id) ??
+            rewardImageByOpenItemId.get(item.id),
           card?.photoUrl,
         ),
         bundleQuantity: publicBundleQuantity(item.bundle_quantity),

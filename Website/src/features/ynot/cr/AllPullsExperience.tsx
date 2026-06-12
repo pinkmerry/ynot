@@ -6,13 +6,20 @@ import { useMemo, useState } from "react";
 import type {
   YnotCollectionItem,
   YnotGachaOpenHistory,
+  YnotPublicPrizeDisplayTier,
 } from "../types";
 import { QuantityBadge } from "../QuantityBadge";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { PageHead } from "./UiKit";
 
-type Tier = "rainbow" | "gold" | "silver" | "bronze";
-const TIER_ORDER: Tier[] = ["rainbow", "gold", "silver", "bronze"];
+type Tier = YnotPublicPrizeDisplayTier;
+const TIER_ORDER: Tier[] = [
+  "last_prize",
+  "rainbow",
+  "gold",
+  "silver",
+  "bronze",
+];
 
 type StatusKey = "owned" | "shipped" | "converted";
 
@@ -27,6 +34,9 @@ function statusFromCollection(
 
 function tierFromCollection(item: YnotCollectionItem): Tier {
   const sourceTier = item.sourcePrizeTier;
+  if (item.sourceIsLastPrize || sourceTier === "last_prize") {
+    return "last_prize";
+  }
   if (
     sourceTier === "rainbow" ||
     sourceTier === "gold" ||
@@ -45,10 +55,46 @@ function tierFromCollection(item: YnotCollectionItem): Tier {
 
 function tierFromReward(tier: string | null | undefined): Tier {
   const t = (tier ?? "").toLowerCase();
+  if (t === "last_prize") return "last_prize";
   if (t === "rainbow") return "rainbow";
   if (t === "gold") return "gold";
   if (t === "silver") return "silver";
   return "bronze";
+}
+
+function tierClassName(tier: Tier): string {
+  return tier === "last_prize" ? "last-prize" : tier;
+}
+
+function tierLabel(tier: Tier): string {
+  return tier === "last_prize" ? "Last Prize" : tier;
+}
+
+function tierDotBackground(tier: Tier): string {
+  if (tier === "last_prize") return "linear-gradient(135deg, #fff0a8, #e0a316)";
+  if (tier === "rainbow") {
+    return "linear-gradient(135deg, #ff80b5, #ffc480, #80ff9b, #80c0ff)";
+  }
+  if (tier === "gold") return "#d9a022";
+  if (tier === "silver") return "#9aa1a8";
+  return "#c98e5c";
+}
+
+function tierColor(tier: Tier): string {
+  if (tier === "last_prize" || tier === "gold") return "var(--cr-coin-ink)";
+  if (tier === "rainbow") return "#9a3d6b";
+  if (tier === "silver") return "var(--cr-ink-2)";
+  return "#5a3a1a";
+}
+
+function tierPillBackground(tier: Tier): string {
+  if (tier === "last_prize") return "linear-gradient(135deg, #fff4c7, #f2c45a)";
+  if (tier === "rainbow") {
+    return "linear-gradient(135deg, #ffd6e3, #ffe9b3, #c8efc8, #b3d6ff, #d6c8ff)";
+  }
+  if (tier === "gold") return "var(--cr-gold-tint)";
+  if (tier === "silver") return "#eef0f2";
+  return "#f0e2d0";
 }
 
 type PullRow = {
@@ -152,6 +198,7 @@ export function AllPullsExperience({
 
   const counts = useMemo(() => {
     const result: Record<Tier, number> = {
+      last_prize: 0,
       rainbow: 0,
       gold: 0,
       silver: 0,
@@ -189,6 +236,7 @@ export function AllPullsExperience({
       list.sort((a, b) => a.whenIso.localeCompare(b.whenIso));
     } else if (sort === "tier-desc") {
       const rank: Record<Tier, number> = {
+        last_prize: 5,
         rainbow: 4,
         gold: 3,
         silver: 2,
@@ -235,14 +283,7 @@ export function AllPullsExperience({
             <span
               className="label"
               style={{
-                color:
-                  t === "rainbow"
-                    ? "#9a3d6b"
-                    : t === "gold"
-                      ? "var(--cr-coin-ink)"
-                      : t === "silver"
-                        ? "var(--cr-ink-2)"
-                        : "#5a3a1a",
+                color: tierColor(t),
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
@@ -254,17 +295,10 @@ export function AllPullsExperience({
                   width: 8,
                   height: 8,
                   borderRadius: "50%",
-                  background:
-                    t === "rainbow"
-                      ? "linear-gradient(135deg, #ff80b5, #ffc480, #80ff9b, #80c0ff)"
-                      : t === "gold"
-                        ? "#d9a022"
-                        : t === "silver"
-                          ? "#9aa1a8"
-                          : "#c98e5c",
+                  background: tierDotBackground(t),
                 }}
               />
-              {t}
+              {tierLabel(t)}
             </span>
             <span className="value cr-tnum">{counts[t]}</span>
             <small className="cr-mute" style={{ fontSize: 11 }}>
@@ -404,7 +438,7 @@ export function AllPullsExperience({
           {filtered.map((row) => (
             <div key={row.id} className="cr-pulls-row">
               <div
-                className={`cr-coll-art ${row.tier}`}
+                className={`cr-coll-art ${tierClassName(row.tier)}`}
                 style={{
                   aspectRatio: "3 / 4",
                   borderRadius: 6,
@@ -441,19 +475,12 @@ export function AllPullsExperience({
               <span
                 className="cr-pill"
                 style={{
-                  background:
-                    row.tier === "rainbow"
-                      ? "linear-gradient(135deg, #ffd6e3, #ffe9b3, #c8efc8, #b3d6ff, #d6c8ff)"
-                      : row.tier === "gold"
-                        ? "var(--cr-gold-tint)"
-                        : row.tier === "silver"
-                          ? "#eef0f2"
-                          : "#f0e2d0",
+                  background: tierPillBackground(row.tier),
                   color: "var(--cr-ink)",
                   borderColor: "var(--cr-line)",
                 }}
               >
-                {row.tier}
+                {tierLabel(row.tier)}
               </span>
               <span style={{ fontSize: 12, color: "var(--cr-mute)" }}>
                 {row.fromPack}

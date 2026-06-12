@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 import type {
   YnotAddress,
   YnotCollectionItem,
+  YnotPublicPrizeDisplayTier,
 } from "../types";
 import {
   isCompleteShippingAddress,
@@ -16,7 +17,7 @@ import { CoinPip, Ico, formatCoins } from "./Icons";
 import { Modal, PageHead, useToast } from "./UiKit";
 
 type TabKey = "collection" | "shipped" | "converted";
-type TierKey = "rainbow" | "gold" | "silver" | "bronze";
+type TierKey = YnotPublicPrizeDisplayTier;
 type StatusKey = "owned" | "shipped" | "converted";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -33,6 +34,9 @@ function statusBucket(status: YnotCollectionItem["status"]): StatusKey | null {
 
 function deriveTier(item: YnotCollectionItem): TierKey {
   const sourceTier = item.sourcePrizeTier;
+  if (item.sourceIsLastPrize || sourceTier === "last_prize") {
+    return "last_prize";
+  }
   if (
     sourceTier === "rainbow" ||
     sourceTier === "gold" ||
@@ -47,6 +51,14 @@ function deriveTier(item: YnotCollectionItem): TierKey {
   if (grade.includes("gold") || tier.includes("gold")) return "gold";
   if (grade.includes("silver") || tier.includes("silver")) return "silver";
   return "bronze";
+}
+
+function tierClassName(tier: TierKey): string {
+  return tier === "last_prize" ? "last-prize" : tier;
+}
+
+function tierLabel(tier: TierKey): string {
+  return tier === "last_prize" ? "LAST PRIZE" : tier.toUpperCase();
 }
 
 function cardSeries(item: YnotCollectionItem): string {
@@ -514,7 +526,7 @@ export function HistoryExperience({
                 }}
               >
                 <div
-                  className={`cr-coll-art ${c.tier}`}
+                  className={`cr-coll-art ${tierClassName(c.tier)}`}
                   style={{
                     aspectRatio: "3 / 4",
                     width: 44,
@@ -551,7 +563,7 @@ export function HistoryExperience({
                 >
                   <strong style={{ fontSize: 12.5 }}>{c.cardName}</strong>
                   <small className="cr-mute" style={{ fontSize: 11 }}>
-                    {c.tier} · {collectionDisplayCode(c)}
+                    {tierLabel(c.tier)} · {collectionDisplayCode(c)}
                   </small>
                 </div>
                 <strong
@@ -624,7 +636,7 @@ function CollectionTile({
         if (selectable && e.key === "Enter") onToggle();
       }}
     >
-      <div className={`cr-coll-art ${card.tier}`}>
+      <div className={`cr-coll-art ${tierClassName(card.tier)}`}>
         {card.imageUrl ? (
           <Image
             className="cr-coll-art-img"
@@ -635,7 +647,7 @@ function CollectionTile({
             unoptimized
           />
         ) : null}
-        <span className="cr-coll-tier">{card.tier.toUpperCase()}</span>
+        <span className="cr-coll-tier">{tierLabel(card.tier)}</span>
         <QuantityBadge quantity={card.bundleQuantity} />
         <span className={`cr-coll-status ${card.bucket}`}>{label}</span>
         <span className="cr-coll-code">

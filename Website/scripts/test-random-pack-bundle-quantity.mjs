@@ -116,14 +116,20 @@ describe("random pack bundled prizes", () => {
       'if (current.status !== "draft")',
     );
     const revisionMigration = latestMigrationContaining("draw_round_live_revisions");
+    const lastPrizeLockMigration = latestMigrationContaining("last_prize_identity_locked_after_award");
 
     assert.match(liveBlock, /createLivePackRevision/);
     assert.match(liveBlock, /requiresOwnerReview: true/);
     assert.doesNotMatch(liveBlock, /edit_live_campaign_inventory/);
+    assert.match(campaignsRoute, /lastPrizePatchChangesAwardedIdentity/);
+    assert.match(campaignsRoute, /last_prize_awarded_at/);
     assert.match(campaignsRoute, /last_prize_metadata/);
     assert.match(revisionMigration, /last_prize_metadata = case/);
     assert.match(revisionMigration, /revision\.scalar_patch \? 'last_prize_metadata'/);
     assert.match(revisionMigration, /public\.edit_live_campaign_inventory/);
+    assert.match(lastPrizeLockMigration, /campaign\.last_prize_awarded_at is not null/);
+    assert.match(lastPrizeLockMigration, /revision\.scalar_patch \? 'last_prize_card_id'/);
+    assert.match(lastPrizeLockMigration, /revision\.scalar_patch \? 'last_prize_metadata'/);
   });
 
   it("public APIs allow bundleQuantity but keep internal reward data private", () => {
