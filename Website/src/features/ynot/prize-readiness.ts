@@ -793,13 +793,13 @@ export async function getCampaignPrizeReadiness(
     0,
     inventory?.remainingSlots ?? row.total_slots,
   );
+  const lastPrizeTotalUnits = row.last_prize_card_id ? 1 : 0;
   const lastPrizeAvailableUnits =
     row.last_prize_card_id && !row.last_prize_awarded_at ? 1 : 0;
-  // The Last Prize is a bonus on the final open, not a slot of its own, so it
-  // does not count toward slot coverage. It still feeds the final-prize-aware
-  // openability math below so legacy packs (materialized with one fewer
-  // normal unit than slots) stay openable to the end.
-  const totalRewardUnits = totalPrizeUnits;
+  // Last Prize is awarded on the final customer open, so it must count toward
+  // reward coverage for packs intentionally materialized with one fewer normal
+  // prize unit than total slots.
+  const totalRewardUnits = totalPrizeUnits + lastPrizeTotalUnits;
   const availableRewardUnits =
     inventory?.availableWinSlots ??
     finalPrizeAwareOpenableWinSlots({

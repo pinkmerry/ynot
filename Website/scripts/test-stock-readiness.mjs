@@ -147,6 +147,24 @@ test("campaign readiness trusts public inventory summary aggregates for final pr
   );
 });
 
+test("campaign readiness counts last prize as the final pack slot", () => {
+  assert.match(
+    prizeReadinessSource,
+    /const totalRewardUnits = totalPrizeUnits \+ lastPrizeTotalUnits;/,
+    "Last Prize must count as the final customer-openable reward slot",
+  );
+  assert.match(
+    prizeReadinessSource,
+    /totalPrizeUnits:\s*totalRewardUnits,/,
+    "readiness should expose normal prize slots plus the Last Prize slot",
+  );
+  assert.doesNotMatch(
+    prizeReadinessSource,
+    /buildReadinessBlockers\(\{\s*\.\.\.readiness,\s*totalPrizeUnits:\s*slotPrizeUnits,/,
+    "validation must not reject packs whose missing normal slot is the Last Prize final slot",
+  );
+});
+
 test("sub-SKU stock readiness counts the selected stockUnitGroupKey instead of the whole card", () => {
   const shortages = readiness.buildPrizeStockShortages({
     prizes: [

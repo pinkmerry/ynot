@@ -13,6 +13,9 @@
   "observability": {
     "enabled": true
   },
+  "limits": {
+    "cpu_ms": 30000
+  },
   "vars": {
     "RATE_LIMIT_BACKEND": "supabase",
     "NODE_ENV": "production",

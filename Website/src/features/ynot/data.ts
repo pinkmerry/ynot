@@ -1239,8 +1239,10 @@ function toYnotCampaign(
         (availablePrizeUnits !== undefined && availablePrizeUnits <= 0),
     );
   const adminRemoved = isOwnerRemoved(row.test_metadata);
+  // Customer openability must match the atomic open RPC: if a live pack has an
+  // eligible public win slot, checker-only blockers should not disable opening.
   const hasOpenableInventory = readiness
-    ? (readiness.eligiblePrizeUnits ?? 0) > 0 && readiness.ready !== false
+    ? (readiness.eligiblePrizeUnits ?? 0) > 0
     : (availablePrizeUnits ?? 0) > 0 &&
       (remainingSlots ?? row.total_slots) > 0;
   const openable =
@@ -2507,7 +2509,7 @@ export async function getCampaign(
       .filter((category): category is YnotCategory => Boolean(category));
     const inventory = inventoryRows[0];
     const prizeLineup = await getPublicPrizeLineup(supabase, row, inventory, {
-      includeLocked: true,
+      includeLocked: includePrivateDetail,
       includeSensitiveOdds: includePrivateDetail,
       includeStockTarget: includePrivateDetail,
     });

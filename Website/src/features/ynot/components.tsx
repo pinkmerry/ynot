@@ -966,7 +966,7 @@ export async function PacksExperience({
                     </span>
                   )}
                   <Link
-                    href={`/gacha/${campaign.slug}`}
+                    href={`/packs/${campaign.slug}`}
                     className={`packs-feature-card packs-feature-card--${palette}`}
                   >
                     <span className="packs-feature-eyebrow">
@@ -1226,7 +1226,7 @@ function SeriesEssentialsSection() {
 
 function MobileTorecaHero({ campaign }: { campaign?: YnotCampaign }) {
   const openHref = campaign
-    ? `/gacha/${campaign.slug}`
+    ? `/packs/${campaign.slug}`
     : "/packs";
   return (
     <section className="toreca-mobile-hero" aria-label="YNot mobile hero">
@@ -1419,7 +1419,7 @@ export function CampaignCard({
       </div>
       <Link
         className="pack-image-link"
-        href={`/gacha/${campaign.slug}`}
+        href={`/packs/${campaign.slug}`}
         aria-label={`View ${title}`}
       >
         <CampaignArtwork campaign={campaign} clean />
@@ -1440,7 +1440,7 @@ export function CampaignCard({
       </div>
       <ProgressTrack campaign={campaign} />
       <div className="product-actions">
-        <Link className="secondary-action" href={`/gacha/${campaign.slug}`}>
+        <Link className="secondary-action" href={`/packs/${campaign.slug}`}>
           Details
         </Link>
         {soldOut ? (
