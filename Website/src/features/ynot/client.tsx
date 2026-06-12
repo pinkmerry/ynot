@@ -3661,9 +3661,10 @@ function withLowestTierRemainder(
   return assignPrizeDraftRanks(adjustedRows);
 }
 
-function normalPrizeTarget(totalSlots: number, lastPrizeCardId?: string | null) {
-  const normalizedTotalSlots = Math.max(1, Math.round(Number(totalSlots) || 1));
-  return Math.max(0, normalizedTotalSlots - (lastPrizeCardId ? 1 : 0));
+// The Last Prize is a bonus for the final opener — it no longer occupies a
+// slot, so normal prize rows must cover every slot regardless.
+function normalPrizeTarget(totalSlots: number, _lastPrizeCardId?: string | null) {
+  return Math.max(1, Math.round(Number(totalSlots) || 1));
 }
 
 function lastPrizeUnitCount(lastPrizeCardId?: string | null) {
@@ -4077,7 +4078,8 @@ export function AdminCampaignForm({
     (sum, prize) => sum + Math.max(0, Math.round(Number(prize.quantity) || 0)),
     0,
   );
-  const configuredRewardUnits = configuredPrizeUnits + lastPrizeCount;
+  // Last Prize is a bonus item, not a slot — coverage counts normal rows only.
+  const configuredRewardUnits = configuredPrizeUnits;
   const configuredStockUnits = activePrizeDrafts.reduce(
     (sum, prize) => sum + prizeRequiredStockUnits(prize),
     lastPrizeCount,
@@ -4175,7 +4177,7 @@ export function AdminCampaignForm({
       : "",
     !activePrizeDrafts.length ? "Choose prize inventory before saving." : "",
     configuredRewardUnits !== totalSlots
-      ? "Prize quantity must equal the total pack quantity. Normal prize quantity plus Last Prize must match the pack total."
+      ? "Prize quantity must equal the total pack quantity. Normal prize rows must cover every pack; the Last Prize is an extra bonus on top."
       : "",
     ...stockBlockers,
     ...stockUnitBlockers,
@@ -4232,7 +4234,7 @@ export function AdminCampaignForm({
       label: "Prize unit coverage",
       primary: `${configuredRewardUnits.toLocaleString()}/${totalSlots.toLocaleString()}`,
       secondary: lastPrizeCount
-        ? `${configuredPrizeUnits.toLocaleString()} normal + 1 last`
+        ? `${configuredPrizeUnits.toLocaleString()} normal + 1 last bonus`
         : "units configured",
       ready: configuredRewardUnits === totalSlots,
     },
@@ -5443,11 +5445,11 @@ export function AdminCampaignForm({
                   <div className="admin-prize-tier-head">
                     <div>
                       <span>Last prize</span>
-                      <strong>Last One Prize · final slot</strong>
+                      <strong>Last One Prize · final-open bonus</strong>
                       <p>
-                        Counts as 1 prize in the total pack quantity. When set,
-                        the normal prize rows should cover one fewer slot and
-                        the final opener receives this item.
+                        Bonus item on top of the normal lineup. Normal prize
+                        rows still cover every pack; whoever opens the final
+                        pack receives their normal prize plus this item.
                       </p>
                     </div>
                   </div>
