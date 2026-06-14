@@ -844,6 +844,9 @@ const baseCss = `
     .ac-tier-bronze .ac-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12.5px; }
     .ac-tier { margin-bottom: 30px; }
     .ac-slab-name, .ac-slab-sub { font-size: 12px; }
+    /* mobile cards are ~53% of the desktop GRAND card, so the count chip
+       scales down to keep the same ~14.5% chip-to-card proportion */
+    .ac-slab-qty { width: 27px; height: 16px; bottom: 21px; font-size: 9px; }
     .ac-drawer-head { padding: 0 28px; }
     .ac-drawer-x { right: 28px; }
     .ac-drawer-body { padding: 0 28px 30px; }
