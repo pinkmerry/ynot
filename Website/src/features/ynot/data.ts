@@ -1342,6 +1342,11 @@ function publicPrizePreview(prize: YnotPrizePreview, index: number): YnotPrizePr
     valueThb: prize.valueThb,
     convertCoinValue: prize.convertCoinValue,
     bundleQuantity: prize.bundleQuantity,
+    // Product decision (2026-06-15, owner): expose per-card copy count to
+    // customers on pack detail. This intentionally reverses the 2026-06-12
+    // "hide rate labels" guardrail for plannedQuantity only — stock planning
+    // internals (filters / group keys / available units) stay hidden.
+    plannedQuantity: prize.plannedQuantity,
     prizeCategory: prize.prizeCategory,
     prizeCategoryLabel: prize.prizeCategoryLabel,
     displayTier: prize.displayTier,
