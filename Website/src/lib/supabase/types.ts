@@ -1039,6 +1039,28 @@ export type Database = {
       };
       approve_top_up_request: { Args: { p_top_up_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       reject_top_up_request: { Args: { p_top_up_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
+      submit_top_up_request: {
+        Args: {
+          p_top_up_id: string;
+          p_profile_id: string;
+          p_payment_method_id: string;
+          p_amount_thb: number;
+          p_coin_amount: number;
+          p_customer_note?: string | null;
+          p_idempotency_key: string;
+          p_slip_file_path: string;
+          p_slip_original_filename: string;
+          p_slip_file_sha256: string;
+          p_slip_storage_provider?: string | null;
+          p_slip_verification_status?: string | null;
+          p_slip_provider_code?: string | null;
+          p_slip_provider_message?: string | null;
+          p_slip_provider_response?: Json | null;
+          p_slip_duplicate_of_slip_id?: string | null;
+          p_slip_verified_at?: string | null;
+        };
+        Returns: Json;
+      };
       open_gacha_campaign: { Args: { p_profile_id: string; p_draw_round_id: string; p_quantity?: number; p_idempotency_key?: string | null }; Returns: Json };
       profile_can_open_test_draw_round: { Args: { p_draw_round_id: string; p_profile_id: string }; Returns: boolean };
       get_draw_round_inventory_summary: { Args: { p_draw_round_id?: string | null; p_profile_id?: string | null }; Returns: Json };
