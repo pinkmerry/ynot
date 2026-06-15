@@ -44,10 +44,6 @@ function sourceFiles(paths) {
   }));
 }
 
-function sourceTree(paths) {
-  return sourceFiles(paths).map((file) => file.text).join("\n");
-}
-
 function collectSourceFiles(path, files) {
   if (!existsSync(path)) return;
   const stats = statSync(path);
@@ -154,6 +150,10 @@ function sourceBlocksAround(paths, markerPattern) {
   });
 }
 
+function successPathsAround(paths, markerPattern) {
+  return sourceBlocksAround(paths, markerPattern).map(successPathAfterCall);
+}
+
 function componentBlockAround(text, markerIndex) {
   const componentBoundary =
     /^((?:export\s+)?(?:function|class)\s+[A-Z][\w$]*|(?:export\s+)?const\s+[A-Z][\w$]*)/gm;
@@ -170,10 +170,56 @@ function componentBlockAround(text, markerIndex) {
 function successfulResponsePath(block) {
   const guardIndex = block.search(/if\s*\(!response\.ok\)/);
   assert.ok(guardIndex > -1, "review mutation must guard failed responses");
-  const afterGuard = block.slice(guardIndex);
+  const afterGuard = block.slice(indexAfterFailedResponseGuard(block, guardIndex));
   const catchIndex = afterGuard.search(/\n\s*\}\s*catch\s*\(/);
   return catchIndex > -1 ? afterGuard.slice(0, catchIndex) : afterGuard;
 }
+
+function indexAfterFailedResponseGuard(block, guardIndex) {
+  const conditionEnd = block.indexOf(")", guardIndex);
+  assert.ok(conditionEnd > guardIndex, "failed response guard condition must close");
+  let cursor = conditionEnd + 1;
+  while (/\s/.test(block[cursor] ?? "")) cursor += 1;
+  if (block[cursor] === "{") {
+    const guardEnd = matchingBraceIndex(block, cursor);
+    assert.ok(guardEnd > cursor, "failed response guard block must close");
+    return guardEnd + 1;
+  }
+  const statementEnd = block.indexOf(";", cursor);
+  assert.ok(statementEnd > cursor, "failed response guard statement must end");
+  return statementEnd + 1;
+}
+
+function successPathAfterCall(block) {
+  const callIndex = block.search(
+    /(?:fetch|requestJson|postJson)\(\s*["']\/api\/ynot\/admin\/(?:payment-methods|categories)["']/,
+  );
+  assert.ok(callIndex > -1, "admin save API call must exist");
+  const statementStart = block.lastIndexOf("\n", callIndex) + 1;
+  const afterCall = block.slice(statementStart);
+  const catchIndex = afterCall.search(/\n\s*\}\s*catch\s*\(/);
+  return catchIndex > -1 ? afterCall.slice(0, catchIndex) : afterCall;
+}
+
+function saveMutationSuccessPaths(path) {
+  return successPathsAround(
+    ADMIN_UI_PATHS,
+    `[\"']\\/api\\/ynot\\/admin\\/${path}[\"']`,
+  ).filter((successPath) => !/\bDELETE\b/.test(successPath));
+}
+
+test("raw error leak guard allows mapped helpers but rejects direct message returns", () => {
+  assert.doesNotThrow(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return Response.json({ code: "bad", error: mapError(dbError.message) }, { status: 400 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return Response.json({ code: "bad", error: dbError.message }, { status: 400 });',
+    );
+  });
+});
 
 test("admin top-up route keeps review RPCs stable and adds bounded list protections", () => {
   const route = source("src/app/api/ynot/admin/top-ups/route.ts");
@@ -247,21 +293,23 @@ test("admin top-up UI removes reviewed rows without a full duplicate fetch", () 
   assert.doesNotMatch(reviewMutationSource, /router\.refresh\(\)/);
 });
 
-test("settings and category admin screens update local state after saves", () => {
-  const adminUiSource = sourceTree(ADMIN_UI_PATHS);
-  const settingsSource = adminUiSource
-    .split(/\n(?=(?:export\s+)?(?:function|const|class)\s+)/)
-    .filter((block) => /paymentMethod|payment-method|PaymentMethod/.test(block))
-    .join("\n");
+test("settings admin screen updates payment method state from the save payload", () => {
+  const paymentSuccessPath = saveMutationSuccessPaths("payment-methods").join("\n");
   assert.match(
-    settingsSource,
-    /useState\([^)]*paymentMethods|set[A-Za-z]*Payment[A-Za-z]*Methods/i,
+    paymentSuccessPath,
+    /(?:const|let)\s+(?:\w+|\{[\s\S]*?\})\s*=\s*await\s+(?:postJson|requestJson)|\.json\(\)/,
   );
-  assert.match(settingsSource, /set[A-Za-z]*Payment[A-Za-z]*Methods|onSaved\?\./i);
+  assert.match(
+    paymentSuccessPath,
+    /setMethodOptions\s*\(|set[A-Za-z]*Payment[A-Za-z]*Methods\s*\(/i,
+  );
+});
 
-  const categorySource = adminUiSource
-    .split(/\n(?=(?:export\s+)?(?:function|const|class)\s+)/)
-    .filter((block) => /categor|Category/.test(block))
-    .join("\n");
-  assert.match(categorySource, /useState\([^)]*categor|setCategories/i);
+test("category admin screen updates parent category state from the save payload", () => {
+  const categorySuccessPath = saveMutationSuccessPaths("categories").join("\n");
+  assert.match(
+    categorySuccessPath,
+    /(?:const|let)\s+(?:\w+|\{[\s\S]*?\})\s*=\s*await\s+(?:requestJson|postJson)|\.json\(\)/,
+  );
+  assert.match(categorySuccessPath, /onSaved\?\.\s*\(|setCategories\s*\(/);
 });
