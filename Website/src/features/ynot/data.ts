@@ -1174,22 +1174,19 @@ async function getPublicPrizeLineupsIndividually(
   options: PrizeLineupOptions = {},
 ): Promise<Map<string, YnotPrizePreview[]>> {
   const out = new Map<string, YnotPrizePreview[]>();
-  for (const row of rows) {
-    try {
-      out.set(
-        row.id,
-        await getPublicPrizeLineup(
-          supabase,
-          row,
-          inventoryByCampaign.get(row.id),
-          options,
-        ),
-      );
-    } catch (error) {
-      recordDataIssue(`campaign_owner_prize_lineup_${row.slug}`, error);
-      out.set(row.id, []);
-    }
-  }
+  await Promise.all(
+    rows.map(async (row) => {
+      try {
+        out.set(
+          row.id,
+          await getPublicPrizeLineup(supabase, row, inventoryByCampaign.get(row.id), options),
+        );
+      } catch (error) {
+        recordDataIssue(`campaign_owner_prize_lineup_${row.slug}`, error);
+        out.set(row.id, []);
+      }
+    }),
+  );
   return out;
 }
 
@@ -3251,20 +3248,6 @@ export async function getGachaOpenHistory(
         .filter((id): id is string => Boolean(id)),
     ),
   ];
-  const rewardStockUnits = rewardStockUnitIds.length
-    ? await readOrEmpty("gacha_history_stock_unit_images", async () => {
-        const { data, error } = await supabase
-          .from("card_stock_units")
-          .select("id,image_url")
-          .in("id", rewardStockUnitIds);
-        if (error) throw error;
-        return data ?? [];
-      })
-    : [];
-  const rewardImageByOpenItemId = stockImageUrlByOpenItemId(
-    rewardPrizeUnits as PublicPrizeUnitImageRow[],
-    rewardStockUnits as PublicStockUnitImageRow[],
-  );
   const collectionStockLinks = openIds.length
     ? await readOrEmpty("gacha_history_collection_stock_links", async () => {
         const { data, error } = await supabase
@@ -3285,23 +3268,28 @@ export async function getGachaOpenHistory(
         .filter((id): id is string => Boolean(id)),
     ),
   ];
-  const collectionStockUnits = collectionStockUnitIds.length
-    ? await readOrEmpty("gacha_history_collection_stock_unit_images", async () => {
+  const stockUnitImageIds = [...new Set([...rewardStockUnitIds, ...collectionStockUnitIds])];
+  const allStockUnits = stockUnitImageIds.length
+    ? await readOrEmpty("gacha_history_stock_unit_images", async () => {
         const { data, error } = await supabase
           .from("card_stock_units")
           .select("id,image_url")
-          .in("id", collectionStockUnitIds);
+          .in("id", stockUnitImageIds);
         if (error) throw error;
         return data ?? [];
       })
     : [];
-  const collectionStockImageById = new Map(
-    collectionStockUnits.map((unit) => [unit.id, unit.image_url ?? null]),
+  const stockUnitImageById = new Map(
+    allStockUnits.map((unit) => [unit.id, unit.image_url ?? null]),
+  );
+  const rewardImageByOpenItemId = stockImageUrlByOpenItemId(
+    rewardPrizeUnits as PublicPrizeUnitImageRow[],
+    allStockUnits as PublicStockUnitImageRow[],
   );
   const collectionImageByOpenItemId = new Map<string, string>();
   for (const link of collectionStockLinks) {
     if (!link.gacha_open_item_id || !link.card_stock_unit_id) continue;
-    const imageUrl = collectionStockImageById.get(link.card_stock_unit_id);
+    const imageUrl = stockUnitImageById.get(link.card_stock_unit_id);
     if (imageUrl) {
       collectionImageByOpenItemId.set(link.gacha_open_item_id, imageUrl);
     }

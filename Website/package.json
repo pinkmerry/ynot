@@ -59,6 +59,7 @@
     "test:admin-pack-monitor": "node --test scripts/test-admin-pack-monitor.mjs",
     "test:campaign-detail-perf": "node --test scripts/test-campaign-detail-perf.mjs",
     "test:gacha-open-performance": "node --test scripts/test-gacha-open-performance-shape.mjs",
+    "test:gacha-dedup": "node --test scripts/test-gacha-dedup.mjs",
     "test:pack-opening-flow": "node --test scripts/test-pack-opening-flow.mjs",
     "test:pack-open-pull-contract": "node --test scripts/test-pack-open-pull-contract.mjs",
     "test:live-pack-revisions": "node --test scripts/test-live-pack-revisions.mjs",
