@@ -26,6 +26,13 @@ function assertRawErrorMessageIsNotReturned(route) {
       "Response.json body must not return a raw .message value",
     );
   }
+  for (const helperArgument of returnedResponseHelperArguments(route)) {
+    assert.equal(
+      hasRawMessageValue(helperArgument),
+      false,
+      "response helper arguments must not return a raw .message value",
+    );
+  }
 }
 
 const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".ts", ".tsx"]);
@@ -106,6 +113,22 @@ function responseBodyVariableExpressions(text) {
     if (closeIndex > openIndex) {
       expressions.set(name, text.slice(openIndex, closeIndex + 1));
     }
+  }
+  return expressions;
+}
+
+function returnedResponseHelperArguments(text) {
+  const expressions = [];
+  const returnCallPattern = /\breturn\s+([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\(/g;
+  for (const match of text.matchAll(returnCallPattern)) {
+    const callee = match[1];
+    if (callee === "Response.json") continue;
+    if (!/response/i.test(callee)) continue;
+    const openParen = text.indexOf("(", (match.index ?? 0) + match[0].length - 1);
+    if (openParen === -1) continue;
+    const closeParen = matchingParenIndex(text, openParen);
+    if (closeParen <= openParen) continue;
+    expressions.push(...splitTopLevel(text.slice(openParen + 1, closeParen)));
   }
   return expressions;
 }
@@ -539,23 +562,29 @@ function assertTopUpGetParsesAndPassesListOptions(getRoute) {
   assert.ok(
     getTopUpsBodies.some((body) => {
       const optionsArg = splitTopLevel(body)[2]?.trim() ?? "";
-      return topLevelObjectHasFields(optionsArg, ["limit", "statuses", "cursorCreatedAt"]);
+      return topLevelObjectHasParsedFields(optionsArg, ["limit", "statuses", "cursorCreatedAt"]);
     }),
-    "one GET getTopUps call must pass limit, statuses, and cursorCreatedAt as direct options keys",
+    "one GET getTopUps call must pass parsed limit, statuses, and cursorCreatedAt as direct options keys",
   );
 }
 
-function topLevelObjectHasFields(value, fieldNames) {
+function topLevelObjectHasParsedFields(value, fieldNames) {
   const trimmed = value.trim();
   if (!trimmed.startsWith("{")) return false;
   const closeBrace = matchingBraceIndex(trimmed, 0);
   if (closeBrace !== trimmed.length - 1) return false;
   const entries = splitTopLevel(trimmed.slice(1, -1));
-  return fieldNames.every((fieldName) =>
-    entries.some((entry) =>
-      new RegExp(`^\\s*${escapeRegExp(fieldName)}(?:\\s*,|\\s*:|\\s*$)`).test(entry),
-    ),
-  );
+  return fieldNames.every((fieldName) => {
+    const shorthandPattern = new RegExp(`^\\s*${escapeRegExp(fieldName)}\\s*$`);
+    const keyedPattern = new RegExp(
+      `^\\s*(?:${escapeRegExp(fieldName)}|["']${escapeRegExp(fieldName)}["'])\\s*:\\s*([\\s\\S]+)$`,
+    );
+    return entries.some((entry) => {
+      if (shorthandPattern.test(entry)) return true;
+      const keyed = keyedPattern.exec(entry);
+      return keyed ? returnedNamePattern(fieldName).test(keyed[1]) : false;
+    });
+  });
 }
 
 function assertTopUpGetReturnsRateLimitBeforeList(getRoute) {
@@ -625,6 +654,62 @@ function assignedGuardReturn(text, callPattern) {
     };
   }
   return null;
+}
+
+function assertShippingRequestIdValidatedBeforeRpc(patchRoute) {
+  const rpcIndex = patchRoute.search(/update_shipping_request_status/);
+  assert.ok(rpcIndex > -1, "shipping route must call update_shipping_request_status");
+  const beforeRpc = patchRoute.slice(0, rpcIndex);
+  const directValidation =
+    /if\s*\([\s\S]{0,240}shippingRequestId[\s\S]{0,240}(?:\.test\s*\(|UUID|uuid|Uuid|validate|valid|is[A-Z][A-Za-z]*Id)[\s\S]{0,240}\)[\s\S]{0,240}\breturn\b/.test(
+      beforeRpc,
+    );
+  const assignedValidation = (() => {
+    const match = /\b(?:const|let)\s+(\w+)\s*=\s*[\s\S]{0,200}(?:UUID|uuid|Uuid|validate|parse|valid|is[A-Z][A-Za-z]*Id)[\s\S]{0,160}shippingRequestId/.exec(
+      beforeRpc,
+    );
+    if (!match) return false;
+    const validationName = match[1];
+    return new RegExp(
+      `if\\s*\\([\\s\\S]{0,120}${escapeRegExp(validationName)}[\\s\\S]{0,120}\\)[\\s\\S]{0,180}\\breturn\\b`,
+    ).test(beforeRpc.slice((match.index ?? 0) + match[0].length));
+  })();
+  assert.ok(
+    directValidation || assignedValidation,
+    "shippingRequestId must be validated by a UUID helper or regex before the RPC",
+  );
+}
+
+function assertShippingRpcErrorMappedSafely(patchRoute) {
+  const rpcIndex = patchRoute.search(/update_shipping_request_status/);
+  assert.ok(rpcIndex > -1, "shipping route must call update_shipping_request_status");
+  const errorBranch = ifBranchBody(patchRoute, /\bif\s*\(\s*error\s*\)/g, rpcIndex);
+  assert.ok(errorBranch, "shipping RPC error branch must exist after the RPC");
+  assert.doesNotMatch(
+    errorBranch,
+    /\berror\.message\b/,
+    "shipping RPC error branch must not return raw error.message",
+  );
+  assert.ok(
+    /\b[A-Za-z_$][\w$]*(?:ErrorMessage|Message|Mapper|map[A-Z][A-Za-z]*)\s*\(\s*error\s*\)/.test(
+      errorBranch,
+    ),
+    "shipping RPC error branch must map the error through a safe message helper",
+  );
+}
+
+function ifBranchBody(text, pattern, afterIndex = 0) {
+  pattern.lastIndex = afterIndex;
+  const match = pattern.exec(text);
+  if (!match) return "";
+  let cursor = (match.index ?? 0) + match[0].length;
+  while (/\s/.test(text[cursor] ?? "")) cursor += 1;
+  if (text[cursor] === "{") {
+    const closeBrace = matchingBraceIndex(text, cursor);
+    return closeBrace > cursor ? text.slice(cursor + 1, closeBrace) : "";
+  }
+  const statementEnd = text.indexOf(";", cursor);
+  return statementEnd > cursor ? text.slice(cursor, statementEnd + 1) : "";
 }
 
 function assertRpcCall(block, rpcName) {
@@ -895,6 +980,11 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   });
   assert.doesNotThrow(() => {
     assertRawErrorMessageIsNotReturned(
+      'return adminErrorResponse("bad", topUpReviewErrorMessage(error.message), 500);',
+    );
+  });
+  assert.doesNotThrow(() => {
+    assertRawErrorMessageIsNotReturned(
       'return Response.json({ code: "bad", error: safeMessage(error) }, { status: 400 });',
     );
   });
@@ -946,6 +1036,16 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
       'return Response.json({ errors: [dbError.message] }, { status: 400 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return adminErrorResponse("bad", error.message, 500);',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return someResponseHelper({ error: dbError.message });',
     );
   });
 });
@@ -1006,18 +1106,9 @@ test("admin payment method routes require high privilege and return safe failure
 test("admin shipping route validates IDs and maps RPC errors safely", () => {
   const shippingRoute = source("src/app/api/ynot/admin/shipping/route.ts");
   const patchRoute = exportedFunctionBlock(shippingRoute, "PATCH");
-  const validationIndex = patchRoute.search(/UUID_RE\.test\(\s*shippingRequestId\s*\)/);
-  const rpcIndex = patchRoute.search(/update_shipping_request_status/);
-  assert.match(shippingRoute, /const UUID_RE/);
-  assert.match(shippingRoute, /adminShippingErrorMessage/);
   assert.match(shippingRoute, /update_shipping_request_status/);
-  assert.ok(validationIndex > -1, "shippingRequestId must be validated with UUID_RE");
-  assert.ok(rpcIndex > validationIndex, "shippingRequestId must be validated before the RPC");
-  assert.match(
-    patchRoute,
-    /if\s*\(\s*error\s*\)[\s\S]*Response\.json\(\s*\{[\s\S]*error\s*:\s*adminShippingErrorMessage\(\s*error\s*\)/,
-  );
-  assert.doesNotMatch(patchRoute, /adminShippingErrorMessage\(\s*error\.message\s*\)/);
+  assertShippingRequestIdValidatedBeforeRpc(patchRoute);
+  assertShippingRpcErrorMappedSafely(patchRoute);
   assertRawErrorMessageIsNotReturned(shippingRoute);
 });
 
