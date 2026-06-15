@@ -6,10 +6,20 @@ import { AdminFrame, AdminIcon } from "@/features/ynot/admin";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminShippingPage() {
+export default async function AdminShippingPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ profileId?: string }>;
+}) {
+  const params = await (searchParams ??
+    Promise.resolve({} as { profileId?: string }));
+  const profileId =
+    typeof params.profileId === "string" && params.profileId.trim()
+      ? params.profileId.trim()
+      : undefined;
   const [data, shipping] = await Promise.all([
     getYnotDashboardSlice({ wallet: false }),
-    getShipping(undefined, true),
+    profileId ? getShipping(profileId, true) : getShipping(undefined, true),
   ]);
   const active = shipping.filter((request) => isActiveYnotShippingStatus(request.status)).length;
 
@@ -20,7 +30,7 @@ export default async function AdminShippingPage() {
         active="/admin/shipping"
         trail={["Admin", "Operations", "Shipping"]}
         eyebrow="Admin shipping"
-        title="Shipping fulfilment"
+        title={profileId ? "Shipping fulfilment for user" : "Shipping fulfilment"}
         desc="Review shipment status first, then expand customer, address, reward, tracking, and timeline details only when needed."
         badges={{ "/admin/shipping": active || undefined }}
         actions={

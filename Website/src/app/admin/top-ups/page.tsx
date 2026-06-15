@@ -1,6 +1,6 @@
 import { AdminTopUpActions } from "@/features/ynot/client";
 import { AdminGate, TopUpTable } from "@/features/ynot/components";
-import { getYnotDashboardSlice } from "@/features/ynot/data";
+import { getTopUps, getYnotDashboardSlice } from "@/features/ynot/data";
 import {
   AdminCard,
   AdminCardHead,
@@ -43,29 +43,45 @@ function normalizeTopUpFilter(value: string | undefined): TopUpFilter {
 export default async function AdminTopUpsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ filter?: string }>;
+  searchParams?: Promise<{ filter?: string; profileId?: string }>;
 }) {
-  const params = await (searchParams ?? Promise.resolve({} as { filter?: string }));
+  const params = await (searchParams ??
+    Promise.resolve({} as { filter?: string; profileId?: string }));
   const activeFilter = normalizeTopUpFilter(params.filter);
-  const data = await getYnotDashboardSlice({ adminTopUps: true });
-  const pending = data.adminTopUps.filter(
+  const profileId =
+    typeof params.profileId === "string" && params.profileId.trim()
+      ? params.profileId.trim()
+      : undefined;
+  const [data, adminTopUps] = await Promise.all([
+    getYnotDashboardSlice({ wallet: false }),
+    profileId
+      ? getTopUps(profileId, true, {
+          includeSensitiveSlipDetails: true,
+          limit: 500,
+        })
+      : getTopUps(undefined, true, {
+          includeSensitiveSlipDetails: true,
+          limit: 500,
+        }),
+  ]);
+  const pending = adminTopUps.filter(
     (topUp) =>
       topUp.status === "pending_review" || topUp.status === "pending_slip",
   );
-  const awaitingSlip = data.adminTopUps.filter((t) => t.status === "pending_slip");
-  const approved = data.adminTopUps.filter((t) => t.status === "approved");
-  const validPrecheck = data.adminTopUps.filter(
+  const awaitingSlip = adminTopUps.filter((t) => t.status === "pending_slip");
+  const approved = adminTopUps.filter((t) => t.status === "approved");
+  const validPrecheck = adminTopUps.filter(
     (t) => t.slipVerification?.status === "valid",
   );
-  const mismatch = data.adminTopUps.filter((t) =>
+  const mismatch = adminTopUps.filter((t) =>
     ["amount_mismatch", "receiver_mismatch", "date_mismatch"].includes(
       t.slipVerification?.status ?? "",
     ),
   );
-  const duplicate = data.adminTopUps.filter(
+  const duplicate = adminTopUps.filter(
     (t) => t.slipVerification?.status === "duplicate",
   );
-  const providerError = data.adminTopUps.filter(
+  const providerError = adminTopUps.filter(
     (t) => t.slipVerification?.status === "provider_error",
   );
   const volume = approved.reduce((s, t) => s + t.amountThb, 0);
@@ -76,10 +92,10 @@ export default async function AdminTopUpsPage({
     mismatch: mismatch.length,
     duplicate: duplicate.length,
     provider_error: providerError.length,
-    rejected: data.adminTopUps.filter((t) => t.status === "rejected").length,
+    rejected: adminTopUps.filter((t) => t.status === "rejected").length,
     approved: approved.length,
   };
-  const visibleTopUps = data.adminTopUps.filter((topUp) => {
+  const visibleTopUps = adminTopUps.filter((topUp) => {
     if (activeFilter === "all") return pending.includes(topUp);
     if (activeFilter === "pending") return topUp.status === "pending_review";
     if (activeFilter === "valid") return topUp.slipVerification?.status === "valid";
@@ -100,7 +116,7 @@ export default async function AdminTopUpsPage({
         active="/admin/top-ups"
         trail={["Admin", "Operations", "Top-ups"]}
         eyebrow="Admin top-ups"
-        title="Manual payment confirmation"
+        title={profileId ? "Manual payment confirmation for user" : "Manual payment confirmation"}
         desc="Review bank/QR slip uploads, approve or reject manually, and credit wallet coins exactly once through the database RPC."
         badges={{ "/admin/top-ups": pending.length || undefined }}
         actions={
@@ -144,7 +160,7 @@ export default async function AdminTopUpsPage({
                 {topUpFilters.map((filter) => (
                   <a
                     className={`t ${activeFilter === filter.key ? "active" : ""}`}
-                    href={`/admin/top-ups?filter=${filter.key}`}
+                    href={`/admin/top-ups?filter=${filter.key}${profileId ? `&profileId=${encodeURIComponent(profileId)}` : ""}`}
                     key={filter.key}
                   >
                     {filter.label} · {filterCounts[filter.key]}
@@ -226,7 +242,7 @@ export default async function AdminTopUpsPage({
         <AdminCard>
           <AdminCardHead label="All top-ups" title="History" />
           <div className="card-pad">
-            <TopUpTable topUps={data.adminTopUps} admin />
+            <TopUpTable topUps={adminTopUps} admin />
           </div>
         </AdminCard>
       </AdminFrame>
