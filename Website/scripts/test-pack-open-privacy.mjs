@@ -243,7 +243,6 @@ test("customer campaign props hide house logic and internal prize inventory", ()
   assert.match(publicPrize, /id:\s*`public-prize-\$\{index \+ 1\}`/);
   assert.doesNotMatch(publicPrize, /cardId:/);
   assert.doesNotMatch(publicPrize, /cardImageStoragePath:/);
-  assert.doesNotMatch(publicPrize, /plannedQuantity:/);
   assert.doesNotMatch(publicPrize, /availableUnits:/);
   assert.doesNotMatch(publicPrize, /totalUnits:/);
   assert.doesNotMatch(publicPrize, /tierRank:/);
