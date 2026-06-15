@@ -19,11 +19,11 @@ function between(text, startMarker, endMarker) {
 }
 
 function assertRawErrorMessageIsNotReturned(route) {
-  for (const objectBody of responseJsonObjectBodies(route)) {
+  for (const bodyExpression of responseJsonBodyExpressions(route)) {
     assert.equal(
-      hasRawMessageValue(objectBody),
+      hasRawMessageValue(bodyExpression),
       false,
-      "Response.json object must not return a raw .message value",
+      "Response.json body must not return a raw .message value",
     );
   }
 }
@@ -72,29 +72,80 @@ function collectSourceFiles(path, files) {
   }
 }
 
-function responseJsonObjectBodies(text) {
-  const bodies = [];
+function responseJsonBodyExpressions(text) {
+  const variableBodies = responseBodyVariableExpressions(text);
+  const expressions = [];
   const marker = "Response.json(";
   let searchFrom = 0;
   while (searchFrom < text.length) {
     const markerIndex = text.indexOf(marker, searchFrom);
     if (markerIndex === -1) break;
-    let cursor = markerIndex + marker.length;
-    while (/\s/.test(text[cursor] ?? "")) cursor += 1;
-    if (text[cursor] === "{") {
-      const end = matchingBraceIndex(text, cursor);
-      if (end > cursor) bodies.push(text.slice(cursor + 1, end));
+    const openParen = markerIndex + marker.length - 1;
+    const closeParen = matchingParenIndex(text, openParen);
+    if (closeParen === -1) break;
+    const firstArg = splitTopLevel(text.slice(openParen + 1, closeParen))[0]?.trim() ?? "";
+    if (firstArg.startsWith("{") || firstArg.startsWith("[")) {
+      expressions.push(firstArg);
+    } else if (variableBodies.has(firstArg)) {
+      expressions.push(variableBodies.get(firstArg));
     }
     searchFrom = markerIndex + marker.length;
   }
-  return bodies;
+  return expressions;
 }
 
-function hasRawMessageValue(objectBody) {
-  for (const valueStart of objectValueStarts(objectBody)) {
-    if (isDirectMessageMemberExpression(objectBody, valueStart)) return true;
+function responseBodyVariableExpressions(text) {
+  const expressions = new Map();
+  for (const match of text.matchAll(/\b(?:const|let)\s+(\w+)\s*=\s*([\{\[])/g)) {
+    const name = match[1];
+    const openIndex = (match.index ?? 0) + match[0].lastIndexOf(match[2]);
+    const closeIndex =
+      match[2] === "{"
+        ? matchingBraceIndex(text, openIndex)
+        : matchingBracketIndex(text, openIndex);
+    if (closeIndex > openIndex) {
+      expressions.set(name, text.slice(openIndex, closeIndex + 1));
+    }
+  }
+  return expressions;
+}
+
+function hasRawMessageValue(expression) {
+  const trimmed = stripOuterParens(expression.trim());
+  if (isDirectMessageMemberExpression(trimmed, 0)) return true;
+  if (trimmed.startsWith("{")) {
+    const closeBrace = matchingBraceIndex(trimmed, 0);
+    if (closeBrace === -1) return false;
+    const objectBody = trimmed.slice(1, closeBrace);
+    for (const valueStart of objectValueStarts(objectBody)) {
+      const valueEnd = endOfTopLevelValue(objectBody, valueStart);
+      if (hasRawMessageValue(stripTrailingComma(objectBody.slice(valueStart, valueEnd)))) {
+        return true;
+      }
+    }
+  }
+  if (trimmed.startsWith("[")) {
+    const closeBracket = matchingBracketIndex(trimmed, 0);
+    if (closeBracket === -1) return false;
+    return splitTopLevel(trimmed.slice(1, closeBracket)).some((value) =>
+      hasRawMessageValue(value),
+    );
   }
   return false;
+}
+
+function stripTrailingComma(value) {
+  return value.trim().replace(/,\s*$/, "");
+}
+
+function stripOuterParens(value) {
+  let current = value;
+  while (current.startsWith("(")) {
+    const closeParen = matchingParenIndex(current, 0);
+    if (closeParen !== current.length - 1) break;
+    current = current.slice(1, -1).trim();
+  }
+  return current;
 }
 
 function objectValueStarts(objectBody) {
@@ -332,6 +383,59 @@ function matchingParenIndex(text, start) {
   return -1;
 }
 
+function matchingBracketIndex(text, start) {
+  let depth = 0;
+  let stringQuote = "";
+  let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1] ?? "";
+    if (lineComment) {
+      if (char === "\n") lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      if (char === "*" && next === "/") {
+        blockComment = false;
+        index += 1;
+      }
+      continue;
+    }
+    if (stringQuote) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === stringQuote) {
+        stringQuote = "";
+      }
+      continue;
+    }
+    if (char === "/" && next === "/") {
+      lineComment = true;
+      index += 1;
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      blockComment = true;
+      index += 1;
+      continue;
+    }
+    if (char === "\"" || char === "'" || char === "`") {
+      stringQuote = char;
+      continue;
+    }
+    if (char === "[") depth += 1;
+    if (char === "]") {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
 function callBodies(text, callPattern) {
   const bodies = [];
   for (const match of text.matchAll(callPattern)) {
@@ -341,6 +445,46 @@ function callBodies(text, callPattern) {
     if (closeParen > openParen) bodies.push(text.slice(openParen + 1, closeParen));
   }
   return bodies;
+}
+
+function splitTopLevel(text) {
+  const values = [];
+  let start = 0;
+  let braceDepth = 0;
+  let bracketDepth = 0;
+  let parenDepth = 0;
+  let stringQuote = "";
+  let escaped = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (stringQuote) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === stringQuote) {
+        stringQuote = "";
+      }
+      continue;
+    }
+    if (char === "\"" || char === "'" || char === "`") {
+      stringQuote = char;
+      continue;
+    }
+    if (char === "{") braceDepth += 1;
+    if (char === "}") braceDepth -= 1;
+    if (char === "[") bracketDepth += 1;
+    if (char === "]") bracketDepth -= 1;
+    if (char === "(") parenDepth += 1;
+    if (char === ")") parenDepth -= 1;
+    if (char === "," && braceDepth === 0 && bracketDepth === 0 && parenDepth === 0) {
+      values.push(text.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+  const finalValue = text.slice(start).trim();
+  if (finalValue) values.push(finalValue);
+  return values;
 }
 
 function exportedFunctionBlock(text, name) {
@@ -393,30 +537,25 @@ function assertTopUpGetParsesAndPassesListOptions(getRoute) {
   const getTopUpsBodies = callBodies(getRoute, /\bgetTopUps\s*/g);
   assert.ok(getTopUpsBodies.length > 0, "GET must call getTopUps");
   assert.ok(
-    getTopUpsBodies.some((body) =>
-      objectBodies(body).some(
-        (objectBody) =>
-          /(?:\blimit\s*,|\blimit\s*:\s*limit\b)/.test(objectBody) &&
-          /(?:\bstatuses\s*,|\bstatuses\s*:\s*statuses\b)/.test(objectBody) &&
-          /(?:\bcursorCreatedAt\s*,|\bcursorCreatedAt\s*:\s*cursorCreatedAt\b)/.test(objectBody),
-      ),
-    ),
-    "one GET getTopUps call must pass limit, statuses, and cursorCreatedAt together in its options object",
+    getTopUpsBodies.some((body) => {
+      const optionsArg = splitTopLevel(body)[2]?.trim() ?? "";
+      return topLevelObjectHasFields(optionsArg, ["limit", "statuses", "cursorCreatedAt"]);
+    }),
+    "one GET getTopUps call must pass limit, statuses, and cursorCreatedAt as direct options keys",
   );
 }
 
-function objectBodies(text) {
-  const bodies = [];
-  let searchFrom = 0;
-  while (searchFrom < text.length) {
-    const openBrace = text.indexOf("{", searchFrom);
-    if (openBrace === -1) break;
-    const closeBrace = matchingBraceIndex(text, openBrace);
-    if (closeBrace === -1) break;
-    bodies.push(text.slice(openBrace + 1, closeBrace));
-    searchFrom = closeBrace + 1;
-  }
-  return bodies;
+function topLevelObjectHasFields(value, fieldNames) {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{")) return false;
+  const closeBrace = matchingBraceIndex(trimmed, 0);
+  if (closeBrace !== trimmed.length - 1) return false;
+  const entries = splitTopLevel(trimmed.slice(1, -1));
+  return fieldNames.every((fieldName) =>
+    entries.some((entry) =>
+      new RegExp(`^\\s*${escapeRegExp(fieldName)}(?:\\s*,|\\s*:|\\s*$)`).test(entry),
+    ),
+  );
 }
 
 function assertTopUpGetReturnsRateLimitBeforeList(getRoute) {
@@ -749,6 +888,16 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
       'return Response.json({ code: "bad", error: mapError(dbError.message) }, { status: 400 });',
     );
   });
+  assert.doesNotThrow(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return adminErrorResponse(409, adminShippingErrorMessage(error));',
+    );
+  });
+  assert.doesNotThrow(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return Response.json({ code: "bad", error: safeMessage(error) }, { status: 400 });',
+    );
+  });
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
       'return Response.json({ code: "bad", error: dbError.message }, { status: 400 });',
@@ -777,6 +926,26 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
       'return Response.json({ error: ((dbError)).message }, { status: 400 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'const body = { error: dbError.message }; return Response.json(body);',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'const body = { error: ((dbError)).message }; return Response.json(body);',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return Response.json({ error: { message: dbError.message } }, { status: 400 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return Response.json({ errors: [dbError.message] }, { status: 400 });',
     );
   });
 });
