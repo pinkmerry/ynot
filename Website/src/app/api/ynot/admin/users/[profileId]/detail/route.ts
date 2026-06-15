@@ -9,7 +9,6 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type UserDetailRouteContext = {
-  // RouteContext<"/api/ynot/admin/users/[profileId]/detail">
   params: Promise<{ profileId: string }>;
 };
 
@@ -42,8 +41,6 @@ export async function GET(
 
   const url = new URL(request.url);
   const detailQuery = normalizeAdminUser360Query({
-    section: url.searchParams.get("section") ?? "overview",
-    page: url.searchParams.get("page") ?? "1",
     pageSize: url.searchParams.get("pageSize") ?? "100",
   });
   const detail = await getAdminUserDetail(profileId, detailQuery);

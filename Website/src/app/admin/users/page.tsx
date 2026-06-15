@@ -37,12 +37,12 @@ export default async function AdminUsersPage({
   ]);
   const users = directory.users;
 
-  const owners = users.filter((u) => u.adminRole === "owner").length;
-  const staff = users.filter((u) => u.adminRole && u.adminRole !== "owner").length;
-  const customers = users.length - owners - staff;
-  const flagged = users.filter(
-    (u) => u.status !== "active",
+  const pageOwners = users.filter((u) => u.adminRole === "owner").length;
+  const pageStaff = users.filter(
+    (u) => u.adminRole && u.adminRole !== "owner",
   ).length;
+  const pageCustomers = users.length - pageOwners - pageStaff;
+  const pageInactive = users.filter((u) => u.status !== "active").length;
   const pendingMerges = mergeRequests.filter((r) => r.status === "pending").length;
 
   function directoryHref(next: Partial<typeof directory.query>) {
@@ -77,14 +77,26 @@ export default async function AdminUsersPage({
         }
       >
         <div className="kpi-grid">
-          <AdminKPI label="Total users" value={users.length} color="var(--a-gold)" />
-          <AdminKPI label="Owners + staff" value={owners + staff} color="var(--a-mint)" />
-          <AdminKPI label="Customers" value={customers} color="var(--a-sky)" />
           <AdminKPI
-            label="Flagged"
-            value={flagged}
-            delta={flagged ? "needs review" : "all clear"}
-            deltaDir={flagged ? "down" : "up"}
+            label="Total users"
+            value={directory.total}
+            color="var(--a-gold)"
+          />
+          <AdminKPI
+            label="Page owners + staff"
+            value={pageOwners + pageStaff}
+            color="var(--a-mint)"
+          />
+          <AdminKPI
+            label="Page customers"
+            value={pageCustomers}
+            color="var(--a-sky)"
+          />
+          <AdminKPI
+            label="Page inactive"
+            value={pageInactive}
+            delta={pageInactive ? "needs review" : "all clear"}
+            deltaDir={pageInactive ? "down" : "up"}
             color="var(--a-rose)"
           />
         </div>
@@ -120,9 +132,8 @@ export default async function AdminUsersPage({
                 >
                   <option value="all">All status</option>
                   <option value="active">Active</option>
-                  <option value="flagged">Flagged</option>
-                  <option value="suspended">Suspended</option>
                   <option value="disabled">Disabled</option>
+                  <option value="merged">Merged</option>
                 </select>
                 <button className="btn btn-primary" type="submit">
                   <AdminIcon name="search" />

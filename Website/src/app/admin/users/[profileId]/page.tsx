@@ -15,7 +15,7 @@ export default async function AdminUserDetailPage({
   searchParams,
 }: {
   params: Promise<{ profileId: string }>;
-  searchParams?: Promise<{ section?: string; page?: string; pageSize?: string }>;
+  searchParams?: Promise<{ pageSize?: string }>;
 }) {
   const { profileId } = await params;
   const detailQuery = normalizeAdminUser360Query(

@@ -463,9 +463,8 @@ export type YnotAdminUserDirectoryRoleFilter =
 export type YnotAdminUserDirectoryStatusFilter =
   | "all"
   | "active"
-  | "flagged"
-  | "suspended"
-  | "disabled";
+  | "disabled"
+  | "merged";
 
 export type YnotAdminUserDirectoryQuery = {
   q: string;
@@ -498,19 +497,7 @@ export type YnotAdminUserDirectoryResult = {
   hasNextPage: boolean;
 };
 
-export type YnotAdminUser360Section =
-  | "overview"
-  | "prizes"
-  | "opens"
-  | "shipping"
-  | "wallet"
-  | "topups"
-  | "exchanges"
-  | "audit";
-
 export type YnotAdminUser360Query = {
-  section: YnotAdminUser360Section;
-  page: number;
   pageSize: number;
 };
 

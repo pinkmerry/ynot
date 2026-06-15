@@ -41,13 +41,23 @@ test("package exposes the admin User 360 regression script", () => {
 test("admin user directory supports search pagination and a read API", () => {
   assert.match(typesSource, /export type YnotAdminUserDirectoryQuery/);
   assert.match(typesSource, /export type YnotAdminUserDirectoryResult/);
+  assert.match(typesSource, /\|\s*"disabled"/);
+  assert.match(typesSource, /\|\s*"merged"/);
+  assert.doesNotMatch(typesSource, /\|\s*"flagged"/);
+  assert.doesNotMatch(typesSource, /\|\s*"suspended"/);
   assert.match(dataSource, /export function normalizeAdminUserDirectoryQuery/);
   assert.match(dataSource, /export async function getAdminUserDirectory/);
   assert.match(adminUsersPage, /searchParams/);
   assert.match(adminUsersPage, /getAdminUserDirectory/);
+  assert.match(adminUsersPage, /label="Total users"\s+value=\{directory\.total\}/);
+  assert.match(adminUsersPage, /Page inactive/);
   assert.match(adminUsersPage, /name="q"/);
   assert.match(adminUsersPage, /name="role"/);
   assert.match(adminUsersPage, /name="status"/);
+  assert.match(adminUsersPage, /<option value="disabled">Disabled<\/option>/);
+  assert.match(adminUsersPage, /<option value="merged">Merged<\/option>/);
+  assert.doesNotMatch(adminUsersPage, /<option value="flagged">/);
+  assert.doesNotMatch(adminUsersPage, /<option value="suspended">/);
   assert.match(adminUsersPage, /Next page/);
   assert.match(adminUsersRoute, /export async function GET\(request: Request\)/);
   assert.match(adminUsersRoute, /resolveAdminSession\(\)/);
@@ -56,9 +66,15 @@ test("admin user directory supports search pagination and a read API", () => {
 });
 
 test("User 360 detail page shows full launch sections without UI-only slices", () => {
-  assert.match(typesSource, /export type YnotAdminUser360Section/);
   assert.match(typesSource, /exchanges: YnotExchangeOrder\[\]/);
   assert.match(dataSource, /export function normalizeAdminUser360Query/);
+  const adminUser360Normalizer = between(
+    dataSource,
+    "export function normalizeAdminUser360Query",
+    "function postgresInList",
+  );
+  assert.doesNotMatch(adminUser360Normalizer, /section/);
+  assert.doesNotMatch(adminUser360Normalizer, /\bpage:/);
   assert.match(dataSource, /getExchanges\(profileId/);
   assert.match(adminUserDetailPage, /searchParams/);
   assert.match(adminUserDetailPage, /normalizeAdminUser360Query/);
@@ -75,7 +91,13 @@ test("User 360 detail page shows full launch sections without UI-only slices", (
 test("admin User 360 detail API is admin-only and no-store", () => {
   assert.notEqual(adminUserDetailRoute, "", "detail route must exist");
   assert.match(adminUserDetailRoute, /export const dynamic = "force-dynamic"/);
-  assert.match(adminUserDetailRoute, /RouteContext<["']\/api\/ynot\/admin\/users\/\[profileId\]\/detail["']>/);
+  assert.match(
+    adminUserDetailRoute,
+    /type UserDetailRouteContext = \{\s*params: Promise<\{ profileId: string \}>;\s*\};/s,
+  );
+  assert.doesNotMatch(adminUserDetailRoute, /RouteContext</);
+  assert.doesNotMatch(adminUserDetailRoute, /section:/);
+  assert.doesNotMatch(adminUserDetailRoute, /\bpage:/);
   assert.match(adminUserDetailRoute, /resolveAdminSession\(\)/);
   assert.match(adminUserDetailRoute, /getAdminUserDetail\(profileId,\s*detailQuery\)/);
   assert.match(adminUserDetailRoute, /Cache-Control",\s*"no-store"/);
@@ -89,8 +111,21 @@ test("User 360 can deep-link to filtered shipping and top-up operations", () => 
   assert.match(adminShippingPage, /getShipping\(profileId,\s*true/);
   assert.match(adminTopUpsPage, /profileId/);
   assert.match(adminTopUpsPage, /getTopUps\(profileId,\s*true/);
-  const getShippingBlock = between(dataSource, "export async function getShipping", "function publicShippingRequest");
+  const getShippingBlock = between(
+    dataSource,
+    "export async function getShipping",
+    "function publicShippingRequest",
+  );
   assert.match(getShippingBlock, /if \(profileId\) query = query\.eq\("profile_id", profileId\)/);
+  const getTopUpsBlock = between(
+    dataSource,
+    "export async function getTopUps",
+    "export function toTopUp",
+  );
+  assert.match(
+    getTopUpsBlock,
+    /\(includeAll \|\| includeSensitiveSlipDetails\)[\s\S]+resolveAdminSession\(\)/,
+  );
 });
 
 test("related admin APIs still call the intended database RPCs", () => {

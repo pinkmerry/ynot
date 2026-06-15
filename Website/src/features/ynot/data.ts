@@ -20,7 +20,6 @@ import { collectionItemActionToken } from "@/lib/ynot/collection-action-tokens";
 import { paymentMethodActionToken } from "@/lib/ynot/payment-method-action-tokens";
 import type {
   YnotAdminUser360Query,
-  YnotAdminUser360Section,
   YnotAdminUserDetail,
   YnotAdminUserDirectoryQuery,
   YnotAdminUserDirectoryRow,
@@ -2707,6 +2706,12 @@ export async function getTopUps(
   if ((!profileId && !includeAll) || !isSupabaseConfigured()) return [];
   const includeSensitiveSlipDetails =
     options.includeSensitiveSlipDetails ?? includeAll;
+  if (
+    (includeAll || includeSensitiveSlipDetails) &&
+    !(await resolveAdminSession())
+  ) {
+    return [];
+  }
   const safeLimit = boundedRowLimit(options.limit, includeAll ? 200 : 80, 500);
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("topups", async () => {
@@ -3985,20 +3990,8 @@ const adminUserDirectoryRoles = new Set<YnotAdminUserDirectoryRoleFilter>([
 const adminUserDirectoryStatuses = new Set<YnotAdminUserDirectoryStatusFilter>([
   "all",
   "active",
-  "flagged",
-  "suspended",
   "disabled",
-]);
-
-const adminUser360Sections = new Set<YnotAdminUser360Section>([
-  "overview",
-  "prizes",
-  "opens",
-  "shipping",
-  "wallet",
-  "topups",
-  "exchanges",
-  "audit",
+  "merged",
 ]);
 
 function pageNumber(value: unknown, fallback = 1) {
@@ -4057,19 +4050,10 @@ export function normalizeAdminUserDirectoryQuery(
 
 export function normalizeAdminUser360Query(
   input: {
-    section?: unknown;
-    page?: unknown;
     pageSize?: unknown;
   } = {},
 ): YnotAdminUser360Query {
-  const section = adminUser360Sections.has(
-    input.section as YnotAdminUser360Section,
-  )
-    ? (input.section as YnotAdminUser360Section)
-    : "overview";
   return {
-    section,
-    page: pageNumber(input.page),
     pageSize: boundedPageSize(
       input.pageSize,
       ADMIN_USER360_DEFAULT_PAGE_SIZE,
@@ -4174,13 +4158,8 @@ export async function getAdminUserDirectory(
       profilesQuery = profilesQuery.or(searchTerms.join(","));
     }
 
-    if (queryInput.status === "active" || queryInput.status === "disabled") {
+    if (queryInput.status !== "all") {
       profilesQuery = profilesQuery.eq("profile_status", queryInput.status);
-    } else if (
-      queryInput.status === "flagged" ||
-      queryInput.status === "suspended"
-    ) {
-      profilesQuery = profilesQuery.neq("profile_status", "active");
     }
 
     if (queryInput.role !== "all" && queryInput.role !== "customer") {
@@ -4240,7 +4219,7 @@ export async function getAdminUsers() {
 
 export async function getAdminUserDetail(
   profileId: string,
-  input: { section?: unknown; page?: unknown; pageSize?: unknown } = {},
+  input: { pageSize?: unknown } = {},
 ): Promise<YnotAdminUserDetail | null> {
   if (!profileId || !isSupabaseConfigured()) return null;
   const admin = await resolveAdminSession();
