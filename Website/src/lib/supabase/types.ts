@@ -1046,6 +1046,8 @@ export type Database = {
           p_payment_method_id: string;
           p_amount_thb: number;
           p_coin_amount: number;
+          p_amount_source: string;
+          p_package_id?: string | null;
           p_customer_note?: string | null;
           p_idempotency_key: string;
           p_slip_file_path: string;

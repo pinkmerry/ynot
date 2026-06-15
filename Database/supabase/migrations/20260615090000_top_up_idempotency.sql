@@ -11,6 +11,8 @@ create or replace function public.submit_top_up_request(
   p_payment_method_id uuid,
   p_amount_thb integer,
   p_coin_amount integer,
+  p_amount_source text,
+  p_package_id text,
   p_customer_note text,
   p_idempotency_key text,
   p_slip_file_path text,
@@ -47,6 +49,12 @@ begin
   end if;
   if p_coin_amount is null or p_coin_amount <= 0 then
     raise exception 'invalid_coin_amount';
+  end if;
+  if trim(coalesce(p_amount_source, '')) not in ('package', 'custom') then
+    raise exception 'invalid_amount_source';
+  end if;
+  if trim(p_amount_source) = 'package' and nullif(trim(coalesce(p_package_id, '')), '') is null then
+    raise exception 'package_id_required';
   end if;
   if p_idempotency_key is null or length(trim(p_idempotency_key)) < 16 then
     raise exception 'invalid_idempotency_key';
@@ -149,7 +157,9 @@ begin
     jsonb_build_object(
       'public_code', top_up_row.public_code,
       'amount_thb', p_amount_thb,
-      'coin_amount', p_coin_amount
+      'coin_amount', p_coin_amount,
+      'amount_source', trim(p_amount_source),
+      'package_id', nullif(trim(coalesce(p_package_id, '')), '')
     )
   );
 
@@ -203,6 +213,8 @@ revoke all on function public.submit_top_up_request(
   text,
   text,
   text,
+  text,
+  text,
   jsonb,
   uuid,
   timestamptz
@@ -214,6 +226,8 @@ grant execute on function public.submit_top_up_request(
   uuid,
   integer,
   integer,
+  text,
+  text,
   text,
   text,
   text,

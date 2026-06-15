@@ -33,6 +33,29 @@ type ResolvedTopUpAmount = {
   packageId: string | null;
 };
 
+type SubmitTopUpRpcResult = {
+  status?: unknown;
+  topUpId?: unknown;
+  paymentSlipId?: unknown;
+  replayed?: unknown;
+};
+
+const TOP_UP_IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9:_-]{16,180}$/;
+
+function normalizeTopUpIdempotencyKey(value: FormDataEntryValue | null) {
+  if (typeof value !== "string") return null;
+  const clean = value.trim();
+  return TOP_UP_IDEMPOTENCY_KEY_RE.test(clean) ? clean : null;
+}
+
+function rpcString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function rpcBoolean(value: unknown) {
+  return value === true;
+}
+
 function jsonNoStore(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
   headers.set("cache-control", "no-store");
@@ -85,6 +108,58 @@ function resolveTopUpAmount(form: FormData): { value: ResolvedTopUpAmount } | { 
   return { value: { amountThb, coins: amountThb, packageId: null } };
 }
 
+async function fetchExistingTopUpByIdempotency(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  profileId: string,
+  idempotencyKey: string,
+) {
+  const { data, error } = await supabase
+    .from("top_up_requests")
+    .select("*")
+    .eq("profile_id", profileId)
+    .eq("idempotency_key", idempotencyKey)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function fetchTopUpById(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  topUpId: string,
+) {
+  const { data, error } = await supabase
+    .from("top_up_requests")
+    .select("*")
+    .eq("id", topUpId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+function replayTopUpResponse(
+  topUp: NonNullable<Awaited<ReturnType<typeof fetchTopUpById>>>,
+  status = 200,
+) {
+  return jsonNoStore(
+    {
+      topUp: publicTopUp(toTopUp(topUp)),
+      autoApproved: topUp.status === "approved",
+      autoRejected: topUp.status === "rejected",
+      replayed: true,
+    },
+    { status },
+  );
+}
+
+function submitTopUpErrorMessage(message?: string) {
+  if (!message) return "Could not submit this top-up. Please refresh and try again.";
+  if (message.includes("invalid_idempotency_key")) return "Invalid idempotency key.";
+  if (message.includes("payment_method_required")) return "Payment method is required.";
+  if (message.includes("invalid_top_up_amount")) return "Invalid top-up amount.";
+  if (message.includes("slip_file_sha256_required")) return "Transfer slip upload is required.";
+  return "Could not submit this top-up. Please refresh and try again.";
+}
+
 export async function GET() {
   if (!isSupabaseConfigured()) return jsonNoStore({ error: "Supabase is not configured." }, { status: 503 });
   const session = await resolveCurrentProfile();
@@ -118,6 +193,14 @@ export async function POST(request: Request) {
   }
 
   const form = await request.formData();
+  const idempotencyKey = normalizeTopUpIdempotencyKey(form.get("idempotencyKey"));
+  if (!idempotencyKey) {
+    return jsonNoStore({ error: "Invalid idempotency key." }, { status: 400 });
+  }
+  const supabase = createServiceSupabaseClient();
+  const existingTopUp = await fetchExistingTopUpByIdempotency(supabase, session.profileId, idempotencyKey);
+  if (existingTopUp) return replayTopUpResponse(existingTopUp, 200);
+
   const paymentMethodToken = String(form.get("paymentMethodId") ?? "").trim();
   const resolvedTopUp = resolveTopUpAmount(form);
   const customerNote = typeof form.get("customerNote") === "string" ? String(form.get("customerNote")).trim().slice(0, 500) : null;
@@ -133,7 +216,6 @@ export async function POST(request: Request) {
   if (!magicCheck.ok) return jsonNoStore({ error: magicCheck.error }, { status: 400 });
   if (!allowedSlipTypes.has(magicCheck.contentType)) return jsonNoStore({ error: "Slip must be JPG, PNG, or WEBP." }, { status: 400 });
 
-  const supabase = createServiceSupabaseClient();
   let paymentMethodId: string | null;
   try {
     paymentMethodId = await resolvePaymentMethodActionToken(paymentMethodToken);
@@ -174,29 +256,12 @@ export async function POST(request: Request) {
     value: slipHash,
   });
 
-  const idempotencyKey = randomUUID();
-  const { data: topUp, error: topUpError } = await supabase
-    .from("top_up_requests")
-    .insert({
-      profile_id: session.profileId,
-      payment_method_id: paymentMethodId,
-      amount_thb: resolvedTopUp.value.amountThb,
-      coin_amount: resolvedTopUp.value.coins,
-      status: "pending_review",
-      submitted_at: new Date().toISOString(),
-      customer_note: customerNote,
-      idempotency_key: idempotencyKey,
-    })
-    .select("*")
-    .single();
-  if (topUpError) throw topUpError;
-
-  const filePath = `topups/${session.profileId}/${topUp.id}/${Date.now()}-${cleanFileName(slipFile.name)}`;
+  const topUpId = randomUUID();
+  const filePath = `topups/${session.profileId}/${topUpId}/${Date.now()}-${cleanFileName(slipFile.name)}`;
   const { error: uploadError } = await supabase.storage.from(slipBucketName).upload(filePath, slipFile, { contentType: magicCheck.contentType, upsert: false });
   if (uploadError) {
-    await supabase.from("top_up_requests").delete().eq("id", topUp.id);
     console.warn("wallet_top_up_slip_upload_failed", {
-      topUpPublicCode: topUp.public_code,
+      topUpId,
       message: uploadError.message,
     });
     return jsonNoStore(
@@ -208,37 +273,65 @@ export async function POST(request: Request) {
   const initialProviderResponse: Json = localDuplicateSlip
     ? { source: "local_file_hash", duplicateSlipId: localDuplicateSlip.id }
     : { source: "manual_top_up_upload" };
-  const { data: slip, error: slipError } = await supabase.from("payment_slips").insert({
-    top_up_request_id: topUp.id,
-    storage_provider: "supabase",
-    file_path: filePath,
-    original_filename: slipFile.name,
-    file_sha256: slipHash,
-    verification_status: localDuplicateSlip ? "duplicate" : "unverified",
-    provider_code: localDuplicateSlip ? "LOCAL_DUPLICATE" : null,
-    provider_message: localDuplicateSlip ? "This slip image was already used on another approved payment." : null,
-    provider_response: initialProviderResponse,
-    duplicate_of_slip_id: localDuplicateSlip?.id ?? null,
-    verified_at: localDuplicateSlip ? new Date().toISOString() : null,
-  }).select("*").single();
-  if (slipError) {
+  const { data: submitData, error: submitError } = await supabase.rpc("submit_top_up_request", {
+    p_top_up_id: topUpId,
+    p_profile_id: session.profileId,
+    p_payment_method_id: paymentMethodId,
+    p_amount_thb: resolvedTopUp.value.amountThb,
+    p_coin_amount: resolvedTopUp.value.coins,
+    p_amount_source: resolvedTopUp.value.packageId ? "package" : "custom",
+    p_package_id: resolvedTopUp.value.packageId,
+    p_customer_note: customerNote,
+    p_idempotency_key: idempotencyKey,
+    p_slip_file_path: filePath,
+    p_slip_original_filename: slipFile.name,
+    p_slip_file_sha256: slipHash,
+    p_slip_storage_provider: "supabase",
+    p_slip_verification_status: localDuplicateSlip ? "duplicate" : "unverified",
+    p_slip_provider_code: localDuplicateSlip ? "LOCAL_DUPLICATE" : null,
+    p_slip_provider_message: localDuplicateSlip ? "This slip image was already used on another approved payment." : null,
+    p_slip_provider_response: initialProviderResponse,
+    p_slip_duplicate_of_slip_id: localDuplicateSlip?.id ?? null,
+    p_slip_verified_at: localDuplicateSlip ? new Date().toISOString() : null,
+  });
+
+  if (submitError) {
     await supabase.storage.from(slipBucketName).remove([filePath]);
-    await supabase.from("top_up_requests").delete().eq("id", topUp.id);
-    throw slipError;
+    const replayTopUp = await fetchExistingTopUpByIdempotency(supabase, session.profileId, idempotencyKey);
+    if (replayTopUp) return replayTopUpResponse(replayTopUp, 200);
+    return jsonNoStore(
+      { error: submitTopUpErrorMessage(submitError.message) },
+      { status: 409 },
+    );
   }
 
-  await supabase.from("audit_events").insert({
-    actor_profile_id: session.profileId,
-    event_type: "top_up_submitted",
-    top_up_request_id: topUp.id,
-    metadata: {
-      public_code: topUp.public_code,
-      amount_thb: resolvedTopUp.value.amountThb,
-      coin_amount: resolvedTopUp.value.coins,
-      amount_source: resolvedTopUp.value.packageId ? "package" : "custom",
-      package_id: resolvedTopUp.value.packageId,
-    },
-  });
+  const submitResult = (submitData ?? {}) as SubmitTopUpRpcResult;
+  if (rpcBoolean(submitResult.replayed)) {
+    await supabase.storage.from(slipBucketName).remove([filePath]);
+    const replayTopUpId = rpcString(submitResult.topUpId);
+    const replayTopUp = replayTopUpId
+      ? await fetchTopUpById(supabase, replayTopUpId)
+      : await fetchExistingTopUpByIdempotency(supabase, session.profileId, idempotencyKey);
+    if (replayTopUp) return replayTopUpResponse(replayTopUp, 200);
+  }
+
+  const submittedTopUpId = rpcString(submitResult.topUpId);
+  const paymentSlipId = rpcString(submitResult.paymentSlipId);
+  if (!submittedTopUpId || !paymentSlipId) {
+    await supabase.storage.from(slipBucketName).remove([filePath]);
+    return jsonNoStore(
+      { error: "Could not submit this top-up. Please refresh and try again." },
+      { status: 500 },
+    );
+  }
+
+  const topUp = await fetchTopUpById(supabase, submittedTopUpId);
+  if (!topUp) {
+    return jsonNoStore(
+      { error: "Could not load this top-up. Please refresh and try again." },
+      { status: 500 },
+    );
+  }
 
   let responseTopUp = topUp;
   let autoApproved = false;
@@ -250,7 +343,7 @@ export async function POST(request: Request) {
       if (!autoAdmin) {
         console.warn("wallet_top_up_auto_rejection_skipped_no_admin", {
           topUpPublicCode: topUp.public_code,
-          paymentSlipId: slip.id,
+          paymentSlipId: paymentSlipId,
           finalStatus,
         });
         return;
@@ -265,7 +358,7 @@ export async function POST(request: Request) {
       if (rejectionError) {
         console.warn("wallet_top_up_auto_rejection_failed", {
           topUpPublicCode: topUp.public_code,
-          paymentSlipId: slip.id,
+          paymentSlipId: paymentSlipId,
           finalStatus,
           message: rejectionError.message,
         });
@@ -289,7 +382,7 @@ export async function POST(request: Request) {
     } catch (error: unknown) {
       console.warn("wallet_top_up_auto_rejection_threw", {
         topUpPublicCode: topUp.public_code,
-        paymentSlipId: slip.id,
+        paymentSlipId: paymentSlipId,
         finalStatus,
         message: error instanceof Error ? error.message : String(error),
       });
@@ -311,7 +404,7 @@ export async function POST(request: Request) {
     }).catch((error: unknown) => {
       console.warn("wallet_slip_verification_failed_before_provider_response", {
         topUpPublicCode: topUp.public_code,
-        paymentSlipId: slip.id,
+        paymentSlipId: paymentSlipId,
         message: error instanceof Error ? error.message : String(error),
       });
       return createSlip2GoProviderError("Slip verification failed before provider response.");
@@ -327,7 +420,7 @@ export async function POST(request: Request) {
         ? await findLiveDuplicateSlip(supabase, {
             column: "slip2go_reference_id",
             value: verification.referenceId,
-            excludeSlipId: slip.id,
+            excludeSlipId: paymentSlipId,
           })
         : null;
       const qrDup =
@@ -335,7 +428,7 @@ export async function POST(request: Request) {
           ? await findLiveDuplicateSlip(supabase, {
               column: "decoded_qr_hash",
               value: verification.decodedQrHash,
-              excludeSlipId: slip.id,
+              excludeSlipId: paymentSlipId,
             })
           : null;
       duplicateOfSlipId = refDup?.id ?? qrDup?.id ?? null;
@@ -343,7 +436,7 @@ export async function POST(request: Request) {
       duplicateLookupFailed = true;
       console.warn("wallet_slip_verification_duplicate_lookup_failed", {
         topUpPublicCode: topUp.public_code,
-        paymentSlipId: slip.id,
+        paymentSlipId: paymentSlipId,
         message: error instanceof Error ? error.message : String(error),
       });
     }
@@ -371,12 +464,12 @@ export async function POST(request: Request) {
         duplicate_of_slip_id: duplicateOfSlipId,
         verified_at: new Date().toISOString(),
       })
-      .eq("id", slip.id);
+      .eq("id", paymentSlipId);
 
     if (verifiedSlipError) {
       console.warn("wallet_slip_verification_update_failed", {
         topUpPublicCode: topUp.public_code,
-        paymentSlipId: slip.id,
+        paymentSlipId: paymentSlipId,
         message: verifiedSlipError.message,
       });
     } else if (
@@ -390,7 +483,7 @@ export async function POST(request: Request) {
         if (!autoAdmin) {
           console.warn("wallet_top_up_auto_approval_skipped_no_admin", {
             topUpPublicCode: topUp.public_code,
-            paymentSlipId: slip.id,
+            paymentSlipId: paymentSlipId,
           });
         } else {
           const { error: approvalError } = await supabase.rpc("approve_top_up_request", {
@@ -402,7 +495,7 @@ export async function POST(request: Request) {
           if (approvalError) {
             console.warn("wallet_top_up_auto_approval_failed", {
               topUpPublicCode: topUp.public_code,
-              paymentSlipId: slip.id,
+              paymentSlipId: paymentSlipId,
               message: approvalError.message,
             });
           } else {
@@ -435,7 +528,7 @@ export async function POST(request: Request) {
       } catch (error: unknown) {
         console.warn("wallet_top_up_auto_approval_threw", {
           topUpPublicCode: topUp.public_code,
-          paymentSlipId: slip.id,
+          paymentSlipId: paymentSlipId,
           message: error instanceof Error ? error.message : String(error),
         });
       }

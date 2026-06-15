@@ -72,12 +72,14 @@ function makeForm(options = {}) {
     customAmountThb,
     slip,
     customerNote,
+    idempotencyKey = "ynot-topup:test-edge-validation-key",
   } = options;
   const form = new FormData();
   if (paymentMethodId !== undefined) form.set("paymentMethodId", paymentMethodId);
   if (packageId !== undefined) form.set("packageId", packageId);
   if (customAmountThb !== undefined) form.set("customAmountThb", customAmountThb);
   if (customerNote !== undefined) form.set("customerNote", customerNote);
+  if (idempotencyKey !== undefined) form.set("idempotencyKey", idempotencyKey);
   if (slip) form.set("slip", slip);
   return form;
 }
@@ -184,6 +186,7 @@ test("wallet POST uses server-resolved amount for storage and slip checks", () =
     new URL("../src/app/api/ynot/wallet/route.ts", import.meta.url),
     "utf8",
   );
+  const migration = readMigration("20260615090000_top_up_idempotency.sql");
   const walletExperience = readFileSync(
     new URL("../src/features/ynot/cr/WalletExperience.tsx", import.meta.url),
     "utf8",
@@ -192,7 +195,10 @@ test("wallet POST uses server-resolved amount for storage and slip checks", () =
   assert.match(source, /coins:\s*amountThb/);
   assert.match(source, /amount_thb:\s*resolvedTopUp\.value\.amountThb/);
   assert.match(source, /coin_amount:\s*resolvedTopUp\.value\.coins/);
-  assert.match(source, /amount_source:\s*resolvedTopUp\.value\.packageId \? "package" : "custom"/);
+  assert.match(source, /p_amount_source:\s*resolvedTopUp\.value\.packageId \? "package" : "custom"/);
+  assert.match(source, /p_package_id:\s*resolvedTopUp\.value\.packageId/);
+  assert.match(migration, /'amount_source',\s*trim\(p_amount_source\)/);
+  assert.match(migration, /'package_id',\s*nullif\(trim\(coalesce\(p_package_id,\s*''\)\),\s*''\)/);
   assert.match(
     source,
     /verifySlipWithSlip2Go\([\s\S]*amountThb:\s*resolvedTopUp\.value\.amountThb/,
@@ -248,6 +254,8 @@ test("wallet POST requires client idempotency and delegates top-up/slip creation
   assert.match(submitRpcCall, /p_payment_method_id:\s*paymentMethodId/);
   assert.match(submitRpcCall, /p_amount_thb:\s*resolvedTopUp\.value\.amountThb/);
   assert.match(submitRpcCall, /p_coin_amount:\s*resolvedTopUp\.value\.coins/);
+  assert.match(submitRpcCall, /p_amount_source:\s*resolvedTopUp\.value\.packageId \? "package" : "custom"/);
+  assert.match(submitRpcCall, /p_package_id:\s*resolvedTopUp\.value\.packageId/);
   assert.match(submitRpcCall, /p_customer_note:\s*customerNote/);
   assert.match(submitRpcCall, /p_idempotency_key:\s*idempotencyKey/);
   assert.match(submitRpcCall, /p_slip_file_sha256:\s*slipHash/);
@@ -285,6 +293,8 @@ test("wallet POST requires client idempotency and delegates top-up/slip creation
 
   assert.match(typesSource, /submit_top_up_request:\s*\{\s*Args:/);
   assert.match(typesSource, /p_idempotency_key:\s*string/);
+  assert.match(typesSource, /p_amount_source:\s*string/);
+  assert.match(typesSource, /p_package_id\?:\s*string \| null/);
   assert.match(typesSource, /p_slip_file_sha256:\s*string/);
 });
 
