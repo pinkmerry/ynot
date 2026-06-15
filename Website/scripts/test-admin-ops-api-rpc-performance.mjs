@@ -19,14 +19,12 @@ function between(text, startMarker, endMarker) {
 }
 
 function assertRawErrorMessageIsNotReturned(route) {
-  const propertyKey = String.raw`(?:\[[^\]]+\]|\b[A-Za-z_$][\w$]*|["'][^"']+["'])`;
-  const directMessageValue =
-    String.raw`(?:\(\s*)*[A-Za-z_$][\w$]*(?:\s*\)\s*)?` +
-    String.raw`(?:\s*(?:\?\.|\.)\s*(?:\(\s*)?[A-Za-z_$][\w$]*(?:\s*\)\s*)?)*` +
-    String.raw`\s*(?:\?\.|\.)\s*message\b`;
-  const rawMessageLeak = new RegExp(`${propertyKey}\\s*:\\s*${directMessageValue}`);
   for (const objectBody of responseJsonObjectBodies(route)) {
-    assert.doesNotMatch(objectBody, rawMessageLeak);
+    assert.equal(
+      hasRawMessageValue(objectBody),
+      false,
+      "Response.json object must not return a raw .message value",
+    );
   }
 }
 
@@ -90,6 +88,142 @@ function responseJsonObjectBodies(text) {
     searchFrom = markerIndex + marker.length;
   }
   return bodies;
+}
+
+function hasRawMessageValue(objectBody) {
+  for (const valueStart of objectValueStarts(objectBody)) {
+    if (isDirectMessageMemberExpression(objectBody, valueStart)) return true;
+  }
+  return false;
+}
+
+function objectValueStarts(objectBody) {
+  const starts = [];
+  let index = 0;
+  while (index < objectBody.length) {
+    const colonIndex = nextTopLevelColon(objectBody, index);
+    if (colonIndex === -1) break;
+    let cursor = colonIndex + 1;
+    while (/\s/.test(objectBody[cursor] ?? "")) cursor += 1;
+    starts.push(cursor);
+    index = endOfTopLevelValue(objectBody, cursor);
+  }
+  return starts;
+}
+
+function nextTopLevelColon(text, start) {
+  let braceDepth = 0;
+  let bracketDepth = 0;
+  let parenDepth = 0;
+  let stringQuote = "";
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (stringQuote) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === stringQuote) {
+        stringQuote = "";
+      }
+      continue;
+    }
+    if (char === "\"" || char === "'" || char === "`") {
+      stringQuote = char;
+      continue;
+    }
+    if (char === "{") braceDepth += 1;
+    if (char === "}") braceDepth -= 1;
+    if (char === "[") bracketDepth += 1;
+    if (char === "]") bracketDepth -= 1;
+    if (char === "(") parenDepth += 1;
+    if (char === ")") parenDepth -= 1;
+    if (char === ":" && braceDepth === 0 && bracketDepth === 0 && parenDepth === 0) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function endOfTopLevelValue(text, start) {
+  let braceDepth = 0;
+  let bracketDepth = 0;
+  let parenDepth = 0;
+  let stringQuote = "";
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (stringQuote) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === stringQuote) {
+        stringQuote = "";
+      }
+      continue;
+    }
+    if (char === "\"" || char === "'" || char === "`") {
+      stringQuote = char;
+      continue;
+    }
+    if (char === "{") braceDepth += 1;
+    if (char === "}") braceDepth -= 1;
+    if (char === "[") bracketDepth += 1;
+    if (char === "]") bracketDepth -= 1;
+    if (char === "(") parenDepth += 1;
+    if (char === ")") parenDepth -= 1;
+    if (char === "," && braceDepth === 0 && bracketDepth === 0 && parenDepth === 0) {
+      return index + 1;
+    }
+  }
+  return text.length;
+}
+
+function isDirectMessageMemberExpression(text, start) {
+  let cursor = start;
+  while (text[cursor] === "(" || /\s/.test(text[cursor] ?? "")) cursor += 1;
+  if (!/[A-Za-z_$]/.test(text[cursor] ?? "")) return false;
+  cursor += 1;
+  while (/[\w$]/.test(text[cursor] ?? "")) cursor += 1;
+  cursor = skipBalancedClosingParens(text, cursor);
+  let sawMember = false;
+  while (true) {
+    cursor = skipSpaces(text, cursor);
+    const operator = text.startsWith("?.", cursor) ? "?." : text[cursor] === "." ? "." : "";
+    if (!operator) break;
+    sawMember = true;
+    cursor += operator.length;
+    cursor = skipSpaces(text, cursor);
+    while (text[cursor] === "(") cursor += 1;
+    cursor = skipSpaces(text, cursor);
+    if (!/[A-Za-z_$]/.test(text[cursor] ?? "")) return false;
+    const memberStart = cursor;
+    cursor += 1;
+    while (/[\w$]/.test(text[cursor] ?? "")) cursor += 1;
+    const memberName = text.slice(memberStart, cursor);
+    cursor = skipBalancedClosingParens(text, cursor);
+    if (memberName === "message") {
+      const next = skipSpaces(text, cursor);
+      return sawMember && !["(", ".", "?"].includes(text[next] ?? "");
+    }
+  }
+  return false;
+}
+
+function skipSpaces(text, start) {
+  let cursor = start;
+  while (/\s/.test(text[cursor] ?? "")) cursor += 1;
+  return cursor;
+}
+
+function skipBalancedClosingParens(text, start) {
+  let cursor = skipSpaces(text, start);
+  while (text[cursor] === ")") {
+    cursor = skipSpaces(text, cursor + 1);
+  }
+  return cursor;
 }
 
 function matchingBraceIndex(text, start) {
@@ -278,16 +412,71 @@ function saveMutationSuccessPaths(path) {
 }
 
 function assertTopUpReviewSuccessUsesReviewedResult(successPath) {
+  const returnedNames = returnedReviewResultNames(successPath);
+  assert.ok(
+    returnedNames.length > 0,
+    "review success path must extract a returned payload result or reviewed top-up",
+  );
   const onReviewedUsesReviewedResult = callBodies(successPath, /\bonReviewed\s*/g).some((body) =>
-    /\b(?:topUpId|result|status)\b/.test(body),
+    returnedNames.some((name) => returnedNamePattern(name).test(body)),
   );
   const setTopUpsUsesReviewedResult = callBodies(successPath, /\bsetTopUps\s*/g).some(
-    (body) => /\b(?:topUpId|result|status)\b/.test(body) && /\b(?:filter|map|=>)\b/.test(body),
+    (body) =>
+      returnedNames.some((name) => returnedNamePattern(name).test(body)) &&
+      /\b(?:filter|map|=>)\b/.test(body),
   );
   assert.ok(
     onReviewedUsesReviewedResult || setTopUpsUsesReviewedResult,
-    "review success path must update local state/callback from the reviewed top-up id or result status",
+    "review success path must update local state/callback from the returned payload result",
   );
+}
+
+function returnedReviewResultNames(successPath) {
+  const responsePayloadNames = new Set();
+  const returnedNames = new Set();
+  for (const match of successPath.matchAll(
+    /\b(?:const|let)\s+(\w+)\s*=\s*await\s+response\.json\s*\(/g,
+  )) {
+    responsePayloadNames.add(match[1]);
+  }
+  for (const match of successPath.matchAll(
+    /\b(?:const|let)\s*\{([\s\S]*?)\}\s*=\s*await\s+response\.json\s*\(/g,
+  )) {
+    addReturnedReviewFields(returnedNames, match[1]);
+  }
+  for (const payloadName of responsePayloadNames) {
+    for (const match of successPath.matchAll(
+      new RegExp(
+        `\\b(?:const|let)\\s+(\\w+)\\s*=\\s*${payloadName}\\.(?:result|topUp|reviewedTopUp)\\b`,
+        "g",
+      ),
+    )) {
+      returnedNames.add(match[1]);
+    }
+    for (const match of successPath.matchAll(
+      new RegExp(`\\b(?:const|let)\\s*\\{([\\s\\S]*?)\\}\\s*=\\s*${payloadName}\\b`, "g"),
+    )) {
+      addReturnedReviewFields(returnedNames, match[1]);
+    }
+    for (const field of ["result", "topUp", "reviewedTopUp"]) {
+      if (new RegExp(`\\b${payloadName}\\.${field}\\b`).test(successPath)) {
+        returnedNames.add(`${payloadName}.${field}`);
+      }
+    }
+  }
+  return [...returnedNames];
+}
+
+function addReturnedReviewFields(names, fields) {
+  for (const fieldMatch of fields.matchAll(
+    /\b(result|topUp|reviewedTopUp)\b(?:\s*:\s*(\w+))?/g,
+  )) {
+    names.add(fieldMatch[2] ?? fieldMatch[1]);
+  }
+}
+
+function returnedNamePattern(name) {
+  return new RegExp(`(^|[^\\w$])${escapeRegExp(name)}([^\\w$]|$)`);
 }
 
 function payloadFieldNames(successPath, fieldName) {
@@ -314,7 +503,7 @@ function assertPayloadFieldDrivesMutation(successPath, fieldName, mutationPatter
   const names = payloadFieldNames(successPath, fieldName);
   const mutationBodies = callBodies(successPath, new RegExp(`\\b${mutationPattern}\\s*`, "gi"));
   const extractedPayloadUse = names.some((name) =>
-    mutationBodies.some((body) => new RegExp(`\\b${name}\\b`).test(body)),
+    mutationBodies.some((body) => returnedNamePattern(name).test(body)),
   );
   assert.ok(
     names.length > 0,
@@ -324,6 +513,10 @@ function assertPayloadFieldDrivesMutation(successPath, fieldName, mutationPatter
     extractedPayloadUse,
     `success path must drive the state/callback from payload.${fieldName}`,
   );
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 test("raw error leak guard allows mapped helpers but rejects direct message returns", () => {
@@ -355,6 +548,11 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
       'return Response.json({ error: (dbError).message }, { status: 400 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return Response.json({ error: ((dbError)).message }, { status: 400 });',
     );
   });
 });
