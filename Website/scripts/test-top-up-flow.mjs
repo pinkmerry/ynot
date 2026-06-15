@@ -101,6 +101,47 @@ function plain(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function readMigration(name) {
+  return readFileSync(
+    new URL(`../../Database/supabase/migrations/${name}`, import.meta.url),
+    "utf8",
+  );
+}
+
+function sourceBefore(source, marker) {
+  const markerIndex = source.indexOf(marker);
+  assert.notEqual(markerIndex, -1, `Missing marker: ${marker}`);
+  return source.slice(0, markerIndex);
+}
+
+function sourceAfter(source, marker) {
+  const markerIndex = source.indexOf(marker);
+  assert.notEqual(markerIndex, -1, `Missing marker: ${marker}`);
+  return source.slice(markerIndex + marker.length);
+}
+
+function sourceBetween(source, startMarker, endMarker) {
+  const afterStart = sourceAfter(source, startMarker);
+  return sourceBefore(afterStart, endMarker);
+}
+
+function functionBody(source, functionName) {
+  const functionStart = source.indexOf(`function ${functionName}`);
+  assert.notEqual(functionStart, -1, `Missing function: ${functionName}`);
+  const bodyStart = source.indexOf("{", functionStart);
+  assert.notEqual(bodyStart, -1, `Missing function body: ${functionName}`);
+
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === "{") depth += 1;
+    if (character === "}") depth -= 1;
+    if (depth === 0) return source.slice(bodyStart, index + 1);
+  }
+
+  assert.fail(`Unclosed function body: ${functionName}`);
+}
+
 async function expectTopUpError(cookie, form, status, messagePattern) {
   const { response, body } = await fetchJson("/api/ynot/wallet", {
     method: "POST",
@@ -162,6 +203,134 @@ test("wallet POST uses server-resolved amount for storage and slip checks", () =
   assert.match(walletExperience, /form\.set\("customAmountThb",\s*String\(buyThb\)\)/);
   assert.doesNotMatch(walletExperience, /form\.set\(["']amountThb["']/);
   assert.doesNotMatch(walletExperience, /form\.set\(["']coinAmount["']/);
+});
+
+test("wallet POST requires client idempotency and delegates top-up/slip creation to RPC", () => {
+  const walletRoute = readFileSync(
+    new URL("../src/app/api/ynot/wallet/route.ts", import.meta.url),
+    "utf8",
+  );
+  const migration = readMigration("20260615090000_top_up_idempotency.sql");
+  const typesSource = readFileSync(
+    new URL("../src/lib/supabase/types.ts", import.meta.url),
+    "utf8",
+  );
+
+  const beforeSubmitRpc = sourceBefore(walletRoute, 'supabase.rpc("submit_top_up_request"');
+  const submitRpcCall = walletRoute.slice(
+    walletRoute.indexOf('supabase.rpc("submit_top_up_request"'),
+    walletRoute.indexOf("});", walletRoute.indexOf('supabase.rpc("submit_top_up_request"')) + 3,
+  );
+  const normalizeKeyBody = functionBody(walletRoute, "normalizeTopUpIdempotencyKey");
+  const replayBody = functionBody(walletRoute, "replayTopUpResponse");
+  const replayLookupBody = functionBody(walletRoute, "fetchExistingTopUpByIdempotency");
+
+  assert.match(walletRoute, /const TOP_UP_IDEMPOTENCY_KEY_RE\s*=/);
+  assert.match(walletRoute, /function normalizeTopUpIdempotencyKey/);
+  assert.match(normalizeKeyBody, /typeof value !== "string"\) return null/);
+  assert.match(normalizeKeyBody, /const clean = value\.trim\(\)/);
+  assert.match(normalizeKeyBody, /TOP_UP_IDEMPOTENCY_KEY_RE\.test\(clean\) \? clean : null/);
+  assert.match(replayLookupBody, /\.eq\("profile_id",\s*profileId\)/);
+  assert.match(replayLookupBody, /\.eq\("idempotency_key",\s*idempotencyKey\)/);
+  assert.match(replayLookupBody, /\.maybeSingle\(\)/);
+  assert.match(replayBody, /topUp:\s*publicTopUp\(toTopUp\(topUp\)\)/);
+  assert.doesNotMatch(replayBody, /provider|paymentSlip|file_sha|storage|adminNote/i);
+  assert.match(beforeSubmitRpc, /normalizeTopUpIdempotencyKey\(form\.get\("idempotencyKey"\)\)/);
+  assert.match(
+    beforeSubmitRpc,
+    /if\s*\(!idempotencyKey\)\s*\{[\s\S]*return\s+jsonNoStore\([\s\S]*Invalid idempotency key[\s\S]*\{\s*status:\s*400\s*\}[\s\S]*\);[\s\S]*\}/,
+  );
+  assert.match(beforeSubmitRpc, /fetchExistingTopUpByIdempotency\(supabase,\s*session\.profileId,\s*idempotencyKey\)/);
+  assert.match(beforeSubmitRpc, /replayTopUpResponse\(existingTopUp,\s*200\)/);
+
+  assert.match(submitRpcCall, /p_top_up_id:\s*topUpId/);
+  assert.match(submitRpcCall, /p_profile_id:\s*session\.profileId/);
+  assert.match(submitRpcCall, /p_payment_method_id:\s*paymentMethodId/);
+  assert.match(submitRpcCall, /p_amount_thb:\s*resolvedTopUp\.value\.amountThb/);
+  assert.match(submitRpcCall, /p_coin_amount:\s*resolvedTopUp\.value\.coins/);
+  assert.match(submitRpcCall, /p_customer_note:\s*customerNote/);
+  assert.match(submitRpcCall, /p_idempotency_key:\s*idempotencyKey/);
+  assert.match(submitRpcCall, /p_slip_file_sha256:\s*slipHash/);
+  assert.match(submitRpcCall, /p_slip_verification_status:\s*localDuplicateSlip \? "duplicate" : "unverified"/);
+  assert.match(submitRpcCall, /p_slip_provider_code:\s*localDuplicateSlip \? "LOCAL_DUPLICATE" : null/);
+  assert.match(submitRpcCall, /p_slip_provider_message:\s*localDuplicateSlip \? "This slip image was already used on another approved payment\." : null/);
+  assert.match(submitRpcCall, /p_slip_provider_response:\s*initialProviderResponse/);
+  assert.match(submitRpcCall, /p_slip_duplicate_of_slip_id:\s*localDuplicateSlip\?\.id \?\? null/);
+  assert.match(submitRpcCall, /p_slip_verified_at:\s*localDuplicateSlip \? new Date\(\)\.toISOString\(\) : null/);
+
+  assert.doesNotMatch(walletRoute, /const idempotencyKey = randomUUID\(\)/);
+  assert.doesNotMatch(walletRoute, /\.from\("top_up_requests"\)\s*\.insert/);
+  assert.doesNotMatch(walletRoute, /\.from\("payment_slips"\)\s*\.\s*insert/);
+  assert.doesNotMatch(walletRoute, /\.from\("audit_events"\)[\s\S]{0,120}\.insert\([\s\S]*event_type:\s*"top_up_submitted"/);
+
+  assert.match(
+    migration,
+    /create unique index if not exists top_up_requests_profile_idempotency_unique_idx\s+on public\.top_up_requests\s*\(\s*profile_id,\s*idempotency_key\s*\)\s+where idempotency_key is not null;/i,
+  );
+  assert.match(migration, /create or replace function public\.submit_top_up_request\(/);
+  assert.match(migration, /insert into public\.top_up_requests/);
+  assert.match(migration, /insert into public\.payment_slips/);
+  assert.match(migration, /insert into public\.audit_events/);
+  assert.match(
+    migration,
+    /revoke all on function public\.submit_top_up_request\([\s\S]*\) from public,\s*anon,\s*authenticated;/i,
+  );
+  assert.match(
+    migration,
+    /grant execute on function public\.submit_top_up_request\([\s\S]*\) to service_role;/i,
+  );
+  assert.doesNotMatch(migration, /grant execute on function public\.submit_top_up_request\([\s\S]*\) to (?:public|anon|authenticated)/i);
+  assert.doesNotMatch(migration, /open_gacha_campaign/i);
+  assert.doesNotMatch(migration, /draw_round_prizes|draw_round_prize_units|logic_snapshot|weight|unlock_at_sold_pct/i);
+
+  assert.match(typesSource, /submit_top_up_request:\s*\{\s*Args:/);
+  assert.match(typesSource, /p_idempotency_key:\s*string/);
+  assert.match(typesSource, /p_slip_file_sha256:\s*string/);
+});
+
+test("wallet top-up UIs send stable idempotency keys and block duplicate submits", () => {
+  const actionIntent = readFileSync(
+    new URL("../src/features/ynot/action-intent.ts", import.meta.url),
+    "utf8",
+  );
+  const walletExperience = readFileSync(
+    new URL("../src/features/ynot/cr/WalletExperience.tsx", import.meta.url),
+    "utf8",
+  );
+  const legacyClient = readFileSync(
+    new URL("../src/features/ynot/client.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(actionIntent, /export function createYnotActionIntentId/);
+  assert.match(actionIntent, /export function ynotActionIdempotencyKey/);
+  assert.match(actionIntent, /ynot-topup/);
+
+  const walletSubmit = functionBody(walletExperience, "submit");
+  const legacyTopUpForm = sourceBetween(
+    legacyClient,
+    "export function TopUpForm",
+    "export function GachaOpenPanel",
+  );
+  const legacySubmit = functionBody(legacyTopUpForm, "submit");
+
+  for (const source of [walletExperience, legacyTopUpForm]) {
+    assert.match(source, /createYnotActionIntentId\("topup"\)/);
+    assert.match(source, /ynotActionIdempotencyKey\("topup"/);
+    assert.match(source, /topUpSubmitInFlightRef/);
+    assert.match(source, /topUpIntentRef/);
+    assert.match(source, /useRef\(createYnotActionIntentId\("topup"\)\)/);
+  }
+
+  for (const submitBody of [walletSubmit, legacySubmit]) {
+    assert.match(submitBody, /if\s*\(topUpSubmitInFlightRef\.current\)\s*return/);
+    assert.match(submitBody, /ynotActionIdempotencyKey\("topup",\s*topUpIntentRef\.current/);
+    assert.match(submitBody, /topUpSubmitInFlightRef\.current\s*=\s*true[\s\S]*fetch\("\/api\/ynot\/wallet"/);
+    assert.match(submitBody, /form\.set\("idempotencyKey",\s*topUpIdempotencyKey\)/);
+    assert.match(submitBody, /setSlip\(null\);[\s\S]*topUpIntentRef\.current\s*=\s*createYnotActionIntentId\("topup"\)/);
+    assert.match(submitBody, /finally\s*\{[\s\S]*topUpSubmitInFlightRef\.current\s*=\s*false/);
+    assert.doesNotMatch(submitBody, /form\.set\("idempotencyKey",\s*crypto\.randomUUID\(\)\)/);
+  }
 });
 
 test("top-up mutations reject cross-origin browser submissions", () => {
