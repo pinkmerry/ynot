@@ -19,25 +19,33 @@ function between(text, startMarker, endMarker) {
 }
 
 function assertRawErrorMessageIsNotReturned(route) {
-  assert.doesNotMatch(
-    route,
-    /Response\.json\(\s*\{\s*error\s*:\s*(?:[A-Za-z_$][\w$]*\??\.)+message\s*(?:[,}])/,
-  );
+  const rawMessageLeak = /\berror\s*:\s*(?:[A-Za-z_$][\w$]*(?:\?\.|\.))+message\b/;
+  for (const objectBody of responseJsonObjectBodies(route)) {
+    assert.doesNotMatch(objectBody, rawMessageLeak);
+  }
 }
 
 const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".ts", ".tsx"]);
+const ADMIN_UI_PATHS = ["src/features/ynot", "src/app/admin"];
 
 function sourceExtension(path) {
   const match = path.match(/\.[^.]+$/);
   return match?.[0] ?? "";
 }
 
-function sourceTree(paths) {
+function sourceFiles(paths) {
   const files = [];
   for (const path of paths) {
     collectSourceFiles(join(appRoot, path), files);
   }
-  return files.map((path) => readFileSync(path, "utf8")).join("\n");
+  return files.map((path) => ({
+    path,
+    text: readFileSync(path, "utf8"),
+  }));
+}
+
+function sourceTree(paths) {
+  return sourceFiles(paths).map((file) => file.text).join("\n");
 }
 
 function collectSourceFiles(path, files) {
@@ -63,6 +71,108 @@ function collectSourceFiles(path, files) {
     if (!SOURCE_EXTENSIONS.has(sourceExtension(entry.name))) continue;
     files.push(fullPath);
   }
+}
+
+function responseJsonObjectBodies(text) {
+  const bodies = [];
+  const marker = "Response.json(";
+  let searchFrom = 0;
+  while (searchFrom < text.length) {
+    const markerIndex = text.indexOf(marker, searchFrom);
+    if (markerIndex === -1) break;
+    let cursor = markerIndex + marker.length;
+    while (/\s/.test(text[cursor] ?? "")) cursor += 1;
+    if (text[cursor] === "{") {
+      const end = matchingBraceIndex(text, cursor);
+      if (end > cursor) bodies.push(text.slice(cursor + 1, end));
+    }
+    searchFrom = markerIndex + marker.length;
+  }
+  return bodies;
+}
+
+function matchingBraceIndex(text, start) {
+  let depth = 0;
+  let stringQuote = "";
+  let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1] ?? "";
+    if (lineComment) {
+      if (char === "\n") lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      if (char === "*" && next === "/") {
+        blockComment = false;
+        index += 1;
+      }
+      continue;
+    }
+    if (stringQuote) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === stringQuote) {
+        stringQuote = "";
+      }
+      continue;
+    }
+    if (char === "/" && next === "/") {
+      lineComment = true;
+      index += 1;
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      blockComment = true;
+      index += 1;
+      continue;
+    }
+    if (char === "\"" || char === "'" || char === "`") {
+      stringQuote = char;
+      continue;
+    }
+    if (char === "{") depth += 1;
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
+function sourceBlocksAround(paths, markerPattern) {
+  return sourceFiles(paths).flatMap((file) => {
+    const blocks = [];
+    for (const match of file.text.matchAll(new RegExp(markerPattern, "g"))) {
+      blocks.push(componentBlockAround(file.text, match.index ?? 0));
+    }
+    return blocks;
+  });
+}
+
+function componentBlockAround(text, markerIndex) {
+  const componentBoundary =
+    /^((?:export\s+)?(?:function|class)\s+[A-Z][\w$]*|(?:export\s+)?const\s+[A-Z][\w$]*)/gm;
+  let start = 0;
+  let match;
+  while ((match = componentBoundary.exec(text)) && match.index <= markerIndex) {
+    start = match.index;
+  }
+  componentBoundary.lastIndex = markerIndex + 1;
+  const next = componentBoundary.exec(text);
+  return text.slice(start, next?.index ?? text.length);
+}
+
+function successfulResponsePath(block) {
+  const guardIndex = block.search(/if\s*\(!response\.ok\)/);
+  assert.ok(guardIndex > -1, "review mutation must guard failed responses");
+  const afterGuard = block.slice(guardIndex);
+  const catchIndex = afterGuard.search(/\n\s*\}\s*catch\s*\(/);
+  return catchIndex > -1 ? afterGuard.slice(0, catchIndex) : afterGuard;
 }
 
 test("admin top-up route keeps review RPCs stable and adds bounded list protections", () => {
@@ -122,24 +232,23 @@ test("admin shipping route validates IDs and maps RPC errors safely", () => {
 });
 
 test("admin top-up UI removes reviewed rows without a full duplicate fetch", () => {
-  const adminUiSource = sourceTree([
-    "src/features/ynot",
-    "src/app/admin",
-  ]);
-  const topUpUiSource = adminUiSource
-    .split(/\n(?=(?:export\s+)?(?:function|const|class)\s+)/)
-    .filter((block) => /topUp|top-up|TopUp/.test(block))
-    .join("\n");
-  assert.match(topUpUiSource, /useState\([^)]*topUps|setTopUps|handleReviewed|onReviewed/i);
-  assert.match(topUpUiSource, /setTopUps|filter\([^)]*topUp|filter\([^)]*t\s*=>/);
-  assert.doesNotMatch(topUpUiSource, /handleReviewed[\s\S]{0,500}router\.refresh\(\)/);
+  const reviewMutationBlocks = sourceBlocksAround(
+    ADMIN_UI_PATHS,
+    "fetch\\(\\s*[\"']/api/ynot/admin/top-ups[\"']",
+  );
+  assert.ok(reviewMutationBlocks.length > 0, "admin top-up review mutation must exist");
+  const reviewMutationSource = reviewMutationBlocks.join("\n");
+  const reviewSuccessPath = reviewMutationBlocks.map(successfulResponsePath).join("\n");
+  assert.match(reviewMutationSource, /method\s*:\s*["']PATCH["']/);
+  assert.match(
+    reviewSuccessPath,
+    /(?:onReviewed\s*\(|setTopUps\s*\()/,
+  );
+  assert.doesNotMatch(reviewMutationSource, /router\.refresh\(\)/);
 });
 
 test("settings and category admin screens update local state after saves", () => {
-  const adminUiSource = sourceTree([
-    "src/features/ynot",
-    "src/app/admin",
-  ]);
+  const adminUiSource = sourceTree(ADMIN_UI_PATHS);
   const settingsSource = adminUiSource
     .split(/\n(?=(?:export\s+)?(?:function|const|class)\s+)/)
     .filter((block) => /paymentMethod|payment-method|PaymentMethod/.test(block))
