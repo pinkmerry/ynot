@@ -470,6 +470,41 @@ function callBodies(text, callPattern) {
   return bodies;
 }
 
+function topLevelStatementEnd(text, start) {
+  let braceDepth = 0;
+  let bracketDepth = 0;
+  let parenDepth = 0;
+  let stringQuote = "";
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (stringQuote) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === stringQuote) {
+        stringQuote = "";
+      }
+      continue;
+    }
+    if (char === "\"" || char === "'" || char === "`") {
+      stringQuote = char;
+      continue;
+    }
+    if (char === "{") braceDepth += 1;
+    if (char === "}") braceDepth -= 1;
+    if (char === "[") bracketDepth += 1;
+    if (char === "]") bracketDepth -= 1;
+    if (char === "(") parenDepth += 1;
+    if (char === ")") parenDepth -= 1;
+    if (char === ";" && braceDepth === 0 && bracketDepth === 0 && parenDepth === 0) {
+      return index;
+    }
+  }
+  return -1;
+}
+
 function splitTopLevel(text) {
   const values = [];
   let start = 0;
@@ -541,20 +576,14 @@ function assertTopUpGetParsesAndPassesListOptions(getRoute) {
       `GET must parse ${param} from ${searchParams}`,
     );
   }
-  assert.match(
+  assertDeclarationInitializesFromSearchParam(getRoute, "limit", searchParams, "limit", "get");
+  assertDeclarationInitializesFromSearchParam(getRoute, "statuses", searchParams, "status");
+  assertDeclarationInitializesFromSearchParam(
     getRoute,
-    new RegExp(`\\b(?:const|let)\\s+limit\\b[\\s\\S]*${escapeRegExp(searchParams)}\\.get\\(\\s*["']limit["']\\s*\\)`),
-    "GET must derive limit from searchParams",
-  );
-  assert.match(
-    getRoute,
-    new RegExp(`\\b(?:const|let)\\s+statuses\\b[\\s\\S]*${escapeRegExp(searchParams)}\\.(?:get|getAll)\\(\\s*["']status["']\\s*\\)`),
-    "GET must derive statuses from searchParams",
-  );
-  assert.match(
-    getRoute,
-    new RegExp(`\\b(?:const|let)\\s+cursorCreatedAt\\b[\\s\\S]*${escapeRegExp(searchParams)}\\.get\\(\\s*["']cursorCreatedAt["']\\s*\\)`),
-    "GET must derive cursorCreatedAt from searchParams",
+    "cursorCreatedAt",
+    searchParams,
+    "cursorCreatedAt",
+    "get",
   );
 
   const getTopUpsBodies = callBodies(getRoute, /\bgetTopUps\s*/g);
@@ -565,6 +594,31 @@ function assertTopUpGetParsesAndPassesListOptions(getRoute) {
       return topLevelObjectHasParsedFields(optionsArg, ["limit", "statuses", "cursorCreatedAt"]);
     }),
     "one GET getTopUps call must pass parsed limit, statuses, and cursorCreatedAt as direct options keys",
+  );
+}
+
+function assertDeclarationInitializesFromSearchParam(
+  text,
+  variableName,
+  searchParams,
+  paramName,
+  accessor = "(?:get|getAll)",
+) {
+  const declarationPattern = new RegExp(
+    `\\b(?:const|let)\\s+${escapeRegExp(variableName)}\\b[^=;]*=`,
+    "g",
+  );
+  for (const match of text.matchAll(declarationPattern)) {
+    const statementEnd = topLevelStatementEnd(text, match.index ?? 0);
+    if (statementEnd === -1) continue;
+    const statement = text.slice(match.index, statementEnd + 1);
+    const accessorPattern = new RegExp(
+      `${escapeRegExp(searchParams)}\\.${accessor}\\(\\s*["']${escapeRegExp(paramName)}["']\\s*\\)`,
+    );
+    if (accessorPattern.test(statement)) return;
+  }
+  assert.fail(
+    `${variableName} declaration initializer must derive ${paramName} from ${searchParams} before the declaration ends`,
   );
 }
 
@@ -657,8 +711,8 @@ function assignedGuardReturn(text, callPattern) {
 }
 
 function assertShippingRequestIdValidatedBeforeRpc(patchRoute) {
-  const rpcIndex = patchRoute.search(/update_shipping_request_status/);
-  assert.ok(rpcIndex > -1, "shipping route must call update_shipping_request_status");
+  const rpcIndex = rpcCallIndex(patchRoute, "update_shipping_request_status");
+  assert.ok(rpcIndex > -1, 'shipping route must call supabase.rpc("update_shipping_request_status", ...)');
   const beforeRpc = patchRoute.slice(0, rpcIndex);
   const directValidation =
     /if\s*\([\s\S]{0,240}shippingRequestId[\s\S]{0,240}(?:\.test\s*\(|UUID|uuid|Uuid|validate|valid|is[A-Z][A-Za-z]*Id)[\s\S]{0,240}\)[\s\S]{0,240}\breturn\b/.test(
@@ -681,8 +735,8 @@ function assertShippingRequestIdValidatedBeforeRpc(patchRoute) {
 }
 
 function assertShippingRpcErrorMappedSafely(patchRoute) {
-  const rpcIndex = patchRoute.search(/update_shipping_request_status/);
-  assert.ok(rpcIndex > -1, "shipping route must call update_shipping_request_status");
+  const rpcIndex = rpcCallIndex(patchRoute, "update_shipping_request_status");
+  assert.ok(rpcIndex > -1, 'shipping route must call supabase.rpc("update_shipping_request_status", ...)');
   const errorBranch = ifBranchBody(patchRoute, /\bif\s*\(\s*error\s*\)/g, rpcIndex);
   assert.ok(errorBranch, "shipping RPC error branch must exist after the RPC");
   assert.doesNotMatch(
@@ -721,6 +775,16 @@ function assertRpcCall(block, rpcName) {
   );
 }
 
+function rpcCallIndex(block, rpcName) {
+  for (const match of block.matchAll(/\bsupabase\.rpc\s*/g)) {
+    const body = callBodies(block.slice(match.index ?? 0), /^\s*supabase\.rpc\s*/g)[0] ?? "";
+    if (new RegExp(`^\\s*["']${escapeRegExp(rpcName)}["']`).test(body)) {
+      return match.index ?? -1;
+    }
+  }
+  return -1;
+}
+
 function assertPublicSlipVerificationIsSafe(publicTopUp) {
   const marker = "slipVerification:";
   const markerIndex = publicTopUp.indexOf(marker);
@@ -755,20 +819,6 @@ function assertPublicSlipVerificationIsSafe(publicTopUp) {
       `public slipVerification must not expose ${privateField}`,
     );
   }
-}
-
-function sourceBlocksAround(paths, markerPattern) {
-  return sourceFiles(paths).flatMap((file) => {
-    const blocks = [];
-    for (const match of file.text.matchAll(new RegExp(markerPattern, "g"))) {
-      blocks.push(componentBlockAround(file.text, match.index ?? 0));
-    }
-    return blocks;
-  });
-}
-
-function successPathsAround(paths, markerPattern) {
-  return sourceBlocksAround(paths, markerPattern).map(successPathAfterCall);
 }
 
 function componentBlockAround(text, markerIndex) {
@@ -807,22 +857,56 @@ function indexAfterFailedResponseGuard(block, guardIndex) {
   return statementEnd + 1;
 }
 
-function successPathAfterCall(block) {
-  const callIndex = block.search(
-    /(?:fetch|requestJson|postJson)\(\s*["']\/api\/ynot\/admin\/(?:payment-methods|categories)["']/,
-  );
-  assert.ok(callIndex > -1, "admin save API call must exist");
-  const statementStart = block.lastIndexOf("\n", callIndex) + 1;
-  const afterCall = block.slice(statementStart);
-  const catchIndex = afterCall.search(/\n\s*\}\s*catch\s*\(/);
-  return catchIndex > -1 ? afterCall.slice(0, catchIndex) : afterCall;
+function saveMutationSuccessPaths(path) {
+  return adminApiCalls(path)
+    .filter((call) => !call.isDelete)
+    .map((call) => call.successPath);
 }
 
-function saveMutationSuccessPaths(path) {
-  return successPathsAround(
-    ADMIN_UI_PATHS,
-    `[\"']\\/api\\/ynot\\/admin\\/${path}[\"']`,
-  ).filter((successPath) => !/\bDELETE\b/.test(successPath));
+function adminApiCalls(path) {
+  const escapedPath = escapeRegExp(`/api/ynot/admin/${path}`);
+  const callPattern = new RegExp(
+    `\\b(fetch|requestJson|postJson)\\s*\\(\\s*["']${escapedPath}["']`,
+    "g",
+  );
+  return sourceFiles(ADMIN_UI_PATHS).flatMap((file) => {
+    const calls = [];
+    for (const match of file.text.matchAll(callPattern)) {
+      const callIndex = match.index ?? 0;
+      const componentBlock = componentBlockAround(file.text, callIndex);
+      const componentOffset = file.text.lastIndexOf(componentBlock, callIndex);
+      const callInComponentIndex = Math.max(0, callIndex - componentOffset);
+      const openParen = componentBlock.indexOf("(", callInComponentIndex);
+      if (openParen === -1) continue;
+      const closeParen = matchingParenIndex(componentBlock, openParen);
+      if (closeParen <= openParen) continue;
+      const callBody = componentBlock.slice(openParen + 1, closeParen);
+      const statementStart = componentBlock.lastIndexOf("\n", callInComponentIndex) + 1;
+      const afterCall = componentBlock.slice(statementStart);
+      const catchIndex = afterCall.search(/\n\s*\}\s*catch\s*\(/);
+      const successPath = catchIndex > -1 ? afterCall.slice(0, catchIndex) : afterCall;
+      calls.push({
+        callee: match[1],
+        callBody,
+        componentBlock,
+        successPath,
+        isDelete: callHasMethod(match[1], callBody, "DELETE"),
+        isPatch: callHasMethod(match[1], callBody, "PATCH"),
+      });
+    }
+    return calls;
+  });
+}
+
+function callHasMethod(callee, callBody, method) {
+  const args = splitTopLevel(callBody);
+  if (callee === "fetch") {
+    return new RegExp(`\\bmethod\\s*:\\s*["']${escapeRegExp(method)}["']`).test(args[1] ?? "");
+  }
+  if (callee === "requestJson" || callee === "postJson") {
+    return new RegExp(`^["']${escapeRegExp(method)}["']$`).test((args[2] ?? "").trim());
+  }
+  return false;
 }
 
 function assertTopUpReviewSuccessUsesReviewedResult(successPath, adminUiSource) {
@@ -1106,29 +1190,26 @@ test("admin payment method routes require high privilege and return safe failure
 test("admin shipping route validates IDs and maps RPC errors safely", () => {
   const shippingRoute = source("src/app/api/ynot/admin/shipping/route.ts");
   const patchRoute = exportedFunctionBlock(shippingRoute, "PATCH");
-  assert.match(shippingRoute, /update_shipping_request_status/);
+  assertRpcCall(patchRoute, "update_shipping_request_status");
   assertShippingRequestIdValidatedBeforeRpc(patchRoute);
   assertShippingRpcErrorMappedSafely(patchRoute);
   assertRawErrorMessageIsNotReturned(shippingRoute);
 });
 
 test("admin top-up UI removes reviewed rows without a full duplicate fetch", () => {
-  const reviewMutationBlocks = sourceBlocksAround(
-    ADMIN_UI_PATHS,
-    "fetch\\(\\s*[\"']/api/ynot/admin/top-ups[\"']",
-  );
-  assert.ok(reviewMutationBlocks.length > 0, "admin top-up review mutation must exist");
-  const reviewMutationSource = reviewMutationBlocks.join("\n");
-  assert.match(reviewMutationSource, /method\s*:\s*["']PATCH["']/);
-  for (const reviewMutationBlock of reviewMutationBlocks) {
-    const reviewSuccessPath = successfulResponsePath(reviewMutationBlock);
-    assertTopUpReviewSuccessUsesReviewedResult(reviewSuccessPath, reviewMutationBlock);
+  const reviewMutationCalls = adminApiCalls("top-ups").filter((call) => call.isPatch);
+  assert.ok(reviewMutationCalls.length > 0, "admin top-up PATCH review mutation must exist");
+  for (const reviewMutationCall of reviewMutationCalls) {
+    const reviewSuccessPath = successfulResponsePath(reviewMutationCall.successPath);
+    assertTopUpReviewSuccessUsesReviewedResult(
+      reviewSuccessPath,
+      reviewMutationCall.componentBlock,
+    );
     assert.doesNotMatch(
       reviewSuccessPath,
       /router\.refresh\(\)|\b(?:loadTopUps|fetchTopUps)\s*\(|fetch\(\s*["']\/api\/ynot\/admin\/top-ups["']/,
     );
   }
-  assert.doesNotMatch(reviewMutationSource, /router\.refresh\(\)/);
 });
 
 test("settings admin screen updates payment method state from the save payload", () => {
