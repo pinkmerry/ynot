@@ -1,12 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import type {
   YnotPaymentMethod,
   YnotTopUp,
   YnotWallet,
 } from "../types";
+import {
+  createYnotActionIntentId,
+  ynotActionIdempotencyKey,
+} from "../action-intent";
 import { topUpPackages } from "../top-up-packages";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { PageHead, useToast } from "./UiKit";
@@ -105,6 +109,8 @@ export function WalletExperience({
   const [note, setNote] = useState("");
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
   const [submitting, startSubmit] = useTransition();
+  const topUpSubmitInFlightRef = useRef(false);
+  const topUpIntentRef = useRef(createYnotActionIntentId("topup"));
 
   const picked = topUpPackages[pickedPackageIdx] ?? topUpPackages[0];
   const customThbNum = Math.min(
@@ -127,6 +133,7 @@ export function WalletExperience({
   }, [historyFilter, topUps]);
 
   function submit() {
+    if (topUpSubmitInFlightRef.current) return;
     if (!ready) {
       toast("error", "Pick a coin amount and payment method first.");
       return;
@@ -139,11 +146,18 @@ export function WalletExperience({
       toast("error", "Choose a payment method first.");
       return;
     }
+    topUpSubmitInFlightRef.current = true;
     startSubmit(async () => {
       try {
+        const topUpIdempotencyKey = ynotActionIdempotencyKey("topup", topUpIntentRef.current, [
+          selectedMethod.id,
+          customMode ? "custom" : picked.id,
+          buyThb,
+        ]);
         const form = new FormData();
         form.set("paymentMethodId", selectedMethod.id);
         form.set("customerNote", note);
+        form.set("idempotencyKey", topUpIdempotencyKey);
         if (customMode) {
           form.set("customAmountThb", String(buyThb));
         } else {
@@ -190,6 +204,7 @@ export function WalletExperience({
               : "Top-up submitted for review",
         );
         setSlip(null);
+        topUpIntentRef.current = createYnotActionIntentId("topup");
         setStep(1);
         // Soft refresh — the new pending record will appear on next paint.
         window.location.assign("/wallet");
@@ -198,6 +213,8 @@ export function WalletExperience({
           "error",
           error instanceof Error ? error.message : "Top-up request failed.",
         );
+      } finally {
+        topUpSubmitInFlightRef.current = false;
       }
     });
   }
@@ -716,7 +733,11 @@ export function WalletExperience({
                     className="cr-wallet-slip-input"
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
-                    onChange={(e) => setSlip(e.target.files?.[0] ?? null)}
+                    onChange={(e) => {
+                      setSlip(e.target.files?.[0] ?? null);
+                      topUpIntentRef.current =
+                        createYnotActionIntentId("topup");
+                    }}
                   />
                   <label
                     htmlFor="topup-slip"

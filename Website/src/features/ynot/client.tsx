@@ -85,6 +85,10 @@ import {
   stripOpenAutoStartUrl,
 } from "./open-intent";
 import {
+  createYnotActionIntentId,
+  ynotActionIdempotencyKey,
+} from "./action-intent";
+import {
   catalogCategoryForPrizeCategory,
   prizeCategoryLabel,
   prizeCategoryForCatalogCategory,
@@ -506,6 +510,8 @@ export function TopUpForm({
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const topUpSubmitInFlightRef = useRef(false);
+  const topUpIntentRef = useRef(createYnotActionIntentId("topup"));
   const selected = topUpPackages[packageIndex] ?? topUpPackages[0];
   const selectedMethod =
     paymentMethods.find((method) => method.id === paymentMethodId) ??
@@ -521,15 +527,22 @@ export function TopUpForm({
   }
 
   function submit() {
+    if (topUpSubmitInFlightRef.current) return;
     startTransition(async () => {
       try {
         setMessage("");
         if (!selectedMethod) throw new Error("Choose a payment method first.");
         if (!slip) throw new Error("Upload your bank/QR transfer slip first.");
+        topUpSubmitInFlightRef.current = true;
+        const topUpIdempotencyKey = ynotActionIdempotencyKey("topup", topUpIntentRef.current, [
+          selectedMethod.id,
+          selected.id,
+        ]);
         const form = new FormData();
         form.set("paymentMethodId", selectedMethod.id);
         form.set("packageId", selected.id);
         form.set("customerNote", note);
+        form.set("idempotencyKey", topUpIdempotencyKey);
         form.set("slip", slip);
         const response = await fetch("/api/ynot/wallet", {
           method: "POST",
@@ -550,10 +563,13 @@ export function TopUpForm({
           `Top-up ${publicCode || "request"} created for admin review.`,
         );
         setSlip(null);
+        topUpIntentRef.current = createYnotActionIntentId("topup");
       } catch (error) {
         setMessage(
           error instanceof Error ? error.message : "Top-up request failed.",
         );
+      } finally {
+        topUpSubmitInFlightRef.current = false;
       }
     });
   }
@@ -701,7 +717,10 @@ export function TopUpForm({
           className="mt-2 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3"
           accept="image/jpeg,image/png,image/webp"
           type="file"
-          onChange={(event) => setSlip(event.target.files?.[0] ?? null)}
+          onChange={(event) => {
+            setSlip(event.target.files?.[0] ?? null);
+            topUpIntentRef.current = createYnotActionIntentId("topup");
+          }}
         />
       </label>
       <label className="mt-4 block text-sm font-bold">
