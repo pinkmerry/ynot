@@ -861,46 +861,32 @@ test("admin top-up UI removes reviewed rows without a full duplicate fetch", () 
 
 test("settings admin screen updates payment method state from the save payload", () => {
   const paymentSuccessPaths = saveMutationSuccessPaths("payment-methods");
-  assert.ok(
-    paymentSuccessPaths.some((paymentSuccessPath) => {
-      try {
-        assert.match(
-          paymentSuccessPath,
-          /(?:const|let)\s+(?:\w+|\{[\s\S]*?\})\s*=\s*await\s+(?:postJson|requestJson)|\.json\(\)/,
-        );
-        assertPayloadFieldDrivesMutation(
-          paymentSuccessPath,
-          "paymentMethod",
-          String.raw`(?:setMethodOptions|set[A-Za-z]*Payment[A-Za-z]*Methods)`,
-        );
-        return true;
-      } catch {
-        return false;
-      }
-    }),
-    "a payment-method save success path must extract payload.paymentMethod and update local payment method state from it",
-  );
+  assert.ok(paymentSuccessPaths.length > 0, "payment-method save success paths must exist");
+  for (const paymentSuccessPath of paymentSuccessPaths) {
+    assert.match(
+      paymentSuccessPath,
+      /(?:const|let)\s+(?:\w+|\{[\s\S]*?\})\s*=\s*await\s+(?:postJson|requestJson)|\.json\(\)/,
+    );
+    assertPayloadFieldDrivesMutation(
+      paymentSuccessPath,
+      "paymentMethod",
+      String.raw`(?:setMethodOptions|set[A-Za-z]*Payment[A-Za-z]*Methods)`,
+    );
+  }
 });
 
 test("category admin screen updates parent category state from the save payload", () => {
   const categorySuccessPaths = saveMutationSuccessPaths("categories");
-  assert.ok(
-    categorySuccessPaths.some((categorySuccessPath) => {
-      try {
-        assert.match(
-          categorySuccessPath,
-          /(?:const|let)\s+(?:\w+|\{[\s\S]*?\})\s*=\s*await\s+(?:requestJson|postJson)|\.json\(\)/,
-        );
-        assertPayloadFieldDrivesMutation(
-          categorySuccessPath,
-          "category",
-          String.raw`(?:onSaved\?\.|setCategories)`,
-        );
-        return true;
-      } catch {
-        return false;
-      }
-    }),
-    "a category save success path must extract payload.category and update parent category state/callback from it",
-  );
+  assert.ok(categorySuccessPaths.length > 0, "category save success paths must exist");
+  for (const categorySuccessPath of categorySuccessPaths) {
+    assert.match(
+      categorySuccessPath,
+      /(?:const|let)\s+(?:\w+|\{[\s\S]*?\})\s*=\s*await\s+(?:requestJson|postJson)|\.json\(\)/,
+    );
+    assertPayloadFieldDrivesMutation(
+      categorySuccessPath,
+      "category",
+      String.raw`(?:onSaved\?\.|setCategories)`,
+    );
+  }
 });
