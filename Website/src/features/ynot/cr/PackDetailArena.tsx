@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { YnotCampaign, YnotLastPrizePreview, YnotPrizePreview } from "../types";
-import { normalizeOpenQuantityOptions } from "../open-quantity";
+import { normalizeOpenQuantityOptions, pullAllQuantity } from "../open-quantity";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { Modal, useToast } from "./UiKit";
 
@@ -88,7 +88,12 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
   const [submitting, setSubmitting] = useState(false);
   // "All" sets qty to the live remaining count, which isn't in openQty
   const remainingNow = campaign.remainingSlots ?? campaign.totalSlots;
-  const qty = openQty.includes(rawQty) || rawQty === remainingNow ? rawQty : (openQty[0] ?? 1);
+  const pullAll = pullAllQuantity({
+    remainingSlots: campaign.remainingSlots ?? campaign.totalSlots,
+    totalSlots: campaign.totalSlots,
+    hasLastPrize: campaign.hasLastPrize,
+  });
+  const qty = openQty.includes(rawQty) || rawQty === remainingNow || rawQty === pullAll ? rawQty : (openQty[0] ?? 1);
 
   // FoG-style drawer: play the slide-out animation before unmounting
   function closeChecklist() {
@@ -476,6 +481,23 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                 ×{q}
               </button>
             ))}
+            {pullAll !== null && (
+              <button
+                type="button"
+                className={`cr-dock-qty-btn cr-dock-qty-btn-all ${qty === pullAll ? "active" : ""}`}
+                onClick={() => {
+                  setQty(pullAll);
+                  if (!openable) return toast("error", unavailableReason);
+                  if (remaining < pullAll) return toast("error", `Only ${remaining} packs left.`);
+                  if (balanceCoins < campaign.costCoins * pullAll) return toast("error", "Top up to open this many.");
+                  setConfirmOpen(true);
+                }}
+                disabled={submitting}
+                title={`Pull all ${pullAll} remaining — triggers the Last Prize bonus`}
+              >
+                All
+              </button>
+            )}
           </div>
           <div className="cr-dock-cta">
             <div className="cr-dock-total">

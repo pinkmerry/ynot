@@ -1572,6 +1572,21 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   opacity: 0.35;
   cursor: not-allowed;
 }
+/* Pull-All button: matches qty-btn shape but with a subtle accent outline
+   to signal "finish the pack". Active state inverts to the accent fill. */
+.cr-dock-qty-btn-all {
+  border: 1.5px solid var(--cr-gold, #e0ad3a);
+  color: var(--cr-gold, #e0ad3a);
+  min-width: 52px;
+}
+.cr-dock-qty-btn-all:hover:not([disabled]) {
+  background: color-mix(in srgb, var(--cr-gold, #e0ad3a) 10%, transparent);
+}
+.cr-dock-qty-btn-all.active {
+  background: var(--cr-gold, #e0ad3a);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(224, 173, 58, 0.35);
+}
 .cr-dock-cta {
   display: flex;
   align-items: center;

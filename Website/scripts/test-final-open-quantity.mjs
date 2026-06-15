@@ -178,3 +178,19 @@ test("inventory summary counts Last Prize only when aggregates can finish the pa
   assert.doesNotMatch(sql, /'stockUnitGroupKey'/);
   assert.doesNotMatch(sql, /'unlockAtSoldPct'/);
 });
+
+test("pullAllQuantity returns remaining when below 40% and a last prize exists", () => {
+  assert.equal(openQuantity.pullAllQuantity({ remainingSlots: 30, totalSlots: 100, hasLastPrize: true }), 30);
+});
+test("pullAllQuantity caps at the per-pull max of 100", () => {
+  assert.equal(openQuantity.pullAllQuantity({ remainingSlots: 150, totalSlots: 1000, hasLastPrize: true }), 100);
+});
+test("pullAllQuantity returns null at or above 40% remaining", () => {
+  assert.equal(openQuantity.pullAllQuantity({ remainingSlots: 40, totalSlots: 100, hasLastPrize: true }), null);
+});
+test("pullAllQuantity returns null without a last prize", () => {
+  assert.equal(openQuantity.pullAllQuantity({ remainingSlots: 10, totalSlots: 100, hasLastPrize: false }), null);
+});
+test("pullAllQuantity returns null when nothing remains", () => {
+  assert.equal(openQuantity.pullAllQuantity({ remainingSlots: 0, totalSlots: 100, hasLastPrize: true }), null);
+});
