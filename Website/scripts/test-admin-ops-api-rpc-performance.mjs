@@ -408,23 +408,82 @@ function assertTopUpGetParsesAndPassesListOptions(getRoute) {
   );
 }
 
+function assertTopUpGetReturnsRateLimitBeforeList(getRoute) {
+  const getTopUpsIndex = getRoute.search(/\bgetTopUps\s*\(/);
+  assert.ok(getTopUpsIndex > -1, "GET must call getTopUps");
+
+  const rateLimitPattern =
+    /\b(?:const|let)\s+(\w+)\s*=\s*await\s+enforceRateLimit\(\s*(?:(?:request\s*,\s*)?["']ynot:admin:top-ups:list["']|request\s*,\s*["']ynot:admin:top-ups:list["'])[\s\S]*?\)\s*;/g;
+  let rateLimitMatch;
+  while ((rateLimitMatch = rateLimitPattern.exec(getRoute))) {
+    const rateLimitName = rateLimitMatch[1];
+    const rateLimitIndex = rateLimitMatch.index;
+    const returnPattern = new RegExp(
+      `if\\s*\\(\\s*${escapeRegExp(rateLimitName)}\\s*\\)\\s*return\\s+${escapeRegExp(rateLimitName)}\\s*;`,
+    );
+    const returnMatch = returnPattern.exec(getRoute.slice(rateLimitIndex, getTopUpsIndex));
+    if (returnMatch) return;
+  }
+  assert.fail("GET must return the ynot:admin:top-ups:list rate-limit response before getTopUps");
+}
+
 function assertAdminPostGuardsBeforeMutation(route, mutationPattern) {
   const postRoute = exportedFunctionBlock(route, "POST");
-  const sameOriginIndex = postRoute.search(/enforceSameOriginMutation\(\s*request\s*\)/);
-  const roleIndex = postRoute.search(
-    /requireAdminRoleResponse\(\s*admin\s*,\s*\[\s*["']owner["']\s*,\s*["']admin["']\s*\]\s*\)/,
+  const sameOrigin = assignedGuardReturn(
+    postRoute,
+    /enforceSameOriginMutation\(\s*request\s*\)/g,
+  );
+  const role = assignedGuardReturn(
+    postRoute,
+    /requireAdminRoleResponse\(\s*admin\s*,\s*\[\s*["']owner["']\s*,\s*["']admin["']\s*\]\s*\)/g,
   );
   const bodyParseIndex = postRoute.search(/request\.(?:json|formData)\s*\(/);
   const mutationIndex = postRoute.search(mutationPattern);
 
-  assert.ok(sameOriginIndex > -1, "POST must enforce same-origin mutations inside the handler");
-  assert.ok(roleIndex > -1, "POST must require owner/admin role inside the handler");
+  assert.ok(sameOrigin, "POST must return same-origin guard failures inside the handler");
+  assert.ok(role, "POST must return owner/admin role guard failures inside the handler");
   assert.ok(bodyParseIndex > -1, "POST must parse a request body/form inside the handler");
   assert.ok(mutationIndex > -1, "POST must perform the admin mutation inside the handler");
-  assert.ok(sameOriginIndex < bodyParseIndex, "same-origin guard must run before body/form parsing");
-  assert.ok(roleIndex < bodyParseIndex, "role guard must run before body/form parsing");
-  assert.ok(sameOriginIndex < mutationIndex, "same-origin guard must run before mutation");
-  assert.ok(roleIndex < mutationIndex, "role guard must run before mutation");
+  assert.ok(sameOrigin.index < bodyParseIndex, "same-origin guard must run before body/form parsing");
+  assert.ok(role.index < bodyParseIndex, "role guard must run before body/form parsing");
+  assert.ok(sameOrigin.returnIndex < bodyParseIndex, "same-origin guard response must return before body/form parsing");
+  assert.ok(role.returnIndex < bodyParseIndex, "role guard response must return before body/form parsing");
+  assert.ok(sameOrigin.index < mutationIndex, "same-origin guard must run before mutation");
+  assert.ok(role.index < mutationIndex, "role guard must run before mutation");
+  assert.ok(sameOrigin.returnIndex < mutationIndex, "same-origin guard response must return before mutation");
+  assert.ok(role.returnIndex < mutationIndex, "role guard response must return before mutation");
+}
+
+function assignedGuardReturn(text, callPattern) {
+  for (const match of text.matchAll(callPattern)) {
+    const callIndex = match.index ?? 0;
+    const prefix = text.slice(0, callIndex);
+    const assignmentMatch = /(?:const|let)\s+(\w+)\s*=\s*(?:await\s*)?$/.exec(prefix);
+    if (!assignmentMatch) continue;
+    const guardName = assignmentMatch[1];
+    const statementEnd = text.indexOf(";", callIndex);
+    if (statementEnd === -1) continue;
+    const afterAssignment = text.slice(statementEnd + 1);
+    const returnPattern = new RegExp(
+      `if\\s*\\(\\s*${escapeRegExp(guardName)}\\s*\\)\\s*return\\s+${escapeRegExp(guardName)}\\s*;`,
+    );
+    const returnMatch = returnPattern.exec(afterAssignment);
+    if (!returnMatch) continue;
+    return {
+      index: callIndex,
+      returnIndex: statementEnd + 1 + returnMatch.index,
+    };
+  }
+  return null;
+}
+
+function assertRpcCall(block, rpcName) {
+  assert.ok(
+    callBodies(block, /\bsupabase\.rpc\s*/g).some((body) =>
+      new RegExp(`^\\s*["']${escapeRegExp(rpcName)}["']`).test(body),
+    ),
+    `PATCH must call supabase.rpc("${rpcName}", ...)`,
+  );
 }
 
 function assertPublicSlipVerificationIsSafe(publicTopUp) {
@@ -714,12 +773,14 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
 test("admin top-up route keeps review RPCs stable and adds bounded list protections", () => {
   const route = source("src/app/api/ynot/admin/top-ups/route.ts");
   const getRoute = exportedFunctionBlock(route, "GET");
-  assert.match(route, /approve_top_up_request/);
-  assert.match(route, /reject_top_up_request/);
+  const patchRoute = exportedFunctionBlock(route, "PATCH");
+  assertRpcCall(patchRoute, "approve_top_up_request");
+  assertRpcCall(patchRoute, "reject_top_up_request");
   assert.match(route, /export async function GET\(request: Request\)/);
   assert.match(getRoute, /ynot:admin:top-ups:list/);
   assert.match(getRoute, /new URL\(request\.url\)/);
   assertTopUpGetParsesAndPassesListOptions(getRoute);
+  assertTopUpGetReturnsRateLimitBeforeList(getRoute);
 });
 
 test("getTopUps supports admin status and cursor filtering without changing public redaction", () => {
@@ -799,27 +860,47 @@ test("admin top-up UI removes reviewed rows without a full duplicate fetch", () 
 });
 
 test("settings admin screen updates payment method state from the save payload", () => {
-  const paymentSuccessPath = saveMutationSuccessPaths("payment-methods").join("\n");
-  assert.match(
-    paymentSuccessPath,
-    /(?:const|let)\s+(?:\w+|\{[\s\S]*?\})\s*=\s*await\s+(?:postJson|requestJson)|\.json\(\)/,
-  );
-  assertPayloadFieldDrivesMutation(
-    paymentSuccessPath,
-    "paymentMethod",
-    String.raw`(?:setMethodOptions|set[A-Za-z]*Payment[A-Za-z]*Methods)`,
+  const paymentSuccessPaths = saveMutationSuccessPaths("payment-methods");
+  assert.ok(
+    paymentSuccessPaths.some((paymentSuccessPath) => {
+      try {
+        assert.match(
+          paymentSuccessPath,
+          /(?:const|let)\s+(?:\w+|\{[\s\S]*?\})\s*=\s*await\s+(?:postJson|requestJson)|\.json\(\)/,
+        );
+        assertPayloadFieldDrivesMutation(
+          paymentSuccessPath,
+          "paymentMethod",
+          String.raw`(?:setMethodOptions|set[A-Za-z]*Payment[A-Za-z]*Methods)`,
+        );
+        return true;
+      } catch {
+        return false;
+      }
+    }),
+    "a payment-method save success path must extract payload.paymentMethod and update local payment method state from it",
   );
 });
 
 test("category admin screen updates parent category state from the save payload", () => {
-  const categorySuccessPath = saveMutationSuccessPaths("categories").join("\n");
-  assert.match(
-    categorySuccessPath,
-    /(?:const|let)\s+(?:\w+|\{[\s\S]*?\})\s*=\s*await\s+(?:requestJson|postJson)|\.json\(\)/,
-  );
-  assertPayloadFieldDrivesMutation(
-    categorySuccessPath,
-    "category",
-    String.raw`(?:onSaved\?\.|setCategories)`,
+  const categorySuccessPaths = saveMutationSuccessPaths("categories");
+  assert.ok(
+    categorySuccessPaths.some((categorySuccessPath) => {
+      try {
+        assert.match(
+          categorySuccessPath,
+          /(?:const|let)\s+(?:\w+|\{[\s\S]*?\})\s*=\s*await\s+(?:requestJson|postJson)|\.json\(\)/,
+        );
+        assertPayloadFieldDrivesMutation(
+          categorySuccessPath,
+          "category",
+          String.raw`(?:onSaved\?\.|setCategories)`,
+        );
+        return true;
+      } catch {
+        return false;
+      }
+    }),
+    "a category save success path must extract payload.category and update parent category state/callback from it",
   );
 });
