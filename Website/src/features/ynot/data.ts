@@ -19,7 +19,14 @@ import type { Database } from "@/lib/supabase/types";
 import { collectionItemActionToken } from "@/lib/ynot/collection-action-tokens";
 import { paymentMethodActionToken } from "@/lib/ynot/payment-method-action-tokens";
 import type {
+  YnotAdminUser360Query,
+  YnotAdminUser360Section,
   YnotAdminUserDetail,
+  YnotAdminUserDirectoryQuery,
+  YnotAdminUserDirectoryRow,
+  YnotAdminUserDirectoryResult,
+  YnotAdminUserDirectoryRoleFilter,
+  YnotAdminUserDirectoryStatusFilter,
   YnotCampaign,
   YnotCollectionItem,
   YnotDashboardData,
@@ -2695,19 +2702,20 @@ export async function getWallet(profileId?: string): Promise<YnotWallet> {
 export async function getTopUps(
   profileId?: string,
   includeAll = false,
-  options: { includeSensitiveSlipDetails?: boolean } = {},
+  options: { includeSensitiveSlipDetails?: boolean; limit?: number } = {},
 ): Promise<YnotTopUp[]> {
   if ((!profileId && !includeAll) || !isSupabaseConfigured()) return [];
   const includeSensitiveSlipDetails =
     options.includeSensitiveSlipDetails ?? includeAll;
+  const safeLimit = boundedRowLimit(options.limit, includeAll ? 200 : 80, 500);
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("topups", async () => {
     let query = supabase
       .from("top_up_requests")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(80);
-    if (!includeAll && profileId) query = query.eq("profile_id", profileId);
+      .limit(safeLimit);
+    if (profileId) query = query.eq("profile_id", profileId);
     const { data, error } = await query;
     if (error) throw error;
     const rows = data ?? [];
@@ -2846,13 +2854,17 @@ export function publicTopUp(topUp: YnotTopUp): YnotTopUp {
 
 export async function getCollection(
   profileId?: string,
+  options: { limit?: number } = {},
 ): Promise<YnotCollectionItem[]> {
   if (!profileId) return [];
-  const collectionLimit =
+  const collectionLimit = boundedRowLimit(
+    options.limit,
     isDevAuthAllowed() &&
     profileId === process.env.YNOT_PREVIEW_PROFILE_ID?.trim()
       ? 1000
-      : 200;
+      : 200,
+    1000,
+  );
   if (!isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   const [items, cards] = await Promise.all([
@@ -3155,8 +3167,10 @@ export async function getCollection(
 
 export async function getGachaOpenHistory(
   profileId?: string,
+  options: { limit?: number } = {},
 ): Promise<YnotGachaOpenHistory[]> {
   if (!profileId || !isSupabaseConfigured()) return [];
+  const safeLimit = boundedRowLimit(options.limit, 50, 500);
   const supabase = createServiceSupabaseClient();
   const opens = await readOrEmpty("gacha_opens", async () => {
     const { data, error } = await supabase
@@ -3164,7 +3178,7 @@ export async function getGachaOpenHistory(
       .select("*")
       .eq("profile_id", profileId)
       .order("opened_at", { ascending: false })
-      .limit(50);
+      .limit(safeLimit);
     if (error) throw error;
     return data ?? [];
   });
@@ -3359,16 +3373,18 @@ export async function getGachaOpenHistory(
 export async function getExchanges(
   profileId?: string,
   includeAll = false,
+  options: { limit?: number } = {},
 ): Promise<YnotExchangeOrder[]> {
   if ((!profileId && !includeAll) || !isSupabaseConfigured()) return [];
+  const safeLimit = boundedRowLimit(options.limit, 80, 500);
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("exchanges", async () => {
     let query = supabase
       .from("exchange_orders")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(80);
-    if (!includeAll && profileId) query = query.eq("profile_id", profileId);
+      .limit(safeLimit);
+    if (profileId) query = query.eq("profile_id", profileId);
     const { data, error } = await query;
     if (error) throw error;
     return (data ?? []).map((row) => ({
@@ -3481,17 +3497,19 @@ function shippingTimelineEvent(
 export async function getShipping(
   profileId?: string,
   includeAll = false,
+  options: { limit?: number } = {},
 ): Promise<YnotShippingRequest[]> {
   if ((!profileId && !includeAll) || !isSupabaseConfigured()) return [];
   if (includeAll && !(await resolveAdminSession())) return [];
+  const safeLimit = boundedRowLimit(options.limit, includeAll ? 200 : 80, 500);
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("shipping", async () => {
     let query = supabase
       .from("shipping_requests")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(includeAll ? 200 : 80);
-    if (!includeAll && profileId) query = query.eq("profile_id", profileId);
+      .limit(safeLimit);
+    if (profileId) query = query.eq("profile_id", profileId);
     const { data, error } = await query;
     if (error) throw error;
     const rows = data ?? [];
@@ -3951,54 +3969,285 @@ export async function getAllTierAnimationsForAdmin(): Promise<
   }
 }
 
-export async function getAdminUsers() {
-  if (!isSupabaseConfigured()) return [];
+const ADMIN_USER_DIRECTORY_DEFAULT_PAGE_SIZE = 50;
+const ADMIN_USER_DIRECTORY_MAX_PAGE_SIZE = 100;
+const ADMIN_USER360_DEFAULT_PAGE_SIZE = 100;
+const ADMIN_USER360_MAX_PAGE_SIZE = 500;
+
+const adminUserDirectoryRoles = new Set<YnotAdminUserDirectoryRoleFilter>([
+  "all",
+  "owner",
+  "admin",
+  "staff",
+  "customer",
+]);
+
+const adminUserDirectoryStatuses = new Set<YnotAdminUserDirectoryStatusFilter>([
+  "all",
+  "active",
+  "flagged",
+  "suspended",
+  "disabled",
+]);
+
+const adminUser360Sections = new Set<YnotAdminUser360Section>([
+  "overview",
+  "prizes",
+  "opens",
+  "shipping",
+  "wallet",
+  "topups",
+  "exchanges",
+  "audit",
+]);
+
+function pageNumber(value: unknown, fallback = 1) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
+function boundedPageSize(value: unknown, fallback: number, max: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(max, Math.max(1, Math.floor(parsed)));
+}
+
+function boundedRowLimit(value: unknown, fallback: number, max: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(max, Math.max(1, Math.floor(parsed)));
+}
+
+function adminSearchText(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value.trim().replace(/[,%]/g, " ").slice(0, 120);
+}
+
+export function normalizeAdminUserDirectoryQuery(
+  input: {
+    q?: unknown;
+    role?: unknown;
+    status?: unknown;
+    page?: unknown;
+    pageSize?: unknown;
+  } = {},
+): YnotAdminUserDirectoryQuery {
+  const role = adminUserDirectoryRoles.has(
+    input.role as YnotAdminUserDirectoryRoleFilter,
+  )
+    ? (input.role as YnotAdminUserDirectoryRoleFilter)
+    : "all";
+  const status = adminUserDirectoryStatuses.has(
+    input.status as YnotAdminUserDirectoryStatusFilter,
+  )
+    ? (input.status as YnotAdminUserDirectoryStatusFilter)
+    : "all";
+  return {
+    q: adminSearchText(input.q),
+    role,
+    status,
+    page: pageNumber(input.page),
+    pageSize: boundedPageSize(
+      input.pageSize,
+      ADMIN_USER_DIRECTORY_DEFAULT_PAGE_SIZE,
+      ADMIN_USER_DIRECTORY_MAX_PAGE_SIZE,
+    ),
+  };
+}
+
+export function normalizeAdminUser360Query(
+  input: {
+    section?: unknown;
+    page?: unknown;
+    pageSize?: unknown;
+  } = {},
+): YnotAdminUser360Query {
+  const section = adminUser360Sections.has(
+    input.section as YnotAdminUser360Section,
+  )
+    ? (input.section as YnotAdminUser360Section)
+    : "overview";
+  return {
+    section,
+    page: pageNumber(input.page),
+    pageSize: boundedPageSize(
+      input.pageSize,
+      ADMIN_USER360_DEFAULT_PAGE_SIZE,
+      ADMIN_USER360_MAX_PAGE_SIZE,
+    ),
+  };
+}
+
+function postgresInList(values: string[]) {
+  return `(${values.join(",")})`;
+}
+
+function emptyAdminUserDirectory(
+  query: YnotAdminUserDirectoryQuery,
+): YnotAdminUserDirectoryResult {
+  return {
+    users: [],
+    query,
+    total: 0,
+    page: query.page,
+    pageSize: query.pageSize,
+    hasPreviousPage: false,
+    hasNextPage: false,
+  };
+}
+
+function adminDirectoryRole(value: unknown): YnotAdminUserDirectoryRow["adminRole"] {
+  if (value === "owner" || value === "admin" || value === "staff") {
+    return value;
+  }
+  return null;
+}
+
+export async function getAdminUserDirectory(
+  input: {
+    q?: unknown;
+    role?: unknown;
+    status?: unknown;
+    page?: unknown;
+    pageSize?: unknown;
+  } = {},
+): Promise<YnotAdminUserDirectoryResult> {
+  const queryInput = normalizeAdminUserDirectoryQuery(input);
+  if (!isSupabaseConfigured()) return emptyAdminUserDirectory(queryInput);
   const admin = await resolveAdminSession();
-  if (!admin) return [];
+  if (!admin) return emptyAdminUserDirectory(queryInput);
+
   const supabase = createServiceSupabaseClient();
-  return readOrEmpty("admin_users", async () => {
-    const { data: profiles, error: profilesError } = await supabase
+  return readOrEmpty("admin_user_directory", async () => {
+    const { data: allAdminRows, error: allAdminError } = await supabase
+      .from("admin_users")
+      .select("id,profile_id,role,is_active,created_at");
+    if (allAdminError) throw allAdminError;
+
+    const activeAdminRows = (allAdminRows ?? []).filter((row) => row.is_active);
+    const activeAdminProfileIds = activeAdminRows.map((row) => row.profile_id);
+    const roleProfileIds =
+      queryInput.role === "all" || queryInput.role === "customer"
+        ? []
+        : activeAdminRows
+            .filter((row) => row.role === queryInput.role)
+            .map((row) => row.profile_id);
+
+    if (
+      queryInput.role !== "all" &&
+      queryInput.role !== "customer" &&
+      roleProfileIds.length === 0
+    ) {
+      return [
+        {
+          users: [],
+          query: queryInput,
+          total: 0,
+          page: queryInput.page,
+          pageSize: queryInput.pageSize,
+          hasPreviousPage: queryInput.page > 1,
+          hasNextPage: false,
+        },
+      ];
+    }
+
+    const offset = (queryInput.page - 1) * queryInput.pageSize;
+    let profilesQuery = supabase
       .from("profiles")
       .select(
-        "id,email,display_name,line_display_name,profile_status,created_at",
+        "id,email,display_name,line_display_name,line_user_id,phone,profile_status,created_at",
+        { count: "exact" },
       )
       .order("created_at", { ascending: false })
-      .limit(200);
+      .range(offset, offset + queryInput.pageSize - 1);
+
+    if (queryInput.q) {
+      const term = queryInput.q;
+      const searchTerms = [
+        `email.ilike.%${term}%`,
+        `display_name.ilike.%${term}%`,
+        `line_display_name.ilike.%${term}%`,
+        `line_user_id.ilike.%${term}%`,
+        `phone.ilike.%${term}%`,
+      ];
+      if (looksLikeUuid(term)) searchTerms.unshift(`id.eq.${term}`);
+      profilesQuery = profilesQuery.or(searchTerms.join(","));
+    }
+
+    if (queryInput.status === "active" || queryInput.status === "disabled") {
+      profilesQuery = profilesQuery.eq("profile_status", queryInput.status);
+    } else if (
+      queryInput.status === "flagged" ||
+      queryInput.status === "suspended"
+    ) {
+      profilesQuery = profilesQuery.neq("profile_status", "active");
+    }
+
+    if (queryInput.role !== "all" && queryInput.role !== "customer") {
+      profilesQuery = profilesQuery.in("id", roleProfileIds);
+    }
+
+    if (queryInput.role === "customer" && activeAdminProfileIds.length) {
+      profilesQuery = profilesQuery.not(
+        "id",
+        "in",
+        postgresInList(activeAdminProfileIds),
+      );
+    }
+
+    const { data: profiles, error: profilesError, count } = await profilesQuery;
     if (profilesError) throw profilesError;
-    const profileIds = (profiles ?? []).map((profile) => profile.id);
-    const { data: admins, error: adminsError } = profileIds.length
-      ? await supabase
-          .from("admin_users")
-          .select("id,profile_id,role,is_active,created_at")
-          .in("profile_id", profileIds)
-      : { data: [], error: null };
-    if (adminsError) throw adminsError;
+
     const adminByProfile = new Map(
-      (admins ?? []).map((admin) => [admin.profile_id, admin]),
+      activeAdminRows.map((row) => [row.profile_id, row]),
     );
-    return (profiles ?? []).map((profile) => {
-      const admin = adminByProfile.get(profile.id);
+    const users = (profiles ?? []).map((profile) => {
+      const adminRow = adminByProfile.get(profile.id);
       return {
         id: profile.id,
         email: profile.email,
         displayName:
           profile.display_name ?? profile.line_display_name ?? "YNot Customer",
-        status: profile.profile_status,
-        adminRole: admin?.role ?? null,
-        adminActive: Boolean(admin?.is_active),
+        lineDisplayName: profile.line_display_name,
+        lineUserId: profile.line_user_id,
+        phone: profile.phone,
+        status: profile.profile_status ?? "active",
+        adminRole: adminDirectoryRole(adminRow?.role),
+        adminActive: Boolean(adminRow?.is_active),
         createdAt: profile.created_at,
       };
     });
-  });
+
+    const total = count ?? users.length;
+    return [
+      {
+        users,
+        query: queryInput,
+        total,
+        page: queryInput.page,
+        pageSize: queryInput.pageSize,
+        hasPreviousPage: queryInput.page > 1,
+        hasNextPage: offset + users.length < total,
+      },
+    ];
+  }).then((rows) => rows[0] ?? emptyAdminUserDirectory(queryInput));
+}
+
+export async function getAdminUsers() {
+  const directory = await getAdminUserDirectory();
+  return directory.users;
 }
 
 export async function getAdminUserDetail(
   profileId: string,
+  input: { section?: unknown; page?: unknown; pageSize?: unknown } = {},
 ): Promise<YnotAdminUserDetail | null> {
   if (!profileId || !isSupabaseConfigured()) return null;
   const admin = await resolveAdminSession();
   if (!admin) return null;
   const supabase = createServiceSupabaseClient();
+  const detailQuery = normalizeAdminUser360Query(input);
+  const sectionLimit = detailQuery.pageSize;
   const profileRows = await readOrEmpty("admin_user_detail_profile", async () => {
     const { data, error } = await supabase
       .from("profiles")
@@ -4018,15 +4267,20 @@ export async function getAdminUserDetail(
     gachaOpens,
     shipping,
     topUps,
+    exchanges,
     walletLedger,
     auditRows,
   ] = await Promise.all([
     getWallet(profileId),
     getAddresses(profileId),
-    getCollection(profileId),
-    getGachaOpenHistory(profileId),
-    getShipping(profileId),
-    getTopUps(profileId, false, { includeSensitiveSlipDetails: true }),
+    getCollection(profileId, { limit: sectionLimit }),
+    getGachaOpenHistory(profileId, { limit: sectionLimit }),
+    getShipping(profileId, false, { limit: sectionLimit }),
+    getTopUps(profileId, false, {
+      includeSensitiveSlipDetails: true,
+      limit: sectionLimit,
+    }),
+    getExchanges(profileId, false, { limit: sectionLimit }),
     readOrEmpty("admin_user_wallet_ledger", async () => {
       const { data, error } = await supabase
         .from("coin_ledger")
@@ -4035,7 +4289,7 @@ export async function getAdminUserDetail(
         )
         .eq("profile_id", profileId)
         .order("created_at", { ascending: false })
-        .limit(80);
+        .limit(sectionLimit);
       if (error) throw error;
       return data ?? [];
     }),
@@ -4045,7 +4299,7 @@ export async function getAdminUserDetail(
         .select(AUDIT_EVENT_TIMELINE_SELECT)
         .eq("actor_profile_id", profileId)
         .order("created_at", { ascending: false })
-        .limit(80);
+        .limit(sectionLimit);
       if (error) throw error;
       return data ?? [];
     }),
@@ -4088,6 +4342,7 @@ export async function getAdminUserDetail(
     gachaOpens,
     shipping,
     topUps,
+    exchanges,
     walletLedger: walletLedger.map((entry) => ({
       id: entry.id,
       entryType: entry.entry_type,
@@ -4098,6 +4353,7 @@ export async function getAdminUserDetail(
       createdAt: entry.created_at,
     })),
     auditTimeline,
+    query: detailQuery,
   };
 }
 

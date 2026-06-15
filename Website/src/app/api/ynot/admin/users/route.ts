@@ -1,4 +1,5 @@
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
+import { getAdminUserDirectory } from "@/features/ynot/data";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
@@ -19,6 +20,38 @@ function text(value: unknown, max = 120) {
 function adminRole(value: unknown) {
   if (value === "owner" || value === "admin" || value === "staff") return value;
   return null;
+}
+
+export async function GET(request: Request) {
+  if (!isSupabaseConfigured()) {
+    return Response.json(
+      { error: "Supabase is not configured." },
+      { status: 503 },
+    );
+  }
+  const admin = await resolveAdminSession();
+  if (!admin) {
+    return Response.json({ error: "Admin access is required." }, { status: 403 });
+  }
+  const limited = await enforceRateLimit(
+    request,
+    "ynot:admin:users:read",
+    { limit: 120, windowMs: 60_000 },
+    admin.profileId,
+  );
+  if (limited) return limited;
+
+  const url = new URL(request.url);
+  const result = await getAdminUserDirectory({
+    q: url.searchParams.get("q") ?? "",
+    role: url.searchParams.get("role") ?? "all",
+    status: url.searchParams.get("status") ?? "all",
+    page: url.searchParams.get("page") ?? "1",
+    pageSize: url.searchParams.get("pageSize") ?? "50",
+  });
+  const response = Response.json({ result });
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }
 
 export async function PATCH(request: Request) {

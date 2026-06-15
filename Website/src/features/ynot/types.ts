@@ -453,6 +453,67 @@ export type YnotWalletLedgerEntry = {
   createdAt: string;
 };
 
+export type YnotAdminUserDirectoryRoleFilter =
+  | "all"
+  | "owner"
+  | "admin"
+  | "staff"
+  | "customer";
+
+export type YnotAdminUserDirectoryStatusFilter =
+  | "all"
+  | "active"
+  | "flagged"
+  | "suspended"
+  | "disabled";
+
+export type YnotAdminUserDirectoryQuery = {
+  q: string;
+  role: YnotAdminUserDirectoryRoleFilter;
+  status: YnotAdminUserDirectoryStatusFilter;
+  page: number;
+  pageSize: number;
+};
+
+export type YnotAdminUserDirectoryRow = {
+  id: string;
+  email?: string | null;
+  displayName: string;
+  lineDisplayName?: string | null;
+  lineUserId?: string | null;
+  phone?: string | null;
+  status: string;
+  adminRole: "owner" | "admin" | "staff" | null;
+  adminActive: boolean;
+  createdAt: string;
+};
+
+export type YnotAdminUserDirectoryResult = {
+  users: YnotAdminUserDirectoryRow[];
+  query: YnotAdminUserDirectoryQuery;
+  total: number;
+  page: number;
+  pageSize: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+};
+
+export type YnotAdminUser360Section =
+  | "overview"
+  | "prizes"
+  | "opens"
+  | "shipping"
+  | "wallet"
+  | "topups"
+  | "exchanges"
+  | "audit";
+
+export type YnotAdminUser360Query = {
+  section: YnotAdminUser360Section;
+  page: number;
+  pageSize: number;
+};
+
 export type YnotAdminUserDetail = {
   profile: YnotShippingCustomer & {
     fullName?: string | null;
@@ -465,8 +526,10 @@ export type YnotAdminUserDetail = {
   gachaOpens: YnotGachaOpenHistory[];
   shipping: YnotShippingRequest[];
   topUps: YnotTopUp[];
+  exchanges: YnotExchangeOrder[];
   walletLedger: YnotWalletLedgerEntry[];
   auditTimeline: YnotShippingTimelineEvent[];
+  query: YnotAdminUser360Query;
 };
 
 export type YnotGachaOpenReward = {
