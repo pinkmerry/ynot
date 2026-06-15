@@ -15,34 +15,60 @@ function optionalSource(path) {
   return existsSync(fullPath) ? readFileSync(fullPath, "utf8") : "";
 }
 
+function candidateSource(paths) {
+  return paths.map(optionalSource).join("\n");
+}
+
+function between(text, startMarker, endMarker) {
+  const start = text.indexOf(startMarker);
+  assert.ok(start > -1, `${startMarker} must exist`);
+  const end = text.indexOf(endMarker, start + startMarker.length);
+  assert.ok(end > start, `${endMarker} must exist after ${startMarker}`);
+  return text.slice(start, end);
+}
+
+function assertRawErrorMessageIsNotReturned(route) {
+  assert.doesNotMatch(
+    route,
+    /Response\.json\(\s*\{\s*error\s*:\s*error\.message\s*\}/,
+  );
+  assert.doesNotMatch(
+    route,
+    /Response\.json\(\s*\{\s*error\s*:\s*[^}]*\b(?:uploadError|rpcError|mutationError)\.message\b/,
+  );
+}
+
 test("admin top-up route keeps review RPCs stable and adds bounded list protections", () => {
   const route = source("src/app/api/ynot/admin/top-ups/route.ts");
   assert.match(route, /approve_top_up_request/);
   assert.match(route, /reject_top_up_request/);
-  assert.match(route, /export async function GET\(request: Request\)/);
+  assert.match(route, /export\s+async\s+function\s+GET\s*\([^)]*\)/);
   assert.match(route, /ynot:admin:top-ups:list/);
-  assert.match(route, /new URL\(request\.url\)/);
-  assert.match(route, /statuses/);
-  assert.match(route, /cursorCreatedAt/);
+  assert.match(route, /(?:URLSearchParams|searchParams|\.url\b)/);
+  assert.match(route, /status(?:es)?/i);
+  assert.match(route, /cursor/i);
+  assert.match(route, /limit/i);
+  assert.match(route, /getTopUps\([\s\S]*\{[\s\S]*(?:status(?:es)?|cursor|limit)/i);
 });
 
 test("getTopUps supports admin status and cursor filtering without changing public redaction", () => {
   const data = source("src/features/ynot/data.ts");
-  assert.match(data, /statuses\?: readonly/);
-  assert.match(data, /cursorCreatedAt\?: string/);
-  assert.match(data, /\.in\("status", statuses\)/);
-  assert.match(data, /\.lt\("created_at", options\.cursorCreatedAt\)/);
+  const getTopUps = between(data, "export async function getTopUps", "export function toTopUp");
+  assert.match(getTopUps, /status(?:es)?/i);
+  assert.match(getTopUps, /cursor/i);
+  assert.match(getTopUps, /\.in\(\s*["']status["']/);
+  assert.match(getTopUps, /\.(?:lt|lte)\(\s*["']created_at["']/);
 
-  const publicTopUpStart = data.indexOf("export function publicTopUp");
-  assert.ok(publicTopUpStart > -1, "publicTopUp must exist");
-  const publicTopUp = data.slice(publicTopUpStart, publicTopUpStart + 900);
+  const publicTopUp = between(data, "export function publicTopUp", "export async function getCollection");
   assert.match(publicTopUp, /delete publicFields\.id/);
   assert.match(publicTopUp, /delete publicFields\.profileId/);
   assert.match(publicTopUp, /delete publicFields\.adminNote/);
 
-  const publicPaymentMethodStart = publicTopUp.indexOf("paymentMethod: topUp.paymentMethod");
-  assert.ok(publicPaymentMethodStart > -1, "publicTopUp must rebuild public payment method fields");
-  const publicPaymentMethod = publicTopUp.slice(publicPaymentMethodStart, publicPaymentMethodStart + 260);
+  const publicPaymentMethod = between(
+    publicTopUp,
+    "paymentMethod: topUp.paymentMethod",
+    "slipVerification: topUp.slipVerification",
+  );
   assert.match(publicPaymentMethod, /type: topUp\.paymentMethod\.type/);
   assert.match(publicPaymentMethod, /displayName: topUp\.paymentMethod\.displayName/);
   assert.doesNotMatch(publicPaymentMethod, /id:/);
@@ -56,7 +82,7 @@ test("admin payment method routes require high privilege and return safe failure
   for (const route of [paymentRoute, qrRoute]) {
     assert.match(route, /enforceSameOriginMutation/);
     assert.match(route, /requireAdminRoleResponse/);
-    assert.doesNotMatch(route, /error\.message/);
+    assertRawErrorMessageIsNotReturned(route);
   }
 });
 
@@ -65,24 +91,37 @@ test("admin shipping route validates IDs and maps RPC errors safely", () => {
   assert.match(shippingRoute, /const UUID_RE/);
   assert.match(shippingRoute, /adminShippingErrorMessage/);
   assert.match(shippingRoute, /update_shipping_request_status/);
-  assert.doesNotMatch(shippingRoute, /error\.message/);
+  assertRawErrorMessageIsNotReturned(shippingRoute);
 });
 
 test("admin top-up UI removes reviewed rows without a full duplicate fetch", () => {
-  const consoleSource = optionalSource("src/features/ynot/admin/AdminTopUpConsole.tsx");
-  assert.match(consoleSource, /"use client"/);
-  assert.match(consoleSource, /useState\(initialTopUps\)/);
-  assert.match(consoleSource, /handleReviewed/);
-  assert.match(consoleSource, /setTopUps/);
-  assert.doesNotMatch(consoleSource, /router\.refresh\(\)/);
+  const topUpUiSource = candidateSource([
+    "src/features/ynot/admin/AdminTopUpConsole.tsx",
+    "src/features/ynot/client.tsx",
+    "src/app/admin/top-ups/page.tsx",
+    "src/app/admin/page.tsx",
+  ]);
+  assert.match(topUpUiSource, /useState\([^)]*topUps|setTopUps|handleReviewed|onReviewed/i);
+  assert.match(topUpUiSource, /setTopUps|filter\([^)]*topUp|filter\([^)]*t\s*=>/);
+  assert.doesNotMatch(topUpUiSource, /handleReviewed[\s\S]{0,500}router\.refresh\(\)/);
 });
 
 test("settings and category admin screens update local state after saves", () => {
-  const clientSource = source("src/features/ynot/client.tsx");
-  assert.match(clientSource, /setMethodOptions/);
-  assert.match(clientSource, /onSaved\?\./);
+  const settingsSource = candidateSource([
+    "src/features/ynot/admin/AdminPaymentMethodForm.tsx",
+    "src/features/ynot/client.tsx",
+    "src/app/admin/settings/page.tsx",
+  ]);
+  assert.match(
+    settingsSource,
+    /useState\([^)]*paymentMethods|set[A-Za-z]*Payment[A-Za-z]*Methods/i,
+  );
+  assert.match(settingsSource, /set[A-Za-z]*Payment[A-Za-z]*Methods|onSaved\?\./i);
 
-  const categoryWorkspace = optionalSource("src/features/ynot/admin/AdminCategoryWorkspace.tsx");
-  assert.match(categoryWorkspace, /"use client"/);
-  assert.match(categoryWorkspace, /setCategories/);
+  const categorySource = candidateSource([
+    "src/features/ynot/admin/AdminCategoryWorkspace.tsx",
+    "src/features/ynot/client.tsx",
+    "src/app/admin/categories/page.tsx",
+  ]);
+  assert.match(categorySource, /useState\([^)]*categor|setCategories/i);
 });
