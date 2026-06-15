@@ -1,6 +1,10 @@
 import { notFound } from "next/navigation";
 import { AdminGate } from "@/features/ynot/components";
-import { getAdminUserDetail, getYnotDashboardSlice } from "@/features/ynot/data";
+import {
+  getAdminUserDetail,
+  getYnotDashboardSlice,
+  normalizeAdminUser360Query,
+} from "@/features/ynot/data";
 import { AdminFrame } from "@/features/ynot/admin";
 import { AdminUser360 } from "@/features/ynot/admin/AdminUser360";
 
@@ -8,13 +12,18 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminUserDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ profileId: string }>;
+  searchParams?: Promise<{ section?: string; page?: string; pageSize?: string }>;
 }) {
   const { profileId } = await params;
+  const detailQuery = normalizeAdminUser360Query(
+    await (searchParams ?? Promise.resolve({})),
+  );
   const [data, detail] = await Promise.all([
     getYnotDashboardSlice({ wallet: false }),
-    getAdminUserDetail(profileId),
+    getAdminUserDetail(profileId, detailQuery),
   ]);
 
   if (!detail) notFound();
