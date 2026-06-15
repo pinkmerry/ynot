@@ -1,16 +1,17 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
-const root = process.cwd();
+const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 function source(path) {
-  return readFileSync(join(root, path), "utf8");
+  return readFileSync(join(appRoot, path), "utf8");
 }
 
 function optionalSource(path) {
-  const fullPath = join(root, path);
+  const fullPath = join(appRoot, path);
   return existsSync(fullPath) ? readFileSync(fullPath, "utf8") : "";
 }
 
@@ -35,11 +36,17 @@ test("getTopUps supports admin status and cursor filtering without changing publ
   const publicTopUpStart = data.indexOf("export function publicTopUp");
   assert.ok(publicTopUpStart > -1, "publicTopUp must exist");
   const publicTopUp = data.slice(publicTopUpStart, publicTopUpStart + 900);
-  assert.match(publicTopUp, /id: undefined/);
-  assert.match(publicTopUp, /profileId: undefined/);
-  assert.match(publicTopUp, /adminNote: undefined/);
-  assert.match(publicTopUp, /providerReference: undefined/);
-  assert.match(publicTopUp, /rawPayload: undefined/);
+  assert.match(publicTopUp, /delete publicFields\.id/);
+  assert.match(publicTopUp, /delete publicFields\.profileId/);
+  assert.match(publicTopUp, /delete publicFields\.adminNote/);
+
+  const publicPaymentMethodStart = publicTopUp.indexOf("paymentMethod: topUp.paymentMethod");
+  assert.ok(publicPaymentMethodStart > -1, "publicTopUp must rebuild public payment method fields");
+  const publicPaymentMethod = publicTopUp.slice(publicPaymentMethodStart, publicPaymentMethodStart + 260);
+  assert.match(publicPaymentMethod, /type: topUp\.paymentMethod\.type/);
+  assert.match(publicPaymentMethod, /displayName: topUp\.paymentMethod\.displayName/);
+  assert.doesNotMatch(publicPaymentMethod, /id:/);
+  assert.doesNotMatch(publicPaymentMethod, /code:/);
 });
 
 test("admin payment method routes require high privilege and return safe failures", () => {
