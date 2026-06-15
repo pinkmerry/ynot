@@ -572,6 +572,16 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                   ×{q}
                 </button>
               ))}
+              {pullAll !== null && (
+                <button
+                  type="button"
+                  className={`cr-dock-qty-btn cr-dock-qty-btn-all ${qty === pullAll ? "active" : ""}`}
+                  onClick={() => setQty(pullAll)}
+                  title={`Pull all ${pullAll} remaining — triggers the Last Prize bonus`}
+                >
+                  All
+                </button>
+              )}
             </div>
           </div>
           <div style={{ background: "var(--cr-bg-soft)", border: "1px solid var(--cr-line)", borderRadius: "var(--cr-r-md)", padding: "14px 16px" }}>
