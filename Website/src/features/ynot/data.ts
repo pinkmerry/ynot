@@ -1068,15 +1068,22 @@ async function getPublicPrizeLineup(
   row: DrawRoundRow,
   inventory?: InventorySummary,
   options: PrizeLineupOptions = {},
+  rawPrizes?: Database["public"]["Tables"]["draw_round_prizes"]["Row"][],
 ): Promise<YnotPrizePreview[]> {
   const soldPct = soldPctForCampaign(row, inventory);
-  const { data: prizes, error } = await supabase
-    .from("draw_round_prizes")
-    .select("*")
-    .eq("draw_round_id", row.id)
-    .order("tier", { ascending: true })
-    .order("rank", { ascending: true });
-  if (error) throw error;
+  let prizes: Database["public"]["Tables"]["draw_round_prizes"]["Row"][] | null;
+  if (rawPrizes !== undefined) {
+    prizes = rawPrizes;
+  } else {
+    const { data, error } = await supabase
+      .from("draw_round_prizes")
+      .select("*")
+      .eq("draw_round_id", row.id)
+      .order("tier", { ascending: true })
+      .order("rank", { ascending: true });
+    if (error) throw error;
+    prizes = data;
+  }
 
   const logicMode = normalizeRandomLogicMode(row.logic_snapshot);
   const visiblePrizes = (prizes ?? []).filter(
@@ -2180,6 +2187,16 @@ async function loadPublicCampaignDetailImpl(
     .map((link) => categoriesById.get(link.category_id))
     .filter((category): category is YnotCategory => Boolean(category));
   const inventory = inventoryRows[0];
+  // Fetch draw_round_prizes once and share it between the public lineup builder
+  // and the readiness gate — avoids a duplicate round-trip on every pack-detail
+  // render (the Cloudflare Worker has no cross-request cache).
+  const { data: sharedPrizeRows, error: sharedPrizeError } = await supabase
+    .from("draw_round_prizes")
+    .select("*")
+    .eq("draw_round_id", row.id);
+  if (sharedPrizeError) throw sharedPrizeError;
+  const prizeRows = sharedPrizeRows ?? [];
+
   // Public projection: sensitive odds and stock targets stay hidden, but locked
   // tiers (e.g. Rainbow/Grand-prize chase cards that unlock as the pack sells)
   // ARE shown so customers can preview the full lineup.
@@ -2187,12 +2204,13 @@ async function loadPublicCampaignDetailImpl(
     includeLocked: true,
     includeSensitiveOdds: false,
     includeStockTarget: false,
-  });
+  }, prizeRows);
   let publicReadiness: CampaignPrizeReadiness | null = null;
   try {
     publicReadiness = await getCampaignPrizeReadiness(supabase, row.id, {
       row,
       inventory,
+      prizes: prizeRows,
     });
   } catch (error) {
     recordDataIssue("campaign_detail_public_prize_readiness", error);
@@ -2512,17 +2530,27 @@ export async function getCampaign(
       .map((link) => categoriesById.get(link.category_id))
       .filter((category): category is YnotCategory => Boolean(category));
     const inventory = inventoryRows[0];
+    // Fetch draw_round_prizes once and share it between the lineup builder and
+    // the readiness gate — avoids a duplicate round-trip on every pack-detail
+    // render (the Cloudflare Worker has no cross-request cache).
+    const { data: sharedPrizeRows, error: sharedPrizeError } = await supabase
+      .from("draw_round_prizes")
+      .select("*")
+      .eq("draw_round_id", row.id);
+    if (sharedPrizeError) throw sharedPrizeError;
+    const prizeRows = sharedPrizeRows ?? [];
     const prizeLineup = await getPublicPrizeLineup(supabase, row, inventory, {
       includeLocked: includePrivateDetail,
       includeSensitiveOdds: includePrivateDetail,
       includeStockTarget: includePrivateDetail,
-    });
+    }, prizeRows);
     let readiness: CampaignPrizeReadiness | null = null;
     try {
       readiness = await getCampaignPrizeReadiness(supabase, row.id, {
         row,
         inventory,
         includeIdentityMismatches: includePrivateDetail,
+        prizes: prizeRows,
       });
     } catch (error) {
       recordDataIssue("campaign_detail_prize_readiness", error);

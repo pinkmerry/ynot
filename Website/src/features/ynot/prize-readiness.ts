@@ -629,14 +629,17 @@ export async function getCampaignPrizeReadiness(
     row?: DrawRoundRow;
     inventory?: InventorySummary;
     includeIdentityMismatches?: boolean;
+    prizes?: PrizeRow[];
   },
 ): Promise<CampaignPrizeReadiness> {
   // Callers on the pack-detail / storefront paths have usually just loaded the
   // draw_round row and run the inventory-summary RPC. Reuse those to skip two
   // redundant round-trips per render: there is no cross-request cache on the
   // current Cloudflare deployment, so every render otherwise re-fetches the row
-  // and re-runs the RPC that the caller already has. Prize rows are always read
-  // fresh here, since callers hold a filtered (customer) lineup, not the raw set.
+  // and re-runs the RPC that the caller already has. When the caller has already
+  // fetched the raw prize rows (e.g. shared with getPublicPrizeLineup on the
+  // pack-detail path), they can be passed in via preloaded.prizes to skip the
+  // third round-trip.
   let row = preloaded?.row;
   if (!row) {
     const { data, error: campaignError } = await supabase
@@ -659,14 +662,16 @@ export async function getCampaignPrizeReadiness(
           if (error) throw error;
           return inventorySummariesFromJson(data)[0];
         })(),
-    (async () => {
-      const { data, error } = await supabase
-        .from("draw_round_prizes")
-        .select("*")
-        .eq("draw_round_id", campaignId);
-      if (error) throw error;
-      return data ?? [];
-    })(),
+    preloaded?.prizes !== undefined
+      ? Promise.resolve(preloaded.prizes)
+      : (async () => {
+          const { data, error } = await supabase
+            .from("draw_round_prizes")
+            .select("*")
+            .eq("draw_round_id", campaignId);
+          if (error) throw error;
+          return data ?? [];
+        })(),
   ]);
   const soldPct = soldPctForCampaign(row, inventory);
   const logicMode = randomLogicMode(row.logic_snapshot);
