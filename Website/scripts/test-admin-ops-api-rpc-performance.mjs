@@ -19,8 +19,12 @@ function between(text, startMarker, endMarker) {
 }
 
 function assertRawErrorMessageIsNotReturned(route) {
-  const rawMessageLeak =
-    /(?:\b[A-Za-z_$][\w$]*|["'][^"']+["'])\s*:\s*(?:[A-Za-z_$][\w$]*(?:\?\.|\.))+message\b/;
+  const propertyKey = String.raw`(?:\[[^\]]+\]|\b[A-Za-z_$][\w$]*|["'][^"']+["'])`;
+  const directMessageValue =
+    String.raw`(?:\(\s*)*[A-Za-z_$][\w$]*(?:\s*\)\s*)?` +
+    String.raw`(?:\s*(?:\?\.|\.)\s*(?:\(\s*)?[A-Za-z_$][\w$]*(?:\s*\)\s*)?)*` +
+    String.raw`\s*(?:\?\.|\.)\s*message\b`;
+  const rawMessageLeak = new RegExp(`${propertyKey}\\s*:\\s*${directMessageValue}`);
   for (const objectBody of responseJsonObjectBodies(route)) {
     assert.doesNotMatch(objectBody, rawMessageLeak);
   }
@@ -141,6 +145,70 @@ function matchingBraceIndex(text, start) {
   return -1;
 }
 
+function matchingParenIndex(text, start) {
+  let depth = 0;
+  let stringQuote = "";
+  let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1] ?? "";
+    if (lineComment) {
+      if (char === "\n") lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      if (char === "*" && next === "/") {
+        blockComment = false;
+        index += 1;
+      }
+      continue;
+    }
+    if (stringQuote) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === stringQuote) {
+        stringQuote = "";
+      }
+      continue;
+    }
+    if (char === "/" && next === "/") {
+      lineComment = true;
+      index += 1;
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      blockComment = true;
+      index += 1;
+      continue;
+    }
+    if (char === "\"" || char === "'" || char === "`") {
+      stringQuote = char;
+      continue;
+    }
+    if (char === "(") depth += 1;
+    if (char === ")") {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
+function callBodies(text, callPattern) {
+  const bodies = [];
+  for (const match of text.matchAll(callPattern)) {
+    const openParen = text.indexOf("(", match.index ?? 0);
+    if (openParen === -1) continue;
+    const closeParen = matchingParenIndex(text, openParen);
+    if (closeParen > openParen) bodies.push(text.slice(openParen + 1, closeParen));
+  }
+  return bodies;
+}
+
 function sourceBlocksAround(paths, markerPattern) {
   return sourceFiles(paths).flatMap((file) => {
     const blocks = [];
@@ -209,6 +277,55 @@ function saveMutationSuccessPaths(path) {
   ).filter((successPath) => !/\bDELETE\b/.test(successPath));
 }
 
+function assertTopUpReviewSuccessUsesReviewedResult(successPath) {
+  const onReviewedUsesReviewedResult = callBodies(successPath, /\bonReviewed\s*/g).some((body) =>
+    /\b(?:topUpId|result|status)\b/.test(body),
+  );
+  const setTopUpsUsesReviewedResult = callBodies(successPath, /\bsetTopUps\s*/g).some(
+    (body) => /\b(?:topUpId|result|status)\b/.test(body) && /\b(?:filter|map|=>)\b/.test(body),
+  );
+  assert.ok(
+    onReviewedUsesReviewedResult || setTopUpsUsesReviewedResult,
+    "review success path must update local state/callback from the reviewed top-up id or result status",
+  );
+}
+
+function payloadFieldNames(successPath, fieldName) {
+  const names = new Set();
+  for (const match of successPath.matchAll(
+    new RegExp(`\\b(?:const|let)\\s+(\\w+)\\s*=\\s*payload\\.${fieldName}\\b`, "g"),
+  )) {
+    names.add(match[1]);
+  }
+  for (const match of successPath.matchAll(
+    new RegExp(`\\b(?:const|let)\\s*\\{([\\s\\S]*?)\\}\\s*=\\s*payload\\b`, "g"),
+  )) {
+    const fields = match[1];
+    for (const fieldMatch of fields.matchAll(
+      new RegExp(`\\b${fieldName}\\b(?:\\s*:\\s*(\\w+))?`, "g"),
+    )) {
+      names.add(fieldMatch[1] ?? fieldName);
+    }
+  }
+  return [...names];
+}
+
+function assertPayloadFieldDrivesMutation(successPath, fieldName, mutationPattern) {
+  const names = payloadFieldNames(successPath, fieldName);
+  const mutationBodies = callBodies(successPath, new RegExp(`\\b${mutationPattern}\\s*`, "gi"));
+  const extractedPayloadUse = names.some((name) =>
+    mutationBodies.some((body) => new RegExp(`\\b${name}\\b`).test(body)),
+  );
+  assert.ok(
+    names.length > 0,
+    `success path must extract payload.${fieldName}`,
+  );
+  assert.ok(
+    extractedPayloadUse,
+    `success path must drive the state/callback from payload.${fieldName}`,
+  );
+}
+
 test("raw error leak guard allows mapped helpers but rejects direct message returns", () => {
   assert.doesNotThrow(() => {
     assertRawErrorMessageIsNotReturned(
@@ -228,6 +345,16 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
       'return Response.json({ ok: false, detail: dbError.message }, { status: 400 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return Response.json({ [field]: dbError.message }, { status: 400 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return Response.json({ error: (dbError).message }, { status: 400 });',
     );
   });
 });
@@ -297,10 +424,7 @@ test("admin top-up UI removes reviewed rows without a full duplicate fetch", () 
   const reviewMutationSource = reviewMutationBlocks.join("\n");
   const reviewSuccessPath = reviewMutationBlocks.map(successfulResponsePath).join("\n");
   assert.match(reviewMutationSource, /method\s*:\s*["']PATCH["']/);
-  assert.match(
-    reviewSuccessPath,
-    /(?:onReviewed\s*\(|setTopUps\s*\()/,
-  );
+  assertTopUpReviewSuccessUsesReviewedResult(reviewSuccessPath);
   assert.doesNotMatch(reviewMutationSource, /router\.refresh\(\)/);
 });
 
@@ -310,9 +434,10 @@ test("settings admin screen updates payment method state from the save payload",
     paymentSuccessPath,
     /(?:const|let)\s+(?:\w+|\{[\s\S]*?\})\s*=\s*await\s+(?:postJson|requestJson)|\.json\(\)/,
   );
-  assert.match(
+  assertPayloadFieldDrivesMutation(
     paymentSuccessPath,
-    /setMethodOptions\s*\(|set[A-Za-z]*Payment[A-Za-z]*Methods\s*\(/i,
+    "paymentMethod",
+    String.raw`(?:setMethodOptions|set[A-Za-z]*Payment[A-Za-z]*Methods)`,
   );
 });
 
@@ -322,5 +447,9 @@ test("category admin screen updates parent category state from the save payload"
     categorySuccessPath,
     /(?:const|let)\s+(?:\w+|\{[\s\S]*?\})\s*=\s*await\s+(?:requestJson|postJson)|\.json\(\)/,
   );
-  assert.match(categorySuccessPath, /onSaved\?\.\s*\(|setCategories\s*\(/);
+  assertPayloadFieldDrivesMutation(
+    categorySuccessPath,
+    "category",
+    String.raw`(?:onSaved\?\.|setCategories)`,
+  );
 });
