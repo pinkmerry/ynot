@@ -390,22 +390,33 @@ function assertTopUpGetParsesAndPassesListOptions(getRoute) {
     "GET must derive cursorCreatedAt from searchParams",
   );
 
-  const getTopUpsBody = callBodies(getRoute, /\bgetTopUps\s*/g).join("\n");
-  assert.match(
-    getTopUpsBody,
-    /\{[\s\S]*(?:\blimit\s*,|\blimit\s*:\s*limit\b)/,
-    "GET must pass parsed limit in getTopUps options",
+  const getTopUpsBodies = callBodies(getRoute, /\bgetTopUps\s*/g);
+  assert.ok(getTopUpsBodies.length > 0, "GET must call getTopUps");
+  assert.ok(
+    getTopUpsBodies.some((body) =>
+      objectBodies(body).some(
+        (objectBody) =>
+          /(?:\blimit\s*,|\blimit\s*:\s*limit\b)/.test(objectBody) &&
+          /(?:\bstatuses\s*,|\bstatuses\s*:\s*statuses\b)/.test(objectBody) &&
+          /(?:\bcursorCreatedAt\s*,|\bcursorCreatedAt\s*:\s*cursorCreatedAt\b)/.test(objectBody),
+      ),
+    ),
+    "one GET getTopUps call must pass limit, statuses, and cursorCreatedAt together in its options object",
   );
-  assert.match(
-    getTopUpsBody,
-    /\{[\s\S]*(?:\bstatuses\s*,|\bstatuses\s*:\s*statuses\b)/,
-    "GET must pass parsed statuses in getTopUps options",
-  );
-  assert.match(
-    getTopUpsBody,
-    /\{[\s\S]*(?:\bcursorCreatedAt\s*,|\bcursorCreatedAt\s*:\s*cursorCreatedAt\b)/,
-    "GET must pass parsed cursorCreatedAt in getTopUps options",
-  );
+}
+
+function objectBodies(text) {
+  const bodies = [];
+  let searchFrom = 0;
+  while (searchFrom < text.length) {
+    const openBrace = text.indexOf("{", searchFrom);
+    if (openBrace === -1) break;
+    const closeBrace = matchingBraceIndex(text, openBrace);
+    if (closeBrace === -1) break;
+    bodies.push(text.slice(openBrace + 1, closeBrace));
+    searchFrom = closeBrace + 1;
+  }
+  return bodies;
 }
 
 function assertTopUpGetReturnsRateLimitBeforeList(getRoute) {
@@ -848,14 +859,15 @@ test("admin top-up UI removes reviewed rows without a full duplicate fetch", () 
   );
   assert.ok(reviewMutationBlocks.length > 0, "admin top-up review mutation must exist");
   const reviewMutationSource = reviewMutationBlocks.join("\n");
-  const reviewSuccessPath = reviewMutationBlocks.map(successfulResponsePath).join("\n");
-  const adminUiSource = sourceFiles(ADMIN_UI_PATHS).map((file) => file.text).join("\n");
   assert.match(reviewMutationSource, /method\s*:\s*["']PATCH["']/);
-  assertTopUpReviewSuccessUsesReviewedResult(reviewSuccessPath, adminUiSource);
-  assert.doesNotMatch(
-    reviewSuccessPath,
-    /router\.refresh\(\)|\b(?:loadTopUps|fetchTopUps)\s*\(|fetch\(\s*["']\/api\/ynot\/admin\/top-ups["']/,
-  );
+  for (const reviewMutationBlock of reviewMutationBlocks) {
+    const reviewSuccessPath = successfulResponsePath(reviewMutationBlock);
+    assertTopUpReviewSuccessUsesReviewedResult(reviewSuccessPath, reviewMutationBlock);
+    assert.doesNotMatch(
+      reviewSuccessPath,
+      /router\.refresh\(\)|\b(?:loadTopUps|fetchTopUps)\s*\(|fetch\(\s*["']\/api\/ynot\/admin\/top-ups["']/,
+    );
+  }
   assert.doesNotMatch(reviewMutationSource, /router\.refresh\(\)/);
 });
 
