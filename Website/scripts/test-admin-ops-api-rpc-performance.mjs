@@ -91,11 +91,7 @@ function responseJsonBodyExpressions(text) {
     const closeParen = matchingParenIndex(text, openParen);
     if (closeParen === -1) break;
     const firstArg = splitTopLevel(text.slice(openParen + 1, closeParen))[0]?.trim() ?? "";
-    if (firstArg.startsWith("{") || firstArg.startsWith("[")) {
-      expressions.push(firstArg);
-    } else if (variableBodies.has(firstArg)) {
-      expressions.push(variableBodies.get(firstArg));
-    }
+    if (firstArg) expressions.push(variableBodies.get(firstArg) ?? firstArg);
     searchFrom = markerIndex + marker.length;
   }
   return expressions;
@@ -103,15 +99,12 @@ function responseJsonBodyExpressions(text) {
 
 function responseBodyVariableExpressions(text) {
   const expressions = new Map();
-  for (const match of text.matchAll(/\b(?:const|let)\s+(\w+)\s*=\s*([\{\[])/g)) {
+  for (const match of text.matchAll(/\b(?:const|let)\s+(\w+)\b[^=;]*=/g)) {
     const name = match[1];
-    const openIndex = (match.index ?? 0) + match[0].lastIndexOf(match[2]);
-    const closeIndex =
-      match[2] === "{"
-        ? matchingBraceIndex(text, openIndex)
-        : matchingBracketIndex(text, openIndex);
-    if (closeIndex > openIndex) {
-      expressions.set(name, text.slice(openIndex, closeIndex + 1));
+    const valueStart = (match.index ?? 0) + match[0].length;
+    const statementEnd = topLevelStatementEnd(text, match.index ?? 0);
+    if (statementEnd > valueStart) {
+      expressions.set(name, text.slice(valueStart, statementEnd).trim());
     }
   }
   return expressions;
@@ -739,17 +732,8 @@ function assertShippingRpcErrorMappedSafely(patchRoute) {
   assert.ok(rpcIndex > -1, 'shipping route must call supabase.rpc("update_shipping_request_status", ...)');
   const errorBranch = ifBranchBody(patchRoute, /\bif\s*\(\s*error\s*\)/g, rpcIndex);
   assert.ok(errorBranch, "shipping RPC error branch must exist after the RPC");
-  assert.doesNotMatch(
-    errorBranch,
-    /\berror\.message\b/,
-    "shipping RPC error branch must not return raw error.message",
-  );
-  assert.ok(
-    /\b[A-Za-z_$][\w$]*(?:ErrorMessage|Message|Mapper|map[A-Z][A-Za-z]*)\s*\(\s*error\s*\)/.test(
-      errorBranch,
-    ),
-    "shipping RPC error branch must map the error through a safe message helper",
-  );
+  assert.match(errorBranch, /\badminShippingErrorMessage\(\s*error\s*\)/);
+  assert.doesNotMatch(errorBranch, /\badminShippingErrorMessage\(\s*error\.message\s*\)/);
 }
 
 function ifBranchBody(text, pattern, afterIndex = 0) {
@@ -800,6 +784,11 @@ function assertPublicSlipVerificationIsSafe(publicTopUp) {
   assert.ok(objectEnd > objectStart, "public slipVerification object must close");
   const slipVerification = publicTopUp.slice(objectStart + 1, objectEnd);
 
+  assertPublicObjectUsesOnlyKeys(
+    slipVerification,
+    ["status", "amount", "transferredAt"],
+    "slipVerification",
+  );
   assert.match(slipVerification, /\bstatus\s*:/);
   assert.match(slipVerification, /\bamount\s*:/);
   assert.match(slipVerification, /\btransferredAt\s*:/);
@@ -819,6 +808,44 @@ function assertPublicSlipVerificationIsSafe(publicTopUp) {
       `public slipVerification must not expose ${privateField}`,
     );
   }
+}
+
+function assertPublicObjectUsesOnlyKeys(objectBody, allowedKeys, label) {
+  assert.doesNotMatch(objectBody, /\.\.\./, `public ${label} must not use object spreads`);
+  const entries = splitTopLevel(objectBody).filter(Boolean);
+  const allowed = new Set(allowedKeys);
+  for (const entry of entries) {
+    const key = objectEntryKey(entry);
+    assert.ok(key, `public ${label} entry must use an explicit key`);
+    assert.ok(
+      allowed.has(key),
+      `public ${label} must not expose unexpected key ${key}`,
+    );
+  }
+  for (const key of allowedKeys) {
+    assert.ok(
+      entries.some((entry) => objectEntryKey(entry) === key),
+      `public ${label} must expose ${key}`,
+    );
+  }
+}
+
+function objectEntryKey(entry) {
+  const trimmed = entry.trim();
+  if (trimmed.startsWith("...")) return "";
+  const colonIndex = nextTopLevelColon(trimmed, 0);
+  if (colonIndex === -1) return /^[A-Za-z_$][\w$]*$/.test(trimmed) ? trimmed : "";
+  return trimmed.slice(0, colonIndex).trim().replace(/^["']|["']$/g, "");
+}
+
+function publicObjectFor(publicTopUp, marker) {
+  const markerIndex = publicTopUp.indexOf(marker);
+  assert.ok(markerIndex > -1, `${marker} must exist`);
+  const objectStart = publicTopUp.indexOf("{", markerIndex);
+  assert.ok(objectStart > markerIndex, `${marker} must map to a public object`);
+  const objectEnd = matchingBraceIndex(publicTopUp, objectStart);
+  assert.ok(objectEnd > objectStart, `${marker} public object must close`);
+  return publicTopUp.slice(objectStart + 1, objectEnd);
 }
 
 function componentBlockAround(text, markerIndex) {
@@ -1104,12 +1131,22 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   });
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
+      'return Response.json(error.message, { status: 500 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
       'const body = { error: dbError.message }; return Response.json(body);',
     );
   });
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
       'const body = { error: ((dbError)).message }; return Response.json(body);',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'const body = error.message; return Response.json(body, { status: 500 });',
     );
   });
   assert.throws(() => {
@@ -1167,10 +1204,17 @@ test("getTopUps supports admin status and cursor filtering without changing publ
     "paymentMethod: topUp.paymentMethod",
     "slipVerification: topUp.slipVerification",
   );
+  assertPublicObjectUsesOnlyKeys(
+    publicObjectFor(publicTopUp, "paymentMethod: topUp.paymentMethod"),
+    ["type", "displayName"],
+    "paymentMethod",
+  );
   assert.match(publicPaymentMethod, /type: topUp\.paymentMethod\.type/);
   assert.match(publicPaymentMethod, /displayName: topUp\.paymentMethod\.displayName/);
+  assert.doesNotMatch(publicPaymentMethod, /\.\.\.\s*topUp\.paymentMethod/);
   assert.doesNotMatch(publicPaymentMethod, /id:/);
   assert.doesNotMatch(publicPaymentMethod, /code:/);
+  assert.doesNotMatch(publicTopUp, /\.\.\.\s*topUp\.slipVerification/);
   assertPublicSlipVerificationIsSafe(publicTopUp);
 });
 
