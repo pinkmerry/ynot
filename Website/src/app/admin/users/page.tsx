@@ -3,7 +3,7 @@ import { AdminMergeActions, AdminUserRoleForm } from "@/features/ynot/client";
 import { AdminGate } from "@/features/ynot/components";
 import {
   getAdminMergeRequests,
-  getAdminUsers,
+  getAdminUserDirectory,
   getYnotDashboardSlice,
 } from "@/features/ynot/data";
 import {
@@ -18,12 +18,24 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminUsersPage() {
-  const [data, users, mergeRequests] = await Promise.all([
+export default async function AdminUsersPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    q?: string;
+    role?: string;
+    status?: string;
+    page?: string;
+    pageSize?: string;
+  }>;
+}) {
+  const params = await (searchParams ?? Promise.resolve({}));
+  const [data, directory, mergeRequests] = await Promise.all([
     getYnotDashboardSlice({ wallet: false }),
-    getAdminUsers(),
+    getAdminUserDirectory(params),
     getAdminMergeRequests(),
   ]);
+  const users = directory.users;
 
   const owners = users.filter((u) => u.adminRole === "owner").length;
   const staff = users.filter((u) => u.adminRole && u.adminRole !== "owner").length;
@@ -32,6 +44,21 @@ export default async function AdminUsersPage() {
     (u) => u.status !== "active",
   ).length;
   const pendingMerges = mergeRequests.filter((r) => r.status === "pending").length;
+
+  function directoryHref(next: Partial<typeof directory.query>) {
+    const merged = {
+      ...directory.query,
+      ...next,
+    };
+    const url = new URLSearchParams();
+    if (merged.q) url.set("q", merged.q);
+    if (merged.role !== "all") url.set("role", merged.role);
+    if (merged.status !== "all") url.set("status", merged.status);
+    if (merged.page > 1) url.set("page", String(merged.page));
+    if (merged.pageSize !== 50) url.set("pageSize", String(merged.pageSize));
+    const qs = url.toString();
+    return qs ? `/admin/users?${qs}` : "/admin/users";
+  }
 
   return (
     <AdminGate viewer={data.viewer}>
@@ -65,15 +92,43 @@ export default async function AdminUsersPage() {
         <AdminCard>
           <AdminCardHead
             label="Directory"
-            title={`All users · ${users.length}`}
+            title={`Users · ${directory.total}`}
             actions={
-              <div className="tabs">
-                <span className="t active">All</span>
-                <span className="t">Owner · {owners}</span>
-                <span className="t">Staff · {staff}</span>
-                <span className="t">Customers · {customers}</span>
-                <span className="t">Flagged · {flagged}</span>
-              </div>
+              <form action="/admin/users" className="tabs" style={{ gap: 8 }}>
+                <input
+                  className="input"
+                  name="q"
+                  placeholder="Search email, LINE, phone, profile"
+                  defaultValue={directory.query.q}
+                  style={{ minWidth: 260 }}
+                />
+                <select
+                  className="input"
+                  name="role"
+                  defaultValue={directory.query.role}
+                >
+                  <option value="all">All roles</option>
+                  <option value="customer">Customers</option>
+                  <option value="owner">Owner</option>
+                  <option value="admin">Admin</option>
+                  <option value="staff">Staff</option>
+                </select>
+                <select
+                  className="input"
+                  name="status"
+                  defaultValue={directory.query.status}
+                >
+                  <option value="all">All status</option>
+                  <option value="active">Active</option>
+                  <option value="flagged">Flagged</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="disabled">Disabled</option>
+                </select>
+                <button className="btn btn-primary" type="submit">
+                  <AdminIcon name="search" />
+                  Search
+                </button>
+              </form>
             }
           />
           <div className="tbl-wrap">
@@ -188,6 +243,42 @@ export default async function AdminUsersPage() {
                 )}
               </tbody>
             </table>
+          </div>
+          <div
+            className="card-pad"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <span className="muted">
+              Page {directory.page} · showing {users.length} of {directory.total}
+            </span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Link
+                className={`btn ${directory.hasPreviousPage ? "btn-ghost" : "disabled"}`}
+                href={
+                  directory.hasPreviousPage
+                    ? directoryHref({ page: directory.page - 1 })
+                    : directoryHref({ page: 1 })
+                }
+                prefetch={false}
+              >
+                Previous page
+              </Link>
+              <Link
+                className={`btn ${directory.hasNextPage ? "btn-ghost" : "disabled"}`}
+                href={
+                  directory.hasNextPage
+                    ? directoryHref({ page: directory.page + 1 })
+                    : directoryHref({ page: directory.page })
+                }
+                prefetch={false}
+              >
+                Next page
+              </Link>
+            </div>
           </div>
         </AdminCard>
 
