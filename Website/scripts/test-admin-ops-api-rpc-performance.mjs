@@ -343,6 +343,16 @@ function callBodies(text, callPattern) {
   return bodies;
 }
 
+function exportedFunctionBlock(text, name) {
+  const match = new RegExp(`export\\s+async\\s+function\\s+${name}\\s*\\(`).exec(text);
+  assert.ok(match, `${name} route handler must exist`);
+  const openBrace = text.indexOf("{", match.index);
+  assert.ok(openBrace > match.index, `${name} route handler body must open`);
+  const closeBrace = matchingBraceIndex(text, openBrace);
+  assert.ok(closeBrace > openBrace, `${name} route handler body must close`);
+  return text.slice(match.index, closeBrace + 1);
+}
+
 function sourceBlocksAround(paths, markerPattern) {
   return sourceFiles(paths).flatMap((file) => {
     const blocks = [];
@@ -559,29 +569,31 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
 
 test("admin top-up route keeps review RPCs stable and adds bounded list protections", () => {
   const route = source("src/app/api/ynot/admin/top-ups/route.ts");
+  const getRoute = exportedFunctionBlock(route, "GET");
   assert.match(route, /approve_top_up_request/);
   assert.match(route, /reject_top_up_request/);
-  assert.match(route, /export\s+async\s+function\s+GET\s*\([^)]*\)/);
-  assert.match(route, /ynot:admin:top-ups:list/);
-  assert.match(route, /(?:URLSearchParams|searchParams|\.url\b)/);
-  assert.match(route, /status(?:es)?/i);
-  assert.match(route, /cursor/i);
-  assert.match(route, /limit/i);
-  assert.match(route, /getTopUps\([\s\S]*\{[\s\S]*(?:status(?:es)?|cursor|limit)/i);
+  assert.match(route, /export async function GET\(request: Request\)/);
+  assert.match(getRoute, /ynot:admin:top-ups:list/);
+  assert.match(getRoute, /new URL\(request\.url\)/);
+  assert.match(getRoute, /statuses/);
+  assert.match(getRoute, /cursorCreatedAt/);
+  assert.match(getRoute, /getTopUps\([\s\S]*\{[\s\S]*limit[\s\S]*statuses[\s\S]*cursorCreatedAt/);
 });
 
 test("getTopUps supports admin status and cursor filtering without changing public redaction", () => {
   const data = source("src/features/ynot/data.ts");
   const getTopUps = between(data, "export async function getTopUps", "export function toTopUp");
-  assert.match(getTopUps, /status(?:es)?/i);
-  assert.match(getTopUps, /cursor/i);
-  assert.match(getTopUps, /\.in\(\s*["']status["']/);
-  assert.match(getTopUps, /\.(?:lt|lte)\(\s*["']created_at["']/);
+  assert.match(getTopUps, /statuses\?: readonly/);
+  assert.match(getTopUps, /cursorCreatedAt\?: string/);
+  assert.match(getTopUps, /\.in\("status", statuses\)/);
+  assert.match(getTopUps, /\.lt\("created_at", options\.cursorCreatedAt\)/);
 
   const publicTopUp = between(data, "export function publicTopUp", "export async function getCollection");
   assert.match(publicTopUp, /delete publicFields\.id/);
   assert.match(publicTopUp, /delete publicFields\.profileId/);
   assert.match(publicTopUp, /delete publicFields\.adminNote/);
+  assert.match(publicTopUp, /delete publicFields\.providerReference/);
+  assert.match(publicTopUp, /delete publicFields\.rawPayload/);
 
   const publicPaymentMethod = between(
     publicTopUp,
@@ -607,9 +619,19 @@ test("admin payment method routes require high privilege and return safe failure
 
 test("admin shipping route validates IDs and maps RPC errors safely", () => {
   const shippingRoute = source("src/app/api/ynot/admin/shipping/route.ts");
+  const patchRoute = exportedFunctionBlock(shippingRoute, "PATCH");
+  const validationIndex = patchRoute.search(/UUID_RE\.test\(\s*shippingRequestId\s*\)/);
+  const rpcIndex = patchRoute.search(/update_shipping_request_status/);
   assert.match(shippingRoute, /const UUID_RE/);
   assert.match(shippingRoute, /adminShippingErrorMessage/);
   assert.match(shippingRoute, /update_shipping_request_status/);
+  assert.ok(validationIndex > -1, "shippingRequestId must be validated with UUID_RE");
+  assert.ok(rpcIndex > validationIndex, "shippingRequestId must be validated before the RPC");
+  assert.match(
+    patchRoute,
+    /if\s*\(\s*error\s*\)[\s\S]*Response\.json\(\s*\{[\s\S]*error\s*:\s*adminShippingErrorMessage\(\s*error\s*\)/,
+  );
+  assert.doesNotMatch(patchRoute, /adminShippingErrorMessage\(\s*error\.message\s*\)/);
   assertRawErrorMessageIsNotReturned(shippingRoute);
 });
 
@@ -623,6 +645,10 @@ test("admin top-up UI removes reviewed rows without a full duplicate fetch", () 
   const reviewSuccessPath = reviewMutationBlocks.map(successfulResponsePath).join("\n");
   assert.match(reviewMutationSource, /method\s*:\s*["']PATCH["']/);
   assertTopUpReviewSuccessUsesReviewedResult(reviewSuccessPath);
+  assert.doesNotMatch(
+    reviewSuccessPath,
+    /router\.refresh\(\)|\b(?:loadTopUps|fetchTopUps)\s*\(|fetch\(\s*["']\/api\/ynot\/admin\/top-ups["']/,
+  );
   assert.doesNotMatch(reviewMutationSource, /router\.refresh\(\)/);
 });
 
