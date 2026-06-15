@@ -19,7 +19,8 @@ function between(text, startMarker, endMarker) {
 }
 
 function assertRawErrorMessageIsNotReturned(route) {
-  const rawMessageLeak = /\berror\s*:\s*(?:[A-Za-z_$][\w$]*(?:\?\.|\.))+message\b/;
+  const rawMessageLeak =
+    /(?:\b[A-Za-z_$][\w$]*|["'][^"']+["'])\s*:\s*(?:[A-Za-z_$][\w$]*(?:\?\.|\.))+message\b/;
   for (const objectBody of responseJsonObjectBodies(route)) {
     assert.doesNotMatch(objectBody, rawMessageLeak);
   }
@@ -217,6 +218,16 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
       'return Response.json({ code: "bad", error: dbError.message }, { status: 400 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return Response.json({ ok: false, message: dbError.message }, { status: 400 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return Response.json({ ok: false, detail: dbError.message }, { status: 400 });',
     );
   });
 });
