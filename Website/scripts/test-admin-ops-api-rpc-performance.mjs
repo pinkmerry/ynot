@@ -353,6 +353,116 @@ function exportedFunctionBlock(text, name) {
   return text.slice(match.index, closeBrace + 1);
 }
 
+function firstMatch(text, pattern, message) {
+  const match = pattern.exec(text);
+  assert.ok(match, message);
+  return match;
+}
+
+function assertTopUpGetParsesAndPassesListOptions(getRoute) {
+  const urlMatch = firstMatch(
+    getRoute,
+    /\b(?:const|let)\s+(\w+)\s*=\s*new URL\(request\.url\)/,
+    "GET must derive a URL object from request.url",
+  );
+  const urlName = urlMatch[1];
+  const searchParams = `${urlName}.searchParams`;
+  for (const param of ["limit", "status", "cursorCreatedAt"]) {
+    assert.match(
+      getRoute,
+      new RegExp(`${escapeRegExp(searchParams)}\\.(?:get|getAll)\\(\\s*["']${param}["']\\s*\\)`),
+      `GET must parse ${param} from ${searchParams}`,
+    );
+  }
+  assert.match(
+    getRoute,
+    new RegExp(`\\b(?:const|let)\\s+limit\\b[\\s\\S]*${escapeRegExp(searchParams)}\\.get\\(\\s*["']limit["']\\s*\\)`),
+    "GET must derive limit from searchParams",
+  );
+  assert.match(
+    getRoute,
+    new RegExp(`\\b(?:const|let)\\s+statuses\\b[\\s\\S]*${escapeRegExp(searchParams)}\\.(?:get|getAll)\\(\\s*["']status["']\\s*\\)`),
+    "GET must derive statuses from searchParams",
+  );
+  assert.match(
+    getRoute,
+    new RegExp(`\\b(?:const|let)\\s+cursorCreatedAt\\b[\\s\\S]*${escapeRegExp(searchParams)}\\.get\\(\\s*["']cursorCreatedAt["']\\s*\\)`),
+    "GET must derive cursorCreatedAt from searchParams",
+  );
+
+  const getTopUpsBody = callBodies(getRoute, /\bgetTopUps\s*/g).join("\n");
+  assert.match(
+    getTopUpsBody,
+    /\{[\s\S]*(?:\blimit\s*,|\blimit\s*:\s*limit\b)/,
+    "GET must pass parsed limit in getTopUps options",
+  );
+  assert.match(
+    getTopUpsBody,
+    /\{[\s\S]*(?:\bstatuses\s*,|\bstatuses\s*:\s*statuses\b)/,
+    "GET must pass parsed statuses in getTopUps options",
+  );
+  assert.match(
+    getTopUpsBody,
+    /\{[\s\S]*(?:\bcursorCreatedAt\s*,|\bcursorCreatedAt\s*:\s*cursorCreatedAt\b)/,
+    "GET must pass parsed cursorCreatedAt in getTopUps options",
+  );
+}
+
+function assertAdminPostGuardsBeforeMutation(route, mutationPattern) {
+  const postRoute = exportedFunctionBlock(route, "POST");
+  const sameOriginIndex = postRoute.search(/enforceSameOriginMutation\(\s*request\s*\)/);
+  const roleIndex = postRoute.search(
+    /requireAdminRoleResponse\(\s*admin\s*,\s*\[\s*["']owner["']\s*,\s*["']admin["']\s*\]\s*\)/,
+  );
+  const bodyParseIndex = postRoute.search(/request\.(?:json|formData)\s*\(/);
+  const mutationIndex = postRoute.search(mutationPattern);
+
+  assert.ok(sameOriginIndex > -1, "POST must enforce same-origin mutations inside the handler");
+  assert.ok(roleIndex > -1, "POST must require owner/admin role inside the handler");
+  assert.ok(bodyParseIndex > -1, "POST must parse a request body/form inside the handler");
+  assert.ok(mutationIndex > -1, "POST must perform the admin mutation inside the handler");
+  assert.ok(sameOriginIndex < bodyParseIndex, "same-origin guard must run before body/form parsing");
+  assert.ok(roleIndex < bodyParseIndex, "role guard must run before body/form parsing");
+  assert.ok(sameOriginIndex < mutationIndex, "same-origin guard must run before mutation");
+  assert.ok(roleIndex < mutationIndex, "role guard must run before mutation");
+}
+
+function assertPublicSlipVerificationIsSafe(publicTopUp) {
+  const marker = "slipVerification:";
+  const markerIndex = publicTopUp.indexOf(marker);
+  assert.ok(markerIndex > -1, "publicTopUp must define slipVerification");
+  assert.match(
+    publicTopUp.slice(markerIndex, markerIndex + 180),
+    /slipVerification:\s*topUp\.slipVerification\s*\?\s*\{/,
+    "publicTopUp must map slipVerification through an explicit public object",
+  );
+  const objectStart = publicTopUp.indexOf("{", markerIndex);
+  assert.ok(objectStart > markerIndex, "publicTopUp must map slipVerification to a public object");
+  const objectEnd = matchingBraceIndex(publicTopUp, objectStart);
+  assert.ok(objectEnd > objectStart, "public slipVerification object must close");
+  const slipVerification = publicTopUp.slice(objectStart + 1, objectEnd);
+
+  assert.match(slipVerification, /\bstatus\s*:/);
+  assert.match(slipVerification, /\bamount\s*:/);
+  assert.match(slipVerification, /\btransferredAt\s*:/);
+  for (const privateField of [
+    "id",
+    "providerCode",
+    "providerMessage",
+    "providerReference",
+    "rawPayload",
+    "uploadedAt",
+    "verifiedAt",
+    "duplicateOfSlipId",
+  ]) {
+    assert.doesNotMatch(
+      slipVerification,
+      new RegExp(`\\b${privateField}\\s*:`),
+      `public slipVerification must not expose ${privateField}`,
+    );
+  }
+}
+
 function sourceBlocksAround(paths, markerPattern) {
   return sourceFiles(paths).flatMap((file) => {
     const blocks = [];
@@ -421,7 +531,7 @@ function saveMutationSuccessPaths(path) {
   ).filter((successPath) => !/\bDELETE\b/.test(successPath));
 }
 
-function assertTopUpReviewSuccessUsesReviewedResult(successPath) {
+function assertTopUpReviewSuccessUsesReviewedResult(successPath, adminUiSource) {
   const returnedNames = returnedReviewResultNames(successPath);
   assert.ok(
     returnedNames.length > 0,
@@ -435,10 +545,44 @@ function assertTopUpReviewSuccessUsesReviewedResult(successPath) {
       returnedNames.some((name) => returnedNamePattern(name).test(body)) &&
       /\b(?:filter|map|=>)\b/.test(body),
   );
+  const callbackUsesReturnedArgument = reviewCallbackBlocks(adminUiSource).some((block) => {
+    const paramName = callbackParameterName(block);
+    return (
+      paramName &&
+      /\bsetTopUps\s*\(/.test(block) &&
+      returnedNamePattern(paramName).test(block)
+    );
+  });
   assert.ok(
-    onReviewedUsesReviewedResult || setTopUpsUsesReviewedResult,
+    setTopUpsUsesReviewedResult || (onReviewedUsesReviewedResult && callbackUsesReturnedArgument),
     "review success path must update local state/callback from the returned payload result",
   );
+}
+
+function reviewCallbackBlocks(successPath) {
+  const blocks = [];
+  const patterns = [
+    /\b(?:const|let)\s+(?:handleReviewed|onReviewed)\s*=\s*(?:\([^)]*\)|\w+)\s*=>/g,
+    /\bfunction\s+(?:handleReviewed|onReviewed)\s*\([^)]*\)\s*\{/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of successPath.matchAll(pattern)) {
+      const index = match.index ?? 0;
+      const openBrace = successPath.indexOf("{", index);
+      if (openBrace === -1) continue;
+      const closeBrace = matchingBraceIndex(successPath, openBrace);
+      if (closeBrace > openBrace) blocks.push(successPath.slice(index, closeBrace + 1));
+    }
+  }
+  return blocks;
+}
+
+function callbackParameterName(block) {
+  const functionMatch = /\bfunction\s+(?:handleReviewed|onReviewed)\s*\(\s*(\w+)/.exec(block);
+  if (functionMatch) return functionMatch[1];
+  const arrowMatch =
+    /\b(?:const|let)\s+(?:handleReviewed|onReviewed)\s*=\s*(?:\(\s*(\w+)|(\w+))/.exec(block);
+  return arrowMatch?.[1] ?? arrowMatch?.[2] ?? "";
 }
 
 function returnedReviewResultNames(successPath) {
@@ -575,9 +719,7 @@ test("admin top-up route keeps review RPCs stable and adds bounded list protecti
   assert.match(route, /export async function GET\(request: Request\)/);
   assert.match(getRoute, /ynot:admin:top-ups:list/);
   assert.match(getRoute, /new URL\(request\.url\)/);
-  assert.match(getRoute, /statuses/);
-  assert.match(getRoute, /cursorCreatedAt/);
-  assert.match(getRoute, /getTopUps\([\s\S]*\{[\s\S]*limit[\s\S]*statuses[\s\S]*cursorCreatedAt/);
+  assertTopUpGetParsesAndPassesListOptions(getRoute);
 });
 
 test("getTopUps supports admin status and cursor filtering without changing public redaction", () => {
@@ -604,15 +746,18 @@ test("getTopUps supports admin status and cursor filtering without changing publ
   assert.match(publicPaymentMethod, /displayName: topUp\.paymentMethod\.displayName/);
   assert.doesNotMatch(publicPaymentMethod, /id:/);
   assert.doesNotMatch(publicPaymentMethod, /code:/);
+  assertPublicSlipVerificationIsSafe(publicTopUp);
 });
 
 test("admin payment method routes require high privilege and return safe failures", () => {
   const paymentRoute = source("src/app/api/ynot/admin/payment-methods/route.ts");
   const qrRoute = source("src/app/api/ynot/admin/payment-methods/qr-image/route.ts");
 
-  for (const route of [paymentRoute, qrRoute]) {
-    assert.match(route, /enforceSameOriginMutation/);
-    assert.match(route, /requireAdminRoleResponse/);
+  for (const [route, mutationPattern] of [
+    [paymentRoute, /\.from\(\s*["']payment_methods["']\s*\)/],
+    [qrRoute, /\.storage\b/],
+  ]) {
+    assertAdminPostGuardsBeforeMutation(route, mutationPattern);
     assertRawErrorMessageIsNotReturned(route);
   }
 });
@@ -643,8 +788,9 @@ test("admin top-up UI removes reviewed rows without a full duplicate fetch", () 
   assert.ok(reviewMutationBlocks.length > 0, "admin top-up review mutation must exist");
   const reviewMutationSource = reviewMutationBlocks.join("\n");
   const reviewSuccessPath = reviewMutationBlocks.map(successfulResponsePath).join("\n");
+  const adminUiSource = sourceFiles(ADMIN_UI_PATHS).map((file) => file.text).join("\n");
   assert.match(reviewMutationSource, /method\s*:\s*["']PATCH["']/);
-  assertTopUpReviewSuccessUsesReviewedResult(reviewSuccessPath);
+  assertTopUpReviewSuccessUsesReviewedResult(reviewSuccessPath, adminUiSource);
   assert.doesNotMatch(
     reviewSuccessPath,
     /router\.refresh\(\)|\b(?:loadTopUps|fetchTopUps)\s*\(|fetch\(\s*["']\/api\/ynot\/admin\/top-ups["']/,
