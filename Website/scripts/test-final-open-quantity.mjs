@@ -135,6 +135,22 @@ test("treats missing public inventory as unbounded and negative counts as closed
   );
 });
 
+test("pull-all of N remaining is allowed when N normal win slots plus one last prize fill them", () => {
+  const inventory = { remainingSlots: 10, normalOpenableWinSlots: 10, finalPrizeAvailableUnits: 1 };
+  assert.equal(openQuantity.openQuantityLimit(inventory), 10);
+  assert.equal(openQuantity.isOpenQuantityAvailable(10, inventory), true);
+});
+
+test("pull-all of N remaining is allowed with no last prize when N normal win slots exist", () => {
+  const inventory = { remainingSlots: 10, normalOpenableWinSlots: 10, finalPrizeAvailableUnits: 0 };
+  assert.equal(openQuantity.openQuantityLimit(inventory), 10);
+});
+
+test("pull-all is capped at available when normal stock is short and no last prize", () => {
+  const inventory = { remainingSlots: 10, normalOpenableWinSlots: 7, finalPrizeAvailableUnits: 0 };
+  assert.equal(openQuantity.openQuantityLimit(inventory), 7);
+});
+
 test("inventory summary counts Last Prize only when aggregates can finish the pack", () => {
   const migrationsDir = new URL(
     "../../Database/supabase/migrations/",
