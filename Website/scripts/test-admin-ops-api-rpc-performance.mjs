@@ -111,6 +111,7 @@ function responseBodyVariableExpressions(text) {
 }
 
 function returnedResponseHelperArguments(text) {
+  const variableBodies = responseBodyVariableExpressions(text);
   const expressions = [];
   const returnCallPattern = /\breturn\s+([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\(/g;
   for (const match of text.matchAll(returnCallPattern)) {
@@ -121,7 +122,9 @@ function returnedResponseHelperArguments(text) {
     if (openParen === -1) continue;
     const closeParen = matchingParenIndex(text, openParen);
     if (closeParen <= openParen) continue;
-    expressions.push(...splitTopLevel(text.slice(openParen + 1, closeParen)));
+    for (const argument of splitTopLevel(text.slice(openParen + 1, closeParen))) {
+      expressions.push(variableBodies.get(argument) ?? argument);
+    }
   }
   return expressions;
 }
@@ -1166,6 +1169,16 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   });
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
+      'const body = { error: dbError.message }; return adminErrorResponse("bad", body, 500);',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'const body = dbError.message; return adminErrorResponse("bad", body, 500);',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
       'return someResponseHelper({ error: dbError.message });',
     );
   });
@@ -1251,7 +1264,7 @@ test("admin top-up UI removes reviewed rows without a full duplicate fetch", () 
     );
     assert.doesNotMatch(
       reviewSuccessPath,
-      /router\.refresh\(\)|\b(?:loadTopUps|fetchTopUps)\s*\(|fetch\(\s*["']\/api\/ynot\/admin\/top-ups["']/,
+      /router\.(?:refresh|reload)\(\)|(?:window\.)?location\.reload\(\)|\b(?:loadTopUps|fetchTopUps)\s*\(|fetch\(\s*["']\/api\/ynot\/admin\/top-ups["']/,
     );
   }
 });
