@@ -39,7 +39,7 @@ function assertRawErrorMessageIsNotReturned(route) {
 const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".ts", ".tsx"]);
 const ADMIN_UI_PATHS = ["src/features/ynot", "src/app/admin"];
 const TOP_UP_REVIEW_RELOAD_OR_REFETCH_RE =
-  /router\.(?:refresh|reload)\(\)|(?:window\.)?location\.reload\(\)|\b(?:loadTopUps|fetchTopUps)\s*\(|fetch\(\s*["']\/api\/ynot\/admin\/top-ups["']/;
+  /router\.(?:refresh|reload)\(\)|(?:window\.)?location\.reload\(\)|\b(?:loadTopUps|fetchTopUps)\s*\(|\b(?:fetch|requestJson|postJson|patchJson|putJson)\(\s*["']\/api\/ynot\/admin\/top-ups["']/;
 
 function sourceExtension(path) {
   const match = path.match(/\.[^.]+$/);
@@ -108,6 +108,14 @@ function responseBodyVariableExpressions(text) {
     const statementEnd = topLevelStatementEnd(text, match.index ?? 0);
     if (statementEnd > valueStart) {
       expressions.set(name, text.slice(valueStart, statementEnd).trim());
+    }
+  }
+  for (const match of text.matchAll(
+    /\b(?:const|let)\s*\{([\s\S]*?)\}\s*=\s*([A-Za-z_$][\w$]*)\s*;/g,
+  )) {
+    for (const field of splitTopLevel(match[1])) {
+      const fieldMatch = /^\s*message(?:\s*:\s*([A-Za-z_$][\w$]*))?\s*$/.exec(field);
+      if (fieldMatch) expressions.set(fieldMatch[1] ?? "message", `${match[2]}.message`);
     }
   }
   return expressions;
@@ -905,7 +913,7 @@ function publicObjectFor(publicTopUp, marker) {
 
 function componentBlockAround(text, markerIndex) {
   const componentBoundary =
-    /^((?:export\s+)?(?:function|class)\s+[A-Z][\w$]*|(?:export\s+)?const\s+[A-Z][\w$]*)/gm;
+    /^((?:export\s+(?:default\s+)?)?(?:async\s+)?function\s+[A-Z][\w$]*|(?:export\s+)?class\s+[A-Z][\w$]*|(?:export\s+)?const\s+[A-Z][\w$]*)/gm;
   let start = 0;
   let match;
   while ((match = componentBoundary.exec(text)) && match.index <= markerIndex) {
@@ -951,7 +959,9 @@ function adminApiCalls(path) {
     `\\b(fetch|requestJson|postJson)\\s*\\(\\s*["']${escapedPath}["']`,
     "g",
   );
-  return sourceFiles(ADMIN_UI_PATHS).flatMap((file) => {
+  const files = sourceFiles(ADMIN_UI_PATHS);
+  const sourceContext = files.map((file) => file.text).join("\n");
+  return files.flatMap((file) => {
     const calls = [];
     for (const match of file.text.matchAll(callPattern)) {
       const callIndex = match.index ?? 0;
@@ -972,6 +982,7 @@ function adminApiCalls(path) {
         callBody,
         componentBlock,
         fileText: file.text,
+        sourceContext,
         successPath,
         isDelete: callHasMethod(match[1], callBody, "DELETE"),
         isPatch: callHasMethod(match[1], callBody, "PATCH"),
@@ -1004,22 +1015,26 @@ function callIsSaveMutation(callee, callBody) {
   return ["POST", "PATCH", "PUT"].some((method) => callHasMethod(callee, callBody, method));
 }
 
-function assertTopUpReviewSuccessUsesReviewedResult(successPath, adminUiSource) {
+function assertTopUpReviewSuccessUsesReviewedResult(successPath, componentBlock, adminUiSource) {
   const returnedNames = returnedReviewResultNames(successPath);
   assert.ok(
     returnedNames.length > 0,
     "review success path must extract a returned payload result or reviewed top-up",
   );
-  const onReviewedUsesReviewedResult = callBodies(successPath, /\bonReviewed\s*/g).some((body) =>
-    returnedNames.some((name) => returnedNamePattern(name).test(body)),
-  );
+  const reviewCallbackNames = reviewCallbackNamesUsedWithReturnedResult(successPath, returnedNames);
+  const onReviewedUsesReviewedResult = reviewCallbackNames.length > 0;
   const setTopUpsUsesReviewedResult = callBodies(successPath, /\bsetTopUps\s*/g).some(
     (body) =>
       returnedNames.some((name) => returnedNamePattern(name).test(body)) &&
       /\b(?:filter|map|=>)\b/.test(body),
   );
   let callbackUsesReturnedArgument = false;
-  for (const block of reviewCallbackBlocks(adminUiSource)) {
+  const callbackBlocks = reviewCallbackBlocksForMatchedMutation(
+    componentBlock,
+    adminUiSource,
+    reviewCallbackNames,
+  );
+  for (const block of callbackBlocks) {
     const paramName = callbackParameterName(block);
     const usesReturnedArgument =
       paramName &&
@@ -1044,11 +1059,93 @@ function assertNoTopUpReviewReloadOrRefetch(block) {
   assert.doesNotMatch(block, TOP_UP_REVIEW_RELOAD_OR_REFETCH_RE);
 }
 
-function reviewCallbackBlocks(successPath) {
+function reviewCallbackNamesUsedWithReturnedResult(successPath, returnedNames) {
+  const names = new Set();
+  for (const match of successPath.matchAll(/\b([A-Za-z_$][\w$]*)\s*\(/g)) {
+    const callbackName = match[1];
+    if (["setTopUps", "fetch", "requestJson", "postJson", "Response", "JSON"].includes(callbackName)) {
+      continue;
+    }
+    const openParen = successPath.indexOf("(", match.index ?? 0);
+    const closeParen = matchingParenIndex(successPath, openParen);
+    if (closeParen <= openParen) continue;
+    const body = successPath.slice(openParen + 1, closeParen);
+    if (returnedNames.some((name) => returnedNamePattern(name).test(body))) {
+      names.add(callbackName);
+    }
+  }
+  return [...names];
+}
+
+function reviewCallbackBlocksForMatchedMutation(componentBlock, sourceText, callbackNames) {
   const blocks = [];
+  const name = componentName(componentBlock);
+  for (const callbackName of callbackNames) {
+    blocks.push(...reviewCallbackBlocks(componentBlock, [callbackName]));
+    if (!name) continue;
+    for (const tag of jsxOpeningTags(sourceText, name)) {
+      const propPattern = new RegExp(
+        `\\b${escapeRegExp(callbackName)}\\s*=\\s*\\{\\s*([A-Za-z_$][\\w$]*)\\s*\\}`,
+      );
+      const propMatch = propPattern.exec(tag.text);
+      if (!propMatch) continue;
+      blocks.push(...reviewCallbackBlocks(componentBlockAround(sourceText, tag.index), [propMatch[1]]));
+    }
+  }
+  return blocks;
+}
+
+function componentName(componentBlock) {
+  const match =
+    /\b(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s+([A-Z][\w$]*)\s*\(/.exec(componentBlock) ??
+    /\b(?:export\s+)?const\s+([A-Z][\w$]*)\b/.exec(componentBlock) ??
+    /\b(?:export\s+)?class\s+([A-Z][\w$]*)\b/.exec(componentBlock);
+  return match?.[1] ?? "";
+}
+
+function jsxOpeningTags(sourceText, componentNameValue) {
+  const tags = [];
+  const pattern = new RegExp(`<${escapeRegExp(componentNameValue)}\\b`, "g");
+  for (const match of sourceText.matchAll(pattern)) {
+    const start = match.index ?? 0;
+    const end = jsxOpeningTagEnd(sourceText, start);
+    if (end > start) {
+      tags.push({
+        index: start,
+        text: sourceText.slice(start, end + 1),
+      });
+    }
+  }
+  return tags;
+}
+
+function jsxOpeningTagEnd(sourceText, start) {
+  let braceDepth = 0;
+  let stringQuote = "";
+  for (let index = start; index < sourceText.length; index += 1) {
+    const char = sourceText[index];
+    if (stringQuote) {
+      if (char === stringQuote && sourceText[index - 1] !== "\\") stringQuote = "";
+      continue;
+    }
+    if (char === "\"" || char === "'" || char === "`") {
+      stringQuote = char;
+      continue;
+    }
+    if (char === "{") braceDepth += 1;
+    if (char === "}") braceDepth -= 1;
+    if (char === ">" && braceDepth === 0) return index;
+  }
+  return -1;
+}
+
+function reviewCallbackBlocks(successPath, names = ["handleReviewed", "onReviewed"]) {
+  const blocks = [];
+  if (names.length === 0) return blocks;
+  const namePattern = names.map(escapeRegExp).join("|");
   const patterns = [
-    /\b(?:const|let)\s+(?:handleReviewed|onReviewed)\s*=\s*(?:\([^)]*\)|\w+)\s*=>/g,
-    /\bfunction\s+(?:handleReviewed|onReviewed)\s*\([^)]*\)\s*\{/g,
+    new RegExp(`\\b(?:const|let)\\s+(?:${namePattern})\\s*=\\s*(?:\\([^)]*\\)|\\w+)\\s*=>`, "g"),
+    new RegExp(`\\bfunction\\s+(?:${namePattern})\\s*\\([^)]*\\)\\s*\\{`, "g"),
   ];
   for (const pattern of patterns) {
     for (const match of successPath.matchAll(pattern)) {
@@ -1063,10 +1160,10 @@ function reviewCallbackBlocks(successPath) {
 }
 
 function callbackParameterName(block) {
-  const functionMatch = /\bfunction\s+(?:handleReviewed|onReviewed)\s*\(\s*(\w+)/.exec(block);
+  const functionMatch = /\bfunction\s+\w+\s*\(\s*(\w+)/.exec(block);
   if (functionMatch) return functionMatch[1];
   const arrowMatch =
-    /\b(?:const|let)\s+(?:handleReviewed|onReviewed)\s*=\s*(?:\(\s*(\w+)|(\w+))/.exec(block);
+    /\b(?:const|let)\s+\w+\s*=\s*(?:\(\s*(\w+)|(\w+))/.exec(block);
   return arrowMatch?.[1] ?? arrowMatch?.[2] ?? "";
 }
 
@@ -1251,6 +1348,21 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   });
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
+      'const { message: msg } = error; return Response.json({ error: msg }, { status: 500 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'const { message: msg } = error; return Response.json({ errors: [msg] }, { status: 500 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'const { message } = error; return Response.json({ errors: [message] }, { status: 500 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
       'return Response.json({ error: { message: dbError.message } }, { status: 400 });',
     );
   });
@@ -1389,7 +1501,8 @@ test("admin top-up UI removes reviewed rows without a full duplicate fetch", () 
     const reviewSuccessPath = successfulResponsePath(reviewMutationCall.successPath);
     assertTopUpReviewSuccessUsesReviewedResult(
       reviewSuccessPath,
-      reviewMutationCall.fileText,
+      reviewMutationCall.componentBlock,
+      reviewMutationCall.sourceContext,
     );
     assertNoTopUpReviewReloadOrRefetch(reviewSuccessPath);
   }
