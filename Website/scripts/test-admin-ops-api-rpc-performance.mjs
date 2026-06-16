@@ -40,6 +40,14 @@ const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".ts", ".tsx"]);
 const ADMIN_UI_PATHS = ["src/features/ynot", "src/app/admin"];
 const TOP_UP_REVIEW_RELOAD_OR_REFETCH_RE =
   /router\.(?:refresh|reload)\(\)|(?:window\.)?location\.reload\(\)|\b(?:loadTopUps|fetchTopUps)\s*\(|\b(?:fetch|requestJson|postJson|patchJson|putJson)\(\s*["']\/api\/ynot\/admin\/top-ups["']/;
+const TOP_UP_REVIEW_CALLBACK_RELOAD_OR_REFETCH_RE =
+  /router\.(?:refresh|reload)\(\)|(?:window\.)?location\.reload\(\)|\b(?:loadTopUps|fetchTopUps)\s*\(|\b(?:fetch|requestJson|postJson|patchJson|putJson|deleteJson)\s*\(/;
+const SAFE_RAW_MESSAGE_MAPPERS = new Set([
+  "adminShippingErrorMessage",
+  "mapError",
+  "safeMessage",
+  "topUpReviewErrorMessage",
+]);
 
 function sourceExtension(path) {
   const match = path.match(/\.[^.]+$/);
@@ -128,7 +136,7 @@ function returnedResponseHelperArguments(text) {
   for (const match of text.matchAll(returnCallPattern)) {
     const callee = match[1];
     if (callee === "Response.json") continue;
-    if (!/response/i.test(callee)) continue;
+    if (isSafeRawMessageMapper(callee)) continue;
     const openParen = text.indexOf("(", (match.index ?? 0) + match[0].length - 1);
     if (openParen === -1) continue;
     const closeParen = matchingParenIndex(text, openParen);
@@ -148,6 +156,12 @@ function hasRawMessageValue(expression, variables = new Map(), seen = new Set())
     return hasRawMessageValue(variables.get(trimmed), variables, seen);
   }
   if (isDirectMessageMemberExpression(trimmed, 0)) return true;
+  const callArguments = genericCallArguments(trimmed);
+  if (callArguments) {
+    return callArguments.some((argument) =>
+      hasRawMessageValue(argument, variables, new Set(seen)),
+    );
+  }
   const branchExpressions = topLevelBranchExpressions(trimmed);
   if (branchExpressions.length > 0) {
     return branchExpressions.some((branch) =>
@@ -178,6 +192,21 @@ function hasRawMessageValue(expression, variables = new Map(), seen = new Set())
     );
   }
   return false;
+}
+
+function genericCallArguments(expression) {
+  const match = /^([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\(/.exec(expression);
+  if (!match) return null;
+  if (isSafeRawMessageMapper(match[1])) return [];
+  const openParen = expression.indexOf("(", match[0].length - 1);
+  if (openParen === -1) return null;
+  const closeParen = matchingParenIndex(expression, openParen);
+  if (closeParen !== expression.length - 1) return null;
+  return splitTopLevel(expression.slice(openParen + 1, closeParen));
+}
+
+function isSafeRawMessageMapper(callee) {
+  return SAFE_RAW_MESSAGE_MAPPERS.has(callee.split(".").at(-1) ?? callee);
 }
 
 function topLevelBranchExpressions(expression) {
@@ -899,36 +928,34 @@ function assertShippingRequestIdValidatedBeforeRpc(patchRoute) {
 
 function assertPublicTopUpDoesNotReExposePrivateFields(publicTopUp) {
   const privateFields = ["id", "profileId", "adminNote", "providerReference", "rawPayload"];
-  const lastDeleteIndex = Math.max(
-    ...privateFields.map((field) => publicTopUp.indexOf(`delete publicFields.${field}`)),
-  );
-  assert.ok(lastDeleteIndex > -1, "publicTopUp must delete private top-level fields before return");
-  const afterRedaction = publicTopUp.slice(lastDeleteIndex);
-  const returnedObject = returnedObjectBody(afterRedaction);
-  const topLevelEntries = splitTopLevel(returnedObject).map((entry) => entry.trim()).filter(Boolean);
   for (const privateField of privateFields) {
+    const deleteIndex = publicTopUp.indexOf(`delete publicFields.${privateField}`);
+    assert.ok(deleteIndex > -1, `publicTopUp must delete ${privateField} before return`);
+    const afterFieldRedaction = publicTopUp.slice(deleteIndex);
+    const returnedObject = returnedObjectBody(afterFieldRedaction);
+    const topLevelEntries = splitTopLevel(returnedObject).map((entry) => entry.trim()).filter(Boolean);
     assert.doesNotMatch(
       returnedObject,
       new RegExp(`\\b${privateField}\\s*:`),
       `publicTopUp must not explicitly re-expose ${privateField} after redaction`,
     );
     assert.ok(
-      !topLevelEntries.some((entry) => entry === privateField),
-      `publicTopUp must not re-expose ${privateField} as a shorthand key after redaction`,
+      !topLevelEntries.some((entry) => objectEntryKey(entry) === privateField),
+      `publicTopUp must not re-expose ${privateField} as a returned object key after redaction`,
     );
     assert.doesNotMatch(
-      afterRedaction,
+      afterFieldRedaction,
       new RegExp(`\\bpublicFields\\.${privateField}\\s*=`),
       `publicTopUp must not reassign ${privateField} after redaction`,
     );
-  }
-  for (const entry of topLevelEntries) {
-    if (!entry.startsWith("...")) continue;
-    assert.match(
-      entry,
-      /^\.\.\.publicFields$/,
-      "publicTopUp must not spread private/topUp objects after redaction",
-    );
+    for (const entry of topLevelEntries) {
+      if (!entry.startsWith("...")) continue;
+      assert.match(
+        entry,
+        /^\.\.\.publicFields$/,
+        "publicTopUp must not spread private/topUp objects after redaction",
+      );
+    }
   }
 }
 
@@ -1193,7 +1220,7 @@ function assertTopUpReviewSuccessUsesReviewedResult(successPath, componentBlock,
     reviewCallbackNames,
   );
   for (const block of callbackBlocks) {
-    assertNoTopUpReviewReloadOrRefetch(block);
+    assertNoTopUpReviewCallbackReloadOrRefetch(block);
     const paramName = callbackParameterName(block);
     const usesReturnedArgument =
       paramName &&
@@ -1212,6 +1239,10 @@ function assertTopUpReviewSuccessUsesReviewedResult(successPath, componentBlock,
 
 function assertNoTopUpReviewReloadOrRefetch(block) {
   assert.doesNotMatch(block, TOP_UP_REVIEW_RELOAD_OR_REFETCH_RE);
+}
+
+function assertNoTopUpReviewCallbackReloadOrRefetch(block) {
+  assert.doesNotMatch(block, TOP_UP_REVIEW_CALLBACK_RELOAD_OR_REFETCH_RE);
 }
 
 function topUpStateUpdateUsesReturnedIdentity(body, returnedNames) {
@@ -1508,6 +1539,16 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   });
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
+      'return jsonError(error.message);',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return fail({ error: error.message });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
       'return Response.json({ ok: false, message: dbError.message }, { status: 400 });',
     );
   });
@@ -1544,6 +1585,16 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
       'return Response.json({ error: error instanceof Error ? error.message : "Failed" }, { status: 400 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return Response.json({ error: String(error.message) }, { status: 400 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return Response.json({ error: leak(error.message) }, { status: 400 });',
     );
   });
   assert.throws(() => {
