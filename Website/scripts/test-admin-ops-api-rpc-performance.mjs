@@ -1799,6 +1799,31 @@ test("admin top-up UI removes reviewed rows without a full duplicate fetch", () 
   }
 });
 
+test("admin top-up UI keeps reviewed status filters available", () => {
+  const consoleSource = source("src/features/ynot/admin/AdminTopUpConsole.tsx");
+  const pageSource = source("src/app/admin/top-ups/page.tsx");
+  for (const status of ["approved", "rejected"]) {
+    assert.match(
+      consoleSource,
+      new RegExp(`\\|\\s*["']${status}["']`),
+      `TopUpFilter must include ${status}`,
+    );
+    assert.match(
+      consoleSource,
+      new RegExp(`\\{\\s*key:\\s*["']${status}["']`),
+      `topUpFilters must expose ${status}`,
+    );
+    assert.match(
+      pageSource,
+      new RegExp(`["']${status}["']`),
+      `topUpFilterKeys must accept ${status}`,
+    );
+  }
+  assert.match(consoleSource, /topUp\.status === "approved"/);
+  assert.match(consoleSource, /topUp\.status === "rejected"/);
+  assert.match(consoleSource, /topUp\.status === activeFilter/);
+});
+
 test("settings admin screen updates payment method state from the save payload", () => {
   const paymentSaveCalls = saveMutationCalls("payment-methods");
   assert.ok(paymentSaveCalls.length > 0, "payment-method save success paths must exist");

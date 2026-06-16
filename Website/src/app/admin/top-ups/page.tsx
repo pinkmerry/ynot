@@ -15,6 +15,8 @@ const topUpFilterKeys: TopUpFilter[] = [
   "mismatch",
   "duplicate",
   "provider_error",
+  "rejected",
+  "approved",
 ];
 
 function normalizeTopUpFilter(value: string | undefined): TopUpFilter {

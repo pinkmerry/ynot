@@ -19,7 +19,9 @@ export type TopUpFilter =
   | "valid"
   | "mismatch"
   | "duplicate"
-  | "provider_error";
+  | "provider_error"
+  | "rejected"
+  | "approved";
 
 export const topUpFilters: { key: TopUpFilter; label: string }[] = [
   { key: "all", label: "All" },
@@ -28,6 +30,8 @@ export const topUpFilters: { key: TopUpFilter; label: string }[] = [
   { key: "mismatch", label: "Mismatch" },
   { key: "duplicate", label: "Duplicate" },
   { key: "provider_error", label: "Provider" },
+  { key: "rejected", label: "Rejected" },
+  { key: "approved", label: "Approved" },
 ];
 
 type ReviewedTopUp = {
@@ -91,6 +95,8 @@ export function AdminTopUpConsole({
     mismatch: mismatch.length,
     duplicate: duplicate.length,
     provider_error: providerError.length,
+    rejected: topUps.filter((topUp) => topUp.status === "rejected").length,
+    approved: approved.length,
   };
   const visibleTopUps = topUps.filter((topUp) => {
     if (activeFilter === "all") return isQueueTopUp(topUp);
@@ -115,6 +121,9 @@ export function AdminTopUpConsole({
       return (
         isReviewableTopUp(topUp) && hasSlipStatus(topUp, ["provider_error"])
       );
+    }
+    if (activeFilter === "approved" || activeFilter === "rejected") {
+      return topUp.status === activeFilter;
     }
     return false;
   });
