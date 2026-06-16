@@ -290,7 +290,7 @@ function isDirectMessageMemberExpression(text, start) {
     cursor = skipBalancedClosingParens(text, cursor);
     if (memberName === "message") {
       const next = skipSpaces(text, cursor);
-      return sawMember && !["(", ".", "?"].includes(text[next] ?? "");
+      return sawMember && text[next] !== "(" && text[next] !== "." && !text.startsWith("?.", next);
     }
   }
   return false;
@@ -971,6 +971,7 @@ function adminApiCalls(path) {
         callee: match[1],
         callBody,
         componentBlock,
+        fileText: file.text,
         successPath,
         isDelete: callHasMethod(match[1], callBody, "DELETE"),
         isPatch: callHasMethod(match[1], callBody, "PATCH"),
@@ -1210,6 +1211,16 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   });
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
+      'return Response.json({ error: dbError.message ?? "fallback" }, { status: 400 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return Response.json({ error: error.message ? error.message : "fallback" }, { status: 400 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
       'return Response.json(error.message, { status: 500 });',
     );
   });
@@ -1378,7 +1389,7 @@ test("admin top-up UI removes reviewed rows without a full duplicate fetch", () 
     const reviewSuccessPath = successfulResponsePath(reviewMutationCall.successPath);
     assertTopUpReviewSuccessUsesReviewedResult(
       reviewSuccessPath,
-      reviewMutationCall.componentBlock,
+      reviewMutationCall.fileText,
     );
     assertNoTopUpReviewReloadOrRefetch(reviewSuccessPath);
   }
@@ -1395,7 +1406,7 @@ test("settings admin screen updates payment method state from the save payload",
     assertPayloadFieldDrivesMutation(
       paymentSuccessPath,
       "paymentMethod",
-      String.raw`(?:setMethodOptions|set[A-Za-z]*Payment[A-Za-z]*Methods)`,
+      String.raw`(?:setMethodOptions|set[A-Za-z]*Payment[A-Za-z]*Methods|onSaved\?\.|onPaymentMethodSaved\?\.)`,
     );
   }
 });
