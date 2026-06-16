@@ -295,7 +295,7 @@ checkText(
 const collectionConvertPanelSource = sliceBetween(
   "src/features/ynot/client.tsx",
   "export function CollectionConvertPanel",
-  "export function AdminTopUpActions",
+  "export function AdminPaymentMethodForm",
   "customer collection convert panel source slice",
 );
 checkText(

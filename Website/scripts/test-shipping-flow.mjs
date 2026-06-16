@@ -451,7 +451,7 @@ test("shipping audit history uses friendly pickup status labels", () => {
 });
 
 test("customer shipping panel requires a complete address and confirms reward lock before submit", () => {
-  const convertPanelBlock = between(clientSource, "export function CollectionConvertPanel", "export function AdminTopUpActions");
+  const convertPanelBlock = between(clientSource, "export function CollectionConvertPanel", "export function AdminPaymentMethodForm");
 
   assert.match(clientSource, /from "\.\/address-utils"/);
   assert.match(convertPanelBlock, /isCompleteShippingAddress\(selectedAddress\)/);
