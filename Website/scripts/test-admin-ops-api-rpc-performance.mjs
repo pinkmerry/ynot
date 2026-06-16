@@ -710,23 +710,32 @@ function assertShippingRequestIdValidatedBeforeRpc(patchRoute) {
   const rpcIndex = rpcCallIndex(patchRoute, "update_shipping_request_status");
   assert.ok(rpcIndex > -1, 'shipping route must call supabase.rpc("update_shipping_request_status", ...)');
   const beforeRpc = patchRoute.slice(0, rpcIndex);
+  const validatorExpression =
+    /(?:\b(?:UUID_RE|[A-Za-z_$][\w$]*(?:Uuid|UUID|uuid)[\w$]*)\.test\(\s*shippingRequestId\s*\)|\b(?:isUuid|isUUID|validateUuid|validateUUID|isValidUuid|isValidUUID)\(\s*shippingRequestId\s*\))/;
   const directValidation =
-    /if\s*\([\s\S]{0,240}shippingRequestId[\s\S]{0,240}(?:\.test\s*\(|UUID|uuid|Uuid|validate|valid|is[A-Z][A-Za-z]*Id)[\s\S]{0,240}\)[\s\S]{0,240}\breturn\b/.test(
-      beforeRpc,
-    );
+    new RegExp(`if\\s*\\([\\s\\S]{0,160}${validatorExpression.source}[\\s\\S]{0,160}\\)[\\s\\S]{0,200}\\breturn\\b`).test(beforeRpc);
   const assignedValidation = (() => {
-    const match = /\b(?:const|let)\s+(\w+)\s*=\s*[\s\S]{0,200}(?:UUID|uuid|Uuid|validate|parse|valid|is[A-Z][A-Za-z]*Id)[\s\S]{0,160}shippingRequestId/.exec(
-      beforeRpc,
-    );
-    if (!match) return false;
-    const validationName = match[1];
-    return new RegExp(
-      `if\\s*\\([\\s\\S]{0,120}${escapeRegExp(validationName)}[\\s\\S]{0,120}\\)[\\s\\S]{0,180}\\breturn\\b`,
-    ).test(beforeRpc.slice((match.index ?? 0) + match[0].length));
+    for (const match of beforeRpc.matchAll(/\b(?:const|let)\s+(\w+)\b[^=;]*=/g)) {
+      const valueStart = (match.index ?? 0) + match[0].length;
+      const statementEnd = topLevelStatementEnd(beforeRpc, match.index ?? 0);
+      if (statementEnd <= valueStart) continue;
+      const initializer = beforeRpc.slice(valueStart, statementEnd);
+      if (!validatorExpression.test(initializer)) continue;
+      const validationName = match[1];
+      const afterAssignment = beforeRpc.slice(statementEnd + 1);
+      if (
+        new RegExp(
+          `if\\s*\\([\\s\\S]{0,120}${escapeRegExp(validationName)}[\\s\\S]{0,120}\\)[\\s\\S]{0,180}\\breturn\\b`,
+        ).test(afterAssignment)
+      ) {
+        return true;
+      }
+    }
+    return false;
   })();
   assert.ok(
     directValidation || assignedValidation,
-    "shippingRequestId must be validated by a UUID helper or regex before the RPC",
+    "shippingRequestId must be validated by a concrete UUID helper or regex before the RPC",
   );
 }
 
@@ -1296,7 +1305,7 @@ test("category admin screen updates parent category state from the save payload"
     assertPayloadFieldDrivesMutation(
       categorySuccessPath,
       "category",
-      String.raw`(?:onSaved\?\.|setCategories)`,
+      String.raw`(?:onSaved\?\.|set[A-Za-z]*Categories)`,
     );
   }
 });
