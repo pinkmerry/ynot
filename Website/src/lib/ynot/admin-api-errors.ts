@@ -89,6 +89,51 @@ export function mappedAdminErrorResponse(
   );
 }
 
+export function safeMappedAdminErrorResponse(
+  error: unknown,
+  knownErrors: KnownErrorMap,
+  fallback: {
+    code: string;
+    error: string;
+    status?: number;
+    extra?: Record<string, unknown>;
+  },
+) {
+  const text = adminErrorText(error);
+  const match = Object.entries(knownErrors).find(([symbol]) =>
+    text.includes(symbol),
+  );
+
+  if (match) {
+    const [, mapped] = match;
+    return adminErrorResponse(mapped.code, mapped.error, mapped.status ?? 409);
+  }
+
+  return adminErrorResponse(
+    fallback.code,
+    fallback.error,
+    fallback.status ?? 409,
+    {
+      extra: fallback.extra,
+    },
+  );
+}
+
+export function adminRouteErrorLog(
+  scope: string,
+  error: unknown,
+  extra: Record<string, unknown> = {},
+) {
+  const { code, detail, hint, message } = errorParts(error);
+  console.warn(scope, {
+    ...extra,
+    code,
+    message,
+    detail,
+    hint,
+  });
+}
+
 export const cardStockErrorMap: KnownErrorMap = {
   card_required: {
     code: "CARD_STOCK_CARD_REQUIRED",
