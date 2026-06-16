@@ -45,6 +45,7 @@
     "test:campaign-detail-privacy": "node --test scripts/test-campaign-detail-privacy.mjs",
     "test:stock-sku-usage": "node --test scripts/test-stock-sku-usage.mjs",
     "test:drop-unused-tables-safety": "node --test scripts/test-drop-unused-tables-safety.mjs",
+    "test:open-replay-reveal": "node --test scripts/test-open-replay-reveal-invariants.mjs",
     "test:stock-sku-presentation": "node --test scripts/test-stock-sku-presentation.mjs",
     "test:stock-subsku-conversion": "node --test scripts/test-stock-subsku-conversion.mjs",
     "test:stock-subsku-conversion-sql": "node --test scripts/test-stock-subsku-conversion-sql.mjs",
