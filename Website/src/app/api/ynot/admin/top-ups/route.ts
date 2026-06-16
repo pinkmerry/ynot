@@ -2,9 +2,11 @@ import { getTopUps } from "@/features/ynot/data";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { emitSecurityAlert } from "@/lib/security/alerts";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
+import { adminErrorResponse } from "@/lib/ynot/admin-api-errors";
 import {
   emitTopUpApprovalRiskAlerts,
   manualApprovableSlipStatuses,
@@ -14,6 +16,15 @@ export const dynamic = "force-dynamic";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type TopUpStatus = Database["public"]["Tables"]["top_up_requests"]["Row"]["status"];
+
+const TOP_UP_STATUS_VALUES: ReadonlySet<TopUpStatus> = new Set([
+  "pending_slip",
+  "pending_review",
+  "approved",
+  "rejected",
+] as const);
 
 function topUpReviewErrorMessage(message?: string) {
   if (!message) return "Could not review this top-up request.";
@@ -89,11 +100,51 @@ async function approvalBlocker(
   return null;
 }
 
-export async function GET() {
-  if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+export async function GET(request: Request) {
+  if (!isSupabaseConfigured()) return Response.json({ topUps: [] });
   const admin = await resolveAdminSession();
-  if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
-  return Response.json({ topUps: await getTopUps(undefined, true) });
+  if (!admin) return adminErrorResponse("unauthorized", "Admin access required.", 401);
+
+  const rateLimit = await enforceRateLimit(
+    request,
+    "ynot:admin:top-ups:list",
+    { limit: 90, windowMs: 60_000 },
+    admin.profileId,
+  );
+  if (rateLimit) return rateLimit;
+
+  const url = new URL(request.url);
+  const limit = (() => {
+    const limitValue = Number(url.searchParams.get("limit") ?? "200");
+    return Number.isFinite(limitValue)
+      ? Math.max(1, Math.min(Math.trunc(limitValue), 500))
+      : 200;
+  })();
+  const statuses = Array.from(
+    new Set(
+      url.searchParams.getAll("status")
+        .flatMap((value) => value.split(","))
+        .map((value) => value.trim())
+        .filter(
+          (
+            value,
+          ): value is Database["public"]["Tables"]["top_up_requests"]["Row"]["status"] =>
+            TOP_UP_STATUS_VALUES.has(
+              value as Database["public"]["Tables"]["top_up_requests"]["Row"]["status"],
+            ),
+        ),
+    ),
+  );
+  const cursorCreatedAt =
+    url.searchParams.get("cursorCreatedAt")?.trim() || undefined;
+
+  const topUps = await getTopUps(undefined, true, {
+    includeSensitiveSlipDetails: true,
+    limit,
+    statuses,
+    cursorCreatedAt,
+  });
+  return Response.json({ topUps });
 }
 
 export async function PATCH(request: Request) {

@@ -2665,6 +2665,14 @@ function hideLegacyMainTransfer(methods: YnotPaymentMethod[]) {
 
 const PREVIEW_PROFILE_ID = "00000000-0000-0000-0000-000000000001";
 const PREVIEW_WALLET_BALANCE = 50_000;
+type TopUpStatus = Database["public"]["Tables"]["top_up_requests"]["Row"]["status"];
+
+type GetTopUpsOptions = {
+  includeSensitiveSlipDetails?: boolean;
+  limit?: number;
+  statuses?: readonly TopUpStatus[];
+  cursorCreatedAt?: string;
+};
 
 export async function getWallet(profileId?: string): Promise<YnotWallet> {
   if (!profileId || !isSupabaseConfigured())
@@ -2701,7 +2709,10 @@ export async function getWallet(profileId?: string): Promise<YnotWallet> {
 export async function getTopUps(
   profileId?: string,
   includeAll = false,
-  options: { includeSensitiveSlipDetails?: boolean; limit?: number } = {},
+  options: GetTopUpsOptions & {
+    statuses?: readonly TopUpStatus[];
+    cursorCreatedAt?: string;
+  } = {},
 ): Promise<YnotTopUp[]> {
   if ((!profileId && !includeAll) || !isSupabaseConfigured()) return [];
   const includeSensitiveSlipDetails =
@@ -2720,6 +2731,13 @@ export async function getTopUps(
       .select("*")
       .order("created_at", { ascending: false })
       .limit(safeLimit);
+    const statuses = Array.from(new Set(options.statuses ?? [])).filter(Boolean);
+    if (statuses.length > 0) {
+      query = query.in("status", statuses);
+    }
+    if (options.cursorCreatedAt) {
+      query = query.lt("created_at", options.cursorCreatedAt);
+    }
     if (profileId) query = query.eq("profile_id", profileId);
     const { data, error } = await query;
     if (error) throw error;
@@ -2835,10 +2853,15 @@ export function toTopUp(
 }
 
 export function publicTopUp(topUp: YnotTopUp): YnotTopUp {
-  const publicFields: YnotTopUp = { ...topUp };
+  const publicFields: YnotTopUp & {
+    providerReference?: unknown;
+    rawPayload?: unknown;
+  } = { ...topUp };
   delete publicFields.id;
   delete publicFields.profileId;
   delete publicFields.adminNote;
+  delete publicFields.providerReference;
+  delete publicFields.rawPayload;
   return {
     ...publicFields,
     paymentMethod: topUp.paymentMethod
@@ -2850,8 +2873,11 @@ export function publicTopUp(topUp: YnotTopUp): YnotTopUp {
     slipVerification: topUp.slipVerification
       ? {
           status: topUp.slipVerification.status,
-          verifiedAt: topUp.slipVerification.verifiedAt,
-          uploadedAt: topUp.slipVerification.uploadedAt,
+          amount: topUp.amountThb,
+          transferredAt: topUp.reviewedAt ?? topUp.createdAt,
+        } as YnotTopUp["slipVerification"] & {
+          amount: number;
+          transferredAt: string | null;
         }
       : null,
   };
