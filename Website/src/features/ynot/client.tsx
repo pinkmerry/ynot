@@ -1909,62 +1909,12 @@ export function CollectionConvertPanel({
   );
 }
 
-export function AdminTopUpActions({ topUpId }: { topUpId: string }) {
-  const [note, setNote] = useState("");
-  const [message, setMessage] = useState("");
-  const [isPending, startTransition] = useTransition();
-  function submit(action: "approve" | "reject") {
-    startTransition(async () => {
-      try {
-        const response = await fetch("/api/ynot/admin/top-ups", {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ topUpId, action, note }),
-        });
-        const payload = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(payload?.error ?? "Review failed.");
-        setMessage(`${action} complete.`);
-      } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Review failed.");
-      }
-    });
-  }
-  return (
-    <div className="mt-2 grid gap-2">
-      <input
-        className="h-10 rounded-xl border border-white/10 bg-black/25 px-3 text-xs"
-        placeholder="Admin note"
-        value={note}
-        onChange={(event) => setNote(event.target.value)}
-      />
-      <div className="flex gap-2">
-        <button
-          className="gold-button rounded-xl px-3 py-2 text-xs font-black"
-          disabled={isPending}
-          onClick={() => submit("approve")}
-          type="button"
-        >
-          Approve
-        </button>
-        <button
-          className="danger-button rounded-xl px-3 py-2 text-xs font-black"
-          disabled={isPending}
-          onClick={() => submit("reject")}
-          type="button"
-        >
-          Reject
-        </button>
-      </div>
-      {message && <p className="text-xs text-[var(--muted)]">{message}</p>}
-    </div>
-  );
-}
-
 export function AdminPaymentMethodForm({
   paymentMethods = [],
 }: {
   paymentMethods?: YnotPaymentMethod[];
 }) {
+  const [methodOptions, setMethodOptions] = useState(paymentMethods);
   const [code, setCode] = useState("bank-transfer");
   const [displayName, setDisplayName] = useState("Bank Transfer");
   const [type, setType] = useState<"bank_transfer" | "promptpay_qr">(
@@ -2038,7 +1988,7 @@ export function AdminPaymentMethodForm({
           setQrImagePath(uploaded.imageUrl);
           replaceQrImagePreviewUrl(uploaded.imageUrl);
         }
-        await postJson("/api/ynot/admin/payment-methods", {
+        const payload = await postJson("/api/ynot/admin/payment-methods", {
           code,
           displayName,
           type,
@@ -2051,6 +2001,20 @@ export function AdminPaymentMethodForm({
           instructions,
           isActive,
         });
+        const paymentMethod = payload.paymentMethod as
+          | YnotPaymentMethod
+          | undefined;
+        if (paymentMethod) {
+          setMethodOptions((current) => {
+            const existingIndex = current.findIndex(
+              (method) => method.id === paymentMethod.id,
+            );
+            if (existingIndex === -1) return [...current, paymentMethod];
+            return current.map((method, index) =>
+              index === existingIndex ? paymentMethod : method,
+            );
+          });
+        }
         setQrImageFile(null);
         setMessage("Payment method saved.");
       } catch (error) {
@@ -2088,9 +2052,9 @@ export function AdminPaymentMethodForm({
           PromptPay QR
         </button>
       </div>
-      {paymentMethods.length > 0 && (
+      {methodOptions.length > 0 && (
         <div className="mb-3 grid gap-2">
-          {paymentMethods.map((method) => (
+          {methodOptions.map((method) => (
             <button
               className="plain-button rounded-xl px-3 py-2 text-left text-xs font-black"
               key={method.id}
