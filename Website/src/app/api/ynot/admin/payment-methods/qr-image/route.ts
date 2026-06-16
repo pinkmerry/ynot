@@ -1,6 +1,8 @@
+import { requireAdminRoleResponse } from "@/lib/auth/admin-role-guard";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import {
   allowedSlipTypes,
@@ -9,6 +11,10 @@ import {
   requestExceedsUploadLimit,
   verifyImageMagicBytes,
 } from "@/lib/uploads/magic-bytes";
+import {
+  adminErrorResponse,
+  adminRouteErrorLog,
+} from "@/lib/ynot/admin-api-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -29,19 +35,19 @@ function safePathPart(value: unknown) {
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
-    return Response.json(
-      { error: "Supabase is not configured." },
-      { status: 503 },
-    );
+    return adminErrorResponse("supabase_not_configured", "Supabase is not configured.", 503);
   }
+
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
 
   const admin = await resolveAdminSession();
   if (!admin) {
-    return Response.json(
-      { error: "Admin access is required." },
-      { status: 403 },
-    );
+    return adminErrorResponse("admin_required", "Admin access is required.", 403);
   }
+
+  const roleFailure = requireAdminRoleResponse(admin, ["owner", "admin"]);
+  if (roleFailure) return roleFailure;
 
   const limited = await enforceRateLimit(
     request,
@@ -112,7 +118,11 @@ export async function POST(request: Request) {
     });
 
   if (uploadError) {
-    return Response.json({ error: uploadError.message }, { status: 500 });
+    adminRouteErrorLog("admin payment QR upload failed", uploadError, {
+      adminId: admin.adminId,
+      path,
+    });
+    return adminErrorResponse("qr_upload_failed", "Could not upload QR image.", 500);
   }
 
   const { data } = supabase.storage.from(bucketName).getPublicUrl(path);
