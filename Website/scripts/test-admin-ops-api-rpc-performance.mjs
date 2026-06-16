@@ -148,6 +148,12 @@ function hasRawMessageValue(expression, variables = new Map(), seen = new Set())
     return hasRawMessageValue(variables.get(trimmed), variables, seen);
   }
   if (isDirectMessageMemberExpression(trimmed, 0)) return true;
+  const branchExpressions = topLevelBranchExpressions(trimmed);
+  if (branchExpressions.length > 0) {
+    return branchExpressions.some((branch) =>
+      hasRawMessageValue(branch, variables, new Set(seen)),
+    );
+  }
   if (trimmed.startsWith("{")) {
     const closeBrace = matchingBraceIndex(trimmed, 0);
     if (closeBrace === -1) return false;
@@ -172,6 +178,117 @@ function hasRawMessageValue(expression, variables = new Map(), seen = new Set())
     );
   }
   return false;
+}
+
+function topLevelBranchExpressions(expression) {
+  const ternary = topLevelTernaryParts(expression);
+  if (ternary) return ternary;
+  for (const operator of ["??", "||", "&&"]) {
+    const parts = splitTopLevelOperator(expression, operator);
+    if (parts.length > 1) return parts;
+  }
+  return [];
+}
+
+function topLevelTernaryParts(expression) {
+  const questionIndex = topLevelOperatorIndex(expression, "?");
+  if (questionIndex === -1) return null;
+  const colonIndex = matchingTernaryColon(expression, questionIndex);
+  if (colonIndex === -1) return null;
+  return [
+    expression.slice(0, questionIndex).trim(),
+    expression.slice(questionIndex + 1, colonIndex).trim(),
+    expression.slice(colonIndex + 1).trim(),
+  ].filter(Boolean);
+}
+
+function splitTopLevelOperator(expression, operator) {
+  const parts = [];
+  let start = 0;
+  let index = 0;
+  while (index < expression.length) {
+    const operatorIndex = topLevelOperatorIndex(expression.slice(index), operator);
+    if (operatorIndex === -1) break;
+    const absoluteIndex = index + operatorIndex;
+    parts.push(expression.slice(start, absoluteIndex).trim());
+    index = absoluteIndex + operator.length;
+    start = index;
+  }
+  if (parts.length === 0) return [];
+  parts.push(expression.slice(start).trim());
+  return parts.filter(Boolean);
+}
+
+function topLevelOperatorIndex(text, operator) {
+  let braceDepth = 0;
+  let bracketDepth = 0;
+  let parenDepth = 0;
+  let stringQuote = "";
+  let escaped = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (stringQuote) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === stringQuote) {
+        stringQuote = "";
+      }
+      continue;
+    }
+    if (char === "\"" || char === "'" || char === "`") {
+      stringQuote = char;
+      continue;
+    }
+    if (char === "{") braceDepth += 1;
+    if (char === "}") braceDepth -= 1;
+    if (char === "[") bracketDepth += 1;
+    if (char === "]") bracketDepth -= 1;
+    if (char === "(") parenDepth += 1;
+    if (char === ")") parenDepth -= 1;
+    if (braceDepth !== 0 || bracketDepth !== 0 || parenDepth !== 0) continue;
+    if (text.startsWith(operator, index)) return index;
+  }
+  return -1;
+}
+
+function matchingTernaryColon(text, questionIndex) {
+  let braceDepth = 0;
+  let bracketDepth = 0;
+  let parenDepth = 0;
+  let nestedTernaries = 0;
+  let stringQuote = "";
+  let escaped = false;
+  for (let index = questionIndex + 1; index < text.length; index += 1) {
+    const char = text[index];
+    if (stringQuote) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === stringQuote) {
+        stringQuote = "";
+      }
+      continue;
+    }
+    if (char === "\"" || char === "'" || char === "`") {
+      stringQuote = char;
+      continue;
+    }
+    if (char === "{") braceDepth += 1;
+    if (char === "}") braceDepth -= 1;
+    if (char === "[") bracketDepth += 1;
+    if (char === "]") bracketDepth -= 1;
+    if (char === "(") parenDepth += 1;
+    if (char === ")") parenDepth -= 1;
+    if (braceDepth !== 0 || bracketDepth !== 0 || parenDepth !== 0) continue;
+    if (char === "?") nestedTernaries += 1;
+    if (char !== ":") continue;
+    if (nestedTernaries === 0) return index;
+    nestedTernaries -= 1;
+  }
+  return -1;
 }
 
 function objectEntryValues(objectBody) {
@@ -665,7 +782,7 @@ function topLevelObjectHasParsedFields(value, fieldNames) {
     return entries.some((entry) => {
       if (shorthandPattern.test(entry)) return true;
       const keyed = keyedPattern.exec(entry);
-      return keyed ? returnedNamePattern(fieldName).test(keyed[1]) : false;
+      return keyed ? stripOuterParens(keyed[1].trim()) === fieldName : false;
     });
   });
 }
@@ -1076,6 +1193,7 @@ function assertTopUpReviewSuccessUsesReviewedResult(successPath, componentBlock,
     reviewCallbackNames,
   );
   for (const block of callbackBlocks) {
+    assertNoTopUpReviewReloadOrRefetch(block);
     const paramName = callbackParameterName(block);
     const usesReturnedArgument =
       paramName &&
@@ -1083,9 +1201,7 @@ function assertTopUpReviewSuccessUsesReviewedResult(successPath, componentBlock,
         (body) => topUpStateUpdateUsesReturnedIdentity(body, [paramName]),
       );
     if (usesReturnedArgument) {
-      assertNoTopUpReviewReloadOrRefetch(block);
       callbackUsesReturnedArgument = true;
-      break;
     }
   }
   assert.ok(
@@ -1423,6 +1539,11 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
       'return Response.json({ error: error.message ? error.message : "fallback" }, { status: 400 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'return Response.json({ error: error instanceof Error ? error.message : "Failed" }, { status: 400 });',
     );
   });
   assert.throws(() => {
