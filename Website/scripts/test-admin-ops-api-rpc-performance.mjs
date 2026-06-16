@@ -152,11 +152,10 @@ function hasRawMessageValue(expression, variables = new Map(), seen = new Set())
     const closeBrace = matchingBraceIndex(trimmed, 0);
     if (closeBrace === -1) return false;
     const objectBody = trimmed.slice(1, closeBrace);
-    for (const valueStart of objectValueStarts(objectBody)) {
-      const valueEnd = endOfTopLevelValue(objectBody, valueStart);
+    for (const value of objectEntryValues(objectBody)) {
       if (
         hasRawMessageValue(
-          stripTrailingComma(objectBody.slice(valueStart, valueEnd)),
+          value,
           variables,
           new Set(seen),
         )
@@ -173,6 +172,18 @@ function hasRawMessageValue(expression, variables = new Map(), seen = new Set())
     );
   }
   return false;
+}
+
+function objectEntryValues(objectBody) {
+  return splitTopLevel(objectBody).flatMap((entry) => {
+    const trimmed = stripTrailingComma(entry);
+    if (!trimmed || trimmed.startsWith("...")) return [];
+    const colonIndex = nextTopLevelColon(trimmed, 0);
+    if (colonIndex === -1) {
+      return /^[A-Za-z_$][\w$]*$/.test(trimmed) ? [trimmed] : [];
+    }
+    return [stripTrailingComma(trimmed.slice(colonIndex + 1))];
+  });
 }
 
 function stripTrailingComma(value) {
@@ -776,11 +787,17 @@ function assertPublicTopUpDoesNotReExposePrivateFields(publicTopUp) {
   );
   assert.ok(lastDeleteIndex > -1, "publicTopUp must delete private top-level fields before return");
   const afterRedaction = publicTopUp.slice(lastDeleteIndex);
+  const returnedObject = returnedObjectBody(afterRedaction);
+  const topLevelEntries = splitTopLevel(returnedObject).map((entry) => entry.trim()).filter(Boolean);
   for (const privateField of privateFields) {
     assert.doesNotMatch(
-      afterRedaction,
+      returnedObject,
       new RegExp(`\\b${privateField}\\s*:`),
       `publicTopUp must not explicitly re-expose ${privateField} after redaction`,
+    );
+    assert.ok(
+      !topLevelEntries.some((entry) => entry === privateField),
+      `publicTopUp must not re-expose ${privateField} as a shorthand key after redaction`,
     );
     assert.doesNotMatch(
       afterRedaction,
@@ -788,6 +805,24 @@ function assertPublicTopUpDoesNotReExposePrivateFields(publicTopUp) {
       `publicTopUp must not reassign ${privateField} after redaction`,
     );
   }
+  for (const entry of topLevelEntries) {
+    if (!entry.startsWith("...")) continue;
+    assert.match(
+      entry,
+      /^\.\.\.publicFields$/,
+      "publicTopUp must not spread private/topUp objects after redaction",
+    );
+  }
+}
+
+function returnedObjectBody(text) {
+  const returnIndex = text.indexOf("return");
+  assert.ok(returnIndex > -1, "publicTopUp must return a public object after redaction");
+  const objectStart = text.indexOf("{", returnIndex);
+  assert.ok(objectStart > returnIndex, "publicTopUp return must be an object");
+  const objectEnd = matchingBraceIndex(text, objectStart);
+  assert.ok(objectEnd > objectStart, "publicTopUp returned object must close");
+  return text.slice(objectStart + 1, objectEnd);
 }
 
 function assertShippingRpcErrorMappedSafely(patchRoute) {
@@ -948,9 +983,12 @@ function indexAfterFailedResponseGuard(block, guardIndex) {
 }
 
 function saveMutationSuccessPaths(path) {
+  return saveMutationCalls(path).map((call) => call.successPath);
+}
+
+function saveMutationCalls(path) {
   return adminApiCalls(path)
-    .filter((call) => call.isSaveMutation)
-    .map((call) => call.successPath);
+    .filter((call) => call.isSaveMutation);
 }
 
 function adminApiCalls(path) {
@@ -974,6 +1012,7 @@ function adminApiCalls(path) {
       if (closeParen <= openParen) continue;
       const callBody = componentBlock.slice(openParen + 1, closeParen);
       const statementStart = componentBlock.lastIndexOf("\n", callInComponentIndex) + 1;
+      const statementEnd = topLevelStatementEnd(componentBlock, statementStart);
       const afterCall = componentBlock.slice(statementStart);
       const catchIndex = afterCall.search(/\n\s*\}\s*catch\s*\(/);
       const successPath = catchIndex > -1 ? afterCall.slice(0, catchIndex) : afterCall;
@@ -982,6 +1021,10 @@ function adminApiCalls(path) {
         callBody,
         componentBlock,
         fileText: file.text,
+        matchedStatement:
+          statementEnd > statementStart
+            ? componentBlock.slice(statementStart, statementEnd + 1)
+            : componentBlock.slice(statementStart, closeParen + 1),
         sourceContext,
         successPath,
         isDelete: callHasMethod(match[1], callBody, "DELETE"),
@@ -1024,9 +1067,7 @@ function assertTopUpReviewSuccessUsesReviewedResult(successPath, componentBlock,
   const reviewCallbackNames = reviewCallbackNamesUsedWithReturnedResult(successPath, returnedNames);
   const onReviewedUsesReviewedResult = reviewCallbackNames.length > 0;
   const setTopUpsUsesReviewedResult = callBodies(successPath, /\bsetTopUps\s*/g).some(
-    (body) =>
-      returnedNames.some((name) => returnedNamePattern(name).test(body)) &&
-      /\b(?:filter|map|=>)\b/.test(body),
+    (body) => topUpStateUpdateUsesReturnedIdentity(body, returnedNames),
   );
   let callbackUsesReturnedArgument = false;
   const callbackBlocks = reviewCallbackBlocksForMatchedMutation(
@@ -1039,9 +1080,7 @@ function assertTopUpReviewSuccessUsesReviewedResult(successPath, componentBlock,
     const usesReturnedArgument =
       paramName &&
       callBodies(block, /\bsetTopUps\s*/g).some(
-        (body) =>
-          returnedNamePattern(paramName).test(body) &&
-          /\b(?:filter|map|=>)\b/.test(body),
+        (body) => topUpStateUpdateUsesReturnedIdentity(body, [paramName]),
       );
     if (usesReturnedArgument) {
       assertNoTopUpReviewReloadOrRefetch(block);
@@ -1057,6 +1096,20 @@ function assertTopUpReviewSuccessUsesReviewedResult(successPath, componentBlock,
 
 function assertNoTopUpReviewReloadOrRefetch(block) {
   assert.doesNotMatch(block, TOP_UP_REVIEW_RELOAD_OR_REFETCH_RE);
+}
+
+function topUpStateUpdateUsesReturnedIdentity(body, returnedNames) {
+  if (!/\b(?:filter|map|=>)\b/.test(body)) return false;
+  return returnedNames.some((name) => {
+    if (!returnedNamePattern(name).test(body)) return false;
+    const returnedId = `${escapeRegExp(name)}\\??\\.id`;
+    const localId = `(?:[A-Za-z_$][\\w$]*\\.id|\\bid\\b)`;
+    return (
+      new RegExp(`${localId}\\s*(?:={2,3}|!==?)\\s*${returnedId}`).test(body) ||
+      new RegExp(`${returnedId}\\s*(?:={2,3}|!==?)\\s*${localId}`).test(body) ||
+      new RegExp(`${localId}\\s*(?:={2,3}|!==?)\\s*${escapeRegExp(name)}\\??\\[\\s*["']id["']\\s*\\]`).test(body)
+    );
+  });
 }
 
 function reviewCallbackNamesUsedWithReturnedResult(successPath, returnedNames) {
@@ -1215,40 +1268,96 @@ function returnedNamePattern(name) {
   return new RegExp(`(^|[^\\w$])${escapeRegExp(name)}([^\\w$]|$)`);
 }
 
-function payloadFieldNames(successPath, fieldName) {
+function payloadFieldNames(successPath, fieldName, payloadNames = ["payload"]) {
   const names = new Set();
-  for (const match of successPath.matchAll(
-    new RegExp(`\\b(?:const|let)\\s+(\\w+)\\s*=\\s*payload\\.${fieldName}\\b`, "g"),
-  )) {
-    names.add(match[1]);
-  }
-  for (const match of successPath.matchAll(
-    new RegExp(`\\b(?:const|let)\\s*\\{([\\s\\S]*?)\\}\\s*=\\s*payload\\b`, "g"),
-  )) {
-    const fields = match[1];
-    for (const fieldMatch of fields.matchAll(
-      new RegExp(`\\b${fieldName}\\b(?:\\s*:\\s*(\\w+))?`, "g"),
+  for (const payloadName of payloadNames) {
+    for (const match of successPath.matchAll(
+      new RegExp(`\\b(?:const|let)\\s+(\\w+)\\s*=\\s*${escapeRegExp(payloadName)}\\.${fieldName}\\b`, "g"),
     )) {
-      names.add(fieldMatch[1] ?? fieldName);
+      names.add(match[1]);
+    }
+    for (const match of successPath.matchAll(
+      new RegExp(`\\b(?:const|let)\\s*\\{([\\s\\S]*?)\\}\\s*=\\s*${escapeRegExp(payloadName)}\\b`, "g"),
+    )) {
+      const fields = match[1];
+      for (const fieldMatch of fields.matchAll(
+        new RegExp(`\\b${fieldName}\\b(?:\\s*:\\s*(\\w+))?`, "g"),
+      )) {
+        names.add(fieldMatch[1] ?? fieldName);
+      }
     }
   }
   return [...names];
 }
 
-function assertPayloadFieldDrivesMutation(successPath, fieldName, mutationPattern) {
-  const names = payloadFieldNames(successPath, fieldName);
-  const mutationBodies = callBodies(successPath, new RegExp(`\\b${mutationPattern}\\s*`, "gi"));
+function assertPayloadFieldDrivesMutation(call, fieldName, mutationPattern) {
+  const payloadNames = matchedCallPayloadNames(call.matchedStatement, call.successPath);
+  const directFieldNames = matchedCallDirectPayloadFieldNames(
+    call.matchedStatement,
+    call.successPath,
+    fieldName,
+  );
+  const names = [
+    ...directFieldNames,
+    ...payloadFieldNames(call.successPath, fieldName, payloadNames),
+  ];
+  const mutationBodies = callBodies(call.successPath, new RegExp(`\\b${mutationPattern}\\s*`, "gi"));
   const extractedPayloadUse = names.some((name) =>
     mutationBodies.some((body) => returnedNamePattern(name).test(body)),
   );
   assert.ok(
+    payloadNames.length > 0 || directFieldNames.length > 0,
+    `matched save call must assign or destructure its response payload`,
+  );
+  assert.ok(
     names.length > 0,
-    `success path must extract payload.${fieldName}`,
+    `success path must extract ${fieldName} from the matched call payload`,
   );
   assert.ok(
     extractedPayloadUse,
-    `success path must drive the state/callback from payload.${fieldName}`,
+    `success path must drive the state/callback from matched payload.${fieldName}`,
   );
+}
+
+function matchedCallPayloadNames(statement, successPath = "") {
+  const names = new Set();
+  const assigned = /\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*await\s+(requestJson|postJson|fetch|\w+\.json)\b/.exec(statement);
+  if (assigned && assigned[2] !== "fetch") names.add(assigned[1]);
+  if (assigned?.[2] === "fetch") {
+    const responseName = assigned[1];
+    for (const match of successPath.matchAll(
+      new RegExp(`\\b(?:const|let)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*await\\s+${escapeRegExp(responseName)}\\.json\\s*\\(`, "g"),
+    )) {
+      names.add(match[1]);
+    }
+  }
+  return [...names];
+}
+
+function matchedCallDirectPayloadFieldNames(statement, successPath = "", fieldName) {
+  const names = new Set();
+  const destructured = /\b(?:const|let)\s*\{([\s\S]*?)\}\s*=\s*await\s+(?:requestJson|postJson|\w+\.json)\b/.exec(statement);
+  if (destructured) {
+    addPayloadFieldNames(names, destructured[1], fieldName);
+  }
+  const fetchAssignment = /\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*await\s+fetch\b/.exec(statement);
+  if (fetchAssignment) {
+    const responseName = fetchAssignment[1];
+    for (const match of successPath.matchAll(
+      new RegExp(`\\b(?:const|let)\\s*\\{([\\s\\S]*?)\\}\\s*=\\s*await\\s+${escapeRegExp(responseName)}\\.json\\s*\\(`, "g"),
+    )) {
+      addPayloadFieldNames(names, match[1], fieldName);
+    }
+  }
+  return [...names];
+}
+
+function addPayloadFieldNames(names, fields, fieldName) {
+  for (const fieldMatch of fields.matchAll(
+    new RegExp(`\\b${fieldName}\\b(?:\\s*:\\s*(\\w+))?`, "g"),
+  )) {
+    names.add(fieldMatch[1] ?? fieldName);
+  }
 }
 
 function escapeRegExp(value) {
@@ -1343,7 +1452,17 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   });
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
+      'const msg = error.message; return Response.json({ msg }, { status: 500 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
       'const msg = error.message; return Response.json({ errors: [msg] }, { status: 500 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'const msg = error.message; const errors = [msg]; return Response.json({ errors }, { status: 500 });',
     );
   });
   assert.throws(() => {
@@ -1509,15 +1628,15 @@ test("admin top-up UI removes reviewed rows without a full duplicate fetch", () 
 });
 
 test("settings admin screen updates payment method state from the save payload", () => {
-  const paymentSuccessPaths = saveMutationSuccessPaths("payment-methods");
-  assert.ok(paymentSuccessPaths.length > 0, "payment-method save success paths must exist");
-  for (const paymentSuccessPath of paymentSuccessPaths) {
+  const paymentSaveCalls = saveMutationCalls("payment-methods");
+  assert.ok(paymentSaveCalls.length > 0, "payment-method save success paths must exist");
+  for (const paymentSaveCall of paymentSaveCalls) {
     assert.match(
-      paymentSuccessPath,
+      paymentSaveCall.successPath,
       /(?:const|let)\s+(?:\w+|\{[\s\S]*?\})\s*=\s*await\s+(?:postJson|requestJson)|\.json\(\)/,
     );
     assertPayloadFieldDrivesMutation(
-      paymentSuccessPath,
+      paymentSaveCall,
       "paymentMethod",
       String.raw`(?:setMethodOptions|set[A-Za-z]*Payment[A-Za-z]*Methods|onSaved\?\.|onPaymentMethodSaved\?\.)`,
     );
@@ -1525,15 +1644,15 @@ test("settings admin screen updates payment method state from the save payload",
 });
 
 test("category admin screen updates parent category state from the save payload", () => {
-  const categorySuccessPaths = saveMutationSuccessPaths("categories");
-  assert.ok(categorySuccessPaths.length > 0, "category save success paths must exist");
-  for (const categorySuccessPath of categorySuccessPaths) {
+  const categorySaveCalls = saveMutationCalls("categories");
+  assert.ok(categorySaveCalls.length > 0, "category save success paths must exist");
+  for (const categorySaveCall of categorySaveCalls) {
     assert.match(
-      categorySuccessPath,
+      categorySaveCall.successPath,
       /(?:const|let)\s+(?:\w+|\{[\s\S]*?\})\s*=\s*await\s+(?:requestJson|postJson)|\.json\(\)/,
     );
     assertPayloadFieldDrivesMutation(
-      categorySuccessPath,
+      categorySaveCall,
       "category",
       String.raw`(?:onSaved\?\.|set[A-Za-z]*Categories)`,
     );
