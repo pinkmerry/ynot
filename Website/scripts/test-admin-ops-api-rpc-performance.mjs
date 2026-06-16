@@ -727,7 +727,12 @@ function assertShippingRequestIdValidatedBeforeRpc(patchRoute) {
   const validatorExpression =
     /(?:\b(?:UUID_RE|[A-Za-z_$][\w$]*(?:Uuid|UUID|uuid)[\w$]*)\.test\(\s*shippingRequestId\s*\)|\b(?:isUuid|isUUID|validateUuid|validateUUID|isValidUuid|isValidUUID)\(\s*shippingRequestId\s*\))/;
   const directValidation =
-    new RegExp(`if\\s*\\([\\s\\S]{0,160}${validatorExpression.source}[\\s\\S]{0,160}\\)[\\s\\S]{0,200}\\breturn\\b`).test(beforeRpc);
+    new RegExp(
+      `if\\s*\\(\\s*!\\s*(?:${validatorExpression.source})\\s*\\)[\\s\\S]{0,200}\\breturn\\b`,
+    ).test(beforeRpc) ||
+    new RegExp(
+      `if\\s*\\(\\s*(?:${validatorExpression.source})\\s*(?:===|==)\\s*false\\s*\\)[\\s\\S]{0,200}\\breturn\\b`,
+    ).test(beforeRpc);
   const assignedValidation = (() => {
     for (const match of beforeRpc.matchAll(/\b(?:const|let)\s+(\w+)\b[^=;]*=/g)) {
       const valueStart = (match.index ?? 0) + match[0].length;
@@ -739,7 +744,10 @@ function assertShippingRequestIdValidatedBeforeRpc(patchRoute) {
       const afterAssignment = beforeRpc.slice(statementEnd + 1);
       if (
         new RegExp(
-          `if\\s*\\([\\s\\S]{0,120}${escapeRegExp(validationName)}[\\s\\S]{0,120}\\)[\\s\\S]{0,180}\\breturn\\b`,
+          `if\\s*\\(\\s*!\\s*${escapeRegExp(validationName)}\\s*\\)[\\s\\S]{0,180}\\breturn\\b`,
+        ).test(afterAssignment) ||
+        new RegExp(
+          `if\\s*\\(\\s*${escapeRegExp(validationName)}\\s*(?:===|==)\\s*false\\s*\\)[\\s\\S]{0,180}\\breturn\\b`,
         ).test(afterAssignment)
       ) {
         return true;
@@ -751,6 +759,27 @@ function assertShippingRequestIdValidatedBeforeRpc(patchRoute) {
     directValidation || assignedValidation,
     "shippingRequestId must be validated by a concrete UUID helper or regex before the RPC",
   );
+}
+
+function assertPublicTopUpDoesNotReExposePrivateFields(publicTopUp) {
+  const privateFields = ["id", "profileId", "adminNote", "providerReference", "rawPayload"];
+  const lastDeleteIndex = Math.max(
+    ...privateFields.map((field) => publicTopUp.indexOf(`delete publicFields.${field}`)),
+  );
+  assert.ok(lastDeleteIndex > -1, "publicTopUp must delete private top-level fields before return");
+  const afterRedaction = publicTopUp.slice(lastDeleteIndex);
+  for (const privateField of privateFields) {
+    assert.doesNotMatch(
+      afterRedaction,
+      new RegExp(`\\b${privateField}\\s*:`),
+      `publicTopUp must not explicitly re-expose ${privateField} after redaction`,
+    );
+    assert.doesNotMatch(
+      afterRedaction,
+      new RegExp(`\\bpublicFields\\.${privateField}\\s*=`),
+      `publicTopUp must not reassign ${privateField} after redaction`,
+    );
+  }
 }
 
 function assertShippingRpcErrorMappedSafely(patchRoute) {
@@ -912,7 +941,7 @@ function indexAfterFailedResponseGuard(block, guardIndex) {
 
 function saveMutationSuccessPaths(path) {
   return adminApiCalls(path)
-    .filter((call) => !call.isDelete)
+    .filter((call) => call.isSaveMutation)
     .map((call) => call.successPath);
 }
 
@@ -945,6 +974,7 @@ function adminApiCalls(path) {
         successPath,
         isDelete: callHasMethod(match[1], callBody, "DELETE"),
         isPatch: callHasMethod(match[1], callBody, "PATCH"),
+        isSaveMutation: callIsSaveMutation(match[1], callBody),
       });
     }
     return calls;
@@ -957,9 +987,20 @@ function callHasMethod(callee, callBody, method) {
     return new RegExp(`\\bmethod\\s*:\\s*["']${escapeRegExp(method)}["']`).test(args[1] ?? "");
   }
   if (callee === "requestJson" || callee === "postJson") {
+    if (callee === "postJson" && method === "POST") return true;
+    if (callee === "requestJson" && !args[2] && method === "POST") return true;
     return new RegExp(`^["']${escapeRegExp(method)}["']$`).test((args[2] ?? "").trim());
   }
   return false;
+}
+
+function callIsSaveMutation(callee, callBody) {
+  if (callee === "postJson") return true;
+  if (callee === "requestJson") {
+    const methodArg = (splitTopLevel(callBody)[2] ?? "").trim();
+    return !/^["'](?:DELETE|GET)["']$/.test(methodArg);
+  }
+  return ["POST", "PATCH", "PUT"].some((method) => callHasMethod(callee, callBody, method));
 }
 
 function assertTopUpReviewSuccessUsesReviewedResult(successPath, adminUiSource) {
@@ -981,8 +1022,11 @@ function assertTopUpReviewSuccessUsesReviewedResult(successPath, adminUiSource) 
     const paramName = callbackParameterName(block);
     const usesReturnedArgument =
       paramName &&
-      /\bsetTopUps\s*\(/.test(block) &&
-      returnedNamePattern(paramName).test(block);
+      callBodies(block, /\bsetTopUps\s*/g).some(
+        (body) =>
+          returnedNamePattern(paramName).test(body) &&
+          /\b(?:filter|map|=>)\b/.test(body),
+      );
     if (usesReturnedArgument) {
       assertNoTopUpReviewReloadOrRefetch(block);
       callbackUsesReturnedArgument = true;
@@ -1226,6 +1270,37 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   });
 });
 
+test("shipping UUID validation helper requires invalid-id rejection before RPC", () => {
+  assert.doesNotThrow(() => {
+    assertShippingRequestIdValidatedBeforeRpc(`
+      export async function PATCH(request: Request) {
+        const shippingRequestId = "11111111-1111-4111-8111-111111111111";
+        if (!UUID_RE.test(shippingRequestId)) return Response.json({ error: "Invalid" });
+        await supabase.rpc("update_shipping_request_status", { p_shipping_request_id: shippingRequestId });
+      }
+    `);
+  });
+  assert.doesNotThrow(() => {
+    assertShippingRequestIdValidatedBeforeRpc(`
+      export async function PATCH(request: Request) {
+        const shippingRequestId = "11111111-1111-4111-8111-111111111111";
+        const isValid = isUuid(shippingRequestId);
+        if (!isValid) return Response.json({ error: "Invalid" });
+        await supabase.rpc("update_shipping_request_status", { p_shipping_request_id: shippingRequestId });
+      }
+    `);
+  });
+  assert.throws(() => {
+    assertShippingRequestIdValidatedBeforeRpc(`
+      export async function PATCH(request: Request) {
+        const shippingRequestId = "11111111-1111-4111-8111-111111111111";
+        if (UUID_RE.test(shippingRequestId)) return Response.json({ error: "Invalid" });
+        await supabase.rpc("update_shipping_request_status", { p_shipping_request_id: shippingRequestId });
+      }
+    `);
+  });
+});
+
 test("admin top-up route keeps review RPCs stable and adds bounded list protections", () => {
   const route = source("src/app/api/ynot/admin/top-ups/route.ts");
   const getRoute = exportedFunctionBlock(route, "GET");
@@ -1253,6 +1328,7 @@ test("getTopUps supports admin status and cursor filtering without changing publ
   assert.match(publicTopUp, /delete publicFields\.adminNote/);
   assert.match(publicTopUp, /delete publicFields\.providerReference/);
   assert.match(publicTopUp, /delete publicFields\.rawPayload/);
+  assertPublicTopUpDoesNotReExposePrivateFields(publicTopUp);
 
   const publicPaymentMethod = between(
     publicTopUp,
