@@ -2875,9 +2875,6 @@ export function publicTopUp(topUp: YnotTopUp): YnotTopUp {
           status: topUp.slipVerification.status,
           amount: topUp.amountThb,
           transferredAt: topUp.reviewedAt ?? topUp.createdAt,
-        } as YnotTopUp["slipVerification"] & {
-          amount: number;
-          transferredAt: string | null;
         }
       : null,
   };

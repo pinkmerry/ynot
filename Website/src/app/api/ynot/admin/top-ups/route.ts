@@ -6,7 +6,6 @@ import type { Database } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { emitSecurityAlert } from "@/lib/security/alerts";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
-import { adminErrorResponse } from "@/lib/ynot/admin-api-errors";
 import {
   emitTopUpApprovalRiskAlerts,
   manualApprovableSlipStatuses,
@@ -24,6 +23,8 @@ const TOP_UP_STATUS_VALUES: ReadonlySet<TopUpStatus> = new Set([
   "pending_review",
   "approved",
   "rejected",
+  "cancelled",
+  "expired",
 ] as const);
 
 function topUpReviewErrorMessage(message?: string) {
@@ -101,9 +102,9 @@ async function approvalBlocker(
 }
 
 export async function GET(request: Request) {
-  if (!isSupabaseConfigured()) return Response.json({ topUps: [] });
+  if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   const admin = await resolveAdminSession();
-  if (!admin) return adminErrorResponse("unauthorized", "Admin access required.", 401);
+  if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
 
   const rateLimit = await enforceRateLimit(
     request,

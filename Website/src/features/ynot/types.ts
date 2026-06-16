@@ -300,6 +300,8 @@ export type YnotTopUp = {
   slipVerification?: {
     id?: string;
     status: YnotSlipVerificationStatus;
+    amount?: number;
+    transferredAt?: string | null;
     providerCode?: string | null;
     providerMessage?: string | null;
     verifiedAt?: string | null;
