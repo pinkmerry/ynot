@@ -1,12 +1,7 @@
-import { AdminCategoryForm } from "@/features/ynot/client";
-import {
-  AdminCategoryManager,
-  AdminGate,
-} from "@/features/ynot/components";
+import { AdminCategoryWorkspace } from "@/features/ynot/admin/AdminCategoryWorkspace";
+import { AdminGate } from "@/features/ynot/components";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
 import {
-  AdminCard,
-  AdminCardHead,
   AdminFrame,
   AdminIcon,
   AdminKPI,
@@ -45,22 +40,10 @@ export default async function AdminCategoriesPage() {
           <AdminKPI label="Packs assigned" value={data.campaigns.length} color="var(--a-sky)" />
         </div>
 
-        <AdminCard>
-          <AdminCardHead label="Create" title="New category" />
-          <div className="card-pad">
-            <AdminCategoryForm categories={data.categories} />
-          </div>
-        </AdminCard>
-
-        <AdminCard>
-          <AdminCardHead label="Order" title="Display order on /packs" />
-          <div className="card-pad">
-            <AdminCategoryManager
-              campaigns={data.campaigns}
-              categories={data.categories}
-            />
-          </div>
-        </AdminCard>
+        <AdminCategoryWorkspace
+          campaigns={data.campaigns}
+          initialCategories={data.categories}
+        />
       </AdminFrame>
     </AdminGate>
   );

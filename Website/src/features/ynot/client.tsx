@@ -1909,12 +1909,22 @@ export function CollectionConvertPanel({
   );
 }
 
+function sortAdminPaymentMethods(methods: YnotPaymentMethod[]) {
+  return [...methods].sort(
+    (a, b) =>
+      (a.sortOrder ?? 0) - (b.sortOrder ?? 0) ||
+      a.displayName.localeCompare(b.displayName),
+  );
+}
+
 export function AdminPaymentMethodForm({
   paymentMethods = [],
 }: {
   paymentMethods?: YnotPaymentMethod[];
 }) {
-  const [methodOptions, setMethodOptions] = useState(paymentMethods);
+  const [methodOptions, setMethodOptions] = useState(() =>
+    sortAdminPaymentMethods(paymentMethods),
+  );
   const [code, setCode] = useState("bank-transfer");
   const [displayName, setDisplayName] = useState("Bank Transfer");
   const [type, setType] = useState<"bank_transfer" | "promptpay_qr">(
@@ -1935,6 +1945,10 @@ export function AdminPaymentMethodForm({
   );
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setMethodOptions(sortAdminPaymentMethods(paymentMethods));
+  }, [paymentMethods]);
 
   useEffect(() => {
     return () => {
@@ -2009,10 +2023,13 @@ export function AdminPaymentMethodForm({
             const existingIndex = current.findIndex(
               (method) => method.id === paymentMethod.id,
             );
-            if (existingIndex === -1) return [...current, paymentMethod];
-            return current.map((method, index) =>
-              index === existingIndex ? paymentMethod : method,
-            );
+            const nextMethods =
+              existingIndex === -1
+                ? [...current, paymentMethod]
+                : current.map((method, index) =>
+                    index === existingIndex ? paymentMethod : method,
+                  );
+            return sortAdminPaymentMethods(nextMethods);
           });
         }
         setQrImageFile(null);
@@ -2174,8 +2191,10 @@ export function AdminPaymentMethodForm({
 
 export function AdminCategoryForm({
   categories,
+  onSaved,
 }: {
   categories: YnotCategory[];
+  onSaved?: (category: YnotCategory) => void;
 }) {
   const [visibleCategories, setVisibleCategories] = useState(categories);
   const [categoryId, setCategoryId] = useState("");
@@ -2193,6 +2212,10 @@ export function AdminCategoryForm({
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setVisibleCategories(categories);
+  }, [categories]);
 
   const loadCategory = useCallback(
     (nextId: string) => {
@@ -2261,6 +2284,7 @@ export function AdminCategoryForm({
                 a.sortOrder - b.sortOrder || a.nameEn.localeCompare(b.nameEn),
             );
           });
+          onSaved?.(savedCategory);
         }
         setMessage(
           `Saved category “${savedCategory?.nameEn ?? nameEn}”. It is ready for random packs now.`,

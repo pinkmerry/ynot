@@ -15,8 +15,6 @@ const topUpFilterKeys: TopUpFilter[] = [
   "mismatch",
   "duplicate",
   "provider_error",
-  "rejected",
-  "approved",
 ];
 
 function normalizeTopUpFilter(value: string | undefined): TopUpFilter {
@@ -74,6 +72,7 @@ export default async function AdminTopUpsPage({
         <AdminTopUpConsole
           activeFilter={activeFilter}
           initialTopUps={adminTopUps}
+          key={profileId ?? "all"}
           profileId={profileId}
         />
       </AdminFrame>

@@ -19,9 +19,7 @@ export type TopUpFilter =
   | "valid"
   | "mismatch"
   | "duplicate"
-  | "provider_error"
-  | "rejected"
-  | "approved";
+  | "provider_error";
 
 export const topUpFilters: { key: TopUpFilter; label: string }[] = [
   { key: "all", label: "All" },
@@ -30,15 +28,26 @@ export const topUpFilters: { key: TopUpFilter; label: string }[] = [
   { key: "mismatch", label: "Mismatch" },
   { key: "duplicate", label: "Duplicate" },
   { key: "provider_error", label: "Provider" },
-  { key: "rejected", label: "Rejected" },
-  { key: "approved", label: "Approved" },
 ];
 
 type ReviewedTopUp = {
   id: string;
   status: "approved" | "rejected";
-  replayed: boolean;
 };
+
+type ReviewableTopUp = YnotTopUp & { id: string; status: "pending_review" };
+
+function isQueueTopUp(topUp: YnotTopUp) {
+  return topUp.status === "pending_review" || topUp.status === "pending_slip";
+}
+
+function isReviewableTopUp(topUp: YnotTopUp): topUp is ReviewableTopUp {
+  return topUp.status === "pending_review" && Boolean(topUp.id);
+}
+
+function hasSlipStatus(topUp: YnotTopUp, statuses: string[]) {
+  return statuses.includes(topUp.slipVerification?.status ?? "");
+}
 
 type AdminTopUpConsoleProps = {
   initialTopUps: YnotTopUp[];
@@ -52,25 +61,27 @@ export function AdminTopUpConsole({
   profileId,
 }: AdminTopUpConsoleProps) {
   const [topUps, setTopUps] = useState(initialTopUps);
-  const pending = topUps.filter(
-    (topUp) =>
-      topUp.status === "pending_review" || topUp.status === "pending_slip",
-  );
+  const pending = topUps.filter(isQueueTopUp);
   const awaitingSlip = topUps.filter((topUp) => topUp.status === "pending_slip");
   const approved = topUps.filter((topUp) => topUp.status === "approved");
   const validPrecheck = topUps.filter(
-    (topUp) => topUp.slipVerification?.status === "valid",
+    (topUp) => isReviewableTopUp(topUp) && hasSlipStatus(topUp, ["valid"]),
   );
-  const mismatch = topUps.filter((topUp) =>
-    ["amount_mismatch", "receiver_mismatch", "date_mismatch"].includes(
-      topUp.slipVerification?.status ?? "",
-    ),
+  const mismatch = topUps.filter(
+    (topUp) =>
+      isReviewableTopUp(topUp) &&
+      hasSlipStatus(topUp, [
+        "amount_mismatch",
+        "receiver_mismatch",
+        "date_mismatch",
+      ]),
   );
   const duplicate = topUps.filter(
-    (topUp) => topUp.slipVerification?.status === "duplicate",
+    (topUp) => isReviewableTopUp(topUp) && hasSlipStatus(topUp, ["duplicate"]),
   );
   const providerError = topUps.filter(
-    (topUp) => topUp.slipVerification?.status === "provider_error",
+    (topUp) =>
+      isReviewableTopUp(topUp) && hasSlipStatus(topUp, ["provider_error"]),
   );
   const volume = approved.reduce((sum, topUp) => sum + topUp.amountThb, 0);
   const filterCounts: Record<TopUpFilter, number> = {
@@ -80,27 +91,32 @@ export function AdminTopUpConsole({
     mismatch: mismatch.length,
     duplicate: duplicate.length,
     provider_error: providerError.length,
-    rejected: topUps.filter((topUp) => topUp.status === "rejected").length,
-    approved: approved.length,
   };
   const visibleTopUps = topUps.filter((topUp) => {
-    if (activeFilter === "all") return pending.includes(topUp);
-    if (activeFilter === "pending") return topUp.status === "pending_review";
+    if (activeFilter === "all") return isQueueTopUp(topUp);
+    if (activeFilter === "pending") return isReviewableTopUp(topUp);
     if (activeFilter === "valid") {
-      return topUp.slipVerification?.status === "valid";
+      return isReviewableTopUp(topUp) && hasSlipStatus(topUp, ["valid"]);
     }
     if (activeFilter === "mismatch") {
-      return ["amount_mismatch", "receiver_mismatch", "date_mismatch"].includes(
-        topUp.slipVerification?.status ?? "",
+      return (
+        isReviewableTopUp(topUp) &&
+        hasSlipStatus(topUp, [
+          "amount_mismatch",
+          "receiver_mismatch",
+          "date_mismatch",
+        ])
       );
     }
     if (activeFilter === "duplicate") {
-      return topUp.slipVerification?.status === "duplicate";
+      return isReviewableTopUp(topUp) && hasSlipStatus(topUp, ["duplicate"]);
     }
     if (activeFilter === "provider_error") {
-      return topUp.slipVerification?.status === "provider_error";
+      return (
+        isReviewableTopUp(topUp) && hasSlipStatus(topUp, ["provider_error"])
+      );
     }
-    return topUp.status === activeFilter;
+    return false;
   });
 
   function handleReviewed(reviewedTopUp: ReviewedTopUp) {
@@ -227,7 +243,7 @@ export function AdminTopUpConsole({
                     </div>
                   )}
                 </div>
-                {topUp.id && (
+                {isReviewableTopUp(topUp) && (
                   <AdminTopUpReviewActions
                     onReviewed={handleReviewed}
                     topUp={topUp}
@@ -254,7 +270,7 @@ function AdminTopUpReviewActions({
   topUp,
 }: {
   onReviewed: (reviewedTopUp: ReviewedTopUp) => void;
-  topUp: YnotTopUp;
+  topUp: ReviewableTopUp;
 }) {
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
@@ -275,18 +291,28 @@ function AdminTopUpReviewActions({
           setMessage(errorPayload.error ?? "Could not update top-up.");
           return;
         }
-        const payload = await response.json().catch(() => ({})) as {
-          result?: { status?: "approved" | "rejected"; replayed?: boolean };
-        };
+        const payload = await response.json().catch(() => null) as {
+          result?: { status?: unknown; replayed?: unknown };
+        } | null;
+        if (!payload?.result) {
+          setMessage(
+            "Top-up updated, but the server response was incomplete. Refresh before acting again.",
+          );
+          return;
+        }
         const result = payload.result;
+        if (result.status !== "approved" && result.status !== "rejected") {
+          setMessage(
+            "Top-up updated, but the server response was incomplete. Refresh before acting again.",
+          );
+          return;
+        }
         onReviewed({
-          id: topUp.id ?? "",
-          status:
-            result?.status ?? (action === "approve" ? "approved" : "rejected"),
-          replayed: result?.replayed === true,
+          id: topUp.id,
+          status: result.status,
         });
         setMessage(
-          result?.replayed
+          result.replayed === true
             ? `${action} was already recorded.`
             : `${action} complete.`,
         );
