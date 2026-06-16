@@ -4,8 +4,46 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
+import {
+  adminErrorResponse,
+  adminRouteErrorLog,
+  safeMappedAdminErrorResponse,
+} from "@/lib/ynot/admin-api-errors";
 
 export const dynamic = "force-dynamic";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const adminShippingErrorMap = {
+  shipping_request_not_found: {
+    code: "shipping_request_not_found",
+    error: "Shipping request not found.",
+    status: 404,
+  },
+  invalid_shipping_transition: {
+    code: "invalid_shipping_transition",
+    error: "This shipping status change is not allowed.",
+    status: 409,
+  },
+  shipping_tracking_required: {
+    code: "shipping_tracking_required",
+    error: "Carrier and tracking number are required for shipped requests.",
+    status: 400,
+  },
+  active_admin_required: {
+    code: "active_admin_required",
+    error: "Active admin access is required.",
+    status: 403,
+  },
+} as const;
+
+function adminShippingErrorMessage(error: unknown) {
+  return safeMappedAdminErrorResponse(error, adminShippingErrorMap, {
+    code: "shipping_update_failed",
+    error: "Could not update shipping request.",
+    status: 500,
+  });
+}
 
 type ShippingStatus = Exclude<Database["public"]["Tables"]["shipping_requests"]["Row"]["status"], "draft">;
 const statuses = new Set<ShippingStatus>([
@@ -34,6 +72,9 @@ export async function PATCH(request: Request) {
   const shippingRequestId = typeof body?.shippingRequestId === "string" ? body.shippingRequestId : "";
   const status = isShippingStatus(body?.status) ? body.status : null;
   if (!shippingRequestId || !status) return Response.json({ error: "shippingRequestId and valid status are required." }, { status: 400 });
+  if (!UUID_RE.test(shippingRequestId)) {
+    return adminErrorResponse("invalid_shipping_request", "Invalid shipping request.", 400);
+  }
   const trackingProvider =
     typeof body?.trackingProvider === "string"
       ? body.trackingProvider.trim().slice(0, 120)
@@ -64,6 +105,13 @@ export async function PATCH(request: Request) {
     p_tracking_number: trackingNumber || null,
     p_admin_note: adminNote,
   });
-  if (error) return Response.json({ error: error.message }, { status: 409 });
+  if (error) {
+    adminRouteErrorLog("admin shipping status update failed", error, {
+      adminId: admin.adminId,
+      shippingRequestId,
+      status,
+    });
+    return adminShippingErrorMessage(error);
+  }
   return Response.json({ ok: true, result: data });
 }
