@@ -19,16 +19,17 @@ function between(text, startMarker, endMarker) {
 }
 
 function assertRawErrorMessageIsNotReturned(route) {
+  const variableBodies = responseBodyVariableExpressions(route);
   for (const bodyExpression of responseJsonBodyExpressions(route)) {
     assert.equal(
-      hasRawMessageValue(bodyExpression),
+      hasRawMessageValue(bodyExpression, variableBodies),
       false,
       "Response.json body must not return a raw .message value",
     );
   }
   for (const helperArgument of returnedResponseHelperArguments(route)) {
     assert.equal(
-      hasRawMessageValue(helperArgument),
+      hasRawMessageValue(helperArgument, variableBodies),
       false,
       "response helper arguments must not return a raw .message value",
     );
@@ -37,6 +38,8 @@ function assertRawErrorMessageIsNotReturned(route) {
 
 const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".ts", ".tsx"]);
 const ADMIN_UI_PATHS = ["src/features/ynot", "src/app/admin"];
+const TOP_UP_REVIEW_RELOAD_OR_REFETCH_RE =
+  /router\.(?:refresh|reload)\(\)|(?:window\.)?location\.reload\(\)|\b(?:loadTopUps|fetchTopUps)\s*\(|fetch\(\s*["']\/api\/ynot\/admin\/top-ups["']/;
 
 function sourceExtension(path) {
   const match = path.match(/\.[^.]+$/);
@@ -129,8 +132,13 @@ function returnedResponseHelperArguments(text) {
   return expressions;
 }
 
-function hasRawMessageValue(expression) {
+function hasRawMessageValue(expression, variables = new Map(), seen = new Set()) {
   const trimmed = stripOuterParens(expression.trim());
+  if (/^[A-Za-z_$][\w$]*$/.test(trimmed) && variables.has(trimmed)) {
+    if (seen.has(trimmed)) return false;
+    seen.add(trimmed);
+    return hasRawMessageValue(variables.get(trimmed), variables, seen);
+  }
   if (isDirectMessageMemberExpression(trimmed, 0)) return true;
   if (trimmed.startsWith("{")) {
     const closeBrace = matchingBraceIndex(trimmed, 0);
@@ -138,7 +146,13 @@ function hasRawMessageValue(expression) {
     const objectBody = trimmed.slice(1, closeBrace);
     for (const valueStart of objectValueStarts(objectBody)) {
       const valueEnd = endOfTopLevelValue(objectBody, valueStart);
-      if (hasRawMessageValue(stripTrailingComma(objectBody.slice(valueStart, valueEnd)))) {
+      if (
+        hasRawMessageValue(
+          stripTrailingComma(objectBody.slice(valueStart, valueEnd)),
+          variables,
+          new Set(seen),
+        )
+      ) {
         return true;
       }
     }
@@ -147,7 +161,7 @@ function hasRawMessageValue(expression) {
     const closeBracket = matchingBracketIndex(trimmed, 0);
     if (closeBracket === -1) return false;
     return splitTopLevel(trimmed.slice(1, closeBracket)).some((value) =>
-      hasRawMessageValue(value),
+      hasRawMessageValue(value, variables, new Set(seen)),
     );
   }
   return false;
@@ -962,18 +976,27 @@ function assertTopUpReviewSuccessUsesReviewedResult(successPath, adminUiSource) 
       returnedNames.some((name) => returnedNamePattern(name).test(body)) &&
       /\b(?:filter|map|=>)\b/.test(body),
   );
-  const callbackUsesReturnedArgument = reviewCallbackBlocks(adminUiSource).some((block) => {
+  let callbackUsesReturnedArgument = false;
+  for (const block of reviewCallbackBlocks(adminUiSource)) {
     const paramName = callbackParameterName(block);
-    return (
+    const usesReturnedArgument =
       paramName &&
       /\bsetTopUps\s*\(/.test(block) &&
-      returnedNamePattern(paramName).test(block)
-    );
-  });
+      returnedNamePattern(paramName).test(block);
+    if (usesReturnedArgument) {
+      assertNoTopUpReviewReloadOrRefetch(block);
+      callbackUsesReturnedArgument = true;
+      break;
+    }
+  }
   assert.ok(
     setTopUpsUsesReviewedResult || (onReviewedUsesReviewedResult && callbackUsesReturnedArgument),
     "review success path must update local state/callback from the returned payload result",
   );
+}
+
+function assertNoTopUpReviewReloadOrRefetch(block) {
+  assert.doesNotMatch(block, TOP_UP_REVIEW_RELOAD_OR_REFETCH_RE);
 }
 
 function reviewCallbackBlocks(successPath) {
@@ -1163,6 +1186,16 @@ test("raw error leak guard allows mapped helpers but rejects direct message retu
   });
   assert.throws(() => {
     assertRawErrorMessageIsNotReturned(
+      'const msg = error.message; return Response.json({ error: msg }, { status: 500 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
+      'const msg = error.message; return Response.json({ errors: [msg] }, { status: 500 });',
+    );
+  });
+  assert.throws(() => {
+    assertRawErrorMessageIsNotReturned(
       'return Response.json({ error: { message: dbError.message } }, { status: 400 });',
     );
   });
@@ -1271,10 +1304,7 @@ test("admin top-up UI removes reviewed rows without a full duplicate fetch", () 
       reviewSuccessPath,
       reviewMutationCall.componentBlock,
     );
-    assert.doesNotMatch(
-      reviewSuccessPath,
-      /router\.(?:refresh|reload)\(\)|(?:window\.)?location\.reload\(\)|\b(?:loadTopUps|fetchTopUps)\s*\(|fetch\(\s*["']\/api\/ynot\/admin\/top-ups["']/,
-    );
+    assertNoTopUpReviewReloadOrRefetch(reviewSuccessPath);
   }
 });
 
