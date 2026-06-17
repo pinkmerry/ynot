@@ -1849,7 +1849,7 @@ async function getCampaignsImpl(
     const loadRows = (requireApproval: boolean) => {
       let query = supabase
         .from("draw_rounds")
-        .select("*")
+        .select(CAMPAIGN_CUSTOMER_SELECT)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false });
       if (campaignIdOrSlug) {
@@ -1857,7 +1857,7 @@ async function getCampaignsImpl(
           ? query.eq("id", campaignIdOrSlug)
           : query.eq("slug", campaignIdOrSlug);
       }
-      if (typeof limit === "number") query = query.limit(limit);
+      query = query.limit(typeof limit === "number" ? limit : CAMPAIGN_LIST_HARD_CAP);
 
       if (options.includePrivate) {
         // Exclude archived packs even from the admin storefront view so the
@@ -1884,7 +1884,11 @@ async function getCampaignsImpl(
       ({ data, error } = await loadRows(false));
     }
     if (error) throw error;
-    const rows = (data ?? []).filter(
+    // CAMPAIGN_CUSTOMER_SELECT is a runtime string, so the client can't infer the
+    // row shape — cast back to the row type (same pattern as OPEN_CAMPAIGN_SELECT).
+    // Dropped columns are absent at runtime but provably unread (see
+    // test-customer-select-narrowing.mjs).
+    const rows = ((data ?? []) as unknown as DrawRoundRow[]).filter(
       (row) => options.includePrivate || row.is_test !== true,
     );
     const campaignIds = rows.map((row) => row.id);
@@ -2153,7 +2157,7 @@ async function loadPublicCampaignDetailImpl(
     const baseSelect = () =>
       supabase
         .from("draw_rounds")
-        .select("*")
+        .select(CAMPAIGN_CUSTOMER_SELECT)
         .in("status", ["live", "closed"])
         .eq("visibility", "public")
         .eq("is_test", false)
@@ -2164,7 +2168,9 @@ async function loadPublicCampaignDetailImpl(
       ({ data, error } = await baseSelect());
     }
     if (error) throw error;
-    return data ?? [];
+    // Cast back to the row type: CAMPAIGN_CUSTOMER_SELECT is a runtime string so
+    // the client returns GenericStringError, same as the OPEN_CAMPAIGN_SELECT path.
+    return (data ?? []) as unknown as DrawRoundRow[];
   });
   const row = rows[0];
   if (!row) return null;
@@ -2245,6 +2251,53 @@ const getPublicCampaignDetailCached = (slug: string): Promise<YnotCampaign | nul
     ["ynot-campaign-detail-public-v2", slug],
     { tags: ["campaigns", "campaign-detail"], revalidate: 30 },
   )();
+
+// Customer column list for draw_rounds reads. Every column here is read by a
+// customer consumer: toYnotCampaign (incl. its safeCostCoins/safeDisplayTags
+// helpers), getPublicPrizeLineup, resolveLastPrizePreview, and
+// getCampaignPrizeReadiness. House columns (logic_snapshot, test_metadata) are
+// fetched because internal builders need them, but publicYnotCampaign() strips
+// them before anything reaches the client. The companion guard
+// (scripts/test-customer-select-narrowing.mjs) fails if a consumer reads a
+// draw_rounds column that is missing here — typecheck cannot catch that, because
+// .select() with a runtime string returns the full Row type.
+const CAMPAIGN_CUSTOMER_SELECT = [
+  "approval_notes",
+  "approval_requested_at",
+  "approval_status",
+  "approved_at",
+  "banner_image_storage_path",
+  "banner_image_url",
+  "convert_deadline_days",
+  "cost_coins",
+  "created_at",
+  "display_tags",
+  "ends_at",
+  "id",
+  "is_test",
+  "last_prize_awarded_at",
+  "last_prize_card_id",
+  "last_prize_metadata",
+  "logic_snapshot",
+  "mode",
+  "pack_code",
+  "price_thb",
+  "series",
+  "slug",
+  "sort_order",
+  "starts_at",
+  "status",
+  "test_metadata",
+  "title_en",
+  "title_th",
+  "total_slots",
+  "visibility",
+].join(",");
+
+// Realistic ceiling on simultaneously-visible public packs. Makes the /packs
+// list limit explicit so an otherwise-unbounded select can't silently truncate
+// at PostgREST's max_rows (1000).
+const CAMPAIGN_LIST_HARD_CAP = 500;
 
 const OPEN_CAMPAIGN_SELECT = [
   "id",

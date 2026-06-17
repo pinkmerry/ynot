@@ -59,6 +59,7 @@
     "test:admin-pack-monitor": "node --test scripts/test-admin-pack-monitor.mjs",
     "test:campaign-detail-perf": "node --test scripts/test-campaign-detail-perf.mjs",
     "test:gacha-open-performance": "node --test scripts/test-gacha-open-performance-shape.mjs",
+    "test:customer-select-narrowing": "node --test scripts/test-customer-select-narrowing.mjs",
     "test:data-parallelization": "node --test scripts/test-data-parallelization.mjs",
     "test:gacha-dedup": "node --test scripts/test-gacha-dedup.mjs",
     "test:request-dedup": "node --test scripts/test-request-dedup.mjs",
