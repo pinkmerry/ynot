@@ -16,6 +16,7 @@ function sliceFn(src, startMarker) {
 
 const packDetail = read("../src/app/(store)/packs/[slug]/page.tsx");
 const gachaDetail = read("../src/app/(store)/gacha/[campaignId]/page.tsx");
+const dataSrc = read("../src/features/ynot/data.ts");
 
 test("pack detail fetches wallet slice and campaign in parallel", () => {
   assert.match(packDetail, /getYnotViewer/);
@@ -25,4 +26,10 @@ test("pack detail fetches wallet slice and campaign in parallel", () => {
 test("gacha detail fetches wallet slice and campaign in parallel", () => {
   assert.match(gachaDetail, /getYnotViewer/);
   assert.match(gachaDetail, /Promise\.all\(\[\s*getYnotDashboardSlice\(\{ wallet: true \}\),\s*getCampaign\(/s);
+});
+
+test("getCampaign resolves lineup, readiness, identity and last-prize in one Promise.all", () => {
+  const fn = sliceFn(dataSrc, "export async function getCampaign(\n");
+  assert.match(fn, /const \[prizeLineup, readiness, identityMismatchResult, lastPrizePreview\] =\s*await Promise\.all\(/s);
+  assert.doesNotMatch(fn, /campaign\.lastPrizePreview = await resolveLastPrizePreview/);
 });

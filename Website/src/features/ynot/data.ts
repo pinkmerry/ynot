@@ -2546,25 +2546,27 @@ export async function getCampaign(
       .eq("draw_round_id", row.id);
     if (sharedPrizeError) throw sharedPrizeError;
     const prizeRows = sharedPrizeRows ?? [];
-    const prizeLineup = await getPublicPrizeLineup(supabase, row, inventory, {
-      includeLocked: includePrivateDetail,
-      includeSensitiveOdds: includePrivateDetail,
-      includeStockTarget: includePrivateDetail,
-    }, prizeRows);
-    let readiness: CampaignPrizeReadiness | null = null;
-    try {
-      readiness = await getCampaignPrizeReadiness(supabase, row.id, {
-        row,
-        inventory,
-        includeIdentityMismatches: includePrivateDetail,
-        prizes: prizeRows,
-      });
-    } catch (error) {
-      recordDataIssue("campaign_detail_prize_readiness", error);
-    }
-    const identityMismatchResult = includePrivateDetail
-      ? await getPrizeUnitIdentityMismatches(supabase, row.id)
-      : undefined;
+    const [prizeLineup, readiness, identityMismatchResult, lastPrizePreview] =
+      await Promise.all([
+        getPublicPrizeLineup(supabase, row, inventory, {
+          includeLocked: includePrivateDetail,
+          includeSensitiveOdds: includePrivateDetail,
+          includeStockTarget: includePrivateDetail,
+        }, prizeRows),
+        getCampaignPrizeReadiness(supabase, row.id, {
+          row,
+          inventory,
+          includeIdentityMismatches: includePrivateDetail,
+          prizes: prizeRows,
+        }).catch((error): CampaignPrizeReadiness | null => {
+          recordDataIssue("campaign_detail_prize_readiness", error);
+          return null;
+        }),
+        includePrivateDetail
+          ? getPrizeUnitIdentityMismatches(supabase, row.id)
+          : Promise.resolve(undefined),
+        resolveLastPrizePreview(supabase, row),
+      ]);
     const campaign = toYnotCampaign(
       row,
       linkedCategories,
@@ -2573,7 +2575,7 @@ export async function getCampaign(
       readiness,
       identityMismatchResult,
     );
-    campaign.lastPrizePreview = await resolveLastPrizePreview(supabase, row);
+    campaign.lastPrizePreview = lastPrizePreview;
     const customerCampaign = includePrivateDetail ? campaign : publicYnotCampaign(campaign);
     if (!includePrivateDetail && !campaign.openable && !campaign.soldOut) return [];
     return [customerCampaign];
