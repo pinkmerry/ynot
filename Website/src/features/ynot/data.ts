@@ -806,33 +806,34 @@ async function resolveLastPrizePreview(
   const grade =
     filter && typeof filter.grade === "string" ? filter.grade.trim() : "";
 
-  const cards = await readSupabaseRows<{
-    id: string;
-    card_code: string | null;
-    name: string | null;
-    image_url: string | null;
-  }>("last_prize_card", () =>
-    supabase
-      .from("cards")
-      .select("id,card_code,name,image_url")
-      .eq("id", cardId)
-      .limit(1),
-  );
+  const [cards, units] = await Promise.all([
+    readSupabaseRows<{
+      id: string;
+      card_code: string | null;
+      name: string | null;
+      image_url: string | null;
+    }>("last_prize_card", () =>
+      supabase
+        .from("cards")
+        .select("id,card_code,name,image_url")
+        .eq("id", cardId)
+        .limit(1),
+    ),
+    readSupabaseRows<{
+      image_url: string | null;
+      cert_number: string | null;
+      grade: string | null;
+      status: string | null;
+    }>("last_prize_stock_units", () =>
+      supabase
+        .from("card_stock_units")
+        .select("image_url,cert_number,grade,status")
+        .eq("card_id", cardId)
+        .neq("status", "deleted"),
+    ),
+  ]);
   const card = cards[0];
   if (!card) return null;
-
-  const units = await readSupabaseRows<{
-    image_url: string | null;
-    cert_number: string | null;
-    grade: string | null;
-    status: string | null;
-  }>("last_prize_stock_units", () =>
-    supabase
-      .from("card_stock_units")
-      .select("image_url,cert_number,grade,status")
-      .eq("card_id", cardId)
-      .neq("status", "deleted"),
-  );
   // Prefer the exact sub-SKU the admin selected (cert match, then grade match),
   // and among candidates prefer one that actually has an image.
   const withImage = (u: { image_url: string | null }) => Boolean(u.image_url);

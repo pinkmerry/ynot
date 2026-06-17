@@ -33,3 +33,8 @@ test("getCampaign resolves lineup, readiness, identity and last-prize in one Pro
   assert.match(fn, /const \[prizeLineup, readiness, identityMismatchResult, lastPrizePreview\] =\s*await Promise\.all\(/s);
   assert.doesNotMatch(fn, /campaign\.lastPrizePreview = await resolveLastPrizePreview/);
 });
+
+test("resolveLastPrizePreview fetches card + stock units in parallel", () => {
+  const fn = sliceFn(dataSrc, "async function resolveLastPrizePreview");
+  assert.match(fn, /const \[cards, units\] = await Promise\.all\(/s);
+});
