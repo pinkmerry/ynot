@@ -16,3 +16,13 @@ test("resolveCurrentProfile is request-memoized via React cache()", () => {
 test("resolveAdminSession is request-memoized via React cache()", () => {
   assert.match(authSrc, /export const resolveAdminSession = cache\(async \(/);
 });
+
+const dataSrc = readFileSync(
+  fileURLToPath(new URL("../src/features/ynot/data.ts", import.meta.url)),
+  "utf8",
+);
+
+test("getYnotViewer is request-memoized via React cache()", () => {
+  assert.match(dataSrc, /import \{ cache \} from "react"/);
+  assert.match(dataSrc, /export const getYnotViewer = cache\(async \(/);
+});

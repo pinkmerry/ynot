@@ -2,6 +2,7 @@ import "server-only";
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import { unstable_cache } from "next/cache";
+import { cache } from "react";
 
 import {
   resolveAdminSession,
@@ -1700,7 +1701,7 @@ function getOwnerApprovalRequests(
     : requests;
 }
 
-export async function getYnotViewer(): Promise<YnotViewer> {
+export const getYnotViewer = cache(async (): Promise<YnotViewer> => {
   const session = await resolveCurrentProfile();
   const admin = await resolveAdminSession(session);
   if (!session) return defaultViewer;
@@ -1712,7 +1713,7 @@ export async function getYnotViewer(): Promise<YnotViewer> {
     isAdmin: Boolean(admin),
     adminRole: admin?.adminRole ?? null,
   };
-}
+});
 
 function dataIssueMessage(error: unknown) {
   if (error instanceof Error) return error.message;
