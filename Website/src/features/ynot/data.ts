@@ -1701,6 +1701,12 @@ function getOwnerApprovalRequests(
     : requests;
 }
 
+// Card catalog is identical for every consumer in a render. Memoize per request
+// so /shipping (collection + shipping) and /profile/all-pulls (collection +
+// gachaOpens) fetch it once instead of twice. cache() creates its own client so
+// keying is stable (the per-caller `supabase` arg differed before, defeating dedup).
+const getRequestCardCatalog = cache(() => getCardCatalog(createServiceSupabaseClient()));
+
 export const getYnotViewer = cache(async (): Promise<YnotViewer> => {
   const session = await resolveCurrentProfile();
   const admin = await resolveAdminSession(session);
@@ -2898,7 +2904,7 @@ export async function getCollection(
       return data ?? [];
     }),
     readOrEmpty("collection_card_catalog", async () =>
-      getCardCatalog(supabase),
+      getRequestCardCatalog(),
     ),
   ]);
 
@@ -3217,7 +3223,7 @@ export async function getGachaOpenHistory(
       return data ?? [];
     }),
     readOrEmpty("gacha_history_card_catalog", async () =>
-      getCardCatalog(supabase),
+      getRequestCardCatalog(),
     ),
     readOrEmpty("gacha_history_campaigns", async () => {
       const { data, error } = await supabase
@@ -3709,7 +3715,7 @@ export async function getShipping(
             return data ?? [];
           })
         : Promise.resolve([]),
-      readOrEmpty("shipping_card_catalog", async () => getCardCatalog(supabase)),
+      readOrEmpty("shipping_card_catalog", async () => getRequestCardCatalog()),
     ]);
 
     const prizeIds = Array.from(
