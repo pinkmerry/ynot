@@ -17,6 +17,7 @@ function sliceFn(src, startMarker) {
 const packDetail = read("../src/app/(store)/packs/[slug]/page.tsx");
 const gachaDetail = read("../src/app/(store)/gacha/[campaignId]/page.tsx");
 const dataSrc = read("../src/features/ynot/data.ts");
+const openPage = read("../src/app/(store)/gacha/[campaignId]/open/page.tsx");
 
 test("pack detail fetches wallet slice and campaign in parallel", () => {
   assert.match(packDetail, /getYnotViewer/);
@@ -42,4 +43,9 @@ test("resolveLastPrizePreview fetches card + stock units in parallel", () => {
 test("getGachaOpenHistory fetches reward units + collection links in parallel", () => {
   const fn = sliceFn(dataSrc, "export async function getGachaOpenHistory");
   assert.match(fn, /const \[rewardPrizeUnits, collectionStockLinks\] =\s*openIds\.length\s*\?\s*await Promise\.all\(/s);
+});
+
+test("open page fetches campaign + tier animations in parallel", () => {
+  assert.match(openPage, /const \[campaign, tierAnimations\] = await Promise\.all\(\[\s*getOpenCampaignForReveal\(/s);
+  assert.doesNotMatch(openPage, /const tierAnimations = await getTierAnimations\(\);/);
 });
