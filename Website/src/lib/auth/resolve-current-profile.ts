@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 import {
   readSessionCookie,
@@ -85,7 +86,7 @@ async function resolveDevPreviewProfile(): Promise<ResolvedProfileSession | null
   };
 }
 
-export async function resolveCurrentProfile(): Promise<ResolvedProfileSession | null> {
+export const resolveCurrentProfile = cache(async (): Promise<ResolvedProfileSession | null> => {
   const cookieStore = await cookies();
 
   // Dev-only preview bypass: when ynot-preview-auth=1 is set (via
@@ -191,9 +192,9 @@ export async function resolveCurrentProfile(): Promise<ResolvedProfileSession | 
     adminRole: lineSession.adminRole,
     authSource: lineSession.authSource ?? (lineSession.lineUserId ? "line" : "supabase"),
   };
-}
+});
 
-export async function resolveAdminSession(baseSession?: ResolvedProfileSession | null): Promise<ResolvedAdminSession | null> {
+export const resolveAdminSession = cache(async (baseSession?: ResolvedProfileSession | null): Promise<ResolvedAdminSession | null> => {
   const session = baseSession === undefined ? await resolveCurrentProfile() : baseSession;
   if (!session?.profileId) return null;
 
@@ -226,4 +227,4 @@ export async function resolveAdminSession(baseSession?: ResolvedProfileSession |
     adminId: data.id,
     adminRole: data.role,
   };
-}
+});
