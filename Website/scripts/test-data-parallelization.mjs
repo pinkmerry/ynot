@@ -38,3 +38,8 @@ test("resolveLastPrizePreview fetches card + stock units in parallel", () => {
   const fn = sliceFn(dataSrc, "async function resolveLastPrizePreview");
   assert.match(fn, /const \[cards, units\] = await Promise\.all\(/s);
 });
+
+test("getGachaOpenHistory fetches reward units + collection links in parallel", () => {
+  const fn = sliceFn(dataSrc, "export async function getGachaOpenHistory");
+  assert.match(fn, /const \[rewardPrizeUnits, collectionStockLinks\] =\s*openIds\.length\s*\?\s*await Promise\.all\(/s);
+});

@@ -3269,16 +3269,29 @@ export async function getGachaOpenHistory(
     }
   }
 
-  const rewardPrizeUnits = openIds.length
-    ? await readOrEmpty("gacha_history_prize_unit_images", async () => {
-        const { data, error } = await supabase
-          .from("draw_round_prize_units")
-          .select("gacha_open_item_id,card_stock_unit_id,status")
-          .in("gacha_open_id", openIds);
-        if (error) throw error;
-        return data ?? [];
-      })
-    : [];
+  const [rewardPrizeUnits, collectionStockLinks] = openIds.length
+    ? await Promise.all([
+        readOrEmpty("gacha_history_prize_unit_images", async () => {
+          const { data, error } = await supabase
+            .from("draw_round_prize_units")
+            .select("gacha_open_item_id,card_stock_unit_id,status")
+            .in("gacha_open_id", openIds);
+          if (error) throw error;
+          return data ?? [];
+        }),
+        readOrEmpty("gacha_history_collection_stock_links", async () => {
+          const { data, error } = await supabase
+            .from("collection_items")
+            .select("gacha_open_item_id,card_stock_unit_id")
+            .eq("source_type", "gacha_open")
+            .in("source_id", openIds)
+            .not("gacha_open_item_id", "is", null)
+            .not("card_stock_unit_id", "is", null);
+          if (error) throw error;
+          return data ?? [];
+        }),
+      ])
+    : [[], []];
   const rewardStockUnitIds = [
     ...new Set(
       rewardPrizeUnits
@@ -3286,19 +3299,6 @@ export async function getGachaOpenHistory(
         .filter((id): id is string => Boolean(id)),
     ),
   ];
-  const collectionStockLinks = openIds.length
-    ? await readOrEmpty("gacha_history_collection_stock_links", async () => {
-        const { data, error } = await supabase
-          .from("collection_items")
-          .select("gacha_open_item_id,card_stock_unit_id")
-          .eq("source_type", "gacha_open")
-          .in("source_id", openIds)
-          .not("gacha_open_item_id", "is", null)
-          .not("card_stock_unit_id", "is", null);
-        if (error) throw error;
-        return data ?? [];
-      })
-    : [];
   const collectionStockUnitIds = [
     ...new Set(
       collectionStockLinks
