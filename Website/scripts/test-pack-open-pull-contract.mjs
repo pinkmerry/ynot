@@ -37,6 +37,9 @@ function between(source, start, end, label) {
   return source.slice(startIndex, endIndex);
 }
 
+const directCustomerStockUnitRead =
+  /\.from\("card_stock_units"\)[\s\S]*?\.select\([\s\S]*?\)[\s\S]*?\.in\("id",\s*(?!batch\b)[^)]+\)/;
+
 const openQuantity = loadTsModule("../src/features/ynot/open-quantity.ts");
 const openRoute = read("../src/app/api/ynot/gacha/open/route.ts");
 const client = read("../src/features/ynot/client.tsx");
@@ -305,6 +308,12 @@ test("pulled prize images use the awarded stock-unit image in animation, summary
     "export async function getExchanges",
     "pull history loader",
   );
+  const shippingSource = between(
+    data,
+    "export async function getShipping",
+    "export async function getAddresses",
+    "shipping loader",
+  );
 
   assert.match(subSkuRevealImageMigration, /coalesce\(stock\.image_url, cards\.image_url\)/);
   assert.match(stockImageProofMigration, /imageResolvedFromStockUnit/);
@@ -324,17 +333,28 @@ test("pulled prize images use the awarded stock-unit image in animation, summary
   assert.match(collectionSource, /\.from\("collection_items"\)/);
   assert.match(collectionSource, /\.from\("gacha_open_items"\)[\s\S]*\.select\(\s*"id,gacha_open_id,card_id,draw_round_prize_id,tier,value_thb,result_position,bundle_quantity"/);
   assert.match(collectionSource, /\.from\("draw_round_prize_units"\)[\s\S]*\.select\("collection_item_id,gacha_open_item_id,card_stock_unit_id"\)/);
-  assert.match(collectionSource, /\.from\("card_stock_units"\)[\s\S]*\.select\("id,grade,condition,grading_service,image_url"\)/);
+  assert.match(
+    data,
+    /readCardStockUnitRowsByIds<\{[\s\S]*id: string;[\s\S]*card_id: string \| null;[\s\S]*image_url: string \| null;[\s\S]*\}>/,
+    "pull contract hydration should use the batched stock-unit reader",
+  );
   assert.match(collectionSource, /imageUrl:\s*publicSubSkuImageUrl\(wonUnit\?\.imageUrl,\s*card\?\.photoUrl\)/);
 
   assert.match(historySource, /stockImageUrlByOpenItemId/);
   assert.match(historySource, /gacha_history_collection_stock_links/);
   assert.match(historySource, /\.from\("collection_items"\)[\s\S]*\.select\("gacha_open_item_id,card_stock_unit_id"\)/);
+  assert.match(
+    historySource,
+    /readCardStockUnitRowsByIds<\{\s*id: string;\s*card_id: string \| null;\s*image_url: string \| null;\s*\}>\([\s\S]*"gacha_history_stock_unit_images"[\s\S]*"id,card_id,image_url"/,
+  );
   assert.match(historySource, /collectionImageByOpenItemId\.get\(item\.id\) \?\?[\s\S]*rewardImageByOpenItemId\.get\(item\.id\)/);
   assert.match(
     historySource,
     /imageUrl:\s*publicSubSkuImageUrl\(\s*collectionImageByOpenItemId\.get\(item\.id\) \?\?[\s\S]*rewardImageByOpenItemId\.get\(item\.id\),\s*card\?\.photoUrl,?\s*\)/,
   );
+  assert.doesNotMatch(collectionSource, directCustomerStockUnitRead);
+  assert.doesNotMatch(historySource, directCustomerStockUnitRead);
+  assert.doesNotMatch(shippingSource, directCustomerStockUnitRead);
 });
 
 test("awards land in user bag with exact open item, prize unit, collection item, and bundle links", () => {

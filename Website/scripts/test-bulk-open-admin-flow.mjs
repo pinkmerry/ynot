@@ -134,6 +134,23 @@ test("User 360 shows operational-safe bulk session summaries only", () => {
   }
 });
 
+test("admin owner review separates render keys from editable override keys", () => {
+  assert.match(clientSource, /function ownerReviewPrizeRowKey\(/);
+  assert.match(clientSource, /function ownerReviewPrizeEditKey\(/);
+  assert.match(clientSource, /function ownerReviewDuplicatePrizeIds\(/);
+  assert.match(
+    clientSource,
+    /const duplicatePrizeIds = useMemo\(\(\) => ownerReviewDuplicatePrizeIds\(prizes\), \[prizes\]\);/,
+  );
+  assert.match(clientSource, /rows\.map\(\(prize, index\) =>/);
+  assert.match(clientSource, /const editKey = ownerReviewPrizeEditKey\(prize\);/);
+  assert.match(clientSource, /<tr key=\{ownerReviewPrizeRowKey\(prize, index\)\}>/);
+  assert.match(clientSource, /updateCardEdit\(editKey,/);
+  assert.match(clientSource, /duplicatePrizeIds\.has\(editKey\)/);
+  assert.doesNotMatch(clientSource, /<tr key=\{prize\.id\}>/);
+  assert.doesNotMatch(clientSource, /updateCardEdit\(prize\.id,/);
+});
+
 test("public campaign DTO remains free of admin-only Pull All fields", () => {
   const publicCampaign = between(
     dataSource,

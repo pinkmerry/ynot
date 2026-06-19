@@ -18,6 +18,9 @@ function between(source, start, end) {
   return source.slice(startIndex, endIndex);
 }
 
+const directCustomerStockUnitRead =
+  /\.from\("card_stock_units"\)[\s\S]*?\.select\([\s\S]*?\)[\s\S]*?\.in\("id",\s*(?!batch\b)[^)]+\)/;
+
 test("collection_items privately links the exact awarded stock unit and open item", () => {
   const sql = latestMigration();
 
@@ -98,7 +101,11 @@ test("customer collection and shipping hydrate images from private stock links w
 
   assert.match(collectionSource, /item\.card_stock_unit_id/);
   assert.match(collectionSource, /item\.gacha_open_item_id/);
-  assert.match(collectionSource, /\.from\("card_stock_units"\)[\s\S]*\.select\("id,grade,condition,grading_service,image_url"\)/);
+  assert.match(
+    dataSource,
+    /readCardStockUnitRowsByIds<\{[\s\S]*id: string;[\s\S]*card_id: string \| null;[\s\S]*image_url: string \| null;[\s\S]*\}>/,
+    "customer stock-unit enrichment should use the batched reader",
+  );
   assert.match(collectionSource, /imageUrl:\s*publicSubSkuImageUrl\(\s*wonUnit\?\.imageUrl,\s*card\?\.photoUrl,?\s*\)/);
   assert.match(shippingSource, /item\.card_stock_unit_id/);
   assert.match(shippingSource, /imageByCollectionItemId/);
@@ -108,6 +115,9 @@ test("customer collection and shipping hydrate images from private stock links w
     historySource,
     /imageUrl:\s*publicSubSkuImageUrl\(\s*collectionImageByOpenItemId\.get\(item\.id\) \?\?[\s\S]*rewardImageByOpenItemId\.get\(item\.id\),\s*card\?\.photoUrl,?\s*\)/,
   );
+  assert.doesNotMatch(collectionSource, directCustomerStockUnitRead);
+  assert.doesNotMatch(historySource, directCustomerStockUnitRead);
+  assert.doesNotMatch(shippingSource, directCustomerStockUnitRead);
 
   assert.doesNotMatch(collectionType, /cardStockUnitId|gachaOpenItemId|certNumber|gemrateId|stockUnitFilter|weight|unlockAtSoldPct/);
   assert.doesNotMatch(collectionSource, /cardStockUnitId:|gachaOpenItemId:|certNumber:|gemrateId:|stockUnitFilter:/);

@@ -88,7 +88,6 @@ import {
   stockImageUrlByOpenItemId,
   stockImageUrlByPrizeId,
   type PublicPrizeUnitImageRow,
-  type PublicStockUnitImageRow,
 } from "./public-subsku-images";
 import { normalizeBundleQuantity, publicBundleQuantity } from "./bundle-quantity";
 import { getProfileAddresses } from "./server-addresses";
@@ -98,6 +97,7 @@ const DRAW_ROUND_CATEGORY_LINK_SELECT = "draw_round_id,category_id";
 const AUDIT_EVENT_TIMELINE_SELECT = "id,event_type,metadata,created_at";
 const SHIPPING_AUDIT_EVENT_TIMELINE_SELECT =
   `${AUDIT_EVENT_TIMELINE_SELECT},shipping_request_id`;
+const CARD_STOCK_UNIT_ID_BATCH_SIZE = 250;
 
 type CardStockSummaryRow = {
   cardId: string;
@@ -730,6 +730,33 @@ async function readSupabaseRows<T>(
     recordDataIssue(label, error);
     return [];
   }
+}
+
+async function readCardStockUnitRowsByIds<T>(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  label: string,
+  stockUnitIds: Iterable<string>,
+  select: string,
+): Promise<T[]> {
+  const uniqueIds = [...new Set([...stockUnitIds].filter(Boolean))];
+  if (!uniqueIds.length) return [];
+
+  const rows: T[] = [];
+  for (let i = 0; i < uniqueIds.length; i += CARD_STOCK_UNIT_ID_BATCH_SIZE) {
+    const batch = uniqueIds.slice(i, i + CARD_STOCK_UNIT_ID_BATCH_SIZE);
+    const batchRows = await readSupabaseRows<T>(
+      `${label}_batch_${Math.floor(i / CARD_STOCK_UNIT_ID_BATCH_SIZE) + 1}`,
+      async () => {
+        const { data, error } = await supabase
+          .from("card_stock_units")
+          .select(select)
+          .in("id", batch);
+        return { data: (data ?? []) as T[], error };
+      },
+    );
+    rows.push(...batchRows);
+  }
+  return rows;
 }
 
 async function getPrizeUnitIdentityMismatches(
@@ -3263,23 +3290,34 @@ export async function getCollection(
     }
     // 2) load those units' identity, then map back to the collection item
     if (stockUnitIds.size) {
-      const units = await readOrEmpty("collection_stock_units", async () => {
-        const { data, error } = await supabase
-          .from("card_stock_units")
-          .select("id,grade,condition,grading_service,image_url")
-          .in("id", [...stockUnitIds]);
-        if (error) throw error;
-        return data ?? [];
-      });
-      const unitById = new Map(units.map((unit) => [unit.id, unit]));
-      for (const [itemId, unitId] of stockUnitIdByItem) {
-        const unit = unitById.get(unitId);
+      const collectionStockRows = await readCardStockUnitRowsByIds<{
+        id: string;
+        card_id: string | null;
+        grade: string | null;
+        condition: string | null;
+        grading_service: string | null;
+        image_url: string | null;
+      }>(
+        supabase,
+        "collection_stock_units",
+        stockUnitIds,
+        "id,card_id,grade,condition,grading_service,image_url",
+      );
+      const stockImageByUnitId = new Map(
+        collectionStockRows
+          .filter((row) => row.id && row.image_url)
+          .map((row) => [row.id, row.image_url as string]),
+      );
+      const unitById = new Map(collectionStockRows.map((unit) => [unit.id, unit]));
+      for (const [itemId, stockUnitId] of stockUnitIdByItem) {
+        const unit = unitById.get(stockUnitId);
+        const stockImage = stockUnitId ? stockImageByUnitId.get(stockUnitId) : null;
         if (unit) {
           wonUnitByItemId.set(itemId, {
             grade: unit.grade ?? null,
             condition: unit.condition ?? null,
             gradingService: unit.grading_service ?? null,
-            imageUrl: unit.image_url ?? null,
+            imageUrl: stockImage ?? null,
           });
         }
       }
@@ -3506,22 +3544,22 @@ export async function getGachaOpenHistory(
     ),
   ];
   const stockUnitImageIds = [...new Set([...rewardStockUnitIds, ...collectionStockUnitIds])];
-  const allStockUnits = stockUnitImageIds.length
-    ? await readOrEmpty("gacha_history_stock_unit_images", async () => {
-        const { data, error } = await supabase
-          .from("card_stock_units")
-          .select("id,image_url")
-          .in("id", stockUnitImageIds);
-        if (error) throw error;
-        return data ?? [];
-      })
-    : [];
+  const stockUnitRows = await readCardStockUnitRowsByIds<{
+    id: string;
+    card_id: string | null;
+    image_url: string | null;
+  }>(
+    supabase,
+    "gacha_history_stock_unit_images",
+    stockUnitImageIds,
+    "id,card_id,image_url",
+  );
   const stockUnitImageById = new Map(
-    allStockUnits.map((unit) => [unit.id, unit.image_url ?? null]),
+    stockUnitRows.map((unit) => [unit.id, unit.image_url ?? null]),
   );
   const rewardImageByOpenItemId = stockImageUrlByOpenItemId(
     rewardPrizeUnits as PublicPrizeUnitImageRow[],
-    allStockUnits as PublicStockUnitImageRow[],
+    stockUnitRows,
   );
   const collectionImageByOpenItemId = new Map<string, string>();
   for (const link of collectionStockLinks) {
@@ -3852,18 +3890,18 @@ export async function getShipping(
           }
         }
       }
-      const stockUnits = stockUnitIds.size
-        ? await readOrEmpty("shipping_stock_unit_images", async () => {
-            const { data, error } = await supabase
-              .from("card_stock_units")
-              .select("id,image_url")
-              .in("id", [...stockUnitIds]);
-            if (error) throw error;
-            return data ?? [];
-          })
-        : [];
+      const stockRows = await readCardStockUnitRowsByIds<{
+        id: string;
+        card_id: string | null;
+        image_url: string | null;
+      }>(
+        supabase,
+        "shipping_stock_unit_images",
+        stockUnitIds,
+        "id,card_id,image_url",
+      );
       const stockImageById = new Map(
-        stockUnits
+        stockRows
           .map((unit) => [unit.id, publicSubSkuImageUrl(unit.image_url)])
           .filter(
             (entry): entry is [string, string] => Boolean(entry[0] && entry[1]),

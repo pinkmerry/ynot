@@ -5917,6 +5917,29 @@ type OwnerReviewCardEdit = {
   unlockAtSoldPct?: number;
 };
 
+function ownerReviewPrizeRowKey(prize: YnotPrizePreview, index: number) {
+  const stableId =
+    prize.id || prize.cardId || prize.cardCode || prize.cardName || "prize";
+  return `${stableId}-${prize.tier || "tier"}-${prize.rank || index + 1}-${index}`;
+}
+
+function ownerReviewPrizeEditKey(prize: YnotPrizePreview) {
+  return prize.id;
+}
+
+function ownerReviewDuplicatePrizeIds(prizes: YnotPrizePreview[]) {
+  const counts = new Map<string, number>();
+  for (const prize of prizes) {
+    if (!prize.id) continue;
+    counts.set(prize.id, (counts.get(prize.id) ?? 0) + 1);
+  }
+  return new Set(
+    [...counts.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([prizeId]) => prizeId),
+  );
+}
+
 type OwnerReviewSimResult = {
   counts: Record<OwnerReviewTier, number>;
   expected: Record<OwnerReviewTier, number>;
@@ -6367,11 +6390,13 @@ export function AdminOwnerReview({
   });
   const liveRevisionHasUnsavedChanges =
     isLiveRevision && liveRevisionCurrentStateKey !== liveRevisionPersistedStateKey;
+  const duplicatePrizeIds = useMemo(() => ownerReviewDuplicatePrizeIds(prizes), [prizes]);
 
   const effectivePrizes = useMemo(
     () =>
       prizes.map((prize) => {
-        const edit = cardEdits[prize.id];
+        const editKey = ownerReviewPrizeEditKey(prize);
+        const edit = cardEdits[editKey];
         return {
           ...prize,
           weight: edit?.weight ?? prize.weight ?? 1,
@@ -7001,6 +7026,14 @@ export function AdminOwnerReview({
                 No prizes assigned to this pack yet.
               </div>
             )}
+            {duplicatePrizeIds.size > 0 && (
+              <div
+                className="notice warn"
+                style={{ fontSize: 12, marginBottom: 10 }}
+              >
+                Some owner-review rows share the same prize identity. Per-row odds edits are disabled for those rows until the prize identities are repaired.
+              </div>
+            )}
             {OWNER_REVIEW_TIER_ORDER.map((tier) => {
               const rows = effectivePrizes.filter((prize) => prize.ownerTier === tier);
               if (!rows.length) return null;
@@ -7060,7 +7093,15 @@ export function AdminOwnerReview({
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.map((prize) => {
+                      {rows.map((prize, index) => {
+                        const editKey = ownerReviewPrizeEditKey(prize);
+                        const isDuplicatePrizeId = duplicatePrizeIds.has(editKey);
+                        const editable = logicMode !== "pure_random" && !isDuplicatePrizeId;
+                        const unlockEditable =
+                          logicMode === "inventory_gated" && !isDuplicatePrizeId;
+                        const duplicateTitle = isDuplicatePrizeId
+                          ? "Duplicate prize identity. Edit this prize from the pack builder or repair the prize identity before changing odds here."
+                          : undefined;
                         const poolShare =
                           totalWeight === 0
                             ? 0
@@ -7068,7 +7109,7 @@ export function AdminOwnerReview({
                                 totalWeight) *
                               100;
                         return (
-                          <tr key={prize.id}>
+                          <tr key={ownerReviewPrizeRowKey(prize, index)}>
                           <td>
                             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                               {prize.cardImageUrl ? (
@@ -7107,20 +7148,21 @@ export function AdminOwnerReview({
                                     width: 70,
                                     textAlign: "right",
                                     fontSize: 11,
-                                    opacity: logicMode === "pure_random" ? 0.45 : 1,
-                                    cursor: logicMode === "pure_random" ? "not-allowed" : "text",
+                                    opacity: !editable ? 0.45 : 1,
+                                    cursor: !editable ? "not-allowed" : "text",
                                   }}
                                   defaultValue={prize.weight}
-                                  disabled={logicMode === "pure_random"}
+                                  disabled={!editable}
                                   title={
                                     logicMode === "pure_random"
                                       ? "Pure random ignores weights"
-                                      : undefined
+                                      : duplicateTitle
                                   }
                                   onChange={(event) => {
+                                    if (!editable) return;
                                     const next = Number(event.target.value);
                                     if (Number.isFinite(next) && next >= 0) {
-                                      updateCardEdit(prize.id, { weight: next });
+                                      updateCardEdit(editKey, { weight: next });
                                     }
                                   }}
                                 />
@@ -7133,25 +7175,23 @@ export function AdminOwnerReview({
                                     width: 70,
                                     textAlign: "right",
                                     fontSize: 11,
-                                    opacity: logicMode !== "inventory_gated" ? 0.45 : 1,
-                                    cursor:
-                                      logicMode !== "inventory_gated"
-                                        ? "not-allowed"
-                                        : "text",
+                                    opacity: !unlockEditable ? 0.45 : 1,
+                                    cursor: !unlockEditable ? "not-allowed" : "text",
                                   }}
                                   defaultValue={prize.unlockAtSoldPct}
-                                  disabled={logicMode !== "inventory_gated"}
+                                  disabled={!unlockEditable}
                                   title={
                                     logicMode === "pure_random"
                                       ? "Pure random ignores unlock %"
                                       : logicMode === "weighted_templates"
                                       ? "Weighted templates ignore unlock % — use Inventory-gated to lock prizes until pack hits sold %"
-                                      : undefined
+                                      : duplicateTitle
                                   }
                                   onChange={(event) => {
+                                    if (!unlockEditable) return;
                                     const next = Number(event.target.value);
                                     if (Number.isFinite(next) && next >= 0 && next <= 100) {
-                                      updateCardEdit(prize.id, { unlockAtSoldPct: next });
+                                      updateCardEdit(editKey, { unlockAtSoldPct: next });
                                     }
                                   }}
                                 />

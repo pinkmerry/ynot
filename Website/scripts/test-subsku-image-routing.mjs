@@ -15,6 +15,17 @@ function readSource(path) {
   return readFileSync(new URL(path, import.meta.url), "utf8");
 }
 
+function between(source, start, end, label) {
+  const startIndex = source.indexOf(start);
+  assert.notEqual(startIndex, -1, `missing start marker: ${label}`);
+  const endIndex = source.indexOf(end, startIndex + start.length);
+  assert.notEqual(endIndex, -1, `missing end marker: ${label}`);
+  return source.slice(startIndex, endIndex);
+}
+
+const directCustomerStockUnitRead =
+  /\.from\("card_stock_units"\)[\s\S]*?\.select\([\s\S]*?\)[\s\S]*?\.in\("id",\s*(?!batch\b)[^)]+\)/;
+
 function loadTsModule(path) {
   const source = readSource(path);
   const { outputText } = ts.transpileModule(source, {
@@ -206,7 +217,11 @@ test("opening reward history carries a public image URL only", () => {
   );
   assert.match(
     historySource,
-    /imageUrl:\s*publicSubSkuImageUrl\(\s*rewardImageByOpenItemId\.get\(item\.id\),\s*card\?\.photoUrl,?\s*\)/,
+    /readCardStockUnitRowsByIds<\{\s*id: string;\s*card_id: string \| null;\s*image_url: string \| null;\s*\}>\([\s\S]*"gacha_history_stock_unit_images"[\s\S]*"id,card_id,image_url"/,
+  );
+  assert.match(
+    historySource,
+    /imageUrl:\s*publicSubSkuImageUrl\(\s*collectionImageByOpenItemId\.get\(item\.id\) \?\?[\s\S]*rewardImageByOpenItemId\.get\(item\.id\),\s*card\?\.photoUrl,?\s*\)/,
   );
   assert.match(profileTabsSource, /profile-reward-thumb/);
   assert.match(profileTabsSource, /reward\.imageUrl/);
@@ -224,7 +239,7 @@ test("shipping history images come from the won stock unit only", () => {
   );
   assert.match(
     shippingSource,
-    /\.from\("card_stock_units"\)[\s\S]*\.select\("id,image_url"\)/,
+    /readCardStockUnitRowsByIds<\{\s*id: string;\s*card_id: string \| null;\s*image_url: string \| null;\s*\}>\([\s\S]*"shipping_stock_unit_images"[\s\S]*"id,card_id,image_url"/,
   );
   assert.match(shippingSource, /imageByCollectionItemId/);
   assert.match(
@@ -232,6 +247,51 @@ test("shipping history images come from the won stock unit only", () => {
     /imageUrl:\s*item\s*\?\s*imageByCollectionItemId\.get\(item\.id\)\s*\?\?\s*null\s*:\s*null/,
   );
   assert.doesNotMatch(shippingSource, /imageUrl:\s*card\?\.photoUrl/);
+});
+
+test("stock-unit enrichment uses the batched reader on customer collection, history, and shipping paths", () => {
+  const dataSource = readSource("../src/features/ynot/data.ts");
+  const collectionSource = between(
+    dataSource,
+    "export async function getCollection",
+    "export async function getGachaOpenHistory",
+    "collection loader",
+  );
+  const historySource = between(
+    dataSource,
+    "export async function getGachaOpenHistory",
+    "export async function getExchanges",
+    "pull history loader",
+  );
+  const shippingSource = between(
+    dataSource,
+    "export async function getShipping",
+    "export async function getAddresses",
+    "shipping loader",
+  );
+
+  assert.match(dataSource, /const collectionStockRows = await readCardStockUnitRowsByIds<\{[\s\S]*id: string;[\s\S]*card_id: string \| null;[\s\S]*image_url: string \| null;[\s\S]*\}>/);
+  assert.match(dataSource, /const stockUnitRows = await readCardStockUnitRowsByIds<\{\s*id: string;\s*card_id: string \| null;\s*image_url: string \| null;\s*\}>/);
+  assert.match(dataSource, /const stockRows = await readCardStockUnitRowsByIds<\{\s*id: string;\s*card_id: string \| null;\s*image_url: string \| null;\s*\}>/);
+  assert.match(dataSource, /const stockImage = stockUnitId \? stockImageByUnitId\.get\(stockUnitId\) : null;/);
+  assert.doesNotMatch(collectionSource, directCustomerStockUnitRead);
+  assert.doesNotMatch(historySource, directCustomerStockUnitRead);
+  assert.doesNotMatch(shippingSource, directCustomerStockUnitRead);
+});
+
+test("card stock-unit batched reader contract keeps helper internals bounded", () => {
+  const dataSource = readSource("../src/features/ynot/data.ts");
+  const helperSource = between(
+    dataSource,
+    "async function readCardStockUnitRowsByIds",
+    "async function getPrizeUnitIdentityMismatches",
+    "batched stock-unit reader",
+  );
+
+  assert.match(dataSource, /const CARD_STOCK_UNIT_ID_BATCH_SIZE = 250;/);
+  assert.match(helperSource, /readSupabaseRows<T>\(/);
+  assert.match(helperSource, /`\$\{label\}_batch_\$\{Math\.floor\(i \/ CARD_STOCK_UNIT_ID_BATCH_SIZE\) \+ 1\}`/);
+  assert.match(helperSource, /\.in\("id", batch\)/);
 });
 
 test("collection card components render existing collection image URLs", () => {
