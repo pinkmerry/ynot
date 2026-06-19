@@ -135,6 +135,22 @@ test("treats missing public inventory as unbounded and negative counts as closed
   );
 });
 
+test("pull-all of N remaining is allowed when N normal win slots plus one last prize fill them", () => {
+  const inventory = { remainingSlots: 10, normalOpenableWinSlots: 10, finalPrizeAvailableUnits: 1 };
+  assert.equal(openQuantity.openQuantityLimit(inventory), 10);
+  assert.equal(openQuantity.isOpenQuantityAvailable(10, inventory), true);
+});
+
+test("pull-all of N remaining is allowed with no last prize when N normal win slots exist", () => {
+  const inventory = { remainingSlots: 10, normalOpenableWinSlots: 10, finalPrizeAvailableUnits: 0 };
+  assert.equal(openQuantity.openQuantityLimit(inventory), 10);
+});
+
+test("pull-all is capped at available when normal stock is short and no last prize", () => {
+  const inventory = { remainingSlots: 10, normalOpenableWinSlots: 7, finalPrizeAvailableUnits: 0 };
+  assert.equal(openQuantity.openQuantityLimit(inventory), 7);
+});
+
 test("inventory summary counts Last Prize only when aggregates can finish the pack", () => {
   const migrationsDir = new URL(
     "../../Database/supabase/migrations/",
@@ -161,4 +177,20 @@ test("inventory summary counts Last Prize only when aggregates can finish the pa
   assert.doesNotMatch(sql, /'lastPrizeMetadata'/);
   assert.doesNotMatch(sql, /'stockUnitGroupKey'/);
   assert.doesNotMatch(sql, /'unlockAtSoldPct'/);
+});
+
+test("pullAllQuantity returns remaining when below 40% and a last prize exists", () => {
+  assert.equal(openQuantity.pullAllQuantity({ remainingSlots: 30, totalSlots: 100, hasLastPrize: true }), 30);
+});
+test("pullAllQuantity caps at the per-pull max of 100", () => {
+  assert.equal(openQuantity.pullAllQuantity({ remainingSlots: 150, totalSlots: 1000, hasLastPrize: true }), 100);
+});
+test("pullAllQuantity returns null at or above 40% remaining", () => {
+  assert.equal(openQuantity.pullAllQuantity({ remainingSlots: 40, totalSlots: 100, hasLastPrize: true }), null);
+});
+test("pullAllQuantity returns null without a last prize", () => {
+  assert.equal(openQuantity.pullAllQuantity({ remainingSlots: 10, totalSlots: 100, hasLastPrize: false }), null);
+});
+test("pullAllQuantity returns null when nothing remains", () => {
+  assert.equal(openQuantity.pullAllQuantity({ remainingSlots: 0, totalSlots: 100, hasLastPrize: true }), null);
 });

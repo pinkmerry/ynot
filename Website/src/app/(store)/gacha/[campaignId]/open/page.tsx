@@ -19,12 +19,14 @@ export default async function GachaOpenPage({
       Promise.resolve({} as { qty?: string; auto?: string; intent?: string }),
     getYnotDashboardSlice({ wallet: true }),
   ]);
-  const campaign = await getOpenCampaignForReveal(campaignId, data.viewer);
+  const [campaign, tierAnimations] = await Promise.all([
+    getOpenCampaignForReveal(campaignId, data.viewer),
+    getTierAnimations(),
+  ]);
   const initialQuantity = Math.max(1, Math.min(100, Math.round(Number(query.qty) || 1)));
   const autoStart = query.auto === "1";
   const intent = normalizeOpenIntentId(query.intent);
   if (campaign && campaign.openable && autoStart) {
-    const tierAnimations = await getTierAnimations();
     return (
       <GachaOpenPanelLazy
         campaign={campaign}

@@ -1650,17 +1650,35 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   left: 50%;
   transform: translateX(-50%);
   z-index: 25;
-  width: min(calc(100% - 36px), 1264px);
+  width: min(calc(100% - 36px), 1300px);
+  min-height: 80px;
   background: var(--cr-paper);
   border: 1px solid var(--cr-line);
   border-radius: 22px;
   box-shadow: 0 18px 40px rgba(13, 20, 17, 0.16), 0 2px 0 rgba(13, 20, 17, 0.04);
   padding: 12px 14px;
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) auto auto;
+  grid-template-columns: minmax(0, 1.2fr) auto auto auto;
   gap: 18px;
   align-items: center;
   animation: crDockIn 0.35s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.cr-dock-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+.cr-dock-price strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  line-height: 1;
+}
+.cr-dock-price small {
+  font-size: 10.5px;
+  font-weight: 500;
 }
 @keyframes crDockIn {
   from { opacity: 0; transform: translate(-50%, 24px); }
@@ -1707,6 +1725,21 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
 .cr-dock-qty-btn[disabled] {
   opacity: 0.35;
   cursor: not-allowed;
+}
+/* Pull-All button: matches qty-btn shape but with a subtle accent outline
+   to signal "finish the pack". Active state inverts to the accent fill. */
+.cr-dock-qty-btn-all {
+  border: 1.5px solid var(--cr-gold, #e0ad3a);
+  color: var(--cr-gold, #e0ad3a);
+  min-width: 52px;
+}
+.cr-dock-qty-btn-all:hover:not([disabled]) {
+  background: color-mix(in srgb, var(--cr-gold, #e0ad3a) 10%, transparent);
+}
+.cr-dock-qty-btn-all.active {
+  background: var(--cr-gold, #e0ad3a);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(224, 173, 58, 0.35);
 }
 .cr-dock-cta {
   display: flex;

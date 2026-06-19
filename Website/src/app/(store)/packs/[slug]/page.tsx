@@ -3,7 +3,7 @@ import { Shell } from "@/features/ynot/cr/Shell";
 import { PackDetailArena } from "@/features/ynot/cr/PackDetailArena";
 import { PageHead } from "@/features/ynot/cr/UiKit";
 import { YnotShell } from "@/features/ynot/components";
-import { getCampaign, getYnotDashboardSlice } from "@/features/ynot/data";
+import { getCampaign, getYnotDashboardSlice, getYnotViewer } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
@@ -12,16 +12,11 @@ export default async function PackDetailPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const [{ slug }, data] = await Promise.all([
-    params,
-    getYnotDashboardSlice({
-      wallet: true,
-    }),
+  const [{ slug }, viewer] = await Promise.all([params, getYnotViewer()]);
+  const [data, campaign] = await Promise.all([
+    getYnotDashboardSlice({ wallet: true }),
+    getCampaign(slug, { allowTestForCurrentViewer: true, viewer }),
   ]);
-  const campaign = await getCampaign(slug, {
-    allowTestForCurrentViewer: true,
-    viewer: data.viewer,
-  });
 
   return (
     <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>

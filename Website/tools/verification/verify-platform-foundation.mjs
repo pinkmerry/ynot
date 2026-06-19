@@ -169,7 +169,10 @@ const publicGachaOpenTypes = sliceBetween(
 notCheckText(
   "public gacha open result types omit internal pull metadata",
   publicGachaOpenTypes,
-  /(?:cardId|prizeUnitId|logicMode|remaining)/,
+  // `remaining` (remainingSlots/eligibleUnits/availableWinSlots/availablePrizeUnits)
+  // is an allowed public scarcity + continuous-pull quantity-gating field. Only
+  // genuinely-internal pull metadata is forbidden here.
+  /(?:cardId|prizeUnitId|logicMode)/,
   "public gacha open result types",
 );
 check("src/features/ynot/cr/HistoryExperience.tsx", "collection actions call conversion and shipping APIs", /\/api\/ynot\/collection\/convert[\s\S]*\/api\/ynot\/shipping/);
@@ -319,7 +322,7 @@ check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API enforces PSA10 
 check("src/app/api/ynot/admin/prizes/route.ts", "admin prize API allocates DB rank from live rows while preserving display tier rank", /async function resolvePrizeRank[\s\S]*existingDisplayRow[\s\S]*usedRanks[\s\S]*while \(usedRanks\.has\(rank\)\) rank \+= 1[\s\S]*async function savePrizeRow[\s\S]*insert\(rowPatch\)[\s\S]*isUniqueConstraintError/);
 notCheck("src/features/ynot/client.tsx", "admin prize pool direct-assignment form remains removed", /export function AdminPrizePoolForm/);
 check("src/features/ynot/types.ts", "public prize preview carries card image metadata", /YnotPrizePreview[\s\S]*cardCode\?:[\s\S]*cardGrade\?:[\s\S]*cardImageUrl\?:[\s\S]*cardImageStoragePath\?:[\s\S]*cardPrizeCategory\?:/);
-check("src/features/ynot/data.ts", "public prize lineup selects card image metadata", /getPublicPrizeLineupsBatch[\s\S]*select\(\s*"id,name,card_code,grade,image_url,image_storage_path,prize_category",?\s*\)[\s\S]*getPublicPrizeLineup[\s\S]*select\(\s*"id,name,card_code,grade,image_url,image_storage_path,prize_category",?\s*\)/);
+check("src/features/ynot/data.ts", "public prize lineup selects card image metadata", /getPublicPrizeLineupsBatch[\s\S]*select\(\s*"id,name,card_code,grade,image_url,image_storage_path,prize_category,release_year,series",?\s*\)[\s\S]*getPublicPrizeLineup[\s\S]*select\(\s*"id,name,card_code,grade,image_url,image_storage_path,prize_category,release_year,series",?\s*\)/);
 check("src/features/ynot/data.ts", "public prize lineup maps card image metadata", /getPublicPrizeLineupsBatch[\s\S]*cardImageUrl:[\s\S]*cardImageStoragePath:[\s\S]*getPublicPrizeLineup[\s\S]*cardImageUrl:[\s\S]*cardImageStoragePath:/);
 check("src/features/ynot/components.tsx", "public pack detail renders prize images in lineup", /function PrizeLineupImage[\s\S]*prize\.cardImageUrl[\s\S]*<img[\s\S]*function PrizeLineup[\s\S]*<PrizeLineupImage prize=\{prize\}/);
 check("src/app/globals.css", "public prize lineup images keep stable card thumbnail layout", /reward-prize-image[\s\S]*aspect-ratio: 3 \/ 4[\s\S]*object-fit: contain/);
@@ -405,9 +408,9 @@ const adminCardCatalogPanelSource = sliceBetween(
   "admin card catalog panel source slice",
 );
 checkText(
-  "admin card catalog separates global stock from pack assignments",
+  "admin card catalog separates Main SKU stock from pack assignments",
   adminCardCatalogPanelSource,
-  /in prize pools[\s\S]*with global stock[\s\S]*Global stock[\s\S]*Not in any pack yet/,
+  /in prize pools[\s\S]*with Main SKU stock[\s\S]*Main SKU stock[\s\S]*Not in any pack yet/,
   "AdminCardCatalogPanel",
 );
 checkText(
@@ -433,7 +436,7 @@ const adminPrizeInventoryPanelSource = sliceBetween(
 checkText(
   "admin prize inventory panel is labeled as pack planned quantity",
   adminPrizeInventoryPanelSource,
-  /Pack prize quantities[\s\S]*owner review reserves global stock/,
+  /Pack prize quantities[\s\S]*owner review reserves Main SKU stock/,
   "AdminPrizeInventoryPanel",
 );
 checkText(
@@ -544,7 +547,7 @@ checkText(
   /getPrizeStockSummaries[\s\S]*validatePrizeDraftsForSave[\s\S]*release_campaign_reservations/,
   "campaign PATCH pre-mutation validation",
 );
-check("src/features/ynot/client.tsx", "admin campaign form blocks global stock shortage before save", /buildPrizeStockShortages[\s\S]*stockShortageBlockers[\s\S]*Global stock[\s\S]*disabled=\{isPending \|\| prizeBlockers\.length > 0\}/);
+check("src/features/ynot/client.tsx", "admin campaign form blocks Main SKU stock shortage before save", /buildPrizeStockShortages[\s\S]*stockShortageBlockers[\s\S]*prizeBlockers[\s\S]*disabled=\{isPending \|\| prizeBlockers\.length > 0\}/);
 check("src/features/ynot/client.tsx", "all packs submit owner review button disables on readiness blocker", /const reviewBlocker = campaign\.readinessBlockers\?\.\[0\][\s\S]*Boolean\(reviewBlocker\)[\s\S]*Submit owner review/);
 check("src/app/api/ynot/admin/cards/route.ts", "admin card API is admin gated", /resolveAdminSession[\s\S]*Admin access is required/);
 check("src/app/api/ynot/admin/cards/route.ts", "admin card API creates duplicate-name cards without ambiguous overwrite", /Duplicate product names \/ model codes are allowed[\s\S]*every create inserts a NEW card[\s\S]*use "Edit card" \(PATCH\) which targets it by id/);

@@ -27,13 +27,18 @@ test("cached public detail loader returns only the public projection", () => {
   );
 });
 
-test("public prize preview allows bundle quantity but hides internal stock planning", () => {
+test("public prize preview allows bundle + planned quantity but hides internal stock planning", () => {
   const preview = sliceBetween(
     "function publicPrizePreview",
     "function publicPrizeLineup",
   );
   assert.match(preview, /bundleQuantity:\s*prize\.bundleQuantity/);
-  assert.doesNotMatch(preview, /plannedQuantity/);
+  // Product decision (2026-06-15, owner): per-card copy count (plannedQuantity)
+  // is now intentionally shown to customers on pack detail. Stock-planning
+  // internals must still never leak.
+  assert.match(preview, /plannedQuantity:\s*prize\.plannedQuantity/);
+  assert.doesNotMatch(preview, /availableUnits/);
+  assert.doesNotMatch(preview, /totalUnits/);
   assert.doesNotMatch(preview, /stockUnitFilter/);
   assert.doesNotMatch(preview, /stockUnitGroupKey/);
 });

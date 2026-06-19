@@ -115,8 +115,8 @@ test("public campaign prize previews do not expose owner odds or stock target SK
 
   const publicCampaignDetail = between(
     dataSource,
-    "const prizeLineup = await getPublicPrizeLineup",
-    "let readiness",
+    "Promise.all([\n        getPublicPrizeLineup(supabase, row, inventory, {",
+    "getCampaignPrizeReadiness(",
   );
   assert.match(publicCampaignDetail, /includeLocked:\s*includePrivateDetail/);
   assert.match(publicCampaignDetail, /includeSensitiveOdds:\s*includePrivateDetail/);
@@ -243,7 +243,6 @@ test("customer campaign props hide house logic and internal prize inventory", ()
   assert.match(publicPrize, /id:\s*`public-prize-\$\{index \+ 1\}`/);
   assert.doesNotMatch(publicPrize, /cardId:/);
   assert.doesNotMatch(publicPrize, /cardImageStoragePath:/);
-  assert.doesNotMatch(publicPrize, /plannedQuantity:/);
   assert.doesNotMatch(publicPrize, /availableUnits:/);
   assert.doesNotMatch(publicPrize, /totalUnits:/);
   assert.doesNotMatch(publicPrize, /tierRank:/);

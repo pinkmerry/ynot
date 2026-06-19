@@ -116,3 +116,18 @@ export function isOpenQuantityAvailable(
   const safeQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
   return safeQuantity <= openQuantityLimit(input);
 }
+
+const PULL_ALL_THRESHOLD = 0.4;
+const MAX_OPEN_QUANTITY = 100;
+
+export function pullAllQuantity(input: {
+  remainingSlots?: number;
+  totalSlots?: number;
+  hasLastPrize?: boolean;
+}): number | null {
+  const remaining = Math.max(0, Math.floor(Number(input.remainingSlots) || 0));
+  const total = Math.max(0, Math.floor(Number(input.totalSlots) || 0));
+  if (!input.hasLastPrize || remaining <= 0 || total <= 0) return null;
+  if (remaining / total >= PULL_ALL_THRESHOLD) return null;
+  return Math.min(remaining, MAX_OPEN_QUANTITY);
+}

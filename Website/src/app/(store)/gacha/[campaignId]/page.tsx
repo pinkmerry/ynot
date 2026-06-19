@@ -1,15 +1,15 @@
 import { redirect } from "next/navigation";
 import { EmptyState, PageHeader, YnotShell } from "@/features/ynot/components";
-import { getCampaign, getYnotDashboardSlice } from "@/features/ynot/data";
+import { getCampaign, getYnotDashboardSlice, getYnotViewer } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function GachaDetailPage({ params }: { params: Promise<{ campaignId: string }> }) {
-  const [{ campaignId }, data] = await Promise.all([
-    params,
+  const [{ campaignId }, viewer] = await Promise.all([params, getYnotViewer()]);
+  const [data, campaign] = await Promise.all([
     getYnotDashboardSlice({ wallet: true }),
+    getCampaign(campaignId, { allowTestForCurrentViewer: true, viewer }),
   ]);
-  const campaign = await getCampaign(campaignId, { allowTestForCurrentViewer: true, viewer: data.viewer });
   if (campaign) {
     redirect(`/packs/${campaign.slug}`);
   }

@@ -2,13 +2,14 @@ import "server-only";
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import { unstable_cache } from "next/cache";
+import { cache } from "react";
 
 import {
   resolveAdminSession,
   resolveCurrentProfile,
 } from "@/lib/auth/resolve-current-profile";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
-import { getCardCatalog, isSupabaseConfigured } from "@/lib/lucky-draw/data";
+import { getCardCatalog, getCardCatalogByIds, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -904,33 +905,34 @@ async function resolveLastPrizePreview(
   const grade =
     filter && typeof filter.grade === "string" ? filter.grade.trim() : "";
 
-  const cards = await readSupabaseRows<{
-    id: string;
-    card_code: string | null;
-    name: string | null;
-    image_url: string | null;
-  }>("last_prize_card", () =>
-    supabase
-      .from("cards")
-      .select("id,card_code,name,image_url")
-      .eq("id", cardId)
-      .limit(1),
-  );
+  const [cards, units] = await Promise.all([
+    readSupabaseRows<{
+      id: string;
+      card_code: string | null;
+      name: string | null;
+      image_url: string | null;
+    }>("last_prize_card", () =>
+      supabase
+        .from("cards")
+        .select("id,card_code,name,image_url")
+        .eq("id", cardId)
+        .limit(1),
+    ),
+    readSupabaseRows<{
+      image_url: string | null;
+      cert_number: string | null;
+      grade: string | null;
+      status: string | null;
+    }>("last_prize_stock_units", () =>
+      supabase
+        .from("card_stock_units")
+        .select("image_url,cert_number,grade,status")
+        .eq("card_id", cardId)
+        .neq("status", "deleted"),
+    ),
+  ]);
   const card = cards[0];
   if (!card) return null;
-
-  const units = await readSupabaseRows<{
-    image_url: string | null;
-    cert_number: string | null;
-    grade: string | null;
-    status: string | null;
-  }>("last_prize_stock_units", () =>
-    supabase
-      .from("card_stock_units")
-      .select("image_url,cert_number,grade,status")
-      .eq("card_id", cardId)
-      .neq("status", "deleted"),
-  );
   // Prefer the exact sub-SKU the admin selected (cert match, then grade match),
   // and among candidates prefer one that actually has an image.
   const withImage = (u: { image_url: string | null }) => Boolean(u.image_url);
@@ -1167,15 +1169,22 @@ async function getPublicPrizeLineup(
   row: DrawRoundRow,
   inventory?: InventorySummary,
   options: PrizeLineupOptions = {},
+  rawPrizes?: Database["public"]["Tables"]["draw_round_prizes"]["Row"][],
 ): Promise<YnotPrizePreview[]> {
   const soldPct = soldPctForCampaign(row, inventory);
-  const { data: prizes, error } = await supabase
-    .from("draw_round_prizes")
-    .select("*")
-    .eq("draw_round_id", row.id)
-    .order("tier", { ascending: true })
-    .order("rank", { ascending: true });
-  if (error) throw error;
+  let prizes: Database["public"]["Tables"]["draw_round_prizes"]["Row"][] | null;
+  if (rawPrizes !== undefined) {
+    prizes = rawPrizes;
+  } else {
+    const { data, error } = await supabase
+      .from("draw_round_prizes")
+      .select("*")
+      .eq("draw_round_id", row.id)
+      .order("tier", { ascending: true })
+      .order("rank", { ascending: true });
+    if (error) throw error;
+    prizes = data;
+  }
 
   const logicMode = normalizeRandomLogicMode(row.logic_snapshot);
   const visiblePrizes = (prizes ?? []).filter(
@@ -1273,22 +1282,19 @@ async function getPublicPrizeLineupsIndividually(
   options: PrizeLineupOptions = {},
 ): Promise<Map<string, YnotPrizePreview[]>> {
   const out = new Map<string, YnotPrizePreview[]>();
-  for (const row of rows) {
-    try {
-      out.set(
-        row.id,
-        await getPublicPrizeLineup(
-          supabase,
-          row,
-          inventoryByCampaign.get(row.id),
-          options,
-        ),
-      );
-    } catch (error) {
-      recordDataIssue(`campaign_owner_prize_lineup_${row.slug}`, error);
-      out.set(row.id, []);
-    }
-  }
+  await Promise.all(
+    rows.map(async (row) => {
+      try {
+        out.set(
+          row.id,
+          await getPublicPrizeLineup(supabase, row, inventoryByCampaign.get(row.id), options),
+        );
+      } catch (error) {
+        recordDataIssue(`campaign_owner_prize_lineup_${row.slug}`, error);
+        out.set(row.id, []);
+      }
+    }),
+  );
   return out;
 }
 
@@ -1451,6 +1457,11 @@ function publicPrizePreview(prize: YnotPrizePreview, index: number): YnotPrizePr
     valueThb: prize.valueThb,
     convertCoinValue: prize.convertCoinValue,
     bundleQuantity: prize.bundleQuantity,
+    // Product decision (2026-06-15, owner): expose per-card copy count to
+    // customers on pack detail. This intentionally reverses the 2026-06-12
+    // "hide rate labels" guardrail for plannedQuantity only — stock planning
+    // internals (filters / group keys / available units) stay hidden.
+    plannedQuantity: prize.plannedQuantity,
     prizeCategory: prize.prizeCategory,
     prizeCategoryLabel: prize.prizeCategoryLabel,
     displayTier: prize.displayTier,
@@ -1809,7 +1820,7 @@ function getOwnerApprovalRequests(
     : requests;
 }
 
-export async function getYnotViewer(): Promise<YnotViewer> {
+export const getYnotViewer = cache(async (): Promise<YnotViewer> => {
   const session = await resolveCurrentProfile();
   const admin = await resolveAdminSession(session);
   if (!session) return defaultViewer;
@@ -1821,7 +1832,7 @@ export async function getYnotViewer(): Promise<YnotViewer> {
     isAdmin: Boolean(admin),
     adminRole: admin?.adminRole ?? null,
   };
-}
+});
 
 function dataIssueMessage(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -1950,7 +1961,7 @@ async function getCampaignsImpl(
     const loadRows = (requireApproval: boolean) => {
       let query = supabase
         .from("draw_rounds")
-        .select("*")
+        .select(CAMPAIGN_CUSTOMER_SELECT)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false });
       if (campaignIdOrSlug) {
@@ -1958,7 +1969,7 @@ async function getCampaignsImpl(
           ? query.eq("id", campaignIdOrSlug)
           : query.eq("slug", campaignIdOrSlug);
       }
-      if (typeof limit === "number") query = query.limit(limit);
+      query = query.limit(typeof limit === "number" ? limit : CAMPAIGN_LIST_HARD_CAP);
 
       if (options.includePrivate) {
         // Exclude archived packs even from the admin storefront view so the
@@ -1985,7 +1996,11 @@ async function getCampaignsImpl(
       ({ data, error } = await loadRows(false));
     }
     if (error) throw error;
-    const rows = (data ?? []).filter(
+    // CAMPAIGN_CUSTOMER_SELECT is a runtime string, so the client can't infer the
+    // row shape — cast back to the row type (same pattern as OPEN_CAMPAIGN_SELECT).
+    // Dropped columns are absent at runtime but provably unread (see
+    // test-customer-select-narrowing.mjs).
+    const rows = ((data ?? []) as unknown as DrawRoundRow[]).filter(
       (row) => options.includePrivate || row.is_test !== true,
     );
     const campaignIds = rows.map((row) => row.id);
@@ -2254,7 +2269,7 @@ async function loadPublicCampaignDetailImpl(
     const baseSelect = () =>
       supabase
         .from("draw_rounds")
-        .select("*")
+        .select(CAMPAIGN_CUSTOMER_SELECT)
         .in("status", ["live", "closed"])
         .eq("visibility", "public")
         .eq("is_test", false)
@@ -2265,7 +2280,9 @@ async function loadPublicCampaignDetailImpl(
       ({ data, error } = await baseSelect());
     }
     if (error) throw error;
-    return data ?? [];
+    // Cast back to the row type: CAMPAIGN_CUSTOMER_SELECT is a runtime string so
+    // the client returns GenericStringError, same as the OPEN_CAMPAIGN_SELECT path.
+    return (data ?? []) as unknown as DrawRoundRow[];
   });
   const row = rows[0];
   if (!row) return null;
@@ -2296,6 +2313,16 @@ async function loadPublicCampaignDetailImpl(
     .map((link) => categoriesById.get(link.category_id))
     .filter((category): category is YnotCategory => Boolean(category));
   const inventory = inventoryRows[0];
+  // Fetch draw_round_prizes once and share it between the public lineup builder
+  // and the readiness gate — avoids a duplicate round-trip on every pack-detail
+  // render (the Cloudflare Worker has no cross-request cache).
+  const { data: sharedPrizeRows, error: sharedPrizeError } = await supabase
+    .from("draw_round_prizes")
+    .select("*")
+    .eq("draw_round_id", row.id);
+  if (sharedPrizeError) throw sharedPrizeError;
+  const prizeRows = sharedPrizeRows ?? [];
+
   // Public projection: sensitive odds and stock targets stay hidden, but locked
   // tiers (e.g. Rainbow/Grand-prize chase cards that unlock as the pack sells)
   // ARE shown so customers can preview the full lineup.
@@ -2303,12 +2330,13 @@ async function loadPublicCampaignDetailImpl(
     includeLocked: true,
     includeSensitiveOdds: false,
     includeStockTarget: false,
-  });
+  }, prizeRows);
   let publicReadiness: CampaignPrizeReadiness | null = null;
   try {
     publicReadiness = await getCampaignPrizeReadiness(supabase, row.id, {
       row,
       inventory,
+      prizes: prizeRows,
     });
   } catch (error) {
     recordDataIssue("campaign_detail_public_prize_readiness", error);
@@ -2335,6 +2363,53 @@ const getPublicCampaignDetailCached = (slug: string): Promise<YnotCampaign | nul
     ["ynot-campaign-detail-public-v2", slug],
     { tags: ["campaigns", "campaign-detail"], revalidate: 30 },
   )();
+
+// Customer column list for draw_rounds reads. Every column here is read by a
+// customer consumer: toYnotCampaign (incl. its safeCostCoins/safeDisplayTags
+// helpers), getPublicPrizeLineup, resolveLastPrizePreview, and
+// getCampaignPrizeReadiness. House columns (logic_snapshot, test_metadata) are
+// fetched because internal builders need them, but publicYnotCampaign() strips
+// them before anything reaches the client. The companion guard
+// (scripts/test-customer-select-narrowing.mjs) fails if a consumer reads a
+// draw_rounds column that is missing here — typecheck cannot catch that, because
+// .select() with a runtime string returns the full Row type.
+const CAMPAIGN_CUSTOMER_SELECT = [
+  "approval_notes",
+  "approval_requested_at",
+  "approval_status",
+  "approved_at",
+  "banner_image_storage_path",
+  "banner_image_url",
+  "convert_deadline_days",
+  "cost_coins",
+  "created_at",
+  "display_tags",
+  "ends_at",
+  "id",
+  "is_test",
+  "last_prize_awarded_at",
+  "last_prize_card_id",
+  "last_prize_metadata",
+  "logic_snapshot",
+  "mode",
+  "pack_code",
+  "price_thb",
+  "series",
+  "slug",
+  "sort_order",
+  "starts_at",
+  "status",
+  "test_metadata",
+  "title_en",
+  "title_th",
+  "total_slots",
+  "visibility",
+].join(",");
+
+// Realistic ceiling on simultaneously-visible public packs. Makes the /packs
+// list limit explicit so an otherwise-unbounded select can't silently truncate
+// at PostgREST's max_rows (1000).
+const CAMPAIGN_LIST_HARD_CAP = 500;
 
 const OPEN_CAMPAIGN_SELECT = [
   "id",
@@ -2628,24 +2703,36 @@ export async function getCampaign(
       .map((link) => categoriesById.get(link.category_id))
       .filter((category): category is YnotCategory => Boolean(category));
     const inventory = inventoryRows[0];
-    const prizeLineup = await getPublicPrizeLineup(supabase, row, inventory, {
-      includeLocked: includePrivateDetail,
-      includeSensitiveOdds: includePrivateDetail,
-      includeStockTarget: includePrivateDetail,
-    });
-    let readiness: CampaignPrizeReadiness | null = null;
-    try {
-      readiness = await getCampaignPrizeReadiness(supabase, row.id, {
-        row,
-        inventory,
-        includeIdentityMismatches: includePrivateDetail,
-      });
-    } catch (error) {
-      recordDataIssue("campaign_detail_prize_readiness", error);
-    }
-    const identityMismatchResult = includePrivateDetail
-      ? await getPrizeUnitIdentityMismatches(supabase, row.id)
-      : undefined;
+    // Fetch draw_round_prizes once and share it between the lineup builder and
+    // the readiness gate — avoids a duplicate round-trip on every pack-detail
+    // render (the Cloudflare Worker has no cross-request cache).
+    const { data: sharedPrizeRows, error: sharedPrizeError } = await supabase
+      .from("draw_round_prizes")
+      .select("*")
+      .eq("draw_round_id", row.id);
+    if (sharedPrizeError) throw sharedPrizeError;
+    const prizeRows = sharedPrizeRows ?? [];
+    const [prizeLineup, readiness, identityMismatchResult, lastPrizePreview] =
+      await Promise.all([
+        getPublicPrizeLineup(supabase, row, inventory, {
+          includeLocked: includePrivateDetail,
+          includeSensitiveOdds: includePrivateDetail,
+          includeStockTarget: includePrivateDetail,
+        }, prizeRows),
+        getCampaignPrizeReadiness(supabase, row.id, {
+          row,
+          inventory,
+          includeIdentityMismatches: includePrivateDetail,
+          prizes: prizeRows,
+        }).catch((error): CampaignPrizeReadiness | null => {
+          recordDataIssue("campaign_detail_prize_readiness", error);
+          return null;
+        }),
+        includePrivateDetail
+          ? getPrizeUnitIdentityMismatches(supabase, row.id)
+          : Promise.resolve(undefined),
+        resolveLastPrizePreview(supabase, row),
+      ]);
     const campaign = toYnotCampaign(
       row,
       linkedCategories,
@@ -2654,7 +2741,7 @@ export async function getCampaign(
       readiness,
       identityMismatchResult,
     );
-    campaign.lastPrizePreview = await resolveLastPrizePreview(supabase, row);
+    campaign.lastPrizePreview = lastPrizePreview;
     const customerCampaign = includePrivateDetail ? campaign : publicYnotCampaign(campaign);
     if (!includePrivateDetail && !campaign.openable && !campaign.soldOut) return [];
     return [customerCampaign];
@@ -3007,21 +3094,19 @@ export async function getCollection(
   );
   if (!isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
-  const [items, cards] = await Promise.all([
-    readOrEmpty("collection", async () => {
-      const { data, error } = await supabase
-        .from("collection_items")
-        .select("*")
-        .eq("profile_id", profileId)
-        .order("acquired_at", { ascending: false })
-        .limit(collectionLimit);
-      if (error) throw error;
-      return data ?? [];
-    }),
-    readOrEmpty("collection_card_catalog", async () =>
-      getCardCatalog(supabase),
-    ),
-  ]);
+  const items = await readOrEmpty("collection", async () => {
+    const { data, error } = await supabase
+      .from("collection_items")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("acquired_at", { ascending: false })
+      .limit(collectionLimit);
+    if (error) throw error;
+    return data ?? [];
+  });
+  const cards = await readOrEmpty("collection_card_catalog", async () =>
+    getCardCatalogByIds(supabase, items.map((item) => item.card_id)),
+  );
 
   // Look up the source pack title for each item via gacha_opens.draw_round_id.
   const gachaSourceIds = Array.from(
@@ -3329,7 +3414,7 @@ export async function getGachaOpenHistory(
   const campaignIds = Array.from(
     new Set(opens.map((open) => open.draw_round_id)),
   );
-  const [items, cards, campaigns] = await Promise.all([
+  const [items, campaigns] = await Promise.all([
     readOrEmpty("gacha_open_items", async () => {
       const { data, error } = await supabase
         .from("gacha_open_items")
@@ -3339,9 +3424,6 @@ export async function getGachaOpenHistory(
       if (error) throw error;
       return data ?? [];
     }),
-    readOrEmpty("gacha_history_card_catalog", async () =>
-      getCardCatalog(supabase),
-    ),
     readOrEmpty("gacha_history_campaigns", async () => {
       const { data, error } = await supabase
         .from("draw_rounds")
@@ -3351,6 +3433,9 @@ export async function getGachaOpenHistory(
       return data ?? [];
     }),
   ]);
+  const cards = await readOrEmpty("gacha_history_card_catalog", async () =>
+    getCardCatalogByIds(supabase, items.map((item) => item.card_id)),
+  );
 
   // Join the source prize so rewards can carry an accurate customer-facing
   // displayTier (rainbow/gold/silver/bronze) instead of the raw "high"/"normal"
@@ -3383,16 +3468,29 @@ export async function getGachaOpenHistory(
     }
   }
 
-  const rewardPrizeUnits = openIds.length
-    ? await readOrEmpty("gacha_history_prize_unit_images", async () => {
-        const { data, error } = await supabase
-          .from("draw_round_prize_units")
-          .select("gacha_open_item_id,card_stock_unit_id,status")
-          .in("gacha_open_id", openIds);
-        if (error) throw error;
-        return data ?? [];
-      })
-    : [];
+  const [rewardPrizeUnits, collectionStockLinks] = openIds.length
+    ? await Promise.all([
+        readOrEmpty("gacha_history_prize_unit_images", async () => {
+          const { data, error } = await supabase
+            .from("draw_round_prize_units")
+            .select("gacha_open_item_id,card_stock_unit_id,status")
+            .in("gacha_open_id", openIds);
+          if (error) throw error;
+          return data ?? [];
+        }),
+        readOrEmpty("gacha_history_collection_stock_links", async () => {
+          const { data, error } = await supabase
+            .from("collection_items")
+            .select("gacha_open_item_id,card_stock_unit_id")
+            .eq("source_type", "gacha_open")
+            .in("source_id", openIds)
+            .not("gacha_open_item_id", "is", null)
+            .not("card_stock_unit_id", "is", null);
+          if (error) throw error;
+          return data ?? [];
+        }),
+      ])
+    : [[], []];
   const rewardStockUnitIds = [
     ...new Set(
       rewardPrizeUnits
@@ -3400,33 +3498,6 @@ export async function getGachaOpenHistory(
         .filter((id): id is string => Boolean(id)),
     ),
   ];
-  const rewardStockUnits = rewardStockUnitIds.length
-    ? await readOrEmpty("gacha_history_stock_unit_images", async () => {
-        const { data, error } = await supabase
-          .from("card_stock_units")
-          .select("id,image_url")
-          .in("id", rewardStockUnitIds);
-        if (error) throw error;
-        return data ?? [];
-      })
-    : [];
-  const rewardImageByOpenItemId = stockImageUrlByOpenItemId(
-    rewardPrizeUnits as PublicPrizeUnitImageRow[],
-    rewardStockUnits as PublicStockUnitImageRow[],
-  );
-  const collectionStockLinks = openIds.length
-    ? await readOrEmpty("gacha_history_collection_stock_links", async () => {
-        const { data, error } = await supabase
-          .from("collection_items")
-          .select("gacha_open_item_id,card_stock_unit_id")
-          .eq("source_type", "gacha_open")
-          .in("source_id", openIds)
-          .not("gacha_open_item_id", "is", null)
-          .not("card_stock_unit_id", "is", null);
-        if (error) throw error;
-        return data ?? [];
-      })
-    : [];
   const collectionStockUnitIds = [
     ...new Set(
       collectionStockLinks
@@ -3434,23 +3505,28 @@ export async function getGachaOpenHistory(
         .filter((id): id is string => Boolean(id)),
     ),
   ];
-  const collectionStockUnits = collectionStockUnitIds.length
-    ? await readOrEmpty("gacha_history_collection_stock_unit_images", async () => {
+  const stockUnitImageIds = [...new Set([...rewardStockUnitIds, ...collectionStockUnitIds])];
+  const allStockUnits = stockUnitImageIds.length
+    ? await readOrEmpty("gacha_history_stock_unit_images", async () => {
         const { data, error } = await supabase
           .from("card_stock_units")
           .select("id,image_url")
-          .in("id", collectionStockUnitIds);
+          .in("id", stockUnitImageIds);
         if (error) throw error;
         return data ?? [];
       })
     : [];
-  const collectionStockImageById = new Map(
-    collectionStockUnits.map((unit) => [unit.id, unit.image_url ?? null]),
+  const stockUnitImageById = new Map(
+    allStockUnits.map((unit) => [unit.id, unit.image_url ?? null]),
+  );
+  const rewardImageByOpenItemId = stockImageUrlByOpenItemId(
+    rewardPrizeUnits as PublicPrizeUnitImageRow[],
+    allStockUnits as PublicStockUnitImageRow[],
   );
   const collectionImageByOpenItemId = new Map<string, string>();
   for (const link of collectionStockLinks) {
     if (!link.gacha_open_item_id || !link.card_stock_unit_id) continue;
-    const imageUrl = collectionStockImageById.get(link.card_stock_unit_id);
+    const imageUrl = stockUnitImageById.get(link.card_stock_unit_id);
     if (imageUrl) {
       collectionImageByOpenItemId.set(link.gacha_open_item_id, imageUrl);
     }
@@ -3821,7 +3897,7 @@ export async function getShipping(
     const drawRoundIds = Array.from(
       new Set(gachaOpens.map((open) => open.draw_round_id)),
     );
-    const [campaigns, openItems, cards] = await Promise.all([
+    const [campaigns, openItems] = await Promise.all([
       drawRoundIds.length
         ? readOrEmpty("shipping_draw_rounds", async () => {
             const { data, error } = await supabase
@@ -3845,8 +3921,10 @@ export async function getShipping(
             return data ?? [];
           })
         : Promise.resolve([]),
-      readOrEmpty("shipping_card_catalog", async () => getCardCatalog(supabase)),
     ]);
+    const cards = await readOrEmpty("shipping_card_catalog", async () =>
+      getCardCatalogByIds(supabase, openItems.map((item) => item.card_id)),
+    );
 
     const prizeIds = Array.from(
       new Set(

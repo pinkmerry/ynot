@@ -296,6 +296,23 @@ export async function getCardCatalog(supabase: Supabase): Promise<CardCatalogIte
   return (data ?? []).map(toCatalogItem);
 }
 
+export async function getCardCatalogByIds(
+  supabase: Supabase,
+  cardIds: readonly string[],
+): Promise<CardCatalogItem[]> {
+  const ids = [...new Set(cardIds.filter(Boolean))];
+  if (!ids.length) return [];
+  const out: CardCatalogItem[] = [];
+  // Page in 500-id chunks: stays under PostgREST max_rows and URL length limits.
+  for (let i = 0; i < ids.length; i += 500) {
+    const chunk = ids.slice(i, i + 500);
+    const { data, error } = await supabase.from("cards").select("*").in("id", chunk);
+    if (error) throw error;
+    for (const row of data ?? []) out.push(toCatalogItem(row));
+  }
+  return out;
+}
+
 function normalizeCardSearchName(name: string) {
   return name.trim().toLowerCase().replace(/[^a-z0-9ก-๙]+/gi, " ").replace(/\s+/g, " ").slice(0, 160) || "card";
 }

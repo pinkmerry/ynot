@@ -9,10 +9,10 @@
  */
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { YnotCampaign, YnotLastPrizePreview, YnotPrizePreview } from "../types";
-import { normalizeOpenQuantityOptions } from "../open-quantity";
+import { normalizeOpenQuantityOptions, pullAllQuantity } from "../open-quantity";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { Modal, useToast } from "./UiKit";
 
@@ -67,6 +67,7 @@ type Slab = {
   year: number | null;
   brand: string | null;
   tier: TierKey;
+  count: number;
 };
 
 export type PackDetailArenaProps = {
@@ -78,20 +79,6 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
   const router = useRouter();
   const { toast } = useToast();
 
-  // The floating bottom dock duplicates the right buy panel, so only show it
-  // once the buy panel has scrolled out of view (true persistent-buy fallback).
-  const buyPanelRef = useRef<HTMLElement | null>(null);
-  const [dockVisible, setDockVisible] = useState(false);
-  useEffect(() => {
-    const el = buyPanelRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(([entry]) =>
-      setDockVisible(!entry.isIntersecting),
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
   // ----- real open-pack state/logic (ported from PackDetailExperience) -----
   const openQty = normalizeOpenQuantityOptions(campaign.openQuantityOptions);
   const [rawQty, setQty] = useState<number>(openQty[0] ?? 1);
@@ -101,7 +88,12 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
   const [submitting, setSubmitting] = useState(false);
   // "All" sets qty to the live remaining count, which isn't in openQty
   const remainingNow = campaign.remainingSlots ?? campaign.totalSlots;
-  const qty = openQty.includes(rawQty) || rawQty === remainingNow ? rawQty : (openQty[0] ?? 1);
+  const pullAll = pullAllQuantity({
+    remainingSlots: campaign.remainingSlots ?? campaign.totalSlots,
+    totalSlots: campaign.totalSlots,
+    hasLastPrize: campaign.hasLastPrize,
+  });
+  const qty = openQty.includes(rawQty) || rawQty === remainingNow || rawQty === pullAll ? rawQty : (openQty[0] ?? 1);
 
   // FoG-style drawer: play the slide-out animation before unmounting
   function closeChecklist() {
@@ -171,8 +163,15 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
     const byKey = new Map<string, Slab>();
     for (const p of campaign.prizeLineup ?? []) {
       const key = (p.cardCode?.trim() || p.cardName.trim().toLowerCase()) + "|" + (p.cardImageUrl ?? "");
+      // copies of this card seeded into the pack (sum across duplicate rows)
+      const copies = Number(p.plannedQuantity ?? 0) || 0;
       const existing = byKey.get(key);
-      if (existing) continue;
+      if (existing) {
+        // same card appears again (e.g. split across rows): keep one image,
+        // accumulate the copy count
+        existing.count += copies;
+        continue;
+      }
       byKey.set(key, {
         key,
         name: p.cardName,
@@ -182,6 +181,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
         year: p.cardReleaseYear ?? null,
         brand: p.cardBrand ?? null,
         tier: tierOf(p),
+        count: copies,
       });
     }
     return [...byKey.values()].sort(
@@ -213,29 +213,25 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
   }, [lightbox]);
 
   const [center, setCenter] = useState(0);
-  const n = slabs.length;
+  // the stage showcases GRAND PRIZE cards only; packs without that tier
+  // fall back to the full lineup
+  const fanSlabs = grouped.rainbow.length > 0 ? grouped.rainbow : slabs;
+  const n = fanSlabs.length;
   const move = (d: number) => setCenter((c) => n ? ((c + d) % n + n) % n : 0);
   const title = campaign.titleTh || campaign.titleEn;
   const seriesLabel = SERIES_LABEL[campaign.series] ?? campaign.series;
-  const bannerImageUrl = campaign.bannerImageUrl?.trim() ?? "";
-  const hasBannerImage = Boolean(bannerImageUrl);
-
-  const offsets = [-2, -1, 0, 1, 2];
+  // each card appears at most ONCE on stage: the slot count shrinks to the
+  // distinct-card count so wrap-around never repeats an image. With keys
+  // always unique, arrow clicks slide arenaclub-style at any pack size.
+  // A hidden buffer slot per side (when enough cards exist) lets entering/
+  // leaving cards slide in from beyond the edge instead of popping.
+  const visHalf = Math.min(2, Math.max(0, Math.floor((n - 1) / 2)));
+  const hasBuffer = n >= visHalf * 2 + 3;
+  const fanHalf = hasBuffer ? visHalf + 1 : visHalf;
+  const offsets = Array.from({ length: fanHalf * 2 + 1 }, (_, i) => i - fanHalf);
 
   return (
     <div className="ac-root">
-      {hasBannerImage ? (
-        <section className="ac-hero" aria-label={`${title} banner`}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- Pack banners are user-managed Supabase assets. */}
-          <img
-            alt=""
-            aria-hidden="true"
-            className="ac-hero-media"
-            src={bannerImageUrl}
-          />
-        </section>
-      ) : null}
-
       <main className="ac-main">
         {/* LEFT — fanned carousel */}
         <section className="ac-stage-col">
@@ -247,16 +243,27 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
               {offsets.map((o) => {
                 if (!n) return null;
                 const idx = ((center + o) % n + n) % n;
-                const s = slabs[idx];
+                const s = fanSlabs[idx];
                 const abs = Math.abs(o);
+                // arenaclub-style row: big upright slabs, no tilt, side cards
+                // tucked behind the center one at full opacity. Per-tier scale
+                // off the 400px base width: center 400 / 1st 300 / 2nd 250.
+                const fanScale = abs === 0 ? 1 : abs === 1 ? 0.75 : abs === 2 ? 0.625 : 0.5;
+                // non-uniform offsets (like arenaclub): outer cards are smaller,
+                // so the step shrinks for them to keep a constant ~25% overlap
+                // instead of opening a gap. center 0 / 1st ±275 / 2nd ±488.
+                const FAN_X = [0, 275, 488, 663];
+                const fanX = Math.sign(o) * (FAN_X[abs] ?? FAN_X[FAN_X.length - 1]);
                 const style: CSSProperties = {
-                  transform: `translateX(${o * 96}px) rotate(${o * 7}deg) scale(${1 - abs * 0.13})`,
+                  // leading translate(-50%,-50%) centers the card
+                  // on the fan anchor before the row offset applies
+                  transform: `translate(-50%, -50%) translateX(${fanX}px) scale(${fanScale})`,
                   zIndex: 10 - abs,
-                  opacity: abs >= 2 ? 0.55 : 1,
-                  filter: o === 0 ? "none" : "brightness(0.92)",
+                  opacity: abs > visHalf ? 0 : 1,
+                  filter: o === 0 ? "none" : "brightness(0.95)",
                 };
                 return (
-                  <div className={`ac-fan-card${o === 0 ? " is-center" : ""}`} style={style} key={o}>
+                  <div className={`ac-fan-card${o === 0 ? " is-center" : ""}`} style={style} key={s.key}>
                     {s.img ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={s.img} alt={s.name} />
@@ -273,16 +280,16 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
           </div>
           {n > 0 && (
             <div className="ac-center-name">
-              {slabs[center].name}
-              <span className="ac-center-tier" style={{ color: TIER_ACCENT[slabs[center].tier] }}>
-                {TIER_NAME[slabs[center].tier]}
+              {fanSlabs[center].name}
+              <span className="ac-center-tier" style={{ color: TIER_ACCENT[fanSlabs[center].tier] }}>
+                {TIER_NAME[fanSlabs[center].tier]}
               </span>
             </div>
           )}
         </section>
 
         {/* RIGHT — buy panel (real open flow) */}
-        <aside className="ac-buy" ref={buyPanelRef}>
+        <aside className="ac-buy">
           <div className="ac-buy-sub">
             {seriesLabel}{soldOut ? " · Sold out" : ""}
           </div>
@@ -318,69 +325,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
             </div>
           )}
 
-          {!soldOut && openQty.length > 0 && (
-            <>
-              <div className="ac-qty-row">
-                {openQty.map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    className={`ac-qty-btn${qty === q ? " on" : ""}`}
-                    onClick={() => setQty(q)}
-                    disabled={remaining < q}
-                    title={remaining < q ? `Only ${remaining} packs left` : ""}
-                  >
-                    ×{q}
-                  </button>
-                ))}
-                {/* open-all option, shown as the live remaining count so it
-                    stays in the ×N language; hidden when it would duplicate
-                    an existing option. DISABLED until the backend accepts it:
-                    the open API caps quantity at 1–100 and the RPC only allows
-                    values in open_quantity_options, so this button can only
-                    produce errors in production for now */}
-                {false && remaining > 0 && !openQty.includes(remaining) && (
-                  <button
-                    type="button"
-                    className={`ac-qty-btn${qty === remaining ? " on" : ""}`}
-                    onClick={() => setQty(remaining)}
-                    title={`Open all ${remaining} packs`}
-                  >
-                    ×{formatCoins(remaining)}
-                  </button>
-                )}
-              </div>
-              <div className="ac-total-row">
-                <span>Total</span>
-                <strong>
-                  {/* same optical-centering trick as the price row above */}
-                  <span style={{ display: "inline-flex", transform: "translateY(-1.75px)" }}>
-                    <CoinPip size={14} />
-                  </span>{" "}
-                  {formatCoins(totalCost)}
-                </strong>
-              </div>
-            </>
-          )}
-
-          {/* open / buy button — same decision tree as the real dock */}
-          {soldOut ? (
-            <button
-              type="button"
-              className="ac-buynow ac-buynow-muted"
-              onClick={() => toast("info", "We'll notify you when this pack restocks")}
-            >
-              Notify me
-            </button>
-          ) : !openable ? (
-            <button type="button" className="ac-buynow ac-buynow-muted" disabled title={unavailableReason}>
-              Not ready
-            </button>
-          ) : (
-            <button type="button" className="ac-buynow" onClick={tryOpen} disabled={submitting}>
-              Open now
-            </button>
-          )}
+          {/* qty / total / open all live in the always-on bottom dock */}
         </aside>
       </main>
 
@@ -390,7 +335,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
           {presentTiers.map((tier) => {
             const items = grouped[tier];
             return (
-              <div className="ac-tier" key={tier}>
+              <div className={`ac-tier ac-tier-${tier}`} key={tier}>
                 <div className="ac-tier-head">
                   <h3>{TIER_NAME[tier]}</h3>
                 </div>
@@ -410,18 +355,23 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                         ) : (
                           <span className="ac-fan-ph">{initials(s.name)}</span>
                         )}
+                        {s.count > 0 && (
+                          <span className="ac-slab-qty">×{s.count.toLocaleString()}</span>
+                        )}
                       </div>
-                      {/* Arena-style 3-line block: release year + brand / SKU name / model code */}
+                      {/* Arena-style 3-line block: release year + brand / SKU name / model code.
+                          fixed-height wrapper so 2- and 3-line cards reserve the same space
+                          and every card's text stays top-aligned across the grid */}
                       {(() => {
                         const headline = [s.year, s.brand ? (SERIES_LABEL[s.brand] ?? s.brand) : null]
                           .filter(Boolean)
                           .join(" ");
                         return (
-                          <>
+                          <div className="ac-slab-info">
                             <div className="ac-slab-name">{headline || s.name}</div>
                             {headline && <div className="ac-slab-sub">{s.name}</div>}
                             {s.code && <div className="ac-slab-sub">#{s.code}</div>}
-                          </>
+                          </div>
                         );
                       })()}
                     </button>
@@ -430,37 +380,71 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
               </div>
             );
           })}
-          {lastPrize && (
-            <div className="ac-tier">
-              <div className="ac-tier-head">
-                <h3>{LAST_PRIZE_NAME}</h3>
-                <span className="ac-muted">Bonus for whoever opens the final pack</span>
-              </div>
-              <div className="ac-grid">
-                <div
-                  className="ac-slab"
-                  style={{ ["--accent"]: LAST_PRIZE_ACCENT, cursor: "default" } as CSSProperties}
-                >
-                  <div className="ac-slab-art">
-                    {lastPrize.cardImageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={lastPrize.cardImageUrl} alt={lastPrize.cardName} />
-                    ) : (
-                      <span className="ac-fan-ph">{initials(lastPrize.cardName)}</span>
-                    )}
-                  </div>
-                  <div className="ac-slab-name">{lastPrize.cardName}</div>
-                  {lastPrize.cardCode && <div className="ac-slab-sub">#{lastPrize.cardCode}</div>}
-                  <div className="ac-slab-sub">Final pack bonus</div>
+          {lastPrize && (() => {
+            // Render the Last Prize through the same markup as a pool slab so it
+            // looks and behaves identically: clickable -> lightbox, and the same
+            // 3-line text block. Borrow year/series from the matching pool card
+            // (by code) when present so the headline reads like its grid twin.
+            const lp = lastPrize;
+            const match = slabs.find(
+              (s) => !!s.code && !!lp.cardCode && s.code === lp.cardCode.trim()
+            );
+            const lastPrizeSlab: Slab = {
+              key: "last-prize",
+              name: lp.cardName,
+              img: lp.cardImageUrl ?? null,
+              grade: null,
+              code: lp.cardCode?.trim() || null,
+              year: match?.year ?? null,
+              brand: match?.brand ?? null,
+              tier: "rainbow",
+              count: 1,
+            };
+            const headline = [
+              lastPrizeSlab.year,
+              lastPrizeSlab.brand ? (SERIES_LABEL[lastPrizeSlab.brand] ?? lastPrizeSlab.brand) : null,
+            ]
+              .filter(Boolean)
+              .join(" ");
+            return (
+              <div className="ac-tier">
+                <div className="ac-tier-head">
+                  <h3>{LAST_PRIZE_NAME}</h3>
+                  <span className="ac-muted">(Bonus for opening the final pack.)</span>
+                </div>
+                <div className="ac-grid">
+                  <button
+                    type="button"
+                    className="ac-slab"
+                    onClick={() => setLightbox(lastPrizeSlab)}
+                    style={{ ["--accent"]: LAST_PRIZE_ACCENT } as CSSProperties}
+                  >
+                    <div className="ac-slab-art">
+                      {lastPrizeSlab.img ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={lastPrizeSlab.img} alt={lastPrizeSlab.name} />
+                      ) : (
+                        <span className="ac-fan-ph">{initials(lastPrizeSlab.name)}</span>
+                      )}
+                      {lastPrizeSlab.count > 0 && (
+                        <span className="ac-slab-qty">×{lastPrizeSlab.count.toLocaleString()}</span>
+                      )}
+                    </div>
+                    <div className="ac-slab-info">
+                      <div className="ac-slab-name">{headline || lastPrizeSlab.name}</div>
+                      {headline && <div className="ac-slab-sub">{lastPrizeSlab.name}</div>}
+                      {lastPrizeSlab.code && <div className="ac-slab-sub">#{lastPrizeSlab.code}</div>}
+                    </div>
+                  </button>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </section>
       )}
 
       {/* ===== sticky open dock (real) — only once the buy panel scrolls away ===== */}
-      {openQty.length > 0 && !soldOut && dockVisible && (
+      {openQty.length > 0 && !soldOut && (
         <div className="cr-dock" role="region" aria-label="Open this pack">
           <div className="cr-dock-pack">
             <div className="cr-stack" style={{ gap: 3, minWidth: 0 }}>
@@ -476,12 +460,44 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
               )}
             </div>
           </div>
+          {/* per-pack price + checklist, mirrored from the buy panel */}
+          <div className="cr-dock-price">
+            <strong className="cr-tnum">
+              <CoinPip size={14} /> {formatCoins(campaign.costCoins)}{" "}
+              <small className="cr-mute">/ pack</small>
+            </strong>
+            <button
+              type="button"
+              className="ac-checklist-link"
+              style={{ marginLeft: 0 }}
+              onClick={() => setChecklistOpen(true)}
+            >
+              Checklist
+            </button>
+          </div>
           <div className="cr-dock-qty">
             {openQty.map((q) => (
               <button key={q} type="button" className={`cr-dock-qty-btn ${qty === q ? "active" : ""}`} onClick={() => setQty(q)} disabled={remaining < q} title={remaining < q ? `Only ${remaining} packs left` : `Open ${q} pack${q === 1 ? "" : "s"}`}>
                 ×{q}
               </button>
             ))}
+            {pullAll !== null && (
+              <button
+                type="button"
+                className={`cr-dock-qty-btn cr-dock-qty-btn-all ${qty === pullAll ? "active" : ""}`}
+                onClick={() => {
+                  setQty(pullAll);
+                  if (!openable) return toast("error", unavailableReason);
+                  if (remaining < pullAll) return toast("error", `Only ${remaining} packs left.`);
+                  if (balanceCoins < campaign.costCoins * pullAll) return toast("error", "Top up to open this many.");
+                  setConfirmOpen(true);
+                }}
+                disabled={submitting}
+                title={`Pull all ${pullAll} remaining — triggers the Last Prize bonus`}
+              >
+                All
+              </button>
+            )}
           </div>
           <div className="cr-dock-cta">
             <div className="cr-dock-total">
@@ -500,7 +516,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
           </div>
         </div>
       )}
-      {soldOut && dockVisible && (
+      {soldOut && (
         <div className="cr-dock" role="region" aria-label="Pack sold out" style={{ borderColor: "var(--cr-line-strong)", background: "var(--cr-paper-2)" }}>
           <div className="cr-dock-pack">
             <div className="cr-stack" style={{ gap: 2 }}>
@@ -556,6 +572,16 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                   ×{q}
                 </button>
               ))}
+              {pullAll !== null && (
+                <button
+                  type="button"
+                  className={`cr-dock-qty-btn cr-dock-qty-btn-all ${qty === pullAll ? "active" : ""}`}
+                  onClick={() => setQty(pullAll)}
+                  title={`Pull all ${pullAll} remaining — triggers the Last Prize bonus`}
+                >
+                  All
+                </button>
+              )}
             </div>
           </div>
           <div style={{ background: "var(--cr-bg-soft)", border: "1px solid var(--cr-line)", borderRadius: "var(--cr-r-md)", padding: "14px 16px" }}>
@@ -662,29 +688,40 @@ const baseCss = `
     color: var(--ink); font-family: Helvetica, Arial, var(--font-inter), sans-serif;
     -webkit-font-smoothing: antialiased; padding-bottom: 0;
   }
-  /* HERO */
-  .ac-hero {
-    position: relative; width: min(1450px, calc(100vw - 32px));
-    margin: 28px auto 0; aspect-ratio: 16 / 9; min-height: 220px;
-    max-height: min(72vh, 720px); overflow: hidden; background: #fff;
-    border-radius: 20px; box-shadow: 0 18px 44px rgba(13, 20, 17, 0.14);
-  }
-  .ac-hero-media { width: 100%; height: 100%; object-fit: contain; display: block; background: #fff; }
-  .ac-hero-ph { position: absolute; inset: 0; background: linear-gradient(120deg, #cfe0f5 0%, #e7dcf0 45%, #f7d8c9 100%); }
 
-  /* proportional columns (~3/4 : 1/4) — 1065:360 is the tuned full-width design,
-     kept as a ratio so both columns scale together on narrower windows */
-  .ac-main { display: grid; grid-template-columns: 1065fr 360fr; gap: 25px; max-width: 1450px; margin: 0 auto; padding: 50px 0 25px; align-items: start; }
+  /* stacked layout at every width: full-width stage with the buy panel as a
+     full-width block right under it (the tablet/mobile flow, promoted) */
+  .ac-main { display: grid; grid-template-columns: 1fr; gap: 25px; max-width: 1450px; margin: 0 auto; padding: 50px 0 25px; align-items: start; }
   /* fan stage */
-  .ac-stage { position: relative; aspect-ratio: 2 / 1; border-radius: 20px; overflow: hidden; background: linear-gradient(135deg, #f8c7a6 0%, #eed6c5 38%, #cfe0f5 100%); display: flex; align-items: center; justify-content: center; }
-  .ac-fan { position: relative; width: 280px; height: 380px; }
-  .ac-fan-card { position: absolute; inset: 0; margin: auto; width: 230px; height: 322px; border-radius: 12px; overflow: hidden; transition: transform 0.35s cubic-bezier(.2,.7,.2,1), opacity 0.35s ease; display: flex; align-items: center; justify-content: center; background: #fff; box-shadow: 0 18px 36px rgba(0,0,0,0.28); }
-  .ac-fan-card.is-center { box-shadow: 0 26px 50px rgba(0,0,0,0.4); }
-  .ac-fan-card img { width: 100%; height: 100%; object-fit: contain; }
+  /* same mint environment as the card lightbox (K4): vignette + skylight + halo */
+  .ac-stage { position: relative; aspect-ratio: 2 / 1; border-radius: 20px; overflow: hidden; background: radial-gradient(95% 75% at 50% 42%, #f4fcf4 0%, #ebf8eb 45%, #cde4ce 78%, #afcdb1 100%); display: flex; align-items: center; justify-content: center; }
+  .ac-stage::before { content: ""; position: absolute; inset: 0; background: radial-gradient(66% 46% at 50% -8%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0) 70%); pointer-events: none; }
+  .ac-stage::after { content: ""; position: absolute; width: 46%; height: 58%; left: 27%; top: 14%; border-radius: 50%; background: #fff; filter: blur(44px); opacity: 0.95; pointer-events: none; }
+  .ac-fan { z-index: 2; }
+  /* arena-scale cards: ~57% of the 725px stage height, like arenaclub's stage.
+     Fixed HEIGHT only — width hugs each image's own aspect ratio so mixed
+     media (slabs, raw cards, pack shots) don't get letterboxed into one box */
+  .ac-fan { position: relative; width: 400px; height: 556px; }
+  /* no fill behind the art — images are transparent already, so the shadow
+     rides on the image alpha (drop-shadow) instead of the element box */
+  .ac-fan-card { position: absolute; left: 50%; top: 50%; width: 400px; height: auto; transition: transform 0.45s cubic-bezier(.2,.7,.2,1), opacity 0.45s ease; display: flex; align-items: center; justify-content: center; background: transparent; }
+  .ac-fan-card img { filter: drop-shadow(0 18px 28px rgba(0,0,0,0.28)); }
+  .ac-fan-card.is-center img { filter: drop-shadow(0 26px 40px rgba(0,0,0,0.4)); }
+  /* width is LOCKED (the card box is 400px wide) and height follows each
+     image's own aspect ratio; max-width:none / flex:none beat the global
+     img max-width and flex content-sizing */
+  .ac-fan-card img { display: block; width: 100%; height: auto; max-width: none; flex: none; }
+  /* only the center card gets the lightbox-style 3D sway (no reflection) */
+  .ac-fan-card.is-center img { animation: ac-fan-sway 8s ease-in-out infinite; }
+  @keyframes ac-fan-sway {
+    0%, 100% { transform: perspective(900px) rotateY(15deg) translateY(0); }
+    50% { transform: perspective(900px) rotateY(-15deg) translateY(-8px); }
+  }
   .ac-fan-ph { font-size: 42px; font-weight: 800; color: var(--muted); }
-  .ac-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 20; width: 42px; height: 42px; border-radius: 50%; border: none; cursor: pointer; background: rgba(255,255,255,0.85); color: #111; font-size: 22px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); }
+  /* FoG-style arrows: square, hairline border, flat white, invert to black on hover */
+  .ac-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 20; width: 44px; height: 44px; border: 1px solid var(--line); cursor: pointer; background: #fff; color: #000; font-size: 18px; line-height: 1; display: flex; align-items: center; justify-content: center; transition: background 0.16s ease, color 0.16s ease; }
   .ac-prev { left: 16px; } .ac-next { right: 16px; }
-  .ac-arrow:hover { background: #fff; }
+  .ac-arrow:hover { background: #000; color: #fff; }
   .ac-center-name { text-align: center; margin-top: 12px; font-weight: 800; font-size: 16px; display: flex; gap: 10px; justify-content: center; align-items: center; }
   .ac-center-tier { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; }
 
@@ -693,14 +730,10 @@ const baseCss = `
      still push the panel taller if it overflows. Flex column so the
      transaction cluster (qty / total / open) sinks to the bottom edge
      while the info block stays up top. */
-  /* aspect-ratio 360:532.5 keeps the panel's height equal to the stage's
-     (stage = 2:1 of a column 1065/360 wider), so their bottoms stay aligned
-     at every window width */
-  .ac-buy { border: 1px solid var(--line); border-radius: 18px; padding: 35px 25px 25px; box-shadow: 0 8px 30px rgba(0,0,0,0.06); aspect-ratio: 360 / 532.5; display: flex; flex-direction: column; }
+  .ac-buy { border: 1px solid var(--line); border-radius: 18px; padding: 15px; box-shadow: 0 8px 30px rgba(0,0,0,0.06); display: flex; flex-direction: column; }
   /* sold-out / not-ready states render the button right after the price */
-  .ac-price + .ac-buynow { margin-top: auto; }
   /* Fear-of-God scale/weight (our font): fluid vw title (like FoG 1.5625vw) + small eyebrow */
-  .ac-buy-title { color: #000000; font-size: clamp(22px, 1.5625vw, 34px); font-weight: 400; margin: 0 0 5px; letter-spacing: 0; line-height: 1.2; }
+  .ac-buy-title { color: #000000; font-size: clamp(22px, 1.5625vw, 34px); font-weight: 400; margin: 0 0 10px; letter-spacing: 0; line-height: 1.2; }
   /* FoG vendor-eyebrow style (ESSENTIALS): 12px uppercase, tracked, ink, regular weight */
   .ac-buy-sub { color: #000000; font-size: 12px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0; }
   /* Fear-of-God style: charcoal fill on bone, sharp corners, tracked uppercase label */
@@ -713,27 +746,14 @@ const baseCss = `
   .ac-valbar-top strong { color: #757575; font-weight: 600; font-size: 12px; font-variant-numeric: tabular-nums; }
   .ac-valbar-track { height: 15px; background: #eae7e1; overflow: hidden; }
   .ac-valbar-fill { height: 100%; background: #1a1a1a; transition: width 0.3s ease; }
-  .ac-price { display: flex; align-items: baseline; gap: 7px; font-size: 26px; font-weight: 800; margin-bottom: 18px; color: #000; }
+  .ac-price { display: flex; align-items: baseline; gap: 7px; font-size: 26px; font-weight: 600; margin-bottom: 10px; color: #000; }
   .ac-price small { font-size: 11px; font-weight: 400; color: #757575; letter-spacing: 0.1em; text-transform: uppercase; }
   .ac-qty-label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
-  .ac-qty-row { display: flex; gap: 10px; margin-bottom: 30px; }
-  .ac-qty-btn { flex: 1; height: 38px; border: 1px solid var(--line); background: #fff; font-size: 15px; font-weight: 800; cursor: pointer; color: var(--ink); }
-  .ac-qty-btn:hover:not(:disabled) { border-color: #b9c0c8; }
-  .ac-qty-btn.on { background: var(--ink); color: #fff; border-color: var(--ink); }
-  .ac-qty-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .ac-total-row { display: flex; align-items: baseline; justify-content: space-between; font-size: 14px; padding: 10px 5px; }
-  .ac-total-row span { font-size: 11px; color: #757575; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
-  .ac-total-row strong { display: inline-flex; align-items: baseline; gap: 6px; font-size: 16px; }
   .ac-wallet { display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
   .ac-wallet-ico { width: 34px; height: 34px; border-radius: 8px; background: #f3f4f6; }
   .ac-wallet-label { font-size: 13.5px; font-weight: 700; }
   .ac-muted { color: var(--muted); font-size: 12px; }
-  .ac-tier-head .ac-muted { font-size: 11px; color: #757575; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
-  .ac-buynow { width: 100%; height: 48px; border: none; border-radius: 12px; background: var(--green); color: #fff; font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; text-decoration: none; }
-  .ac-buynow:hover:not(:disabled) { background: var(--green-hover); }
-  .ac-buynow:disabled { opacity: 0.5; cursor: not-allowed; }
-  .ac-buynow-muted { background: #2a2f36; }
-  .ac-buynow-gold { background: var(--cr-gold, #d9a022); }
+  .ac-tier-head .ac-muted { font-size: 11px; color: #757575; font-weight: 600; letter-spacing: 0.01em; text-transform: none; }
   .ac-checklist-link { margin-left: auto; background: none; border: none; padding: 0; font-family: inherit; font-size: 10px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; color: #000; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; text-decoration-color: #757575; }
   .ac-checklist-link:hover { text-decoration-color: #000; }
   /* checklist rows — YFIFTEEN filter-row language: tall airy rows, tracked
@@ -778,7 +798,7 @@ const baseCss = `
   .ac-lightbox-card { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; height: 100%; width: 100%; perspective: 800px; }
   .ac-lightbox-card::before { content: ""; height: calc((var(--lbh) - 48px) * 0.103); flex-shrink: 0; }
   /* the ONE animated element — card and reflection ride inside it */
-  .ac-lightbox-turn { display: flex; flex-direction: column; align-items: center; align-self: stretch; animation: ac-card-turn 7s ease-in-out infinite; }
+  .ac-lightbox-turn { display: flex; flex-direction: column; align-items: center; align-self: stretch; animation: ac-card-turn 8s ease-in-out infinite; }
   .ac-lightbox-main { display: block; height: calc((var(--lbh) - 48px) * 0.794); max-width: 100%; object-fit: contain; filter: drop-shadow(0 14px 14px rgba(13, 20, 17, 0.2)); }
   /* the clip runs through the panel's bottom padding (negative margin) so
      the reflection bleeds all the way to the bottom edge; the mask is tuned
@@ -789,15 +809,12 @@ const baseCss = `
      the reflection runs the same path inside flipped (scaleY(-1)) space, so
      the same translateY reads as the mirror-correct opposite direction */
   @keyframes ac-card-turn {
-    0%, 100% { transform: rotateY(21deg) translateY(0); }
-    50% { transform: rotateY(-21deg) translateY(-7px); }
+    0%, 100% { transform: rotateY(15deg) translateY(0); }
+    50% { transform: rotateY(-15deg) translateY(-8px); }
   }
   @keyframes ac-pop {
     from { transform: scale(0.97); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .ac-lightbox, .ac-lightbox-turn { animation: none; }
   }
   .ac-lightbox-x { position: absolute; top: 14px; right: 14px; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; background: none; border: none; padding: 0; cursor: pointer; color: #000; z-index: 3; }
   .ac-lightbox .ac-fan-ph { position: relative; z-index: 2; }
@@ -816,38 +833,52 @@ const baseCss = `
   .ac-tier-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px; }
   .ac-tier-head h3 { font-size: clamp(16px, 1.05vw, 24px); font-weight: 600; line-height: 1.2; letter-spacing: 0.04em; margin: 0; color: #000; }
   /* FoG collection-grid gaps: row gap double the column gap */
-  .ac-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 50px 25px; }
+  .ac-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 40px 20px; align-items: start; }
+  /* prize tiers (FIRST / SECOND / THIRD) lock to 5 cards per row:
+     5 x 274px + 4 x 20px column-gap = 1450px container */
+  .ac-tier-gold .ac-grid,
+  .ac-tier-silver .ac-grid,
+  .ac-tier-bronze .ac-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  /* reserve room for 3 text lines so 2- and 3-line cards take the same height
+     and every card's text stays top-aligned (no shifting down) */
+  .ac-slab-info { min-height: calc(3 * 1.35em); }
   .ac-slab { background: #fff; border: none; border-radius: 14px; padding: 0; cursor: pointer; text-align: left; transition: transform 0.15s ease, box-shadow 0.15s ease; }
   .ac-slab:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(0,0,0,0.1); }
-  /* FoG-style card: full-width 3:4 image block, height follows the ratio,
-     text lines sit below */
-  .ac-slab-art { aspect-ratio: 3 / 4; width: 100%; height: auto; margin: 0 0 10px; border-radius: 10px; overflow: hidden; background: #f5f5f5; display: flex; align-items: center; justify-content: center; }
-  .ac-slab-art img { width: 100%; height: 100%; object-fit: contain; padding: 6%; }
-  .ac-slab-name { font-size: 14px; font-weight: 800; color: #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* Arena-style gray info lines under the card name (grade / card number) */
-  .ac-slab-sub { font-size: 14px; color: #000; font-weight: 400; margin-top: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-  /* below 1200px the side-by-side panel gets too cramped (price wraps, qty
-     buttons squeeze past the matched height), so stack it under the stage
-     early; card-grid/typography keep desktop styling until the 920px cut */
-  @media (max-width: 1199px) {
-    .ac-main { grid-template-columns: 1fr; }
-    .ac-buy { aspect-ratio: auto; }
+  /* FoG-style card: fixed 3:4 gray frame (same shape for every card), with a
+     20px inner border on all sides; the card is contained inside the padded
+     area so tall/narrow or wide/short items never overflow */
+  .ac-slab-art { position: relative; aspect-ratio: 3 / 4; width: 100%; box-sizing: border-box; padding: 20px; margin: 0 0 10px; border-radius: 10px; overflow: hidden; background: #f5f5f5; display: flex; align-items: center; justify-content: center; }
+  .ac-slab-art img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+  /* copies-in-pack chip: solid tag pinned to the card's lower-right edge.
+     50x30 on the large GRAND/LAST cards; scaled to ~79% on the smaller
+     5-per-row prize cards below so it stays proportional to the card. */
+  .ac-slab-qty { position: absolute; bottom: 40px; right: 0; z-index: 3; display: inline-flex; align-items: center; justify-content: center; width: 50px; height: 30px; box-sizing: border-box; background: #111; color: #fff; font-size: 11px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+  @media (min-width: 921px) {
+    .ac-tier-gold .ac-slab-qty,
+    .ac-tier-silver .ac-slab-qty,
+    .ac-tier-bronze .ac-slab-qty { width: 39px; height: 24px; bottom: 32px; font-size: 9px; }
   }
+  .ac-slab-name { font-size: 14px; line-height: 1.35; font-weight: 800; color: #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Arena-style gray info lines under the card name (grade / card number) */
+  .ac-slab-sub { font-size: 14px; line-height: 1.35; color: #000; font-weight: 400; margin-top: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   @media (max-width: 920px) {
     .ac-main { grid-template-columns: 1fr; }
     /* on mobile the panel no longer sits beside the stage, so drop the
        height-matching and let it hug its content */
-    .ac-buy { padding-top: 25px; }
     /* tighter, uniform vertical rhythm on mobile */
-    .ac-price, .ac-valbar, .ac-qty-row { margin-bottom: 18px; }
-    .ac-hero { aspect-ratio: 16 / 9; }
+    .ac-price, .ac-valbar { margin-bottom: 18px; }
     /* FoG mobile grid: 2 cards per row (minmax(0,1fr) so long names can't
        blow the track wider than the screen) */
-    .ac-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12.5px; }
+    .ac-grid,
+    .ac-tier-gold .ac-grid,
+    .ac-tier-silver .ac-grid,
+    .ac-tier-bronze .ac-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12.5px; }
     .ac-tier { margin-bottom: 30px; }
     .ac-slab-name, .ac-slab-sub { font-size: 12px; }
+    /* mobile cards are ~53% of the desktop GRAND card, so the count chip
+       scales down to keep the same ~14.5% chip-to-card proportion */
+    .ac-slab-qty { width: 27px; height: 16px; bottom: 21px; font-size: 9px; }
     .ac-drawer-head { padding: 0 28px; }
     .ac-drawer-x { right: 28px; }
     .ac-drawer-body { padding: 0 28px 30px; }

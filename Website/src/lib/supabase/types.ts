@@ -809,12 +809,6 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["idempotency_keys"]["Insert"]>;
         Relationships: [];
       };
-      site_settings: {
-        Row: { key: string; value: Json; updated_by_admin_id: string | null; updated_at: string };
-        Insert: { key: string; value?: Json; updated_by_admin_id?: string | null; updated_at?: string };
-        Update: Partial<Database["public"]["Tables"]["site_settings"]["Insert"]>;
-        Relationships: [];
-      };
       ranking_snapshots: {
         Row: { id: string; scope: string; period_start: string | null; period_end: string | null; profile_id: string; metric: string; rank: number; value: number; generated_at: string };
         Insert: { id?: string; scope?: string; period_start?: string | null; period_end?: string | null; profile_id: string; metric: string; rank: number; value?: number; generated_at?: string };
