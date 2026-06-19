@@ -87,7 +87,7 @@ function normalizeCollectionItemActionTokens(
   }
   if (value.length > MAX_SELECTED_CONVERT_ITEMS) {
     return {
-      error: `Select all eligible rewards for more than ${MAX_SELECTED_CONVERT_ITEMS.toLocaleString()} rewards.`,
+      error: `Use Select all eligible rewards to convert for more than ${MAX_SELECTED_CONVERT_ITEMS.toLocaleString()} rewards.`,
       status: 400,
       tokens: [] as string[],
     };

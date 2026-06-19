@@ -220,7 +220,7 @@ test("Cloudflare worker can continue reward conversion jobs without browser owne
 test("Customer Bag conversion UI requires explicit selection and keeps huge flow summary-only", () => {
   const history = read("src/features/ynot/cr/HistoryExperience.tsx");
 
-  requirePattern(history, /Select all eligible rewards/, "UI must expose explicit whole-bag select-all");
+  requirePattern(history, /Select all eligible rewards to convert/, "UI must expose explicit whole-bag select-all conversion");
   requirePattern(history, /selectionMode:\s*"all_eligible"/, "whole-bag selection must be sent as scope, not IDs");
   requirePattern(history, /selectionMode:\s*"selected"/, "manual selection must remain available");
   requirePattern(history, /function isConvertibleReward/, "manual conversion must share the RPC eligibility rules");

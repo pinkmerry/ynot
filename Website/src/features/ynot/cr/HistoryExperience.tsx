@@ -610,7 +610,7 @@ export function HistoryExperience({
                 className="cr-btn cr-btn-ghost cr-btn-sm"
                 onClick={selectAll}
               >
-                Select visible
+                Select all
               </button>
               <button
                 type="button"
@@ -618,7 +618,7 @@ export function HistoryExperience({
                 onClick={() => void openSell("all_eligible")}
                 disabled={sellBusy}
               >
-                Select all eligible rewards
+                Select all eligible rewards to convert
               </button>
               {selected.size > 0 && (
                 <button
