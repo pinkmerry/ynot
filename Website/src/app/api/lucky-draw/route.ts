@@ -126,17 +126,6 @@ async function replayLegacyOrderResponse(
   });
 }
 
-async function clearLegacyOrderIdempotencyKey(
-  supabase: ReturnType<typeof createServiceSupabaseClient>,
-  orderId: string,
-) {
-  const { error } = await supabase
-    .from("orders")
-    .update({ idempotency_key: null })
-    .eq("id", orderId);
-  return error;
-}
-
 async function deleteIncompleteLegacyOrder(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   order: { id: string; public_code: string | null },
@@ -145,12 +134,10 @@ async function deleteIncompleteLegacyOrder(
   const { error: deleteError } = await supabase.from("orders").delete().eq("id", order.id);
   if (!deleteError) return;
 
-  const clearError = await clearLegacyOrderIdempotencyKey(supabase, order.id);
   console.warn("legacy_order_incomplete_cleanup_failed", {
     context,
     orderPublicCode: order.public_code,
     deleteMessage: deleteError.message,
-    clearIdempotencyMessage: clearError?.message ?? null,
   });
 }
 

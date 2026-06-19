@@ -185,8 +185,10 @@ test("legacy lucky-draw order POST uses modern paid-action guardrails", () => {
   assert.doesNotMatch(finalSuccessBlock, /replayed/);
 
   assert.match(route, /async function deleteIncompleteLegacyOrder/);
-  assert.match(cleanupBlock, /clearLegacyOrderIdempotencyKey\(supabase, order\.id\)/);
   assert.match(cleanupBlock, /console\.warn\("legacy_order_incomplete_cleanup_failed"/);
+  assert.doesNotMatch(cleanupBlock, /idempotency_key:\s*null/);
+  assert.doesNotMatch(cleanupBlock, /\.update\(\s*\{\s*idempotency_key:\s*null\s*\}\s*\)/);
+  assert.doesNotMatch(cleanupBlock, /clearLegacyOrderIdempotencyKey/);
   assert.match(postBlock, /deleteIncompleteLegacyOrder\(supabase, order, "slip_upload_failed"\)/);
   assert.match(route, /deleteIncompleteLegacyOrder\(supabase, order, "slip_insert_failed"\)/);
   assert.match(
