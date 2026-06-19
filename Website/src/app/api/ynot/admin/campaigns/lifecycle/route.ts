@@ -47,6 +47,54 @@ type OwnerPrizeOddsOverride = {
   unlockAtSoldPct?: number;
 };
 
+type PullAllPublishFields = {
+  pull_all_enabled?: boolean | null;
+  pull_all_requested?: boolean | null;
+  pull_all_allowlisted?: boolean | null;
+  pull_all_readiness_status?: string | null;
+};
+
+type SupabaseCompatError = {
+  code?: string;
+  details?: string | null;
+  hint?: string | null;
+  message: string;
+};
+
+type LifecycleCampaignRow = PullAllPublishFields & {
+  approval_status: string | null;
+  id: string;
+  logic_snapshot: Json | null;
+  status: string;
+  visibility: string;
+};
+
+type SupabaseCompatResult<T = unknown> = {
+  data: T;
+  error: SupabaseCompatError | null;
+};
+
+type SupabaseCompatQuery<T = unknown> = {
+  eq(column: string, value: unknown): SupabaseCompatQuery<T>;
+  select(columns: string): SupabaseCompatQuery<T>;
+  single(): Promise<SupabaseCompatResult<T>>;
+};
+
+type SupabaseCompatClient = {
+  from(table: string): SupabaseCompatQuery<LifecycleCampaignRow>;
+};
+
+type SupabaseCompatUpdateClient = {
+  from(table: string): {
+    update(values: Record<string, unknown>): {
+      eq(
+        column: string,
+        value: unknown,
+      ): Promise<SupabaseCompatResult<unknown>>;
+    };
+  };
+};
+
 const lifecycleActions: readonly LifecycleAction[] = [
   "submit_review",
   "save_logic",
@@ -66,6 +114,10 @@ const randomLogicModes: readonly RandomLogicMode[] = [
 
 function text(value: unknown, max = 160) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+function booleanValue(value: unknown) {
+  return value === true || value === "true" || value === 1 || value === "1";
 }
 
 function boundedNumber(value: unknown, min: number, max: number) {
@@ -397,6 +449,107 @@ function lifecycleRpcName(action: LifecycleAction) {
   return null;
 }
 
+function pullAllPublishBlocker(campaign: PullAllPublishFields) {
+  const requested =
+    campaign.pull_all_enabled === true || campaign.pull_all_requested === true;
+  if (!requested) return null;
+  if (
+    campaign.pull_all_enabled === true &&
+    campaign.pull_all_requested === true &&
+    campaign.pull_all_allowlisted === true &&
+    campaign.pull_all_readiness_status === "ready"
+  ) {
+    return null;
+  }
+  return "Pull All is requested for this pack but is not ready and owner-allowlisted.";
+}
+
+function pullAllSelectionPatch(
+  body: { pullAllEnabled?: unknown; pullAllRequested?: unknown } | null,
+  current: PullAllPublishFields,
+) {
+  if (
+    body?.pullAllEnabled === undefined &&
+    body?.pullAllRequested === undefined
+  ) {
+    return null;
+  }
+  const selected =
+    booleanValue(body.pullAllEnabled) || booleanValue(body.pullAllRequested);
+  return {
+    pull_all_enabled: selected,
+    pull_all_requested: selected,
+    pull_all_allowlisted: selected,
+    pull_all_readiness_status: selected ? "ready" : "disabled",
+    pull_all_config: selected
+      ? {
+          mode: "all_remaining_slots",
+          approvedFrom: "owner_review",
+        }
+      : {},
+  };
+}
+
+function mergePullAllFields(
+  current: PullAllPublishFields,
+  patch: Record<string, unknown> | null,
+): PullAllPublishFields {
+  if (!patch) return current;
+  return {
+    pull_all_enabled:
+      typeof patch.pull_all_enabled === "boolean"
+        ? patch.pull_all_enabled
+        : current.pull_all_enabled,
+    pull_all_requested:
+      typeof patch.pull_all_requested === "boolean"
+        ? patch.pull_all_requested
+        : current.pull_all_requested,
+    pull_all_allowlisted:
+      typeof patch.pull_all_allowlisted === "boolean"
+        ? patch.pull_all_allowlisted
+        : current.pull_all_allowlisted,
+    pull_all_readiness_status:
+      typeof patch.pull_all_readiness_status === "string"
+        ? patch.pull_all_readiness_status
+        : current.pull_all_readiness_status,
+  };
+}
+
+function pullAllAuditMetadata(
+  current: PullAllPublishFields,
+  effective: PullAllPublishFields,
+) {
+  const previousRequested =
+    current.pull_all_enabled === true || current.pull_all_requested === true;
+  const nextRequested =
+    effective.pull_all_enabled === true || effective.pull_all_requested === true;
+  return {
+    previousRequested,
+    nextRequested,
+    changed: previousRequested !== nextRequested,
+    readinessStatus: effective.pull_all_readiness_status ?? "disabled",
+  };
+}
+
+async function applyPullAllSelectionPatch(
+  supabase: ServiceSupabaseClient,
+  campaignId: string,
+  patch: Record<string, unknown> | null,
+) {
+  if (!patch) return null;
+  const { error } = await (supabase as unknown as SupabaseCompatUpdateClient)
+    .from("draw_rounds")
+    .update(patch)
+    .eq("id", campaignId);
+  if (!error) return null;
+  if (isMissingColumnError(error)) return randomPackSchemaMissingResponse();
+  return mappedAdminErrorResponse(error, campaignLifecycleErrorMap, {
+    code: "PULL_ALL_SELECTION_SAVE_FAILED",
+    error: "Pull All selection could not be saved.",
+    status: 409,
+  });
+}
+
 function releaseReason(action: LifecycleAction) {
   if (action === "reject") return "rejected";
   if (action === "request_changes") return "changes_requested";
@@ -510,6 +663,8 @@ export async function POST(request: Request) {
         bundles?: unknown;
         slotGrid?: unknown;
         guarantees?: unknown;
+        pullAllEnabled?: unknown;
+        pullAllRequested?: unknown;
       }
     | null;
   const campaignId = text(body?.campaignId, 80);
@@ -566,9 +721,10 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServiceSupabaseClient();
-  const { data: current, error: currentError } = await supabase
+  const campaignClient = supabase as unknown as SupabaseCompatClient;
+  const { data: current, error: currentError } = await campaignClient
     .from("draw_rounds")
-    .select("id,status,visibility,approval_status,logic_snapshot")
+    .select("id,status,visibility,approval_status,logic_snapshot,pull_all_enabled,pull_all_requested,pull_all_allowlisted,pull_all_readiness_status")
     .eq("id", campaignId)
     .single();
   if (currentError) {
@@ -588,8 +744,34 @@ export async function POST(request: Request) {
       409,
     );
   }
+  const pullAllPatch = pullAllSelectionPatch(
+    body,
+    current as PullAllPublishFields,
+  );
+  const effectivePullAll = mergePullAllFields(
+    current as PullAllPublishFields,
+    pullAllPatch,
+  );
+  const pullAllAudit = pullAllAuditMetadata(
+    current as PullAllPublishFields,
+    effectivePullAll,
+  );
+  if (action === "approve" || action === "publish") {
+    const blocker = pullAllPublishBlocker(effectivePullAll);
+    if (blocker) {
+      return adminErrorResponse("PULL_ALL_NOT_READY", blocker, 409, {
+        blockers: [blocker],
+      });
+    }
+  }
 
   if (action === "approve" && current.approval_status === "approved") {
+    const pullAllResponse = await applyPullAllSelectionPatch(
+      supabase,
+      campaignId,
+      pullAllPatch,
+    );
+    if (pullAllResponse) return pullAllResponse;
     return lifecycleResult({
       campaignId,
       action,
@@ -678,10 +860,11 @@ export async function POST(request: Request) {
     );
     if (oddsResult.response) return oddsResult.response;
     appliedPrizeOddsOverrides = oddsResult.applied;
-    const { error: updateError } = await supabase
+    const { error: updateError } = await (supabase as unknown as SupabaseCompatUpdateClient)
       .from("draw_rounds")
       .update({
         logic_snapshot: logicSnapshot,
+        ...(pullAllPatch ?? {}),
       })
       .eq("id", campaignId);
     if (updateError) {
@@ -775,6 +958,14 @@ export async function POST(request: Request) {
       if (oddsResult.response) return oddsResult.response;
       appliedPrizeOddsOverrides = oddsResult.applied;
     }
+    if (action === "approve" || action === "publish") {
+      const pullAllResponse = await applyPullAllSelectionPatch(
+        supabase,
+        campaignId,
+        pullAllPatch,
+      );
+      if (pullAllResponse) return pullAllResponse;
+    }
     const { error: rpcError } = await callLifecycleRpc(rpcName, rpcPayload);
     if (rpcError) {
       if (
@@ -816,6 +1007,7 @@ export async function POST(request: Request) {
       logicMode: responseLogicMode,
       note: note || null,
       appliedPrizeOddsOverrides,
+      pullAll: pullAllAudit,
     },
   });
   if (auditError) {

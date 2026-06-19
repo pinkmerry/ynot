@@ -19,8 +19,48 @@ type LiveRevisionCardEdit = {
   unlockAtSoldPct?: number;
 };
 
+type PullAllPublishFields = {
+  pull_all_enabled?: boolean | null;
+  pull_all_requested?: boolean | null;
+  pull_all_allowlisted?: boolean | null;
+  pull_all_readiness_status?: string | null;
+};
+
+type SupabaseCompatError = {
+  code?: string;
+  details?: string | null;
+  hint?: string | null;
+  message: string;
+};
+
+type SupabaseCompatResult<T = unknown> = {
+  data: T;
+  error: SupabaseCompatError | null;
+};
+
+type SupabaseCompatQuery<T = unknown> = {
+  eq(column: string, value: unknown): SupabaseCompatQuery<T>;
+  maybeSingle(): Promise<SupabaseCompatResult<T | null>>;
+  select(columns: string): SupabaseCompatQuery<T>;
+};
+
+type LiveRevisionCampaignRow = PullAllPublishFields & {
+  last_prize_awarded_at?: string | null;
+  last_prize_card_id?: string | null;
+  last_prize_metadata?: Json | null;
+  logic_snapshot?: Json | null;
+};
+
+type SupabaseCompatClient = {
+  from(table: string): SupabaseCompatQuery<LiveRevisionCampaignRow>;
+};
+
 function text(value: unknown, max = 500) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+function booleanValue(value: unknown) {
+  return value === true || value === "true" || value === 1 || value === "1";
 }
 
 function actionValue(value: unknown): LiveRevisionAction | null {
@@ -183,6 +223,75 @@ function liveRevisionChangesAwardedLastPrize(
   return false;
 }
 
+function pullAllPublishBlocker(campaign: PullAllPublishFields) {
+  const requested =
+    campaign.pull_all_enabled === true || campaign.pull_all_requested === true;
+  if (!requested) return null;
+  if (
+    campaign.pull_all_enabled === true &&
+    campaign.pull_all_requested === true &&
+    campaign.pull_all_allowlisted === true &&
+    campaign.pull_all_readiness_status === "ready"
+  ) {
+    return null;
+  }
+  return "Pull All is requested for this pack but is not ready and owner-allowlisted.";
+}
+
+function pullAllSelectionPatch(
+  body: {
+    pullAllEnabled?: unknown;
+    pullAllRequested?: unknown;
+  },
+  current: PullAllPublishFields,
+) {
+  if (
+    body.pullAllEnabled === undefined &&
+    body.pullAllRequested === undefined
+  ) {
+    return null;
+  }
+  const selected =
+    booleanValue(body.pullAllEnabled) || booleanValue(body.pullAllRequested);
+  return {
+    pull_all_enabled: selected,
+    pull_all_requested: selected,
+    pull_all_allowlisted: selected,
+    pull_all_readiness_status: selected ? "ready" : "disabled",
+    pull_all_config: selected
+      ? {
+          mode: "all_remaining_slots",
+          approvedFrom: "owner_live_review",
+        }
+      : {},
+  };
+}
+
+function pullAllFieldsFromScalarPatch(
+  campaign: PullAllPublishFields,
+  scalarPatch: unknown,
+) {
+  if (!isRecord(scalarPatch)) return campaign;
+  return {
+    pull_all_enabled:
+      typeof scalarPatch.pull_all_enabled === "boolean"
+        ? scalarPatch.pull_all_enabled
+        : campaign.pull_all_enabled,
+    pull_all_requested:
+      typeof scalarPatch.pull_all_requested === "boolean"
+        ? scalarPatch.pull_all_requested
+        : campaign.pull_all_requested,
+    pull_all_allowlisted:
+      typeof scalarPatch.pull_all_allowlisted === "boolean"
+        ? scalarPatch.pull_all_allowlisted
+        : campaign.pull_all_allowlisted,
+    pull_all_readiness_status:
+      typeof scalarPatch.pull_all_readiness_status === "string"
+        ? scalarPatch.pull_all_readiness_status
+        : campaign.pull_all_readiness_status,
+  };
+}
+
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
     return adminErrorResponse(
@@ -216,6 +325,8 @@ export async function POST(request: Request) {
     logicMode?: unknown;
     overrides?: unknown;
     guarantees?: unknown;
+    pullAllEnabled?: unknown;
+    pullAllRequested?: unknown;
   } | null;
   const revisionId = text(body?.revisionId, 80);
   const action = actionValue(body?.action);
@@ -232,7 +343,7 @@ export async function POST(request: Request) {
   if (action === "save_logic" || action === "approve") {
     const { data: revision, error: revisionError } = await supabase
       .from("draw_round_live_revisions")
-      .select("id,draw_round_id,status,logic_snapshot,prize_snapshot")
+      .select("id,draw_round_id,status,logic_snapshot,prize_snapshot,scalar_patch")
       .eq("id", revisionId)
       .in("status", ["pending_review", "approved"])
       .maybeSingle();
@@ -248,7 +359,8 @@ export async function POST(request: Request) {
           : undefined,
       );
     }
-    const { data: campaign, error: campaignError } = await supabase
+    const campaignClient = supabase as unknown as SupabaseCompatClient;
+    const { data: campaign, error: campaignError } = await campaignClient
       .from("draw_rounds")
       .select("logic_snapshot")
       .eq("id", revision.draw_round_id)
@@ -264,6 +376,34 @@ export async function POST(request: Request) {
           ? { detail: campaignError.details ?? null, hint: campaignError.hint ?? null }
           : undefined,
       );
+    }
+    let pullAllCurrent: PullAllPublishFields = {};
+    if (
+      body?.pullAllEnabled !== undefined ||
+      body?.pullAllRequested !== undefined
+    ) {
+      const { data: pullAllState, error: pullAllStateError } =
+        await campaignClient
+          .from("draw_rounds")
+          .select("pull_all_enabled,pull_all_requested,pull_all_allowlisted,pull_all_readiness_status")
+          .eq("id", revision.draw_round_id)
+          .maybeSingle();
+      if (pullAllStateError || !pullAllState) {
+        return adminErrorResponse(
+          pullAllStateError?.code ?? "LIVE_REVISION_PULL_ALL_LOAD_FAILED",
+          pullAllStateError
+            ? liveRevisionErrorMessage(pullAllStateError.message)
+            : "Live pack Pull All state was not found.",
+          409,
+          pullAllStateError
+            ? {
+                detail: pullAllStateError.details ?? null,
+                hint: pullAllStateError.hint ?? null,
+              }
+            : undefined,
+        );
+      }
+      pullAllCurrent = pullAllState;
     }
 
     const overrides = isRecord(body?.overrides) ? body.overrides : {};
@@ -285,9 +425,16 @@ export async function POST(request: Request) {
 
     const nextStatus = action === "approve" ? "approved" : "pending_review";
     const reviewedAt = action === "approve" ? new Date().toISOString() : null;
+    const scalarPatch = {
+      ...(isRecord(revision.scalar_patch)
+        ? (revision.scalar_patch as Record<string, unknown>)
+        : {}),
+      ...(pullAllSelectionPatch(body ?? {}, pullAllCurrent) ?? {}),
+    };
     const { data, error } = await supabase
       .from("draw_round_live_revisions")
       .update({
+        scalar_patch: scalarPatch as Json,
         logic_snapshot: liveRevisionLogicSnapshot(
           revision.logic_snapshot ?? campaign.logic_snapshot,
           logicMode,
@@ -347,7 +494,7 @@ export async function POST(request: Request) {
     }
     const { data: campaign, error: campaignError } = await supabase
       .from("draw_rounds")
-      .select("last_prize_awarded_at,last_prize_card_id,last_prize_metadata")
+      .select("last_prize_awarded_at,last_prize_card_id,last_prize_metadata,pull_all_enabled,pull_all_requested,pull_all_allowlisted,pull_all_readiness_status")
       .eq("id", revision.draw_round_id)
       .maybeSingle();
     if (campaignError || !campaign) {
@@ -362,12 +509,32 @@ export async function POST(request: Request) {
           : undefined,
       );
     }
-    if (liveRevisionChangesAwardedLastPrize(revision.scalar_patch, campaign)) {
+    if (
+      liveRevisionChangesAwardedLastPrize(
+        revision.scalar_patch,
+        campaign as unknown as {
+          last_prize_awarded_at: string | null;
+          last_prize_card_id: string | null;
+          last_prize_metadata: Json | null;
+        },
+      )
+    ) {
       return adminErrorResponse(
         "LAST_PRIZE_IDENTITY_LOCKED",
         liveRevisionErrorMessage("last_prize_identity_locked_after_award"),
         409,
       );
+    }
+    const blocker = pullAllPublishBlocker(
+      pullAllFieldsFromScalarPatch(
+        campaign as PullAllPublishFields,
+        revision.scalar_patch,
+      ),
+    );
+    if (blocker) {
+      return adminErrorResponse("PULL_ALL_NOT_READY", blocker, 409, {
+        blockers: [blocker],
+      });
     }
     const { data, error } = await supabase.rpc(
       "publish_live_campaign_revision",

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import type {
   YnotAddress,
   YnotCollectionItem,
@@ -13,6 +13,7 @@ import {
   missingShippingAddressFields,
 } from "../address-utils";
 import { QuantityBadge } from "../QuantityBadge";
+import { BulkOpenBagStatus } from "./BulkOpenBagStatus";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { Modal, PageHead, useToast } from "./UiKit";
 
@@ -27,7 +28,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function statusBucket(status: YnotCollectionItem["status"]): StatusKey | null {
   if (status === "owned") return "owned";
   if (status === "shipped" || status === "shipping_requested") return "shipped";
-  if (status === "exchanged" || status === "exchange_requested")
+  if (
+    status === "exchanged" ||
+    status === "exchange_requested" ||
+    status === "converting"
+  )
     return "converted";
   return null;
 }
@@ -92,6 +97,25 @@ type EnrichedItem = YnotCollectionItem & {
   sellValueCoins: number;
 };
 
+type ConvertSelectionMode = "selected" | "all_eligible";
+
+type ConvertQuote = {
+  quoteToken: string;
+  selectionMode: ConvertSelectionMode;
+  itemCount: number;
+  totalCoins: number;
+  expiresAt: string | null;
+};
+
+type ConvertProgress = {
+  status: string;
+  itemCount: number;
+  convertedCount: number;
+  totalCoins: number;
+  creditedTotalCoins: number;
+  completed: boolean;
+};
+
 function enrich(item: YnotCollectionItem): EnrichedItem | null {
   const bucket = statusBucket(item.status);
   if (!bucket) return null;
@@ -103,6 +127,39 @@ function enrich(item: YnotCollectionItem): EnrichedItem | null {
     series: cardSeries(item),
     acquiredLabel: new Date(item.acquiredAt).toLocaleDateString(),
     sellValueCoins: item.convertCoinValue ?? 0,
+  };
+}
+
+function numberFrom(value: unknown) {
+  const next = Number(value);
+  return Number.isFinite(next) ? Math.max(0, Math.round(next)) : 0;
+}
+
+function quoteFromPayload(payload: unknown): ConvertQuote | null {
+  if (!isRecord(payload) || !isRecord(payload.quote)) return null;
+  const quote = payload.quote;
+  const quoteToken = typeof quote.quoteToken === "string" ? quote.quoteToken : "";
+  if (!quoteToken) return null;
+  return {
+    quoteToken,
+    selectionMode:
+      quote.selectionMode === "all_eligible" ? "all_eligible" : "selected",
+    itemCount: numberFrom(quote.itemCount),
+    totalCoins: numberFrom(quote.totalCoins),
+    expiresAt: typeof quote.expiresAt === "string" ? quote.expiresAt : null,
+  };
+}
+
+function progressFromPayload(payload: unknown): ConvertProgress | null {
+  if (!isRecord(payload) || !isRecord(payload.conversion)) return null;
+  const conversion = payload.conversion;
+  return {
+    status: typeof conversion.status === "string" ? conversion.status : "pending",
+    itemCount: numberFrom(conversion.itemCount),
+    convertedCount: numberFrom(conversion.convertedCount),
+    totalCoins: numberFrom(conversion.totalCoins),
+    creditedTotalCoins: numberFrom(conversion.creditedTotalCoins),
+    completed: conversion.completed === true,
   };
 }
 
@@ -122,6 +179,11 @@ export function HistoryExperience({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addressRows, setAddressRows] = useState(addresses);
   const [sellOpen, setSellOpen] = useState(false);
+  const [sellMode, setSellMode] = useState<ConvertSelectionMode>("selected");
+  const [sellQuote, setSellQuote] = useState<ConvertQuote | null>(null);
+  const [sellProgress, setSellProgress] = useState<ConvertProgress | null>(null);
+  const [sellPreparing, setSellPreparing] = useState(false);
+  const [sellConfirming, setSellConfirming] = useState(false);
   const [shipOpen, setShipOpen] = useState(false);
   const [submitting, startSubmit] = useTransition();
 
@@ -205,16 +267,71 @@ export function HistoryExperience({
     (sum, c) => sum + (c.sellValueCoins ?? 0),
     0,
   );
+  const displayedSellCount = sellQuote?.itemCount ?? selectedCards.length;
+  const displayedSellTotal = sellQuote?.totalCoins ?? sellTotal;
+  const sellBusy = sellPreparing || sellConfirming;
+
+  async function openSell(nextMode: ConvertSelectionMode) {
+    if (nextMode === "selected" && !selectedCards.length) {
+      toast("error", "No rewards selected");
+      return;
+    }
+    setSellMode(nextMode);
+    setSellQuote(null);
+    setSellProgress(null);
+    setSellOpen(true);
+    setSellPreparing(true);
+    try {
+      const response = await fetch("/api/ynot/collection/convert", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(
+          nextMode === "all_eligible"
+            ? { intent: "quote", selectionMode: "all_eligible" }
+            : {
+                intent: "quote",
+                selectionMode: "selected",
+                collectionItemIds: selectedCards.map((card) => card.id),
+              },
+        ),
+      });
+      const payload: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          isRecord(payload) && typeof payload.error === "string"
+            ? payload.error
+            : "Conversion request failed.",
+        );
+      }
+      const quote = quoteFromPayload(payload);
+      if (!quote || quote.itemCount === 0) {
+        throw new Error("No rewards selected");
+      }
+      setSellQuote(quote);
+    } catch (error) {
+      toast(
+        "error",
+        error instanceof Error ? error.message : "Conversion request failed.",
+      );
+      setSellOpen(false);
+    } finally {
+      setSellPreparing(false);
+    }
+  }
 
   function submitSell() {
-    if (!selectedCards.length) return;
-    const ids = selectedCards.map((c) => c.id);
-    startSubmit(async () => {
+    if (!sellQuote || sellConfirming) return;
+    setSellConfirming(true);
+    void (async () => {
       try {
         const response = await fetch("/api/ynot/collection/convert", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ collectionItemIds: ids }),
+          body: JSON.stringify({
+            intent: "start",
+            quoteToken: sellQuote.quoteToken,
+            idempotencyKey: crypto.randomUUID(),
+          }),
         });
         const payload: unknown = await response.json().catch(() => null);
         if (!response.ok) {
@@ -224,18 +341,72 @@ export function HistoryExperience({
               : "Conversion request failed.",
           );
         }
-        toast("success", `Submitted ${ids.length} card${ids.length === 1 ? "" : "s"} for conversion.`);
-        setSellOpen(false);
+        const progress = progressFromPayload(payload);
+        if (!progress) throw new Error("Conversion request failed.");
+        setSellProgress(progress);
         clearSelection();
-        window.location.assign("/profile");
+        if (progress.completed) {
+          toast("success", `${formatCoins(progress.creditedTotalCoins)} coins credited.`);
+        }
       } catch (error) {
         toast(
           "error",
           error instanceof Error ? error.message : "Conversion request failed.",
         );
+      } finally {
+        setSellConfirming(false);
       }
-    });
+    })();
   }
+
+  useEffect(() => {
+    if (!sellOpen || !sellProgress || sellProgress.completed) return;
+    let stopped = false;
+    const refresh = async () => {
+      try {
+        const response = await fetch("/api/ynot/collection/convert/current", {
+          method: "GET",
+        });
+        if (!response.ok) return;
+        const payload: unknown = await response.json().catch(() => null);
+        const progress = progressFromPayload(payload);
+        if (progress && !stopped) {
+          setSellProgress(progress);
+        }
+      } catch {
+        // The next refresh will try again.
+      }
+    };
+    const timer = window.setInterval(refresh, 3000);
+    void refresh();
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [sellOpen, sellProgress]);
+
+  useEffect(() => {
+    let stopped = false;
+    const loadCurrent = async () => {
+      try {
+        const response = await fetch("/api/ynot/collection/convert/current", {
+          method: "GET",
+        });
+        if (!response.ok) return;
+        const payload: unknown = await response.json().catch(() => null);
+        const progress = progressFromPayload(payload);
+        if (progress && !progress.completed && !stopped) {
+          setSellProgress(progress);
+        }
+      } catch {
+        // Status will refresh after the next user action.
+      }
+    };
+    void loadCurrent();
+    return () => {
+      stopped = true;
+    };
+  }, []);
 
   function submitShip(addressId: string) {
     if (!selectedCards.length || !addressId) return;
@@ -283,6 +454,29 @@ export function HistoryExperience({
           </Link>
         }
       />
+
+      <BulkOpenBagStatus />
+
+      {sellProgress && !sellProgress.completed && !sellOpen ? (
+        <div
+          className="cr-section"
+          style={{
+            padding: "12px 16px",
+            display: "grid",
+            gap: 6,
+          }}
+        >
+          <strong>Converting rewards to coins</strong>
+          <small className="cr-mute">
+            {sellProgress.convertedCount} / {sellProgress.itemCount} rewards converted ·{" "}
+            {formatCoins(sellProgress.creditedTotalCoins)} /{" "}
+            {formatCoins(sellProgress.totalCoins)} coins credited
+          </small>
+          <small className="cr-mute">
+            You can leave this page. We&apos;ll keep converting your selected rewards.
+          </small>
+        </div>
+      ) : null}
 
       <div className="cr-stack cr-collection-workspace">
           <div className="cr-tabs" role="tablist">
@@ -354,7 +548,7 @@ export function HistoryExperience({
             </div>
           </div>
 
-          {tab === "collection" && visibleCards.length > 0 && (
+          {tab === "collection" && byTab.collection.length > 0 && (
             <div className="cr-row" style={{ gap: 10, padding: "0 4px" }}>
               <small className="cr-mute" style={{ fontSize: 12 }}>
                 Tap cards to select. Selected cards can be{" "}
@@ -367,7 +561,15 @@ export function HistoryExperience({
                 className="cr-btn cr-btn-ghost cr-btn-sm"
                 onClick={selectAll}
               >
-                Select all
+                Select visible
+              </button>
+              <button
+                type="button"
+                className="cr-btn cr-btn-ghost cr-btn-sm"
+                onClick={() => void openSell("all_eligible")}
+                disabled={sellBusy}
+              >
+                Select all eligible rewards
               </button>
               {selected.size > 0 && (
                 <button
@@ -457,7 +659,7 @@ export function HistoryExperience({
               <button
                 type="button"
                 className="cr-btn cr-btn-mint cr-btn-sm"
-                onClick={() => setSellOpen(true)}
+                onClick={() => void openSell("selected")}
               >
                 <Ico name="swap" size={12} /> Sell for{" "}
                 {formatCoins(sellTotal)} coins
@@ -469,20 +671,34 @@ export function HistoryExperience({
       <Modal
         open={sellOpen}
         onClose={() => {
-          if (!submitting) setSellOpen(false);
+          if (!sellBusy) setSellOpen(false);
         }}
         eyebrow="Confirm"
-        title={`Sell ${selectedCards.length} card${
-          selectedCards.length === 1 ? "" : "s"
-        } back to coins?`}
+        title={
+          sellProgress
+            ? "Converting rewards to coins"
+            : `Convert ${displayedSellCount} reward${
+                displayedSellCount === 1 ? "" : "s"
+              } to coins?`
+        }
         size="md"
         footer={
-          <>
+          sellProgress ? (
+            <button
+              type="button"
+              className="cr-btn cr-btn-primary"
+              onClick={() => setSellOpen(false)}
+              disabled={sellConfirming}
+            >
+              {sellProgress.completed ? "Done" : "Close"}
+            </button>
+          ) : (
+            <>
             <button
               type="button"
               className="cr-btn"
               onClick={() => setSellOpen(false)}
-              disabled={submitting}
+              disabled={sellBusy}
             >
               Cancel
             </button>
@@ -490,111 +706,82 @@ export function HistoryExperience({
               type="button"
               className="cr-btn cr-btn-mint"
               onClick={submitSell}
-              disabled={submitting}
+              disabled={sellBusy || !sellQuote}
             >
               <Ico name="check" size={14} />{" "}
-              {submitting
-                ? "Submitting…"
-                : `Sell for ${formatCoins(sellTotal)} coins`}
+              {sellBusy
+                ? "Preparing…"
+                : `Convert for ${formatCoins(displayedSellTotal)} coins`}
             </button>
           </>
+          )
         }
       >
         <div className="cr-stack" style={{ gap: 14 }}>
-          <p className="cr-lead" style={{ margin: 0 }}>
-            Converting cards is <strong>permanent</strong>. Admin reviews the
-            request and the coins land in your wallet once approved.
-          </p>
-          <div
-            style={{
-              maxHeight: 280,
-              overflowY: "auto",
-              border: "1px solid var(--cr-line)",
-              borderRadius: "var(--cr-r-md)",
-            }}
-          >
-            {selectedCards.map((c, i) => (
+          {sellProgress ? (
+            <>
+              <p className="cr-lead" style={{ margin: 0 }}>
+                Converting rewards to coins
+              </p>
               <div
-                key={c.id}
                 style={{
+                  background: "var(--cr-mint-soft)",
+                  padding: "12px 16px",
+                  borderRadius: "var(--cr-r-md)",
                   display: "grid",
-                  gridTemplateColumns: "44px 1fr auto",
-                  gap: 10,
-                  padding: "10px 14px",
-                  borderTop: i ? "1px solid var(--cr-line-soft)" : 0,
-                  alignItems: "center",
+                  gap: 8,
                 }}
               >
-                <div
-                  className={`cr-coll-art ${tierClassName(c.tier)}`}
-                  style={{
-                    aspectRatio: "3 / 4",
-                    width: 44,
-                    borderRadius: 6,
-                    borderBottom: 0,
-                  }}
-                >
-                  {c.imageUrl ? (
-                    <Image
-                      className="cr-coll-art-img"
-                      src={c.imageUrl}
-                      alt={c.cardName}
-                      fill
-                      sizes="44px"
-                      unoptimized
-                    />
-                  ) : null}
-                  <span
-                    className="cr-coll-code"
-                    style={{
-                      left: 4,
-                      bottom: 4,
-                      maxWidth: 36,
-                      fontSize: 7,
-                      padding: "2px 4px",
-                    }}
-                  >
-                    {c.cardCode ?? "—"}
-                  </span>
-                </div>
-                <div
-                  className="cr-stack"
-                  style={{ gap: 2, minWidth: 0 }}
-                >
-                  <strong style={{ fontSize: 12.5 }}>{c.cardName}</strong>
-                  <small className="cr-mute" style={{ fontSize: 11 }}>
-                    {tierLabel(c.tier)} · {collectionDisplayCode(c)}
-                  </small>
-                </div>
+                <strong className="cr-tnum" style={{ color: "var(--cr-mint)" }}>
+                  {sellProgress.convertedCount} / {sellProgress.itemCount} rewards converted
+                </strong>
+                <strong className="cr-tnum" style={{ color: "var(--cr-coin-ink)" }}>
+                  <CoinPip size={14} /> {formatCoins(sellProgress.creditedTotalCoins)} /{" "}
+                  {formatCoins(sellProgress.totalCoins)} coins credited
+                </strong>
+                <small className="cr-mute">
+                  You can leave this page. We&apos;ll keep converting your selected rewards.
+                </small>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="cr-lead" style={{ margin: 0 }}>
+                Converting rewards is <strong>permanent</strong>. Review the
+                total before you confirm.
+              </p>
+              {/* summary-only */}
+              <div
+                style={{
+                  background: "var(--cr-mint-soft)",
+                  padding: "12px 16px",
+                  borderRadius: "var(--cr-r-md)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <span style={{ fontWeight: 700, color: "var(--cr-mint)" }}>
+                  You&apos;ll receive
+                </span>
                 <strong
                   className="cr-tnum"
-                  style={{ color: "var(--cr-coin-ink)", fontSize: 13 }}
+                  style={{ fontSize: 18, color: "var(--cr-mint)" }}
                 >
-                  <CoinPip size={11} /> +{formatCoins(c.sellValueCoins)}
+                  <CoinPip size={14} />{" "}
+                  {sellPreparing ? "Calculating…" : `${formatCoins(displayedSellTotal)} coins`}
                 </strong>
               </div>
-            ))}
-          </div>
-          <div
-            style={{
-              background: "var(--cr-mint-soft)",
-              padding: "12px 16px",
-              borderRadius: "var(--cr-r-md)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <span style={{ fontWeight: 700, color: "var(--cr-mint)" }}>
-              You&apos;ll receive (after approval)
-            </span>
-            <strong
-              className="cr-tnum"
-              style={{ fontSize: 18, color: "var(--cr-mint)" }}
-            >
-              <CoinPip size={14} /> {formatCoins(sellTotal)} coins
-            </strong>
-          </div>
+              <small className="cr-mute">
+                {sellMode === "all_eligible"
+                  ? "All eligible rewards in your Customer Bag will be included."
+                  : `${displayedSellCount} selected reward${
+                      displayedSellCount === 1 ? "" : "s"
+                    } will be included.`}
+              </small>
+            </>
+          )}
         </div>
       </Modal>
 
@@ -624,7 +811,7 @@ function CollectionTile({
   selectable: boolean;
   onToggle: () => void;
 }) {
-  const label = statusLabel(card.bucket);
+  const label = card.status === "converting" ? "Converting" : statusLabel(card.bucket);
   return (
     <div
       className={`cr-coll-card ${selected ? "selected" : ""}`}
@@ -676,7 +863,10 @@ function CollectionTile({
             Shipped {card.acquiredLabel}
           </small>
         )}
-        {card.bucket === "converted" && card.sellValueCoins > 0 && (
+        {card.status === "converting" && (
+          <span className="price">Converting to coins</span>
+        )}
+        {card.bucket === "converted" && card.status !== "converting" && card.sellValueCoins > 0 && (
           <span className="price">
             +{formatCoins(card.sellValueCoins)} returned
           </span>

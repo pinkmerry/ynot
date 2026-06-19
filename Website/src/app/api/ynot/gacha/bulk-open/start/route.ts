@@ -1,0 +1,194 @@
+import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
+import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
+import { requireVerifiedAnchor } from "@/lib/auth/verified-anchor";
+import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
+import { toPublicBulkOpenSessionSummary } from "@/features/ynot/bulk-open";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+
+export const dynamic = "force-dynamic";
+
+const bulkOpenStartRateLimit = {
+  scope: "ynot:gacha:bulk-open:start",
+  limit: 6,
+  windowMs: 60_000,
+};
+
+type BulkOpenStartTokenRow = {
+  id: string;
+  profile_id: string;
+  draw_round_id: string;
+  target_slots: number;
+  total_cost_coins: number;
+  quote_hash: string;
+  pack_open_contract_hash: string;
+};
+
+type SupabaseCompatError = { message: string };
+type SupabaseCompatResult<T = unknown> = {
+  data: T;
+  error: SupabaseCompatError | null;
+};
+type SupabaseCompatQuery<T = unknown> = {
+  eq(column: string, value: unknown): SupabaseCompatQuery<T>;
+  maybeSingle(): Promise<SupabaseCompatResult<T | null>>;
+  select(columns: string): SupabaseCompatQuery<T>;
+};
+type SupabaseCompatClient = {
+  from(table: string): SupabaseCompatQuery<unknown>;
+  rpc(
+    fn: string,
+    args: Record<string, unknown>,
+  ): Promise<SupabaseCompatResult<unknown>>;
+};
+type BulkOpenQueueBinding = {
+  send(body: unknown, options?: { delaySeconds?: number }): Promise<unknown>;
+};
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+function startErrorMessage(message: string | undefined) {
+  switch (message) {
+    case "start_token_expired":
+    case "bulk_open_quote_stale":
+    case "bulk_open_sold_threshold_not_met":
+      return "This Pull All quote expired. Please refresh and try again.";
+    case "active_bulk_open_session_exists":
+      return "Your Pull All is already running.";
+    case "insufficient_balance":
+      return "Insufficient coin balance.";
+    case "bulk_open_not_available":
+    case "bulk_open_settlement_not_ready":
+    case "not_enough_available_slots":
+      return "Pull All is not available for this pack right now.";
+    default:
+      return "Could not start Pull All. Please try again.";
+  }
+}
+
+async function enqueueBulkOpenSession(sessionId: unknown) {
+  if (typeof sessionId !== "string" || !isUuid(sessionId)) return;
+  try {
+    const cloudflare = await getCloudflareContext({ async: true });
+    const queue = (cloudflare.env as { BULK_OPEN_QUEUE?: BulkOpenQueueBinding })
+      .BULK_OPEN_QUEUE;
+    if (!queue) return;
+    await queue.send(
+      {
+        type: "bulk_open_process",
+        sessionId,
+        attempt: 0,
+      },
+      { delaySeconds: 0 },
+    );
+  } catch (error) {
+    console.warn("bulk_open_enqueue_failed", {
+      reason: error instanceof Error ? error.message.split(":").slice(0, 2).join(":") : "unknown",
+    });
+  }
+}
+
+function summarySourceFromStarted(startedRecord: Record<string, unknown>) {
+  return {
+    public_code: startedRecord.publicCode,
+    status: startedRecord.status,
+    target_slots: startedRecord.targetSlots,
+    processed_slots: startedRecord.processedSlots,
+    open_items_awarded: startedRecord.openItemsAwarded,
+    collection_items_created: startedRecord.collectionItemsCreated,
+    total_cost_coins: startedRecord.totalCostCoins,
+    highlight_rewards_public: Array.isArray(startedRecord.highlightRewardsPublic)
+      ? startedRecord.highlightRewardsPublic
+      : [],
+  };
+}
+
+export async function POST(request: Request) {
+  if (!isSupabaseConfigured()) {
+    return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  }
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
+  const session = await resolveCurrentProfile();
+  if (!session?.profileId) {
+    return Response.json({ error: "Login is required." }, { status: 401 });
+  }
+  const blocked = await requireVerifiedAnchor(session);
+  if (blocked) return blocked;
+  const limited = await enforceRateLimit(
+    request,
+    bulkOpenStartRateLimit.scope,
+    { limit: bulkOpenStartRateLimit.limit, windowMs: bulkOpenStartRateLimit.windowMs },
+    session.profileId,
+  );
+  if (limited) return limited;
+
+  const body = (await request.json().catch(() => null)) as { startToken?: unknown } | null;
+  const startToken = typeof body?.startToken === "string" ? body.startToken.trim() : "";
+  if (!isUuid(startToken)) {
+    return Response.json({ error: "Valid Pull All token is required." }, { status: 400 });
+  }
+
+  const supabase = createServiceSupabaseClient() as unknown as SupabaseCompatClient;
+  const { data: tokenRow, error: tokenError } = await supabase
+    .from("gacha_bulk_open_start_tokens")
+    .select("id,profile_id,draw_round_id,target_slots,total_cost_coins,quote_hash,pack_open_contract_hash")
+    .eq("id", startToken)
+    .eq("profile_id", session.profileId)
+    .maybeSingle();
+  if (tokenError) {
+    return Response.json(
+      { error: "Could not start Pull All. Please try again." },
+      { status: 409 },
+    );
+  }
+  const token = tokenRow as BulkOpenStartTokenRow | null;
+  if (!token?.id) {
+    return Response.json({ error: "This Pull All quote expired. Please refresh and try again." }, { status: 404 });
+  }
+
+  const { data: started, error: startError } = await supabase.rpc(
+    "start_bulk_open_session",
+    {
+      p_start_token_id: startToken,
+      p_profile_id: session.profileId,
+      p_draw_round_id: token.draw_round_id,
+      p_target_slots: token.target_slots,
+      p_total_cost_coins: token.total_cost_coins,
+      p_quote_hash: token.quote_hash,
+      p_pack_open_contract_hash: token.pack_open_contract_hash,
+    },
+  );
+  if (startError) {
+    return Response.json(
+      { error: startErrorMessage(startError.message) },
+      { status: 409 },
+    );
+  }
+
+  const startedRecord =
+    started && typeof started === "object" ? (started as Record<string, unknown>) : {};
+  await enqueueBulkOpenSession(startedRecord.sessionId);
+
+  const summary = toPublicBulkOpenSessionSummary(
+    summarySourceFromStarted(startedRecord),
+  );
+  if (!summary) {
+    return Response.json(
+      { error: "Pull All started, but its status could not be loaded." },
+      { status: 202 },
+    );
+  }
+
+  return Response.json({
+    session: {
+      ...summary,
+      replayed: startedRecord.replayed === true,
+    },
+  });
+}

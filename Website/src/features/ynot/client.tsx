@@ -1521,16 +1521,38 @@ export function CollectionConvertPanel({
         if (!selectedConvertableItems.length) {
           throw new Error("Pick at least one convertible card.");
         }
-        const payload = await postJson("/api/ynot/collection/convert", {
+        const quotePayload = await postJson("/api/ynot/collection/convert", {
+          intent: "quote",
+          selectionMode: "selected",
           collectionItemIds: selectedConvertableItems.map((item) => item.id),
+        });
+        const quote =
+          isRecord(quotePayload) && isRecord(quotePayload.quote)
+            ? quotePayload.quote
+            : null;
+        const quoteToken =
+          quote && typeof quote.quoteToken === "string"
+            ? quote.quoteToken
+            : "";
+        if (!quoteToken) throw new Error("Convert failed.");
+
+        const payload = await postJson("/api/ynot/collection/convert", {
+          intent: "start",
+          quoteToken,
           idempotencyKey: crypto.randomUUID(),
         });
-        const totalCoins = Number(payload?.result?.totalCoins ?? 0);
+        const conversion =
+          isRecord(payload) && isRecord(payload.conversion)
+            ? payload.conversion
+            : null;
+        const totalCoins = Number(
+          conversion?.totalCoins ?? quote?.totalCoins ?? selectedTotalCoins,
+        );
         setMessage({
           tone: "success",
-          text: `Converted ${selectedConvertableItems.length} card${
+          text: `Converting ${selectedConvertableItems.length} card${
             selectedConvertableItems.length === 1 ? "" : "s"
-          } for ${totalCoins.toLocaleString()} coins.`,
+          }. ${totalCoins.toLocaleString()} coins will be credited as it finishes.`,
         });
         setSelected(new Set());
         router.refresh();
@@ -1917,13 +1939,41 @@ function sortAdminPaymentMethods(methods: YnotPaymentMethod[]) {
   );
 }
 
+function mergeAdminPaymentMethod(
+  methods: YnotPaymentMethod[],
+  paymentMethod: YnotPaymentMethod,
+) {
+  const existingIndex = methods.findIndex(
+    (method) => method.id === paymentMethod.id,
+  );
+  const nextMethods =
+    existingIndex === -1
+      ? [...methods, paymentMethod]
+      : methods.map((method, index) =>
+          index === existingIndex ? paymentMethod : method,
+        );
+  return sortAdminPaymentMethods(nextMethods);
+}
+
 export function AdminPaymentMethodForm({
   paymentMethods = [],
 }: {
   paymentMethods?: YnotPaymentMethod[];
 }) {
-  const [methodOptions, setMethodOptions] = useState(() =>
-    sortAdminPaymentMethods(paymentMethods),
+  const sortedPaymentMethods = useMemo(
+    () => sortAdminPaymentMethods(paymentMethods),
+    [paymentMethods],
+  );
+  const [savedPaymentMethods, setSavedPaymentMethods] = useState<
+    YnotPaymentMethod[]
+  >([]);
+  const methodOptions = useMemo(
+    () =>
+      savedPaymentMethods.reduce(
+        (current, method) => mergeAdminPaymentMethod(current, method),
+        sortedPaymentMethods,
+      ),
+    [savedPaymentMethods, sortedPaymentMethods],
   );
   const [code, setCode] = useState("bank-transfer");
   const [displayName, setDisplayName] = useState("Bank Transfer");
@@ -1945,10 +1995,6 @@ export function AdminPaymentMethodForm({
   );
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    setMethodOptions(sortAdminPaymentMethods(paymentMethods));
-  }, [paymentMethods]);
 
   useEffect(() => {
     return () => {
@@ -2019,18 +2065,9 @@ export function AdminPaymentMethodForm({
           | YnotPaymentMethod
           | undefined;
         if (paymentMethod) {
-          setMethodOptions((current) => {
-            const existingIndex = current.findIndex(
-              (method) => method.id === paymentMethod.id,
-            );
-            const nextMethods =
-              existingIndex === -1
-                ? [...current, paymentMethod]
-                : current.map((method, index) =>
-                    index === existingIndex ? paymentMethod : method,
-                  );
-            return sortAdminPaymentMethods(nextMethods);
-          });
+          setSavedPaymentMethods((current) =>
+            mergeAdminPaymentMethod(current, paymentMethod),
+          );
         }
         setQrImageFile(null);
         setMessage("Payment method saved.");
@@ -2189,6 +2226,22 @@ export function AdminPaymentMethodForm({
   );
 }
 
+function sortAdminFormCategories(categories: YnotCategory[]) {
+  return [...categories].sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.nameEn.localeCompare(b.nameEn),
+  );
+}
+
+function mergeAdminFormCategory(
+  categories: YnotCategory[],
+  category: YnotCategory,
+) {
+  const withoutSaved = categories.filter(
+    (item) => item.id !== category.id && item.slug !== category.slug,
+  );
+  return sortAdminFormCategories([...withoutSaved, category]);
+}
+
 export function AdminCategoryForm({
   categories,
   onSaved,
@@ -2196,7 +2249,19 @@ export function AdminCategoryForm({
   categories: YnotCategory[];
   onSaved?: (category: YnotCategory) => void;
 }) {
-  const [visibleCategories, setVisibleCategories] = useState(categories);
+  const sortedCategories = useMemo(
+    () => sortAdminFormCategories(categories),
+    [categories],
+  );
+  const [savedCategories, setSavedCategories] = useState<YnotCategory[]>([]);
+  const visibleCategories = useMemo(
+    () =>
+      savedCategories.reduce(
+        (current, category) => mergeAdminFormCategory(current, category),
+        sortedCategories,
+      ),
+    [savedCategories, sortedCategories],
+  );
   const [categoryId, setCategoryId] = useState("");
   const [slug, setSlug] = useState("new-category");
   const [nameTh, setNameTh] = useState("หมวดใหม่");
@@ -2212,10 +2277,6 @@ export function AdminCategoryForm({
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    setVisibleCategories(categories);
-  }, [categories]);
 
   const loadCategory = useCallback(
     (nextId: string) => {
@@ -2273,17 +2334,9 @@ export function AdminCategoryForm({
         const savedCategory = payload.category as YnotCategory | undefined;
         if (savedCategory) {
           setCategoryId(savedCategory.id);
-          setVisibleCategories((current) => {
-            const withoutSaved = current.filter(
-              (item) =>
-                item.id !== savedCategory.id &&
-                item.slug !== savedCategory.slug,
-            );
-            return [...withoutSaved, savedCategory].sort(
-              (a, b) =>
-                a.sortOrder - b.sortOrder || a.nameEn.localeCompare(b.nameEn),
-            );
-          });
+          setSavedCategories((current) =>
+            mergeAdminFormCategory(current, savedCategory),
+          );
           onSaved?.(savedCategory);
         }
         setMessage(
@@ -3764,10 +3817,12 @@ export function AdminCampaignEditForm({
   categories,
   editingCampaign,
   editingCategoryId,
+  viewerRole = null,
 }: {
   categories?: YnotCategory[];
   editingCampaign: YnotCampaign;
   editingCategoryId?: string;
+  viewerRole?: YnotViewer["adminRole"];
 }) {
   const [cards, setCards] = useState<CardCatalogItem[] | null>(null);
   const [prizes, setPrizes] = useState<YnotPrizePreview[] | null>(null);
@@ -3809,6 +3864,7 @@ export function AdminCampaignEditForm({
       editingCampaign={editingCampaign}
       editingPrizes={prizes}
       editingCategoryId={editingCategoryId}
+      viewerRole={viewerRole}
     />
   );
 }
@@ -3819,12 +3875,14 @@ export function AdminCampaignForm({
   editingCampaign,
   editingPrizes,
   editingCategoryId,
+  viewerRole = null,
 }: {
   categories?: YnotCategory[];
   cards?: CardCatalogItem[];
   editingCampaign?: YnotCampaign;
   editingPrizes?: YnotPrizePreview[];
   editingCategoryId?: string;
+  viewerRole?: YnotViewer["adminRole"];
 }) {
   const router = useRouter();
   const editMode = Boolean(editingCampaign);
@@ -3865,6 +3923,10 @@ export function AdminCampaignForm({
   );
   const [openQuantityOptions, setOpenQuantityOptions] = useState<number[]>(
     normalizeOpenQuantityOptions(editingCampaign?.openQuantityOptions),
+  );
+  const [pullAllEnabled, setPullAllEnabled] = useState(
+    editingCampaign?.pullAllEnabled === true ||
+      editingCampaign?.pullAllRequested === true,
   );
   const [slotGrid, setSlotGrid] = useState<{
     layout: "10x10" | "5x20" | "20x5";
@@ -4558,6 +4620,9 @@ export function AdminCampaignForm({
           totalSlots,
           displayTags,
           openQuantityOptions,
+          pullAllEnabled,
+          pullAllRequested: pullAllEnabled,
+          pullAllAllowlisted: pullAllEnabled && viewerRole === "owner",
           slotGrid: mode === "slot_pick" ? slotGrid : undefined,
           categoryIds: categoryId ? [categoryId] : undefined,
           isTest,
@@ -4936,6 +5001,22 @@ export function AdminCampaignForm({
                 <small>
                   Selected: {openQuantitySummary(openQuantityOptions)}. These
                   exact buttons appear on the pack detail and opening screens.
+                </small>
+              </div>
+            )}
+            {mode === "instant_gacha" && (
+              <div className="admin-field admin-field-wide">
+                <span>Pull All</span>
+                <button
+                  type="button"
+                  className={`toggle ${pullAllEnabled ? "on" : ""}`}
+                  aria-pressed={pullAllEnabled}
+                  onClick={() => setPullAllEnabled((current) => !current)}
+                  style={{ border: 0, cursor: "pointer", marginTop: 4 }}
+                />
+                <small>
+                  Admin/owner access only. New packs default disabled; owners
+                  can allowlist the request during create or edit.
                 </small>
               </div>
             )}
@@ -5715,6 +5796,7 @@ export function OwnerApprovalQueue({
           const totalUnits =
             request.campaign.totalPrizeUnits ?? request.campaign.totalSlots;
           const availableUnits = request.campaign.availablePrizeUnits ?? 0;
+          const pullAllStatus = request.campaign.pullAllStatus;
           const shortStatusLabel: Record<YnotApprovalStatus, string> = {
             not_submitted: "Draft",
             pending_review: "Pending",
@@ -5764,6 +5846,12 @@ export function OwnerApprovalQueue({
                   <span>Logic</span>
                   <strong>{logicLabel}</strong>
                 </div>
+                {pullAllStatus?.requested || pullAllStatus?.enabled ? (
+                  <div>
+                    <span>Pull All</span>
+                    <strong>{pullAllStatus.ready ? "Ready" : "Review"}</strong>
+                  </div>
+                ) : null}
               </div>
               {isOwner ? (
                 <Link
@@ -6254,6 +6342,13 @@ export function AdminOwnerReview({
   const [notes, setNotes] = useState(
     liveRevision?.reviewNote ?? campaign.approvalNotes ?? "",
   );
+  const initialPullAllEnabled =
+    typeof liveRevision?.scalarPatch.pull_all_requested === "boolean"
+      ? liveRevision.scalarPatch.pull_all_requested
+      : typeof liveRevision?.scalarPatch.pull_all_enabled === "boolean"
+        ? liveRevision.scalarPatch.pull_all_enabled
+        : campaign.pullAllRequested === true || campaign.pullAllEnabled === true;
+  const [pullAllEnabled, setPullAllEnabled] = useState(initialPullAllEnabled);
   const [drawSampleSize, setDrawSampleSize] = useState<number>(1000);
   const [simResult, setSimResult] = useState<OwnerReviewSimResult | null>(null);
   const [message, setMessage] = useState<string>("");
@@ -6262,11 +6357,13 @@ export function AdminOwnerReview({
     logicMode: persistedLogicMode,
     guarantees: persistedOwnerGuarantees,
     cardEdits: persistedByCard ?? {},
+    pullAllEnabled: initialPullAllEnabled,
   });
   const liveRevisionCurrentStateKey = ownerReviewStableStringify({
     logicMode,
     guarantees,
     cardEdits,
+    pullAllEnabled,
   });
   const liveRevisionHasUnsavedChanges =
     isLiveRevision && liveRevisionCurrentStateKey !== liveRevisionPersistedStateKey;
@@ -6354,6 +6451,9 @@ export function AdminOwnerReview({
 
   const baseCostCoins = Math.max(1, campaign.costCoins ?? 1);
   const expectedRtp = baseCostCoins > 0 ? (expectedValuePerOpen / baseCostCoins) * 100 : 0;
+  const pullAllReviewReady = !pullAllEnabled || campaign.mode === "instant_gacha";
+  const pullAllChangedFromRequest = pullAllEnabled !== initialPullAllEnabled;
+  const pullAllPublishBlocked = pullAllEnabled && !pullAllReviewReady;
 
   const recommendedLogicMode = useMemo(
     () => ownerReviewRecommendedLogicMode(effectivePrizes),
@@ -6465,6 +6565,8 @@ export function AdminOwnerReview({
       action,
       logicMode,
       note: notes,
+      pullAllEnabled,
+      pullAllRequested: pullAllEnabled,
       overrides: {
         byCard: cardEdits,
         guarantees,
@@ -6492,6 +6594,8 @@ export function AdminOwnerReview({
         action,
         logicMode,
         note: notes,
+        pullAllEnabled,
+        pullAllRequested: pullAllEnabled,
         overrides: {
           byCard: cardEdits,
           guarantees,
@@ -6613,7 +6717,11 @@ export function AdminOwnerReview({
           <button
             type="button"
             className="btn"
-            disabled={isPending || (alreadyApproved && !liveRevisionHasUnsavedChanges)}
+            disabled={
+              isPending ||
+              pullAllPublishBlocked ||
+              (alreadyApproved && !liveRevisionHasUnsavedChanges)
+            }
             onClick={() => sendAction("approve")}
           >
             <AdminIcon name="check" size={12} />
@@ -6622,7 +6730,7 @@ export function AdminOwnerReview({
           <button
             type="button"
             className="btn btn-primary"
-            disabled={isPending || !alreadyApproved || liveRevisionHasUnsavedChanges}
+            disabled={isPending || !alreadyApproved || liveRevisionHasUnsavedChanges || pullAllPublishBlocked}
             onClick={() => sendAction("publish")}
           >
             <AdminIcon name="check" size={12} />
@@ -6652,7 +6760,7 @@ export function AdminOwnerReview({
           <button
             type="button"
             className="btn btn-primary"
-            disabled={isPending || alreadyPublished}
+            disabled={isPending || alreadyPublished || pullAllPublishBlocked}
             onClick={() =>
               sendAction(alreadyApproved ? "publish" : "approve_and_publish")
             }
@@ -6741,6 +6849,40 @@ export function AdminOwnerReview({
           {message}
         </div>
       )}
+
+      <section className="card">
+        <div className="card-head">
+          <div>
+            <p className="section-label">Pull All</p>
+            <h3>Owner selection</h3>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${pullAllEnabled ? "on" : ""}`}
+            aria-label={pullAllEnabled ? "Disable Pull All" : "Enable Pull All"}
+            aria-pressed={pullAllEnabled}
+            onClick={() => setPullAllEnabled((current) => !current)}
+            style={{ border: 0, cursor: "pointer" }}
+          />
+        </div>
+        <div className="card-pad" style={{ display: "grid", gap: 8 }}>
+          <div className="text-mute" style={{ fontSize: 12 }}>
+            {pullAllEnabled
+              ? pullAllReviewReady
+                ? "Pull All will be enabled when this owner action publishes."
+                : "Pull All cannot publish for this pack mode."
+              : "Pull All stays disabled; the pack follows normal opening only."}
+          </div>
+          {campaign.pullAllStatus?.label ? (
+            <div className="row-sub">{campaign.pullAllStatus.label}</div>
+          ) : null}
+          {pullAllChangedFromRequest ? (
+            <div className="row-sub">
+              Owner changed Pull All selection for this review.
+            </div>
+          ) : null}
+        </div>
+      </section>
 
       <div className="split-aside">
         <section className="card">
@@ -7557,7 +7699,28 @@ export function LivePackMonitor({
 }
 
 function liveRevisionPatchEntries(revision: YnotLivePackRevisionReview) {
-  return Object.entries(revision.scalarPatch).filter(([, value]) => value !== undefined);
+  const hiddenPullAllKeys = new Set([
+    "pull_all_enabled",
+    "pull_all_requested",
+    "pull_all_allowlisted",
+    "pull_all_readiness_status",
+    "pull_all_config",
+  ]);
+  const entries = Object.entries(revision.scalarPatch).filter(
+    ([key, value]) => value !== undefined && !hiddenPullAllKeys.has(key),
+  );
+  if (
+    Object.keys(revision.scalarPatch).some((key) => hiddenPullAllKeys.has(key))
+  ) {
+    entries.push([
+      "Pull All",
+      revision.scalarPatch.pull_all_requested === true ||
+      revision.scalarPatch.pull_all_enabled === true
+        ? "enabled after owner publish"
+        : "disabled",
+    ]);
+  }
+  return entries;
 }
 
 export function LivePackRevisionReview({
@@ -8077,6 +8240,14 @@ function AdminCampaignStatusRow({
           <strong>{status}</strong>
           <em>{visibility}</em>
           <em>{approvalStatusLabel(approvalStatus)}</em>
+          {(campaign.pullAllStatus?.enabled ||
+            campaign.pullAllStatus?.requested) && (
+            <em>
+              {campaign.pullAllStatus?.ready
+                ? "Pull All ready"
+                : "Pull All blocked"}
+            </em>
+          )}
           {campaign.soldOut && <em>Sold out</em>}
           {campaign.adminRemoved && <em>Removed</em>}
         </div>
@@ -14305,6 +14476,9 @@ function EditCampaignModal({
   const [openQuantityOptions, setOpenQuantityOptions] = useState<number[]>(
     normalizeOpenQuantityOptions(campaign.openQuantityOptions),
   );
+  const [pullAllEnabled, setPullAllEnabled] = useState(
+    campaign.pullAllEnabled === true || campaign.pullAllRequested === true,
+  );
   const [convertDeadlineDays, setConvertDeadlineDays] = useState<number>(() => {
     const stored = campaign.convertDeadlineDays;
     if (stored === null || stored === undefined) return defaultConvertDeadlineDays;
@@ -14357,6 +14531,9 @@ function EditCampaignModal({
           isTest,
           displayTags,
           openQuantityOptions,
+          pullAllEnabled,
+          pullAllRequested: pullAllEnabled,
+          pullAllAllowlisted: pullAllEnabled,
           convertDeadlineDays,
         }),
       });
@@ -14556,6 +14733,16 @@ function EditCampaignModal({
               pack page only shows selected pull buttons.
             </small>
           </div>
+          {mode === "instant_gacha" && (
+            <label className="admin-edit-checkbox">
+              <input
+                type="checkbox"
+                checked={pullAllEnabled}
+                onChange={(event) => setPullAllEnabled(event.target.checked)}
+              />
+              <span>Request Pull All for owner review</span>
+            </label>
+          )}
           <label className="admin-edit-checkbox">
             <input
               type="checkbox"

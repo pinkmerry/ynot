@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "main": ".open-next/worker.js",
+  "main": "bulk-open-worker.ts",
   "name": "ynott-website",
   "workers_dev": true,
   "compatibility_date": "2026-05-17",
@@ -13,8 +13,25 @@
   "observability": {
     "enabled": true
   },
-  "limits": {
-    "cpu_ms": 30000
+  "queues": {
+    "producers": [
+      {
+        "binding": "BULK_OPEN_QUEUE",
+        "queue": "ynott-bulk-open"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "ynott-bulk-open",
+        "max_batch_size": 5,
+        "max_batch_timeout": 2,
+        "max_retries": 3,
+        "retry_delay": 60
+      }
+    ]
+  },
+  "triggers": {
+    "crons": ["*/15 * * * *"]
   },
   "vars": {
     "RATE_LIMIT_BACKEND": "supabase",

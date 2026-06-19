@@ -66,6 +66,60 @@ type CampaignBody = {
   initialPrizes?: unknown;
   lastPrizeCardId?: unknown;
   lastPrizeMetadata?: unknown;
+  pullAllEnabled?: unknown;
+  pullAllRequested?: unknown;
+  pullAllAllowlisted?: unknown;
+};
+
+type PullAllCampaignFields = {
+  pull_all_enabled?: boolean | null;
+  pull_all_requested?: boolean | null;
+  pull_all_allowlisted?: boolean | null;
+  pull_all_readiness_status?: string | null;
+};
+
+type CampaignCurrentRow = PullAllCampaignFields &
+  Pick<
+    Database["public"]["Tables"]["draw_rounds"]["Row"],
+    | "approval_status"
+    | "id"
+    | "is_test"
+    | "last_prize_awarded_at"
+    | "last_prize_card_id"
+    | "last_prize_metadata"
+    | "logic_snapshot"
+    | "seed_run_id"
+    | "status"
+    | "total_slots"
+    | "updated_at"
+  >;
+
+type SupabaseCompatError = {
+  code?: string;
+  details?: string | null;
+  hint?: string | null;
+  message: string;
+};
+
+type SupabaseCompatResult<T = unknown> = {
+  data: T;
+  error: SupabaseCompatError | null;
+};
+
+type SupabaseCompatCampaignQuery = {
+  eq(column: string, value: unknown): SupabaseCompatCampaignQuery;
+  select(columns: string): SupabaseCompatCampaignQuery;
+  single(): Promise<SupabaseCompatResult<CampaignCurrentRow>>;
+  update(values: Record<string, unknown>): {
+    eq(
+      column: string,
+      value: unknown,
+    ): Promise<SupabaseCompatResult<unknown>>;
+  };
+};
+
+type SupabaseCompatCampaignClient = {
+  from(table: string): SupabaseCompatCampaignQuery;
 };
 
 function convertDeadlineValue(value: unknown): number | null | undefined {
@@ -136,6 +190,83 @@ function booleanValue(value: unknown) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function pullAllPatch(
+  body: CampaignBody,
+  adminRole: "owner" | "admin" | "staff",
+) {
+  if (
+    body.pullAllEnabled === undefined &&
+    body.pullAllRequested === undefined &&
+    body.pullAllAllowlisted === undefined
+  ) {
+    return {};
+  }
+  const selected =
+    booleanValue(body.pullAllEnabled) || booleanValue(body.pullAllRequested);
+  const ownerApproved = selected && adminRole === "owner";
+  return {
+    pull_all_enabled: ownerApproved,
+    pull_all_requested: selected,
+    pull_all_allowlisted: ownerApproved,
+    pull_all_readiness_status: selected
+      ? ownerApproved
+        ? "ready"
+        : "not_ready"
+      : "disabled",
+    pull_all_config: selected
+      ? {
+          mode: "all_remaining_slots",
+          requestedByRole: adminRole,
+        }
+      : {},
+  };
+}
+
+function isPullAllDisableOnlyPatch(
+  body: CampaignBody,
+  pullAllSettings: Record<string, unknown>,
+) {
+  if (!Object.keys(pullAllSettings).length) return false;
+  if (
+    pullAllSettings.pull_all_requested !== false ||
+    pullAllSettings.pull_all_enabled !== false ||
+    pullAllSettings.pull_all_allowlisted !== false
+  ) {
+    return false;
+  }
+  const allowedKeys = new Set([
+    "campaignId",
+    "pullAllEnabled",
+    "pullAllRequested",
+    "pullAllAllowlisted",
+  ]);
+  return Object.keys(body as Record<string, unknown>).every((key) =>
+    allowedKeys.has(key),
+  );
+}
+
+function isLivePullAllDisableRequest(
+  body: CampaignBody,
+  pullAllSettings: Record<string, unknown>,
+  current: PullAllCampaignFields,
+) {
+  if (
+    body.pullAllEnabled === undefined &&
+    body.pullAllRequested === undefined &&
+    body.pullAllAllowlisted === undefined
+  ) {
+    return false;
+  }
+  return (
+    (current.pull_all_enabled === true ||
+      current.pull_all_requested === true ||
+      current.pull_all_allowlisted === true) &&
+    pullAllSettings.pull_all_requested === false &&
+    pullAllSettings.pull_all_enabled === false &&
+    pullAllSettings.pull_all_allowlisted === false
+  );
 }
 
 function stableJsonString(value: unknown): string {
@@ -763,6 +894,7 @@ async function createLivePackRevision({
   adminRole,
   body,
   patch,
+  pullAllSettings,
   bannerPatch,
   current,
 }: {
@@ -772,6 +904,7 @@ async function createLivePackRevision({
   adminRole: "owner" | "admin" | "staff";
   body: CampaignBody;
   patch: Database["public"]["Tables"]["draw_rounds"]["Update"];
+  pullAllSettings: Record<string, unknown>;
   bannerPatch: Pick<
     Database["public"]["Tables"]["draw_rounds"]["Update"],
     "banner_image_url" | "banner_image_storage_path"
@@ -799,6 +932,7 @@ async function createLivePackRevision({
   const livePatch: Database["public"]["Tables"]["draw_rounds"]["Update"] = {
     ...patch,
     ...bannerPatch,
+    ...pullAllSettings,
   };
   delete livePatch.total_slots;
   delete livePatch.status;
@@ -853,6 +987,26 @@ async function createLivePackRevision({
 
   if (error) throw error;
   return data;
+}
+
+async function assertNoActiveBulkOpenSession(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  campaignId: string,
+) {
+  const rpc = supabase.rpc.bind(supabase) as unknown as (
+    name: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  const { data, error } = await rpc("has_active_bulk_open_session", {
+    p_profile_id: null,
+    p_draw_round_id: campaignId,
+  });
+  if (error && !isMissingFunctionError(error, "has_active_bulk_open_session")) {
+    throw error;
+  }
+  if (data === true) {
+    throw new Error("ACTIVE_BULK_OPEN_SESSION");
+  }
 }
 
 async function bodyJson(request: Request): Promise<CampaignBody | null> {
@@ -955,6 +1109,7 @@ export async function POST(request: Request) {
   }
 
   const patch = campaignPatch(body);
+  const pullAllSettings = pullAllPatch(body, admin.adminRole);
   const titles = campaignTitleValues(body);
   const requestedPublish = isDirectPublishPatch(patch);
   const supabase = createServiceSupabaseClient();
@@ -982,6 +1137,7 @@ export async function POST(request: Request) {
     created_by: admin.adminId,
     is_test: patch.is_test ?? false,
     seed_run_id: patch.seed_run_id ?? null,
+    ...pullAllSettings,
     logic_snapshot: logicSnapshotWithOpenOptions(
       { mode: "pure_random" },
       body.openQuantityOptions,
@@ -1109,6 +1265,7 @@ export async function PATCH(request: Request) {
   }
 
   const patch = campaignPatch(body);
+  const pullAllSettings = pullAllPatch(body, admin.adminRole);
   if (isDirectPublishPatch(patch)) {
     return adminErrorResponse(
       "CAMPAIGN_DIRECT_PUBLISH_LOCKED",
@@ -1119,9 +1276,10 @@ export async function PATCH(request: Request) {
   const supabase = createServiceSupabaseClient();
   const bannerPatch = await campaignBannerImagePatch(body, supabase);
   if (!bannerPatch.ok) return bannerPatch.response;
-  const { data: current, error: currentError } = await supabase
+  const campaignClient = supabase as unknown as SupabaseCompatCampaignClient;
+  const { data: current, error: currentError } = await campaignClient
     .from("draw_rounds")
-    .select("id,status,approval_status,logic_snapshot,total_slots,last_prize_card_id,last_prize_metadata,last_prize_awarded_at,updated_at,is_test,seed_run_id")
+    .select("id,status,approval_status,logic_snapshot,total_slots,last_prize_card_id,last_prize_metadata,last_prize_awarded_at,updated_at,is_test,seed_run_id,pull_all_enabled,pull_all_requested,pull_all_allowlisted,pull_all_readiness_status")
     .eq("id", campaignId)
     .single();
   if (currentError) {
@@ -1143,7 +1301,50 @@ export async function PATCH(request: Request) {
         409,
       );
     }
+    const livePullAllDisableRequested = isLivePullAllDisableRequest(
+      body,
+      pullAllSettings,
+      current,
+    );
+    if (livePullAllDisableRequested) {
+      const { error: disableError } = await campaignClient
+        .from("draw_rounds")
+        .update(pullAllSettings)
+        .eq("id", campaignId);
+      if (disableError) {
+        return adminErrorResponse(
+          disableError.code ?? "PULL_ALL_DISABLE_FAILED",
+          disableError.message,
+          409,
+          { detail: disableError.details ?? null, hint: disableError.hint ?? null },
+        );
+      }
+      await supabase.from("audit_events").insert({
+        actor_admin_id: admin.adminId,
+        event_type: "campaign_pull_all_disabled",
+        draw_round_id: campaignId,
+        metadata: {
+          previousRequested:
+            current.pull_all_requested === true || current.pull_all_enabled === true,
+          nextRequested: false,
+          source: "pack_edit",
+        },
+      });
+      if (isPullAllDisableOnlyPatch(body, pullAllSettings)) {
+        revalidateTag("campaigns", "max");
+        return Response.json({
+          ok: true,
+          status: "live",
+          visibility: "public",
+          approvalStatus: current.approval_status,
+          requiresOwnerReview: false,
+          message:
+            "Pull All is disabled for new starts. Already paid Pull All rewards continue settling.",
+        });
+      }
+    }
     try {
+      await assertNoActiveBulkOpenSession(supabase, campaignId);
       const revision = await createLivePackRevision({
         supabase,
         campaignId,
@@ -1151,6 +1352,7 @@ export async function PATCH(request: Request) {
         adminRole: admin.adminRole,
         body,
         patch,
+        pullAllSettings: livePullAllDisableRequested ? {} : pullAllSettings,
         bannerPatch: bannerPatch.patch,
         current,
       });
@@ -1175,6 +1377,16 @@ export async function PATCH(request: Request) {
           "Live pack changes were saved for owner approval. Existing opens, bags, and rewards stay unchanged until publish.",
       });
     } catch (revisionError) {
+      if (
+        revisionError instanceof Error &&
+        revisionError.message === "ACTIVE_BULK_OPEN_SESSION"
+      ) {
+        return adminErrorResponse(
+          "ACTIVE_BULK_OPEN_SESSION",
+          "A Pull All session is active for this pack. Wait for it to finish before changing protected live pack settings.",
+          409,
+        );
+      }
       return adminErrorResponse(
         "LIVE_PACK_REVISION_FAILED",
         revisionError instanceof Error
@@ -1276,6 +1488,7 @@ export async function PATCH(request: Request) {
   const reviewPatch: Database["public"]["Tables"]["draw_rounds"]["Update"] = {
     ...patch,
     ...bannerPatch.patch,
+    ...pullAllSettings,
     ...(body.openQuantityOptions === undefined &&
     body.bundleConfig === undefined &&
     body.slotGrid === undefined

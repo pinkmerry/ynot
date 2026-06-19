@@ -65,6 +65,11 @@ export type YnotCampaign = {
   bannerImageUrl?: string | null;
   bannerImageStoragePath?: string | null;
   openQuantityOptions?: number[];
+  pullAllEnabled?: boolean;
+  pullAllRequested?: boolean;
+  pullAllAllowlisted?: boolean;
+  pullAllReadinessStatus?: YnotPullAllReadinessStatus;
+  pullAllStatus?: YnotOwnerPullAllStatus;
   prizeLineup?: YnotPrizePreview[];
   convertDeadlineDays?: number | null;
   demo?: boolean;
@@ -111,6 +116,21 @@ export type YnotApprovalStatus =
   | "approved"
   | "rejected"
   | "changes_requested";
+
+export type YnotPullAllReadinessStatus =
+  | "disabled"
+  | "not_ready"
+  | "ready"
+  | "blocked";
+
+export type YnotOwnerPullAllStatus = {
+  requested: boolean;
+  enabled: boolean;
+  allowlisted: boolean;
+  readinessStatus: YnotPullAllReadinessStatus;
+  label: string;
+  ready: boolean;
+};
 
 export type YnotRandomLogicMode =
   | "pure_random"
@@ -325,6 +345,7 @@ export type YnotCollectionItem = {
     | "locked"
     | "exchange_requested"
     | "exchanged"
+    | "converting"
     | "shipping_requested"
     | "shipped"
     | "void";
@@ -518,7 +539,26 @@ export type YnotAdminUserDetail = {
   exchanges: YnotExchangeOrder[];
   walletLedger: YnotWalletLedgerEntry[];
   auditTimeline: YnotShippingTimelineEvent[];
+  bulkOpenSessions: YnotAdminBulkOpenSessionSummary[];
   query: YnotAdminUser360Query;
+};
+
+export type YnotAdminBulkOpenSessionSummary = {
+  publicCode: string;
+  status: string;
+  campaignSlug?: string | null;
+  campaignTitle: string;
+  targetRewards: number;
+  processedRewards: number;
+  totalCostCoins: number;
+  highlightsCount: number;
+  retryCount: number;
+  retryScheduledAt?: string | null;
+  lastErrorCode?: string | null;
+  lastErrorAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  createdAt: string;
 };
 
 export type YnotGachaOpenReward = {

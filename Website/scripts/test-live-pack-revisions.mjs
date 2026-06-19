@@ -81,6 +81,15 @@ test("awarded Last Prize identity cannot be changed by live revisions", () => {
   assert.doesNotMatch(lockMigration, /open_gacha_campaign/);
 });
 
+test("live revision publish rechecks active Pull All sessions in the RPC", () => {
+  const guardMigration = latestMigrationContaining("publish_live_campaign_revision_active_bulk_guard_anchor_missing");
+
+  assert.match(guardMigration, /publish_live_campaign_revision_active_bulk_guard_anchor_missing/);
+  assert.match(guardMigration, /bulk_session\.draw_round_id = revision\.draw_round_id/);
+  assert.match(guardMigration, /bulk_session\.status in \('queued', 'processing', 'retry_required'\)/);
+  assert.match(guardMigration, /raise exception 'active_bulk_open_session_exists'/);
+});
+
 test("live revision action route is owner-only and same-origin guarded", () => {
   assert.match(revisionRoute, /enforceSameOriginMutation/);
   assert.match(revisionRoute, /admin\.adminRole !== "owner"/);

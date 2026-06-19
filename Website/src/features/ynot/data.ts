@@ -20,6 +20,7 @@ import { collectionItemActionToken } from "@/lib/ynot/collection-action-tokens";
 import { paymentMethodActionToken } from "@/lib/ynot/payment-method-action-tokens";
 import type {
   YnotAdminUser360Query,
+  YnotAdminBulkOpenSessionSummary,
   YnotAdminUserDetail,
   YnotAdminUserDirectoryQuery,
   YnotAdminUserDirectoryRow,
@@ -43,6 +44,7 @@ import type {
   YnotPackMonitor,
   YnotPaymentMethod,
   YnotPlatformHealth,
+  YnotPullAllReadinessStatus,
   YnotPrizeUnitIdentityMismatch,
   YnotPrizePoolItem,
   YnotPrizePreview,
@@ -285,6 +287,46 @@ const randomLogicModes: readonly YnotRandomLogicMode[] = [
   "weighted_templates",
   "inventory_gated",
 ];
+const pullAllReadinessStatuses: readonly YnotPullAllReadinessStatus[] = [
+  "disabled",
+  "not_ready",
+  "ready",
+  "blocked",
+];
+
+type PullAllDrawRoundFields = {
+  pull_all_enabled?: boolean | null;
+  pull_all_requested?: boolean | null;
+  pull_all_allowlisted?: boolean | null;
+  pull_all_readiness_status?: string | null;
+};
+
+type SupabaseCompatError = {
+  code?: string;
+  details?: string | null;
+  hint?: string | null;
+  message: string;
+};
+
+type SupabaseCompatResult<T = unknown> = {
+  data: T;
+  error: SupabaseCompatError | null;
+};
+
+type SupabaseCompatQuery<T = unknown> =
+  PromiseLike<SupabaseCompatResult<T>> & {
+    eq(column: string, value: unknown): SupabaseCompatQuery<T>;
+    limit(count: number): SupabaseCompatQuery<T>;
+    order(
+      column: string,
+      options?: { ascending?: boolean },
+    ): SupabaseCompatQuery<T>;
+    select(columns: string): SupabaseCompatQuery<T>;
+  };
+
+type SupabaseCompatClient = {
+  from(table: string): SupabaseCompatQuery;
+};
 
 function inferredApprovalStatus(status: YnotCampaign["status"]) {
   return status === "live" || status === "closed" || status === "archived"
@@ -312,6 +354,57 @@ function normalizeRandomLogicMode(value: unknown): YnotRandomLogicMode {
     }
   }
   return "pure_random";
+}
+
+function normalizePullAllReadinessStatus(
+  value: unknown,
+): YnotPullAllReadinessStatus {
+  return pullAllReadinessStatuses.includes(value as YnotPullAllReadinessStatus)
+    ? (value as YnotPullAllReadinessStatus)
+    : "disabled";
+}
+
+function pullAllStatusLabel({
+  allowlisted,
+  enabled,
+  readinessStatus,
+  requested,
+}: {
+  allowlisted: boolean;
+  enabled: boolean;
+  readinessStatus: YnotPullAllReadinessStatus;
+  requested: boolean;
+}) {
+  if (!enabled && !requested) return "Pull All disabled";
+  if (enabled && requested && allowlisted && readinessStatus === "ready") {
+    return "Pull All ready";
+  }
+  if (!allowlisted) return "Pull All needs owner allowlist";
+  if (readinessStatus === "blocked") return "Pull All blocked";
+  return "Pull All not ready";
+}
+
+function pullAllStatusFromCampaign(campaign: YnotCampaign) {
+  const requested = campaign.pullAllRequested === true;
+  const enabled = campaign.pullAllEnabled === true;
+  const allowlisted = campaign.pullAllAllowlisted === true;
+  const readinessStatus =
+    campaign.pullAllReadinessStatus ?? (enabled || requested ? "not_ready" : "disabled");
+  const ready =
+    enabled && requested && allowlisted && readinessStatus === "ready";
+  return {
+    requested,
+    enabled,
+    allowlisted,
+    readinessStatus,
+    label: pullAllStatusLabel({
+      allowlisted,
+      enabled,
+      readinessStatus,
+      requested,
+    }),
+    ready,
+  };
 }
 
 function inventorySummariesFromJson(value: unknown): InventorySummary[] {
@@ -643,7 +736,7 @@ async function getPrizeUnitIdentityMismatches(
   campaignId: string,
 ): Promise<PrizeUnitIdentityMismatchResult> {
   try {
-    const rpc = supabase.rpc as unknown as (
+    const rpc = supabase.rpc.bind(supabase) as unknown as (
       fn: string,
       args: Record<string, unknown>,
     ) => PromiseLike<{ data: unknown; error: unknown }>;
@@ -1260,7 +1353,7 @@ function toYnotCampaign(
     !adminRemoved &&
     !soldOut &&
     hasOpenableInventory;
-  const campaign = {
+  const campaign: YnotCampaign = {
     id: row.id,
     slug: row.slug,
     status: row.status,
@@ -1319,6 +1412,15 @@ function toYnotCampaign(
     bannerImageUrl: row.banner_image_url ?? null,
     bannerImageStoragePath: row.banner_image_storage_path ?? null,
     openQuantityOptions: normalizeOpenQuantityOptions(row.logic_snapshot),
+    pullAllEnabled:
+      (row as PullAllDrawRoundFields).pull_all_enabled === true,
+    pullAllRequested:
+      (row as PullAllDrawRoundFields).pull_all_requested === true,
+    pullAllAllowlisted:
+      (row as PullAllDrawRoundFields).pull_all_allowlisted === true,
+    pullAllReadinessStatus: normalizePullAllReadinessStatus(
+      (row as PullAllDrawRoundFields).pull_all_readiness_status,
+    ),
     prizeLineup,
     convertDeadlineDays:
       typeof row.convert_deadline_days === "number" && row.convert_deadline_days > 0
@@ -1329,6 +1431,7 @@ function toYnotCampaign(
     identityMismatches: PrizeUnitIdentityMismatch[];
     identityMismatchCheckFailed?: boolean;
   };
+  campaign.pullAllStatus = pullAllStatusFromCampaign(campaign);
   return campaign;
 }
 
@@ -1660,6 +1763,14 @@ function ownerApprovalRequestFromCampaign(
     : campaign.readinessBlockers
       ? "Prize inventory is ready for owner review and publish."
       : "Open Random Pack Studio to run the full prize readiness check.";
+  const pullAllStatus = campaign.pullAllStatus ?? pullAllStatusFromCampaign(campaign);
+  const pullAllLines =
+    pullAllStatus.enabled || pullAllStatus.requested
+      ? [
+          `Pull All requested: ${pullAllStatus.requested ? "yes" : "no"}`,
+          `Pull All readiness: ${pullAllStatus.label}`,
+        ]
+      : ["Pull All disabled for this pack."];
   return {
     id: `owner-approval-${campaign.id}`,
     campaign,
@@ -1679,6 +1790,7 @@ function ownerApprovalRequestFromCampaign(
       "Only public-safe status details are shown outside the owner queue.",
       "Publish must happen through the owner lifecycle route after approval.",
       readinessLine,
+      ...pullAllLines,
     ],
   };
 }
@@ -4240,6 +4352,57 @@ export async function getAdminUsers() {
   return directory.users;
 }
 
+function adminBulkOpenSessionSummary(
+  row: Record<string, unknown>,
+): YnotAdminBulkOpenSessionSummary {
+  const campaign = isRecord(row.draw_rounds) ? row.draw_rounds : {};
+  const highlights = Array.isArray(row.highlight_rewards_public)
+    ? row.highlight_rewards_public
+    : [];
+  return {
+    publicCode: optionalStringValue(row.public_code) ?? "",
+    status: optionalStringValue(row.status) ?? "unknown",
+    campaignSlug: optionalStringValue(campaign.slug),
+    campaignTitle:
+      optionalStringValue(campaign.title_th) ??
+      optionalStringValue(campaign.title_en) ??
+      optionalStringValue(campaign.slug) ??
+      "Random pack",
+    targetRewards: numericValue(row.target_slots),
+    processedRewards: numericValue(row.processed_slots),
+    totalCostCoins: numericValue(row.total_cost_coins),
+    highlightsCount: highlights.length,
+    retryCount: numericValue(row.retry_count),
+    retryScheduledAt: optionalStringValue(row.retry_scheduled_at),
+    lastErrorCode: optionalStringValue(row.last_error_code),
+    lastErrorAt: optionalStringValue(row.last_error_at),
+    startedAt: optionalStringValue(row.started_at),
+    completedAt: optionalStringValue(row.completed_at),
+    createdAt: optionalStringValue(row.created_at) ?? new Date(0).toISOString(),
+  };
+}
+
+async function getAdminBulkOpenSessions(
+  profileId: string,
+  limit: number,
+): Promise<YnotAdminBulkOpenSessionSummary[]> {
+  const supabase = createServiceSupabaseClient() as unknown as SupabaseCompatClient;
+  return readOrEmpty("admin_user_bulk_open_sessions", async () => {
+    const { data, error } = await supabase
+      .from("gacha_bulk_open_sessions")
+      .select(
+        "public_code,status,target_slots,processed_slots,total_cost_coins,highlight_rewards_public,retry_count,retry_scheduled_at,last_error_code,last_error_at,created_at,started_at,completed_at,draw_rounds(slug,title_th,title_en)",
+      )
+      .eq("profile_id", profileId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return ((data ?? []) as Record<string, unknown>[]).map(
+      adminBulkOpenSessionSummary,
+    );
+  });
+}
+
 export async function getAdminUserDetail(
   profileId: string,
   input: { pageSize?: unknown } = {},
@@ -4272,6 +4435,7 @@ export async function getAdminUserDetail(
     exchanges,
     walletLedger,
     auditRows,
+    bulkOpenSessions,
   ] = await Promise.all([
     getWallet(profileId),
     getAddresses(profileId),
@@ -4305,6 +4469,7 @@ export async function getAdminUserDetail(
       if (error) throw error;
       return data ?? [];
     }),
+    getAdminBulkOpenSessions(profileId, sectionLimit),
   ]);
   const auditTimelineById = new Map<string, YnotShippingTimelineEvent>();
   for (const event of auditRows.map(shippingTimelineEvent)) {
@@ -4355,6 +4520,7 @@ export async function getAdminUserDetail(
       createdAt: entry.created_at,
     })),
     auditTimeline,
+    bulkOpenSessions,
     query: detailQuery,
   };
 }

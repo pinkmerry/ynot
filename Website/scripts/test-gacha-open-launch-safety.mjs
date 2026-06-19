@@ -117,8 +117,9 @@ test("100-pack opens remain one weighted API call", () => {
   assert.doesNotMatch(openIntentSource, /chunkIndex|part-\$\{safeChunkIndex\}/);
 });
 
-test("CI deploy config keeps paid CPU limit for pack-open protection", () => {
-  assert.match(wranglerCiSource, /"limits"\s*:\s*\{\s*"cpu_ms"\s*:\s*30000\s*\}/s);
+test("CI deploy config stays free-plan deployable without paid CPU limits", () => {
+  assert.doesNotMatch(wranglerCiSource, /"limits"\s*:/);
+  assert.doesNotMatch(wranglerCiSource, /"cpu_ms"\s*:/);
 });
 
 test("pack open API exposes only sanitized RPC remaining fields", () => {

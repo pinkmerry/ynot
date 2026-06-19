@@ -750,9 +750,21 @@ export type Database = {
         Relationships: [];
       };
       collection_items: {
-        Row: { id: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id: string | null; status: "owned" | "locked" | "exchange_requested" | "exchanged" | "shipping_requested" | "shipped" | "void"; serial_no: string | null; acquired_at: string; card_stock_unit_id: string | null; gacha_open_item_id: string | null; convert_coin_value_snapshot: number | null; convert_expires_at: string | null; created_at: string; updated_at: string };
-        Insert: { id?: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id?: string | null; status?: "owned" | "locked" | "exchange_requested" | "exchanged" | "shipping_requested" | "shipped" | "void"; serial_no?: string | null; acquired_at?: string; card_stock_unit_id?: string | null; gacha_open_item_id?: string | null; convert_coin_value_snapshot?: number | null; convert_expires_at?: string | null; created_at?: string; updated_at?: string };
+        Row: { id: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id: string | null; status: "owned" | "locked" | "exchange_requested" | "exchanged" | "converting" | "shipping_requested" | "shipped" | "void"; serial_no: string | null; acquired_at: string; card_stock_unit_id: string | null; gacha_open_item_id: string | null; conversion_job_id: string | null; convert_coin_value_snapshot: number | null; convert_expires_at: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id?: string | null; status?: "owned" | "locked" | "exchange_requested" | "exchanged" | "converting" | "shipping_requested" | "shipped" | "void"; serial_no?: string | null; acquired_at?: string; card_stock_unit_id?: string | null; gacha_open_item_id?: string | null; conversion_job_id?: string | null; convert_coin_value_snapshot?: number | null; convert_expires_at?: string | null; created_at?: string; updated_at?: string };
         Update: Partial<Database["public"]["Tables"]["collection_items"]["Insert"]>;
+        Relationships: [];
+      };
+      reward_conversion_quote_tokens: {
+        Row: { id: string; profile_id: string; selection_mode: "selected" | "all_eligible"; collection_item_ids: string[]; item_count: number; total_coins: number; quote_hash: string; idempotency_key: string | null; expires_at: string; consumed_at: string | null; consumed_by_job_id: string | null; metadata: Json; created_at: string };
+        Insert: { id?: string; profile_id: string; selection_mode: "selected" | "all_eligible"; collection_item_ids?: string[]; item_count: number; total_coins: number; quote_hash: string; idempotency_key?: string | null; expires_at: string; consumed_at?: string | null; consumed_by_job_id?: string | null; metadata?: Json; created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["reward_conversion_quote_tokens"]["Insert"]>;
+        Relationships: [];
+      };
+      reward_conversion_jobs: {
+        Row: { id: string; profile_id: string; quote_token_id: string; status: "queued" | "processing" | "retry_required" | "completed"; selection_mode: "selected" | "all_eligible"; item_count: number; converted_count: number; total_coins: number; credited_total_coins: number; quote_hash: string; idempotency_key: string | null; queue_job_id: string | null; locked_by: string | null; heartbeat_at: string | null; retry_count: number; retry_scheduled_at: string | null; last_error_code: string | null; last_error_at: string | null; started_at: string | null; completed_at: string | null; metadata: Json; created_at: string; updated_at: string };
+        Insert: { id?: string; profile_id: string; quote_token_id: string; status?: "queued" | "processing" | "retry_required" | "completed"; selection_mode: "selected" | "all_eligible"; item_count: number; converted_count?: number; total_coins: number; credited_total_coins?: number; quote_hash: string; idempotency_key?: string | null; queue_job_id?: string | null; locked_by?: string | null; heartbeat_at?: string | null; retry_count?: number; retry_scheduled_at?: string | null; last_error_code?: string | null; last_error_at?: string | null; started_at?: string | null; completed_at?: string | null; metadata?: Json; created_at?: string; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["reward_conversion_jobs"]["Insert"]>;
         Relationships: [];
       };
       exchange_orders: {
@@ -1125,6 +1137,10 @@ export type Database = {
       archive_campaign_inventory: { Args: { p_draw_round_id: string; p_admin_id: string; p_note?: string | null }; Returns: Json };
       delete_campaign_inventory: { Args: { p_draw_round_id: string; p_admin_id: string; p_note?: string | null }; Returns: Json };
       submit_card_conversion: { Args: { p_profile_id: string; p_collection_item_ids: string[]; p_idempotency_key?: string | null }; Returns: Json };
+      prepare_reward_conversion_quote: { Args: { p_profile_id: string; p_selection_mode: "selected" | "all_eligible"; p_collection_item_ids?: string[] | null; p_idempotency_key?: string | null }; Returns: Json };
+      start_reward_conversion: { Args: { p_profile_id: string; p_quote_token_id: string; p_idempotency_key?: string | null }; Returns: Json };
+      process_reward_conversion_chunk: { Args: { p_job_id: string; p_limit?: number; p_worker_id?: string | null }; Returns: Json };
+      list_reward_conversion_recovery_jobs: { Args: { p_limit?: number }; Returns: Json };
       complete_account_merge_request: { Args: { p_merge_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       reject_account_merge_request: { Args: { p_merge_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       approve_identity_review_request: { Args: { p_merge_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };

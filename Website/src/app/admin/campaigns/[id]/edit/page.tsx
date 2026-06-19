@@ -88,6 +88,7 @@ export default async function EditCampaignPage({
               categories={data.categories}
               editingCampaign={campaign}
               editingCategoryId={campaign.categoryIds?.[0]}
+              viewerRole={data.viewer.adminRole ?? null}
             />
           </div>
         </AdminCard>

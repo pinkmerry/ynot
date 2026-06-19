@@ -613,7 +613,7 @@ notCheck(globalInventoryMigration, "global inventory migration keeps cards catal
 check("src/lib/supabase/types.ts", "types include top_up_requests", /top_up_requests:\s*{[\s\S]*coin_amount: number;/);
 check("src/lib/supabase/types.ts", "types include collection_items", /collection_items:\s*{[\s\S]*source_type: "gacha_open"/);
 check("src/lib/supabase/types.ts", "types include platform RPCs", /open_gacha_campaign:[\s\S]*submit_card_conversion:[\s\S]*request_shipping_for_items:/);
-check("src/lib/ynot/card-conversion-api.ts", "card conversion route uses wallet ledger RPC", /enforceRateLimit[\s\S]*submit_card_conversion/);
+check("src/lib/ynot/card-conversion-api.ts", "card conversion route uses reward conversion pipeline RPCs", /enforceRateLimit[\s\S]*prepare_reward_conversion_quote[\s\S]*start_reward_conversion/);
 check("src/features/ynot/data.ts", "customer top-ups hide slip provider internals by default", /includeSensitiveSlipDetails[\s\S]*\?\? includeAll[\s\S]*providerCode:[\s\S]*providerMessage:/);
 notCheck("src/features/ynot/types.ts", "public top-up type omits duplicate/reference slip internals", /(?:referenceId|duplicateOfSlipId)/);
 check("src/app/api/ynot/admin/campaigns/cost/route.ts", "admin cost route rejects cross-origin cookie mutations", /enforceSameOriginMutation\(request\)/);

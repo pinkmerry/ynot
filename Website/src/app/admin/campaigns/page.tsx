@@ -174,7 +174,11 @@ export default async function AdminCampaignsPage() {
         <AdminCard>
           <AdminCardHead label="Draft pack" title="Pack studio" />
           <div className="card-pad">
-            <AdminCampaignForm categories={data.categories} cards={cards} />
+            <AdminCampaignForm
+              categories={data.categories}
+              cards={cards}
+              viewerRole={data.viewer.adminRole ?? null}
+            />
           </div>
         </AdminCard>
       </AdminFrame>

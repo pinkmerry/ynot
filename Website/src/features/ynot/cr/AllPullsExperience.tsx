@@ -9,6 +9,7 @@ import type {
   YnotPublicPrizeDisplayTier,
 } from "../types";
 import { QuantityBadge } from "../QuantityBadge";
+import { BulkOpenBagStatus } from "./BulkOpenBagStatus";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { PageHead } from "./UiKit";
 
@@ -260,6 +261,8 @@ export function AllPullsExperience({
         lead={`Every card you've pulled from a pack — ${allPulls.length} total. Filter and search to find a specific one.`}
         back={{ href: "/collection", label: "Card history" }}
       />
+
+      <BulkOpenBagStatus />
 
       <div className="cr-kpi-row cr-pulls-kpi-row">
         {TIER_ORDER.map((t) => (

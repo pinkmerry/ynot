@@ -582,6 +582,160 @@
 }
 
 /* ============================================
+   BULK OPEN BAG STATUS
+   ============================================ */
+.cr-bulk-open-status {
+  border: 1px solid var(--cr-line);
+  border-radius: var(--cr-r-md);
+  background: var(--cr-paper);
+  box-shadow: var(--cr-shadow-1);
+  overflow: hidden;
+}
+.cr-bulk-open-status.complete {
+  border-color: var(--cr-gold-soft);
+  background: linear-gradient(180deg, #fffdf6, var(--cr-paper));
+}
+.cr-bulk-open-main {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.cr-bulk-open-title-row,
+.cr-bulk-open-complete-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+}
+.cr-bulk-open-title-row h2,
+.cr-bulk-open-complete-head h2 {
+  margin: 2px 0 0;
+  font-size: 17px;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+.cr-bulk-open-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: var(--cr-r-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cr-gold-tint);
+  color: var(--cr-coin-ink);
+  border: 1px solid var(--cr-gold-soft);
+}
+.cr-bulk-open-progress {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--cr-r-pill);
+  background: var(--cr-line-soft);
+}
+.cr-bulk-open-progress-fill {
+  height: 100%;
+  min-width: 4px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--cr-mint), var(--cr-gold));
+  transition: width 220ms ease;
+}
+.cr-bulk-open-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  color: var(--cr-mute);
+  font-size: 12px;
+}
+.cr-bulk-open-meta span {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--cr-line-soft);
+  border-radius: var(--cr-r-sm);
+  background: var(--cr-bg-soft);
+  overflow-wrap: anywhere;
+}
+.cr-bulk-open-meta strong {
+  color: var(--cr-ink);
+}
+.cr-bulk-open-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+.cr-bulk-open-highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.cr-bulk-open-highlight {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--cr-line-soft);
+  border-radius: var(--cr-r-sm);
+  background: rgba(255, 255, 255, 0.78);
+}
+.cr-bulk-open-highlight-art {
+  width: 54px;
+  height: 72px;
+  border-radius: 7px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5c3f06;
+  background: linear-gradient(150deg, #ead4b8, #c98e5c);
+}
+.cr-bulk-open-highlight-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cr-bulk-open-highlight-art.rainbow {
+  background: linear-gradient(150deg, #ffd6e3, #ffe9b3, #b3d6ff);
+}
+.cr-bulk-open-highlight-art.gold,
+.cr-bulk-open-highlight-art.last-prize {
+  background: linear-gradient(150deg, #fff3c0, #d9a022);
+}
+.cr-bulk-open-highlight-art.silver {
+  background: linear-gradient(150deg, #f3f3f5, #c8c8d0);
+  color: #3a3a3f;
+}
+.cr-bulk-open-highlight-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.cr-bulk-open-highlight-copy strong {
+  font-size: 12.5px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.cr-bulk-open-highlight-tier {
+  color: var(--cr-coin-ink);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.cr-bulk-open-note {
+  margin: 0;
+  color: var(--cr-rose);
+  font-size: 12px;
+}
+
+/* ============================================
    PILLS
    ============================================ */
 .cr-pill {
@@ -2401,6 +2555,9 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   .cr-grid-3 { grid-template-columns: 1fr; }
   .cr-topbar-nav { display: none; }
   .cr-kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .cr-bulk-open-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .cr-dock {
     grid-template-columns: 1fr;
     border-radius: 18px;
@@ -2490,6 +2647,22 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   }
   .cr-tab .count {
     padding: 2px 6px;
+  }
+  .cr-bulk-open-title-row,
+  .cr-bulk-open-complete-head {
+    flex-direction: column;
+  }
+  .cr-bulk-open-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .cr-bulk-open-actions .cr-btn {
+    flex: 1 1 120px;
+    min-width: 0;
+  }
+  .cr-bulk-open-meta,
+  .cr-bulk-open-highlights {
+    grid-template-columns: 1fr;
   }
   .cr-wallet-package-grid,
   .cr-wallet-payment-grid {

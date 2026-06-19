@@ -38,7 +38,8 @@ function validateWorkerConfig(rel, expected) {
     "SLIP2GO_SECRET_KEY",
   ];
 
-  check(`${rel} uses OpenNext worker entry`, config.main === ".open-next/worker.js");
+  const expectedEntry = expected.workerEntry ?? ".open-next/worker.js";
+  check(`${rel} uses expected Worker entry`, config.main === expectedEntry);
   check(`${rel} has expected Worker name`, config.name === expected.workerName);
   check(`${rel} enables nodejs_compat`, config.compatibility_flags?.includes("nodejs_compat"));
   check(
@@ -84,19 +85,42 @@ function validateWorkerConfig(rel, expected) {
     `${rel} keeps server secrets out of checked-in vars`,
     forbiddenSecrets.every((name) => !Object.hasOwn(vars, name)),
   );
+  if (expected.bulkOpenQueue) {
+    check(
+      `${rel} binds Pull All queue producer`,
+      JSON.stringify(config.queues?.producers ?? []) ===
+        JSON.stringify([{ binding: "BULK_OPEN_QUEUE", queue: "ynott-bulk-open" }]),
+    );
+    check(
+      `${rel} binds Pull All queue consumer`,
+      config.queues?.consumers?.[0]?.queue === "ynott-bulk-open" &&
+        config.queues.consumers[0].max_batch_size === 5 &&
+        config.queues.consumers[0].max_retries === 3,
+    );
+    check(
+      `${rel} runs Pull All watchdog every 15 minutes`,
+      JSON.stringify(config.triggers?.crons ?? []) === JSON.stringify(["*/15 * * * *"]),
+    );
+  } else {
+    check(`${rel} does not bind Pull All queue`, !config.queues);
+  }
 }
 
 validateWorkerConfig("wrangler.website.jsonc", {
   siteUrl: "https://www.ynotopen.com",
   workerName: "ynott-website",
+  workerEntry: "bulk-open-worker.ts",
   lineLoginChannelId: "2009971080",
   routePatterns: ["ynotopen.com/*", "www.ynotopen.com/*"],
+  bulkOpenQueue: true,
 });
 validateWorkerConfig("wrangler.website.ci.jsonc", {
   siteUrl: "https://www.ynotopen.com",
   workerName: "ynott-website",
+  workerEntry: "bulk-open-worker.ts",
   lineLoginChannelId: "2009971080",
   routePatterns: [],
+  bulkOpenQueue: true,
 });
 validateWorkerConfig("wrangler.liff.jsonc", {
   siteUrl: "https://liff.ynotopen.com",

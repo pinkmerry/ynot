@@ -239,6 +239,16 @@ function openErrorMessage(message: string | undefined) {
   }
 }
 
+async function hasActiveBulkOpenSession(profileId: string, drawRoundId: string) {
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase.rpc("has_active_bulk_open_session" as never, {
+    p_profile_id: profileId,
+    p_draw_round_id: drawRoundId,
+  } as never);
+  if (error) throw error;
+  return data === true;
+}
+
 function hasPublicRevealFields(item: RawOpenItem) {
   const hasExactRevealImage =
     item.isLastPrize === true ||
@@ -623,6 +633,24 @@ export async function POST(request: Request) {
 
   const resolvedCampaignId = await resolveOpenCampaignId(campaignId, session.profileId);
   if (!resolvedCampaignId) return Response.json({ error: "Campaign is required." }, { status: 400 });
+
+  try {
+    const activeBulkOpenSession = await hasActiveBulkOpenSession(
+      session.profileId,
+      resolvedCampaignId,
+    );
+    if (activeBulkOpenSession) {
+      return Response.json(
+        { error: "Your Pull All is already running for this pack." },
+        { status: 409 },
+      );
+    }
+  } catch {
+    return Response.json(
+      { error: "Could not verify pack availability. Please try again." },
+      { status: 409 },
+    );
+  }
 
   // Preview-mode short circuit: synthesise an open result so the localhost
   // demo can show the reveal animation without a real wallet or profile.

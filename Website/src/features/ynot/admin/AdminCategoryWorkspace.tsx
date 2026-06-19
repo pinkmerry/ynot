@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
+import { AdminCategoryManager } from "@/features/ynot/admin/AdminCategoryManager";
 import { AdminCategoryForm } from "@/features/ynot/client";
-import { AdminCategoryManager } from "@/features/ynot/components";
 import type { YnotCampaign, YnotCategory } from "@/features/ynot/types";
 import { AdminCard, AdminCardHead } from "@/features/ynot/admin";
 
@@ -18,25 +18,38 @@ function sortAdminCategories(categories: YnotCategory[]) {
   );
 }
 
+function mergeSavedCategory(
+  categories: YnotCategory[],
+  category: YnotCategory,
+) {
+  const withoutSaved = categories.filter(
+    (item) => item.id !== category.id && item.slug !== category.slug,
+  );
+  return sortAdminCategories([...withoutSaved, category]);
+}
+
 export function AdminCategoryWorkspace({
   campaigns,
   initialCategories,
 }: AdminCategoryWorkspaceProps) {
-  const [categories, setCategories] = useState(() =>
-    sortAdminCategories(initialCategories),
+  const sortedInitialCategories = useMemo(
+    () => sortAdminCategories(initialCategories),
+    [initialCategories],
+  );
+  const [savedCategories, setSavedCategories] = useState<YnotCategory[]>([]);
+  const categories = useMemo(
+    () =>
+      savedCategories.reduce(
+        (current, category) => mergeSavedCategory(current, category),
+        sortedInitialCategories,
+      ),
+    [savedCategories, sortedInitialCategories],
   );
 
-  useEffect(() => {
-    setCategories(sortAdminCategories(initialCategories));
-  }, [initialCategories]);
-
   function handleCategorySaved(category: YnotCategory) {
-    setCategories((current) => {
-      const withoutSaved = current.filter(
-        (item) => item.id !== category.id && item.slug !== category.slug,
-      );
-      return sortAdminCategories([...withoutSaved, category]);
-    });
+    setSavedCategories((current) =>
+      mergeSavedCategory(current, category),
+    );
   }
 
   return (

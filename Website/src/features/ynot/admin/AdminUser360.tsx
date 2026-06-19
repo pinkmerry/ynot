@@ -357,6 +357,55 @@ export function AdminUser360({ detail }: { detail: YnotAdminUserDetail }) {
 
         <AdminCard>
           <AdminCardHead
+            label="Pull All sessions"
+            title={`Bulk sessions - ${detail.bulkOpenSessions.length}`}
+          />
+          <div className="list">
+            {detail.bulkOpenSessions.length === 0 ? (
+              <div className="list-row text-mute">No Pull All sessions.</div>
+            ) : (
+              detail.bulkOpenSessions.map((session) => (
+                <div className="list-row" key={session.publicCode}>
+                  <AdminIcon name="sparkles" />
+                  <div>
+                    <strong>
+                      {session.campaignTitle} | {session.status}
+                    </strong>
+                    <div className="row-sub mono">
+                      {session.publicCode} | targetRewards{" "}
+                      {session.targetRewards.toLocaleString()} |
+                      processedRewards{" "}
+                      {session.processedRewards.toLocaleString()} |{" "}
+                      {fmtCoin(session.totalCostCoins)}
+                    </div>
+                    <div className="row-sub">
+                      highlightsCount {session.highlightsCount.toLocaleString()} |
+                      retryCount {session.retryCount.toLocaleString()}
+                      {session.retryScheduledAt
+                        ? ` | retryScheduledAt ${formatDate(session.retryScheduledAt)}`
+                        : ""}
+                    </div>
+                    {session.lastErrorCode || session.lastErrorAt ? (
+                      <div className="row-sub">
+                        lastError {session.lastErrorCode ?? "-"}
+                        {session.lastErrorAt
+                          ? ` | ${formatDate(session.lastErrorAt)}`
+                          : ""}
+                      </div>
+                    ) : null}
+                    <div className="row-sub">
+                      Started {formatDate(session.startedAt)} | Completed{" "}
+                      {formatDate(session.completedAt)}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </AdminCard>
+
+        <AdminCard>
+          <AdminCardHead
             label="Wallet and top-ups"
             title="Ledger and top-up history"
             actions={

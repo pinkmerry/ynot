@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import { TopUpTable } from "@/features/ynot/components";
+import { TopUpTable } from "@/features/ynot/TopUpTable";
 import type { YnotTopUp } from "@/features/ynot/types";
 import {
   AdminCard,

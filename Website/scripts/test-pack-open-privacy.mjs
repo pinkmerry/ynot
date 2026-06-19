@@ -668,15 +668,18 @@ test("customer collection actions use opaque tokens instead of raw collection it
 
   const conversionHandler = between(
     conversionApiSource,
-    "export async function handleCardConversionRequest",
-    "return Response.json({ result: publicConversionResult(data) });",
+    "async function resolveSelectedCollectionItems",
+    "export function publicConversionJobResult",
   );
   assert.match(
     conversionHandler,
     /resolvedCollectionItemIds\s*=\s*await resolveCollectionItemActionTokens\(/,
   );
-  assert.match(conversionHandler, /catch \(error\)[\s\S]*Could not convert these cards/);
-  assert.match(conversionHandler, /p_collection_item_ids:\s*resolvedCollectionItemIds/);
+  assert.match(conversionHandler, /catch \(error\)[\s\S]*Could not convert these rewards/);
+  assert.match(
+    conversionHandler,
+    /p_collection_item_ids:\s*selectionMode === "selected" \? resolvedCollectionItemIds : null/,
+  );
   assert.doesNotMatch(
     conversionHandler,
     /p_collection_item_ids:\s*(ids|collectionItemTokens|tokens)\b/,
