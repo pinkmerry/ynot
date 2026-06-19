@@ -1,4 +1,5 @@
 // OpenNext generates this module during the Cloudflare build.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment -- OpenNext may not exist before the Cloudflare build.
 // @ts-ignore - The file intentionally does not exist during the prebuild typecheck.
 import openNextWorker from "./.open-next/worker.js";
 
