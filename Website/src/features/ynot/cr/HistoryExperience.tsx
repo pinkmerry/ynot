@@ -158,6 +158,17 @@ function quoteFromPayload(payload: unknown): ConvertQuote | null {
   };
 }
 
+function quoteExpiresAtMs(quote: ConvertQuote | null) {
+  if (!quote?.expiresAt) return null;
+  const expiresAt = new Date(quote.expiresAt).getTime();
+  return Number.isFinite(expiresAt) ? expiresAt : null;
+}
+
+function quoteIsExpired(quote: ConvertQuote | null) {
+  const expiresAt = quoteExpiresAtMs(quote);
+  return expiresAt !== null && expiresAt <= Date.now();
+}
+
 function progressFromPayload(payload: unknown): ConvertProgress | null {
   if (!isRecord(payload) || !isRecord(payload.conversion)) return null;
   const conversion = payload.conversion;
@@ -192,6 +203,7 @@ export function HistoryExperience({
   const [sellProgress, setSellProgress] = useState<ConvertProgress | null>(null);
   const [sellPreparing, setSellPreparing] = useState(false);
   const [sellConfirming, setSellConfirming] = useState(false);
+  const [, refreshQuoteClock] = useState(0);
   const [shipOpen, setShipOpen] = useState(false);
   const [submitting, startSubmit] = useTransition();
 
@@ -279,6 +291,7 @@ export function HistoryExperience({
   const displayedSellCount = sellQuote?.itemCount ?? selectedCards.length;
   const displayedSellTotal = sellQuote?.totalCoins ?? sellTotal;
   const sellBusy = sellPreparing || sellConfirming;
+  const sellQuoteExpired = quoteIsExpired(sellQuote);
 
   async function openSell(nextMode: ConvertSelectionMode) {
     if (nextMode === "selected" && !selectedConvertibleCards.length) {
@@ -330,6 +343,11 @@ export function HistoryExperience({
 
   function submitSell() {
     if (!sellQuote || sellConfirming) return;
+    if (quoteIsExpired(sellQuote)) {
+      toast("info", "Conversion quote expired. Recalculating the latest total.");
+      void openSell(sellMode);
+      return;
+    }
     setSellConfirming(true);
     void (async () => {
       try {
@@ -344,10 +362,22 @@ export function HistoryExperience({
         });
         const payload: unknown = await response.json().catch(() => null);
         if (!response.ok) {
-          throw new Error(
+          const message =
             isRecord(payload) && typeof payload.error === "string"
               ? payload.error
-              : "Conversion request failed.",
+              : "Conversion request failed.";
+          if (/expired/i.test(message)) {
+            toast("info", "Conversion quote expired. Recalculating the latest total.");
+            void openSell(sellMode);
+            return;
+          }
+          if (/changed/i.test(message)) {
+            toast("info", "Reward values changed. Recalculating the latest total.");
+            void openSell(sellMode);
+            return;
+          }
+          throw new Error(
+            message,
           );
         }
         const progress = progressFromPayload(payload);
@@ -367,6 +397,16 @@ export function HistoryExperience({
       }
     })();
   }
+
+  useEffect(() => {
+    const expiresAt = quoteExpiresAtMs(sellQuote);
+    if (expiresAt === null) return;
+    const delayMs = Math.max(0, expiresAt - Date.now() + 250);
+    const timer = window.setTimeout(() => {
+      refreshQuoteClock((value) => value + 1);
+    }, Math.min(delayMs, 2_147_483_647));
+    return () => window.clearTimeout(timer);
+  }, [sellQuote]);
 
   useEffect(() => {
     if (!sellOpen || !sellProgress || sellProgress.completed) return;
@@ -726,7 +766,9 @@ export function HistoryExperience({
               <Ico name="check" size={14} />{" "}
               {sellBusy
                 ? "Preparing…"
-                : `Convert for ${formatCoins(displayedSellTotal)} coins`}
+                : sellQuoteExpired
+                  ? "Refresh total"
+                  : `Convert for ${formatCoins(displayedSellTotal)} coins`}
             </button>
           </>
           )
@@ -795,6 +837,11 @@ export function HistoryExperience({
                       displayedSellCount === 1 ? "" : "s"
                     } will be included.`}
               </small>
+              {sellQuoteExpired ? (
+                <small className="cr-mute">
+                  Quote expired. Refresh the total before converting.
+                </small>
+              ) : null}
             </>
           )}
         </div>

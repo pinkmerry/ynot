@@ -182,6 +182,11 @@ test("collection conversion API is one dynamic pipeline with safe DTOs and queue
   requirePattern(source, /all_eligible/, "handler must support select all eligible rewards");
   requirePattern(source, /selected/, "handler must support manual selection");
   requirePattern(source, /quoteToken/, "handler must return/use opaque quote token");
+  requirePattern(
+    source,
+    /reward_conversion_quote_expired[\s\S]*Conversion quote expired\. Please try again\./,
+    "handler must return a specific expired-quote message",
+  );
   requirePattern(source, /publicConversionJobResult/, "handler must allowlist job DTOs");
   assertNoPrivateDtoFields(source.slice(source.indexOf("function publicConversionJobResult")), "conversion handler public DTO");
 
@@ -212,6 +217,9 @@ test("Customer Bag conversion UI requires explicit selection and keeps huge flow
   requirePattern(history, /selectedConvertibleCards\.map\(\(card\) => card\.id\)/, "manual conversion must only submit convertible selected rewards");
   requirePattern(history, /disabled=\{!selectedConvertibleCards\.length \|\| sellBusy\}/, "manual conversion CTA must disable when no selected rewards are convertible");
   requirePattern(history, /No rewards selected/, "empty selection must convert nothing");
+  requirePattern(history, /quoteIsExpired/, "UI must detect stale conversion quotes");
+  requirePattern(history, /void openSell\(sellMode\)/, "expired quotes must refresh the same conversion scope");
+  requirePattern(history, /Refresh total/, "expired quote confirm should refresh totals before start");
   requirePattern(history, /summary-only/i, "huge selection confirmation should be summary-only");
   requirePattern(history, /Converting rewards to coins/, "UI must show calm progress copy");
   requirePattern(history, /coins credited/, "UI must show progressive credited coins");

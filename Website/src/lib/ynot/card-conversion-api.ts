@@ -142,10 +142,14 @@ function conversionErrorMessage(message?: string) {
     return "Each reward can only be selected once.";
   }
   if (
-    message.includes("collection_items_not_convertible") ||
-    message.includes("reward_conversion_quote_changed") ||
     message.includes("reward_conversion_quote_expired") ||
     message.includes("quote_token")
+  ) {
+    return "Conversion quote expired. Please try again.";
+  }
+  if (
+    message.includes("collection_items_not_convertible") ||
+    message.includes("reward_conversion_quote_changed")
   ) {
     return "Reward values changed. Please refresh and try again.";
   }
