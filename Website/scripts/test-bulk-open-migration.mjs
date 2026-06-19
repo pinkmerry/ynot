@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migrationPath = "../../Database/supabase/migrations/20260619090000_bulk_open_sessions.sql";
+const lastPrizeBonusMigrationPath =
+  "../../Database/supabase/migrations/20260619133228_bulk_open_last_prize_bonus_result.sql";
 const hardeningMigrationPath =
   "../../Database/supabase/migrations/20260619110000_production_security_advisor_hardening.sql";
 
@@ -11,6 +13,10 @@ const packageJson = JSON.parse(read("package.json"));
 
 function migrationSource() {
   return readFileSync(new URL(migrationPath, import.meta.url), "utf8");
+}
+
+function lastPrizeBonusMigrationSource() {
+  return readFileSync(new URL(lastPrizeBonusMigrationPath, import.meta.url), "utf8");
 }
 
 function hardeningMigrationSource() {
@@ -35,6 +41,21 @@ function functionBlock(source, functionName) {
   const match = stripSqlComments(source).match(pattern);
   assert.ok(match, `missing function public.${functionName}`);
   return match[0];
+}
+
+function dollarBlock(source, tag) {
+  const pattern = new RegExp(`\\$${tag}\\$([\\s\\S]*?)\\$${tag}\\$`);
+  const match = source.match(pattern);
+  assert.ok(match, `missing dollar block ${tag}`);
+  return match[1];
+}
+
+function sectionBetween(source, start, end, label) {
+  const startIndex = source.indexOf(start);
+  assert.notEqual(startIndex, -1, `missing ${label} start`);
+  const endIndex = source.indexOf(end, startIndex + start.length);
+  assert.notEqual(endIndex, -1, `missing ${label} end`);
+  return source.slice(startIndex, endIndex);
 }
 
 function requirePattern(source, pattern, label) {
@@ -72,6 +93,81 @@ test("bulk open migration creates service-owned session tables and statuses", ()
     requirePattern(sql, new RegExp(`alter table public\\.${table} enable row level security`), `${table} must enable RLS`);
   }
   requirePattern(sql, /alter table public\.gacha_bulk_open_sessions enable row level security/, "sessions must enable RLS");
+});
+
+test("bulk Pull All appends Last Prize as a bonus result without charging an extra slot", () => {
+  const source = lastPrizeBonusMigrationSource();
+  const sql = compactSql(source);
+
+  requirePattern(
+    sql,
+    /alter table public\.gacha_bulk_open_results alter column draw_slot_id drop not null/,
+    "Last Prize bonus results must be storable without consuming another draw slot",
+  );
+  requirePattern(
+    sql,
+    /normal_bonus_available boolean := false/,
+    "bulk worker must detect whether it can award a normal final-slot prize before adding the bonus",
+  );
+  requirePattern(
+    sql,
+    /lp_bonus_sequence := case when normal_bonus_available then bulk_sequence \+ 1 else bulk_sequence end/,
+    "bonus Last Prize should appear after the paid final slot when normal stock exists",
+  );
+  requirePattern(
+    sql,
+    /case when normal_bonus_available then null::uuid else slot_id end/,
+    "bonus Last Prize results must not reuse the paid draw slot id",
+  );
+  requirePattern(
+    sql,
+    /'position', lp_bonus_sequence/,
+    "public highlights must expose the bonus sequence so 41 paid slots can show a 42nd bonus",
+  );
+  requirePattern(
+    sql,
+    /if not normal_bonus_available then[\s\S]*inserted_count := inserted_count \+ 1[\s\S]*continue;/,
+    "legacy substitute packs still need to consume exactly one paid slot",
+  );
+  requirePattern(
+    sql,
+    /processed_slots = session_row\.target_slots/,
+    "finalizer must not count the bonus row as an extra paid slot",
+  );
+  requirePattern(
+    sql,
+    /fn := replace\([\s\S]*processed_slots = greatest\(processed_slots, awarded_result_count\),[\s\S]*processed_slots = session_row\.target_slots,/,
+    "migration must replace the old result-count finalizer with the paid-slot finalizer",
+  );
+
+  const beforeBranch = dollarBlock(source, "before");
+  const afterBranch = dollarBlock(source, "after");
+  const processBefore = functionBlock(migrationSource(), "process_bulk_open_chunk");
+  const processAfter = processBefore
+    .replace(
+      "  lp_collection_item_id uuid;",
+      "  lp_collection_item_id uuid;\n  lp_bonus_sequence integer;\n  normal_bonus_available boolean := false;",
+    )
+    .replace(beforeBranch, afterBranch);
+  assert.notEqual(processAfter, processBefore, "static patch simulation must change the processor");
+
+  const lastPrizeBranch = sectionBetween(
+    processAfter,
+    "if campaign.last_prize_card_id is not null",
+    "    select\n      units.id,",
+    "patched Last Prize branch",
+  );
+  assert.match(lastPrizeBranch, /'position', lp_bonus_sequence/);
+  assert.match(lastPrizeBranch, /case when normal_bonus_available then null::uuid else slot_id end/);
+
+  const normalPrizeBranch = sectionBetween(
+    processAfter,
+    "result_payload := jsonb_build_object(\n      'name', unit_card_name",
+    "    insert into public.gacha_bulk_open_results(",
+    "normal reward branch",
+  );
+  assert.match(normalPrizeBranch, /'position', bulk_sequence/);
+  assert.doesNotMatch(normalPrizeBranch, /lp_bonus_sequence/);
 });
 
 test("bulk open migration adds pull-all config and DB-side live/open guards", () => {
