@@ -37,10 +37,12 @@ function cleanFileName(name: string) {
 }
 
 function normalizeLegacyOrderIdempotencyKey(value: unknown) {
-  if (typeof value !== "string" || !value.trim()) {
+  if (value == null) {
     return crypto.randomUUID();
   }
+  if (typeof value !== "string") return null;
   const clean = value.trim();
+  if (!clean) return crypto.randomUUID();
   return LEGACY_ORDER_IDEMPOTENCY_KEY_RE.test(clean) ? clean : null;
 }
 
@@ -106,19 +108,49 @@ async function replayLegacyOrderResponse(
   lineName?: string | null,
 ) {
   const slip = await latestSlipForOrder(supabase, order.id);
+  if (!slip) return null;
+
   return jsonNoStore({
     order: toOrder({
       order,
       lineName,
-      slipName: slip?.original_filename ?? "manual-transfer",
-      slipProvider: slip?.storage_provider ?? "manual_line",
-      slipFilePath: slip?.file_path ?? null,
-      slipVerificationStatus: slip?.verification_status ?? "manual_review",
-      slipProviderCode: slip?.provider_code ?? null,
-      slipProviderMessage: slip?.provider_message ?? null,
+      slipName: slip.original_filename ?? "manual-transfer",
+      slipProvider: slip.storage_provider,
+      slipFilePath: slip.file_path,
+      slipVerificationStatus: slip.verification_status,
+      slipProviderCode: slip.provider_code,
+      slipProviderMessage: slip.provider_message,
       slots: [],
     }),
     replayed: true,
+  });
+}
+
+async function clearLegacyOrderIdempotencyKey(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  orderId: string,
+) {
+  const { error } = await supabase
+    .from("orders")
+    .update({ idempotency_key: null })
+    .eq("id", orderId);
+  return error;
+}
+
+async function deleteIncompleteLegacyOrder(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  order: { id: string; public_code: string | null },
+  context: string,
+) {
+  const { error: deleteError } = await supabase.from("orders").delete().eq("id", order.id);
+  if (!deleteError) return;
+
+  const clearError = await clearLegacyOrderIdempotencyKey(supabase, order.id);
+  console.warn("legacy_order_incomplete_cleanup_failed", {
+    context,
+    orderPublicCode: order.public_code,
+    deleteMessage: deleteError.message,
+    clearIdempotencyMessage: clearError?.message ?? null,
   });
 }
 
@@ -215,7 +247,9 @@ export async function POST(request: Request) {
   const supabase = createServiceSupabaseClient();
   const existingOrder = await fetchOrderByProfileIdempotency(supabase, session.profileId, idempotencyKey);
   if (existingOrder) {
-    return replayLegacyOrderResponse(supabase, existingOrder, session.displayName);
+    const replayResponse = await replayLegacyOrderResponse(supabase, existingOrder, session.displayName);
+    if (replayResponse) return replayResponse;
+    return jsonNoStore({ error: "Order is still being prepared. Please try again." }, { status: 409 });
   }
 
   const activeDraw = await getActiveDraw(supabase, {
@@ -254,7 +288,11 @@ export async function POST(request: Request) {
   if (orderError) {
     if (isUniqueConstraintError(orderError)) {
       const replayOrder = await fetchOrderByProfileIdempotency(supabase, session.profileId, idempotencyKey);
-      if (replayOrder) return replayLegacyOrderResponse(supabase, replayOrder, session.displayName);
+      if (replayOrder) {
+        const replayResponse = await replayLegacyOrderResponse(supabase, replayOrder, session.displayName);
+        if (replayResponse) return replayResponse;
+        return jsonNoStore({ error: "Order is still being prepared. Please try again." }, { status: 409 });
+      }
     }
     throw orderError;
   }
@@ -271,7 +309,7 @@ export async function POST(request: Request) {
     });
 
     if (uploadError) {
-      await supabase.from("orders").delete().eq("id", order.id);
+      await deleteIncompleteLegacyOrder(supabase, order, "slip_upload_failed");
       console.warn("legacy_order_slip_upload_failed", {
         orderPublicCode: order.public_code,
         message: String(uploadError),
@@ -309,7 +347,7 @@ export async function POST(request: Request) {
 
   if (slipError) {
     if (filePath) await supabase.storage.from(slipBucketName).remove([filePath]);
-    await supabase.from("orders").delete().eq("id", order.id);
+    await deleteIncompleteLegacyOrder(supabase, order, "slip_insert_failed");
     throw slipError;
   }
 

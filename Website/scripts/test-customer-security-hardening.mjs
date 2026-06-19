@@ -118,7 +118,22 @@ test("legacy lucky-draw orders have idempotency schema and browser retry key", (
 
 test("legacy lucky-draw order POST uses modern paid-action guardrails", () => {
   const route = readApp("src/app/api/lucky-draw/route.ts");
+  const normalizeBlock = blockBetween(
+    route,
+    "function normalizeLegacyOrderIdempotencyKey",
+    "async function readCreateOrderRequest",
+  );
+  const replayBlock = blockBetween(
+    route,
+    "async function replayLegacyOrderResponse",
+    "function isUniqueConstraintError",
+  );
   const postBlock = blockBetween(route, "export async function POST", "  const localDuplicateSlip");
+  const cleanupBlock = blockBetween(
+    route,
+    "async function deleteIncompleteLegacyOrder",
+    "function isUniqueConstraintError",
+  );
 
   assert.match(route, /import \{ requireVerifiedAnchor \} from "@\/lib\/auth\/verified-anchor"/);
   assert.match(route, /import \{ enforceRateLimit \} from "@\/lib\/security\/rate-limit"/);
@@ -127,6 +142,24 @@ test("legacy lucky-draw order POST uses modern paid-action guardrails", () => {
   assert.match(route, /normalizeLegacyOrderIdempotencyKey/);
   assert.match(route, /fetchOrderByProfileIdempotency/);
   assert.match(route, /replayLegacyOrderResponse/);
+
+  assert.match(normalizeBlock, /if\s*\(\s*value\s*==\s*null\s*\)\s*\{\s*return crypto\.randomUUID\(\);?\s*\}/s);
+  assert.match(normalizeBlock, /if\s*\(\s*typeof value\s*!==\s*"string"\s*\)\s*return null/);
+  assert.match(normalizeBlock, /const clean = value\.trim\(\)/);
+  assert.match(normalizeBlock, /if\s*\(\s*!clean\s*\)\s*return crypto\.randomUUID\(\)/);
+  assert.match(normalizeBlock, /LEGACY_ORDER_IDEMPOTENCY_KEY_RE\.test\(clean\)\s*\?\s*clean\s*:\s*null/);
+
+  assert.match(replayBlock, /const slip = await latestSlipForOrder\(supabase, order\.id\)/);
+  assert.match(replayBlock, /if\s*\(\s*!slip\s*\)\s*return null/);
+  assert.doesNotMatch(replayBlock, /slip\?\./);
+  assert.doesNotMatch(replayBlock, /storage_provider\s*\?\?\s*"manual_line"/);
+  assert.doesNotMatch(replayBlock, /verification_status\s*\?\?\s*"manual_review"/);
+
+  assert.match(route, /async function deleteIncompleteLegacyOrder/);
+  assert.match(cleanupBlock, /clearLegacyOrderIdempotencyKey\(supabase, order\.id\)/);
+  assert.match(cleanupBlock, /console\.warn\("legacy_order_incomplete_cleanup_failed"/);
+  assert.match(postBlock, /deleteIncompleteLegacyOrder\(supabase, order, "slip_upload_failed"\)/);
+  assert.match(route, /deleteIncompleteLegacyOrder\(supabase, order, "slip_insert_failed"\)/);
 
   assert.ok(
     postBlock.indexOf("enforceSameOriginMutation(request)") < postBlock.indexOf("resolveCurrentProfile()"),
