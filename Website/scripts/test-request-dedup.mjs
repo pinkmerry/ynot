@@ -35,13 +35,14 @@ test("getYnotViewer is request-memoized via React cache()", () => {
   assert.match(dataSrc, /export const getYnotViewer = cache\(async \(/);
 });
 
-test("customer paths share one card catalog fetch per request", () => {
-  assert.match(dataSrc, /const getRequestCardCatalog = cache\(\(\) =>\s*getCardCatalog\(createServiceSupabaseClient\(\)\)\)/s);
-  const collection = sliceFn(dataSrc, "export async function getCollection");
-  const history = sliceFn(dataSrc, "export async function getGachaOpenHistory");
-  const shipping = sliceFn(dataSrc, "export async function getShipping");
-  for (const [name, fn] of [["getCollection", collection], ["getGachaOpenHistory", history], ["getShipping", shipping]]) {
-    assert.doesNotMatch(fn, /getCardCatalog\(supabase\)/, `${name} should use getRequestCardCatalog()`);
-    assert.match(fn, /getRequestCardCatalog\(\)/, `${name} should call getRequestCardCatalog()`);
+test("customer paths fetch only the cards they reference, by id (no 250-row catalog cap)", () => {
+  assert.doesNotMatch(dataSrc, /getRequestCardCatalog/, "getRequestCardCatalog should be removed");
+  for (const marker of [
+    "export async function getCollection",
+    "export async function getGachaOpenHistory",
+    "export async function getShipping",
+  ]) {
+    const fn = sliceFn(dataSrc, marker);
+    assert.match(fn, /getCardCatalogByIds\(supabase,/, `${marker} should use getCardCatalogByIds`);
   }
 });

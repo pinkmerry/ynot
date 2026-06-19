@@ -9,7 +9,7 @@ import {
   resolveCurrentProfile,
 } from "@/lib/auth/resolve-current-profile";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
-import { getCardCatalog, isSupabaseConfigured } from "@/lib/lucky-draw/data";
+import { getCardCatalog, getCardCatalogByIds, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -1702,12 +1702,6 @@ function getOwnerApprovalRequests(
     : requests;
 }
 
-// Card catalog is identical for every consumer in a render. Memoize per request
-// so /shipping (collection + shipping) and /profile/all-pulls (collection +
-// gachaOpens) fetch it once instead of twice. cache() creates its own client so
-// keying is stable (the per-caller `supabase` arg differed before, defeating dedup).
-const getRequestCardCatalog = cache(() => getCardCatalog(createServiceSupabaseClient()));
-
 export const getYnotViewer = cache(async (): Promise<YnotViewer> => {
   const session = await resolveCurrentProfile();
   const admin = await resolveAdminSession(session);
@@ -2948,21 +2942,19 @@ export async function getCollection(
       : 200;
   if (!isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
-  const [items, cards] = await Promise.all([
-    readOrEmpty("collection", async () => {
-      const { data, error } = await supabase
-        .from("collection_items")
-        .select("*")
-        .eq("profile_id", profileId)
-        .order("acquired_at", { ascending: false })
-        .limit(collectionLimit);
-      if (error) throw error;
-      return data ?? [];
-    }),
-    readOrEmpty("collection_card_catalog", async () =>
-      getRequestCardCatalog(),
-    ),
-  ]);
+  const items = await readOrEmpty("collection", async () => {
+    const { data, error } = await supabase
+      .from("collection_items")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("acquired_at", { ascending: false })
+      .limit(collectionLimit);
+    if (error) throw error;
+    return data ?? [];
+  });
+  const cards = await readOrEmpty("collection_card_catalog", async () =>
+    getCardCatalogByIds(supabase, items.map((item) => item.card_id)),
+  );
 
   // Look up the source pack title for each item via gacha_opens.draw_round_id.
   const gachaSourceIds = Array.from(
@@ -3268,7 +3260,7 @@ export async function getGachaOpenHistory(
   const campaignIds = Array.from(
     new Set(opens.map((open) => open.draw_round_id)),
   );
-  const [items, cards, campaigns] = await Promise.all([
+  const [items, campaigns] = await Promise.all([
     readOrEmpty("gacha_open_items", async () => {
       const { data, error } = await supabase
         .from("gacha_open_items")
@@ -3278,9 +3270,6 @@ export async function getGachaOpenHistory(
       if (error) throw error;
       return data ?? [];
     }),
-    readOrEmpty("gacha_history_card_catalog", async () =>
-      getRequestCardCatalog(),
-    ),
     readOrEmpty("gacha_history_campaigns", async () => {
       const { data, error } = await supabase
         .from("draw_rounds")
@@ -3290,6 +3279,9 @@ export async function getGachaOpenHistory(
       return data ?? [];
     }),
   ]);
+  const cards = await readOrEmpty("gacha_history_card_catalog", async () =>
+    getCardCatalogByIds(supabase, items.map((item) => item.card_id)),
+  );
 
   // Join the source prize so rewards can carry an accurate customer-facing
   // displayTier (rainbow/gold/silver/bronze) instead of the raw "high"/"normal"
@@ -3747,7 +3739,7 @@ export async function getShipping(
     const drawRoundIds = Array.from(
       new Set(gachaOpens.map((open) => open.draw_round_id)),
     );
-    const [campaigns, openItems, cards] = await Promise.all([
+    const [campaigns, openItems] = await Promise.all([
       drawRoundIds.length
         ? readOrEmpty("shipping_draw_rounds", async () => {
             const { data, error } = await supabase
@@ -3771,8 +3763,10 @@ export async function getShipping(
             return data ?? [];
           })
         : Promise.resolve([]),
-      readOrEmpty("shipping_card_catalog", async () => getRequestCardCatalog()),
     ]);
+    const cards = await readOrEmpty("shipping_card_catalog", async () =>
+      getCardCatalogByIds(supabase, openItems.map((item) => item.card_id)),
+    );
 
     const prizeIds = Array.from(
       new Set(

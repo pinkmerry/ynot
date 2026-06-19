@@ -100,6 +100,15 @@ test("every draw_rounds column read by a customer consumer is in CAMPAIGN_CUSTOM
   }
 });
 
+const luckySrc = readFileSync(
+  fileURLToPath(new URL("../src/lib/lucky-draw/data.ts", import.meta.url)),
+  "utf8",
+);
+test("getCardCatalogByIds fetches the catalog scoped to referenced ids (no 250 cap)", () => {
+  assert.match(luckySrc, /export async function getCardCatalogByIds\(/);
+  assert.match(luckySrc, /\.in\("id", /);
+});
+
 test("/packs list is capped to avoid silent PostgREST max_rows truncation", () => {
   const fn = sliceFn(src, "async function getCampaignsImpl");
   assert.match(
