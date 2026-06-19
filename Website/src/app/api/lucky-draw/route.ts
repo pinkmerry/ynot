@@ -38,11 +38,11 @@ function cleanFileName(name: string) {
 
 function normalizeLegacyOrderIdempotencyKey(value: unknown) {
   if (value == null) {
-    return crypto.randomUUID();
+    return null;
   }
   if (typeof value !== "string") return null;
   const clean = value.trim();
-  if (!clean) return crypto.randomUUID();
+  if (!clean) return null;
   return LEGACY_ORDER_IDEMPOTENCY_KEY_RE.test(clean) ? clean : null;
 }
 
