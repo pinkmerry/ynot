@@ -178,6 +178,16 @@ test("collection conversion API is one dynamic pipeline with safe DTOs and queue
   assert.doesNotMatch(source, /process_reward_conversion_chunk/, "handler must not inline process conversions");
   requirePattern(source, /getCloudflareContext/, "handler must enqueue background processing after start");
   requirePattern(source, /reward_conversion_process/, "handler must enqueue reward conversion queue messages");
+  requirePattern(
+    source,
+    /\[89ab\]\[0-9a-f\]\{3\}-\[0-9a-f\]\{12\}/,
+    "handler must accept standard UUID variant group plus trailing node group",
+  );
+  assert.doesNotMatch(
+    source,
+    /\[89ab\]\[0-9a-f\]\{12\}/,
+    "handler must not reject normal UUIDs by omitting the final UUID hyphen",
+  );
   requirePattern(source, /selectionMode/, "handler must accept explicit selection mode");
   requirePattern(source, /all_eligible/, "handler must support select all eligible rewards");
   requirePattern(source, /selected/, "handler must support manual selection");
