@@ -5,6 +5,8 @@ import test from "node:test";
 const migrationPath = "../../Database/supabase/migrations/20260619090000_bulk_open_sessions.sql";
 const lastPrizeBonusMigrationPath =
   "../../Database/supabase/migrations/20260619133228_bulk_open_last_prize_bonus_result.sql";
+const lastPrizeBonusGuardMigrationPath =
+  "../../Database/supabase/migrations/20260619143027_bulk_open_last_prize_bonus_guard.sql";
 const hardeningMigrationPath =
   "../../Database/supabase/migrations/20260619110000_production_security_advisor_hardening.sql";
 
@@ -17,6 +19,10 @@ function migrationSource() {
 
 function lastPrizeBonusMigrationSource() {
   return readFileSync(new URL(lastPrizeBonusMigrationPath, import.meta.url), "utf8");
+}
+
+function lastPrizeBonusGuardMigrationSource() {
+  return readFileSync(new URL(lastPrizeBonusGuardMigrationPath, import.meta.url), "utf8");
 }
 
 function hardeningMigrationSource() {
@@ -168,6 +174,26 @@ test("bulk Pull All appends Last Prize as a bonus result without charging an ext
   );
   assert.match(normalPrizeBranch, /'position', bulk_sequence/);
   assert.doesNotMatch(normalPrizeBranch, /lp_bonus_sequence/);
+});
+
+test("bulk Pull All guards one no-slot Last Prize bonus per session", () => {
+  const source = lastPrizeBonusGuardMigrationSource();
+
+  requirePattern(
+    source,
+    /bulk_open_duplicate_last_prize_bonus_results/,
+    "guard migration must fail clearly if duplicate bonus rows already exist",
+  );
+  requirePattern(
+    source,
+    /group by bulk_open_session_id\s+having count\(\*\) > 1/,
+    "guard migration must preflight duplicate no-slot Last Prize bonus rows before creating the index",
+  );
+  requirePattern(
+    source,
+    /create unique index if not exists gacha_bulk_open_results_one_last_prize_bonus_per_session_idx\s+on public\.gacha_bulk_open_results\(bulk_open_session_id\)\s+where draw_slot_id is null\s+and result_payload @> '\{"isLastPrize": true\}'::jsonb;/,
+    "missing one-bonus-per-session partial unique index",
+  );
 });
 
 test("bulk open migration adds pull-all config and DB-side live/open guards", () => {
