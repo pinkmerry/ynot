@@ -1,6 +1,9 @@
 import { defaultDraw, seedOrders } from "@/lib/lucky-draw/defaults";
-import { getActiveDraw, getLuckyDrawState, isSupabaseConfigured, toOrder } from "@/lib/lucky-draw/data";
+import { fetchOrderByProfileIdempotency, getActiveDraw, getLuckyDrawState, isSupabaseConfigured, toOrder } from "@/lib/lucky-draw/data";
+import { requireVerifiedAnchor } from "@/lib/auth/verified-anchor";
 import { resolveAdminSession, resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { createSlip2GoProviderError, sha256Hex, verifySlipWithSlip2Go } from "@/lib/slip2go/client";
 import { findLiveDuplicateSlip } from "@/lib/slip2go/dedup";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
@@ -11,9 +14,11 @@ type CreateOrderBody = {
   quantity?: unknown;
   slipName?: unknown;
   customerNote?: unknown;
+  idempotencyKey?: unknown;
 };
 
 const slipBucketName = "payment-slips";
+const LEGACY_ORDER_IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9:_-]{16,180}$/;
 
 export const dynamic = "force-dynamic";
 
@@ -31,11 +36,20 @@ function cleanFileName(name: string) {
     .slice(0, 120) || "payment-slip";
 }
 
+function normalizeLegacyOrderIdempotencyKey(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) {
+    return crypto.randomUUID();
+  }
+  const clean = value.trim();
+  return LEGACY_ORDER_IDEMPOTENCY_KEY_RE.test(clean) ? clean : null;
+}
+
 async function readCreateOrderRequest(request: Request): Promise<{
   quantity: number;
   slipName: string;
   customerNote: string | null;
   slipFile: File | null;
+  idempotencyKey: string | null;
 } | Response> {
   const contentType = request.headers.get("content-type") ?? "";
 
@@ -51,6 +65,7 @@ async function readCreateOrderRequest(request: Request): Promise<{
           : slipFile?.name ?? "manual-transfer",
       customerNote: typeof form.get("customerNote") === "string" ? String(form.get("customerNote")) : null,
       slipFile,
+      idempotencyKey: normalizeLegacyOrderIdempotencyKey(form.get("idempotencyKey")),
     };
   }
 
@@ -66,7 +81,49 @@ async function readCreateOrderRequest(request: Request): Promise<{
     slipName: typeof body.slipName === "string" && body.slipName.trim() ? body.slipName.trim() : "manual-transfer",
     customerNote: typeof body.customerNote === "string" ? body.customerNote : null,
     slipFile: null,
+    idempotencyKey: normalizeLegacyOrderIdempotencyKey(body.idempotencyKey),
   };
+}
+
+async function latestSlipForOrder(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  orderId: string,
+) {
+  const { data, error } = await supabase
+    .from("payment_slips")
+    .select("*")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function replayLegacyOrderResponse(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  order: NonNullable<Awaited<ReturnType<typeof fetchOrderByProfileIdempotency>>>,
+  lineName?: string | null,
+) {
+  const slip = await latestSlipForOrder(supabase, order.id);
+  return jsonNoStore({
+    order: toOrder({
+      order,
+      lineName,
+      slipName: slip?.original_filename ?? "manual-transfer",
+      slipProvider: slip?.storage_provider ?? "manual_line",
+      slipFilePath: slip?.file_path ?? null,
+      slipVerificationStatus: slip?.verification_status ?? "manual_review",
+      slipProviderCode: slip?.provider_code ?? null,
+      slipProviderMessage: slip?.provider_message ?? null,
+      slots: [],
+    }),
+    replayed: true,
+  });
+}
+
+function isUniqueConstraintError(error: { code?: string } | null) {
+  return error?.code === "23505";
 }
 
 export async function GET() {
@@ -103,15 +160,38 @@ export async function POST(request: Request) {
     return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   }
 
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
+
   const session = await resolveCurrentProfile();
   if (!session) {
     return Response.json({ error: "Login is required before creating an order." }, { status: 401 });
   }
 
+  const blocked = await requireVerifiedAnchor(session);
+  if (blocked) return blocked;
+
+  const limited = await enforceRateLimit(
+    request,
+    "ynot:legacy-order:create",
+    { limit: 6, windowMs: 60_000 },
+    session.profileId,
+  );
+  if (limited) return limited;
+
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > maxSlipBytes + 64 * 1024) {
+    return jsonNoStore({ error: "Slip must be 10 MB or smaller." }, { status: 413 });
+  }
+
   const parsed = await readCreateOrderRequest(request);
   if (parsed instanceof Response) return parsed;
 
-  const { quantity, slipName, customerNote, slipFile } = parsed;
+  const { quantity, slipName, customerNote, slipFile, idempotencyKey } = parsed;
+  if (!idempotencyKey) {
+    return jsonNoStore({ error: "Invalid idempotency key." }, { status: 400 });
+  }
+
   if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 50) {
     return Response.json({ error: "Quantity must be between 1 and 50." }, { status: 400 });
   }
@@ -133,6 +213,11 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServiceSupabaseClient();
+  const existingOrder = await fetchOrderByProfileIdempotency(supabase, session.profileId, idempotencyKey);
+  if (existingOrder) {
+    return replayLegacyOrderResponse(supabase, existingOrder, session.displayName);
+  }
+
   const activeDraw = await getActiveDraw(supabase, {
     statuses: ["live"],
     priority: ["live"],
@@ -152,15 +237,6 @@ export async function POST(request: Request) {
 
   const slipFileBuffer = slipFile ? await slipFile.arrayBuffer() : null;
   const slipFileSha256 = slipFileBuffer ? sha256Hex(slipFileBuffer) : null;
-  // Two-step dedup that skips slips whose parent order is cancelled/expired/
-  // refunded so users can re-upload after a rejected first attempt. See
-  // src/lib/slip2go/dedup.ts for the rationale.
-  const localDuplicateSlip = slipFileSha256
-    ? await findLiveDuplicateSlip(supabase, {
-        column: "file_sha256",
-        value: slipFileSha256,
-      })
-    : null;
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
@@ -170,11 +246,18 @@ export async function POST(request: Request) {
       quantity,
       amount_thb: quantity * activeDraw.price_thb,
       customer_note: customerNote,
+      idempotency_key: idempotencyKey,
     })
     .select("*")
     .single();
 
-  if (orderError) throw orderError;
+  if (orderError) {
+    if (isUniqueConstraintError(orderError)) {
+      const replayOrder = await fetchOrderByProfileIdempotency(supabase, session.profileId, idempotencyKey);
+      if (replayOrder) return replayLegacyOrderResponse(supabase, replayOrder, session.displayName);
+    }
+    throw orderError;
+  }
 
   let storageProvider: "supabase" | "manual_line" = "manual_line";
   let filePath: string | null = null;
@@ -189,9 +272,23 @@ export async function POST(request: Request) {
 
     if (uploadError) {
       await supabase.from("orders").delete().eq("id", order.id);
-      return Response.json({ error: uploadError.message }, { status: 500 });
+      console.warn("legacy_order_slip_upload_failed", {
+        orderPublicCode: order.public_code,
+        message: String(uploadError),
+      });
+      return jsonNoStore({ error: "Could not upload this slip. Please try again." }, { status: 500 });
     }
   }
+
+  // Two-step dedup that skips slips whose parent order is cancelled/expired/
+  // refunded so users can re-upload after a rejected first attempt. See
+  // src/lib/slip2go/dedup.ts for the rationale.
+  const localDuplicateSlip = slipFileSha256
+    ? await findLiveDuplicateSlip(supabase, {
+        column: "file_sha256",
+        value: slipFileSha256,
+      })
+    : null;
 
   const initialProviderResponse: Json = localDuplicateSlip
     ? { source: "local_file_hash", duplicateSlipId: localDuplicateSlip.id }

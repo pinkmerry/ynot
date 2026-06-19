@@ -115,3 +115,29 @@ test("legacy lucky-draw orders have idempotency schema and browser retry key", (
   assert.match(controller, /orderIdempotencyKeyRef\.current = crypto\.randomUUID\(\)/);
   assert.match(controller, /form\.set\("idempotencyKey", orderIdempotencyKeyRef\.current\)/);
 });
+
+test("legacy lucky-draw order POST uses modern paid-action guardrails", () => {
+  const route = readApp("src/app/api/lucky-draw/route.ts");
+  const postBlock = blockBetween(route, "export async function POST", "  const localDuplicateSlip");
+
+  assert.match(route, /import \{ requireVerifiedAnchor \} from "@\/lib\/auth\/verified-anchor"/);
+  assert.match(route, /import \{ enforceRateLimit \} from "@\/lib\/security\/rate-limit"/);
+  assert.match(route, /import \{ enforceSameOriginMutation \} from "@\/lib\/security\/same-origin"/);
+  assert.match(route, /LEGACY_ORDER_IDEMPOTENCY_KEY_RE/);
+  assert.match(route, /normalizeLegacyOrderIdempotencyKey/);
+  assert.match(route, /fetchOrderByProfileIdempotency/);
+  assert.match(route, /replayLegacyOrderResponse/);
+
+  assert.ok(
+    postBlock.indexOf("enforceSameOriginMutation(request)") < postBlock.indexOf("resolveCurrentProfile()"),
+    "same-origin guard must run before auth work",
+  );
+  assert.match(postBlock, /requireVerifiedAnchor\(session\)/);
+  assert.match(postBlock, /enforceRateLimit\(\s*request,\s*"ynot:legacy-order:create",\s*\{\s*limit:\s*6,\s*windowMs:\s*60_000\s*\},\s*session\.profileId/);
+  assert.ok(
+    postBlock.indexOf("content-length") < postBlock.indexOf("readCreateOrderRequest(request)"),
+    "content-length reject must happen before multipart parsing",
+  );
+  assert.match(postBlock, /idempotency_key: idempotencyKey/);
+  assert.doesNotMatch(postBlock, /uploadError\.message/);
+});
