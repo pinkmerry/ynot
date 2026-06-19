@@ -600,6 +600,7 @@ export type Database = {
             | "cancelled";
           admin_note: string | null;
           customer_note: string | null;
+          idempotency_key: string | null;
           approved_by: string | null;
           approved_at: string | null;
           rejected_by: string | null;
@@ -623,6 +624,7 @@ export type Database = {
             | "cancelled";
           admin_note?: string | null;
           customer_note?: string | null;
+          idempotency_key?: string | null;
           approved_by?: string | null;
           approved_at?: string | null;
           rejected_by?: string | null;

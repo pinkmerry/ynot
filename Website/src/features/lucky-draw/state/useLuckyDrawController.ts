@@ -37,6 +37,7 @@ export function useLuckyDrawController() {
   const refreshRef = useRef<() => void>(() => {});
   const orderSubmitInFlightRef = useRef(false);
   const pickSubmitInFlightRef = useRef(false);
+  const orderIdempotencyKeyRef = useRef("");
   const liffSession = useLiffSession();
   const [lang, setLang] = useState<Lang>("th");
   const [view, setView] = useState<View>("home");
@@ -319,9 +320,14 @@ export function useLuckyDrawController() {
 
     try {
       if (databaseReady) {
+        if (!orderIdempotencyKeyRef.current) {
+          orderIdempotencyKeyRef.current = crypto.randomUUID();
+        }
+
         const form = new FormData();
         form.set("quantity", String(quantity));
         form.set("slipName", slipName || "manual-transfer");
+        form.set("idempotencyKey", orderIdempotencyKeyRef.current);
         if (slipFile) form.set("slip", slipFile);
 
         const { response, payload } = await postLuckyDrawOrder(form);
@@ -341,6 +347,7 @@ export function useLuckyDrawController() {
           setActiveOrderId(createdOrder.id);
           setSelectedSlots(createdOrder.slots);
           setPaymentSlip(null);
+          orderIdempotencyKeyRef.current = crypto.randomUUID();
           await refreshFromDatabase({ preferredActiveOrderId: createdOrder.id });
           setView("orders");
           return;
@@ -370,6 +377,7 @@ export function useLuckyDrawController() {
       setActiveOrderId(id);
       setSelectedSlots([]);
       setPaymentSlip(null);
+      orderIdempotencyKeyRef.current = crypto.randomUUID();
       setView("orders");
     } finally {
       orderSubmitInFlightRef.current = false;

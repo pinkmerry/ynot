@@ -96,3 +96,22 @@ test("customer auth failures are rate-limited and do not expose provider message
   assert.match(googleRoute, /"Google login could not start\. Please try again\."/);
   assert.doesNotMatch(googleRoute, /error\?\.message/);
 });
+
+test("legacy lucky-draw orders have idempotency schema and browser retry key", () => {
+  const migration = latestMigrationMatching(/legacy_lucky_draw_order_idempotency\.sql$/);
+  assert.match(migration, /alter table public\.orders\s+add column if not exists idempotency_key text/i);
+  assert.match(
+    migration,
+    /create unique index if not exists orders_profile_idempotency_unique_idx\s+on public\.orders\s*\(\s*profile_id,\s*idempotency_key\s*\)\s+where idempotency_key is not null/i,
+  );
+
+  const types = readApp("src/lib/supabase/types.ts");
+  const ordersBlock = blockBetween(types, "orders: {", "payment_slips:");
+  assert.match(ordersBlock, /idempotency_key: string \| null/);
+  assert.match(ordersBlock, /idempotency_key\?: string \| null/);
+
+  const controller = readApp("src/features/lucky-draw/state/useLuckyDrawController.ts");
+  assert.match(controller, /const orderIdempotencyKeyRef = useRef\(""\)/);
+  assert.match(controller, /orderIdempotencyKeyRef\.current = crypto\.randomUUID\(\)/);
+  assert.match(controller, /form\.set\("idempotencyKey", orderIdempotencyKeyRef\.current\)/);
+});
