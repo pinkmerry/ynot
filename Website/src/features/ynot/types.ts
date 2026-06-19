@@ -65,6 +65,7 @@ export type YnotCampaign = {
   bannerImageUrl?: string | null;
   bannerImageStoragePath?: string | null;
   openQuantityOptions?: number[];
+  pullAllAvailable?: boolean;
   pullAllEnabled?: boolean;
   pullAllRequested?: boolean;
   pullAllAllowlisted?: boolean;

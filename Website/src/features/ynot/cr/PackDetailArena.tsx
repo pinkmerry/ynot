@@ -12,8 +12,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { YnotCampaign, YnotLastPrizePreview, YnotPrizePreview } from "../types";
-import { normalizeOpenQuantityOptions, pullAllQuantity } from "../open-quantity";
+import { normalizeOpenQuantityOptions } from "../open-quantity";
 import { CoinPip, Ico, formatCoins } from "./Icons";
+import { PullAllConfirmModal } from "./PullAllConfirmModal";
 import { Modal, useToast } from "./UiKit";
 
 
@@ -83,17 +84,11 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
   const openQty = normalizeOpenQuantityOptions(campaign.openQuantityOptions);
   const [rawQty, setQty] = useState<number>(openQty[0] ?? 1);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pullAllConfirmOpen, setPullAllConfirmOpen] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [checklistClosing, setChecklistClosing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  // "All" sets qty to the live remaining count, which isn't in openQty
-  const remainingNow = campaign.remainingSlots ?? campaign.totalSlots;
-  const pullAll = pullAllQuantity({
-    remainingSlots: campaign.remainingSlots ?? campaign.totalSlots,
-    totalSlots: campaign.totalSlots,
-    hasLastPrize: campaign.hasLastPrize,
-  });
-  const qty = openQty.includes(rawQty) || rawQty === remainingNow || rawQty === pullAll ? rawQty : (openQty[0] ?? 1);
+  const qty = openQty.includes(rawQty) ? rawQty : (openQty[0] ?? 1);
 
   // FoG-style drawer: play the slide-out animation before unmounting
   function closeChecklist() {
@@ -124,6 +119,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
   const enoughStock = remaining >= qty;
   const openable = Boolean(campaign.openable);
   const unavailableReason = openable ? "" : "This pack is not ready to open yet.";
+  const pullAllAvailable = campaign.pullAllAvailable === true && openable && !soldOut;
 
   function tryOpen() {
     if (!openable) return toast("error", unavailableReason);
@@ -481,21 +477,18 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                 ×{q}
               </button>
             ))}
-            {pullAll !== null && (
+            {pullAllAvailable && (
               <button
                 type="button"
-                className={`cr-dock-qty-btn cr-dock-qty-btn-all ${qty === pullAll ? "active" : ""}`}
+                className="cr-dock-qty-btn cr-dock-qty-btn-all cr-pull-all-action"
                 onClick={() => {
-                  setQty(pullAll);
                   if (!openable) return toast("error", unavailableReason);
-                  if (remaining < pullAll) return toast("error", `Only ${remaining} packs left.`);
-                  if (balanceCoins < campaign.costCoins * pullAll) return toast("error", "Top up to open this many.");
-                  setConfirmOpen(true);
+                  setPullAllConfirmOpen(true);
                 }}
                 disabled={submitting}
-                title={`Pull all ${pullAll} remaining — triggers the Last Prize bonus`}
+                title="Pull all remaining packs with a server quote"
               >
-                All
+                Pull All
               </button>
             )}
           </div>
@@ -572,14 +565,17 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                   ×{q}
                 </button>
               ))}
-              {pullAll !== null && (
+              {pullAllAvailable && (
                 <button
                   type="button"
-                  className={`cr-dock-qty-btn cr-dock-qty-btn-all ${qty === pullAll ? "active" : ""}`}
-                  onClick={() => setQty(pullAll)}
-                  title={`Pull all ${pullAll} remaining — triggers the Last Prize bonus`}
+                  className="cr-dock-qty-btn cr-dock-qty-btn-all cr-pull-all-action"
+                  onClick={() => {
+                    setConfirmOpen(false);
+                    setPullAllConfirmOpen(true);
+                  }}
+                  title="Pull all remaining packs with a server quote"
                 >
-                  All
+                  Pull All
                 </button>
               )}
             </div>
@@ -604,6 +600,13 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
           </div>
         </div>
       </Modal>
+
+      <PullAllConfirmModal
+        balanceCoins={balanceCoins}
+        campaign={campaign}
+        onClose={() => setPullAllConfirmOpen(false)}
+        open={pullAllConfirmOpen}
+      />
 
       {/* ===== slab pack checklist — FoG-style right-slide drawer ===== */}
       {checklistOpen && (

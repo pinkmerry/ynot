@@ -149,6 +149,57 @@ test("repeat pull options use locally updated remaining stock from open result",
   assert.match(overlay, /gacha-reveal-repeat-stock-left/);
 });
 
+test("customer Pull All uses the real quote/start flow and stays separate from x100", () => {
+  const yPack = read("src/features/ynot/cr/YPackExperience.tsx");
+  const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
+  const client = read("src/features/ynot/client.tsx");
+  const revealOverlay = read("src/features/ynot/GachaRevealOverlay.tsx");
+  const openPage = read("src/app/(store)/gacha/[campaignId]/open/page.tsx");
+  const helper = read("src/features/ynot/pull-all-client.ts");
+  const yPackModal = sectionBetween(
+    yPack,
+    /function OpenPackModal\b/,
+    /\n}\s*$/,
+    "OpenPackModal",
+  );
+  const detailDockAndModal = sectionBetween(
+    arena,
+    /sticky open dock/,
+    /slab pack checklist/,
+    "PackDetailArena dock and confirm modal",
+  );
+  const revealPanel = sectionBetween(
+    client,
+    /export function GachaOpenPanel\b/,
+    /export function AddressForm\b/,
+    "GachaOpenPanel",
+  );
+
+  assert.match(helper, /export async function preparePullAllQuote/);
+  assert.match(helper, /\/api\/ynot\/gacha\/bulk-open\/quote/);
+  assert.match(helper, /export async function startPullAllSession/);
+  assert.match(helper, /\/api\/ynot\/gacha\/bulk-open\/start/);
+
+  for (const [label, source] of [
+    ["Y-Pack list", yPack],
+    ["pack detail", arena],
+    ["repeat reveal", `${revealPanel}\n${revealOverlay}`],
+  ]) {
+    assert.match(source, /PullAllConfirmModal/, `${label} renders PullAllConfirmModal`);
+    assert.match(source, /pullAllAvailable/, `${label} gates on public Pull All availability`);
+    assert.match(source, /cr-pull-all-action/, `${label} has a distinct Pull All action`);
+  }
+
+  assert.match(openPage, /balanceCoins=\{data\.wallet\.balanceCoins\}/);
+  assert.match(yPackModal, /onPullAll\(campaign\)/);
+  assert.match(detailDockAndModal, /setPullAllConfirmOpen\(true\)/);
+  assert.doesNotMatch(detailDockAndModal, /setQty\(pullAll\)/);
+  assert.doesNotMatch(yPackModal, /onQtyChange\(pullAll\)|setQty\(pullAll\)/);
+  assert.match(revealPanel, /onPullAllAgain/);
+  assert.match(revealPanel, /kind: "pull_all"/);
+  assert.doesNotMatch(revealPanel, /onOpenAgain\(pullAll|openAgain\(pullAll/);
+});
+
 test("public open quantity surfaces share final-slot helpers without exposing private logic terms", () => {
   const helper = read("src/features/ynot/open-quantity.ts");
   const client = read("src/features/ynot/client.tsx");

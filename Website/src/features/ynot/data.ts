@@ -98,6 +98,9 @@ const AUDIT_EVENT_TIMELINE_SELECT = "id,event_type,metadata,created_at";
 const SHIPPING_AUDIT_EVENT_TIMELINE_SELECT =
   `${AUDIT_EVENT_TIMELINE_SELECT},shipping_request_id`;
 const CARD_STOCK_UNIT_ID_BATCH_SIZE = 250;
+const COLLECTION_PAGE_SIZE = 500;
+const COLLECTION_DEFAULT_LIMIT = 10000;
+const COLLECTION_MAX_LIMIT = 20000;
 
 type CardStockSummaryRow = {
   cardId: string;
@@ -732,31 +735,44 @@ async function readSupabaseRows<T>(
   }
 }
 
+async function readSupabaseRowsByInBatches<T>(
+  label: string,
+  values: Iterable<string>,
+  query: (batch: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>,
+  batchSize = CARD_STOCK_UNIT_ID_BATCH_SIZE,
+): Promise<T[]> {
+  const uniqueValues = [...new Set([...values].filter(Boolean))];
+  if (!uniqueValues.length) return [];
+
+  const rows: T[] = [];
+  for (let i = 0; i < uniqueValues.length; i += batchSize) {
+    const batch = uniqueValues.slice(i, i + batchSize);
+    const batchRows = await readSupabaseRows<T>(
+      `${label}_batch_${Math.floor(i / batchSize) + 1}`,
+      () => query(batch),
+    );
+    rows.push(...batchRows);
+  }
+  return rows;
+}
+
 async function readCardStockUnitRowsByIds<T>(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   label: string,
   stockUnitIds: Iterable<string>,
   select: string,
 ): Promise<T[]> {
-  const uniqueIds = [...new Set([...stockUnitIds].filter(Boolean))];
-  if (!uniqueIds.length) return [];
-
-  const rows: T[] = [];
-  for (let i = 0; i < uniqueIds.length; i += CARD_STOCK_UNIT_ID_BATCH_SIZE) {
-    const batch = uniqueIds.slice(i, i + CARD_STOCK_UNIT_ID_BATCH_SIZE);
-    const batchRows = await readSupabaseRows<T>(
-      `${label}_batch_${Math.floor(i / CARD_STOCK_UNIT_ID_BATCH_SIZE) + 1}`,
-      async () => {
-        const { data, error } = await supabase
-          .from("card_stock_units")
-          .select(select)
-          .in("id", batch);
-        return { data: (data ?? []) as T[], error };
-      },
-    );
-    rows.push(...batchRows);
-  }
-  return rows;
+  return readSupabaseRowsByInBatches<T>(
+    label,
+    stockUnitIds,
+    async (batch) => {
+      const { data, error } = await supabase
+        .from("card_stock_units")
+        .select(select)
+        .in("id", batch);
+      return { data: (data ?? []) as T[], error };
+    },
+  );
 }
 
 async function getPrizeUnitIdentityMismatches(
@@ -1465,6 +1481,12 @@ function toYnotCampaign(
     identityMismatchCheckFailed?: boolean;
   };
   campaign.pullAllStatus = pullAllStatusFromCampaign(campaign);
+  campaign.pullAllAvailable =
+    campaign.pullAllStatus.ready &&
+    campaign.openable === true &&
+    campaign.soldOut !== true &&
+    (campaign.remainingSlots ?? 0) > 0 &&
+    soldPctForYnotCampaign(campaign) >= 60;
   return campaign;
 }
 
@@ -1527,6 +1549,7 @@ function publicYnotCampaign(campaign: YnotCampaign): YnotCampaign {
     displayTags: campaign.displayTags,
     bannerImageUrl: campaign.bannerImageUrl ?? null,
     openQuantityOptions: campaign.openQuantityOptions,
+    pullAllAvailable: campaign.pullAllAvailable,
     convertDeadlineDays: campaign.convertDeadlineDays,
     hasLastPrize:
       campaign.hasLastPrize ??
@@ -2421,6 +2444,10 @@ const CAMPAIGN_CUSTOMER_SELECT = [
   "mode",
   "pack_code",
   "price_thb",
+  "pull_all_allowlisted",
+  "pull_all_enabled",
+  "pull_all_readiness_status",
+  "pull_all_requested",
   "series",
   "slug",
   "sort_order",
@@ -2448,6 +2475,10 @@ const OPEN_CAMPAIGN_SELECT = [
   "title_th",
   "title_en",
   "price_thb",
+  "pull_all_allowlisted",
+  "pull_all_enabled",
+  "pull_all_readiness_status",
+  "pull_all_requested",
   "total_slots",
   "last_prize_card_id",
   "banner_image_url",
@@ -2472,6 +2503,10 @@ type OpenCampaignRow = Pick<
   | "title_th"
   | "title_en"
   | "price_thb"
+  | "pull_all_allowlisted"
+  | "pull_all_enabled"
+  | "pull_all_readiness_status"
+  | "pull_all_requested"
   | "total_slots"
   | "last_prize_card_id"
   | "banner_image_url"
@@ -2494,6 +2529,15 @@ function toOpenRevealCampaign(
     inferredApprovalStatus(row.status),
   );
   const remainingSlots = inventory?.remainingSlots ?? row.total_slots;
+  const soldPct =
+    row.total_slots > 0
+      ? Math.min(100, ((row.total_slots - remainingSlots) / row.total_slots) * 100)
+      : 100;
+  const pullAllReady =
+    row.pull_all_enabled === true &&
+    row.pull_all_requested === true &&
+    row.pull_all_allowlisted === true &&
+    normalizePullAllReadinessStatus(row.pull_all_readiness_status) === "ready";
   const logicMode = normalizeRandomLogicMode(row.logic_snapshot);
   const availablePrizeUnits =
     inventory?.availableWinSlots ?? inventory?.availableUnits ?? 0;
@@ -2537,6 +2581,8 @@ function toOpenRevealCampaign(
     soldOut,
     bannerImageUrl: row.banner_image_url ?? null,
     openQuantityOptions: normalizeOpenQuantityOptions(row.logic_snapshot),
+    pullAllAvailable:
+      pullAllReady && openable && !soldOut && remainingSlots > 0 && soldPct >= 60,
     convertDeadlineDays:
       typeof row.convert_deadline_days === "number" &&
       row.convert_deadline_days > 0
@@ -3113,23 +3159,27 @@ export async function getCollection(
   if (!profileId) return [];
   const collectionLimit = boundedRowLimit(
     options.limit,
-    isDevAuthAllowed() &&
-    profileId === process.env.YNOT_PREVIEW_PROFILE_ID?.trim()
-      ? 1000
-      : 200,
-    1000,
+    COLLECTION_DEFAULT_LIMIT,
+    COLLECTION_MAX_LIMIT,
   );
   if (!isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   const items = await readOrEmpty("collection", async () => {
-    const { data, error } = await supabase
-      .from("collection_items")
-      .select("*")
-      .eq("profile_id", profileId)
-      .order("acquired_at", { ascending: false })
-      .limit(collectionLimit);
-    if (error) throw error;
-    return data ?? [];
+    const rows: Database["public"]["Tables"]["collection_items"]["Row"][] = [];
+    for (let offset = 0; offset < collectionLimit; offset += COLLECTION_PAGE_SIZE) {
+      const pageEnd = Math.min(offset + COLLECTION_PAGE_SIZE, collectionLimit) - 1;
+      const { data, error } = await supabase
+        .from("collection_items")
+        .select("*")
+        .eq("profile_id", profileId)
+        .order("acquired_at", { ascending: false })
+        .range(offset, pageEnd);
+      if (error) throw error;
+      const pageRows = data ?? [];
+      rows.push(...pageRows);
+      if (pageRows.length < pageEnd - offset + 1) break;
+    }
+    return rows;
   });
   const cards = await readOrEmpty("collection_card_catalog", async () =>
     getCardCatalogByIds(supabase, items.map((item) => item.card_id)),
@@ -3145,11 +3195,20 @@ export async function getCollection(
   );
   const opensById = new Map<string, { draw_round_id: string }>();
   if (gachaSourceIds.length) {
-    const { data: opens } = await supabase
-      .from("gacha_opens")
-      .select("id,draw_round_id")
-      .in("id", gachaSourceIds);
-    for (const open of opens ?? []) {
+    const opens = await readSupabaseRowsByInBatches<
+      Pick<Database["public"]["Tables"]["gacha_opens"]["Row"], "id" | "draw_round_id">
+    >(
+      "collection_gacha_opens",
+      gachaSourceIds,
+      async (batch) => {
+        const { data, error } = await supabase
+          .from("gacha_opens")
+          .select("id,draw_round_id")
+          .in("id", batch);
+        return { data: data ?? [], error };
+      },
+    );
+    for (const open of opens) {
       opensById.set(open.id, { draw_round_id: open.draw_round_id });
     }
   }
@@ -3161,11 +3220,23 @@ export async function getCollection(
     { titleTh: string | null; titleEn: string | null; slug: string | null }
   >();
   if (drawRoundIds.length) {
-    const { data: rounds } = await supabase
-      .from("draw_rounds")
-      .select("id,title_th,title_en,slug")
-      .in("id", drawRoundIds);
-    for (const round of rounds ?? []) {
+    const rounds = await readSupabaseRowsByInBatches<{
+      id: string;
+      title_th: string | null;
+      title_en: string | null;
+      slug: string | null;
+    }>(
+      "collection_draw_rounds",
+      drawRoundIds,
+      async (batch) => {
+        const { data, error } = await supabase
+          .from("draw_rounds")
+          .select("id,title_th,title_en,slug")
+          .in("id", batch);
+        return { data: data ?? [], error };
+      },
+    );
+    for (const round of rounds) {
       campaignById.set(round.id, {
         titleTh: round.title_th,
         titleEn: round.title_en,
@@ -3175,17 +3246,29 @@ export async function getCollection(
   }
 
   const openItems = gachaSourceIds.length
-    ? await readOrEmpty("collection_gacha_open_items", async () => {
-        const { data, error } = await supabase
-          .from("gacha_open_items")
-          .select(
-            "id,gacha_open_id,card_id,draw_round_prize_id,tier,value_thb,result_position,bundle_quantity",
-          )
-          .in("gacha_open_id", gachaSourceIds)
-          .order("result_position", { ascending: true });
-        if (error) throw error;
-        return data ?? [];
-      })
+    ? await readSupabaseRowsByInBatches<{
+        id: string;
+        gacha_open_id: string;
+        card_id: string;
+        draw_round_prize_id: string | null;
+        tier: string | null;
+        value_thb: number | null;
+        result_position: number;
+        bundle_quantity: number;
+      }>(
+        "collection_gacha_open_items",
+        gachaSourceIds,
+        async (batch) => {
+          const { data, error } = await supabase
+            .from("gacha_open_items")
+            .select(
+              "id,gacha_open_id,card_id,draw_round_prize_id,tier,value_thb,result_position,bundle_quantity",
+            )
+            .in("gacha_open_id", batch)
+            .order("result_position", { ascending: true });
+          return { data: data ?? [], error };
+        },
+      )
     : [];
 
   const prizeIds = Array.from(
@@ -3203,15 +3286,23 @@ export async function getCollection(
     >
   >();
   if (prizeIds.length) {
-    const prizes = await readOrEmpty("collection_source_prizes", async () => {
-      const { data, error } = await supabase
-        .from("draw_round_prizes")
-        .select("id,tier,rank,value_thb,metadata")
-        .in("id", prizeIds);
-      if (error) throw error;
-      return data ?? [];
-    });
-    for (const prize of prizes ?? []) {
+    const prizes = await readSupabaseRowsByInBatches<
+      Pick<
+        Database["public"]["Tables"]["draw_round_prizes"]["Row"],
+        "id" | "tier" | "rank" | "value_thb" | "metadata"
+      >
+    >(
+      "collection_source_prizes",
+      prizeIds,
+      async (batch) => {
+        const { data, error } = await supabase
+          .from("draw_round_prizes")
+          .select("id,tier,rank,value_thb,metadata")
+          .in("id", batch);
+        return { data: data ?? [], error };
+      },
+    );
+    for (const prize of prizes) {
       prizesById.set(prize.id, prize);
     }
   }
@@ -3260,15 +3351,19 @@ export async function getCollection(
     );
     if (missingExactLinkItemIds.length) {
       // Legacy fallback: pre-link rows can still resolve via prize units.
-      const prizeUnitRows = await readOrEmpty(
+      const prizeUnitRows = await readSupabaseRowsByInBatches<{
+        collection_item_id: string | null;
+        gacha_open_item_id: string | null;
+        card_stock_unit_id: string | null;
+      }>(
         "collection_prize_units",
-        async () => {
+        missingExactLinkItemIds,
+        async (batch) => {
           const { data, error } = await supabase
             .from("draw_round_prize_units")
             .select("collection_item_id,gacha_open_item_id,card_stock_unit_id")
-            .in("collection_item_id", missingExactLinkItemIds);
-          if (error) throw error;
-          return data ?? [];
+            .in("collection_item_id", batch);
+          return { data: data ?? [], error };
         },
       );
       for (const row of prizeUnitRows) {
@@ -3387,7 +3482,9 @@ export async function getCollection(
         : null;
     const sourceIsLastPrize = sourcePrizeTier === "last_prize";
     return {
-      id: await collectionItemActionToken(profileId, item.id),
+      id:
+        actionTokenByItemId.get(item.id) ??
+        (await collectionItemActionToken(profileId, item.id)),
       cardName: card?.name ?? "Mystery card",
       cardCode: card?.code,
       cardGrade: wonUnit?.grade ?? card?.grade ?? null,

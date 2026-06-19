@@ -212,6 +212,11 @@ export type Database = {
           title_th: string;
           title_en: string;
           price_thb: number;
+          pull_all_allowlisted: boolean;
+          pull_all_config: Json;
+          pull_all_enabled: boolean;
+          pull_all_readiness_status: string;
+          pull_all_requested: boolean;
           total_slots: number;
           pack_code: string | null;
           last_prize_card_id: string | null;
@@ -271,6 +276,11 @@ export type Database = {
           title_th: string;
           title_en: string;
           price_thb: number;
+          pull_all_allowlisted?: boolean;
+          pull_all_config?: Json;
+          pull_all_enabled?: boolean;
+          pull_all_readiness_status?: string;
+          pull_all_requested?: boolean;
           total_slots: number;
           pack_code?: string | null;
           last_prize_card_id?: string | null;

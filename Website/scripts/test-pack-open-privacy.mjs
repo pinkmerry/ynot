@@ -663,7 +663,10 @@ test("customer collection actions use opaque tokens instead of raw collection it
     "export async function getGachaOpenHistory",
   );
   assert.doesNotMatch(collectionMapper, /id:\s*item\.id/);
-  assert.match(collectionMapper, /id:\s*await collectionItemActionToken\(profileId,\s*item\.id\)/);
+  assert.match(
+    collectionMapper,
+    /id:\s*actionTokenByItemId\.get\(item\.id\)\s*\?\?\s*\(await collectionItemActionToken\(profileId,\s*item\.id\)\)/,
+  );
 
   const conversionHandler = between(
     conversionApiSource,
@@ -715,6 +718,21 @@ test("customer collection actions use opaque tokens instead of raw collection it
       `${name} must not render collection ids or action-token slices`,
     );
   }
+});
+
+test("customer collection loads large bags in pages instead of only the first 200 rows", () => {
+  const collectionMapper = between(
+    dataSource,
+    "export async function getCollection",
+    "export async function getGachaOpenHistory",
+  );
+
+  assert.match(dataSource, /const COLLECTION_PAGE_SIZE = 500;/);
+  assert.match(dataSource, /const COLLECTION_DEFAULT_LIMIT = 10000;/);
+  assert.match(collectionMapper, /\.range\(offset,\s*pageEnd\)/);
+  assert.match(collectionMapper, /readSupabaseRowsByInBatches/);
+  assert.doesNotMatch(collectionMapper, /\.limit\(collectionLimit\)/);
+  assert.doesNotMatch(collectionMapper, /\?\s*1000\s*:\s*200/);
 });
 
 test("customer login methods use public identity rows and opaque unlink tokens", () => {

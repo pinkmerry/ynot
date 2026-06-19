@@ -15382,6 +15382,14 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
   border-color: rgba(244, 197, 66, 0.62);
   background: rgba(244, 197, 66, 0.18);
 }
+.gacha-reveal-repeat-action.cr-pull-all-action {
+  border-color: rgba(61, 214, 122, 0.5);
+  background: rgba(61, 214, 122, 0.12);
+}
+.gacha-reveal-repeat-action.cr-pull-all-action:hover:not(:disabled) {
+  border-color: rgba(61, 214, 122, 0.72);
+  background: rgba(61, 214, 122, 0.2);
+}
 .gacha-reveal-repeat-action:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -27305,6 +27313,117 @@ html[data-ynot-theme] .admin-frame .admin-prize-catalog-card .admin-card-catalog
 .admin-frame .toggle.on { background: rgba(244,197,66,0.32); }
 .admin-frame .toggle.on::after { left: 14px; background: var(--a-gold); }
 
+.admin-frame .pull-all-switch-row,
+.admin-edit-modal .pull-all-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.admin-frame .pull-all-switch-row.is-on,
+.admin-edit-modal .pull-all-switch-row.is-on {
+  border-color: rgba(61, 214, 122, 0.38);
+  background: rgba(61, 214, 122, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(61, 214, 122, 0.08);
+}
+.admin-frame .pull-all-switch-copy,
+.admin-edit-modal .pull-all-switch-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.admin-frame .pull-all-switch-label,
+.admin-edit-modal .pull-all-switch-label {
+  color: var(--a-fg-dim);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.admin-frame .pull-all-switch-state,
+.admin-edit-modal .pull-all-switch-state {
+  color: var(--a-fg);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+.admin-frame .pull-all-switch-row.is-on .pull-all-switch-state,
+.admin-edit-modal .pull-all-switch-row.is-on .pull-all-switch-state {
+  color: #8dffb4;
+}
+.admin-frame .pull-all-switch-button,
+.admin-edit-modal .pull-all-switch-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: 122px !important;
+  height: 40px !important;
+  padding: 0 10px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--a-fg) !important;
+  cursor: pointer !important;
+  font: inherit !important;
+}
+.admin-frame .pull-all-switch-button.is-compact,
+.admin-edit-modal .pull-all-switch-button.is-compact {
+  min-width: 104px !important;
+}
+.admin-frame .pull-all-switch-button.is-on,
+.admin-edit-modal .pull-all-switch-button.is-on {
+  border-color: rgba(61, 214, 122, 0.54) !important;
+  background: rgba(61, 214, 122, 0.14) !important;
+}
+.admin-frame .pull-all-status-light,
+.admin-edit-modal .pull-all-status-light {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #6f756f;
+  box-shadow: none;
+  flex: none;
+}
+.admin-frame .pull-all-switch-button.is-on .pull-all-status-light,
+.admin-edit-modal .pull-all-switch-button.is-on .pull-all-status-light {
+  background: #62f58f;
+  box-shadow: 0 0 0 3px rgba(98, 245, 143, 0.16), 0 0 14px rgba(98, 245, 143, 0.72);
+}
+.admin-frame .pull-all-switch-track,
+.admin-edit-modal .pull-all-switch-track {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  flex: none;
+}
+.admin-frame .pull-all-switch-thumb,
+.admin-edit-modal .pull-all-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--a-muted);
+  transition: transform 150ms ease, background 150ms ease;
+}
+.admin-frame .pull-all-switch-button.is-on .pull-all-switch-thumb,
+.admin-edit-modal .pull-all-switch-button.is-on .pull-all-switch-thumb {
+  transform: translateX(16px);
+  background: #62f58f;
+}
+.admin-frame .pull-all-switch-text,
+.admin-edit-modal .pull-all-switch-text {
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
 /* Responsive: collapse sidebar on tablet, stack on mobile */
 @media (max-width: 1024px) {
   .admin-frame { grid-template-columns: 1fr; }
@@ -27951,9 +28070,9 @@ html[data-ynot-theme] .admin-frame .admin-option-select-popover .admin-option-se
 }
 
 /* Buttons inside legacy admin components — keep the gold primary, ghost the rest. */
-.admin-frame .soft-card button:not(.btn):not(.btn-primary):not(.btn-ghost):not(.btn-danger):not(.btn-sm):not(.toggle):not(.admin-open-preset-button),
-.admin-frame .admin-panel button:not(.btn):not(.btn-primary):not(.btn-ghost):not(.btn-danger):not(.btn-sm):not(.toggle):not(.admin-open-preset-button),
-.admin-frame .admin-pack-form button:not(.btn):not(.btn-primary):not(.btn-ghost):not(.btn-danger):not(.btn-sm):not(.toggle):not(.admin-open-preset-button) {
+.admin-frame .soft-card button:not(.btn):not(.btn-primary):not(.btn-ghost):not(.btn-danger):not(.btn-sm):not(.toggle):not(.admin-open-preset-button):not(.pull-all-switch-button),
+.admin-frame .admin-panel button:not(.btn):not(.btn-primary):not(.btn-ghost):not(.btn-danger):not(.btn-sm):not(.toggle):not(.admin-open-preset-button):not(.pull-all-switch-button),
+.admin-frame .admin-pack-form button:not(.btn):not(.btn-primary):not(.btn-ghost):not(.btn-danger):not(.btn-sm):not(.toggle):not(.admin-open-preset-button):not(.pull-all-switch-button) {
   background: rgba(255,255,255,0.03) !important;
   border: 1px solid var(--a-border-soft) !important;
   color: var(--a-fg) !important;

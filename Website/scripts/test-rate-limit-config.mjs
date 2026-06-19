@@ -14,9 +14,9 @@ test("customer top-up remains stricter than pack-opening request bursts", () => 
     walletRoute,
     /enforceRateLimit\(request,\s*"ynot:wallet:top-up",\s*\{\s*limit:\s*6,\s*windowMs:\s*60_000\s*\}/,
   );
-  assert.match(gachaOpenRoute, /const gachaOpenRequestRateLimit = \{[\s\S]*scope: "ynot:gacha:open",[\s\S]*limit: 30,[\s\S]*windowMs: 60_000,/);
-  assert.match(gachaOpenRoute, /const gachaOpenProfileUnitRateLimit = \{[\s\S]*scope: "ynot:gacha:open:units",[\s\S]*limit: 120,[\s\S]*windowMs: 60_000,/);
-  assert.match(gachaOpenRoute, /const gachaOpenIpUnitRateLimit = \{[\s\S]*scope: "ynot:gacha:open:units:ip",[\s\S]*limit: 600,[\s\S]*windowMs: 60_000,/);
+  assert.match(gachaOpenRoute, /const gachaOpenRequestRateLimit = \{[\s\S]*scope: "ynot:gacha:open",[\s\S]*limit: 120,[\s\S]*windowMs: 60_000,/);
+  assert.match(gachaOpenRoute, /const gachaOpenProfileUnitRateLimit = \{[\s\S]*scope: "ynot:gacha:open:units",[\s\S]*limit: 1_200,[\s\S]*windowMs: 60_000,/);
+  assert.match(gachaOpenRoute, /const gachaOpenIpUnitRateLimit = \{[\s\S]*scope: "ynot:gacha:open:units:ip",[\s\S]*limit: 6_000,[\s\S]*windowMs: 60_000,/);
   assert.match(gachaOpenRoute, /gachaOpenRequestRateLimit\.scope/);
   assert.match(gachaOpenRoute, /gachaOpenProfileUnitRateLimit\.scope[\s\S]*cost: quantity/);
   assert.match(gachaOpenRoute, /gachaOpenIpUnitRateLimit\.scope[\s\S]*cost: quantity/);

@@ -130,6 +130,14 @@ function enrich(item: YnotCollectionItem): EnrichedItem | null {
   };
 }
 
+function isConvertibleReward(item: EnrichedItem) {
+  if (item.bucket !== "owned") return false;
+  if ((item.sellValueCoins ?? 0) <= 0) return false;
+  if (!item.convertExpiresAt) return true;
+  const expiresAt = new Date(item.convertExpiresAt).getTime();
+  return Number.isFinite(expiresAt) && expiresAt > Date.now();
+}
+
 function numberFrom(value: unknown) {
   const next = Number(value);
   return Number.isFinite(next) ? Math.max(0, Math.round(next)) : 0;
@@ -263,7 +271,8 @@ export function HistoryExperience({
   }
 
   const selectedCards = enriched.filter((c) => selected.has(c.id) && c.bucket === "owned");
-  const sellTotal = selectedCards.reduce(
+  const selectedConvertibleCards = selectedCards.filter(isConvertibleReward);
+  const sellTotal = selectedConvertibleCards.reduce(
     (sum, c) => sum + (c.sellValueCoins ?? 0),
     0,
   );
@@ -272,7 +281,7 @@ export function HistoryExperience({
   const sellBusy = sellPreparing || sellConfirming;
 
   async function openSell(nextMode: ConvertSelectionMode) {
-    if (nextMode === "selected" && !selectedCards.length) {
+    if (nextMode === "selected" && !selectedConvertibleCards.length) {
       toast("error", "No rewards selected");
       return;
     }
@@ -291,7 +300,7 @@ export function HistoryExperience({
             : {
                 intent: "quote",
                 selectionMode: "selected",
-                collectionItemIds: selectedCards.map((card) => card.id),
+                collectionItemIds: selectedConvertibleCards.map((card) => card.id),
               },
         ),
       });
@@ -660,6 +669,12 @@ export function HistoryExperience({
                 type="button"
                 className="cr-btn cr-btn-mint cr-btn-sm"
                 onClick={() => void openSell("selected")}
+                disabled={!selectedConvertibleCards.length || sellBusy}
+                title={
+                  selectedConvertibleCards.length
+                    ? undefined
+                    : "Selected rewards cannot be converted to coins."
+                }
               >
                 <Ico name="swap" size={12} /> Sell for{" "}
                 {formatCoins(sellTotal)} coins

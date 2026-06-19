@@ -33,6 +33,7 @@ export default async function GachaOpenPage({
         authenticated={data.viewer.authenticated}
         initialQuantity={initialQuantity}
         tierAnimations={tierAnimations}
+        balanceCoins={data.wallet.balanceCoins}
         autoStart
         openIntentId={intent}
         immersive

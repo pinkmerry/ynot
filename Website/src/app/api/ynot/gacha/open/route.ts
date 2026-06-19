@@ -19,17 +19,17 @@ const gachaOpenRequestRateLimit = {
   // Customers can chain "open again" quickly after reveal animations. Keep
   // the limit high enough for real play, while still blocking scripted bursts.
   scope: "ynot:gacha:open",
-  limit: 30,
+  limit: 120,
   windowMs: 60_000,
 };
 const gachaOpenProfileUnitRateLimit = {
   scope: "ynot:gacha:open:units",
-  limit: 120,
+  limit: 1_200,
   windowMs: 60_000,
 };
 const gachaOpenIpUnitRateLimit = {
   scope: "ynot:gacha:open:units:ip",
-  limit: 600,
+  limit: 6_000,
   windowMs: 60_000,
 };
 const MAX_OPEN_HYDRATION_ITEMS = 20;

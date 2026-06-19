@@ -11,6 +11,7 @@ import {
 } from "../open-quantity";
 import { createOpenIntentId } from "../open-intent";
 import { CoinPip, Ico, formatCoins } from "./Icons";
+import { PullAllConfirmModal } from "./PullAllConfirmModal";
 import { Modal, PageHead, useToast } from "./UiKit";
 
 const SERIES_LABEL: Record<string, string> = {
@@ -147,6 +148,7 @@ export function YPackExperience({
     campaign: YnotCampaign;
     qty: number;
   } | null>(null);
+  const [pullAllState, setPullAllState] = useState<YnotCampaign | null>(null);
 
   // All distinct series present in the data — keeps the chip strip honest
   // when an admin adds new series in the future.
@@ -325,6 +327,7 @@ export function YPackExperience({
                     )[0] ?? 1,
                 })
               }
+              onPullAll={() => setPullAllState(campaign)}
             />
           ))}
         </div>
@@ -334,9 +337,19 @@ export function YPackExperience({
         state={openState}
         balanceCoins={balanceCoins}
         onClose={() => setOpenState(null)}
+        onPullAll={(campaign) => {
+          setOpenState(null);
+          setPullAllState(campaign);
+        }}
         onQtyChange={(qty) =>
           setOpenState((current) => (current ? { ...current, qty } : current))
         }
+      />
+      <PullAllConfirmModal
+        open={Boolean(pullAllState)}
+        campaign={pullAllState}
+        balanceCoins={balanceCoins}
+        onClose={() => setPullAllState(null)}
       />
     </div>
   );
@@ -346,10 +359,12 @@ function PackCard({
   campaign,
   balanceCoins,
   onOpen,
+  onPullAll,
 }: {
   campaign: YnotCampaign;
   balanceCoins: number;
   onOpen: () => void;
+  onPullAll: () => void;
 }) {
   const remaining = campaign.remainingSlots ?? campaign.totalSlots;
   const pct = stockPercent(campaign);
@@ -365,6 +380,7 @@ function PackCard({
   );
   const bannerImageUrl = campaign.bannerImageUrl?.trim() ?? "";
   const hasBannerImage = Boolean(bannerImageUrl);
+  const pullAllAvailable = campaign.pullAllAvailable === true && openable && !soldOut;
 
   return (
     <div className="cr-pack-card" data-disabled={soldOut}>
@@ -443,13 +459,22 @@ function PackCard({
               /pack
             </small>
           </span>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div className="cr-pack-card-actions">
             <Link
               className="cr-pack-card-cta cr-pack-card-cta-ghost"
               href={detailHref}
             >
               Detail
             </Link>
+            {pullAllAvailable && !cantAfford ? (
+              <button
+                type="button"
+                className="cr-pack-card-cta cr-pack-card-cta-pull-all cr-pull-all-action"
+                onClick={onPullAll}
+              >
+                Pull All
+              </button>
+            ) : null}
             {soldOut ? (
               <button
                 type="button"
@@ -493,11 +518,13 @@ function OpenPackModal({
   state,
   balanceCoins,
   onClose,
+  onPullAll,
   onQtyChange,
 }: {
   state: { campaign: YnotCampaign; qty: number } | null;
   balanceCoins: number;
   onClose: () => void;
+  onPullAll: (campaign: YnotCampaign) => void;
   onQtyChange: (qty: number) => void;
 }) {
   const router = useRouter();
@@ -518,6 +545,7 @@ function OpenPackModal({
   const enoughStock = qty <= openableQuantityLimit;
   const openable = Boolean(campaign.openable);
   const unavailableReason = openUnavailableReason(campaign);
+  const pullAllAvailable = campaign.pullAllAvailable === true && openable;
 
   function handleConfirm() {
     if (!openable) {
@@ -647,6 +675,16 @@ function OpenPackModal({
                 </button>
               );
             })}
+            {pullAllAvailable && (
+              <button
+                type="button"
+                className="cr-dock-qty-btn cr-dock-qty-btn-all cr-pull-all-action"
+                onClick={() => onPullAll(campaign)}
+                title="Pull all remaining packs with a server quote"
+              >
+                Pull All
+              </button>
+            )}
           </div>
         </div>
 

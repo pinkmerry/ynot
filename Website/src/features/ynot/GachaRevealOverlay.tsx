@@ -30,7 +30,9 @@ type Props = {
   onClose: () => void;
   onFinish: () => void;
   onOpenAgain?: (quantity: number) => void;
+  onPullAllAgain?: () => void;
   openAgainOptions?: Array<{
+    kind?: "normal" | "pull_all";
     quantity: number;
     disabled?: boolean;
     costCoins?: number;
@@ -122,6 +124,7 @@ export function GachaRevealOverlay({
   onClose,
   onFinish,
   onOpenAgain,
+  onPullAllAgain,
   openAgainOptions = [],
   remainingSlots,
   tierAnimations,
@@ -499,7 +502,7 @@ export function GachaRevealOverlay({
           </ul>
 
           <footer className="gacha-reveal-summary-footer">
-            {onOpenAgain && openAgainOptions.length > 0 && (
+            {(onOpenAgain || onPullAllAgain) && openAgainOptions.length > 0 && (
               <div className="gacha-reveal-repeat-stack">
                 {remainingStockLabel && (
                   <p className="gacha-reveal-repeat-stock-left" aria-live="polite">
@@ -512,20 +515,29 @@ export function GachaRevealOverlay({
                   role="group"
                   aria-label="Pull again"
                 >
-                  {openAgainOptions.map((option) => (
-                    <button
-                      key={option.quantity}
-                      type="button"
-                      className="gacha-reveal-repeat-action"
-                      disabled={option.disabled}
-                      onClick={() => onOpenAgain(option.quantity)}
-                    >
-                      <span>Pull x{option.quantity}</span>
-                      {typeof option.costCoins === "number" && (
-                        <small>{option.costCoins.toLocaleString()} coins</small>
-                      )}
-                    </button>
-                  ))}
+                  {openAgainOptions.map((option) => {
+                    const isPullAll = option.kind === "pull_all";
+                    return (
+                      <button
+                        key={`${option.kind ?? "normal"}-${option.quantity}`}
+                        type="button"
+                        className={`gacha-reveal-repeat-action${isPullAll ? " cr-pull-all-action" : ""}`}
+                        disabled={option.disabled}
+                        onClick={() =>
+                          isPullAll
+                            ? onPullAllAgain?.()
+                            : onOpenAgain?.(option.quantity)
+                        }
+                      >
+                        <span>{isPullAll ? "Pull All" : `Pull x${option.quantity}`}</span>
+                        {isPullAll ? (
+                          <small>{option.quantity.toLocaleString()} left</small>
+                        ) : typeof option.costCoins === "number" ? (
+                          <small>{option.costCoins.toLocaleString()} coins</small>
+                        ) : null}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -208,6 +208,9 @@ test("Customer Bag conversion UI requires explicit selection and keeps huge flow
   requirePattern(history, /Select all eligible rewards/, "UI must expose explicit whole-bag select-all");
   requirePattern(history, /selectionMode:\s*"all_eligible"/, "whole-bag selection must be sent as scope, not IDs");
   requirePattern(history, /selectionMode:\s*"selected"/, "manual selection must remain available");
+  requirePattern(history, /function isConvertibleReward/, "manual conversion must share the RPC eligibility rules");
+  requirePattern(history, /selectedConvertibleCards\.map\(\(card\) => card\.id\)/, "manual conversion must only submit convertible selected rewards");
+  requirePattern(history, /disabled=\{!selectedConvertibleCards\.length \|\| sellBusy\}/, "manual conversion CTA must disable when no selected rewards are convertible");
   requirePattern(history, /No rewards selected/, "empty selection must convert nothing");
   requirePattern(history, /summary-only/i, "huge selection confirmation should be summary-only");
   requirePattern(history, /Converting rewards to coins/, "UI must show calm progress copy");

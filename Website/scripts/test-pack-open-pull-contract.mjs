@@ -180,7 +180,13 @@ test("first and repeated pull choices stay valid for x1, x10, and x100 while sto
   assert.match(panel, /if \(result\.remaining\) \{/);
   assert.match(panel, /setRemainingState\(\(current\) => \(\{[\s\S]*\.\.\.current,[\s\S]*\.\.\.result\.remaining/s);
   assert.match(panel, /const openAgainOptions = openQuantityOptions\.map/);
+  assert.match(panel, /const pullAllRepeatOption =/);
+  assert.match(panel, /kind: "pull_all"/);
   assert.match(panel, /disabled: quantityDisabled\(option\)/);
+  assert.match(client, /onPullAllAgain=\{openPullAllAgain\}/);
+  assert.match(revealOverlay, /kind\?: "normal" \| "pull_all"/);
+  assert.match(revealOverlay, /onPullAllAgain\?: \(\) => void/);
+  assert.match(revealOverlay, /option\.kind === "pull_all"/);
   assert.match(openAgain, /if \(openRequestInFlightRef\.current\) return/);
   assert.match(openAgain, /setRevealResult\(null\)/);
   assert.match(openAgain, /fireOpen\(nextQuantity,\s*createOpenIntentId\(\)\)/);

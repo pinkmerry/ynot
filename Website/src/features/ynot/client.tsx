@@ -38,6 +38,7 @@ import { AdminIcon } from "./admin/Icon";
 import { AdminCardOptionSelect } from "./admin/AdminCardOptionSelect";
 import { AdminSearchableSelect } from "./admin/AdminSearchableSelect";
 import { GachaRevealOverlay } from "./GachaRevealOverlay";
+import { PullAllConfirmModal } from "./cr/PullAllConfirmModal";
 import { QuantityBadge } from "./QuantityBadge";
 import {
   adminCardDuplicateUsage,
@@ -205,6 +206,34 @@ function retryAfterMessage(error: unknown) {
   const seconds = Math.ceil(Number(error.payload.retryAfterSeconds));
   if (!Number.isFinite(seconds) || seconds < 1) return null;
   return `Too many pack opens right now. Please wait ${seconds} seconds and try again.`;
+}
+
+function PullAllSwitchButton({
+  compact = false,
+  enabled,
+  label,
+  onToggle,
+}: {
+  compact?: boolean;
+  enabled: boolean;
+  label?: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`pull-all-switch-button ${enabled ? "is-on" : "is-off"}${compact ? " is-compact" : ""}`}
+      aria-label={label ?? (enabled ? "Turn Pull All off" : "Turn Pull All on")}
+      aria-pressed={enabled}
+      onClick={onToggle}
+    >
+      <span className="pull-all-status-light" aria-hidden="true" />
+      <span className="pull-all-switch-track" aria-hidden="true">
+        <span className="pull-all-switch-thumb" />
+      </span>
+      <span className="pull-all-switch-text">{enabled ? "ON" : "OFF"}</span>
+    </button>
+  );
 }
 
 async function patchJson(url: string, body: unknown) {
@@ -756,11 +785,13 @@ export function GachaOpenPanel({
   autoStart = false,
   openIntentId,
   immersive = false,
+  balanceCoins = 0,
 }: {
   campaign: YnotCampaign;
   authenticated: boolean;
   initialQuantity?: number;
   tierAnimations?: YnotTierAnimation[];
+  balanceCoins?: number;
   /** When true, immediately fire the open API on mount (no second confirm
    *  screen). Used when the user just confirmed in the Y-Pack flow and
    *  expects the reveal animation to play right away. */
@@ -780,6 +811,7 @@ export function GachaOpenPanel({
   const [revealResult, setRevealResult] = useState<YnotGachaOpenResult | null>(
     null,
   );
+  const [pullAllConfirmOpen, setPullAllConfirmOpen] = useState(false);
   const [revealRunId, setRevealRunId] = useState(0);
   const [openingOverlayVisible, setOpeningOverlayVisible] = useState(autoStart);
   const [remainingState, setRemainingState] = useState<
@@ -859,6 +891,13 @@ export function GachaOpenPanel({
     fireOpen(nextQuantity, createOpenIntentId());
   }
 
+  function openPullAllAgain() {
+    setOpeningOverlayVisible(false);
+    setRevealResult(null);
+    setMessage("");
+    setPullAllConfirmOpen(true);
+  }
+
   function handleRevealClose() {
     setOpeningOverlayVisible(false);
     setRevealResult(null);
@@ -901,10 +940,19 @@ export function GachaOpenPanel({
   }, []);
 
   const openAgainOptions = openQuantityOptions.map((option) => ({
+    kind: "normal" as const,
     quantity: option,
     disabled: quantityDisabled(option),
     costCoins: campaign.costCoins * option,
   }));
+  const pullAllRepeatOption =
+    campaign.pullAllAvailable === true && visibleRemainingSlots > 0
+      ? {
+          kind: "pull_all" as const,
+          quantity: visibleRemainingSlots,
+          disabled: false,
+        }
+      : null;
 
   const revealOverlay = revealResult ? (
     <GachaRevealOverlay
@@ -916,7 +964,10 @@ export function GachaOpenPanel({
       onClose={handleRevealClose}
       onFinish={handleRevealFinish}
       onOpenAgain={openAgain}
-      openAgainOptions={openAgainOptions}
+      onPullAllAgain={openPullAllAgain}
+      openAgainOptions={
+        pullAllRepeatOption ? [...openAgainOptions, pullAllRepeatOption] : openAgainOptions
+      }
       remainingSlots={visibleRemainingSlots}
     />
   ) : null;
@@ -962,6 +1013,12 @@ export function GachaOpenPanel({
       data-open-mode={immersive ? "immersive" : "embedded"}
     >
       {revealOverlay}
+      <PullAllConfirmModal
+        balanceCoins={balanceCoins}
+        campaign={campaign}
+        onClose={() => setPullAllConfirmOpen(false)}
+        open={pullAllConfirmOpen}
+      />
       {pendingOverlay}
       {errorPanel}
     </div>
@@ -3928,6 +3985,8 @@ export function AdminCampaignForm({
     editingCampaign?.pullAllEnabled === true ||
       editingCampaign?.pullAllRequested === true,
   );
+  const pullAllSwitchLabel = pullAllEnabled ? "Pull All open" : "Pull All closed";
+  const pullAllSwitchAction = pullAllEnabled ? "Turn Pull All off" : "Turn Pull All on";
   const [slotGrid, setSlotGrid] = useState<{
     layout: "10x10" | "5x20" | "20x5";
     reveal: "stamp_on_pick" | "reveal_on_close";
@@ -5007,13 +5066,17 @@ export function AdminCampaignForm({
             {mode === "instant_gacha" && (
               <div className="admin-field admin-field-wide">
                 <span>Pull All</span>
-                <button
-                  type="button"
-                  className={`toggle ${pullAllEnabled ? "on" : ""}`}
-                  aria-pressed={pullAllEnabled}
-                  onClick={() => setPullAllEnabled((current) => !current)}
-                  style={{ border: 0, cursor: "pointer", marginTop: 4 }}
-                />
+                <div className={`pull-all-switch-row ${pullAllEnabled ? "is-on" : "is-off"}`}>
+                  <div className="pull-all-switch-copy">
+                    <span className="pull-all-switch-label">Admin/owner access</span>
+                    <strong className="pull-all-switch-state">{pullAllSwitchLabel}</strong>
+                  </div>
+                  <PullAllSwitchButton
+                    enabled={pullAllEnabled}
+                    label={pullAllSwitchAction}
+                    onToggle={() => setPullAllEnabled((current) => !current)}
+                  />
+                </div>
                 <small>
                   Admin/owner access only. New packs default disabled; owners
                   can allowlist the request during create or edit.
@@ -6372,6 +6435,10 @@ export function AdminOwnerReview({
         ? liveRevision.scalarPatch.pull_all_enabled
         : campaign.pullAllRequested === true || campaign.pullAllEnabled === true;
   const [pullAllEnabled, setPullAllEnabled] = useState(initialPullAllEnabled);
+  const ownerPullAllSwitchLabel = pullAllEnabled ? "Pull All open" : "Pull All closed";
+  const ownerPullAllSwitchAction = pullAllEnabled
+    ? "Turn Pull All off"
+    : "Turn Pull All on";
   const [drawSampleSize, setDrawSampleSize] = useState<number>(1000);
   const [simResult, setSimResult] = useState<OwnerReviewSimResult | null>(null);
   const [message, setMessage] = useState<string>("");
@@ -6881,16 +6948,14 @@ export function AdminOwnerReview({
             <p className="section-label">Pull All</p>
             <h3>Owner selection</h3>
           </div>
-          <button
-            type="button"
-            className={`toggle ${pullAllEnabled ? "on" : ""}`}
-            aria-label={pullAllEnabled ? "Disable Pull All" : "Enable Pull All"}
-            aria-pressed={pullAllEnabled}
-            onClick={() => setPullAllEnabled((current) => !current)}
-            style={{ border: 0, cursor: "pointer" }}
+          <PullAllSwitchButton
+            enabled={pullAllEnabled}
+            label={ownerPullAllSwitchAction}
+            onToggle={() => setPullAllEnabled((current) => !current)}
           />
         </div>
         <div className="card-pad" style={{ display: "grid", gap: 8 }}>
+          <strong className="pull-all-switch-state">{ownerPullAllSwitchLabel}</strong>
           <div className="text-mute" style={{ fontSize: 12 }}>
             {pullAllEnabled
               ? pullAllReviewReady
@@ -14519,6 +14584,8 @@ function EditCampaignModal({
   const [pullAllEnabled, setPullAllEnabled] = useState(
     campaign.pullAllEnabled === true || campaign.pullAllRequested === true,
   );
+  const editPullAllSwitchLabel = pullAllEnabled ? "Pull All open" : "Pull All closed";
+  const editPullAllSwitchAction = pullAllEnabled ? "Turn Pull All off" : "Turn Pull All on";
   const [convertDeadlineDays, setConvertDeadlineDays] = useState<number>(() => {
     const stored = campaign.convertDeadlineDays;
     if (stored === null || stored === undefined) return defaultConvertDeadlineDays;
@@ -14774,14 +14841,21 @@ function EditCampaignModal({
             </small>
           </div>
           {mode === "instant_gacha" && (
-            <label className="admin-edit-checkbox">
-              <input
-                type="checkbox"
-                checked={pullAllEnabled}
-                onChange={(event) => setPullAllEnabled(event.target.checked)}
-              />
-              <span>Request Pull All for owner review</span>
-            </label>
+            <div className="admin-edit-field">
+              <span>Pull All</span>
+              <div className={`pull-all-switch-row ${pullAllEnabled ? "is-on" : "is-off"}`}>
+                <div className="pull-all-switch-copy">
+                  <span className="pull-all-switch-label">Owner review request</span>
+                  <strong className="pull-all-switch-state">{editPullAllSwitchLabel}</strong>
+                </div>
+                <PullAllSwitchButton
+                  compact
+                  enabled={pullAllEnabled}
+                  label={editPullAllSwitchAction}
+                  onToggle={() => setPullAllEnabled((current) => !current)}
+                />
+              </div>
+            </div>
           )}
           <label className="admin-edit-checkbox">
             <input

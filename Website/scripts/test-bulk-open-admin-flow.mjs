@@ -30,7 +30,7 @@ test("package exposes the scoped admin Pull All flow script", () => {
   );
 });
 
-test("Pack Studio has a default-disabled Pull All control and sends it in create/edit payloads", () => {
+test("Pack Studio has a lighted Pull All switch and sends it in create/edit payloads", () => {
   assert.match(typesSource, /pullAllEnabled\?: boolean/);
   assert.match(typesSource, /pullAllRequested\?: boolean/);
   assert.match(typesSource, /pullAllAllowlisted\?: boolean/);
@@ -40,11 +40,17 @@ test("Pack Studio has a default-disabled Pull All control and sends it in create
   assert.match(clientSource, /editingCampaign\?\.pullAllRequested === true/);
   assert.match(clientSource, /Pull All/);
   assert.match(clientSource, /Admin\/owner access only/);
+  assert.match(clientSource, /function PullAllSwitchButton/);
+  assert.match(clientSource, /pull-all-switch-button/);
+  assert.match(clientSource, /pull-all-status-light/);
+  assert.match(clientSource, /pull-all-switch-text/);
+  assert.match(clientSource, /pullAllEnabled \? "Pull All open" : "Pull All closed"/);
+  assert.match(clientSource, /pullAllEnabled \? "Turn Pull All off" : "Turn Pull All on"/);
   assert.match(clientSource, /pullAllEnabled,/);
   assert.match(clientSource, /pullAllRequested: pullAllEnabled/);
   assert.match(clientSource, /pullAllAllowlisted: pullAllEnabled && viewerRole === "owner"/);
   assert.match(clientSource, /campaign\.pullAllEnabled === true \|\| campaign\.pullAllRequested === true/);
-  assert.match(clientSource, /Request Pull All for owner review/);
+  assert.match(clientSource, /Pull All closed/);
 });
 
 test("admin campaign route persists Pull All fields safely without direct publish", () => {
@@ -157,6 +163,8 @@ test("public campaign DTO remains free of admin-only Pull All fields", () => {
     "function publicYnotCampaign",
     "function localOwnerMockPrizeLineup",
   );
+  assert.match(typesSource, /pullAllAvailable\?: boolean/);
+  assert.match(publicCampaign, /pullAllAvailable: campaign\.pullAllAvailable/);
   for (const adminField of [
     "pullAllEnabled",
     "pullAllRequested",

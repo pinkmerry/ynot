@@ -491,6 +491,40 @@
   border-top: 1px solid var(--cr-line-soft);
   background: var(--cr-paper-2);
 }
+.cr-pull-all-quote {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--cr-mint, #23b25e) 22%, var(--cr-line));
+  border-radius: var(--cr-r-md);
+  background: color-mix(in srgb, var(--cr-mint, #23b25e) 8%, var(--cr-bg-soft));
+}
+.cr-pull-all-quote-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 3px 0;
+}
+.cr-pull-all-quote-row span {
+  color: var(--cr-mute);
+  font-size: 12.5px;
+}
+.cr-pull-all-quote-row strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.cr-pull-all-error {
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--cr-rose, #d75a4a) 32%, var(--cr-line));
+  border-radius: var(--cr-r-md);
+  background: var(--cr-rose-soft);
+  color: var(--cr-rose);
+  font-size: 13px;
+  font-weight: 700;
+}
 
 /* ============================================
    PAGE HEAD
@@ -1153,6 +1187,13 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   font-variant-numeric: tabular-nums;
   font-size: 15px;
 }
+.cr-pack-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 .cr-pack-card-cta {
   height: 32px;
   padding: 0 14px;
@@ -1175,6 +1216,14 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   background: transparent;
   color: var(--cr-ink);
   border: 1px solid var(--cr-line-strong);
+}
+.cr-pack-card-cta-pull-all {
+  background: var(--cr-mint);
+  color: #0b1711;
+  box-shadow: 0 6px 16px rgba(35, 178, 94, 0.22);
+}
+.cr-pack-card-cta-pull-all:hover {
+  background: #62d889;
 }
 .cr-pack-card-cta[disabled],
 .cr-pack-card-cta[aria-disabled="true"] {
@@ -1729,17 +1778,18 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
 /* Pull-All button: matches qty-btn shape but with a subtle accent outline
    to signal "finish the pack". Active state inverts to the accent fill. */
 .cr-dock-qty-btn-all {
-  border: 1.5px solid var(--cr-gold, #e0ad3a);
-  color: var(--cr-gold, #e0ad3a);
-  min-width: 52px;
+  border: 1.5px solid var(--cr-mint, #23b25e);
+  color: #0f6e38;
+  min-width: 82px;
+  background: color-mix(in srgb, var(--cr-mint, #23b25e) 10%, transparent);
 }
 .cr-dock-qty-btn-all:hover:not([disabled]) {
-  background: color-mix(in srgb, var(--cr-gold, #e0ad3a) 10%, transparent);
+  background: color-mix(in srgb, var(--cr-mint, #23b25e) 18%, transparent);
 }
 .cr-dock-qty-btn-all.active {
-  background: var(--cr-gold, #e0ad3a);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(224, 173, 58, 0.35);
+  background: var(--cr-mint, #23b25e);
+  color: #0b1711;
+  box-shadow: 0 2px 8px rgba(35, 178, 94, 0.35);
 }
 .cr-dock-cta {
   display: flex;
