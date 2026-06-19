@@ -118,6 +118,7 @@ test("legacy lucky-draw orders have idempotency schema and browser retry key", (
 
 test("legacy lucky-draw order POST uses modern paid-action guardrails", () => {
   const route = readApp("src/app/api/lucky-draw/route.ts");
+  const data = readApp("src/lib/lucky-draw/data.ts");
   const normalizeBlock = blockBetween(
     route,
     "function normalizeLegacyOrderIdempotencyKey",
@@ -129,10 +130,26 @@ test("legacy lucky-draw order POST uses modern paid-action guardrails", () => {
     "function isUniqueConstraintError",
   );
   const postBlock = blockBetween(route, "export async function POST", "  const localDuplicateSlip");
+  const existingOrderReplayBlock = blockBetween(postBlock, "if (existingOrder) {", "  const activeDraw =");
+  const uniqueRaceReplayBlock = blockBetween(
+    postBlock,
+    "if (isUniqueConstraintError(orderError)) {",
+    "    throw orderError;",
+  );
   const cleanupBlock = blockBetween(
     route,
     "async function deleteIncompleteLegacyOrder",
     "function isUniqueConstraintError",
+  );
+  const finalSuccessBlock = blockBetween(
+    route,
+    "return Response.json({\n    order: toOrder({",
+    "\n  });\n}",
+  );
+  const profileIdempotencyBlock = blockBetween(
+    data,
+    "export async function fetchOrderByProfileIdempotency",
+    "if (error) throw error;",
   );
 
   assert.match(route, /import \{ requireVerifiedAnchor \} from "@\/lib\/auth\/verified-anchor"/);
@@ -142,6 +159,9 @@ test("legacy lucky-draw order POST uses modern paid-action guardrails", () => {
   assert.match(route, /normalizeLegacyOrderIdempotencyKey/);
   assert.match(route, /fetchOrderByProfileIdempotency/);
   assert.match(route, /replayLegacyOrderResponse/);
+  assert.match(data, /export async function fetchOrderByProfileIdempotency/);
+  assert.match(profileIdempotencyBlock, /\.eq\(\s*"profile_id",\s*profileId\s*\)/);
+  assert.match(profileIdempotencyBlock, /\.eq\(\s*"idempotency_key",\s*idempotencyKey\s*\)/);
 
   assert.match(normalizeBlock, /if\s*\(\s*value\s*==\s*null\s*\)\s*\{\s*return crypto\.randomUUID\(\);?\s*\}/s);
   assert.match(normalizeBlock, /if\s*\(\s*typeof value\s*!==\s*"string"\s*\)\s*return null/);
@@ -151,15 +171,31 @@ test("legacy lucky-draw order POST uses modern paid-action guardrails", () => {
 
   assert.match(replayBlock, /const slip = await latestSlipForOrder\(supabase, order\.id\)/);
   assert.match(replayBlock, /if\s*\(\s*!slip\s*\)\s*return null/);
+  assert.match(replayBlock, /return\s+jsonNoStore\(\s*\{\s*order:\s*toOrder\(/s);
+  assert.match(replayBlock, /replayed:\s*true/);
+  assert.ok(
+    replayBlock.indexOf("if (!slip) return null") < replayBlock.indexOf("return jsonNoStore"),
+    "legacy order replay must only return success after a slip exists",
+  );
   assert.doesNotMatch(replayBlock, /slip\?\./);
   assert.doesNotMatch(replayBlock, /storage_provider\s*\?\?\s*"manual_line"/);
   assert.doesNotMatch(replayBlock, /verification_status\s*\?\?\s*"manual_review"/);
+  assert.match(route, /return Response\.json\(\{\s*order:\s*toOrder\(/s);
+  assert.doesNotMatch(finalSuccessBlock, /replayed/);
 
   assert.match(route, /async function deleteIncompleteLegacyOrder/);
   assert.match(cleanupBlock, /clearLegacyOrderIdempotencyKey\(supabase, order\.id\)/);
   assert.match(cleanupBlock, /console\.warn\("legacy_order_incomplete_cleanup_failed"/);
   assert.match(postBlock, /deleteIncompleteLegacyOrder\(supabase, order, "slip_upload_failed"\)/);
   assert.match(route, /deleteIncompleteLegacyOrder\(supabase, order, "slip_insert_failed"\)/);
+  assert.match(
+    existingOrderReplayBlock,
+    /return jsonNoStore\(\s*\{\s*error:\s*"Order is still being prepared\. Please try again\."\s*\},\s*\{\s*status:\s*409\s*\}\s*\)/,
+  );
+  assert.match(
+    uniqueRaceReplayBlock,
+    /return jsonNoStore\(\s*\{\s*error:\s*"Order is still being prepared\. Please try again\."\s*\},\s*\{\s*status:\s*409\s*\}\s*\)/,
+  );
 
   assert.ok(
     postBlock.indexOf("enforceSameOriginMutation(request)") < postBlock.indexOf("resolveCurrentProfile()"),
