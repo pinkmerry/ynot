@@ -3,6 +3,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import vm from "node:vm";
+import ts from "typescript";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = path.resolve(appRoot, "..");
@@ -39,6 +41,32 @@ function latestMigrationMatching(pattern) {
     .at(-1);
   assert.ok(match, `missing migration matching ${pattern}`);
   return readRepo(`Database/supabase/migrations/${match}`);
+}
+
+function loadCspModule() {
+  const source = readApp("src/lib/security/csp.ts");
+  const { outputText } = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+  });
+  const module = { exports: {} };
+  vm.runInNewContext(
+    outputText,
+    { exports: module.exports, module },
+    { filename: "src/lib/security/csp.ts" },
+  );
+  return module.exports;
+}
+
+function cspDirectives(policy) {
+  return new Map(
+    policy.split(";").map((directive) => {
+      const [name, ...values] = directive.trim().split(/\s+/);
+      return [name, values];
+    }),
+  );
 }
 
 test("customer security regression harness can read app, database, and test files", () => {
@@ -106,7 +134,34 @@ test("production CSP uses request nonces instead of unsafe inline scripts", () =
   assert.match(csp, /export function buildContentSecurityPolicy/);
   assert.match(csp, /`'nonce-\$\{nonce\}'`/);
   assert.match(csp, /"'strict-dynamic'"/);
-  assert.doesNotMatch(csp, /script-src[\s\S]*'unsafe-inline'/);
+  assert.match(csp, /style-src-attr\s+'unsafe-inline'/);
+  assert.doesNotMatch(csp, /`script-src[^\n]*'unsafe-inline'/);
+
+  const { buildContentSecurityPolicy } = loadCspModule();
+  const policy = buildContentSecurityPolicy({
+    nonce: "customer-test-nonce",
+    isDevelopment: false,
+  });
+  const directives = cspDirectives(policy);
+  assert.deepEqual(directives.get("script-src"), [
+    "'self'",
+    "'nonce-customer-test-nonce'",
+    "'strict-dynamic'",
+    "https://static.line-scdn.net",
+  ]);
+  assert.deepEqual(directives.get("style-src"), [
+    "'self'",
+    "'nonce-customer-test-nonce'",
+    "https://fonts.googleapis.com",
+  ]);
+  assert.deepEqual(directives.get("style-src-elem"), [
+    "'self'",
+    "'nonce-customer-test-nonce'",
+    "https://fonts.googleapis.com",
+  ]);
+  assert.deepEqual(directives.get("style-src-attr"), ["'unsafe-inline'"]);
+  assert.ok(!directives.get("script-src")?.includes("'unsafe-inline'"));
+  assert.ok(!directives.get("script-src")?.includes("'unsafe-eval'"));
 
   const middleware = readApp("src/middleware.ts");
   assert.match(middleware, /buildContentSecurityPolicy/);
@@ -122,7 +177,7 @@ test("production CSP uses request nonces instead of unsafe inline scripts", () =
 
   const nextConfig = readApp("next.config.ts");
   assert.doesNotMatch(nextConfig, /Content-Security-Policy/);
-  assert.doesNotMatch(nextConfig, /script-src[\s\S]*'unsafe-inline'/);
+  assert.doesNotMatch(nextConfig, /script-src[^\n]*'unsafe-inline'/);
 
   const rootLayout = readApp("src/app/layout.tsx");
   assert.match(rootLayout, /export const dynamic = "force-dynamic"/);

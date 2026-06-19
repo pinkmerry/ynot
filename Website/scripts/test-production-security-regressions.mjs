@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import vm from "node:vm";
 import ts from "typescript";
 
 const appRoot = path.resolve(
@@ -98,6 +99,32 @@ function reachableStaticGraph(entryRelPaths) {
   return seen;
 }
 
+function loadCspModule() {
+  const source = readApp("src/lib/security/csp.ts");
+  const { outputText } = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+  });
+  const module = { exports: {} };
+  vm.runInNewContext(
+    outputText,
+    { exports: module.exports, module },
+    { filename: "src/lib/security/csp.ts" },
+  );
+  return module.exports;
+}
+
+function cspDirectives(policy) {
+  return new Map(
+    policy.split(";").map((directive) => {
+      const [name, ...values] = directive.trim().split(/\s+/);
+      return [name, values];
+    }),
+  );
+}
+
 test("public storefront routes do not statically reach admin controls or admin client barrel", () => {
   const graph = reachableStaticGraph([
     "src/app/page.tsx",
@@ -150,12 +177,39 @@ test("production CSP and Supabase auth cookie adapters are hardened", () => {
   assert.match(csp, /export function buildContentSecurityPolicy/);
   assert.match(csp, /`'nonce-\$\{nonce\}'`/);
   assert.match(csp, /"'strict-dynamic'"/);
+  assert.match(csp, /style-src-attr\s+'unsafe-inline'/);
   assert.match(
     csp,
     /isDevelopment[\s\S]*'unsafe-eval'/,
     "development-only unsafe-eval should be explicit for Next debug tooling",
   );
-  assert.doesNotMatch(csp, /script-src[\s\S]*'unsafe-inline'/);
+  assert.doesNotMatch(csp, /`script-src[^\n]*'unsafe-inline'/);
+
+  const { buildContentSecurityPolicy } = loadCspModule();
+  const productionPolicy = buildContentSecurityPolicy({
+    nonce: "production-test-nonce",
+    isDevelopment: false,
+  });
+  const productionDirectives = cspDirectives(productionPolicy);
+  assert.deepEqual(productionDirectives.get("script-src"), [
+    "'self'",
+    "'nonce-production-test-nonce'",
+    "'strict-dynamic'",
+    "https://static.line-scdn.net",
+  ]);
+  assert.deepEqual(productionDirectives.get("style-src"), [
+    "'self'",
+    "'nonce-production-test-nonce'",
+    "https://fonts.googleapis.com",
+  ]);
+  assert.deepEqual(productionDirectives.get("style-src-elem"), [
+    "'self'",
+    "'nonce-production-test-nonce'",
+    "https://fonts.googleapis.com",
+  ]);
+  assert.deepEqual(productionDirectives.get("style-src-attr"), ["'unsafe-inline'"]);
+  assert.ok(!productionDirectives.get("script-src")?.includes("'unsafe-inline'"));
+  assert.ok(!productionDirectives.get("script-src")?.includes("'unsafe-eval'"));
 
   const hardenerPath = "src/lib/supabase/cookie-options.ts";
   assert.ok(existsSync(appPath(hardenerPath)), "Supabase cookie hardener is missing");

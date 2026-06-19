@@ -22,7 +22,7 @@ export function buildContentSecurityPolicy({
     "https://static.line-scdn.net",
     ...(isDevelopment ? ["'unsafe-eval'"] : []),
   ];
-  const styleSrc = [
+  const styleElementSrc = [
     "'self'",
     isDevelopment ? "'unsafe-inline'" : `'nonce-${nonce}'`,
     "https://fonts.googleapis.com",
@@ -31,7 +31,9 @@ export function buildContentSecurityPolicy({
   return [
     "default-src 'self'",
     `script-src ${scriptSrc.join(" ")}`,
-    `style-src ${styleSrc.join(" ")}`,
+    `style-src ${styleElementSrc.join(" ")}`,
+    `style-src-elem ${styleElementSrc.join(" ")}`,
+    "style-src-attr 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https://fonts.gstatic.com",
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.line.me https://access.line.me",
