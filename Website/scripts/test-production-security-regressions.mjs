@@ -137,14 +137,25 @@ test("production CSP and Supabase auth cookie adapters are hardened", () => {
   const nextConfig = readApp("next.config.ts");
   assert.doesNotMatch(
     nextConfig,
+    /Content-Security-Policy/,
+    "CSP must be generated at request time so Next can apply nonces",
+  );
+  assert.doesNotMatch(
+    nextConfig,
     /script-src[^"\n]*'unsafe-eval'/,
     "production script-src must not carry a static unsafe-eval allowance",
   );
+
+  const csp = readApp("src/lib/security/csp.ts");
+  assert.match(csp, /export function buildContentSecurityPolicy/);
+  assert.match(csp, /`'nonce-\$\{nonce\}'`/);
+  assert.match(csp, /"'strict-dynamic'"/);
   assert.match(
-    nextConfig,
+    csp,
     /isDevelopment[\s\S]*'unsafe-eval'/,
     "development-only unsafe-eval should be explicit for Next debug tooling",
   );
+  assert.doesNotMatch(csp, /script-src[\s\S]*'unsafe-inline'/);
 
   const hardenerPath = "src/lib/supabase/cookie-options.ts";
   assert.ok(existsSync(appPath(hardenerPath)), "Supabase cookie hardener is missing");

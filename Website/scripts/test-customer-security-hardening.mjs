@@ -99,6 +99,38 @@ test("customer action tokens use dedicated secrets instead of service-role fallb
   assert.match(envVerifier, /is separate from SUPABASE_SERVICE_ROLE_KEY/);
 });
 
+test("production CSP uses request nonces instead of unsafe inline scripts", () => {
+  const csp = readApp("src/lib/security/csp.ts");
+  assert.match(csp, /export const nonceHeaderName = "x-nonce"/);
+  assert.match(csp, /export function createCspNonce/);
+  assert.match(csp, /export function buildContentSecurityPolicy/);
+  assert.match(csp, /`'nonce-\$\{nonce\}'`/);
+  assert.match(csp, /"'strict-dynamic'"/);
+  assert.doesNotMatch(csp, /script-src[\s\S]*'unsafe-inline'/);
+
+  const middleware = readApp("src/middleware.ts");
+  assert.match(middleware, /buildContentSecurityPolicy/);
+  assert.match(middleware, /createCspNonce/);
+  assert.match(middleware, /requestHeaders\.set\(nonceHeaderName, nonce\)/);
+  assert.match(middleware, /response\.headers\.set\("Content-Security-Policy", cspHeader\)/);
+  assert.match(middleware, /updateSession\(\s*request,\s*\{\s*requestHeaders\s*\}\s*\)/);
+
+  const proxy = readApp("src/lib/supabase/proxy.ts");
+  assert.match(proxy, /requestHeaders\?: Headers/);
+  assert.match(proxy, /NextResponse\.next\(\s*\{\s*request:\s*\{\s*headers:\s*requestHeaders\s*\}\s*\}\s*\)/);
+  assert.match(proxy, /supabaseResponse = nextWithRequestHeaders\(\)/);
+
+  const nextConfig = readApp("next.config.ts");
+  assert.doesNotMatch(nextConfig, /Content-Security-Policy/);
+  assert.doesNotMatch(nextConfig, /script-src[\s\S]*'unsafe-inline'/);
+
+  const rootLayout = readApp("src/app/layout.tsx");
+  assert.match(rootLayout, /export const dynamic = "force-dynamic"/);
+
+  const prototype = readApp("src/app/pack-open-prototype/page.tsx");
+  assert.doesNotMatch(prototype, /force-static/);
+});
+
 test("customer auth failures are rate-limited and do not expose provider messages", () => {
   const actions = readApp("src/features/auth/actions.ts");
   const passwordBlock = blockBetween(

@@ -14,8 +14,20 @@ function hasSupabaseAuthCookie(request: NextRequest) {
     .some((cookie) => isSupabaseAuthCookieName(cookie.name));
 }
 
-export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+type UpdateSessionOptions = {
+  requestHeaders?: Headers;
+};
+
+export async function updateSession(request: NextRequest, options: UpdateSessionOptions = {}) {
+  function nextWithRequestHeaders() {
+    const { requestHeaders } = options;
+    if (requestHeaders) {
+      return NextResponse.next({ request: { headers: requestHeaders } });
+    }
+    return NextResponse.next({ request });
+  }
+
+  let supabaseResponse = nextWithRequestHeaders();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   const secure = shouldUseSecureCookies(request);
@@ -30,7 +42,7 @@ export async function updateSession(request: NextRequest) {
       },
       setAll(cookiesToSet, headers) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        supabaseResponse = NextResponse.next({ request });
+        supabaseResponse = nextWithRequestHeaders();
         cookiesToSet.forEach(({ name, value, options }) =>
           supabaseResponse.cookies.set(
             name,
