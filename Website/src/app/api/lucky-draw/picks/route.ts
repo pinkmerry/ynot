@@ -1,5 +1,7 @@
-import { findOrderByPublicCode, isSupabaseConfigured } from "@/lib/lucky-draw/data";
+import { findOrderByPublicCodeForProfile, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 type PickBody = {
@@ -7,15 +9,28 @@ type PickBody = {
   slots?: unknown;
 };
 
+const pickFailureMessage = "Could not confirm selected numbers. Please refresh and try again.";
+
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
     return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   }
 
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
+
   const session = await resolveCurrentProfile();
   if (!session) {
     return Response.json({ error: "Login is required before picking slots." }, { status: 401 });
   }
+
+  const limited = await enforceRateLimit(
+    request,
+    "ynot:legacy-picks:confirm",
+    { limit: 30, windowMs: 60_000 },
+    session.profileId,
+  );
+  if (limited) return limited;
 
   let body: PickBody;
   try {
@@ -42,13 +57,13 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServiceSupabaseClient();
-  const order = await findOrderByPublicCode(supabase, body.orderId);
+  const order = await findOrderByPublicCodeForProfile(supabase, body.orderId, session.profileId);
   if (!order) {
-    return Response.json({ error: "Order not found." }, { status: 404 });
+    return Response.json({ error: pickFailureMessage }, { status: 404 });
   }
 
   if (!session.adminId && slots.length !== order.quantity) {
-    return Response.json({ error: "Select exactly the number of slots in this order." }, { status: 400 });
+    return Response.json({ error: pickFailureMessage }, { status: 400 });
   }
 
   const { data, error } = await supabase.rpc("claim_order_slots", {
@@ -59,7 +74,13 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    return Response.json({ error: error.message }, { status: 409 });
+    const rpcMessage = String((error as { message?: unknown })["message"] ?? error);
+    console.warn("legacy_customer_pick_failed", {
+      profileId: session.profileId,
+      orderPublicCode: body.orderId,
+      message: rpcMessage,
+    });
+    return Response.json({ error: pickFailureMessage }, { status: 409 });
   }
 
   return Response.json({ picks: data });

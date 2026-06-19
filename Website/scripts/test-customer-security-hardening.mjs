@@ -213,3 +213,26 @@ test("legacy lucky-draw order POST uses modern paid-action guardrails", () => {
   assert.match(postBlock, /idempotency_key: idempotencyKey/);
   assert.doesNotMatch(postBlock, /uploadError\.message/);
 });
+
+test("legacy customer pick route is rate-limited and not a public-code oracle", () => {
+  const data = readApp("src/lib/lucky-draw/data.ts");
+  assert.match(data, /export async function findOrderByPublicCodeForProfile/);
+  assert.match(data, /\.eq\("public_code", publicCode\)[\s\S]*\.eq\("profile_id", profileId\)/);
+
+  const route = readApp("src/app/api/lucky-draw/picks/route.ts");
+  assert.match(route, /import \{ enforceRateLimit \} from "@\/lib\/security\/rate-limit"/);
+  assert.match(route, /import \{ enforceSameOriginMutation \} from "@\/lib\/security\/same-origin"/);
+  assert.match(route, /findOrderByPublicCodeForProfile/);
+  assert.doesNotMatch(route, /findOrderByPublicCode\(supabase, body\.orderId\)/);
+  assert.match(route, /enforceRateLimit\(\s*request,\s*"ynot:legacy-picks:confirm",\s*\{\s*limit:\s*30,\s*windowMs:\s*60_000\s*\},\s*session\.profileId/);
+  assert.match(route, /"Could not confirm selected numbers\. Please refresh and try again\."/);
+  assert.doesNotMatch(route, /error\.message/);
+
+  const claimRpc = readRepo("Database/supabase/migrations/202605010002_fix_slot_claim_rpc.sql");
+  assert.match(claimRpc, /locked_order\.profile_id is distinct from p_actor_profile_id/);
+  assert.match(claimRpc, /not_allowed_to_pick_for_order/);
+
+  const adminOrderRoute = readApp("src/app/api/lucky-draw/admin/order/route.ts");
+  assert.match(adminOrderRoute, /claim_order_slots/);
+  assert.match(adminOrderRoute, /p_actor_admin_id: session\.adminId/);
+});

@@ -731,6 +731,22 @@ export async function findOrderByPublicCode(supabase: Supabase, publicCode: stri
   return data;
 }
 
+export async function findOrderByPublicCodeForProfile(
+  supabase: Supabase,
+  publicCode: string,
+  profileId: string,
+) {
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("public_code", publicCode)
+    .eq("profile_id", profileId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function fetchOrderByProfileIdempotency(
   supabase: Supabase,
   profileId: string,
