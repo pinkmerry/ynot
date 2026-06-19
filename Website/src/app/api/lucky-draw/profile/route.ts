@@ -1,6 +1,7 @@
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import type { ProfileInfo } from "@/lib/lucky-draw/types";
 import {
@@ -111,6 +112,14 @@ export async function PATCH(request: Request) {
     if (!session?.profileId) {
       return jsonNoStore({ error: "Login is required." }, { status: 401 });
     }
+
+    const limited = await enforceRateLimit(
+      request,
+      "ynot:legacy-profile:update",
+      { limit: 12, windowMs: 60_000 },
+      session.profileId,
+    );
+    if (limited) return limited;
 
     let body: ProfileBody;
     try {

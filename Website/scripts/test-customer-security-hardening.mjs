@@ -214,6 +214,20 @@ test("legacy lucky-draw order POST uses modern paid-action guardrails", () => {
   assert.doesNotMatch(postBlock, /uploadError\.message/);
 });
 
+test("legacy profile PATCH keeps PII scoped and rate-limited", () => {
+  const route = readApp("src/app/api/lucky-draw/profile/route.ts");
+  const patchBlock = blockBetween(route, "export async function PATCH", "    const patch =");
+
+  assert.match(route, /import \{ enforceRateLimit \} from "@\/lib\/security\/rate-limit"/);
+  assert.match(patchBlock, /enforceSameOriginMutation\(request\)/);
+  assert.match(patchBlock, /resolveCurrentProfile\(\)/);
+  assert.match(patchBlock, /enforceRateLimit\(\s*request,\s*"ynot:legacy-profile:update",\s*\{\s*limit:\s*12,\s*windowMs:\s*60_000\s*\},\s*session\.profileId/);
+  assert.ok(
+    patchBlock.indexOf("enforceRateLimit") < patchBlock.indexOf("request.json()"),
+    "profile write limiter must run before parsing and updating PII",
+  );
+});
+
 test("legacy customer pick route is rate-limited and not a public-code oracle", () => {
   const data = readApp("src/lib/lucky-draw/data.ts");
   assert.match(data, /export async function findOrderByPublicCodeForProfile/);
