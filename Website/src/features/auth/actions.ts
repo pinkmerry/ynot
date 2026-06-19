@@ -109,7 +109,7 @@ function withSignupSetupMessage(
   return `/signup?${params.toString()}`;
 }
 
-async function signupRequestMetadata() {
+async function authRequestMetadata() {
   const headerStore = await headers();
   const forwardedFor = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim();
   return {
@@ -122,9 +122,13 @@ async function signupRequestMetadata() {
   };
 }
 
-async function signupRateLimitError(scope: string, subject: string) {
-  const metadata = await signupRequestMetadata();
-  const request = new Request("https://ynot.local/signup", {
+async function authRateLimitError(
+  scope: string,
+  subject: string,
+  unavailableMessage: string,
+) {
+  const metadata = await authRequestMetadata();
+  const request = new Request("https://ynot.local/auth", {
     headers: {
       ...(metadata.ipAddress ? { "x-forwarded-for": metadata.ipAddress } : {}),
       ...(metadata.userAgent ? { "user-agent": metadata.userAgent } : {}),
@@ -144,7 +148,7 @@ async function signupRateLimitError(scope: string, subject: string) {
   if (limited.status === 429) {
     return "Too many requests. Please wait and try again.";
   }
-  return "Sign up is temporarily unavailable. Please try again later.";
+  return unavailableMessage;
 }
 
 function logAuthServerError(event: string, error: unknown) {
@@ -205,6 +209,15 @@ export async function signInWithPasswordAction(formData: FormData) {
     );
   }
 
+  const rateLimitError = await authRateLimitError(
+    "ynot:auth:password",
+    email,
+    "Login is temporarily unavailable. Please try again later.",
+  );
+  if (rateLimitError) {
+    redirect(withMessage("/login", "error", rateLimitError, nextPath));
+  }
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -212,11 +225,12 @@ export async function signInWithPasswordAction(formData: FormData) {
   });
 
   if (error || !data.user) {
+    if (error) logAuthServerError("password_sign_in_failed", error);
     redirect(
       withMessage(
         "/login",
         "error",
-        error?.message ?? "Login failed.",
+        "Email or password is incorrect.",
         nextPath,
       ),
     );
@@ -242,13 +256,17 @@ export async function requestPendingSignUpCodeAction(formData: FormData) {
     );
   }
 
-  const rateLimitError = await signupRateLimitError("ynot:signup:request", email);
+  const rateLimitError = await authRateLimitError(
+    "ynot:signup:request",
+    email,
+    "Sign up is temporarily unavailable. Please try again later.",
+  );
   if (rateLimitError) {
     redirect(withMessage("/signup", "error", rateLimitError, nextPath));
   }
 
   try {
-    const metadata = await signupRequestMetadata();
+    const metadata = await authRequestMetadata();
     const pending = await createPendingSignupCode({
       email,
       ipAddress: metadata.ipAddress,
@@ -290,7 +308,11 @@ export async function verifySignUpEmailCodeAction(formData: FormData) {
     );
   }
 
-  const rateLimitError = await signupRateLimitError("ynot:signup:verify", email);
+  const rateLimitError = await authRateLimitError(
+    "ynot:signup:verify",
+    email,
+    "Sign up is temporarily unavailable. Please try again later.",
+  );
   if (rateLimitError) {
     redirect(withSignupCodeMessage(email, "error", rateLimitError, nextPath));
   }
@@ -336,13 +358,17 @@ export async function resendSignUpEmailCodeAction(formData: FormData) {
     );
   }
 
-  const rateLimitError = await signupRateLimitError("ynot:signup:resend", email);
+  const rateLimitError = await authRateLimitError(
+    "ynot:signup:resend",
+    email,
+    "Sign up is temporarily unavailable. Please try again later.",
+  );
   if (rateLimitError) {
     redirect(withSignupCodeMessage(email, "error", rateLimitError, nextPath));
   }
 
   try {
-    const metadata = await signupRequestMetadata();
+    const metadata = await authRequestMetadata();
     const pending = await createPendingSignupCode({
       email,
       ipAddress: metadata.ipAddress,
@@ -513,11 +539,12 @@ export async function signInWithGoogleAction(formData: FormData) {
   });
 
   if (error || !data.url) {
+    if (error) logAuthServerError("google_sign_in_start_failed", error);
     redirect(
       withMessage(
         "/login",
         "error",
-        error?.message ?? "Google login could not start.",
+        "Google login could not start. Please try again.",
         nextPath,
       ),
     );

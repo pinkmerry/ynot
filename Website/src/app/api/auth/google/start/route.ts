@@ -62,11 +62,16 @@ export async function GET(request: Request) {
   });
 
   if (error || !data.url) {
+    if (error) {
+      console.warn("google_oauth_start_failed", {
+        message: error.message,
+      });
+    }
     return redirectWith(
       request,
       nextPath,
       "error",
-      error?.message ?? "Google login could not start.",
+      "Google login could not start. Please try again.",
     );
   }
 

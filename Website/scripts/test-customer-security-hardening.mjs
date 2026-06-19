@@ -28,7 +28,7 @@ function blockBetween(source, start, end) {
   assert.notEqual(from, -1, `missing start marker: ${start}`);
   const to = source.indexOf(end, from + start.length);
   assert.notEqual(to, -1, `missing end marker after ${start}: ${end}`);
-  return source.slice(from, to);
+  return source.slice(from + start.length, to);
 }
 
 function latestMigrationMatching(pattern) {
@@ -63,4 +63,36 @@ test("customer security regression harness can read app, database, and test file
     productionSecurityHarness,
     /public storefront routes do not statically reach admin controls/,
   );
+});
+
+test("customer auth failures are rate-limited and do not expose provider messages", () => {
+  const actions = readApp("src/features/auth/actions.ts");
+  const passwordBlock = blockBetween(
+    actions,
+    "export async function signInWithPasswordAction",
+    "export async function requestPendingSignUpCodeAction",
+  );
+
+  assert.match(actions, /async function authRateLimitError/);
+  assert.match(passwordBlock, /authRateLimitError\(\s*"ynot:auth:password",\s*email,/);
+  assert.ok(
+    passwordBlock.indexOf("authRateLimitError") < passwordBlock.indexOf("signInWithPassword"),
+    "password login must consume rate limit before hitting Supabase auth",
+  );
+  assert.match(passwordBlock, /"Email or password is incorrect\."/);
+  assert.doesNotMatch(passwordBlock, /error\?\.message/);
+
+  const googleActionBlock = blockBetween(
+    actions,
+    "export async function signInWithGoogleAction",
+    "export async function signOutAction",
+  );
+  assert.match(googleActionBlock, /logAuthServerError\("google_sign_in_start_failed", error\)/);
+  assert.match(googleActionBlock, /"Google login could not start\. Please try again\."/);
+  assert.doesNotMatch(googleActionBlock, /error\?\.message/);
+
+  const googleRoute = readApp("src/app/api/auth/google/start/route.ts");
+  assert.match(googleRoute, /console\.warn\("google_oauth_start_failed"/);
+  assert.match(googleRoute, /"Google login could not start\. Please try again\."/);
+  assert.doesNotMatch(googleRoute, /error\?\.message/);
 });
