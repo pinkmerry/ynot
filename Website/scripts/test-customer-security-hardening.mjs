@@ -45,4 +45,22 @@ test("customer security regression harness can read app, database, and test file
   assert.ok(existsSync(appPath("src/features/auth/actions.ts")));
   assert.ok(existsSync(appPath("src/app/api/lucky-draw/route.ts")));
   assert.ok(existsSync(repoPath("Database/supabase/migrations/202605010002_fix_slot_claim_rpc.sql")));
+
+  const authActions = readApp("src/features/auth/actions.ts");
+  assert.match(authActions, /enforceRateLimit/);
+  assert.match(authActions, /normalizeSignupEmail/);
+
+  const luckyDrawRoute = readApp("src/app/api/lucky-draw/route.ts");
+  assert.match(luckyDrawRoute, /verifyImageMagicBytes/);
+  assert.match(luckyDrawRoute, /resolveCurrentProfile/);
+
+  const slotClaimMigration = latestMigrationMatching(/fix_slot_claim_rpc\.sql$/);
+  assert.match(slotClaimMigration, /create or replace function public\.claim_order_slots/);
+  assert.match(slotClaimMigration, /security invoker/);
+
+  const productionSecurityHarness = readApp("scripts/test-production-security-regressions.mjs");
+  assert.match(
+    productionSecurityHarness,
+    /public storefront routes do not statically reach admin controls/,
+  );
 });
