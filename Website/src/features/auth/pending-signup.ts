@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
+import { dedicatedActionTokenSecret } from "@/lib/security/action-token-secret";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 
@@ -41,11 +42,7 @@ export function normalizeSignupEmail(email: string) {
 }
 
 function signupSecret() {
-  const value =
-    process.env.SIGNUP_OTP_SECRET?.trim() ??
-    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (!value) throw new Error("Missing SIGNUP_OTP_SECRET or SUPABASE_SERVICE_ROLE_KEY");
-  return value;
+  return dedicatedActionTokenSecret("SIGNUP_OTP_SECRET");
 }
 
 function hmacSignupValue(purpose: "code" | "setup", value: string) {

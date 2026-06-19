@@ -17,6 +17,14 @@ const REQUIRED_SECRETS = [
   "RESEND_API_KEY",
 ];
 
+const DEDICATED_CUSTOMER_TOKEN_SECRETS = [
+  "SIGNUP_OTP_SECRET",
+  "YNOT_IDENTITY_ACTION_TOKEN_SECRET",
+  "YNOT_COLLECTION_ACTION_TOKEN_SECRET",
+  "YNOT_ADDRESS_ACTION_TOKEN_SECRET",
+  "YNOT_PAYMENT_METHOD_ACTION_TOKEN_SECRET",
+];
+
 const REQUIRED_VARS = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
@@ -57,7 +65,7 @@ if (!isProd) {
   );
 }
 
-for (const name of REQUIRED_SECRETS) {
+for (const name of [...REQUIRED_SECRETS, ...DEDICATED_CUSTOMER_TOKEN_SECRETS]) {
   check(`secret ${name} is set`, Boolean(env[name]?.length), "secret missing");
 }
 
@@ -122,6 +130,25 @@ if (env.LINE_SESSION_SECRET) {
     env.LINE_SESSION_SECRET !== "dev-local-lucky-draw-session-secret",
     "rotate immediately — this is the literal dev fallback",
   );
+}
+
+for (const name of DEDICATED_CUSTOMER_TOKEN_SECRETS) {
+  const value = env[name];
+  if (!value) continue;
+
+  check(
+    `${name} length >= 32 chars`,
+    value.length >= 32,
+    "use at least 32 random characters (openssl rand -base64 32)",
+  );
+
+  if (env.SUPABASE_SERVICE_ROLE_KEY) {
+    check(
+      `${name} is separate from SUPABASE_SERVICE_ROLE_KEY`,
+      value !== env.SUPABASE_SERVICE_ROLE_KEY,
+      "must not share the service-role blast radius",
+    );
+  }
 }
 
 if (isProd) {

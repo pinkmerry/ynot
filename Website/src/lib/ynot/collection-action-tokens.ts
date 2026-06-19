@@ -2,23 +2,14 @@ import "server-only";
 
 import { createHmac } from "node:crypto";
 
+import { dedicatedActionTokenSecret } from "@/lib/security/action-token-secret";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 const COLLECTION_ITEM_ACTION_TOKEN_RE = /^ci_[A-Za-z0-9_-]{43}$/;
 const MAX_RESOLVABLE_COLLECTION_ITEMS = 10_000;
-const COLLECTION_ACTION_TOKEN_SECRET_ENV_KEYS = [
-  "YNOT_COLLECTION_ACTION_TOKEN_SECRET",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "AUTH_SECRET",
-  "NEXTAUTH_SECRET",
-] as const;
 
 function collectionActionTokenSecret() {
-  for (const key of COLLECTION_ACTION_TOKEN_SECRET_ENV_KEYS) {
-    const value = process.env[key]?.trim();
-    if (value) return value;
-  }
-  throw new Error("Missing server-only collection action token secret.");
+  return dedicatedActionTokenSecret("YNOT_COLLECTION_ACTION_TOKEN_SECRET");
 }
 
 function collectionTokenPayload(profileId: string, collectionItemId: string) {

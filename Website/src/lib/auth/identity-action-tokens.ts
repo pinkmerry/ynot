@@ -2,22 +2,13 @@ import "server-only";
 
 import { createHmac } from "node:crypto";
 
+import { dedicatedActionTokenSecret } from "@/lib/security/action-token-secret";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 const IDENTITY_ACTION_TOKEN_RE = /^ui_[A-Za-z0-9_-]{43}$/;
-const IDENTITY_ACTION_TOKEN_SECRET_ENV_KEYS = [
-  "YNOT_IDENTITY_ACTION_TOKEN_SECRET",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "AUTH_SECRET",
-  "NEXTAUTH_SECRET",
-] as const;
 
 function identityActionTokenSecret() {
-  for (const key of IDENTITY_ACTION_TOKEN_SECRET_ENV_KEYS) {
-    const value = process.env[key]?.trim();
-    if (value) return value;
-  }
-  throw new Error("Missing server-only identity action token secret.");
+  return dedicatedActionTokenSecret("YNOT_IDENTITY_ACTION_TOKEN_SECRET");
 }
 
 function identityTokenPayload(profileId: string, identityId: string) {

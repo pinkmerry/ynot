@@ -2,22 +2,13 @@ import "server-only";
 
 import { createHmac } from "node:crypto";
 
+import { dedicatedActionTokenSecret } from "@/lib/security/action-token-secret";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 const ADDRESS_ACTION_TOKEN_RE = /^ua_[A-Za-z0-9_-]{43}$/;
-const ADDRESS_ACTION_TOKEN_SECRET_ENV_KEYS = [
-  "YNOT_ADDRESS_ACTION_TOKEN_SECRET",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "AUTH_SECRET",
-  "NEXTAUTH_SECRET",
-] as const;
 
 function addressActionTokenSecret() {
-  for (const key of ADDRESS_ACTION_TOKEN_SECRET_ENV_KEYS) {
-    const value = process.env[key]?.trim();
-    if (value) return value;
-  }
-  throw new Error("Missing server-only address action token secret.");
+  return dedicatedActionTokenSecret("YNOT_ADDRESS_ACTION_TOKEN_SECRET");
 }
 
 function addressTokenPayload(profileId: string, addressId: string) {

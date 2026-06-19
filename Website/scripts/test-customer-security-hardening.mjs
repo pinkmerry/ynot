@@ -65,6 +65,40 @@ test("customer security regression harness can read app, database, and test file
   );
 });
 
+test("customer action tokens use dedicated secrets instead of service-role fallbacks", () => {
+  const helper = readApp("src/lib/security/action-token-secret.ts");
+  assert.match(helper, /export function dedicatedActionTokenSecret/);
+  assert.doesNotMatch(helper, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(helper, /dev-local-\$\{envKey\.toLowerCase\(\)\}-secret/);
+
+  for (const file of [
+    "src/features/auth/pending-signup.ts",
+    "src/lib/auth/identity-action-tokens.ts",
+    "src/lib/ynot/address-action-tokens.ts",
+    "src/lib/ynot/collection-action-tokens.ts",
+    "src/lib/ynot/payment-method-action-tokens.ts",
+  ]) {
+    const source = readApp(file);
+    assert.match(source, /dedicatedActionTokenSecret/);
+    assert.doesNotMatch(source, /SUPABASE_SERVICE_ROLE_KEY/);
+    assert.doesNotMatch(source, /AUTH_SECRET/);
+    assert.doesNotMatch(source, /NEXTAUTH_SECRET/);
+  }
+
+  const envVerifier = readApp("tools/verification/verify-production-env.mjs");
+  for (const name of [
+    "SIGNUP_OTP_SECRET",
+    "YNOT_IDENTITY_ACTION_TOKEN_SECRET",
+    "YNOT_COLLECTION_ACTION_TOKEN_SECRET",
+    "YNOT_ADDRESS_ACTION_TOKEN_SECRET",
+    "YNOT_PAYMENT_METHOD_ACTION_TOKEN_SECRET",
+  ]) {
+    assert.match(envVerifier, new RegExp(`"${name}"`));
+  }
+  assert.match(envVerifier, /DEDICATED_CUSTOMER_TOKEN_SECRETS/);
+  assert.match(envVerifier, /is separate from SUPABASE_SERVICE_ROLE_KEY/);
+});
+
 test("customer auth failures are rate-limited and do not expose provider messages", () => {
   const actions = readApp("src/features/auth/actions.ts");
   const passwordBlock = blockBetween(

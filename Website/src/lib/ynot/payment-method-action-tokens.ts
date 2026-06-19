@@ -2,22 +2,13 @@ import "server-only";
 
 import { createHmac } from "node:crypto";
 
+import { dedicatedActionTokenSecret } from "@/lib/security/action-token-secret";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 const PAYMENT_METHOD_ACTION_TOKEN_RE = /^pm_[A-Za-z0-9_-]{43}$/;
-const PAYMENT_METHOD_ACTION_TOKEN_SECRET_ENV_KEYS = [
-  "YNOT_PAYMENT_METHOD_ACTION_TOKEN_SECRET",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "AUTH_SECRET",
-  "NEXTAUTH_SECRET",
-] as const;
 
 function paymentMethodActionTokenSecret() {
-  for (const key of PAYMENT_METHOD_ACTION_TOKEN_SECRET_ENV_KEYS) {
-    const value = process.env[key]?.trim();
-    if (value) return value;
-  }
-  throw new Error("Missing server-only payment method action token secret.");
+  return dedicatedActionTokenSecret("YNOT_PAYMENT_METHOD_ACTION_TOKEN_SECRET");
 }
 
 async function paymentMethodTokenSignature(paymentMethodId: string) {
