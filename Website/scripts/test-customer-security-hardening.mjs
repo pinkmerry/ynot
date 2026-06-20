@@ -172,7 +172,11 @@ test("production CSP uses request nonces instead of unsafe inline scripts", () =
 
   const proxy = readApp("src/lib/supabase/proxy.ts");
   assert.match(proxy, /requestHeaders\?: Headers/);
-  assert.match(proxy, /NextResponse\.next\(\s*\{\s*request:\s*\{\s*headers:\s*requestHeaders\s*\}\s*\}\s*\)/);
+  assert.match(proxy, /const headers = new Headers\(request\.headers\)/);
+  assert.match(proxy, /requestHeaders\.get\("x-nonce"\)/);
+  assert.match(proxy, /requestHeaders\.get\("Content-Security-Policy"\)/);
+  assert.match(proxy, /NextResponse\.next\(\s*\{\s*request:\s*\{\s*headers\s*\}\s*\}\s*\)/);
+  assert.doesNotMatch(proxy, /headers:\s*requestHeaders/);
   assert.match(proxy, /supabaseResponse = nextWithRequestHeaders\(\)/);
 
   const nextConfig = readApp("next.config.ts");

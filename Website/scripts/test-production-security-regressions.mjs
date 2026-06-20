@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import vm from "node:vm";
+import { NextRequest, NextResponse } from "next/server.js";
 import ts from "typescript";
 
 const appRoot = path.resolve(
@@ -229,6 +230,65 @@ test("production CSP and Supabase auth cookie adapters are hardened", () => {
       `${file} must harden Supabase auth-token cookie writes`,
     );
   }
+
+  const proxy = readApp("src/lib/supabase/proxy.ts");
+  const nextResponseHelper = sliceBetween(
+    proxy,
+    "function nextWithRequestHeaders()",
+    "let supabaseResponse = nextWithRequestHeaders()",
+  );
+  assert.match(nextResponseHelper, /const headers = new Headers\(request\.headers\)/);
+  assert.match(nextResponseHelper, /requestHeaders\.get\("x-nonce"\)/);
+  assert.match(nextResponseHelper, /headers\.set\("x-nonce", nonce\)/);
+  assert.match(nextResponseHelper, /requestHeaders\.get\("Content-Security-Policy"\)/);
+  assert.match(nextResponseHelper, /headers\.set\("Content-Security-Policy", csp\)/);
+  assert.match(nextResponseHelper, /NextResponse\.next\(\s*\{\s*request:\s*\{\s*headers\s*\}\s*\}\s*\)/);
+  assert.doesNotMatch(
+    nextResponseHelper,
+    /headers:\s*requestHeaders/,
+    "proxy must not reuse pre-cloned requestHeaders after Supabase mutates auth cookies",
+  );
+  assert.doesNotMatch(
+    nextResponseHelper,
+    /requestHeaders\.(?:forEach|entries|keys|values)|for\s*\([^)]*requestHeaders/,
+    "proxy must only overlay allowlisted nonce/CSP headers from options",
+  );
+});
+
+test("production CSP request override keeps refreshed Supabase auth cookies", () => {
+  const request = new NextRequest("https://www.ynotopen.com/collection", {
+    headers: {
+      cookie: "sb-project-auth-token=old-session; ynot_cart=keep",
+    },
+  });
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", "nonce-after-refresh");
+  requestHeaders.set("Content-Security-Policy", "script-src 'nonce-after-refresh'");
+
+  request.cookies.set("sb-project-auth-token", "new-session");
+
+  const headers = new Headers(request.headers);
+  const nonce = requestHeaders.get("x-nonce");
+  const csp = requestHeaders.get("Content-Security-Policy");
+
+  if (nonce) headers.set("x-nonce", nonce);
+  if (csp) headers.set("Content-Security-Policy", csp);
+
+  const response = NextResponse.next({ request: { headers } });
+
+  assert.equal(
+    response.headers.get("x-middleware-request-cookie"),
+    "sb-project-auth-token=new-session; ynot_cart=keep",
+  );
+  assert.equal(response.headers.get("x-middleware-request-x-nonce"), "nonce-after-refresh");
+  assert.equal(
+    response.headers.get("x-middleware-request-content-security-policy"),
+    "script-src 'nonce-after-refresh'",
+  );
+  assert.doesNotMatch(
+    response.headers.get("x-middleware-request-cookie") ?? "",
+    /old-session/,
+  );
 });
 
 test("draw_rounds DELETE realtime migration does not reference the row being deleted", () => {

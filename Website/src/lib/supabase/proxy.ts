@@ -21,10 +21,18 @@ type UpdateSessionOptions = {
 export async function updateSession(request: NextRequest, options: UpdateSessionOptions = {}) {
   function nextWithRequestHeaders() {
     const { requestHeaders } = options;
-    if (requestHeaders) {
-      return NextResponse.next({ request: { headers: requestHeaders } });
+    if (!requestHeaders) {
+      return NextResponse.next({ request });
     }
-    return NextResponse.next({ request });
+
+    const headers = new Headers(request.headers);
+    const nonce = requestHeaders.get("x-nonce");
+    const csp = requestHeaders.get("Content-Security-Policy");
+
+    if (nonce) headers.set("x-nonce", nonce);
+    if (csp) headers.set("Content-Security-Policy", csp);
+
+    return NextResponse.next({ request: { headers } });
   }
 
   let supabaseResponse = nextWithRequestHeaders();
