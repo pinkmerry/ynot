@@ -91,6 +91,10 @@ const identityActionTokenSource = readFileSync(
   new URL("../src/lib/auth/identity-action-tokens.ts", import.meta.url),
   "utf8",
 );
+const actionTokenSecretSource = readFileSync(
+  new URL("../src/lib/security/action-token-secret.ts", import.meta.url),
+  "utf8",
+);
 const hidePrizeMetadataMigration = readFileSync(
   new URL("../../Database/supabase/migrations/20260602190000_hide_prize_metadata_from_clients.sql", import.meta.url),
   "utf8",
@@ -103,6 +107,25 @@ function between(source, start, end) {
   assert.notEqual(endIndex, -1, `missing end marker: ${end}`);
   return source.slice(startIndex, endIndex);
 }
+
+function assertDedicatedActionTokenSecret(source, envKey) {
+  assert.match(
+    source,
+    new RegExp(`dedicatedActionTokenSecret\\("${envKey}"\\)`),
+  );
+  assert.doesNotMatch(source, /NEXT_PUBLIC_/);
+  assert.doesNotMatch(source, /SUPABASE_SERVICE_ROLE_KEY|AUTH_SECRET|NEXTAUTH_SECRET/);
+  assert.doesNotMatch(source, /ynott-local|hardcoded/i);
+}
+
+test("shared customer action token secrets own production missing-secret behavior", () => {
+  assert.match(actionTokenSecretSource, /export function dedicatedActionTokenSecret/);
+  assert.match(
+    actionTokenSecretSource,
+    /throw new Error\(`Missing dedicated customer token secret: \$\{envKey\}`\)/,
+  );
+  assert.doesNotMatch(actionTokenSecretSource, /SUPABASE_SERVICE_ROLE_KEY/);
+});
 
 test("public campaign prize previews do not expose owner odds or stock target SKUs", () => {
   const helper = between(
@@ -651,12 +674,10 @@ test("customer pull history does not expose raw open, reward, or campaign ids", 
 
 test("customer collection actions use opaque tokens instead of raw collection item UUIDs", () => {
   assert.match(dataSource, /collectionItemActionToken/);
-  assert.match(
+  assertDedicatedActionTokenSecret(
     collectionActionTokenSource,
-    /throw new Error\("Missing server-only collection action token secret\."\)/,
+    "YNOT_COLLECTION_ACTION_TOKEN_SECRET",
   );
-  assert.doesNotMatch(collectionActionTokenSource, /NEXT_PUBLIC_/);
-  assert.doesNotMatch(collectionActionTokenSource, /ynott-local|hardcoded/i);
   const collectionMapper = between(
     dataSource,
     "export async function getCollection",
@@ -688,22 +709,46 @@ test("customer collection actions use opaque tokens instead of raw collection it
   );
   assert.doesNotMatch(conversionHandler, /ids\.some\(\(item\) => !UUID_RE\.test\(item\)\)/);
 
+  const shippingCollectionTokenNormalizerEnd = shippingRouteSource.includes(
+    "function normalizeQuoteToken",
+  )
+    ? "function normalizeQuoteToken"
+    : "function normalizeIdempotencyKey";
+  const shippingCollectionTokenNormalizer = between(
+    shippingRouteSource,
+    "function normalizeCollectionItemActionTokens",
+    shippingCollectionTokenNormalizerEnd,
+  );
+  assert.match(shippingCollectionTokenNormalizer, /isCollectionItemActionToken\(item\)/);
+  assert.doesNotMatch(shippingCollectionTokenNormalizer, /UUID_RE/);
+  assert.doesNotMatch(shippingCollectionTokenNormalizer, /body\.collectionItemIds/);
+
   const shippingHandler = between(
     shippingRouteSource,
     "export async function POST",
     "return Response.json({ result: publicShippingResult(data) });",
   );
   assert.match(shippingHandler, /resolveAddressActionToken\(/);
-  assert.match(shippingHandler, /p_address_id:\s*resolvedAddressId/);
-  assert.doesNotMatch(shippingHandler, /p_address_id:\s*(addressId|addressToken)\b/);
-  assert.match(
-    shippingHandler,
-    /resolvedCollectionItemIds\s*=\s*await resolveCollectionItemActionTokens\(/,
+  assert.match(shippingRouteSource, /p_address_id:\s*resolvedAddressId/);
+  assert.doesNotMatch(shippingRouteSource, /p_address_id:\s*(body\?\.addressId|addressToken)\b/);
+  assert.doesNotMatch(shippingRouteSource, /p_address_id:\s*body\??\.addressId\b/);
+  assert.ok(
+    /resolvedCollectionItemIds\s*=\s*await resolveCollectionItemActionTokens\(/.test(shippingHandler) ||
+      /resolvedCollectionItemIds\s*=\s*await resolveSelectedCollectionItems\(/.test(shippingHandler),
+    "shipping must resolve collection action tokens before passing collection item ids to RPC",
   );
+  if (/resolveSelectedCollectionItems/.test(shippingRouteSource)) {
+    const shippingCollectionResolver = between(
+      shippingRouteSource,
+      "async function resolveSelectedCollectionItems",
+      "async function submitLegacyShippingFallback",
+    );
+    assert.match(shippingCollectionResolver, /resolveCollectionItemActionTokens\(/);
+  }
   assert.match(shippingHandler, /catch \(error\)[\s\S]*Could not request shipping/);
-  assert.match(shippingHandler, /p_collection_item_ids:\s*resolvedCollectionItemIds/);
+  assert.match(shippingRouteSource, /p_collection_item_ids:\s*(?:selectionMode === "selected" \? )?resolvedCollectionItemIds/);
   assert.doesNotMatch(
-    shippingHandler,
+    shippingRouteSource,
     /p_collection_item_ids:\s*(collectionItemIds|collectionItemTokens|ids|tokens)\b/,
   );
   assert.doesNotMatch(shippingHandler, /ids\.some\(\(item\) => !UUID_RE\.test\(item\)\)/);
@@ -753,12 +798,10 @@ test("customer login methods use public identity rows and opaque unlink tokens",
   assert.doesNotMatch(identityUnlinkRouteSource, /error:\s*(listError|deleteError)\.message/);
   assert.match(identityUnlinkRouteSource, /identity_unlink_failed/);
 
-  assert.match(
+  assertDedicatedActionTokenSecret(
     identityActionTokenSource,
-    /throw new Error\("Missing server-only identity action token secret\."\)/,
+    "YNOT_IDENTITY_ACTION_TOKEN_SECRET",
   );
-  assert.doesNotMatch(identityActionTokenSource, /NEXT_PUBLIC_/);
-  assert.doesNotMatch(identityActionTokenSource, /ynott-local|hardcoded/i);
 });
 
 test("customer addresses use opaque action tokens and hide database error details", () => {
@@ -780,14 +823,18 @@ test("customer addresses use opaque action tokens and hide database error detail
   assert.doesNotMatch(addressesRouteSource, /address:\s*\{\s*id:\s*data\.id/);
   assert.match(shippingRouteSource, /normalizeAddressActionToken/);
   assert.match(shippingRouteSource, /resolveAddressActionToken/);
-  assert.doesNotMatch(shippingRouteSource, /function normalizeUuid/);
-  assert.doesNotMatch(shippingRouteSource, /const UUID_RE\s*=/);
-  assert.match(
-    addressActionTokenSource,
-    /throw new Error\("Missing server-only address action token secret\."\)/,
+  const shippingAddressTokenNormalizer = between(
+    shippingRouteSource,
+    "function normalizeAddressActionToken",
+    "function normalizeCollectionItemActionTokens",
   );
-  assert.doesNotMatch(addressActionTokenSource, /NEXT_PUBLIC_/);
-  assert.doesNotMatch(addressActionTokenSource, /ynott-local|hardcoded/i);
+  assert.match(shippingAddressTokenNormalizer, /isAddressActionToken\(trimmed\)/);
+  assert.doesNotMatch(shippingAddressTokenNormalizer, /UUID_RE|normalizeUuid/);
+  assert.doesNotMatch(shippingAddressTokenNormalizer, /body\.addressId/);
+  assertDedicatedActionTokenSecret(
+    addressActionTokenSource,
+    "YNOT_ADDRESS_ACTION_TOKEN_SECRET",
+  );
 
   assert.match(addressesRouteSource, /addressSaveFailure/);
   assert.match(addressesRouteSource, /console\.warn\("ynot_address_save_failed"/);
@@ -822,12 +869,10 @@ test("customer wallet top-ups use public DTOs without raw payment-flow ids", () 
   assert.doesNotMatch(walletRouteSource, /payment_method_id:\s*paymentMethodToken/);
   assert.doesNotMatch(walletRouteSource, /error:\s*uploadError\.message/);
   assert.match(walletRouteSource, /wallet_top_up_slip_upload_failed/);
-  assert.match(
+  assertDedicatedActionTokenSecret(
     paymentMethodActionTokenSource,
-    /throw new Error\("Missing server-only payment method action token secret\."\)/,
+    "YNOT_PAYMENT_METHOD_ACTION_TOKEN_SECRET",
   );
-  assert.doesNotMatch(paymentMethodActionTokenSource, /NEXT_PUBLIC_/);
-  assert.doesNotMatch(paymentMethodActionTokenSource, /ynott-local|hardcoded/i);
   assert.match(walletRouteSource, /topUp:\s*publicTopUp\(toTopUp\(responseTopUp\)\)/);
   assert.doesNotMatch(walletRouteSource, /return jsonNoStore\(\{ topUp: toTopUp/);
 });
