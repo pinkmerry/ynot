@@ -43,6 +43,43 @@ function latestMigrationMatching(pattern) {
   return readRepo(`Database/supabase/migrations/${match}`);
 }
 
+function latestMigrationDefiningFunction(functionName) {
+  const migrationDir = repoPath("Database/supabase/migrations");
+  const definitionPattern = new RegExp(
+    `\\bcreate\\s+(?:or\\s+replace\\s+)?function\\s+public\\.${functionName}\\s*\\(`,
+    "i",
+  );
+  const matches = readdirSync(migrationDir)
+    .sort()
+    .filter((name) =>
+      definitionPattern.test(readRepo(`Database/supabase/migrations/${name}`)),
+    );
+  const filename = matches.at(-1);
+  assert.ok(filename, `missing migration defining public.${functionName}`);
+  return {
+    filename,
+    source: readRepo(`Database/supabase/migrations/${filename}`),
+  };
+}
+
+function patternIndex(source, pattern, label) {
+  const match = pattern.exec(source);
+  assert.ok(match, `missing ${label}`);
+  return match.index;
+}
+
+function assertPatternsInOrder(source, checks, context) {
+  let previousIndex = -1;
+  for (const [label, pattern] of checks) {
+    const index = patternIndex(source, pattern, `${context}: ${label}`);
+    assert.ok(
+      index > previousIndex,
+      `${context}: ${label} must appear after the previous guard marker`,
+    );
+    previousIndex = index;
+  }
+}
+
 function loadCspModule() {
   const source = readApp("src/lib/security/csp.ts");
   const { outputText } = ts.transpileModule(source, {
@@ -377,32 +414,118 @@ test("legacy customer pick route is rate-limited and not a public-code oracle", 
 });
 
 test("related customer APIs and RPCs keep their existing guardrails", () => {
-  for (const [file, scope] of [
-    ["src/app/api/ynot/wallet/route.ts", "ynot:wallet:top-up"],
-    ["src/app/api/ynot/shipping/route.ts", "ynot:shipping:request"],
-    ["src/lib/ynot/card-conversion-api.ts", "ynot:convert:submit"],
-  ]) {
-    const source = readApp(file);
-    assert.match(source, /enforceSameOriginMutation\(request\)/, `${file} missing same-origin guard`);
-    assert.match(source, /requireVerifiedAnchor\(session\)/, `${file} missing verified-anchor guard`);
-    assert.match(source, new RegExp(`"${scope}"`), `${file} missing rate-limit scope ${scope}`);
-    assert.match(source, /p_idempotency_key: idempotencyKey/, `${file} missing idempotency RPC argument`);
-  }
+  const walletRoute = readApp("src/app/api/ynot/wallet/route.ts");
+  const walletPostBeforeParse = blockBetween(
+    walletRoute,
+    "export async function POST(request: Request)",
+    "const form = await request.formData();",
+  );
+  assertPatternsInOrder(
+    walletPostBeforeParse,
+    [
+      ["same-origin assignment", /const crossOrigin = enforceSameOriginMutation\(request\);/],
+      ["same-origin return", /if \(crossOrigin\) return crossOrigin;/],
+      ["verified-anchor assignment", /const blocked = await requireVerifiedAnchor\(session\);/],
+      ["verified-anchor return", /if \(blocked\) return blocked;/],
+      [
+        "wallet rate-limit assignment",
+        /const limited = await enforceRateLimit\(\s*request,\s*"ynot:wallet:top-up",\s*\{\s*limit:\s*6,\s*windowMs:\s*60_000\s*\},\s*session\.profileId\s*\);/,
+      ],
+      ["wallet rate-limit return", /if \(limited\) return limited;/],
+    ],
+    "wallet POST before form parsing",
+  );
+  assert.match(walletRoute, /p_idempotency_key: idempotencyKey/);
+
+  const shippingRoute = readApp("src/app/api/ynot/shipping/route.ts");
+  const shippingPostBeforeParse = blockBetween(
+    shippingRoute,
+    "export async function POST(request: Request)",
+    "const body = (await request.json().catch(() => null))",
+  );
+  assertPatternsInOrder(
+    shippingPostBeforeParse,
+    [
+      ["same-origin assignment", /const crossOrigin = enforceSameOriginMutation\(request\);/],
+      ["same-origin return", /if \(crossOrigin\) return crossOrigin;/],
+      ["verified-anchor assignment", /const blocked = await requireVerifiedAnchor\(session\);/],
+      ["verified-anchor return", /if \(blocked\) return blocked;/],
+      [
+        "shipping rate-limit assignment",
+        /const limited = await enforceRateLimit\(\s*request,\s*"ynot:shipping:request",\s*\{\s*limit:\s*20,\s*windowMs:\s*60_000\s*\},\s*session\.profileId,\s*\);/,
+      ],
+      ["shipping rate-limit return", /if \(limited\) return limited;/],
+    ],
+    "shipping POST before JSON parsing",
+  );
+  assert.match(shippingRoute, /p_idempotency_key: idempotencyKey/);
+
+  const conversionApi = readApp("src/lib/ynot/card-conversion-api.ts");
+  const conversionBeforeParse = blockBetween(
+    conversionApi,
+    "export async function handleCardConversionRequest(request: Request)",
+    "const body = (await request.json().catch(() => null))",
+  );
+  assertPatternsInOrder(
+    conversionBeforeParse,
+    [
+      ["same-origin assignment", /const crossOrigin = enforceSameOriginMutation\(request\);/],
+      ["same-origin return", /if \(crossOrigin\) return crossOrigin;/],
+      ["verified-anchor assignment", /const blocked = await requireVerifiedAnchor\(session\);/],
+      ["verified-anchor return", /if \(blocked\) return blocked;/],
+      [
+        "conversion rate-limit assignment",
+        /const limited = await enforceRateLimit\(\s*request,\s*"ynot:convert:submit",\s*\{\s*limit:\s*20,\s*windowMs:\s*60_000\s*\},\s*session\.profileId,\s*\);/,
+      ],
+      ["conversion rate-limit return", /if \(limited\) return limited;/],
+    ],
+    "conversion handler before JSON parsing",
+  );
+  assert.match(conversionApi, /p_idempotency_key: idempotencyKey/);
 
   const gachaOpen = readApp("src/app/api/ynot/gacha/open/route.ts");
-  assert.match(gachaOpen, /enforceSameOriginMutation\(request\)/);
-  assert.match(gachaOpen, /requireVerifiedAnchor\(session\)/);
-  assert.match(gachaOpen, /gachaOpenRequestRateLimit\.scope/);
-  assert.match(gachaOpen, /gachaOpenProfileUnitRateLimit\.scope[\s\S]*cost: quantity/);
-  assert.match(gachaOpen, /gachaOpenIpUnitRateLimit\.scope[\s\S]*cost: quantity/);
+  const gachaPostBeforeRpc = blockBetween(
+    gachaOpen,
+    "export async function POST(request: Request)",
+    'const { data, error } = await supabase.rpc("open_gacha_campaign"',
+  );
+  assertPatternsInOrder(
+    gachaPostBeforeRpc,
+    [
+      ["same-origin assignment", /const crossOrigin = enforceSameOriginMutation\(request\);/],
+      ["same-origin return", /if \(crossOrigin\) return crossOrigin;/],
+      ["verified-anchor assignment", /const blocked = await requireVerifiedAnchor\(session\);/],
+      ["verified-anchor return", /if \(blocked\) return blocked;/],
+      [
+        "request rate-limit assignment",
+        /const requestLimited = await enforceRateLimit\(\s*request,\s*gachaOpenRequestRateLimit\.scope,\s*\{\s*limit:\s*gachaOpenRequestRateLimit\.limit,\s*windowMs:\s*gachaOpenRequestRateLimit\.windowMs,\s*\},\s*session\.profileId,\s*\);/,
+      ],
+      ["request rate-limit return", /if \(requestLimited\) return requestLimited;/],
+      ["JSON parsing", /const body = await request\.json\(\)\.catch\(\(\) => null\)/],
+      [
+        "profile unit rate-limit assignment",
+        /const profileUnitLimited = await enforceRateLimit\(\s*request,\s*gachaOpenProfileUnitRateLimit\.scope,\s*\{\s*limit:\s*gachaOpenProfileUnitRateLimit\.limit,\s*windowMs:\s*gachaOpenProfileUnitRateLimit\.windowMs,\s*cost:\s*quantity,\s*\},\s*session\.profileId,\s*\);/,
+      ],
+      ["profile unit rate-limit return", /if \(profileUnitLimited\) return profileUnitLimited;/],
+      [
+        "IP unit rate-limit assignment",
+        /const ipUnitLimited = await enforceRateLimit\(\s*request,\s*gachaOpenIpUnitRateLimit\.scope,\s*\{\s*limit:\s*gachaOpenIpUnitRateLimit\.limit,\s*windowMs:\s*gachaOpenIpUnitRateLimit\.windowMs,\s*cost:\s*quantity,\s*\},\s*\);/,
+      ],
+      ["IP unit rate-limit return", /if \(ipUnitLimited\) return ipUnitLimited;/],
+    ],
+    "gacha open POST before RPC",
+  );
   assert.match(gachaOpen, /p_idempotency_key: idempotencyKey/);
 
-  const rateLimitRpc = readRepo("Database/supabase/migrations/20260607011459_weighted_api_rate_limit.sql");
-  assert.match(rateLimitRpc, /consume_api_rate_limit_weighted/);
-  assert.match(rateLimitRpc, /p_cost integer default 1/);
-  assert.match(rateLimitRpc, /grant execute on function public\.consume_api_rate_limit_weighted\(text, integer, integer, integer\) to service_role/);
+  const rateLimitRpc = latestMigrationDefiningFunction("consume_api_rate_limit_weighted");
+  assert.equal(rateLimitRpc.filename, "20260607011459_weighted_api_rate_limit.sql");
+  assert.match(rateLimitRpc.source, /p_cost integer default 1/);
+  assert.match(rateLimitRpc.source, /effective_cost := greatest\(coalesce\(p_cost, 1\), 1\)/);
+  assert.match(rateLimitRpc.source, /grant execute on function public\.consume_api_rate_limit_weighted\(text, integer, integer, integer\) to service_role/);
 
-  const claimRpc = readRepo("Database/supabase/migrations/202605010002_fix_slot_claim_rpc.sql");
-  assert.match(claimRpc, /locked_order\.profile_id is distinct from p_actor_profile_id/);
-  assert.match(claimRpc, /grant execute on function public\.claim_order_slots\(uuid, integer\[\], uuid, uuid\) to service_role/);
+  const claimRpc = latestMigrationDefiningFunction("claim_order_slots");
+  assert.equal(claimRpc.filename, "202605010002_fix_slot_claim_rpc.sql");
+  assert.match(claimRpc.source, /locked_order\.profile_id is distinct from p_actor_profile_id/);
+  assert.match(claimRpc.source, /not_allowed_to_pick_for_order/);
+  assert.match(claimRpc.source, /grant execute on function public\.claim_order_slots\(uuid, integer\[\], uuid, uuid\) to service_role/);
 });
