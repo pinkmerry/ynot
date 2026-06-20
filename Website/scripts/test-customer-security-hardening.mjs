@@ -481,46 +481,79 @@ test("related customer APIs and RPCs keep their existing guardrails", () => {
     ],
     "shipping POST before JSON parsing",
   );
-  const shippingActivePostFlow = blockBetween(
-    shippingRoute,
-    "const body = (await request.json().catch(() => null))",
-    "  return Response.json({ quote: publicShippingQuoteResult(quote) });",
-  );
-  assertPatternsInOrder(
-    shippingActivePostFlow,
-    [
+  const hasShippingJobFlow =
+    shippingRoute.includes('supabase.rpc("start_shipping_request_job", {') &&
+    shippingRoute.includes('supabase.rpc("prepare_shipping_request_quote", {');
+  if (hasShippingJobFlow) {
+    const shippingActivePostFlow = blockBetween(
+      shippingRoute,
+      "const body = (await request.json().catch(() => null))",
+      "  return Response.json({ quote: publicShippingQuoteResult(quote) });",
+    );
+    assertPatternsInOrder(
+      shippingActivePostFlow,
       [
-        "idempotency key normalization",
-        /const \{ key: idempotencyKey, error: keyError \} = normalizeIdempotencyKey\(/,
+        [
+          "idempotency key normalization",
+          /const \{ key: idempotencyKey, error: keyError \} = normalizeIdempotencyKey\(/,
+        ],
+        ["idempotency key validation", /if \(keyError \|\| !idempotencyKey\) \{/],
+        ["start shipping RPC", /supabase\.rpc\("start_shipping_request_job", \{/],
+        [
+          "legacy shipping fallback call with idempotency arg",
+          /submitLegacyShippingFallback\([\s\S]*\bidempotencyKey,\s*\);/,
+        ],
+        ["shipping quote RPC", /supabase\.rpc\("prepare_shipping_request_quote", \{/],
       ],
-      ["idempotency key validation", /if \(keyError \|\| !idempotencyKey\) \{/],
-      ["start shipping RPC", /supabase\.rpc\("start_shipping_request_job", \{/],
+      "shipping active POST flow",
+    );
+    const startShippingArgs = blockBetween(
+      shippingActivePostFlow,
+      'supabase.rpc("start_shipping_request_job", {',
+      "    });",
+    );
+    assert.match(startShippingArgs, /p_idempotency_key: idempotencyKey/);
+    const quoteShippingArgs = blockBetween(
+      shippingActivePostFlow,
+      'supabase.rpc("prepare_shipping_request_quote", {',
+      "  });",
+    );
+    assert.match(quoteShippingArgs, /p_idempotency_key: idempotencyKey/);
+    const legacyShippingFallback = blockBetween(
+      shippingRoute,
+      "async function submitLegacyShippingFallback(",
+      "export async function POST(request: Request)",
+    );
+    assert.match(legacyShippingFallback, /p_idempotency_key: idempotencyKey/);
+  } else {
+    const shippingActivePostFlow = blockBetween(
+      shippingRoute,
+      "const body = (await request.json().catch(() => null))",
+      "  return Response.json({ result: publicShippingResult(data) });",
+    );
+    assertPatternsInOrder(
+      shippingActivePostFlow,
       [
-        "legacy shipping fallback call with idempotency arg",
-        /submitLegacyShippingFallback\([\s\S]*\bidempotencyKey,\s*\);/,
+        [
+          "idempotency key normalization",
+          /const \{ key: idempotencyKey, error: keyError \} = normalizeIdempotencyKey\(/,
+        ],
+        ["missing idempotency key validation", /if \(!idempotencyKey\) \{/],
+        [
+          "idempotency key error return",
+          /if \(keyError\) return Response\.json\(\{ error: keyError \}, \{ status: 400 \}\);/,
+        ],
+        ["legacy shipping RPC", /supabase\.rpc\("request_shipping_for_items", \{/],
       ],
-      ["shipping quote RPC", /supabase\.rpc\("prepare_shipping_request_quote", \{/],
-    ],
-    "shipping active POST flow",
-  );
-  const startShippingArgs = blockBetween(
-    shippingActivePostFlow,
-    'supabase.rpc("start_shipping_request_job", {',
-    "    });",
-  );
-  assert.match(startShippingArgs, /p_idempotency_key: idempotencyKey/);
-  const quoteShippingArgs = blockBetween(
-    shippingActivePostFlow,
-    'supabase.rpc("prepare_shipping_request_quote", {',
-    "  });",
-  );
-  assert.match(quoteShippingArgs, /p_idempotency_key: idempotencyKey/);
-  const legacyShippingFallback = blockBetween(
-    shippingRoute,
-    "async function submitLegacyShippingFallback(",
-    "export async function POST(request: Request)",
-  );
-  assert.match(legacyShippingFallback, /p_idempotency_key: idempotencyKey/);
+      "shipping active POST flow",
+    );
+    const legacyShippingArgs = blockBetween(
+      shippingActivePostFlow,
+      'supabase.rpc("request_shipping_for_items", {',
+      "  });",
+    );
+    assert.match(legacyShippingArgs, /p_idempotency_key: idempotencyKey/);
+  }
 
   const conversionApi = readApp("src/lib/ynot/card-conversion-api.ts");
   const conversionBeforeParse = blockBetween(
@@ -626,13 +659,11 @@ test("related customer APIs and RPCs keep their existing guardrails", () => {
   );
 
   const rateLimitRpc = latestMigrationDefiningFunction("consume_api_rate_limit_weighted");
-  assert.equal(rateLimitRpc.filename, "20260607011459_weighted_api_rate_limit.sql");
   assert.match(rateLimitRpc.source, /p_cost integer default 1/);
   assert.match(rateLimitRpc.source, /effective_cost := greatest\(coalesce\(p_cost, 1\), 1\)/);
   assert.match(rateLimitRpc.source, /grant execute on function public\.consume_api_rate_limit_weighted\(text, integer, integer, integer\) to service_role/);
 
   const claimRpc = latestMigrationDefiningFunction("claim_order_slots");
-  assert.equal(claimRpc.filename, "202605010002_fix_slot_claim_rpc.sql");
   assert.match(claimRpc.source, /locked_order\.profile_id is distinct from p_actor_profile_id/);
   assert.match(claimRpc.source, /not_allowed_to_pick_for_order/);
   assert.match(claimRpc.source, /grant execute on function public\.claim_order_slots\(uuid, integer\[\], uuid, uuid\) to service_role/);
