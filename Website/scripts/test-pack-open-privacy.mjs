@@ -124,7 +124,10 @@ test("shared customer action token secrets own production missing-secret behavio
     actionTokenSecretSource,
     /throw new Error\(`Missing dedicated customer token secret: \$\{envKey\}`\)/,
   );
-  assert.doesNotMatch(actionTokenSecretSource, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.doesNotMatch(
+    actionTokenSecretSource,
+    /SUPABASE_SERVICE_ROLE_KEY|AUTH_SECRET|NEXTAUTH_SECRET/,
+  );
 });
 
 test("public campaign prize previews do not expose owner odds or stock target SKUs", () => {
