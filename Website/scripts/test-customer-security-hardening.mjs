@@ -435,7 +435,30 @@ test("related customer APIs and RPCs keep their existing guardrails", () => {
     ],
     "wallet POST before form parsing",
   );
-  assert.match(walletRoute, /p_idempotency_key: idempotencyKey/);
+  const walletActiveTopUpFlow = blockBetween(
+    walletRoute,
+    "const form = await request.formData();",
+    "  if (submitError) {",
+  );
+  assertPatternsInOrder(
+    walletActiveTopUpFlow,
+    [
+      [
+        "idempotency key normalization",
+        /const idempotencyKey = normalizeTopUpIdempotencyKey\(form\.get\("idempotencyKey"\)\);/,
+      ],
+      ["idempotency key validation", /if \(!idempotencyKey\) \{/],
+      ["top-up replay lookup", /fetchExistingTopUpByIdempotency\(supabase, session\.profileId, idempotencyKey\)/],
+      ["submit top-up RPC", /supabase\.rpc\("submit_top_up_request", \{/],
+    ],
+    "wallet active top-up flow",
+  );
+  const walletSubmitTopUpArgs = blockBetween(
+    walletActiveTopUpFlow,
+    'supabase.rpc("submit_top_up_request", {',
+    "  });",
+  );
+  assert.match(walletSubmitTopUpArgs, /p_idempotency_key: idempotencyKey/);
 
   const shippingRoute = readApp("src/app/api/ynot/shipping/route.ts");
   const shippingPostBeforeParse = blockBetween(
@@ -458,7 +481,46 @@ test("related customer APIs and RPCs keep their existing guardrails", () => {
     ],
     "shipping POST before JSON parsing",
   );
-  assert.match(shippingRoute, /p_idempotency_key: idempotencyKey/);
+  const shippingActivePostFlow = blockBetween(
+    shippingRoute,
+    "const body = (await request.json().catch(() => null))",
+    "  return Response.json({ quote: publicShippingQuoteResult(quote) });",
+  );
+  assertPatternsInOrder(
+    shippingActivePostFlow,
+    [
+      [
+        "idempotency key normalization",
+        /const \{ key: idempotencyKey, error: keyError \} = normalizeIdempotencyKey\(/,
+      ],
+      ["idempotency key validation", /if \(keyError \|\| !idempotencyKey\) \{/],
+      ["start shipping RPC", /supabase\.rpc\("start_shipping_request_job", \{/],
+      [
+        "legacy shipping fallback call with idempotency arg",
+        /submitLegacyShippingFallback\([\s\S]*\bidempotencyKey,\s*\);/,
+      ],
+      ["shipping quote RPC", /supabase\.rpc\("prepare_shipping_request_quote", \{/],
+    ],
+    "shipping active POST flow",
+  );
+  const startShippingArgs = blockBetween(
+    shippingActivePostFlow,
+    'supabase.rpc("start_shipping_request_job", {',
+    "    });",
+  );
+  assert.match(startShippingArgs, /p_idempotency_key: idempotencyKey/);
+  const quoteShippingArgs = blockBetween(
+    shippingActivePostFlow,
+    'supabase.rpc("prepare_shipping_request_quote", {',
+    "  });",
+  );
+  assert.match(quoteShippingArgs, /p_idempotency_key: idempotencyKey/);
+  const legacyShippingFallback = blockBetween(
+    shippingRoute,
+    "async function submitLegacyShippingFallback(",
+    "export async function POST(request: Request)",
+  );
+  assert.match(legacyShippingFallback, /p_idempotency_key: idempotencyKey/);
 
   const conversionApi = readApp("src/lib/ynot/card-conversion-api.ts");
   const conversionBeforeParse = blockBetween(
@@ -481,13 +543,48 @@ test("related customer APIs and RPCs keep their existing guardrails", () => {
     ],
     "conversion handler before JSON parsing",
   );
-  assert.match(conversionApi, /p_idempotency_key: idempotencyKey/);
+  const conversionActiveHandlerFlow = blockBetween(
+    conversionApi,
+    "const body = (await request.json().catch(() => null))",
+    "export function publicConversionJobResult(raw: unknown)",
+  );
+  assertPatternsInOrder(
+    conversionActiveHandlerFlow,
+    [
+      [
+        "idempotency key normalization",
+        /const \{ key: idempotencyKey, error: keyError \} = normalizeIdempotencyKey\(/,
+      ],
+      ["idempotency key validation", /if \(keyError \|\| !idempotencyKey\) \{/],
+      [
+        "start conversion helper call with idempotency arg",
+        /startRewardConversion\([\s\S]*\bidempotencyKey,\s*\);/,
+      ],
+      [
+        "quote conversion helper call with idempotency arg",
+        /quoteRewardConversion\([\s\S]*\bidempotencyKey,\s*\);/,
+      ],
+    ],
+    "conversion active handler flow",
+  );
+  const quoteRewardConversion = blockBetween(
+    conversionApi,
+    "async function quoteRewardConversion(",
+    "async function startRewardConversion(",
+  );
+  assert.match(quoteRewardConversion, /p_idempotency_key: idempotencyKey/);
+  const startRewardConversion = blockBetween(
+    conversionApi,
+    "async function startRewardConversion(",
+    "export async function handleCardConversionRequest(request: Request)",
+  );
+  assert.match(startRewardConversion, /p_idempotency_key: idempotencyKey/);
 
   const gachaOpen = readApp("src/app/api/ynot/gacha/open/route.ts");
   const gachaPostBeforeRpc = blockBetween(
     gachaOpen,
     "export async function POST(request: Request)",
-    'const { data, error } = await supabase.rpc("open_gacha_campaign"',
+    "  if (error) return Response.json",
   );
   assertPatternsInOrder(
     gachaPostBeforeRpc,
@@ -503,6 +600,14 @@ test("related customer APIs and RPCs keep their existing guardrails", () => {
       ["request rate-limit return", /if \(requestLimited\) return requestLimited;/],
       ["JSON parsing", /const body = await request\.json\(\)\.catch\(\(\) => null\)/],
       [
+        "idempotency key normalization",
+        /const idempotencyKey = normalizeIdempotencyKey\(body\?\.idempotencyKey\);/,
+      ],
+      [
+        "idempotency key validation",
+        /if \(!idempotencyKey\) return Response\.json\(\{ error: "Invalid idempotency key\." \}, \{ status: 400 \}\);/,
+      ],
+      [
         "profile unit rate-limit assignment",
         /const profileUnitLimited = await enforceRateLimit\(\s*request,\s*gachaOpenProfileUnitRateLimit\.scope,\s*\{\s*limit:\s*gachaOpenProfileUnitRateLimit\.limit,\s*windowMs:\s*gachaOpenProfileUnitRateLimit\.windowMs,\s*cost:\s*quantity,\s*\},\s*session\.profileId,\s*\);/,
       ],
@@ -512,10 +617,13 @@ test("related customer APIs and RPCs keep their existing guardrails", () => {
         /const ipUnitLimited = await enforceRateLimit\(\s*request,\s*gachaOpenIpUnitRateLimit\.scope,\s*\{\s*limit:\s*gachaOpenIpUnitRateLimit\.limit,\s*windowMs:\s*gachaOpenIpUnitRateLimit\.windowMs,\s*cost:\s*quantity,\s*\},\s*\);/,
       ],
       ["IP unit rate-limit return", /if \(ipUnitLimited\) return ipUnitLimited;/],
+      [
+        "open gacha RPC with idempotency arg",
+        /supabase\.rpc\("open_gacha_campaign", \{[\s\S]*p_idempotency_key: idempotencyKey/,
+      ],
     ],
     "gacha open POST before RPC",
   );
-  assert.match(gachaOpen, /p_idempotency_key: idempotencyKey/);
 
   const rateLimitRpc = latestMigrationDefiningFunction("consume_api_rate_limit_weighted");
   assert.equal(rateLimitRpc.filename, "20260607011459_weighted_api_rate_limit.sql");
