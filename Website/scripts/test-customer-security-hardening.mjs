@@ -375,3 +375,34 @@ test("legacy customer pick route is rate-limited and not a public-code oracle", 
   assert.match(adminOrderRoute, /claim_order_slots/);
   assert.match(adminOrderRoute, /p_actor_admin_id: session\.adminId/);
 });
+
+test("related customer APIs and RPCs keep their existing guardrails", () => {
+  for (const [file, scope] of [
+    ["src/app/api/ynot/wallet/route.ts", "ynot:wallet:top-up"],
+    ["src/app/api/ynot/shipping/route.ts", "ynot:shipping:request"],
+    ["src/lib/ynot/card-conversion-api.ts", "ynot:convert:submit"],
+  ]) {
+    const source = readApp(file);
+    assert.match(source, /enforceSameOriginMutation\(request\)/, `${file} missing same-origin guard`);
+    assert.match(source, /requireVerifiedAnchor\(session\)/, `${file} missing verified-anchor guard`);
+    assert.match(source, new RegExp(`"${scope}"`), `${file} missing rate-limit scope ${scope}`);
+    assert.match(source, /p_idempotency_key: idempotencyKey/, `${file} missing idempotency RPC argument`);
+  }
+
+  const gachaOpen = readApp("src/app/api/ynot/gacha/open/route.ts");
+  assert.match(gachaOpen, /enforceSameOriginMutation\(request\)/);
+  assert.match(gachaOpen, /requireVerifiedAnchor\(session\)/);
+  assert.match(gachaOpen, /gachaOpenRequestRateLimit\.scope/);
+  assert.match(gachaOpen, /gachaOpenProfileUnitRateLimit\.scope[\s\S]*cost: quantity/);
+  assert.match(gachaOpen, /gachaOpenIpUnitRateLimit\.scope[\s\S]*cost: quantity/);
+  assert.match(gachaOpen, /p_idempotency_key: idempotencyKey/);
+
+  const rateLimitRpc = readRepo("Database/supabase/migrations/20260607011459_weighted_api_rate_limit.sql");
+  assert.match(rateLimitRpc, /consume_api_rate_limit_weighted/);
+  assert.match(rateLimitRpc, /p_cost integer default 1/);
+  assert.match(rateLimitRpc, /grant execute on function public\.consume_api_rate_limit_weighted\(text, integer, integer, integer\) to service_role/);
+
+  const claimRpc = readRepo("Database/supabase/migrations/202605010002_fix_slot_claim_rpc.sql");
+  assert.match(claimRpc, /locked_order\.profile_id is distinct from p_actor_profile_id/);
+  assert.match(claimRpc, /grant execute on function public\.claim_order_slots\(uuid, integer\[\], uuid, uuid\) to service_role/);
+});
