@@ -1,14 +1,11 @@
-import {
-  AdminCardCatalogPanel,
-  AdminPrizeCreateActions,
-} from "@/features/ynot/client";
+import { PrizeCatalogScreen } from "@/features/ynot/admin/prize-catalog";
 import { AdminGate } from "@/features/ynot/components";
 import {
   getAdminCards,
   getAdminPrizePool,
   getYnotDashboardSlice,
 } from "@/features/ynot/data";
-import { AdminCard, AdminFrame, AdminKPI } from "@/features/ynot/admin";
+import { AdminCard, AdminFrame } from "@/features/ynot/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -18,20 +15,7 @@ export default async function AdminPrizesPage() {
     getAdminCards(),
     getAdminPrizePool(),
   ]);
-
-  const totalUnits = prizes.reduce((sum, p) => sum + (p.totalUnits ?? 0), 0);
-  const globalStockUnits = cards.reduce(
-    (sum, card) => sum + (card.stockTotal ?? 0),
-    0,
-  );
-  const availableUnits = prizes.reduce(
-    (sum, p) => sum + (p.availableUnits ?? 0),
-    0,
-  );
-  const awardedUnits = prizes.reduce(
-    (sum, p) => sum + (p.awardedUnits ?? 0),
-    0,
-  );
+  const isOwner = data.viewer.adminRole === "owner";
 
   return (
     <AdminGate viewer={data.viewer}>
@@ -40,36 +24,11 @@ export default async function AdminPrizesPage() {
         active="/admin/prizes"
         trail={["Admin", "Pack studio", "Prize catalog"]}
         title="Prize catalog"
-        desc="Create cards, sealed products, electronics, and more for the pack editor."
-        actions={<AdminPrizeCreateActions cards={cards} prizes={prizes} />}
+        desc="Your cards, sealed boxes and packs — and exactly where every unit is: in stock, loaded into a pack, or won and sitting in a customer's bag."
       >
-        <div className="kpi-grid">
-          <AdminKPI
-            label="Cards in catalog"
-            value={cards.length.toLocaleString()}
-            color="var(--a-gold)"
-          />
-          <AdminKPI
-            label="Global stock units"
-            value={globalStockUnits.toLocaleString()}
-            color="var(--a-mint)"
-          />
-          <AdminKPI
-            label="In prize pools"
-            value={totalUnits.toLocaleString()}
-            delta={`${availableUnits.toLocaleString()} available`}
-            color="var(--a-sky)"
-          />
-          <AdminKPI
-            label="Awarded total"
-            value={awardedUnits.toLocaleString()}
-            color="var(--a-amber)"
-          />
-        </div>
-
         <AdminCard className="admin-prize-catalog-card">
           <div className="card-pad">
-            <AdminCardCatalogPanel cards={cards} prizes={prizes} />
+            <PrizeCatalogScreen cards={cards} prizes={prizes} isOwner={isOwner} />
           </div>
         </AdminCard>
       </AdminFrame>
