@@ -5,6 +5,7 @@ import { test } from "node:test";
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 const openRouteSource = read("src/app/api/ynot/gacha/open/route.ts");
+const publicRewardProjectionSource = read("src/features/ynot/public-reward-projection.ts");
 const rateLimitSource = read("src/lib/security/rate-limit.ts");
 const openIntentSource = read("src/features/ynot/open-intent.ts");
 const clientSource = read("src/features/ynot/client.tsx");
@@ -32,15 +33,15 @@ function sourceBlock(source, start, end, label) {
 test("RPC proof migration marks stock-unit images without widening the public response", () => {
   const migration = latestMigrationWithSuffix("_open_gacha_stock_image_proof.sql");
   const publicOpenItemType = sourceBlock(
-    openRouteSource,
-    "type PublicOpenItem = {",
-    "type PublicOpenResult = {",
+    publicRewardProjectionSource,
+    "export type PublicRewardOpenItem = {",
+    "export type PublicRewardHighlightInput",
     "public open item type",
   );
   const publicMapper = sourceBlock(
-    openRouteSource,
-    "function toPublicOpenItem",
-    "function toPublicOpenResult",
+    publicRewardProjectionSource,
+    "export function toPublicRewardOpenItem",
+    "export function toPublicRewardHighlight",
     "public item mapper",
   );
 
@@ -61,6 +62,7 @@ test("RPC proof migration marks stock-unit images without widening the public re
     publicMapper,
     /imageResolvedFromStockUnit|cardId:|prizeUnitId:|draw_round_prize_unit_id|card_stock_unit_id|weight|unlockAtSoldPct/,
   );
+  assert.match(openRouteSource, /toPublicRewardOpenItem/);
 });
 
 test("weighted API rate limit increments by pack quantity", () => {
@@ -126,7 +128,7 @@ test("pack open API exposes only sanitized RPC remaining fields", () => {
   const rawOpenResultType = sourceBlock(
     openRouteSource,
     "type RawOpenResult = {",
-    "type PublicDisplayTier",
+    "type PublicOpenRemaining",
     "raw open result type",
   );
   const publicOpenResultType = sourceBlock(

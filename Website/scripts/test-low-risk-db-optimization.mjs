@@ -7,6 +7,7 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf
 const dataSource = read("src/features/ynot/data.ts");
 const adminCardsRoute = read("src/app/api/ynot/admin/cards/route.ts");
 const openRouteSource = read("src/app/api/ynot/gacha/open/route.ts");
+const publicRewardProjectionSource = read("src/features/ynot/public-reward-projection.ts");
 const packageJson = JSON.parse(read("package.json"));
 
 function latestMigrationWithSuffix(suffix) {
@@ -167,13 +168,13 @@ test("pack open public response and RPC contract are not widened by this pass", 
     sourceBlock(
       openRouteSource,
       "type PublicOpenRemaining = {",
-      "type PublicOpenItem = {",
+      "type PublicOpenItem = PublicRewardOpenItem",
       "public open remaining type",
     ),
     sourceBlock(
-      openRouteSource,
-      "type PublicOpenItem = {",
-      "type PublicOpenResult = {",
+      publicRewardProjectionSource,
+      "export type PublicRewardOpenItem = {",
+      "export type PublicRewardHighlightInput",
       "public open item type",
     ),
     sourceBlock(
@@ -189,9 +190,9 @@ test("pack open public response and RPC contract are not widened by this pass", 
       "public open remaining sanitizer",
     ),
     sourceBlock(
-      openRouteSource,
-      "function toPublicOpenItem",
-      "function toPublicOpenResult",
+      publicRewardProjectionSource,
+      "export function toPublicRewardOpenItem",
+      "export function toPublicRewardHighlight",
       "public open item mapper",
     ),
     sourceBlock(

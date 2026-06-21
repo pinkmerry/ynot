@@ -1,3 +1,9 @@
+import {
+  toPublicRewardHighlight,
+  type PublicRewardDisplayTier,
+  type PublicRewardHighlight,
+} from "./public-reward-projection";
+
 export const BULK_OPEN_HIGHLIGHT_LIMIT = 100;
 export const BULK_OPEN_RESULTS_PAGE_SIZE_DEFAULT = 100;
 export const BULK_OPEN_RESULTS_PAGE_SIZE_MAX = 1000;
@@ -19,20 +25,9 @@ export const bulkOpenActiveStatuses = [
 export type BulkOpenStatus = (typeof bulkOpenStatuses)[number];
 export type BulkOpenActiveStatus = (typeof bulkOpenActiveStatuses)[number];
 export type BulkOpenStatusLabel = "starting" | "landing" | "finishing" | "complete";
-export type BulkOpenPublicDisplayTier =
-  | "last_prize"
-  | "rainbow"
-  | "gold"
-  | "silver"
-  | "bronze";
+export type BulkOpenPublicDisplayTier = PublicRewardDisplayTier;
 
-export type PublicBulkOpenHighlight = {
-  name: string;
-  imageUrl: string | null;
-  displayTier: BulkOpenPublicDisplayTier;
-  valueThb: number | null;
-  isLastPrize?: boolean;
-};
+export type PublicBulkOpenHighlight = PublicRewardHighlight;
 
 export type PublicBulkOpenSessionSummary = {
   publicCode: string;
@@ -78,19 +73,6 @@ function readOptionalNonNegativeInteger(
   if (!Object.prototype.hasOwnProperty.call(source, key)) return null;
   const number = readNumber(source[key]);
   return number === null ? null : Math.max(0, Math.floor(number));
-}
-
-function normalizeDisplayTier(value: unknown): BulkOpenPublicDisplayTier {
-  if (
-    value === "last_prize" ||
-    value === "rainbow" ||
-    value === "gold" ||
-    value === "silver" ||
-    value === "bronze"
-  ) {
-    return value;
-  }
-  return "bronze";
 }
 
 function tierPriority(tier: BulkOpenPublicDisplayTier) {
@@ -163,26 +145,7 @@ export function toPublicBulkOpenHighlights(
   if (!Array.isArray(highlights)) return [];
   return highlights
     .filter(isRecord)
-    .map((highlight) => {
-      const isLastPrize = highlight.isLastPrize === true;
-      const displayTier = isLastPrize
-        ? "last_prize"
-        : normalizeDisplayTier(highlight.displayTier);
-      const valueThb = readNumber(highlight.valueThb);
-      const publicHighlight: PublicBulkOpenHighlight = {
-        name: readString(highlight.name, "Mystery reward"),
-        imageUrl:
-          typeof highlight.imageUrl === "string" && highlight.imageUrl.trim()
-            ? highlight.imageUrl.trim()
-            : null,
-        displayTier,
-        valueThb,
-      };
-      if (isLastPrize || displayTier === "last_prize") {
-        publicHighlight.isLastPrize = true;
-      }
-      return publicHighlight;
-    })
+    .map(toPublicRewardHighlight)
     .sort((left, right) => {
       const tierDelta =
         tierPriority(left.displayTier) - tierPriority(right.displayTier);

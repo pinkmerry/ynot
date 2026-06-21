@@ -134,8 +134,9 @@ describe("random pack bundled prizes", () => {
 
   it("public APIs allow bundleQuantity but keep internal reward data private", () => {
     const openRoute = read("Website/src/app/api/ynot/gacha/open/route.ts");
-    assert.match(openRoute, /bundleQuantity\?: number/);
-    assert.match(openRoute, /bundleQuantity: publicBundleQuantity/);
+    const publicRewardProjection = read("Website/src/features/ynot/public-reward-projection.ts");
+    assert.match(publicRewardProjection, /bundleQuantity\?: number/);
+    assert.match(publicRewardProjection, /bundleQuantity: publicBundleQuantity/);
     assert.doesNotMatch(openRoute, /drawRoundPrizeUnitId:/);
     assert.doesNotMatch(openRoute, /stockUnitFilter:/);
 

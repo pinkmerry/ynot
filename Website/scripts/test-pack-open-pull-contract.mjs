@@ -326,7 +326,7 @@ test("pulled prize images use the awarded stock-unit image in animation, summary
   assert.match(routeHydration, /stockImageUrlByPrizeUnitId/);
   assert.match(routeHydration, /\.from\("draw_round_prize_units"\)[\s\S]*\.select\("id,card_stock_unit_id,status"\)/);
   assert.match(routeHydration, /\.from\("card_stock_units"\)[\s\S]*\.select\("id,image_url"\)/);
-  assert.match(routeHydration, /imageUrl:\s*publicSubSkuImageUrl\(stockImageUrl,\s*item\.imageUrl\s*\?\?\s*card\?\.image_url\s*\?\?\s*null,?\s*\)/);
+  assert.match(routeHydration, /imageUrl:\s*publicRewardImageUrl\(stockImageUrl,\s*item\.imageUrl\s*\?\?\s*card\?\.image_url\s*\?\?\s*null,?\s*\)/);
   assert.match(routeHydration, /if \(item\.isLastPrize === true\)[\s\S]*displayTier: "last_prize"/);
 
   assert.match(revealOverlay, /const featuredItemImageUrl =[\s\S]*featuredItem\?\.imageUrl/);

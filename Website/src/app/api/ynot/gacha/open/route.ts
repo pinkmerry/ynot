@@ -6,12 +6,15 @@ import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import {
-  publicSubSkuImageUrl,
   stockImageUrlByPrizeUnitId,
   type PublicPrizeUnitImageRow,
   type PublicStockUnitImageRow,
 } from "@/features/ynot/public-subsku-images";
-import { publicBundleQuantity } from "@/features/ynot/bundle-quantity";
+import {
+  publicRewardImageUrl,
+  toPublicRewardOpenItem,
+  type PublicRewardOpenItem,
+} from "@/features/ynot/public-reward-projection";
 
 export const dynamic = "force-dynamic";
 
@@ -60,8 +63,6 @@ type RawOpenResult = {
   [key: string]: unknown;
 };
 
-type PublicDisplayTier = "rainbow" | "gold" | "silver" | "bronze" | "last_prize";
-
 type PublicOpenRemaining = {
   remainingSlots?: number;
   availablePrizeUnits?: number;
@@ -69,15 +70,7 @@ type PublicOpenRemaining = {
   availableWinSlots?: number;
 };
 
-type PublicOpenItem = {
-  name: string;
-  imageUrl: string | null;
-  displayTier: PublicDisplayTier;
-  valueThb: number | null;
-  position: number;
-  isLastPrize?: boolean;
-  bundleQuantity?: number;
-};
+type PublicOpenItem = PublicRewardOpenItem;
 
 type PublicOpenResult = {
   status: string;
@@ -134,27 +127,6 @@ function readNumber(value: unknown) {
   return Number.isFinite(number) ? number : null;
 }
 
-function readPositiveInteger(value: unknown, fallback: number) {
-  const number = Number(value);
-  return Number.isInteger(number) && number > 0 ? number : fallback;
-}
-
-function normalizeDisplayTier(
-  value: unknown,
-  tier: string | null | undefined,
-): PublicDisplayTier {
-  if (
-    value === "rainbow" ||
-    value === "gold" ||
-    value === "silver" ||
-    value === "bronze" ||
-    value === "last_prize"
-  ) {
-    return value;
-  }
-  return deriveDisplayTier(tier, 99);
-}
-
 function normalizeIdempotencyKey(value: unknown) {
   if (value === undefined || value === null) return crypto.randomUUID();
   if (typeof value !== "string") return null;
@@ -188,19 +160,7 @@ async function resolveOpenCampaignId(campaignId: string, profileId: string) {
 }
 
 function toPublicOpenItem(item: RawOpenItem, index: number): PublicOpenItem {
-  // Derive the customer-facing rarity from the raw tier internally, but never
-  // ship the raw "high"/"normal" prize tier to customers.
-  const tier = readString(item.tier, "normal");
-  const publicItem: PublicOpenItem = {
-    name: readString(item.name, "Mystery card"),
-    imageUrl: typeof item.imageUrl === "string" && item.imageUrl ? item.imageUrl : null,
-    displayTier: normalizeDisplayTier(item.displayTier, tier),
-    valueThb: readNumber(item.valueThb),
-    position: readPositiveInteger(item.position, index + 1),
-    bundleQuantity: publicBundleQuantity(item.bundleQuantity),
-  };
-  if (item.isLastPrize === true) publicItem.isLastPrize = true;
-  return publicItem;
+  return toPublicRewardOpenItem(item, index);
 }
 
 function toPublicOpenResult(raw: RawOpenResult, items: RawOpenItem[]): PublicOpenResult {
@@ -424,7 +384,7 @@ async function hydrateItems(
       ...item,
       cardId,
       name: item.name ?? card?.name ?? "Mystery card",
-      imageUrl: publicSubSkuImageUrl(stockImageUrl, item.imageUrl ?? card?.image_url ?? null),
+      imageUrl: publicRewardImageUrl(stockImageUrl, item.imageUrl ?? card?.image_url ?? null),
       imageResolvedFromStockUnit: Boolean(stockImageUrl),
       tier,
       displayTier,

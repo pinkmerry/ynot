@@ -11,6 +11,10 @@ const openRouteSource = readFileSync(
   new URL("../src/app/api/ynot/gacha/open/route.ts", import.meta.url),
   "utf8",
 );
+const publicRewardProjectionSource = readFileSync(
+  new URL("../src/features/ynot/public-reward-projection.ts", import.meta.url),
+  "utf8",
+);
 const gachaOpenPageSource = readFileSync(
   new URL("../src/app/(store)/gacha/[campaignId]/open/page.tsx", import.meta.url),
   "utf8",
@@ -197,10 +201,11 @@ test("admin prize lineups still request private odds and stock targets", () => {
 
 test("pack-open API response is mapped through a public result shape", () => {
   const publicItem = between(
-    openRouteSource,
-    "function toPublicOpenItem",
-    "function toPublicOpenResult",
+    publicRewardProjectionSource,
+    "export function toPublicRewardOpenItem",
+    "export function toPublicRewardHighlight",
   );
+  assert.match(openRouteSource, /toPublicRewardOpenItem/);
   assert.match(publicItem, /bundleQuantity:\s*publicBundleQuantity/);
   assert.doesNotMatch(publicItem, /prizeUnitId/);
   assert.doesNotMatch(publicItem, /drawRoundPrizeUnitIds/);
@@ -220,12 +225,12 @@ test("pack-open API response is mapped through a public result shape", () => {
   // Raw prize tier ("high"/"normal") must never ship to customers; only the
   // customer-facing displayTier rarity may travel in the public open item.
   assert.doesNotMatch(publicItem, /\btier:/);
-  assert.match(publicItem, /displayTier:/);
+  assert.match(publicItem, /displayTier/);
 
   const publicItemType = between(
-    openRouteSource,
-    "type PublicOpenItem = {",
-    "type PublicOpenResult = {",
+    publicRewardProjectionSource,
+    "export type PublicRewardOpenItem = {",
+    "export type PublicRewardHighlightInput",
   );
   assert.match(publicItemType, /bundleQuantity\?: number/);
   assert.doesNotMatch(publicItemType, /prizeUnitId/);
@@ -242,6 +247,7 @@ test("pack-open API response is mapped through a public result shape", () => {
   assert.doesNotMatch(publicItemType, /logic_snapshot/);
   assert.doesNotMatch(publicItemType, /\btier:/);
   assert.match(publicItemType, /displayTier:/);
+  assert.doesNotMatch(publicRewardProjectionSource, /createServiceSupabaseClient|\.from\(|\.rpc\(/);
 
   const openItemType = between(
     typesSource,
