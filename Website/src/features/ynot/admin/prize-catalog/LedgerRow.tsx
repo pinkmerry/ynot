@@ -9,11 +9,15 @@ export function LedgerRow({
   open,
   onToggle,
   isOwner,
+  onEdit,
+  onDelete,
 }: {
   row: AdminCardCatalogRow;
   open: boolean;
   onToggle: () => void;
   isOwner: boolean;
+  onEdit?: (row: AdminCardCatalogRow) => void;
+  onDelete?: (row: AdminCardCatalogRow) => void;
 }) {
   const b = toStockBuckets(row);
   const cat = String(row.card.catalogCategory ?? "Single Cards");
@@ -118,6 +122,34 @@ export function LedgerRow({
           <div className="pcx-total">
             <div className="pcx-total-v">{fmtInt(b.available)}</div>
             <div className="pcx-total-l">{unitNoun(cat)} free</div>
+          </div>
+          <div className="pcx-row-actions">
+            {onEdit && (
+              <button
+                type="button"
+                className="pcx-row-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(row);
+                }}
+                aria-label={`Edit ${row.card.name}`}
+              >
+                Edit
+              </button>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                className="pcx-row-btn danger"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(row);
+                }}
+                aria-label={`Delete ${row.card.name}`}
+              >
+                Delete
+              </button>
+            )}
           </div>
           <span className="pcx-caret" aria-hidden>
             &#x203A;
