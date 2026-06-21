@@ -164,6 +164,8 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
           </select>
           {seriesOption === "Custom…" && (
             <input
+              id="pcx-custom-series"
+              aria-label="Custom series name"
               className="pcx-input pcx-mt4"
               value={customSeries}
               onChange={(e) => setCustomSeries(e.target.value)}

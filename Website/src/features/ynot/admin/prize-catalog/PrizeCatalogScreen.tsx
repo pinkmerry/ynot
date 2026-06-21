@@ -37,6 +37,7 @@ export function PrizeCatalogScreen({
     null,
   );
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   const rows = useMemo(
@@ -119,6 +120,19 @@ export function PrizeCatalogScreen({
 
   const closeModal = useCallback(() => setModal({ kind: "closed" }), []);
 
+  // Dialog a11y: Escape closes; move focus into the modal on open.
+  useEffect(() => {
+    if (modal.kind === "closed") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeModal();
+    };
+    document.addEventListener("keydown", onKey);
+    modalRef.current
+      ?.querySelector<HTMLElement>("input, select, textarea, button")
+      ?.focus();
+    return () => document.removeEventListener("keydown", onKey);
+  }, [modal.kind, closeModal]);
+
   return (
     <div className="pcx-screen">
       <div className="pcx-header-actions">
@@ -169,7 +183,7 @@ export function PrizeCatalogScreen({
             if (e.target === e.currentTarget) closeModal();
           }}
         >
-          <div className="pcx-modal" role="document">
+          <div className="pcx-modal" role="document" ref={modalRef}>
             <header className="pcx-modal-head">
               <h2 className="pcx-modal-title">
                 {modal.kind === "create" ? "Create Main SKU" : "Edit Main SKU"}
