@@ -1,5 +1,3 @@
-import type { CardCatalogItem } from "@/lib/lucky-draw/types";
-
 export type StockBuckets = {
   available: number; // free to build packs
   packs: number; // loaded into gacha packs (reserved + ...)

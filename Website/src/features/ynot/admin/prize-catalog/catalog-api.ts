@@ -4,32 +4,9 @@
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string; code?: string };
 
-async function postJson<T>(url: string, body: unknown): Promise<ApiResult<T>> {
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  } catch {
-    return { ok: false, error: "Network error — please retry." };
-  }
-  const payload = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!res.ok || payload?.ok === false) {
-    return {
-      ok: false,
-      error: String(payload?.error ?? "Request failed."),
-      code: typeof payload?.code === "string" ? payload.code : undefined,
-    };
-  }
-  return { ok: true, data: (payload ?? {}) as T };
-}
-
-async function sendJson<T>(
+async function fetchJson<T>(
   url: string,
-  method: "PATCH" | "DELETE",
+  method: "POST" | "PATCH" | "DELETE",
   body: unknown,
 ): Promise<ApiResult<T>> {
   let res: Response;
@@ -47,12 +24,17 @@ async function sendJson<T>(
   if (!res.ok || payload?.ok === false) {
     return {
       ok: false,
-      error: String(payload?.error ?? "Request failed."),
+      // Routes use `error`; some 409s (e.g. CARD_ALREADY_EXISTS) use `message`.
+      error: String(payload?.error ?? payload?.message ?? "Request failed."),
       code: typeof payload?.code === "string" ? payload.code : undefined,
     };
   }
   return { ok: true, data: (payload ?? {}) as T };
 }
+
+const postJson = <T>(url: string, body: unknown) => fetchJson<T>(url, "POST", body);
+const sendJson = <T>(url: string, method: "PATCH" | "DELETE", body: unknown) =>
+  fetchJson<T>(url, method, body);
 
 // ---- Main SKU (cards) ----
 export type MainSkuInput = {
