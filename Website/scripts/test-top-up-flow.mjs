@@ -369,6 +369,14 @@ test("coin mutation APIs validate inputs and hide internal response fields", () 
     new URL("../src/lib/ynot/card-conversion-api.ts", import.meta.url),
     "utf8",
   );
+  const rewardActionGuard = readFileSync(
+    new URL("../src/lib/ynot/reward-action-guard.ts", import.meta.url),
+    "utf8",
+  );
+  const rewardActionPresenters = readFileSync(
+    new URL("../src/lib/ynot/reward-action-presenters.ts", import.meta.url),
+    "utf8",
+  );
   const collectionRoute = readFileSync(
     new URL("../src/app/api/ynot/collection/convert/route.ts", import.meta.url),
     "utf8",
@@ -388,15 +396,17 @@ test("coin mutation APIs validate inputs and hide internal response fields", () 
 
   assert.match(collectionRoute, /handleCardConversionRequest\(request\)/);
   assert.match(exchangeRoute, /handleCardConversionRequest\(request\)/);
-  assert.match(conversionHandler, /enforceSameOriginMutation\(request\)/);
-  assert.match(conversionHandler, /isCollectionItemActionToken[\s\S]*IDEMPOTENCY_KEY_RE/);
-  assert.match(conversionHandler, /resolveCollectionItemActionTokens/);
-  assert.match(conversionHandler, /new Set\(tokens\)\.size !== tokens\.length/);
+  assert.match(conversionHandler, /guardRewardActionRequest\(\s*request/);
+  assert.match(rewardActionGuard, /enforceSameOriginMutation\(request\)/);
+  assert.match(conversionHandler, /isCollectionItemActionToken[\s\S]*normalizeSelectedRewardActionTokens/);
+  assert.match(rewardActionGuard, /IDEMPOTENCY_KEY_RE/);
+  assert.match(rewardActionGuard, /resolveCollectionItemActionTokens/);
+  assert.match(rewardActionGuard, /new Set\(tokens\)\.size !== tokens\.length/);
   assert.match(
     conversionHandler,
     /p_collection_item_ids:\s*selectionMode === "selected" \? resolvedCollectionItemIds : null/,
   );
-  assert.match(conversionHandler, /function publicConversionResult[\s\S]*totalCoins[\s\S]*itemCount[\s\S]*replayed/);
+  assert.match(rewardActionPresenters, /function presentConversionStartResult[\s\S]*totalCoins[\s\S]*itemCount[\s\S]*replayed/);
   assert.doesNotMatch(conversionHandler, /ledgerId/);
   assert.doesNotMatch(conversionHandler, /Response\.json\(\{\s*error:\s*error\.message/);
   assert.doesNotMatch(adminTopUpsRoute, /Response\.json\(\{\s*error:\s*error\.message/);

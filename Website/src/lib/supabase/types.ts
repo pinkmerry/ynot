@@ -762,8 +762,8 @@ export type Database = {
         Relationships: [];
       };
       collection_items: {
-        Row: { id: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id: string | null; status: "owned" | "locked" | "exchange_requested" | "exchanged" | "converting" | "shipping_requested" | "shipped" | "void"; serial_no: string | null; acquired_at: string; card_stock_unit_id: string | null; gacha_open_item_id: string | null; conversion_job_id: string | null; convert_coin_value_snapshot: number | null; convert_expires_at: string | null; created_at: string; updated_at: string };
-        Insert: { id?: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id?: string | null; status?: "owned" | "locked" | "exchange_requested" | "exchanged" | "converting" | "shipping_requested" | "shipped" | "void"; serial_no?: string | null; acquired_at?: string; card_stock_unit_id?: string | null; gacha_open_item_id?: string | null; conversion_job_id?: string | null; convert_coin_value_snapshot?: number | null; convert_expires_at?: string | null; created_at?: string; updated_at?: string };
+        Row: { id: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id: string | null; status: "owned" | "locked" | "exchange_requested" | "exchanged" | "converting" | "shipping_preparing" | "shipping_requested" | "shipped" | "void"; serial_no: string | null; acquired_at: string; card_stock_unit_id: string | null; gacha_open_item_id: string | null; conversion_job_id: string | null; shipping_request_job_id: string | null; convert_coin_value_snapshot: number | null; convert_expires_at: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id?: string | null; status?: "owned" | "locked" | "exchange_requested" | "exchanged" | "converting" | "shipping_preparing" | "shipping_requested" | "shipped" | "void"; serial_no?: string | null; acquired_at?: string; card_stock_unit_id?: string | null; gacha_open_item_id?: string | null; conversion_job_id?: string | null; shipping_request_job_id?: string | null; convert_coin_value_snapshot?: number | null; convert_expires_at?: string | null; created_at?: string; updated_at?: string };
         Update: Partial<Database["public"]["Tables"]["collection_items"]["Insert"]>;
         Relationships: [];
       };
@@ -779,6 +779,18 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["reward_conversion_jobs"]["Insert"]>;
         Relationships: [];
       };
+      shipping_request_quote_tokens: {
+        Row: { id: string; profile_id: string; address_id: string; selection_mode: "selected" | "all_eligible"; collection_item_ids: string[]; item_count: number; total_coin_value: number; selected_coin_value: number; minimum_coin_value: number; quote_hash: string; address_snapshot: Json; customer_note: string | null; idempotency_key: string | null; expires_at: string; consumed_at: string | null; consumed_by_job_id: string | null; metadata: Json; created_at: string };
+        Insert: { id?: string; profile_id: string; address_id: string; selection_mode: "selected" | "all_eligible"; collection_item_ids?: string[]; item_count: number; total_coin_value: number; selected_coin_value: number; minimum_coin_value?: number; quote_hash: string; address_snapshot: Json; customer_note?: string | null; idempotency_key?: string | null; expires_at: string; consumed_at?: string | null; consumed_by_job_id?: string | null; metadata?: Json; created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["shipping_request_quote_tokens"]["Insert"]>;
+        Relationships: [];
+      };
+      shipping_request_jobs: {
+        Row: { id: string; profile_id: string; quote_token_id: string; shipping_request_id: string; public_code: string; status: "preparing" | "processing" | "retry_required" | "submitted" | "failed"; selection_mode: "selected" | "all_eligible"; item_count: number; prepared_count: number; total_coin_value: number; selected_coin_value: number; minimum_coin_value: number; quote_hash: string; idempotency_key: string | null; queue_job_id: string | null; locked_by: string | null; heartbeat_at: string | null; retry_count: number; retry_scheduled_at: string | null; last_error_code: string | null; last_error_at: string | null; started_at: string | null; completed_at: string | null; metadata: Json; created_at: string; updated_at: string };
+        Insert: { id?: string; profile_id: string; quote_token_id: string; shipping_request_id: string; public_code: string; status?: "preparing" | "processing" | "retry_required" | "submitted" | "failed"; selection_mode: "selected" | "all_eligible"; item_count: number; prepared_count?: number; total_coin_value: number; selected_coin_value: number; minimum_coin_value?: number; quote_hash: string; idempotency_key?: string | null; queue_job_id?: string | null; locked_by?: string | null; heartbeat_at?: string | null; retry_count?: number; retry_scheduled_at?: string | null; last_error_code?: string | null; last_error_at?: string | null; started_at?: string | null; completed_at?: string | null; metadata?: Json; created_at?: string; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["shipping_request_jobs"]["Insert"]>;
+        Relationships: [];
+      };
       exchange_orders: {
         Row: { id: string; public_code: string; profile_id: string; status: "draft" | "submitted" | "approved" | "rejected" | "completed" | "cancelled"; requested_coin_value: number; approved_coin_value: number | null; reviewed_by_admin_id: string | null; customer_note: string | null; admin_note: string | null; idempotency_key: string | null; created_at: string; updated_at: string };
         Insert: { id?: string; public_code?: string; profile_id: string; status?: "draft" | "submitted" | "approved" | "rejected" | "completed" | "cancelled"; requested_coin_value?: number; approved_coin_value?: number | null; reviewed_by_admin_id?: string | null; customer_note?: string | null; admin_note?: string | null; idempotency_key?: string | null; created_at?: string; updated_at?: string };
@@ -792,8 +804,8 @@ export type Database = {
         Relationships: [];
       };
       shipping_requests: {
-        Row: { id: string; public_code: string; profile_id: string; address_id: string | null; address_snapshot: Json; status: "draft" | "submitted" | "packing" | "ready_for_pickup" | "picked_up" | "shipped" | "delivered" | "cancelled"; shipping_fee_coins: number; tracking_provider: string | null; tracking_number: string | null; customer_note: string | null; admin_note: string | null; idempotency_key: string | null; created_at: string; updated_at: string };
-        Insert: { id?: string; public_code?: string; profile_id: string; address_id?: string | null; address_snapshot?: Json; status?: "draft" | "submitted" | "packing" | "ready_for_pickup" | "picked_up" | "shipped" | "delivered" | "cancelled"; shipping_fee_coins?: number; tracking_provider?: string | null; tracking_number?: string | null; customer_note?: string | null; admin_note?: string | null; idempotency_key?: string | null; created_at?: string; updated_at?: string };
+        Row: { id: string; public_code: string; profile_id: string; address_id: string | null; address_snapshot: Json; status: "draft" | "preparing" | "submitted" | "packing" | "ready_for_pickup" | "picked_up" | "shipped" | "delivered" | "cancelled"; shipping_fee_coins: number; tracking_provider: string | null; tracking_number: string | null; customer_note: string | null; admin_note: string | null; idempotency_key: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; public_code?: string; profile_id: string; address_id?: string | null; address_snapshot?: Json; status?: "draft" | "preparing" | "submitted" | "packing" | "ready_for_pickup" | "picked_up" | "shipped" | "delivered" | "cancelled"; shipping_fee_coins?: number; tracking_provider?: string | null; tracking_number?: string | null; customer_note?: string | null; admin_note?: string | null; idempotency_key?: string | null; created_at?: string; updated_at?: string };
         Update: Partial<Database["public"]["Tables"]["shipping_requests"]["Insert"]>;
         Relationships: [];
       };
@@ -1142,11 +1154,18 @@ export type Database = {
       cancel_campaign_review: { Args: { p_draw_round_id: string; p_admin_id: string; p_note?: string | null }; Returns: Json };
       archive_campaign_inventory: { Args: { p_draw_round_id: string; p_admin_id: string; p_note?: string | null }; Returns: Json };
       delete_campaign_inventory: { Args: { p_draw_round_id: string; p_admin_id: string; p_note?: string | null }; Returns: Json };
-      submit_card_conversion: { Args: { p_profile_id: string; p_collection_item_ids: string[]; p_idempotency_key?: string | null }; Returns: Json };
       prepare_reward_conversion_quote: { Args: { p_profile_id: string; p_selection_mode: "selected" | "all_eligible"; p_collection_item_ids?: string[] | null; p_idempotency_key?: string | null }; Returns: Json };
       start_reward_conversion: { Args: { p_profile_id: string; p_quote_token_id: string; p_idempotency_key?: string | null }; Returns: Json };
       process_reward_conversion_chunk: { Args: { p_job_id: string; p_limit?: number; p_worker_id?: string | null }; Returns: Json };
       list_reward_conversion_recovery_jobs: { Args: { p_limit?: number }; Returns: Json };
+      prepare_shipping_request_quote: { Args: { p_profile_id: string; p_address_id: string; p_selection_mode: "selected" | "all_eligible"; p_collection_item_ids?: string[] | null; p_customer_note?: string | null; p_idempotency_key?: string | null }; Returns: Json };
+      start_shipping_request_job: { Args: { p_profile_id: string; p_quote_token_id: string; p_idempotency_key?: string | null }; Returns: Json };
+      process_shipping_request_chunk: { Args: { p_job_id: string; p_limit?: number; p_worker_id?: string | null }; Returns: Json };
+      list_shipping_request_recovery_jobs: { Args: { p_limit?: number }; Returns: Json };
+      list_shipping_request_item_previews: {
+        Args: { p_shipping_request_ids: string[]; p_limit_per_request?: number };
+        Returns: Database["public"]["Tables"]["shipping_request_items"]["Row"][];
+      };
       complete_account_merge_request: { Args: { p_merge_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       reject_account_merge_request: { Args: { p_merge_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };
       approve_identity_review_request: { Args: { p_merge_request_id: string; p_admin_id: string; p_admin_note?: string | null }; Returns: Json };

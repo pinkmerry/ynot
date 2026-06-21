@@ -47,6 +47,7 @@ function adminShippingErrorMessage(error: unknown) {
 
 type ShippingStatus = Exclude<Database["public"]["Tables"]["shipping_requests"]["Row"]["status"], "draft">;
 const statuses = new Set<ShippingStatus>([
+  "preparing",
   "submitted",
   "packing",
   "ready_for_pickup",
@@ -72,6 +73,12 @@ export async function PATCH(request: Request) {
   const shippingRequestId = typeof body?.shippingRequestId === "string" ? body.shippingRequestId : "";
   const status = isShippingStatus(body?.status) ? body.status : null;
   if (!shippingRequestId || !status) return Response.json({ error: "shippingRequestId and valid status are required." }, { status: 400 });
+  if (status === "preparing") {
+    return Response.json(
+      { error: "Preparing shipping requests are not admin-actionable yet." },
+      { status: 409 },
+    );
+  }
   if (!UUID_RE.test(shippingRequestId)) {
     return adminErrorResponse("invalid_shipping_request", "Invalid shipping request.", 400);
   }

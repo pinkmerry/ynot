@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   YnotAddress,
   YnotCollectionItem,
@@ -27,7 +27,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function statusBucket(status: YnotCollectionItem["status"]): StatusKey | null {
   if (status === "owned") return "owned";
-  if (status === "shipped" || status === "shipping_requested") return "shipped";
+  if (
+    status === "shipped" ||
+    status === "shipping_requested" ||
+    status === "shipping_preparing"
+  ) return "shipped";
   if (
     status === "exchanged" ||
     status === "exchange_requested" ||
@@ -98,6 +102,7 @@ type EnrichedItem = YnotCollectionItem & {
 };
 
 type ConvertSelectionMode = "selected" | "all_eligible";
+type ShippingSelectionMode = "selected" | "all_eligible";
 
 type ConvertQuote = {
   quoteToken: string;
@@ -113,6 +118,32 @@ type ConvertProgress = {
   convertedCount: number;
   totalCoins: number;
   creditedTotalCoins: number;
+  completed: boolean;
+  failed: boolean;
+};
+
+type ShippingQuote = {
+  quoteToken: string;
+  selectionMode: ShippingSelectionMode;
+  itemCount: number;
+  totalCoinValue: number;
+  selectedCoinValue: number;
+  minimumCoinValue: number;
+  expiresAt: string | null;
+  address: {
+    label: string | null;
+    recipientName: string | null;
+    phone: string | null;
+    summary: string | null;
+  };
+};
+
+type ShippingProgress = {
+  status: string;
+  publicCode: string;
+  itemCount: number;
+  preparedCount: number;
+  totalCoinValue: number;
   completed: boolean;
 };
 
@@ -169,6 +200,42 @@ function quoteIsExpired(quote: ConvertQuote | null) {
   return expiresAt !== null && expiresAt <= Date.now();
 }
 
+function shippingQuoteFromPayload(payload: unknown): ShippingQuote | null {
+  if (!isRecord(payload) || !isRecord(payload.quote)) return null;
+  const quote = payload.quote;
+  const quoteToken = typeof quote.quoteToken === "string" ? quote.quoteToken : "";
+  if (!quoteToken) return null;
+  const address = isRecord(quote.address) ? quote.address : {};
+  return {
+    quoteToken,
+    selectionMode:
+      quote.selectionMode === "all_eligible" ? "all_eligible" : "selected",
+    itemCount: numberFrom(quote.itemCount),
+    totalCoinValue: numberFrom(quote.totalCoinValue),
+    selectedCoinValue: numberFrom(quote.selectedCoinValue),
+    minimumCoinValue: numberFrom(quote.minimumCoinValue),
+    expiresAt: typeof quote.expiresAt === "string" ? quote.expiresAt : null,
+    address: {
+      label: typeof address.label === "string" ? address.label : null,
+      recipientName:
+        typeof address.recipientName === "string" ? address.recipientName : null,
+      phone: typeof address.phone === "string" ? address.phone : null,
+      summary: typeof address.summary === "string" ? address.summary : null,
+    },
+  };
+}
+
+function shippingQuoteExpiresAtMs(quote: ShippingQuote | null) {
+  if (!quote?.expiresAt) return null;
+  const expiresAt = new Date(quote.expiresAt).getTime();
+  return Number.isFinite(expiresAt) ? expiresAt : null;
+}
+
+function shippingQuoteIsExpired(quote: ShippingQuote | null) {
+  const expiresAt = shippingQuoteExpiresAtMs(quote);
+  return expiresAt !== null && expiresAt <= Date.now();
+}
+
 function progressFromPayload(payload: unknown): ConvertProgress | null {
   if (!isRecord(payload) || !isRecord(payload.conversion)) return null;
   const conversion = payload.conversion;
@@ -179,6 +246,24 @@ function progressFromPayload(payload: unknown): ConvertProgress | null {
     totalCoins: numberFrom(conversion.totalCoins),
     creditedTotalCoins: numberFrom(conversion.creditedTotalCoins),
     completed: conversion.completed === true,
+    failed: conversion.failed === true || conversion.status === "failed",
+  };
+}
+
+function conversionIsTerminal(progress: ConvertProgress | null) {
+  return Boolean(progress && (progress.completed || progress.failed));
+}
+
+function shippingProgressFromPayload(payload: unknown): ShippingProgress | null {
+  if (!isRecord(payload) || !isRecord(payload.shipping)) return null;
+  const shipping = payload.shipping;
+  return {
+    status: typeof shipping.status === "string" ? shipping.status : "preparing",
+    publicCode: typeof shipping.publicCode === "string" ? shipping.publicCode : "",
+    itemCount: numberFrom(shipping.itemCount),
+    preparedCount: numberFrom(shipping.preparedCount),
+    totalCoinValue: numberFrom(shipping.totalCoinValue),
+    completed: shipping.completed === true,
   };
 }
 
@@ -205,7 +290,12 @@ export function HistoryExperience({
   const [sellConfirming, setSellConfirming] = useState(false);
   const [, refreshQuoteClock] = useState(0);
   const [shipOpen, setShipOpen] = useState(false);
-  const [submitting, startSubmit] = useTransition();
+  const [shipMode, setShipMode] = useState<ShippingSelectionMode>("selected");
+  const [shipAddressId, setShipAddressId] = useState("");
+  const [shipQuote, setShipQuote] = useState<ShippingQuote | null>(null);
+  const [shipProgress, setShipProgress] = useState<ShippingProgress | null>(null);
+  const [shipPreparing, setShipPreparing] = useState(false);
+  const [shipConfirming, setShipConfirming] = useState(false);
 
   const enriched = useMemo(() => {
     const list: EnrichedItem[] = [];
@@ -283,6 +373,7 @@ export function HistoryExperience({
   }
 
   const selectedCards = enriched.filter((c) => selected.has(c.id) && c.bucket === "owned");
+  const ownedShipCards = enriched.filter((c) => c.bucket === "owned");
   const selectedConvertibleCards = selectedCards.filter(isConvertibleReward);
   const sellTotal = selectedConvertibleCards.reduce(
     (sum, c) => sum + (c.sellValueCoins ?? 0),
@@ -292,8 +383,21 @@ export function HistoryExperience({
   const displayedSellTotal = sellQuote?.totalCoins ?? sellTotal;
   const sellBusy = sellPreparing || sellConfirming;
   const sellQuoteExpired = quoteIsExpired(sellQuote);
+  const shipActive = Boolean(shipProgress && !shipProgress.completed);
+  const sellActive = Boolean(sellProgress && !conversionIsTerminal(sellProgress));
+  const shipBusy = shipPreparing || shipConfirming;
+  const shipQuoteExpired = shippingQuoteIsExpired(shipQuote);
+  const displayedShipCount = shipQuote?.itemCount ?? selectedCards.length;
+  const displayedShipTotal = shipQuote?.selectedCoinValue ?? selectedCards.reduce(
+    (sum, c) => sum + (c.sellValueCoins ?? 0),
+    0,
+  );
 
   async function openSell(nextMode: ConvertSelectionMode) {
+    if (shipActive) {
+      toast("error", "Finish the active shipping request before converting rewards.");
+      return;
+    }
     if (nextMode === "selected" && !selectedConvertibleCards.length) {
       toast("error", "No rewards selected");
       return;
@@ -342,6 +446,10 @@ export function HistoryExperience({
   }
 
   function submitSell() {
+    if (shipActive) {
+      toast("error", "Finish the active shipping request before converting rewards.");
+      return;
+    }
     if (!sellQuote || sellConfirming) return;
     if (quoteIsExpired(sellQuote)) {
       toast("info", "Conversion quote expired. Recalculating the latest total.");
@@ -409,7 +517,22 @@ export function HistoryExperience({
   }, [sellQuote]);
 
   useEffect(() => {
-    if (!sellOpen || !sellProgress || sellProgress.completed) return;
+    const expiresAt = shippingQuoteExpiresAtMs(shipQuote);
+    if (expiresAt === null) return;
+    const delayMs = Math.max(0, expiresAt - Date.now() + 250);
+    const timer = window.setTimeout(() => {
+      refreshQuoteClock((value) => value + 1);
+    }, Math.min(delayMs, 2_147_483_647));
+    return () => window.clearTimeout(timer);
+  }, [shipQuote]);
+
+  const shouldPollConversion =
+    sellOpen && Boolean(sellProgress && !conversionIsTerminal(sellProgress));
+  const shouldPollShipping =
+    shipOpen && Boolean(shipProgress && !shipProgress.completed);
+
+  useEffect(() => {
+    if (!shouldPollConversion) return;
     let stopped = false;
     const refresh = async () => {
       try {
@@ -432,7 +555,33 @@ export function HistoryExperience({
       stopped = true;
       window.clearInterval(timer);
     };
-  }, [sellOpen, sellProgress]);
+  }, [shouldPollConversion]);
+
+  useEffect(() => {
+    if (!shouldPollShipping) return;
+    let stopped = false;
+    const refresh = async () => {
+      try {
+        const response = await fetch("/api/ynot/shipping/current", {
+          method: "GET",
+        });
+        if (!response.ok) return;
+        const payload: unknown = await response.json().catch(() => null);
+        const progress = shippingProgressFromPayload(payload);
+        if (progress && !stopped) {
+          setShipProgress(progress);
+        }
+      } catch {
+        // The next refresh will try again.
+      }
+    };
+    const timer = window.setInterval(refresh, 5000);
+    void refresh();
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [shouldPollShipping]);
 
   useEffect(() => {
     let stopped = false;
@@ -444,7 +593,7 @@ export function HistoryExperience({
         if (!response.ok) return;
         const payload: unknown = await response.json().catch(() => null);
         const progress = progressFromPayload(payload);
-        if (progress && !progress.completed && !stopped) {
+        if (progress && !conversionIsTerminal(progress) && !stopped) {
           setSellProgress(progress);
         }
       } catch {
@@ -457,38 +606,172 @@ export function HistoryExperience({
     };
   }, []);
 
-  function submitShip(addressId: string) {
-    if (!selectedCards.length || !addressId) return;
-    const ids = selectedCards.map((c) => c.id);
-    startSubmit(async () => {
+  useEffect(() => {
+    let stopped = false;
+    const loadCurrent = async () => {
+      try {
+        const response = await fetch("/api/ynot/shipping/current", {
+          method: "GET",
+        });
+        if (!response.ok) return;
+        const payload: unknown = await response.json().catch(() => null);
+        const progress = shippingProgressFromPayload(payload);
+        if (progress && !progress.completed && !stopped) {
+          setShipProgress(progress);
+        }
+      } catch {
+        // Status will refresh after the next user action.
+      }
+    };
+    void loadCurrent();
+    return () => {
+      stopped = true;
+    };
+  }, []);
+
+  function openShip(nextMode: ShippingSelectionMode) {
+    if (shipActive) {
+      setShipOpen(true);
+      return;
+    }
+    if (sellActive) {
+      toast("error", "Finish the active conversion before requesting shipping.");
+      setSellOpen(true);
+      return;
+    }
+    if (nextMode === "selected" && !selectedCards.length) {
+      toast("error", "Select cards to ship or request all eligible cards.");
+      return;
+    }
+    if (nextMode === "all_eligible" && !ownedShipCards.length) {
+      toast("error", "No eligible cards are ready for shipping.");
+      return;
+    }
+    setShipMode(nextMode);
+    setShipQuote(null);
+    setShipProgress(null);
+    setShipOpen(true);
+  }
+
+  async function quoteShip(addressId: string) {
+    if (shipActive) {
+      setShipOpen(true);
+      return;
+    }
+    if (sellActive) {
+      toast("error", "Finish the active conversion before requesting shipping.");
+      setSellOpen(true);
+      return;
+    }
+    if (!addressId || shipPreparing) return;
+    if (shipMode === "selected" && !selectedCards.length) {
+      toast("error", "Select at least one card.");
+      return;
+    }
+    if (shipMode === "all_eligible" && !ownedShipCards.length) {
+      toast("error", "No eligible cards are ready for shipping.");
+      return;
+    }
+    setShipAddressId(addressId);
+    setShipQuote(null);
+    setShipProgress(null);
+    setShipPreparing(true);
+    try {
+      const response = await fetch("/api/ynot/shipping", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(
+          shipMode === "all_eligible"
+            ? {
+                intent: "quote",
+                selectionMode: "all_eligible",
+                addressId,
+              }
+            : {
+                intent: "quote",
+                selectionMode: "selected",
+                addressId,
+                collectionItemIds: selectedCards.map((card) => card.id),
+              },
+        ),
+      });
+      const payload: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          isRecord(payload) && typeof payload.error === "string"
+            ? payload.error
+            : "Shipping request failed.",
+        );
+      }
+      const quote = shippingQuoteFromPayload(payload);
+      if (!quote || quote.itemCount === 0) {
+        throw new Error("No eligible cards are ready for shipping.");
+      }
+      setShipQuote(quote);
+    } catch (error) {
+      toast(
+        "error",
+        error instanceof Error ? error.message : "Shipping request failed.",
+      );
+    } finally {
+      setShipPreparing(false);
+    }
+  }
+
+  function submitShip() {
+    if (shipActive) return;
+    if (sellActive) {
+      toast("error", "Finish the active conversion before requesting shipping.");
+      setSellOpen(true);
+      return;
+    }
+    if (!shipQuote || shipConfirming) return;
+    if (shippingQuoteIsExpired(shipQuote)) {
+      toast("info", "Shipping quote expired. Recalculating the latest request.");
+      void quoteShip(shipAddressId);
+      return;
+    }
+    setShipConfirming(true);
+    void (async () => {
       try {
         const response = await fetch("/api/ynot/shipping", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            addressId,
-            collectionItemIds: ids,
+            intent: "start",
+            quoteToken: shipQuote.quoteToken,
+            idempotencyKey: crypto.randomUUID(),
           }),
         });
         const payload: unknown = await response.json().catch(() => null);
         if (!response.ok) {
-          throw new Error(
+          const message =
             isRecord(payload) && typeof payload.error === "string"
               ? payload.error
-              : "Shipping request failed.",
-          );
+              : "Shipping request failed.";
+          if (/expired/i.test(message)) {
+            toast("info", "Shipping quote expired. Recalculating the latest request.");
+            void quoteShip(shipAddressId);
+            return;
+          }
+          throw new Error(message);
         }
-        toast("success", `Shipping requested for ${ids.length} card${ids.length === 1 ? "" : "s"}.`);
-        setShipOpen(false);
+        const progress = shippingProgressFromPayload(payload);
+        if (!progress) throw new Error("Shipping request failed.");
+        setShipProgress(progress);
         clearSelection();
-        window.location.assign("/profile");
+        if (progress.completed) {
+          toast("success", `Shipping request ${progress.publicCode || ""} submitted.`);
+        }
       } catch (error) {
         toast(
           "error",
           error instanceof Error ? error.message : "Shipping request failed.",
         );
+      } finally {
+        setShipConfirming(false);
       }
-    });
+    })();
   }
 
   return (
@@ -523,6 +806,25 @@ export function HistoryExperience({
           </small>
           <small className="cr-mute">
             You can leave this page. We&apos;ll keep converting your selected rewards.
+          </small>
+        </div>
+      ) : null}
+
+      {shipProgress && !shipProgress.completed && !shipOpen ? (
+        <div
+          className="cr-section"
+          style={{
+            padding: "12px 16px",
+            display: "grid",
+            gap: 6,
+          }}
+        >
+          <strong>Preparing shipping request</strong>
+          <small className="cr-mute">
+            {shipProgress.preparedCount} / {shipProgress.itemCount} cards prepared
+          </small>
+          <small className="cr-mute">
+            You can leave this page. We&apos;ll keep preparing your shipping request.
           </small>
         </div>
       ) : null}
@@ -616,9 +918,17 @@ export function HistoryExperience({
                 type="button"
                 className="cr-btn cr-btn-ghost cr-btn-sm"
                 onClick={() => void openSell("all_eligible")}
-                disabled={sellBusy}
+                disabled={sellBusy || shipActive}
               >
                 Select all eligible rewards to convert
+              </button>
+              <button
+                type="button"
+                className="cr-btn cr-btn-ghost cr-btn-sm"
+                onClick={() => void openShip(selectedCards.length ? "selected" : "all_eligible")}
+                disabled={shipBusy || sellActive || (!shipActive && !selectedCards.length && !ownedShipCards.length)}
+              >
+                {shipActive ? "View shipping progress" : "Request shipping"}
               </button>
               {selected.size > 0 && (
                 <button
@@ -701,15 +1011,17 @@ export function HistoryExperience({
               <button
                 type="button"
                 className="cr-btn cr-btn-sm"
-                onClick={() => setShipOpen(true)}
+                onClick={() => void openShip(selectedCards.length ? "selected" : "all_eligible")}
+                disabled={shipBusy || sellActive || (!shipActive && !selectedCards.length && !ownedShipCards.length)}
               >
-                <Ico name="truck" size={12} /> Request shipping
+                <Ico name="truck" size={12} />{" "}
+                {shipActive ? "View shipping progress" : "Request shipping"}
               </button>
               <button
                 type="button"
                 className="cr-btn cr-btn-mint cr-btn-sm"
                 onClick={() => void openSell("selected")}
-                disabled={!selectedConvertibleCards.length || sellBusy}
+                disabled={!selectedConvertibleCards.length || sellBusy || shipActive}
                 title={
                   selectedConvertibleCards.length
                     ? undefined
@@ -731,7 +1043,9 @@ export function HistoryExperience({
         eyebrow="Confirm"
         title={
           sellProgress
-            ? "Converting rewards to coins"
+            ? sellProgress.failed
+              ? "Conversion could not finish"
+              : "Converting rewards to coins"
             : `Convert ${displayedSellCount} reward${
                 displayedSellCount === 1 ? "" : "s"
               } to coins?`
@@ -778,7 +1092,9 @@ export function HistoryExperience({
           {sellProgress ? (
             <>
               <p className="cr-lead" style={{ margin: 0 }}>
-                Converting rewards to coins
+                {sellProgress.failed
+                  ? "Conversion stopped before every reward was converted."
+                  : "Converting rewards to coins"}
               </p>
               <div
                 style={{
@@ -797,7 +1113,9 @@ export function HistoryExperience({
                   {formatCoins(sellProgress.totalCoins)} coins credited
                 </strong>
                 <small className="cr-mute">
-                  You can leave this page. We&apos;ll keep converting your selected rewards.
+                  {sellProgress.failed
+                    ? "Credited coins remain in your wallet. Refresh your bag before converting the remaining eligible rewards."
+                    : "You can leave this page. We'll keep converting your selected rewards."}
                 </small>
               </div>
             </>
@@ -851,11 +1169,19 @@ export function HistoryExperience({
         open={shipOpen}
         addresses={addressRows}
         cards={selectedCards}
-        submitting={submitting}
+        mode={shipMode}
+        quote={shipQuote}
+        progress={shipProgress}
+        preparing={shipPreparing}
+        confirming={shipConfirming}
+        quoteExpired={shipQuoteExpired}
+        displayedCount={displayedShipCount}
+        displayedCoinValue={displayedShipTotal}
         onAddressSaved={handleAddressSaved}
         onClose={() => {
-          if (!submitting) setShipOpen(false);
+          if (!shipBusy) setShipOpen(false);
         }}
+        onQuote={quoteShip}
         onConfirm={submitShip}
       />
     </div>
@@ -942,18 +1268,34 @@ function ShipModal({
   open,
   addresses,
   cards,
-  submitting,
+  mode,
+  quote,
+  progress,
+  preparing,
+  confirming,
+  quoteExpired,
+  displayedCount,
+  displayedCoinValue,
   onAddressSaved,
   onClose,
+  onQuote,
   onConfirm,
 }: {
   open: boolean;
   addresses: YnotAddress[];
   cards: EnrichedItem[];
-  submitting: boolean;
+  mode: ShippingSelectionMode;
+  quote: ShippingQuote | null;
+  progress: ShippingProgress | null;
+  preparing: boolean;
+  confirming: boolean;
+  quoteExpired: boolean;
+  displayedCount: number;
+  displayedCoinValue: number;
   onAddressSaved: (address: YnotAddress) => void;
   onClose: () => void;
-  onConfirm: (addressId: string) => void;
+  onQuote: (addressId: string) => void;
+  onConfirm: () => void;
 }) {
   const defaultAddress =
     addresses.find((a) => a.isDefault) ?? addresses[0] ?? null;
@@ -1030,8 +1372,12 @@ function ShipModal({
     }
   }
 
+  const busy = preparing || confirming;
+  const confirmDisabled =
+    addressSavePending || busy || !isCompleteShippingAddress(selectedAddress);
+
   function handleClose() {
-    if (addressSavePending) return;
+    if (addressSavePending || busy) return;
     onClose();
   }
 
@@ -1040,37 +1386,115 @@ function ShipModal({
       open={open}
       onClose={handleClose}
       eyebrow="Confirm"
-      title={`Ship ${cards.length} card${cards.length === 1 ? "" : "s"} to your address`}
+      title={
+        progress
+          ? "Preparing shipping request"
+          : quote
+            ? `Request shipping for ${displayedCount} card${displayedCount === 1 ? "" : "s"}?`
+            : mode === "all_eligible"
+              ? "Request shipping for all eligible cards"
+              : `Ship ${cards.length} card${cards.length === 1 ? "" : "s"} to your address`
+      }
       size="md"
       footer={
-        <>
+        progress ? (
+          <button
+            type="button"
+            className="cr-btn cr-btn-primary"
+            onClick={onClose}
+            disabled={confirming}
+          >
+            {progress.completed ? "Done" : "Close"}
+          </button>
+        ) : (
+          <>
           <button
             type="button"
             className="cr-btn"
             onClick={handleClose}
-            disabled={addressSavePending || submitting}
+            disabled={addressSavePending || busy}
           >
             Cancel
           </button>
           <button
             type="button"
             className="cr-btn cr-btn-primary"
-            onClick={() => onConfirm(addressId)}
-            disabled={addressSavePending || submitting || !isCompleteShippingAddress(selectedAddress)}
+            onClick={quote ? onConfirm : () => onQuote(addressId)}
+            disabled={confirmDisabled || (quote ? false : !addressId)}
           >
             <Ico name="truck" size={14} />{" "}
-            {submitting ? "Submitting…" : "Request shipping"}
+            {preparing
+              ? "Calculating…"
+              : confirming
+                ? "Preparing…"
+                : quote
+                  ? quoteExpired
+                    ? "Refresh request"
+                    : "Confirm request"
+                  : "Review shipping"}
           </button>
         </>
+        )
       }
     >
       <div className="cr-stack" style={{ gap: 14 }}>
-        <p className="cr-lead" style={{ margin: 0 }}>
-          Cards will leave your stash and arrive within 3–5 working days inside
-          Thailand.
-        </p>
+        {progress ? (
+          <div
+            style={{
+              background: "var(--cr-mint-soft)",
+              padding: "12px 16px",
+              borderRadius: "var(--cr-r-md)",
+              display: "grid",
+              gap: 8,
+            }}
+          >
+            <strong className="cr-tnum" style={{ color: "var(--cr-mint)" }}>
+              {progress.preparedCount} / {progress.itemCount} cards prepared
+            </strong>
+            <small className="cr-mute">
+              You can leave this page. We&apos;ll keep preparing your shipping request.
+            </small>
+          </div>
+        ) : (
+          <p className="cr-lead" style={{ margin: 0 }}>
+            Cards will leave your stash and arrive within 3-5 working days inside
+            Thailand.
+          </p>
+        )}
 
-        <div className="cr-stack" style={{ gap: 10 }}>
+        {quote && !progress ? (
+          <div
+            style={{
+              background: "var(--cr-mint-soft)",
+              padding: "12px 16px",
+              borderRadius: "var(--cr-r-md)",
+              display: "grid",
+              gap: 8,
+            }}
+          >
+            <strong>
+              {displayedCount} card{displayedCount === 1 ? "" : "s"} selected
+            </strong>
+            <span className="cr-tnum">
+              <CoinPip size={14} /> {formatCoins(displayedCoinValue)} coin value
+            </span>
+            <small className="cr-mute">
+              Minimum required: {formatCoins(quote.minimumCoinValue)} coins
+            </small>
+            <small className="cr-mute">
+              Ship to {quote.address.label ?? "selected address"}
+              {quote.address.recipientName ? ` | ${quote.address.recipientName}` : ""}
+              {quote.address.summary ? ` | ${quote.address.summary}` : ""}
+            </small>
+            {quoteExpired ? (
+              <small className="cr-mute">
+                Quote expired. Refresh the request before confirming.
+              </small>
+            ) : null}
+          </div>
+        ) : null}
+
+        {!progress ? <div className="cr-stack" style={{ gap: 10 }}>
           <div className="cr-row" style={{ gap: 10, alignItems: "center" }}>
             <span className="cr-eyebrow">Ship to</span>
             <span style={{ flex: 1 }} />
@@ -1078,7 +1502,7 @@ function ShipModal({
               type="button"
               className="cr-btn cr-btn-primary cr-btn-sm"
               onClick={() => setAddingAddress((current) => !current)}
-              disabled={submitting || addressSavePending}
+              disabled={busy || addressSavePending || Boolean(quote)}
             >
               <Ico name="plus" size={12} /> Add a new address
             </button>
@@ -1118,7 +1542,7 @@ function ShipModal({
                     type="radio"
                     name="ship-addr"
                     checked={addressId === a.id}
-                    disabled={!complete || submitting || addressSavePending}
+                    disabled={!complete || busy || addressSavePending || Boolean(quote)}
                     onChange={() => setAddressId(a.id)}
                     style={{ marginTop: 4 }}
                   />
@@ -1151,8 +1575,9 @@ function ShipModal({
               );
             })
           )}
+        </div> : null}
 
-          {addingAddress && (
+          {!progress && addingAddress && (
             <div className="cr-section" style={{ padding: 14 }}>
               <div className="cr-grid-2">
                 <label className="cr-field">
@@ -1209,7 +1634,7 @@ function ShipModal({
                 <button
                   type="button"
                   className="cr-btn cr-btn-primary cr-btn-sm"
-                  disabled={addressSavePending || submitting}
+                  disabled={addressSavePending || busy}
                   onClick={() => {
                     void saveAddress().catch((error) => {
                       setAddressMessage(error instanceof Error ? error.message : "Could not save address.");
@@ -1224,7 +1649,6 @@ function ShipModal({
 
           {addressMessage && <small className="cr-mute">{addressMessage}</small>}
         </div>
-      </div>
     </Modal>
   );
 }

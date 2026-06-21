@@ -145,7 +145,12 @@ test("Cloudflare worker settles Pull All through one queue-backed RPC chunk at a
     /p_limit:\s*1000/,
     /list_bulk_open_recovery_sessions/,
     /BULK_OPEN_QUEUE\.send/,
+    /type QueueJobAdapter/,
+    /runQueueJob/,
+    /runScheduledRecovery/,
     /retryDelaySeconds/,
+    /attempts\?: number/,
+    /message\.attempts/,
     /bulk_open_queue_retry/,
   ], "bulk open worker");
   assert.doesNotMatch(worker, /console\.(log|warn)\([^)]*SUPABASE_SERVICE_ROLE_KEY/);

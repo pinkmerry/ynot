@@ -347,6 +347,7 @@ export type YnotCollectionItem = {
     | "exchange_requested"
     | "exchanged"
     | "converting"
+    | "shipping_preparing"
     | "shipping_requested"
     | "shipped"
     | "void";
@@ -387,6 +388,7 @@ export type YnotExchangeOrder = {
 
 export type YnotShippingStatus =
   | "draft"
+  | "preparing"
   | "submitted"
   | "packing"
   | "ready_for_pickup"
@@ -461,6 +463,9 @@ export type YnotShippingRequest = {
   customerNote?: string | null;
   adminNote?: string | null;
   shippingFeeCoins?: number;
+  itemCount?: number | null;
+  preparedCount?: number | null;
+  totalCoinValue?: number | null;
   customer?: YnotShippingCustomer | null;
   addressSnapshot?: YnotShippingAddressSnapshot | null;
   items?: YnotShippingItem[];

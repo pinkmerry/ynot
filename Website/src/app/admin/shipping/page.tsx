@@ -1,6 +1,9 @@
 import { AdminShippingConsole } from "@/features/ynot/admin/AdminShippingConsole";
 import { AdminGate } from "@/features/ynot/components";
-import { getShipping, getYnotDashboardSlice } from "@/features/ynot/data";
+import {
+  getAdminShippingFulfillment,
+  getYnotDashboardSlice,
+} from "@/features/ynot/data";
 import { isActiveYnotShippingStatus } from "@/features/ynot/shipping-status";
 import { AdminFrame, AdminIcon } from "@/features/ynot/admin";
 
@@ -19,7 +22,7 @@ export default async function AdminShippingPage({
       : undefined;
   const [data, shipping] = await Promise.all([
     getYnotDashboardSlice({ wallet: false }),
-    profileId ? getShipping(profileId, true) : getShipping(undefined, true),
+    getAdminShippingFulfillment(profileId),
   ]);
   const active = shipping.filter((request) => isActiveYnotShippingStatus(request.status)).length;
 

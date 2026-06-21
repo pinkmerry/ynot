@@ -67,6 +67,14 @@ const shippingRouteSource = readFileSync(
   new URL("../src/app/api/ynot/shipping/route.ts", import.meta.url),
   "utf8",
 );
+const rewardActionGuardSource = readFileSync(
+  new URL("../src/lib/ynot/reward-action-guard.ts", import.meta.url),
+  "utf8",
+);
+const rewardActionPresentersSource = readFileSync(
+  new URL("../src/lib/ynot/reward-action-presenters.ts", import.meta.url),
+  "utf8",
+);
 const addressesRouteSource = readFileSync(
   new URL("../src/app/api/ynot/addresses/route.ts", import.meta.url),
   "utf8",
@@ -695,10 +703,10 @@ test("customer collection actions use opaque tokens instead of raw collection it
   const conversionHandler = between(
     conversionApiSource,
     "async function resolveSelectedCollectionItems",
-    "export function publicConversionJobResult",
+    "  if (intent === \"quote\")",
   );
   assert.match(
-    conversionHandler,
+    rewardActionGuardSource,
     /resolvedCollectionItemIds\s*=\s*await resolveCollectionItemActionTokens\(/,
   );
   assert.match(conversionHandler, /catch \(error\)[\s\S]*Could not convert these rewards/);
@@ -712,24 +720,19 @@ test("customer collection actions use opaque tokens instead of raw collection it
   );
   assert.doesNotMatch(conversionHandler, /ids\.some\(\(item\) => !UUID_RE\.test\(item\)\)/);
 
-  const shippingCollectionTokenNormalizerEnd = shippingRouteSource.includes(
-    "function normalizeQuoteToken",
-  )
-    ? "function normalizeQuoteToken"
-    : "function normalizeIdempotencyKey";
   const shippingCollectionTokenNormalizer = between(
     shippingRouteSource,
     "function normalizeCollectionItemActionTokens",
-    shippingCollectionTokenNormalizerEnd,
+    "function shippingErrorResponse",
   );
-  assert.match(shippingCollectionTokenNormalizer, /isCollectionItemActionToken\(item\)/);
+  assert.match(shippingCollectionTokenNormalizer, /isCollectionItemActionToken/);
   assert.doesNotMatch(shippingCollectionTokenNormalizer, /UUID_RE/);
   assert.doesNotMatch(shippingCollectionTokenNormalizer, /body\.collectionItemIds/);
 
   const shippingHandler = between(
     shippingRouteSource,
     "export async function POST",
-    "return Response.json({ result: publicShippingResult(data) });",
+    "return Response.json({ result: presentShippingLegacyResult(data) });",
   );
   assert.match(shippingHandler, /resolveAddressActionToken\(/);
   assert.match(shippingRouteSource, /p_address_id:\s*resolvedAddressId/);
@@ -746,7 +749,7 @@ test("customer collection actions use opaque tokens instead of raw collection it
       "async function resolveSelectedCollectionItems",
       "async function submitLegacyShippingFallback",
     );
-    assert.match(shippingCollectionResolver, /resolveCollectionItemActionTokens\(/);
+    assert.match(shippingCollectionResolver, /resolveSelectedCollectionItemActionTokens\(/);
   }
   assert.match(shippingHandler, /catch \(error\)[\s\S]*Could not request shipping/);
   assert.match(shippingRouteSource, /p_collection_item_ids:\s*(?:selectionMode === "selected" \? )?resolvedCollectionItemIds/);
@@ -891,6 +894,11 @@ test("customer order histories use public codes instead of raw row ids", () => {
     "function publicShippingRequest",
     "export async function getAddresses",
   );
+  const publicShippingPresenter = between(
+    rewardActionPresentersSource,
+    "export function presentShippingHistoryCurrent",
+    "\n}",
+  );
   const dashboardLoader = between(
     dataSource,
     "export async function getYnotDashboardSlice",
@@ -899,8 +907,9 @@ test("customer order histories use public codes instead of raw row ids", () => {
 
   assert.match(publicExchangeBlock, /id:\s*order\.publicCode/);
   assert.match(publicExchangeBlock, /adminNote:\s*null/);
-  assert.match(publicShippingBlock, /id:\s*request\.publicCode/);
-  assert.match(publicShippingBlock, /adminNote:\s*null/);
+  assert.match(publicShippingBlock, /presentShippingHistoryCurrent\(request\)/);
+  assert.match(publicShippingPresenter, /id:\s*request\.publicCode/);
+  assert.match(publicShippingPresenter, /adminNote:\s*null/);
   assert.match(dashboardLoader, /viewer\.isAdmin \? orders : orders\.map\(publicExchangeOrder\)/);
   assert.match(dashboardLoader, /viewer\.isAdmin \? requests : requests\.map\(publicShippingRequest\)/);
 });

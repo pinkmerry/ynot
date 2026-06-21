@@ -19,6 +19,7 @@ import {
 import type { Database } from "@/lib/supabase/types";
 import { collectionItemActionToken } from "@/lib/ynot/collection-action-tokens";
 import { paymentMethodActionToken } from "@/lib/ynot/payment-method-action-tokens";
+import { presentShippingHistoryCurrent } from "@/lib/ynot/reward-action-presenters";
 import type {
   YnotAdminUser360Query,
   YnotAdminBulkOpenSessionSummary,
@@ -101,6 +102,10 @@ const CARD_STOCK_UNIT_ID_BATCH_SIZE = 250;
 const COLLECTION_PAGE_SIZE = 500;
 const COLLECTION_DEFAULT_LIMIT = 10000;
 const COLLECTION_MAX_LIMIT = 20000;
+const SHIPPING_ITEM_PREVIEW_LIMIT = 250;
+
+type ShippingRequestItemPreview =
+  Database["public"]["Tables"]["shipping_request_items"]["Row"];
 
 type CardStockSummaryRow = {
   cardId: string;
@@ -464,6 +469,25 @@ function metadataNumber(metadata: unknown, key: string) {
   if (!isRecord(metadata)) return undefined;
   const parsed = Number(metadata[key]);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+async function getShippingRequestItemPreviews(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  requestIds: string[],
+  label: string,
+): Promise<ShippingRequestItemPreview[]> {
+  if (!requestIds.length) return [];
+  return readOrEmpty(label, async () => {
+    const { data, error } = await supabase.rpc(
+      "list_shipping_request_item_previews",
+      {
+        p_shipping_request_ids: requestIds,
+        p_limit_per_request: SHIPPING_ITEM_PREVIEW_LIMIT,
+      },
+    );
+    if (error) throw error;
+    return data ?? [];
+  });
 }
 
 function displayTierFromPrizeMetadata(
@@ -3780,8 +3804,23 @@ function shippingAddressSnapshotFromValue(
     : null;
 }
 
+type ShippingAddressSnapshotAddressRow = Pick<
+  Database["public"]["Tables"]["user_addresses"]["Row"],
+  | "label"
+  | "recipient_name"
+  | "phone"
+  | "address_line1"
+  | "address_line2"
+  | "subdistrict"
+  | "district"
+  | "province"
+  | "postal_code"
+  | "country"
+  | "delivery_note"
+>;
+
 function shippingAddressSnapshotFromAddress(
-  address?: Database["public"]["Tables"]["user_addresses"]["Row"],
+  address?: ShippingAddressSnapshotAddressRow,
 ): YnotShippingAddressSnapshot | null {
   if (!address) return null;
   return {
@@ -3800,8 +3839,11 @@ function shippingAddressSnapshotFromAddress(
 }
 
 function addressSnapshotFromRow(
-  row: Database["public"]["Tables"]["shipping_requests"]["Row"],
-  address?: Database["public"]["Tables"]["user_addresses"]["Row"],
+  row: Pick<
+    Database["public"]["Tables"]["shipping_requests"]["Row"],
+    "address_snapshot"
+  >,
+  address?: ShippingAddressSnapshotAddressRow,
 ): YnotShippingAddressSnapshot | null {
   return (
     shippingAddressSnapshotFromValue(row.address_snapshot) ??
@@ -3845,14 +3887,135 @@ function shippingTimelineEvent(
   };
 }
 
-export async function getShipping(
+export async function getCustomerShipping(
   profileId?: string,
-  includeAll = false,
   options: { limit?: number } = {},
 ): Promise<YnotShippingRequest[]> {
-  if ((!profileId && !includeAll) || !isSupabaseConfigured()) return [];
-  if (includeAll && !(await resolveAdminSession())) return [];
-  const safeLimit = boundedRowLimit(options.limit, includeAll ? 200 : 80, 500);
+  if (!profileId || !isSupabaseConfigured()) return [];
+  const safeLimit = boundedRowLimit(options.limit, 80, 500);
+  const supabase = createServiceSupabaseClient();
+  return readOrEmpty("customer_shipping", async () => {
+    const { data, error } = await supabase
+      .from("shipping_requests")
+      .select(
+        "id,public_code,status,tracking_provider,tracking_number,created_at,updated_at,customer_note,shipping_fee_coins,address_snapshot,address_id",
+      )
+      .eq("profile_id", profileId)
+      .order("created_at", { ascending: false })
+      .limit(safeLimit);
+    if (error) throw error;
+    const rows = data ?? [];
+    if (!rows.length) return [];
+
+    const requestIds = rows.map((row) => row.id);
+    const addressIds = Array.from(
+      new Set(
+        rows
+          .map((row) => row.address_id)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    );
+
+    const [shippingItems, addresses, shippingJobs] = await Promise.all([
+      getShippingRequestItemPreviews(
+        supabase,
+        requestIds,
+        "customer_shipping_request_items",
+      ),
+      addressIds.length
+        ? readOrEmpty("customer_shipping_addresses", async () => {
+            const { data, error } = await supabase
+              .from("user_addresses")
+              .select(
+                "id,label,recipient_name,phone,address_line1,address_line2,subdistrict,district,province,postal_code,country,delivery_note",
+              )
+              .in("id", addressIds);
+            if (error) throw error;
+            return data ?? [];
+          })
+        : Promise.resolve(
+            [] as Database["public"]["Tables"]["user_addresses"]["Row"][],
+          ),
+      readOrEmpty("customer_shipping_request_jobs", async () => {
+        const { data, error } = await supabase
+          .from("shipping_request_jobs")
+          .select(
+            "shipping_request_id,item_count,prepared_count,total_coin_value,status",
+          )
+          .in("shipping_request_id", requestIds);
+        if (error) throw error;
+        return data ?? [];
+      }),
+    ]);
+
+    const cards = await readOrEmpty("customer_shipping_card_catalog", async () =>
+      getCardCatalogByIds(
+        supabase,
+        shippingItems.map((item) => item.card_id),
+      ),
+    );
+    const cardsById = new Map(cards.map((card) => [card.catalogCardId, card]));
+    const addressById = new Map(addresses.map((address) => [address.id, address]));
+    const shippingJobByRequestId = new Map(
+      shippingJobs.map((job) => [job.shipping_request_id, job]),
+    );
+    const shippingItemsByRequestId = new Map<string, YnotShippingItem[]>();
+    for (const shippingItem of shippingItems) {
+      const card = cardsById.get(shippingItem.card_id);
+      const group = shippingItemsByRequestId.get(shippingItem.shipping_request_id) ?? [];
+      group.push({
+        cardName: card?.name ?? "Mystery card",
+        cardCode: card?.code ?? null,
+        imageUrl: null,
+        status: null,
+        serialNo: null,
+        acquiredAt: null,
+        sourceCampaignTitle: null,
+        sourceCampaignSlug: null,
+        sourceOpenCode: null,
+        sourceOpenPosition: null,
+        sourcePrizeTierLabel: null,
+        sourcePrizeValueThb: null,
+      });
+      shippingItemsByRequestId.set(shippingItem.shipping_request_id, group);
+    }
+
+    return rows.map((row) => {
+      const items = shippingItemsByRequestId.get(row.id) ?? [];
+      const job = shippingJobByRequestId.get(row.id);
+      return publicShippingRequest({
+        id: row.id,
+        publicCode: row.public_code,
+        status: row.status,
+        trackingProvider: row.tracking_provider,
+        trackingNumber: row.tracking_number,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        customerNote: row.customer_note,
+        adminNote: null,
+        shippingFeeCoins: row.shipping_fee_coins,
+        itemCount: job?.item_count ?? items.length,
+        preparedCount: job?.prepared_count ?? items.length,
+        totalCoinValue: job?.total_coin_value ?? null,
+        customer: null,
+        addressSnapshot: addressSnapshotFromRow(
+          row,
+          row.address_id ? addressById.get(row.address_id) : undefined,
+        ),
+        items,
+        timeline: [],
+      });
+    });
+  });
+}
+
+export async function getAdminShippingFulfillment(
+  profileId?: string,
+  options: { limit?: number } = {},
+): Promise<YnotShippingRequest[]> {
+  if (!isSupabaseConfigured()) return [];
+  if (!(await resolveAdminSession())) return [];
+  const safeLimit = boundedRowLimit(options.limit, profileId ? 80 : 200, 500);
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("shipping", async () => {
     let query = supabase
@@ -3876,50 +4039,57 @@ export async function getShipping(
       ),
     );
 
-    const [shippingItems, profiles, addresses, auditRows] = await Promise.all([
-      readOrEmpty("shipping_request_items", async () => {
-        const { data, error } = await supabase
-          .from("shipping_request_items")
-          .select("*")
-          .in("shipping_request_id", requestIds)
-          .order("created_at", { ascending: true });
-        if (error) throw error;
-        return data ?? [];
-      }),
-      readOrEmpty("shipping_profiles", async () => {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select(
-            "id,email,display_name,line_display_name,line_user_id,phone,profile_status,created_at,last_seen_at",
-          )
-          .in("id", profileIds);
-        if (error) throw error;
-        return data ?? [];
-      }),
-      addressIds.length
-        ? readOrEmpty("shipping_addresses", async () => {
-            const { data, error } = await supabase
-              .from("user_addresses")
-              .select("*")
-              .in("id", addressIds);
-            if (error) throw error;
-            return data ?? [];
-          })
-        : Promise.resolve(
-            [] as Database["public"]["Tables"]["user_addresses"]["Row"][],
-          ),
-      readOrEmpty("shipping_audit_events", async () => {
-        const { data, error } = await supabase
-          .from("audit_events")
-          // Base mapper fields stay covered by .select(AUDIT_EVENT_TIMELINE_SELECT);
-          // shipping grouping also needs shipping_request_id.
-          .select(SHIPPING_AUDIT_EVENT_TIMELINE_SELECT)
-          .in("shipping_request_id", requestIds)
-          .order("created_at", { ascending: true });
-        if (error) throw error;
-        return data ?? [];
-      }),
-    ]);
+    const [shippingItems, profiles, addresses, auditRows, shippingJobs] =
+      await Promise.all([
+        getShippingRequestItemPreviews(
+          supabase,
+          requestIds,
+          "shipping_request_items",
+        ),
+        readOrEmpty("shipping_profiles", async () => {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select(
+              "id,email,display_name,line_display_name,line_user_id,phone,profile_status,created_at,last_seen_at",
+            )
+            .in("id", profileIds);
+          if (error) throw error;
+          return data ?? [];
+        }),
+        addressIds.length
+          ? readOrEmpty("shipping_addresses", async () => {
+              const { data, error } = await supabase
+                .from("user_addresses")
+                .select("*")
+                .in("id", addressIds);
+              if (error) throw error;
+              return data ?? [];
+            })
+          : Promise.resolve(
+              [] as Database["public"]["Tables"]["user_addresses"]["Row"][],
+            ),
+        readOrEmpty("shipping_audit_events", async () => {
+          const { data, error } = await supabase
+            .from("audit_events")
+            // Base mapper fields stay covered by .select(AUDIT_EVENT_TIMELINE_SELECT);
+            // shipping grouping also needs shipping_request_id.
+            .select(SHIPPING_AUDIT_EVENT_TIMELINE_SELECT)
+            .in("shipping_request_id", requestIds)
+            .order("created_at", { ascending: true });
+          if (error) throw error;
+          return data ?? [];
+        }),
+        readOrEmpty("shipping_request_jobs", async () => {
+          const { data, error } = await supabase
+            .from("shipping_request_jobs")
+            .select(
+              "shipping_request_id,item_count,prepared_count,total_coin_value,status",
+            )
+            .in("shipping_request_id", requestIds);
+          if (error) throw error;
+          return data ?? [];
+        }),
+      ]);
 
     const collectionItemIds = Array.from(
       new Set(shippingItems.map((item) => item.collection_item_id)),
@@ -4147,9 +4317,14 @@ export async function getShipping(
       group.push(shippingTimelineEvent(row));
       timelineByShippingRequestId.set(row.shipping_request_id, group);
     }
+    const shippingJobByRequestId = new Map(
+      shippingJobs.map((job) => [job.shipping_request_id, job]),
+    );
 
     return rows.map((row) => {
       const profile = profileById.get(row.profile_id);
+      const items = shippingItemsByRequestId.get(row.id) ?? [];
+      const job = shippingJobByRequestId.get(row.id);
       return {
         id: row.id,
         publicCode: row.public_code,
@@ -4162,6 +4337,9 @@ export async function getShipping(
         customerNote: row.customer_note,
         adminNote: row.admin_note,
         shippingFeeCoins: row.shipping_fee_coins,
+        itemCount: job?.item_count ?? items.length,
+        preparedCount: job?.prepared_count ?? items.length,
+        totalCoinValue: job?.total_coin_value ?? null,
         customer: profile
           ? {
               profileId: profile.id,
@@ -4182,24 +4360,27 @@ export async function getShipping(
           row,
           row.address_id ? addressById.get(row.address_id) : undefined,
         ),
-        items: shippingItemsByRequestId.get(row.id) ?? [],
+        items,
         timeline: timelineByShippingRequestId.get(row.id) ?? [],
       };
     });
   });
 }
 
+export async function getShipping(
+  profileId?: string,
+  includeAll = false,
+  options: { limit?: number } = {},
+): Promise<YnotShippingRequest[]> {
+  return includeAll
+    ? getAdminShippingFulfillment(profileId, options)
+    : getCustomerShipping(profileId, options);
+}
+
 function publicShippingRequest(
   request: YnotShippingRequest,
 ): YnotShippingRequest {
-  return {
-    ...request,
-    id: request.publicCode,
-    profileId: undefined,
-    customer: null,
-    timeline: [],
-    adminNote: null,
-  };
+  return presentShippingHistoryCurrent(request);
 }
 
 export async function getAddresses(profileId?: string): Promise<YnotAddress[]> {
@@ -4654,7 +4835,7 @@ export async function getAdminUserDetail(
     getAddresses(profileId),
     getCollection(profileId, { limit: sectionLimit }),
     getGachaOpenHistory(profileId, { limit: sectionLimit }),
-    getShipping(profileId, false, { limit: sectionLimit }),
+    getAdminShippingFulfillment(profileId, { limit: sectionLimit }),
     getTopUps(profileId, false, {
       includeSensitiveSlipDetails: true,
       limit: sectionLimit,

@@ -27,7 +27,11 @@ type StatusKey = "owned" | "shipped" | "converted";
 function statusFromCollection(
   status: YnotCollectionItem["status"],
 ): StatusKey {
-  if (status === "shipped" || status === "shipping_requested") return "shipped";
+  if (
+    status === "shipped" ||
+    status === "shipping_requested" ||
+    status === "shipping_preparing"
+  ) return "shipped";
   if (status === "exchanged" || status === "exchange_requested")
     return "converted";
   return "owned";

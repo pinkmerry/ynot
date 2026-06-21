@@ -41,7 +41,7 @@ await includes("src/app/api/ynot/admin/cards/route.ts", ["assetManifestKey", "ja
 await includes("src/features/ynot/data.ts", ["getStoreCategories", "get_draw_round_inventory_summary", "draw_round_prize_units"]);
 await includes("src/features/ynot/data.ts", ["canReadTestCampaign", "draw_round_testers", "allowTestForCurrentViewer"]);
 await includes("src/app/(store)/gacha/[campaignId]/page.tsx", ["allowTestForCurrentViewer: true"]);
-await includes("src/app/(store)/gacha/[campaignId]/open/page.tsx", ["allowTestForCurrentViewer: true"]);
+await includes("src/app/(store)/gacha/[campaignId]/open/page.tsx", ["getOpenCampaignForReveal", "data.viewer"]);
 await includes("src/features/ynot/client.tsx", ["AdminCategoryForm", "Pack prize quantities", "Production test pack"]);
 await includes("tools/seed/seed-production-admin-test-data.mjs", ["ALLOW_PRODUCTION_TEST_SEED", "--dry-run", "--apply", "--cleanup", "draw_round_testers"]);
 await includes("docs/runbooks/production-admin-test-data.md", ["Hard gate before production apply", "Owner go/no-go", "non-destructive"]);

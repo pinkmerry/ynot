@@ -2,18 +2,17 @@ import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { presentConversionCurrent } from "@/lib/ynot/reward-action-presenters";
+import { presentShippingCurrent } from "@/lib/ynot/reward-action-presenters";
 
 export const dynamic = "force-dynamic";
 
-const currentConversionRateLimit = {
-  scope: "ynot:convert:current",
+const currentShippingRateLimit = {
+  scope: "ynot:shipping:current",
   limit: 60,
   windowMs: 60_000,
 };
 
-const activeConversionStatuses = ["queued", "processing", "retry_required"] as const;
-const terminalConversionStatuses = ["completed", "failed"] as const;
+const activeShippingStatuses = ["preparing", "processing", "retry_required"] as const;
 
 type SupabaseCompatError = { message: string };
 type SupabaseCompatResult<T = unknown> = {
@@ -47,51 +46,51 @@ export async function GET(request: Request) {
 
   const limited = await enforceRateLimit(
     request,
-    currentConversionRateLimit.scope,
-    { limit: currentConversionRateLimit.limit, windowMs: currentConversionRateLimit.windowMs },
+    currentShippingRateLimit.scope,
+    { limit: currentShippingRateLimit.limit, windowMs: currentShippingRateLimit.windowMs },
     session.profileId,
   );
   if (limited) return limited;
 
   const supabase = createServiceSupabaseClient() as unknown as SupabaseCompatClient;
-  const conversionSelect =
-    "status,item_count,total_coins,converted_count,credited_total_coins,updated_at,completed_at";
+  const shippingSelect =
+    "status,shipping_request_id,public_code,item_count,prepared_count,total_coin_value,updated_at,completed_at";
 
-  const { data: activeConversion, error: activeError } = await supabase
-    .from("reward_conversion_jobs")
-    .select(conversionSelect)
+  const { data: activeShipping, error: activeError } = await supabase
+    .from("shipping_request_jobs")
+    .select(shippingSelect)
     .eq("profile_id", session.profileId)
-    .in("status", [...activeConversionStatuses])
+    .in("status", [...activeShippingStatuses])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (activeError) {
     return Response.json(
-      { error: "Could not load conversion status. Please try again." },
+      { error: "Could not load shipping status. Please try again." },
       { status: 409 },
     );
   }
-  if (activeConversion) {
-    return Response.json({ conversion: presentConversionCurrent(activeConversion) });
+  if (activeShipping) {
+    return Response.json({ shipping: presentShippingCurrent(activeShipping) });
   }
 
-  const { data: terminalConversion, error: terminalError } = await supabase
-    .from("reward_conversion_jobs")
-    .select(conversionSelect)
+  const { data: submittedShipping, error: submittedError } = await supabase
+    .from("shipping_request_jobs")
+    .select(shippingSelect)
     .eq("profile_id", session.profileId)
-    .in("status", [...terminalConversionStatuses])
+    .eq("status", "submitted")
     .order("completed_at", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (terminalError) {
+  if (submittedError) {
     return Response.json(
-      { error: "Could not load conversion status. Please try again." },
+      { error: "Could not load shipping status. Please try again." },
       { status: 409 },
     );
   }
 
   return Response.json({
-    conversion: presentConversionCurrent(terminalConversion),
+    shipping: presentShippingCurrent(submittedShipping),
   });
 }

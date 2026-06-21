@@ -461,6 +461,24 @@ test("related customer APIs and RPCs keep their existing guardrails", () => {
   assert.match(walletSubmitTopUpArgs, /p_idempotency_key: idempotencyKey/);
 
   const shippingRoute = readApp("src/app/api/ynot/shipping/route.ts");
+  const rewardActionGuard = readApp("src/lib/ynot/reward-action-guard.ts");
+  const rewardActionGuardBeforeParse = blockBetween(
+    rewardActionGuard,
+    "export async function guardRewardActionRequest(",
+    "  return { session:",
+  );
+  assertPatternsInOrder(
+    rewardActionGuardBeforeParse,
+    [
+      ["same-origin assignment", /const crossOrigin = enforceSameOriginMutation\(request\);/],
+      ["same-origin return", /if \(crossOrigin\) return \{ response: crossOrigin \};/],
+      ["verified-anchor assignment", /const blocked = await requireVerifiedAnchor\(session\);/],
+      ["verified-anchor return", /if \(blocked\) return \{ response: blocked \};/],
+      ["rate-limit assignment", /const limited = await enforceRateLimit\(/],
+      ["rate-limit return", /if \(limited\) return \{ response: limited \};/],
+    ],
+    "shared reward action guard before JSON parsing",
+  );
   const shippingPostBeforeParse = blockBetween(
     shippingRoute,
     "export async function POST(request: Request)",
@@ -469,15 +487,9 @@ test("related customer APIs and RPCs keep their existing guardrails", () => {
   assertPatternsInOrder(
     shippingPostBeforeParse,
     [
-      ["same-origin assignment", /const crossOrigin = enforceSameOriginMutation\(request\);/],
-      ["same-origin return", /if \(crossOrigin\) return crossOrigin;/],
-      ["verified-anchor assignment", /const blocked = await requireVerifiedAnchor\(session\);/],
-      ["verified-anchor return", /if \(blocked\) return blocked;/],
-      [
-        "shipping rate-limit assignment",
-        /const limited = await enforceRateLimit\(\s*request,\s*"ynot:shipping:request",\s*\{\s*limit:\s*20,\s*windowMs:\s*60_000\s*\},\s*session\.profileId,\s*\);/,
-      ],
-      ["shipping rate-limit return", /if \(limited\) return limited;/],
+      ["shared guard call", /const guarded = await guardRewardActionRequest\(\s*request,\s*\{[\s\S]*scope:\s*"ynot:shipping:request"[\s\S]*\}/],
+      ["shared guard return", /if \(guarded\.response\) return guarded\.response;/],
+      ["guarded session", /const \{ session \} = guarded;/],
     ],
     "shipping POST before JSON parsing",
   );
@@ -488,14 +500,14 @@ test("related customer APIs and RPCs keep their existing guardrails", () => {
     const shippingActivePostFlow = blockBetween(
       shippingRoute,
       "const body = (await request.json().catch(() => null))",
-      "  return Response.json({ quote: publicShippingQuoteResult(quote) });",
+      "  return Response.json({ quote: presentShippingQuote(quote) });",
     );
     assertPatternsInOrder(
       shippingActivePostFlow,
       [
         [
           "idempotency key normalization",
-          /const \{ key: idempotencyKey, error: keyError \} = normalizeIdempotencyKey\(/,
+          /const \{ key: idempotencyKey, error: keyError \} = normalizeRewardIdempotencyKey\(/,
         ],
         ["idempotency key validation", /if \(keyError \|\| !idempotencyKey\) \{/],
         ["start shipping RPC", /supabase\.rpc\("start_shipping_request_job", \{/],
@@ -529,14 +541,14 @@ test("related customer APIs and RPCs keep their existing guardrails", () => {
     const shippingActivePostFlow = blockBetween(
       shippingRoute,
       "const body = (await request.json().catch(() => null))",
-      "  return Response.json({ result: publicShippingResult(data) });",
+      "  return Response.json({ result: presentShippingLegacyResult(data) });",
     );
     assertPatternsInOrder(
       shippingActivePostFlow,
       [
         [
           "idempotency key normalization",
-          /const \{ key: idempotencyKey, error: keyError \} = normalizeIdempotencyKey\(/,
+          /const \{ key: idempotencyKey, error: keyError \} = normalizeRewardIdempotencyKey\(/,
         ],
         ["missing idempotency key validation", /if \(!idempotencyKey\) \{/],
         [
@@ -564,29 +576,23 @@ test("related customer APIs and RPCs keep their existing guardrails", () => {
   assertPatternsInOrder(
     conversionBeforeParse,
     [
-      ["same-origin assignment", /const crossOrigin = enforceSameOriginMutation\(request\);/],
-      ["same-origin return", /if \(crossOrigin\) return crossOrigin;/],
-      ["verified-anchor assignment", /const blocked = await requireVerifiedAnchor\(session\);/],
-      ["verified-anchor return", /if \(blocked\) return blocked;/],
-      [
-        "conversion rate-limit assignment",
-        /const limited = await enforceRateLimit\(\s*request,\s*"ynot:convert:submit",\s*\{\s*limit:\s*20,\s*windowMs:\s*60_000\s*\},\s*session\.profileId,\s*\);/,
-      ],
-      ["conversion rate-limit return", /if \(limited\) return limited;/],
+      ["shared guard call", /const guarded = await guardRewardActionRequest\(\s*request,\s*\{[\s\S]*scope:\s*"ynot:convert:submit"[\s\S]*\}/],
+      ["shared guard return", /if \(guarded\.response\) return guarded\.response;/],
+      ["guarded session", /const \{ session \} = guarded;/],
     ],
     "conversion handler before JSON parsing",
   );
   const conversionActiveHandlerFlow = blockBetween(
     conversionApi,
     "const body = (await request.json().catch(() => null))",
-    "export function publicConversionJobResult(raw: unknown)",
+    "  if (intent === \"quote\") {",
   );
   assertPatternsInOrder(
     conversionActiveHandlerFlow,
     [
       [
         "idempotency key normalization",
-        /const \{ key: idempotencyKey, error: keyError \} = normalizeIdempotencyKey\(/,
+        /const \{ key: idempotencyKey, error: keyError \} = normalizeRewardIdempotencyKey\(/,
       ],
       ["idempotency key validation", /if \(keyError \|\| !idempotencyKey\) \{/],
       [

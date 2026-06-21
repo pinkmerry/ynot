@@ -2,6 +2,7 @@ import type { YnotShippingRequest, YnotShippingStatus } from "./types";
 
 export const ynotShippingStatusLabels: Record<YnotShippingStatus, string> = {
   draft: "Draft",
+  preparing: "Preparing",
   submitted: "Submitted",
   packing: "Packing",
   ready_for_pickup: "Ready for pickup",
@@ -13,6 +14,7 @@ export const ynotShippingStatusLabels: Record<YnotShippingStatus, string> = {
 
 export const ynotShippingStatusCustomerLabels: Record<YnotShippingStatus, string> = {
   draft: "Draft",
+  preparing: "Preparing request",
   submitted: "Request submitted",
   packing: "Packing your reward",
   ready_for_pickup: "Ready for pickup",
@@ -23,6 +25,7 @@ export const ynotShippingStatusCustomerLabels: Record<YnotShippingStatus, string
 };
 
 const activeShippingStatuses = new Set<YnotShippingStatus>([
+  "preparing",
   "submitted",
   "packing",
   "ready_for_pickup",

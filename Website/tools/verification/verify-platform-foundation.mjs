@@ -178,16 +178,16 @@ notCheckText(
 check("src/features/ynot/cr/HistoryExperience.tsx", "collection actions call conversion and shipping APIs", /\/api\/ynot\/collection\/convert[\s\S]*\/api\/ynot\/shipping/);
 check("src/app/api/ynot/collection/convert/route.ts", "collection conversion route delegates to hardened handler", /handleCardConversionRequest/);
 check("src/app/api/ynot/exchange/route.ts", "legacy exchange route delegates to hardened handler", /handleCardConversionRequest/);
-check("src/lib/ynot/card-conversion-api.ts", "card conversion API rejects cross-origin cookie mutations", /enforceSameOriginMutation\(request\)/);
-check("src/lib/ynot/card-conversion-api.ts", "card conversion API validates action tokens and idempotency keys", /isCollectionItemActionToken[\s\S]*IDEMPOTENCY_KEY_RE[\s\S]*normalizeCollectionItemActionTokens[\s\S]*resolveCollectionItemActionTokens/);
+check("src/lib/ynot/reward-action-guard.ts", "reward action guard rejects cross-origin cookie mutations", /enforceSameOriginMutation\(request\)/);
+check("src/lib/ynot/card-conversion-api.ts", "card conversion API validates action tokens and idempotency keys", /(?=[\s\S]*isCollectionItemActionToken)(?=[\s\S]*normalizeSelectedRewardActionTokens)(?=[\s\S]*normalizeRewardIdempotencyKey)(?=[\s\S]*resolveSelectedCollectionItemActionTokens)/);
 notCheck("src/lib/ynot/card-conversion-api.ts", "card conversion API does not return raw RPC errors", /Response\.json\(\{\s*error:\s*error\.message/);
 notCheck("src/lib/ynot/card-conversion-api.ts", "card conversion API does not expose ledger ids", /ledgerId/);
-check("src/lib/ynot/card-conversion-api.ts", "card conversion API returns allowlisted RPC result", /function publicConversionResult[\s\S]*totalCoins[\s\S]*itemCount[\s\S]*replayed/);
-check("src/app/api/ynot/shipping/route.ts", "shipping request rejects cross-origin cookie mutations", /enforceSameOriginMutation\(request\)/);
-check("src/app/api/ynot/shipping/route.ts", "shipping request validates action tokens and idempotency keys", /normalizeAddressActionToken[\s\S]*IDEMPOTENCY_KEY_RE[\s\S]*normalizeCollectionItemActionTokens[\s\S]*normalizeIdempotencyKey[\s\S]*resolveAddressActionToken[\s\S]*resolveCollectionItemActionTokens[\s\S]*p_address_id:\s*resolvedAddressId[\s\S]*p_collection_item_ids:\s*resolvedCollectionItemIds/);
+check("src/lib/ynot/reward-action-presenters.ts", "card conversion API returns allowlisted RPC result", /function presentConversionStartResult[\s\S]*totalCoins[\s\S]*itemCount[\s\S]*replayed/);
+check("src/app/api/ynot/shipping/route.ts", "shipping request rejects cross-origin cookie mutations", /guardRewardActionRequest\(\s*request/);
+check("src/app/api/ynot/shipping/route.ts", "shipping request validates action tokens and idempotency keys", /(?=[\s\S]*normalizeAddressActionToken)(?=[\s\S]*normalizeSelectedRewardActionTokens)(?=[\s\S]*normalizeRewardIdempotencyKey)(?=[\s\S]*resolveAddressActionToken)(?=[\s\S]*resolveSelectedCollectionItemActionTokens)(?=[\s\S]*p_address_id:\s*resolvedAddressId)(?=[\s\S]*p_collection_item_ids:\s*selectionMode === "selected" \? resolvedCollectionItemIds : null)/);
 notCheck("src/app/api/ynot/shipping/route.ts", "shipping request does not return raw RPC errors", /Response\.json\(\s*\{[\s\S]*\berror\s*:\s*error.message/);
-check("src/app/api/ynot/shipping/route.ts", "shipping request returns allowlisted RPC result", /function publicShippingResult[\s\S]*publicCode[\s\S]*itemCount[\s\S]*replayed[\s\S]*result:\s*publicShippingResult/);
-check("src/app/admin/shipping/page.tsx", "admin shipping page loads all customer requests", /getShipping\(undefined,\s*true\)[\s\S]*AdminShippingConsole/);
+check("src/lib/ynot/reward-action-presenters.ts", "shipping request returns allowlisted RPC result", /function presentShippingLegacyResult[\s\S]*publicCode[\s\S]*itemCount[\s\S]*replayed/);
+check("src/app/admin/shipping/page.tsx", "admin shipping page loads all customer requests", /getAdminShippingFulfillment\(profileId\)[\s\S]*AdminShippingConsole/);
 const shippingItemTypeSource = sliceBetween(
   "src/features/ynot/types.ts",
   "export type YnotShippingItem",
@@ -248,17 +248,41 @@ checkText(
   /(?=[\s\S]*items\?: YnotShippingItem\[\])(?=[\s\S]*customer\?: YnotShippingCustomer \| null)(?=[\s\S]*addressSnapshot\?: YnotShippingAddressSnapshot \| null)(?=[\s\S]*timeline\?: YnotShippingTimelineEvent\[\])/,
   "YnotShippingRequest",
 );
-const shippingLoaderSource = sliceBetween(
+const customerShippingLoaderSource = sliceBetween(
   "src/features/ynot/data.ts",
-  "export async function getShipping",
+  "export async function getCustomerShipping",
+  "export async function getAdminShippingFulfillment",
+  "customer shipping loader source slice",
+);
+checkText(
+  "customer shipping loader stays public and lightweight",
+  customerShippingLoaderSource,
+  /(?=[\s\S]*\.from\("shipping_requests"\))(?=[\s\S]*\.eq\("profile_id", profileId\))(?=[\s\S]*getShippingRequestItemPreviews\(\s*supabase,\s*requestIds,\s*"customer_shipping_request_items")(?=[\s\S]*publicShippingRequest\(\{)(?![\s\S]*(?:\.from\("profiles"\)|\.from\("audit_events"\)|line_user_id|admin_note|idempotency_key|profileId:\s*row\.profile_id|\.from\("shipping_request_items"\)[\s\S]*?\.limit\(SHIPPING_ITEM_PREVIEW_LIMIT\)))/,
+  "getCustomerShipping",
+);
+const adminShippingLoaderSource = sliceBetween(
+  "src/features/ynot/data.ts",
+  "export async function getAdminShippingFulfillment",
   "function publicShippingRequest",
-  "shipping loader source slice",
+  "admin shipping loader source slice",
 );
 checkText(
   "shipping loader enriches admin fulfilment context",
-  shippingLoaderSource,
-  /(?=[\s\S]*shipping_request_items)(?=[\s\S]*collection_items)(?=[\s\S]*profiles)(?=[\s\S]*user_addresses)(?=[\s\S]*gacha_opens)(?=[\s\S]*draw_rounds)(?=[\s\S]*audit_events)/,
-  "getShipping",
+  adminShippingLoaderSource,
+  /(?=[\s\S]*getShippingRequestItemPreviews\(\s*supabase,\s*requestIds,\s*"shipping_request_items")(?=[\s\S]*collection_items)(?=[\s\S]*profiles)(?=[\s\S]*user_addresses)(?=[\s\S]*gacha_opens)(?=[\s\S]*draw_rounds)(?=[\s\S]*audit_events)(?![\s\S]*\.from\("shipping_request_items"\)[\s\S]*?\.limit\(SHIPPING_ITEM_PREVIEW_LIMIT\))/,
+  "getAdminShippingFulfillment",
+);
+const shippingItemPreviewHelperSource = sliceBetween(
+  "src/features/ynot/data.ts",
+  "async function getShippingRequestItemPreviews",
+  "function displayTierFromPrizeMetadata",
+  "shipping item preview helper source slice",
+);
+checkText(
+  "shipping item preview helper uses per-request capped RPC",
+  shippingItemPreviewHelperSource,
+  /(?=[\s\S]*list_shipping_request_item_previews)(?=[\s\S]*p_shipping_request_ids:\s*requestIds)(?=[\s\S]*p_limit_per_request:\s*SHIPPING_ITEM_PREVIEW_LIMIT)/,
+  "getShippingRequestItemPreviews",
 );
 const adminShippingTrackingGuard = sliceBetween(
   "src/app/api/ynot/admin/shipping/route.ts",
@@ -387,7 +411,7 @@ notCheck("src/features/ynot/client.tsx", "admin campaign form does not expose ob
 check("src/features/ynot/client.tsx", "admin campaign form blocks mismatched prize quantities", /Prize quantity must equal the total pack quantity/);
 check("src/features/ynot/open-quantity.ts", "open quantity options are limited to 1 10 100 pull choices", /allowedOpenQuantityOptions = \[1, 10, 100\]/);
 check("src/features/ynot/client.tsx", "admin campaign create and edit expose customer pull buttons", /Customer pull buttons[\s\S]*allowedOpenQuantityOptions\.map[\s\S]*openQuantitySummary\(openQuantityOptions\)[\s\S]*The open[\s\S]*pack page only shows selected pull buttons/);
-check("src/app/globals.css", "admin campaign create pull buttons keep selected colour above generic button fallback", /soft-card button[\s\S]*:not\(\.admin-open-preset-button\),[\s\S]*admin-panel button[\s\S]*:not\(\.admin-open-preset-button\),[\s\S]*admin-pack-form button[\s\S]*:not\(\.admin-open-preset-button\)[\s\S]*admin-open-preset-button\.is-selected[\s\S]*aria-pressed="true"/);
+check("src/app/globals.css", "admin campaign create pull buttons keep selected colour above generic button fallback", /soft-card button[\s\S]*:not\(\.admin-open-preset-button\)[\s\S]*,[\s\S]*admin-panel button[\s\S]*:not\(\.admin-open-preset-button\)[\s\S]*,[\s\S]*admin-pack-form button[\s\S]*:not\(\.admin-open-preset-button\)[\s\S]*admin-open-preset-button\.is-selected[\s\S]*aria-pressed="true"/);
 notCheck("src/features/ynot/client.tsx", "admin pull button choices do not include obsolete 5 pull option", /\[1, 5, 10, 100\]/);
 check("src/features/ynot/client.tsx", "admin card form calls card API", /\/api\/ynot\/admin\/cards/);
 check("src/features/ynot/client.tsx", "admin card form refreshes catalog data after save", /export function AdminCardForm[\s\S]*const router = useRouter\(\)[\s\S]*\/api\/ynot\/admin\/cards[\s\S]*router\.refresh\(\)/);
@@ -615,8 +639,8 @@ notCheck(globalInventoryMigration, "global inventory migration keeps cards catal
 
 check("src/lib/supabase/types.ts", "types include top_up_requests", /top_up_requests:\s*{[\s\S]*coin_amount: number;/);
 check("src/lib/supabase/types.ts", "types include collection_items", /collection_items:\s*{[\s\S]*source_type: "gacha_open"/);
-check("src/lib/supabase/types.ts", "types include platform RPCs", /open_gacha_campaign:[\s\S]*submit_card_conversion:[\s\S]*request_shipping_for_items:/);
-check("src/lib/ynot/card-conversion-api.ts", "card conversion route uses reward conversion pipeline RPCs", /enforceRateLimit[\s\S]*prepare_reward_conversion_quote[\s\S]*start_reward_conversion/);
+check("src/lib/supabase/types.ts", "types include platform RPCs", /open_gacha_campaign:[\s\S]*prepare_reward_conversion_quote:[\s\S]*start_reward_conversion:[\s\S]*process_reward_conversion_chunk:[\s\S]*list_shipping_request_item_previews:[\s\S]*request_shipping_for_items:/);
+check("src/lib/ynot/card-conversion-api.ts", "card conversion route uses reward conversion pipeline RPCs", /guardRewardActionRequest[\s\S]*prepare_reward_conversion_quote[\s\S]*start_reward_conversion/);
 check("src/features/ynot/data.ts", "customer top-ups hide slip provider internals by default", /includeSensitiveSlipDetails[\s\S]*\?\? includeAll[\s\S]*providerCode:[\s\S]*providerMessage:/);
 notCheck("src/features/ynot/types.ts", "public top-up type omits duplicate/reference slip internals", /(?:referenceId|duplicateOfSlipId)/);
 check("src/app/api/ynot/admin/campaigns/cost/route.ts", "admin cost route rejects cross-origin cookie mutations", /enforceSameOriginMutation\(request\)/);

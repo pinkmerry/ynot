@@ -13,7 +13,10 @@ import type { YnotShippingRequest } from "@/features/ynot/types";
 import { AdminIcon, type AdminIconName } from "./Icon";
 import { AdminPill, AdminStatusPill } from "./primitives";
 
-type AdminShippingActionStatus = Exclude<YnotShippingRequest["status"], "draft">;
+type AdminShippingActionStatus = Exclude<
+  YnotShippingRequest["status"],
+  "draft" | "preparing"
+>;
 
 function nextShippingStatuses(
   status: YnotShippingRequest["status"],
@@ -21,6 +24,8 @@ function nextShippingStatuses(
   switch (status) {
     case "draft":
       return ["submitted", "cancelled"];
+    case "preparing":
+      return [];
     case "submitted":
       return ["submitted", "packing", "ready_for_pickup", "shipped", "delivered", "cancelled"];
     case "packing":
@@ -73,19 +78,39 @@ function formatAddress(request: YnotShippingRequest) {
     .join(" | ");
 }
 
+function expectedRewardCount(request: YnotShippingRequest) {
+  return Math.max(request.itemCount ?? 0, request.items?.length ?? 0);
+}
+
+function preparedRewardCount(request: YnotShippingRequest) {
+  return request.preparedCount ?? request.items?.length ?? 0;
+}
+
+function loadedRewardPreviewCount(request: YnotShippingRequest) {
+  return request.items?.length ?? 0;
+}
+
+function rewardCountLabel(request: YnotShippingRequest) {
+  const expected = expectedRewardCount(request);
+  if (!expected) return "No linked rewards";
+  const prepared = preparedRewardCount(request);
+  if (request.status === "preparing" && prepared < expected) {
+    return `${prepared.toLocaleString()} / ${expected.toLocaleString()} rewards prepared`;
+  }
+  return `${expected.toLocaleString()} reward${expected === 1 ? "" : "s"}`;
+}
+
 function primaryItemLabel(request: YnotShippingRequest) {
   const item = request.items?.[0];
-  if (!item) return "No items linked";
-  const suffix =
-    (request.items?.length ?? 0) > 1
-      ? ` +${(request.items?.length ?? 1) - 1}`
-      : "";
+  const expected = expectedRewardCount(request);
+  if (!item) return rewardCountLabel(request);
+  const suffix = expected > 1 ? ` +${expected - 1}` : "";
   return `${item.cardName}${suffix}`;
 }
 
 function secondaryItemLabel(request: YnotShippingRequest) {
   const item = request.items?.[0];
-  if (!item) return "Reward details pending";
+  if (!item) return rewardCountLabel(request);
   const source = item.sourceCampaignTitle ?? "Pack source pending";
   return `${source}${item.sourceOpenCode ? ` | ${item.sourceOpenCode}` : ""}`;
 }
@@ -93,6 +118,7 @@ function secondaryItemLabel(request: YnotShippingRequest) {
 function statusCounts(requests: YnotShippingRequest[]) {
   return {
     submitted: requests.filter((request) => request.status === "submitted").length,
+    preparing: requests.filter((request) => request.status === "preparing").length,
     packing: requests.filter((request) => request.status === "packing").length,
     readyForPickup: requests.filter((request) => request.status === "ready_for_pickup").length,
     shipped: requests.filter((request) => request.status === "shipped").length,
@@ -156,6 +182,7 @@ export function AdminShippingConsole({
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const trackingRequired = isTrackingRequiredForStatus(status);
+  const preparingSelected = selected?.status === "preparing";
 
   function selectRequest(request: YnotShippingRequest) {
     setSelectedId(request.id);
@@ -167,7 +194,7 @@ export function AdminShippingConsole({
   }
 
   function submit() {
-    if (!selected) return;
+    if (!selected || preparingSelected) return;
     startTransition(async () => {
       try {
         setMessage("");
@@ -201,6 +228,10 @@ export function AdminShippingConsole({
   return (
     <div className="grid gap-4 admin-shipping-console">
       <div className="kpi-grid admin-shipping-kpis">
+        <div className="kpi">
+          <div className="label">Preparing</div>
+          <div className="value">{counts.preparing}</div>
+        </div>
         <div className="kpi">
           <div className="label">Submitted</div>
           <div className="value">{counts.submitted}</div>
@@ -319,8 +350,14 @@ export function AdminShippingConsole({
                     <AdminStatusPill status={selected.status} />
                   </div>
                   <p className="row-sub">
-                    {primaryItemLabel(selected)} · {selected.customer?.displayName ?? "Unknown user"}
+                    {primaryItemLabel(selected)} ·{" "}
+                    {selected.customer?.displayName ?? "Unknown user"}
                   </p>
+                  {selected.totalCoinValue ? (
+                    <p className="row-sub">
+                      Total coin value: {selected.totalCoinValue.toLocaleString()}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="admin-shipping-action-controls">
                   <label className="field">
@@ -328,6 +365,7 @@ export function AdminShippingConsole({
                     <select
                       className="select admin-shipping-status-select"
                       value={status}
+                      disabled={preparingSelected}
                       onChange={(event) =>
                         setStatus(event.target.value as AdminShippingActionStatus)
                       }
@@ -342,7 +380,7 @@ export function AdminShippingConsole({
                   <button
                     className="btn btn-primary"
                     type="button"
-                    disabled={isPending}
+                    disabled={isPending || preparingSelected || statusOptions.length === 0}
                     onClick={submit}
                   >
                     <AdminIcon name="check" />
@@ -350,6 +388,9 @@ export function AdminShippingConsole({
                   </button>
                   {trackingRequired ? (
                     <AdminPill kind="warn">Tracking required</AdminPill>
+                  ) : null}
+                  {preparingSelected ? (
+                    <AdminPill kind="default">Preparing is not admin-actionable</AdminPill>
                   ) : null}
                 </div>
                 {message ? <p className="text-mute">{message}</p> : null}
@@ -362,8 +403,17 @@ export function AdminShippingConsole({
                 defaultOpen
               >
                 <div className="grid gap-2">
+                  {loadedRewardPreviewCount(selected) > 0 &&
+                  loadedRewardPreviewCount(selected) < expectedRewardCount(selected) ? (
+                    <AdminPill kind="default">
+                      Showing {loadedRewardPreviewCount(selected).toLocaleString()} of{" "}
+                      {expectedRewardCount(selected).toLocaleString()} rewards
+                    </AdminPill>
+                  ) : null}
                   {(selected.items ?? []).length === 0 ? (
-                    <AdminPill kind="default">No linked rewards</AdminPill>
+                    <AdminPill kind="default">
+                      {rewardCountLabel(selected)}
+                    </AdminPill>
                   ) : (
                     selected.items?.map((item, index) => (
                       <div className="list-row" key={`${item.cardName}-${index}`}>

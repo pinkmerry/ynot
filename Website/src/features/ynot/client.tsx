@@ -1470,6 +1470,107 @@ function formatCollectionGradeLabel(item: YnotCollectionItem) {
 
 const SHIPPING_REQUEST_MIN_COINS = 1000;
 
+type PanelShippingQuote = {
+  quoteToken: string;
+  selectionMode: "selected" | "all_eligible";
+  itemCount: number;
+  totalCoinValue: number;
+  selectedCoinValue: number;
+  minimumCoinValue: number;
+  expiresAt: string | null;
+  address: {
+    label: string | null;
+    recipientName: string | null;
+    summary: string | null;
+  };
+};
+
+type PanelShippingProgress = {
+  status: string;
+  publicCode: string;
+  itemCount: number;
+  preparedCount: number;
+  totalCoinValue: number;
+  completed: boolean;
+};
+
+type PanelConversionProgress = {
+  status: string;
+  itemCount: number;
+  convertedCount: number;
+  totalCoins: number;
+  creditedTotalCoins: number;
+  completed: boolean;
+};
+
+function positiveIntegerValue(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, Math.round(parsed)) : 0;
+}
+
+function panelShippingQuoteFromPayload(
+  payload: unknown,
+): PanelShippingQuote | null {
+  if (!isRecord(payload) || !isRecord(payload.quote)) return null;
+  const quote = payload.quote;
+  const quoteToken = typeof quote.quoteToken === "string" ? quote.quoteToken : "";
+  if (!quoteToken) return null;
+  const address = isRecord(quote.address) ? quote.address : {};
+  return {
+    quoteToken,
+    selectionMode:
+      quote.selectionMode === "all_eligible" ? "all_eligible" : "selected",
+    itemCount: positiveIntegerValue(quote.itemCount),
+    totalCoinValue: positiveIntegerValue(quote.totalCoinValue),
+    selectedCoinValue: positiveIntegerValue(quote.selectedCoinValue),
+    minimumCoinValue: positiveIntegerValue(quote.minimumCoinValue),
+    expiresAt: typeof quote.expiresAt === "string" ? quote.expiresAt : null,
+    address: {
+      label: typeof address.label === "string" ? address.label : null,
+      recipientName:
+        typeof address.recipientName === "string" ? address.recipientName : null,
+      summary: typeof address.summary === "string" ? address.summary : null,
+    },
+  };
+}
+
+function panelShippingProgressFromPayload(
+  payload: unknown,
+): PanelShippingProgress | null {
+  if (!isRecord(payload) || !isRecord(payload.shipping)) return null;
+  const shipping = payload.shipping;
+  return {
+    status: typeof shipping.status === "string" ? shipping.status : "preparing",
+    publicCode: typeof shipping.publicCode === "string" ? shipping.publicCode : "",
+    itemCount: positiveIntegerValue(shipping.itemCount),
+    preparedCount: positiveIntegerValue(shipping.preparedCount),
+    totalCoinValue: positiveIntegerValue(shipping.totalCoinValue),
+    completed: shipping.completed === true,
+  };
+}
+
+function panelConversionProgressFromPayload(
+  payload: unknown,
+): PanelConversionProgress | null {
+  if (!isRecord(payload) || !isRecord(payload.conversion)) return null;
+  const conversion = payload.conversion;
+  return {
+    status:
+      typeof conversion.status === "string" ? conversion.status : "queued",
+    itemCount: positiveIntegerValue(conversion.itemCount),
+    convertedCount: positiveIntegerValue(conversion.convertedCount),
+    totalCoins: positiveIntegerValue(conversion.totalCoins),
+    creditedTotalCoins: positiveIntegerValue(conversion.creditedTotalCoins),
+    completed: conversion.completed === true,
+  };
+}
+
+function panelShippingQuoteIsExpired(quote: PanelShippingQuote | null) {
+  if (!quote?.expiresAt) return false;
+  const expiresAt = new Date(quote.expiresAt).getTime();
+  return Number.isFinite(expiresAt) && expiresAt <= Date.now();
+}
+
 export function CollectionConvertPanel({
   collection,
   addresses = [],
@@ -1499,6 +1600,14 @@ export function CollectionConvertPanel({
   } | null>(null);
   const [showConvertConfirm, setShowConvertConfirm] = useState(false);
   const [showShippingConfirm, setShowShippingConfirm] = useState(false);
+  const [shippingQuote, setShippingQuote] =
+    useState<PanelShippingQuote | null>(null);
+  const [shippingProgress, setShippingProgress] =
+    useState<PanelShippingProgress | null>(null);
+  const [conversionProgress, setConversionProgress] =
+    useState<PanelConversionProgress | null>(null);
+  const [shippingQuoteLoading, setShippingQuoteLoading] = useState(false);
+  const [shippingConfirming, setShippingConfirming] = useState(false);
   const [currentTimeMs] = useState(() => Date.now());
   const [isPending, startTransition] = useTransition();
 
@@ -1560,17 +1669,50 @@ export function CollectionConvertPanel({
     (sum, item) => sum + (item.convertCoinValue ?? 0),
     0,
   );
+  const allEligibleShippingValue = ownedItems.reduce((sum, item) => {
+    const expiresAt = item.convertExpiresAt
+      ? new Date(item.convertExpiresAt).valueOf()
+      : null;
+    const isEligible =
+      (item.convertCoinValue ?? 0) > 0 &&
+      (!expiresAt || expiresAt > currentTimeMs);
+    return isEligible ? sum + (item.convertCoinValue ?? 0) : sum;
+  }, 0);
+  const selectedShippingValue =
+    selectedItems.length > 0 ? selectedTotalCoins : allEligibleShippingValue;
+  const shippingActive = Boolean(shippingProgress && !shippingProgress.completed);
+  const conversionActive = Boolean(conversionProgress && !conversionProgress.completed);
   const canConvert =
     !isPending &&
+    !shippingActive &&
+    !conversionActive &&
     selectedConvertableItems.length > 0 &&
     selectedConvertableItems.length === selectedItems.length;
+  const shippingBusy = shippingQuoteLoading || shippingConfirming;
   const canShip =
     !isPending &&
-    selectedItems.length > 0 &&
-    isCompleteShippingAddress(selectedAddress) &&
-    selectedTotalCoins >= SHIPPING_REQUEST_MIN_COINS;
+    !shippingBusy &&
+    !conversionActive &&
+    (shippingActive ||
+      ((selectedItems.length > 0 || ownedItems.length > 0) &&
+        isCompleteShippingAddress(selectedAddress) &&
+        selectedShippingValue >= SHIPPING_REQUEST_MIN_COINS));
 
   function submitConvert() {
+    if (conversionActive) {
+      setMessage({
+        tone: "error",
+        text: "Finish the active conversion before starting another request.",
+      });
+      return;
+    }
+    if (shippingActive) {
+      setMessage({
+        tone: "error",
+        text: "Finish the active shipping request before converting rewards.",
+      });
+      return;
+    }
     startTransition(async () => {
       try {
         setMessage(null);
@@ -1602,6 +1744,7 @@ export function CollectionConvertPanel({
           isRecord(payload) && isRecord(payload.conversion)
             ? payload.conversion
             : null;
+        setConversionProgress(panelConversionProgressFromPayload(payload));
         const totalCoins = Number(
           conversion?.totalCoins ?? quote?.totalCoins ?? selectedTotalCoins,
         );
@@ -1622,45 +1765,223 @@ export function CollectionConvertPanel({
     });
   }
 
-  function submitShipping() {
-    startTransition(async () => {
+  function closeShippingConfirm() {
+    if (shippingQuoteLoading || shippingConfirming) return;
+    setShowShippingConfirm(false);
+  }
+
+  function openShippingConfirm() {
+    if (shippingBusy) return;
+    if (shippingActive) {
+      setShowShippingConfirm(true);
+      return;
+    }
+    if (conversionActive) {
+      setMessage({
+        tone: "error",
+        text: "Finish the active conversion before requesting shipping.",
+      });
+      return;
+    }
+    void (async () => {
       try {
         setMessage(null);
-        setShowShippingConfirm(false);
         if (!isCompleteShippingAddress(selectedAddress)) {
           throw new Error("Save and pick a complete shipping address first.");
         }
-        if (!selectedItems.length) {
-          throw new Error("Pick at least one card to ship.");
-        }
+        const shippingSelectionMode: "selected" | "all_eligible" =
+          selectedItems.length > 0 ? "selected" : "all_eligible";
+        setShippingQuote(null);
+        setShippingProgress(null);
+        setShowShippingConfirm(true);
+        setShippingQuoteLoading(true);
         const payload = await postJson("/api/ynot/shipping", {
-          collectionItemIds: selectedItems.map((item) => item.id),
+          intent: "quote",
+          selectionMode: shippingSelectionMode,
+          collectionItemIds: shippingSelectionMode === "selected" ? selectedItems.map((item) => item.id) : [],
           addressId: activeAddressId,
+        });
+        const quote = panelShippingQuoteFromPayload(payload);
+        if (!quote || quote.itemCount === 0) {
+          throw new Error("No eligible rewards are ready for shipping.");
+        }
+        setShippingQuote(quote);
+      } catch (error) {
+        setShowShippingConfirm(false);
+        setMessage({
+          tone: "error",
+          text:
+            error instanceof Error ? error.message : "Shipping request failed.",
+        });
+      } finally {
+        setShippingQuoteLoading(false);
+      }
+    })();
+  }
+
+  function submitShipping() {
+    if (shippingConfirming) return;
+    if (conversionActive) {
+      setMessage({
+        tone: "error",
+        text: "Finish the active conversion before requesting shipping.",
+      });
+      return;
+    }
+    if (!shippingQuote) {
+      void openShippingConfirm();
+      return;
+    }
+    if (panelShippingQuoteIsExpired(shippingQuote)) {
+      setMessage({
+        tone: "success",
+        text: "Shipping quote expired. Recalculating the latest request.",
+      });
+      void openShippingConfirm();
+      return;
+    }
+    setShippingConfirming(true);
+    void (async () => {
+      try {
+        setMessage(null);
+        const payload = await postJson("/api/ynot/shipping", {
+          intent: "start",
+          quoteToken: shippingQuote.quoteToken,
           idempotencyKey: crypto.randomUUID(),
         });
+        const progress = panelShippingProgressFromPayload(payload);
+        if (!progress) throw new Error("Shipping request failed.");
+        setShippingProgress(progress);
+        setSelected(new Set());
         setMessage({
           tone: "success",
-          text: `Shipping request ${payload.result?.publicCode ?? "created"}.`,
+          text: progress.completed
+            ? `Shipping request ${progress.publicCode || "created"} submitted.`
+            : `Preparing shipping request ${
+                progress.publicCode || ""
+              }. You can leave this page while it finishes.`,
         });
-        setSelected(new Set());
-        router.refresh();
+        startTransition(() => {
+          router.refresh();
+        });
       } catch (error) {
         setMessage({
           tone: "error",
           text: error instanceof Error ? error.message : "Shipping request failed.",
         });
+      } finally {
+        setShippingConfirming(false);
       }
-    });
+    })();
   }
+
+  const shouldPollShipping =
+    showShippingConfirm && Boolean(shippingProgress && !shippingProgress.completed);
+  const shouldPollConversion =
+    Boolean(conversionProgress && !conversionProgress.completed);
+
+  useEffect(() => {
+    if (!shouldPollConversion) return;
+    let stopped = false;
+    const refresh = async () => {
+      try {
+        const response = await fetch("/api/ynot/collection/convert/current", {
+          method: "GET",
+        });
+        if (!response.ok) return;
+        const payload: unknown = await response.json().catch(() => null);
+        const progress = panelConversionProgressFromPayload(payload);
+        if (progress && !stopped) setConversionProgress(progress);
+      } catch {
+        // The next refresh will try again.
+      }
+    };
+    const timer = window.setInterval(refresh, 3000);
+    void refresh();
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [shouldPollConversion]);
+
+  useEffect(() => {
+    if (!shouldPollShipping) return;
+    let stopped = false;
+    const refresh = async () => {
+      try {
+        const response = await fetch("/api/ynot/shipping/current", {
+          method: "GET",
+        });
+        if (!response.ok) return;
+        const payload: unknown = await response.json().catch(() => null);
+        const progress = panelShippingProgressFromPayload(payload);
+        if (progress && !stopped) setShippingProgress(progress);
+      } catch {
+        // The next refresh will try again.
+      }
+    };
+    const timer = window.setInterval(refresh, 5000);
+    void refresh();
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [shouldPollShipping]);
+
+  useEffect(() => {
+    let stopped = false;
+    const loadCurrentConversion = async () => {
+      try {
+        const response = await fetch("/api/ynot/collection/convert/current", {
+          method: "GET",
+        });
+        if (!response.ok) return;
+        const payload: unknown = await response.json().catch(() => null);
+        const progress = panelConversionProgressFromPayload(payload);
+        if (progress && !progress.completed && !stopped) {
+          setConversionProgress(progress);
+        }
+      } catch {
+        // The next user action or modal poll will refresh status.
+      }
+    };
+    void loadCurrentConversion();
+    return () => {
+      stopped = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let stopped = false;
+    const loadCurrentShipping = async () => {
+      try {
+        const response = await fetch("/api/ynot/shipping/current", {
+          method: "GET",
+        });
+        if (!response.ok) return;
+        const payload: unknown = await response.json().catch(() => null);
+        const progress = panelShippingProgressFromPayload(payload);
+        if (progress && !progress.completed && !stopped) {
+          setShippingProgress(progress);
+        }
+      } catch {
+        // The next user action or modal poll will refresh status.
+      }
+    };
+    void loadCurrentShipping();
+    return () => {
+      stopped = true;
+    };
+  }, []);
 
   if (!ownedItems.length) {
     return (
       <section className="collection-convert-shell collection-convert-empty">
         <h3 className="collection-convert-empty-title">
-          No real collection cards yet
+          No real collection rewards yet
         </h3>
         <p className="collection-convert-empty-body">
-          Open a live pack first. Cards you pull will appear here with their
+          Open a live pack first. Rewards you pull will appear here with their
           convert-to-coin value and request deadline.
         </p>
       </section>
@@ -1782,10 +2103,17 @@ export function CollectionConvertPanel({
         </p>
       ) : null}
 
-      <div className="collection-convert-dock" role="region" aria-label="Collection actions">
+      <div
+        className="collection-convert-dock"
+        role="region"
+        aria-label="Collection actions"
+      >
         <div className="collection-convert-dock-meta">
           <div className="collection-convert-dock-count">
-            <strong>Selecting {selectedItems.length} card{selectedItems.length === 1 ? "" : "s"}</strong>
+            <strong>
+              Selecting {selectedItems.length} reward
+              {selectedItems.length === 1 ? "" : "s"}
+            </strong>
             <span>
               <CoinMark size={14} />
               {selectedTotalCoins.toLocaleString()} coin
@@ -1796,7 +2124,7 @@ export function CollectionConvertPanel({
               type="button"
               className="collection-convert-dock-link"
               onClick={selectAll}
-              disabled={isPending}
+              disabled={isPending || shippingBusy || conversionActive}
             >
               Select all
             </button>
@@ -1804,7 +2132,9 @@ export function CollectionConvertPanel({
               type="button"
               className="collection-convert-dock-link"
               onClick={reset}
-              disabled={isPending || selectedItems.length === 0}
+              disabled={
+                isPending || shippingBusy || conversionActive || selectedItems.length === 0
+              }
             >
               Reset
             </button>
@@ -1815,7 +2145,7 @@ export function CollectionConvertPanel({
             className="collection-convert-dock-address"
             value={activeAddressId}
             onChange={(event) => updateAddressId(event.target.value)}
-            disabled={isPending}
+            disabled={isPending || shippingBusy || conversionActive}
           >
             {addresses.map((address) => (
               <option key={address.id} value={address.id}>
@@ -1828,7 +2158,7 @@ export function CollectionConvertPanel({
           <button
             type="button"
             className="collection-convert-dock-button is-ghost"
-            disabled={!canConvert}
+            disabled={!canConvert || shippingBusy || conversionActive}
             onClick={() => setShowConvertConfirm(true)}
           >
             Convert to Coins
@@ -1837,15 +2167,15 @@ export function CollectionConvertPanel({
             type="button"
             className="collection-convert-dock-button is-primary"
             disabled={!canShip}
-            onClick={() => setShowShippingConfirm(true)}
+            onClick={openShippingConfirm}
           >
-            Shipping Request
+            {shippingActive ? "View shipping progress" : "Shipping Request"}
           </button>
         </div>
         <p className="collection-convert-dock-foot">
           Shipping requires a complete saved address and{" "}
-          {SHIPPING_REQUEST_MIN_COINS.toLocaleString()} coins or more in selected
-          reward value.
+          {SHIPPING_REQUEST_MIN_COINS.toLocaleString()} coins or more in
+          eligible reward value.
         </p>
       </div>
 
@@ -1915,7 +2245,7 @@ export function CollectionConvertPanel({
         <div
           className="collection-convert-modal-backdrop"
           role="presentation"
-          onClick={() => setShowShippingConfirm(false)}
+          onClick={closeShippingConfirm}
         >
           <div
             className="collection-convert-modal"
@@ -1925,61 +2255,142 @@ export function CollectionConvertPanel({
             onClick={(event) => event.stopPropagation()}
           >
             <header className="collection-convert-modal-head">
-              <h3>Request shipping?</h3>
+              <h3>
+                {shippingProgress
+                  ? "Preparing shipping request"
+                  : shippingQuote
+                    ? shippingQuote.selectionMode === "all_eligible"
+                      ? `Request shipping for all ${shippingQuote.itemCount} eligible reward${
+                          shippingQuote.itemCount === 1 ? "" : "s"
+                        }?`
+                      : `Request shipping for ${shippingQuote.itemCount} selected reward${
+                          shippingQuote.itemCount === 1 ? "" : "s"
+                        }?`
+                    : "Reviewing shipping request"}
+              </h3>
               <button
                 type="button"
                 className="collection-convert-modal-close"
-                onClick={() => setShowShippingConfirm(false)}
+                onClick={closeShippingConfirm}
+                disabled={shippingQuoteLoading || shippingConfirming}
                 aria-label="Close"
               >
                 ×
               </button>
             </header>
             <div className="collection-convert-modal-body">
-              <p>
-                This reward will be locked for fulfilment and cannot be
-                converted while the shipping request is active.
-              </p>
-              <p>
-                <strong>
-                  {selectedItems.length} card
-                  {selectedItems.length === 1 ? "" : "s"}
-                </strong>{" "}
-                will be sent to{" "}
-                <strong>{selectedAddress?.recipientName ?? "your address"}</strong>.
-              </p>
-              <p className="collection-convert-modal-warn">
-                Ship to:{" "}
-                {selectedAddress
-                  ? [
-                      selectedAddress.addressLine1,
-                      selectedAddress.district,
-                      selectedAddress.province,
-                      selectedAddress.postalCode,
+              {shippingProgress ? (
+                <>
+                  <p>
+                    <strong>
+                      {shippingProgress.preparedCount.toLocaleString()} /{" "}
+                      {shippingProgress.itemCount.toLocaleString()} rewards
+                      prepared
+                    </strong>
+                    .
+                  </p>
+                  <p>
+                    Preparing shipping request{" "}
+                    {shippingProgress.publicCode || "SH-...."}. You can leave
+                    this page while it finishes.
+                  </p>
+                  <p className="collection-convert-modal-warn">
+                    Request: {shippingProgress.publicCode || "preparing"} · Coin
+                    value: {shippingProgress.totalCoinValue.toLocaleString()}
+                  </p>
+                </>
+              ) : shippingQuoteLoading ? (
+                <p>Calculating the latest shipping request...</p>
+              ) : shippingQuote ? (
+                <>
+                  <p>
+                    This reward will be locked for fulfilment and cannot be
+                    converted while the shipping request is active.
+                  </p>
+                  <p>
+                    <strong>
+                      {shippingQuote.itemCount.toLocaleString()} reward
+                      {shippingQuote.itemCount === 1 ? "" : "s"}
+                    </strong>{" "}
+                    worth{" "}
+                    <strong>
+                      {shippingQuote.selectedCoinValue.toLocaleString()} coins
+                    </strong>{" "}
+                    will be sent to{" "}
+                    <strong>
+                      {shippingQuote.address.recipientName ??
+                        selectedAddress?.recipientName ??
+                        "your address"}
+                    </strong>
+                    .
+                  </p>
+                  <p className="collection-convert-modal-warn">
+                    Ship to:{" "}
+                    {[
+                      shippingQuote.address.label,
+                      shippingQuote.address.summary,
                     ]
                       .filter(Boolean)
-                      .join(" | ")
-                  : "No complete address selected"}
-              </p>
+                      .join(" | ") ||
+                      (selectedAddress
+                        ? [
+                            selectedAddress.addressLine1,
+                            selectedAddress.district,
+                            selectedAddress.province,
+                            selectedAddress.postalCode,
+                          ]
+                            .filter(Boolean)
+                            .join(" | ")
+                        : "No complete address selected")}
+                  </p>
+                  <p className="collection-convert-modal-warn">
+                    After you confirm, this background request cannot be
+                    cancelled.
+                  </p>
+                </>
+              ) : (
+                <p>Preparing the latest shipping request.</p>
+              )}
             </div>
             <footer className="collection-convert-modal-foot">
-              <button
-                type="button"
-                className="collection-convert-modal-button is-ghost"
-                onClick={() => setShowShippingConfirm(false)}
-                disabled={isPending}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="collection-convert-modal-button is-primary"
-                onClick={submitShipping}
-                disabled={isPending}
-                autoFocus
-              >
-                {isPending ? "Requesting…" : "Yes, request shipping"}
-              </button>
+              {shippingProgress ? (
+                <button
+                  type="button"
+                  className="collection-convert-modal-button is-primary"
+                  onClick={closeShippingConfirm}
+                  disabled={shippingConfirming}
+                >
+                  {shippingProgress.completed ? "Done" : "Close"}
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="collection-convert-modal-button is-ghost"
+                    onClick={closeShippingConfirm}
+                    disabled={shippingQuoteLoading || shippingConfirming}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="collection-convert-modal-button is-primary"
+                    onClick={submitShipping}
+                    disabled={
+                      shippingQuoteLoading || shippingConfirming || !shippingQuote
+                    }
+                    autoFocus
+                  >
+                    {shippingQuoteLoading
+                      ? "Reviewing..."
+                      : shippingConfirming
+                        ? "Preparing..."
+                        : panelShippingQuoteIsExpired(shippingQuote)
+                          ? "Refresh request"
+                          : "Yes, request shipping"}
+                  </button>
+                </>
+              )}
             </footer>
           </div>
         </div>

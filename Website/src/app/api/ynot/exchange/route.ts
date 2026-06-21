@@ -1,6 +1,6 @@
-// Card conversion endpoint (formerly "exchange order submit"). Calls the new
-// submit_card_conversion RPC which auto-credits the user's wallet using the
-// admin-locked convert_coin_value snapshot saved on each collection item.
+// Compatibility conversion endpoint for older clients. The shared handler uses
+// the quote/start/background conversion pipeline; this route must not own a
+// separate committing path.
 
 import { handleCardConversionRequest } from "@/lib/ynot/card-conversion-api";
 
