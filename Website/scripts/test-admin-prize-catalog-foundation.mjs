@@ -52,3 +52,9 @@ test("catalog-format maps the four prototype buckets to data-layer fields", () =
   assert.ok(fmt.includes("stockArchived"));
   assert.ok(fmt.includes("toStockBuckets"));
 });
+
+const helpers = read("../src/features/ynot/admin-card-catalog-helpers.ts");
+test("row builder + row type are exported from the shared helpers", () => {
+  assert.ok(helpers.includes("export function buildAdminCardCatalogRows"));
+  assert.ok(helpers.includes("export type AdminCardCatalogRow"));
+});

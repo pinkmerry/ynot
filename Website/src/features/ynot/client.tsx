@@ -42,6 +42,8 @@ import { PullAllConfirmModal } from "./cr/PullAllConfirmModal";
 import { QuantityBadge } from "./QuantityBadge";
 import {
   adminCardDuplicateUsage,
+  buildAdminCardCatalogRows,
+  type AdminCardCatalogRow,
   type AdminCardCatalogSortMode,
   type AdminCardDuplicateUsage,
   type AdminCardSeriesFilter,
@@ -11340,72 +11342,6 @@ function AdminStockSkuBreakdown({
       )}
     </details>
   );
-}
-
-type AdminCardCatalogRow = {
-  card: CardCatalogItem;
-  prizes: YnotPrizePoolItem[];
-  stockTotal: number;
-  stockAvailable: number;
-  stockReserved: number;
-  stockAllocated: number;
-  stockArchived: number;
-  packTotalUnits: number;
-  packAvailableUnits: number;
-  packAwardedUnits: number;
-  packVoidUnits: number;
-};
-
-function buildAdminCardCatalogRows(
-  cards: CardCatalogItem[],
-  prizes: YnotPrizePoolItem[],
-) {
-  const prizesByCard = new Map<string, YnotPrizePoolItem[]>();
-  for (const prize of prizes) {
-    const current = prizesByCard.get(prize.cardId) ?? [];
-    current.push(prize);
-    prizesByCard.set(prize.cardId, current);
-  }
-
-  return cards
-    .map((card) => {
-      const cardPrizes = prizesByCard.get(card.catalogCardId) ?? [];
-      return {
-        card,
-        prizes: cardPrizes,
-        stockTotal: card.stockTotal ?? 0,
-        stockAvailable: card.stockAvailable ?? 0,
-        stockReserved: card.stockReserved ?? 0,
-        stockAllocated: card.stockAllocated ?? 0,
-        stockArchived: card.stockArchived ?? 0,
-        packTotalUnits: cardPrizes.reduce(
-          (sum, prize) => sum + prize.totalUnits,
-          0,
-        ),
-        packAvailableUnits: cardPrizes.reduce(
-          (sum, prize) => sum + prize.availableUnits,
-          0,
-        ),
-        packAwardedUnits: cardPrizes.reduce(
-          (sum, prize) => sum + prize.awardedUnits,
-          0,
-        ),
-        packVoidUnits: cardPrizes.reduce((sum, prize) => sum + prize.voidUnits, 0),
-      };
-    })
-    .sort((left, right) => {
-      const testCompare = Number(left.card.isTest) - Number(right.card.isTest);
-      if (testCompare) return testCompare;
-      const assignmentCompare = Number(right.prizes.length > 0) - Number(left.prizes.length > 0);
-      if (assignmentCompare) return assignmentCompare;
-      const categoryCompare = prizeCategoryLabel(
-        left.card.prizeCategory,
-      ).localeCompare(prizeCategoryLabel(right.card.prizeCategory));
-      if (categoryCompare) return categoryCompare;
-      const seriesCompare = left.card.series.localeCompare(right.card.series);
-      if (seriesCompare) return seriesCompare;
-      return left.card.name.localeCompare(right.card.name);
-    });
 }
 
 function adminCardCatalogRowSearchText(row: AdminCardCatalogRow) {
