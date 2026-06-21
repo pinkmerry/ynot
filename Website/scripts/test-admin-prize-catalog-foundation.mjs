@@ -43,3 +43,12 @@ test("catalog-api sends same-origin credentials and JSON", () => {
   assert.match(api, /credentials:\s*["']same-origin["']/);
   assert.match(api, /content-type/i);
 });
+
+const fmt = read("../src/features/ynot/admin/prize-catalog/catalog-format.ts");
+test("catalog-format maps the four prototype buckets to data-layer fields", () => {
+  assert.ok(fmt.includes("stockAvailable"));
+  assert.ok(fmt.includes("stockReserved"));
+  assert.ok(fmt.includes("stockAllocated"));
+  assert.ok(fmt.includes("stockArchived"));
+  assert.ok(fmt.includes("toStockBuckets"));
+});
