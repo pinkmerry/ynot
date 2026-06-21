@@ -46,10 +46,6 @@ function assertNoPrivateDtoFields(source, label) {
   }
 }
 
-function responseBlocks(source) {
-  return Array.from(source.matchAll(/return Response\.json\(\{[\s\S]*?\n\s*\}\);/g), (match) => match[0]).join("\n");
-}
-
 function sourceFrom(source, marker) {
   const index = source.indexOf(marker);
   assert.notEqual(index, -1, `missing marker ${marker}`);
@@ -101,6 +97,69 @@ test("quote route creates only a safe short-lived start token DTO", () => {
   assert.match(sql, /p_draw_round_id:\s*campaign\.id/i);
   assert.match(sql, /targetrewards[\s\S]*totalcostcoins[\s\S]*costperreward[\s\S]*expiresat/i);
   assertNoPrivateDtoFields(sourceFrom(source, "return Response.json({\n    quote"), "quote route response");
+});
+
+test("localhost preview can quote and start Pull All after the 60 percent sold state", () => {
+  const quote = routeSource("quote");
+  const start = routeSource("start");
+  const current = routeSource("current");
+  const seen = routeSource("highlights-seen");
+  const previewStore = read("src/features/ynot/local-preview-rewards.ts");
+
+  requireAll(previewStore, [
+    /LOCAL_PREVIEW_SOLD_STATE_COOKIE/,
+    /preparePreviewPullAllQuote/,
+    /previewPullAllQuoteForToken/,
+    /startPreviewPullAllSession/,
+    /previewCurrentPullAllSessionForProfile/,
+    /markPreviewPullAllHighlightsSeen/,
+    /recordPreviewOpenResult/,
+    /bulkOpenQuotesByToken/,
+    /bulkOpenSessionsByProfile/,
+    /highlight_rewards_public/,
+    /highlights_seen_at/,
+    /crypto\.randomUUID\(\)/,
+  ], "preview pull-all store");
+  assert.doesNotMatch(previewStore, /draw_slots|quote_hash|pack_open_contract_hash|draw_round_prize_units|card_stock_unit_id/);
+
+  requireAll(quote, [
+    /isDevAuthAllowed/,
+    /LOCAL_PREVIEW_SOLD_STATE_COOKIE/,
+    /session\.authUserId === "preview-user"/,
+    /request\.headers\.get\("cookie"\)/,
+    /preparePreviewPullAllQuote/,
+    /targetRewards: 35/,
+    /soldPct: 65/,
+    /return Response\.json\(\{ quote: previewQuote \}\)/,
+  ], "preview pull-all quote route");
+
+  requireAll(start, [
+    /isDevAuthAllowed/,
+    /session\.authUserId === "preview-user"/,
+    /buildPreviewBulkOpenResult/,
+    /previewPullAllQuoteForToken/,
+    /publicRewardImageUrl/,
+    /previewAllocatedImageByPrizeId/,
+    /previewRepresentativeImageByCardId/,
+    /startPreviewPullAllSession/,
+    /await startPreviewPullAllSession/,
+    /toPublicBulkOpenSessionSummary\(started\)/,
+    /return Response\.json\(\{[\s\S]*session: \{[\s\S]*\.\.\.summary,[\s\S]*replayed: false,[\s\S]*\},[\s\S]*\}\)/,
+  ], "preview pull-all start route");
+
+  requireAll(current, [
+    /isDevAuthAllowed/,
+    /previewCurrentPullAllSessionForProfile/,
+    /session\.authUserId === "preview-user"/,
+    /toPublicBulkOpenSessionSummary\(previewSession\)/,
+  ], "preview pull-all current route");
+
+  requireAll(seen, [
+    /isDevAuthAllowed/,
+    /markPreviewPullAllHighlightsSeen/,
+    /session\.authUserId === "preview-user"/,
+    /return Response\.json\(result\)/,
+  ], "preview pull-all highlights-seen route");
 });
 
 test("start route loads token service-side and does not trust client quote values", () => {
@@ -180,6 +239,7 @@ test("current route returns only a public active summary", () => {
     /collection_items_created/,
     /highlights_seen_at/,
     /completed/,
+    /previewCurrentPullAllSessionForProfile/,
     /toPublicBulkOpenSessionSummary/,
   ], "current route");
   assertNoPrivateDtoFields(source, "current route");
@@ -196,6 +256,7 @@ test("highlights-seen route updates only the current profile public code", () =>
     /requireVerifiedAnchor/,
     /enforceRateLimit/,
     /publicCode/,
+    /markPreviewPullAllHighlightsSeen/,
     /mark_bulk_open_highlights_seen/,
   ], "highlights-seen route");
   assert.match(sql, /rpc\(\s*"mark_bulk_open_highlights_seen"/);

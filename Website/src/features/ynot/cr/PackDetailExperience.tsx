@@ -16,6 +16,7 @@ import { createOpenIntentId } from "../open-intent";
 import { QuantityBadge } from "../QuantityBadge";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { Modal, PageHead, useToast } from "./UiKit";
+import { PullAllConfirmModal } from "./PullAllConfirmModal";
 
 const SERIES_LABEL: Record<string, string> = {
   pokemon: "Pokemon",
@@ -112,6 +113,7 @@ export function PackDetailExperience({
   const openQty = normalizeOpenQuantityOptions(campaign.openQuantityOptions);
   const [rawQty, setQty] = useState<number>(openQty[0] ?? 1);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pullAllConfirmOpen, setPullAllConfirmOpen] = useState(false);
   const [featuredPrize, setFeaturedPrize] = useState<YnotPrizePreview | null>(
     null,
   );
@@ -161,6 +163,8 @@ export function PackDetailExperience({
   const enoughCoins = balanceCoins >= totalCost;
   const enoughStock = qty <= openableQuantityLimit;
   const openable = Boolean(campaign.openable);
+  const pullAllAvailable =
+    campaign.pullAllAvailable === true && openable && !soldOut;
   const unavailableReason = openUnavailableReason(campaign);
   const bannerImageUrl = campaign.bannerImageUrl?.trim() ?? "";
   const hasBannerImage = Boolean(bannerImageUrl);
@@ -729,6 +733,17 @@ export function PackDetailExperience({
                 </button>
               );
             })}
+            {pullAllAvailable && (
+              <button
+                type="button"
+                className="cr-dock-qty-btn cr-dock-qty-btn-all cr-pull-all-action"
+                onClick={() => setPullAllConfirmOpen(true)}
+                disabled={submitting}
+                title="Pull all remaining packs with a server quote"
+              >
+                Pull All
+              </button>
+            )}
           </div>
 
           <div className="cr-dock-cta">
@@ -918,6 +933,19 @@ export function PackDetailExperience({
                   </button>
                 );
               })}
+              {pullAllAvailable && (
+                <button
+                  type="button"
+                  className="cr-dock-qty-btn cr-dock-qty-btn-all cr-pull-all-action"
+                  onClick={() => {
+                    setConfirmOpen(false);
+                    setPullAllConfirmOpen(true);
+                  }}
+                  title="Pull all remaining packs with a server quote"
+                >
+                  Pull All
+                </button>
+              )}
             </div>
           </div>
 
@@ -971,6 +999,16 @@ export function PackDetailExperience({
           </div>
         </div>
       </Modal>
+      <PullAllConfirmModal
+        balanceCoins={balanceCoins}
+        campaign={campaign}
+        onClose={() => setPullAllConfirmOpen(false)}
+        onStarted={() => {
+          setPullAllConfirmOpen(false);
+          router.push(`/gacha/${campaign.slug}/open?pullAll=1`);
+        }}
+        open={pullAllConfirmOpen}
+      />
     </div>
   );
 }

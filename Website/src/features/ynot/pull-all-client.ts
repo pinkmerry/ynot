@@ -8,10 +8,22 @@ export type PullAllQuote = {
 };
 
 export type PullAllStartedSession = {
+  highlights: PullAllHighlight[];
+  landedRewards: number;
+  percentComplete: number;
   publicCode: string;
+  settlingRewards: number;
   status: string;
   totalCostCoins: number;
   totalPurchasedRewards: number;
+};
+
+export type PullAllHighlight = {
+  displayTier: "last_prize" | "rainbow" | "gold" | "silver" | "bronze";
+  imageUrl: string | null;
+  isLastPrize?: boolean;
+  name: string;
+  valueThb: number | null;
 };
 
 export class PullAllRequestError extends Error {
@@ -66,6 +78,74 @@ async function requestPullAllJson(url: string, body: unknown) {
   return payload;
 }
 
+function pullAllHighlight(value: unknown): PullAllHighlight | null {
+  if (!isRecord(value)) return null;
+  const name = stringValue(value.name) || "Mystery reward";
+  const displayTierRaw = stringValue(value.displayTier);
+  const displayTier =
+    value.isLastPrize === true || displayTierRaw === "last_prize"
+      ? "last_prize"
+      : displayTierRaw === "rainbow" ||
+          displayTierRaw === "gold" ||
+          displayTierRaw === "silver" ||
+          displayTierRaw === "bronze"
+        ? displayTierRaw
+        : "bronze";
+  const numericValue = numberValue(value.valueThb);
+  const highlight: PullAllHighlight = {
+    displayTier,
+    imageUrl: stringValue(value.imageUrl) || null,
+    name,
+    valueThb: numericValue === null ? null : numericValue,
+  };
+  if (value.isLastPrize === true || displayTier === "last_prize") {
+    highlight.isLastPrize = true;
+  }
+  return highlight;
+}
+
+function pullAllSessionFromPayload(payload: unknown) {
+  const session =
+    isRecord(payload) && isRecord(payload.session) ? payload.session : {};
+  const publicCode = stringValue(session.publicCode);
+  const status = stringValue(session.status);
+  const totalPurchasedRewards = numberValue(session.totalPurchasedRewards);
+  const totalCostCoins = numberValue(session.totalCostCoins);
+  const landedRewards = numberValue(session.landedRewards);
+  const settlingRewards = numberValue(session.settlingRewards);
+  const percentComplete = numberValue(session.percentComplete);
+  const highlights = Array.isArray(session.highlights)
+    ? session.highlights
+        .map(pullAllHighlight)
+        .filter((highlight): highlight is PullAllHighlight =>
+          Boolean(highlight),
+        )
+    : [];
+
+  if (
+    !publicCode ||
+    !status ||
+    totalPurchasedRewards === null ||
+    totalCostCoins === null
+  ) {
+    return null;
+  }
+
+  return {
+    highlights,
+    landedRewards:
+      landedRewards === null ? 0 : Math.floor(landedRewards),
+    percentComplete:
+      percentComplete === null ? 0 : Math.max(0, Math.min(100, percentComplete)),
+    publicCode,
+    settlingRewards:
+      settlingRewards === null ? 0 : Math.max(0, Math.floor(settlingRewards)),
+    status,
+    totalCostCoins: Math.floor(totalCostCoins),
+    totalPurchasedRewards: Math.floor(totalPurchasedRewards),
+  } satisfies PullAllStartedSession;
+}
+
 export async function preparePullAllQuote(campaignId: string) {
   const payload = await requestPullAllJson("/api/ynot/gacha/bulk-open/quote", {
     campaignId,
@@ -113,19 +193,8 @@ export async function startPullAllSession(startToken: string) {
   const payload = await requestPullAllJson("/api/ynot/gacha/bulk-open/start", {
     startToken,
   });
-  const session =
-    isRecord(payload) && isRecord(payload.session) ? payload.session : {};
-  const publicCode = stringValue(session.publicCode);
-  const status = stringValue(session.status);
-  const totalPurchasedRewards = numberValue(session.totalPurchasedRewards);
-  const totalCostCoins = numberValue(session.totalCostCoins);
-
-  if (
-    !publicCode ||
-    !status ||
-    totalPurchasedRewards === null ||
-    totalCostCoins === null
-  ) {
+  const session = pullAllSessionFromPayload(payload);
+  if (!session) {
     throw new PullAllRequestError(
       "Pull All started, but its status could not be loaded.",
       202,
@@ -133,12 +202,29 @@ export async function startPullAllSession(startToken: string) {
     );
   }
 
-  return {
+  return session;
+}
+
+export async function getCurrentPullAllSession() {
+  const response = await fetch("/api/ynot/gacha/bulk-open/current", {
+    method: "GET",
+    cache: "no-store",
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new PullAllRequestError(
+      requestErrorMessage(payload),
+      response.status,
+      payload,
+    );
+  }
+  return pullAllSessionFromPayload(payload);
+}
+
+export async function acknowledgePullAllHighlights(publicCode: string) {
+  await requestPullAllJson("/api/ynot/gacha/bulk-open/highlights-seen", {
     publicCode,
-    status,
-    totalCostCoins: Math.floor(totalCostCoins),
-    totalPurchasedRewards: Math.floor(totalPurchasedRewards),
-  } satisfies PullAllStartedSession;
+  });
 }
 
 export function pullAllClientErrorMessage(error: unknown) {

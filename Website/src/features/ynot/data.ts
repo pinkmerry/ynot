@@ -2,6 +2,7 @@ import "server-only";
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import { unstable_cache } from "next/cache";
+import { cookies } from "next/headers";
 import { cache } from "react";
 
 import {
@@ -20,6 +21,16 @@ import type { Database } from "@/lib/supabase/types";
 import { collectionItemActionToken } from "@/lib/ynot/collection-action-tokens";
 import { paymentMethodActionToken } from "@/lib/ynot/payment-method-action-tokens";
 import { presentShippingHistoryCurrent } from "@/lib/ynot/reward-action-presenters";
+import {
+  LOCAL_PREVIEW_PROFILE_ID,
+  LOCAL_PREVIEW_SOLD_STATE_COOKIE,
+  previewAddressesForProfile,
+  previewCollectionForProfile,
+  previewExchangesForProfile,
+  previewOpenHistoryForProfile,
+  previewShippingForProfile,
+  previewWalletBonusForProfile,
+} from "./local-preview-rewards";
 import type {
   YnotAdminUser360Query,
   YnotAdminBulkOpenSessionSummary,
@@ -1585,6 +1596,41 @@ function publicYnotCampaign(campaign: YnotCampaign): YnotCampaign {
   };
 }
 
+async function localPreviewSoldStateForViewer(viewer: YnotViewer) {
+  if (
+    !isDevAuthAllowed() ||
+    viewer.profileId !== LOCAL_PREVIEW_PROFILE_ID
+  ) {
+    return "";
+  }
+  return (await cookies()).get(LOCAL_PREVIEW_SOLD_STATE_COOKIE)?.value ?? "";
+}
+
+function localPreviewAfter60RemainingSlots(campaign: YnotCampaign) {
+  const totalSlots = Math.max(1, Math.floor(Number(campaign.totalSlots) || 100));
+  return Math.max(1, Math.min(35, Math.floor(totalSlots * 0.35)));
+}
+
+function applyLocalPreviewAfter60SoldState(
+  campaign: YnotCampaign,
+  soldState: string,
+) {
+  if (soldState !== "after60") return campaign;
+  const remainingSlots = localPreviewAfter60RemainingSlots(campaign);
+  return Object.assign({}, campaign, {
+    remainingSlots,
+    availablePrizeUnits: remainingSlots,
+    eligiblePrizeUnits: remainingSlots,
+    openable: true,
+    soldOut: false,
+    pullAllAvailable: true,
+    pullAllEnabled: true,
+    pullAllRequested: true,
+    pullAllAllowlisted: true,
+    pullAllReadinessStatus: "ready",
+  }) satisfies YnotCampaign;
+}
+
 function localOwnerMockPrizeLineup(
   campaignId: string,
   logicMode: YnotRandomLogicMode,
@@ -2676,7 +2722,11 @@ export async function getOpenCampaignForReveal(
       if (inventoryError) throw inventoryError;
       return inventorySummariesFromJson(inventory);
     });
-    const campaign = toOpenRevealCampaign(row, inventoryRows[0]);
+    const previewSoldState = await localPreviewSoldStateForViewer(viewer);
+    const campaign = applyLocalPreviewAfter60SoldState(
+      toOpenRevealCampaign(row, inventoryRows[0]),
+      previewSoldState,
+    );
     const customerCampaign = includePrivateDetail ? campaign : publicYnotCampaign(campaign);
     if (!includePrivateDetail && !campaign.openable && !campaign.soldOut)
       return [];
@@ -2830,7 +2880,7 @@ export async function getCampaign(
           : Promise.resolve(undefined),
         resolveLastPrizePreview(supabase, row),
       ]);
-    const campaign = toYnotCampaign(
+    let campaign = toYnotCampaign(
       row,
       linkedCategories,
       inventory,
@@ -2839,7 +2889,14 @@ export async function getCampaign(
       identityMismatchResult,
     );
     campaign.lastPrizePreview = lastPrizePreview;
-    const customerCampaign = includePrivateDetail ? campaign : publicYnotCampaign(campaign);
+    const previewSoldState = await localPreviewSoldStateForViewer(viewer);
+    campaign = applyLocalPreviewAfter60SoldState(
+      campaign,
+      previewSoldState,
+    );
+    const customerCampaign = includePrivateDetail
+      ? campaign
+      : publicYnotCampaign(campaign);
     if (!includePrivateDetail && !campaign.openable && !campaign.soldOut) return [];
     return [customerCampaign];
   }).then(
@@ -2959,7 +3016,6 @@ function hideLegacyMainTransfer(methods: YnotPaymentMethod[]) {
   );
 }
 
-const PREVIEW_PROFILE_ID = "00000000-0000-0000-0000-000000000001";
 const PREVIEW_WALLET_BALANCE = 50_000;
 type TopUpStatus = Database["public"]["Tables"]["top_up_requests"]["Row"]["status"];
 
@@ -2981,9 +3037,12 @@ export async function getWallet(profileId?: string): Promise<YnotWallet> {
   // applies in production.
   if (
     isDevAuthAllowed() &&
-    profileId === PREVIEW_PROFILE_ID
+    profileId === LOCAL_PREVIEW_PROFILE_ID
   ) {
-    return { balanceCoins: PREVIEW_WALLET_BALANCE, version: 0 };
+    return {
+      balanceCoins: PREVIEW_WALLET_BALANCE + previewWalletBonusForProfile(profileId),
+      version: 0,
+    };
   }
   const supabase = createServiceSupabaseClient();
   const rows = await readOrEmpty("wallet", async () => {
@@ -3186,6 +3245,12 @@ export async function getCollection(
     COLLECTION_DEFAULT_LIMIT,
     COLLECTION_MAX_LIMIT,
   );
+  if (
+    isDevAuthAllowed() &&
+    profileId === LOCAL_PREVIEW_PROFILE_ID
+  ) {
+    return previewCollectionForProfile(profileId, collectionLimit);
+  }
   if (!isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   const items = await readOrEmpty("collection", async () => {
@@ -3553,8 +3618,15 @@ export async function getGachaOpenHistory(
   profileId?: string,
   options: { limit?: number } = {},
 ): Promise<YnotGachaOpenHistory[]> {
-  if (!profileId || !isSupabaseConfigured()) return [];
+  if (!profileId) return [];
   const safeLimit = boundedRowLimit(options.limit, 50, 500);
+  if (
+    isDevAuthAllowed() &&
+    profileId === LOCAL_PREVIEW_PROFILE_ID
+  ) {
+    return previewOpenHistoryForProfile(profileId, safeLimit);
+  }
+  if (!isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   const opens = await readOrEmpty("gacha_opens", async () => {
     const { data, error } = await supabase
@@ -3750,8 +3822,15 @@ export async function getExchanges(
   includeAll = false,
   options: { limit?: number } = {},
 ): Promise<YnotExchangeOrder[]> {
-  if ((!profileId && !includeAll) || !isSupabaseConfigured()) return [];
   const safeLimit = boundedRowLimit(options.limit, 80, 500);
+  if (
+    !includeAll &&
+    isDevAuthAllowed() &&
+    profileId === LOCAL_PREVIEW_PROFILE_ID
+  ) {
+    return previewExchangesForProfile(profileId, safeLimit);
+  }
+  if ((!profileId && !includeAll) || !isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("exchanges", async () => {
     let query = supabase
@@ -3891,8 +3970,14 @@ export async function getCustomerShipping(
   profileId?: string,
   options: { limit?: number } = {},
 ): Promise<YnotShippingRequest[]> {
-  if (!profileId || !isSupabaseConfigured()) return [];
   const safeLimit = boundedRowLimit(options.limit, 80, 500);
+  if (
+    isDevAuthAllowed() &&
+    profileId === LOCAL_PREVIEW_PROFILE_ID
+  ) {
+    return previewShippingForProfile(profileId, safeLimit);
+  }
+  if (!profileId || !isSupabaseConfigured()) return [];
   const supabase = createServiceSupabaseClient();
   return readOrEmpty("customer_shipping", async () => {
     const { data, error } = await supabase
@@ -4384,6 +4469,12 @@ function publicShippingRequest(
 }
 
 export async function getAddresses(profileId?: string): Promise<YnotAddress[]> {
+  if (
+    isDevAuthAllowed() &&
+    profileId === LOCAL_PREVIEW_PROFILE_ID
+  ) {
+    return previewAddressesForProfile(profileId);
+  }
   if (!profileId || !isSupabaseConfigured()) return [];
   return readOrEmpty("addresses", () => getProfileAddresses(profileId));
 }
@@ -5902,14 +5993,24 @@ export async function getYnotDashboardSlice(
         : Promise.resolve(undefined as YnotPlatformHealth | undefined),
     ]);
 
+    const previewSoldState =
+      needCampaigns && campaignVisibility === "public"
+        ? await localPreviewSoldStateForViewer(viewer)
+        : "";
+    const projectedCampaigns = previewSoldState
+      ? campaigns.map((campaign) =>
+          applyLocalPreviewAfter60SoldState(campaign, previewSoldState),
+        )
+      : campaigns;
+
     const ownerApprovalRequests = selector.ownerApprovalRequests
-      ? getOwnerApprovalRequests(viewer, campaigns)
+      ? getOwnerApprovalRequests(viewer, projectedCampaigns)
       : [];
 
     return {
       configured: isSupabaseConfigured(),
       viewer,
-      campaigns,
+      campaigns: projectedCampaigns,
       categories,
       paymentMethods,
       wallet,

@@ -516,7 +516,7 @@ test("pack-open browser payload uses public campaign slug and server resolves it
   const openPanelBlock = between(
     clientSource,
     "export function GachaOpenPanel",
-    "const revealOverlay = revealResult ?",
+    "const pullAllRevealActive =",
   );
   assert.match(openPanelBlock, /campaignId:\s*campaign\.slug/);
   assert.doesNotMatch(openPanelBlock, /campaignId:\s*campaign\.id/);
@@ -533,11 +533,14 @@ test("pack-open browser payload uses public campaign slug and server resolves it
   assert.match(slugResolver, /\.select\("id,is_test"\)/);
   assert.match(slugResolver, /\.rpc\(\s*"profile_can_open_test_draw_round"/);
   assert.doesNotMatch(openRouteSource, /if \(!campaignId \|\| !isUuid\(campaignId\)\)/);
-  assert.match(openRouteSource, /buildPreviewOpenResult\(resolvedCampaignId,\s*quantity\)/);
+  assert.match(
+    openRouteSource,
+    /buildPreviewOpenResult\(\{[\s\S]*campaignId:\s*resolvedCampaignId,[\s\S]*campaignSlug:\s*campaignId,[\s\S]*profileId:\s*session\.profileId,[\s\S]*quantity,/,
+  );
   assert.match(openRouteSource, /p_draw_round_id:\s*resolvedCampaignId/);
 });
 
-test("open page only renders auto-start reveal for openable campaigns", () => {
+test("open page only renders normal auto-start reveal for openable campaigns", () => {
   assert.ok(
     /getOpenCampaignForReveal\(campaignId, data\.viewer\)/.test(gachaOpenPageSource),
     "open entrypoints should load lightweight reveal-entry data for the current viewer",
@@ -551,8 +554,12 @@ test("open page only renders auto-start reveal for openable campaigns", () => {
     "open entrypoints should not bypass the full-detail public cache",
   );
   assert.ok(
-    /if \(campaign && campaign\.openable && autoStart\)/.test(gachaOpenPageSource),
-    "auto-start should require an openable campaign",
+    /const pullAllReveal = query\.pullAll === "1"/.test(gachaOpenPageSource),
+    "Pull All reveals should use an explicit route flag",
+  );
+  assert.ok(
+    /if \(campaign && \(\(campaign\.openable && autoStart\) \|\| pullAllReveal\)\)/.test(gachaOpenPageSource),
+    "normal auto-start should require an openable campaign while Pull All reveal can render after sellout",
   );
   assert.ok(
     !/if \(campaign && autoStart\)/.test(gachaOpenPageSource),

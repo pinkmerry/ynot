@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { YnotCampaign } from "../types";
 import {
@@ -8,6 +7,7 @@ import {
   pullAllClientErrorMessage,
   startPullAllSession,
   type PullAllQuote,
+  type PullAllStartedSession,
 } from "../pull-all-client";
 import { CoinPip, formatCoins } from "./Icons";
 import { Modal, useToast } from "./UiKit";
@@ -16,7 +16,7 @@ type PullAllConfirmModalProps = {
   balanceCoins: number;
   campaign: YnotCampaign | null;
   onClose: () => void;
-  onStarted?: () => void;
+  onStarted?: (session: PullAllStartedSession, quote: PullAllQuote) => void;
   open: boolean;
 };
 
@@ -38,7 +38,6 @@ export function PullAllConfirmModal({
   onStarted,
   open,
 }: PullAllConfirmModalProps) {
-  const router = useRouter();
   const { toast } = useToast();
   const [quoteState, setQuoteState] = useState<PullAllQuoteState>({
     error: "",
@@ -100,11 +99,10 @@ export function PullAllConfirmModal({
     setStarting(true);
     setStartError({ error: "", key: quoteKey });
     try {
-      await startPullAllSession(quote.startToken);
-      toast("success", "Pull All started. Watch progress in All pulls.");
-      onStarted?.();
+      const session = await startPullAllSession(quote.startToken);
+      toast("success", "Pull All started. Revealing top rewards.");
+      onStarted?.(session, quote);
       handleClose();
-      router.push("/profile/all-pulls");
     } catch (caught) {
       setStartError({ error: pullAllClientErrorMessage(caught), key: quoteKey });
     } finally {

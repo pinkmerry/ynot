@@ -57,9 +57,12 @@ function sectionBetween(source, startPattern, endPattern, label) {
 }
 
 test("open confirmation creates a stable intent before auto-start reveal", () => {
+  const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
   const detail = read("src/features/ynot/cr/PackDetailExperience.tsx");
   const packs = read("src/features/ynot/cr/YPackExperience.tsx");
-  for (const source of [detail, packs]) {
+  const packDetailPage = read("src/app/(store)/packs/[slug]/page.tsx");
+  assert.match(packDetailPage, /PackDetailArena/);
+  for (const source of [arena, detail, packs]) {
     assert.match(source, /createOpenIntentId/);
     assert.match(source, /new URLSearchParams\(\{\s*qty: String\(qty\),\s*auto: "1",\s*intent,/s);
     assert.match(source, /\/open\?\$\{query\.toString\(\)\}/);
@@ -108,7 +111,8 @@ test("first auto-start pull preserves 1, 10, and 100 quantities as one open call
   assert.match(openPage, /Math\.max\(1,\s*Math\.min\(100,\s*Math\.round\(Number\(query\.qty\) \|\| 1\)\)\)/);
   assert.match(openPage, /initialQuantity=\{initialQuantity\}/);
   assert.match(panel, /const initialOption = openQuantityOptions\.includes\(initialQuantity\)[\s\S]*\? initialQuantity[\s\S]*: openQuantityOptions\[0\]/);
-  assert.match(autoStartEffect, /if \(quantityDisabled\(initialOption\)\) return/);
+  assert.match(panel, /const initialAutoStartBlockedMessage =[\s\S]*quantityDisabledForState\(initialOption, initialRemainingState\)/);
+  assert.match(autoStartEffect, /if \(initialAutoStartBlockedMessage\) return;/);
   assert.match(autoStartEffect, /autoStartFiredRef\.current = true;[\s\S]*fireOpen\(initialOption\)/);
   assert.match(fireOpen, /postJson\("\/api\/ynot\/gacha\/open"/);
   assert.match(fireOpen, /quantity: targetQuantity/);
@@ -122,13 +126,24 @@ test("first auto-start pull preserves 1, 10, and 100 quantities as one open call
   }
 });
 
+test("invalid auto-start quantities stop the pending overlay with a visible error", () => {
+  const client = read("src/features/ynot/client.tsx");
+  const panel = client.match(/export function GachaOpenPanel[\s\S]*?export function AddressForm/)?.[0] ?? "";
+
+  assert.match(panel, /const initialAutoStartBlockedMessage =[\s\S]*quantityDisabledForState\(initialOption, initialRemainingState\)/);
+  assert.match(panel, /"This quantity is not openable right now\."/);
+  assert.match(panel, /const \[message,\s*setMessage\] = useState\(initialAutoStartBlockedMessage\)/);
+  assert.match(panel, /const \[openingOverlayVisible,\s*setOpeningOverlayVisible\] = useState\(\s*autoStart && !initialAutoStartBlockedMessage,\s*\)/);
+  assert.match(panel, /if \(initialAutoStartBlockedMessage\) return;/);
+});
+
 test("repeat pull options use locally updated remaining stock from open result", () => {
   const client = read("src/features/ynot/client.tsx");
   const overlay = read("src/features/ynot/GachaRevealOverlay.tsx");
   const panel = client.match(/export function GachaOpenPanel[\s\S]*?export function AddressForm/)?.[0] ?? "";
   const fireOpen = client.match(/function fireOpen[\s\S]*?function openAgain/)?.[0] ?? "";
 
-  assert.match(panel, /const \[remainingState,\s*setRemainingState\] = useState/);
+  assert.match(panel, /const \[remainingState,\s*setRemainingState\]\s*=\s*useState/);
   assert.match(panel, /campaign\.remainingSlots/);
   assert.match(panel, /eligibleUnits: campaign\.eligiblePrizeUnits/);
   assert.match(panel, /campaign\.availablePrizeUnits/);
@@ -137,7 +152,8 @@ test("repeat pull options use locally updated remaining stock from open result",
   assert.match(panel, /eligibleUnits: remainingState\.eligibleUnits/);
   assert.match(panel, /availableWinSlots: remainingState\.availableWinSlots/);
   assert.match(panel, /remainingState\.availablePrizeUnits/);
-  assert.match(panel, /return !isOpenQuantityAvailable\(option, \{/);
+  assert.match(client, /return !isOpenQuantityAvailable\(option, \{/);
+  assert.match(panel, /return quantityDisabledForState\(option, remainingState\)/);
   assert.match(fireOpen, /if \(result\.remaining\) \{/);
   assert.match(fireOpen, /setRemainingState\(\(current\) => \(\{/);
   assert.match(fireOpen, /\.\.\.current/);
@@ -149,12 +165,51 @@ test("repeat pull options use locally updated remaining stock from open result",
   assert.match(overlay, /gacha-reveal-repeat-stock-left/);
 });
 
+test("reveal summary action buttons stay clickable above the auto-skip toggle", () => {
+  const overlay = read("src/features/ynot/GachaRevealOverlay.tsx");
+  const css = read("src/app/globals.css");
+  const footer = sectionBetween(
+    overlay,
+    /<footer className="gacha-reveal-summary-footer">/,
+    /<\/footer>/,
+    "Gacha reveal summary footer",
+  );
+
+  assert.match(footer, /className="gacha-reveal-dock"/);
+  assert.match(footer, /className="gacha-reveal-toggle"/);
+  assert.match(footer, /View collection/);
+  assert.match(
+    css,
+    /\.gacha-reveal-summary-footer \{[\s\S]*pointer-events:\s*none;/,
+  );
+  assert.match(
+    css,
+    /\.gacha-reveal-summary-footer \.gacha-reveal-dock \{[\s\S]*z-index:\s*2;/,
+  );
+  assert.match(
+    css,
+    /\.gacha-reveal-summary-footer \.gacha-reveal-dock \{[\s\S]*pointer-events:\s*auto;/,
+  );
+  assert.match(
+    css,
+    /\.gacha-reveal-summary-footer \.gacha-reveal-dock-action \{[\s\S]*pointer-events:\s*auto;/,
+  );
+  assert.match(
+    css,
+    /\.gacha-reveal-summary-footer \.gacha-reveal-toggle \{[\s\S]*z-index:\s*1;/,
+  );
+});
+
 test("customer Pull All uses the real quote/start flow and stays separate from x100", () => {
   const yPack = read("src/features/ynot/cr/YPackExperience.tsx");
   const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
+  const detail = read("src/features/ynot/cr/PackDetailExperience.tsx");
   const client = read("src/features/ynot/client.tsx");
   const revealOverlay = read("src/features/ynot/GachaRevealOverlay.tsx");
+  const pullAllModal = read("src/features/ynot/cr/PullAllConfirmModal.tsx");
   const openPage = read("src/app/(store)/gacha/[campaignId]/open/page.tsx");
+  const packDetailPage = read("src/app/(store)/packs/[slug]/page.tsx");
+  const gachaDetailPage = read("src/app/(store)/gacha/[campaignId]/page.tsx");
   const helper = read("src/features/ynot/pull-all-client.ts");
   const yPackModal = sectionBetween(
     yPack,
@@ -168,6 +223,12 @@ test("customer Pull All uses the real quote/start flow and stays separate from x
     /slab pack checklist/,
     "PackDetailArena dock and confirm modal",
   );
+  const legacyDetailDockAndModal = sectionBetween(
+    detail,
+    /Open this pack/,
+    /function HeroFan\b/,
+    "PackDetailExperience dock and confirm modal",
+  );
   const revealPanel = sectionBetween(
     client,
     /export function GachaOpenPanel\b/,
@@ -179,10 +240,22 @@ test("customer Pull All uses the real quote/start flow and stays separate from x
   assert.match(helper, /\/api\/ynot\/gacha\/bulk-open\/quote/);
   assert.match(helper, /export async function startPullAllSession/);
   assert.match(helper, /\/api\/ynot\/gacha\/bulk-open\/start/);
+  assert.match(helper, /export async function getCurrentPullAllSession/);
+  assert.match(helper, /\/api\/ynot\/gacha\/bulk-open\/current/);
+  assert.match(helper, /export async function acknowledgePullAllHighlights/);
+  assert.match(helper, /\/api\/ynot\/gacha\/bulk-open\/highlights-seen/);
+
+  assert.match(pullAllModal, /onStarted\?: \(session: PullAllStartedSession, quote: PullAllQuote\) => void/);
+  assert.match(pullAllModal, /const session = await startPullAllSession\(quote\.startToken\)/);
+  assert.match(pullAllModal, /onStarted\?\.\(session, quote\)/);
+  assert.doesNotMatch(pullAllModal, /useRouter/);
+  assert.doesNotMatch(pullAllModal, /router\.push/);
+  assert.doesNotMatch(pullAllModal, /\/profile\/all-pulls/);
 
   for (const [label, source] of [
     ["Y-Pack list", yPack],
     ["pack detail", arena],
+    ["legacy pack detail", detail],
     ["repeat reveal", `${revealPanel}\n${revealOverlay}`],
   ]) {
     assert.match(source, /PullAllConfirmModal/, `${label} renders PullAllConfirmModal`);
@@ -190,19 +263,109 @@ test("customer Pull All uses the real quote/start flow and stays separate from x
     assert.match(source, /cr-pull-all-action/, `${label} has a distinct Pull All action`);
   }
 
+  assert.match(packDetailPage, /<PackDetailArena[\s\S]*campaign=\{campaign\}/);
+  assert.match(gachaDetailPage, /redirect\(`\/packs\/\$\{campaign\.slug\}`\)/);
   assert.match(openPage, /balanceCoins=\{data\.wallet\.balanceCoins\}/);
+  assert.match(openPage, /pullAll\?: string/);
+  assert.match(openPage, /const pullAllReveal = query\.pullAll === "1"/);
+  assert.match(openPage, /\|\| pullAllReveal/);
+  assert.match(openPage, /pullAllReveal=\{pullAllReveal\}/);
   assert.match(yPackModal, /onPullAll\(campaign\)/);
+  assert.match(yPack, /\/gacha\/\$\{pullAllState\.slug\}\/open\?pullAll=1/);
   assert.match(detailDockAndModal, /setPullAllConfirmOpen\(true\)/);
+  assert.match(detailDockAndModal, /\/gacha\/\$\{campaign\.slug\}\/open\?pullAll=1/);
   assert.doesNotMatch(detailDockAndModal, /setQty\(pullAll\)/);
+  assert.match(legacyDetailDockAndModal, /setPullAllConfirmOpen\(true\)/);
+  assert.match(legacyDetailDockAndModal, /\/gacha\/\$\{campaign\.slug\}\/open\?pullAll=1/);
+  assert.doesNotMatch(legacyDetailDockAndModal, /setQty\(pullAll\)/);
   assert.doesNotMatch(yPackModal, /onQtyChange\(pullAll\)|setQty\(pullAll\)/);
   assert.match(revealPanel, /onPullAllAgain/);
   assert.match(revealPanel, /kind: "pull_all"/);
+  assert.match(client, /const PULL_ALL_REVEAL_ITEM_LIMIT = 100/);
+  assert.match(client, /getCurrentPullAllSession/);
+  assert.match(client, /acknowledgePullAllHighlights/);
+  assert.match(client, /function pullAllRevealResult/);
+  assert.match(client, /\.slice\(0, PULL_ALL_REVEAL_ITEM_LIMIT\)/);
+  assert.match(revealPanel, /const \[pullAllRevealSession,\s*setPullAllRevealSession\]/);
+  assert.match(revealPanel, /pullAllRevealSession\?\.status === "completed"/);
+  assert.match(revealPanel, /const pullAllRevealActive =[\s\S]*Boolean\(pullAllRevealSession\)/);
+  assert.match(revealPanel, /const revealOverlay = revealResult && !pullAllRevealActive/);
+  assert.match(revealPanel, /displayQuantity=\{pullAllRevealSession\.totalPurchasedRewards\}/);
+  assert.match(revealPanel, /summaryTitle="Top rewards"/);
+  assert.match(revealPanel, /summaryNote=\{pullAllRevealSummaryNote\(pullAllRevealSession\)\}/);
+  assert.match(revealOverlay, /displayQuantity\?: number/);
+  assert.match(revealOverlay, /summaryNote\?: string/);
+  assert.match(revealOverlay, /summaryTitle = "Your haul"/);
+  assert.match(revealOverlay, /const displayedPullCount = Math\.max/);
+  assert.match(revealOverlay, /gacha-reveal-summary-note/);
   assert.doesNotMatch(revealPanel, /onOpenAgain\(pullAll|openAgain\(pullAll/);
+});
+
+test("Pull All does not replace configured normal open quantity buttons", () => {
+  const yPack = read("src/features/ynot/cr/YPackExperience.tsx");
+  const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
+  const detail = read("src/features/ynot/cr/PackDetailExperience.tsx");
+  const reveal = read("src/features/ynot/client.tsx");
+  const quantityHelper = read("src/features/ynot/open-quantity.ts");
+  const yPackModal = sectionBetween(
+    yPack,
+    /function OpenPackModal\b/,
+    /\n}\s*$/,
+    "OpenPackModal",
+  );
+  const arenaDockAndModal = sectionBetween(
+    arena,
+    /sticky open dock/,
+    /slab pack checklist/,
+    "PackDetailArena dock and confirm modal",
+  );
+  const legacyDetailDockAndModal = sectionBetween(
+    detail,
+    /Open this pack/,
+    /function HeroFan\b/,
+    "PackDetailExperience dock and confirm modal",
+  );
+  const revealPanel = sectionBetween(
+    reveal,
+    /export function GachaOpenPanel\b/,
+    /export function AddressForm\b/,
+    "GachaOpenPanel",
+  );
+
+  assert.match(quantityHelper, /allowedOpenQuantityOptions = \[1, 10, 100\]/);
+  assert.match(yPackModal, /const openQty = normalizeOpenQuantityOptions\(campaign\.openQuantityOptions\)/);
+  assert.match(arena, /const openQty = normalizeOpenQuantityOptions\(campaign\.openQuantityOptions\)/);
+  assert.match(detail, /const openQty = normalizeOpenQuantityOptions\(campaign\.openQuantityOptions\)/);
+  for (const [label, source] of [
+    ["Y-Pack open modal", yPackModal],
+    ["active pack detail", arenaDockAndModal],
+    ["legacy pack detail", legacyDetailDockAndModal],
+  ]) {
+    assert.match(
+      source,
+      /openQty\.map\(\(q\) => \{[\s\S]*<button[\s\S]*×\{q\}/,
+      `${label} renders each configured normal quantity button`,
+    );
+    assert.match(
+      source,
+      /openQty\.map\(\(q\) => \{[\s\S]*\}\)\}[\s\S]*pullAllAvailable[\s\S]*Pull All/,
+      `${label} appends Pull All after normal quantities`,
+    );
+  }
+  assert.match(
+    revealPanel,
+    /const openAgainOptions = openQuantityOptions\.map\(\(option\) => \(\{/,
+  );
+  assert.match(
+    revealPanel,
+    /pullAllRepeatOption \? \[\.\.\.openAgainOptions, pullAllRepeatOption\] : openAgainOptions/,
+  );
 });
 
 test("public open quantity surfaces share final-slot helpers without exposing private logic terms", () => {
   const helper = read("src/features/ynot/open-quantity.ts");
   const client = read("src/features/ynot/client.tsx");
+  const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
   const detail = read("src/features/ynot/cr/PackDetailExperience.tsx");
   const yPack = read("src/features/ynot/cr/YPackExperience.tsx");
   const revealPanel = sectionBetween(
@@ -219,9 +382,11 @@ test("public open quantity surfaces share final-slot helpers without exposing pr
   );
 
   assertImportsQuantityHelpers("reveal page", client, "./open-quantity");
+  assertImportsQuantityHelpers("active pack detail", arena, "../open-quantity");
   assertImportsQuantityHelpers("pack detail", detail, "../open-quantity");
   assertImportsQuantityHelpers("Y-Pack modal", yPack, "../open-quantity");
-  assertUsesQuantityHelpers("reveal page", revealPanel);
+  assertUsesQuantityHelpers("reveal page", client);
+  assertUsesQuantityHelpers("active pack detail", arena);
   assertUsesQuantityHelpers("pack detail", detail);
   assertUsesQuantityHelpers("Y-Pack modal", yPackModal);
 
@@ -236,4 +401,56 @@ test("public open quantity surfaces share final-slot helpers without exposing pr
   assertNoPrivateLogicTerms("reveal page", revealPanel);
   assertNoPrivateLogicTerms("pack detail", detail);
   assertNoPrivateLogicTerms("Y-Pack modal", yPackModal);
+});
+
+test("localhost preview opens land public rewards in the preview bag", () => {
+  const previewStore = read("src/features/ynot/local-preview-rewards.ts");
+  const openRoute = read("src/app/api/ynot/gacha/open/route.ts");
+  const data = read("src/features/ynot/data.ts");
+  const previewAuth = read("src/app/api/dev/preview-auth/route.ts");
+
+  assert.match(previewAuth, /ynot-preview-auth/);
+  assert.match(previewAuth, /LOCAL_PREVIEW_SOLD_STATE_COOKIE/);
+  assert.match(previewAuth, /clearPreviewRewardsForProfile/);
+  assert.match(previewAuth, /url\.searchParams\.get\("reset"\)/);
+  assert.match(previewAuth, /url\.searchParams\.get\("sold"\)/);
+  assert.match(previewAuth, /soldState === "after60"/);
+  assert.match(previewStore, /export const LOCAL_PREVIEW_PROFILE_ID/);
+  assert.match(previewStore, /export const LOCAL_PREVIEW_SOLD_STATE_COOKIE/);
+  assert.match(previewStore, /export async function recordPreviewOpenResult/);
+  assert.match(previewStore, /openedSlotsByProfileCampaign/);
+  assert.match(previewStore, /export function nextPreviewOpenRemaining/);
+  assert.match(previewStore, /previewAfter60RemainingSlots/);
+  assert.match(previewStore, /store\.openedSlotsByProfileCampaign\.set/);
+  assert.match(previewStore, /export function previewCollectionForProfile/);
+  assert.match(previewStore, /export function previewOpenHistoryForProfile/);
+  assert.match(previewStore, /collectionItemActionToken/);
+  assert.match(previewStore, /previewAddressesForProfile/);
+  assert.match(previewStore, /addressActionToken/);
+  assert.match(previewStore, /YnotCollectionItem/);
+  assert.match(previewStore, /YnotGachaOpenHistory/);
+  assert.match(previewStore, /Partial<PreviewRewardStore>/);
+  assert.match(previewStore, /store\.collectionByProfile \?\?= new Map\(\)/);
+  assert.match(previewStore, /store\.walletBonusCoinsByProfile \?\?= new Map\(\)/);
+  assert.doesNotMatch(previewStore, /draw_round_prize_units|card_stock_unit_id|stockUnitGroupKey/);
+
+  assert.match(openRoute, /recordPreviewOpenResult/);
+  assert.match(openRoute, /nextPreviewOpenRemaining/);
+  assert.match(openRoute, /const previewResult = await buildPreviewOpenResult/);
+  assert.match(openRoute, /remaining: previewRemaining \? \{ campaignId, \.\.\.previewRemaining \} : \{ campaignId \}/);
+  assert.match(openRoute, /await recordPreviewOpenResult\(\{[\s\S]*profileId: session\.profileId/);
+  assert.match(openRoute, /return Response\.json\(\{[\s\S]*result: previewResult,[\s\S]*\}\)/);
+
+  assert.match(data, /LOCAL_PREVIEW_PROFILE_ID/);
+  assert.match(data, /applyLocalPreviewAfter60SoldState/);
+  assert.match(data, /const previewSoldState =[\s\S]*localPreviewSoldStateForViewer\(viewer\)/);
+  assert.match(data, /const projectedCampaigns = previewSoldState[\s\S]*applyLocalPreviewAfter60SoldState\(campaign, previewSoldState\)/);
+  assert.match(data, /campaigns: projectedCampaigns/);
+  assert.match(data, /localPreviewAfter60RemainingSlots/);
+  assert.match(data, /pullAllAvailable: true/);
+  assert.match(data, /pullAllReadinessStatus: "ready"/);
+  assert.match(data, /previewCollectionForProfile/);
+  assert.match(data, /previewOpenHistoryForProfile/);
+  assert.match(data, /previewAddressesForProfile/);
+  assert.match(data, /profileId === LOCAL_PREVIEW_PROFILE_ID/);
 });

@@ -132,11 +132,25 @@ test("pack open API sends x1, x10, and x100 pulls to one protected RPC call", ()
   assert.match(openRpc, /available_slot_count < p_quantity/);
 });
 
+test("preview open mock uses the same public stock-image projection as reveal hydration", () => {
+  assert.match(openRoute, /async function previewImageByPrizeId/);
+  assert.match(openRoute, /PREVIEW_STOCK_UNIT_IMAGE_BATCH_SIZE\s*=\s*100/);
+  assert.match(openRoute, /\.from\("draw_round_prize_units"\)[\s\S]*\.select\("draw_round_prize_id,card_stock_unit_id"\)/);
+  assert.match(openRoute, /index \+= PREVIEW_STOCK_UNIT_IMAGE_BATCH_SIZE/);
+  assert.match(openRoute, /stockUnitIds\.slice\([\s\S]*index \+ PREVIEW_STOCK_UNIT_IMAGE_BATCH_SIZE/);
+  assert.match(openRoute, /\.from\("card_stock_units"\)[\s\S]*\.select\("id,image_url"\)/);
+  assert.match(openRoute, /const prizeImageById = await previewImageByPrizeId/);
+  assert.match(
+    openRoute,
+    /imageUrl:\s*publicRewardImageUrl\(prizeImageById\.get\(prize\.id\),\s*card\?\.imageUrl\)/,
+  );
+});
+
 test("first and repeated pull choices stay valid for x1, x10, and x100 while stock remains", () => {
   const panel = between(
     client,
     "export function GachaOpenPanel",
-    "const revealOverlay = revealResult ?",
+    "const pullAllRevealActive =",
     "GachaOpenPanel state and handlers",
   );
   const openAgain = between(
@@ -173,7 +187,7 @@ test("first and repeated pull choices stay valid for x1, x10, and x100 while sto
     );
   }
 
-  assert.match(panel, /const \[remainingState,\s*setRemainingState\] = useState/);
+  assert.match(panel, /const \[remainingState,\s*setRemainingState\]\s*=\s*useState/);
   assert.match(panel, /campaign\.remainingSlots/);
   assert.match(panel, /campaign\.eligiblePrizeUnits/);
   assert.match(panel, /campaign\.availablePrizeUnits/);

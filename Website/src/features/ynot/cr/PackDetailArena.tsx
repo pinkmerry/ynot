@@ -12,7 +12,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { YnotCampaign, YnotLastPrizePreview, YnotPrizePreview } from "../types";
-import { normalizeOpenQuantityOptions } from "../open-quantity";
+import { createOpenIntentId } from "../open-intent";
+import {
+  isOpenQuantityAvailable,
+  normalizeOpenQuantityOptions,
+  openQuantityLimit,
+} from "../open-quantity";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { PullAllConfirmModal } from "./PullAllConfirmModal";
 import { Modal, useToast } from "./UiKit";
@@ -113,23 +118,34 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
   }, [checklistOpen]);
 
   const remaining = campaign.remainingSlots ?? campaign.totalSlots;
+  const openableQuantityLimit = openQuantityLimit({
+    remainingSlots: remaining,
+    eligiblePrizeUnits: campaign.eligiblePrizeUnits,
+    availablePrizeUnits: campaign.availablePrizeUnits,
+  });
   const totalCost = campaign.costCoins * qty;
   const soldOut = campaign.soldOut || remaining <= 0;
   const enoughCoins = balanceCoins >= totalCost;
-  const enoughStock = remaining >= qty;
+  const enoughStock = qty <= openableQuantityLimit;
   const openable = Boolean(campaign.openable);
   const unavailableReason = openable ? "" : "This pack is not ready to open yet.";
   const pullAllAvailable = campaign.pullAllAvailable === true && openable && !soldOut;
 
   function tryOpen() {
     if (!openable) return toast("error", unavailableReason);
-    if (!enoughStock) return toast("error", `Only ${remaining} packs left.`);
+    if (!enoughStock) return toast("error", `Only ${openableQuantityLimit} openable packs left.`);
     if (!enoughCoins) return toast("error", "Top up to open this many.");
     setConfirmOpen(true);
   }
   function confirmAndOpen() {
     setSubmitting(true);
-    router.push(`/gacha/${campaign.slug}/open?qty=${qty}&auto=1`);
+    const intent = createOpenIntentId();
+    const query = new URLSearchParams({
+      qty: String(qty),
+      auto: "1",
+      intent,
+    });
+    router.push(`/gacha/${campaign.slug}/open?${query.toString()}`);
   }
 
   // Last prize is starved by the detail page's server subrequest budget, so
@@ -472,11 +488,18 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
             </button>
           </div>
           <div className="cr-dock-qty">
-            {openQty.map((q) => (
-              <button key={q} type="button" className={`cr-dock-qty-btn ${qty === q ? "active" : ""}`} onClick={() => setQty(q)} disabled={remaining < q} title={remaining < q ? `Only ${remaining} packs left` : `Open ${q} pack${q === 1 ? "" : "s"}`}>
-                ×{q}
-              </button>
-            ))}
+            {openQty.map((q) => {
+              const quantityAvailable = isOpenQuantityAvailable(q, {
+                remainingSlots: remaining,
+                eligiblePrizeUnits: campaign.eligiblePrizeUnits,
+                availablePrizeUnits: campaign.availablePrizeUnits,
+              });
+              return (
+                <button key={q} type="button" className={`cr-dock-qty-btn ${qty === q ? "active" : ""}`} onClick={() => setQty(q)} disabled={!quantityAvailable} title={!quantityAvailable ? `Only ${openableQuantityLimit} openable packs left` : `Open ${q} pack${q === 1 ? "" : "s"}`}>
+                  ×{q}
+                </button>
+              );
+            })}
             {pullAllAvailable && (
               <button
                 type="button"
@@ -554,17 +577,29 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
               How many?
             </span>
             <div className="cr-dock-qty" style={{ margin: "0 auto", width: "fit-content" }}>
-              {openQty.map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  className={`cr-dock-qty-btn ${qty === q ? "active" : ""}`}
-                  onClick={() => setQty(q)}
-                  disabled={remaining < q}
-                >
-                  ×{q}
-                </button>
-              ))}
+              {openQty.map((q) => {
+                const quantityAvailable = isOpenQuantityAvailable(q, {
+                  remainingSlots: remaining,
+                  eligiblePrizeUnits: campaign.eligiblePrizeUnits,
+                  availablePrizeUnits: campaign.availablePrizeUnits,
+                });
+                return (
+                  <button
+                    key={q}
+                    type="button"
+                    className={`cr-dock-qty-btn ${qty === q ? "active" : ""}`}
+                    onClick={() => setQty(q)}
+                    disabled={!quantityAvailable}
+                    title={
+                      !quantityAvailable
+                        ? `Only ${openableQuantityLimit} openable packs left`
+                        : ""
+                    }
+                  >
+                    ×{q}
+                  </button>
+                );
+              })}
               {pullAllAvailable && (
                 <button
                   type="button"
@@ -605,6 +640,10 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
         balanceCoins={balanceCoins}
         campaign={campaign}
         onClose={() => setPullAllConfirmOpen(false)}
+        onStarted={() => {
+          setPullAllConfirmOpen(false);
+          router.push(`/gacha/${campaign.slug}/open?pullAll=1`);
+        }}
         open={pullAllConfirmOpen}
       />
 

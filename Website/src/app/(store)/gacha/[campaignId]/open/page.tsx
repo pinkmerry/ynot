@@ -11,12 +11,12 @@ export default async function GachaOpenPage({
   searchParams,
 }: {
   params: Promise<{ campaignId: string }>;
-  searchParams?: Promise<{ qty?: string; auto?: string; intent?: string }>;
+  searchParams?: Promise<{ qty?: string; auto?: string; intent?: string; pullAll?: string }>;
 }) {
   const [{ campaignId }, query, data] = await Promise.all([
     params,
     searchParams ??
-      Promise.resolve({} as { qty?: string; auto?: string; intent?: string }),
+      Promise.resolve({} as { qty?: string; auto?: string; intent?: string; pullAll?: string }),
     getYnotDashboardSlice({ wallet: true }),
   ]);
   const [campaign, tierAnimations] = await Promise.all([
@@ -25,8 +25,9 @@ export default async function GachaOpenPage({
   ]);
   const initialQuantity = Math.max(1, Math.min(100, Math.round(Number(query.qty) || 1)));
   const autoStart = query.auto === "1";
+  const pullAllReveal = query.pullAll === "1";
   const intent = normalizeOpenIntentId(query.intent);
-  if (campaign && campaign.openable && autoStart) {
+  if (campaign && ((campaign.openable && autoStart) || pullAllReveal)) {
     return (
       <GachaOpenPanelLazy
         campaign={campaign}
@@ -36,6 +37,7 @@ export default async function GachaOpenPage({
         balanceCoins={data.wallet.balanceCoins}
         autoStart
         openIntentId={intent}
+        pullAllReveal={pullAllReveal}
         immersive
       />
     );

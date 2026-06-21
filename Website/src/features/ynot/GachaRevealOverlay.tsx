@@ -27,6 +27,9 @@ type PullRarity = "normal" | "rare" | "blackout" | "jackpot";
 type Props = {
   result: YnotGachaOpenResult;
   quantity: number;
+  displayQuantity?: number;
+  summaryNote?: string;
+  summaryTitle?: string;
   onClose: () => void;
   onFinish: () => void;
   onOpenAgain?: (quantity: number) => void;
@@ -121,6 +124,9 @@ function pickInitialStage(autoSkip: boolean, forceAnimation: boolean): RevealSta
 export function GachaRevealOverlay({
   result,
   quantity,
+  displayQuantity,
+  summaryNote,
+  summaryTitle = "Your haul",
   onClose,
   onFinish,
   onOpenAgain,
@@ -138,6 +144,10 @@ export function GachaRevealOverlay({
   const items: YnotGachaOpenItem[] = useMemo(
     () => result.items ?? [],
     [result.items],
+  );
+  const displayedPullCount = Math.max(
+    0,
+    Math.floor(displayQuantity ?? items.length),
   );
   const highestTier = useMemo<PublicPrizeDisplayTier>(
     () =>
@@ -398,7 +408,8 @@ export function GachaRevealOverlay({
               <span>Prize tier</span>
               <strong>{publicPrizeDisplayTierLabel(highestTier)}</strong>
               <small>
-                {items.length} {items.length === 1 ? "pull" : "pulls"}
+                {displayedPullCount.toLocaleString()}{" "}
+                {displayedPullCount === 1 ? "pull" : "pulls"}
               </small>
             </div>
           </div>
@@ -441,10 +452,14 @@ export function GachaRevealOverlay({
         <div className="gacha-reveal-stage gacha-reveal-summary">
           <header className="gacha-reveal-summary-header">
             <p className="gacha-reveal-summary-eyebrow">
-              {publicPrizeDisplayTierLabel(highestTier).toUpperCase()} · {items.length}{" "}
-              {items.length === 1 ? "PULL" : "PULLS"}
+              {publicPrizeDisplayTierLabel(highestTier).toUpperCase()} ·{" "}
+              {displayedPullCount.toLocaleString()}{" "}
+              {displayedPullCount === 1 ? "PULL" : "PULLS"}
             </p>
-            <h2>Your haul</h2>
+            <h2>{summaryTitle}</h2>
+            {summaryNote ? (
+              <p className="gacha-reveal-summary-note">{summaryNote}</p>
+            ) : null}
           </header>
 
           <ul className="gacha-reveal-grid" data-quantity={items.length}>

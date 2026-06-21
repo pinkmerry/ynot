@@ -352,6 +352,33 @@ test("collection conversion API is one dynamic pipeline with safe DTOs and queue
   assertNoPrivateDtoFields(currentRoute, "conversion current route");
 });
 
+test("localhost preview conversion follows quote/start/current without private IDs", () => {
+  const previewStore = read("src/features/ynot/local-preview-rewards.ts");
+  const conversionApi = read("src/lib/ynot/card-conversion-api.ts");
+  const currentRoute = read("src/app/api/ynot/collection/convert/current/route.ts");
+  const data = read("src/features/ynot/data.ts");
+
+  requirePattern(previewStore, /preparePreviewConversionQuote/, "preview store must quote selected rewards");
+  requirePattern(previewStore, /startPreviewConversion/, "preview store must commit from an opaque quote token");
+  requirePattern(previewStore, /previewCurrentConversionForProfile/, "preview store must expose current conversion progress");
+  requirePattern(previewStore, /crypto\.randomUUID\(\)/, "preview conversion must issue opaque UUID quote/job ids");
+  requirePattern(previewStore, /function previewConvertCoinValue/, "preview open rewards must get public mock coin values");
+  requirePattern(previewStore, /switch \(item\.displayTier\)/, "preview conversion values must use public display tiers only");
+  requirePattern(previewStore, /convertCoinValue: previewConvertCoinValue\(item\)/, "preview bag rows must be convertible on localhost");
+  requirePattern(previewStore, /updatePreviewCollectionItems\(profileId, quote\.collectionItemIds, "exchanged"\)/, "preview conversion must move rewards into converted state");
+  requirePattern(previewStore, /walletBonusCoinsByProfile/, "preview conversion must credit localhost wallet state");
+  assert.doesNotMatch(previewStore, /draw_round_prize_units|card_stock_unit_id|stockUnitGroupKey/, "preview store must not model private stock tables");
+
+  requirePattern(conversionApi, /isDevAuthAllowed/, "conversion API must gate preview behavior on dev auth");
+  requirePattern(conversionApi, /session\.authUserId === "preview-user"/, "conversion API must only short-circuit preview sessions");
+  requirePattern(conversionApi, /preparePreviewConversionQuote/, "conversion API must serve local preview quotes");
+  requirePattern(conversionApi, /startPreviewConversion/, "conversion API must serve local preview starts");
+  requirePattern(conversionApi, /return Response\.json\(\{ quote: publicQuote \}\)/, "preview quotes must return the same public DTO shape");
+  requirePattern(conversionApi, /return Response\.json\(\{[\s\S]*conversion: presentConversionProgress\(started\),[\s\S]*result: presentConversionStartResult\(started\),[\s\S]*\}\)/, "preview starts must return the same public DTO shape");
+  requirePattern(currentRoute, /previewCurrentConversionForProfile/, "current conversion route must expose localhost preview progress");
+  requirePattern(data, /previewWalletBonusForProfile/, "dashboard wallet must include preview conversion credits");
+});
+
 test("Cloudflare worker can continue reward conversion jobs without browser ownership", () => {
   const worker = read("bulk-open-worker.ts");
   const rewardConversionAdapter = between(

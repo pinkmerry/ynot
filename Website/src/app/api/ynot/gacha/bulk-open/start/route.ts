@@ -6,6 +6,17 @@ import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { toPublicBulkOpenSessionSummary } from "@/features/ynot/bulk-open";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
+import {
+  previewPullAllQuoteForToken,
+  startPreviewPullAllSession,
+  type PreviewPullAllQuote,
+} from "@/features/ynot/local-preview-rewards";
+import { publicRewardImageUrl } from "@/features/ynot/public-reward-projection";
+import type {
+  YnotGachaOpenResult,
+  YnotPublicPrizeDisplayTier,
+} from "@/features/ynot/types";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +55,33 @@ type SupabaseCompatClient = {
 };
 type BulkOpenQueueBinding = {
   send(body: unknown, options?: { delaySeconds?: number }): Promise<unknown>;
+};
+type PreviewBulkCampaignRow = {
+  id: string;
+  slug: string | null;
+  title_th: string | null;
+  title_en: string | null;
+};
+type PreviewBulkPrizeRow = {
+  id: string;
+  card_id: string | null;
+  tier: string | null;
+  rank: number | null;
+  value_thb: number | null;
+  metadata: unknown;
+};
+type PreviewAllocatedImageRow = {
+  allocated_draw_round_prize_id: string | null;
+  image_url: string | null;
+};
+type PreviewBulkCardRow = {
+  id: string;
+  name: string | null;
+  image_url: string | null;
+};
+type PreviewCardRepresentativeImageRow = {
+  card_id: string | null;
+  image_url: string | null;
 };
 
 function isUuid(value: string) {
@@ -108,10 +146,197 @@ function summarySourceFromStarted(startedRecord: Record<string, unknown>) {
   };
 }
 
-export async function POST(request: Request) {
-  if (!isSupabaseConfigured()) {
-    return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+function previewDisplayTier(
+  tier: string | null | undefined,
+  rank: number,
+  metadata: unknown,
+): YnotPublicPrizeDisplayTier {
+  const explicit =
+    metadata &&
+    typeof metadata === "object" &&
+    "displayTier" in metadata &&
+    typeof (metadata as Record<string, unknown>).displayTier === "string"
+      ? String((metadata as Record<string, unknown>).displayTier).toLowerCase()
+      : "";
+  if (
+    explicit === "last_prize" ||
+    explicit === "rainbow" ||
+    explicit === "gold" ||
+    explicit === "silver" ||
+    explicit === "bronze"
+  ) {
+    return explicit;
   }
+  if (tier === "high" && rank <= 3) return "rainbow";
+  if (tier === "high") return "gold";
+  if (tier === "normal" && rank <= 6) return "silver";
+  return "bronze";
+}
+
+function previewCode() {
+  return `BO-${Math.floor(Math.random() * 1_000_000)
+    .toString()
+    .padStart(6, "0")}`;
+}
+
+async function previewAllocatedImageByPrizeId(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  drawRoundId: string | null | undefined,
+  prizeIds: string[],
+) {
+  if (!drawRoundId || !prizeIds.length) return new Map<string, string>();
+
+  const { data, error } = await supabase
+    .from("card_stock_units")
+    .select("allocated_draw_round_prize_id,image_url")
+    .eq("allocated_draw_round_id", drawRoundId)
+    .in("allocated_draw_round_prize_id", prizeIds)
+    .not("image_url", "is", null);
+  if (error || !data?.length) return new Map<string, string>();
+
+  const out = new Map<string, string>();
+  for (const row of data as PreviewAllocatedImageRow[]) {
+    const prizeId = row.allocated_draw_round_prize_id;
+    const imageUrl = row.image_url?.trim();
+    if (prizeId && imageUrl && !out.has(prizeId)) out.set(prizeId, imageUrl);
+  }
+  return out;
+}
+
+async function previewRepresentativeImageByCardId(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  cardIds: string[],
+) {
+  const uniq = Array.from(new Set(cardIds.filter(Boolean)));
+  if (!uniq.length) return new Map<string, string>();
+  const { data, error } = await supabase
+    .from("card_stock_units")
+    .select("card_id,image_url")
+    .in("card_id", uniq)
+    .in("status", ["available", "allocated", "reserved"])
+    .not("image_url", "is", null);
+  if (error || !data?.length) return new Map<string, string>();
+
+  const out = new Map<string, string>();
+  for (const row of data as PreviewCardRepresentativeImageRow[]) {
+    const cardId = row.card_id;
+    const imageUrl = row.image_url?.trim();
+    if (cardId && imageUrl && !out.has(cardId)) out.set(cardId, imageUrl);
+  }
+  return out;
+}
+
+function previewRewardImageUrl({
+  cardId,
+  cardImageUrl,
+  prizeId,
+  prizeImageById,
+  representativeImageByCardId,
+}: {
+  cardId: string | null;
+  cardImageUrl: string | null | undefined;
+  prizeId: string;
+  prizeImageById: Map<string, string>;
+  representativeImageByCardId: Map<string, string>;
+}) {
+  return publicRewardImageUrl(
+    prizeImageById.get(prizeId),
+    cardImageUrl ?? (cardId ? representativeImageByCardId.get(cardId) : null),
+  );
+}
+
+async function buildPreviewBulkOpenResult(quote: PreviewPullAllQuote): Promise<{
+  campaignTitle: string;
+  result: YnotGachaOpenResult;
+}> {
+  const fallbackTitle = quote.packTitle || "Local preview Pull All";
+  const supabase = createServiceSupabaseClient();
+  const { data: campaignData } = await supabase
+    .from("draw_rounds")
+    .select("id,slug,title_th,title_en")
+    .eq("slug", quote.campaignSlug)
+    .limit(1)
+    .maybeSingle();
+  const campaign = campaignData as PreviewBulkCampaignRow | null;
+  const campaignTitle = campaign?.title_en ?? campaign?.title_th ?? fallbackTitle;
+
+  const { data: prizeData } = campaign?.id
+    ? await supabase
+        .from("draw_round_prizes")
+        .select("id,card_id,tier,rank,value_thb,metadata")
+        .eq("draw_round_id", campaign.id)
+        .order("rank", { ascending: true })
+    : { data: [] };
+  const prizes = (prizeData ?? []) as PreviewBulkPrizeRow[];
+  const cardIds = Array.from(
+    new Set(prizes.map((prize) => prize.card_id).filter(Boolean)),
+  ) as string[];
+  const { data: cardData } = cardIds.length
+    ? await supabase
+        .from("cards")
+        .select("id,name,image_url")
+        .in("id", cardIds)
+    : { data: [] };
+  const cardById = new Map(
+    ((cardData ?? []) as PreviewBulkCardRow[]).map((card) => [card.id, card]),
+  );
+  const prizeImageById = await previewAllocatedImageByPrizeId(
+    supabase,
+    campaign?.id,
+    prizes.map((prize) => prize.id).filter(Boolean),
+  );
+  const representativeImageByCardId = await previewRepresentativeImageByCardId(
+    supabase,
+    cardIds,
+  );
+  const pool = prizes
+    .map((prize) => {
+      const rank = Number(prize.rank ?? 99) || 99;
+      const card = prize.card_id ? cardById.get(prize.card_id) : undefined;
+      return {
+        name: card?.name ?? "Mystery reward",
+        imageUrl: previewRewardImageUrl({
+          cardId: prize.card_id,
+          cardImageUrl: card?.image_url,
+          prizeId: prize.id,
+          prizeImageById,
+          representativeImageByCardId,
+        }),
+        displayTier: previewDisplayTier(prize.tier, rank, prize.metadata),
+        valueThb: Number(prize.value_thb ?? 0) || null,
+      };
+    })
+    .filter((item) => item.name || item.imageUrl);
+
+  const fallbackPool = [
+    { name: "Preview rainbow reward", imageUrl: null, displayTier: "rainbow" as const, valueThb: 500 },
+    { name: "Preview gold reward", imageUrl: null, displayTier: "gold" as const, valueThb: 250 },
+    { name: "Preview silver reward", imageUrl: null, displayTier: "silver" as const, valueThb: 100 },
+    { name: "Preview bronze reward", imageUrl: null, displayTier: "bronze" as const, valueThb: 25 },
+  ];
+  const source = pool.length ? pool : fallbackPool;
+  const items = Array.from({ length: quote.targetRewards }, (_, index) => {
+    const item = source[index % source.length] ?? fallbackPool[0];
+    return {
+      ...item,
+      position: index + 1,
+    };
+  });
+  const publicCode = previewCode();
+  return {
+    campaignTitle,
+    result: {
+      status: "completed",
+      openId: publicCode,
+      publicCode,
+      costCoins: quote.totalCostCoins,
+      items,
+      replayed: false,
+    },
+  };
+}
+
+export async function POST(request: Request) {
   const crossOrigin = enforceSameOriginMutation(request);
   if (crossOrigin) return crossOrigin;
   const session = await resolveCurrentProfile();
@@ -132,6 +357,37 @@ export async function POST(request: Request) {
   const startToken = typeof body?.startToken === "string" ? body.startToken.trim() : "";
   if (!isUuid(startToken)) {
     return Response.json({ error: "Valid Pull All token is required." }, { status: 400 });
+  }
+
+  if (isDevAuthAllowed() && session.authUserId === "preview-user") {
+    const previewQuote = previewPullAllQuoteForToken({
+      profileId: session.profileId,
+      startToken,
+    });
+    const previewResult = previewQuote
+      ? await buildPreviewBulkOpenResult(previewQuote).catch(() => null)
+      : null;
+    const started = await startPreviewPullAllSession({
+      campaignTitle: previewResult?.campaignTitle,
+      profileId: session.profileId,
+      result: previewResult?.result,
+      startToken,
+    });
+    if (started) {
+      const summary = toPublicBulkOpenSessionSummary(started);
+      if (summary) {
+        return Response.json({
+          session: {
+            ...summary,
+            replayed: false,
+          },
+        });
+      }
+    }
+  }
+
+  if (!isSupabaseConfigured()) {
+    return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   }
 
   const supabase = createServiceSupabaseClient() as unknown as SupabaseCompatClient;

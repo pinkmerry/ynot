@@ -21,6 +21,7 @@ import type {
   YnotCampaign,
   YnotCategory,
   YnotCollectionItem,
+  YnotGachaOpenItem,
   YnotGachaOpenResult,
   YnotLivePackMonitor,
   YnotLivePackRevisionReview,
@@ -39,6 +40,12 @@ import { AdminCardOptionSelect } from "./admin/AdminCardOptionSelect";
 import { AdminSearchableSelect } from "./admin/AdminSearchableSelect";
 import { GachaRevealOverlay } from "./GachaRevealOverlay";
 import { PullAllConfirmModal } from "./cr/PullAllConfirmModal";
+import {
+  acknowledgePullAllHighlights,
+  getCurrentPullAllSession,
+  type PullAllHighlight,
+  type PullAllStartedSession,
+} from "./pull-all-client";
 import { QuantityBadge } from "./QuantityBadge";
 import {
   adminCardDuplicateUsage,
@@ -777,6 +784,71 @@ export function TopUpForm({
   );
 }
 
+type GachaOpenRemainingState = NonNullable<YnotGachaOpenResult["remaining"]>;
+const PULL_ALL_REVEAL_ITEM_LIMIT = 100;
+
+function pullAllHighlightToOpenItem(
+  highlight: PullAllHighlight,
+  index: number,
+): YnotGachaOpenItem {
+  const item: YnotGachaOpenItem = {
+    name: highlight.name,
+    imageUrl: highlight.imageUrl,
+    displayTier: highlight.displayTier,
+    valueThb: highlight.valueThb,
+    position: index + 1,
+  };
+  if (highlight.isLastPrize) item.isLastPrize = true;
+  return item;
+}
+
+function pullAllRevealResult(
+  session: PullAllStartedSession,
+): YnotGachaOpenResult {
+  return {
+    status: "completed",
+    openId: `pull-all-${session.publicCode}`,
+    publicCode: session.publicCode,
+    costCoins: session.totalCostCoins,
+    items: session.highlights
+      .slice(0, PULL_ALL_REVEAL_ITEM_LIMIT)
+      .map(pullAllHighlightToOpenItem),
+    remaining: {
+      remainingSlots: 0,
+      availablePrizeUnits: 0,
+      eligibleUnits: 0,
+      availableWinSlots: 0,
+    },
+  };
+}
+
+function pullAllRevealSummaryNote(session: PullAllStartedSession) {
+  const total = Math.max(0, Math.floor(session.totalPurchasedRewards));
+  const shown = Math.min(
+    session.highlights.length,
+    PULL_ALL_REVEAL_ITEM_LIMIT,
+  );
+  if (shown > 0 && total > shown) {
+    return `Showing top ${shown.toLocaleString()} rewards. All ${total.toLocaleString()} rewards are already in your bag.`;
+  }
+  if (total > 0) {
+    return `All ${total.toLocaleString()} rewards are already in your bag.`;
+  }
+  return "Rewards are already in your bag.";
+}
+
+function quantityDisabledForState(
+  option: number,
+  state: GachaOpenRemainingState,
+) {
+  return !isOpenQuantityAvailable(option, {
+    remainingSlots: state.remainingSlots,
+    eligibleUnits: state.eligibleUnits,
+    availableWinSlots: state.availableWinSlots,
+    availablePrizeUnits: state.availablePrizeUnits,
+  });
+}
+
 export function GachaOpenPanel({
   campaign,
   authenticated,
@@ -784,6 +856,7 @@ export function GachaOpenPanel({
   tierAnimations,
   autoStart = false,
   openIntentId,
+  pullAllReveal = false,
   immersive = false,
   balanceCoins = 0,
 }: {
@@ -797,6 +870,7 @@ export function GachaOpenPanel({
    *  expects the reveal animation to play right away. */
   autoStart?: boolean;
   openIntentId?: string | null;
+  pullAllReveal?: boolean;
   immersive?: boolean;
 }) {
   const router = useRouter();
@@ -806,21 +880,38 @@ export function GachaOpenPanel({
   const initialOption = openQuantityOptions.includes(initialQuantity)
     ? initialQuantity
     : openQuantityOptions[0];
+  const initialRemainingState: GachaOpenRemainingState = {
+    remainingSlots: campaign.remainingSlots,
+    eligibleUnits: campaign.eligiblePrizeUnits,
+    availablePrizeUnits: campaign.availablePrizeUnits,
+  };
+  const initialAutoStartBlockedMessage =
+    !autoStart
+      ? ""
+      : !authenticated
+        ? "Login is required."
+        : campaign.demo || !campaign.openable
+          ? "This pack is not openable right now."
+          : quantityDisabledForState(initialOption, initialRemainingState)
+            ? "This quantity is not openable right now."
+            : "";
   const [quantity, setQuantity] = useState(initialOption);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(initialAutoStartBlockedMessage);
   const [revealResult, setRevealResult] = useState<YnotGachaOpenResult | null>(
     null,
   );
   const [pullAllConfirmOpen, setPullAllConfirmOpen] = useState(false);
+  const [pullAllRevealSession, setPullAllRevealSession] =
+    useState<PullAllStartedSession | null>(null);
+  const [pullAllRevealLoading, setPullAllRevealLoading] =
+    useState(pullAllReveal);
   const [revealRunId, setRevealRunId] = useState(0);
-  const [openingOverlayVisible, setOpeningOverlayVisible] = useState(autoStart);
-  const [remainingState, setRemainingState] = useState<
-    NonNullable<YnotGachaOpenResult["remaining"]>
-  >({
-    remainingSlots: campaign.remainingSlots,
-    eligibleUnits: campaign.eligiblePrizeUnits,
-    availablePrizeUnits: campaign.availablePrizeUnits,
-  });
+  const [pullAllRevealRunId, setPullAllRevealRunId] = useState(0);
+  const [openingOverlayVisible, setOpeningOverlayVisible] = useState(
+    autoStart && !initialAutoStartBlockedMessage,
+  );
+  const [remainingState, setRemainingState] =
+    useState<GachaOpenRemainingState>(initialRemainingState);
   const openRequestInFlightRef = useRef(false);
   const [, startTransition] = useTransition();
   const remainingOpenUnits = openQuantityLimit({
@@ -832,13 +923,86 @@ export function GachaOpenPanel({
   const visibleRemainingSlots = remainingState.remainingSlots ?? remainingOpenUnits;
 
   function quantityDisabled(option: number) {
-    return !isOpenQuantityAvailable(option, {
-      remainingSlots: remainingState.remainingSlots,
-      eligibleUnits: remainingState.eligibleUnits,
-      availableWinSlots: remainingState.availableWinSlots,
-      availablePrizeUnits: remainingState.availablePrizeUnits,
-    });
+    return quantityDisabledForState(option, remainingState);
   }
+
+  const applyPullAllSession = useCallback((session: PullAllStartedSession) => {
+    setPullAllRevealSession(session);
+    setRemainingState((current) => ({
+      ...current,
+      remainingSlots: 0,
+      availablePrizeUnits: 0,
+      eligibleUnits: 0,
+      availableWinSlots: 0,
+    }));
+  }, []);
+
+  function acknowledgePullAllReveal(session: PullAllStartedSession | null) {
+    if (!session?.publicCode) return;
+    void acknowledgePullAllHighlights(session.publicCode).catch(() => {});
+  }
+
+  const loadCurrentPullAllSession = useCallback(async () => {
+    const session = await getCurrentPullAllSession();
+    if (!session) return null;
+    applyPullAllSession(session);
+    return session;
+  }, [applyPullAllSession]);
+
+  useEffect(() => {
+    if (!pullAllReveal) return;
+    let active = true;
+    getCurrentPullAllSession()
+      .then((session) => {
+        if (!active) return;
+        if (session) {
+          applyPullAllSession(session);
+          setMessage("");
+        } else {
+          setMessage("Pull All started, but the reveal is not ready yet.");
+        }
+      })
+      .catch((error) => {
+        if (!active) return;
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not load Pull All reveal.",
+        );
+      })
+      .finally(() => {
+        if (active) setPullAllRevealLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [applyPullAllSession, pullAllReveal]);
+
+  const pullAllRevealPublicCode = pullAllRevealSession?.publicCode ?? "";
+  const pullAllRevealStatus = pullAllRevealSession?.status ?? "";
+  useEffect(() => {
+    if (!pullAllRevealPublicCode) return;
+    if (pullAllRevealStatus === "completed") return;
+    let active = true;
+    const poll = () => {
+      loadCurrentPullAllSession()
+        .catch(() => null)
+        .finally(() => {
+          if (active) setPullAllRevealLoading(false);
+        });
+    };
+    const firstPoll = window.setTimeout(poll, 700);
+    const interval = window.setInterval(poll, 2500);
+    return () => {
+      active = false;
+      window.clearTimeout(firstPoll);
+      window.clearInterval(interval);
+    };
+  }, [
+    loadCurrentPullAllSession,
+    pullAllRevealPublicCode,
+    pullAllRevealStatus,
+  ]);
 
   function fireOpen(targetQuantity: number, intentId?: string | null) {
     if (openRequestInFlightRef.current) return;
@@ -898,9 +1062,27 @@ export function GachaOpenPanel({
     setPullAllConfirmOpen(true);
   }
 
+  function handlePullAllStarted(session: PullAllStartedSession) {
+    setOpeningOverlayVisible(false);
+    setRevealResult(null);
+    setMessage("");
+    setPullAllRevealLoading(session.status !== "completed");
+    setPullAllRevealRunId((current) => current + 1);
+    applyPullAllSession(session);
+  }
+
   function handleRevealClose() {
     setOpeningOverlayVisible(false);
     setRevealResult(null);
+    router.replace("/collection");
+  }
+
+  function handlePullAllRevealClose() {
+    const session = pullAllRevealSession;
+    setOpeningOverlayVisible(false);
+    setPullAllRevealLoading(false);
+    setPullAllRevealSession(null);
+    acknowledgePullAllReveal(session);
     router.replace("/collection");
   }
 
@@ -916,6 +1098,15 @@ export function GachaOpenPanel({
     }, 900);
   }, [campaign.slug, router]);
 
+  function handlePullAllRevealFinish() {
+    const session = pullAllRevealSession;
+    setOpeningOverlayVisible(false);
+    setPullAllRevealLoading(false);
+    setPullAllRevealSession(null);
+    acknowledgePullAllReveal(session);
+    router.replace(`/packs/${campaign.slug}`);
+  }
+
   // Auto-start: when the user already confirmed quantity + cost on the
   // previous page (the Y-Pack confirm modal), skip the second "START PULL"
   // screen and fire the open immediately so the animation plays. We use a
@@ -925,9 +1116,7 @@ export function GachaOpenPanel({
   useEffect(() => {
     if (autoStartFiredRef.current) return;
     if (!autoStart) return;
-    if (!authenticated) return;
-    if (campaign.demo || !campaign.openable) return;
-    if (quantityDisabled(initialOption)) return;
+    if (initialAutoStartBlockedMessage) return;
     const timer = window.setTimeout(() => {
       if (autoStartFiredRef.current) return;
       autoStartFiredRef.current = true;
@@ -953,8 +1142,14 @@ export function GachaOpenPanel({
           disabled: false,
         }
       : null;
+  const pullAllRevealOverlayResult =
+    pullAllRevealSession?.status === "completed"
+      ? pullAllRevealResult(pullAllRevealSession)
+      : null;
 
-  const revealOverlay = revealResult ? (
+  const pullAllRevealActive =
+    pullAllReveal || pullAllRevealLoading || Boolean(pullAllRevealSession);
+  const revealOverlay = revealResult && !pullAllRevealActive ? (
     <GachaRevealOverlay
       key={`${revealResult.openId}-${revealRunId}`}
       result={revealResult}
@@ -969,6 +1164,22 @@ export function GachaOpenPanel({
         pullAllRepeatOption ? [...openAgainOptions, pullAllRepeatOption] : openAgainOptions
       }
       remainingSlots={visibleRemainingSlots}
+    />
+  ) : null;
+  const pullAllOverlay = pullAllRevealOverlayResult && pullAllRevealSession ? (
+    <GachaRevealOverlay
+      key={`pull-all-${pullAllRevealSession.publicCode}-${pullAllRevealRunId}`}
+      result={pullAllRevealOverlayResult}
+      quantity={Math.max(1, pullAllRevealSession.totalPurchasedRewards)}
+      displayQuantity={pullAllRevealSession.totalPurchasedRewards}
+      tierAnimations={tierAnimations}
+      forceAnimation
+      onClose={handlePullAllRevealClose}
+      onFinish={handlePullAllRevealFinish}
+      openAgainOptions={[]}
+      remainingSlots={0}
+      summaryTitle="Top rewards"
+      summaryNote={pullAllRevealSummaryNote(pullAllRevealSession)}
     />
   ) : null;
 
@@ -987,8 +1198,39 @@ export function GachaOpenPanel({
         </div>
       </div>
     ) : null;
+  const pullAllPendingOverlay =
+    (pullAllRevealLoading || Boolean(pullAllRevealSession)) &&
+    !pullAllRevealOverlayResult ? (
+      <div
+        className="gacha-auto-open-overlay cr-pull-all-reveal-wait"
+        role="status"
+        aria-live="polite"
+        aria-label="Pull All rewards are landing"
+      >
+        <div className="gacha-auto-open-loader" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <div className="cr-pull-all-reveal-wait-copy">
+          <p>Pull All rewards are landing</p>
+          {pullAllRevealSession ? (
+            <strong>
+              {pullAllRevealSession.landedRewards.toLocaleString()} of{" "}
+              {pullAllRevealSession.totalPurchasedRewards.toLocaleString()} in bag
+            </strong>
+          ) : (
+            <strong>Loading reveal...</strong>
+          )}
+        </div>
+      </div>
+    ) : null;
   const errorPanel =
-    message && !revealResult && !openingOverlayVisible ? (
+    message &&
+    !revealResult &&
+    !openingOverlayVisible &&
+    !pullAllRevealLoading &&
+    !pullAllRevealSession ? (
       <div className="gacha-open-error-panel" role="alert">
         <p className="gacha-open-error-eyebrow">Open stopped</p>
         <h2>Could not open this pull</h2>
@@ -1013,13 +1255,16 @@ export function GachaOpenPanel({
       data-open-mode={immersive ? "immersive" : "embedded"}
     >
       {revealOverlay}
+      {pullAllOverlay}
       <PullAllConfirmModal
         balanceCoins={balanceCoins}
         campaign={campaign}
         onClose={() => setPullAllConfirmOpen(false)}
+        onStarted={handlePullAllStarted}
         open={pullAllConfirmOpen}
       />
       {pendingOverlay}
+      {pullAllPendingOverlay}
       {errorPanel}
     </div>
   );

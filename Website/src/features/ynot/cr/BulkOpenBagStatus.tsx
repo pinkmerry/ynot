@@ -1,8 +1,16 @@
 "use client";
 
-import Image from "next/image";
+/* eslint-disable @next/next/no-img-element -- Pull All highlights use public Supabase image URLs, and this app has no next/image remote config for them. */
+
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+  type CSSProperties,
+} from "react";
 import type {
   BulkOpenPublicDisplayTier,
   BulkOpenStatus,
@@ -297,11 +305,36 @@ export function BulkOpenBagStatus() {
           </div>
         </div>
 
+        <div className="cr-bulk-open-meta complete">
+          <span>
+            <strong className="cr-tnum">{session.landedRewards}</strong>{" "}
+            rewards landed
+          </span>
+          <span>
+            <strong className="cr-tnum">
+              {session.totalPurchasedRewards}
+            </strong>{" "}
+            total pulled
+          </span>
+          <span>
+            <strong className="cr-tnum">{session.settlingRewards}</strong>{" "}
+            still settling
+          </span>
+          <span>
+            <CoinPip /> {formatCoins(session.totalCostCoins)}
+          </span>
+        </div>
+
         <div className="cr-bulk-open-highlights">
           {highlights.map((highlight, index) => (
             <article
               className="cr-bulk-open-highlight"
               key={`${highlight.name}-${index}`}
+              style={
+                {
+                  "--cr-highlight-index": index,
+                } as CSSProperties & { "--cr-highlight-index": number }
+              }
             >
               <div
                 className={`cr-bulk-open-highlight-art ${tierClassName(
@@ -309,12 +342,10 @@ export function BulkOpenBagStatus() {
                 )}`}
               >
                 {highlight.imageUrl ? (
-                  <Image
+                  <img
                     src={highlight.imageUrl}
                     alt=""
-                    width={72}
-                    height={96}
-                    sizes="72px"
+                    loading="lazy"
                   />
                 ) : (
                   <Ico name="card" size={22} />

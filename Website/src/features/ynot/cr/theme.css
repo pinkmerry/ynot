@@ -628,6 +628,7 @@
 .cr-bulk-open-status.complete {
   border-color: var(--cr-gold-soft);
   background: linear-gradient(180deg, #fffdf6, var(--cr-paper));
+  animation: crBulkCompleteIn 0.28s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 .cr-bulk-open-main {
   padding: 16px;
@@ -695,6 +696,9 @@
 .cr-bulk-open-meta strong {
   color: var(--cr-ink);
 }
+.cr-bulk-open-meta.complete {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
 .cr-bulk-open-actions {
   display: flex;
   flex-wrap: wrap;
@@ -717,6 +721,8 @@
   border: 1px solid var(--cr-line-soft);
   border-radius: var(--cr-r-sm);
   background: rgba(255, 255, 255, 0.78);
+  animation: crBulkHighlightIn 0.26s ease both;
+  animation-delay: calc(var(--cr-highlight-index, 0) * 35ms);
 }
 .cr-bulk-open-highlight-art {
   width: 54px;
@@ -767,6 +773,20 @@
   margin: 0;
   color: var(--cr-rose);
   font-size: 12px;
+}
+@keyframes crBulkCompleteIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes crBulkHighlightIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cr-bulk-open-status.complete,
+  .cr-bulk-open-highlight {
+    animation: none;
+  }
 }
 
 /* ============================================

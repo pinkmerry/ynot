@@ -138,6 +138,7 @@ export function YPackExperience({
   initialSeries = "all",
   initialTag = "",
 }: YPackExperienceProps) {
+  const router = useRouter();
   const [category, setCategory] = useState<string>(initialSeries);
   const [tag, setTag] = useState<string>(() =>
     resolveInitialTag(initialTag, collectCampaignTags(campaigns)),
@@ -350,6 +351,11 @@ export function YPackExperience({
         campaign={pullAllState}
         balanceCoins={balanceCoins}
         onClose={() => setPullAllState(null)}
+        onStarted={() => {
+          if (!pullAllState) return;
+          setPullAllState(null);
+          router.push(`/gacha/${pullAllState.slug}/open?pullAll=1`);
+        }}
       />
     </div>
   );
