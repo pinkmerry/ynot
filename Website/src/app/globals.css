@@ -33756,3 +33756,252 @@ html[data-ynot-theme] .admin-frame .pcx-lrow.open .pcx-caret {
     justify-content: flex-start;
   }
 }
+
+/* ===== Prize Catalog — Main SKU form + modal ===== */
+html[data-ynot-theme] .admin-frame .pcx-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+html[data-ynot-theme] .admin-frame .pcx-form-row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+html[data-ynot-theme] .admin-frame .pcx-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+html[data-ynot-theme] .admin-frame .pcx-field label {
+  font-size: 0.82rem;
+  color: var(--a-text-dim, #999);
+  letter-spacing: 0.02em;
+}
+html[data-ynot-theme] .admin-frame .pcx-opt {
+  font-style: italic;
+  opacity: 0.6;
+}
+html[data-ynot-theme] .admin-frame .pcx-input {
+  padding: 8px 10px;
+  border-radius: var(--pcx-radius-sm, 8px);
+  border: 1px solid var(--a-border, #333);
+  background: var(--a-surface-card, #1b1c24);
+  color: var(--a-text, #e8e8e8);
+  font-size: 0.92rem;
+  outline: none;
+  transition: border-color 150ms;
+}
+html[data-ynot-theme] .admin-frame .pcx-input:focus {
+  border-color: var(--a-gold, #f4c542);
+}
+html[data-ynot-theme] .admin-frame .pcx-input.mono {
+  font-family: "SF Mono", "Fira Code", monospace;
+  letter-spacing: 0.04em;
+}
+html[data-ynot-theme] .admin-frame .pcx-mt4 {
+  margin-top: 4px;
+}
+html[data-ynot-theme] .admin-frame .pcx-file-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+html[data-ynot-theme] .admin-frame .pcx-img-drop {
+  border: 2px dashed var(--a-border, #333);
+  border-radius: var(--pcx-radius-sm, 8px);
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 150ms;
+}
+html[data-ynot-theme] .admin-frame .pcx-img-drop:hover {
+  border-color: var(--a-gold, #f4c542);
+}
+html[data-ynot-theme] .admin-frame .pcx-img-preview {
+  max-height: 120px;
+  border-radius: var(--pcx-radius-sm, 8px);
+  object-fit: contain;
+}
+html[data-ynot-theme] .admin-frame .pcx-img-ph {
+  color: var(--a-text-dim, #999);
+  font-size: 0.88rem;
+}
+html[data-ynot-theme] .admin-frame .pcx-form-error {
+  padding: 8px 12px;
+  border-radius: var(--pcx-radius-sm, 8px);
+  background: rgba(220, 50, 50, 0.15);
+  color: #f87171;
+  font-size: 0.88rem;
+}
+html[data-ynot-theme] .admin-frame .pcx-form-overwrite {
+  padding: 10px 14px;
+  border-radius: var(--pcx-radius-sm, 8px);
+  background: rgba(234, 179, 8, 0.12);
+  color: var(--a-gold, #f4c542);
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+html[data-ynot-theme] .admin-frame .pcx-form-overwrite p {
+  margin: 0;
+  flex: 1;
+}
+html[data-ynot-theme] .admin-frame .pcx-form-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+}
+html[data-ynot-theme] .admin-frame .pcx-btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: var(--pcx-radius-sm, 8px);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 150ms;
+}
+html[data-ynot-theme] .admin-frame .pcx-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+html[data-ynot-theme] .admin-frame .pcx-btn-primary {
+  background: var(--a-gold, #f4c542);
+  color: #1a1a1a;
+}
+html[data-ynot-theme] .admin-frame .pcx-btn-ghost {
+  background: transparent;
+  color: var(--a-text-dim, #999);
+  border: 1px solid var(--a-border, #333);
+}
+html[data-ynot-theme] .admin-frame .pcx-btn-warn {
+  background: rgba(234, 179, 8, 0.2);
+  color: var(--a-gold, #f4c542);
+}
+html[data-ynot-theme] .admin-frame .pcx-btn-danger {
+  background: rgba(220, 50, 50, 0.15);
+  color: #f87171;
+}
+
+/* Modal shell for pcx forms */
+html[data-ynot-theme] .admin-frame .pcx-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+html[data-ynot-theme] .admin-frame .pcx-modal {
+  background: var(--a-surface, #13141a);
+  border: 1px solid var(--a-border, #333);
+  border-radius: var(--pcx-radius, 12px);
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+}
+html[data-ynot-theme] .admin-frame .pcx-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+html[data-ynot-theme] .admin-frame .pcx-modal-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--a-text, #e8e8e8);
+  margin: 0;
+}
+html[data-ynot-theme] .admin-frame .pcx-modal-close {
+  background: none;
+  border: none;
+  color: var(--a-text-dim, #999);
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+/* Header action bar */
+html[data-ynot-theme] .admin-frame .pcx-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+/* LedgerRow inline actions */
+html[data-ynot-theme] .admin-frame .pcx-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+html[data-ynot-theme] .admin-frame .pcx-row-btn {
+  background: none;
+  border: 1px solid var(--a-border, #333);
+  border-radius: 6px;
+  color: var(--a-text-dim, #999);
+  font-size: 0.78rem;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: color 150ms, border-color 150ms;
+}
+html[data-ynot-theme] .admin-frame .pcx-row-btn:hover {
+  color: var(--a-text, #e8e8e8);
+  border-color: var(--a-text-dim, #999);
+}
+html[data-ynot-theme] .admin-frame .pcx-row-btn.danger:hover {
+  color: #f87171;
+  border-color: #f87171;
+}
+
+/* Toast notification */
+html[data-ynot-theme] .admin-frame .pcx-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 950;
+  padding: 10px 20px;
+  border-radius: var(--pcx-radius-sm, 8px);
+  background: var(--a-surface, #13141a);
+  border: 1px solid var(--a-border, #333);
+  color: var(--a-text, #e8e8e8);
+  font-size: 0.88rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  animation: pcx-toast-in 200ms ease-out;
+}
+html[data-ynot-theme] .admin-frame .pcx-toast.error {
+  border-color: #f87171;
+  color: #f87171;
+}
+@keyframes pcx-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  html[data-ynot-theme] .admin-frame .pcx-form-row2 {
+    grid-template-columns: 1fr;
+  }
+  html[data-ynot-theme] .admin-frame .pcx-modal {
+    max-width: 100%;
+    margin: 12px;
+  }
+}
