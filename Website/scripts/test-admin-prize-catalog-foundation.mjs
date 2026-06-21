@@ -23,3 +23,23 @@ test("prize-catalog category accents exist", () => {
     assert.ok(css.includes(token), `missing token ${token}`);
   }
 });
+
+const api = read("../src/features/ynot/admin/prize-catalog/catalog-api.ts");
+
+test("catalog-api targets the real existing endpoints", () => {
+  for (const path of [
+    "/api/ynot/admin/cards",
+    "/api/ynot/admin/card-stock",
+    "/api/ynot/admin/stock-skus",
+    "/api/ynot/admin/stock-skus/open-container",
+    "/api/ynot/admin/gemrate-cert",
+    "/api/ynot/admin/prizes",
+  ]) {
+    assert.ok(api.includes(path), `catalog-api missing ${path}`);
+  }
+});
+
+test("catalog-api sends same-origin credentials and JSON", () => {
+  assert.match(api, /credentials:\s*["']same-origin["']/);
+  assert.match(api, /content-type/i);
+});
