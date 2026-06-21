@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { AdminCardCatalogRow } from "@/features/ynot/admin-card-catalog-helpers";
 import { fmtInt, toStockBuckets, unitNoun } from "./catalog-format";
+import { VariantTable } from "./VariantTable";
 
 export function LedgerRow({
   row,
@@ -156,7 +157,31 @@ export function LedgerRow({
           </span>
         </div>
       </div>
-      {/* Expanded body: VariantTable + campaigns section land in Phase 2/3 */}
+      {open && (
+        <div className="pcx-lbody">
+          <DetailGrid card={row.card} />
+          <div className="pcx-detail-sec">
+            <div className="pcx-sec-head">
+              <h5>
+                {cat === "Single Cards"
+                  ? "Variants in stock"
+                  : "Stock"}
+              </h5>
+              <span className="pcx-sh-meta">
+                {(row.card.stockSkuGroups ?? []).length}{" "}
+                {cat === "Single Cards"
+                  ? `variant${(row.card.stockSkuGroups ?? []).length === 1 ? "" : "s"}`
+                  : "line"}{" "}
+                &middot; {fmtInt(b.available)} {unitNoun(cat)} available now
+              </span>
+            </div>
+            <VariantTable
+              stockSkuGroups={row.card.stockSkuGroups ?? []}
+              category={cat}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -202,6 +227,30 @@ function Thumb({
     <span className={`pcx-thumb${sealClass}`}>
       <span className="pcx-ph-code">{code}</span>
     </span>
+  );
+}
+
+function DetailGrid({
+  card,
+}: {
+  card: AdminCardCatalogRow["card"];
+}) {
+  const cells: Array<[string, string]> = [
+    ["Model code", card.modelCode ?? card.code ?? "—"],
+    ["Card number", card.cardNumber ?? "—"],
+    ["Release year", card.releaseYear != null ? String(card.releaseYear) : "—"],
+    ["Set", card.cardSet ?? "—"],
+    ["Category", String(card.catalogCategory ?? "Single Cards")],
+  ];
+  return (
+    <div className="pcx-detail-grid">
+      {cells.map(([label, value]) => (
+        <div key={label} className="pcx-di">
+          <div className="pcx-dl">{label}</div>
+          <div className="pcx-dv">{value}</div>
+        </div>
+      ))}
+    </div>
   );
 }
 
