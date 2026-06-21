@@ -1,10 +1,48 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 function source(path) {
   return readFileSync(new URL(path, import.meta.url), "utf8");
 }
+
+function exists(path) {
+  return existsSync(new URL(path, import.meta.url));
+}
+
+test("admin shell sign-out link has a route that clears app and Supabase sessions", () => {
+  const shell = source("../src/features/ynot/admin/Shell.tsx");
+  const session = source("../src/lib/lucky-draw/session.ts");
+  const routePath = "../src/app/auth/sign-out/route.ts";
+  const route = source(routePath);
+
+  assert.match(
+    shell,
+    /href="\/auth\/sign-out"/,
+    "admin shell points at the sign-out route",
+  );
+  assert.ok(exists(routePath), "admin sign-out route must exist");
+  assert.match(
+    route,
+    /isSupabaseAuthCookieName/,
+    "sign-out route clears Supabase auth-token cookies from the request",
+  );
+  assert.match(
+    route,
+    /luckyDrawSessionCookie/,
+    "sign-out route clears the YNOTT app session cookie",
+  );
+  assert.match(
+    route,
+    /legacyLuckyDrawSessionCookie/,
+    "sign-out route clears the legacy app session cookie",
+  );
+  assert.match(
+    session,
+    /expires:\s*new Date\(0\)[\s\S]*maxAge:\s*0/,
+    "clear-cookie options expire deleted session cookies for stubborn browsers",
+  );
+});
 
 test("site session cookies require current versioned JWT payloads", () => {
   const session = source("../src/lib/lucky-draw/session.ts");

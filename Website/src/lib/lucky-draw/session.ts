@@ -152,6 +152,7 @@ export function sessionCookieClearOptions(secure: boolean) {
     sameSite: "lax" as const,
     secure,
     path: "/",
+    expires: new Date(0),
     maxAge: 0,
   };
 }
