@@ -26750,6 +26750,17 @@ html.admin-autohide-scroll.is-scrolling::-webkit-scrollbar-thumb:hover {
   --admin-warning: var(--a-amber);
   --admin-danger: var(--a-rose);
 
+  /* ===== Prize Catalog redesign (pcx-) — stock states + category accents ===== */
+  --pcx-available: var(--a-gold, #f4c542);   /* real stock, free to build packs */
+  --pcx-packs:     var(--a-sky, #6ca6ff);    /* allocated into gacha packs */
+  --pcx-bags:      #b98cf0;                   /* won, in customers' bags */
+  --pcx-removed:   #6b6d82;                   /* archived / removed */
+  --pcx-cat-card:  #d7d2c4;
+  --pcx-cat-box:   #f4a142;
+  --pcx-cat-pack:  #44d17e;
+  --pcx-radius:    12px;
+  --pcx-radius-sm: 8px;
+
   --a-radius-sm: 6px;
   --a-radius: 8px;
   --a-radius-lg: 12px;
