@@ -424,7 +424,8 @@ check("src/lib/lucky-draw/types.ts", "card catalog item exposes full card row me
 check("src/lib/lucky-draw/data.ts", "card catalog mapper includes cards table metadata", /function toCatalogItem[\s\S]*searchName: row\.search_name[\s\S]*isTest: row\.is_test[\s\S]*assetSource: row\.asset_source[\s\S]*updatedAt: row\.updated_at/);
 check("src/features/ynot/client.tsx", "owner review still calls lifecycle API for owner odds", /export function AdminOwnerReview[\s\S]*\/api\/ynot\/admin\/campaigns\/lifecycle/);
 notCheck("src/features/ynot/client.tsx", "admin existing card stock panel removes add-to-pack CTA", /Add to pack|function AdminPrizeCatalogActionList|addCatalogCardToPack/);
-check("src/features/ynot/client.tsx", "admin card catalog panel renders every card from catalog reader", /function buildAdminCardCatalogRows[\s\S]*prizesByCard[\s\S]*return cards[\s\S]*card\.catalogCardId[\s\S]*export function AdminCardCatalogPanel[\s\S]*catalogCards[\s\S]*buildAdminCardCatalogRows\(catalogCards, prizes\)[\s\S]*data-testid="admin-card-catalog-list"[\s\S]*(?:visibleRows|renderedRows)\.map/);
+check("src/features/ynot/admin-card-catalog-helpers.ts", "card catalog reader maps every card from the catalog list", /export function buildAdminCardCatalogRows[\s\S]*cards[\s\S]*catalogCardId/);
+check("src/features/ynot/admin/prize-catalog/PrizeCatalogScreen.tsx", "admin prize catalog screen renders every card from catalog reader", /buildAdminCardCatalogRows\(cards, prizes\)[\s\S]*pcx-ledger[\s\S]*visible\.map\(/);
 const adminCardCatalogPanelSource = sliceBetween(
   "src/features/ynot/client.tsx",
   "export function AdminCardCatalogPanel",
@@ -475,7 +476,8 @@ notCheckText(
   /\/api\/ynot\/admin\/prizes|updatePrizeQuantity|<Minus|<Plus|admin-stock-stepper/,
   "AdminPrizeInventoryPanel",
 );
-check("src/app/admin/prizes/page.tsx", "admin card catalog renders with upload-backed create action", /actions=\{<AdminPrizeCreateActions cards=\{cards\} prizes=\{prizes\} \/>\}[\s\S]*<AdminCardCatalogPanel cards=\{cards\} prizes=\{prizes\} \/>/);
+check("src/app/admin/prizes/page.tsx", "admin prizes page mounts the prize catalog screen from catalog readers", /getAdminCards[\s\S]*getAdminPrizePool[\s\S]*<PrizeCatalogScreen[\s\S]*cards=\{cards\}[\s\S]*prizes=\{prizes\}/);
+check("src/features/ynot/admin/prize-catalog/MainSkuForm.tsx", "admin Main SKU create form is upload-backed", /uploadCardImage/);
 check("src/app/api/ynot/admin/campaigns/route.ts", "admin campaign create sanitizes initial prize odds unless owner", /initialPrizesForAdminRole[\s\S]*adminRole === "owner"[\s\S]*valueThb: null[\s\S]*weight: 1[\s\S]*unlockAtSoldPct: 0[\s\S]*normalizePrizeDrafts\(body\.initialPrizes\)/);
 check("src/features/ynot/prize-readiness.ts", "initial prize normalization defaults omitted admin weight to one", /numberOrDefault[\s\S]*row\.weight,\s*1[\s\S]*numberOrZero\(row\.unlockAtSoldPct\)/);
 check("src/features/ynot/client.tsx", "admin user role form calls users API", /\/api\/ynot\/admin\/users/);
