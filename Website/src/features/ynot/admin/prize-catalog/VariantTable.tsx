@@ -122,7 +122,7 @@ function VariantRow({
       <td>
         <div className="pcx-vname">
           {group.imageUrl && (
-            <img className="pcx-v-thumb" src={group.imageUrl} alt="" />
+            <img className="pcx-v-thumb" src={group.imageUrl} alt="" width={36} height={36} loading="lazy" />
           )}
           <span className={gradeChipClass(group)}>{gradeChipLabel(group)}</span>
           <div className="pcx-vsub">

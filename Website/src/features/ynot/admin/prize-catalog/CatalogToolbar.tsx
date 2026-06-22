@@ -1,8 +1,7 @@
 "use client";
 
 import type { AdminCardCatalogRow } from "@/features/ynot/admin-card-catalog-helpers";
-
-type CategoryFilter = "all" | "Single Cards" | "Sealed Boxes" | "Sealed Packs";
+import type { CategoryFilter } from "./PrizeCatalogScreen";
 
 export function CatalogToolbar({
   query,

@@ -67,8 +67,7 @@ export function EditVariantModal({
 
   /**
    * Compute the delta needed: newAvailable - currentAvailable.
-   * Negative delta archives units; positive delta would add units.
-   * When newArchived increases, that represents removing from available.
+   * Negative delta archives units; positive delta adds units.
    */
   const computeDelta = useCallback(() => {
     return newAvailable - currentAvailable;

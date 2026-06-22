@@ -2,7 +2,6 @@ import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import { MainSkuForm } from "../MainSkuForm";
 
 type Step2CreateProps = {
-  cards: CardCatalogItem[];
   onDone: (card: CardCatalogItem | null) => void;
 };
 
@@ -10,7 +9,7 @@ type Step2CreateProps = {
  * Step 2 (create mode) -- delegates to MainSkuForm to create a new Main SKU,
  * then returns to search so the user can pick the newly created card.
  */
-export function Step2Create({ cards: _cards, onDone }: Step2CreateProps) {
+export function Step2Create({ onDone }: Step2CreateProps) {
   return (
     <div className="pcx-wiz-sec">
       <div className="pcx-step-label">

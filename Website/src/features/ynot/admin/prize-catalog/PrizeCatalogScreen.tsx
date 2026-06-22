@@ -41,7 +41,7 @@ import { isVariantLoadedInCampaign } from "./variant-guards";
 
 type StockSkuGroupElement = NonNullable<CardCatalogItem["stockSkuGroups"]>[number];
 
-type CategoryFilter = "all" | "Single Cards" | "Sealed Boxes" | "Sealed Packs";
+export type CategoryFilter = "all" | "Single Cards" | "Sealed Boxes" | "Sealed Packs";
 type ModalState =
   | { kind: "closed" }
   | { kind: "create" }
@@ -425,7 +425,11 @@ export function PrizeCatalogScreen({
       <div className="pcx-ledger">
         {visible.length === 0 ? (
           <div className="pcx-empty">
-            No items match &ldquo;{query}&rdquo;.
+            {query.trim()
+              ? <>No items match &ldquo;{query}&rdquo;.</>
+              : category !== "all"
+                ? <>No {category} in catalog.</>
+                : <>No items in catalog.</>}
           </div>
         ) : (
           visible.map((row) => (

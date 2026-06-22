@@ -61,7 +61,12 @@ export function AddStockDrawer({ cards, state, onClose, onToast }: AddStockDrawe
   const [quantity, setQuantity] = useState(1);
   const [submitting, setSubmitting] = useState(false);
 
-  /* ---- sync from parent-controlled state when drawer opens ---- */
+  /* ---- sync from parent-controlled state when drawer opens ----
+   * Depends on the full `state` object intentionally: when the parent
+   * calls openDrawerForCard() while the drawer is already open (e.g.
+   * clicking "Add stock" on a different row), state.kind stays "open"
+   * but the target/step change, so we must re-sync on every new object.
+   */
   useEffect(() => {
     if (state.kind === "open") {
       setStep(state.step);
@@ -358,7 +363,6 @@ export function AddStockDrawer({ cards, state, onClose, onToast }: AddStockDrawe
 
           {step === 2 && createMode && category && (
             <Step2Create
-              cards={cards}
               onDone={(card) => {
                 if (card) {
                   selectCard(card);

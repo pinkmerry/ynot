@@ -2,8 +2,7 @@
 
 import { useRef, useState } from "react";
 import { lookupCert, type CertLookup } from "./catalog-api";
-
-type GradingService = "psa" | "bgs" | "cgc" | "other";
+import type { GradingService } from "./add-stock/types";
 
 type CertLookupFieldProps = {
   /** The cert string — controlled by the parent. */

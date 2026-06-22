@@ -291,11 +291,14 @@ function Thumb({
   image: string | null;
   category: string;
 }): ReactNode {
-  const sealClass = category !== "Single Cards" ? " seal" : "";
+  const isSealed = category !== "Single Cards";
+  const sealClass = isSealed ? " seal" : "";
+  const thumbW = 56;
+  const thumbH = isSealed ? 56 : 72;
   if (image) {
     return (
       <span className={`pcx-thumb${sealClass}`}>
-        <img src={image} alt={name} />
+        <img src={image} alt={name} width={thumbW} height={thumbH} loading="lazy" />
       </span>
     );
   }
