@@ -44,7 +44,6 @@ type StockSkuGroupElement = NonNullable<CardCatalogItem["stockSkuGroups"]>[numbe
 export type CategoryFilter = "all" | "Single Cards" | "Sealed Boxes" | "Sealed Packs";
 type ModalState =
   | { kind: "closed" }
-  | { kind: "create" }
   | { kind: "edit"; card: CardCatalogItem }
   | { kind: "editVariant"; target: EditVariantTarget }
   | { kind: "openBox"; target: OpenBoxTarget }
@@ -405,13 +404,6 @@ export function PrizeCatalogScreen({
         >
           Add stock
         </button>
-        <button
-          type="button"
-          className="pcx-btn pcx-btn-ghost"
-          onClick={() => setModal({ kind: "create" })}
-        >
-          Create Main SKU
-        </button>
       </div>
 
       <CatalogKpis rows={rows} />
@@ -474,7 +466,7 @@ export function PrizeCatalogScreen({
       />
 
       {/* Create / Edit Main SKU modal */}
-      {(modal.kind === "create" || modal.kind === "edit") && (
+      {modal.kind === "edit" && (
         <div
           className="pcx-modal-backdrop"
           role="dialog"
@@ -485,9 +477,7 @@ export function PrizeCatalogScreen({
         >
           <div className="pcx-modal" role="document" ref={modalRef}>
             <header className="pcx-modal-head">
-              <h2 className="pcx-modal-title">
-                {modal.kind === "create" ? "Create Main SKU" : "Edit Main SKU"}
-              </h2>
+              <h2 className="pcx-modal-title">Edit Main SKU</h2>
               <button
                 type="button"
                 className="pcx-modal-close"
@@ -497,10 +487,7 @@ export function PrizeCatalogScreen({
                 &times;
               </button>
             </header>
-            <MainSkuForm
-              initial={modal.kind === "edit" ? modal.card : undefined}
-              onDone={closeModal}
-            />
+            <MainSkuForm initial={modal.card} onDone={closeModal} />
           </div>
         </div>
       )}
