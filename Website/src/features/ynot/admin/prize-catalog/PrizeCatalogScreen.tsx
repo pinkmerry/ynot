@@ -32,6 +32,7 @@ import {
 } from "./image-util";
 import { LedgerRow } from "./LedgerRow";
 import { MainSkuForm } from "./MainSkuForm";
+import { OpenBoxModal, type OpenBoxTarget } from "./OpenBoxModal";
 import { isVariantLoadedInCampaign } from "./variant-guards";
 
 type StockSkuGroupElement = NonNullable<CardCatalogItem["stockSkuGroups"]>[number];
@@ -41,7 +42,8 @@ type ModalState =
   | { kind: "closed" }
   | { kind: "create" }
   | { kind: "edit"; card: CardCatalogItem }
-  | { kind: "editVariant"; target: EditVariantTarget };
+  | { kind: "editVariant"; target: EditVariantTarget }
+  | { kind: "openBox"; target: OpenBoxTarget };
 
 export function PrizeCatalogScreen({
   cards,
@@ -306,6 +308,32 @@ export function PrizeCatalogScreen({
     [],
   );
 
+  // ---- Open box modal ----
+
+  const handleOpenBox = useCallback(
+    (row: AdminCardCatalogRow, boxGroup: StockSkuGroupElement) => {
+      setModal({
+        kind: "openBox",
+        target: {
+          cardId: row.card.catalogCardId,
+          cardName: row.card.name,
+          boxGroup,
+          allGroups: row.card.stockSkuGroups ?? [],
+        },
+      });
+    },
+    [],
+  );
+
+  const handleOpenBoxDone = useCallback(
+    (msg: string, isError?: boolean) => {
+      setModal({ kind: "closed" });
+      showToast(msg, isError);
+      if (!isError) router.refresh();
+    },
+    [router, showToast],
+  );
+
   const closeModal = useCallback(() => setModal({ kind: "closed" }), []);
 
   const handleEditVariantDone = useCallback(
@@ -320,8 +348,8 @@ export function PrizeCatalogScreen({
   // Dialog a11y: Escape closes; move focus into the modal on open.
   useEffect(() => {
     if (modal.kind === "closed") return;
-    // EditVariantModal handles its own Escape internally
-    if (modal.kind === "editVariant") return;
+    // EditVariantModal and OpenBoxModal handle their own Escape internally
+    if (modal.kind === "editVariant" || modal.kind === "openBox") return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeModal();
     };
@@ -379,6 +407,7 @@ export function PrizeCatalogScreen({
               onVariantQuickRemove={handleVariantQuickRemove}
               onVariantEdit={handleVariantEdit}
               onMainImageUpload={handleMainImageUpload}
+              onOpenBox={handleOpenBox}
             />
           ))
         )}
@@ -440,6 +469,15 @@ export function PrizeCatalogScreen({
           target={modal.target}
           onClose={closeModal}
           onDone={handleEditVariantDone}
+        />
+      )}
+
+      {/* Open box modal */}
+      {modal.kind === "openBox" && (
+        <OpenBoxModal
+          target={modal.target}
+          onClose={closeModal}
+          onDone={handleOpenBoxDone}
         />
       )}
 

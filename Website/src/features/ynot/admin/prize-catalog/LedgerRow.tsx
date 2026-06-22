@@ -21,6 +21,7 @@ export function LedgerRow({
   onVariantQuickRemove,
   onVariantEdit,
   onMainImageUpload,
+  onOpenBox,
 }: {
   row: AdminCardCatalogRow;
   open: boolean;
@@ -33,6 +34,7 @@ export function LedgerRow({
   onVariantQuickRemove?: (row: AdminCardCatalogRow, group: StockSkuGroupElement) => void;
   onVariantEdit?: (row: AdminCardCatalogRow, group: StockSkuGroupElement) => void;
   onMainImageUpload?: (row: AdminCardCatalogRow) => void;
+  onOpenBox?: (row: AdminCardCatalogRow, boxGroup: StockSkuGroupElement) => void;
 }) {
   function buildVariantActions(r: AdminCardCatalogRow): VariantAction | undefined {
     if (!onVariantUploadImage && !onVariantQuickRemove && !onVariantEdit) return undefined;
@@ -232,6 +234,11 @@ export function LedgerRow({
               actions={buildVariantActions(row)}
             />
           </div>
+          <BoxPanel
+            row={row}
+            groups={row.card.stockSkuGroups ?? []}
+            onOpenBox={onOpenBox}
+          />
         </div>
       )}
     </div>
@@ -317,6 +324,94 @@ function DetailGrid({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Box → pack panel: shown in expanded detail when any Sub-SKU group has `unitKind === "box"`.
+ * Displays sealed box count, linked pack count, potential packs preview, and an "Open boxes" button.
+ */
+function BoxPanel({
+  row,
+  groups,
+  onOpenBox,
+}: {
+  row: AdminCardCatalogRow;
+  groups: StockSkuGroupElement[];
+  onOpenBox?: (row: AdminCardCatalogRow, boxGroup: StockSkuGroupElement) => void;
+}) {
+  const boxGroups = groups.filter(
+    (g) => (g.unitKind ?? "").toLowerCase() === "box",
+  );
+  if (boxGroups.length === 0) return null;
+
+  return (
+    <>
+      {boxGroups.map((boxGroup) => {
+        const hasRule =
+          boxGroup.childStockSkuId != null && (boxGroup.childQuantity ?? 0) > 0;
+        const linkedPack = hasRule
+          ? groups.find((g) => g.stockSkuId === boxGroup.childStockSkuId) ?? null
+          : null;
+        const loosePacks = linkedPack?.availableUnits ?? 0;
+        const packsPerBox = boxGroup.childQuantity ?? 0;
+        const potentialPacks =
+          hasRule ? boxGroup.availableUnits * packsPerBox + loosePacks : 0;
+
+        return (
+          <div key={boxGroup.key} className="pcx-detail-sec pcx-box-panel">
+            <div className="pcx-sec-head">
+              <h5>Box &rarr; pack</h5>
+              <span className="pcx-sh-meta">{boxGroup.label}</span>
+            </div>
+            <div className="pcx-box-stats">
+              <div className="pcx-box-stat">
+                <span className="pcx-box-stat-v">
+                  {fmtInt(boxGroup.availableUnits)}
+                </span>
+                <span className="pcx-box-stat-l">sealed boxes</span>
+              </div>
+              {hasRule && (
+                <>
+                  <div className="pcx-box-stat">
+                    <span className="pcx-box-stat-v">
+                      {fmtInt(loosePacks)}
+                    </span>
+                    <span className="pcx-box-stat-l">
+                      packs ({linkedPack?.label ?? boxGroup.childLabel ?? "linked"})
+                    </span>
+                  </div>
+                  <div className="pcx-box-stat pcx-box-stat-potential">
+                    <span className="pcx-box-stat-v">
+                      {fmtInt(potentialPacks)}
+                    </span>
+                    <span className="pcx-box-stat-l">
+                      potential packs if all opened
+                    </span>
+                  </div>
+                </>
+              )}
+              {!hasRule && (
+                <div className="pcx-box-stat pcx-box-stat-warn">
+                  <span className="pcx-box-stat-l">
+                    No conversion rule set
+                  </span>
+                </div>
+              )}
+            </div>
+            {onOpenBox && (
+              <button
+                type="button"
+                className="pcx-btn pcx-btn-primary pcx-btn-sm"
+                onClick={() => onOpenBox(row, boxGroup)}
+              >
+                Open boxes &rarr; packs
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </>
   );
 }
 
