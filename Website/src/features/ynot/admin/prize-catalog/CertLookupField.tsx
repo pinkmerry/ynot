@@ -3,17 +3,24 @@
 import { useRef, useState } from "react";
 import { lookupCert, type CertLookup } from "./catalog-api";
 
-type GradingService = "psa" | "bgs" | "cgc";
+type GradingService = "psa" | "bgs" | "cgc" | "other";
 
 type CertLookupFieldProps = {
+  /** The cert string — controlled by the parent. */
+  value: string;
+  /** Called on every keystroke so the parent owns the cert value. */
+  onChange: (cert: string) => void;
   grader: GradingService;
   onResult: (lookup: CertLookup) => void;
 };
 
 /**
- * Cert number input + "Look up" button backed by the real GemRate route.
- * On success, calls `onResult` with the lookup payload so the parent wizard
- * can autofill identity/grade + store `gemrateId`.
+ * **Controlled** cert-number input + "Look up" button backed by the real
+ * GemRate route.  The parent owns the cert string via `value`/`onChange`
+ * so `certNumber` is always in sync with the drawer's state.
+ *
+ * On a successful lookup, calls `onResult` with the lookup payload so the
+ * parent wizard can autofill identity/grade + store `gemrateId`.
  *
  * Handles:
  *  - 503 (GEMRATE_API_KEY not configured) with a friendly message
@@ -22,14 +29,13 @@ type CertLookupFieldProps = {
  *
  * Uses the real GemRate route only — no hardcoded mock cert databases.
  */
-export function CertLookupField({ grader, onResult }: CertLookupFieldProps) {
-  const [cert, setCert] = useState("");
+export function CertLookupField({ value, onChange, grader, onResult }: CertLookupFieldProps) {
   const [busy, setBusy] = useState(false);
   const [hint, setHint] = useState<{ kind: "ok" | "warn"; text: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleLookup() {
-    const trimmed = cert.trim();
+    const trimmed = value.trim();
     if (!trimmed) {
       setHint({ kind: "warn", text: "Enter a cert number first." });
       inputRef.current?.focus();
@@ -68,8 +74,8 @@ export function CertLookupField({ grader, onResult }: CertLookupFieldProps) {
         <input
           ref={inputRef}
           className="pcx-input mono"
-          value={cert}
-          onChange={(e) => setCert(e.target.value)}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
           placeholder="Serial on the slab"
           maxLength={14}
           aria-label="Cert number"
