@@ -3,6 +3,7 @@ import { AdminGate } from "@/features/ynot/components";
 import {
   getAdminCards,
   getAdminPrizePool,
+  getCampaigns,
   getYnotDashboardSlice,
 } from "@/features/ynot/data";
 import { AdminCard, AdminFrame } from "@/features/ynot/admin";
@@ -10,10 +11,11 @@ import { AdminCard, AdminFrame } from "@/features/ynot/admin";
 export const dynamic = "force-dynamic";
 
 export default async function AdminPrizesPage() {
-  const [data, cards, prizes] = await Promise.all([
+  const [data, cards, prizes, campaigns] = await Promise.all([
     getYnotDashboardSlice({ wallet: false }),
     getAdminCards(),
     getAdminPrizePool(),
+    getCampaigns({ includePrivate: true }),
   ]);
   const isOwner = data.viewer.adminRole === "owner";
 
@@ -28,7 +30,7 @@ export default async function AdminPrizesPage() {
       >
         <AdminCard className="admin-prize-catalog-card">
           <div className="card-pad">
-            <PrizeCatalogScreen cards={cards} prizes={prizes} isOwner={isOwner} />
+            <PrizeCatalogScreen cards={cards} prizes={prizes} campaigns={campaigns} isOwner={isOwner} />
           </div>
         </AdminCard>
       </AdminFrame>

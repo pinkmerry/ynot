@@ -3,9 +3,11 @@
 import type { ReactNode } from "react";
 import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import type { AdminCardCatalogRow } from "@/features/ynot/admin-card-catalog-helpers";
+import type { YnotCampaign } from "@/features/ynot/types";
 import { fmtInt, toStockBuckets, unitNoun } from "./catalog-format";
 import { isVariantLoadedInCampaign } from "./variant-guards";
 import { VariantTable, type VariantAction } from "./VariantTable";
+import { CampaignPrizesSection } from "./CampaignPrizesSection";
 
 type StockSkuGroupElement = NonNullable<CardCatalogItem["stockSkuGroups"]>[number];
 
@@ -22,6 +24,9 @@ export function LedgerRow({
   onVariantEdit,
   onMainImageUpload,
   onOpenBox,
+  campaigns,
+  onAssign,
+  onToast,
 }: {
   row: AdminCardCatalogRow;
   open: boolean;
@@ -35,6 +40,9 @@ export function LedgerRow({
   onVariantEdit?: (row: AdminCardCatalogRow, group: StockSkuGroupElement) => void;
   onMainImageUpload?: (row: AdminCardCatalogRow) => void;
   onOpenBox?: (row: AdminCardCatalogRow, boxGroup: StockSkuGroupElement) => void;
+  campaigns: YnotCampaign[];
+  onAssign?: (row: AdminCardCatalogRow) => void;
+  onToast: (msg: string, isError?: boolean) => void;
 }) {
   function buildVariantActions(r: AdminCardCatalogRow): VariantAction | undefined {
     if (!onVariantUploadImage && !onVariantQuickRemove && !onVariantEdit) return undefined;
@@ -238,6 +246,13 @@ export function LedgerRow({
             row={row}
             groups={row.card.stockSkuGroups ?? []}
             onOpenBox={onOpenBox}
+          />
+          <CampaignPrizesSection
+            prizes={row.prizes}
+            campaigns={campaigns}
+            isOwner={isOwner}
+            onAssign={() => onAssign?.(row)}
+            onToast={onToast}
           />
         </div>
       )}
