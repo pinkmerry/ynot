@@ -28,3 +28,19 @@
 - Stock buckets: `stockAvailable`, `stockReserved`, `stockAllocated`, `stockArchived`, `stockSkuGroups` confirmed in `data.ts` lines 5013-5017
 
 Backend gap: NONE — redesign is frontend-only (verified 2026-06-21 on feat/admin-prize-stock worktree).
+
+## Implementation verification (2026-06-22)
+
+New frontend module: `src/features/ynot/admin/prize-catalog/` (PrizeCatalogScreen, CatalogKpis, CatalogToolbar, LedgerRow, VariantTable, MainSkuForm, AddStockDrawer + add-stock/* steps, CertLookupField, EditVariantModal, OpenBoxModal, CampaignPrizesSection, AssignCampaignModal, catalog-api, catalog-format, variant-guards, image-util). `buildAdminCardCatalogRows` + `AdminCardCatalogRow` extracted to `admin-card-catalog-helpers.ts`. `page.tsx` mounts `PrizeCatalogScreen` (legacy `AdminCardCatalogPanel` retained in `client.tsx` until Phase 5 decommission).
+
+Gates (run from `Website/`):
+- `npm run test:admin-prize-catalog` → **82 pass / 0 fail** (9 guard suites: foundation, screen, mainsku, variants, stock, edit-stock, openbox, campaign, no-leak).
+- `npm run typecheck` → clean.
+- `npx eslint src/features/ynot/admin/prize-catalog src/app/admin/prizes/page.tsx` → 0 errors (3 `<img>` warnings — admin-internal, acceptable).
+- `npm run verify:platform` → **exit 0, 287 PASS / 0 FAIL** (two catalog checks retargeted from the legacy panel to the new screen, preserving the same invariants).
+
+Security invariants preserved (customer-leak): `valueThb` is owner-only (rendered + sent only when `isOwner`); `weight`/`unlock_at_sold_pct` are never rendered or sent by the redesign; static `no-leak` guard asserts house-logic stays behind `isOwner` and that the customer shell never imports the admin module. Prototype guards honored: assigning/removing a prize surfaces the owner-review-required notice; delete is blocked by `CARD_IN_PRIZE_POOL` / `CARD_HAS_ACTIVE_STOCK`; campaign-loaded variants block stock reduction; cert pins quantity to 1.
+
+Deferred polish (tracked, non-blocking): `<img>` → `next/image` migration; `AddStockDrawer` state-sync comment; minor wording. Phase 5 (post-ship): remove legacy `AdminCardCatalogPanel`/`AdminPrizeCreateActions`/`AdminCardForm`/`AdminCardStockUnitForm` from `client.tsx` and retarget the remaining legacy-panel platform checks.
+
+Not run locally (env-gated, per project notes): full `npm run check` / `verify:ynot` (require secrets + `.omx` docs unavailable locally).
