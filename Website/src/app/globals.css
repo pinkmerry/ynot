@@ -33415,7 +33415,7 @@ html[data-ynot-theme] .admin-frame .pcx-screen {
 html[data-ynot-theme] .admin-frame .pcx-ledger {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
 }
 html[data-ynot-theme] .admin-frame .pcx-empty {
   font-size: 12px;
@@ -33568,16 +33568,20 @@ html[data-ynot-theme] .admin-frame .pcx-cat-n {
 
 /* -- Ledger row (Task 1.4) -- */
 html[data-ynot-theme] .admin-frame .pcx-lrow {
+  --pcx-row-accent: var(--pcx-cat-card, #d7d2c4);
   background: linear-gradient(180deg, rgba(23,24,42,0.7), rgba(16,17,31,0.85));
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-left: 4px solid var(--pcx-row-accent);
   border-radius: var(--pcx-radius);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 6px 20px rgba(0,0,0,0.30);
   overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 html[data-ynot-theme] .admin-frame .pcx-lrow.is-box {
-  border-left: 2px solid rgba(244,161,66,0.5);
+  --pcx-row-accent: var(--pcx-cat-box, #f4a142);
 }
 html[data-ynot-theme] .admin-frame .pcx-lrow.is-pack {
-  border-left: 2px solid rgba(68,209,126,0.5);
+  --pcx-row-accent: var(--pcx-cat-pack, #44d17e);
 }
 html[data-ynot-theme] .admin-frame .pcx-lhead {
   display: grid;
@@ -33730,6 +33734,14 @@ html[data-ynot-theme] .admin-frame .pcx-caret {
   transition: transform 0.2s;
   color: var(--a-muted, #9b9daf);
   font-size: 18px;
+}
+html[data-ynot-theme] .admin-frame .pcx-lrow.open {
+  border-color: rgba(244,197,66,0.22);
+  border-color: color-mix(in oklab, var(--pcx-row-accent) 45%, rgba(255,255,255,0.14));
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--pcx-row-accent) 18%, transparent), 0 16px 44px rgba(0,0,0,0.45);
+}
+html[data-ynot-theme] .admin-frame .pcx-lrow.open .pcx-lhead {
+  background: color-mix(in oklab, var(--pcx-row-accent) 10%, transparent);
 }
 html[data-ynot-theme] .admin-frame .pcx-lrow.open .pcx-caret {
   transform: rotate(90deg);
@@ -33999,8 +34011,10 @@ html[data-ynot-theme] .admin-frame .pcx-toast.error {
 /* ===== Prize Catalog — expanded row detail + variant table ===== */
 html[data-ynot-theme] .admin-frame .pcx-lbody {
   border-top: 1px solid var(--a-line, rgba(255, 255, 255, 0.07));
-  background: rgba(7, 7, 15, 0.35);
-  padding: 6px 16px 14px;
+  border-top-color: color-mix(in oklab, var(--pcx-row-accent) 28%, transparent);
+  background: rgba(7, 7, 15, 0.45);
+  background: color-mix(in oklab, var(--pcx-row-accent) 7%, rgba(7, 7, 15, 0.55));
+  padding: 10px 16px 16px;
 }
 html[data-ynot-theme] .admin-frame .pcx-detail-grid {
   display: grid;
