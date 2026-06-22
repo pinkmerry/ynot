@@ -34183,3 +34183,441 @@ html[data-ynot-theme] .admin-frame .pcx-vkind {
     margin: 12px;
   }
 }
+
+/* ===== Prize Catalog — Add-stock drawer + wizard + cert lookup ===== */
+
+/* Scrim overlay */
+html[data-ynot-theme] .admin-frame .pcx-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 910;
+  background: rgba(0, 0, 0, 0.55);
+  animation: pcx-fade-in 200ms ease-out;
+}
+@keyframes pcx-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Drawer panel */
+html[data-ynot-theme] .admin-frame .pcx-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 920;
+  width: 100%;
+  max-width: 480px;
+  background: var(--a-surface, #13141a);
+  border-left: 1px solid var(--a-border, #333);
+  display: flex;
+  flex-direction: column;
+  animation: pcx-drawer-slide 250ms var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1));
+}
+@keyframes pcx-drawer-slide {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+html[data-ynot-theme] .admin-frame .pcx-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--a-line, rgba(255, 255, 255, 0.07));
+  flex: none;
+}
+html[data-ynot-theme] .admin-frame .pcx-drawer-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--a-text, #e8e8e8);
+  margin: 0;
+}
+html[data-ynot-theme] .admin-frame .pcx-drawer-close {
+  background: none;
+  border: none;
+  color: var(--a-text-dim, #999);
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+html[data-ynot-theme] .admin-frame .pcx-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+html[data-ynot-theme] .admin-frame .pcx-drawer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--a-line, rgba(255, 255, 255, 0.07));
+  flex: none;
+}
+
+/* Step bar */
+html[data-ynot-theme] .admin-frame .pcx-wiz-steps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+html[data-ynot-theme] .admin-frame .pcx-ws {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--a-muted-2, #6b6d82);
+}
+html[data-ynot-theme] .admin-frame .pcx-ws.on {
+  color: var(--a-text, #e8e8e8);
+  font-weight: 600;
+}
+html[data-ynot-theme] .admin-frame .pcx-ws.done {
+  color: var(--pcx-available, #f4c542);
+}
+html[data-ynot-theme] .admin-frame .pcx-ws-n {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1.5px solid currentColor;
+  flex: none;
+}
+html[data-ynot-theme] .admin-frame .pcx-ws.on .pcx-ws-n {
+  background: var(--a-text, #e8e8e8);
+  color: var(--a-surface, #13141a);
+  border-color: transparent;
+}
+html[data-ynot-theme] .admin-frame .pcx-ws.done .pcx-ws-n {
+  background: var(--pcx-available, #f4c542);
+  color: var(--a-surface, #13141a);
+  border-color: transparent;
+}
+html[data-ynot-theme] .admin-frame .pcx-ws-l {
+  white-space: nowrap;
+}
+html[data-ynot-theme] .admin-frame .pcx-ws-sep {
+  width: 24px;
+  height: 1px;
+  background: var(--a-line-2, rgba(255, 255, 255, 0.12));
+  flex: none;
+}
+
+/* Wizard sections */
+html[data-ynot-theme] .admin-frame .pcx-wiz-sec {
+  margin-bottom: 16px;
+}
+html[data-ynot-theme] .admin-frame .pcx-step-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--a-text, #e8e8e8);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+html[data-ynot-theme] .admin-frame .pcx-step-n {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--a-text-dim, #999);
+  color: var(--a-surface, #13141a);
+  flex: none;
+}
+html[data-ynot-theme] .admin-frame .pcx-wiz-help {
+  font-size: 12.5px;
+  color: var(--a-muted, #9b9daf);
+  margin: 8px 0 14px;
+  line-height: 1.5;
+}
+
+/* Step 1 — category picker */
+html[data-ynot-theme] .admin-frame .pcx-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+html[data-ynot-theme] .admin-frame .pcx-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 20px 12px;
+  border: 1.5px solid var(--a-line-2, rgba(255, 255, 255, 0.12));
+  border-radius: var(--pcx-radius, 12px);
+  background: transparent;
+  color: var(--a-text, #e8e8e8);
+  cursor: pointer;
+  transition: border-color 150ms, background 150ms;
+}
+html[data-ynot-theme] .admin-frame .pcx-choice:hover {
+  border-color: var(--a-text-dim, #999);
+  background: rgba(255, 255, 255, 0.03);
+}
+html[data-ynot-theme] .admin-frame .pcx-choice.on {
+  border-color: var(--pcx-available, #f4c542);
+  background: rgba(244, 197, 66, 0.08);
+}
+html[data-ynot-theme] .admin-frame .pcx-choice-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+html[data-ynot-theme] .admin-frame .pcx-choice-sub {
+  font-size: 11px;
+  color: var(--a-muted, #9b9daf);
+}
+
+/* Step 2 — search */
+html[data-ynot-theme] .admin-frame .pcx-wiz-search {
+  margin-bottom: 10px;
+}
+html[data-ynot-theme] .admin-frame .pcx-wiz-results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+html[data-ynot-theme] .admin-frame .pcx-wiz-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--a-line, rgba(255, 255, 255, 0.07));
+  border-radius: var(--pcx-radius-sm, 8px);
+  background: transparent;
+  color: var(--a-text, #e8e8e8);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 150ms;
+  width: 100%;
+}
+html[data-ynot-theme] .admin-frame .pcx-wiz-result:hover {
+  border-color: var(--a-text-dim, #999);
+}
+html[data-ynot-theme] .admin-frame .pcx-wr-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+html[data-ynot-theme] .admin-frame .pcx-wr-name {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html[data-ynot-theme] .admin-frame .pcx-wr-meta {
+  font-size: 11px;
+  color: var(--a-muted, #9b9daf);
+}
+html[data-ynot-theme] .admin-frame .pcx-wr-stock {
+  font-size: 11px;
+  color: var(--a-muted, #9b9daf);
+  white-space: nowrap;
+  flex: none;
+}
+html[data-ynot-theme] .admin-frame .pcx-wr-go {
+  font-size: 18px;
+  color: var(--a-muted-2, #6b6d82);
+  flex: none;
+}
+html[data-ynot-theme] .admin-frame .pcx-wiz-noresult {
+  font-size: 12.5px;
+  color: var(--a-muted, #9b9daf);
+  padding: 14px;
+  text-align: center;
+}
+html[data-ynot-theme] .admin-frame .pcx-wiz-create-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px dashed var(--a-line-2, rgba(255, 255, 255, 0.12));
+  border-radius: var(--pcx-radius-sm, 8px);
+  background: transparent;
+  color: var(--pcx-available, #f4c542);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  width: 100%;
+  text-align: left;
+}
+html[data-ynot-theme] .admin-frame .pcx-wiz-create-row:hover {
+  border-color: var(--pcx-available, #f4c542);
+  background: rgba(244, 197, 66, 0.04);
+}
+html[data-ynot-theme] .admin-frame .pcx-wiz-cancel {
+  margin-top: 14px;
+}
+
+/* Step 3 — anchor card */
+html[data-ynot-theme] .admin-frame .pcx-wiz-anchor {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--a-line, rgba(255, 255, 255, 0.07));
+  border-radius: var(--pcx-radius-sm, 8px);
+  margin-bottom: 16px;
+}
+html[data-ynot-theme] .admin-frame .pcx-wa-info {
+  flex: 1;
+  min-width: 0;
+}
+html[data-ynot-theme] .admin-frame .pcx-wa-name {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+html[data-ynot-theme] .admin-frame .pcx-wa-meta {
+  font-size: 11px;
+  color: var(--a-muted, #9b9daf);
+  margin-top: 2px;
+}
+html[data-ynot-theme] .admin-frame .pcx-wa-change {
+  flex: none;
+  font-size: 12px;
+}
+
+/* Step 3 — fields */
+html[data-ynot-theme] .admin-frame .pcx-wiz-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Segmented pills */
+html[data-ynot-theme] .admin-frame .pcx-seg-pills {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--a-line-2, rgba(255, 255, 255, 0.12));
+  border-radius: var(--pcx-radius-sm, 8px);
+  overflow: hidden;
+}
+html[data-ynot-theme] .admin-frame .pcx-seg-pill {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--a-muted, #9b9daf);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms, color 150ms;
+}
+html[data-ynot-theme] .admin-frame .pcx-seg-pill + .pcx-seg-pill {
+  border-left: 1px solid var(--a-line-2, rgba(255, 255, 255, 0.12));
+}
+html[data-ynot-theme] .admin-frame .pcx-seg-pill.on {
+  background: var(--pcx-available, #f4c542);
+  color: #1a1a1a;
+}
+html[data-ynot-theme] .admin-frame .pcx-seg-pill:hover:not(.on) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Hints */
+html[data-ynot-theme] .admin-frame .pcx-hint {
+  font-size: 11.5px;
+  color: var(--a-muted, #9b9daf);
+  margin-top: 4px;
+  line-height: 1.45;
+  display: block;
+}
+html[data-ynot-theme] .admin-frame .pcx-hint-warn {
+  color: #f4c542;
+}
+html[data-ynot-theme] .admin-frame .pcx-opt {
+  font-size: 10px;
+  color: var(--a-muted-2, #6b6d82);
+  font-weight: 400;
+}
+
+/* Preview chip */
+html[data-ynot-theme] .admin-frame .pcx-preview {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--a-line, rgba(255, 255, 255, 0.07));
+  border-radius: var(--pcx-radius-sm, 8px);
+  background: rgba(7, 7, 15, 0.35);
+}
+html[data-ynot-theme] .admin-frame .pcx-pv-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--a-muted-2, #6b6d82);
+  margin-bottom: 6px;
+}
+html[data-ynot-theme] .admin-frame .pcx-pv-sku {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+html[data-ynot-theme] .admin-frame .pcx-pv-meta {
+  font-size: 11.5px;
+  color: var(--a-muted, #9b9daf);
+  line-height: 1.45;
+}
+
+/* Cert lookup field */
+html[data-ynot-theme] .admin-frame .pcx-cert-lookup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+html[data-ynot-theme] .admin-frame .pcx-cert-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+html[data-ynot-theme] .admin-frame .pcx-cert-row .pcx-input {
+  flex: 1;
+}
+html[data-ynot-theme] .admin-frame .pcx-cert-btn {
+  flex: none;
+  white-space: nowrap;
+}
+html[data-ynot-theme] .admin-frame .pcx-cert-hint {
+  font-size: 11.5px;
+  line-height: 1.45;
+  display: block;
+}
+html[data-ynot-theme] .admin-frame .pcx-cert-hint.ok {
+  color: var(--pcx-available, #f4c542);
+}
+html[data-ynot-theme] .admin-frame .pcx-cert-hint.warn {
+  color: #f87171;
+}
+
+/* Per-row Add stock button accent */
+html[data-ynot-theme] .admin-frame .pcx-row-btn-add {
+  color: var(--pcx-available, #f4c542);
+  border-color: rgba(244, 197, 66, 0.35);
+}
+html[data-ynot-theme] .admin-frame .pcx-row-btn-add:hover {
+  color: var(--pcx-available, #f4c542);
+  border-color: var(--pcx-available, #f4c542);
+  background: rgba(244, 197, 66, 0.06);
+}
+
+@media (max-width: 640px) {
+  html[data-ynot-theme] .admin-frame .pcx-drawer {
+    max-width: 100%;
+  }
+  html[data-ynot-theme] .admin-frame .pcx-choice-grid {
+    grid-template-columns: 1fr;
+  }
+}

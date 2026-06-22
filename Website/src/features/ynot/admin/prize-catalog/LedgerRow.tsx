@@ -12,6 +12,7 @@ export function LedgerRow({
   isOwner,
   onEdit,
   onDelete,
+  onAddStock,
 }: {
   row: AdminCardCatalogRow;
   open: boolean;
@@ -19,6 +20,7 @@ export function LedgerRow({
   isOwner: boolean;
   onEdit?: (row: AdminCardCatalogRow) => void;
   onDelete?: (row: AdminCardCatalogRow) => void;
+  onAddStock?: (row: AdminCardCatalogRow) => void;
 }) {
   const b = toStockBuckets(row);
   const cat = String(row.card.catalogCategory ?? "Single Cards");
@@ -125,6 +127,19 @@ export function LedgerRow({
             <div className="pcx-total-l">{unitNoun(cat)} free</div>
           </div>
           <div className="pcx-row-actions">
+            {onAddStock && (
+              <button
+                type="button"
+                className="pcx-row-btn pcx-row-btn-add"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddStock(row);
+                }}
+                aria-label={`Add stock to ${row.card.name}`}
+              >
+                + Add stock
+              </button>
+            )}
             {onEdit && (
               <button
                 type="button"

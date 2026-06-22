@@ -8,6 +8,13 @@ import {
   type AdminCardCatalogRow,
 } from "@/features/ynot/admin-card-catalog-helpers";
 import type { YnotPrizePoolItem } from "@/features/ynot/types";
+import {
+  AddStockDrawer,
+  type DrawerState,
+  openDrawerFresh,
+  openDrawerForCard,
+  closedDrawer,
+} from "./AddStockDrawer";
 import { deleteMainSku } from "./catalog-api";
 import { CatalogKpis } from "./CatalogKpis";
 import { CatalogToolbar } from "./CatalogToolbar";
@@ -33,6 +40,7 @@ export function PrizeCatalogScreen({
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [modal, setModal] = useState<ModalState>({ kind: "closed" });
+  const [drawer, setDrawer] = useState<DrawerState>(closedDrawer);
   const [toast, setToast] = useState<{ msg: string; isError: boolean } | null>(
     null,
   );
@@ -118,6 +126,13 @@ export function PrizeCatalogScreen({
     [router, showToast],
   );
 
+  const handleAddStockRow = useCallback(
+    (row: AdminCardCatalogRow) => {
+      setDrawer(openDrawerForCard(row.card));
+    },
+    [],
+  );
+
   const closeModal = useCallback(() => setModal({ kind: "closed" }), []);
 
   // Dialog a11y: Escape closes; move focus into the modal on open.
@@ -139,6 +154,13 @@ export function PrizeCatalogScreen({
         <button
           type="button"
           className="pcx-btn pcx-btn-primary"
+          onClick={() => setDrawer(openDrawerFresh())}
+        >
+          Add stock
+        </button>
+        <button
+          type="button"
+          className="pcx-btn pcx-btn-ghost"
           onClick={() => setModal({ kind: "create" })}
         >
           Create Main SKU
@@ -168,6 +190,7 @@ export function PrizeCatalogScreen({
               isOwner={isOwner}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onAddStock={handleAddStockRow}
             />
           ))
         )}
@@ -204,6 +227,14 @@ export function PrizeCatalogScreen({
           </div>
         </div>
       )}
+
+      {/* Add-stock drawer */}
+      <AddStockDrawer
+        cards={cards}
+        state={drawer}
+        onClose={() => setDrawer(closedDrawer)}
+        onToast={showToast}
+      />
 
       {/* Toast */}
       {toast && (
