@@ -125,10 +125,14 @@ export function OpenBoxModal({
   // ---- Open boxes ----
   const handleOpen = useCallback(async () => {
     if (!hasConversionRule || quantity < 1 || quantity > availableBoxes) return;
+    if (!boxGroup.stockSkuId) {
+      onDone("This box has no stock SKU id.", true);
+      return;
+    }
 
     setSavingOpen(true);
     const res = await openStockContainer({
-      parentStockSkuId: boxGroup.stockSkuId!,
+      parentStockSkuId: boxGroup.stockSkuId,
       quantity,
       note: note.trim() || undefined,
     });
@@ -152,9 +156,11 @@ export function OpenBoxModal({
     onDone,
   ]);
 
-  // Clamp quantity when available changes
-  const clampedQty = Math.max(1, Math.min(quantity, availableBoxes));
-  if (clampedQty !== quantity) setQuantity(clampedQty);
+  // Clamp quantity into range whenever available stock changes (avoids
+  // setState-during-render and the 0-boxes edge).
+  useEffect(() => {
+    setQuantity((q) => Math.max(1, Math.min(q, Math.max(1, availableBoxes))));
+  }, [availableBoxes]);
 
   return (
     <div
