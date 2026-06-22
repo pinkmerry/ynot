@@ -247,13 +247,15 @@ export function LedgerRow({
             groups={row.card.stockSkuGroups ?? []}
             onOpenBox={onOpenBox}
           />
-          <CampaignPrizesSection
-            prizes={row.prizes}
-            campaigns={campaigns}
-            isOwner={isOwner}
-            onAssign={() => onAssign?.(row)}
-            onToast={onToast}
-          />
+          {cat !== "Sealed Boxes" && (
+            <CampaignPrizesSection
+              prizes={row.prizes}
+              campaigns={campaigns}
+              isOwner={isOwner}
+              onAssign={() => onAssign?.(row)}
+              onToast={onToast}
+            />
+          )}
         </div>
       )}
     </div>
