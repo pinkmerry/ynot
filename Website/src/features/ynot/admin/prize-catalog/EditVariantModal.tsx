@@ -5,6 +5,7 @@ import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import type { YnotPrizePoolItem } from "@/features/ynot/types";
 import { adjustCardStock } from "./catalog-api";
 import { fmtInt } from "./catalog-format";
+import { isVariantLoadedInCampaign } from "./variant-guards";
 
 type StockSkuGroupElement = NonNullable<CardCatalogItem["stockSkuGroups"]>[number];
 
@@ -14,37 +15,6 @@ export type EditVariantTarget = {
   group: StockSkuGroupElement;
   prizes: YnotPrizePoolItem[];
 };
-
-/**
- * Check whether a variant is referenced ("loaded") by any campaign prize.
- * A variant is loaded if any prize's `intendedStockSku`, `intendedStockUnitKey`,
- * or `stockUnitUsages[].sku` matches the group's sku or stockSkuId.
- */
-function isVariantLoadedInCampaign(
-  group: StockSkuGroupElement,
-  prizes: YnotPrizePoolItem[],
-): boolean {
-  if (prizes.length === 0) return false;
-  const groupSku = group.sku;
-  const groupSkuId = group.stockSkuId ?? null;
-  const groupKey = group.key;
-
-  return prizes.some((prize) => {
-    // Check intendedStockSku (sku string match)
-    if (prize.intendedStockSku && prize.intendedStockSku === groupSku) return true;
-    // Check intendedStockUnitKey (group key match)
-    if (prize.intendedStockUnitKey && prize.intendedStockUnitKey === groupKey) return true;
-    // Check stockUnitUsages array for sku or actualStockSkuId
-    if (prize.stockUnitUsages) {
-      return prize.stockUnitUsages.some(
-        (usage) =>
-          usage.sku === groupSku ||
-          (groupSkuId && usage.actualStockSkuId === groupSkuId),
-      );
-    }
-    return false;
-  });
-}
 
 /**
  * Edit / remove stock for one Sub-SKU/variant.
@@ -79,7 +49,6 @@ export function EditVariantModal({
   const currentArchived = group.archivedUnits ?? 0;
 
   const [newAvailable, setNewAvailable] = useState(currentAvailable);
-  const [newArchived, setNewArchived] = useState(currentArchived);
   const [saving, setSaving] = useState(false);
 
   const loadedInCampaign = isVariantLoadedInCampaign(group, prizes);
@@ -250,17 +219,12 @@ export function EditVariantModal({
               />
             </div>
             <div className="pcx-ev-field">
-              <label htmlFor="ev-removed">Removed</label>
+              <label>Removed</label>
               <input
-                id="ev-removed"
                 type="number"
-                min={0}
-                value={newArchived}
+                value={currentArchived}
                 disabled
                 className="pcx-ev-readonly"
-                onChange={(e) =>
-                  setNewArchived(Math.max(0, Number(e.target.value) || 0))
-                }
               />
             </div>
           </div>

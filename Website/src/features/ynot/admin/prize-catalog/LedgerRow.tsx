@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import type { AdminCardCatalogRow } from "@/features/ynot/admin-card-catalog-helpers";
 import { fmtInt, toStockBuckets, unitNoun } from "./catalog-format";
+import { isVariantLoadedInCampaign } from "./variant-guards";
 import { VariantTable, type VariantAction } from "./VariantTable";
 
 type StockSkuGroupElement = NonNullable<CardCatalogItem["stockSkuGroups"]>[number];
@@ -41,6 +42,12 @@ export function LedgerRow({
         : undefined,
       onQuickRemove: onVariantQuickRemove
         ? (group: StockSkuGroupElement) => onVariantQuickRemove(r, group)
+        : undefined,
+      quickRemoveDisabledTitle: onVariantQuickRemove
+        ? (group: StockSkuGroupElement) =>
+            isVariantLoadedInCampaign(group, r.prizes)
+              ? "Loaded in campaign — remove it there first"
+              : undefined
         : undefined,
       onEdit: onVariantEdit
         ? (group: StockSkuGroupElement) => onVariantEdit(r, group)

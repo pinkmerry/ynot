@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
 import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import {
   stockUnitKindLabel,
@@ -13,6 +12,8 @@ type StockSkuGroupElement = NonNullable<CardCatalogItem["stockSkuGroups"]>[numbe
 export type VariantAction = {
   onUploadImage?: (group: StockSkuGroupElement) => void;
   onQuickRemove?: (group: StockSkuGroupElement) => void;
+  /** Return a disabled-title string when the quick-remove button should be blocked; null/undefined when enabled. */
+  quickRemoveDisabledTitle?: (group: StockSkuGroupElement) => string | undefined;
   onEdit?: (group: StockSkuGroupElement) => void;
 };
 
@@ -158,59 +159,26 @@ function VariantActions({
   group: StockSkuGroupElement;
   actions?: VariantAction;
 }) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-
-  const handleImageClick = useCallback(() => {
-    fileRef.current?.click();
-  }, []);
-
-  const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file || !actions?.onUploadImage) return;
-      setUploading(true);
-      // onUploadImage is expected to handle async upload and reset uploading state externally.
-      // We pass the group; the parent orchestrates downscale + upload + upsertStockSku.
-      actions.onUploadImage(group);
-      setUploading(false);
-      // Reset so the same file can be re-selected
-      if (fileRef.current) fileRef.current.value = "";
-    },
-    [group, actions],
-  );
-
   return (
     <div className="pcx-vactions">
       {actions?.onUploadImage && (
-        <>
-          <button
-            type="button"
-            className="pcx-icon-btn"
-            title={group.imageUrl ? "Replace photo" : "Add photo"}
-            onClick={handleImageClick}
-            disabled={uploading}
-            aria-label={group.imageUrl ? "Replace variant photo" : "Add variant photo"}
-          >
-            &#x1F4F7;
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="pcx-sr-only"
-            onChange={handleFileChange}
-            tabIndex={-1}
-          />
-        </>
+        <button
+          type="button"
+          className="pcx-icon-btn"
+          title={group.imageUrl ? "Replace photo" : "Add photo"}
+          onClick={() => actions.onUploadImage?.(group)}
+          aria-label={group.imageUrl ? "Replace variant photo" : "Add variant photo"}
+        >
+          &#x1F4F7;
+        </button>
       )}
       {actions?.onQuickRemove && (
         <button
           type="button"
           className="pcx-icon-btn"
-          title="Move 1 to Removed"
+          title={actions.quickRemoveDisabledTitle?.(group) ?? "Move 1 to Removed"}
           onClick={() => actions.onQuickRemove?.(group)}
-          disabled={group.availableUnits <= 0}
+          disabled={group.availableUnits <= 0 || !!actions.quickRemoveDisabledTitle?.(group)}
           aria-label="Quick remove 1 unit"
         >
           &minus;

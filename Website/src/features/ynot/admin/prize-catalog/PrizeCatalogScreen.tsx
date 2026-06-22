@@ -32,6 +32,7 @@ import {
 } from "./image-util";
 import { LedgerRow } from "./LedgerRow";
 import { MainSkuForm } from "./MainSkuForm";
+import { isVariantLoadedInCampaign } from "./variant-guards";
 
 type StockSkuGroupElement = NonNullable<CardCatalogItem["stockSkuGroups"]>[number];
 
@@ -256,6 +257,10 @@ export function PrizeCatalogScreen({
 
   const handleVariantQuickRemove = useCallback(
     async (row: AdminCardCatalogRow, group: StockSkuGroupElement) => {
+      if (isVariantLoadedInCampaign(group, row.prizes)) {
+        showToast("Remove it from its campaigns before reducing stock.", true);
+        return;
+      }
       if (group.availableUnits <= 0) {
         showToast("No available stock to remove.", true);
         return;

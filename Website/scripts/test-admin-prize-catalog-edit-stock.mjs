@@ -22,6 +22,9 @@ const ledgerRow = read(
 const imageUtil = read(
   "../src/features/ynot/admin/prize-catalog/image-util.ts",
 );
+const variantGuards = read(
+  "../src/features/ynot/admin/prize-catalog/variant-guards.ts",
+);
 
 // ---- EditVariantModal ----
 
@@ -51,9 +54,10 @@ test("EditVariantModal prefers stockSkuId for negative deltas", () => {
     editModal.includes("stockUnitGroupKey"),
     "EditVariantModal must fall back to stockUnitGroupKey",
   );
-  // Verify the preference: stockSkuId is checked first
-  const skuIdIdx = editModal.indexOf("group.stockSkuId");
-  const groupKeyIdx = editModal.indexOf("stockUnitGroupKey: group.key");
+  // Verify the preference in the handleSave body: stockSkuId ternary comes first
+  const handleSaveBody = editModal.substring(editModal.indexOf("handleSave"));
+  const skuIdIdx = handleSaveBody.indexOf("group.stockSkuId");
+  const groupKeyIdx = handleSaveBody.indexOf("stockUnitGroupKey: group.key");
   assert.ok(
     skuIdIdx !== -1 && groupKeyIdx !== -1 && skuIdIdx < groupKeyIdx,
     "EditVariantModal must prefer stockSkuId before falling back to stockUnitGroupKey",
@@ -75,23 +79,27 @@ test("EditVariantModal has Escape key handling and modal a11y", () => {
   );
 });
 
-test("EditVariantModal campaign-loaded guard references row.prizes and intendedStock/stockUnitUsages", () => {
-  // The guard function must check prizes array
+test("Campaign-loaded guard lives in shared variant-guards module with correct field checks", () => {
+  // The guard function must live in variant-guards.ts
   assert.ok(
-    editModal.includes("prizes"),
-    "EditVariantModal must reference prizes for campaign-loaded detection",
+    variantGuards.includes("isVariantLoadedInCampaign"),
+    "variant-guards must export isVariantLoadedInCampaign",
   );
   assert.ok(
-    editModal.includes("intendedStockSku"),
+    variantGuards.includes("intendedStockSku"),
     "Campaign guard must check intendedStockSku",
   );
   assert.ok(
-    editModal.includes("intendedStockUnitKey"),
+    variantGuards.includes("intendedStockUnitKey"),
     "Campaign guard must check intendedStockUnitKey",
   );
   assert.ok(
-    editModal.includes("stockUnitUsages"),
+    variantGuards.includes("stockUnitUsages"),
     "Campaign guard must check stockUnitUsages",
+  );
+  assert.ok(
+    variantGuards.includes("actualStockSkuId"),
+    "Campaign guard must check actualStockSkuId",
   );
 });
 
@@ -242,5 +250,72 @@ test("LedgerRow passes variant actions and main image upload down", () => {
   assert.ok(
     ledgerRow.includes("onMainImageUpload"),
     "LedgerRow must accept onMainImageUpload prop",
+  );
+});
+
+// ---- FIX 1: Single file picker for variant images ----
+
+test("VariantActions has no local file input — only the parent screen has the picker", () => {
+  // VariantActions must NOT contain its own <input type="file"> or file ref
+  const fileInputMatches = variantTable.match(/type="file"/g) ?? [];
+  assert.equal(
+    fileInputMatches.length,
+    0,
+    "VariantTable must have zero type=\"file\" inputs (parent owns the picker)",
+  );
+  // Camera button should call onUploadImage directly, not a local handler
+  assert.ok(
+    variantTable.includes("actions.onUploadImage?.(group)") ||
+    variantTable.includes("actions?.onUploadImage?.(group)"),
+    "Camera button must call onUploadImage(group) directly without a local file input",
+  );
+  // No local uploading state
+  assert.ok(
+    !variantTable.includes("setUploading"),
+    "VariantActions must not have local uploading state",
+  );
+});
+
+// ---- FIX 2: Campaign guard on quick-remove ----
+
+test("isVariantLoadedInCampaign is imported from variant-guards in both EditVariantModal and PrizeCatalogScreen (DRY)", () => {
+  const importPattern = 'from "./variant-guards"';
+  assert.ok(
+    editModal.includes(importPattern),
+    "EditVariantModal must import from variant-guards",
+  );
+  assert.ok(
+    screen.includes(importPattern),
+    "PrizeCatalogScreen must import from variant-guards",
+  );
+  // The function must NOT be defined locally in either file
+  const localDefPattern = "function isVariantLoadedInCampaign";
+  assert.ok(
+    !editModal.includes(localDefPattern),
+    "EditVariantModal must not define isVariantLoadedInCampaign locally",
+  );
+  assert.ok(
+    !screen.includes(localDefPattern),
+    "PrizeCatalogScreen must not define isVariantLoadedInCampaign locally",
+  );
+});
+
+test("handleVariantQuickRemove checks campaign guard before adjustCardStock", () => {
+  const quickRemoveSection = screen.substring(
+    screen.indexOf("handleVariantQuickRemove"),
+  );
+  const guardIdx = quickRemoveSection.indexOf("isVariantLoadedInCampaign");
+  const adjustIdx = quickRemoveSection.indexOf("adjustCardStock");
+  assert.ok(
+    guardIdx !== -1,
+    "handleVariantQuickRemove must call isVariantLoadedInCampaign",
+  );
+  assert.ok(
+    adjustIdx !== -1,
+    "handleVariantQuickRemove must call adjustCardStock",
+  );
+  assert.ok(
+    guardIdx < adjustIdx,
+    "Campaign guard must be checked BEFORE adjustCardStock is called",
   );
 });
