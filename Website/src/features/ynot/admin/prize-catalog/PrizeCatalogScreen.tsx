@@ -534,8 +534,9 @@ export function PrizeCatalogScreen({
         />
       )}
 
-      {/* Add-stock drawer */}
+      {/* Add-stock drawer — key forces remount on each open/re-target */}
       <AddStockDrawer
+        key={drawer.kind === "closed" ? "closed" : `open-${drawer.openId}`}
         cards={cards}
         state={drawer}
         onClose={() => setDrawer(closedDrawer)}

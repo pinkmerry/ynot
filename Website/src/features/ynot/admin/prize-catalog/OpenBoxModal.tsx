@@ -82,8 +82,13 @@ export function OpenBoxModal({
 
   const loosePacks = linkedPackGroup?.availableUnits ?? 0;
 
-  // Preview math
-  const packsGained = quantity * packsPerBox;
+  // Derive a clamped value at render time instead of setState-in-effect.
+  // The stepper handlers already clamp on write; this guards display/payload
+  // when availableBoxes shrinks between renders.
+  const safeQty = Math.max(1, Math.min(quantity, Math.max(1, availableBoxes)));
+
+  // Preview math (uses safeQty so display stays consistent with clamped bounds)
+  const packsGained = safeQty * packsPerBox;
   const potentialPacks =
     hasConversionRule ? availableBoxes * packsPerBox + loosePacks : 0;
 
@@ -124,7 +129,7 @@ export function OpenBoxModal({
 
   // ---- Open boxes ----
   const handleOpen = useCallback(async () => {
-    if (!hasConversionRule || quantity < 1 || quantity > availableBoxes) return;
+    if (!hasConversionRule || safeQty < 1 || safeQty > availableBoxes) return;
     if (!boxGroup.stockSkuId) {
       onDone("This box has no stock SKU id.", true);
       return;
@@ -133,7 +138,7 @@ export function OpenBoxModal({
     setSavingOpen(true);
     const res = await openStockContainer({
       parentStockSkuId: boxGroup.stockSkuId,
-      quantity,
+      quantity: safeQty,
       note: note.trim() || undefined,
     });
     setSavingOpen(false);
@@ -144,23 +149,17 @@ export function OpenBoxModal({
       return;
     }
     onDone(
-      `Opened ${fmtInt(quantity)} box${quantity === 1 ? "" : "es"} into ${fmtInt(packsGained)} pack${packsGained === 1 ? "" : "s"}.`,
+      `Opened ${fmtInt(safeQty)} box${safeQty === 1 ? "" : "es"} into ${fmtInt(packsGained)} pack${packsGained === 1 ? "" : "s"}.`,
     );
   }, [
     hasConversionRule,
-    quantity,
+    safeQty,
     availableBoxes,
     boxGroup.stockSkuId,
     note,
     packsGained,
     onDone,
   ]);
-
-  // Clamp quantity into range whenever available stock changes (avoids
-  // setState-during-render and the 0-boxes edge).
-  useEffect(() => {
-    setQuantity((q) => Math.max(1, Math.min(q, Math.max(1, availableBoxes))));
-  }, [availableBoxes]);
 
   return (
     <div
@@ -281,7 +280,7 @@ export function OpenBoxModal({
                   <button
                     type="button"
                     className="pcx-ob-step-btn"
-                    disabled={saving || quantity <= 1}
+                    disabled={saving || safeQty <= 1}
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                     aria-label="Decrease quantity"
                   >
@@ -292,7 +291,7 @@ export function OpenBoxModal({
                     type="number"
                     min={1}
                     max={availableBoxes}
-                    value={quantity}
+                    value={safeQty}
                     onChange={(e) => {
                       const v = Number(e.target.value) || 1;
                       setQuantity(Math.max(1, Math.min(v, availableBoxes)));
@@ -302,7 +301,7 @@ export function OpenBoxModal({
                   <button
                     type="button"
                     className="pcx-ob-step-btn"
-                    disabled={saving || quantity >= availableBoxes}
+                    disabled={saving || safeQty >= availableBoxes}
                     onClick={() =>
                       setQuantity((q) => Math.min(availableBoxes, q + 1))
                     }
@@ -316,7 +315,7 @@ export function OpenBoxModal({
               <div className="pcx-ob-preview">
                 <div className="pcx-ob-pv-line">
                   Boxes: {fmtInt(availableBoxes)} &rarr;{" "}
-                  <strong>{fmtInt(availableBoxes - quantity)}</strong>
+                  <strong>{fmtInt(availableBoxes - safeQty)}</strong>
                 </div>
                 <div className="pcx-ob-pv-line">
                   Packs: {fmtInt(loosePacks)} &rarr;{" "}
@@ -357,13 +356,13 @@ export function OpenBoxModal({
               type="button"
               className="pcx-btn pcx-btn-primary"
               disabled={
-                saving || quantity < 1 || quantity > availableBoxes
+                saving || safeQty < 1 || safeQty > availableBoxes
               }
               onClick={handleOpen}
             >
               {savingOpen
                 ? "Opening…"
-                : `Open ${fmtInt(quantity)} box${quantity === 1 ? "" : "es"}`}
+                : `Open ${fmtInt(safeQty)} box${safeQty === 1 ? "" : "es"}`}
             </button>
           )}
         </footer>

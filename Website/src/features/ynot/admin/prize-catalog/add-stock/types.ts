@@ -12,6 +12,8 @@ export type DrawerState =
       category: StockCategory | null;
       targetCard: CardCatalogItem | null;
       createMode: boolean;
+      /** Monotonic nonce — changes on every open/re-target to force remount. */
+      openId: number;
     };
 
 /** Map a catalog display string to our StockCategory discriminant. */

@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+/** Module-level counter for generating unique openId values. */
+let nextOpenId = 1;
 import { useRouter } from "next/navigation";
 import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import {
@@ -43,11 +46,20 @@ export function AddStockDrawer({ cards, state, onClose, onToast }: AddStockDrawe
   const router = useRouter();
   const drawerRef = useRef<HTMLDivElement>(null);
 
-  /* ---- internal wizard state ---- */
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [category, setCategory] = useState<StockCategory | null>(null);
-  const [targetCard, setTargetCard] = useState<CardCatalogItem | null>(null);
-  const [createMode, setCreateMode] = useState(false);
+  /* ---- internal wizard state ----
+   * Initialized directly from `state` props. The parent renders this
+   * component with a key derived from `state.openId`, so a fresh mount
+   * (with correct initial values) happens on every open/re-target.
+   */
+  const initStep = state.kind === "open" ? state.step : 1;
+  const initCategory = state.kind === "open" ? state.category : null;
+  const initTargetCard = state.kind === "open" ? state.targetCard : null;
+  const initCreateMode = state.kind === "open" ? state.createMode : false;
+
+  const [step, setStep] = useState<1 | 2 | 3>(initStep);
+  const [category, setCategory] = useState<StockCategory | null>(initCategory);
+  const [targetCard, setTargetCard] = useState<CardCatalogItem | null>(initTargetCard);
+  const [createMode, setCreateMode] = useState(initCreateMode);
 
   /* Step 2 search */
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,29 +72,6 @@ export function AddStockDrawer({ cards, state, onClose, onToast }: AddStockDrawe
   const [gemrateId, setGemrateId] = useState<string | undefined>(undefined);
   const [quantity, setQuantity] = useState(1);
   const [submitting, setSubmitting] = useState(false);
-
-  /* ---- sync from parent-controlled state when drawer opens ----
-   * Depends on the full `state` object intentionally: when the parent
-   * calls openDrawerForCard() while the drawer is already open (e.g.
-   * clicking "Add stock" on a different row), state.kind stays "open"
-   * but the target/step change, so we must re-sync on every new object.
-   */
-  useEffect(() => {
-    if (state.kind === "open") {
-      setStep(state.step);
-      setCategory(state.category);
-      setTargetCard(state.targetCard);
-      setCreateMode(state.createMode);
-      setSearchQuery("");
-      setConditionMode("graded");
-      setGradingService("psa");
-      setGrade("10");
-      setCertNumber("");
-      setGemrateId(undefined);
-      setQuantity(1);
-      setSubmitting(false);
-    }
-  }, [state]);
 
   /* Escape key closes drawer */
   useEffect(() => {
@@ -430,12 +419,12 @@ export function AddStockDrawer({ cards, state, onClose, onToast }: AddStockDrawe
 export type { DrawerState };
 
 export function openDrawerFresh(): DrawerState {
-  return { kind: "open", step: 1, category: null, targetCard: null, createMode: false };
+  return { kind: "open", step: 1, category: null, targetCard: null, createMode: false, openId: nextOpenId++ };
 }
 
 export function openDrawerForCard(card: CardCatalogItem): DrawerState {
   const category = catalogCategoryToStock(card.catalogCategory);
-  return { kind: "open", step: 3, category, targetCard: card, createMode: false };
+  return { kind: "open", step: 3, category, targetCard: card, createMode: false, openId: nextOpenId++ };
 }
 
 export const closedDrawer: DrawerState = { kind: "closed" };
