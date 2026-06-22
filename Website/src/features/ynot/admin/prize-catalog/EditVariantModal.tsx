@@ -184,12 +184,13 @@ export function EditVariantModal({
             &times;
           </button>
         </header>
-        <div className="pcx-modal-body">
-          <div className="pcx-ev-grid">
-            <div className="pcx-ev-field">
+        <div className="pcx-form">
+          <div className="pcx-form-row2">
+            <div className="pcx-field">
               <label htmlFor="ev-available">Available</label>
               <input
                 id="ev-available"
+                className="pcx-input"
                 type="number"
                 min={0}
                 value={newAvailable}
@@ -199,66 +200,69 @@ export function EditVariantModal({
                 disabled={saving}
               />
             </div>
-            <div className="pcx-ev-field">
-              <label>In packs</label>
+            <div className="pcx-field">
+              <label htmlFor="ev-packs">In packs</label>
               <input
+                id="ev-packs"
+                className="pcx-input"
                 type="number"
                 value={currentPacks}
                 disabled
-                className="pcx-ev-readonly"
               />
             </div>
-            <div className="pcx-ev-field">
-              <label>In bags</label>
+            <div className="pcx-field">
+              <label htmlFor="ev-bags">In bags</label>
               <input
+                id="ev-bags"
+                className="pcx-input"
                 type="number"
                 value={currentBags}
                 disabled
-                className="pcx-ev-readonly"
               />
             </div>
-            <div className="pcx-ev-field">
-              <label>Removed</label>
+            <div className="pcx-field">
+              <label htmlFor="ev-removed">Removed</label>
               <input
+                id="ev-removed"
+                className="pcx-input"
                 type="number"
                 value={currentArchived}
                 disabled
-                className="pcx-ev-readonly"
               />
             </div>
           </div>
           {hasChanges && (
-            <div className="pcx-ev-delta">
+            <div className="pcx-hint">
               {delta > 0
                 ? `Will add ${fmtInt(delta)} unit${delta === 1 ? "" : "s"}`
                 : `Will archive ${fmtInt(Math.abs(delta))} unit${Math.abs(delta) === 1 ? "" : "s"}`}
             </div>
           )}
           {loadedInCampaign && (
-            <div className="pcx-ev-warn">
+            <div className="pcx-hint pcx-hint-warn">
               This variant is loaded into a campaign &mdash; remove it there
               before you can delete or reduce stock.
             </div>
           )}
+          <div className="pcx-form-actions">
+            <button
+              type="button"
+              className="pcx-btn pcx-btn-ghost pcx-btn-danger"
+              disabled={loadedInCampaign || saving || currentAvailable <= 0}
+              onClick={handleDelete}
+            >
+              Delete variant
+            </button>
+            <button
+              type="button"
+              className="pcx-btn pcx-btn-primary"
+              disabled={saving || !hasChanges}
+              onClick={handleSave}
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+          </div>
         </div>
-        <footer className="pcx-modal-foot">
-          <button
-            type="button"
-            className="pcx-btn pcx-btn-ghost pcx-btn-danger"
-            disabled={loadedInCampaign || saving || currentAvailable <= 0}
-            onClick={handleDelete}
-          >
-            Delete variant
-          </button>
-          <button
-            type="button"
-            className="pcx-btn pcx-btn-primary"
-            disabled={saving || !hasChanges}
-            onClick={handleSave}
-          >
-            {saving ? "Saving…" : "Save changes"}
-          </button>
-        </footer>
       </div>
     </div>
   );

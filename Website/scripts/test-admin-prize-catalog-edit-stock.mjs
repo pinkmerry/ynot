@@ -300,6 +300,21 @@ test("isVariantLoadedInCampaign is imported from variant-guards in both EditVari
   );
 });
 
+test("EditVariantModal uses pcx form design system classes (no dead pcx-ev- classes)", () => {
+  assert.ok(
+    editModal.includes("pcx-field"),
+    "EditVariantModal must use pcx-field class for field wrappers",
+  );
+  assert.ok(
+    editModal.includes("pcx-input"),
+    "EditVariantModal must use pcx-input class for inputs",
+  );
+  assert.ok(
+    !editModal.includes("pcx-ev-"),
+    "EditVariantModal must not contain any dead pcx-ev- classes",
+  );
+});
+
 test("handleVariantQuickRemove checks campaign guard before adjustCardStock", () => {
   const quickRemoveSection = screen.substring(
     screen.indexOf("handleVariantQuickRemove"),
