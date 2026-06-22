@@ -1,9 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
+import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import type { AdminCardCatalogRow } from "@/features/ynot/admin-card-catalog-helpers";
 import { fmtInt, toStockBuckets, unitNoun } from "./catalog-format";
-import { VariantTable } from "./VariantTable";
+import { VariantTable, type VariantAction } from "./VariantTable";
+
+type StockSkuGroupElement = NonNullable<CardCatalogItem["stockSkuGroups"]>[number];
 
 export function LedgerRow({
   row,
@@ -13,6 +16,10 @@ export function LedgerRow({
   onEdit,
   onDelete,
   onAddStock,
+  onVariantUploadImage,
+  onVariantQuickRemove,
+  onVariantEdit,
+  onMainImageUpload,
 }: {
   row: AdminCardCatalogRow;
   open: boolean;
@@ -21,7 +28,26 @@ export function LedgerRow({
   onEdit?: (row: AdminCardCatalogRow) => void;
   onDelete?: (row: AdminCardCatalogRow) => void;
   onAddStock?: (row: AdminCardCatalogRow) => void;
+  onVariantUploadImage?: (row: AdminCardCatalogRow, group: StockSkuGroupElement) => void;
+  onVariantQuickRemove?: (row: AdminCardCatalogRow, group: StockSkuGroupElement) => void;
+  onVariantEdit?: (row: AdminCardCatalogRow, group: StockSkuGroupElement) => void;
+  onMainImageUpload?: (row: AdminCardCatalogRow) => void;
 }) {
+  function buildVariantActions(r: AdminCardCatalogRow): VariantAction | undefined {
+    if (!onVariantUploadImage && !onVariantQuickRemove && !onVariantEdit) return undefined;
+    return {
+      onUploadImage: onVariantUploadImage
+        ? (group: StockSkuGroupElement) => onVariantUploadImage(r, group)
+        : undefined,
+      onQuickRemove: onVariantQuickRemove
+        ? (group: StockSkuGroupElement) => onVariantQuickRemove(r, group)
+        : undefined,
+      onEdit: onVariantEdit
+        ? (group: StockSkuGroupElement) => onVariantEdit(r, group)
+        : undefined,
+    };
+  }
+
   const b = toStockBuckets(row);
   const cat = String(row.card.catalogCategory ?? "Single Cards");
   const catClass =
@@ -174,7 +200,10 @@ export function LedgerRow({
       </div>
       {open && (
         <div className="pcx-lbody">
-          <DetailGrid card={row.card} />
+          <DetailGrid
+            card={row.card}
+            onMainImageUpload={onMainImageUpload ? () => onMainImageUpload(row) : undefined}
+          />
           <div className="pcx-detail-sec">
             <div className="pcx-sec-head">
               <h5>
@@ -193,6 +222,7 @@ export function LedgerRow({
             <VariantTable
               stockSkuGroups={row.card.stockSkuGroups ?? []}
               category={cat}
+              actions={buildVariantActions(row)}
             />
           </div>
         </div>
@@ -247,8 +277,10 @@ function Thumb({
 
 function DetailGrid({
   card,
+  onMainImageUpload,
 }: {
   card: AdminCardCatalogRow["card"];
+  onMainImageUpload?: () => void;
 }) {
   const cells: Array<[string, string]> = [
     ["Model code", card.modelCode ?? card.code ?? "—"],
@@ -265,6 +297,18 @@ function DetailGrid({
           <div className="pcx-dv">{value}</div>
         </div>
       ))}
+      {onMainImageUpload && (
+        <div className="pcx-di pcx-di-action">
+          <button
+            type="button"
+            className="pcx-btn pcx-btn-sm"
+            onClick={onMainImageUpload}
+            aria-label={card.photoUrl ? "Replace card image" : "Add card image"}
+          >
+            {card.photoUrl ? "Replace card image" : "Add card image"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

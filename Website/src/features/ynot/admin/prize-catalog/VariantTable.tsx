@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useRef, useState } from "react";
 import type { CardCatalogItem } from "@/lib/lucky-draw/types";
 import {
   stockUnitKindLabel,
@@ -8,6 +9,12 @@ import {
 import { fmtInt } from "./catalog-format";
 
 type StockSkuGroupElement = NonNullable<CardCatalogItem["stockSkuGroups"]>[number];
+
+export type VariantAction = {
+  onUploadImage?: (group: StockSkuGroupElement) => void;
+  onQuickRemove?: (group: StockSkuGroupElement) => void;
+  onEdit?: (group: StockSkuGroupElement) => void;
+};
 
 function gradeChipClass(group: StockSkuGroupElement): string {
   const unit = group.units[0];
@@ -46,14 +53,16 @@ function certDisplay(group: StockSkuGroupElement): string | null {
 
 /**
  * Per-Sub-SKU variant table inside the expanded LedgerRow body.
- * Display-only -- no action buttons (those come in the next task).
+ * Wired with per-row action buttons: image upload, quick-remove, and edit.
  */
 export function VariantTable({
   stockSkuGroups,
   category,
+  actions,
 }: {
   stockSkuGroups: StockSkuGroupElement[];
   category: string;
+  actions?: VariantAction;
 }) {
   if (stockSkuGroups.length === 0) {
     return (
@@ -64,6 +73,7 @@ export function VariantTable({
   }
 
   const variantNoun = category === "Single Cards" ? "Variant" : "Item";
+  const hasActions = actions && (actions.onUploadImage || actions.onQuickRemove || actions.onEdit);
 
   return (
     <table className="pcx-vtable">
@@ -75,18 +85,27 @@ export function VariantTable({
           <th className="num">In bags</th>
           <th className="num">Removed</th>
           <th className="num">Total</th>
+          {hasActions && <th className="pcx-va-head">Actions</th>}
         </tr>
       </thead>
       <tbody>
         {stockSkuGroups.map((group) => (
-          <VariantRow key={group.key} group={group} />
+          <VariantRow key={group.key} group={group} actions={actions} hasActions={!!hasActions} />
         ))}
       </tbody>
     </table>
   );
 }
 
-function VariantRow({ group }: { group: StockSkuGroupElement }) {
+function VariantRow({
+  group,
+  actions,
+  hasActions,
+}: {
+  group: StockSkuGroupElement;
+  actions?: VariantAction;
+  hasActions: boolean;
+}) {
   const available = group.availableUnits;
   const packs = group.reservedUnits;
   const bags = group.allocatedUnits;
@@ -123,7 +142,92 @@ function VariantRow({ group }: { group: StockSkuGroupElement }) {
       <NumCell value={bags} state="bags" />
       <NumCell value={archived} state="removed" />
       <td className="num">{fmtInt(total)}</td>
+      {hasActions && (
+        <td className="pcx-va-cell">
+          <VariantActions group={group} actions={actions} />
+        </td>
+      )}
     </tr>
+  );
+}
+
+function VariantActions({
+  group,
+  actions,
+}: {
+  group: StockSkuGroupElement;
+  actions?: VariantAction;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleImageClick = useCallback(() => {
+    fileRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !actions?.onUploadImage) return;
+      setUploading(true);
+      // onUploadImage is expected to handle async upload and reset uploading state externally.
+      // We pass the group; the parent orchestrates downscale + upload + upsertStockSku.
+      actions.onUploadImage(group);
+      setUploading(false);
+      // Reset so the same file can be re-selected
+      if (fileRef.current) fileRef.current.value = "";
+    },
+    [group, actions],
+  );
+
+  return (
+    <div className="pcx-vactions">
+      {actions?.onUploadImage && (
+        <>
+          <button
+            type="button"
+            className="pcx-icon-btn"
+            title={group.imageUrl ? "Replace photo" : "Add photo"}
+            onClick={handleImageClick}
+            disabled={uploading}
+            aria-label={group.imageUrl ? "Replace variant photo" : "Add variant photo"}
+          >
+            &#x1F4F7;
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="pcx-sr-only"
+            onChange={handleFileChange}
+            tabIndex={-1}
+          />
+        </>
+      )}
+      {actions?.onQuickRemove && (
+        <button
+          type="button"
+          className="pcx-icon-btn"
+          title="Move 1 to Removed"
+          onClick={() => actions.onQuickRemove?.(group)}
+          disabled={group.availableUnits <= 0}
+          aria-label="Quick remove 1 unit"
+        >
+          &minus;
+        </button>
+      )}
+      {actions?.onEdit && (
+        <button
+          type="button"
+          className="pcx-icon-btn"
+          title="Edit stock"
+          onClick={() => actions.onEdit?.(group)}
+          aria-label="Edit variant stock"
+        >
+          &#x270E;
+        </button>
+      )}
+    </div>
   );
 }
 

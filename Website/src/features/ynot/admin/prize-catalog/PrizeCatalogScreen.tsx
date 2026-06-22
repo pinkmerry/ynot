@@ -15,17 +15,32 @@ import {
   openDrawerForCard,
   closedDrawer,
 } from "./AddStockDrawer";
-import { deleteMainSku } from "./catalog-api";
+import {
+  adjustCardStock,
+  deleteMainSku,
+  updateMainSku,
+  uploadCardImage,
+  upsertStockSku,
+} from "./catalog-api";
 import { CatalogKpis } from "./CatalogKpis";
 import { CatalogToolbar } from "./CatalogToolbar";
+import { EditVariantModal, type EditVariantTarget } from "./EditVariantModal";
+import {
+  downscaleImage,
+  MAIN_IMAGE_MAX_WIDTH,
+  VARIANT_IMAGE_MAX_WIDTH,
+} from "./image-util";
 import { LedgerRow } from "./LedgerRow";
 import { MainSkuForm } from "./MainSkuForm";
+
+type StockSkuGroupElement = NonNullable<CardCatalogItem["stockSkuGroups"]>[number];
 
 type CategoryFilter = "all" | "Single Cards" | "Sealed Boxes" | "Sealed Packs";
 type ModalState =
   | { kind: "closed" }
   | { kind: "create" }
-  | { kind: "edit"; card: CardCatalogItem };
+  | { kind: "edit"; card: CardCatalogItem }
+  | { kind: "editVariant"; target: EditVariantTarget };
 
 export function PrizeCatalogScreen({
   cards,
@@ -46,6 +61,16 @@ export function PrizeCatalogScreen({
   );
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const mainImageRef = useRef<HTMLInputElement>(null);
+  const variantImageRef = useRef<HTMLInputElement>(null);
+  const pendingImageTarget = useRef<{
+    kind: "main";
+    row: AdminCardCatalogRow;
+  } | {
+    kind: "variant";
+    row: AdminCardCatalogRow;
+    group: StockSkuGroupElement;
+  } | null>(null);
   const router = useRouter();
 
   const rows = useMemo(
@@ -133,11 +158,165 @@ export function PrizeCatalogScreen({
     [],
   );
 
+  // ---- Image upload orchestration ----
+
+  /** Main card image: trigger file picker, then upload + updateMainSku. */
+  const handleMainImageUpload = useCallback(
+    (row: AdminCardCatalogRow) => {
+      pendingImageTarget.current = { kind: "main", row };
+      mainImageRef.current?.click();
+    },
+    [],
+  );
+
+  const handleMainImageChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      const target = pendingImageTarget.current;
+      if (!file || !target || target.kind !== "main") return;
+      if (mainImageRef.current) mainImageRef.current.value = "";
+      pendingImageTarget.current = null;
+
+      const { row } = target;
+      try {
+        const scaled = await downscaleImage(file, MAIN_IMAGE_MAX_WIDTH);
+        const uploadRes = await uploadCardImage(scaled);
+        if (!uploadRes.ok) {
+          showToast(uploadRes.error, true);
+          return;
+        }
+        const patchRes = await updateMainSku({
+          cardId: row.card.catalogCardId,
+          name: row.card.name,
+          imageUrl: uploadRes.data.url,
+          imageStoragePath: uploadRes.data.storagePath,
+        });
+        if (!patchRes.ok) {
+          showToast(patchRes.error, true);
+          return;
+        }
+        showToast("Card image updated.");
+        router.refresh();
+      } catch {
+        showToast("Image upload failed.", true);
+      }
+    },
+    [router, showToast],
+  );
+
+  /** Per-variant image: trigger file picker, then upload + upsertStockSku. */
+  const handleVariantUploadImage = useCallback(
+    (row: AdminCardCatalogRow, group: StockSkuGroupElement) => {
+      pendingImageTarget.current = { kind: "variant", row, group };
+      variantImageRef.current?.click();
+    },
+    [],
+  );
+
+  const handleVariantImageChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      const target = pendingImageTarget.current;
+      if (!file || !target || target.kind !== "variant") return;
+      if (variantImageRef.current) variantImageRef.current.value = "";
+      pendingImageTarget.current = null;
+
+      const { row, group } = target;
+      try {
+        const scaled = await downscaleImage(file, VARIANT_IMAGE_MAX_WIDTH);
+        const uploadRes = await uploadCardImage(scaled);
+        if (!uploadRes.ok) {
+          showToast(uploadRes.error, true);
+          return;
+        }
+        // Carry the group's existing sku/label/unitKind so we don't blank them.
+        const skuRes = await upsertStockSku({
+          stockSkuId: group.stockSkuId ?? undefined,
+          cardId: row.card.catalogCardId,
+          sku: group.sku,
+          label: group.label,
+          unitKind: (group.unitKind as "card" | "pack" | "box" | "other") ?? undefined,
+          imageUrl: uploadRes.data.url,
+          imageStoragePath: uploadRes.data.storagePath,
+        });
+        if (!skuRes.ok) {
+          showToast(skuRes.error, true);
+          return;
+        }
+        showToast("Variant photo updated.");
+        router.refresh();
+      } catch {
+        showToast("Image upload failed.", true);
+      }
+    },
+    [router, showToast],
+  );
+
+  // ---- Quick-remove: archive 1 unit (negative delta) ----
+
+  const handleVariantQuickRemove = useCallback(
+    async (row: AdminCardCatalogRow, group: StockSkuGroupElement) => {
+      if (group.availableUnits <= 0) {
+        showToast("No available stock to remove.", true);
+        return;
+      }
+
+      // Prefer stockSkuId; fall back to stockUnitGroupKey.
+      const identifiers: {
+        stockSkuId?: string;
+        stockUnitGroupKey?: string;
+      } = group.stockSkuId
+        ? { stockSkuId: group.stockSkuId }
+        : { stockUnitGroupKey: group.key };
+
+      const res = await adjustCardStock({
+        cardId: row.card.catalogCardId,
+        quantityDelta: -1,
+        ...identifiers,
+      });
+      if (!res.ok) {
+        showToast(res.error, true);
+        return;
+      }
+      showToast("Moved 1 unit to Removed.");
+      router.refresh();
+    },
+    [router, showToast],
+  );
+
+  // ---- Edit variant modal ----
+
+  const handleVariantEdit = useCallback(
+    (row: AdminCardCatalogRow, group: StockSkuGroupElement) => {
+      setModal({
+        kind: "editVariant",
+        target: {
+          cardId: row.card.catalogCardId,
+          cardName: row.card.name,
+          group,
+          prizes: row.prizes,
+        },
+      });
+    },
+    [],
+  );
+
   const closeModal = useCallback(() => setModal({ kind: "closed" }), []);
+
+  const handleEditVariantDone = useCallback(
+    (msg: string, isError?: boolean) => {
+      setModal({ kind: "closed" });
+      showToast(msg, isError);
+      if (!isError) router.refresh();
+    },
+    [router, showToast],
+  );
 
   // Dialog a11y: Escape closes; move focus into the modal on open.
   useEffect(() => {
     if (modal.kind === "closed") return;
+    // EditVariantModal handles its own Escape internally
+    if (modal.kind === "editVariant") return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeModal();
     };
@@ -191,13 +370,35 @@ export function PrizeCatalogScreen({
               onEdit={handleEdit}
               onDelete={handleDelete}
               onAddStock={handleAddStockRow}
+              onVariantUploadImage={handleVariantUploadImage}
+              onVariantQuickRemove={handleVariantQuickRemove}
+              onVariantEdit={handleVariantEdit}
+              onMainImageUpload={handleMainImageUpload}
             />
           ))
         )}
       </div>
 
-      {/* Create / Edit modal */}
-      {modal.kind !== "closed" && (
+      {/* Hidden file inputs for image uploads */}
+      <input
+        ref={mainImageRef}
+        type="file"
+        accept="image/*"
+        className="pcx-sr-only"
+        onChange={handleMainImageChange}
+        tabIndex={-1}
+      />
+      <input
+        ref={variantImageRef}
+        type="file"
+        accept="image/*"
+        className="pcx-sr-only"
+        onChange={handleVariantImageChange}
+        tabIndex={-1}
+      />
+
+      {/* Create / Edit Main SKU modal */}
+      {(modal.kind === "create" || modal.kind === "edit") && (
         <div
           className="pcx-modal-backdrop"
           role="dialog"
@@ -226,6 +427,15 @@ export function PrizeCatalogScreen({
             />
           </div>
         </div>
+      )}
+
+      {/* Edit variant modal */}
+      {modal.kind === "editVariant" && (
+        <EditVariantModal
+          target={modal.target}
+          onClose={closeModal}
+          onDone={handleEditVariantDone}
+        />
       )}
 
       {/* Add-stock drawer */}
