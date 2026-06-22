@@ -33,7 +33,6 @@ test("catalog-api targets the real existing endpoints", () => {
     "/api/ynot/admin/stock-skus",
     "/api/ynot/admin/stock-skus/open-container",
     "/api/ynot/admin/gemrate-cert",
-    "/api/ynot/admin/prizes",
   ]) {
     assert.ok(api.includes(path), `catalog-api missing ${path}`);
   }

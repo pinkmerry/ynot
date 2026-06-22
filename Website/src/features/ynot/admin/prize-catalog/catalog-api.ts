@@ -110,20 +110,6 @@ export type CertLookup = {
 export const lookupCert = (cert: string, grader: "psa" | "bgs" | "cgc" | "other") =>
   postJson<{ lookup: CertLookup }>("/api/ynot/admin/gemrate-cert", { cert, grader });
 
-// ---- Campaign assignment (draw_round_prizes) ----
-export type AssignPrizeInput = {
-  campaignId: string;
-  cardId: string;
-  tier: "normal" | "high";
-  rank: number;
-  valueThb?: number; // OWNER ONLY — omit for non-owner
-  metadata?: Record<string, unknown>; // carries intendedStockSku/intendedStockUnitKey/intendedStockLabel, tierRank, catalogCategory, prizeCategory
-};
-export const assignPrize = (input: AssignPrizeInput) =>
-  postJson<{ prize: unknown }>("/api/ynot/admin/prizes", input);
-export const removePrize = (prizeId: string) =>
-  sendJson<{ prizeId: string }>("/api/ynot/admin/prizes", "DELETE", { prizeId });
-
 // ---- Image upload ----
 // Response shape verified against POST /api/lucky-draw/admin/card-image/route.ts:
 // returns { imageUrl: data.publicUrl, storagePath: path }

@@ -25,8 +25,6 @@ export function LedgerRow({
   onMainImageUpload,
   onOpenBox,
   campaigns,
-  onAssign,
-  onToast,
 }: {
   row: AdminCardCatalogRow;
   open: boolean;
@@ -41,8 +39,6 @@ export function LedgerRow({
   onMainImageUpload?: (row: AdminCardCatalogRow) => void;
   onOpenBox?: (row: AdminCardCatalogRow, boxGroup: StockSkuGroupElement) => void;
   campaigns: YnotCampaign[];
-  onAssign?: (row: AdminCardCatalogRow) => void;
-  onToast: (msg: string, isError?: boolean) => void;
 }) {
   function buildVariantActions(r: AdminCardCatalogRow): VariantAction | undefined {
     if (!onVariantUploadImage && !onVariantQuickRemove && !onVariantEdit) return undefined;
@@ -252,8 +248,6 @@ export function LedgerRow({
               prizes={row.prizes}
               campaigns={campaigns}
               isOwner={isOwner}
-              onAssign={() => onAssign?.(row)}
-              onToast={onToast}
             />
           )}
         </div>

@@ -16,10 +16,6 @@ import {
   closedDrawer,
 } from "./AddStockDrawer";
 import {
-  AssignCampaignModal,
-  type AssignCampaignTarget,
-} from "./AssignCampaignModal";
-import {
   adjustCardStock,
   deleteMainSku,
   updateMainSku,
@@ -47,7 +43,7 @@ type ModalState =
   | { kind: "edit"; card: CardCatalogItem }
   | { kind: "editVariant"; target: EditVariantTarget }
   | { kind: "openBox"; target: OpenBoxTarget }
-  | { kind: "assignCampaign"; target: AssignCampaignTarget };
+;
 
 export function PrizeCatalogScreen({
   cards,
@@ -351,39 +347,11 @@ export function PrizeCatalogScreen({
     [router, showToast],
   );
 
-  // ---- Assign campaign modal ----
-
-  const handleAssign = useCallback(
-    (row: AdminCardCatalogRow) => {
-      setModal({
-        kind: "assignCampaign",
-        target: {
-          cardId: row.card.catalogCardId,
-          cardName: row.card.name,
-          catalogCategory: String(row.card.catalogCategory ?? "Single Cards"),
-          prizeCategory: String(row.card.prizeCategory ?? ""),
-          stockSkuGroups: row.card.stockSkuGroups ?? [],
-          prizes: row.prizes,
-        },
-      });
-    },
-    [],
-  );
-
-  const handleAssignDone = useCallback(
-    (msg: string, isError?: boolean) => {
-      setModal({ kind: "closed" });
-      showToast(msg, isError);
-      if (!isError) router.refresh();
-    },
-    [router, showToast],
-  );
-
   // Dialog a11y: Escape closes; move focus into the modal on open.
   useEffect(() => {
     if (modal.kind === "closed") return;
     // These modals handle their own Escape internally
-    if (modal.kind === "editVariant" || modal.kind === "openBox" || modal.kind === "assignCampaign") return;
+    if (modal.kind === "editVariant" || modal.kind === "openBox") return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeModal();
     };
@@ -440,8 +408,6 @@ export function PrizeCatalogScreen({
               onMainImageUpload={handleMainImageUpload}
               onOpenBox={handleOpenBox}
               campaigns={campaigns}
-              onAssign={handleAssign}
-              onToast={showToast}
             />
           ))
         )}
@@ -507,17 +473,6 @@ export function PrizeCatalogScreen({
           target={modal.target}
           onClose={closeModal}
           onDone={handleOpenBoxDone}
-        />
-      )}
-
-      {/* Assign campaign modal */}
-      {modal.kind === "assignCampaign" && (
-        <AssignCampaignModal
-          target={modal.target}
-          campaigns={campaigns}
-          isOwner={isOwner}
-          onClose={closeModal}
-          onDone={handleAssignDone}
         />
       )}
 

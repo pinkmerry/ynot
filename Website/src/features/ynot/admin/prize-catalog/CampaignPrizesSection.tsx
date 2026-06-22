@@ -1,26 +1,20 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { YnotCampaign, YnotPrizePoolItem } from "@/features/ynot/types";
-import { removePrize } from "./catalog-api";
 import { fmtInt } from "./catalog-format";
 
 /**
  * Campaign prizes section rendered in the LedgerRow expanded detail
- * for NON-box cards. Shows which campaigns this card is assigned to
- * as a prize, a winnable banner, and an "Assign to a campaign" button.
+ * for NON-box cards. READ-ONLY display of which campaigns this card
+ * is assigned to as a prize, plus a winnable banner.
  *
- * Task 3.2: CampaignPrizesSection
- * Task 3.4: Remove prize (confirm → removePrize → toast)
+ * Assignment and removal live in the campaign builder, not here.
  */
 
 type CampaignPrizesSectionProps = {
   prizes: YnotPrizePoolItem[];
   campaigns: YnotCampaign[];
   isOwner: boolean;
-  onAssign: () => void;
-  onToast: (msg: string, isError?: boolean) => void;
 };
 
 function campaignStatus(
@@ -56,39 +50,9 @@ export function CampaignPrizesSection({
   prizes,
   campaigns,
   isOwner,
-  onAssign,
-  onToast,
 }: CampaignPrizesSectionProps) {
-  const router = useRouter();
-  const [removing, setRemoving] = useState<string | null>(null);
-
   const isWinnableNow = prizes.some(
     (p) => campaignStatus(p.campaignId, campaigns) === "live",
-  );
-
-  const handleRemove = useCallback(
-    async (prize: YnotPrizePoolItem) => {
-      const label = prize.campaignTitle || prize.campaignSlug || "this campaign";
-      if (
-        !window.confirm(
-          `Remove this prize from "${label}"? Owner review will be required before publish.`,
-        )
-      ) {
-        return;
-      }
-
-      setRemoving(prize.id);
-      const res = await removePrize(prize.id);
-      setRemoving(null);
-
-      if (!res.ok) {
-        onToast(res.error, true);
-        return;
-      }
-      onToast("Removed — owner review required before publish.");
-      router.refresh();
-    },
-    [router, onToast],
   );
 
   return (
@@ -115,78 +79,54 @@ export function CampaignPrizesSection({
         </div>
       )}
 
-      {/* Prize table */}
+      {/* Prize table (read-only) */}
       {prizes.length > 0 && (
-        <div className="pcx-prize-table-wrap">
-          <table className="pcx-prize-table">
-            <thead>
-              <tr>
-                <th>Campaign</th>
-                <th>Status</th>
-                <th>Variant</th>
-                <th>Tier</th>
-                <th>Rank</th>
-                {isOwner && <th>Value (THB)</th>}
-                <th>Awarded</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {prizes.map((prize) => {
-                const status = campaignStatus(prize.campaignId, campaigns);
-                return (
-                  <tr key={prize.id}>
-                    <td className="pcx-pt-campaign">
-                      {prize.campaignTitle || prize.campaignSlug}
-                    </td>
+        <table className="pcx-vtable">
+          <thead>
+            <tr>
+              <th>Campaign</th>
+              <th>Status</th>
+              <th>Variant</th>
+              <th>Tier</th>
+              <th>Rank</th>
+              {isOwner && <th>Value (THB)</th>}
+              <th>Awarded</th>
+            </tr>
+          </thead>
+          <tbody>
+            {prizes.map((prize) => {
+              const status = campaignStatus(prize.campaignId, campaigns);
+              return (
+                <tr key={prize.id}>
+                  <td className="pcx-pt-campaign">
+                    {prize.campaignTitle || prize.campaignSlug}
+                  </td>
+                  <td>
+                    <span className={statusPillClass(status)}>{status}</span>
+                  </td>
+                  <td className="pcx-pt-variant">
+                    {prize.intendedStockLabel ?? prize.intendedStockSku ?? "—"}
+                  </td>
+                  <td>
+                    <span className={tierPillClass(prize.tier)}>
+                      {prize.tier}
+                    </span>
+                  </td>
+                  <td>{prize.rank}</td>
+                  {isOwner && (
                     <td>
-                      <span className={statusPillClass(status)}>{status}</span>
+                      {prize.valueThb != null
+                        ? fmtInt(prize.valueThb)
+                        : "—"}
                     </td>
-                    <td className="pcx-pt-variant">
-                      {prize.intendedStockLabel ?? prize.intendedStockSku ?? "—"}
-                    </td>
-                    <td>
-                      <span className={tierPillClass(prize.tier)}>
-                        {prize.tier}
-                      </span>
-                    </td>
-                    <td>{prize.rank}</td>
-                    {isOwner && (
-                      <td>
-                        {prize.valueThb != null
-                          ? fmtInt(prize.valueThb)
-                          : "—"}
-                      </td>
-                    )}
-                    <td>{fmtInt(prize.awardedUnits)}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="pcx-btn pcx-btn-icon pcx-btn-danger"
-                        onClick={() => handleRemove(prize)}
-                        disabled={removing === prize.id}
-                        aria-label={`Remove prize from ${prize.campaignTitle || prize.campaignSlug}`}
-                        title="Remove from campaign"
-                      >
-                        {removing === prize.id ? "…" : "×"}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                  )}
+                  <td>{fmtInt(prize.awardedUnits)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       )}
-
-      {/* Assign button */}
-      <button
-        type="button"
-        className="pcx-btn pcx-btn-primary pcx-btn-sm"
-        onClick={onAssign}
-      >
-        Assign to a campaign
-      </button>
     </div>
   );
 }
