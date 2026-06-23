@@ -22,6 +22,10 @@ test("MainSkuForm offers PSA cert lookup auto-fill for Single Cards", () => {
   assert.ok(mainSku.includes("CertLookupField"), "must render CertLookupField");
   assert.ok(mainSku.includes("onResult"), "must handle cert onResult to autofill");
   assert.ok(mainSku.includes("setName"), "lookup must fill Name");
+  assert.ok(
+    mainSku.includes("setSeriesOption") && mainSku.includes("seriesDisplayToOption"),
+    "lookup must fill Series via seriesDisplayToOption",
+  );
   assert.ok(mainSku.includes("setCardSet"), "lookup must fill Set");
   assert.ok(mainSku.includes("setReleaseYear"), "lookup must fill Year");
   assert.ok(mainSku.includes("setCardNumber"), "lookup must fill Card number");
