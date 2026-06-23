@@ -83,7 +83,7 @@ export function VariantTable({
           <th>{variantNoun}</th>
           <th className="num">Available</th>
           <th className="num">In packs</th>
-          <th className="num">In bags</th>
+          <th className="num" title="Loaded into live campaigns (incl. units already won)">In bags</th>
           <th className="num">Removed</th>
           <th className="num">Total</th>
           {hasActions && <th className="pcx-va-head">Actions</th>}

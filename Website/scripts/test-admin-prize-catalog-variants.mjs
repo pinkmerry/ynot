@@ -95,3 +95,10 @@ test("LedgerRow preserves existing Edit/Delete header buttons", () => {
     "LedgerRow must keep onDelete prop for header Delete button",
   );
 });
+
+test("VariantTable clarifies the In bags column meaning", () => {
+  assert.ok(
+    variantTable.includes("Loaded into live campaigns"),
+    "In bags header should carry a clarifying title",
+  );
+});
