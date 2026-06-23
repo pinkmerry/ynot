@@ -33785,7 +33785,8 @@ html[data-ynot-theme] .admin-frame .pcx-field {
   flex-direction: column;
   gap: 4px;
 }
-html[data-ynot-theme] .admin-frame .pcx-field label {
+html[data-ynot-theme] .admin-frame .pcx-field label,
+html[data-ynot-theme] .admin-frame .pcx-field-label {
   font-size: 0.82rem;
   color: var(--a-text-dim, #999);
   letter-spacing: 0.02em;

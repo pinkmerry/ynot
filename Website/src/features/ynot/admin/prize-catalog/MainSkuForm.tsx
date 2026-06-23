@@ -8,7 +8,10 @@ import {
   updateMainSku,
   uploadCardImage,
   type MainSkuInput,
+  type CertLookup,
 } from "./catalog-api";
+import { CertLookupField } from "./CertLookupField";
+import type { GradingService } from "./add-stock/types";
 
 const SERIES_OPTIONS = ["Pokemon", "One Piece", "Custom…"] as const;
 const CATEGORY_OPTIONS = [
@@ -65,6 +68,9 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
     initial?.photoUrl ? { url: initial.photoUrl, storagePath: initial.photoStoragePath ?? undefined } : null,
   );
 
+  const [certNumber, setCertNumber] = useState("");
+  const [grader, setGrader] = useState<GradingService>("psa");
+
   const [error, setError] = useState("");
   const [showOverwrite, setShowOverwrite] = useState(false);
   const [pending, start] = useTransition();
@@ -120,8 +126,46 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
     });
   }
 
+  function applyCertLookup(lookup: CertLookup) {
+    if (lookup.name) setName(lookup.name);
+    if (lookup.series) {
+      const opt = seriesDisplayToOption(lookup.series);
+      setSeriesOption(opt);
+      setCustomSeries(opt === "Custom…" ? lookup.series : "");
+    }
+    if (lookup.set) setCardSet(lookup.set);
+    if (lookup.year != null) setReleaseYear(String(lookup.year));
+    if (lookup.number) setCardNumber(lookup.number);
+  }
+
   return (
     <div className="pcx-form">
+      {category === "Single Cards" && (
+        <div className="pcx-field">
+          <span className="pcx-field-label">
+            PSA / cert lookup<span className="pcx-opt"> optional</span>
+          </span>
+          <div className="pcx-form-row2">
+            <CertLookupField
+              value={certNumber}
+              onChange={setCertNumber}
+              grader={grader}
+              onResult={applyCertLookup}
+            />
+            <select
+              aria-label="Grading service"
+              className="pcx-input"
+              value={grader}
+              onChange={(e) => setGrader(e.target.value as GradingService)}
+            >
+              <option value="psa">PSA</option>
+              <option value="bgs">BGS</option>
+              <option value="cgc">CGC</option>
+            </select>
+          </div>
+        </div>
+      )}
+
       <div className="pcx-form-row2">
         <Field label="Code" htmlFor="pcx-code">
           <input

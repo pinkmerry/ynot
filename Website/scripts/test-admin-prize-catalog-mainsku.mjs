@@ -15,3 +15,15 @@ test("MainSkuForm uses the typed API client, not raw fetch", () => {
   assert.ok(form.includes("uploadCardImage"));
   assert.ok(!/fetch\(/.test(form), "component should call the API client, not fetch directly");
 });
+
+const mainSku = form;
+
+test("MainSkuForm offers PSA cert lookup auto-fill for Single Cards", () => {
+  assert.ok(mainSku.includes("CertLookupField"), "must render CertLookupField");
+  assert.ok(mainSku.includes("onResult"), "must handle cert onResult to autofill");
+  assert.ok(mainSku.includes("setName"), "lookup must fill Name");
+  assert.ok(mainSku.includes("setCardSet"), "lookup must fill Set");
+  assert.ok(mainSku.includes("setReleaseYear"), "lookup must fill Year");
+  assert.ok(mainSku.includes("setCardNumber"), "lookup must fill Card number");
+  assert.ok(mainSku.includes('category === "Single Cards"'), "cert lookup shown only for Single Cards");
+});
