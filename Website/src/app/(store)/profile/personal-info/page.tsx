@@ -42,7 +42,7 @@ export default async function PersonalInfoPage() {
     : "/api/line/login/start?mode=login&next=/profile/personal-info";
   const googleConnectHref =
     data.viewer.authSource === "line"
-      ? "/api/auth/google/start?next=/profile/personal-info"
+      ? "/api/auth/google/start?mode=connect&next=/profile/personal-info"
       : undefined;
   const emailConnectHref =
     data.viewer.authSource === "line"

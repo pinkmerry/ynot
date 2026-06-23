@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { EmptyState, PageHeader, YnotShell } from "@/features/ynot/components";
 import { getCampaign, getYnotDashboardSlice, getYnotViewer } from "@/features/ynot/data";
+import { i18n } from "@/features/ynot/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +17,19 @@ export default async function GachaDetailPage({ params }: { params: Promise<{ ca
   return (
     <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
       <PageHeader
-        eyebrow="Y-Pack Detail"
-        title="Campaign not found"
-        description="This Y-Pack is not available or the database migration has not been applied."
+        eyebrow={i18n("Y-Pack Detail", "รายละเอียด Y-Pack")}
+        title={i18n("Campaign not found", "ไม่พบแคมเปญ")}
+        description={i18n(
+          "This Y-Pack is not available or the database migration has not been applied.",
+          "Y-Pack นี้ไม่พร้อมใช้งาน หรือยังไม่ได้อัปเดตฐานข้อมูลที่จำเป็น",
+        )}
       />
       <EmptyState
-        title="Missing campaign"
-        body="Go back to all packs and choose another Y-Pack."
+        title={i18n("Missing campaign", "ไม่พบแคมเปญ")}
+        body={i18n(
+          "Go back to all packs and choose another Y-Pack.",
+          "กลับไปหน้า Y-Packs แล้วเลือกแพ็กอื่น",
+        )}
       />
     </YnotShell>
   );

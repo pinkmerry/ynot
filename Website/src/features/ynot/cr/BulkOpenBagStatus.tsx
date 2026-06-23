@@ -18,6 +18,8 @@ import type {
   PublicBulkOpenSessionSummary,
 } from "../bulk-open";
 import { CoinPip, Ico, formatCoins } from "./Icons";
+import { useStoreLanguage } from "../StorePreferences";
+import { I18nText, localized, type Language } from "../i18n";
 
 const BULK_OPEN_BAG_POLL_MS = 15_000;
 const BULK_OPEN_BAG_HIGHLIGHT_LIMIT = 100;
@@ -119,18 +121,43 @@ function readSession(payload: unknown): PublicBulkOpenSessionSummary | null {
   };
 }
 
-function statusCopy(status: BulkOpenStatus) {
-  if (status === "queued") return "Getting your rewards ready";
-  if (status === "processing") return "Rewards are landing in your bag";
-  if (status === "retry_required") return "Finishing your rewards";
-  return "Rewards are in your bag";
+function statusCopy(status: BulkOpenStatus, language: Language) {
+  if (status === "queued") {
+    return localized(
+      { en: "Getting your rewards ready", th: "กำลังเตรียมรางวัลของคุณ" },
+      language,
+    );
+  }
+  if (status === "processing") {
+    return localized(
+      { en: "Rewards are landing in your bag", th: "รางวัลกำลังเข้ากระเป๋า" },
+      language,
+    );
+  }
+  if (status === "retry_required") {
+    return localized(
+      { en: "Finishing your rewards", th: "กำลังเก็บงานรางวัลให้เสร็จ" },
+      language,
+    );
+  }
+  return localized(
+    { en: "Rewards are in your bag", th: "รางวัลอยู่ในกระเป๋าแล้ว" },
+    language,
+  );
 }
 
-function tierLabel(highlight: PublicBulkOpenHighlight) {
+function tierLabel(highlight: PublicBulkOpenHighlight, language: Language) {
   if (highlight.isLastPrize || highlight.displayTier === "last_prize") {
-    return "Last Prize";
+    return localized({ en: "Last Prize", th: "รางวัลสุดท้าย" }, language);
   }
   return highlight.displayTier;
+}
+
+function highlightName(highlight: PublicBulkOpenHighlight, language: Language) {
+  if (highlight.name === "Mystery reward") {
+    return localized({ en: "Mystery reward", th: "รางวัลลับ" }, language);
+  }
+  return highlight.name;
 }
 
 function tierClassName(highlight: PublicBulkOpenHighlight) {
@@ -140,6 +167,7 @@ function tierClassName(highlight: PublicBulkOpenHighlight) {
 }
 
 export function BulkOpenBagStatus() {
+  const language = useStoreLanguage();
   const [session, setSession] = useState<PublicBulkOpenSessionSummary | null>(
     null,
   );
@@ -209,8 +237,10 @@ export function BulkOpenBagStatus() {
               <Ico name="sparkle" size={16} />
             </span>
             <div className="cr-grow">
-              <p className="cr-eyebrow">Pull all progress</p>
-              <h2>{statusCopy(session.status)}</h2>
+              <p className="cr-eyebrow">
+                <I18nText en="Pull all progress" th="ความคืบหน้า Pull All" />
+              </p>
+              <h2>{statusCopy(session.status, language)}</h2>
             </div>
           </div>
           <div className="cr-bulk-open-progress">
@@ -221,21 +251,22 @@ export function BulkOpenBagStatus() {
           </div>
           <div className="cr-bulk-open-meta">
             <span>
-              <strong className="cr-tnum">{session.landedRewards}</strong> of{" "}
+              <strong className="cr-tnum">{session.landedRewards}</strong>{" "}
+              {language === "th" ? "จาก " : "of "}
               <strong className="cr-tnum">
                 {session.totalPurchasedRewards}
               </strong>{" "}
-              landed
+              {localized({ en: "landed", th: "รางวัลเข้าแล้ว" }, language)}
             </span>
             <span>
               <strong className="cr-tnum">
                 {Math.round(percentComplete)}
               </strong>
-              % complete
+              % {localized({ en: "complete", th: "เสร็จแล้ว" }, language)}
             </span>
             <span>
               <strong className="cr-tnum">{session.settlingRewards}</strong>{" "}
-              still settling
+              {localized({ en: "still settling", th: "ยังประมวลผลอยู่" }, language)}
             </span>
             <span>
               <CoinPip /> {formatCoins(session.totalCostCoins)}
@@ -261,14 +292,28 @@ export function BulkOpenBagStatus() {
           },
         );
         if (!response.ok) {
-          throw new Error("Try again when your connection is stable.");
+          throw new Error(
+            localized(
+              {
+                en: "Try again when your connection is stable.",
+                th: "ลองอีกครั้งเมื่อการเชื่อมต่อเสถียร",
+              },
+              language,
+            ),
+          );
         }
         setSession(null);
       } catch (error) {
         setMessage(
           error instanceof Error
             ? error.message
-            : "Try again when your connection is stable.",
+            : localized(
+                {
+                  en: "Try again when your connection is stable.",
+                  th: "ลองอีกครั้งเมื่อการเชื่อมต่อเสถียร",
+                },
+                language,
+              ),
         );
       }
     });
@@ -279,19 +324,25 @@ export function BulkOpenBagStatus() {
       <div className="cr-bulk-open-main">
         <div className="cr-bulk-open-complete-head">
           <div className="cr-grow">
-            <p className="cr-eyebrow">Pull all complete</p>
-            <h2>All rewards are in your bag</h2>
+            <p className="cr-eyebrow">
+              <I18nText en="Pull all complete" th="Pull All เสร็จแล้ว" />
+            </p>
+            <h2>
+              <I18nText en="All rewards are in your bag" th="รางวัลทั้งหมดอยู่ในกระเป๋าแล้ว" />
+            </h2>
             <p className="cr-lead">
-              Top highlights are shown here. Open your bag or all pulls to see
-              every reward.
+              <I18nText
+                en="Top highlights are shown here. Open your bag or all pulls to see every reward."
+                th="ไฮไลต์หลักจะแสดงที่นี่ เปิดกระเป๋าหรือประวัติทั้งหมดเพื่อดูรางวัลทุกใบ"
+              />
             </p>
           </div>
           <div className="cr-bulk-open-actions">
             <Link className="cr-btn cr-btn-sm" href="/collection">
-              <Ico name="card" size={14} /> Bag
+              <Ico name="card" size={14} /> <I18nText en="Bag" th="กระเป๋า" />
             </Link>
             <Link className="cr-btn cr-btn-sm" href="/profile/all-pulls">
-              <Ico name="grid" size={14} /> All pulls
+              <Ico name="grid" size={14} /> <I18nText en="All pulls" th="ประวัติทั้งหมด" />
             </Link>
             <button
               type="button"
@@ -300,7 +351,9 @@ export function BulkOpenBagStatus() {
               onClick={acknowledgeHighlights}
             >
               <Ico name="check" size={14} />
-              {acknowledging ? "Saving" : "Got it"}
+              {acknowledging
+                ? localized({ en: "Saving", th: "กำลังบันทึก" }, language)
+                : localized({ en: "Got it", th: "รับทราบ" }, language)}
             </button>
           </div>
         </div>
@@ -308,17 +361,17 @@ export function BulkOpenBagStatus() {
         <div className="cr-bulk-open-meta complete">
           <span>
             <strong className="cr-tnum">{session.landedRewards}</strong>{" "}
-            rewards landed
+            {localized({ en: "rewards landed", th: "รางวัลเข้าแล้ว" }, language)}
           </span>
           <span>
             <strong className="cr-tnum">
               {session.totalPurchasedRewards}
             </strong>{" "}
-            total pulled
+            {localized({ en: "total pulled", th: "รายการที่เปิดทั้งหมด" }, language)}
           </span>
           <span>
             <strong className="cr-tnum">{session.settlingRewards}</strong>{" "}
-            still settling
+            {localized({ en: "still settling", th: "ยังประมวลผลอยู่" }, language)}
           </span>
           <span>
             <CoinPip /> {formatCoins(session.totalCostCoins)}
@@ -353,12 +406,13 @@ export function BulkOpenBagStatus() {
               </div>
               <div className="cr-bulk-open-highlight-copy">
                 <span className="cr-bulk-open-highlight-tier">
-                  {tierLabel(highlight)}
+                  {tierLabel(highlight, language)}
                 </span>
-                <strong>{highlight.name}</strong>
+                <strong>{highlightName(highlight, language)}</strong>
                 {highlight.valueThb !== null ? (
                   <small className="cr-mute cr-tnum">
-                    Value {highlight.valueThb.toLocaleString()} THB
+                    {language === "th" ? "มูลค่า " : "Value "}
+                    {highlight.valueThb.toLocaleString()} THB
                   </small>
                 ) : null}
               </div>

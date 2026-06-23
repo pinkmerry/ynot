@@ -3,10 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 
 type LiffProfile = {
-  profileId: string;
-  lineUserId: string;
   displayName: string;
-  pictureUrl?: string;
+  pictureUrl?: string | null;
   isAdmin?: boolean;
   adminRole?: "owner" | "admin" | "staff" | null;
 };
@@ -85,20 +83,24 @@ async function syncServerSession(liff: LiffClient) {
     body: JSON.stringify({ idToken }),
   });
 
-  type LiffSessionResponse = LiffProfile & {
+  type LiffSessionResponse = Partial<LiffProfile> & {
     error?: string;
-    code?: "line_already_linked" | "line_email_belongs_to_existing_account";
-    emailHint?: string;
+    code?: string;
   };
   const session = (await response.json().catch(() => null)) as LiffSessionResponse | null;
-  if (!response.ok || !session?.profileId) {
+  if (!response.ok || !session) {
     await clearServerSession();
     // The server already produced a friendly message; surface it verbatim so
     // the LIFF UI can render it without re-mapping codes here.
     throw new Error(session?.error ?? "LINE connection could not be saved.");
   }
 
-  return session;
+  return {
+    displayName: session.displayName ?? "LINE Customer",
+    pictureUrl: session.pictureUrl ?? null,
+    isAdmin: session.isAdmin,
+    adminRole: session.adminRole ?? null,
+  };
 }
 
 export function useLiffSession(): LiffSessionState {

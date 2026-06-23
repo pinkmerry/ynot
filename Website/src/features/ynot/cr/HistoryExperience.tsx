@@ -12,6 +12,8 @@ import {
   isCompleteShippingAddress,
   missingShippingAddressFields,
 } from "../address-utils";
+import { useStoreLanguage } from "../StorePreferences";
+import { I18nText, localized, type Language } from "../i18n";
 import { QuantityBadge } from "../QuantityBadge";
 import { BulkOpenBagStatus } from "./BulkOpenBagStatus";
 import { CoinPip, Ico, formatCoins } from "./Icons";
@@ -66,8 +68,15 @@ function tierClassName(tier: TierKey): string {
   return tier === "last_prize" ? "last-prize" : tier;
 }
 
-function tierLabel(tier: TierKey): string {
-  return tier === "last_prize" ? "LAST PRIZE" : tier.toUpperCase();
+function tierLabel(tier: TierKey, language: Language): string {
+  if (tier === "last_prize") return "LAST PRIZE";
+  if (language === "th") {
+    if (tier === "rainbow") return "เรนโบว์";
+    if (tier === "gold") return "โกลด์";
+    if (tier === "silver") return "ซิลเวอร์";
+    return "บรอนซ์";
+  }
+  return tier.toUpperCase();
 }
 
 function cardSeries(item: YnotCollectionItem): string {
@@ -83,14 +92,16 @@ function seriesLabel(series: string): string {
   return series.replace(/_/g, " ");
 }
 
-function statusLabel(bucket: StatusKey): string {
-  if (bucket === "owned") return "Owned";
-  if (bucket === "shipped") return "Shipped";
-  return "Converted";
+function statusLabel(bucket: StatusKey, language: Language): string {
+  if (bucket === "owned") return language === "th" ? "ถืออยู่" : "Owned";
+  if (bucket === "shipped") return language === "th" ? "จัดส่งแล้ว" : "Shipped";
+  return language === "th" ? "แลกแล้ว" : "Converted";
 }
 
-function collectionDisplayCode(item: YnotCollectionItem): string {
-  return item.cardCode ?? item.serialNo ?? "Collection reward";
+function collectionDisplayCode(item: YnotCollectionItem, language: Language): string {
+  return item.cardCode ??
+    item.serialNo ??
+    localized({ en: "Collection reward", th: "รางวัลในคอลเลกชัน" }, language);
 }
 
 type EnrichedItem = YnotCollectionItem & {
@@ -147,7 +158,7 @@ type ShippingProgress = {
   completed: boolean;
 };
 
-function enrich(item: YnotCollectionItem): EnrichedItem | null {
+function enrich(item: YnotCollectionItem, language: Language): EnrichedItem | null {
   const bucket = statusBucket(item.status);
   if (!bucket) return null;
   const tier = deriveTier(item);
@@ -156,7 +167,7 @@ function enrich(item: YnotCollectionItem): EnrichedItem | null {
     bucket,
     tier,
     series: cardSeries(item),
-    acquiredLabel: new Date(item.acquiredAt).toLocaleDateString(),
+    acquiredLabel: new Date(item.acquiredAt).toLocaleDateString(language === "th" ? "th-TH" : "en-US"),
     sellValueCoins: item.convertCoinValue ?? 0,
   };
 }
@@ -277,6 +288,7 @@ export function HistoryExperience({
   addresses,
 }: HistoryExperienceProps) {
   const { toast } = useToast();
+  const language = useStoreLanguage();
   const [tab, setTab] = useState<TabKey>("collection");
   const [seriesFilter, setSeriesFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -300,11 +312,11 @@ export function HistoryExperience({
   const enriched = useMemo(() => {
     const list: EnrichedItem[] = [];
     for (const item of collection) {
-      const enrichedItem = enrich(item);
+      const enrichedItem = enrich(item, language);
       if (enrichedItem) list.push(enrichedItem);
     }
     return list;
-  }, [collection]);
+  }, [collection, language]);
 
   const byTab: Record<TabKey, EnrichedItem[]> = useMemo(() => {
     return {
@@ -339,7 +351,16 @@ export function HistoryExperience({
 
   function toggleSelect(id: string, bucket: StatusKey) {
     if (bucket !== "owned") {
-      toast("error", "Only owned cards can be selected for actions.");
+      toast(
+        "error",
+        localized(
+          {
+            en: "Only owned cards can be selected for actions.",
+            th: "เลือกได้เฉพาะการ์ดที่ยังถืออยู่เท่านั้น",
+          },
+          language,
+        ),
+      );
       return;
     }
     setSelected((current) => {
@@ -395,11 +416,20 @@ export function HistoryExperience({
 
   async function openSell(nextMode: ConvertSelectionMode) {
     if (shipActive) {
-      toast("error", "Finish the active shipping request before converting rewards.");
+      toast(
+        "error",
+        localized(
+          {
+            en: "Finish the active shipping request before converting rewards.",
+            th: "ทำคำขอจัดส่งที่กำลังดำเนินการให้เสร็จก่อนแลกรางวัลเป็นเหรียญ",
+          },
+          language,
+        ),
+      );
       return;
     }
     if (nextMode === "selected" && !selectedConvertibleCards.length) {
-      toast("error", "No rewards selected");
+      toast("error", localized({ en: "No rewards selected", th: "ยังไม่ได้เลือกรางวัล" }, language));
       return;
     }
     setSellMode(nextMode);
@@ -424,20 +454,28 @@ export function HistoryExperience({
       const payload: unknown = await response.json().catch(() => null);
       if (!response.ok) {
         throw new Error(
-          isRecord(payload) && typeof payload.error === "string"
-            ? payload.error
-            : "Conversion request failed.",
+            isRecord(payload) && typeof payload.error === "string"
+              ? payload.error
+            : localized(
+                { en: "Conversion request failed.", th: "ส่งคำขอแลกเหรียญไม่สำเร็จ" },
+                language,
+              ),
         );
       }
       const quote = quoteFromPayload(payload);
       if (!quote || quote.itemCount === 0) {
-        throw new Error("No rewards selected");
+        throw new Error(localized({ en: "No rewards selected", th: "ยังไม่ได้เลือกรางวัล" }, language));
       }
       setSellQuote(quote);
     } catch (error) {
       toast(
         "error",
-        error instanceof Error ? error.message : "Conversion request failed.",
+        error instanceof Error
+          ? error.message
+          : localized(
+              { en: "Conversion request failed.", th: "ส่งคำขอแลกเหรียญไม่สำเร็จ" },
+              language,
+            ),
       );
       setSellOpen(false);
     } finally {
@@ -447,12 +485,30 @@ export function HistoryExperience({
 
   function submitSell() {
     if (shipActive) {
-      toast("error", "Finish the active shipping request before converting rewards.");
+      toast(
+        "error",
+        localized(
+          {
+            en: "Finish the active shipping request before converting rewards.",
+            th: "ทำคำขอจัดส่งที่กำลังดำเนินการให้เสร็จก่อนแลกรางวัลเป็นเหรียญ",
+          },
+          language,
+        ),
+      );
       return;
     }
     if (!sellQuote || sellConfirming) return;
     if (quoteIsExpired(sellQuote)) {
-      toast("info", "Conversion quote expired. Recalculating the latest total.");
+      toast(
+        "info",
+        localized(
+          {
+            en: "Conversion quote expired. Recalculating the latest total.",
+            th: "ใบเสนอราคาแลกเหรียญหมดอายุ กำลังคำนวณยอดล่าสุด",
+          },
+          language,
+        ),
+      );
       void openSell(sellMode);
       return;
     }
@@ -475,12 +531,30 @@ export function HistoryExperience({
               ? payload.error
               : "Conversion request failed.";
           if (/expired/i.test(message)) {
-            toast("info", "Conversion quote expired. Recalculating the latest total.");
+            toast(
+              "info",
+              localized(
+                {
+                  en: "Conversion quote expired. Recalculating the latest total.",
+                  th: "ใบเสนอราคาแลกเหรียญหมดอายุ กำลังคำนวณยอดล่าสุด",
+                },
+                language,
+              ),
+            );
             void openSell(sellMode);
             return;
           }
           if (/changed/i.test(message)) {
-            toast("info", "Reward values changed. Recalculating the latest total.");
+            toast(
+              "info",
+              localized(
+                {
+                  en: "Reward values changed. Recalculating the latest total.",
+                  th: "มูลค่ารางวัลเปลี่ยนไป กำลังคำนวณยอดล่าสุด",
+                },
+                language,
+              ),
+            );
             void openSell(sellMode);
             return;
           }
@@ -489,16 +563,33 @@ export function HistoryExperience({
           );
         }
         const progress = progressFromPayload(payload);
-        if (!progress) throw new Error("Conversion request failed.");
+        if (!progress) {
+          throw new Error(
+            localized(
+              { en: "Conversion request failed.", th: "ส่งคำขอแลกเหรียญไม่สำเร็จ" },
+              language,
+            ),
+          );
+        }
         setSellProgress(progress);
         clearSelection();
         if (progress.completed) {
-          toast("success", `${formatCoins(progress.creditedTotalCoins)} coins credited.`);
+          toast(
+            "success",
+            language === "th"
+              ? `เพิ่ม ${formatCoins(progress.creditedTotalCoins)} เหรียญแล้ว`
+              : `${formatCoins(progress.creditedTotalCoins)} coins credited.`,
+          );
         }
       } catch (error) {
         toast(
           "error",
-          error instanceof Error ? error.message : "Conversion request failed.",
+          error instanceof Error
+            ? error.message
+            : localized(
+                { en: "Conversion request failed.", th: "ส่งคำขอแลกเหรียญไม่สำเร็จ" },
+                language,
+              ),
         );
       } finally {
         setSellConfirming(false);
@@ -635,16 +726,43 @@ export function HistoryExperience({
       return;
     }
     if (sellActive) {
-      toast("error", "Finish the active conversion before requesting shipping.");
+      toast(
+        "error",
+        localized(
+          {
+            en: "Finish the active conversion before requesting shipping.",
+            th: "ทำรายการแลกเหรียญที่กำลังดำเนินการให้เสร็จก่อนขอจัดส่ง",
+          },
+          language,
+        ),
+      );
       setSellOpen(true);
       return;
     }
     if (nextMode === "selected" && !selectedCards.length) {
-      toast("error", "Select cards to ship or request all eligible cards.");
+      toast(
+        "error",
+        localized(
+          {
+            en: "Select cards to ship or request all eligible cards.",
+            th: "เลือกการ์ดที่จะจัดส่ง หรือขอจัดส่งการ์ดที่เข้าเงื่อนไขทั้งหมด",
+          },
+          language,
+        ),
+      );
       return;
     }
     if (nextMode === "all_eligible" && !ownedShipCards.length) {
-      toast("error", "No eligible cards are ready for shipping.");
+      toast(
+        "error",
+        localized(
+          {
+            en: "No eligible cards are ready for shipping.",
+            th: "ยังไม่มีการ์ดที่พร้อมจัดส่ง",
+          },
+          language,
+        ),
+      );
       return;
     }
     setShipMode(nextMode);
@@ -659,17 +777,26 @@ export function HistoryExperience({
       return;
     }
     if (sellActive) {
-      toast("error", "Finish the active conversion before requesting shipping.");
+      toast(
+        "error",
+        localized(
+          {
+            en: "Finish the active conversion before requesting shipping.",
+            th: "ทำรายการแลกเหรียญที่กำลังดำเนินการให้เสร็จก่อนขอจัดส่ง",
+          },
+          language,
+        ),
+      );
       setSellOpen(true);
       return;
     }
     if (!addressId || shipPreparing) return;
     if (shipMode === "selected" && !selectedCards.length) {
-      toast("error", "Select at least one card.");
+      toast("error", localized({ en: "Select at least one card.", th: "เลือกการ์ดอย่างน้อย 1 ใบ" }, language));
       return;
     }
     if (shipMode === "all_eligible" && !ownedShipCards.length) {
-      toast("error", "No eligible cards are ready for shipping.");
+      toast("error", localized({ en: "No eligible cards are ready for shipping.", th: "ยังไม่มีการ์ดที่พร้อมจัดส่ง" }, language));
       return;
     }
     setShipAddressId(addressId);
@@ -698,20 +825,28 @@ export function HistoryExperience({
       const payload: unknown = await response.json().catch(() => null);
       if (!response.ok) {
         throw new Error(
-          isRecord(payload) && typeof payload.error === "string"
-            ? payload.error
-            : "Shipping request failed.",
+            isRecord(payload) && typeof payload.error === "string"
+              ? payload.error
+            : localized(
+                { en: "Shipping request failed.", th: "ส่งคำขอจัดส่งไม่สำเร็จ" },
+                language,
+              ),
         );
       }
       const quote = shippingQuoteFromPayload(payload);
       if (!quote || quote.itemCount === 0) {
-        throw new Error("No eligible cards are ready for shipping.");
+        throw new Error(localized({ en: "No eligible cards are ready for shipping.", th: "ยังไม่มีการ์ดที่พร้อมจัดส่ง" }, language));
       }
       setShipQuote(quote);
     } catch (error) {
       toast(
         "error",
-        error instanceof Error ? error.message : "Shipping request failed.",
+        error instanceof Error
+          ? error.message
+          : localized(
+              { en: "Shipping request failed.", th: "ส่งคำขอจัดส่งไม่สำเร็จ" },
+              language,
+            ),
       );
     } finally {
       setShipPreparing(false);
@@ -721,13 +856,31 @@ export function HistoryExperience({
   function submitShip() {
     if (shipActive) return;
     if (sellActive) {
-      toast("error", "Finish the active conversion before requesting shipping.");
+      toast(
+        "error",
+        localized(
+          {
+            en: "Finish the active conversion before requesting shipping.",
+            th: "ทำรายการแลกเหรียญที่กำลังดำเนินการให้เสร็จก่อนขอจัดส่ง",
+          },
+          language,
+        ),
+      );
       setSellOpen(true);
       return;
     }
     if (!shipQuote || shipConfirming) return;
     if (shippingQuoteIsExpired(shipQuote)) {
-      toast("info", "Shipping quote expired. Recalculating the latest request.");
+      toast(
+        "info",
+        localized(
+          {
+            en: "Shipping quote expired. Recalculating the latest request.",
+            th: "ใบเสนอราคาจัดส่งหมดอายุ กำลังคำนวณคำขอล่าสุด",
+          },
+          language,
+        ),
+      );
       void quoteShip(shipAddressId);
       return;
     }
@@ -750,23 +903,49 @@ export function HistoryExperience({
               ? payload.error
               : "Shipping request failed.";
           if (/expired/i.test(message)) {
-            toast("info", "Shipping quote expired. Recalculating the latest request.");
+            toast(
+              "info",
+              localized(
+                {
+                  en: "Shipping quote expired. Recalculating the latest request.",
+                  th: "ใบเสนอราคาจัดส่งหมดอายุ กำลังคำนวณคำขอล่าสุด",
+                },
+                language,
+              ),
+            );
             void quoteShip(shipAddressId);
             return;
           }
           throw new Error(message);
         }
         const progress = shippingProgressFromPayload(payload);
-        if (!progress) throw new Error("Shipping request failed.");
+        if (!progress) {
+          throw new Error(
+            localized(
+              { en: "Shipping request failed.", th: "ส่งคำขอจัดส่งไม่สำเร็จ" },
+              language,
+            ),
+          );
+        }
         setShipProgress(progress);
         clearSelection();
         if (progress.completed) {
-          toast("success", `Shipping request ${progress.publicCode || ""} submitted.`);
+          toast(
+            "success",
+            language === "th"
+              ? `ส่งคำขอจัดส่ง ${progress.publicCode || ""} แล้ว`
+              : `Shipping request ${progress.publicCode || ""} submitted.`,
+          );
         }
       } catch (error) {
         toast(
           "error",
-          error instanceof Error ? error.message : "Shipping request failed.",
+          error instanceof Error
+            ? error.message
+            : localized(
+                { en: "Shipping request failed.", th: "ส่งคำขอจัดส่งไม่สำเร็จ" },
+                language,
+              ),
         );
       } finally {
         setShipConfirming(false);
@@ -777,12 +956,12 @@ export function HistoryExperience({
   return (
     <div className="cr-page">
       <PageHead
-        eyebrow="Collection"
-        title="My collection"
-        lead="Cards you own, ship, or sell back to coins."
+        eyebrow={<I18nText en="Collection" th="คอลเลกชัน" />}
+        title={<I18nText en="My collection" th="คอลเลกชันของฉัน" />}
+        lead={<I18nText en="Cards you own, ship, or sell back to coins." th="การ์ดที่คุณถืออยู่ ขอจัดส่ง หรือแลกกลับเป็นเหรียญได้" />}
         actions={
           <Link className="cr-btn cr-btn-primary" href="/packs">
-            <Ico name="sparkle" size={14} /> Open another pack
+            <Ico name="sparkle" size={14} /> <I18nText en="Open another pack" th="เปิดแพ็กเพิ่ม" />
           </Link>
         }
       />
@@ -798,14 +977,19 @@ export function HistoryExperience({
             gap: 6,
           }}
         >
-          <strong>Converting rewards to coins</strong>
+          <strong><I18nText en="Converting rewards to coins" th="กำลังแลกรางวัลเป็นเหรียญ" /></strong>
           <small className="cr-mute">
-            {sellProgress.convertedCount} / {sellProgress.itemCount} rewards converted ·{" "}
+            {sellProgress.convertedCount} / {sellProgress.itemCount}{" "}
+            {language === "th" ? "รางวัลที่แลกแล้ว" : "rewards converted"} ·{" "}
             {formatCoins(sellProgress.creditedTotalCoins)} /{" "}
-            {formatCoins(sellProgress.totalCoins)} coins credited
+            {formatCoins(sellProgress.totalCoins)}{" "}
+            {language === "th" ? "เหรียญที่เพิ่มแล้ว" : "coins credited"}
           </small>
           <small className="cr-mute">
-            You can leave this page. We&apos;ll keep converting your selected rewards.
+            <I18nText
+              en="You can leave this page. We'll keep converting your selected rewards."
+              th="คุณออกจากหน้านี้ได้ ระบบจะแลกรางวัลที่เลือกต่อให้"
+            />
           </small>
         </div>
       ) : null}
@@ -819,12 +1003,16 @@ export function HistoryExperience({
             gap: 6,
           }}
         >
-          <strong>Preparing shipping request</strong>
+          <strong><I18nText en="Preparing shipping request" th="กำลังเตรียมคำขอจัดส่ง" /></strong>
           <small className="cr-mute">
-            {shipProgress.preparedCount} / {shipProgress.itemCount} cards prepared
+            {shipProgress.preparedCount} / {shipProgress.itemCount}{" "}
+            {language === "th" ? "การ์ดที่เตรียมแล้ว" : "cards prepared"}
           </small>
           <small className="cr-mute">
-            You can leave this page. We&apos;ll keep preparing your shipping request.
+            <I18nText
+              en="You can leave this page. We'll keep preparing your shipping request."
+              th="คุณออกจากหน้านี้ได้ ระบบจะเตรียมคำขอจัดส่งต่อให้"
+            />
           </small>
         </div>
       ) : null}
@@ -839,7 +1027,8 @@ export function HistoryExperience({
                 clearSelection();
               }}
             >
-              My collection <span className="count">{byTab.collection.length}</span>
+              <I18nText en="My collection" th="คอลเลกชันของฉัน" />{" "}
+              <span className="count">{byTab.collection.length}</span>
             </button>
             <button
               type="button"
@@ -849,7 +1038,8 @@ export function HistoryExperience({
                 clearSelection();
               }}
             >
-              Shipped <span className="count">{byTab.shipped.length}</span>
+              <I18nText en="Shipped" th="จัดส่งแล้ว" />{" "}
+              <span className="count">{byTab.shipped.length}</span>
             </button>
             <button
               type="button"
@@ -859,7 +1049,8 @@ export function HistoryExperience({
                 clearSelection();
               }}
             >
-              Converted <span className="count">{byTab.converted.length}</span>
+              <I18nText en="Converted" th="แลกแล้ว" />{" "}
+              <span className="count">{byTab.converted.length}</span>
             </button>
           </div>
 
@@ -872,7 +1063,7 @@ export function HistoryExperience({
                 }`}
                 onClick={() => setSeriesFilter("all")}
               >
-                All series
+                <I18nText en="All series" th="ทุกซีรีส์" />
               </button>
               {seriesOptions.map((series) => (
                 <button
@@ -893,8 +1084,8 @@ export function HistoryExperience({
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search card name…"
-                aria-label="Search cards"
+                placeholder={language === "th" ? "ค้นหาชื่อการ์ด..." : "Search card name..."}
+                aria-label={language === "th" ? "ค้นหาการ์ด" : "Search cards"}
               />
             </div>
           </div>
@@ -902,9 +1093,11 @@ export function HistoryExperience({
           {tab === "collection" && byTab.collection.length > 0 && (
             <div className="cr-row" style={{ gap: 10, padding: "0 4px" }}>
               <small className="cr-mute" style={{ fontSize: 12 }}>
-                Tap cards to select. Selected cards can be{" "}
-                <strong style={{ color: "var(--cr-ink)" }}>sold for coins</strong>{" "}
-                or shipped to you.
+                <I18nText en="Tap cards to select. Selected cards can be" th="แตะการ์ดเพื่อเลือก การ์ดที่เลือกสามารถ" />{" "}
+                <strong style={{ color: "var(--cr-ink)" }}>
+                  <I18nText en="sold for coins" th="แลกเป็นเหรียญ" />
+                </strong>{" "}
+                <I18nText en="or shipped to you." th="หรือขอจัดส่งถึงคุณได้" />
               </small>
               <span style={{ flex: 1 }} />
               <button
@@ -912,7 +1105,7 @@ export function HistoryExperience({
                 className="cr-btn cr-btn-ghost cr-btn-sm"
                 onClick={selectAll}
               >
-                Select all
+                <I18nText en="Select all" th="เลือกทั้งหมด" />
               </button>
               <button
                 type="button"
@@ -920,7 +1113,7 @@ export function HistoryExperience({
                 onClick={() => void openSell("all_eligible")}
                 disabled={sellBusy || shipActive}
               >
-                Select all eligible rewards to convert
+                <I18nText en="Select all eligible rewards to convert" th="เลือกของรางวัลที่แลกได้ทั้งหมด" />
               </button>
               <button
                 type="button"
@@ -928,7 +1121,9 @@ export function HistoryExperience({
                 onClick={() => void openShip(selectedCards.length ? "selected" : "all_eligible")}
                 disabled={shipBusy || sellActive || (!shipActive && !selectedCards.length && !ownedShipCards.length)}
               >
-                {shipActive ? "View shipping progress" : "Request shipping"}
+                {shipActive
+                  ? localized({ en: "View shipping progress", th: "ดูความคืบหน้าจัดส่ง" }, language)
+                  : localized({ en: "Request shipping", th: "ขอจัดส่ง" }, language)}
               </button>
               {selected.size > 0 && (
                 <button
@@ -936,7 +1131,7 @@ export function HistoryExperience({
                   className="cr-btn cr-btn-ghost cr-btn-sm"
                   onClick={clearSelection}
                 >
-                  Clear ({selected.size})
+                  <I18nText en="Clear" th="ล้าง" /> ({selected.size})
                 </button>
               )}
             </div>
@@ -950,14 +1145,14 @@ export function HistoryExperience({
               <strong
                 style={{ display: "block", fontSize: 14, marginBottom: 6 }}
               >
-                Nothing here yet
+                <I18nText en="Nothing here yet" th="ยังไม่มีรายการ" />
               </strong>
               <small className="cr-mute">
                 {tab === "collection"
-                  ? "Open a pack to start your collection."
+                  ? localized({ en: "Open a pack to start your collection.", th: "เปิดแพ็กเพื่อเริ่มคอลเลกชันของคุณ" }, language)
                   : tab === "shipped"
-                    ? "Request shipping on owned cards to see them here."
-                    : "Sell owned cards back to coins to see them here."}
+                    ? localized({ en: "Request shipping on owned cards to see them here.", th: "ขอจัดส่งการ์ดที่ถืออยู่เพื่อดูรายการที่นี่" }, language)
+                    : localized({ en: "Sell owned cards back to coins to see them here.", th: "แลกการ์ดที่ถืออยู่เป็นเหรียญเพื่อดูรายการที่นี่" }, language)}
               </small>
               {tab === "collection" && (
                 <Link
@@ -965,7 +1160,7 @@ export function HistoryExperience({
                   href="/packs"
                   style={{ marginTop: 14 }}
                 >
-                  <Ico name="sparkle" size={14} /> Open a pack
+                  <Ico name="sparkle" size={14} /> <I18nText en="Open a pack" th="เปิดแพ็ก" />
                 </Link>
               )}
             </div>
@@ -992,10 +1187,12 @@ export function HistoryExperience({
               <span
                 style={{ fontSize: 13, fontWeight: 600, opacity: 0.9 }}
               >
-                card{selected.size === 1 ? "" : "s"} selected
+                {language === "th"
+                  ? `เลือกแล้ว ${selected.size} ใบ`
+                  : `card${selected.size === 1 ? "" : "s"} selected`}
               </span>
               <span style={{ fontSize: 12, opacity: 0.7 }}>
-                · sell value{" "}
+                · {language === "th" ? "มูลค่าแลก" : "sell value"}{" "}
                 <strong style={{ opacity: 1 }}>
                   <CoinPip size={11} /> {formatCoins(sellTotal)}
                 </strong>
@@ -1006,7 +1203,7 @@ export function HistoryExperience({
                 className="cr-btn cr-btn-sm"
                 onClick={clearSelection}
               >
-                <Ico name="x" size={12} /> Clear
+                <Ico name="x" size={12} /> <I18nText en="Clear" th="ล้าง" />
               </button>
               <button
                 type="button"
@@ -1015,7 +1212,9 @@ export function HistoryExperience({
                 disabled={shipBusy || sellActive || (!shipActive && !selectedCards.length && !ownedShipCards.length)}
               >
                 <Ico name="truck" size={12} />{" "}
-                {shipActive ? "View shipping progress" : "Request shipping"}
+                {shipActive
+                  ? localized({ en: "View shipping progress", th: "ดูความคืบหน้าจัดส่ง" }, language)
+                  : localized({ en: "Request shipping", th: "ขอจัดส่ง" }, language)}
               </button>
               <button
                 type="button"
@@ -1025,11 +1224,19 @@ export function HistoryExperience({
                 title={
                   selectedConvertibleCards.length
                     ? undefined
-                    : "Selected rewards cannot be converted to coins."
+                    : localized(
+                        {
+                          en: "Selected rewards cannot be converted to coins.",
+                          th: "รางวัลที่เลือกไม่สามารถแลกเป็นเหรียญได้",
+                        },
+                        language,
+                      )
                 }
               >
-                <Ico name="swap" size={12} /> Sell for{" "}
-                {formatCoins(sellTotal)} coins
+                <Ico name="swap" size={12} />{" "}
+                {language === "th"
+                  ? `แลกเป็น ${formatCoins(sellTotal)} เหรียญ`
+                  : `Sell for ${formatCoins(sellTotal)} coins`}
               </button>
             </div>
           )}
@@ -1040,15 +1247,23 @@ export function HistoryExperience({
         onClose={() => {
           if (!sellBusy) setSellOpen(false);
         }}
-        eyebrow="Confirm"
+        eyebrow={<I18nText en="Confirm" th="ยืนยัน" />}
         title={
           sellProgress
             ? sellProgress.failed
-              ? "Conversion could not finish"
-              : "Converting rewards to coins"
-            : `Convert ${displayedSellCount} reward${
-                displayedSellCount === 1 ? "" : "s"
-              } to coins?`
+              ? localized(
+                  { en: "Conversion could not finish", th: "แลกเหรียญไม่สำเร็จทั้งหมด" },
+                  language,
+                )
+              : localized(
+                  { en: "Converting rewards to coins", th: "กำลังแลกรางวัลเป็นเหรียญ" },
+                  language,
+                )
+            : language === "th"
+              ? `แลก ${displayedSellCount} รางวัลเป็นเหรียญ?`
+              : `Convert ${displayedSellCount} reward${
+                  displayedSellCount === 1 ? "" : "s"
+                } to coins?`
         }
         size="md"
         footer={
@@ -1059,7 +1274,9 @@ export function HistoryExperience({
               onClick={() => setSellOpen(false)}
               disabled={sellConfirming}
             >
-              {sellProgress.completed ? "Done" : "Close"}
+              {sellProgress.completed
+                ? localized({ en: "Done", th: "เสร็จแล้ว" }, language)
+                : localized({ en: "Close", th: "ปิด" }, language)}
             </button>
           ) : (
             <>
@@ -1069,7 +1286,7 @@ export function HistoryExperience({
               onClick={() => setSellOpen(false)}
               disabled={sellBusy}
             >
-              Cancel
+              <I18nText en="Cancel" th="ยกเลิก" />
             </button>
             <button
               type="button"
@@ -1079,10 +1296,12 @@ export function HistoryExperience({
             >
               <Ico name="check" size={14} />{" "}
               {sellBusy
-                ? "Preparing…"
+                ? localized({ en: "Preparing...", th: "กำลังเตรียม..." }, language)
                 : sellQuoteExpired
-                  ? "Refresh total"
-                  : `Convert for ${formatCoins(displayedSellTotal)} coins`}
+                  ? localized({ en: "Refresh total", th: "คำนวณยอดใหม่" }, language)
+                  : language === "th"
+                    ? `แลกเป็น ${formatCoins(displayedSellTotal)} เหรียญ`
+                    : `Convert for ${formatCoins(displayedSellTotal)} coins`}
             </button>
           </>
           )
@@ -1093,8 +1312,17 @@ export function HistoryExperience({
             <>
               <p className="cr-lead" style={{ margin: 0 }}>
                 {sellProgress.failed
-                  ? "Conversion stopped before every reward was converted."
-                  : "Converting rewards to coins"}
+                  ? localized(
+                      {
+                        en: "Conversion stopped before every reward was converted.",
+                        th: "การแลกหยุดก่อนแลกรางวัลครบทั้งหมด",
+                      },
+                      language,
+                    )
+                  : localized(
+                      { en: "Converting rewards to coins", th: "กำลังแลกรางวัลเป็นเหรียญ" },
+                      language,
+                    )}
               </p>
               <div
                 style={{
@@ -1106,24 +1334,42 @@ export function HistoryExperience({
                 }}
               >
                 <strong className="cr-tnum" style={{ color: "var(--cr-mint)" }}>
-                  {sellProgress.convertedCount} / {sellProgress.itemCount} rewards converted
+                  {sellProgress.convertedCount} / {sellProgress.itemCount}{" "}
+                  {language === "th" ? "รางวัลที่แลกแล้ว" : "rewards converted"}
                 </strong>
                 <strong className="cr-tnum" style={{ color: "var(--cr-coin-ink)" }}>
                   <CoinPip size={14} /> {formatCoins(sellProgress.creditedTotalCoins)} /{" "}
-                  {formatCoins(sellProgress.totalCoins)} coins credited
+                  {formatCoins(sellProgress.totalCoins)}{" "}
+                  {language === "th" ? "เหรียญที่เพิ่มแล้ว" : "coins credited"}
                 </strong>
                 <small className="cr-mute">
                   {sellProgress.failed
-                    ? "Credited coins remain in your wallet. Refresh your bag before converting the remaining eligible rewards."
-                    : "You can leave this page. We'll keep converting your selected rewards."}
+                    ? localized(
+                        {
+                          en: "Credited coins remain in your wallet. Refresh your bag before converting the remaining eligible rewards.",
+                          th: "เหรียญที่เพิ่มแล้วจะยังอยู่ในวอลเล็ต รีเฟรชกระเป๋าก่อนแลกรางวัลที่เหลือต่อ",
+                        },
+                        language,
+                      )
+                    : localized(
+                        {
+                          en: "You can leave this page. We'll keep converting your selected rewards.",
+                          th: "คุณออกจากหน้านี้ได้ ระบบจะแลกรางวัลที่เลือกต่อให้",
+                        },
+                        language,
+                      )}
                 </small>
               </div>
             </>
           ) : (
             <>
               <p className="cr-lead" style={{ margin: 0 }}>
-                Converting rewards is <strong>permanent</strong>. Review the
-                total before you confirm.
+                <I18nText en="Converting rewards is" th="การแลกรางวัลเป็น" />{" "}
+                <strong><I18nText en="permanent" th="การถาวร" /></strong>.{" "}
+                <I18nText
+                  en="Review the total before you confirm."
+                  th="ตรวจสอบยอดรวมก่อนยืนยัน"
+                />
               </p>
               {/* summary-only */}
               <div
@@ -1138,26 +1384,41 @@ export function HistoryExperience({
                 }}
               >
                 <span style={{ fontWeight: 700, color: "var(--cr-mint)" }}>
-                  You&apos;ll receive
+                  <I18nText en="You'll receive" th="คุณจะได้รับ" />
                 </span>
                 <strong
                   className="cr-tnum"
                   style={{ fontSize: 18, color: "var(--cr-mint)" }}
                 >
                   <CoinPip size={14} />{" "}
-                  {sellPreparing ? "Calculating…" : `${formatCoins(displayedSellTotal)} coins`}
+                  {sellPreparing
+                    ? localized({ en: "Calculating...", th: "กำลังคำนวณ..." }, language)
+                    : language === "th"
+                      ? `${formatCoins(displayedSellTotal)} เหรียญ`
+                      : `${formatCoins(displayedSellTotal)} coins`}
                 </strong>
               </div>
               <small className="cr-mute">
                 {sellMode === "all_eligible"
-                  ? "All eligible rewards in your Customer Bag will be included."
-                  : `${displayedSellCount} selected reward${
-                      displayedSellCount === 1 ? "" : "s"
-                    } will be included.`}
+                  ? localized(
+                      {
+                        en: "All eligible rewards in your Customer Bag will be included.",
+                        th: "รางวัลที่เข้าเงื่อนไขทั้งหมดในกระเป๋าจะถูกรวมในรายการนี้",
+                      },
+                      language,
+                    )
+                  : language === "th"
+                    ? `รวม ${displayedSellCount} รางวัลที่เลือก`
+                    : `${displayedSellCount} selected reward${
+                        displayedSellCount === 1 ? "" : "s"
+                      } will be included.`}
               </small>
               {sellQuoteExpired ? (
                 <small className="cr-mute">
-                  Quote expired. Refresh the total before converting.
+                  <I18nText
+                    en="Quote expired. Refresh the total before converting."
+                    th="ใบเสนอราคาหมดอายุ คำนวณยอดใหม่ก่อนแลก"
+                  />
                 </small>
               ) : null}
             </>
@@ -1199,7 +1460,11 @@ function CollectionTile({
   selectable: boolean;
   onToggle: () => void;
 }) {
-  const label = card.status === "converting" ? "Converting" : statusLabel(card.bucket);
+  const language = useStoreLanguage();
+  const label =
+    card.status === "converting"
+      ? localized({ en: "Converting", th: "กำลังแลก" }, language)
+      : statusLabel(card.bucket, language);
   return (
     <div
       className={`cr-coll-card ${selected ? "selected" : ""}`}
@@ -1222,11 +1487,11 @@ function CollectionTile({
             unoptimized
           />
         ) : null}
-        <span className="cr-coll-tier">{tierLabel(card.tier)}</span>
+        <span className="cr-coll-tier">{tierLabel(card.tier, language)}</span>
         <QuantityBadge quantity={card.bundleQuantity} />
         <span className={`cr-coll-status ${card.bucket}`}>{label}</span>
         <span className="cr-coll-code">
-          {collectionDisplayCode(card)}
+          {collectionDisplayCode(card, language)}
         </span>
         {selectable && (
           <span className="cr-coll-check">
@@ -1243,20 +1508,26 @@ function CollectionTile({
         ) : null}
         {card.bucket === "owned" && card.sellValueCoins > 0 && (
           <span className="price">
-            <CoinPip size={10} /> Sell for {formatCoins(card.sellValueCoins)}
+            <CoinPip size={10} />{" "}
+            {language === "th"
+              ? `แลกเป็น ${formatCoins(card.sellValueCoins)}`
+              : `Sell for ${formatCoins(card.sellValueCoins)}`}
           </span>
         )}
         {card.bucket === "shipped" && (
           <small className="cr-mute" style={{ marginTop: 4 }}>
-            Shipped {card.acquiredLabel}
+            {language === "th" ? "จัดส่งแล้ว" : "Shipped"} {card.acquiredLabel}
           </small>
         )}
         {card.status === "converting" && (
-          <span className="price">Converting to coins</span>
+          <span className="price">
+            <I18nText en="Converting to coins" th="กำลังแลกเป็นเหรียญ" />
+          </span>
         )}
         {card.bucket === "converted" && card.status !== "converting" && card.sellValueCoins > 0 && (
           <span className="price">
-            +{formatCoins(card.sellValueCoins)} returned
+            +{formatCoins(card.sellValueCoins)}{" "}
+            {language === "th" ? "คืนแล้ว" : "returned"}
           </span>
         )}
       </div>
@@ -1297,6 +1568,7 @@ function ShipModal({
   onQuote: (addressId: string) => void;
   onConfirm: () => void;
 }) {
+  const language = useStoreLanguage();
   const defaultAddress =
     addresses.find((a) => a.isDefault) ?? addresses[0] ?? null;
   const [addressId, setAddressId] = useState<string>(defaultAddress?.id ?? "");
@@ -1341,14 +1613,16 @@ function ShipModal({
         throw new Error(
           isRecord(payload) && typeof payload.error === "string"
             ? payload.error
-            : "Could not save address.",
+            : localized({ en: "Could not save address.", th: "บันทึกที่อยู่ไม่สำเร็จ" }, language),
         );
       }
       const address =
         isRecord(payload) && isRecord(payload.address)
           ? (payload.address as YnotAddress)
           : null;
-      if (!address) throw new Error("Address could not be saved.");
+      if (!address) {
+        throw new Error(localized({ en: "Address could not be saved.", th: "บันทึกที่อยู่ไม่สำเร็จ" }, language));
+      }
       onAddressSaved(address);
       setAddressId(address.id);
       setAddingAddress(false);
@@ -1366,7 +1640,9 @@ function ShipModal({
         deliveryNote: "",
         isDefault: false,
       });
-      setAddressMessage("Address saved and selected.");
+      setAddressMessage(
+        localized({ en: "Address saved and selected.", th: "บันทึกและเลือกที่อยู่นี้แล้ว" }, language),
+      );
     } finally {
       setAddressSavePending(false);
     }
@@ -1385,15 +1661,28 @@ function ShipModal({
     <Modal
       open={open}
       onClose={handleClose}
-      eyebrow="Confirm"
+      eyebrow={<I18nText en="Confirm" th="ยืนยัน" />}
       title={
         progress
-          ? "Preparing shipping request"
+          ? localized(
+              { en: "Preparing shipping request", th: "กำลังเตรียมคำขอจัดส่ง" },
+              language,
+            )
           : quote
-            ? `Request shipping for ${displayedCount} card${displayedCount === 1 ? "" : "s"}?`
+            ? language === "th"
+              ? `ขอจัดส่งการ์ด ${displayedCount} ใบ?`
+              : `Request shipping for ${displayedCount} card${displayedCount === 1 ? "" : "s"}?`
             : mode === "all_eligible"
-              ? "Request shipping for all eligible cards"
-              : `Ship ${cards.length} card${cards.length === 1 ? "" : "s"} to your address`
+              ? localized(
+                  {
+                    en: "Request shipping for all eligible cards",
+                    th: "ขอจัดส่งการ์ดที่เข้าเงื่อนไขทั้งหมด",
+                  },
+                  language,
+                )
+              : language === "th"
+                ? `จัดส่งการ์ด ${cards.length} ใบไปยังที่อยู่ของคุณ`
+                : `Ship ${cards.length} card${cards.length === 1 ? "" : "s"} to your address`
       }
       size="md"
       footer={
@@ -1404,7 +1693,9 @@ function ShipModal({
             onClick={onClose}
             disabled={confirming}
           >
-            {progress.completed ? "Done" : "Close"}
+            {progress.completed
+              ? localized({ en: "Done", th: "เสร็จแล้ว" }, language)
+              : localized({ en: "Close", th: "ปิด" }, language)}
           </button>
         ) : (
           <>
@@ -1414,7 +1705,7 @@ function ShipModal({
             onClick={handleClose}
             disabled={addressSavePending || busy}
           >
-            Cancel
+            <I18nText en="Cancel" th="ยกเลิก" />
           </button>
           <button
             type="button"
@@ -1424,14 +1715,14 @@ function ShipModal({
           >
             <Ico name="truck" size={14} />{" "}
             {preparing
-              ? "Calculating…"
+              ? localized({ en: "Calculating...", th: "กำลังคำนวณ..." }, language)
               : confirming
-                ? "Preparing…"
+                ? localized({ en: "Preparing...", th: "กำลังเตรียม..." }, language)
                 : quote
                   ? quoteExpired
-                    ? "Refresh request"
-                    : "Confirm request"
-                  : "Review shipping"}
+                    ? localized({ en: "Refresh request", th: "คำนวณคำขอใหม่" }, language)
+                    : localized({ en: "Confirm request", th: "ยืนยันคำขอ" }, language)
+                  : localized({ en: "Review shipping", th: "ตรวจสอบการจัดส่ง" }, language)}
           </button>
         </>
         )
@@ -1449,16 +1740,22 @@ function ShipModal({
             }}
           >
             <strong className="cr-tnum" style={{ color: "var(--cr-mint)" }}>
-              {progress.preparedCount} / {progress.itemCount} cards prepared
+              {progress.preparedCount} / {progress.itemCount}{" "}
+              {language === "th" ? "การ์ดที่เตรียมแล้ว" : "cards prepared"}
             </strong>
             <small className="cr-mute">
-              You can leave this page. We&apos;ll keep preparing your shipping request.
+              <I18nText
+                en="You can leave this page. We'll keep preparing your shipping request."
+                th="คุณออกจากหน้านี้ได้ ระบบจะเตรียมคำขอจัดส่งต่อให้"
+              />
             </small>
           </div>
         ) : (
           <p className="cr-lead" style={{ margin: 0 }}>
-            Cards will leave your stash and arrive within 3-5 working days inside
-            Thailand.
+            <I18nText
+              en="Cards will leave your stash and arrive within 3-5 working days inside Thailand."
+              th="การ์ดจะออกจากกระเป๋าของคุณและจัดส่งถึงในประเทศไทยภายใน 3-5 วันทำการ"
+            />
           </p>
         )}
 
@@ -1473,22 +1770,31 @@ function ShipModal({
             }}
           >
             <strong>
-              {displayedCount} card{displayedCount === 1 ? "" : "s"} selected
+              {language === "th"
+                ? `เลือกการ์ด ${displayedCount} ใบ`
+                : `${displayedCount} card${displayedCount === 1 ? "" : "s"} selected`}
             </strong>
             <span className="cr-tnum">
-              <CoinPip size={14} /> {formatCoins(displayedCoinValue)} coin value
+              <CoinPip size={14} /> {formatCoins(displayedCoinValue)}{" "}
+              {language === "th" ? "มูลค่าเหรียญ" : "coin value"}
             </span>
             <small className="cr-mute">
-              Minimum required: {formatCoins(quote.minimumCoinValue)} coins
+              {language === "th" ? "ขั้นต่ำที่ต้องมี:" : "Minimum required:"}{" "}
+              {formatCoins(quote.minimumCoinValue)} {language === "th" ? "เหรียญ" : "coins"}
             </small>
             <small className="cr-mute">
-              Ship to {quote.address.label ?? "selected address"}
+              {language === "th" ? "จัดส่งไปที่" : "Ship to"}{" "}
+              {quote.address.label ??
+                localized({ en: "selected address", th: "ที่อยู่ที่เลือก" }, language)}
               {quote.address.recipientName ? ` | ${quote.address.recipientName}` : ""}
               {quote.address.summary ? ` | ${quote.address.summary}` : ""}
             </small>
             {quoteExpired ? (
               <small className="cr-mute">
-                Quote expired. Refresh the request before confirming.
+                <I18nText
+                  en="Quote expired. Refresh the request before confirming."
+                  th="ใบเสนอราคาหมดอายุ คำนวณคำขอใหม่ก่อนยืนยัน"
+                />
               </small>
             ) : null}
           </div>
@@ -1496,7 +1802,7 @@ function ShipModal({
 
         {!progress ? <div className="cr-stack" style={{ gap: 10 }}>
           <div className="cr-row" style={{ gap: 10, alignItems: "center" }}>
-            <span className="cr-eyebrow">Ship to</span>
+            <span className="cr-eyebrow"><I18nText en="Ship to" th="จัดส่งไปที่" /></span>
             <span style={{ flex: 1 }} />
             <button
               type="button"
@@ -1504,7 +1810,7 @@ function ShipModal({
               onClick={() => setAddingAddress((current) => !current)}
               disabled={busy || addressSavePending || Boolean(quote)}
             >
-              <Ico name="plus" size={12} /> Add a new address
+              <Ico name="plus" size={12} /> <I18nText en="Add a new address" th="เพิ่มที่อยู่ใหม่" />
             </button>
           </div>
 
@@ -1519,10 +1825,13 @@ function ShipModal({
               }}
             >
               <strong style={{ display: "block", marginBottom: 6 }}>
-                No shipping address saved
+                <I18nText en="No shipping address saved" th="ยังไม่มีที่อยู่จัดส่ง" />
               </strong>
               <small className="cr-mute">
-                Add one here and it will be selected for this request.
+                <I18nText
+                  en="Add one here and it will be selected for this request."
+                  th="เพิ่มที่อยู่นี้แล้วระบบจะเลือกให้คำขอนี้"
+                />
               </small>
             </div>
           ) : (
@@ -1565,12 +1874,16 @@ function ShipModal({
                     </div>
                     {!complete && (
                       <small className="cr-mute">
-                        Missing {missingFields.join(", ")}
+                        {language === "th" ? "ขาดข้อมูล" : "Missing"} {missingFields.join(", ")}
                       </small>
                     )}
                     {a.deliveryNote && <small className="cr-mute">{a.deliveryNote}</small>}
                   </div>
-                  {a.isDefault && <span className="cr-pill cr-pill-ink">Default</span>}
+                  {a.isDefault && (
+                    <span className="cr-pill cr-pill-ink">
+                      <I18nText en="Default" th="ค่าเริ่มต้น" />
+                    </span>
+                  )}
                 </label>
               );
             })
@@ -1581,43 +1894,43 @@ function ShipModal({
             <div className="cr-section" style={{ padding: 14 }}>
               <div className="cr-grid-2">
                 <label className="cr-field">
-                  <span>Label</span>
+                  <span><I18nText en="Label" th="ชื่อที่อยู่" /></span>
                   <input value={newAddress.label} onChange={(e) => updateAddressField("label", e.target.value)} />
                 </label>
                 <label className="cr-field">
-                  <span>Recipient name</span>
+                  <span><I18nText en="Recipient name" th="ชื่อผู้รับ" /></span>
                   <input value={newAddress.recipientName} onChange={(e) => updateAddressField("recipientName", e.target.value)} />
                 </label>
                 <label className="cr-field">
-                  <span>Phone</span>
+                  <span><I18nText en="Phone" th="เบอร์โทร" /></span>
                   <input value={newAddress.phone} onChange={(e) => updateAddressField("phone", e.target.value)} />
                 </label>
                 <label className="cr-field cr-field-full">
-                  <span>Address line 1</span>
+                  <span><I18nText en="Address line 1" th="ที่อยู่บรรทัดที่ 1" /></span>
                   <input value={newAddress.addressLine1} onChange={(e) => updateAddressField("addressLine1", e.target.value)} />
                 </label>
                 <label className="cr-field cr-field-full">
-                  <span>Address line 2</span>
+                  <span><I18nText en="Address line 2" th="ที่อยู่บรรทัดที่ 2" /></span>
                   <input value={newAddress.addressLine2} onChange={(e) => updateAddressField("addressLine2", e.target.value)} />
                 </label>
                 <label className="cr-field">
-                  <span>Subdistrict</span>
+                  <span><I18nText en="Subdistrict" th="แขวง/ตำบล" /></span>
                   <input value={newAddress.subdistrict} onChange={(e) => updateAddressField("subdistrict", e.target.value)} />
                 </label>
                 <label className="cr-field">
-                  <span>District</span>
+                  <span><I18nText en="District" th="เขต/อำเภอ" /></span>
                   <input value={newAddress.district} onChange={(e) => updateAddressField("district", e.target.value)} />
                 </label>
                 <label className="cr-field">
-                  <span>Province</span>
+                  <span><I18nText en="Province" th="จังหวัด" /></span>
                   <input value={newAddress.province} onChange={(e) => updateAddressField("province", e.target.value)} />
                 </label>
                 <label className="cr-field">
-                  <span>Postal code</span>
+                  <span><I18nText en="Postal code" th="รหัสไปรษณีย์" /></span>
                   <input value={newAddress.postalCode} onChange={(e) => updateAddressField("postalCode", e.target.value)} />
                 </label>
                 <label className="cr-field">
-                  <span>Country</span>
+                  <span><I18nText en="Country" th="ประเทศ" /></span>
                   <input value={newAddress.country} onChange={(e) => updateAddressField("country", e.target.value)} />
                 </label>
               </div>
@@ -1628,7 +1941,12 @@ function ShipModal({
                   disabled={addresses.length === 0 || addressSavePending}
                   onChange={(e) => updateAddressField("isDefault", e.target.checked)}
                 />
-                <span className="cr-mute">Make this my default shipping address</span>
+                <span className="cr-mute">
+                  <I18nText
+                    en="Make this my default shipping address"
+                    th="ตั้งเป็นที่อยู่จัดส่งเริ่มต้น"
+                  />
+                </span>
               </label>
               <div className="cr-row" style={{ gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
                 <button
@@ -1637,11 +1955,26 @@ function ShipModal({
                   disabled={addressSavePending || busy}
                   onClick={() => {
                     void saveAddress().catch((error) => {
-                      setAddressMessage(error instanceof Error ? error.message : "Could not save address.");
+                      setAddressMessage(
+                        error instanceof Error
+                          ? error.message
+                          : localized(
+                              { en: "Could not save address.", th: "บันทึกที่อยู่ไม่สำเร็จ" },
+                              language,
+                            ),
+                      );
                     });
                   }}
                 >
-                  {addressSavePending ? "Saving…" : "Save and use this address"}
+                  {addressSavePending
+                    ? localized({ en: "Saving...", th: "กำลังบันทึก..." }, language)
+                    : localized(
+                        {
+                          en: "Save and use this address",
+                          th: "บันทึกและใช้ที่อยู่นี้",
+                        },
+                        language,
+                      )}
                 </button>
               </div>
             </div>

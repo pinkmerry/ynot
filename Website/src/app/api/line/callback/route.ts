@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { getLineCallbackUrl, getLineLoginChannelId } from "@/lib/line/config";
 import { linkLineIdentity } from "@/lib/line/link-identity";
 import {
   createSessionCookieValue,
@@ -12,6 +13,7 @@ import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { lineOAuthStateCookie } from "@/lib/line/oauth";
 import { shouldUseSecureCookies } from "@/lib/security/cookies";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -36,10 +38,6 @@ type LineVerifyResponse = {
   email?: string;
 };
 
-function lineChannelId() {
-  return process.env.LINE_LOGIN_CHANNEL_ID ?? process.env.NEXT_PUBLIC_LINE_LIFF_ID?.split("-")[0] ?? "";
-}
-
 function safeNext(value: unknown) {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return "/";
   try {
@@ -52,29 +50,32 @@ function safeNext(value: unknown) {
   }
 }
 
-function siteOrigin(request: Request) {
-  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (configuredSiteUrl) {
-    try {
-      return new URL(configuredSiteUrl).origin;
-    } catch {
-      return null;
-    }
-  }
-  if (process.env.NODE_ENV === "production") return null;
-  return new URL(request.url).origin;
-}
-
-function callbackUrl(request: Request) {
-  const origin = siteOrigin(request);
-  if (!origin) return null;
-  return `${origin}/api/line/callback`;
-}
-
-function redirectWith(request: Request, next: string, key: "error" | "message", value: string) {
+function redirectWith(request: Request, next: string, key: "error" | "message", value: string, code?: string) {
   const responseUrl = new URL(safeNext(next), new URL(request.url).origin);
   responseUrl.searchParams.set(key, value);
+  if (code) responseUrl.searchParams.set("code", code);
   return Response.redirect(responseUrl);
+}
+
+function redirectForRateLimitFailure(request: Request, next: string, response: Response) {
+  if (response.status === 429) {
+    return redirectWith(
+      request,
+      next,
+      "error",
+      "Too many sign-in attempts. Please wait and try again.",
+      "auth_rate_limited",
+    );
+  }
+
+  console.warn("line_oauth_callback_rate_limit_unavailable", response.status);
+  return redirectWith(
+    request,
+    next,
+    "error",
+    "Sign-in is temporarily unavailable. Please try again.",
+    "auth_temporarily_unavailable",
+  );
 }
 
 function parseState(rawState: string | undefined): LineOAuthState | null {
@@ -99,12 +100,7 @@ function parseState(rawState: string | undefined): LineOAuthState | null {
   return null;
 }
 
-async function exchangeCode(request: Request, code: string, channelId: string) {
-  const channelSecret = process.env.LINE_LOGIN_CHANNEL_SECRET;
-  if (!channelSecret) throw new Error("LINE_LOGIN_CHANNEL_SECRET is not configured.");
-  const redirectUri = callbackUrl(request);
-  if (!redirectUri) throw new Error("NEXT_PUBLIC_SITE_URL is required before production LINE login.");
-
+async function exchangeCode(code: string, channelId: string, channelSecret: string, redirectUri: string) {
   const form = new URLSearchParams({
     grant_type: "authorization_code",
     code,
@@ -177,16 +173,49 @@ export async function GET(request: Request) {
     );
   }
 
-  const channelId = lineChannelId();
+  const channelId = getLineLoginChannelId();
   if (!channelId) {
-    return redirectWith(request, storedState.next, "error", "LINE login channel is not configured.");
+    return redirectWith(request, storedState.next, "error", "LINE login is temporarily unavailable. Please try again.", "line_login_unavailable");
+  }
+
+  const channelSecret = process.env.LINE_LOGIN_CHANNEL_SECRET?.trim();
+  const redirectUri = getLineCallbackUrl();
+  if (!channelSecret || !redirectUri) {
+    return redirectWith(request, storedState.next, "error", "LINE login is temporarily unavailable. Please try again.", "line_login_unavailable");
+  }
+
+  const rateLimited = await enforceRateLimit(
+    request,
+    "line:callback",
+    { limit: 20, windowMs: 10 * 60_000 },
+  );
+  if (rateLimited) {
+    return redirectForRateLimitFailure(request, storedState.next, rateLimited);
   }
 
   try {
-    const idToken = await exchangeCode(request, code, channelId);
+    const idToken = await exchangeCode(code, channelId, channelSecret, redirectUri);
     const verified = await verifyIdToken(idToken, channelId, storedState.nonce);
-    const current = await resolveCurrentProfile();
-    const targetProfileId = storedState.mode === "connect" && current?.authSource === "supabase" ? current.profileId : null;
+    const current = await resolveCurrentProfile().catch((error) => {
+      console.warn(
+        "line_oauth_current_profile_resolution_failed",
+        error instanceof Error ? error.message : String(error),
+      );
+      return null;
+    });
+
+    if (storedState.mode === "connect" && current?.authSource !== "supabase") {
+      return redirectWith(
+        request,
+        storedState.next,
+        "error",
+        "Your account connection expired. Sign in with email or Google first, then connect LINE again.",
+        "line_connect_session_required",
+      );
+    }
+
+    const targetProfileId =
+      current?.authSource === "supabase" ? current.profileId : null;
     const linked = await linkLineIdentity(
       {
         lineUserId: verified.sub!,
@@ -200,27 +229,22 @@ export async function GET(request: Request) {
     );
 
     if (linked.status === "merge_required") {
-      // Stay on the page the user started from (e.g. /profile/personal-info)
-      // and show a friendlier message that explains the next step instead of
-      // dumping a raw merge-request ID on the user.
       return redirectWith(
         request,
         storedState.next,
-        "message",
-        "This LINE account is already tied to another YNot account. Support will merge them within 1 business day. Please log in with email in the meantime.",
+        "error",
+        "This account needs review before LINE can be connected. Please contact support.",
+        "identity_review_required",
       );
     }
 
     if (linked.status === "login_required") {
-      // linkLineIdentity refused to create a new LINE profile because the
-      // email on the LINE token already belongs to an existing profile and
-      // there's no active session to merge into. Send the user to the email
-      // sign-in screen with a hint.
       return redirectWith(
         request,
         "/login",
         "error",
-        `An account already exists for ${linked.emailHint}. Please sign in with email or Google, then connect LINE from the profile page.`,
+        "Please sign in with your existing email or Google account, then connect LINE from the profile page.",
+        "line_existing_account_sign_in_required",
       );
     }
 
@@ -245,7 +269,7 @@ export async function GET(request: Request) {
       request,
       storedState.next,
       "message",
-      storedState.mode === "connect" ? "LINE connected to this account." : "Logged in with LINE.",
+      targetProfileId ? "LINE connected to this account." : "Logged in with LINE.",
     );
   } catch (error) {
     console.error("line_oauth_callback_failed", error instanceof Error ? error.message : String(error));

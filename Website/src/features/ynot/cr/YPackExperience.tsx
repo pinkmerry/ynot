@@ -13,6 +13,8 @@ import { createOpenIntentId } from "../open-intent";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { PullAllConfirmModal } from "./PullAllConfirmModal";
 import { Modal, PageHead, useToast } from "./UiKit";
+import { useStoreLanguage } from "../StorePreferences";
+import { I18nText, type Language } from "../i18n";
 
 const SERIES_LABEL: Record<string, string> = {
   pokemon: "Pokemon",
@@ -26,8 +28,34 @@ const SERIES_LABEL: Record<string, string> = {
   multi_sport: "Multi-Sport",
 };
 
+const SERIES_LABEL_TH: Record<string, string> = {
+  pokemon: "Pokemon",
+  one_piece: "One Piece",
+  football: "ฟุตบอลอเมริกัน",
+  basketball: "บาสเกตบอล",
+  soccer: "ฟุตบอล",
+  baseball: "เบสบอล",
+  magical: "เวทมนตร์",
+  super: "ซูเปอร์",
+  multi_sport: "กีฬารวม",
+};
+
 function seriesLabel(series: string): string {
   return SERIES_LABEL[series] ?? series;
+}
+
+function seriesLabelFor(series: string, language: Language): string {
+  if (language === "th") return SERIES_LABEL_TH[series] ?? seriesLabel(series);
+  return seriesLabel(series);
+}
+
+function bilingualSeriesLabel(series: string) {
+  return (
+    <I18nText
+      en={seriesLabel(series)}
+      th={SERIES_LABEL_TH[series] ?? seriesLabel(series)}
+    />
+  );
 }
 
 function seriesGlyph(series: string): string {
@@ -75,9 +103,11 @@ function isLowStock(campaign: YnotCampaign): boolean {
   return stockPercent(campaign) < 20;
 }
 
-function openUnavailableReason(campaign: YnotCampaign): string {
+function openUnavailableReason(campaign: YnotCampaign, language: Language = "en"): string {
   if (campaign.openable) return "";
-  return "This pack is not ready to open yet.";
+  return language === "th"
+    ? "แพ็กนี้ยังไม่พร้อมเปิด"
+    : "This pack is not ready to open yet.";
 }
 
 type SortKey = "recommended" | "price-asc" | "price-desc" | "almost-out";
@@ -139,6 +169,7 @@ export function YPackExperience({
   initialTag = "",
 }: YPackExperienceProps) {
   const router = useRouter();
+  const language = useStoreLanguage();
   const [category, setCategory] = useState<string>(initialSeries);
   const [tag, setTag] = useState<string>(() =>
     resolveInitialTag(initialTag, collectCampaignTags(campaigns)),
@@ -216,13 +247,18 @@ export function YPackExperience({
     <div className="cr-page cr-page--packs">
       <PageHead title="Y-PACKS" />
 
-      <div className="cr-cat-strip" role="tablist" aria-label="Filter by series">
+      <div
+        className="cr-cat-strip"
+        role="tablist"
+        aria-label="Filter by series / ตัวกรองซีรีส์"
+      >
         <button
           type="button"
           className={category === "all" ? "active" : ""}
           onClick={() => setCategory("all")}
         >
-          All <span className="count">{counts.all ?? 0}</span>
+          <I18nText en="All" th="ทั้งหมด" />{" "}
+          <span className="count">{counts.all ?? 0}</span>
         </button>
         {availableSeries.map((series) => (
           <button
@@ -231,7 +267,7 @@ export function YPackExperience({
             className={category === series ? "active" : ""}
             onClick={() => setCategory(series)}
           >
-            {seriesLabel(series)}{" "}
+            {bilingualSeriesLabel(series)}{" "}
             <span className="count">{counts[series] ?? 0}</span>
           </button>
         ))}
@@ -265,37 +301,48 @@ export function YPackExperience({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search a pack name…"
-            aria-label="Search packs"
+            placeholder={language === "th" ? "ค้นหาชื่อแพ็ก..." : "Search a pack name..."}
+            aria-label={language === "th" ? "ค้นหาแพ็ก" : "Search packs"}
           />
           {search && (
             <button
               type="button"
               className="cr-btn cr-btn-ghost cr-btn-icon cr-btn-sm"
               onClick={() => setSearch("")}
-              aria-label="Clear search"
+              aria-label={language === "th" ? "ล้างคำค้นหา" : "Clear search"}
             >
               <Ico name="x" size={12} />
             </button>
           )}
         </div>
         <span className="cr-mute" style={{ fontSize: 12 }}>
-          {filtered.length} pack{filtered.length === 1 ? "" : "s"}
+          <I18nText
+            en={`${filtered.length} pack${filtered.length === 1 ? "" : "s"}`}
+            th={`${filtered.length} แพ็ก`}
+          />
         </span>
         <span style={{ flex: 1 }} />
         <div className="cr-row" style={{ gap: 6 }}>
           <span className="cr-mute" style={{ fontSize: 12, marginRight: 4 }}>
-            Sort
+            <I18nText en="Sort" th="เรียง" />
           </span>
           <select
             className="cr-select"
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
           >
-            <option value="recommended">Recommended</option>
-            <option value="price-asc">Price: low to high</option>
-            <option value="price-desc">Price: high to low</option>
-            <option value="almost-out">Almost sold out</option>
+            <option value="recommended">
+              {language === "th" ? "แนะนำ" : "Recommended"}
+            </option>
+            <option value="price-asc">
+              {language === "th" ? "ราคา: ต่ำไปสูง" : "Price: low to high"}
+            </option>
+            <option value="price-desc">
+              {language === "th" ? "ราคา: สูงไปต่ำ" : "Price: high to low"}
+            </option>
+            <option value="almost-out">
+              {language === "th" ? "ใกล้หมด" : "Almost sold out"}
+            </option>
           </select>
         </div>
       </div>
@@ -306,10 +353,13 @@ export function YPackExperience({
           style={{ padding: 60, textAlign: "center" }}
         >
           <strong style={{ display: "block", fontSize: 14, marginBottom: 6 }}>
-            No packs match your filter
+            <I18nText en="No packs match your filter" th="ไม่มีแพ็กตรงกับตัวกรอง" />
           </strong>
           <small className="cr-mute">
-            Try clearing search or switching category.
+            <I18nText
+              en="Try clearing search or switching category."
+              th="ลองล้างคำค้นหาหรือเปลี่ยนหมวดหมู่"
+            />
           </small>
         </div>
       ) : (
@@ -319,6 +369,7 @@ export function YPackExperience({
               key={campaign.id}
               campaign={campaign}
               balanceCoins={balanceCoins}
+              language={language}
               onOpen={() =>
                 setOpenState({
                   campaign,
@@ -364,11 +415,13 @@ export function YPackExperience({
 function PackCard({
   campaign,
   balanceCoins,
+  language,
   onOpen,
   onPullAll,
 }: {
   campaign: YnotCampaign;
   balanceCoins: number;
+  language: Language;
   onOpen: () => void;
   onPullAll: () => void;
 }) {
@@ -377,7 +430,7 @@ function PackCard({
   const stockClass = pct < 20 ? "crit" : pct < 50 ? "warn" : "";
   const soldOut = isSoldOut(campaign);
   const openable = Boolean(campaign.openable);
-  const unavailableReason = openUnavailableReason(campaign);
+  const unavailableReason = openUnavailableReason(campaign, language);
   const lowStock = isLowStock(campaign);
   const cantAfford = !soldOut && openable && balanceCoins < campaign.costCoins;
   const detailHref = `/packs/${campaign.slug}`;
@@ -406,13 +459,17 @@ function PackCard({
             src={bannerImageUrl}
           />
         ) : null}
-        {isHot && <span className="cr-pack-art-sticker">Hot</span>}
+        {isHot && (
+          <span className="cr-pack-art-sticker">
+            <I18nText en="Hot" th="ฮอต" />
+          </span>
+        )}
         {soldOut && (
           <span
             className="cr-pack-art-sticker"
             style={{ background: "var(--cr-ink)", color: "#fff" }}
           >
-            Sold out
+            <I18nText en="Sold out" th="หมดแล้ว" />
           </span>
         )}
         {lowStock && !soldOut && (
@@ -423,7 +480,7 @@ function PackCard({
               color: "var(--cr-rose)",
             }}
           >
-            Low
+            <I18nText en="Low" th="เหลือน้อย" />
           </span>
         )}
         {!soldOut && (
@@ -434,7 +491,7 @@ function PackCard({
         {!hasBannerImage && (
           <div className="cr-pack-art-fallback">
             <div className="cr-pack-art-eyebrow">
-              {seriesLabel(campaign.series).toUpperCase()}
+              {seriesLabelFor(campaign.series, language).toUpperCase()}
             </div>
             <div className="cr-pack-art-glyph">
               {seriesGlyph(campaign.series)}
@@ -444,7 +501,7 @@ function PackCard({
       </Link>
       <div className="cr-pack-card-body">
         <div>
-          <div className="cr-pack-series">{seriesLabel(campaign.series)}</div>
+          <div className="cr-pack-series">{bilingualSeriesLabel(campaign.series)}</div>
           <h4 className="cr-pack-card-title">
             {campaign.titleEn || campaign.titleTh}
           </h4>
@@ -462,7 +519,7 @@ function PackCard({
                 fontWeight: 600,
               }}
             >
-              /pack
+              <I18nText en="/pack" th="/แพ็ก" />
             </small>
           </span>
           <div className="cr-pack-card-actions">
@@ -470,7 +527,7 @@ function PackCard({
               className="cr-pack-card-cta cr-pack-card-cta-ghost"
               href={detailHref}
             >
-              Detail
+              <I18nText en="Detail" th="รายละเอียด" />
             </Link>
             {pullAllAvailable && !cantAfford ? (
               <button
@@ -478,7 +535,7 @@ function PackCard({
                 className="cr-pack-card-cta cr-pack-card-cta-pull-all cr-pull-all-action"
                 onClick={onPullAll}
               >
-                Pull All
+                <I18nText en="Pull All" th="เปิดทั้งหมด" />
               </button>
             ) : null}
             {soldOut ? (
@@ -488,7 +545,7 @@ function PackCard({
                 aria-disabled="true"
                 disabled
               >
-                Sold out
+                <I18nText en="Sold out" th="หมดแล้ว" />
               </button>
             ) : !openable ? (
               <button
@@ -498,11 +555,11 @@ function PackCard({
                 disabled
                 title={unavailableReason}
               >
-                Not ready
+                <I18nText en="Not ready" th="ยังไม่พร้อม" />
               </button>
             ) : cantAfford ? (
               <Link href="/wallet" className="cr-pack-card-cta">
-                Top up
+                <I18nText en="Top up" th="เติมเหรียญ" />
               </Link>
             ) : (
               <button
@@ -510,7 +567,7 @@ function PackCard({
                 className="cr-pack-card-cta"
                 onClick={onOpen}
               >
-                Open
+                <I18nText en="Open" th="เปิด" />
               </button>
             )}
           </div>
@@ -535,6 +592,7 @@ function OpenPackModal({
 }) {
   const router = useRouter();
   const { toast } = useToast();
+  const language = useStoreLanguage();
   const [submitting, setSubmitting] = useState(false);
 
   if (!state) return null;
@@ -550,7 +608,7 @@ function OpenPackModal({
   const enoughCoins = balanceCoins >= totalCost;
   const enoughStock = qty <= openableQuantityLimit;
   const openable = Boolean(campaign.openable);
-  const unavailableReason = openUnavailableReason(campaign);
+  const unavailableReason = openUnavailableReason(campaign, language);
   const pullAllAvailable = campaign.pullAllAvailable === true && openable;
 
   function handleConfirm() {
@@ -559,11 +617,21 @@ function OpenPackModal({
       return;
     }
     if (!enoughCoins) {
-      toast("error", `Need ${formatCoins(totalCost - balanceCoins)} more coins`);
+      toast(
+        "error",
+        language === "th"
+          ? `ต้องการอีก ${formatCoins(totalCost - balanceCoins)} เหรียญ`
+          : `Need ${formatCoins(totalCost - balanceCoins)} more coins`,
+      );
       return;
     }
     if (!enoughStock) {
-      toast("error", `Only ${openableQuantityLimit} openable packs left.`);
+      toast(
+        "error",
+        language === "th"
+          ? `เหลือแพ็กที่เปิดได้เพียง ${openableQuantityLimit} แพ็ก`
+          : `Only ${openableQuantityLimit} openable packs left.`,
+      );
       return;
     }
     setSubmitting(true);
@@ -584,8 +652,12 @@ function OpenPackModal({
     <Modal
       open
       onClose={onClose}
-      eyebrow="Confirm"
-      title={`Open ${campaign.titleEn || campaign.titleTh}`}
+      eyebrow={<I18nText en="Confirm" th="ยืนยัน" />}
+      title={
+        <>
+          <I18nText en="Open" th="เปิด" /> {campaign.titleEn || campaign.titleTh}
+        </>
+      }
       size="md"
       footer={
         <>
@@ -595,7 +667,7 @@ function OpenPackModal({
             onClick={onClose}
             disabled={submitting}
           >
-            Cancel
+            <I18nText en="Cancel" th="ยกเลิก" />
           </button>
           <button
             type="button"
@@ -606,10 +678,20 @@ function OpenPackModal({
           >
             <CoinPip size={14} />{" "}
             {!openable
-              ? "Not ready"
+              ? <I18nText en="Not ready" th="ยังไม่พร้อม" />
               : enoughCoins
-                ? `Spend ${formatCoins(totalCost)} coins`
-                : `Need ${formatCoins(totalCost - balanceCoins)} more coins`}
+                ? (
+                    <I18nText
+                      en={`Spend ${formatCoins(totalCost)} coins`}
+                      th={`ใช้ ${formatCoins(totalCost)} เหรียญ`}
+                    />
+                  )
+                : (
+                    <I18nText
+                      en={`Need ${formatCoins(totalCost - balanceCoins)} more coins`}
+                      th={`ต้องการอีก ${formatCoins(totalCost - balanceCoins)} เหรียญ`}
+                    />
+                  )}
           </button>
         </>
       }
@@ -636,13 +718,17 @@ function OpenPackModal({
             </span>
           </div>
           <div className="cr-stack" style={{ gap: 4, flex: 1, minWidth: 0 }}>
-            <small className="cr-eyebrow">{seriesLabel(campaign.series)}</small>
+            <small className="cr-eyebrow">{bilingualSeriesLabel(campaign.series)}</small>
             <strong style={{ fontSize: 15 }}>
               {campaign.titleEn || campaign.titleTh}
             </strong>
             <small className="cr-mute">
-              {remaining} of {campaign.totalSlots} packs left ·{" "}
-              <CoinPip size={11} /> {formatCoins(campaign.costCoins)}/pack
+              <I18nText
+                en={`${remaining} of ${campaign.totalSlots} packs left`}
+                th={`เหลือ ${remaining} จาก ${campaign.totalSlots} แพ็ก`}
+              />{" "}
+              · <CoinPip size={11} /> {formatCoins(campaign.costCoins)}
+              <I18nText en="/pack" th="/แพ็ก" />
             </small>
           </div>
         </div>
@@ -652,7 +738,7 @@ function OpenPackModal({
             className="cr-eyebrow"
             style={{ display: "block", marginBottom: 8, textAlign: "center" }}
           >
-            How many?
+            <I18nText en="How many?" th="เปิดกี่แพ็ก?" />
           </span>
           <div
             className="cr-dock-qty"
@@ -673,7 +759,9 @@ function OpenPackModal({
                   disabled={!quantityAvailable}
                   title={
                     !quantityAvailable
-                      ? `Only ${openableQuantityLimit} openable packs left`
+                      ? language === "th"
+                        ? `เหลือแพ็กที่เปิดได้เพียง ${openableQuantityLimit} แพ็ก`
+                        : `Only ${openableQuantityLimit} openable packs left`
                       : ""
                   }
                 >
@@ -686,9 +774,13 @@ function OpenPackModal({
                 type="button"
                 className="cr-dock-qty-btn cr-dock-qty-btn-all cr-pull-all-action"
                 onClick={() => onPullAll(campaign)}
-                title="Pull all remaining packs with a server quote"
+                title={
+                  language === "th"
+                    ? "เปิดแพ็กที่เหลือทั้งหมดด้วยราคาที่ระบบคำนวณ"
+                    : "Pull all remaining packs with a server quote"
+                }
               >
-                Pull All
+                <I18nText en="Pull All" th="เปิดทั้งหมด" />
               </button>
             )}
           </div>
@@ -707,7 +799,7 @@ function OpenPackModal({
             style={{ justifyContent: "space-between", padding: "3px 0" }}
           >
             <span className="cr-mute" style={{ fontSize: 12.5 }}>
-              Total cost
+              <I18nText en="Total cost" th="ยอดรวม" />
             </span>
             <strong
               className="cr-tnum"
@@ -721,7 +813,7 @@ function OpenPackModal({
             style={{ justifyContent: "space-between", padding: "3px 0" }}
           >
             <span className="cr-mute" style={{ fontSize: 12.5 }}>
-              Your balance
+              <I18nText en="Your balance" th="ยอดคงเหลือ" />
             </span>
             <strong className="cr-tnum">{formatCoins(balanceCoins)}c</strong>
           </div>
@@ -730,7 +822,7 @@ function OpenPackModal({
             style={{ justifyContent: "space-between", padding: "3px 0" }}
           >
             <span className="cr-mute" style={{ fontSize: 12.5 }}>
-              Balance after open
+              <I18nText en="Balance after open" th="ยอดหลังเปิด" />
             </span>
             <strong
               className="cr-tnum"

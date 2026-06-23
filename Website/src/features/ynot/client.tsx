@@ -13,6 +13,8 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CoinMark } from "./cr/Icons";
+import { useStoreLanguage } from "./StorePreferences";
+import { I18nText, localized } from "./i18n";
 import type { CardCatalogItem, ProfileInfo } from "@/lib/lucky-draw/types";
 import type { Database } from "@/lib/supabase/types";
 import type {
@@ -822,19 +824,37 @@ function pullAllRevealResult(
   };
 }
 
-function pullAllRevealSummaryNote(session: PullAllStartedSession) {
+function pullAllRevealSummaryNote(session: PullAllStartedSession, language: "en" | "th") {
   const total = Math.max(0, Math.floor(session.totalPurchasedRewards));
   const shown = Math.min(
     session.highlights.length,
     PULL_ALL_REVEAL_ITEM_LIMIT,
   );
   if (shown > 0 && total > shown) {
-    return `Showing top ${shown.toLocaleString()} rewards. All ${total.toLocaleString()} rewards are already in your bag.`;
+    return localized(
+      {
+        en: `Showing top ${shown.toLocaleString()} rewards. All ${total.toLocaleString()} rewards are already in your bag.`,
+        th: `แสดงรางวัลเด่น ${shown.toLocaleString("th-TH")} รายการ รางวัลทั้งหมด ${total.toLocaleString("th-TH")} รายการอยู่ในกระเป๋าแล้ว`,
+      },
+      language,
+    );
   }
   if (total > 0) {
-    return `All ${total.toLocaleString()} rewards are already in your bag.`;
+    return localized(
+      {
+        en: `All ${total.toLocaleString()} rewards are already in your bag.`,
+        th: `รางวัลทั้งหมด ${total.toLocaleString("th-TH")} รายการอยู่ในกระเป๋าแล้ว`,
+      },
+      language,
+    );
   }
-  return "Rewards are already in your bag.";
+  return localized(
+    {
+      en: "Rewards are already in your bag.",
+      th: "รางวัลอยู่ในกระเป๋าแล้ว",
+    },
+    language,
+  );
 }
 
 function quantityDisabledForState(
@@ -874,6 +894,7 @@ export function GachaOpenPanel({
   immersive?: boolean;
 }) {
   const router = useRouter();
+  const language = useStoreLanguage();
   const openQuantityOptions = normalizeOpenQuantityOptions(
     campaign.openQuantityOptions,
   );
@@ -889,11 +910,17 @@ export function GachaOpenPanel({
     !autoStart
       ? ""
       : !authenticated
-        ? "Login is required."
+        ? localized({ en: "Login is required.", th: "ต้องเข้าสู่ระบบก่อน" }, language)
         : campaign.demo || !campaign.openable
-          ? "This pack is not openable right now."
+          ? localized(
+              { en: "This pack is not openable right now.", th: "แพ็กนี้ยังเปิดไม่ได้ในตอนนี้" },
+              language,
+            )
           : quantityDisabledForState(initialOption, initialRemainingState)
-            ? "This quantity is not openable right now."
+            ? localized(
+                { en: "This quantity is not openable right now.", th: "จำนวนนี้ยังเปิดไม่ได้ในตอนนี้" },
+                language,
+              )
             : "";
   const [quantity, setQuantity] = useState(initialOption);
   const [message, setMessage] = useState(initialAutoStartBlockedMessage);
@@ -959,7 +986,15 @@ export function GachaOpenPanel({
           applyPullAllSession(session);
           setMessage("");
         } else {
-          setMessage("Pull All started, but the reveal is not ready yet.");
+          setMessage(
+            localized(
+              {
+                en: "Pull All started, but the reveal is not ready yet.",
+                th: "เริ่ม Pull All แล้ว แต่หน้ารอเปิดรางวัลยังไม่พร้อม",
+              },
+              language,
+            ),
+          );
         }
       })
       .catch((error) => {
@@ -967,7 +1002,10 @@ export function GachaOpenPanel({
         setMessage(
           error instanceof Error
             ? error.message
-            : "Could not load Pull All reveal.",
+            : localized(
+                { en: "Could not load Pull All reveal.", th: "โหลดหน้ารอเปิด Pull All ไม่สำเร็จ" },
+                language,
+              ),
         );
       })
       .finally(() => {
@@ -976,7 +1014,7 @@ export function GachaOpenPanel({
     return () => {
       active = false;
     };
-  }, [applyPullAllSession, pullAllReveal]);
+  }, [applyPullAllSession, language, pullAllReveal]);
 
   const pullAllRevealPublicCode = pullAllRevealSession?.publicCode ?? "";
   const pullAllRevealStatus = pullAllRevealSession?.status ?? "";
@@ -1032,13 +1070,23 @@ export function GachaOpenPanel({
           setRevealResult(result);
         } else {
           setOpeningOverlayVisible(false);
-          setMessage("Open succeeded but no items were returned.");
+          setMessage(
+            localized(
+              {
+                en: "Open succeeded but no items were returned.",
+                th: "เปิดแพ็กสำเร็จ แต่ระบบไม่ส่งรายการรางวัลกลับมา",
+              },
+              language,
+            ),
+          );
         }
       } catch (error) {
         setOpeningOverlayVisible(false);
         setMessage(
           retryAfterMessage(error) ??
-            (error instanceof Error ? error.message : "Could not open gacha."),
+            (error instanceof Error
+              ? error.message
+              : localized({ en: "Could not open gacha.", th: "เปิดแพ็กไม่สำเร็จ" }, language)),
         );
       } finally {
         openRequestInFlightRef.current = false;
@@ -1178,8 +1226,8 @@ export function GachaOpenPanel({
       onFinish={handlePullAllRevealFinish}
       openAgainOptions={[]}
       remainingSlots={0}
-      summaryTitle="Top rewards"
-      summaryNote={pullAllRevealSummaryNote(pullAllRevealSession)}
+      summaryTitle={<I18nText en="Top rewards" th="รางวัลเด่น" />}
+      summaryNote={pullAllRevealSummaryNote(pullAllRevealSession, language)}
     />
   ) : null;
 
@@ -1189,7 +1237,7 @@ export function GachaOpenPanel({
         className="gacha-auto-open-overlay"
         role="status"
         aria-live="polite"
-        aria-label="Opening pack"
+        aria-label={localized({ en: "Opening pack", th: "กำลังเปิดแพ็ก" }, language)}
       >
         <div className="gacha-auto-open-loader" aria-hidden="true">
           <span />
@@ -1205,7 +1253,10 @@ export function GachaOpenPanel({
         className="gacha-auto-open-overlay cr-pull-all-reveal-wait"
         role="status"
         aria-live="polite"
-        aria-label="Pull All rewards are landing"
+        aria-label={localized(
+          { en: "Pull All rewards are landing", th: "รางวัล Pull All กำลังเข้ากระเป๋า" },
+          language,
+        )}
       >
         <div className="gacha-auto-open-loader" aria-hidden="true">
           <span />
@@ -1213,14 +1264,20 @@ export function GachaOpenPanel({
           <span />
         </div>
         <div className="cr-pull-all-reveal-wait-copy">
-          <p>Pull All rewards are landing</p>
+          <p>
+            <I18nText en="Pull All rewards are landing" th="รางวัล Pull All กำลังเข้ากระเป๋า" />
+          </p>
           {pullAllRevealSession ? (
             <strong>
-              {pullAllRevealSession.landedRewards.toLocaleString()} of{" "}
-              {pullAllRevealSession.totalPurchasedRewards.toLocaleString()} in bag
+              {pullAllRevealSession.landedRewards.toLocaleString()}{" "}
+              {language === "th" ? "จาก" : "of"}{" "}
+              {pullAllRevealSession.totalPurchasedRewards.toLocaleString()}{" "}
+              <I18nText en="in bag" th="เข้ากระเป๋าแล้ว" />
             </strong>
           ) : (
-            <strong>Loading reveal...</strong>
+            <strong>
+              <I18nText en="Loading reveal..." th="กำลังโหลดหน้ารอเปิดรางวัล..." />
+            </strong>
           )}
         </div>
       </div>
@@ -1232,18 +1289,22 @@ export function GachaOpenPanel({
     !pullAllRevealLoading &&
     !pullAllRevealSession ? (
       <div className="gacha-open-error-panel" role="alert">
-        <p className="gacha-open-error-eyebrow">Open stopped</p>
-        <h2>Could not open this pull</h2>
+        <p className="gacha-open-error-eyebrow">
+          <I18nText en="Open stopped" th="การเปิดหยุดลง" />
+        </p>
+        <h2>
+          <I18nText en="Could not open this pull" th="เปิดรอบนี้ไม่สำเร็จ" />
+        </h2>
         <p>{message}</p>
         <div className="gacha-open-error-actions">
           <Link
             className="gacha-open-error-action is-primary"
             href={`/packs/${campaign.slug}`}
           >
-            Back to pack detail
+            <I18nText en="Back to pack detail" th="กลับไปหน้ารายละเอียดแพ็ก" />
           </Link>
           <Link className="gacha-open-error-action" href="/wallet">
-            Top up coins
+            <I18nText en="Top up coins" th="เติมเหรียญ" />
           </Link>
         </div>
       </div>
@@ -1271,6 +1332,7 @@ export function GachaOpenPanel({
 }
 
 export function AddressForm({ addresses, onAddressSaved }: { addresses: YnotAddress[]; onAddressSaved?: (address: YnotAddress) => void }) {
+  const language = useStoreLanguage();
   const [label, setLabel] = useState("Home");
   const [recipientName, setRecipientName] = useState("");
   const [phone, setPhone] = useState("");
@@ -1311,22 +1373,32 @@ export function AddressForm({ addresses, onAddressSaved }: { addresses: YnotAddr
           setProvince("");
           setPostalCode("");
           setCountry("Thailand");
-          setMessage("Address saved and selected.");
+          setMessage(
+            localized(
+              { en: "Address saved and selected.", th: "บันทึกและเลือกที่อยู่นี้แล้ว" },
+              language,
+            ),
+          );
           return;
         }
-        setMessage("Address saved.");
+        setMessage(localized({ en: "Address saved.", th: "บันทึกที่อยู่แล้ว" }, language));
       } catch (error) {
         setMessage(
           error instanceof Error
             ? error.message
-            : "Address could not be saved.",
+            : localized(
+                { en: "Address could not be saved.", th: "บันทึกที่อยู่ไม่สำเร็จ" },
+                language,
+              ),
         );
       }
     });
   }
   return (
     <section className="soft-card address-card">
-      <h3 className="text-lg font-black">Saved shipping address</h3>
+      <h3 className="text-lg font-black">
+        <I18nText en="Saved shipping address" th="ที่อยู่จัดส่งที่บันทึกไว้" />
+      </h3>
       <div className="saved-address-list mt-5 grid gap-3">
         {addresses.map((address) => (
           <div
@@ -1334,7 +1406,12 @@ export function AddressForm({ addresses, onAddressSaved }: { addresses: YnotAddr
             className="saved-address-card rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-sm"
           >
             <p className="font-black">
-              {address.label} {address.isDefault ? "· default" : ""}
+              {address.label}{" "}
+              {address.isDefault
+                ? language === "th"
+                  ? "· ค่าเริ่มต้น"
+                  : "· default"
+                : ""}
             </p>
             <p className="text-[var(--muted)]">
               {address.addressLine1}, {address.district}, {address.province}{" "}
@@ -1346,64 +1423,64 @@ export function AddressForm({ addresses, onAddressSaved }: { addresses: YnotAddr
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <input
           className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-          placeholder="Label"
+          placeholder={language === "th" ? "ชื่อที่อยู่" : "Label"}
           value={label}
           onChange={(event) => setLabel(event.target.value)}
         />
         <input
           className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-          placeholder="Recipient name"
+          placeholder={language === "th" ? "ชื่อผู้รับ" : "Recipient name"}
           value={recipientName}
           onChange={(event) => setRecipientName(event.target.value)}
         />
         <input
           className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-          placeholder="Phone"
+          placeholder={language === "th" ? "เบอร์โทร" : "Phone"}
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
         />
       </div>
       <input
         className="mt-3 h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4"
-        placeholder="Address line 1"
+        placeholder={language === "th" ? "ที่อยู่บรรทัดที่ 1" : "Address line 1"}
         value={addressLine1}
         onChange={(event) => setAddressLine1(event.target.value)}
       />
       <input
         className="mt-3 h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4"
-        placeholder="Address line 2"
+        placeholder={language === "th" ? "ที่อยู่บรรทัดที่ 2" : "Address line 2"}
         value={addressLine2}
         onChange={(event) => setAddressLine2(event.target.value)}
       />
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <input
           className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-          placeholder="Subdistrict"
+          placeholder={language === "th" ? "แขวง/ตำบล" : "Subdistrict"}
           value={subdistrict}
           onChange={(event) => setSubdistrict(event.target.value)}
         />
         <input
           className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-          placeholder="District"
+          placeholder={language === "th" ? "เขต/อำเภอ" : "District"}
           value={district}
           onChange={(event) => setDistrict(event.target.value)}
         />
         <input
           className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-          placeholder="Province"
+          placeholder={language === "th" ? "จังหวัด" : "Province"}
           value={province}
           onChange={(event) => setProvince(event.target.value)}
         />
         <input
           className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-          placeholder="Postal code"
+          placeholder={language === "th" ? "รหัสไปรษณีย์" : "Postal code"}
           value={postalCode}
           onChange={(event) => setPostalCode(event.target.value)}
         />
       </div>
       <input
         className="mt-3 h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4"
-        placeholder="Country"
+        placeholder={language === "th" ? "ประเทศ" : "Country"}
         value={country}
         onChange={(event) => setCountry(event.target.value)}
       />
@@ -1413,7 +1490,9 @@ export function AddressForm({ addresses, onAddressSaved }: { addresses: YnotAddr
         onClick={submit}
         type="button"
       >
-        {isPending ? "Saving..." : "Save address"}
+        {isPending
+          ? localized({ en: "Saving...", th: "กำลังบันทึก..." }, language)
+          : localized({ en: "Save address", th: "บันทึกที่อยู่" }, language)}
       </button>
       {message && (
         <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-bold">
@@ -1832,6 +1911,7 @@ export function CollectionConvertPanel({
   autoConvertOnLoad?: boolean;
 }) {
   const router = useRouter();
+  const language = useStoreLanguage();
   const ownedItems = useMemo(
     () => collection.filter((item) => item.status === "owned"),
     [collection],
@@ -1947,14 +2027,26 @@ export function CollectionConvertPanel({
     if (conversionActive) {
       setMessage({
         tone: "error",
-        text: "Finish the active conversion before starting another request.",
+        text: localized(
+          {
+            en: "Finish the active conversion before starting another request.",
+            th: "ทำรายการแลกเหรียญที่กำลังดำเนินการให้เสร็จก่อนเริ่มคำขอใหม่",
+          },
+          language,
+        ),
       });
       return;
     }
     if (shippingActive) {
       setMessage({
         tone: "error",
-        text: "Finish the active shipping request before converting rewards.",
+        text: localized(
+          {
+            en: "Finish the active shipping request before converting rewards.",
+            th: "ทำคำขอจัดส่งที่กำลังดำเนินการให้เสร็จก่อนแลกรางวัล",
+          },
+          language,
+        ),
       });
       return;
     }
@@ -1963,7 +2055,12 @@ export function CollectionConvertPanel({
         setMessage(null);
         setShowConvertConfirm(false);
         if (!selectedConvertableItems.length) {
-          throw new Error("Pick at least one convertible card.");
+          throw new Error(
+            localized(
+              { en: "Pick at least one convertible card.", th: "เลือกการ์ดที่แลกได้อย่างน้อย 1 ใบ" },
+              language,
+            ),
+          );
         }
         const quotePayload = await postJson("/api/ynot/collection/convert", {
           intent: "quote",
@@ -1978,7 +2075,9 @@ export function CollectionConvertPanel({
           quote && typeof quote.quoteToken === "string"
             ? quote.quoteToken
             : "";
-        if (!quoteToken) throw new Error("Convert failed.");
+        if (!quoteToken) {
+          throw new Error(localized({ en: "Convert failed.", th: "แลกเหรียญไม่สำเร็จ" }, language));
+        }
 
         const payload = await postJson("/api/ynot/collection/convert", {
           intent: "start",
@@ -1995,16 +2094,21 @@ export function CollectionConvertPanel({
         );
         setMessage({
           tone: "success",
-          text: `Converting ${selectedConvertableItems.length} card${
-            selectedConvertableItems.length === 1 ? "" : "s"
-          }. ${totalCoins.toLocaleString()} coins will be credited as it finishes.`,
+          text:
+            language === "th"
+              ? `กำลังแลกการ์ด ${selectedConvertableItems.length} ใบ ระบบจะเพิ่ม ${totalCoins.toLocaleString()} เหรียญเมื่อเสร็จ`
+              : `Converting ${selectedConvertableItems.length} card${
+                  selectedConvertableItems.length === 1 ? "" : "s"
+                }. ${totalCoins.toLocaleString()} coins will be credited as it finishes.`,
         });
         setSelected(new Set());
         router.refresh();
       } catch (error) {
         setMessage({
           tone: "error",
-          text: error instanceof Error ? error.message : "Convert failed.",
+          text: error instanceof Error
+            ? error.message
+            : localized({ en: "Convert failed.", th: "แลกเหรียญไม่สำเร็จ" }, language),
         });
       }
     });
@@ -2024,7 +2128,13 @@ export function CollectionConvertPanel({
     if (conversionActive) {
       setMessage({
         tone: "error",
-        text: "Finish the active conversion before requesting shipping.",
+        text: localized(
+          {
+            en: "Finish the active conversion before requesting shipping.",
+            th: "ทำรายการแลกเหรียญที่กำลังดำเนินการให้เสร็จก่อนขอจัดส่ง",
+          },
+          language,
+        ),
       });
       return;
     }
@@ -2032,7 +2142,15 @@ export function CollectionConvertPanel({
       try {
         setMessage(null);
         if (!isCompleteShippingAddress(selectedAddress)) {
-          throw new Error("Save and pick a complete shipping address first.");
+          throw new Error(
+            localized(
+              {
+                en: "Save and pick a complete shipping address first.",
+                th: "บันทึกและเลือกที่อยู่จัดส่งให้ครบถ้วนก่อน",
+              },
+              language,
+            ),
+          );
         }
         const shippingSelectionMode: "selected" | "all_eligible" =
           selectedItems.length > 0 ? "selected" : "all_eligible";
@@ -2048,7 +2166,15 @@ export function CollectionConvertPanel({
         });
         const quote = panelShippingQuoteFromPayload(payload);
         if (!quote || quote.itemCount === 0) {
-          throw new Error("No eligible rewards are ready for shipping.");
+          throw new Error(
+            localized(
+              {
+                en: "No eligible rewards are ready for shipping.",
+                th: "ยังไม่มีรางวัลที่พร้อมจัดส่ง",
+              },
+              language,
+            ),
+          );
         }
         setShippingQuote(quote);
       } catch (error) {
@@ -2056,7 +2182,12 @@ export function CollectionConvertPanel({
         setMessage({
           tone: "error",
           text:
-            error instanceof Error ? error.message : "Shipping request failed.",
+            error instanceof Error
+              ? error.message
+              : localized(
+                  { en: "Shipping request failed.", th: "ส่งคำขอจัดส่งไม่สำเร็จ" },
+                  language,
+                ),
         });
       } finally {
         setShippingQuoteLoading(false);
@@ -2069,7 +2200,13 @@ export function CollectionConvertPanel({
     if (conversionActive) {
       setMessage({
         tone: "error",
-        text: "Finish the active conversion before requesting shipping.",
+        text: localized(
+          {
+            en: "Finish the active conversion before requesting shipping.",
+            th: "ทำรายการแลกเหรียญที่กำลังดำเนินการให้เสร็จก่อนขอจัดส่ง",
+          },
+          language,
+        ),
       });
       return;
     }
@@ -2080,7 +2217,13 @@ export function CollectionConvertPanel({
     if (panelShippingQuoteIsExpired(shippingQuote)) {
       setMessage({
         tone: "success",
-        text: "Shipping quote expired. Recalculating the latest request.",
+        text: localized(
+          {
+            en: "Shipping quote expired. Recalculating the latest request.",
+            th: "ใบเสนอราคาจัดส่งหมดอายุ กำลังคำนวณคำขอล่าสุด",
+          },
+          language,
+        ),
       });
       void openShippingConfirm();
       return;
@@ -2095,16 +2238,27 @@ export function CollectionConvertPanel({
           idempotencyKey: crypto.randomUUID(),
         });
         const progress = panelShippingProgressFromPayload(payload);
-        if (!progress) throw new Error("Shipping request failed.");
+        if (!progress) {
+          throw new Error(
+            localized(
+              { en: "Shipping request failed.", th: "ส่งคำขอจัดส่งไม่สำเร็จ" },
+              language,
+            ),
+          );
+        }
         setShippingProgress(progress);
         setSelected(new Set());
         setMessage({
           tone: "success",
           text: progress.completed
-            ? `Shipping request ${progress.publicCode || "created"} submitted.`
-            : `Preparing shipping request ${
-                progress.publicCode || ""
-              }. You can leave this page while it finishes.`,
+            ? language === "th"
+              ? `ส่งคำขอจัดส่ง ${progress.publicCode || "แล้ว"}`
+              : `Shipping request ${progress.publicCode || "created"} submitted.`
+            : language === "th"
+              ? `กำลังเตรียมคำขอจัดส่ง ${progress.publicCode || ""} คุณออกจากหน้านี้ได้ระหว่างระบบดำเนินการ`
+              : `Preparing shipping request ${
+                  progress.publicCode || ""
+                }. You can leave this page while it finishes.`,
         });
         startTransition(() => {
           router.refresh();
@@ -2112,7 +2266,12 @@ export function CollectionConvertPanel({
       } catch (error) {
         setMessage({
           tone: "error",
-          text: error instanceof Error ? error.message : "Shipping request failed.",
+          text: error instanceof Error
+            ? error.message
+            : localized(
+                { en: "Shipping request failed.", th: "ส่งคำขอจัดส่งไม่สำเร็จ" },
+                language,
+              ),
         });
       } finally {
         setShippingConfirming(false);
@@ -2223,18 +2382,23 @@ export function CollectionConvertPanel({
     return (
       <section className="collection-convert-shell collection-convert-empty">
         <h3 className="collection-convert-empty-title">
-          No real collection rewards yet
+          <I18nText en="No real collection rewards yet" th="ยังไม่มีรางวัลในคอลเลกชัน" />
         </h3>
         <p className="collection-convert-empty-body">
-          Open a live pack first. Rewards you pull will appear here with their
-          convert-to-coin value and request deadline.
+          <I18nText
+            en="Open a live pack first. Rewards you pull will appear here with their convert-to-coin value and request deadline."
+            th="เปิดแพ็กจริงก่อน รางวัลที่คุณเปิดได้จะแสดงที่นี่พร้อมมูลค่าแลกเหรียญและกำหนดเวลา"
+          />
         </p>
       </section>
     );
   }
 
   return (
-    <section className="collection-convert-shell" aria-label="Collection">
+    <section
+      className="collection-convert-shell"
+      aria-label={localized({ en: "Collection", th: "คอลเลกชัน" }, language)}
+    >
       <div className="collection-convert-list" role="list">
         {ownedItems.map((item) => {
           const isSelected = selected.has(item.id);
@@ -2278,7 +2442,7 @@ export function CollectionConvertPanel({
                     ) : null}
                     {item.sourceIsLastPrize ? (
                       <span className="collection-convert-grade-pill is-last-prize">
-                        Last Prize
+                        <I18nText en="Last Prize" th="รางวัลสุดท้าย" />
                       </span>
                     ) : null}
                     {item.cardCode ? (
@@ -2287,13 +2451,15 @@ export function CollectionConvertPanel({
                       </span>
                     ) : (
                       <span className="collection-convert-row-code">
-                        {item.serialNo ?? "Collection reward"}
+                        {item.serialNo ??
+                          localized({ en: "Collection reward", th: "รางวัลในคอลเลกชัน" }, language)}
                       </span>
                     )}
                   </div>
                   {item.sourceCampaignTitle ? (
                     <p className="collection-convert-row-source">
-                      from {item.sourceCampaignTitle}
+                      {language === "th" ? "จาก " : "from "}
+                      {item.sourceCampaignTitle}
                     </p>
                   ) : null}
                 </div>
@@ -2311,16 +2477,23 @@ export function CollectionConvertPanel({
                   <span className="collection-convert-row-coin">
                     <CoinMark size={14} />
                     <strong>{coinValue.toLocaleString()}</strong>
-                    <small>coin</small>
+                    <small>
+                      <I18nText en="coin" th="เหรียญ" />
+                    </small>
                   </span>
                 ) : (
                   <span className="collection-convert-row-coin is-muted">
-                    <small>{expired ? "Expired" : "Not convertible"}</small>
+                    <small>
+                      {expired
+                        ? localized({ en: "Expired", th: "หมดเวลาแล้ว" }, language)
+                        : localized({ en: "Not convertible", th: "แลกไม่ได้" }, language)}
+                    </small>
                   </span>
                 )}
                 {expiryLabel && convertable ? (
                   <span className="collection-convert-row-deadline">
-                    Convert by {expiryLabel}
+                    {language === "th" ? "แลกได้ถึง " : "Convert by "}
+                    {expiryLabel}
                   </span>
                 ) : null}
               </div>
@@ -2330,7 +2503,10 @@ export function CollectionConvertPanel({
                 onClick={(event) => event.stopPropagation()}
                 onChange={() => toggle(item.id)}
                 className="sr-only"
-                aria-label={`Select ${item.cardName}`}
+                aria-label={localized(
+                  { en: `Select ${item.cardName}`, th: `เลือกรางวัล ${item.cardName}` },
+                  language,
+                )}
               />
             </article>
           );
@@ -2351,17 +2527,21 @@ export function CollectionConvertPanel({
       <div
         className="collection-convert-dock"
         role="region"
-        aria-label="Collection actions"
+        aria-label={localized({ en: "Collection actions", th: "การทำรายการคอลเลกชัน" }, language)}
       >
         <div className="collection-convert-dock-meta">
           <div className="collection-convert-dock-count">
             <strong>
-              Selecting {selectedItems.length} reward
-              {selectedItems.length === 1 ? "" : "s"}
+              {language === "th"
+                ? `เลือก ${selectedItems.length.toLocaleString()} รางวัล`
+                : `Selecting ${selectedItems.length.toLocaleString()} reward${
+                    selectedItems.length === 1 ? "" : "s"
+                  }`}
             </strong>
             <span>
               <CoinMark size={14} />
-              {selectedTotalCoins.toLocaleString()} coin
+              {selectedTotalCoins.toLocaleString()}{" "}
+              {localized({ en: "coin", th: "เหรียญ" }, language)}
             </span>
           </div>
           <div className="collection-convert-dock-quick">
@@ -2371,7 +2551,7 @@ export function CollectionConvertPanel({
               onClick={selectAll}
               disabled={isPending || shippingBusy || conversionActive}
             >
-              Select all
+              <I18nText en="Select all" th="เลือกทั้งหมด" />
             </button>
             <button
               type="button"
@@ -2381,7 +2561,7 @@ export function CollectionConvertPanel({
                 isPending || shippingBusy || conversionActive || selectedItems.length === 0
               }
             >
-              Reset
+              <I18nText en="Reset" th="ล้างค่า" />
             </button>
           </div>
         </div>
@@ -2406,7 +2586,7 @@ export function CollectionConvertPanel({
             disabled={!canConvert || shippingBusy || conversionActive}
             onClick={() => setShowConvertConfirm(true)}
           >
-            Convert to Coins
+            <I18nText en="Convert to Coins" th="แลกเป็นเหรียญ" />
           </button>
           <button
             type="button"
@@ -2414,13 +2594,19 @@ export function CollectionConvertPanel({
             disabled={!canShip}
             onClick={openShippingConfirm}
           >
-            {shippingActive ? "View shipping progress" : "Shipping Request"}
+            {shippingActive
+              ? localized({ en: "View shipping progress", th: "ดูสถานะจัดส่ง" }, language)
+              : localized({ en: "Shipping Request", th: "ขอจัดส่ง" }, language)}
           </button>
         </div>
         <p className="collection-convert-dock-foot">
-          Shipping requires a complete saved address and{" "}
-          {SHIPPING_REQUEST_MIN_COINS.toLocaleString()} coins or more in
-          eligible reward value.
+          {localized(
+            {
+              en: `Shipping requires a complete saved address and ${SHIPPING_REQUEST_MIN_COINS.toLocaleString()} coins or more in eligible reward value.`,
+              th: `การขอจัดส่งต้องมีที่อยู่ที่บันทึกครบถ้วน และมูลค่ารางวัลที่เข้าเงื่อนไขอย่างน้อย ${SHIPPING_REQUEST_MIN_COINS.toLocaleString()} เหรียญ`,
+            },
+            language,
+          )}
         </p>
       </div>
 
@@ -2434,33 +2620,47 @@ export function CollectionConvertPanel({
             className="collection-convert-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Confirm convert"
+            aria-label={localized({ en: "Confirm convert", th: "ยืนยันการแลกเหรียญ" }, language)}
             onClick={(event) => event.stopPropagation()}
           >
             <header className="collection-convert-modal-head">
-              <h3>Convert to coins?</h3>
+              <h3>
+                <I18nText en="Convert to coins?" th="แลกเป็นเหรียญหรือไม่" />
+              </h3>
               <button
                 type="button"
                 className="collection-convert-modal-close"
                 onClick={() => setShowConvertConfirm(false)}
-                aria-label="Close"
+                aria-label={localized({ en: "Close", th: "ปิด" }, language)}
               >
                 ×
               </button>
             </header>
             <div className="collection-convert-modal-body">
-              <p>
-                You will receive{" "}
-                <strong>{selectedTotalCoins.toLocaleString()} coins</strong> for{" "}
-                <strong>
-                  {selectedConvertableItems.length} card
-                  {selectedConvertableItems.length === 1 ? "" : "s"}
-                </strong>
-                .
-              </p>
+              {language === "th" ? (
+                <p>
+                  คุณจะได้รับ{" "}
+                  <strong>{selectedTotalCoins.toLocaleString()} เหรียญ</strong>{" "}
+                  จากการ์ด{" "}
+                  <strong>{selectedConvertableItems.length.toLocaleString()} ใบ</strong>
+                  .
+                </p>
+              ) : (
+                <p>
+                  You will receive{" "}
+                  <strong>{selectedTotalCoins.toLocaleString()} coins</strong> for{" "}
+                  <strong>
+                    {selectedConvertableItems.length.toLocaleString()} card
+                    {selectedConvertableItems.length === 1 ? "" : "s"}
+                  </strong>
+                  .
+                </p>
+              )}
               <p className="collection-convert-modal-warn">
-                Selected cards will be removed from your collection. This cannot
-                be undone.
+                <I18nText
+                  en="Selected cards will be removed from your collection. This cannot be undone."
+                  th="การ์ดที่เลือกจะถูกลบออกจากคอลเลกชัน และไม่สามารถย้อนกลับได้"
+                />
               </p>
             </div>
             <footer className="collection-convert-modal-foot">
@@ -2470,7 +2670,7 @@ export function CollectionConvertPanel({
                 onClick={() => setShowConvertConfirm(false)}
                 disabled={isPending}
               >
-                Cancel
+                <I18nText en="Cancel" th="ยกเลิก" />
               </button>
               <button
                 type="button"
@@ -2479,7 +2679,9 @@ export function CollectionConvertPanel({
                 disabled={isPending}
                 autoFocus
               >
-                {isPending ? "Converting…" : "Yes, convert"}
+                {isPending
+                  ? localized({ en: "Converting…", th: "กำลังแลก…" }, language)
+                  : localized({ en: "Yes, convert", th: "ยืนยันแลกเหรียญ" }, language)}
               </button>
             </footer>
           </div>
@@ -2496,29 +2698,36 @@ export function CollectionConvertPanel({
             className="collection-convert-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Confirm shipping request"
+            aria-label={localized(
+              { en: "Confirm shipping request", th: "ยืนยันคำขอจัดส่ง" },
+              language,
+            )}
             onClick={(event) => event.stopPropagation()}
           >
             <header className="collection-convert-modal-head">
               <h3>
                 {shippingProgress
-                  ? "Preparing shipping request"
+                  ? localized({ en: "Preparing shipping request", th: "กำลังเตรียมคำขอจัดส่ง" }, language)
                   : shippingQuote
                     ? shippingQuote.selectionMode === "all_eligible"
-                      ? `Request shipping for all ${shippingQuote.itemCount} eligible reward${
-                          shippingQuote.itemCount === 1 ? "" : "s"
-                        }?`
-                      : `Request shipping for ${shippingQuote.itemCount} selected reward${
-                          shippingQuote.itemCount === 1 ? "" : "s"
-                        }?`
-                    : "Reviewing shipping request"}
+                      ? language === "th"
+                        ? `ขอจัดส่งรางวัลที่เข้าเงื่อนไขทั้งหมด ${shippingQuote.itemCount.toLocaleString()} รายการหรือไม่`
+                        : `Request shipping for all ${shippingQuote.itemCount.toLocaleString()} eligible reward${
+                            shippingQuote.itemCount === 1 ? "" : "s"
+                          }?`
+                      : language === "th"
+                        ? `ขอจัดส่งรางวัลที่เลือก ${shippingQuote.itemCount.toLocaleString()} รายการหรือไม่`
+                        : `Request shipping for ${shippingQuote.itemCount.toLocaleString()} selected reward${
+                            shippingQuote.itemCount === 1 ? "" : "s"
+                          }?`
+                    : localized({ en: "Reviewing shipping request", th: "กำลังตรวจสอบคำขอจัดส่ง" }, language)}
               </h3>
               <button
                 type="button"
                 className="collection-convert-modal-close"
                 onClick={closeShippingConfirm}
                 disabled={shippingQuoteLoading || shippingConfirming}
-                aria-label="Close"
+                aria-label={localized({ en: "Close", th: "ปิด" }, language)}
               >
                 ×
               </button>
@@ -2529,48 +2738,63 @@ export function CollectionConvertPanel({
                   <p>
                     <strong>
                       {shippingProgress.preparedCount.toLocaleString()} /{" "}
-                      {shippingProgress.itemCount.toLocaleString()} rewards
-                      prepared
+                      {shippingProgress.itemCount.toLocaleString()}{" "}
+                      {localized({ en: "rewards prepared", th: "รางวัลเตรียมแล้ว" }, language)}
                     </strong>
                     .
                   </p>
                   <p>
-                    Preparing shipping request{" "}
-                    {shippingProgress.publicCode || "SH-...."}. You can leave
-                    this page while it finishes.
+                    {language === "th"
+                      ? `กำลังเตรียมคำขอจัดส่ง ${shippingProgress.publicCode || "SH-...."} คุณออกจากหน้านี้ได้ระหว่างระบบดำเนินการ`
+                      : `Preparing shipping request ${shippingProgress.publicCode || "SH-...."}. You can leave this page while it finishes.`}
                   </p>
                   <p className="collection-convert-modal-warn">
-                    Request: {shippingProgress.publicCode || "preparing"} · Coin
-                    value: {shippingProgress.totalCoinValue.toLocaleString()}
+                    {language === "th" ? "คำขอ: " : "Request: "}
+                    {shippingProgress.publicCode ||
+                      localized({ en: "preparing", th: "กำลังเตรียม" }, language)}
+                    {" · "}
+                    {language === "th" ? "มูลค่าเหรียญ: " : "Coin value: "}
+                    {shippingProgress.totalCoinValue.toLocaleString()}
                   </p>
                 </>
               ) : shippingQuoteLoading ? (
-                <p>Calculating the latest shipping request...</p>
+                <p>
+                  <I18nText
+                    en="Calculating the latest shipping request..."
+                    th="กำลังคำนวณคำขอจัดส่งล่าสุด..."
+                  />
+                </p>
               ) : shippingQuote ? (
                 <>
                   <p>
-                    This reward will be locked for fulfilment and cannot be
-                    converted while the shipping request is active.
+                    <I18nText
+                      en="This reward will be locked for fulfilment and cannot be converted while the shipping request is active."
+                      th="รางวัลนี้จะถูกล็อกไว้เพื่อจัดส่ง และจะแลกเป็นเหรียญไม่ได้ระหว่างคำขอจัดส่งยังทำงานอยู่"
+                    />
                   </p>
                   <p>
                     <strong>
-                      {shippingQuote.itemCount.toLocaleString()} reward
-                      {shippingQuote.itemCount === 1 ? "" : "s"}
+                      {language === "th"
+                        ? `${shippingQuote.itemCount.toLocaleString()} รางวัล`
+                        : `${shippingQuote.itemCount.toLocaleString()} reward${
+                            shippingQuote.itemCount === 1 ? "" : "s"
+                          }`}
                     </strong>{" "}
-                    worth{" "}
+                    {language === "th" ? "มูลค่า " : "worth "}
                     <strong>
-                      {shippingQuote.selectedCoinValue.toLocaleString()} coins
+                      {shippingQuote.selectedCoinValue.toLocaleString()}{" "}
+                      {localized({ en: "coins", th: "เหรียญ" }, language)}
                     </strong>{" "}
-                    will be sent to{" "}
+                    {language === "th" ? "จะจัดส่งให้ " : "will be sent to "}
                     <strong>
                       {shippingQuote.address.recipientName ??
                         selectedAddress?.recipientName ??
-                        "your address"}
+                        localized({ en: "your address", th: "ที่อยู่ของคุณ" }, language)}
                     </strong>
                     .
                   </p>
                   <p className="collection-convert-modal-warn">
-                    Ship to:{" "}
+                    {language === "th" ? "จัดส่งไปที่: " : "Ship to: "}
                     {[
                       shippingQuote.address.label,
                       shippingQuote.address.summary,
@@ -2586,15 +2810,25 @@ export function CollectionConvertPanel({
                           ]
                             .filter(Boolean)
                             .join(" | ")
-                        : "No complete address selected")}
+                        : localized(
+                            { en: "No complete address selected", th: "ยังไม่ได้เลือกที่อยู่ที่ครบถ้วน" },
+                            language,
+                          ))}
                   </p>
                   <p className="collection-convert-modal-warn">
-                    After you confirm, this background request cannot be
-                    cancelled.
+                    <I18nText
+                      en="After you confirm, this background request cannot be cancelled."
+                      th="หลังยืนยันแล้ว คำขอเบื้องหลังนี้จะยกเลิกไม่ได้"
+                    />
                   </p>
                 </>
               ) : (
-                <p>Preparing the latest shipping request.</p>
+                <p>
+                  <I18nText
+                    en="Preparing the latest shipping request."
+                    th="กำลังเตรียมคำขอจัดส่งล่าสุด"
+                  />
+                </p>
               )}
             </div>
             <footer className="collection-convert-modal-foot">
@@ -2605,7 +2839,9 @@ export function CollectionConvertPanel({
                   onClick={closeShippingConfirm}
                   disabled={shippingConfirming}
                 >
-                  {shippingProgress.completed ? "Done" : "Close"}
+                  {shippingProgress.completed
+                    ? localized({ en: "Done", th: "เสร็จแล้ว" }, language)
+                    : localized({ en: "Close", th: "ปิด" }, language)}
                 </button>
               ) : (
                 <>
@@ -2615,7 +2851,7 @@ export function CollectionConvertPanel({
                     onClick={closeShippingConfirm}
                     disabled={shippingQuoteLoading || shippingConfirming}
                   >
-                    Cancel
+                    <I18nText en="Cancel" th="ยกเลิก" />
                   </button>
                   <button
                     type="button"
@@ -2627,12 +2863,12 @@ export function CollectionConvertPanel({
                     autoFocus
                   >
                     {shippingQuoteLoading
-                      ? "Reviewing..."
+                      ? localized({ en: "Reviewing...", th: "กำลังตรวจสอบ..." }, language)
                       : shippingConfirming
-                        ? "Preparing..."
+                        ? localized({ en: "Preparing...", th: "กำลังเตรียม..." }, language)
                         : panelShippingQuoteIsExpired(shippingQuote)
-                          ? "Refresh request"
-                          : "Yes, request shipping"}
+                          ? localized({ en: "Refresh request", th: "คำนวณใหม่" }, language)
+                          : localized({ en: "Yes, request shipping", th: "ยืนยันขอจัดส่ง" }, language)}
                   </button>
                 </>
               )}

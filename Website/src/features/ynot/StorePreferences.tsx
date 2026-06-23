@@ -15,23 +15,17 @@ import { createPortal } from "react-dom";
 import { signOutAction } from "@/features/auth/actions";
 import type { HomeFilterState, HomeSortOption } from "./types";
 import { CoinMark } from "./cr/Icons";
+import type { Language } from "./i18n";
+import {
+  defaultStorePreferences as defaults,
+  languageStorageKey,
+  preferenceEvent,
+  themeStorageKey,
+  type StorePreferences,
+  type StoreTheme,
+} from "./preference-constants";
 
-type Language = "en" | "th";
-type Theme = "dark" | "light";
-
-type StorePreferences = {
-  language: Language;
-  theme: Theme;
-};
-
-const defaults: StorePreferences = {
-  language: "en",
-  theme: "light",
-};
-
-const languageStorageKey = "ynot-language-v2";
-const themeStorageKey = "ynot-theme-v2";
-const preferenceEvent = "ynot-preferences-change";
+export type { Language } from "./i18n";
 
 function isPlainPrimaryClick(event: ReactMouseEvent<HTMLElement>) {
   return (
@@ -299,7 +293,7 @@ function safeLanguage(value: string | null | undefined): Language {
   return defaults.language;
 }
 
-function safeTheme(value: string | null | undefined): Theme {
+function safeTheme(value: string | null | undefined): StoreTheme {
   if (value === "light" || value === "dark") return value;
   return defaults.theme;
 }
@@ -325,7 +319,7 @@ function applyPreferences(preferences: StorePreferences) {
   }
 }
 
-function useStorePreferences() {
+export function useStorePreferences() {
   const [preferences, setPreferences] = useState<StorePreferences>(defaults);
 
   useEffect(() => {
@@ -363,8 +357,12 @@ function useStorePreferences() {
   return {
     preferences,
     setLanguage: (language: Language) => update({ language }),
-    setTheme: (theme: Theme) => update({ theme }),
+    setTheme: (theme: StoreTheme) => update({ theme }),
   };
+}
+
+export function useStoreLanguage() {
+  return useStorePreferences().preferences.language;
 }
 
 function protectedHref(
@@ -376,11 +374,34 @@ function protectedHref(
   return `/login?next=${encodeURIComponent(href)}`;
 }
 
-const sortOptions: Array<{ value: HomeSortOption; label: string }> = [
-  { value: "recommended", label: "Recommended" },
-  { value: "latest", label: "Latest" },
-  { value: "coins-desc", label: "Coins in Descending Order" },
-  { value: "coins-asc", label: "Lowest Coins First" },
+const sortCopy = {
+  en: {
+    label: "Sort",
+    ariaLabel: "Sort mystery packs",
+    options: {
+      recommended: "Recommended",
+      latest: "Latest",
+      "coins-desc": "Coins in Descending Order",
+      "coins-asc": "Lowest Coins First",
+    },
+  },
+  th: {
+    label: "เรียง",
+    ariaLabel: "เรียงลำดับ Y-Packs",
+    options: {
+      recommended: "แนะนำ",
+      latest: "ใหม่ล่าสุด",
+      "coins-desc": "เหรียญมากไปน้อย",
+      "coins-asc": "เหรียญน้อยไปมาก",
+    },
+  },
+} as const;
+
+const sortOptions: Array<{ value: HomeSortOption }> = [
+  { value: "recommended" },
+  { value: "latest" },
+  { value: "coins-desc" },
+  { value: "coins-asc" },
 ];
 
 function isHomeSortOption(value: string): value is HomeSortOption {
@@ -402,12 +423,14 @@ export function StoreSortSelect({
   homeFilter: HomeFilterState;
 }) {
   const router = useRouter();
+  const { preferences } = useStorePreferences();
+  const copy = sortCopy[preferences.language];
 
   return (
     <label className="store-sort-select">
-      <span>Sort</span>
+      <span>{copy.label}</span>
       <select
-        aria-label="Sort mystery packs"
+        aria-label={copy.ariaLabel}
         onChange={(event) => {
           const sort = event.target.value;
           if (!isHomeSortOption(sort)) return;
@@ -419,7 +442,7 @@ export function StoreSortSelect({
       >
         {sortOptions.map((option) => (
           <option key={option.value} value={option.value}>
-            {option.label}
+            {copy.options[option.value]}
           </option>
         ))}
       </select>
@@ -499,7 +522,7 @@ export function StoreHeaderNav({
   );
 
   return (
-    <nav className="store-nav" aria-label="Primary navigation">
+    <nav className="store-nav" aria-label="Primary navigation / เมนูหลัก">
       {leftNav.map((item) => {
         const active = isNavActive(pathname, item.href);
         const mega =
@@ -610,7 +633,7 @@ export function StoreBrandHomeLink() {
     <Link
       href="/"
       className="brand-lockup"
-      aria-label="YNOT home"
+      aria-label="YNOT home / หน้าแรก YNOT"
       prefetch={false}
       onClick={handleClick}
     >
@@ -729,6 +752,7 @@ export function StoreLanguageToggle() {
   const pathname = usePathname();
   const current = preferences.language;
   const currentLabel = current.toUpperCase();
+  const copy = settingsCopy[preferences.language];
 
   const updateMenuPosition = useCallback(() => {
     const trigger = containerRef.current;
@@ -806,7 +830,7 @@ export function StoreLanguageToggle() {
             ref={menuRef}
             className={`store-language-toggle-menu store-language-toggle-menu--compact store-language-toggle-menu--${menuSurface}${open ? " is-open" : ""}`}
             role="listbox"
-            aria-label="Language options"
+            aria-label={copy.language}
             onMouseEnter={clearCloseTimer}
             onMouseLeave={scheduleCloseMenu}
             style={{
@@ -860,7 +884,7 @@ export function StoreLanguageToggle() {
         }}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label="Language"
+        aria-label={copy.language}
       >
         <span className="store-language-toggle-current">{currentLabel}</span>
       </button>
@@ -1469,7 +1493,7 @@ export function StoreSettingsMenu({
             type="button"
             className="store-drawer-back"
             onClick={() => setActiveSubMenu(null)}
-            aria-label="Back"
+            aria-label={preferences.language === "th" ? "กลับ" : "Back"}
           >
             <span className="store-drawer-back-arrow" aria-hidden>
               <svg

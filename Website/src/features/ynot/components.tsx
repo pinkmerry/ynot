@@ -57,6 +57,7 @@ import {
   ynotShippingTrackingLabel,
 } from "./shipping-status";
 import { TopUpTable } from "./TopUpTable";
+import { I18nText, i18n } from "./i18n";
 
 const defaultHomeFilter: HomeFilterState = {
   series: "all",
@@ -147,11 +148,46 @@ function displayCampaigns(campaigns: YnotCampaign[]) {
 type PackTier = "legendary" | "gold" | "silver" | "common";
 
 const PACK_TIER_ORDER: PackTier[] = ["legendary", "gold", "silver", "common"];
-const PACK_TIER_COPY: Record<PackTier, string> = {
-  legendary: "Legendary",
-  gold: "Gold",
-  silver: "Silver",
-  common: "Common",
+const PACK_TIER_COPY: Record<
+  PackTier,
+  { label: ReactNode; heading: ReactNode; aria: string; subtitle: (count: number) => ReactNode }
+> = {
+  legendary: {
+    label: i18n("Legendary", "ระดับตำนาน"),
+    heading: i18n("LEGENDARY", "ระดับตำนาน"),
+    aria: "Legendary mystery packs / Y-Packs ระดับตำนาน",
+    subtitle: (count) => i18n(
+      `${count} slab${count === 1 ? "" : "s"}/pack`,
+      `${count} แพ็กสแลบ`,
+    ),
+  },
+  gold: {
+    label: i18n("Gold", "โกลด์"),
+    heading: i18n("GOLD", "โกลด์"),
+    aria: "Gold mystery packs / Y-Packs โกลด์",
+    subtitle: (count) => i18n(
+      `${count} slab${count === 1 ? "" : "s"}/pack`,
+      `${count} แพ็กสแลบ`,
+    ),
+  },
+  silver: {
+    label: i18n("Silver", "ซิลเวอร์"),
+    heading: i18n("SILVER", "ซิลเวอร์"),
+    aria: "Silver mystery packs / Y-Packs ซิลเวอร์",
+    subtitle: (count) => i18n(
+      `${count} slab${count === 1 ? "" : "s"}/pack`,
+      `${count} แพ็กสแลบ`,
+    ),
+  },
+  common: {
+    label: i18n("Common", "ทั่วไป"),
+    heading: i18n("COMMON", "ทั่วไป"),
+    aria: "Common mystery packs / Y-Packs ทั่วไป",
+    subtitle: (count) => i18n(
+      `${count} slab${count === 1 ? "" : "s"}/pack`,
+      `${count} แพ็กสแลบ`,
+    ),
+  },
 };
 
 /** Assign a tier bucket based on coin cost. Lets the storefront mirror
@@ -169,6 +205,30 @@ function packTier(campaign: YnotCampaign): PackTier {
 
 function seriesLabel(series: YnotCampaign["series"]) {
   return series === "pokemon" ? "Pokemon" : "One Piece";
+}
+
+function campaignStatusLabel(status: YnotCampaign["status"]) {
+  switch (status) {
+    case "live":
+      return i18n("Live", "เปิดขาย");
+    case "draft":
+      return i18n("Draft", "ฉบับร่าง");
+    case "closed":
+      return i18n("Closed", "ปิดแล้ว");
+    case "archived":
+      return i18n("Archived", "เก็บถาวร");
+  }
+}
+
+function campaignTitleText(campaign: YnotCampaign) {
+  return campaign.titleEn || campaign.titleTh || campaign.slug || "Y-Pack";
+}
+
+function campaignTitle(campaign: YnotCampaign) {
+  return i18n(
+    campaign.titleEn || campaign.titleTh || campaign.slug || "Y-Pack",
+    campaign.titleTh || campaign.titleEn || campaign.slug || "Y-Pack",
+  );
 }
 
 function homeFilterHref(
@@ -433,9 +493,9 @@ function remainingPercent(campaign: YnotCampaign) {
 }
 
 function remainingRatioText(campaign: YnotCampaign) {
-  if (isCampaignSoldOut(campaign)) return "Sold out";
+  if (isCampaignSoldOut(campaign)) return i18n("Sold out", "หมดแล้ว");
   const remainingSlots = remaining(campaign);
-  if (remainingSlots === null) return "Server-tracked stock";
+  if (remainingSlots === null) return i18n("Server-tracked stock", "สต็อกตรวจสอบโดยระบบ");
   return `${remainingSlots.toLocaleString()}/${campaign.totalSlots.toLocaleString()}`;
 }
 
@@ -445,7 +505,7 @@ function ProgressTrack({ campaign }: { campaign: YnotCampaign }) {
     return (
       <div
         className="progress-track stock-untracked"
-        aria-label="Stock is tracked server-side"
+        aria-label="Stock is tracked server-side / สต็อกตรวจสอบโดยระบบ"
       />
     );
   return (
@@ -534,7 +594,7 @@ export async function YnotShell({
               <Link
                 href="/wallet"
                 className="header-coin-pill"
-                aria-label={`Coin balance ${typeof renderBalance === "number" ? formatCoins(renderBalance) : "0"} · Tap to top up`}
+                aria-label={`Coin balance ${typeof renderBalance === "number" ? formatCoins(renderBalance) : "0"} · Tap to top up / ยอดเหรียญ ${typeof renderBalance === "number" ? formatCoins(renderBalance) : "0"} · แตะเพื่อเติมเหรียญ`}
               >
                 <TopUpCoinIcon />
                 <span className="header-coin-amount">
@@ -569,9 +629,9 @@ export async function YnotShell({
 
 function YnotFooter() {
   return (
-    <footer className="ynot-footer" aria-label="Site footer">
+    <footer className="ynot-footer" aria-label="Site footer / ส่วนท้ายเว็บไซต์">
       <div className="ynot-footer-interior">
-        <nav className="ynot-footer-nav" aria-label="Footer navigation">
+        <nav className="ynot-footer-nav" aria-label="Footer navigation / เมนูส่วนท้าย">
           <ul className="ynot-footer-list">
             <li className="ynot-footer-item">
               <span
@@ -634,19 +694,19 @@ function TopUpCoinIcon() {
   );
 }
 
-type StoreFilterChip = { label: string; series: HomeSeriesFilter };
+type StoreFilterChip = { label: ReactNode; series: HomeSeriesFilter };
 
 const storeFilterChips: readonly StoreFilterChip[] = [
-  { label: "All", series: "all" },
-  { label: "Football", series: "football" },
+  { label: i18n("All", "ทั้งหมด"), series: "all" },
+  { label: i18n("Football", "ฟุตบอลอเมริกัน"), series: "football" },
   { label: "Pokemon", series: "pokemon" },
   { label: "One Piece", series: "one_piece" },
-  { label: "Basketball", series: "basketball" },
-  { label: "Soccer", series: "soccer" },
-  { label: "Baseball", series: "baseball" },
-  { label: "Magical", series: "magical" },
-  { label: "Super", series: "super" },
-  { label: "Multi-Sport", series: "multi_sport" },
+  { label: i18n("Basketball", "บาสเกตบอล"), series: "basketball" },
+  { label: i18n("Soccer", "ฟุตบอล"), series: "soccer" },
+  { label: i18n("Baseball", "เบสบอล"), series: "baseball" },
+  { label: i18n("Magical", "เวทมนตร์"), series: "magical" },
+  { label: i18n("Super", "ซูเปอร์"), series: "super" },
+  { label: i18n("Multi-Sport", "กีฬารวม"), series: "multi_sport" },
 ];
 
 /** Inline icon for each category chip. Arena Club's /slab-packs filter bar
@@ -763,7 +823,10 @@ function StoreFilterStrip({
   baseHref: string;
 }) {
   return (
-    <div className="store-filter-strip" aria-label="Mystery pack filters">
+    <div
+      className="store-filter-strip"
+      aria-label="Mystery pack filters / ตัวกรอง Y-Packs"
+    >
       <div className="store-filter-scroll">
         {storeFilterChips.map((category) => {
           const isActive = homeFilter.series === category.series;
@@ -798,9 +861,9 @@ export function PageHeader({
   description,
   action,
 }: {
-  eyebrow: string;
-  title: string;
-  description: string;
+  eyebrow: ReactNode;
+  title: ReactNode;
+  description: ReactNode;
   action?: ReactNode;
 }) {
   return (
@@ -820,7 +883,7 @@ function PhoneTopBar({
   coin,
   action,
 }: {
-  title: string;
+  title: ReactNode;
   coin?: number | string;
   action?: ReactNode;
 }) {
@@ -917,7 +980,12 @@ export async function PacksExperience({
       <div className="store-main-stack">
         <div className="catalog-toolbar packs-toolbar">
           <h1>Y-Packs</h1>
-          <p>{`${campaigns.length} slab pack${campaigns.length === 1 ? "" : "s"}`}</p>
+          <p>
+            {i18n(
+              `${campaigns.length} slab pack${campaigns.length === 1 ? "" : "s"}`,
+              `${campaigns.length} แพ็กสแลบ`,
+            )}
+          </p>
           <AdminPackPickerLauncher enabled={isAdmin} variant="button" />
         </div>
 
@@ -925,7 +993,7 @@ export async function PacksExperience({
           <section
             className="packs-feature-row"
             data-hero-count={featuredCampaignsList.length}
-            aria-label="Featured mystery packs"
+            aria-label="Featured mystery packs / Y-Packs แนะนำ"
           >
             {featuredCampaignsList.map((campaign, index) => {
               const info = reorderInfo?.get(campaign.id) ?? null;
@@ -971,15 +1039,18 @@ export async function PacksExperience({
                     className={`packs-feature-card packs-feature-card--${palette}`}
                   >
                     <span className="packs-feature-eyebrow">
-                      {seriesLabel(campaign.series)} · Series
+                      {seriesLabel(campaign.series)} · <I18nText en="Series" th="ซีรีส์" />
                     </span>
                     <strong className="packs-feature-title">
-                      {campaign.titleTh || campaign.titleEn}
+                      {campaignTitle(campaign)}
                     </strong>
                     <span className="packs-feature-price">
-                      <CoinIcon /> {formatCoins(campaign.costCoins)} / pack
+                      <CoinIcon /> {formatCoins(campaign.costCoins)}{" "}
+                      <I18nText en="/ pack" th="/ แพ็ก" />
                     </span>
-                    <span className="packs-feature-cta">Buy now</span>
+                    <span className="packs-feature-cta">
+                      <I18nText en="Buy now" th="ซื้อเลย" />
+                    </span>
                   </Link>
                   {isAdmin && (
                     <Link
@@ -1030,11 +1101,17 @@ export async function PacksExperience({
           });
           if (!nonEmptyTiers.length) {
             return (
-              <section className="home-pack-board product-section" aria-label="Mystery pack catalog">
+              <section className="home-pack-board product-section" aria-label="Mystery pack catalog / แคตตาล็อก Y-Packs">
                 <CampaignGrid
                   campaigns={[]}
-                  emptyTitle="No real live packs are published yet"
-                  emptyBody="Published Supabase campaigns will appear here after an owner makes them live and public."
+                  emptyTitle={i18n(
+                    "No real live packs are published yet",
+                    "ยังไม่มีแพ็กจริงที่เผยแพร่",
+                  )}
+                  emptyBody={i18n(
+                    "Published Supabase campaigns will appear here after an owner makes them live and public.",
+                    "แคมเปญที่เผยแพร่จาก Supabase จะแสดงที่นี่หลังเจ้าของตั้งค่าเป็น live และ public",
+                  )}
                   showAdminEdit={isAdmin}
                 />
               </section>
@@ -1048,10 +1125,10 @@ export async function PacksExperience({
                   <div key={tier} className={`packs-tier-block packs-tier-block--${tier}`}>
                     <header className="packs-tier-heading">
                       <h2 className="packs-tier-title">
-                        {PACK_TIER_COPY[tier].toUpperCase()}
+                        {PACK_TIER_COPY[tier].heading}
                       </h2>
                       <p className="packs-tier-subtitle">
-                        {tierCampaigns.length} slab{tierCampaigns.length === 1 ? "" : "s"}/pack
+                        {PACK_TIER_COPY[tier].subtitle(tierCampaigns.length)}
                       </p>
                       <AdminPackPickerLauncher
                         enabled={isAdmin}
@@ -1061,12 +1138,15 @@ export async function PacksExperience({
                     </header>
                     <section
                       className="home-pack-board product-section"
-                      aria-label={`${PACK_TIER_COPY[tier]} mystery packs`}
+                      aria-label={PACK_TIER_COPY[tier].aria}
                     >
                       <CampaignGrid
                         campaigns={tierCampaigns}
-                        emptyTitle="No packs match this filter"
-                        emptyBody="Try All, switch category, or ask admin to add matching pack labels."
+                        emptyTitle={i18n("No packs match this filter", "ไม่มีแพ็กตรงกับตัวกรองนี้")}
+                        emptyBody={i18n(
+                          "Try All, switch category, or ask admin to add matching pack labels.",
+                          "ลองเลือกทั้งหมด เปลี่ยนหมวดหมู่ หรือให้แอดมินเพิ่มป้ายกำกับแพ็กที่ตรงกัน",
+                        )}
                         showAdminEdit={isAdmin}
                         reorderInfo={reorderInfo ?? undefined}
                       />
@@ -1083,19 +1163,19 @@ export async function PacksExperience({
 }
 
 const marketplaceFilters = [
-  { label: "All", key: "all" },
-  { label: "Pokemon", key: "pokemon" },
-  { label: "One Piece", key: "one_piece" },
-  { label: "PSA10", key: "psa10" },
-  { label: "Holo", key: "holo" },
-  { label: "Promo", key: "promo" },
+  { label: i18n("All", "ทั้งหมด"), key: "all" },
+  { label: i18n("Pokemon", "Pokemon"), key: "pokemon" },
+  { label: i18n("One Piece", "One Piece"), key: "one_piece" },
+  { label: i18n("PSA10", "PSA10"), key: "psa10" },
+  { label: i18n("Holo", "โฮโล"), key: "holo" },
+  { label: i18n("Promo", "โปรโม"), key: "promo" },
 ] as const;
 
 const marketplaceSort = [
-  { label: "Recommended", key: "recommended" },
-  { label: "Lowest price", key: "price-asc" },
-  { label: "Highest price", key: "price-desc" },
-  { label: "Newest", key: "newest" },
+  { en: "Recommended", th: "แนะนำ", key: "recommended" },
+  { en: "Lowest price", th: "ราคาต่ำสุด", key: "price-asc" },
+  { en: "Highest price", th: "ราคาสูงสุด", key: "price-desc" },
+  { en: "Newest", th: "ใหม่ล่าสุด", key: "newest" },
 ] as const;
 
 /** Marketplace page — arenaclub.com/marketplace inspired in FOG mint theme.
@@ -1113,43 +1193,61 @@ export function MarketplaceExperience() {
     <div className="store-home-grid marketplace-page">
       <div className="store-main-stack">
         <div className="catalog-toolbar marketplace-toolbar">
-          <h1>Marketplace</h1>
-          <p>{`${items.length} listing${items.length === 1 ? "" : "s"}`}</p>
+          <h1>{i18n("Marketplace", "ตลาด")}</h1>
+          <p>
+            {i18n(
+              `${items.length} listing${items.length === 1 ? "" : "s"}`,
+              `${items.length} รายการ`,
+            )}
+          </p>
         </div>
 
         {items.length > 0 && (
           <div
             className="marketplace-controls"
-            aria-label="Marketplace filters"
+            aria-label="Marketplace filters / ตัวกรองตลาด"
           >
-          <div className="marketplace-filters">
-            {marketplaceFilters.map((f, index) => (
-              <button
-                key={f.key}
-                type="button"
-                className={`marketplace-chip${index === 0 ? " active" : ""}`}
-                aria-current={index === 0 ? "page" : undefined}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-          <label className="marketplace-sort">
-            <span>Sort</span>
-            <select aria-label="Sort marketplace listings">
-              {marketplaceSort.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.label}
-                </option>
+            <div className="marketplace-filters">
+              {marketplaceFilters.map((f, index) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  className={`marketplace-chip${index === 0 ? " active" : ""}`}
+                  aria-current={index === 0 ? "page" : undefined}
+                >
+                  {f.label}
+                </button>
               ))}
-            </select>
-          </label>
+            </div>
+            <label className="marketplace-sort">
+              <span>{i18n("Sort", "เรียง")}</span>
+              <select
+                className="i18n-en"
+                aria-label="Sort marketplace listings / เรียงรายการในตลาด"
+              >
+                {marketplaceSort.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.en}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="i18n-th"
+                aria-label="Sort marketplace listings / เรียงรายการในตลาด"
+              >
+                {marketplaceSort.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.th}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         )}
 
         <section
           className="marketplace-grid"
-          aria-label="Marketplace listings"
+          aria-label="Marketplace listings / รายการในตลาด"
         >
           {items.length ? (
             items.map((item) => (
@@ -1159,7 +1257,7 @@ export function MarketplaceExperience() {
                 </div>
                 <div className="marketplace-card-body">
                   <span className="marketplace-card-eyebrow">
-                    {item.cardCode ?? "Card"}
+                    {item.cardCode ?? i18n("Card", "การ์ด")}
                   </span>
                   <strong className="marketplace-card-title">
                     {item.cardName}
@@ -1175,10 +1273,12 @@ export function MarketplaceExperience() {
             ))
           ) : (
             <div className="marketplace-empty">
-              <strong>No listings yet</strong>
+              <strong>{i18n("No listings yet", "ยังไม่มีรายการขาย")}</strong>
               <p>
-                Marketplace listings will appear once collectors put their
-                cards up for sale.
+                {i18n(
+                  "Marketplace listings will appear once collectors put their cards up for sale.",
+                  "รายการในตลาดจะแสดงเมื่อผู้สะสมประกาศขายการ์ด",
+                )}
               </p>
             </div>
           )}
@@ -1193,7 +1293,7 @@ function SeriesEssentialsSection() {
   return (
     <section
       className="series-essentials"
-      aria-label="Where to begin"
+      aria-label="Where to begin / เริ่มต้นที่นี่"
     >
       <h2 className="series-essentials-heading">
         <span className="i18n-en">Where to Begin</span>
@@ -1230,7 +1330,7 @@ function MobileTorecaHero({ campaign }: { campaign?: YnotCampaign }) {
     ? `/packs/${campaign.slug}`
     : "/packs";
   return (
-    <section className="toreca-mobile-hero" aria-label="YNot mobile hero">
+    <section className="toreca-mobile-hero" aria-label="YNot mobile hero / ฮีโร่มือถือ YNOT">
       <div className="hero-card-fan" aria-hidden>
         {Array.from({ length: 8 }).map((_, index) => (
           <span key={index} />
@@ -1304,15 +1404,18 @@ export function Metric({ label, value }: { label: string; value: string }) {
 export function CampaignGrid({
   campaigns,
   fallbackToFeatured = false,
-  emptyTitle = "No campaigns yet",
-  emptyBody = "Admin can publish campaigns after the platform migration is applied.",
+  emptyTitle = i18n("No campaigns yet", "ยังไม่มีแคมเปญ"),
+  emptyBody = i18n(
+    "Admin can publish campaigns after the platform migration is applied.",
+    "แอดมินสามารถเผยแพร่แคมเปญได้หลังระบบพร้อมใช้งาน",
+  ),
   showAdminEdit = false,
   reorderInfo,
 }: {
   campaigns: YnotCampaign[];
   fallbackToFeatured?: boolean;
-  emptyTitle?: string;
-  emptyBody?: string;
+  emptyTitle?: ReactNode;
+  emptyBody?: ReactNode;
   showAdminEdit?: boolean;
   reorderInfo?: Map<string, PackReorderInfo>;
 }) {
@@ -1341,15 +1444,24 @@ export function CampaignCard({
   showAdminEdit?: boolean;
   reorderInfo?: PackReorderInfo | null;
 }) {
-  const title = campaign.titleTh || campaign.titleEn;
+  const title = campaignTitleText(campaign);
+  const titleNode = campaignTitle(campaign);
   const displayTags = campaignDisplayTags(campaign);
   const soldOut = isCampaignSoldOut(campaign);
   const remainingSlots = remaining(campaign);
   const remainingLabel = soldOut
-    ? "Sold out"
+    ? i18n("Sold out", "หมดแล้ว")
     : remainingSlots === null
-      ? "Stock tracked by server"
-      : `Remaining ${remainingSlots.toLocaleString()}/${campaign.totalSlots.toLocaleString()}`;
+      ? i18n("Stock tracked by server", "สต็อกตรวจสอบโดยระบบ")
+      : i18n(
+          `Remaining ${remainingSlots.toLocaleString()}/${campaign.totalSlots.toLocaleString()}`,
+          `เหลือ ${remainingSlots.toLocaleString()}/${campaign.totalSlots.toLocaleString()}`,
+        );
+  const remainingLabelText = soldOut
+    ? "Sold out / หมดแล้ว"
+    : remainingSlots === null
+      ? "Stock tracked by server / สต็อกตรวจสอบโดยระบบ"
+      : `Remaining ${remainingSlots.toLocaleString()}/${campaign.totalSlots.toLocaleString()} / เหลือ ${remainingSlots.toLocaleString()}/${campaign.totalSlots.toLocaleString()}`;
   const sortOrderForAttr =
     reorderInfo?.currentSortOrder ?? campaign.sortOrder ?? "";
   const tier = packTier(campaign);
@@ -1360,7 +1472,7 @@ export function CampaignCard({
       data-pack-sort-order={sortOrderForAttr}
       data-pack-tier={tier}
     >
-      <div className="pack-card-tier-pill">{PACK_TIER_COPY[tier]}</div>
+      <div className="pack-card-tier-pill">{PACK_TIER_COPY[tier].label}</div>
       {showAdminEdit && (
         <span
           className="pack-drag-handle pack-drag-handle--card"
@@ -1388,9 +1500,9 @@ export function CampaignCard({
       <div className="pack-card-top">
         <div
           className="product-tags pack-info-tags"
-          aria-label="Pack status and admin tags"
+          aria-label="Pack status and tags / สถานะและป้ายกำกับแพ็ก"
         >
-          <span className="status-pill">{campaign.status}</span>
+          <span className="status-pill">{campaignStatusLabel(campaign.status)}</span>
           {displayTags.map((tag, index) => (
             <span
               key={`${campaign.id}-tag-${index}-${tag}`}
@@ -1416,41 +1528,42 @@ export function CampaignCard({
             reorderInfo={reorderInfo}
           />
         </div>
-        <h3 className="title-m pack-card-title">{title}</h3>
+        <h3 className="title-m pack-card-title">{titleNode}</h3>
       </div>
       <Link
         className="pack-image-link"
         href={`/packs/${campaign.slug}`}
-        aria-label={`View ${title}`}
+        aria-label={`View ${title} / ดู ${title}`}
       >
         <CampaignArtwork campaign={campaign} clean />
       </Link>
       <div
         className="pack-card-bottom"
-        aria-label="Pack price and stock status"
+        aria-label="Pack price and stock status / ราคาและสต็อกแพ็ก"
       >
         <span
           className="pack-price-line"
-          aria-label={`${formatCoins(campaign.costCoins)} coins per pack`}
+          aria-label={`${formatCoins(campaign.costCoins)} coins per pack / ${formatCoins(campaign.costCoins)} เหรียญต่อแพ็ก`}
         >
-          <CoinIcon /> {formatCoins(campaign.costCoins)}/pack
+          <CoinIcon /> {formatCoins(campaign.costCoins)}
+          <I18nText en="/pack" th="/แพ็ก" />
         </span>
-        <span className="pack-remaining-line" aria-label={remainingLabel}>
+        <span className="pack-remaining-line" aria-label={remainingLabelText}>
           {remainingLabel}
         </span>
       </div>
       <ProgressTrack campaign={campaign} />
       <div className="product-actions">
         <Link className="secondary-action" href={`/packs/${campaign.slug}`}>
-          Details
+          <I18nText en="Details" th="รายละเอียด" />
         </Link>
         {soldOut ? (
           <button className="primary-action" type="button" disabled>
-            Sold out
+            <I18nText en="Sold out" th="หมดแล้ว" />
           </button>
         ) : (
           <Link className="primary-action" href={`/gacha/${campaign.slug}/open`}>
-            Open
+            <I18nText en="Open" th="เปิด" />
           </Link>
         )}
       </div>
@@ -1473,15 +1586,19 @@ export function CampaignDetailPanel({
   const canOpen =
     campaign.demo || (!soldOut && (campaign.openable || isDevAuthAllowed()));
   const unavailableCopy = soldOut
-    ? "Sold out"
-    : "This pack is not ready to open yet. Please check back later.";
-  const packTitle = campaign.titleTh || campaign.titleEn;
+    ? i18n("Sold out", "หมดแล้ว")
+    : i18n(
+        "This pack is not ready to open yet. Please check back later.",
+        "แพ็กนี้ยังไม่พร้อมเปิด กรุณากลับมาตรวจสอบอีกครั้ง",
+      );
+  const packTitle = campaignTitle(campaign);
+  const packTitleText = campaignTitleText(campaign);
   const packReference = campaign.slug || campaign.id;
 
   return (
     <section className="product-detail-grid detail-layout gacha-detail-page">
       <PhoneTopBar
-        title={campaign.titleEn}
+        title={packTitle}
         action={
           <>
             <Link className="template-icon-button" href="/">
@@ -1494,7 +1611,7 @@ export function CampaignDetailPanel({
               <Link
                 className="pack-admin-edit pack-admin-edit-inline"
                 href="/admin/campaigns"
-                aria-label={`Edit ${campaign.titleEn || campaign.titleTh} in admin`}
+                aria-label={`Edit ${packTitleText} in admin / แก้ไข ${packTitleText} ในหน้าแอดมิน`}
               >
                 Edit
               </Link>
@@ -1514,10 +1631,13 @@ export function CampaignDetailPanel({
           <h1 className="page-title">{packTitle}</h1>
           <p className="page-description">
             {campaign.heroLabel ??
-              "High-value chase cards, exchangeable collection rewards, and real shipping support."}
+              i18n(
+                "High-value chase cards, exchangeable collection rewards, and real shipping support.",
+                "การ์ดไล่ล่ามูลค่าสูง รางวัลคอลเลกชันที่แลกได้ และรองรับการจัดส่งจริง",
+              )}
           </p>
         </div>
-        <div className="filter-chip-row" aria-label="Pack tags">
+        <div className="filter-chip-row" aria-label="Pack tags / ป้ายกำกับแพ็ก">
           {detailTags.map((tag, index) => (
             <span
               className={`filter-chip ${index === 0 ? "active" : ""}`}
@@ -1526,43 +1646,62 @@ export function CampaignDetailPanel({
               {tag}
             </span>
           ))}
-          <span className="filter-chip">Exchange available</span>
-          <span className="filter-chip">Shipping ready</span>
+          <span className="filter-chip">
+            <I18nText en="Exchange available" th="แลกเหรียญได้" />
+          </span>
+          <span className="filter-chip">
+            <I18nText en="Shipping ready" th="พร้อมจัดส่ง" />
+          </span>
         </div>
         <div className="detail-stat-grid">
           <div className="detail-stat-card detail-stat-card-price">
-            <span>Price per pull</span>
+            <span>
+              <I18nText en="Price per pull" th="ราคาต่อครั้ง" />
+            </span>
             <strong>
               <span className="detail-stat-number">
                 <CoinIcon /> {formatCoins(campaign.costCoins)}
               </span>
-              <small>coins</small>
+              <small>
+                <I18nText en="coins" th="เหรียญ" />
+              </small>
             </strong>
-            <em>Every pack open</em>
+            <em>
+              <I18nText en="Every pack open" th="ทุกการเปิดแพ็ก" />
+            </em>
           </div>
           <div className="detail-stat-card detail-stat-card-stock">
-            <span>Stock</span>
-            <strong>{soldOut ? "Sold out" : remainingRatioText(campaign)}</strong>
-            <em>{soldOut ? "No packs left" : "Remaining"}</em>
+            <span>
+              <I18nText en="Stock" th="สต็อก" />
+            </span>
+            <strong>{soldOut ? i18n("Sold out", "หมดแล้ว") : remainingRatioText(campaign)}</strong>
+            <em>{soldOut ? i18n("No packs left", "แพ็กหมดแล้ว") : i18n("Remaining", "คงเหลือ")}</em>
           </div>
         </div>
         <ProgressTrack campaign={campaign} />
         <div className="detail-note-card detail-note-card-warning">
-          <strong>Note before opening</strong>
+          <strong>
+            <I18nText en="Note before opening" th="หมายเหตุก่อนเปิด" />
+          </strong>
           <p>
-            Prize images are examples from this pack&apos;s saved prize pool.
-            Mystery pack results are final after opening, so review the
-            collectible details before you choose to open.
+            <I18nText
+              en="Prize images are examples from this pack's saved prize pool. Mystery pack results are final after opening, so review the collectible details before you choose to open."
+              th="รูปภาพรางวัลเป็นตัวอย่างจากพูลรางวัลที่บันทึกไว้ของแพ็กนี้ ผลการเปิดแพ็กถือเป็นที่สิ้นสุดหลังเปิด กรุณาตรวจรายละเอียดของสะสมก่อนตัดสินใจเปิด"
+            />
           </p>
         </div>
       </aside>
       <section className="gacha-detail-prize-panel">
         <div className="section-heading-row">
           <div>
-            <p className="section-label">Prize lineup</p>
-            <h2 className="title-m">Dynamic tier details</h2>
+            <p className="section-label">
+              <I18nText en="Prize lineup" th="รายการรางวัล" />
+            </p>
+            <h2 className="title-m">
+              <I18nText en="Dynamic tier details" th="รายละเอียดระดับรางวัล" />
+            </h2>
           </div>
-          <span className="status-pill">{campaign.status}</span>
+          <span className="status-pill">{campaignStatusLabel(campaign.status)}</span>
         </div>
         {campaign.prizeLineup?.length ? (
           <PrizeLineup prizes={campaign.prizeLineup} />
@@ -1570,54 +1709,74 @@ export function CampaignDetailPanel({
           <RewardTierList />
         ) : (
           <EmptyState
-            title="Prize lineup unavailable"
-            body="Featured rewards are temporarily unavailable. Please check back later."
+            title={i18n("Prize lineup unavailable", "ยังแสดงรายการรางวัลไม่ได้")}
+            body={i18n(
+              "Featured rewards are temporarily unavailable. Please check back later.",
+              "รางวัลแนะนำยังไม่พร้อมแสดงผล กรุณากลับมาตรวจสอบอีกครั้ง",
+            )}
           />
         )}
       </section>
-      <section className="gacha-detail-terms-panel" aria-label="YNOTT pack notes">
+      <section className="gacha-detail-terms-panel" aria-label="YNOTT pack notes / หมายเหตุแพ็ก YNOTT">
         <div className="section-heading-row">
           <div>
-            <p className="section-label">Pack notes</p>
-            <h2 className="title-m">Important before opening</h2>
+            <p className="section-label">
+              <I18nText en="Pack notes" th="หมายเหตุแพ็ก" />
+            </p>
+            <h2 className="title-m">
+              <I18nText en="Important before opening" th="ข้อมูลสำคัญก่อนเปิด" />
+            </h2>
           </div>
-          <span className="status-pill">Ref: {packReference}</span>
+          <span className="status-pill">
+            <I18nText en="Ref" th="อ้างอิง" />: {packReference}
+          </span>
         </div>
         <div className="gacha-detail-terms-grid">
           <p>
-            Product images, prize images, and grades are shown for reference.
-            Actual card condition can vary, and graded cards follow the grading
-            company&apos;s assigned grade and case standards.
+            <I18nText
+              en="Product images, prize images, and grades are shown for reference. Actual card condition can vary, and graded cards follow the grading company's assigned grade and case standards."
+              th="รูปสินค้า รูปรางวัล และเกรดแสดงเพื่ออ้างอิง สภาพการ์ดจริงอาจแตกต่างได้ และการ์ดที่มีเกรดจะยึดตามเกรดและมาตรฐานเคสของบริษัทผู้ให้เกรด"
+            />
           </p>
           <p>
-            Every pack open is random. Featured collectibles are shown so you
-            can review the series, artwork, and grading details before you
-            choose to open.
+            <I18nText
+              en="Every pack open is random. Featured collectibles are shown so you can review the series, artwork, and grading details before you choose to open."
+              th="การเปิดแพ็กทุกครั้งเป็นการสุ่ม ของสะสมที่แสดงช่วยให้คุณตรวจซีรีส์ งานภาพ และรายละเอียดเกรดก่อนเลือกเปิด"
+            />
           </p>
           <p>
-            Pull results are final once opened. For shipping or dispute cases,
-            keep your order reference and photo or video evidence from delivery
-            through opening.
+            <I18nText
+              en="Pull results are final once opened. For shipping or dispute cases, keep your order reference and photo or video evidence from delivery through opening."
+              th="ผลการเปิดถือเป็นที่สิ้นสุดเมื่อเปิดแล้ว หากมีกรณีจัดส่งหรือโต้แย้ง กรุณาเก็บเลขอ้างอิงออเดอร์และหลักฐานรูปหรือวิดีโอตั้งแต่รับพัสดุจนถึงการเปิด"
+            />
           </p>
         </div>
       </section>
       <div className="transparent-note">
-        <strong>Server-recorded Y-Pack</strong>
+        <strong>
+          <I18nText en="Server-recorded Y-Pack" th="Y-Pack ที่บันทึกโดยเซิร์ฟเวอร์" />
+        </strong>
         <span>
-          Every production pull is recorded by YNOTT before rewards can move to
-          collection, exchange, or shipping.
+          <I18nText
+            en="Every production pull is recorded by YNOTT before rewards can move to collection, exchange, or shipping."
+            th="การเปิดแพ็กจริงทุกครั้งถูกบันทึกโดย YNOTT ก่อนรางวัลจะย้ายไปคอลเลกชัน แลกเหรียญ หรือจัดส่งได้"
+          />
         </span>
       </div>
       <div
         className="gacha-detail-open-dock"
         role="region"
-        aria-label={soldOut ? "Pack sold out" : "Open this pack"}
+        aria-label={soldOut ? "Pack sold out / แพ็กหมดแล้ว" : "Open this pack / เปิดแพ็กนี้"}
       >
         <div className="gacha-detail-open-dock-info">
-          <p className="section-label">{soldOut ? "Pack sold out" : "Open this pack"}</p>
+          <p className="section-label">
+            {soldOut ? i18n("Pack sold out", "แพ็กหมดแล้ว") : i18n("Open this pack", "เปิดแพ็กนี้")}
+          </p>
           <strong>
             <CoinIcon /> {formatCoins(campaign.costCoins)}
-            <span> / pack</span>
+            <span>
+              <I18nText en=" / pack" th=" / แพ็ก" />
+            </span>
           </strong>
         </div>
         <div className="gacha-detail-open-dock-actions">
@@ -1629,14 +1788,18 @@ export function CampaignDetailPanel({
                   href={`/gacha/${campaign.slug}/open?qty=${option}`}
                   key={option}
                 >
-                  {option === 1 ? "Open Pack" : `Open ${option}×`}
+                  {option === 1 ? (
+                    <I18nText en="Open Pack" th="เปิดแพ็ก" />
+                  ) : (
+                    i18n(`Open ${option}x`, `เปิด ${option}x`)
+                  )}
                 </Link>
               ))}
               <Link
                 className="secondary-action gacha-detail-open-dock-wallet"
                 href="/wallet"
               >
-                Wallet
+                <I18nText en="Wallet" th="วอลเล็ต" />
               </Link>
             </>
           ) : (
@@ -1651,6 +1814,35 @@ export function CampaignDetailPanel({
 }
 
 export function RewardTierList({ compact = false }: { compact?: boolean }) {
+  const rewardTierCopy: Record<
+    (typeof rewardTiers)[number]["rank"],
+    { name: ReactNode; note: ReactNode }
+  > = {
+    S: {
+      name: i18n("Signature hits", "รางวัลซิกเนเจอร์"),
+      note: i18n("Charizard SAR", "Charizard SAR"),
+    },
+    A: {
+      name: i18n("Premium hits", "รางวัลพรีเมียม"),
+      note: i18n("SR support cards", "การ์ดซัพพอร์ต SR"),
+    },
+    B: {
+      name: i18n("Chase cards", "การ์ดไล่ล่า"),
+      note: i18n("SR / RR", "SR / RR"),
+    },
+    C: {
+      name: i18n("Foil cards", "การ์ดฟอยล์"),
+      note: i18n("R foil", "ฟอยล์ R"),
+    },
+    D: {
+      name: i18n("Base rewards", "รางวัลพื้นฐาน"),
+      note: i18n(
+        "Can be exchanged for coins",
+        "สามารถแลกเป็นเหรียญได้",
+      ),
+    },
+  };
+
   return (
     <div className="reward-tier-list">
       {rewardTiers.map((tier, index) => (
@@ -1660,9 +1852,11 @@ export function RewardTierList({ compact = false }: { compact?: boolean }) {
               <span className={`tier-rank tier-${tier.rank.toLowerCase()}`}>
                 {tier.rank}
               </span>
-              <strong>{tier.name}</strong>
+              <strong>{rewardTierCopy[tier.rank].name}</strong>
             </div>
-            <span>{tier.remain} left</span>
+            <span>
+              {tier.remain} <I18nText en="left" th="เหลือ" />
+            </span>
           </div>
           <div className="tier-cards">
             {tier.cards.map((card, cardIndex) => (
@@ -1674,7 +1868,7 @@ export function RewardTierList({ compact = false }: { compact?: boolean }) {
               />
             ))}
           </div>
-          <p className="txt-s">{tier.note}</p>
+          <p className="txt-s">{rewardTierCopy[tier.rank].note}</p>
         </div>
       ))}
     </div>
@@ -1700,23 +1894,23 @@ function PrizeLineupImage({ prize }: { prize: YnotPrizePreview }) {
 
 const detailPrizeTierCopy: Record<
   PrizeDisplayTier,
-  { title: string; description: string }
+  { title: ReactNode; description: ReactNode }
 > = {
   rainbow: {
-    title: "Rainbow 1st Prize",
-    description: "Top chase rewards for this Y-Pack.",
+    title: i18n("Rainbow 1st Prize", "รางวัลที่ 1 ระดับเรนโบว์"),
+    description: i18n("Top chase rewards for this Y-Pack.", "รางวัลไล่ล่าสูงสุดของ Y-Pack นี้"),
   },
   gold: {
-    title: "Gold 2nd Prize",
-    description: "Premium chase rewards below Rainbow.",
+    title: i18n("Gold 2nd Prize", "รางวัลที่ 2 ระดับโกลด์"),
+    description: i18n("Premium chase rewards below Rainbow.", "รางวัลไล่ล่าพรีเมียมรองจากเรนโบว์"),
   },
   silver: {
-    title: "Silver 3rd Prize",
-    description: "Strong mid-tier rewards from this pack.",
+    title: i18n("Silver 3rd Prize", "รางวัลที่ 3 ระดับซิลเวอร์"),
+    description: i18n("Strong mid-tier rewards from this pack.", "รางวัลระดับกลางที่น่าสนใจจากแพ็กนี้"),
   },
   bronze: {
-    title: "Bronze 4th Prize",
-    description: "Base and category rewards for regular pulls.",
+    title: i18n("Bronze 4th Prize", "รางวัลที่ 4 ระดับบรอนซ์"),
+    description: i18n("Base and category rewards for regular pulls.", "รางวัลพื้นฐานและรางวัลตามหมวดสำหรับการเปิดทั่วไป"),
   },
 };
 
@@ -1752,8 +1946,10 @@ function PrizeLineup({ prizes }: { prizes: YnotPrizePreview[] }) {
               <span>{section.description}</span>
             </div>
             <em>
-              {section.prizes.length} prize
-              {section.prizes.length === 1 ? "" : "s"}
+              {i18n(
+                `${section.prizes.length} prize${section.prizes.length === 1 ? "" : "s"}`,
+                `${section.prizes.length} รางวัล`,
+              )}
             </em>
           </div>
           <div className="reward-tier-list reward-tier-list-structured">
@@ -1826,7 +2022,7 @@ function CampaignArtwork({
         />
       ) : null}
       {!hasBannerImage && heroPrizes.length ? (
-        <div className="campaign-art-prize-fan" aria-label="Featured prizes">
+        <div className="campaign-art-prize-fan" aria-label="Featured prizes / รางวัลแนะนำ">
           {heroPrizes.map((prize, index) => (
             <span
               className={`campaign-art-prize-card campaign-art-prize-card-${index + 1}`}
@@ -1843,7 +2039,7 @@ function CampaignArtwork({
           <span className="clean-cover-kicker">
             {campaign.categoryLabel ?? seriesLabel(campaign.series)}
           </span>
-          <span className="clean-cover-title">{campaign.titleEn}</span>
+          <span className="clean-cover-title">{campaignTitle(campaign)}</span>
           <span className="clean-cover-footer">Y-Pack</span>
         </span>
       )}
@@ -1855,7 +2051,7 @@ function CampaignArtwork({
           <span className="art-category">
             {campaign.categoryLabel ?? seriesLabel(campaign.series)}
           </span>
-          <strong>{campaign.titleEn}</strong>
+          <strong>{campaignTitle(campaign)}</strong>
           <p>{campaign.heroLabel ?? seriesLabel(campaign.series)}</p>
           <span className="art-coin">
             <CoinIcon /> {formatCoins(campaign.costCoins)}
@@ -1960,8 +2156,11 @@ export function CollectionGrid({
   if (!collection.length) {
     return (
       <EmptyState
-        title="No real collection cards yet"
-        body="Open a live pack first. Demo sample cards are not shown as customer inventory in production-safe mode."
+        title={i18n("No real collection cards yet", "ยังไม่มีการ์ดในคอลเลกชัน")}
+        body={i18n(
+          "Open a live pack first. Demo sample cards are not shown as customer inventory in production-safe mode.",
+          "เปิด Y-Pack ที่ใช้งานจริงก่อน การ์ดตัวอย่างเดโมจะไม่แสดงเป็นคอลเลกชันของลูกค้า",
+        )}
       />
     );
   }
@@ -1975,6 +2174,18 @@ export function CollectionGrid({
 }
 
 function CollectionCard({ item }: { item: YnotCollectionItem }) {
+  const statusCopy: Record<YnotCollectionItem["status"], ReactNode> = {
+    owned: i18n("Owned", "ที่มี"),
+    locked: i18n("Locked", "ถูกล็อก"),
+    exchange_requested: i18n("Exchange requested", "ขอแลกแล้ว"),
+    exchanged: i18n("Exchanged", "แลกแล้ว"),
+    converting: i18n("Converting", "กำลังแลก"),
+    shipping_preparing: i18n("Preparing shipment", "กำลังเตรียมจัดส่ง"),
+    shipping_requested: i18n("Shipping requested", "ขอจัดส่งแล้ว"),
+    shipped: i18n("Shipped", "จัดส่งแล้ว"),
+    void: i18n("Voided", "ยกเลิกรายการ"),
+  };
+
   return (
     <article
       className={`collection-card vertical${item.sourceIsLastPrize ? " is-last-prize" : ""}`}
@@ -1984,18 +2195,20 @@ function CollectionCard({ item }: { item: YnotCollectionItem }) {
           // eslint-disable-next-line @next/next/no-img-element -- Collection images are Supabase/storage URLs managed by admins.
           <img src={item.imageUrl} alt={item.cardName} loading="lazy" />
         ) : (
-          <span>{item.cardCode ?? "YNot Card"}</span>
+          <span>{item.cardCode ?? i18n("YNot Card", "การ์ด YNot")}</span>
         )}
       </div>
       {item.sourceIsLastPrize && (
-        <span className="collection-last-prize-badge">Last Prize</span>
+        <span className="collection-last-prize-badge">
+          <I18nText en="Last Prize" th="รางวัลสุดท้าย" />
+        </span>
       )}
       <h3 className="title-s mt-4">{item.cardName}</h3>
       <p className="txt-mono mt-1 text-xs">
         {item.sourceIsLastPrize
-          ? "Last Prize"
-          : item.serialNo ?? item.cardCode ?? "Collection reward"}{" "}
-        · {item.status}
+          ? i18n("Last Prize", "รางวัลสุดท้าย")
+          : item.serialNo ?? item.cardCode ?? i18n("Collection reward", "รางวัลในคอลเลกชัน")}{" "}
+        · {statusCopy[item.status]}
       </p>
     </article>
   );
@@ -2006,21 +2219,35 @@ export function RankingTable({ rankings }: { rankings: YnotRankingRow[] }) {
   return (
     <section className="soft-card ranking-phone phone-surface">
       <PhoneTopBar
-        title="Ranking"
-        action={<span className="orange-chip">🏆 Reward</span>}
+        title={i18n("Ranking", "อันดับ")}
+        action={
+          <span className="orange-chip">
+            🏆 <I18nText en="Reward" th="รางวัล" />
+          </span>
+        }
       />
       <div className="ranking-tabs">
-        <span className="active">Yesterday</span>
-        <span>Week</span>
-        <span>Month</span>
-        <span>All-time</span>
+        <span className="active">
+          <I18nText en="Yesterday" th="เมื่อวาน" />
+        </span>
+        <span>
+          <I18nText en="Week" th="สัปดาห์" />
+        </span>
+        <span>
+          <I18nText en="Month" th="เดือน" />
+        </span>
+        <span>
+          <I18nText en="All-time" th="ทั้งหมด" />
+        </span>
       </div>
       {top && (
         <div className="ranking-hero">
           <span className="crown">👑</span>
           <div className="ranking-avatar">🐺</div>
           <h3>{top.displayName}</h3>
-          <p>{top.value.toLocaleString()} coin</p>
+          <p>
+            {top.value.toLocaleString()} <I18nText en="coin" th="เหรียญ" />
+          </p>
           <strong>★ TOP 1</strong>
         </div>
       )}
@@ -2039,8 +2266,11 @@ export function RankingTable({ rankings }: { rankings: YnotRankingRow[] }) {
         </div>
       ) : (
         <EmptyState
-          title="No ranking data yet"
-          body="Ranking rows will appear after real customer activity is recorded."
+          title={i18n("No ranking data yet", "ยังไม่มีข้อมูลอันดับ")}
+          body={i18n(
+            "Ranking rows will appear after real customer activity is recorded.",
+            "อันดับจะแสดงหลังมีการใช้งานจริงจากลูกค้า",
+          )}
         />
       )}
     </section>
@@ -2058,23 +2288,38 @@ export function ExchangeCatalogPanel({
 }) {
   return (
     <section className="market-shell phone-surface">
-      <PhoneTopBar title="Exchange" coin={wallet.balanceCoins} />
+      <PhoneTopBar title={i18n("Exchange", "แลกเหรียญ")} coin={wallet.balanceCoins} />
       <PhoneRule />
       <div
         className="category-strip market-categories"
-        aria-label="Exchange status"
+        aria-label="Exchange status / สถานะการแลก"
       >
-        <span className="category-tab active">Owned {collectionCount}</span>
-        <span className="category-tab">Requests {requestCount}</span>
-        <span className="category-tab">Admin review</span>
+        <span className="category-tab active">
+          <I18nText en="Owned" th="ที่มี" /> {collectionCount}
+        </span>
+        <span className="category-tab">
+          <I18nText en="Requests" th="คำขอ" /> {requestCount}
+        </span>
+        <span className="category-tab">
+          <I18nText en="Admin review" th="รอแอดมินตรวจ" />
+        </span>
       </div>
       <div className="exchange-bonus-strip">
-        <strong>Real exchange requests only</strong> · Select owned collection
-        cards below; admin review records approved coin value.
+        <strong>
+          <I18nText en="Real exchange requests only" th="ใช้คำขอแลกจริงเท่านั้น" />
+        </strong>{" "}
+        ·{" "}
+        <I18nText
+          en="Select owned collection cards below; admin review records approved coin value."
+          th="เลือกการ์ดที่คุณมีด้านล่าง แอดมินจะตรวจและบันทึกมูลค่าเหรียญที่อนุมัติ"
+        />
       </div>
       <EmptyState
-        title="No public exchange catalog yet"
-        body="Production exchange value comes from admin-reviewed collection requests until an admin-managed exchange catalog is added."
+        title={i18n("No public exchange catalog yet", "ยังไม่มีแคตตาล็อกแลกเหรียญ")}
+        body={i18n(
+          "Production exchange value comes from admin-reviewed collection requests until an admin-managed exchange catalog is added.",
+          "มูลค่าแลกเหรียญจริงมาจากคำขอคอลเลกชันที่แอดมินตรวจ จนกว่าจะมีแคตตาล็อกแลกเหรียญที่จัดการโดยแอดมิน",
+        )}
       />
     </section>
   );
@@ -2084,26 +2329,51 @@ export function OrderList({
   title,
   orders,
 }: {
-  title: string;
+  title: ReactNode;
   orders: Array<YnotExchangeOrder | YnotShippingRequest>;
 }) {
+  function isShippingRequest(
+    order: YnotExchangeOrder | YnotShippingRequest,
+  ): order is YnotShippingRequest {
+    return "items" in order;
+  }
+
+  function exchangeStatusLabel(status: YnotExchangeOrder["status"]) {
+    const labels: Record<YnotExchangeOrder["status"], ReactNode> = {
+      draft: i18n("Draft", "แบบร่าง"),
+      submitted: i18n("Submitted", "ส่งคำขอแล้ว"),
+      approved: i18n("Approved", "อนุมัติแล้ว"),
+      rejected: i18n("Rejected", "ปฏิเสธแล้ว"),
+      completed: i18n("Completed", "เสร็จสมบูรณ์"),
+      cancelled: i18n("Cancelled", "ยกเลิกแล้ว"),
+    };
+    return labels[status] ?? status;
+  }
+
   function shippingDetails(order: YnotExchangeOrder | YnotShippingRequest) {
-    if (!("items" in order)) return null;
+    if (!isShippingRequest(order)) return null;
     const firstItem = order.items?.[0];
     const itemCount = order.items?.length ?? 0;
     const itemLabel = firstItem
       ? `${firstItem.cardName}${itemCount > 1 ? ` +${itemCount - 1}` : ""}`
-      : "Reward details pending";
-    const packLabel = firstItem?.sourceCampaignTitle ?? "Pack source pending";
-    const trackingLabel = ynotShippingTrackingLabel(order);
+      : i18n("Reward details pending", "รอรายละเอียดรางวัล");
+    const packLabel = firstItem?.sourceCampaignTitle ?? i18n("Pack source pending", "รอข้อมูลแพ็ก");
+    const trackingLabel = i18n(
+      ynotShippingTrackingLabel(order, "en"),
+      ynotShippingTrackingLabel(order, "th"),
+    );
 
     return (
       <div className="mt-3 grid gap-1 text-xs text-[var(--text-muted)]">
         <p>
-          Reward: <strong>{itemLabel}</strong>
+          <I18nText en="Reward" th="รางวัล" />: <strong>{itemLabel}</strong>
         </p>
-        <p>Pack: {packLabel}</p>
-        <p className="font-mono">Tracking: {trackingLabel}</p>
+        <p>
+          <I18nText en="Pack" th="แพ็ก" />: {packLabel}
+        </p>
+        <p className="font-mono">
+          <I18nText en="Tracking" th="เลขติดตาม" />: {trackingLabel}
+        </p>
       </div>
     );
   }
@@ -2113,8 +2383,11 @@ export function OrderList({
       <h3 className="title-m">{title}</h3>
       {!orders.length ? (
         <EmptyState
-          title="No requests"
-          body="Submit a collection request to create one."
+          title={i18n("No requests", "ยังไม่มีคำขอ")}
+          body={i18n(
+            "Submit a collection request to create one.",
+            "ส่งคำขอจากคอลเลกชันเพื่อสร้างรายการ",
+          )}
         />
       ) : (
         <div className="mt-4 grid gap-3">
@@ -2124,14 +2397,18 @@ export function OrderList({
                 <p className="font-mono font-bold">{order.publicCode}</p>
                 <StatusBadge
                   status={
-                    "items" in order
-                      ? ynotShippingStatusCustomerLabel(order.status)
-                      : order.status
+                    isShippingRequest(order)
+                      ? i18n(
+                          ynotShippingStatusCustomerLabel(order.status, "en"),
+                          ynotShippingStatusCustomerLabel(order.status, "th"),
+                        )
+                      : exchangeStatusLabel(order.status)
                   }
                 />
               </div>
               <p className="txt-mono mt-2 text-xs">
-                Created {new Date(order.createdAt).toLocaleString()}
+                <I18nText en="Created" th="สร้างเมื่อ" />{" "}
+                {new Date(order.createdAt).toLocaleString()}
               </p>
               {shippingDetails(order)}
             </div>
@@ -2741,15 +3018,22 @@ export function PlatformHealthPanel({
   );
 }
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status }: { status: ReactNode }) {
+  const label = typeof status === "string" ? status.replaceAll("_", " ") : status;
   return (
     <span className="status-pill px-3 py-1 text-xs">
-      {status.replaceAll("_", " ")}
+      {label}
     </span>
   );
 }
 
-export function EmptyState({ title, body }: { title: string; body: string }) {
+export function EmptyState({
+  title,
+  body,
+}: {
+  title: ReactNode;
+  body: ReactNode;
+}) {
   return (
     <div className="empty-state">
       <p className="title-s">{title}</p>

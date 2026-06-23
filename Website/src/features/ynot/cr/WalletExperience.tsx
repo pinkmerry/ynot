@@ -12,6 +12,8 @@ import {
   ynotActionIdempotencyKey,
 } from "../action-intent";
 import { topUpPackages } from "../top-up-packages";
+import { useStoreLanguage } from "../StorePreferences";
+import { I18nText, type Language } from "../i18n";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { PageHead, useToast } from "./UiKit";
 
@@ -38,20 +40,21 @@ function stringValue(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
-function statusLabel(status: YnotTopUp["status"]): string {
+function statusLabel(status: YnotTopUp["status"], language: Language): string {
+  const th = language === "th";
   switch (status) {
     case "approved":
-      return "Approved";
+      return th ? "อนุมัติแล้ว" : "Approved";
     case "pending_review":
-      return "Pending review";
+      return th ? "รอตรวจสอบ" : "Pending review";
     case "pending_slip":
-      return "Pending slip";
+      return th ? "รอสลิป" : "Pending slip";
     case "rejected":
-      return "Rejected";
+      return th ? "ถูกปฏิเสธ" : "Rejected";
     case "cancelled":
-      return "Cancelled";
+      return th ? "ยกเลิกแล้ว" : "Cancelled";
     case "expired":
-      return "Expired";
+      return th ? "หมดอายุ" : "Expired";
     default:
       return status;
   }
@@ -65,20 +68,27 @@ function topUpHistoryGroup(status: YnotTopUp["status"]): HistoryGroup {
   return "pending";
 }
 
-function topUpToEntry(topUp: YnotTopUp): TopUpEntry {
+function topUpToEntry(topUp: YnotTopUp, language: Language): TopUpEntry {
   const group = topUpHistoryGroup(topUp.status);
   const approved = group === "approved";
   const rejected = group === "rejected";
+  const methodName = topUp.paymentMethod?.displayName ?? (language === "th" ? "ด้วยตนเอง" : "manual");
   return {
     id: topUp.publicCode,
     group,
     kind: approved ? "in" : "out",
     label: approved
-      ? `Top-up · ${topUp.paymentMethod?.displayName ?? "manual"}`
+      ? language === "th"
+        ? `เติมเหรียญ · ${methodName}`
+        : `Top-up · ${methodName}`
       : rejected
-        ? `Rejected top-up · ${topUp.paymentMethod?.displayName ?? "manual"}`
-      : `Pending top-up · ${topUp.paymentMethod?.displayName ?? "manual"}`,
-    sub: `฿${formatCoins(topUp.amountThb)} · ${statusLabel(topUp.status)}${
+        ? language === "th"
+          ? `เติมเหรียญถูกปฏิเสธ · ${methodName}`
+          : `Rejected top-up · ${methodName}`
+      : language === "th"
+        ? `รอตรวจการเติมเหรียญ · ${methodName}`
+        : `Pending top-up · ${methodName}`,
+    sub: `฿${formatCoins(topUp.amountThb)} · ${statusLabel(topUp.status, language)}${
       topUp.publicCode ? ` · ${topUp.publicCode}` : ""
     }`,
     coins: approved ? topUp.coinAmount : -topUp.amountThb,
@@ -98,6 +108,7 @@ export function WalletExperience({
   topUps,
 }: WalletExperienceProps) {
   const { toast } = useToast();
+  const language = useStoreLanguage();
   const [step, setStep] = useState<Step>(1);
   const [pickedPackageIdx, setPickedPackageIdx] = useState<number>(1);
   const [customMode, setCustomMode] = useState(false);
@@ -126,24 +137,24 @@ export function WalletExperience({
     null;
 
   const historyEntries = useMemo(() => {
-    const entries = topUps.map(topUpToEntry);
+    const entries = topUps.map((topUp) => topUpToEntry(topUp, language));
     return entries.filter((entry) =>
       historyFilter === "all" ? true : entry.group === historyFilter,
     );
-  }, [historyFilter, topUps]);
+  }, [historyFilter, language, topUps]);
 
   function submit() {
     if (topUpSubmitInFlightRef.current) return;
     if (!ready) {
-      toast("error", "Pick a coin amount and payment method first.");
+      toast("error", language === "th" ? "เลือกจำนวนเหรียญและช่องทางชำระเงินก่อน" : "Pick a coin amount and payment method first.");
       return;
     }
     if (!slip) {
-      toast("error", "Upload your bank or QR transfer slip first.");
+      toast("error", language === "th" ? "อัปโหลดสลิปโอนเงินก่อน" : "Upload your bank or QR transfer slip first.");
       return;
     }
     if (!selectedMethod) {
-      toast("error", "Choose a payment method first.");
+      toast("error", language === "th" ? "เลือกช่องทางชำระเงินก่อน" : "Choose a payment method first.");
       return;
     }
     topUpSubmitInFlightRef.current = true;
@@ -171,8 +182,8 @@ export function WalletExperience({
         const payload: unknown = await response.json().catch(() => null);
         if (!response.ok) {
           const errMsg = isRecord(payload)
-            ? stringValue(payload.error) || "Top-up request failed."
-            : "Top-up request failed.";
+            ? stringValue(payload.error) || (language === "th" ? "ส่งคำขอเติมเหรียญไม่สำเร็จ" : "Top-up request failed.")
+            : language === "th" ? "ส่งคำขอเติมเหรียญไม่สำเร็จ" : "Top-up request failed.";
           throw new Error(errMsg);
         }
         const publicCode =
@@ -193,15 +204,27 @@ export function WalletExperience({
           autoRejected ? "error" : "success",
           autoApproved
             ? publicCode
-              ? `Top-up ${publicCode} approved. Coins credited.`
-              : "Top-up approved. Coins credited."
+              ? language === "th"
+                ? `อนุมัติการเติมเหรียญ ${publicCode} แล้ว เหรียญถูกเพิ่มแล้ว`
+                : `Top-up ${publicCode} approved. Coins credited.`
+              : language === "th"
+                ? "อนุมัติการเติมเหรียญแล้ว เหรียญถูกเพิ่มแล้ว"
+                : "Top-up approved. Coins credited."
             : autoRejected
               ? publicCode
-                ? `Top-up ${publicCode} rejected. Slip did not pass verification.`
-                : "Top-up rejected. Slip did not pass verification."
+                ? language === "th"
+                  ? `การเติมเหรียญ ${publicCode} ถูกปฏิเสธ สลิปไม่ผ่านการตรวจสอบ`
+                  : `Top-up ${publicCode} rejected. Slip did not pass verification.`
+                : language === "th"
+                  ? "การเติมเหรียญถูกปฏิเสธ สลิปไม่ผ่านการตรวจสอบ"
+                  : "Top-up rejected. Slip did not pass verification."
             : publicCode
-              ? `Top-up ${publicCode} submitted for review`
-              : "Top-up submitted for review",
+              ? language === "th"
+                ? `ส่งคำขอเติมเหรียญ ${publicCode} เพื่อรอตรวจแล้ว`
+                : `Top-up ${publicCode} submitted for review`
+              : language === "th"
+                ? "ส่งคำขอเติมเหรียญเพื่อรอตรวจแล้ว"
+                : "Top-up submitted for review",
         );
         setSlip(null);
         topUpIntentRef.current = createYnotActionIntentId("topup");
@@ -211,7 +234,11 @@ export function WalletExperience({
       } catch (error) {
         toast(
           "error",
-          error instanceof Error ? error.message : "Top-up request failed.",
+          error instanceof Error
+            ? error.message
+            : language === "th"
+              ? "ส่งคำขอเติมเหรียญไม่สำเร็จ"
+              : "Top-up request failed.",
         );
       } finally {
         topUpSubmitInFlightRef.current = false;
@@ -222,19 +249,26 @@ export function WalletExperience({
   return (
     <div className="cr-page">
       <PageHead
-        eyebrow="Wallet"
-        title="Top up"
-        lead="Pick how many coins you want, then pay. We verify the slip and credit your wallet after it passes."
+        eyebrow={<I18nText en="Wallet" th="วอลเล็ต" />}
+        title={<I18nText en="Top up" th="เติมเหรียญ" />}
+        lead={
+          <I18nText
+            en="Pick how many coins you want, then pay. We verify the slip and credit your wallet after it passes."
+            th="เลือกจำนวนเหรียญที่ต้องการแล้วชำระเงิน เราจะตรวจสลิปและเพิ่มเหรียญเข้าวอลเล็ตเมื่อผ่านการตรวจสอบ"
+          />
+        }
       />
 
       <div className="cr-wallet-grid">
         <div className="cr-stack" style={{ gap: 16 }}>
           <div className="cr-balance-card">
-            <span className="cr-balance-eyebrow">Current balance</span>
+            <span className="cr-balance-eyebrow">
+              <I18nText en="Current balance" th="ยอดคงเหลือ" />
+            </span>
             <div className="cr-balance-num">
               <CoinPip size={28} />
               {formatCoins(wallet.balanceCoins)}
-              <small>coins</small>
+              <small><I18nText en="coins" th="เหรียญ" /></small>
             </div>
             <div
               className="cr-row"
@@ -253,7 +287,7 @@ export function WalletExperience({
                 >
                   {Math.floor(wallet.balanceCoins / 320)}
                 </strong>{" "}
-                mid-tier packs
+                <I18nText en="mid-tier packs" th="แพ็กระดับกลาง" />
               </span>
             </div>
             <div
@@ -276,10 +310,10 @@ export function WalletExperience({
                   }
                 }}
               >
-                <Ico name="plus" size={14} /> Top up
+                <Ico name="plus" size={14} /> <I18nText en="Top up" th="เติมเหรียญ" />
               </button>
               <Link href="/profile" className="cr-btn">
-                <Ico name="swap" size={14} /> Convert cards to coins
+                <Ico name="swap" size={14} /> <I18nText en="Convert cards to coins" th="แลกการ์ดเป็นเหรียญ" />
               </Link>
             </div>
           </div>
@@ -287,16 +321,16 @@ export function WalletExperience({
           <div className="cr-section">
             <div className="cr-section-head">
               <div className="cr-stack" style={{ gap: 2 }}>
-                <span className="cr-eyebrow">History</span>
-                <h3>Recent top-up requests</h3>
+                <span className="cr-eyebrow"><I18nText en="History" th="ประวัติ" /></span>
+                <h3><I18nText en="Recent top-up requests" th="คำขอเติมเหรียญล่าสุด" /></h3>
               </div>
               <div className="cr-row" style={{ gap: 4 }}>
                 {(
                   [
-                    { id: "all", label: "All" },
-                    { id: "approved", label: "Approved" },
-                    { id: "pending", label: "Pending" },
-                    { id: "rejected", label: "Rejected" },
+                    { id: "all", label: language === "th" ? "ทั้งหมด" : "All" },
+                    { id: "approved", label: language === "th" ? "อนุมัติแล้ว" : "Approved" },
+                    { id: "pending", label: language === "th" ? "รอตรวจ" : "Pending" },
+                    { id: "rejected", label: language === "th" ? "ถูกปฏิเสธ" : "Rejected" },
                   ] as { id: HistoryFilter; label: string }[]
                 ).map((f) => (
                   <button
@@ -322,7 +356,10 @@ export function WalletExperience({
                     fontSize: 13,
                   }}
                 >
-                  No top-up requests match this filter.
+                  <I18nText
+                    en="No top-up requests match this filter."
+                    th="ไม่มีคำขอเติมเหรียญตรงกับตัวกรองนี้"
+                  />
                 </div>
               ) : (
                 historyEntries.slice(0, 8).map((entry) => (
@@ -359,8 +396,10 @@ export function WalletExperience({
         <div className="cr-section cr-wallet-topup-card">
           <div className="cr-section-head">
             <div className="cr-stack" style={{ gap: 2 }}>
-              <span className="cr-eyebrow">Top up</span>
-              <h3>Step {step} of 3</h3>
+              <span className="cr-eyebrow"><I18nText en="Top up" th="เติมเหรียญ" /></span>
+              <h3>
+                <I18nText en={`Step ${step} of 3`} th={`ขั้นตอน ${step} จาก 3`} />
+              </h3>
             </div>
             <button
               type="button"
@@ -368,16 +407,16 @@ export function WalletExperience({
               onClick={() => setStep(1)}
               disabled={step === 1}
             >
-              <Ico name="chev-l" size={12} /> Restart
+              <Ico name="chev-l" size={12} /> <I18nText en="Restart" th="เริ่มใหม่" />
             </button>
           </div>
 
           <div className="cr-wallet-stepper-wrap">
             <div className="cr-wallet-stepper">
               {[
-                { n: 1, label: "Coins" },
-                { n: 2, label: "Payment" },
-                { n: 3, label: "Confirm" },
+                { n: 1, label: language === "th" ? "เหรียญ" : "Coins" },
+                { n: 2, label: language === "th" ? "ชำระเงิน" : "Payment" },
+                { n: 3, label: language === "th" ? "ยืนยัน" : "Confirm" },
               ].map((sx, i) => (
                 <div key={sx.n} className="cr-wallet-step">
                   <span
@@ -417,7 +456,9 @@ export function WalletExperience({
           <div className="cr-section-body" style={{ paddingTop: 18 }}>
             {step === 1 && (
               <div className="cr-stack" style={{ gap: 16 }}>
-                <span className="cr-eyebrow">Pick how many coins</span>
+                <span className="cr-eyebrow">
+                  <I18nText en="Pick how many coins" th="เลือกจำนวนเหรียญ" />
+                </span>
                 <div className="cr-wallet-package-grid">
                   {topUpPackages.map((p, i) => (
                     <button
@@ -449,7 +490,9 @@ export function WalletExperience({
                       if (e.key === "Enter") setCustomMode(true);
                     }}
                   >
-                    <span className="cr-eyebrow">Custom amount</span>
+                    <span className="cr-eyebrow">
+                      <I18nText en="Custom amount" th="จำนวนที่ต้องการ" />
+                    </span>
                     <div
                       className="cr-row cr-wallet-custom-input-row"
                       style={{ gap: 8, marginTop: 4 }}
@@ -470,7 +513,7 @@ export function WalletExperience({
                           setCustomThb(amount ? String(amount) : "");
                         }}
                         onFocus={() => setCustomMode(true)}
-                        placeholder="Enter amount"
+                        placeholder={language === "th" ? "ใส่จำนวนเงิน" : "Enter amount"}
                         style={{
                           flex: 1,
                           border: 0,
@@ -481,7 +524,11 @@ export function WalletExperience({
                           fontFamily: "inherit",
                           color: "var(--cr-ink)",
                         }}
-                        aria-label="Custom top-up amount in THB"
+                        aria-label={
+                          language === "th"
+                            ? "จำนวนเติมเหรียญเองเป็นบาท"
+                            : "Custom top-up amount in THB"
+                        }
                         inputMode="numeric"
                       />
                       {customThbNum > 0 && (
@@ -500,7 +547,10 @@ export function WalletExperience({
                   </div>
                 </div>
                 <small className="cr-mute">
-                  1 THB = 1 coin. No bonus coins are added.
+                  <I18nText
+                    en="1 THB = 1 coin. No bonus coins are added."
+                    th="1 บาท = 1 เหรียญ ไม่มีเหรียญโบนัสเพิ่มเติม"
+                  />
                 </small>
 
                 <div
@@ -516,7 +566,7 @@ export function WalletExperience({
                     style={{ justifyContent: "space-between" }}
                   >
                     <span className="cr-mute" style={{ fontSize: 12.5 }}>
-                      You pay
+                      <I18nText en="You pay" th="คุณชำระ" />
                     </span>
                     <strong className="cr-tnum">฿{formatCoins(buyThb)}</strong>
                   </div>
@@ -525,7 +575,7 @@ export function WalletExperience({
                     style={{ justifyContent: "space-between", marginTop: 6 }}
                   >
                     <span className="cr-mute" style={{ fontSize: 12.5 }}>
-                      Coins credited
+                      <I18nText en="Coins credited" th="เหรียญที่จะได้รับ" />
                     </span>
                     <strong
                       className="cr-tnum"
@@ -547,10 +597,11 @@ export function WalletExperience({
                     style={{ justifyContent: "space-between" }}
                   >
                     <span style={{ fontSize: 12.5, fontWeight: 700 }}>
-                      New balance after approve
+                      <I18nText en="New balance after approve" th="ยอดใหม่หลังอนุมัติ" />
                     </span>
                     <strong className="cr-tnum" style={{ fontSize: 17 }}>
-                      {formatCoins(wallet.balanceCoins + buyCoins)} coins
+                      {formatCoins(wallet.balanceCoins + buyCoins)}{" "}
+                      <I18nText en="coins" th="เหรียญ" />
                     </strong>
                   </div>
                 </div>
@@ -561,14 +612,17 @@ export function WalletExperience({
                   disabled={!buyThb || !buyCoins}
                   onClick={() => setStep(2)}
                 >
-                  Continue to payment <Ico name="arrow-right" size={14} />
+                  <I18nText en="Continue to payment" th="ไปชำระเงิน" />{" "}
+                  <Ico name="arrow-right" size={14} />
                 </button>
               </div>
             )}
 
             {step === 2 && (
               <div className="cr-stack" style={{ gap: 16 }}>
-                <span className="cr-eyebrow">Pick a payment method</span>
+                <span className="cr-eyebrow">
+                  <I18nText en="Pick a payment method" th="เลือกช่องทางชำระเงิน" />
+                </span>
                 {paymentMethods.length === 0 ? (
                   <div
                     style={{
@@ -580,8 +634,10 @@ export function WalletExperience({
                       fontSize: 13,
                     }}
                   >
-                    No active bank transfer method is configured. Admin must
-                    add one before customers can submit a top-up.
+                    <I18nText
+                      en="No active bank transfer method is configured. Admin must add one before customers can submit a top-up."
+                      th="ยังไม่มีช่องทางโอนเงินที่เปิดใช้งาน แอดมินต้องเพิ่มช่องทางก่อนลูกค้าจึงจะส่งคำขอเติมเหรียญได้"
+                    />
                   </div>
                 ) : (
                   <div className="cr-wallet-payment-grid">
@@ -620,8 +676,10 @@ export function WalletExperience({
                         </span>
                         <small className="cr-mute" style={{ marginTop: 2 }}>
                           {method.type === "promptpay_qr"
-                            ? "Scan & pay"
-                            : method.bankName ?? "Bank Transfer"}
+                            ? language === "th"
+                              ? "สแกนจ่าย"
+                              : "Scan & pay"
+                            : method.bankName ?? (language === "th" ? "โอนผ่านธนาคาร" : "Bank Transfer")}
                         </small>
                       </button>
                     ))}
@@ -637,7 +695,9 @@ export function WalletExperience({
                       borderRadius: "var(--cr-r-md)",
                     }}
                   >
-                    <span className="cr-eyebrow">Payment details</span>
+                    <span className="cr-eyebrow">
+                      <I18nText en="Payment details" th="รายละเอียดชำระเงิน" />
+                    </span>
                     <div style={{ marginTop: 8, fontSize: 13.5 }}>
                       <div
                         className="cr-row"
@@ -646,7 +706,9 @@ export function WalletExperience({
                           padding: "6px 0",
                         }}
                       >
-                        <span className="cr-mute">Method</span>
+                        <span className="cr-mute">
+                          <I18nText en="Method" th="ช่องทาง" />
+                        </span>
                         <strong>{selectedMethod.displayName}</strong>
                       </div>
                       {selectedMethod.bankName && (
@@ -657,7 +719,9 @@ export function WalletExperience({
                             padding: "6px 0",
                           }}
                         >
-                          <span className="cr-mute">Bank</span>
+                          <span className="cr-mute">
+                            <I18nText en="Bank" th="ธนาคาร" />
+                          </span>
                           <strong>{selectedMethod.bankName}</strong>
                         </div>
                       )}
@@ -669,7 +733,9 @@ export function WalletExperience({
                             padding: "6px 0",
                           }}
                         >
-                          <span className="cr-mute">Account no.</span>
+                          <span className="cr-mute">
+                            <I18nText en="Account no." th="เลขบัญชี" />
+                          </span>
                           <strong className="cr-tnum">
                             {selectedMethod.accountNumber}
                           </strong>
@@ -683,7 +749,9 @@ export function WalletExperience({
                             padding: "6px 0",
                           }}
                         >
-                          <span className="cr-mute">Account name</span>
+                          <span className="cr-mute">
+                            <I18nText en="Account name" th="ชื่อบัญชี" />
+                          </span>
                           <strong>{selectedMethod.accountName}</strong>
                         </div>
                       )}
@@ -709,7 +777,9 @@ export function WalletExperience({
                           padding: "6px 0",
                         }}
                       >
-                        <span className="cr-mute">Amount</span>
+                        <span className="cr-mute">
+                          <I18nText en="Amount" th="จำนวนเงิน" />
+                        </span>
                         <strong className="cr-tnum">
                           ฿{formatCoins(buyThb)}.00
                         </strong>
@@ -727,7 +797,9 @@ export function WalletExperience({
                 )}
 
                 <div className="cr-field cr-wallet-slip-field">
-                  <span className="cr-wallet-slip-label">Payment slip</span>
+                  <span className="cr-wallet-slip-label">
+                    <I18nText en="Payment slip" th="สลิปชำระเงิน" />
+                  </span>
                   <input
                     id="topup-slip"
                     className="cr-wallet-slip-input"
@@ -748,22 +820,38 @@ export function WalletExperience({
                     </span>
                     <span className="cr-wallet-slip-copy">
                       <strong>
-                        {slip ? "Change payment slip" : "Upload payment slip"}
+                        {slip
+                          ? language === "th"
+                            ? "เปลี่ยนสลิปชำระเงิน"
+                            : "Change payment slip"
+                          : language === "th"
+                            ? "อัปโหลดสลิปชำระเงิน"
+                            : "Upload payment slip"}
                       </strong>
                       <small>
-                        {slip ? slip.name : "JPG, PNG, or WEBP up to 10 MB"}
+                        {slip
+                          ? slip.name
+                          : language === "th"
+                            ? "JPG, PNG หรือ WEBP สูงสุด 10 MB"
+                            : "JPG, PNG, or WEBP up to 10 MB"}
                       </small>
                     </span>
                   </label>
                 </div>
 
                 <div className="cr-field">
-                  <label htmlFor="topup-note">Note (optional)</label>
+                  <label htmlFor="topup-note">
+                    <I18nText en="Note (optional)" th="หมายเหตุ (ไม่บังคับ)" />
+                  </label>
                   <textarea
                     id="topup-note"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    placeholder="Anything the admin needs to know about this slip"
+                    placeholder={
+                      language === "th"
+                        ? "รายละเอียดเพิ่มเติมที่ต้องการแจ้งแอดมินเกี่ยวกับสลิปนี้"
+                        : "Anything the admin needs to know about this slip"
+                    }
                   />
                 </div>
 
@@ -773,7 +861,7 @@ export function WalletExperience({
                     className="cr-btn"
                     onClick={() => setStep(1)}
                   >
-                    <Ico name="chev-l" size={12} /> Back
+                    <Ico name="chev-l" size={12} /> <I18nText en="Back" th="กลับ" />
                   </button>
                   <button
                     type="button"
@@ -782,7 +870,8 @@ export function WalletExperience({
                     onClick={() => setStep(3)}
                     disabled={!ready || !slip}
                   >
-                    Review &amp; confirm <Ico name="arrow-right" size={14} />
+                    <I18nText en="Review & confirm" th="ตรวจสอบและยืนยัน" />{" "}
+                    <Ico name="arrow-right" size={14} />
                   </button>
                 </div>
               </div>
@@ -790,7 +879,9 @@ export function WalletExperience({
 
             {step === 3 && (
               <div className="cr-stack" style={{ gap: 16 }}>
-                <span className="cr-eyebrow">Review</span>
+                <span className="cr-eyebrow">
+                  <I18nText en="Review" th="ตรวจสอบ" />
+                </span>
                 <div
                   style={{
                     padding: 18,
@@ -807,7 +898,7 @@ export function WalletExperience({
                     }}
                   >
                     <span className="cr-mute" style={{ fontSize: 12.5 }}>
-                      Amount
+                      <I18nText en="Amount" th="จำนวนเงิน" />
                     </span>
                     <strong className="cr-tnum">฿{formatCoins(buyThb)}</strong>
                   </div>
@@ -819,7 +910,7 @@ export function WalletExperience({
                     }}
                   >
                     <span className="cr-mute" style={{ fontSize: 12.5 }}>
-                      Coins credited
+                      <I18nText en="Coins credited" th="เหรียญที่จะได้รับ" />
                     </span>
                     <strong
                       className="cr-tnum"
@@ -836,7 +927,7 @@ export function WalletExperience({
                     }}
                   >
                     <span className="cr-mute" style={{ fontSize: 12.5 }}>
-                      Method
+                      <I18nText en="Method" th="ช่องทาง" />
                     </span>
                     <strong>
                       {selectedMethod?.displayName ?? "—"}
@@ -854,9 +945,12 @@ export function WalletExperience({
                     className="cr-row"
                     style={{ justifyContent: "space-between" }}
                   >
-                    <span style={{ fontWeight: 700 }}>New balance after approve</span>
+                    <span style={{ fontWeight: 700 }}>
+                      <I18nText en="New balance after approve" th="ยอดใหม่หลังอนุมัติ" />
+                    </span>
                     <strong className="cr-tnum" style={{ fontSize: 18 }}>
-                      {formatCoins(wallet.balanceCoins + buyCoins)} coins
+                      {formatCoins(wallet.balanceCoins + buyCoins)}{" "}
+                      <I18nText en="coins" th="เหรียญ" />
                     </strong>
                   </div>
                 </div>
@@ -868,7 +962,7 @@ export function WalletExperience({
                     onClick={() => setStep(2)}
                     disabled={submitting}
                   >
-                    <Ico name="chev-l" size={12} /> Back
+                    <Ico name="chev-l" size={12} /> <I18nText en="Back" th="กลับ" />
                   </button>
                   <button
                     type="button"
@@ -879,16 +973,22 @@ export function WalletExperience({
                   >
                     <Ico name="check" size={14} />{" "}
                     {submitting
-                      ? "Submitting..."
-                      : `Confirm · I paid ฿${formatCoins(buyThb)}`}
+                      ? language === "th"
+                        ? "กำลังส่ง..."
+                        : "Submitting..."
+                      : language === "th"
+                        ? `ยืนยัน · ชำระแล้ว ฿${formatCoins(buyThb)}`
+                        : `Confirm · I paid ฿${formatCoins(buyThb)}`}
                   </button>
                 </div>
                 <small
                   className="cr-mute"
                   style={{ textAlign: "center", fontSize: 11.5 }}
                 >
-                  Slip checks must match the amount and receiver before coins
-                  are credited. Any unclear slip stays pending for review.
+                  <I18nText
+                    en="Slip checks must match the amount and receiver before coins are credited. Any unclear slip stays pending for review."
+                    th="สลิปต้องตรงกับยอดเงินและผู้รับก่อนเพิ่มเหรียญ สลิปที่ไม่ชัดเจนจะค้างไว้เพื่อรอตรวจสอบ"
+                  />
                 </small>
               </div>
             )}

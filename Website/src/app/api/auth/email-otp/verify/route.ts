@@ -69,18 +69,14 @@ export async function POST(request: Request) {
   const outcome = await resolveEmailAnchor(profile.id, email, "verified_email_anchor");
 
   const response = jsonNoStore({
-    profileId: outcome.profileId,
     identityReviewRequired: outcome.kind === "review_required",
-    reviewRequestId:
-      outcome.kind === "review_required" ? outcome.reviewRequestId : null,
     // Friendly copy the client can surface verbatim without re-mapping the
     // outcome kind. Null when no review is needed so the client can branch on
     // truthiness instead of having to interpret a status string.
     identityReviewMessage:
       outcome.kind === "review_required"
-        ? "This email is already linked to another YNot account. Support will merge them within 1 business day. You can keep using your LINE login in the meantime."
+        ? "We need to review this sign-in before linking it to your account. You can keep using your current login while support reviews it."
         : null,
-    email,
   });
   const secure = shouldUseSecureCookies(request);
   const sessionVersion = await fetchSessionVersion(profile.id);

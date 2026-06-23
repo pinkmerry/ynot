@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { ComponentProps } from "react";
+import { I18nText } from "../i18n";
 
 // Props are derived type-only from the client barrel so we don't pull its
 // runtime code into this module's static graph.
@@ -22,7 +23,9 @@ const GachaOpenPanel = dynamic(
         style={{ padding: 48, textAlign: "center" }}
         aria-busy="true"
       >
-        <span className="cr-mute">Preparing your pack…</span>
+        <span className="cr-mute">
+          <I18nText en="Preparing your pack…" th="กำลังเตรียมแพ็กของคุณ…" />
+        </span>
       </div>
     ),
   },

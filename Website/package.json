@@ -80,6 +80,7 @@
     "test:stock-readiness": "node --test scripts/test-stock-readiness.mjs && node --test scripts/test-stock-subsku-sql.mjs && npm run test:subsku-images",
     "test:identity-review-db-safety": "node --test scripts/test-identity-review-db-safety.mjs",
     "test:auth-session-hardening": "node --test scripts/test-auth-session-hardening.mjs",
+    "test:auth-identity-real-account-scenarios": "node --test scripts/test-auth-identity-real-account-scenarios.mjs",
     "test:personal-info": "node --test scripts/test-personal-info-address-sync.mjs",
     "verify:hardening": "npm run test:uploads && npm run test:production-security-regressions && npm run test:customer-security-hardening && node tools/verification/verify-hardening.mjs && node tools/verification/verify-rls-coverage.mjs",
     "verify:production-env": "YNOT_ENV=production node tools/verification/verify-production-env.mjs",

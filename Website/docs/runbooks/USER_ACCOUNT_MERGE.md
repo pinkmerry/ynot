@@ -4,6 +4,8 @@ How to triage the most common account / payment-slip support tickets. Keep this 
 
 All SQL queries assume you have a `service_role` connection to the production Supabase project (`szjoarkijeaspazbrchc`). Never share these queries or results outside of YNot ops.
 
+Canonical login/linking behavior lives in `../architecture/login-identity-flow.md`.
+
 ---
 
 ## 1. "I have two accounts"

@@ -1,6 +1,7 @@
 import { CollectionConvertPanel } from "@/features/ynot/client";
 import { ExchangeCatalogPanel, OrderList, PageHeader, YnotShell } from "@/features/ynot/components";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
+import { i18n } from "@/features/ynot/i18n";
 import { requireCurrentProfile } from "@/lib/auth/protected-route";
 
 export const dynamic = "force-dynamic";
@@ -16,9 +17,12 @@ export default async function ExchangePage() {
   return (
     <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
       <PageHeader
-        eyebrow="06 · Exchange"
-        title="Exchange"
-        description="Convert collection cards into coins instantly. The coin value was set by the admin when each pack was created."
+        eyebrow={i18n("06 · Exchange", "06 · แลกเหรียญ")}
+        title={i18n("Exchange", "แลกเหรียญ")}
+        description={i18n(
+          "Convert collection cards into coins instantly. The coin value was set by the admin when each pack was created.",
+          "แปลงการ์ดในคอลเลกชันเป็นเหรียญทันที มูลค่าเหรียญถูกกำหนดโดยแอดมินตอนสร้างแพ็ก",
+        )}
       />
       <ExchangeCatalogPanel
         wallet={data.wallet}
@@ -30,7 +34,7 @@ export default async function ExchangePage() {
           collection={data.collection}
           addresses={data.addresses}
         />
-        <OrderList title="Exchange history" orders={data.exchanges} />
+        <OrderList title={i18n("Exchange history", "ประวัติการแลก")} orders={data.exchanges} />
       </div>
     </YnotShell>
   );

@@ -5,6 +5,7 @@ import { LocalStockSubSkuTest } from "@/features/ynot/LocalStockSubSkuTest";
 import { PageHeader, YnotShell } from "@/features/ynot/components";
 import { Shell } from "@/features/ynot/cr/Shell";
 import { getYnotViewer } from "@/features/ynot/data";
+import { i18n } from "@/features/ynot/i18n";
 import { isLocalStockSubSkuHost } from "@/features/ynot/local-stock-subsku-access";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 
@@ -22,12 +23,15 @@ export default async function LocalStockSubSkuTestPage() {
       <Shell>
         <div className="local-production-route-head">
           <PageHeader
-            eyebrow="Local production rehearsal"
-            title="Customer and admin Sub SKU flow"
-            description="Localhost-only production-style test for box stock, loose pack stock, pack opening animation, reward images, user bag rows, all-pulls history, and admin stock controls."
+            eyebrow={i18n("Local production rehearsal", "ซ้อมขั้นตอนโปรดักชันบน local")}
+            title={i18n("Customer and admin Sub SKU flow", "ขั้นตอน Sub SKU สำหรับลูกค้าและแอดมิน")}
+            description={i18n(
+              "Localhost-only production-style test for box stock, loose pack stock, pack opening animation, reward images, user bag rows, all-pulls history, and admin stock controls.",
+              "หน้าทดสอบสไตล์โปรดักชันบน localhost สำหรับสต็อกแบบกล่อง, สต็อกแบบซอง, อนิเมชันเปิดแพ็ก, รูปรางวัล, ถุงการ์ดผู้ใช้, ประวัติการเปิดทั้งหมด และตัวควบคุมสต็อกแอดมิน",
+            )}
             action={
               <Link className="secondary-action compact" href="/local-readiness">
-                Readiness
+                {i18n("Readiness", "ความพร้อม")}
               </Link>
             }
           />

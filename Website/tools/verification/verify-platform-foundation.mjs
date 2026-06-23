@@ -121,8 +121,9 @@ check("src/features/auth/AuthForm.tsx", "LINE login is available from auth pages
 check("src/app/(store)/profile/personal-info/page.tsx", "personal info page exposes LINE connect flow", /mode=connect[\s\S]*lineHref/);
 check("src/features/ynot/client.tsx", "personal info form renders LINE connect action", /Connect \/ reconnect LINE/);
 check("src/app/api/line/callback/route.ts", "LINE callback validates state and links identity", /state !== storedState\.state[\s\S]*linkLineIdentity/);
-check("src/app/api/line/login/start/route.ts", "LINE login requires configured production site origin", /NEXT_PUBLIC_SITE_URL[\s\S]*NODE_ENV === "production"[\s\S]*NEXT_PUBLIC_SITE_URL is required before production LINE login/);
-check("src/app/api/line/callback/route.ts", "LINE callback exchanges with trusted redirect URI", /NEXT_PUBLIC_SITE_URL[\s\S]*redirect_uri:\s*redirectUri/);
+check("src/lib/line/config.ts", "LINE callback origin requires explicit configured site URL", /NEXT_PUBLIC_SITE_URL[\s\S]*if \(!configuredSiteUrl\) return null[\s\S]*new URL\(configuredSiteUrl\)\.origin[\s\S]*\/api\/line\/callback/);
+check("src/app/api/line/login/start/route.ts", "LINE login requires centralized trusted callback URL", /getLineCallbackUrl\(\)[\s\S]*NEXT_PUBLIC_SITE_URL is required before production LINE login/);
+check("src/app/api/line/callback/route.ts", "LINE callback exchanges with trusted redirect URI", /getLineCallbackUrl\(\)[\s\S]*exchangeCode\(code, channelId, channelSecret, redirectUri\)/);
 check("src/app/api/line/login/start/route.ts", "LINE login next path rejects backslash/protocol-relative redirects", /parsed\.origin !== base\.origin[\s\S]*parsed\.pathname/);
 check("src/app/api/line/callback/route.ts", "LINE callback next path rejects backslash/protocol-relative redirects", /parsed\.origin !== base\.origin[\s\S]*parsed\.pathname/);
 // linkLineIdentity refuses to auto-link a LINE token whose email already

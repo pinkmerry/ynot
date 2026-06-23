@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { I18nText } from "../i18n";
 import { Ico } from "./Icons";
 
 type ToastKind = "success" | "error" | "info";
@@ -75,8 +76,8 @@ export function useToast() {
 type ModalProps = {
   open: boolean;
   onClose: () => void;
-  title: string;
-  eyebrow?: string;
+  title: ReactNode;
+  eyebrow?: ReactNode;
   size?: "sm" | "md" | "lg" | "xl";
   children: ReactNode;
   footer?: ReactNode;
@@ -123,7 +124,7 @@ export function Modal({
             type="button"
             className="cr-icon-btn"
             onClick={onClose}
-            aria-label="Close"
+            aria-label="Close / ปิด"
           >
             <Ico name="x" size={16} />
           </button>
@@ -136,10 +137,10 @@ export function Modal({
 }
 
 type PageHeadProps = {
-  eyebrow?: string;
-  title: string;
-  lead?: string;
-  back?: { href: string; label?: string };
+  eyebrow?: ReactNode;
+  title: ReactNode;
+  lead?: ReactNode;
+  back?: { href: string; label?: ReactNode };
   actions?: ReactNode;
 };
 
@@ -157,7 +158,8 @@ export function PageHead({
           <div className="cr-row" style={{ gap: 10 }}>
             {back && (
               <a className="cr-back" href={back.href}>
-                <Ico name="chev-l" size={14} /> {back.label ?? "Back"}
+                <Ico name="chev-l" size={14} />{" "}
+                {back.label ?? <I18nText en="Back" th="กลับ" />}
               </a>
             )}
             {eyebrow && <span className="cr-eyebrow">{eyebrow}</span>}

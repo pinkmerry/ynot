@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft } from "lucide-react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   highestPublicPrizeDisplayTier,
@@ -20,6 +20,8 @@ import type {
   YnotGachaOpenResult,
   YnotTierAnimation,
 } from "./types";
+import { useStoreLanguage } from "./StorePreferences";
+import { I18nText, localized, type Language } from "./i18n";
 
 type RevealStage = "reveal" | "tierSpin" | "tier" | "spotlight" | "summary";
 type PullRarity = "normal" | "rare" | "blackout" | "jackpot";
@@ -28,8 +30,8 @@ type Props = {
   result: YnotGachaOpenResult;
   quantity: number;
   displayQuantity?: number;
-  summaryNote?: string;
-  summaryTitle?: string;
+  summaryNote?: ReactNode;
+  summaryTitle?: ReactNode;
   onClose: () => void;
   onFinish: () => void;
   onOpenAgain?: (quantity: number) => void;
@@ -121,12 +123,23 @@ function pickInitialStage(autoSkip: boolean, forceAnimation: boolean): RevealSta
   return "reveal";
 }
 
+function tierLabel(tier: PublicPrizeDisplayTier, language: Language) {
+  const copy: Record<PublicPrizeDisplayTier, { en: string; th: string }> = {
+    rainbow: { en: "Rainbow", th: "เรนโบว์" },
+    gold: { en: "Gold", th: "โกลด์" },
+    silver: { en: "Silver", th: "ซิลเวอร์" },
+    bronze: { en: "Bronze", th: "บรอนซ์" },
+    last_prize: { en: "Last Prize", th: "รางวัลสุดท้าย" },
+  };
+  return localized(copy[tier] ?? { en: publicPrizeDisplayTierLabel(tier), th: publicPrizeDisplayTierLabel(tier) }, language);
+}
+
 export function GachaRevealOverlay({
   result,
   quantity,
   displayQuantity,
   summaryNote,
-  summaryTitle = "Your haul",
+  summaryTitle,
   onClose,
   onFinish,
   onOpenAgain,
@@ -137,6 +150,7 @@ export function GachaRevealOverlay({
   forceAnimation = false,
 }: Props) {
   const { pref, setAutoSkip, setMuted } = useGachaAnimationPref();
+  const language = useStoreLanguage();
   const [stage, setStage] = useState<RevealStage>(() =>
     pickInitialStage(pref.autoSkip, forceAnimation),
   );
@@ -174,7 +188,13 @@ export function GachaRevealOverlay({
     : revealMotionDurationMs(motionRarity, quantity);
   const remainingStockLabel =
     typeof remainingSlots === "number" && Number.isFinite(remainingSlots)
-      ? `${Math.max(0, Math.floor(remainingSlots)).toLocaleString()} left`
+      ? localized(
+          {
+            en: `${Math.max(0, Math.floor(remainingSlots)).toLocaleString()} left`,
+            th: `เหลือ ${Math.max(0, Math.floor(remainingSlots)).toLocaleString("th-TH")}`,
+          },
+          language,
+        )
       : null;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -270,7 +290,7 @@ export function GachaRevealOverlay({
       data-tier={highestTier}
       role="dialog"
       aria-modal="true"
-      aria-label="Pack reveal"
+      aria-label={localized({ en: "Pack reveal", th: "หน้าสรุปการเปิดแพ็ก" }, language)}
     >
       <div className="gacha-reveal-backdrop" aria-hidden="true" />
 
@@ -278,18 +298,22 @@ export function GachaRevealOverlay({
         <button
           type="button"
           className="gacha-reveal-back"
-          aria-label="Back to pack detail"
+          aria-label={localized({ en: "Back to pack detail", th: "กลับไปหน้ารายละเอียดแพ็ก" }, language)}
           onClick={onFinish}
         >
           <ArrowLeft aria-hidden="true" />
-          <span>Pack detail</span>
+          <span><I18nText en="Pack detail" th="รายละเอียดแพ็ก" /></span>
         </button>
       )}
 
       <button
         type="button"
         className="gacha-reveal-mute"
-        aria-label={pref.muted ? "Unmute sound" : "Mute sound"}
+        aria-label={
+          pref.muted
+            ? localized({ en: "Unmute sound", th: "เปิดเสียง" }, language)
+            : localized({ en: "Mute sound", th: "ปิดเสียง" }, language)
+        }
         onClick={() => setMuted(!pref.muted)}
       >
         {pref.muted ? "🔇" : "🔊"}
@@ -324,7 +348,7 @@ export function GachaRevealOverlay({
               className={`pack-open-prototype gacha-reveal-pack-motion ${motionArmed ? "charging" : ""} ${quantity > 1 ? "batch" : "single"} phase-pull rarity-${motionRarity} speed-2`}
               data-animation-key={revealInstanceKey}
               role="group"
-              aria-label="Opening pack animation"
+              aria-label={localized({ en: "Opening pack animation", th: "แอนิเมชันเปิดแพ็ก" }, language)}
             >
               <div className="pack-open-grain" aria-hidden="true" />
               <div className="pack-open-visual gacha-reveal-pack-motion-visual">
@@ -379,7 +403,10 @@ export function GachaRevealOverlay({
             } as CSSProperties
           }
         >
-          <div className="gacha-reveal-tier-spin-card" aria-label="Prize card spinning">
+          <div
+            className="gacha-reveal-tier-spin-card"
+            aria-label={localized({ en: "Prize card spinning", th: "การ์ดรางวัลกำลังหมุน" }, language)}
+          >
             <div className="gacha-reveal-tier-spin-face">
               <span>YNOT</span>
             </div>
@@ -399,17 +426,27 @@ export function GachaRevealOverlay({
         >
           <div
             className="gacha-reveal-tier-card"
-            aria-label={`${publicPrizeDisplayTierLabel(highestTier)} prize tier result`}
+            aria-label={localized(
+              {
+                en: `${tierLabel(highestTier, "en")} prize tier result`,
+                th: `ผลรางวัลระดับ${tierLabel(highestTier, "th")}`,
+              },
+              language,
+            )}
           >
             <div className="gacha-reveal-tier-face gacha-reveal-tier-face-back">
               <span>YNOT</span>
             </div>
             <div className="gacha-reveal-tier-face gacha-reveal-tier-face-front">
-              <span>Prize tier</span>
-              <strong>{publicPrizeDisplayTierLabel(highestTier)}</strong>
+              <span><I18nText en="Prize tier" th="ระดับรางวัล" /></span>
+              <strong>{tierLabel(highestTier, language)}</strong>
               <small>
                 {displayedPullCount.toLocaleString()}{" "}
-                {displayedPullCount === 1 ? "pull" : "pulls"}
+                {language === "th"
+                  ? "ครั้ง"
+                  : displayedPullCount === 1
+                    ? "pull"
+                    : "pulls"}
               </small>
             </div>
           </div>
@@ -436,7 +473,7 @@ export function GachaRevealOverlay({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={featuredItemImageUrl}
-                  alt={featuredItem?.name ?? "Pulled card"}
+                  alt={featuredItem?.name ?? localized({ en: "Pulled card", th: "การ์ดที่เปิดได้" }, language)}
                 />
               ) : (
                 <div className="gacha-reveal-spotlight-placeholder">
@@ -452,11 +489,15 @@ export function GachaRevealOverlay({
         <div className="gacha-reveal-stage gacha-reveal-summary">
           <header className="gacha-reveal-summary-header">
             <p className="gacha-reveal-summary-eyebrow">
-              {publicPrizeDisplayTierLabel(highestTier).toUpperCase()} ·{" "}
+              {tierLabel(highestTier, language).toUpperCase()} ·{" "}
               {displayedPullCount.toLocaleString()}{" "}
-              {displayedPullCount === 1 ? "PULL" : "PULLS"}
+              {language === "th"
+                ? "ครั้ง"
+                : displayedPullCount === 1
+                  ? "PULL"
+                  : "PULLS"}
             </p>
-            <h2>{summaryTitle}</h2>
+            <h2>{summaryTitle ?? <I18nText en="Your haul" th="รางวัลของคุณ" />}</h2>
             {summaryNote ? (
               <p className="gacha-reveal-summary-note">{summaryNote}</p>
             ) : null}
@@ -492,9 +533,9 @@ export function GachaRevealOverlay({
                     {isLastPrize && (
                       <span
                         className="gacha-reveal-card-last-prize"
-                        aria-label="Last one prize"
+                        aria-label={localized({ en: "Last one prize", th: "รางวัลสุดท้าย" }, language)}
                       >
-                        LAST ONE PRIZE!
+                        <I18nText en="LAST ONE PRIZE!" th="รางวัลสุดท้าย!" />
                       </span>
                     )}
                     {itemImageUrl ? (
@@ -521,14 +562,14 @@ export function GachaRevealOverlay({
               <div className="gacha-reveal-repeat-stack">
                 {remainingStockLabel && (
                   <p className="gacha-reveal-repeat-stock-left" aria-live="polite">
-                    <span>Stock left</span>
+                    <span><I18nText en="Stock left" th="สต็อกคงเหลือ" /></span>
                     <strong>{remainingStockLabel}</strong>
                   </p>
                 )}
                 <div
                   className="gacha-reveal-repeat-row"
                   role="group"
-                  aria-label="Pull again"
+                  aria-label={localized({ en: "Pull again", th: "เปิดอีกครั้ง" }, language)}
                 >
                   {openAgainOptions.map((option) => {
                     const isPullAll = option.kind === "pull_all";
@@ -544,11 +585,31 @@ export function GachaRevealOverlay({
                             : onOpenAgain?.(option.quantity)
                         }
                       >
-                        <span>{isPullAll ? "Pull All" : `Pull x${option.quantity}`}</span>
+                        <span>
+                          {isPullAll
+                            ? <I18nText en="Pull All" th="เปิดทั้งหมด" />
+                            : localized({ en: `Pull x${option.quantity}`, th: `เปิด x${option.quantity}` }, language)}
+                        </span>
                         {isPullAll ? (
-                          <small>{option.quantity.toLocaleString()} left</small>
+                          <small>
+                            {localized(
+                              {
+                                en: `${option.quantity.toLocaleString()} left`,
+                                th: `เหลือ ${option.quantity.toLocaleString("th-TH")}`,
+                              },
+                              language,
+                            )}
+                          </small>
                         ) : typeof option.costCoins === "number" ? (
-                          <small>{option.costCoins.toLocaleString()} coins</small>
+                          <small>
+                            {localized(
+                              {
+                                en: `${option.costCoins.toLocaleString()} coins`,
+                                th: `${option.costCoins.toLocaleString("th-TH")} เหรียญ`,
+                              },
+                              language,
+                            )}
+                          </small>
                         ) : null}
                       </button>
                     );
@@ -556,22 +617,34 @@ export function GachaRevealOverlay({
                 </div>
               </div>
             )}
-            <div className="gacha-reveal-dock" role="group" aria-label="Pack actions">
+            <div
+              className="gacha-reveal-dock"
+              role="group"
+              aria-label={localized({ en: "Pack actions", th: "คำสั่งหลังเปิดแพ็ก" }, language)}
+            >
               <button
                 type="button"
                 className="gacha-reveal-dock-action is-primary"
                 onClick={onFinish}
               >
-                <span className="gacha-reveal-dock-action-label">Back to pack detail</span>
-                <span className="gacha-reveal-dock-action-hint">Open again there</span>
+                <span className="gacha-reveal-dock-action-label">
+                  <I18nText en="Back to pack detail" th="กลับรายละเอียดแพ็ก" />
+                </span>
+                <span className="gacha-reveal-dock-action-hint">
+                  <I18nText en="Open again there" th="เปิดอีกครั้งจากหน้านั้น" />
+                </span>
               </button>
               <button
                 type="button"
                 className="gacha-reveal-dock-action is-ghost"
                 onClick={onClose}
               >
-                <span className="gacha-reveal-dock-action-label">View collection</span>
-                <span className="gacha-reveal-dock-action-hint">Check inventory</span>
+                <span className="gacha-reveal-dock-action-label">
+                  <I18nText en="View collection" th="ดูคอลเลกชัน" />
+                </span>
+                <span className="gacha-reveal-dock-action-hint">
+                  <I18nText en="Check inventory" th="ตรวจของในกระเป๋า" />
+                </span>
               </button>
             </div>
             <label className="gacha-reveal-toggle">
@@ -580,7 +653,7 @@ export function GachaRevealOverlay({
                 checked={pref.autoSkip}
                 onChange={(event) => setAutoSkip(event.target.checked)}
               />
-              <span>Skip animation next time</span>
+              <span><I18nText en="Skip animation next time" th="ข้ามแอนิเมชันครั้งต่อไป" /></span>
             </label>
           </footer>
         </div>
@@ -592,7 +665,7 @@ export function GachaRevealOverlay({
           className="gacha-reveal-skip"
           onClick={skipToSummary}
         >
-          [ SKIP ]
+          <I18nText en="[ SKIP ]" th="[ ข้าม ]" />
         </button>
       )}
     </div>

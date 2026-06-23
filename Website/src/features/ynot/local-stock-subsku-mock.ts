@@ -1,3 +1,11 @@
+import type { LocalizedCopy } from "./i18n";
+
+type Copy = LocalizedCopy<string>;
+
+function copy(en: string, th: string): Copy {
+  return { en, th };
+}
+
 export type LocalStockSubSkuKind = "box" | "pack" | "card";
 
 export type LocalStockSubSku = {
@@ -29,7 +37,7 @@ export type LocalStockSubSkuState = {
   pullNumber: number;
   bag: LocalStockReward[];
   history: LocalStockReward[];
-  events: string[];
+  events: Copy[];
 };
 
 export type LocalStockTotals = {
@@ -70,7 +78,10 @@ export const localStockSubSkuInitialState: LocalStockSubSkuState = {
   bag: [],
   history: [],
   events: [
-    "Start: 2 sealed boxes x 24 packs plus 10 loose packs = 58 packs available.",
+    copy(
+      "Start: 2 sealed boxes x 24 packs plus 10 loose packs = 58 packs available.",
+      "เริ่มต้น: กล่องซีล 2 กล่อง x 24 ซอง บวกซองแยก 10 ซอง = พร้อมขาย 58 ซอง",
+    ),
   ],
 };
 
@@ -140,7 +151,7 @@ export function openLocalStockBoxes(
   const next = cloneState(state);
   const openCount = Math.min(cleanCount(quantity), next.boxStock);
   if (openCount <= 0) {
-    next.events.unshift("No sealed box is available to open.");
+    next.events.unshift(copy("No sealed box is available to open.", "ไม่มีกล่องซีลให้เปิดแปลงเป็นซอง"));
     return next;
   }
   const createdPacks = openCount * cleanCount(localStockSubSkus.box.childQuantity);
@@ -148,7 +159,10 @@ export function openLocalStockBoxes(
   next.loosePackStock += createdPacks;
   next.openedBoxCount += openCount;
   next.events.unshift(
-    `Opened ${openCount} box${openCount === 1 ? "" : "es"} into ${createdPacks} packs.`,
+    copy(
+      `Opened ${openCount} box${openCount === 1 ? "" : "es"} into ${createdPacks} packs.`,
+      `เปิดกล่อง ${openCount} กล่องเป็น ${createdPacks} ซอง`,
+    ),
   );
   return next;
 }
@@ -178,7 +192,7 @@ export function openLocalStockPacks(
 
   const openedPacks = Math.min(requested, next.loosePackStock);
   if (openedPacks <= 0) {
-    next.events.unshift("No pack stock is available to sell or open.");
+    next.events.unshift(copy("No pack stock is available to sell or open.", "ไม่มี stock ซองสำหรับขายหรือเปิด"));
     return next;
   }
 
@@ -192,7 +206,10 @@ export function openLocalStockPacks(
   next.bag = [...rewards, ...next.bag];
   next.history = [...rewards, ...next.history];
   next.events.unshift(
-    `Sold/opened ${openedPacks} pack${openedPacks === 1 ? "" : "s"} from ${localStockSubSkus.pack.sku}.`,
+    copy(
+      `Sold/opened ${openedPacks} pack${openedPacks === 1 ? "" : "s"} from ${localStockSubSkus.pack.sku}.`,
+      `ขาย/เปิด ${openedPacks} ซองจาก ${localStockSubSkus.pack.sku}`,
+    ),
   );
   return next;
 }

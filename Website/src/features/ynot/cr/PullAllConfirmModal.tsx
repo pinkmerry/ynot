@@ -9,6 +9,8 @@ import {
   type PullAllQuote,
   type PullAllStartedSession,
 } from "../pull-all-client";
+import { useStoreLanguage } from "../StorePreferences";
+import { I18nText } from "../i18n";
 import { CoinPip, formatCoins } from "./Icons";
 import { Modal, useToast } from "./UiKit";
 
@@ -39,6 +41,7 @@ export function PullAllConfirmModal({
   open,
 }: PullAllConfirmModalProps) {
   const { toast } = useToast();
+  const language = useStoreLanguage();
   const [quoteState, setQuoteState] = useState<PullAllQuoteState>({
     error: "",
     key: "",
@@ -100,7 +103,12 @@ export function PullAllConfirmModal({
     setStartError({ error: "", key: quoteKey });
     try {
       const session = await startPullAllSession(quote.startToken);
-      toast("success", "Pull All started. Revealing top rewards.");
+      toast(
+        "success",
+        language === "th"
+          ? "เริ่มเปิดทั้งหมดแล้ว กำลังเผยรางวัลเด่น"
+          : "Pull All started. Revealing top rewards.",
+      );
       onStarted?.(session, quote);
       handleClose();
     } catch (caught) {
@@ -114,27 +122,42 @@ export function PullAllConfirmModal({
     <Modal
       open={open}
       onClose={handleClose}
-      eyebrow="Pull All"
-      title={`Pull All ${title}`}
+      eyebrow={<I18nText en="Pull All" th="เปิดทั้งหมด" />}
+      title={
+        <>
+          <I18nText en="Pull All" th="เปิดทั้งหมด" /> {title}
+        </>
+      }
       size="md"
       footer={
         <>
           <button type="button" className="cr-btn" onClick={handleClose} disabled={starting}>
-            Cancel
+            <I18nText en="Cancel" th="ยกเลิก" />
           </button>
           <button
             type="button"
             className="cr-btn cr-btn-primary"
             onClick={handleStart}
             disabled={startDisabled}
-            title={!enoughCoins && quote ? "Top up to start Pull All." : undefined}
+            title={
+              !enoughCoins && quote
+                ? language === "th"
+                  ? "เติมเหรียญเพื่อเริ่มเปิดทั้งหมด"
+                  : "Top up to start Pull All."
+                : undefined
+            }
           >
             <CoinPip size={14} />{" "}
             {starting
-              ? "Starting Pull All..."
+              ? <I18nText en="Starting Pull All..." th="กำลังเริ่มเปิดทั้งหมด..." />
               : quote
-                ? `Start for ${formatCoins(totalCost)} coins`
-                : "Preparing quote..."}
+                ? (
+                    <I18nText
+                      en={`Start for ${formatCoins(totalCost)} coins`}
+                      th={`เริ่มด้วย ${formatCoins(totalCost)} เหรียญ`}
+                    />
+                  )
+                : <I18nText en="Preparing quote..." th="กำลังคำนวณราคา..." />}
           </button>
         </>
       }
@@ -142,34 +165,34 @@ export function PullAllConfirmModal({
       <div className="cr-stack" style={{ gap: 16, padding: "4px 0" }}>
         {loading ? (
           <div className="cr-pull-all-quote" aria-busy="true">
-            Preparing Pull All quote...
+            <I18nText en="Preparing Pull All quote..." th="กำลังคำนวณราคาเปิดทั้งหมด..." />
           </div>
         ) : null}
         {error ? <div className="cr-pull-all-error">{error}</div> : null}
         {quote ? (
           <div className="cr-pull-all-quote">
             <div className="cr-pull-all-quote-row">
-              <span>Total pulls</span>
+              <span><I18nText en="Total pulls" th="จำนวนที่เปิด" /></span>
               <strong>{quote.targetRewards.toLocaleString()}</strong>
             </div>
             <div className="cr-pull-all-quote-row">
-              <span>Cost per pull</span>
+              <span><I18nText en="Cost per pull" th="ราคาต่อครั้ง" /></span>
               <strong>
                 <CoinPip size={13} /> {formatCoins(quote.costPerReward)}
               </strong>
             </div>
             <div className="cr-pull-all-quote-row">
-              <span>Total cost</span>
+              <span><I18nText en="Total cost" th="ยอดรวม" /></span>
               <strong>
                 <CoinPip size={13} /> {formatCoins(totalCost)}
               </strong>
             </div>
             <div className="cr-pull-all-quote-row">
-              <span>Your balance</span>
+              <span><I18nText en="Your balance" th="ยอดคงเหลือ" /></span>
               <strong>{formatCoins(balanceCoins)}c</strong>
             </div>
             <div className="cr-pull-all-quote-row">
-              <span>Balance after Pull All</span>
+              <span><I18nText en="Balance after Pull All" th="ยอดหลังเปิดทั้งหมด" /></span>
               <strong style={{ color: enoughCoins ? "var(--cr-ink)" : "var(--cr-rose)" }}>
                 {formatCoins(balanceAfter)}c
               </strong>

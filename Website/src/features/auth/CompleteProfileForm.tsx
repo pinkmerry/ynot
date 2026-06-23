@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useStoreLanguage } from "../ynot/StorePreferences";
+import { I18nText } from "../ynot/i18n";
 
 type Props = {
   profileId: string;
@@ -14,6 +16,7 @@ type Step = "enter-email" | "enter-code";
 
 export function CompleteProfileForm({ defaultEmail, displayName, nextPath }: Props) {
   const router = useRouter();
+  const language = useStoreLanguage();
   const [step, setStep] = useState<Step>("enter-email");
   const [email, setEmail] = useState(defaultEmail);
   const [code, setCode] = useState("");
@@ -37,11 +40,18 @@ export function CompleteProfileForm({ defaultEmail, displayName, nextPath }: Pro
       });
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        setError(body.error ?? "Could not send code.");
+        setError(
+          body.error ??
+            (language === "th" ? "ส่งรหัสไม่สำเร็จ" : "Could not send code."),
+        );
         return;
       }
       setStep("enter-code");
-      setInfo(`We sent a 6-digit code to ${email}.`);
+      setInfo(
+        language === "th"
+          ? `เราส่งรหัส 6 หลักไปที่ ${email} แล้ว`
+          : `We sent a 6-digit code to ${email}.`,
+      );
     } finally {
       setBusy(false);
     }
@@ -63,7 +73,12 @@ export function CompleteProfileForm({ defaultEmail, displayName, nextPath }: Pro
         identityReviewMessage?: string | null;
       };
       if (!res.ok) {
-        setError(body.error ?? "That code didn't work.");
+        setError(
+          body.error ??
+            (language === "th"
+              ? "รหัสนี้ใช้ไม่ได้"
+              : "That code didn't work."),
+        );
         return;
       }
       if (body.identityReviewRequired) {
@@ -71,8 +86,9 @@ export function CompleteProfileForm({ defaultEmail, displayName, nextPath }: Pro
         // this, the router.replace below would unmount the form before the
         // message renders.
         setReviewMessage(
-          body.identityReviewMessage
-            ?? "This email already belongs to another profile. An admin review was created to link only your login identity.",
+          language === "th"
+            ? "อีเมลนี้อยู่กับโปรไฟล์อื่นแล้ว เราสร้างคำขอให้แอดมินตรวจสอบเพื่อเชื่อมเฉพาะวิธีเข้าสู่ระบบ"
+            : "This email already belongs to another profile. An admin review was created to link only your login identity.",
         );
         return;
       }
@@ -87,12 +103,17 @@ export function CompleteProfileForm({ defaultEmail, displayName, nextPath }: Pro
     <main className="auth-template-shell mobile-safe">
       <section className="glass auth-phone phone-surface">
         <div className="auth-top-bar">
-          <h1>Verify Email</h1>
+          <h1><I18nText en="Verify Email" th="ยืนยันอีเมล" /></h1>
         </div>
         <div className="auth-hero-mark" aria-hidden>📧</div>
-        <p className="sequence-label text-center">{`// HELLO · ${displayName.toUpperCase()}`}</p>
+        <p className="sequence-label text-center">
+          <I18nText en="// HELLO" th="// สวัสดี" /> · {displayName.toUpperCase()}
+        </p>
         <p className="text-center text-sm text-[var(--muted)]">
-          Verifying your email lets you log in from anywhere and keeps your wallet safe.
+          <I18nText
+            en="Verifying your email lets you log in from anywhere and keeps your wallet safe."
+            th="การยืนยันอีเมลช่วยให้เข้าสู่ระบบได้จากทุกที่และช่วยปกป้องวอลเล็ตของคุณ"
+          />
         </p>
 
         {error && (
@@ -112,7 +133,7 @@ export function CompleteProfileForm({ defaultEmail, displayName, nextPath }: Pro
                 router.refresh();
               }}
             >
-              Continue
+              <I18nText en="Continue" th="ไปต่อ" />
             </button>
           </div>
         )}
@@ -126,7 +147,7 @@ export function CompleteProfileForm({ defaultEmail, displayName, nextPath }: Pro
             }}
           >
             <label className="block space-y-1 text-sm font-bold text-white">
-              <span>Email</span>
+              <span><I18nText en="Email" th="อีเมล" /></span>
               <input
                 type="email"
                 required
@@ -138,7 +159,13 @@ export function CompleteProfileForm({ defaultEmail, displayName, nextPath }: Pro
               />
             </label>
             <button type="submit" disabled={busy} className="auth-cta">
-              {busy ? "Sending…" : "Send 6-digit code"}
+              {busy
+                ? language === "th"
+                  ? "กำลังส่ง..."
+                  : "Sending..."
+                : language === "th"
+                  ? "ส่งรหัส 6 หลัก"
+                  : "Send 6-digit code"}
             </button>
           </form>
         ) : (
@@ -150,7 +177,7 @@ export function CompleteProfileForm({ defaultEmail, displayName, nextPath }: Pro
             }}
           >
             <label className="block space-y-1 text-sm font-bold text-white">
-              <span>6-digit code</span>
+              <span><I18nText en="6-digit code" th="รหัส 6 หลัก" /></span>
               <input
                 inputMode="numeric"
                 pattern="\d{6}"
@@ -163,7 +190,13 @@ export function CompleteProfileForm({ defaultEmail, displayName, nextPath }: Pro
               />
             </label>
             <button type="submit" disabled={busy || code.length !== 6} className="auth-cta">
-              {busy ? "Verifying…" : "Verify and continue"}
+              {busy
+                ? language === "th"
+                  ? "กำลังยืนยัน..."
+                  : "Verifying..."
+                : language === "th"
+                  ? "ยืนยันและไปต่อ"
+                  : "Verify and continue"}
             </button>
             <button
               type="button"
@@ -175,7 +208,7 @@ export function CompleteProfileForm({ defaultEmail, displayName, nextPath }: Pro
                 setInfo(null);
               }}
             >
-              Change email
+              <I18nText en="Change email" th="เปลี่ยนอีเมล" />
             </button>
           </form>
         )}

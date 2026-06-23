@@ -8,10 +8,12 @@ This folder holds the readable project documents for the normal website.
 - `PROJECT_STATUS.md` — current implementation/testing status.
 - `verification/2026-05-07-github-vercel-production-deploy.md` — separate GitHub/Vercel production deployment evidence.
 - `../Database/docs/verification/2026-05-07-production-db-next-phase-gate.md` — production database migration gate evidence.
+- `architecture/login-identity-flow.md` — canonical email/Google/LINE login and identity-linking flow.
 
 ## Subfolders
 
 - `plans/` — approved website planning artifacts and production readiness plan.
+- `architecture/` — durable system boundaries and flow contracts.
 - `verification/` — check/build/browser evidence and QA notes.
 - `references/` — website design/prototype/reference files.
 - `archive/` — older planning documents kept for history.
