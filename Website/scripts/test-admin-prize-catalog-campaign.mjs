@@ -21,6 +21,24 @@ const catalogApi = read(
   "../src/features/ynot/admin/prize-catalog/catalog-api.ts",
 );
 
+const data = read("../src/features/ynot/data.ts");
+const types = read("../src/features/ynot/types.ts");
+
+// ---- awardedTo: winner identity in prize pool ----
+
+test("YnotPrizePoolItem exposes awardedTo winners", () => {
+  assert.ok(types.includes("awardedTo"), "YnotPrizePoolItem must declare awardedTo");
+  assert.ok(types.includes("PrizeWinner"), "types must define a PrizeWinner shape");
+});
+
+test("getAdminPrizePool loads winner identity for awarded units", () => {
+  const fn = data.slice(data.indexOf("export async function getAdminPrizePool"));
+  assert.ok(fn.includes("profile_id"), "prize-pool unit query must select profile_id");
+  assert.ok(fn.includes('.from("profiles")'), "must read profiles to resolve winner names");
+  assert.ok(fn.includes("awardedTo"), "each prize item must include awardedTo");
+  assert.ok(!fn.includes("ownerEmail") && !fn.includes(".email"), "winner email must NOT be loaded (name only)");
+});
+
 // ---- CampaignPrizesSection: owner-only value column (SECURITY) ----
 
 test("CampaignPrizesSection shows value column only when isOwner", () => {

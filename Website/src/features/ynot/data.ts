@@ -49,6 +49,7 @@ import type {
   YnotPullAllReadinessStatus,
   YnotPrizeUnitIdentityMismatch,
   YnotPrizePoolItem,
+  PrizeWinner,
   YnotPrizePreview,
   YnotRandomLogicMode,
   YnotRankingRow,
@@ -576,7 +577,7 @@ type PrizePoolStockSkuRow = Pick<
 
 type PrizePoolUnitRow = Pick<
   Database["public"]["Tables"]["draw_round_prize_units"]["Row"],
-  "card_stock_unit_id" | "draw_round_prize_id" | "status"
+  "card_stock_unit_id" | "draw_round_prize_id" | "status" | "profile_id" | "awarded_at"
 >;
 
 type PrizeUnitIdentityMismatch = YnotPrizeUnitIdentityMismatch;
@@ -5477,7 +5478,7 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
       ? await readSupabaseRows<PrizePoolUnitRow>("prize_pool_stock_units", () =>
           supabase
             .from("draw_round_prize_units")
-            .select("draw_round_prize_id,card_stock_unit_id,status")
+            .select("draw_round_prize_id,card_stock_unit_id,status,profile_id,awarded_at")
             .in("draw_round_prize_id", prizeIds),
         )
       : [];
@@ -5507,6 +5508,44 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
       new Map(visiblePrizes.map((prize) => [prize.id, prize.card_id])),
     );
     const prizeImageByPrizeId = stockImageUrlByPrizeId(prizeUnits, stockUnits);
+    // Winner identity for awarded units (admin-only; name not email).
+    const winnerProfileIds = [
+      ...new Set(
+        prizeUnits
+          .filter((unit) => unit.status === "awarded" && unit.profile_id)
+          .map((unit) => unit.profile_id as string),
+      ),
+    ];
+    const winnerProfiles = winnerProfileIds.length
+      ? await readSupabaseRows<
+          Pick<
+            Database["public"]["Tables"]["profiles"]["Row"],
+            "id" | "display_name" | "line_display_name"
+          >
+        >("prize_pool_winner_profiles", () =>
+          supabase
+            .from("profiles")
+            .select("id,display_name,line_display_name")
+            .in("id", winnerProfileIds),
+        )
+      : [];
+    const winnerNameById = new Map(
+      winnerProfiles.map((p) => [
+        p.id,
+        p.display_name ?? p.line_display_name ?? "YNot Player",
+      ]),
+    );
+    const winnersByPrizeId = new Map<string, PrizeWinner[]>();
+    for (const unit of prizeUnits) {
+      if (unit.status !== "awarded" || !unit.profile_id) continue;
+      const list = winnersByPrizeId.get(unit.draw_round_prize_id) ?? [];
+      list.push({
+        profileId: unit.profile_id,
+        name: winnerNameById.get(unit.profile_id) ?? "YNot Player",
+        awardedAt: unit.awarded_at ?? null,
+      });
+      winnersByPrizeId.set(unit.draw_round_prize_id, list);
+    }
     return visiblePrizes.map((prize) => {
       const campaign = campaignById.get(prize.draw_round_id);
       const card = cardById.get(prize.card_id);
@@ -5550,6 +5589,7 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         totalUnits: counts.total,
         availableUnits: counts.available,
         awardedUnits: counts.awarded,
+        awardedTo: winnersByPrizeId.get(prize.id) ?? [],
         voidUnits: counts.void,
       };
     });
