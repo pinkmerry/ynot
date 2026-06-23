@@ -34138,6 +34138,34 @@ html[data-ynot-theme] .admin-frame .pcx-pill-normal {
   border-color: var(--a-line-2, rgba(255, 255, 255, 0.12));
   background: rgba(255, 255, 255, 0.03);
 }
+html[data-ynot-theme] .admin-frame .pcx-pill-rainbow {
+  color: #ffe27a;
+  border: 1px solid rgba(244, 197, 66, 0.5);
+  background: linear-gradient(90deg, rgba(244,161,66,0.16), rgba(68,209,126,0.16));
+}
+html[data-ynot-theme] .admin-frame .pcx-pill-gold {
+  color: #ffe27a;
+  border: 1px solid rgba(244, 197, 66, 0.5);
+  background: rgba(244, 197, 66, 0.12);
+}
+html[data-ynot-theme] .admin-frame .pcx-pill-bronze {
+  color: #d8c3a5;
+  border: 1px solid rgba(180, 140, 90, 0.4);
+  background: rgba(180, 140, 90, 0.1);
+}
+html[data-ynot-theme] .admin-frame .pcx-awarded-cell {
+  white-space: nowrap;
+}
+html[data-ynot-theme] .admin-frame .pcx-winner-list {
+  display: block;
+  font-size: 10.5px;
+  color: var(--a-muted, #9b9daf);
+  font-weight: 500;
+  margin-top: 2px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* --- variant table (vtable) --- */
 html[data-ynot-theme] .admin-frame .pcx-vtable {

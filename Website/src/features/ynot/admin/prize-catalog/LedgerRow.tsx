@@ -15,7 +15,6 @@ export function LedgerRow({
   row,
   open,
   onToggle,
-  isOwner,
   onEdit,
   onDelete,
   onAddStock,
@@ -29,7 +28,6 @@ export function LedgerRow({
   row: AdminCardCatalogRow;
   open: boolean;
   onToggle: () => void;
-  isOwner: boolean;
   onEdit?: (row: AdminCardCatalogRow) => void;
   onDelete?: (row: AdminCardCatalogRow) => void;
   onAddStock?: (row: AdminCardCatalogRow) => void;
@@ -247,7 +245,6 @@ export function LedgerRow({
             <CampaignPrizesSection
               prizes={row.prizes}
               campaigns={campaigns}
-              isOwner={isOwner}
             />
           )}
         </div>

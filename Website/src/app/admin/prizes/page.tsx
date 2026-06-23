@@ -17,8 +17,6 @@ export default async function AdminPrizesPage() {
     getAdminPrizePool(),
     getCampaigns({ includePrivate: true }),
   ]);
-  const isOwner = data.viewer.adminRole === "owner";
-
   return (
     <AdminGate viewer={data.viewer}>
       <AdminFrame
@@ -30,7 +28,7 @@ export default async function AdminPrizesPage() {
       >
         <AdminCard className="admin-prize-catalog-card">
           <div className="card-pad">
-            <PrizeCatalogScreen cards={cards} prizes={prizes} campaigns={campaigns} isOwner={isOwner} />
+            <PrizeCatalogScreen cards={cards} prizes={prizes} campaigns={campaigns} />
           </div>
         </AdminCard>
       </AdminFrame>

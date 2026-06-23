@@ -1,20 +1,20 @@
 "use client";
 
-import type { YnotCampaign, YnotPrizePoolItem } from "@/features/ynot/types";
+import type { YnotCampaign, YnotPrizePoolItem, PrizeWinner } from "@/features/ynot/types";
 import { fmtInt } from "./catalog-format";
 
 /**
  * Campaign prizes section rendered in the LedgerRow expanded detail
- * for NON-box cards. READ-ONLY display of which campaigns this card
- * is assigned to as a prize, plus a winnable banner.
+ * for NON-box cards. READ-ONLY display of which campaigns this card is
+ * assigned to as a prize, the winnable banner, and per-campaign counts.
  *
  * Assignment and removal live in the campaign builder, not here.
+ * Winner names are admin-only (sourced from the admin-gated prize pool).
  */
 
 type CampaignPrizesSectionProps = {
   prizes: YnotPrizePoolItem[];
   campaigns: YnotCampaign[];
-  isOwner: boolean;
 };
 
 function campaignStatus(
@@ -25,9 +25,7 @@ function campaignStatus(
   return campaign?.status ?? "unknown";
 }
 
-function statusPillClass(
-  status: YnotCampaign["status"] | "unknown",
-): string {
+function statusPillClass(status: YnotCampaign["status"] | "unknown"): string {
   switch (status) {
     case "live":
       return "pcx-pill pcx-pill-live";
@@ -42,14 +40,40 @@ function statusPillClass(
   }
 }
 
-function tierPillClass(tier: "normal" | "high"): string {
-  return tier === "high" ? "pcx-pill pcx-pill-high" : "pcx-pill pcx-pill-normal";
+function tierPillClass(displayTier: string | undefined): string {
+  switch (displayTier) {
+    case "rainbow":
+      return "pcx-pill pcx-pill-rainbow";
+    case "gold":
+      return "pcx-pill pcx-pill-gold";
+    case "bronze":
+      return "pcx-pill pcx-pill-bronze";
+    default:
+      return "pcx-pill pcx-pill-unknown";
+  }
+}
+
+function AwardedCell({ count, winners }: { count: number; winners: PrizeWinner[] }) {
+  if (count <= 0) return <td className="num">0</td>;
+  const names = winners.map((w) => w.name);
+  const shown = names.slice(0, 3);
+  const extra = names.length - shown.length;
+  return (
+    <td className="num pcx-awarded-cell" title={names.join(", ") || undefined}>
+      <span className="pcx-awarded-count">{fmtInt(count)}</span>
+      {names.length > 0 && (
+        <span className="pcx-winner-list">
+          {shown.join(", ")}
+          {extra > 0 ? ` +${extra} more` : ""}
+        </span>
+      )}
+    </td>
+  );
 }
 
 export function CampaignPrizesSection({
   prizes,
   campaigns,
-  isOwner,
 }: CampaignPrizesSectionProps) {
   const isWinnableNow = prizes.some(
     (p) => campaignStatus(p.campaignId, campaigns) === "live",
@@ -64,7 +88,6 @@ export function CampaignPrizesSection({
         </span>
       </div>
 
-      {/* Winnable banner */}
       {prizes.length > 0 && (
         <div
           className={
@@ -79,7 +102,6 @@ export function CampaignPrizesSection({
         </div>
       )}
 
-      {/* Prize table (read-only) */}
       {prizes.length > 0 && (
         <table className="pcx-vtable">
           <thead>
@@ -88,9 +110,9 @@ export function CampaignPrizesSection({
               <th>Status</th>
               <th>Variant</th>
               <th>Tier</th>
-              <th>Rank</th>
-              {isOwner && <th>Value (THB)</th>}
-              <th>Awarded</th>
+              <th className="num">Total</th>
+              <th className="num">In pool</th>
+              <th className="num">Awarded</th>
             </tr>
           </thead>
           <tbody>
@@ -108,19 +130,13 @@ export function CampaignPrizesSection({
                     {prize.intendedStockLabel ?? prize.intendedStockSku ?? "—"}
                   </td>
                   <td>
-                    <span className={tierPillClass(prize.tier)}>
-                      {prize.tier}
+                    <span className={tierPillClass(prize.displayTier)}>
+                      {prize.displayTierLabel ?? prize.tier}
                     </span>
                   </td>
-                  <td>{prize.rank}</td>
-                  {isOwner && (
-                    <td>
-                      {prize.valueThb != null
-                        ? fmtInt(prize.valueThb)
-                        : "—"}
-                    </td>
-                  )}
-                  <td>{fmtInt(prize.awardedUnits)}</td>
+                  <td className="num">{fmtInt(prize.totalUnits)}</td>
+                  <td className="num">{fmtInt(prize.availableUnits)}</td>
+                  <AwardedCell count={prize.awardedUnits} winners={prize.awardedTo} />
                 </tr>
               );
             })}

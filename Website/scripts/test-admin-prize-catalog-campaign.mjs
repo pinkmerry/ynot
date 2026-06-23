@@ -39,41 +39,19 @@ test("getAdminPrizePool loads winner identity for awarded units", () => {
   assert.ok(!fn.includes("ownerEmail") && !fn.includes(".email"), "winner email must NOT be loaded (name only)");
 });
 
-// ---- CampaignPrizesSection: owner-only value column (SECURITY) ----
+// ---- CampaignPrizesSection: columns ----
 
-test("CampaignPrizesSection shows value column only when isOwner", () => {
-  const valueHeaderIndex = campaignSection.indexOf("Value (THB)");
-  assert.ok(
-    valueHeaderIndex !== -1,
-    "Value (THB) column header must exist in CampaignPrizesSection",
-  );
-
-  const beforeHeader = campaignSection.slice(0, valueHeaderIndex);
-  const lastIsOwner = beforeHeader.lastIndexOf("isOwner");
-  assert.ok(
-    lastIsOwner !== -1,
-    "isOwner must appear before the Value (THB) header",
-  );
-  const guardContext = beforeHeader.slice(lastIsOwner);
-  assert.ok(
-    guardContext.includes("isOwner &&"),
-    "Value column header must be gated with `isOwner &&`",
-  );
+test("Campaign table drops Rank and Value columns", () => {
+  assert.ok(!campaignSection.includes("prize.rank"), "Rank cell must be removed");
+  assert.ok(!campaignSection.includes("valueThb"), "Value cell must be removed");
+  assert.ok(!campaignSection.includes("Value (THB)"), "Value header must be removed");
 });
 
-test("CampaignPrizesSection value cell is gated behind isOwner", () => {
-  const valueCellIndex = campaignSection.indexOf("valueThb");
-  assert.ok(
-    valueCellIndex !== -1,
-    "valueThb must be referenced in CampaignPrizesSection",
-  );
-
-  const beforeCell = campaignSection.slice(0, valueCellIndex);
-  const guardIdx = beforeCell.lastIndexOf("isOwner &&");
-  assert.ok(
-    guardIdx !== -1,
-    "valueThb cell must be inside an isOwner && gate",
-  );
+test("Campaign table shows pack-defined tier, total, in-pool, and winners", () => {
+  assert.ok(campaignSection.includes("displayTierLabel"), "Tier must use displayTierLabel");
+  assert.ok(campaignSection.includes("totalUnits"), "must show Total (totalUnits)");
+  assert.ok(campaignSection.includes("availableUnits"), "must show In pool (availableUnits)");
+  assert.ok(campaignSection.includes("awardedTo"), "Awarded cell must render winners (awardedTo)");
 });
 
 // ---- CampaignPrizesSection: winnable banner ----

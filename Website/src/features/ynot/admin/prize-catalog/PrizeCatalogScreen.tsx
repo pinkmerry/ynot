@@ -49,12 +49,10 @@ export function PrizeCatalogScreen({
   cards,
   prizes,
   campaigns,
-  isOwner,
 }: {
   cards: CardCatalogItem[];
   prizes: YnotPrizePoolItem[];
   campaigns: YnotCampaign[];
-  isOwner: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("all");
@@ -398,7 +396,6 @@ export function PrizeCatalogScreen({
               row={row}
               open={expanded.has(row.card.catalogCardId)}
               onToggle={() => toggle(row.card.catalogCardId)}
-              isOwner={isOwner}
               onEdit={handleEdit}
               onDelete={handleDelete}
               onAddStock={handleAddStockRow}
