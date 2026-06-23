@@ -43,6 +43,7 @@ export type MainSkuInput = {
   cardNumber?: string;
   name: string;
   series?: string; // "Pokemon" | "One Piece" | custom brand
+  language?: string; // "english" | "japanese" | "chinese" | custom
   releaseYear?: number | string;
   cardSet?: string;
   catalogCategory?: string; // "Single Cards" | "Sealed Boxes" | "Sealed Packs" | custom

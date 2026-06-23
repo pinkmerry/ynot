@@ -31,3 +31,16 @@ test("MainSkuForm offers PSA cert lookup auto-fill for Single Cards", () => {
   assert.ok(mainSku.includes("setCardNumber"), "lookup must fill Card number");
   assert.ok(mainSku.includes('category === "Single Cards"'), "cert lookup shown only for Single Cards");
 });
+
+test("MainSkuForm captures the card language and submits it", () => {
+  assert.ok(mainSku.includes("LANGUAGE_OPTIONS"), "must offer language options");
+  assert.ok(
+    mainSku.includes("English") && mainSku.includes("Japanese") && mainSku.includes("Chinese"),
+    "language options must include English/Japanese/Chinese",
+  );
+  assert.ok(mainSku.includes('id="pcx-language"'), "must render a Language select");
+  assert.ok(
+    mainSku.includes("language: resolvedLanguage"),
+    "submitted MainSkuInput must include the resolved language",
+  );
+});

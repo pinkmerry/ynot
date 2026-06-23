@@ -334,3 +334,16 @@ test("handleVariantQuickRemove checks campaign guard before adjustCardStock", ()
     "Campaign guard must be checked BEFORE adjustCardStock is called",
   );
 });
+
+// ---- Card language display ----
+
+test("LedgerRow shows the card language next to the name", () => {
+  assert.ok(
+    ledgerRow.includes("row.card.language"),
+    "LedgerRow must read row.card.language for display",
+  );
+  assert.ok(
+    ledgerRow.includes("pcx-lang-chip"),
+    "LedgerRow must render a language chip",
+  );
+});

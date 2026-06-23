@@ -33671,6 +33671,19 @@ html[data-ynot-theme] .admin-frame .pcx-cat-chip.pack {
   border-color: rgba(68,209,126,0.4);
   background: rgba(68,209,126,0.08);
 }
+html[data-ynot-theme] .admin-frame .pcx-lang-chip {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--a-muted, #9b9daf);
+  border: 1px solid var(--a-line-2, rgba(255, 255, 255, 0.12));
+  background: rgba(120, 160, 220, 0.1);
+}
 
 /* -- Stock bar + rollup numbers -- */
 html[data-ynot-theme] .admin-frame .pcx-rollup {

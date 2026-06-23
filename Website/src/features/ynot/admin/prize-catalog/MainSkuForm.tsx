@@ -19,9 +19,11 @@ const CATEGORY_OPTIONS = [
   "Sealed Boxes",
   "Sealed Packs",
 ] as const;
+const LANGUAGE_OPTIONS = ["—", "English", "Japanese", "Chinese", "Custom…"] as const;
 
 type SeriesOption = (typeof SERIES_OPTIONS)[number];
 type CatalogCategory = (typeof CATEGORY_OPTIONS)[number];
+type LanguageOption = (typeof LANGUAGE_OPTIONS)[number];
 
 type MainSkuFormProps = {
   initial?: CardCatalogItem;
@@ -40,6 +42,16 @@ function categoryDisplay(cat: string | undefined): CatalogCategory {
   if (cat === "Sealed Boxes") return "Sealed Boxes";
   if (cat === "Sealed Packs") return "Sealed Packs";
   return "Single Cards";
+}
+
+function languageDisplayToOption(
+  language: string | null | undefined,
+): LanguageOption {
+  const lower = (language ?? "").trim().toLowerCase();
+  if (lower === "english") return "English";
+  if (lower === "japanese") return "Japanese";
+  if (lower === "chinese") return "Chinese";
+  return lower ? "Custom…" : "—";
 }
 
 export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
@@ -61,6 +73,12 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
   const [category, setCategory] = useState<CatalogCategory>(
     categoryDisplay(initial?.catalogCategory),
   );
+  const initialLanguageOption = languageDisplayToOption(initial?.language);
+  const [languageOption, setLanguageOption] =
+    useState<LanguageOption>(initialLanguageOption);
+  const [customLanguage, setCustomLanguage] = useState(
+    initialLanguageOption === "Custom…" ? (initial?.language ?? "") : "",
+  );
   const [image, setImage] = useState<{
     url: string;
     storagePath?: string;
@@ -79,6 +97,12 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
 
   const resolvedSeries =
     seriesOption === "Custom…" ? customSeries : seriesOption;
+  const resolvedLanguage =
+    languageOption === "—"
+      ? ""
+      : languageOption === "Custom…"
+        ? customLanguage.trim().toLowerCase()
+        : languageOption.toLowerCase();
 
   async function onPickImage(file: File) {
     setError("");
@@ -103,6 +127,7 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
         modelCode: code.trim() || undefined,
         cardNumber: cardNumber.trim() || undefined,
         series: resolvedSeries || undefined,
+        language: resolvedLanguage || undefined,
         cardSet: cardSet.trim() || undefined,
         releaseYear: releaseYear.trim() || undefined,
         catalogCategory: category,
@@ -250,20 +275,50 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
         </Field>
       </div>
 
-      <Field label="Category" htmlFor="pcx-category">
-        <select
-          id="pcx-category"
-          className="pcx-input"
-          value={category}
-          onChange={(e) => setCategory(e.target.value as CatalogCategory)}
-        >
-          {CATEGORY_OPTIONS.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </Field>
+      <div className="pcx-form-row2">
+        <Field label="Category" htmlFor="pcx-category">
+          <select
+            id="pcx-category"
+            className="pcx-input"
+            value={category}
+            onChange={(e) => setCategory(e.target.value as CatalogCategory)}
+          >
+            {CATEGORY_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Language" htmlFor="pcx-language">
+          <select
+            id="pcx-language"
+            className="pcx-input"
+            value={languageOption}
+            onChange={(e) => {
+              const v = e.target.value as LanguageOption;
+              setLanguageOption(v);
+              if (v !== "Custom…") setCustomLanguage("");
+            }}
+          >
+            {LANGUAGE_OPTIONS.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
+          {languageOption === "Custom…" && (
+            <input
+              id="pcx-custom-language"
+              aria-label="Custom language"
+              className="pcx-input pcx-mt4"
+              value={customLanguage}
+              onChange={(e) => setCustomLanguage(e.target.value)}
+              placeholder="e.g. Korean"
+            />
+          )}
+        </Field>
+      </div>
 
       <Field label="Card image" htmlFor="pcx-image" optional>
         <input
