@@ -929,7 +929,14 @@ export function GachaOpenPanel({
             : "";
   const [quantity, setQuantity] = useState(initialOption);
   const [message, setMessage] = useState(initialAutoStartBlockedMessage);
-  const [walletBalanceCoins, setWalletBalanceCoins] = useState(balanceCoins);
+  const [walletBalanceOverride, setWalletBalanceOverride] = useState<{
+    balanceCoins: number;
+    sourceBalanceCoins: number;
+  } | null>(null);
+  const walletBalanceCoins =
+    walletBalanceOverride?.sourceBalanceCoins === balanceCoins
+      ? walletBalanceOverride.balanceCoins
+      : balanceCoins;
   const [revealResult, setRevealResult] = useState<YnotGachaOpenResult | null>(
     null,
   );
@@ -948,9 +955,15 @@ export function GachaOpenPanel({
   const openRequestInFlightRef = useRef(false);
   const [, startTransition] = useTransition();
 
-  useEffect(() => {
-    setWalletBalanceCoins(balanceCoins);
-  }, [balanceCoins]);
+  const applyWalletBalanceCoins = useCallback(
+    (nextBalanceCoins: number) => {
+      setWalletBalanceOverride({
+        balanceCoins: nextBalanceCoins,
+        sourceBalanceCoins: balanceCoins,
+      });
+    },
+    [balanceCoins],
+  );
 
   const remainingOpenUnits = openQuantityLimit({
     remainingSlots: remainingState.remainingSlots,
@@ -1070,7 +1083,7 @@ export function GachaOpenPanel({
           ),
         });
         const result = (payload?.result ?? null) as YnotGachaOpenResult | null;
-        setWalletBalanceCoins(publicWalletBalance(payload.wallet, walletBalanceCoins));
+        applyWalletBalanceCoins(publicWalletBalance(payload.wallet, walletBalanceCoins));
         if (result && Array.isArray(result.items)) {
           if (result.remaining) {
             setRemainingState((current) => ({
@@ -1130,6 +1143,13 @@ export function GachaOpenPanel({
     setPullAllRevealRunId((current) => current + 1);
     applyPullAllSession(session);
   }
+
+  const handlePullAllWalletSnapshot = useCallback(
+    (wallet: { balanceCoins: number }) => {
+      applyWalletBalanceCoins(wallet.balanceCoins);
+    },
+    [applyWalletBalanceCoins],
+  );
 
   function handleRevealClose() {
     setOpeningOverlayVisible(false);
@@ -1334,7 +1354,7 @@ export function GachaOpenPanel({
         campaign={campaign}
         onClose={() => setPullAllConfirmOpen(false)}
         onStarted={handlePullAllStarted}
-        onWalletSnapshot={(wallet) => setWalletBalanceCoins(wallet.balanceCoins)}
+        onWalletSnapshot={handlePullAllWalletSnapshot}
         open={pullAllConfirmOpen}
       />
       {pendingOverlay}
