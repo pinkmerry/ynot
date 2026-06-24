@@ -24,6 +24,7 @@ import { presentShippingHistoryCurrent } from "@/lib/ynot/reward-action-presente
 import {
   LOCAL_PREVIEW_PROFILE_ID,
   LOCAL_PREVIEW_SOLD_STATE_COOKIE,
+  LOCAL_PREVIEW_WALLET_BALANCE,
   previewAddressesForProfile,
   previewCollectionForProfile,
   previewExchangesForProfile,
@@ -3090,7 +3091,6 @@ function hideLegacyMainTransfer(methods: YnotPaymentMethod[]) {
   );
 }
 
-const PREVIEW_WALLET_BALANCE = 50_000;
 type TopUpStatus = Database["public"]["Tables"]["top_up_requests"]["Row"]["status"];
 
 type GetTopUpsOptions = {
@@ -3114,7 +3114,7 @@ export async function getWallet(profileId?: string): Promise<YnotWallet> {
     profileId === LOCAL_PREVIEW_PROFILE_ID
   ) {
     return {
-      balanceCoins: PREVIEW_WALLET_BALANCE + previewWalletBonusForProfile(profileId),
+      balanceCoins: LOCAL_PREVIEW_WALLET_BALANCE + previewWalletBonusForProfile(profileId),
       version: 0,
     };
   }

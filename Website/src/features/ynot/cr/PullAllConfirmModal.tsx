@@ -8,6 +8,7 @@ import {
   startPullAllSession,
   type PullAllQuote,
   type PullAllStartedSession,
+  type PublicWalletSnapshot,
 } from "../pull-all-client";
 import { useStoreLanguage } from "../StorePreferences";
 import { I18nText } from "../i18n";
@@ -19,6 +20,7 @@ type PullAllConfirmModalProps = {
   campaign: YnotCampaign | null;
   onClose: () => void;
   onStarted?: (session: PullAllStartedSession, quote: PullAllQuote) => void;
+  onWalletSnapshot?: (wallet: PublicWalletSnapshot) => void;
   open: boolean;
 };
 
@@ -38,6 +40,7 @@ export function PullAllConfirmModal({
   campaign,
   onClose,
   onStarted,
+  onWalletSnapshot,
   open,
 }: PullAllConfirmModalProps) {
   const { toast } = useToast();
@@ -61,6 +64,7 @@ export function PullAllConfirmModal({
       .then((nextQuote) => {
         if (!active) return;
         setQuoteState({ error: "", key: campaign.slug, quote: nextQuote });
+        if (nextQuote.wallet) onWalletSnapshot?.(nextQuote.wallet);
       })
       .catch((caught: unknown) => {
         if (!active) return;
@@ -103,6 +107,7 @@ export function PullAllConfirmModal({
     setStartError({ error: "", key: quoteKey });
     try {
       const session = await startPullAllSession(quote.startToken);
+      if (session.wallet) onWalletSnapshot?.(session.wallet);
       toast(
         "success",
         language === "th"

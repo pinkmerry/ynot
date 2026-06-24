@@ -5,6 +5,7 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
+import { readWalletSnapshot } from "@/lib/ynot/wallet-snapshot";
 import {
   LOCAL_PREVIEW_SOLD_STATE_COOKIE,
   preparePreviewPullAllQuote,
@@ -130,7 +131,12 @@ export async function POST(request: Request) {
       targetRewards: 35,
       soldPct: 65,
     });
-    if (previewQuote) return Response.json({ quote: previewQuote });
+    if (previewQuote) {
+      return Response.json({
+        quote: previewQuote,
+        wallet: await readWalletSnapshot(session.profileId),
+      });
+    }
   }
 
   if (!isSupabaseConfigured()) {
@@ -204,5 +210,6 @@ export async function POST(request: Request) {
       expiresAt: quoteExpiresAt,
       soldPct,
     },
+    wallet: await readWalletSnapshot(session.profileId),
   });
 }

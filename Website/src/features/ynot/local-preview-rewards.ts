@@ -16,6 +16,7 @@ import type {
 
 export const LOCAL_PREVIEW_PROFILE_ID = "00000000-0000-0000-0000-000000000001";
 export const LOCAL_PREVIEW_SOLD_STATE_COOKIE = "ynot-preview-sold-state";
+export const LOCAL_PREVIEW_WALLET_BALANCE = 50_000;
 
 type PreviewOpenInput = {
   campaignSlug?: string | null;

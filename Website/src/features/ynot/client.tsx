@@ -218,6 +218,12 @@ function retryAfterMessage(error: unknown) {
   return `Too many pack opens right now. Please wait ${seconds} seconds and try again.`;
 }
 
+function publicWalletBalance(value: unknown, fallback: number) {
+  if (!isRecord(value)) return fallback;
+  const balanceCoins = Math.floor(Number(value.balanceCoins));
+  return Number.isFinite(balanceCoins) && balanceCoins >= 0 ? balanceCoins : fallback;
+}
+
 function PullAllSwitchButton({
   compact = false,
   enabled,
@@ -925,6 +931,7 @@ export function GachaOpenPanel({
             : "";
   const [quantity, setQuantity] = useState(initialOption);
   const [message, setMessage] = useState(initialAutoStartBlockedMessage);
+  const [walletBalanceCoins, setWalletBalanceCoins] = useState(balanceCoins);
   const [revealResult, setRevealResult] = useState<YnotGachaOpenResult | null>(
     null,
   );
@@ -942,6 +949,11 @@ export function GachaOpenPanel({
     useState<GachaOpenRemainingState>(initialRemainingState);
   const openRequestInFlightRef = useRef(false);
   const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    setWalletBalanceCoins(balanceCoins);
+  }, [balanceCoins]);
+
   const remainingOpenUnits = openQuantityLimit({
     remainingSlots: remainingState.remainingSlots,
     eligibleUnits: remainingState.eligibleUnits,
@@ -1060,6 +1072,7 @@ export function GachaOpenPanel({
           ),
         });
         const result = (payload?.result ?? null) as YnotGachaOpenResult | null;
+        setWalletBalanceCoins(publicWalletBalance(payload.wallet, walletBalanceCoins));
         if (result && Array.isArray(result.items)) {
           if (result.remaining) {
             setRemainingState((current) => ({
@@ -1334,10 +1347,11 @@ export function GachaOpenPanel({
       {revealOverlay}
       {pullAllOverlay}
       <PullAllConfirmModal
-        balanceCoins={balanceCoins}
+        balanceCoins={walletBalanceCoins}
         campaign={campaign}
         onClose={() => setPullAllConfirmOpen(false)}
         onStarted={handlePullAllStarted}
+        onWalletSnapshot={(wallet) => setWalletBalanceCoins(wallet.balanceCoins)}
         open={pullAllConfirmOpen}
       />
       {pendingOverlay}
