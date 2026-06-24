@@ -642,6 +642,7 @@ export type YnotPrizePreview = {
   valueThb?: number | null;
   convertCoinValue?: number;
   bundleQuantity?: number;
+  quantityBadge?: number;
   plannedQuantity?: number;
   availableUnits?: number;
   totalUnits?: number;

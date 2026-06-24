@@ -95,6 +95,7 @@ type Slab = {
   brand: string | null;
   tier: TierKey;
   count: number;
+  bundleQuantity: number;
 };
 
 export type PackDetailArenaProps = {
@@ -215,11 +216,13 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
       const key = (p.cardCode?.trim() || p.cardName.trim().toLowerCase()) + "|" + (p.cardImageUrl ?? "");
       // copies of this card seeded into the pack (sum across duplicate rows)
       const copies = Number(p.plannedQuantity ?? 0) || 0;
+      const bundleQuantity = Number(p.bundleQuantity ?? p.quantityBadge ?? 1) || 1;
       const existing = byKey.get(key);
       if (existing) {
         // same card appears again (e.g. split across rows): keep one image,
         // accumulate the copy count
         existing.count += copies;
+        existing.bundleQuantity = Math.max(existing.bundleQuantity, bundleQuantity);
         continue;
       }
       byKey.set(key, {
@@ -232,6 +235,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
         brand: p.cardBrand ?? null,
         tier: tierOf(p),
         count: copies,
+        bundleQuantity: Number(p.bundleQuantity ?? p.quantityBadge ?? 1) || 1,
       });
     }
     return [...byKey.values()].sort(
@@ -424,8 +428,8 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                         ) : (
                           <span className="ac-fan-ph">{initials(s.name)}</span>
                         )}
-                        {s.count > 0 && (
-                          <span className="ac-slab-qty">×{s.count.toLocaleString()}</span>
+                        {s.bundleQuantity > 1 && (
+                          <span className="ac-slab-qty">×{s.bundleQuantity.toLocaleString()}</span>
                         )}
                       </div>
                       {/* Arena-style 3-line block: release year + brand / SKU name / model code.
@@ -468,6 +472,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
               brand: match?.brand ?? null,
               tier: "rainbow",
               count: 1,
+              bundleQuantity: 1,
             };
             const headline = [
               lastPrizeSlab.year,
@@ -500,8 +505,8 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                       ) : (
                         <span className="ac-fan-ph">{initials(lastPrizeSlab.name)}</span>
                       )}
-                      {lastPrizeSlab.count > 0 && (
-                        <span className="ac-slab-qty">×{lastPrizeSlab.count.toLocaleString()}</span>
+                      {lastPrizeSlab.bundleQuantity > 1 && (
+                        <span className="ac-slab-qty">×{lastPrizeSlab.bundleQuantity.toLocaleString()}</span>
                       )}
                     </div>
                     <div className="ac-slab-info">

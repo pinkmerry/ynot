@@ -1,0 +1,86 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+
+const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+
+function sectionBetween(source, startPattern, endPattern, label) {
+  const start = source.search(startPattern);
+  assert.notEqual(start, -1, `${label} start section exists`);
+  const rest = source.slice(start);
+  const end = rest.search(endPattern);
+  assert.notEqual(end, -1, `${label} end section exists`);
+  return rest.slice(0, end);
+}
+
+test("bundle quantity provides the public xN per-win pack-detail badge", () => {
+  const helper = read("src/features/ynot/bundle-quantity.ts");
+  assert.match(helper, /export const maxPublicQuantityBadge = 10;/);
+  assert.match(helper, /export function publicBundleQuantity/);
+
+  const types = read("src/features/ynot/types.ts");
+  assert.match(types, /quantityBadge\?: number;/);
+  assert.match(types, /bundleQuantity\?: number;/);
+
+  const data = read("src/features/ynot/data.ts");
+  assert.match(data, /bundleQuantity: publicBundleQuantity\(prize\.bundle_quantity\)/);
+  assert.match(data, /quantityBadge: publicBundleQuantity\(prize\.bundle_quantity\)/);
+  assert.doesNotMatch(data, /quantityBadge: publicPlannedQuantityBadge\(counts\.total\)/);
+});
+
+test("pack detail renders xN from Per win instead of Qty", () => {
+  const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
+  assert.match(arena, /bundleQuantity: Number\(p\.bundleQuantity \?\? p\.quantityBadge \?\? 1\)/);
+  assert.match(arena, /s\.bundleQuantity > 1/);
+  assert.match(arena, /×\{s\.bundleQuantity\.toLocaleString\(\)\}/);
+  assert.doesNotMatch(arena, /×\{s\.count\.toLocaleString\(\)\}/);
+});
+
+test("normal admin pack creation keeps one reward per win", () => {
+  const client = read("src/features/ynot/client.tsx");
+  assert.match(client, /normalRewardBundleQuantity/);
+  assert.match(client, /bundleQuantity: normalRewardBundleQuantity\(\)/);
+  assert.doesNotMatch(client, /<span>Per win<\/span>/);
+  assert.doesNotMatch(client, /maxBundleQuantity/);
+
+  const detailBadgeField = sectionBetween(
+    client,
+    /className="admin-field admin-prize-bundle-field"/,
+    /className="admin-field admin-prize-convert-field"/,
+    "admin detail badge field",
+  );
+  assert.match(detailBadgeField, /Detail badge/);
+  assert.match(detailBadgeField, /wins, 1 reward each/);
+  assert.doesNotMatch(detailBadgeField, /<input/);
+  assert.doesNotMatch(detailBadgeField, /stock/);
+});
+
+test("customer collection and reward surfaces do not render xN bundle badges", () => {
+  const client = read("src/features/ynot/client.tsx");
+  const history = read("src/features/ynot/cr/HistoryExperience.tsx");
+  const pulls = read("src/features/ynot/cr/AllPullsExperience.tsx");
+
+  const convertRow = sectionBetween(
+    client,
+    /className=\{`collection-convert-row/,
+    /<div className="collection-convert-row-body">/,
+    "collection convert row thumbnail",
+  );
+  assert.doesNotMatch(convertRow, /QuantityBadge/);
+
+  const collectionArt = sectionBetween(
+    history,
+    /className=\{`cr-coll-art/,
+    /className=\{`cr-coll-status/,
+    "collection card art",
+  );
+  assert.doesNotMatch(collectionArt, /QuantityBadge/);
+
+  const pullThumb = sectionBetween(
+    pulls,
+    /className="cr-pulls-row"/,
+    /<div\s+className="cr-stack"/,
+    "all pulls reward thumbnail",
+  );
+  assert.doesNotMatch(pullThumb, /QuantityBadge/);
+});
