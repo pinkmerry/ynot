@@ -69,6 +69,20 @@ test("open confirmation creates a stable intent before auto-start reveal", () =>
   }
 });
 
+test("pack detail renders fresh stock data and keeps arena imagery contained", () => {
+  const packDetailPage = read("src/app/(store)/packs/[slug]/page.tsx");
+  const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
+  const css = read("src/app/globals.css");
+
+  assert.match(packDetailPage, /searchParams\?: Promise<\{ opened\?: string \}>/);
+  assert.match(packDetailPage, /bypassPublicCache:\s*query\?\.opened === "1"/);
+  assert.match(arena, /className="ac-stage"/);
+  assert.match(css, /Pack detail arena production fallback/);
+  assert.match(css, /html\[data-ynot-theme\] \.ac-stage \{[\s\S]*overflow:\s*hidden/);
+  assert.match(css, /html\[data-ynot-theme\] \.ac-fan-card img \{[\s\S]*object-fit:\s*contain/);
+  assert.match(css, /max-height:\s*min\(62vh,\s*560px\)/);
+});
+
 test("open page validates and passes the intent to the client reveal panel", () => {
   const source = read("src/app/(store)/gacha/[campaignId]/open/page.tsx");
   assert.match(source, /normalizeOpenIntentId/);
@@ -165,8 +179,12 @@ test("repeat pull options use locally updated remaining stock from open result",
   assert.match(overlay, /Number\.isFinite\(remainingSlots\)/);
   assert.match(overlay, /gacha-reveal-repeat-stock-left/);
   assert.match(finish, /setOpeningOverlayVisible\(false\)/);
+  assert.match(finish, /setRevealResult\(null\)/);
   assert.doesNotMatch(finish, /setOpeningOverlayVisible\(true\)/);
-  assert.match(finish, /router\.replace\(detailHref\)/);
+  assert.match(finish, /const freshDetailHref = `\$\{detailHref\}\?opened=1`/);
+  assert.match(finish, /router\.replace\(freshDetailHref,\s*\{\s*scroll:\s*true\s*\}\)/);
+  assert.match(finish, /router\.refresh\(\)/);
+  assert.match(finish, /window\.scrollTo\(0,\s*0\)/);
 });
 
 test("reveal summary action buttons stay clickable above the auto-skip toggle", () => {

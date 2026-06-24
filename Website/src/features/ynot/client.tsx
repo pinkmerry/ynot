@@ -1138,12 +1138,17 @@ export function GachaOpenPanel({
 
   const handleRevealFinish = useCallback(() => {
     const detailHref = `/packs/${campaign.slug}`;
+    const freshDetailHref = `${detailHref}?opened=1`;
     setOpeningOverlayVisible(false);
     setRevealResult(null);
-    router.replace(detailHref);
+    router.replace(freshDetailHref, { scroll: true });
+    window.setTimeout(() => {
+      router.refresh();
+      window.scrollTo(0, 0);
+    }, 120);
     window.setTimeout(() => {
       if (window.location.pathname !== detailHref) {
-        window.location.replace(detailHref);
+        window.location.replace(freshDetailHref);
       }
     }, 900);
   }, [campaign.slug, router]);
@@ -1154,7 +1159,11 @@ export function GachaOpenPanel({
     setPullAllRevealLoading(false);
     setPullAllRevealSession(null);
     acknowledgePullAllReveal(session);
-    router.replace(`/packs/${campaign.slug}`);
+    router.replace(`/packs/${campaign.slug}?opened=1`, { scroll: true });
+    window.setTimeout(() => {
+      router.refresh();
+      window.scrollTo(0, 0);
+    }, 120);
   }
 
   // Auto-start: when the user already confirmed quantity + cost on the
