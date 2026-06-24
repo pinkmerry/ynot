@@ -323,7 +323,7 @@ test("Last Prize stays first-class in public reveal, history, and collection dis
   assert.match(components, /collection-last-prize-badge/);
   assert.match(crHistory, /sourceTier === "last_prize"/);
   assert.match(crHistory, /return "last_prize"/);
-  assert.match(crHistory, /tier === "last_prize" \? "LAST PRIZE"/);
+  assert.match(crHistory, /if \(tier === "last_prize"\) return "LAST PRIZE"/);
   assert.match(crAllPulls, /sourceTier === "last_prize"/);
   assert.match(crAllPulls, /t === "last_prize"/);
   assert.match(crAllPulls, /last_prize: 5/);
