@@ -639,7 +639,7 @@ test("Customer Bag shipping UI quotes selected cards or all eligible without sen
   assert.match(history, /selectionMode:\s*"selected"/);
   assert.match(history, /collectionItemIds:\s*selectedCards\.map\(\(card\) => card\.id\)/);
   assert.match(history, /selectionMode:\s*"all_eligible"/);
-  assert.match(history, /No eligible cards are ready for shipping/);
+  assert.match(history, /No shippable rewards are ready for shipping/);
   const allEligibleQuoteBody = between(
     history,
     'shipMode === "all_eligible"',
@@ -659,6 +659,13 @@ test("Customer Bag shipping UI quotes selected cards or all eligible without sen
   );
   assert.match(shippingButtonBlock, /disabled=\{shipBusy \|\| sellActive \|\| \(!shipActive && !selectedCards\.length && !ownedShipCards\.length\)\}/);
   assert.match(shippingButtonBlock, /\{shipActive[\s\S]*View shipping progress[\s\S]*Request shipping[\s\S]*\}/);
+});
+
+test("shipping copy says shippable instead of convert eligible", () => {
+  assert.match(historySource, /Request shipping for all shippable rewards/);
+  assert.match(historySource, /No shippable rewards are ready/);
+  assert.doesNotMatch(historySource, /Request shipping for all eligible cards/);
+  assert.doesNotMatch(historySource, /No eligible cards are ready for shipping/);
 });
 
 test("Customer Bag shipping UI starts from quote token and shows/polls progress", () => {

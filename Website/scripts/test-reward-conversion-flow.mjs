@@ -413,7 +413,7 @@ test("Cloudflare worker can continue reward conversion jobs without browser owne
 test("Customer Bag conversion UI requires explicit selection and keeps huge flow summary-only", () => {
   const history = read("src/features/ynot/cr/HistoryExperience.tsx");
 
-  requirePattern(history, /Select all eligible rewards to convert/, "UI must expose explicit whole-bag select-all conversion");
+  requirePattern(history, /Convert all eligible rewards/, "UI must expose explicit whole-bag conversion action");
   requirePattern(history, /selectionMode:\s*"all_eligible"/, "whole-bag selection must be sent as scope, not IDs");
   requirePattern(history, /selectionMode:\s*"selected"/, "manual selection must remain available");
   requirePattern(history, /function isConvertibleReward/, "manual conversion must share the RPC eligibility rules");
@@ -424,7 +424,7 @@ test("Customer Bag conversion UI requires explicit selection and keeps huge flow
   requirePattern(history, /Conversion could not finish/, "failed conversions must show a terminal customer message");
   requirePattern(history, /disabled=\{[^}]*sellBusy[^}]*shipActive[^}]*\}/, "conversion CTAs must disable while shipping is active");
   requirePattern(history, /disabled=\{[^}]*shipBusy[^}]*sellActive[^}]*\}/, "shipping CTAs must disable while conversion is active");
-  requirePattern(history, /disabled=\{!selectedConvertibleCards\.length \|\| sellBusy \|\| shipActive\}/, "manual conversion CTA must disable when no selected rewards are convertible or shipping is active");
+  requirePattern(history, /disabled=\{!selectedConvertibleCards\.length \|\| selectedNonConvertibleCount > 0 \|\| sellBusy \|\| shipActive\}/, "manual conversion CTA must disable when no selected rewards are convertible, mixed selections exist, or shipping is active");
   requirePattern(history, /No rewards selected/, "empty selection must convert nothing");
   requirePattern(history, /quoteIsExpired/, "UI must detect stale conversion quotes");
   requirePattern(history, /void openSell\(sellMode\)/, "expired quotes must refresh the same conversion scope");
@@ -435,6 +435,18 @@ test("Customer Bag conversion UI requires explicit selection and keeps huge flow
   requirePattern(history, /You can leave this page/, "UI must make server-owned continuation clear");
   assert.doesNotMatch(history, /Admin reviews the request/, "conversion copy must not mention admin approval");
   assert.doesNotMatch(history.replace(/\bjobId\b/g, "progressIdentity"), /chunk|rpc|queue|job/i, "customer UI must not expose backend mechanics");
+});
+
+test("collection selected conversion refuses mixed non-convertible selection with exact copy", () => {
+  const historySource = read("src/features/ynot/cr/HistoryExperience.tsx");
+  const guardSource = read("src/lib/ynot/reward-action-guard.ts");
+
+  assert.match(historySource, /const selectedNonConvertibleCount = selectedCards\.length - selectedConvertibleCards\.length;/);
+  assert.match(historySource, /function selectAllConvertible\(\)/);
+  assert.match(historySource, /Remove non-convertible rewards before converting/);
+  assert.match(historySource, /Convert all eligible rewards/);
+  assert.match(historySource, /Select visible owned/);
+  assert.match(guardSource, /Some selected rewards are no longer eligible/);
 });
 
 test("collection conversion refreshes the server collection after terminal progress", () => {
