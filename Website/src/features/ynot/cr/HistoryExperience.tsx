@@ -15,7 +15,6 @@ import {
 } from "../address-utils";
 import { useStoreLanguage } from "../StorePreferences";
 import { I18nText, localized, type Language } from "../i18n";
-import { QuantityBadge } from "../QuantityBadge";
 import { BulkOpenBagStatus } from "./BulkOpenBagStatus";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { Modal, PageHead, useToast } from "./UiKit";
@@ -1585,7 +1584,6 @@ function CollectionTile({
           />
         ) : null}
         <span className="cr-coll-tier">{tierLabel(card.tier, language)}</span>
-        <QuantityBadge quantity={card.bundleQuantity} />
         <span className={`cr-coll-status ${card.bucket}`}>{label}</span>
         <span className="cr-coll-code">
           {collectionDisplayCode(card, language)}

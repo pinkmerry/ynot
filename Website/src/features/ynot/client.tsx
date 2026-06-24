@@ -48,7 +48,6 @@ import {
   type PullAllHighlight,
   type PullAllStartedSession,
 } from "./pull-all-client";
-import { QuantityBadge } from "./QuantityBadge";
 import {
   adminCardDuplicateUsage,
   type AdminCardCatalogSortMode,
@@ -2441,7 +2440,6 @@ export function CollectionConvertPanel({
                     {(item.cardCode ?? "YN").toString().slice(0, 6).toUpperCase()}
                   </span>
                 )}
-                <QuantityBadge quantity={item.bundleQuantity} />
               </div>
               <div className="collection-convert-row-body">
                 <div className="collection-convert-row-titles">

@@ -8,7 +8,6 @@ import type {
   YnotGachaOpenHistory,
   YnotPublicPrizeDisplayTier,
 } from "../types";
-import { QuantityBadge } from "../QuantityBadge";
 import { BulkOpenBagStatus } from "./BulkOpenBagStatus";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { useStoreLanguage } from "../StorePreferences";
@@ -488,7 +487,6 @@ export function AllPullsExperience({
                     {row.cardCode}
                   </span>
                 )}
-                <QuantityBadge quantity={row.bundleQuantity} />
               </div>
               <div
                 className="cr-stack"
