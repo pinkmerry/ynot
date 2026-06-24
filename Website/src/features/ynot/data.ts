@@ -851,37 +851,99 @@ async function readPrizePoolStockUnitRows(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   stockUnitIds: string[],
 ): Promise<PrizePoolStockUnitRow[]> {
-  const fullSelect =
-    "id,card_id,stock_sku_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status,language";
-  const legacySelect =
-    "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status,language";
+  // Ladder of literal selects: each step drops one column that may be missing
+  // from the un-migrated DB. On a missing-column error for stock_sku_id or
+  // language we fall through to the next rung; any other error records and
+  // returns [].
+
+  function isFallbackableError(err: unknown): boolean {
+    return (
+      isMissingColumnError(err, "stock_sku_id") ||
+      isMissingColumnError(err, "language")
+    );
+  }
+
+  // --- Rung 1: both stock_sku_id AND language present ---
   try {
     const { data, error } = await supabase
       .from("card_stock_units")
-      .select(fullSelect)
+      .select(
+        "id,card_id,stock_sku_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status,language",
+      )
       .in("id", stockUnitIds);
     if (!error) return data ?? [];
-    if (!isMissingColumnError(error, "stock_sku_id")) {
+    if (!isFallbackableError(error)) {
       recordDataIssue("prize_pool_stock_unit_identities", error);
       return [];
     }
   } catch (error) {
-    if (!isMissingColumnError(error, "stock_sku_id")) {
+    if (!isFallbackableError(error)) {
       recordDataIssue("prize_pool_stock_unit_identities", error);
       return [];
     }
   }
 
+  // --- Rung 2: stock_sku_id present, language missing ---
   try {
     const { data, error } = await supabase
       .from("card_stock_units")
-      .select(legacySelect)
+      .select(
+        "id,card_id,stock_sku_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status",
+      )
+      .in("id", stockUnitIds);
+    if (!error) {
+      return (data ?? []).map((unit) => ({ ...unit, language: null }));
+    }
+    if (!isFallbackableError(error)) {
+      recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
+      return [];
+    }
+  } catch (error) {
+    if (!isFallbackableError(error)) {
+      recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
+      return [];
+    }
+  }
+
+  // --- Rung 3: stock_sku_id missing, language present ---
+  try {
+    const { data, error } = await supabase
+      .from("card_stock_units")
+      .select(
+        "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status,language",
+      )
+      .in("id", stockUnitIds);
+    if (!error) {
+      return (data ?? []).map((unit) => ({ ...unit, stock_sku_id: null }));
+    }
+    if (!isFallbackableError(error)) {
+      recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
+      return [];
+    }
+  } catch (error) {
+    if (!isFallbackableError(error)) {
+      recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
+      return [];
+    }
+  }
+
+  // --- Rung 4: both stock_sku_id AND language missing ---
+  try {
+    const { data, error } = await supabase
+      .from("card_stock_units")
+      .select(
+        "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status",
+      )
       .in("id", stockUnitIds);
     if (error) {
       recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
       return [];
     }
-    return (data ?? []).map((unit) => ({ ...unit, stock_sku_id: null }));
+    return (data ?? []).map((unit) => ({
+      ...unit,
+      stock_sku_id: null,
+      language: null,
+    }));
   } catch (error) {
     recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
     return [];
