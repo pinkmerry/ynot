@@ -28,9 +28,11 @@ test("getGachaOpenHistory batches stock-unit image lookups instead of one large 
 });
 
 test("card stock-unit batched reader keeps customer hydration reads bounded", () => {
+  const batchHelper = sliceFn(data, "async function readSupabaseRowsByInBatches");
   const helper = sliceFn(data, "async function readCardStockUnitRowsByIds");
   assert.match(data, /const CARD_STOCK_UNIT_ID_BATCH_SIZE = 250;/);
-  assert.match(helper, /readSupabaseRows<T>\(/);
-  assert.match(helper, /`\$\{label\}_batch_\$\{Math\.floor\(i \/ CARD_STOCK_UNIT_ID_BATCH_SIZE\) \+ 1\}`/);
+  assert.match(batchHelper, /readSupabaseRows<T>\(/);
+  assert.match(batchHelper, /`\$\{label\}_batch_\$\{Math\.floor\(i \/ batchSize\) \+ 1\}`/);
+  assert.match(helper, /readSupabaseRowsByInBatches<T>\(/);
   assert.match(helper, /\.in\("id", batch\)/);
 });

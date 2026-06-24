@@ -11,13 +11,17 @@ function read(relativePath) {
   return readFileSync(path.join(repoRoot, relativePath), "utf8");
 }
 
-function latestMigrationContaining(needle) {
+function latestMigrationContaining(needle, ...moreNeedles) {
+  const needles = [needle, ...moreNeedles];
   const dir = path.join(repoRoot, "Database/supabase/migrations");
   const matches = readdirSync(dir)
     .filter((file) => file.endsWith(".sql"))
     .sort()
-    .filter((file) => readFileSync(path.join(dir, file), "utf8").includes(needle));
-  assert.ok(matches.length > 0, `expected a migration containing ${needle}`);
+    .filter((file) => {
+      const sql = readFileSync(path.join(dir, file), "utf8");
+      return needles.every((candidate) => sql.includes(candidate));
+    });
+  assert.ok(matches.length > 0, `expected a migration containing ${needles.join(", ")}`);
   return readFileSync(path.join(dir, matches.at(-1)), "utf8");
 }
 
@@ -81,8 +85,11 @@ describe("random pack bundled prizes", () => {
     assert.match(sql, /for claimed_unit in/i);
   });
 
-  it("keeps Last One Prize as the final slot in the latest open RPC", () => {
-    const sql = latestMigrationContaining("last_prize_final_slot");
+  it("keeps Last One Prize first-class through final-slot and bonus open RPC patches", () => {
+    const sql = latestMigrationContaining(
+      "last_prize_final_slot",
+      "create or replace function public.open_gacha_campaign",
+    );
     const openRpc = between(
       sql,
       "create or replace function public.open_gacha_campaign",
@@ -106,6 +113,13 @@ describe("random pack bundled prizes", () => {
     assert.match(sql, /last_prize_normal_prize_target/);
     assert.match(sql, /last_prize_stock_required/);
     assert.match(sql, /v_public_total_slots/);
+
+    const bonusSql = latestMigrationContaining("last_prize_bonus_award");
+    assert.match(bonusSql, /last_prize_substitutes boolean := false/);
+    assert.match(bonusSql, /normal_units_needed := p_quantity;/);
+    assert.match(bonusSql, /case when last_prize_substitutes then position_index else p_quantity \+ 1 end/);
+    assert.match(bonusSql, /'bundleQuantity', 1/);
+    assert.match(bonusSql, /v_public_total_slots := v_planned_total;/);
   });
 
   it("stages live Last Prize edits for owner-reviewed publish", () => {
