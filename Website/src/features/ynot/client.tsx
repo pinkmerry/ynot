@@ -1138,7 +1138,7 @@ export function GachaOpenPanel({
 
   const handleRevealFinish = useCallback(() => {
     const detailHref = `/packs/${campaign.slug}`;
-    setOpeningOverlayVisible(true);
+    setOpeningOverlayVisible(false);
     setRevealResult(null);
     router.replace(detailHref);
     window.setTimeout(() => {

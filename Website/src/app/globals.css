@@ -15388,6 +15388,7 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  pointer-events: auto;
 }
 .gacha-reveal-repeat-stock-left {
   display: inline-flex;
@@ -15416,6 +15417,7 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
   background: rgba(244, 197, 66, 0.1);
   color: var(--foreground);
   cursor: pointer;
+  pointer-events: auto;
   transition: transform 120ms ease, border-color 120ms ease, background 160ms ease;
 }
 .gacha-reveal-repeat-action:hover:not(:disabled) {

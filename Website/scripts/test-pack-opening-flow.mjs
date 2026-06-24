@@ -142,6 +142,7 @@ test("repeat pull options use locally updated remaining stock from open result",
   const overlay = read("src/features/ynot/GachaRevealOverlay.tsx");
   const panel = client.match(/export function GachaOpenPanel[\s\S]*?export function AddressForm/)?.[0] ?? "";
   const fireOpen = client.match(/function fireOpen[\s\S]*?function openAgain/)?.[0] ?? "";
+  const finish = client.match(/const handleRevealFinish[\s\S]*?\}, \[campaign\.slug, router\]\);/)?.[0] ?? "";
 
   assert.match(panel, /const \[remainingState,\s*setRemainingState\]\s*=\s*useState/);
   assert.match(panel, /campaign\.remainingSlots/);
@@ -163,6 +164,9 @@ test("repeat pull options use locally updated remaining stock from open result",
   assert.match(overlay, /remainingSlots\?: number/);
   assert.match(overlay, /Number\.isFinite\(remainingSlots\)/);
   assert.match(overlay, /gacha-reveal-repeat-stock-left/);
+  assert.match(finish, /setOpeningOverlayVisible\(false\)/);
+  assert.doesNotMatch(finish, /setOpeningOverlayVisible\(true\)/);
+  assert.match(finish, /router\.replace\(detailHref\)/);
 });
 
 test("reveal summary action buttons stay clickable above the auto-skip toggle", () => {
@@ -176,6 +180,7 @@ test("reveal summary action buttons stay clickable above the auto-skip toggle", 
   );
 
   assert.match(footer, /className="gacha-reveal-dock"/);
+  assert.match(footer, /className="gacha-reveal-repeat-row"/);
   assert.match(footer, /className="gacha-reveal-toggle"/);
   assert.match(footer, /View collection/);
   assert.match(
@@ -193,6 +198,14 @@ test("reveal summary action buttons stay clickable above the auto-skip toggle", 
   assert.match(
     css,
     /\.gacha-reveal-summary-footer \.gacha-reveal-dock-action \{[\s\S]*pointer-events:\s*auto;/,
+  );
+  assert.match(
+    css,
+    /\.gacha-reveal-repeat-stack \{[\s\S]*pointer-events:\s*auto;/,
+  );
+  assert.match(
+    css,
+    /\.gacha-reveal-repeat-action \{[\s\S]*pointer-events:\s*auto;/,
   );
   assert.match(
     css,
@@ -291,11 +304,11 @@ test("customer Pull All uses the real quote/start flow and stays separate from x
   assert.match(revealPanel, /const pullAllRevealActive =[\s\S]*Boolean\(pullAllRevealSession\)/);
   assert.match(revealPanel, /const revealOverlay = revealResult && !pullAllRevealActive/);
   assert.match(revealPanel, /displayQuantity=\{pullAllRevealSession\.totalPurchasedRewards\}/);
-  assert.match(revealPanel, /summaryTitle="Top rewards"/);
-  assert.match(revealPanel, /summaryNote=\{pullAllRevealSummaryNote\(pullAllRevealSession\)\}/);
+  assert.match(revealPanel, /summaryTitle=\{<I18nText en="Top rewards" th="รางวัลเด่น" \/>\}/);
+  assert.match(revealPanel, /summaryNote=\{pullAllRevealSummaryNote\(pullAllRevealSession,\s*language\)\}/);
   assert.match(revealOverlay, /displayQuantity\?: number/);
-  assert.match(revealOverlay, /summaryNote\?: string/);
-  assert.match(revealOverlay, /summaryTitle = "Your haul"/);
+  assert.match(revealOverlay, /summaryNote\?: ReactNode/);
+  assert.match(revealOverlay, /summaryTitle \?\? <I18nText en="Your Reward" th="รางวัลของคุณ" \/>/);
   assert.match(revealOverlay, /const displayedPullCount = Math\.max/);
   assert.match(revealOverlay, /gacha-reveal-summary-note/);
   assert.doesNotMatch(revealPanel, /onOpenAgain\(pullAll|openAgain\(pullAll/);

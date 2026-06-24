@@ -620,10 +620,13 @@ test("legacy campaign cards keep open route but send details to pack pages", () 
   );
   assert.match(campaignCard, /const soldOut = isCampaignSoldOut\(campaign\);/);
   assert.match(campaignCard, /\{soldOut \? \(/);
-  assert.match(campaignCard, />\s*Sold out\s*<\/button>/);
   assert.match(
     campaignCard,
-    /\{soldOut \? \(\s*<button[\s\S]*className="primary-action"[\s\S]*disabled[\s\S]*>\s*Sold out\s*<\/button>\s*\) : \(\s*<Link[\s\S]*className="primary-action"[\s\S]*href=\{`\/gacha\/\$\{campaign\.slug\}\/open`\}[\s\S]*>\s*Open\s*<\/Link>\s*\)\}/,
+    /<button[\s\S]*className="primary-action"[\s\S]*type="button"[\s\S]*disabled[\s\S]*>\s*<I18nText en="Sold out" th="หมดแล้ว" \/>\s*<\/button>/,
+  );
+  assert.match(
+    campaignCard,
+    /\{soldOut \? \(\s*<button[\s\S]*className="primary-action"[\s\S]*disabled[\s\S]*>\s*<I18nText en="Sold out" th="หมดแล้ว" \/>\s*<\/button>\s*\) : \(\s*<Link[\s\S]*className="primary-action"[\s\S]*href=\{`\/gacha\/\$\{campaign\.slug\}\/open`\}[\s\S]*>\s*<I18nText en="Open" th="เปิด" \/>\s*<\/Link>\s*\)\}/,
   );
   assert.match(
     campaignCard,
@@ -660,7 +663,7 @@ test("legacy campaign cards keep open route but send details to pack pages", () 
   );
   assert.match(
     campaignDetailPanel,
-    /const unavailableCopy = soldOut\s*\?\s*"Sold out"\s*:\s*"This pack is not ready to open yet\. Please check back later\.";/,
+    /const unavailableCopy = soldOut\s*\?\s*i18n\("Sold out", "หมดแล้ว"\)\s*:\s*i18n\(\s*"This pack is not ready to open yet\. Please check back later\.",/,
   );
 });
 

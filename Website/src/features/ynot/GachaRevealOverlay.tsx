@@ -497,7 +497,7 @@ export function GachaRevealOverlay({
                   ? "PULL"
                   : "PULLS"}
             </p>
-            <h2>{summaryTitle ?? <I18nText en="Your haul" th="รางวัลของคุณ" />}</h2>
+            <h2>{summaryTitle ?? <I18nText en="Your Reward" th="รางวัลของคุณ" />}</h2>
             {summaryNote ? (
               <p className="gacha-reveal-summary-note">{summaryNote}</p>
             ) : null}
