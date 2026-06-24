@@ -417,9 +417,17 @@ export function HistoryExperience({
     setSelected(new Set(owned));
   }
 
+  function selectAllConvertible() {
+    const convertible = visibleCards
+      .filter((card) => card.bucket === "owned" && isConvertibleReward(card))
+      .map((card) => card.id);
+    setSelected(new Set(convertible));
+  }
+
   const selectedCards = enriched.filter((c) => selected.has(c.id) && c.bucket === "owned");
   const ownedShipCards = enriched.filter((c) => c.bucket === "owned");
   const selectedConvertibleCards = selectedCards.filter(isConvertibleReward);
+  const selectedNonConvertibleCount = selectedCards.length - selectedConvertibleCards.length;
   const sellTotal = selectedConvertibleCards.reduce(
     (sum, c) => sum + (c.sellValueCoins ?? 0),
     0,
@@ -477,6 +485,19 @@ export function HistoryExperience({
     }
     if (nextMode === "selected" && !selectedConvertibleCards.length) {
       toast("error", localized({ en: "No rewards selected", th: "ยังไม่ได้เลือกรางวัล" }, language));
+      return;
+    }
+    if (nextMode === "selected" && selectedNonConvertibleCount > 0) {
+      toast(
+        "error",
+        localized(
+          {
+            en: `Remove ${selectedNonConvertibleCount.toLocaleString()} non-convertible reward${selectedNonConvertibleCount === 1 ? "" : "s"} before converting.`,
+            th: `นำของรางวัลที่แลกไม่ได้ออก ${selectedNonConvertibleCount.toLocaleString()} รายการก่อนแลกเหรียญ`,
+          },
+          language,
+        ),
+      );
       return;
     }
     setSellMode(nextMode);
@@ -800,8 +821,8 @@ export function HistoryExperience({
         "error",
         localized(
           {
-            en: "Select cards to ship or request all eligible cards.",
-            th: "เลือกการ์ดที่จะจัดส่ง หรือขอจัดส่งการ์ดที่เข้าเงื่อนไขทั้งหมด",
+            en: "Select cards to ship or request all shippable rewards.",
+            th: "เลือกการ์ดที่จะจัดส่ง หรือขอจัดส่งของรางวัลที่จัดส่งได้ทั้งหมด",
           },
           language,
         ),
@@ -813,8 +834,8 @@ export function HistoryExperience({
         "error",
         localized(
           {
-            en: "No eligible cards are ready for shipping.",
-            th: "ยังไม่มีการ์ดที่พร้อมจัดส่ง",
+            en: "No shippable rewards are ready for shipping.",
+            th: "ยังไม่มีของรางวัลที่พร้อมจัดส่ง",
           },
           language,
         ),
@@ -852,7 +873,7 @@ export function HistoryExperience({
       return;
     }
     if (shipMode === "all_eligible" && !ownedShipCards.length) {
-      toast("error", localized({ en: "No eligible cards are ready for shipping.", th: "ยังไม่มีการ์ดที่พร้อมจัดส่ง" }, language));
+      toast("error", localized({ en: "No shippable rewards are ready for shipping.", th: "ยังไม่มีของรางวัลที่พร้อมจัดส่ง" }, language));
       return;
     }
     setShipAddressId(addressId);
@@ -891,7 +912,7 @@ export function HistoryExperience({
       }
       const quote = shippingQuoteFromPayload(payload);
       if (!quote || quote.itemCount === 0) {
-        throw new Error(localized({ en: "No eligible cards are ready for shipping.", th: "ยังไม่มีการ์ดที่พร้อมจัดส่ง" }, language));
+        throw new Error(localized({ en: "No shippable rewards are ready for shipping.", th: "ยังไม่มีของรางวัลที่พร้อมจัดส่ง" }, language));
       }
       setShipQuote(quote);
     } catch (error) {
@@ -1164,7 +1185,15 @@ export function HistoryExperience({
                 className="cr-btn cr-btn-ghost cr-btn-sm"
                 onClick={selectAll}
               >
-                <I18nText en="Select all" th="เลือกทั้งหมด" />
+                <I18nText en="Select visible owned" th="เลือกของที่เห็นทั้งหมด" />
+              </button>
+              <button
+                type="button"
+                className="cr-btn cr-btn-ghost cr-btn-sm"
+                onClick={selectAllConvertible}
+                disabled={sellBusy || shipActive}
+              >
+                <I18nText en="Select visible convertible" th="เลือกของที่แลกได้บนหน้านี้" />
               </button>
               <button
                 type="button"
@@ -1172,7 +1201,7 @@ export function HistoryExperience({
                 onClick={() => void openSell("all_eligible")}
                 disabled={sellBusy || shipActive}
               >
-                <I18nText en="Select all eligible rewards to convert" th="เลือกของรางวัลที่แลกได้ทั้งหมด" />
+                <I18nText en="Convert all eligible rewards" th="แลกของรางวัลที่เข้าเงื่อนไขทั้งหมด" />
               </button>
               <button
                 type="button"
@@ -1279,11 +1308,19 @@ export function HistoryExperience({
                 type="button"
                 className="cr-btn cr-btn-mint cr-btn-sm"
                 onClick={() => void openSell("selected")}
-                disabled={!selectedConvertibleCards.length || sellBusy || shipActive}
+                disabled={!selectedConvertibleCards.length || selectedNonConvertibleCount > 0 || sellBusy || shipActive}
                 title={
-                  selectedConvertibleCards.length
-                    ? undefined
-                    : localized(
+                  selectedNonConvertibleCount > 0
+                    ? localized(
+                        {
+                          en: "Remove non-convertible rewards before converting.",
+                          th: "นำของรางวัลที่แลกไม่ได้ออกก่อนแลกเหรียญ",
+                        },
+                        language,
+                      )
+                    : selectedConvertibleCards.length
+                      ? undefined
+                      : localized(
                         {
                           en: "Selected rewards cannot be converted to coins.",
                           th: "รางวัลที่เลือกไม่สามารถแลกเป็นเหรียญได้",
@@ -1739,7 +1776,7 @@ function ShipModal({
             ? localized(
                   {
                     en: "Request shipping for all shippable rewards",
-                    th: "ขอจัดส่งการ์ดที่เข้าเงื่อนไขทั้งหมด",
+                    th: "ขอจัดส่งของรางวัลที่จัดส่งได้ทั้งหมด",
                   },
                   language,
                 )

@@ -188,7 +188,7 @@ export function conversionRewardActionErrorMessage(message?: string) {
     message.includes("collection_items_not_convertible") ||
     message.includes("reward_conversion_quote_changed")
   ) {
-    return "Reward values changed. Please refresh and try again.";
+    return "Some selected rewards are no longer eligible. Refresh and select eligible rewards only.";
   }
   if (message.includes("reward_conversion_active_exists")) {
     return "Your previous conversion is still running.";
