@@ -1683,7 +1683,7 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
 .cr-prize-card-art img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 .cr-prize-card-art-placeholder {
@@ -2312,7 +2312,7 @@ html[data-ynot-theme="light"] .cr-root .cr-toolbar .cr-select {
   color: var(--cr-mute);
 }
 .cr-coll-art-img {
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   z-index: 0;
 }
