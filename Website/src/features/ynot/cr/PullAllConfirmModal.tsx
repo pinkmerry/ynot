@@ -77,7 +77,7 @@ export function PullAllConfirmModal({
     return () => {
       active = false;
     };
-  }, [campaign, open]);
+  }, [campaign, onWalletSnapshot, open]);
 
   if (!open || !campaign) return null;
 

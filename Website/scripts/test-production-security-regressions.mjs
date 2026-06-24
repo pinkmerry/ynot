@@ -108,13 +108,13 @@ function loadCspModule() {
       target: ts.ScriptTarget.ES2022,
     },
   });
-  const module = { exports: {} };
+  const cspModule = { exports: {} };
   vm.runInNewContext(
     outputText,
-    { exports: module.exports, module },
+    { exports: cspModule.exports, module: cspModule },
     { filename: "src/lib/security/csp.ts" },
   );
-  return module.exports;
+  return cspModule.exports;
 }
 
 function cspDirectives(policy) {

@@ -261,10 +261,11 @@ test("pack open and Pull All keep wallet balance fresh without full page reload"
   assert.match(pullAllConfirmModal, /onWalletSnapshot\?\.\(nextQuote\.wallet\)/);
   assert.match(pullAllConfirmModal, /onWalletSnapshot\?\.\(session\.wallet\)/);
 
-  assert.match(client, /const \[walletBalanceCoins,\s*setWalletBalanceCoins\]\s*=\s*useState\(balanceCoins\)/);
-  assert.match(client, /setWalletBalanceCoins\(publicWalletBalance\(payload\.wallet, walletBalanceCoins\)\)/);
+  assert.match(client, /sourceBalanceCoins: number/);
+  assert.match(client, /walletBalanceOverride\?\.sourceBalanceCoins === balanceCoins/);
+  assert.match(client, /applyWalletBalanceCoins\(publicWalletBalance\(payload\.wallet, walletBalanceCoins\)\)/);
   assert.match(client, /balanceCoins=\{walletBalanceCoins\}/);
-  assert.match(client, /onWalletSnapshot=\{\(wallet\) => setWalletBalanceCoins\(wallet\.balanceCoins\)\}/);
+  assert.match(client, /onWalletSnapshot=\{handlePullAllWalletSnapshot\}/);
 });
 
 test("final-prize exact-left boundaries allow x1, x10, and x100 when the request empties the pack", () => {
