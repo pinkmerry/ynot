@@ -6,11 +6,20 @@ function read(path) {
   return readFileSync(new URL(path, import.meta.url), "utf8");
 }
 
+function sliceBetween(source, start, end) {
+  const from = source.indexOf(start);
+  assert.ok(from !== -1, `expected to find ${start}`);
+  const to = source.indexOf(end, from + start.length);
+  assert.ok(to !== -1 && to > from, `expected to find ${end} after ${start}`);
+  return source.slice(from, to);
+}
+
 const stockSkusRoute = read("../src/app/api/ynot/admin/stock-skus/route.ts");
 const openContainerRoute = read(
   "../src/app/api/ynot/admin/stock-skus/open-container/route.ts",
 );
 const cardStockRoute = read("../src/app/api/ynot/admin/card-stock/route.ts");
+const adminCardsRoute = read("../src/app/api/ynot/admin/cards/route.ts");
 const cardStockUnitRoute = read(
   "../src/app/api/ynot/admin/card-stock/unit/route.ts",
 );
@@ -59,6 +68,40 @@ test("stock SKU route is admin-only and calls summary/upsert RPCs", () => {
     stockSkusRoute,
     /Response\.json\(\{\s*error:\s*error\.message/,
   );
+});
+
+test("admin card catalog mutations reject cross-origin requests before body parsing", () => {
+  assert.match(
+    adminCardsRoute,
+    /import \{ enforceSameOriginMutation \} from "@\/lib\/security\/same-origin"/,
+  );
+
+  const postBlock = sliceBetween(
+    adminCardsRoute,
+    "export async function POST(request: Request)",
+    "export async function DELETE(request: Request)",
+  );
+  const deleteBlock = sliceBetween(
+    adminCardsRoute,
+    "export async function DELETE(request: Request)",
+    "export async function PATCH(request: Request)",
+  );
+  const patchBlock = adminCardsRoute.slice(
+    adminCardsRoute.indexOf("export async function PATCH(request: Request)"),
+  );
+
+  for (const block of [postBlock, deleteBlock, patchBlock]) {
+    const guardIndex = block.indexOf("enforceSameOriginMutation(request)");
+    const bodyIndex = block.indexOf("bodyJson(request)");
+    const serviceIndex = block.indexOf("createServiceSupabaseClient()");
+    assert.ok(guardIndex !== -1, "mutation handler must call the same-origin guard");
+    assert.ok(
+      /const crossOrigin = enforceSameOriginMutation\(request\);\s*if \(crossOrigin\) return crossOrigin;/.test(block),
+      "mutation handler must return the shared cross-origin response",
+    );
+    assert.ok(bodyIndex === -1 || guardIndex < bodyIndex, "same-origin guard must run before body parsing");
+    assert.ok(serviceIndex === -1 || guardIndex < serviceIndex, "same-origin guard must run before DB mutation setup");
+  }
 });
 
 test("open container route is admin-only and calls open_stock_container", () => {
@@ -110,7 +153,7 @@ test("admin catalog UI and data loader use first-class stock SKU identity", () =
   assert.match(adminData, /rpc\("get_admin_stock_sku_summary"/);
   assert.match(adminData, /function readPrizePoolStockUnitRows/);
   assert.match(adminData, /function readPrizePoolStockSkuRows/);
-  assert.match(adminData, /isMissingColumnError\(error,\s*"stock_sku_id"\)/);
+  assert.match(adminData, /isMissingColumnError\(err,\s*"stock_sku_id"\)/);
   assert.match(adminData, /prize_pool_stock_unit_identities_legacy/);
   assert.match(adminData, /"id,sku_code,label"/);
   assert.match(adminData, /const stockSku = stockUnit\.stock_sku_id/);

@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { getAdminCards } from "@/features/ynot/data";
 import { prizeCategoryValue } from "@/features/ynot/prize-category";
 import {
@@ -399,6 +400,8 @@ async function duplicateCardResponse(
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
   const admin = await resolveAdminSession();
   if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
   const limited = await enforceRateLimit(request, "ynot:admin:cards", adminCardMutationRateLimit, admin.profileId);
@@ -429,6 +432,8 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
   const admin = await resolveAdminSession();
   if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
   const limited = await enforceRateLimit(request, "ynot:admin:cards", adminCardMutationRateLimit, admin.profileId);
@@ -519,6 +524,8 @@ export async function DELETE(request: Request) {
 
 export async function PATCH(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
   const admin = await resolveAdminSession();
   if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
   const limited = await enforceRateLimit(request, "ynot:admin:cards", adminCardMutationRateLimit, admin.profileId);
