@@ -44,6 +44,11 @@ const openQuantity = loadTsModule("../src/features/ynot/open-quantity.ts");
 const openRoute = read("../src/app/api/ynot/gacha/open/route.ts");
 const client = read("../src/features/ynot/client.tsx");
 const revealOverlay = read("../src/features/ynot/GachaRevealOverlay.tsx");
+const pullAllQuoteRoute = read("../src/app/api/ynot/gacha/bulk-open/quote/route.ts");
+const pullAllStartRoute = read("../src/app/api/ynot/gacha/bulk-open/start/route.ts");
+const pullAllClient = read("../src/features/ynot/pull-all-client.ts");
+const pullAllConfirmModal = read("../src/features/ynot/cr/PullAllConfirmModal.tsx");
+const walletSnapshotHelper = read("../src/lib/ynot/wallet-snapshot.ts");
 const data = read("../src/features/ynot/data.ts");
 const profileRewardsTabs = read("../src/features/ynot/ProfileRewardsTabs.tsx");
 const components = read("../src/features/ynot/components.tsx");
@@ -205,6 +210,33 @@ test("first and repeated pull choices stay valid for x1, x10, and x100 while sto
   assert.match(openAgain, /setRevealResult\(null\)/);
   assert.match(openAgain, /fireOpen\(nextQuantity,\s*createOpenIntentId\(\)\)/);
   assert.match(replayRemainingMigration, /get_draw_round_inventory_summary\(existing_open\.draw_round_id, p_profile_id\)/);
+});
+
+test("pack open and Pull All keep wallet balance fresh without full page reload", () => {
+  assert.match(walletSnapshotHelper, /from\("wallet_accounts"\)/);
+  assert.match(walletSnapshotHelper, /select\("balance_coins,version"\)/);
+  assert.match(walletSnapshotHelper, /LOCAL_PREVIEW_WALLET_BALANCE/);
+
+  assert.match(openRoute, /readWalletSnapshot\(session\.profileId\)/);
+  assert.match(openRoute, /return Response\.json\(\{\s*result: toPublicOpenResult\(raw, resultItems\),\s*wallet/s);
+
+  assert.match(pullAllQuoteRoute, /readWalletSnapshot\(session\.profileId\)/);
+  assert.match(pullAllQuoteRoute, /wallet:\s*await readWalletSnapshot\(session\.profileId\)/);
+  assert.match(pullAllStartRoute, /readWalletSnapshot\(session\.profileId\)/);
+  assert.match(pullAllStartRoute, /wallet:\s*await readWalletSnapshot\(session\.profileId\)/);
+
+  assert.match(pullAllClient, /export type PublicWalletSnapshot/);
+  assert.match(pullAllClient, /walletFromPayload\(payload\)/);
+  assert.match(pullAllClient, /wallet: walletFromPayload\(payload\)/);
+
+  assert.match(pullAllConfirmModal, /onWalletSnapshot\?: \(wallet: PublicWalletSnapshot\) => void/);
+  assert.match(pullAllConfirmModal, /onWalletSnapshot\?\.\(nextQuote\.wallet\)/);
+  assert.match(pullAllConfirmModal, /onWalletSnapshot\?\.\(session\.wallet\)/);
+
+  assert.match(client, /const \[walletBalanceCoins,\s*setWalletBalanceCoins\]\s*=\s*useState\(balanceCoins\)/);
+  assert.match(client, /setWalletBalanceCoins\(publicWalletBalance\(payload\.wallet, walletBalanceCoins\)\)/);
+  assert.match(client, /balanceCoins=\{walletBalanceCoins\}/);
+  assert.match(client, /onWalletSnapshot=\{\(wallet\) => setWalletBalanceCoins\(wallet\.balanceCoins\)\}/);
 });
 
 test("final-prize exact-left boundaries allow x1, x10, and x100 when the request empties the pack", () => {
