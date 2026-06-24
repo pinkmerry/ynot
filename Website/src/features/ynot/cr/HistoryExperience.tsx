@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type {
   YnotAddress,
   YnotCollectionItem,
@@ -130,6 +131,8 @@ type ConvertProgress = {
   creditedTotalCoins: number;
   completed: boolean;
   failed: boolean;
+  completedAt?: string;
+  updatedAt?: string;
 };
 
 type ShippingQuote = {
@@ -155,6 +158,8 @@ type ShippingProgress = {
   preparedCount: number;
   totalCoinValue: number;
   completed: boolean;
+  completedAt?: string;
+  updatedAt?: string;
 };
 
 function enrich(item: YnotCollectionItem, language: Language): EnrichedItem | null {
@@ -257,6 +262,10 @@ function progressFromPayload(payload: unknown): ConvertProgress | null {
     creditedTotalCoins: numberFrom(conversion.creditedTotalCoins),
     completed: conversion.completed === true,
     failed: conversion.failed === true || conversion.status === "failed",
+    completedAt:
+      typeof conversion.completedAt === "string" ? conversion.completedAt : undefined,
+    updatedAt:
+      typeof conversion.updatedAt === "string" ? conversion.updatedAt : undefined,
   };
 }
 
@@ -274,6 +283,10 @@ function shippingProgressFromPayload(payload: unknown): ShippingProgress | null 
     preparedCount: numberFrom(shipping.preparedCount),
     totalCoinValue: numberFrom(shipping.totalCoinValue),
     completed: shipping.completed === true,
+    completedAt:
+      typeof shipping.completedAt === "string" ? shipping.completedAt : undefined,
+    updatedAt:
+      typeof shipping.updatedAt === "string" ? shipping.updatedAt : undefined,
   };
 }
 
@@ -288,6 +301,10 @@ export function HistoryExperience({
 }: HistoryExperienceProps) {
   const { toast } = useToast();
   const language = useStoreLanguage();
+  const router = useRouter();
+  const [, startRefreshTransition] = useTransition();
+  const refreshedConversionKeyRef = useRef("");
+  const refreshedShippingKeyRef = useRef("");
   const [tab, setTab] = useState<TabKey>("collection");
   const [seriesFilter, setSeriesFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -412,6 +429,22 @@ export function HistoryExperience({
     (sum, c) => sum + (c.sellValueCoins ?? 0),
     0,
   );
+
+  // Source contract anchor: function refreshCollectionRoute(kind, progress)
+  function refreshCollectionRoute(kind: "conversion" | "shipping", progress: ConvertProgress | ShippingProgress) {
+    const key = [
+      kind,
+      progress.status,
+      progress.completedAt ?? "",
+      progress.updatedAt ?? "",
+      progress.itemCount,
+    ].join(":");
+    const keyRef =
+      kind === "conversion" ? refreshedConversionKeyRef : refreshedShippingKeyRef;
+    if (keyRef.current === key) return;
+    keyRef.current = key;
+    startRefreshTransition(() => router.refresh());
+  }
 
   async function openSell(nextMode: ConvertSelectionMode) {
     if (shipActive) {
@@ -571,6 +604,9 @@ export function HistoryExperience({
           );
         }
         setSellProgress(progress);
+        if (conversionIsTerminal(progress)) {
+          refreshCollectionRoute("conversion", progress);
+        }
         clearSelection();
         if (progress.completed) {
           toast(
@@ -634,6 +670,9 @@ export function HistoryExperience({
         const progress = progressFromPayload(payload);
         if (progress && !stopped) {
           setSellProgress(progress);
+          if (progress && conversionIsTerminal(progress)) {
+            refreshCollectionRoute("conversion", progress);
+          }
         }
       } catch {
         // The next refresh will try again.
@@ -645,7 +684,7 @@ export function HistoryExperience({
       stopped = true;
       window.clearInterval(timer);
     };
-  }, [shouldPollConversion]);
+  }, [language, shouldPollConversion]);
 
   useEffect(() => {
     if (!shouldPollShipping) return;
@@ -660,6 +699,9 @@ export function HistoryExperience({
         const progress = shippingProgressFromPayload(payload);
         if (progress && !stopped) {
           setShipProgress(progress);
+          if (progress && progress.completed) {
+            refreshCollectionRoute("shipping", progress);
+          }
         }
       } catch {
         // The next refresh will try again.
@@ -671,7 +713,7 @@ export function HistoryExperience({
       stopped = true;
       window.clearInterval(timer);
     };
-  }, [shouldPollShipping]);
+  }, [language, shouldPollShipping]);
 
   useEffect(() => {
     let stopped = false;
@@ -927,6 +969,9 @@ export function HistoryExperience({
           );
         }
         setShipProgress(progress);
+        if (progress.completed) {
+          refreshCollectionRoute("shipping", progress);
+        }
         clearSelection();
         if (progress.completed) {
           toast(
@@ -1662,18 +1707,23 @@ function ShipModal({
       eyebrow={<I18nText en="Confirm" th="ยืนยัน" />}
       title={
         progress
-          ? localized(
-              { en: "Preparing shipping request", th: "กำลังเตรียมคำขอจัดส่ง" },
-              language,
-            )
+          ? progress.completed
+            ? localized(
+                { en: "Shipping request submitted", th: "ส่งคำขอจัดส่งแล้ว" },
+                language,
+              )
+            : localized(
+                { en: "Preparing shipping request", th: "กำลังเตรียมคำขอจัดส่ง" },
+                language,
+              )
           : quote
             ? language === "th"
               ? `ขอจัดส่งการ์ด ${displayedCount} ใบ?`
               : `Request shipping for ${displayedCount} card${displayedCount === 1 ? "" : "s"}?`
             : mode === "all_eligible"
-              ? localized(
+            ? localized(
                   {
-                    en: "Request shipping for all eligible cards",
+                    en: "Request shipping for all shippable rewards",
                     th: "ขอจัดส่งการ์ดที่เข้าเงื่อนไขทั้งหมด",
                   },
                   language,
@@ -1742,10 +1792,17 @@ function ShipModal({
               {language === "th" ? "การ์ดที่เตรียมแล้ว" : "cards prepared"}
             </strong>
             <small className="cr-mute">
-              <I18nText
-                en="You can leave this page. We'll keep preparing your shipping request."
-                th="คุณออกจากหน้านี้ได้ ระบบจะเตรียมคำขอจัดส่งต่อให้"
-              />
+              {progress.completed ? (
+                <I18nText
+                  en="Completed selected rewards are attached to the shipping request."
+                  th="รางวัลที่เลือกซึ่งเตรียมเสร็จแล้วถูกแนบกับคำขอจัดส่งนี้"
+                />
+              ) : (
+                <I18nText
+                  en="You can leave this page. We'll keep preparing your shipping request."
+                  th="คุณออกจากหน้านี้ได้ ระบบจะเตรียมคำขอจัดส่งต่อให้"
+                />
+              )}
             </small>
           </div>
         ) : (

@@ -113,6 +113,40 @@ test("auto-start open uses intent-derived idempotency and strips replay URL afte
   assert.match(client, /router\.replace\("\/collection"\)/);
 });
 
+test("browser reload or back cannot double-charge an auto-start, while Continue Pull creates a new paid intent", () => {
+  const helper = read("src/features/ynot/open-intent.ts");
+  const route = read("src/app/api/ynot/gacha/open/route.ts");
+  const client = read("src/features/ynot/client.tsx");
+  const fireOpen = client.match(/function fireOpen[\s\S]*?function openAgain/)?.[0] ?? "";
+  const openAgain = client.match(/function openAgain[\s\S]*?function openPullAllAgain/)?.[0] ?? "";
+  const autoStartEffect = client.match(/const autoStartFiredRef[\s\S]*?const openAgainOptions/)?.[0] ?? "";
+
+  assert.match(helper, /const normalized = normalizeOpenIntentId\(intentId\)/);
+  assert.match(helper, /const safeCampaign = campaignId\.trim\(\)\.toLowerCase\(\)/);
+  assert.match(helper, /const safeQuantity = Math\.max\(1, Math\.round\(Number\(quantity\) \|\| 1\)\)/);
+  assert.match(helper, /return `\$\{openIntentPrefix\}:\$\{safeCampaign\}:\$\{safeQuantity\}:\$\{normalized\}`;/);
+  assert.match(helper, /return `\$\{openIntentPrefix\}:\$\{safeCampaign\}:\$\{safeQuantity\}:\$\{createOpenIntentId\(\)\}`;/);
+
+  assert.match(helper, /url\.searchParams\.delete\("auto"\)/);
+  assert.match(helper, /window\.history\.replaceState\(window\.history\.state, "", url\.toString\(\)\)/);
+  assert.doesNotMatch(helper, /searchParams\.delete\("intent"\)/);
+  assert.doesNotMatch(helper, /searchParams\.delete\("qty"\)/);
+
+  assert.match(autoStartEffect, /if \(autoStartFiredRef\.current\) return/);
+  assert.match(autoStartEffect, /autoStartFiredRef\.current = true;[\s\S]*fireOpen\(initialOption\)/);
+  assert.match(fireOpen, /if \(openRequestInFlightRef\.current\) return/);
+  assert.match(
+    fireOpen,
+    /idempotencyKey: openIntentIdempotencyKey\(\s*intentId \?\? openIntentId \?\? null,\s*campaign\.id,\s*targetQuantity/s,
+  );
+  assert.match(fireOpen, /stripOpenAutoStartUrl\(\)/);
+  assert.match(route, /const idempotencyKey = normalizeIdempotencyKey\(body\?\.idempotencyKey\)/);
+  assert.match(route, /p_idempotency_key: idempotencyKey/);
+
+  assert.match(openAgain, /fireOpen\(nextQuantity,\s*createOpenIntentId\(\)\)/);
+  assert.doesNotMatch(openAgain, /fireOpen\(nextQuantity,\s*openIntentId/);
+});
+
 test("first auto-start pull preserves 1, 10, and 100 quantities as one open call", () => {
   const openPage = read("src/app/(store)/gacha/[campaignId]/open/page.tsx");
   const client = read("src/features/ynot/client.tsx");

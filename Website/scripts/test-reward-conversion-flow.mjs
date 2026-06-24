@@ -186,8 +186,11 @@ test("quote is non-committing and supports manual or whole-bag eligible selectio
   requirePattern(quote, /p_selection_mode/, "quote must accept a selection mode");
   requirePattern(quote, /all_eligible/, "quote must support whole Customer Bag eligible selection");
   requirePattern(quote, /selected/, "quote must support manually selected rewards");
+  requirePattern(quote, /count\(distinct item_id\)/, "selected conversion must count unique selected rewards");
+  requirePattern(quote, /requested_count <> cardinality\(p_collection_item_ids\)[\s\S]*duplicate_collection_items/, "selected conversion must reject duplicate selected rewards");
   requirePattern(quote, /status = 'owned'/, "quote must only count owned rewards");
   requirePattern(quote, /convert_coin_value_snapshot > 0/, "quote must only count positive conversion value");
+  requirePattern(quote, /coalesce\(sum\(convert_coin_value_snapshot\), 0\)::int/, "quote total must be the exact sum of selected reward coin snapshots");
   requirePattern(quote, /convert_expires_at is null or convert_expires_at > now\(\)/, "quote must reject expired rewards");
   requirePattern(quote, /insert into public\.reward_conversion_quote_tokens/, "quote must issue opaque server token");
   requirePattern(quote, /if p_selection_mode = 'selected' then[\s\S]*array_agg\(id order by id\)[\s\S]*else selected_ids := '\{\}'::uuid\[\]/, "selected quotes may store selected IDs");
@@ -290,6 +293,36 @@ test("start only commits the conversion job and process freezes bounded membersh
   requirePattern(recovery, /status = 'queued'/, "recovery must pick up queued conversions after enqueue failure");
   requirePattern(recovery, /status = 'retry_required'/, "recovery must pick up due retry conversions");
   requirePattern(recovery, /status = 'processing'[\s\S]*interval '2 minutes'/, "recovery must pick up stale processing conversions");
+});
+
+test("reward conversion replays before creating jobs and credits only worker-frozen chunks", () => {
+  const source = migrationSource();
+  const sql = compactSql(source);
+  const start = compactSql(functionBlock(source, "start_reward_conversion"));
+  const process = compactSql(functionBlock(source, "process_reward_conversion_chunk"));
+
+  const consumedReplayIndex = start.indexOf("if quote_row.consumed_by_job_id is not null");
+  const idempotencyReplayIndex = start.indexOf("where profile_id = p_profile_id and idempotency_key = coalesce");
+  const jobInsertIndex = start.indexOf("insert into public.reward_conversion_jobs");
+  const quoteConsumeIndex = start.indexOf("update public.reward_conversion_quote_tokens");
+
+  assert.ok(consumedReplayIndex >= 0, "start must replay a consumed quote token");
+  assert.ok(consumedReplayIndex < jobInsertIndex, "consumed quote replay must happen before job insert");
+  assert.ok(idempotencyReplayIndex >= 0, "start must replay matching conversion idempotency keys");
+  assert.ok(idempotencyReplayIndex < jobInsertIndex, "idempotency replay must happen before job insert");
+  assert.ok(jobInsertIndex < quoteConsumeIndex, "quote token should be consumed only after a job is created");
+  assert.doesNotMatch(start, /insert into public\.coin_ledger/, "start must never credit the wallet");
+  assert.match(start, /'creditedtotalcoins', existing_job\.credited_total_coins/);
+  assert.match(start, /'replayed', true/);
+  assert.match(start, /'replayed', false/);
+
+  requirePattern(sql, /check \(credited_total_coins <= total_coins\)/, "conversion jobs must never credit beyond the quoted total");
+  requirePattern(process, /chunk_idempotency_key := job_row\.id::text \|\| ':' \|\| \(job_row\.converted_count \+ 1\)::text \|\| ':' \|\| chunk_count::text/, "chunk ledger idempotency key must be deterministic per frozen chunk");
+  requirePattern(process, /coalesce\(sum\(chunk\.coin_value\), 0\)::int/, "chunk credit must sum frozen item coin values");
+  requirePattern(process, /insert into public\.coin_ledger/, "worker must write the wallet credit ledger");
+  requirePattern(process, /'exchange_credit'[\s\S]*chunk_total[\s\S]*locked_wallet\.balance_coins[\s\S]*locked_wallet\.balance_coins \+ chunk_total/, "ledger must credit exactly the frozen chunk total");
+  requirePattern(process, /update public\.wallet_accounts set balance_coins = balance_coins \+ chunk_total,\s*version = version \+ 1/, "wallet credit must add exactly the frozen chunk total");
+  requirePattern(process, /credited_total_coins = credited_total_coins \+ chunk_total/, "job progress must add the same credited chunk total");
 });
 
 test("collection conversion API is one dynamic pipeline with safe DTOs and queue enqueue", () => {
@@ -453,4 +486,16 @@ test("Customer Bag conversion UI requires explicit selection and keeps huge flow
   );
   assert.doesNotMatch(history, /Admin reviews the request/, "conversion copy must not mention admin approval");
   assert.doesNotMatch(history, /chunk|rpc|queue|job/i, "customer UI must not expose backend mechanics");
+});
+
+test("collection conversion refreshes the server collection after terminal progress", () => {
+  const historySource = read("src/features/ynot/cr/HistoryExperience.tsx");
+
+  assert.match(historySource, /import \{ useRouter \} from "next\/navigation";/);
+  assert.match(historySource, /const router = useRouter\(\);/);
+  assert.match(historySource, /const refreshedConversionKeyRef = useRef\(""\);/);
+  assert.match(historySource, /function refreshCollectionRoute\(kind, progress\)/);
+  assert.match(historySource, /startRefreshTransition\(\(\) => router\.refresh\(\)\)/);
+  assert.match(historySource, /if \(progress && conversionIsTerminal\(progress\)\) \{/);
+  assert.match(historySource, /refreshCollectionRoute\("conversion", progress\)/);
 });
