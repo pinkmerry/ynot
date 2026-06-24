@@ -703,7 +703,7 @@ function prizePoolStockUnitUsages(
     if (!card) continue;
     const displayUnit = stockUnitForSku(stockUnit);
     const groupKey = stockUnit.stock_sku_id
-      ? `stock-sku:${stockUnit.stock_sku_id}${displayUnit.language ? `${displayUnit.language}` : ""}`
+      ? `stock-sku:${stockUnit.stock_sku_id}`
       : stockUnitGroupKey(displayUnit);
     const stockSku = stockUnit.stock_sku_id
       ? stockSkuById.get(stockUnit.stock_sku_id)
