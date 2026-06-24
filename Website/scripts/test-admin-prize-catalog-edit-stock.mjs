@@ -357,3 +357,16 @@ test("stockUnitGroupKey + label are language-aware", () => {
   assert.ok(stockSkuUsage.includes("languageShort"), "label helper maps language to EN/JP/KR/CN");
   assert.ok(stockSkuUsage.includes('"korean"') || stockSkuUsage.includes("'korean'"), "Korean supported");
 });
+
+// ---- Step3Stock variant language picker ----
+
+const step3 = read("../src/features/ynot/admin/prize-catalog/add-stock/Step3Stock.tsx");
+test("Step3Stock offers a variant language picker", () => {
+  assert.ok(step3.includes("onLanguage"), "Step3 must accept onLanguage");
+  assert.ok(step3.includes('id="pcx-stock-language"'), "Step3 must render a language select");
+  assert.ok(
+    step3.includes("English") && step3.includes("Japanese") &&
+    step3.includes("Korean") && step3.includes("Chinese"),
+    "language options EN/JP/KR/CN",
+  );
+});

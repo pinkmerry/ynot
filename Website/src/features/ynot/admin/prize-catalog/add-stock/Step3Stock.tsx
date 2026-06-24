@@ -23,6 +23,14 @@ const GRADING_SERVICES: readonly GradingService[] = [
   "other",
 ];
 
+const LANGUAGE_CHOICES = [
+  { value: "", label: "—" },
+  { value: "english", label: "English" },
+  { value: "japanese", label: "Japanese" },
+  { value: "korean", label: "Korean" },
+  { value: "chinese", label: "Chinese" },
+] as const;
+
 type Step3StockProps = {
   card: CardCatalogItem;
   category: StockCategory;
@@ -35,6 +43,8 @@ type Step3StockProps = {
   certNumber: string;
   onCertNumber: (c: string) => void;
   onCertResult: (lookup: CertLookup) => void;
+  language: string;
+  onLanguage: (l: string) => void;
   quantity: number;
   onQuantity: (q: number) => void;
   onGoBack: () => void;
@@ -53,6 +63,8 @@ export function Step3Stock({
   certNumber,
   onCertNumber,
   onCertResult,
+  language,
+  onLanguage,
   quantity,
   onQuantity,
   onGoBack,
@@ -109,6 +121,21 @@ export function Step3Stock({
                   Raw / ungraded
                 </button>
               </div>
+            </div>
+
+            {/* Language -- shared across graded and raw */}
+            <div className="pcx-field">
+              <label htmlFor="pcx-stock-language">Language</label>
+              <select
+                id="pcx-stock-language"
+                className="pcx-input"
+                value={language}
+                onChange={(e) => onLanguage(e.target.value)}
+              >
+                {LANGUAGE_CHOICES.map((l) => (
+                  <option key={l.value} value={l.value}>{l.label}</option>
+                ))}
+              </select>
             </div>
 
             {conditionMode === "graded" && (

@@ -70,6 +70,7 @@ export function AddStockDrawer({ cards, state, onClose, onToast }: AddStockDrawe
   const [grade, setGrade] = useState("10");
   const [certNumber, setCertNumber] = useState("");
   const [gemrateId, setGemrateId] = useState<string | undefined>(undefined);
+  const [stockLanguage, setStockLanguage] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [submitting, setSubmitting] = useState(false);
 
@@ -246,6 +247,7 @@ export function AddStockDrawer({ cards, state, onClose, onToast }: AddStockDrawe
       gradingService: adjustService,
       certNumber: adjustCert,
       gemrateId: adjustGemrateId,
+      language: stockLanguage || undefined,
     };
 
     const res = await adjustCardStock(stockInput);
@@ -264,7 +266,7 @@ export function AddStockDrawer({ cards, state, onClose, onToast }: AddStockDrawe
     router.refresh();
   }, [
     targetCard, category, conditionMode, gradingService, grade,
-    certNumber, gemrateId, quantity, onToast, onClose, router,
+    certNumber, gemrateId, stockLanguage, quantity, onToast, onClose, router,
   ]);
 
   /* ---- navigation ---- */
@@ -298,6 +300,7 @@ export function AddStockDrawer({ cards, state, onClose, onToast }: AddStockDrawe
     setGrade("10");
     setCertNumber("");
     setGemrateId(undefined);
+    setStockLanguage("");
     setQuantity(1);
   }, []);
 
@@ -378,6 +381,8 @@ export function AddStockDrawer({ cards, state, onClose, onToast }: AddStockDrawe
                 if (v.trim()) setQuantity(1);
               }}
               onCertResult={handleCertResult}
+              language={stockLanguage}
+              onLanguage={setStockLanguage}
               quantity={quantity}
               onQuantity={setQuantity}
               onGoBack={() => {

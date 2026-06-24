@@ -71,6 +71,7 @@ export type StockAdjustInput = {
   gradingService?: "psa" | "bgs" | "cgc" | "other";
   certNumber?: string;
   gemrateId?: string;
+  language?: string; // "english" | "japanese" | "korean" | "chinese"
   imageUrl?: string;
   imageStoragePath?: string;
 };
