@@ -652,7 +652,7 @@ test("Customer Bag shipping UI quotes selected cards or all eligible without sen
   assert.match(history, /const sellActive = Boolean\(sellProgress && !conversionIsTerminal\(sellProgress\)\)/);
   assert.match(history, /disabled=\{sellBusy \|\| shipActive\}/);
   assert.match(history, /disabled=\{shipBusy \|\| sellActive \|\| \(!shipActive && !selectedCards\.length && !ownedShipCards\.length\)\}/);
-  assert.match(history, /shipActive \? "View shipping progress" : "Request shipping"/);
+  assert.match(history, /shipActive[\s\S]*View shipping progress[\s\S]*Request shipping/);
 });
 
 test("Customer Bag shipping UI starts from quote token and shows/polls progress", () => {
@@ -671,9 +671,17 @@ test("Customer Bag shipping UI starts from quote token and shows/polls progress"
   assert.doesNotMatch(history, /window\.location\.assign\("\/profile"\)/);
 });
 
+test("customer shipping refreshes the collection after submitted progress", () => {
+  assert.match(historySource, /const refreshedShippingKeyRef = useRef\(""\);/);
+  assert.match(historySource, /if \(progress && progress\.completed\) \{/);
+  assert.match(historySource, /refreshCollectionRoute\("shipping", progress\)/);
+  assert.match(historySource, /Shipping request submitted/);
+  assert.match(historySource, /all shippable rewards/);
+});
+
 test("customer shipping polling is paced for large background jobs", () => {
   assert.match(historySource, /const shouldPollShipping =\s*shipOpen && Boolean\(shipProgress && !shipProgress\.completed\)/);
-  assert.match(historySource, /\}, \[shouldPollShipping\]\)/);
+  assert.match(historySource, /\}, \[language, shouldPollShipping\]\)/);
   assert.doesNotMatch(historySource, /\}, \[shipOpen, shipProgress\]\)/);
   assert.match(clientSource, /const shouldPollShipping =\s*showShippingConfirm && Boolean\(shippingProgress && !shippingProgress\.completed\)/);
   assert.match(clientSource, /\}, \[shouldPollShipping\]\)/);
@@ -1031,10 +1039,10 @@ test("customer shipping history shows reward source pack and tracking details", 
 
   assert.match(orderListBlock, /order\.items/);
   assert.match(orderListBlock, /sourceCampaignTitle/);
-  assert.match(orderListBlock, /ynotShippingTrackingLabel\(order\)/);
-  assert.match(personalInfoShippingBlock, /shippingRewardLabel\(shp\)/);
-  assert.match(personalInfoShippingBlock, /shippingSourceLabel\(shp\)/);
-  assert.match(personalInfoShippingBlock, /ynotShippingTrackingLabel\(shp\)/);
+  assert.match(orderListBlock, /ynotShippingTrackingLabel\(order, "en"\)/);
+  assert.match(personalInfoShippingBlock, /shippingRewardLabel\(shp, language\)/);
+  assert.match(personalInfoShippingBlock, /shippingSourceLabel\(shp, language\)/);
+  assert.match(personalInfoShippingBlock, /ynotShippingTrackingLabel\(shp, language\)/);
 });
 
 test("customer shipping history uses friendly pickup labels instead of raw statuses", () => {
@@ -1051,7 +1059,7 @@ test("customer shipping history uses friendly pickup labels instead of raw statu
   assert.match(orderListBlock, /ynotShippingStatusCustomerLabel/);
   assert.match(personalInfoShippingBlock, /ynotShippingStatusCustomerLabel/);
   assert.doesNotMatch(personalInfoShippingBlock, /shp\.status\.replace\(/);
-  assert.match(personalInfoShippingBlock, /label: "Completed"/);
+  assert.match(personalInfoShippingBlock, /id: "completed"[\s\S]*"Completed"/);
   assert.doesNotMatch(personalInfoShippingBlock, /label: "Delivered"/);
 });
 
@@ -1223,7 +1231,7 @@ test("collection ship modal prevents duplicate inline address saves while pendin
   assert.match(shipModal, /disabled=\{busy \|\| addressSavePending \|\| Boolean\(quote\)\}/);
   assert.match(shipModal, /disabled=\{!complete \|\| busy \|\| addressSavePending \|\| Boolean\(quote\)\}/);
   assert.match(shipModal, /disabled=\{addressSavePending \|\| busy\}/);
-  assert.match(shipModal, /\{addressSavePending \? "Saving…" : "Save and use this address"\}/);
+  assert.match(shipModal, /addressSavePending[\s\S]*Saving\.\.\.[\s\S]*Save and use this address/);
 });
 
 test("collection ship modal disables incomplete saved addresses before submit", () => {
@@ -1235,7 +1243,7 @@ test("collection ship modal disables incomplete saved addresses before submit", 
   assert.match(history, /const missingFields = missingShippingAddressFields\(a\)/);
   assert.match(history, /const complete = missingFields\.length === 0/);
   assert.match(history, /disabled=\{!complete \|\| busy \|\| addressSavePending \|\| Boolean\(quote\)\}/);
-  assert.match(history, /Missing \{missingFields\.join\(", "\)\}/);
+  assert.match(history, /Missing"\} \{missingFields\.join\(", "\)\}/);
   assert.match(history, /const selectedAddress = addresses\.find\(\(address\) => address\.id === addressId\)/);
   assert.match(history, /addressSavePending \|\| busy \|\| !isCompleteShippingAddress\(selectedAddress\)/);
 });

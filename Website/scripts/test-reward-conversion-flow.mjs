@@ -436,3 +436,15 @@ test("Customer Bag conversion UI requires explicit selection and keeps huge flow
   assert.doesNotMatch(history, /Admin reviews the request/, "conversion copy must not mention admin approval");
   assert.doesNotMatch(history, /chunk|rpc|queue|job/i, "customer UI must not expose backend mechanics");
 });
+
+test("collection conversion refreshes the server collection after terminal progress", () => {
+  const historySource = read("src/features/ynot/cr/HistoryExperience.tsx");
+
+  assert.match(historySource, /import \{ useRouter \} from "next\/navigation";/);
+  assert.match(historySource, /const router = useRouter\(\);/);
+  assert.match(historySource, /const refreshedConversionKeyRef = useRef\(""\);/);
+  assert.match(historySource, /function refreshCollectionRoute\(kind, progress\)/);
+  assert.match(historySource, /startRefreshTransition\(\(\) => router\.refresh\(\)\)/);
+  assert.match(historySource, /if \(progress && conversionIsTerminal\(progress\)\) \{/);
+  assert.match(historySource, /refreshCollectionRoute\("conversion", progress\)/);
+});
