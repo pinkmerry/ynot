@@ -34,6 +34,7 @@ create or replace function app_private.stock_sku_default_code(
 returns text
 language sql
 stable
+set search_path = pg_catalog, app_private, public
 as $$
   select concat_ws(
     '-',
@@ -170,6 +171,12 @@ begin
   return stock_sku_id;
 end;
 $$;
+
+-- Re-apply the lockdown the DROP above discarded: this is a security definer
+-- writer to public.stock_skus and must stay service_role-only (anon/authenticated
+-- hold USAGE on app_private, so the default PUBLIC execute grant would expose it).
+revoke all on function app_private.ensure_default_stock_sku(uuid, text, text, text, text, text, text, text, text) from public, anon, authenticated;
+grant execute on function app_private.ensure_default_stock_sku(uuid, text, text, text, text, text, text, text, text) to service_role;
 
 -- (d) public.edit_card_stock_unit ----------------------------------------------
 -- Signature UNCHANGED. Preserve language: read the existing unit row's language
