@@ -9,6 +9,8 @@ const lastPrizeBonusGuardMigrationPath =
   "../../Database/supabase/migrations/20260619143027_bulk_open_last_prize_bonus_guard.sql";
 const hardeningMigrationPath =
   "../../Database/supabase/migrations/20260619110000_production_security_advisor_hardening.sql";
+const asyncJobRecoveryMigrationPath =
+  "../../Database/supabase/migrations/20260624103616_fix_shipping_and_pull_all_async_jobs.sql";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const packageJson = JSON.parse(read("package.json"));
@@ -27,6 +29,10 @@ function lastPrizeBonusGuardMigrationSource() {
 
 function hardeningMigrationSource() {
   return readFileSync(new URL(hardeningMigrationPath, import.meta.url), "utf8");
+}
+
+function asyncJobRecoveryMigrationSource() {
+  return readFileSync(new URL(asyncJobRecoveryMigrationPath, import.meta.url), "utf8");
 }
 
 function stripSqlComments(source) {
@@ -480,6 +486,72 @@ test("bulk open start and processor foundations are idempotent and conservative"
   ]) {
     requirePattern(recovery, pattern, `recovery watchdog missing ${pattern}`);
   }
+});
+
+test("bulk open recovery migration removes result payload PL/pgSQL ambiguity", () => {
+  const source = asyncJobRecoveryMigrationSource();
+  const processChunk = compactSql(functionBlock(source, "process_bulk_open_chunk"));
+
+  requirePattern(
+    processChunk,
+    /result_payload_value jsonb/,
+    "processor should use a local result payload name that cannot collide with table columns",
+  );
+  assert.doesNotMatch(
+    processChunk,
+    /\bresult_payload jsonb\b/,
+    "processor must not declare a local result_payload variable",
+  );
+  requirePattern(
+    processChunk,
+    /from public\.gacha_bulk_open_results (?:as )?results/,
+    "highlight query must alias gacha_bulk_open_results",
+  );
+  requirePattern(
+    processChunk,
+    /results\.result_payload as public_payload/,
+    "highlight query must qualify the result payload column",
+  );
+  requirePattern(
+    processChunk,
+    /results\.bulk_open_sequence/,
+    "highlight query must qualify bulk open sequence",
+  );
+  requirePattern(
+    processChunk,
+    /results\.status = 'awarded'/,
+    "highlight query must qualify result status",
+  );
+  requirePattern(
+    processChunk,
+    /last_error_code = left\(sqlstate \|\| ':' \|\| sqlerrm, 200\)/,
+    "future retry rows should preserve SQLSTATE and SQLERRM together",
+  );
+  requirePattern(
+    processChunk,
+    /lp_bonus_sequence integer/,
+    "processor should preserve the later Last Prize bonus sequence patch",
+  );
+  requirePattern(
+    processChunk,
+    /normal_bonus_available boolean := false/,
+    "processor should preserve the later Last Prize bonus availability guard",
+  );
+  requirePattern(
+    processChunk,
+    /case when normal_bonus_available then null::uuid else slot_id end/,
+    "Last Prize bonus result should not consume a paid draw slot when a normal final-slot prize exists",
+  );
+  requirePattern(
+    processChunk,
+    /if not normal_bonus_available then/,
+    "legacy substitute packs should still consume exactly one paid slot",
+  );
+  assert.doesNotMatch(
+    processChunk,
+    /insert into public\.gacha_bulk_open_results\([^)]*result_payload_value[^)]*\) values/,
+    "renamed PL/pgSQL variable must not replace the result_payload table column",
+  );
 });
 
 test("production advisor hardening keeps helper functions private and removes public bucket listing", () => {
