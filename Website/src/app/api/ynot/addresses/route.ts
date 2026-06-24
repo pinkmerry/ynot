@@ -1,8 +1,10 @@
 import { getAddresses } from "@/features/ynot/data";
+import { savePreviewAddressForProfile } from "@/features/ynot/local-preview-rewards";
 import { toYnotAddress, type UserAddressRow } from "@/features/ynot/server-addresses";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 
@@ -68,6 +70,27 @@ export async function POST(request: Request) {
     postalCode,
     country,
   } as const satisfies Record<string, string>;
+  if (
+    isDevAuthAllowed() &&
+    session.authUserId === "preview-user"
+  ) {
+    const address = await savePreviewAddressForProfile(session.profileId, {
+      label: clean(body?.label, 40) ?? "Default",
+      recipientName: requiredAddress.recipientName,
+      phone: requiredAddress.phone,
+      addressLine1: requiredAddress.addressLine1,
+      addressLine2: addressLine2,
+      subdistrict: requiredAddress.subdistrict,
+      district: requiredAddress.district,
+      province: requiredAddress.province,
+      postalCode: requiredAddress.postalCode,
+      country: requiredAddress.country,
+      deliveryNote,
+      isDefault: Boolean(body?.isDefault),
+    });
+    if (!address) return addressSaveFailure("preview", {});
+    return Response.json({ address }, { status: 201 });
+  }
   const supabase = createServiceSupabaseClient();
   const shouldBeDefault = Boolean(body?.isDefault);
   const { data: inserted, error: insertError } = await supabase

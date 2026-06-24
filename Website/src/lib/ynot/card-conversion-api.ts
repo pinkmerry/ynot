@@ -2,7 +2,12 @@ import "server-only";
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
+import {
+  preparePreviewConversionQuote,
+  startPreviewConversion,
+} from "@/features/ynot/local-preview-rewards";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { isCollectionItemActionToken } from "@/lib/ynot/collection-action-tokens";
 import {
@@ -180,7 +185,6 @@ export async function handleCardConversionRequest(request: Request) {
     );
   }
 
-  const supabase = createServiceSupabaseClient() as unknown as SupabaseCompatClient;
   const { key: idempotencyKey, error: keyError } = normalizeRewardIdempotencyKey(
     body?.idempotencyKey,
   );
@@ -203,6 +207,33 @@ export async function handleCardConversionRequest(request: Request) {
       );
     }
 
+    if (
+      isDevAuthAllowed() &&
+      session.authUserId === "preview-user"
+    ) {
+      try {
+        const started = startPreviewConversion({
+          profileId: session.profileId,
+          quoteToken,
+        });
+        if (!started) throw new Error("reward_conversion_quote_expired");
+        return Response.json({
+          conversion: presentConversionProgress(started),
+          result: presentConversionStartResult(started),
+        });
+      } catch (error) {
+        return conversionErrorResponse(
+          {
+            message:
+              error instanceof Error
+                ? error.message
+                : "reward_conversion_quote_expired",
+          },
+        );
+      }
+    }
+
+    const supabase = createServiceSupabaseClient() as unknown as SupabaseCompatClient;
     const { data: started, error: startError } = await startRewardConversion(
       supabase,
       session.profileId,
@@ -232,6 +263,32 @@ export async function handleCardConversionRequest(request: Request) {
   } = normalizeCollectionItemActionTokens(body?.collectionItemIds, selectionMode);
   if (itemError) return Response.json({ error: itemError }, { status });
 
+  if (
+    isDevAuthAllowed() &&
+    session.authUserId === "preview-user"
+  ) {
+    try {
+      const quote = preparePreviewConversionQuote({
+        collectionItemIds: collectionItemTokens,
+        profileId: session.profileId,
+        selectionMode,
+      });
+      if (!quote) throw new Error("collection_items_not_convertible");
+      const publicQuote = presentConversionQuote(quote);
+      return Response.json({ quote: publicQuote });
+    } catch (error) {
+      return conversionErrorResponse(
+        {
+          message:
+            error instanceof Error
+              ? error.message
+              : "collection_items_not_convertible",
+        },
+      );
+    }
+  }
+
+  const supabase = createServiceSupabaseClient() as unknown as SupabaseCompatClient;
   let resolvedCollectionItemIds: string[];
   try {
     resolvedCollectionItemIds = await resolveSelectedCollectionItems(

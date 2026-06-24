@@ -11,6 +11,8 @@ export type PublicPrizeUnitImageRow = {
   status?: string | null;
 };
 
+import { publicRewardImageUrl } from "./public-reward-projection";
+
 function cleanText(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
@@ -19,7 +21,7 @@ export function publicSubSkuImageUrl(
   stockUnitImageUrl: unknown,
   fallbackImageUrl?: unknown,
 ) {
-  return cleanText(stockUnitImageUrl) ?? cleanText(fallbackImageUrl);
+  return publicRewardImageUrl(stockUnitImageUrl, fallbackImageUrl);
 }
 
 function stockUnitImageById(stockUnits: PublicStockUnitImageRow[]) {

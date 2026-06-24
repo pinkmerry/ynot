@@ -1,6 +1,8 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
+import { requestPreviewShipping } from "@/features/ynot/local-preview-rewards";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import {
   isAddressActionToken,
@@ -244,6 +246,32 @@ export async function POST(request: Request) {
   } = normalizeCollectionItemActionTokens(body?.collectionItemIds, selectionMode);
   const note = typeof body?.note === "string" ? body.note.trim().slice(0, 500) : null;
   if (itemError) return Response.json({ error: itemError }, { status });
+
+  if (
+    isDevAuthAllowed() &&
+    session.authUserId === "preview-user"
+  ) {
+    try {
+      const previewShipping = await requestPreviewShipping({
+        addressId: addressToken,
+        collectionItemIds: collectionItemTokens,
+        idempotencyKey,
+        note,
+        profileId: session.profileId,
+      });
+      if (!previewShipping) throw new Error("collection_item_not_shippable");
+      return Response.json({ result: presentShippingLegacyResult(previewShipping) });
+    } catch (error) {
+      return Response.json(
+        {
+          error: shippingRewardActionErrorMessage(
+            error instanceof Error ? error.message : undefined,
+          ),
+        },
+        { status: 409 },
+      );
+    }
+  }
 
   let resolvedAddressId: string | null;
   try {

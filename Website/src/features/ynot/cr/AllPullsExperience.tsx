@@ -11,6 +11,8 @@ import type {
 import { QuantityBadge } from "../QuantityBadge";
 import { BulkOpenBagStatus } from "./BulkOpenBagStatus";
 import { CoinPip, Ico, formatCoins } from "./Icons";
+import { useStoreLanguage } from "../StorePreferences";
+import { I18nText, localized, type Language } from "../i18n";
 import { PageHead } from "./UiKit";
 
 type Tier = YnotPublicPrizeDisplayTier;
@@ -71,8 +73,15 @@ function tierClassName(tier: Tier): string {
   return tier === "last_prize" ? "last-prize" : tier;
 }
 
-function tierLabel(tier: Tier): string {
-  return tier === "last_prize" ? "Last Prize" : tier;
+function tierLabel(tier: Tier, language: Language): string {
+  if (tier === "last_prize") return language === "th" ? "รางวัลสุดท้าย" : "Last Prize";
+  if (language === "th") {
+    if (tier === "rainbow") return "เรนโบว์";
+    if (tier === "gold") return "โกลด์";
+    if (tier === "silver") return "ซิลเวอร์";
+    return "บรอนซ์";
+  }
+  return tier;
 }
 
 function tierDotBackground(tier: Tier): string {
@@ -132,10 +141,10 @@ function seriesLabel(series: string): string {
   return series.replace(/_/g, " ");
 }
 
-function statusLabel(status: StatusKey): string {
-  if (status === "owned") return "owned";
-  if (status === "shipped") return "shipped";
-  return "converted";
+function statusLabel(status: StatusKey, language: Language): string {
+  if (status === "owned") return language === "th" ? "ถืออยู่" : "owned";
+  if (status === "shipped") return language === "th" ? "จัดส่งแล้ว" : "shipped";
+  return language === "th" ? "แลกแล้ว" : "converted";
 }
 
 type SortKey = "newest" | "oldest" | "tier-desc" | "name";
@@ -149,6 +158,7 @@ export function AllPullsExperience({
   collection,
   gachaOpens,
 }: AllPullsExperienceProps) {
+  const language = useStoreLanguage();
   const [series, setSeries] = useState<string>("all");
   const [tier, setTier] = useState<Tier | "all">("all");
   const [status, setStatus] = useState<StatusKey | "all">("all");
@@ -168,11 +178,11 @@ export function AllPullsExperience({
         `${c.cardSeries ?? ""} ${c.sourceCampaignTitle ?? ""}`,
       ),
       fromPack: c.sourceCampaignTitle ?? "—",
-      when: new Date(c.acquiredAt).toLocaleString(),
+      when: new Date(c.acquiredAt).toLocaleString(language === "th" ? "th-TH" : "en-US"),
       whenIso: c.acquiredAt,
       valueCoins: c.convertCoinValue ?? 0,
     }));
-  }, [collection]);
+  }, [collection, language]);
 
   const openRows = useMemo<PullRow[]>(() => {
     const known = new Set(collectionRows.map((r) => r.id));
@@ -189,12 +199,12 @@ export function AllPullsExperience({
           status: "owned" as StatusKey,
           series: detectSeries(open.campaignTitle),
           fromPack: open.campaignTitle,
-          when: new Date(open.openedAt).toLocaleString(),
+          when: new Date(open.openedAt).toLocaleString(language === "th" ? "th-TH" : "en-US"),
           whenIso: open.openedAt,
           valueCoins: reward.valueThb ?? 0,
         })),
     );
-  }, [collectionRows, gachaOpens]);
+  }, [collectionRows, gachaOpens, language]);
 
   const allPulls = useMemo<PullRow[]>(
     () => [...collectionRows, ...openRows],
@@ -260,10 +270,14 @@ export function AllPullsExperience({
   return (
     <div className="cr-page">
       <PageHead
-        eyebrow="Reward history"
-        title="All pulls"
-        lead={`Every card you've pulled from a pack — ${allPulls.length} total. Filter and search to find a specific one.`}
-        back={{ href: "/collection", label: "Card history" }}
+        eyebrow={<I18nText en="Reward history" th="ประวัติรางวัล" />}
+        title={<I18nText en="All pulls" th="การเปิดทั้งหมด" />}
+        lead={
+          language === "th"
+            ? `การ์ดทุกใบที่คุณเปิดได้จากแพ็ก รวม ${allPulls.length} รายการ ใช้ตัวกรองหรือค้นหาเพื่อหาใบที่ต้องการ`
+            : `Every card you've pulled from a pack — ${allPulls.length} total. Filter and search to find a specific one.`
+        }
+        back={{ href: "/collection", label: <I18nText en="Card history" th="ประวัติการ์ด" /> }}
       />
 
       <BulkOpenBagStatus />
@@ -305,11 +319,13 @@ export function AllPullsExperience({
                   background: tierDotBackground(t),
                 }}
               />
-              {tierLabel(t)}
+              {tierLabel(t, language)}
             </span>
             <span className="value cr-tnum">{counts[t]}</span>
             <small className="cr-mute" style={{ fontSize: 11 }}>
-              {tier === t ? "Filtering" : "click to filter"}
+              {tier === t
+                ? localized({ en: "Filtering", th: "กำลังกรอง" }, language)
+                : localized({ en: "click to filter", th: "กดเพื่อกรอง" }, language)}
             </small>
           </button>
         ))}
@@ -324,7 +340,7 @@ export function AllPullsExperience({
             }`}
             onClick={() => setSeries("all")}
           >
-            All series
+            <I18nText en="All series" th="ทุกซีรีส์" />
           </button>
           {seriesOptions.map((s) => (
             <button
@@ -345,10 +361,10 @@ export function AllPullsExperience({
         <div className="cr-row" style={{ gap: 4 }}>
           {(
             [
-              { id: "all", label: "Any status" },
-              { id: "owned", label: "Owned" },
-              { id: "shipped", label: "Shipped" },
-              { id: "converted", label: "Converted" },
+              { id: "all", label: language === "th" ? "ทุกสถานะ" : "Any status" },
+              { id: "owned", label: language === "th" ? "ถืออยู่" : "Owned" },
+              { id: "shipped", label: language === "th" ? "จัดส่งแล้ว" : "Shipped" },
+              { id: "converted", label: language === "th" ? "แลกแล้ว" : "Converted" },
             ] as { id: StatusKey | "all"; label: string }[]
           ).map((f) => (
             <button
@@ -369,20 +385,20 @@ export function AllPullsExperience({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search card name…"
-            aria-label="Search pulls"
+            placeholder={language === "th" ? "ค้นหาชื่อการ์ด..." : "Search card name..."}
+            aria-label={language === "th" ? "ค้นหาการเปิด" : "Search pulls"}
           />
         </div>
         <select
           className="cr-select"
           value={sort}
           onChange={(e) => setSort(e.target.value as SortKey)}
-          aria-label="Sort pulls"
+          aria-label={language === "th" ? "เรียงการเปิด" : "Sort pulls"}
         >
-          <option value="newest">Sort: Newest</option>
-          <option value="oldest">Sort: Oldest</option>
-          <option value="tier-desc">Sort: Tier desc</option>
-          <option value="name">Sort: Name A→Z</option>
+          <option value="newest">{language === "th" ? "เรียง: ใหม่ล่าสุด" : "Sort: Newest"}</option>
+          <option value="oldest">{language === "th" ? "เรียง: เก่าสุด" : "Sort: Oldest"}</option>
+          <option value="tier-desc">{language === "th" ? "เรียง: ระดับสูงก่อน" : "Sort: Tier desc"}</option>
+          <option value="name">{language === "th" ? "เรียง: ชื่อ A-Z" : "Sort: Name A-Z"}</option>
         </select>
       </div>
 
@@ -392,7 +408,9 @@ export function AllPullsExperience({
           style={{ gap: 8, padding: "0 4px", flexWrap: "wrap" }}
         >
           <small className="cr-mute">
-            Showing {filtered.length} of {allPulls.length} pulls
+            {language === "th"
+              ? `แสดง ${filtered.length} จาก ${allPulls.length} รายการ`
+              : `Showing ${filtered.length} of ${allPulls.length} pulls`}
           </small>
           <span style={{ flex: 1 }} />
           <button
@@ -405,7 +423,7 @@ export function AllPullsExperience({
               setSearch("");
             }}
           >
-            Clear all filters
+            <I18nText en="Clear all filters" th="ล้างตัวกรองทั้งหมด" />
           </button>
         </div>
       )}
@@ -418,29 +436,32 @@ export function AllPullsExperience({
           <strong
             style={{ display: "block", fontSize: 14, marginBottom: 6 }}
           >
-            No pulls match your filter
+            <I18nText en="No pulls match your filter" th="ไม่มีรายการเปิดตรงกับตัวกรอง" />
           </strong>
           <small className="cr-mute">
-            Try clearing filters or open more packs first.
+            <I18nText
+              en="Try clearing filters or open more packs first."
+              th="ลองล้างตัวกรองหรือเปิดแพ็กเพิ่มก่อน"
+            />
           </small>
           <Link
             className="cr-btn cr-btn-primary"
             href="/packs"
             style={{ marginTop: 14, display: "inline-flex" }}
           >
-            <Ico name="sparkle" size={14} /> Open a pack
+            <Ico name="sparkle" size={14} /> <I18nText en="Open a pack" th="เปิดแพ็ก" />
           </Link>
         </div>
       ) : (
         <div className="cr-section" style={{ overflow: "hidden" }}>
           <div className="cr-pulls-thead">
             <span />
-            <span>Card</span>
-            <span>Tier</span>
-            <span>From pack</span>
-            <span>Pulled</span>
-            <span>Status</span>
-            <span style={{ textAlign: "right" }}>Value</span>
+            <span><I18nText en="Card" th="การ์ด" /></span>
+            <span><I18nText en="Tier" th="ระดับ" /></span>
+            <span><I18nText en="From pack" th="จากแพ็ก" /></span>
+            <span><I18nText en="Pulled" th="เปิดเมื่อ" /></span>
+            <span><I18nText en="Status" th="สถานะ" /></span>
+            <span style={{ textAlign: "right" }}><I18nText en="Value" th="มูลค่า" /></span>
           </div>
           {filtered.map((row) => (
             <div key={row.id} className="cr-pulls-row">
@@ -487,7 +508,7 @@ export function AllPullsExperience({
                   borderColor: "var(--cr-line)",
                 }}
               >
-                {tierLabel(row.tier)}
+                {tierLabel(row.tier, language)}
               </span>
               <span style={{ fontSize: 12, color: "var(--cr-mute)" }}>
                 {row.fromPack}
@@ -507,7 +528,7 @@ export function AllPullsExperience({
                       : "cr-pill-gold"
                 }`}
               >
-                {statusLabel(row.status)}
+                {statusLabel(row.status, language)}
               </span>
               <span
                 className="cr-tnum"
@@ -535,10 +556,13 @@ export function AllPullsExperience({
             }}
           >
             <small className="cr-mute">
-              Showing {filtered.length} pull{filtered.length === 1 ? "" : "s"}
+              {language === "th"
+                ? `แสดง ${filtered.length} รายการ`
+                : `Showing ${filtered.length} pull${filtered.length === 1 ? "" : "s"}`}
             </small>
             <Link href="/collection" className="cr-btn cr-btn-sm">
-              <Ico name="chev-l" size={12} /> Back to card history
+              <Ico name="chev-l" size={12} />{" "}
+              <I18nText en="Back to card history" th="กลับไปประวัติการ์ด" />
             </Link>
           </div>
         </div>

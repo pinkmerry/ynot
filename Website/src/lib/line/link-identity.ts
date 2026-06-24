@@ -41,17 +41,7 @@ export type LineLinkResult =
       status: "login_required";
       lineUserId: string;
       displayName: string;
-      emailHint: string;
     };
-
-function maskEmail(email: string): string {
-  const at = email.indexOf("@");
-  if (at <= 1) return "your email";
-  const local = email.slice(0, at);
-  const domain = email.slice(at + 1);
-  const visible = local.length <= 2 ? local : local.slice(0, 2);
-  return `${visible}${"*".repeat(Math.max(1, local.length - visible.length))}@${domain}`;
-}
 
 function normalizeEmail(email: string | null | undefined) {
   return email?.trim().toLowerCase() || null;
@@ -116,6 +106,7 @@ async function profileByVerifiedEmail(email: string | null): Promise<ProfileRow 
     .from("profiles")
     .select("*")
     .eq("email", email)
+    .not("email_verified_at", "is", null)
     .eq("profile_status", "active")
     .limit(2);
   if (error) throw error;
@@ -346,7 +337,6 @@ export async function linkLineIdentity(identity: VerifiedLineIdentity, targetPro
       status: "login_required",
       lineUserId: identity.lineUserId,
       displayName: identity.displayName,
-      emailHint: normalizedEmail ? maskEmail(normalizedEmail) : "your email",
     };
   }
 

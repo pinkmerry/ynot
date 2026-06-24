@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
+import { useStoreLanguage } from "./StorePreferences";
+import { I18nText, localized, type Language } from "./i18n";
 
 type OpenMode = "single" | "batch";
 type OpenStage = "idle" | "charging" | "revealed";
@@ -49,24 +51,47 @@ function PackOpenCutoutMotionImage() {
   );
 }
 
-function getPhaseLabel(stage: OpenStage, phase: OpenPhase, mode: OpenMode, rarity: PullRarity) {
-  if (stage === "idle") return "Ready";
+function prototypeResultLabel(label: string, language: Language) {
+  if (label === "SLAB") return localized({ en: "SLAB", th: "สแลบ" }, language);
+  if (label === "MANGA HIT") return localized({ en: "MANGA HIT", th: "การ์ดมังงะ" }, language);
+  return label;
+}
+
+function getPhaseLabel(
+  stage: OpenStage,
+  phase: OpenPhase,
+  mode: OpenMode,
+  rarity: PullRarity,
+  language: Language,
+) {
+  if (stage === "idle") return localized({ en: "Ready", th: "พร้อมเปิด" }, language);
   if (stage === "revealed") {
-    if (mode === "batch") return "Results";
-    if (rarity === "jackpot") return "Museum jackpot";
-    if (rarity === "blackout") return "Blackout hit";
-    if (rarity === "rare") return "Rare pull";
-    return "You pulled";
+    if (mode === "batch") return localized({ en: "Results", th: "ผลลัพธ์" }, language);
+    if (rarity === "jackpot") return localized({ en: "Museum jackpot", th: "แจ็กพอตระดับโชว์เคส" }, language);
+    if (rarity === "blackout") return localized({ en: "Blackout hit", th: "ฮิตระดับพิเศษ" }, language);
+    if (rarity === "rare") return localized({ en: "Rare pull", th: "รางวัลแรร์" }, language);
+    return localized({ en: "You pulled", th: "คุณเปิดได้" }, language);
   }
 
-  if (phase === "seal") return "Sealing chamber";
-  if (phase === "scan") return mode === "batch" ? "Scanning 10 packs" : "Scanning slab";
-  if (phase === "tear") return "Breaking seal";
-  if (phase === "pull") return mode === "batch" ? "Revealing results" : "Pulling card";
-  return mode === "batch" ? "Opening 10 packs" : "Opening pack";
+  if (phase === "seal") return localized({ en: "Sealing chamber", th: "กำลังเตรียมซอง" }, language);
+  if (phase === "scan") {
+    return mode === "batch"
+      ? localized({ en: "Scanning 10 packs", th: "กำลังสแกน 10 แพ็ก" }, language)
+      : localized({ en: "Scanning slab", th: "กำลังสแกนสแลบ" }, language);
+  }
+  if (phase === "tear") return localized({ en: "Breaking seal", th: "กำลังฉีกซีล" }, language);
+  if (phase === "pull") {
+    return mode === "batch"
+      ? localized({ en: "Revealing results", th: "กำลังเผยผลลัพธ์" }, language)
+      : localized({ en: "Pulling card", th: "กำลังดึงการ์ด" }, language);
+  }
+  return mode === "batch"
+    ? localized({ en: "Opening 10 packs", th: "กำลังเปิด 10 แพ็ก" }, language)
+    : localized({ en: "Opening pack", th: "กำลังเปิดแพ็ก" }, language);
 }
 
 export function PackOpenPrototype() {
+  const language = useStoreLanguage();
   const [stage, setStage] = useState<OpenStage>("idle");
   const [phase, setPhase] = useState<OpenPhase>("ready");
   const [mode, setMode] = useState<OpenMode>("single");
@@ -101,7 +126,7 @@ export function PackOpenPrototype() {
 
   const isOpening = stage === "charging";
   const isRevealed = stage === "revealed";
-  const status = getPhaseLabel(stage, phase, mode, rarity);
+  const status = getPhaseLabel(stage, phase, mode, rarity, language);
 
   return (
     <main
@@ -110,19 +135,27 @@ export function PackOpenPrototype() {
       <div className="pack-open-grain" aria-hidden />
       <header className="pack-open-header">
         <Link href="/packs" className="pack-open-link">
-          Back
+          <I18nText en="Back" th="กลับ" />
         </Link>
         <span>YNOT OPEN</span>
         <button className="pack-open-link" type="button" onClick={reset}>
-          Reset
+          <I18nText en="Reset" th="รีเซ็ต" />
         </button>
       </header>
 
-      <section className="pack-open-stage" aria-label="Pack opening prototype">
+      <section
+        className="pack-open-stage"
+        aria-label={localized({ en: "Pack opening prototype", th: "ต้นแบบหน้าเปิดแพ็ก" }, language)}
+      >
         <div className="pack-open-copy">
-          <span>Slab Pack Series I</span>
-          <h1>Open the sealed pack</h1>
-          <p>Luxury prototype using one pack image, one card image, and web motion.</p>
+          <span><I18nText en="Slab Pack Series I" th="ซีรีส์สแลบแพ็ก I" /></span>
+          <h1><I18nText en="Open the sealed pack" th="เปิดแพ็กที่ซีลไว้" /></h1>
+          <p>
+            <I18nText
+              en="Luxury prototype using one pack image, one card image, and web motion."
+              th="ต้นแบบแอนิเมชันหรูที่ใช้ภาพแพ็ก ภาพการ์ด และ motion บนเว็บ"
+            />
+          </p>
         </div>
 
         <div className="pack-open-visual" aria-live="polite">
@@ -185,7 +218,7 @@ export function PackOpenPrototype() {
                   className={`pack-open-mini-card rarity-${result.rarity}`}
                   style={{ "--mini-index": index } as CSSProperties}
                 >
-                  {result.label}
+                  {prototypeResultLabel(result.label, language)}
                 </span>
               ))}
             </div>
@@ -194,8 +227,11 @@ export function PackOpenPrototype() {
 
         <div className="pack-open-controls">
           <div className="pack-open-status">{status}</div>
-          <div className="pack-open-speed-control" aria-label="Preview speed">
-            <span>Preview speed</span>
+          <div
+            className="pack-open-speed-control"
+            aria-label={localized({ en: "Preview speed", th: "ความเร็วตัวอย่าง" }, language)}
+          >
+            <span><I18nText en="Preview speed" th="ความเร็วตัวอย่าง" /></span>
             <div>
               {previewSpeeds.map((speed) => (
                 <button
@@ -214,38 +250,38 @@ export function PackOpenPrototype() {
           {stage === "idle" ? (
             <div className="pack-open-actions">
               <button type="button" onClick={() => startOpen("single")}>
-                Open 1
+                <I18nText en="Open 1" th="เปิด 1" />
               </button>
               <button type="button" onClick={() => startOpen("batch")}>
-                Open 10
+                <I18nText en="Open 10" th="เปิด 10" />
               </button>
               <button type="button" onClick={() => startOpen("single", "normal")}>
-                Clean reveal
+                <I18nText en="Clean reveal" th="เปิดแบบปกติ" />
               </button>
               <button type="button" onClick={() => startOpen("single", "rare")}>
-                Silver rare
+                <I18nText en="Silver rare" th="แรร์ซิลเวอร์" />
               </button>
               <button type="button" onClick={() => startOpen("single", "blackout")}>
-                Blackout hit
+                <I18nText en="Blackout hit" th="ฮิตพิเศษ" />
               </button>
               <button type="button" onClick={() => startOpen("single", "jackpot")}>
-                Museum jackpot
+                <I18nText en="Museum jackpot" th="แจ็กพอตโชว์เคส" />
               </button>
             </div>
           ) : (
             <div className="pack-open-actions">
               {stage === "charging" && (
                 <button type="button" onClick={() => setStage("revealed")}>
-                  Skip
+                  <I18nText en="Skip" th="ข้าม" />
                 </button>
               )}
               {stage === "revealed" && (
                 <>
                   <button type="button" onClick={() => startOpen(mode)}>
-                    Open again
+                    <I18nText en="Open again" th="เปิดอีกครั้ง" />
                   </button>
                   <button type="button" onClick={reset}>
-                    Done
+                    <I18nText en="Done" th="เสร็จแล้ว" />
                   </button>
                 </>
               )}

@@ -1148,6 +1148,32 @@ test("address creation API validates and returns a full selectable address DTO",
   assert.doesNotMatch(addressRoute, /address: \{\s*id: await addressActionToken/);
 });
 
+test("localhost preview supports address and shipping request mock data", () => {
+  const previewStore = readOptionalUrl(
+    new URL("../src/features/ynot/local-preview-rewards.ts", import.meta.url),
+  );
+
+  assert.match(previewStore, /previewAddressesForProfile/);
+  assert.match(previewStore, /savePreviewAddressForProfile/);
+  assert.match(previewStore, /requestPreviewShipping/);
+  assert.match(previewStore, /previewShippingForProfile/);
+  assert.match(previewStore, /addressActionToken/);
+  assert.match(previewStore, /status: "shipping_requested"/);
+  assert.doesNotMatch(previewStore, /draw_round_prize_units|card_stock_unit_id|stockUnitGroupKey/);
+
+  assert.match(addressRoute, /isDevAuthAllowed/);
+  assert.match(addressRoute, /savePreviewAddressForProfile/);
+  assert.match(addressRoute, /session\.authUserId === "preview-user"/);
+
+  assert.match(shippingRoute, /isDevAuthAllowed/);
+  assert.match(shippingRoute, /requestPreviewShipping/);
+  assert.match(shippingRoute, /session\.authUserId === "preview-user"/);
+  assert.match(shippingRoute, /result:\s*presentShippingLegacyResult\(previewShipping\)/);
+  assert.match(dataSource, /previewAddressesForProfile/);
+  assert.match(dataSource, /previewShippingForProfile/);
+  assert.match(dataSource, /previewExchangesForProfile/);
+});
+
 test("address creation API requires explicit country before saving", () => {
   assert.match(addressRoute, /const country = clean\(body\?\.country, 80\);/);
   assert.match(addressRoute, /if \(\[recipientName, phone, addressLine1, subdistrict, district, province, postalCode, country\]\.some\(\(value\) => !value\)\)/);

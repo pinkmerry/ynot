@@ -12,10 +12,17 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { YnotCampaign, YnotLastPrizePreview, YnotPrizePreview } from "../types";
-import { normalizeOpenQuantityOptions } from "../open-quantity";
+import { createOpenIntentId } from "../open-intent";
+import {
+  isOpenQuantityAvailable,
+  normalizeOpenQuantityOptions,
+  openQuantityLimit,
+} from "../open-quantity";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { PullAllConfirmModal } from "./PullAllConfirmModal";
 import { Modal, useToast } from "./UiKit";
+import { useStoreLanguage } from "../StorePreferences";
+import { I18nText, type Language } from "../i18n";
 
 
 type TierKey = "rainbow" | "gold" | "silver" | "bronze";
@@ -38,6 +45,25 @@ const SERIES_LABEL: Record<string, string> = {
   pokemon: "Pokemon",
   one_piece: "One Piece",
 };
+const SERIES_LABEL_TH: Record<string, string> = {
+  pokemon: "Pokemon",
+  one_piece: "One Piece",
+};
+
+function seriesLabelFor(series: string, language: Language): string {
+  if (language === "th") return SERIES_LABEL_TH[series] ?? SERIES_LABEL[series] ?? series;
+  return SERIES_LABEL[series] ?? series;
+}
+
+function tierNameNode(tier: TierKey) {
+  const th: Record<TierKey, string> = {
+    rainbow: "รางวัลใหญ่",
+    gold: "รางวัลที่ 1",
+    silver: "รางวัลที่ 2",
+    bronze: "รางวัลที่ 3",
+  };
+  return <I18nText en={TIER_NAME[tier]} th={th[tier]} />;
+}
 
 function tierOf(p: YnotPrizePreview): TierKey {
   const dt = (p.displayTier ?? "").toLowerCase();
@@ -79,6 +105,7 @@ export type PackDetailArenaProps = {
 export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const language = useStoreLanguage();
 
   // ----- real open-pack state/logic (ported from PackDetailExperience) -----
   const openQty = normalizeOpenQuantityOptions(campaign.openQuantityOptions);
@@ -113,23 +140,50 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
   }, [checklistOpen]);
 
   const remaining = campaign.remainingSlots ?? campaign.totalSlots;
+  const openableQuantityLimit = openQuantityLimit({
+    remainingSlots: remaining,
+    eligiblePrizeUnits: campaign.eligiblePrizeUnits,
+    availablePrizeUnits: campaign.availablePrizeUnits,
+  });
   const totalCost = campaign.costCoins * qty;
   const soldOut = campaign.soldOut || remaining <= 0;
   const enoughCoins = balanceCoins >= totalCost;
-  const enoughStock = remaining >= qty;
+  const enoughStock = qty <= openableQuantityLimit;
   const openable = Boolean(campaign.openable);
-  const unavailableReason = openable ? "" : "This pack is not ready to open yet.";
+  const unavailableReason = openable
+    ? ""
+    : language === "th"
+      ? "แพ็กนี้ยังไม่พร้อมเปิด"
+      : "This pack is not ready to open yet.";
   const pullAllAvailable = campaign.pullAllAvailable === true && openable && !soldOut;
 
   function tryOpen() {
     if (!openable) return toast("error", unavailableReason);
-    if (!enoughStock) return toast("error", `Only ${remaining} packs left.`);
-    if (!enoughCoins) return toast("error", "Top up to open this many.");
+    if (!enoughStock) {
+      return toast(
+        "error",
+        language === "th"
+          ? `เหลือแพ็กที่เปิดได้เพียง ${openableQuantityLimit} แพ็ก`
+          : `Only ${openableQuantityLimit} openable packs left.`,
+      );
+    }
+    if (!enoughCoins) {
+      return toast(
+        "error",
+        language === "th" ? "เติมเหรียญเพื่อเปิดจำนวนนี้" : "Top up to open this many.",
+      );
+    }
     setConfirmOpen(true);
   }
   function confirmAndOpen() {
     setSubmitting(true);
-    router.push(`/gacha/${campaign.slug}/open?qty=${qty}&auto=1`);
+    const intent = createOpenIntentId();
+    const query = new URLSearchParams({
+      qty: String(qty),
+      auto: "1",
+      intent,
+    });
+    router.push(`/gacha/${campaign.slug}/open?${query.toString()}`);
   }
 
   // Last prize is starved by the detail page's server subrequest budget, so
@@ -215,7 +269,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
   const n = fanSlabs.length;
   const move = (d: number) => setCenter((c) => n ? ((c + d) % n + n) % n : 0);
   const title = campaign.titleTh || campaign.titleEn;
-  const seriesLabel = SERIES_LABEL[campaign.series] ?? campaign.series;
+  const seriesLabel = seriesLabelFor(campaign.series, language);
   // each card appears at most ONCE on stage: the slot count shrinks to the
   // distinct-card count so wrap-around never repeats an image. With keys
   // always unique, arrow clicks slide arenaclub-style at any pack size.
@@ -233,7 +287,13 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
         <section className="ac-stage-col">
           <div className="ac-stage">
             {n > 1 && (
-              <button className="ac-arrow ac-prev" onClick={() => move(-1)} aria-label="previous">‹</button>
+              <button
+                className="ac-arrow ac-prev"
+                onClick={() => move(-1)}
+                aria-label={language === "th" ? "ก่อนหน้า" : "previous"}
+              >
+                ‹
+              </button>
             )}
             <div className="ac-fan">
               {offsets.map((o) => {
@@ -271,14 +331,20 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
               })}
             </div>
             {n > 1 && (
-              <button className="ac-arrow ac-next" onClick={() => move(1)} aria-label="next">›</button>
+              <button
+                className="ac-arrow ac-next"
+                onClick={() => move(1)}
+                aria-label={language === "th" ? "ถัดไป" : "next"}
+              >
+                ›
+              </button>
             )}
           </div>
           {n > 0 && (
             <div className="ac-center-name">
               {fanSlabs[center].name}
               <span className="ac-center-tier" style={{ color: TIER_ACCENT[fanSlabs[center].tier] }}>
-                {TIER_NAME[fanSlabs[center].tier]}
+                {tierNameNode(fanSlabs[center].tier)}
               </span>
             </div>
           )}
@@ -287,7 +353,13 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
         {/* RIGHT — buy panel (real open flow) */}
         <aside className="ac-buy">
           <div className="ac-buy-sub">
-            {seriesLabel}{soldOut ? " · Sold out" : ""}
+            {seriesLabel}
+            {soldOut ? (
+              <>
+                {" · "}
+                <I18nText en="Sold out" th="หมดแล้ว" />
+              </>
+            ) : null}
           </div>
           <h1 className="ac-buy-title">{title}</h1>
           <div className="ac-price">
@@ -296,10 +368,11 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
             <span style={{ display: "inline-flex", transform: "translateY(-3.5px)" }}>
               <CoinPip size={18} />
             </span>{" "}
-            {formatCoins(campaign.costCoins)} <small>/ pack</small>
+            {formatCoins(campaign.costCoins)}{" "}
+            <small><I18nText en="/ pack" th="/ แพ็ก" /></small>
             {slabs.length > 0 && (
               <button type="button" className="ac-checklist-link" onClick={() => setChecklistOpen(true)}>
-                Checklist
+                <I18nText en="Checklist" th="รายการรางวัล" />
               </button>
             )}
           </div>
@@ -309,7 +382,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
               aria-label={`Remaining ${remaining} of ${campaign.totalSlots}`}
             >
               <div className="ac-valbar-top">
-                <span>Remaining</span>
+                <span><I18nText en="Remaining" th="คงเหลือ" /></span>
                 <strong>{formatCoins(remaining)} / {formatCoins(campaign.totalSlots)}</strong>
               </div>
               <div className="ac-valbar-track">
@@ -333,7 +406,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
             return (
               <div className={`ac-tier ac-tier-${tier}`} key={tier}>
                 <div className="ac-tier-head">
-                  <h3>{TIER_NAME[tier]}</h3>
+                  <h3>{tierNameNode(tier)}</h3>
                 </div>
                 <div className="ac-grid">
                   {items.map((s) => (
@@ -405,8 +478,13 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
             return (
               <div className="ac-tier">
                 <div className="ac-tier-head">
-                  <h3>{LAST_PRIZE_NAME}</h3>
-                  <span className="ac-muted">(Bonus for opening the final pack.)</span>
+                  <h3><I18nText en={LAST_PRIZE_NAME} th="รางวัลสุดท้าย" /></h3>
+                  <span className="ac-muted">
+                    <I18nText
+                      en="(Bonus for opening the final pack.)"
+                      th="(โบนัสสำหรับผู้เปิดแพ็กสุดท้าย)"
+                    />
+                  </span>
                 </div>
                 <div className="ac-grid">
                   <button
@@ -441,7 +519,11 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
 
       {/* ===== sticky open dock (real) — only once the buy panel scrolls away ===== */}
       {openQty.length > 0 && !soldOut && (
-        <div className="cr-dock" role="region" aria-label="Open this pack">
+        <div
+          className="cr-dock"
+          role="region"
+          aria-label={language === "th" ? "เปิดแพ็กนี้" : "Open this pack"}
+        >
           <div className="cr-dock-pack">
             <div className="cr-stack" style={{ gap: 3, minWidth: 0 }}>
               <span className="cr-mute" style={{ fontSize: 11, fontWeight: 500, lineHeight: 1 }}>{seriesLabel}</span>
@@ -460,7 +542,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
           <div className="cr-dock-price">
             <strong className="cr-tnum">
               <CoinPip size={14} /> {formatCoins(campaign.costCoins)}{" "}
-              <small className="cr-mute">/ pack</small>
+              <small className="cr-mute"><I18nText en="/ pack" th="/ แพ็ก" /></small>
             </strong>
             <button
               type="button"
@@ -468,15 +550,37 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
               style={{ marginLeft: 0 }}
               onClick={() => setChecklistOpen(true)}
             >
-              Checklist
+              <I18nText en="Checklist" th="รายการรางวัล" />
             </button>
           </div>
           <div className="cr-dock-qty">
-            {openQty.map((q) => (
-              <button key={q} type="button" className={`cr-dock-qty-btn ${qty === q ? "active" : ""}`} onClick={() => setQty(q)} disabled={remaining < q} title={remaining < q ? `Only ${remaining} packs left` : `Open ${q} pack${q === 1 ? "" : "s"}`}>
-                ×{q}
-              </button>
-            ))}
+            {openQty.map((q) => {
+              const quantityAvailable = isOpenQuantityAvailable(q, {
+                remainingSlots: remaining,
+                eligiblePrizeUnits: campaign.eligiblePrizeUnits,
+                availablePrizeUnits: campaign.availablePrizeUnits,
+              });
+              return (
+                <button
+                  key={q}
+                  type="button"
+                  className={`cr-dock-qty-btn ${qty === q ? "active" : ""}`}
+                  onClick={() => setQty(q)}
+                  disabled={!quantityAvailable}
+                  title={
+                    !quantityAvailable
+                      ? language === "th"
+                        ? `เหลือแพ็กที่เปิดได้เพียง ${openableQuantityLimit} แพ็ก`
+                        : `Only ${openableQuantityLimit} openable packs left`
+                      : language === "th"
+                        ? `เปิด ${q} แพ็ก`
+                        : `Open ${q} pack${q === 1 ? "" : "s"}`
+                  }
+                >
+                  ×{q}
+                </button>
+              );
+            })}
             {pullAllAvailable && (
               <button
                 type="button"
@@ -486,41 +590,72 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                   setPullAllConfirmOpen(true);
                 }}
                 disabled={submitting}
-                title="Pull all remaining packs with a server quote"
+                title={
+                  language === "th"
+                    ? "เปิดแพ็กที่เหลือทั้งหมดด้วยราคาที่ระบบคำนวณ"
+                    : "Pull all remaining packs with a server quote"
+                }
               >
-                Pull All
+                <I18nText en="Pull All" th="เปิดทั้งหมด" />
               </button>
             )}
           </div>
           <div className="cr-dock-cta">
             <div className="cr-dock-total">
-              <small>Total</small>
+              <small><I18nText en="Total" th="รวม" /></small>
               <strong className="cr-tnum"><CoinPip size={13} /> {formatCoins(totalCost)}</strong>
             </div>
             {!openable ? (
               <button type="button" className="cr-btn cr-btn-lg" disabled title={unavailableReason}>
-                <Ico name="bell" size={14} /> Not ready
+                <Ico name="bell" size={14} /> <I18nText en="Not ready" th="ยังไม่พร้อม" />
               </button>
             ) : (
               <button type="button" className="cr-btn cr-btn-primary cr-btn-lg" onClick={tryOpen} disabled={submitting}>
-                <Ico name="sparkle" size={14} /> Open {qty} pack{qty === 1 ? "" : "s"}
+                <Ico name="sparkle" size={14} />{" "}
+                <I18nText
+                  en={`Open ${qty} pack${qty === 1 ? "" : "s"}`}
+                  th={`เปิด ${qty} แพ็ก`}
+                />
               </button>
             )}
           </div>
         </div>
       )}
       {soldOut && (
-        <div className="cr-dock" role="region" aria-label="Pack sold out" style={{ borderColor: "var(--cr-line-strong)", background: "var(--cr-paper-2)" }}>
+        <div
+          className="cr-dock"
+          role="region"
+          aria-label={language === "th" ? "แพ็กหมดแล้ว" : "Pack sold out"}
+          style={{ borderColor: "var(--cr-line-strong)", background: "var(--cr-paper-2)" }}
+        >
           <div className="cr-dock-pack">
             <div className="cr-stack" style={{ gap: 2 }}>
-              <small className="cr-eyebrow" style={{ fontSize: 9.5 }}>Sold out</small>
+              <small className="cr-eyebrow" style={{ fontSize: 9.5 }}>
+                <I18nText en="Sold out" th="หมดแล้ว" />
+              </small>
               <strong style={{ fontSize: 13.5 }}>{title}</strong>
-              <small className="cr-mute" style={{ fontSize: 11 }}>We&apos;ll alert you when restocked</small>
+              <small className="cr-mute" style={{ fontSize: 11 }}>
+                <I18nText
+                  en="We'll alert you when restocked"
+                  th="เราจะแจ้งเมื่อมีสต็อกอีกครั้ง"
+                />
+              </small>
             </div>
           </div>
           <span style={{ flex: 1 }} />
-          <button type="button" className="cr-btn cr-btn-lg" onClick={() => toast("info", "We'll notify you when this pack restocks")}>
-            <Ico name="bell" size={14} /> Notify me
+          <button
+            type="button"
+            className="cr-btn cr-btn-lg"
+            onClick={() =>
+              toast(
+                "info",
+                language === "th"
+                  ? "เราจะแจ้งเมื่อแพ็กนี้กลับมามีสต็อก"
+                  : "We'll notify you when this pack restocks",
+              )
+            }
+          >
+            <Ico name="bell" size={14} /> <I18nText en="Notify me" th="แจ้งเตือนฉัน" />
           </button>
         </div>
       )}
@@ -529,13 +664,17 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
       <Modal
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
-        eyebrow="Confirm"
-        title={`Open ${title}`}
+        eyebrow={<I18nText en="Confirm" th="ยืนยัน" />}
+        title={
+          <>
+            <I18nText en="Open" th="เปิด" /> {title}
+          </>
+        }
         size="md"
         footer={
           <>
             <button type="button" className="cr-btn" onClick={() => setConfirmOpen(false)} disabled={submitting}>
-              Cancel
+              <I18nText en="Cancel" th="ยกเลิก" />
             </button>
             <button
               type="button"
@@ -543,7 +682,11 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
               onClick={confirmAndOpen}
               disabled={submitting || !enoughCoins || !enoughStock}
             >
-              <CoinPip size={14} /> Spend {formatCoins(totalCost)} coins
+              <CoinPip size={14} />{" "}
+              <I18nText
+                en={`Spend ${formatCoins(totalCost)} coins`}
+                th={`ใช้ ${formatCoins(totalCost)} เหรียญ`}
+              />
             </button>
           </>
         }
@@ -551,20 +694,34 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
         <div className="cr-stack" style={{ gap: 16, padding: "4px 0" }}>
           <div>
             <span className="cr-eyebrow" style={{ display: "block", marginBottom: 8, textAlign: "center" }}>
-              How many?
+              <I18nText en="How many?" th="เปิดกี่แพ็ก?" />
             </span>
             <div className="cr-dock-qty" style={{ margin: "0 auto", width: "fit-content" }}>
-              {openQty.map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  className={`cr-dock-qty-btn ${qty === q ? "active" : ""}`}
-                  onClick={() => setQty(q)}
-                  disabled={remaining < q}
-                >
-                  ×{q}
-                </button>
-              ))}
+              {openQty.map((q) => {
+                const quantityAvailable = isOpenQuantityAvailable(q, {
+                  remainingSlots: remaining,
+                  eligiblePrizeUnits: campaign.eligiblePrizeUnits,
+                  availablePrizeUnits: campaign.availablePrizeUnits,
+                });
+                return (
+                  <button
+                    key={q}
+                    type="button"
+                    className={`cr-dock-qty-btn ${qty === q ? "active" : ""}`}
+                    onClick={() => setQty(q)}
+                    disabled={!quantityAvailable}
+                    title={
+                      !quantityAvailable
+                        ? language === "th"
+                          ? `เหลือแพ็กที่เปิดได้เพียง ${openableQuantityLimit} แพ็ก`
+                          : `Only ${openableQuantityLimit} openable packs left`
+                        : ""
+                    }
+                  >
+                    ×{q}
+                  </button>
+                );
+              })}
               {pullAllAvailable && (
                 <button
                   type="button"
@@ -573,26 +730,36 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                     setConfirmOpen(false);
                     setPullAllConfirmOpen(true);
                   }}
-                  title="Pull all remaining packs with a server quote"
+                  title={
+                    language === "th"
+                      ? "เปิดแพ็กที่เหลือทั้งหมดด้วยราคาที่ระบบคำนวณ"
+                      : "Pull all remaining packs with a server quote"
+                  }
                 >
-                  Pull All
+                  <I18nText en="Pull All" th="เปิดทั้งหมด" />
                 </button>
               )}
             </div>
           </div>
           <div style={{ background: "var(--cr-bg-soft)", border: "1px solid var(--cr-line)", borderRadius: "var(--cr-r-md)", padding: "14px 16px" }}>
             <div className="cr-row" style={{ justifyContent: "space-between", padding: "3px 0" }}>
-              <span className="cr-mute" style={{ fontSize: 12.5 }}>Total cost</span>
+              <span className="cr-mute" style={{ fontSize: 12.5 }}>
+                <I18nText en="Total cost" th="ยอดรวม" />
+              </span>
               <strong className="cr-tnum" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <CoinPip size={13} /> {formatCoins(totalCost)}
               </strong>
             </div>
             <div className="cr-row" style={{ justifyContent: "space-between", padding: "3px 0" }}>
-              <span className="cr-mute" style={{ fontSize: 12.5 }}>Your balance</span>
+              <span className="cr-mute" style={{ fontSize: 12.5 }}>
+                <I18nText en="Your balance" th="ยอดคงเหลือ" />
+              </span>
               <strong className="cr-tnum">{formatCoins(balanceCoins)}c</strong>
             </div>
             <div className="cr-row" style={{ justifyContent: "space-between", padding: "3px 0" }}>
-              <span className="cr-mute" style={{ fontSize: 12.5 }}>Balance after open</span>
+              <span className="cr-mute" style={{ fontSize: 12.5 }}>
+                <I18nText en="Balance after open" th="ยอดหลังเปิด" />
+              </span>
               <strong className="cr-tnum" style={{ color: enoughCoins ? "var(--cr-ink)" : "var(--cr-rose)" }}>
                 {formatCoins(balanceCoins - totalCost)}c
               </strong>
@@ -605,6 +772,10 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
         balanceCoins={balanceCoins}
         campaign={campaign}
         onClose={() => setPullAllConfirmOpen(false)}
+        onStarted={() => {
+          setPullAllConfirmOpen(false);
+          router.push(`/gacha/${campaign.slug}/open?pullAll=1`);
+        }}
         open={pullAllConfirmOpen}
       />
 
@@ -620,20 +791,32 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
             className={`ac-drawer${checklistClosing ? " closing" : ""}`}
             role="dialog"
             aria-modal="true"
-            aria-label="Checklist"
+            aria-label={language === "th" ? "รายการรางวัล" : "Checklist"}
           >
             <div className="ac-drawer-head">
-              <span>Checklist</span>
-              <button type="button" className="ac-drawer-x" onClick={closeChecklist} aria-label="Close">
+              <span><I18nText en="Checklist" th="รายการรางวัล" /></span>
+              <button
+                type="button"
+                className="ac-drawer-x"
+                onClick={closeChecklist}
+                aria-label={language === "th" ? "ปิด" : "Close"}
+              >
                 <span className="ac-drawer-x-icon" aria-hidden="true" />
               </button>
             </div>
             <div className="ac-drawer-body">
               <div className="ac-cl-body">
-                <p className="ac-cl-note">This list updates whenever a pack is opened.</p>
+                <p className="ac-cl-note">
+                  <I18nText
+                    en="This list updates whenever a pack is opened."
+                    th="รายการนี้จะอัปเดตทุกครั้งที่มีการเปิดแพ็ก"
+                  />
+                </p>
                 {presentTiers.map((tier) => (
                   <div className="ac-cl-section" key={tier}>
-                    <div className="ac-cl-tier" style={{ color: TIER_ACCENT[tier] }}>{TIER_NAME[tier]}</div>
+                    <div className="ac-cl-tier" style={{ color: TIER_ACCENT[tier] }}>
+                      {tierNameNode(tier)}
+                    </div>
                     {grouped[tier].map((s) => (
                       <div className="ac-cl-row" key={s.key}>
                         <strong>{s.name}</strong>
@@ -657,7 +840,12 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
           }}
         >
           <div className="ac-lightbox" role="dialog" aria-modal="true" aria-label={lightbox.name}>
-            <button type="button" className="ac-lightbox-x" onClick={() => setLightbox(null)} aria-label="Close">
+            <button
+              type="button"
+              className="ac-lightbox-x"
+              onClick={() => setLightbox(null)}
+              aria-label={language === "th" ? "ปิด" : "Close"}
+            >
               <span className="ac-drawer-x-icon" aria-hidden="true" />
             </button>
             {lightbox.img ? (

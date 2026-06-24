@@ -8,6 +8,7 @@ import {
   sessionCookieOptions,
 } from "@/lib/lucky-draw/session";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
+import { getLineLoginChannelId } from "@/lib/line/config";
 import { linkLineIdentity } from "@/lib/line/link-identity";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { shouldUseSecureCookies } from "@/lib/security/cookies";
@@ -28,14 +29,30 @@ type LineIdTokenClaims = {
   aud?: string;
 };
 
-const lineChannelId =
-  process.env.LINE_LOGIN_CHANNEL_ID ??
-  process.env.NEXT_PUBLIC_LINE_LIFF_ID?.split("-")[0] ??
-  "2009971080";
-
 // Max age of a LIFF id_token we are willing to accept. LIFF refreshes tokens
 // automatically every ~30 min, so any honest client will always be fresh.
 const MAX_ID_TOKEN_AGE_MS = 30 * 60 * 1000;
+
+function rateLimitJson(scope: string, response: Response) {
+  if (response.status === 429) {
+    return Response.json(
+      {
+        error: "Too many sign-in attempts. Please wait and try again.",
+        code: "auth_rate_limited",
+      },
+      { status: 429 },
+    );
+  }
+
+  console.warn("line_session_rate_limit_unavailable", scope, response.status);
+  return Response.json(
+    {
+      error: "Sign-in is temporarily unavailable. Please try again.",
+      code: "auth_temporarily_unavailable",
+    },
+    { status: 503 },
+  );
+}
 
 function decodeIdTokenClaims(idToken: string): LineIdTokenClaims | null {
   const parts = idToken.split(".");
@@ -62,10 +79,12 @@ function decodeIdTokenClaims(idToken: string): LineIdTokenClaims | null {
 
 export async function POST(request: Request) {
   let idToken: unknown;
+  let mode: unknown;
 
   try {
-    const body = (await request.json()) as { idToken?: unknown };
+    const body = (await request.json()) as { idToken?: unknown; mode?: unknown };
     idToken = body.idToken;
+    mode = body.mode;
   } catch {
     return Response.json({ error: "Invalid JSON body." }, { status: 400 });
   }
@@ -74,12 +93,17 @@ export async function POST(request: Request) {
     return Response.json({ error: "Missing LINE ID token." }, { status: 400 });
   }
 
+  const lineChannelId = getLineLoginChannelId();
+  if (!lineChannelId) {
+    return Response.json({ error: "LINE login channel is not configured." }, { status: 503 });
+  }
+
   const coarseLimited = await enforceRateLimit(
     request,
     "line:session:mint:ip",
     { limit: 20, windowMs: 15 * 60_000 },
   );
-  if (coarseLimited) return coarseLimited;
+  if (coarseLimited) return rateLimitJson("line:session:mint:ip", coarseLimited);
 
   // Pre-verify freshness check: even if the token is a valid LINE id_token,
   // refuse to mint a session for one that's older than the LIFF refresh
@@ -126,7 +150,7 @@ export async function POST(request: Request) {
     { limit: 5, windowMs: 15 * 60_000 },
     `sub:${preClaims.sub}`,
   );
-  if (limited) return limited;
+  if (limited) return rateLimitJson("line:session:mint", limited);
 
   const form = new URLSearchParams({
     id_token: idToken,
@@ -166,8 +190,17 @@ export async function POST(request: Request) {
     email: verified.email,
   };
 
+  const connectMode = mode === "connect";
   const current = await resolveCurrentProfile().catch(() => null);
-  const targetProfileId = current?.authSource === "supabase" ? current.profileId : null;
+  if (connectMode && current?.authSource !== "supabase") {
+    return Response.json({
+      error: "Your account connection expired. Sign in with email or Google first, then connect LINE again.",
+      code: "line_connect_session_required",
+    }, { status: 409 });
+  }
+
+  const targetProfileId =
+    connectMode || current?.authSource === "supabase" ? current?.profileId ?? null : null;
   const linked = await linkLineIdentity(
     {
       ...profile,
@@ -186,24 +219,15 @@ export async function POST(request: Request) {
 
   if (linked.status === "merge_required") {
     return Response.json({
-      // Friendly copy for the LIFF client to surface verbatim. The code field
-      // lets the client branch on the specific reason without parsing the
-      // error string.
-      error: "This LINE account is already tied to another YNot account. Support will merge them within 1 business day.",
-      code: "line_already_linked",
-      mergeRequestId: linked.mergeRequestId,
-      profileId: linked.profileId,
+      error: "This account needs review before LINE can be connected. Please contact support.",
+      code: "identity_review_required",
     }, { status: 409 });
   }
 
   if (linked.status === "login_required") {
-    // Email on the LINE token already belongs to an existing profile but
-    // there's no active session to merge into. Tell the LIFF client to send
-    // the user to the email sign-in flow.
     return Response.json({
-      error: `An account already exists for ${linked.emailHint}. Please sign in with email or Google first, then connect LINE.`,
-      code: "line_email_belongs_to_existing_account",
-      emailHint: linked.emailHint,
+      error: "Please sign in with your existing email or Google account, then connect LINE from the profile page.",
+      code: "line_existing_account_sign_in_required",
     }, { status: 409 });
   }
 
@@ -236,8 +260,8 @@ export async function POST(request: Request) {
   }
 
   const serverResponse = NextResponse.json({
-    ...profile,
-    profileId: linked.profileId,
+    displayName: profile.displayName,
+    pictureUrl: profile.pictureUrl ?? null,
     isAdmin: !!adminUser,
     adminRole: adminUser?.role ?? null,
   });

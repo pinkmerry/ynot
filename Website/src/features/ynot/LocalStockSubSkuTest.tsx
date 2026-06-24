@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { GachaRevealOverlay } from "./GachaRevealOverlay";
 import { CoinPip, formatCoins } from "./cr/Icons";
+import { I18nText, i18n, localized, type Language, type LocalizedCopy } from "./i18n";
 import {
   localStockRewardPool,
   localStockSubSkuInitialState,
@@ -14,9 +15,15 @@ import {
   type LocalStockSubSkuState,
   type LocalStockTotals,
 } from "./local-stock-subsku-mock";
+import { useStoreLanguage } from "./StorePreferences";
 import type { YnotGachaOpenItem, YnotGachaOpenResult } from "./types";
 
 type Surface = "customer" | "admin";
+type Copy = LocalizedCopy<string>;
+
+function copy(en: string, th: string): Copy {
+  return { en, th };
+}
 
 const localCampaign = {
   title: "OP16 Box Break Local Test",
@@ -87,7 +94,8 @@ function RewardHistoryRow({ reward }: { reward: LocalStockReward }) {
       <span>
         <strong>{reward.cardName}</strong>
         <small>
-          {reward.cardCode} · {reward.tier} · pull #{reward.pullNumber}
+          {reward.cardCode} · {reward.tier} ·{" "}
+          <I18nText en={`pull #${reward.pullNumber}`} th={`เปิดครั้งที่ #${reward.pullNumber}`} />
         </small>
       </span>
       <code>{reward.sourceStockSku}</code>
@@ -116,14 +124,20 @@ function CustomerStatGrid({
   return (
     <div className="cr-detail-stats">
       <div className="stat">
-        <span className="cr-eyebrow">Price / pack</span>
+        <span className="cr-eyebrow">
+          <I18nText en="Price / pack" th="ราคา / ซอง" />
+        </span>
         <strong>
           <CoinPip size={18} /> {formatCoins(localCampaign.costCoins)}
         </strong>
-        <small className="cr-mute">coins per open</small>
+        <small className="cr-mute">
+          <I18nText en="coins per open" th="เหรียญต่อครั้ง" />
+        </small>
       </div>
       <div className="stat">
-        <span className="cr-eyebrow">Stock left</span>
+        <span className="cr-eyebrow">
+          <I18nText en="Stock left" th="สต็อกคงเหลือ" />
+        </span>
         <strong className="cr-tnum">
           {formatCount(totals.availablePackEquivalent)}
           <span className="local-production-muted-count">
@@ -135,18 +149,27 @@ function CustomerStatGrid({
         </div>
       </div>
       <div className="stat">
-        <span className="cr-eyebrow">Box stock</span>
+        <span className="cr-eyebrow">
+          <I18nText en="Box stock" th="สต็อกกล่อง" />
+        </span>
         <strong className="cr-tnum">{formatCount(totals.availableBoxes)}</strong>
         <small className="cr-mute">
-          {formatCount(totals.boxPackEquivalent)} packs inside boxes
+          <I18nText
+            en={`${formatCount(totals.boxPackEquivalent)} packs inside boxes`}
+            th={`${formatCount(totals.boxPackEquivalent)} ซองในกล่อง`}
+          />
         </small>
       </div>
       <div className="stat">
-        <span className="cr-eyebrow">This open</span>
+        <span className="cr-eyebrow">
+          <I18nText en="This open" th="รอบนี้" />
+        </span>
         <strong>
           <CoinPip size={18} /> {formatCoins(totalCost)}
         </strong>
-        <small className="cr-mute">x{selectedQuantity} selected</small>
+        <small className="cr-mute">
+          <I18nText en={`x${selectedQuantity} selected`} th={`เลือก x${selectedQuantity}`} />
+        </small>
       </div>
     </div>
   );
@@ -180,7 +203,9 @@ function CustomerProductionFlow({
             className="cr-detail-hero-image"
             src={localStockSubSkus.box.imageUrl}
           />
-          <span className="cr-pack-art-sticker">Local</span>
+          <span className="cr-pack-art-sticker">
+            <I18nText en="Local" th="Local" />
+          </span>
           {!soldOut ? (
             <span className="cr-hero-stock">
               {formatCount(totals.availablePackEquivalent)}/
@@ -188,22 +213,25 @@ function CustomerProductionFlow({
             </span>
           ) : null}
           <span className="cr-hero-eyebrow">POKEMON</span>
-          <span className="cr-hero-footer">OP16 LOCAL STOCK TEST</span>
+          <span className="cr-hero-footer">
+            <I18nText en="OP16 LOCAL STOCK TEST" th="ทดสอบสต็อก OP16 บน LOCAL" />
+          </span>
         </div>
       </div>
 
       <div className="cr-detail-info-card">
         <div className="cr-detail-tag-row">
           <span className="cr-pill cr-pill-ink">Pokemon</span>
-          <span className="cr-pill">Box to pack</span>
-          <span className="cr-pill cr-pill-mint">Mock wallet</span>
-          <span className="cr-pill cr-pill-blue">Local only</span>
+          <span className="cr-pill"><I18nText en="Box to pack" th="กล่องเป็นซอง" /></span>
+          <span className="cr-pill cr-pill-mint"><I18nText en="Mock wallet" th="กระเป๋าจำลอง" /></span>
+          <span className="cr-pill cr-pill-blue"><I18nText en="Local only" th="เฉพาะ local" /></span>
         </div>
 
         <p className="cr-detail-desc">
-          Customer view rehearsal for buying packs from mixed stock. Box stock
-          stays visible, loose packs decrement first, and a sealed box opens
-          into child packs when loose stock is short.
+          <I18nText
+            en="Customer view rehearsal for buying packs from mixed stock. Box stock stays visible, loose packs decrement first, and a sealed box opens into child packs when loose stock is short."
+            th="ซ้อมมุมมองลูกค้าสำหรับซื้อแพ็กจากสต็อกแบบผสม กล่องยังแสดงให้เห็น ซองแยกถูกตัดก่อน และเมื่อซองไม่พอระบบจะเปิดกล่องซีลเป็นซองลูก"
+          />
         </p>
 
         <CustomerStatGrid totals={totals} selectedQuantity={selectedQuantity} />
@@ -213,11 +241,14 @@ function CustomerProductionFlow({
         <section className="cr-section">
           <div className="cr-section-head">
             <div className="cr-stack" style={{ gap: 2 }}>
-              <span className="cr-eyebrow">Prize lineup</span>
-              <h3>What customers see before opening</h3>
+              <span className="cr-eyebrow"><I18nText en="Prize lineup" th="รายการรางวัล" /></span>
+              <h3><I18nText en="What customers see before opening" th="สิ่งที่ลูกค้าเห็นก่อนเปิด" /></h3>
             </div>
             <small className="cr-mute">
-              {localStockRewardPool.length} mock rewards
+              <I18nText
+                en={`${localStockRewardPool.length} mock rewards`}
+                th={`รางวัลจำลอง ${localStockRewardPool.length} รายการ`}
+              />
             </small>
           </div>
           <div className="cr-prize-grid local-production-prize-grid">
@@ -236,12 +267,14 @@ function CustomerProductionFlow({
         <section className="cr-section">
           <div className="cr-section-head">
             <div className="cr-stack" style={{ gap: 2 }}>
-              <span className="cr-eyebrow">Customer bag</span>
-              <h3>Collection and all-pulls preview</h3>
+              <span className="cr-eyebrow"><I18nText en="Customer bag" th="กระเป๋าลูกค้า" /></span>
+              <h3><I18nText en="Collection and all-pulls preview" th="ตัวอย่างคอลเลกชันและประวัติ all-pulls" /></h3>
             </div>
             <small className="cr-mute">
-              {formatCount(state.bag.length)} owned reward
-              {state.bag.length === 1 ? "" : "s"}
+              <I18nText
+                en={`${formatCount(state.bag.length)} owned reward${state.bag.length === 1 ? "" : "s"}`}
+                th={`มีรางวัล ${formatCount(state.bag.length)} รายการ`}
+              />
             </small>
           </div>
           {latestRewards.length ? (
@@ -252,15 +285,17 @@ function CustomerProductionFlow({
             </div>
           ) : (
             <p className="cr-mute local-production-empty">
-              No collection rows yet. Open x3 packs to see reward images in the
-              same style as customer bag and all-pulls history.
+              <I18nText
+                en="No collection rows yet. Open x3 packs to see reward images in the same style as customer bag and all-pulls history."
+                th="ยังไม่มีรายการคอลเลกชัน ลองเปิด x3 แพ็กเพื่อดูรูปรางวัลแบบเดียวกับถุงการ์ดลูกค้าและประวัติการเปิดทั้งหมด"
+              />
             </p>
           )}
         </section>
       </div>
 
       {!soldOut ? (
-        <div className="cr-dock" role="region" aria-label="Open this pack">
+        <div className="cr-dock" role="region" aria-label="Open this pack / เปิดแพ็กนี้">
           <div className="cr-dock-pack">
             <div className="cr-pack-art pokemon local-production-dock-art">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -268,14 +303,17 @@ function CustomerProductionFlow({
             </div>
             <div className="cr-stack" style={{ gap: 2, minWidth: 0 }}>
               <small className="cr-eyebrow" style={{ fontSize: 9.5 }}>
-                Open this pack
+                <I18nText en="Open this pack" th="เปิดแพ็กนี้" />
               </small>
               <strong className="local-production-dock-title">
                 {localCampaign.title}
               </strong>
               <small className="cr-mute local-production-dock-subtitle">
                 <CoinPip size={10} /> {formatCoins(localCampaign.costCoins)} /
-                pack · {formatCount(totals.availablePackEquivalent)} left
+                <I18nText
+                  en={` pack · ${formatCount(totals.availablePackEquivalent)} left`}
+                  th={` ซอง · เหลือ ${formatCount(totals.availablePackEquivalent)}`}
+                />
               </small>
             </div>
           </div>
@@ -298,7 +336,7 @@ function CustomerProductionFlow({
 
           <div className="cr-dock-cta">
             <div className="cr-dock-total">
-              <small>Total</small>
+              <small><I18nText en="Total" th="รวม" /></small>
               <strong className="cr-tnum">
                 <CoinPip size={13} />{" "}
                 {formatCoins(selectedQuantity * localCampaign.costCoins)}
@@ -310,8 +348,10 @@ function CustomerProductionFlow({
               onClick={() => openPacks(selectedQuantity)}
               disabled={totals.availablePackEquivalent < selectedQuantity}
             >
-              Open {selectedQuantity} pack
-              {selectedQuantity === 1 ? "" : "s"}
+              <I18nText
+                en={`Open ${selectedQuantity} pack${selectedQuantity === 1 ? "" : "s"}`}
+                th={`เปิด ${selectedQuantity} ซอง`}
+              />
             </button>
           </div>
         </div>
@@ -332,10 +372,10 @@ function AdminStockRow({
   imageUrl: string;
   label: string;
   sku: string;
-  kind: string;
+  kind: ReactNode;
   available: number;
   packEquivalent: number;
-  detail: string;
+  detail: ReactNode;
 }) {
   return (
     <article className="local-production-admin-stock-row">
@@ -358,12 +398,14 @@ function AdminStockRow({
 function AdminProductionFlow({
   state,
   totals,
+  language,
   receiveBoxes,
   receiveLoosePacks,
   openBoxes,
 }: {
   state: LocalStockSubSkuState;
   totals: LocalStockTotals;
+  language: Language;
   receiveBoxes: (quantity: number) => void;
   receiveLoosePacks: (quantity: number) => void;
   openBoxes: (quantity: number) => void;
@@ -373,53 +415,58 @@ function AdminProductionFlow({
       <section className="admin-panel soft-card">
         <div className="admin-panel-head">
           <div>
-            <span>Admin stock control</span>
-            <h3>Main SKU and Sub SKU inventory</h3>
+            <span><I18nText en="Admin stock control" th="ควบคุมสต็อกแอดมิน" /></span>
+            <h3><I18nText en="Main SKU and Sub SKU inventory" th="คลัง Main SKU และ Sub SKU" /></h3>
           </div>
-          <strong>{formatCount(totals.availablePackEquivalent)} packs sellable</strong>
+          <strong>
+            <I18nText
+              en={`${formatCount(totals.availablePackEquivalent)} packs sellable`}
+              th={`ขายได้ ${formatCount(totals.availablePackEquivalent)} ซอง`}
+            />
+          </strong>
         </div>
 
         <div className="local-production-admin-actions">
           <button type="button" onClick={() => receiveBoxes(1)}>
-            Receive 1 box
+            <I18nText en="Receive 1 box" th="รับเข้า 1 กล่อง" />
           </button>
           <button type="button" onClick={() => receiveLoosePacks(12)}>
-            Receive 12 loose packs
+            <I18nText en="Receive 12 loose packs" th="รับเข้า 12 ซองแยก" />
           </button>
           <button
             type="button"
             onClick={() => openBoxes(1)}
             disabled={state.boxStock <= 0}
           >
-            Convert 1 box to packs
+            <I18nText en="Convert 1 box to packs" th="แปลง 1 กล่องเป็นซอง" />
           </button>
         </div>
 
         <div className="local-production-admin-stock-table">
           <div className="local-production-admin-stock-head">
             <span>Sub SKU</span>
-            <span>Kind</span>
-            <span>Units</span>
-            <span>Packs</span>
-            <span>Rule</span>
+            <span><I18nText en="Kind" th="ชนิด" /></span>
+            <span><I18nText en="Units" th="จำนวน" /></span>
+            <span><I18nText en="Packs" th="ซอง" /></span>
+            <span><I18nText en="Rule" th="กฎ" /></span>
           </div>
           <AdminStockRow
             imageUrl={localStockSubSkus.box.imageUrl}
             label={localStockSubSkus.box.label}
             sku={localStockSubSkus.box.sku}
-            kind="box"
+            kind={i18n("box", "กล่อง")}
             available={state.boxStock}
             packEquivalent={totals.boxPackEquivalent}
-            detail={`1 box = ${localStockSubSkus.box.childQuantity} packs`}
+            detail={i18n(`1 box = ${localStockSubSkus.box.childQuantity} packs`, `1 กล่อง = ${localStockSubSkus.box.childQuantity} ซอง`)}
           />
           <AdminStockRow
             imageUrl={localStockSubSkus.pack.imageUrl}
             label={localStockSubSkus.pack.label}
             sku={localStockSubSkus.pack.sku}
-            kind="pack"
+            kind={i18n("pack", "ซอง")}
             available={state.loosePackStock}
             packEquivalent={state.loosePackStock}
-            detail="Child stock sold to customer opens"
+            detail={i18n("Child stock sold to customer opens", "สต็อกลูกที่ขายให้ลูกค้าเปิด")}
           />
         </div>
       </section>
@@ -427,10 +474,15 @@ function AdminProductionFlow({
       <section className="admin-panel soft-card">
         <div className="admin-panel-head">
           <div>
-            <span>Prize catalog usage</span>
-            <h3>Images and reward destinations</h3>
+            <span><I18nText en="Prize catalog usage" th="การใช้ catalog รางวัล" /></span>
+            <h3><I18nText en="Images and reward destinations" th="รูปและปลายทางรางวัล" /></h3>
           </div>
-          <strong>{formatCount(state.history.length)} pull rows</strong>
+          <strong>
+            <I18nText
+              en={`${formatCount(state.history.length)} pull rows`}
+              th={`${formatCount(state.history.length)} แถว pull`}
+            />
+          </strong>
         </div>
 
         <div className="local-production-admin-prize-grid">
@@ -448,7 +500,10 @@ function AdminProductionFlow({
               <span>
                 <strong>{reward.cardName}</strong>
                 <small>
-                  Detail page · opening reveal · user bag · all pulls
+                  <I18nText
+                    en="Detail page · opening reveal · user bag · all pulls"
+                    th="หน้ารายละเอียด · รีวีลตอนเปิด · ถุงการ์ดผู้ใช้ · ประวัติการเปิดทั้งหมด"
+                  />
                 </small>
               </span>
             </article>
@@ -459,13 +514,13 @@ function AdminProductionFlow({
       <section className="admin-panel soft-card">
         <div className="admin-panel-head">
           <div>
-            <span>Audit rehearsal</span>
-            <h3>Stock event log</h3>
+            <span><I18nText en="Audit rehearsal" th="ซ้อมตรวจสอบ" /></span>
+            <h3><I18nText en="Stock event log" th="บันทึกเหตุการณ์สต็อก" /></h3>
           </div>
         </div>
         <ul className="local-production-event-log">
           {state.events.slice(0, 10).map((event, index) => (
-            <li key={`${index}-${event}`}>{event}</li>
+            <li key={`${index}-${event.en}`}>{localized(event, language)}</li>
           ))}
         </ul>
       </section>
@@ -474,6 +529,7 @@ function AdminProductionFlow({
 }
 
 export function LocalStockSubSkuTest() {
+  const language = useStoreLanguage();
   const [state, setState] = useState(localStockSubSkuInitialState);
   const [surface, setSurface] = useState<Surface>("customer");
   const [selectedQuantity, setSelectedQuantity] = useState(3);
@@ -503,7 +559,10 @@ export function LocalStockSubSkuTest() {
       ...current,
       boxStock: current.boxStock + quantity,
       events: [
-        `Admin received ${quantity} box${quantity === 1 ? "" : "es"} into ${localStockSubSkus.box.sku}.`,
+        copy(
+          `Admin received ${quantity} box${quantity === 1 ? "" : "es"} into ${localStockSubSkus.box.sku}.`,
+          `แอดมินรับเข้า ${quantity} กล่องไปยัง ${localStockSubSkus.box.sku}`,
+        ),
         ...current.events,
       ],
     }));
@@ -514,7 +573,10 @@ export function LocalStockSubSkuTest() {
       ...current,
       loosePackStock: current.loosePackStock + quantity,
       events: [
-        `Admin received ${quantity} loose packs into ${localStockSubSkus.pack.sku}.`,
+        copy(
+          `Admin received ${quantity} loose packs into ${localStockSubSkus.pack.sku}.`,
+          `แอดมินรับเข้า ${quantity} ซองแยกไปยัง ${localStockSubSkus.pack.sku}`,
+        ),
         ...current.events,
       ],
     }));
@@ -527,7 +589,13 @@ export function LocalStockSubSkuTest() {
   return (
     <section
       className="local-production-rehearsal"
-      aria-label="Production-like local stock Sub SKU rehearsal"
+      aria-label={localized(
+        copy(
+          "Production-like local stock Sub SKU rehearsal",
+          "ซ้อม Sub SKU stock แบบใกล้โปรดักชันบน local",
+        ),
+        language,
+      )}
     >
       <div className="local-production-switcher" role="tablist">
         <button
@@ -537,7 +605,7 @@ export function LocalStockSubSkuTest() {
           className={surface === "customer" ? "is-active" : ""}
           onClick={() => setSurface("customer")}
         >
-          Customer production flow
+          <I18nText en="Customer production flow" th="ขั้นตอนลูกค้าแบบโปรดักชัน" />
         </button>
         <button
           type="button"
@@ -546,7 +614,7 @@ export function LocalStockSubSkuTest() {
           className={surface === "admin" ? "is-active" : ""}
           onClick={() => setSurface("admin")}
         >
-          Admin production flow
+          <I18nText en="Admin production flow" th="ขั้นตอนแอดมินแบบโปรดักชัน" />
         </button>
       </div>
 
@@ -562,6 +630,7 @@ export function LocalStockSubSkuTest() {
         <AdminProductionFlow
           state={state}
           totals={totals}
+          language={language}
           receiveBoxes={receiveBoxes}
           receiveLoosePacks={receiveLoosePacks}
           openBoxes={openBoxes}

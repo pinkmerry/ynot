@@ -14816,6 +14816,33 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
   overflow: hidden;
 }
 
+.cr-pull-all-reveal-wait {
+  gap: 20px;
+  align-content: center;
+}
+
+.cr-pull-all-reveal-wait-copy {
+  display: grid;
+  gap: 6px;
+  text-align: center;
+  font-family: var(--font-mono);
+}
+
+.cr-pull-all-reveal-wait-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.cr-pull-all-reveal-wait-copy strong {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 900;
+}
+
 .gacha-open-immersive-host {
   position: fixed;
   inset: 0;
@@ -15208,6 +15235,17 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
   font-weight: 900;
   letter-spacing: 0.02em;
 }
+.gacha-reveal-summary-note {
+  max-width: 620px;
+  margin: 0 auto;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.55;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 .gacha-reveal-summary-header small {
   color: var(--muted);
   font-family: var(--font-mono);
@@ -15327,12 +15365,15 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
   color: var(--muted);
 }
 .gacha-reveal-summary-footer {
+  position: relative;
+  z-index: 3;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
   margin-top: 8px;
+  pointer-events: none;
 }
 .gacha-reveal-repeat-row {
   display: grid;
@@ -31821,11 +31862,14 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-row-footer-id {
 
 /* --- Pack-open reveal dock (post-pull action buttons) --- */
 .gacha-reveal-summary-footer .gacha-reveal-dock {
+  position: relative;
+  z-index: 2;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   width: min(420px, 100%);
   margin: 0 auto;
+  pointer-events: auto;
 }
 @media (min-width: 560px) {
   .gacha-reveal-summary-footer .gacha-reveal-dock {
@@ -31834,6 +31878,7 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-row-footer-id {
 }
 .gacha-reveal-summary-footer .gacha-reveal-dock-action {
   position: relative;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -31848,6 +31893,7 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-row-footer-id {
   font-family: inherit;
   text-align: center;
   cursor: pointer;
+  pointer-events: auto;
   transition: transform 120ms ease, border-color 120ms ease, box-shadow 200ms ease;
 }
 .gacha-reveal-summary-footer .gacha-reveal-dock-action.is-primary {
@@ -31880,6 +31926,16 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-row-footer-id {
 }
 .gacha-reveal-summary-footer .gacha-reveal-dock-action.is-primary .gacha-reveal-dock-action-hint {
   color: #2b1f0c;
+}
+.gacha-reveal-summary-footer .gacha-reveal-toggle {
+  position: relative;
+  z-index: 1;
+  align-self: center;
+  width: fit-content;
+  pointer-events: auto;
+}
+.gacha-reveal-summary-footer .gacha-reveal-toggle * {
+  pointer-events: auto;
 }
 
 /* --- Collection page shell --- */

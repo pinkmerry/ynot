@@ -2,10 +2,12 @@ import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import {
   bulkOpenActiveStatuses,
   toPublicBulkOpenSessionSummary,
 } from "@/features/ynot/bulk-open";
+import { previewCurrentPullAllSessionForProfile } from "@/features/ynot/local-preview-rewards";
 
 export const dynamic = "force-dynamic";
 
@@ -37,9 +39,6 @@ type SupabaseCompatClient = {
 };
 
 export async function GET(request: Request) {
-  if (!isSupabaseConfigured()) {
-    return Response.json({ error: "Supabase is not configured." }, { status: 503 });
-  }
   const session = await resolveCurrentProfile();
   if (!session?.profileId) {
     return Response.json({ error: "Login is required." }, { status: 401 });
@@ -51,6 +50,17 @@ export async function GET(request: Request) {
     session.profileId,
   );
   if (limited) return limited;
+
+  if (isDevAuthAllowed() && session.authUserId === "preview-user") {
+    const previewSession = previewCurrentPullAllSessionForProfile(session.profileId);
+    return Response.json({
+      session: toPublicBulkOpenSessionSummary(previewSession),
+    });
+  }
+
+  if (!isSupabaseConfigured()) {
+    return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  }
 
   const supabase = createServiceSupabaseClient() as unknown as SupabaseCompatClient;
   const sessionSelect =

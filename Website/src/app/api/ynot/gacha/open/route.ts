@@ -6,12 +6,19 @@ import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import {
-  publicSubSkuImageUrl,
   stockImageUrlByPrizeUnitId,
   type PublicPrizeUnitImageRow,
   type PublicStockUnitImageRow,
 } from "@/features/ynot/public-subsku-images";
-import { publicBundleQuantity } from "@/features/ynot/bundle-quantity";
+import {
+  publicRewardImageUrl,
+  toPublicRewardOpenItem,
+  type PublicRewardOpenItem,
+} from "@/features/ynot/public-reward-projection";
+import {
+  nextPreviewOpenRemaining,
+  recordPreviewOpenResult,
+} from "@/features/ynot/local-preview-rewards";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +40,7 @@ const gachaOpenIpUnitRateLimit = {
   windowMs: 60_000,
 };
 const MAX_OPEN_HYDRATION_ITEMS = 20;
+const PREVIEW_STOCK_UNIT_IMAGE_BATCH_SIZE = 100;
 
 type RawOpenItem = {
   cardId?: string;
@@ -60,8 +68,6 @@ type RawOpenResult = {
   [key: string]: unknown;
 };
 
-type PublicDisplayTier = "rainbow" | "gold" | "silver" | "bronze" | "last_prize";
-
 type PublicOpenRemaining = {
   remainingSlots?: number;
   availablePrizeUnits?: number;
@@ -69,15 +75,7 @@ type PublicOpenRemaining = {
   availableWinSlots?: number;
 };
 
-type PublicOpenItem = {
-  name: string;
-  imageUrl: string | null;
-  displayTier: PublicDisplayTier;
-  valueThb: number | null;
-  position: number;
-  isLastPrize?: boolean;
-  bundleQuantity?: number;
-};
+type PublicOpenItem = PublicRewardOpenItem;
 
 type PublicOpenResult = {
   status: string;
@@ -134,27 +132,6 @@ function readNumber(value: unknown) {
   return Number.isFinite(number) ? number : null;
 }
 
-function readPositiveInteger(value: unknown, fallback: number) {
-  const number = Number(value);
-  return Number.isInteger(number) && number > 0 ? number : fallback;
-}
-
-function normalizeDisplayTier(
-  value: unknown,
-  tier: string | null | undefined,
-): PublicDisplayTier {
-  if (
-    value === "rainbow" ||
-    value === "gold" ||
-    value === "silver" ||
-    value === "bronze" ||
-    value === "last_prize"
-  ) {
-    return value;
-  }
-  return deriveDisplayTier(tier, 99);
-}
-
 function normalizeIdempotencyKey(value: unknown) {
   if (value === undefined || value === null) return crypto.randomUUID();
   if (typeof value !== "string") return null;
@@ -188,19 +165,7 @@ async function resolveOpenCampaignId(campaignId: string, profileId: string) {
 }
 
 function toPublicOpenItem(item: RawOpenItem, index: number): PublicOpenItem {
-  // Derive the customer-facing rarity from the raw tier internally, but never
-  // ship the raw "high"/"normal" prize tier to customers.
-  const tier = readString(item.tier, "normal");
-  const publicItem: PublicOpenItem = {
-    name: readString(item.name, "Mystery card"),
-    imageUrl: typeof item.imageUrl === "string" && item.imageUrl ? item.imageUrl : null,
-    displayTier: normalizeDisplayTier(item.displayTier, tier),
-    valueThb: readNumber(item.valueThb),
-    position: readPositiveInteger(item.position, index + 1),
-    bundleQuantity: publicBundleQuantity(item.bundleQuantity),
-  };
-  if (item.isLastPrize === true) publicItem.isLastPrize = true;
-  return publicItem;
+  return toPublicRewardOpenItem(item, index);
 }
 
 function toPublicOpenResult(raw: RawOpenResult, items: RawOpenItem[]): PublicOpenResult {
@@ -424,7 +389,7 @@ async function hydrateItems(
       ...item,
       cardId,
       name: item.name ?? card?.name ?? "Mystery card",
-      imageUrl: publicSubSkuImageUrl(stockImageUrl, item.imageUrl ?? card?.image_url ?? null),
+      imageUrl: publicRewardImageUrl(stockImageUrl, item.imageUrl ?? card?.image_url ?? null),
       imageResolvedFromStockUnit: Boolean(stockImageUrl),
       tier,
       displayTier,
@@ -454,6 +419,14 @@ type MockCardSpec = {
   valueThb: number;
   imageUrl?: string | null;
   rank?: number;
+};
+type PreviewPrizeUnitImageRow = {
+  draw_round_prize_id: string | null;
+  card_stock_unit_id: string | null;
+};
+type PreviewStockUnitImageRow = {
+  id: string;
+  image_url: string | null;
 };
 const MOCK_POOL: MockCardSpec[] = [
   { name: "Charizard ex SAR", tier: "rainbow", valueThb: 5800 },
@@ -496,6 +469,64 @@ function previewDisplayTier(
   return "bronze";
 }
 
+async function previewImageByPrizeId(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  prizeIds: string[],
+) {
+  if (!prizeIds.length) return new Map<string, string>();
+
+  const { data: prizeUnits, error: prizeUnitsError } = await supabase
+    .from("draw_round_prize_units")
+    .select("draw_round_prize_id,card_stock_unit_id")
+    .in("draw_round_prize_id", prizeIds);
+  if (prizeUnitsError || !prizeUnits?.length) return new Map<string, string>();
+
+  const stockUnitIds = Array.from(
+    new Set(
+      prizeUnits
+        .map((row) => row.card_stock_unit_id)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+  if (!stockUnitIds.length) return new Map<string, string>();
+
+  const stockUnits: PreviewStockUnitImageRow[] = [];
+  for (
+    let index = 0;
+    index < stockUnitIds.length;
+    index += PREVIEW_STOCK_UNIT_IMAGE_BATCH_SIZE
+  ) {
+    const batch = stockUnitIds.slice(
+      index,
+      index + PREVIEW_STOCK_UNIT_IMAGE_BATCH_SIZE,
+    );
+    const { data, error } = await supabase
+      .from("card_stock_units")
+      .select("id,image_url")
+      .in("id", batch);
+    if (error) continue;
+    stockUnits.push(...((data ?? []) as PreviewStockUnitImageRow[]));
+  }
+  if (!stockUnits.length) return new Map<string, string>();
+
+  const imageByStockUnitId = new Map(
+    stockUnits
+      .filter((row) => Boolean(row.id && row.image_url))
+      .map((row) => [row.id, row.image_url as string]),
+  );
+  const imageByPrizeId = new Map<string, string>();
+  for (const row of prizeUnits as PreviewPrizeUnitImageRow[]) {
+    if (!row.draw_round_prize_id || imageByPrizeId.has(row.draw_round_prize_id)) {
+      continue;
+    }
+    const imageUrl = row.card_stock_unit_id
+      ? imageByStockUnitId.get(row.card_stock_unit_id)
+      : undefined;
+    if (imageUrl) imageByPrizeId.set(row.draw_round_prize_id, imageUrl);
+  }
+  return imageByPrizeId;
+}
+
 async function readPreviewPool(campaignId: string): Promise<MockCardSpec[]> {
   const supabase = createServiceSupabaseClient();
   const { data: prizes, error } = await supabase
@@ -521,6 +552,10 @@ async function readPreviewPool(campaignId: string): Promise<MockCardSpec[]> {
       { name: card.name, imageUrl: card.image_url ?? null },
     ]),
   );
+  const prizeImageById = await previewImageByPrizeId(
+    supabase,
+    prizes.map((prize) => prize.id).filter(Boolean),
+  );
 
   const pool = prizes.map((prize) => {
     const card = cardById.get(prize.card_id);
@@ -530,7 +565,7 @@ async function readPreviewPool(campaignId: string): Promise<MockCardSpec[]> {
       name: card?.name ?? "Mystery reward",
       tier: previewDisplayTier(prize.tier, rank, prize.metadata),
       valueThb: Number(prize.value_thb ?? 0) || 0,
-      imageUrl: card?.imageUrl ?? null,
+      imageUrl: publicRewardImageUrl(prizeImageById.get(prize.id), card?.imageUrl),
       rank,
     };
   });
@@ -549,8 +584,37 @@ function pickMockCard(pool: MockCardSpec[]): MockCardSpec {
   return source[Math.floor(Math.random() * source.length)] ?? MOCK_POOL[0];
 }
 
-async function buildPreviewOpenResult(campaignId: string, quantity: number) {
+async function readPreviewCampaignTotalSlots(campaignId: string) {
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("draw_rounds")
+    .select("total_slots")
+    .eq("id", campaignId)
+    .maybeSingle();
+  if (error) return 100;
+  const totalSlots = Number(data?.total_slots);
+  return Number.isFinite(totalSlots) && totalSlots > 0 ? totalSlots : 100;
+}
+
+async function buildPreviewOpenResult({
+  campaignId,
+  campaignSlug,
+  profileId,
+  quantity,
+}: {
+  campaignId: string;
+  campaignSlug: string;
+  profileId: string;
+  quantity: number;
+}) {
   const previewPool = await readPreviewPool(campaignId);
+  const totalSlots = await readPreviewCampaignTotalSlots(campaignId);
+  const previewRemaining = nextPreviewOpenRemaining({
+    campaignSlug,
+    profileId,
+    quantity,
+    totalSlots,
+  });
   const items = Array.from({ length: quantity }, (_, index) => {
     const card = pickMockCard(previewPool);
     const tierRank: Record<MockTier, number> = {
@@ -579,7 +643,7 @@ async function buildPreviewOpenResult(campaignId: string, quantity: number) {
     logicMode: "preview_mock",
     items,
     replayed: false,
-    remaining: { campaignId },
+    remaining: previewRemaining ? { campaignId, ...previewRemaining } : { campaignId },
   };
   return toPublicOpenResult(result, items);
 }
@@ -658,8 +722,19 @@ export async function POST(request: Request) {
     isDevAuthAllowed() &&
     session.authUserId === PREVIEW_AUTH_USER_ID
   ) {
+    const previewResult = await buildPreviewOpenResult({
+      campaignId: resolvedCampaignId,
+      campaignSlug: campaignId,
+      profileId: session.profileId,
+      quantity,
+    });
+    await recordPreviewOpenResult({
+      campaignSlug: campaignId,
+      profileId: session.profileId,
+      result: previewResult,
+    });
     return Response.json({
-      result: await buildPreviewOpenResult(resolvedCampaignId, quantity),
+      result: previewResult,
     });
   }
 

@@ -8,6 +8,7 @@ import {
   Noto_Sans_Thai,
   Prompt,
 } from "next/font/google";
+import { PreferenceHydrator } from "@/features/ynot/PreferenceHydrator";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -76,10 +77,13 @@ export default function RootLayout({
     <html
       lang="en"
       data-ynot-theme="light"
-      data-ynot-language="th"
+      data-ynot-language="en"
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${plexThai.variable} ${plexSans.variable} ${notoThai.variable} ${prompt.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <PreferenceHydrator />
+        {children}
+      </body>
     </html>
   );
 }

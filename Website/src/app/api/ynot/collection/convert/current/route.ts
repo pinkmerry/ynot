@@ -1,5 +1,7 @@
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
+import { previewCurrentConversionForProfile } from "@/features/ynot/local-preview-rewards";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { presentConversionCurrent } from "@/lib/ynot/reward-action-presenters";
@@ -52,6 +54,15 @@ export async function GET(request: Request) {
     session.profileId,
   );
   if (limited) return limited;
+
+  if (
+    isDevAuthAllowed() &&
+    session.authUserId === "preview-user"
+  ) {
+    return Response.json({
+      conversion: previewCurrentConversionForProfile(session.profileId),
+    });
+  }
 
   const supabase = createServiceSupabaseClient() as unknown as SupabaseCompatClient;
   const conversionSelect =

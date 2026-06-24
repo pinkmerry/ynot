@@ -4,6 +4,11 @@ import { requireVerifiedAnchor } from "@/lib/auth/verified-anchor";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
+import {
+  LOCAL_PREVIEW_SOLD_STATE_COOKIE,
+  preparePreviewPullAllQuote,
+} from "@/features/ynot/local-preview-rewards";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +63,10 @@ function isPullAllReady(campaign: BulkOpenCampaignRow) {
   );
 }
 
+function hasPreviewAfter60SoldCookie(request: Request) {
+  return request.headers.get("cookie")?.includes(`${LOCAL_PREVIEW_SOLD_STATE_COOKIE}=after60`) === true;
+}
+
 async function resolveBulkOpenCampaign(campaignId: string, profileId: string) {
   const candidate = campaignId.trim();
   if (!candidate) return null;
@@ -86,9 +95,6 @@ async function resolveBulkOpenCampaign(campaignId: string, profileId: string) {
 }
 
 export async function POST(request: Request) {
-  if (!isSupabaseConfigured()) {
-    return Response.json({ error: "Supabase is not configured." }, { status: 503 });
-  }
   const crossOrigin = enforceSameOriginMutation(request);
   if (crossOrigin) return crossOrigin;
   const session = await resolveCurrentProfile();
@@ -109,6 +115,26 @@ export async function POST(request: Request) {
   const campaignId = typeof body?.campaignId === "string" ? body.campaignId.trim() : "";
   if (!campaignId) {
     return Response.json({ error: "Campaign is required." }, { status: 400 });
+  }
+
+  if (
+    isDevAuthAllowed() &&
+    session.authUserId === "preview-user" &&
+    hasPreviewAfter60SoldCookie(request)
+  ) {
+    const previewQuote = preparePreviewPullAllQuote({
+      campaignSlug: campaignId,
+      profileId: session.profileId,
+      packTitle: "Local preview after 60% sold",
+      costPerReward: 500,
+      targetRewards: 35,
+      soldPct: 65,
+    });
+    if (previewQuote) return Response.json({ quote: previewQuote });
+  }
+
+  if (!isSupabaseConfigured()) {
+    return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   }
 
   const supabase = createServiceSupabaseClient() as unknown as SupabaseCompatClient;

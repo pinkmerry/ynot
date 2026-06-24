@@ -7,8 +7,13 @@ import ts from "typescript";
 
 const require = createRequire(import.meta.url);
 
-function loadTsModule(path) {
-  const source = readFileSync(new URL(path, import.meta.url), "utf8");
+function loadTsModule(path, cache = new Map()) {
+  const moduleUrl = new URL(path, import.meta.url);
+  const cacheKey = moduleUrl.href;
+  const cached = cache.get(cacheKey);
+  if (cached) return cached.exports;
+
+  const source = readFileSync(moduleUrl, "utf8");
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: {
       esModuleInterop: true,
@@ -17,10 +22,18 @@ function loadTsModule(path) {
     },
   });
   const cjsModule = { exports: {} };
+  cache.set(cacheKey, cjsModule);
+  const localRequire = (specifier) => {
+    if (specifier.startsWith(".")) {
+      const childPath = specifier.endsWith(".ts") ? specifier : `${specifier}.ts`;
+      return loadTsModule(new URL(childPath, moduleUrl).href, cache);
+    }
+    return require(specifier);
+  };
   vm.runInNewContext(outputText, {
     exports: cjsModule.exports,
     module: cjsModule,
-    require,
+    require: localRequire,
   });
   return cjsModule.exports;
 }

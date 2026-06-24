@@ -79,6 +79,20 @@ test("bulk open bag status caps public highlights and avoids private terms", () 
   }
 });
 
+test("completed bulk open status shows landed count and animated highlights", () => {
+  const source = requireComponent();
+  const theme = read("src/features/ynot/cr/theme.css");
+
+  assert.match(source, /rewards landed/);
+  assert.match(source, /total pulled/);
+  assert.match(source, /session\.landedRewards/);
+  assert.match(source, /session\.totalPurchasedRewards/);
+  assert.match(source, /"--cr-highlight-index"/);
+  assert.match(theme, /crBulkCompleteIn/);
+  assert.match(theme, /crBulkHighlightIn/);
+  assert.match(theme, /prefers-reduced-motion/);
+});
+
 test("bulk open bag status is mounted in Bag and All Pulls pages", () => {
   const history = read("src/features/ynot/cr/HistoryExperience.tsx");
   const allPulls = read("src/features/ynot/cr/AllPullsExperience.tsx");

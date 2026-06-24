@@ -1,13 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
+import { getLineCallbackUrl, getLineLoginChannelId } from "@/lib/line/config";
 import { lineOAuthStateCookie } from "@/lib/line/oauth";
 import { shouldUseSecureCookies } from "@/lib/security/cookies";
 
 export const dynamic = "force-dynamic";
-
-function lineChannelId() {
-  return process.env.LINE_LOGIN_CHANNEL_ID ?? process.env.NEXT_PUBLIC_LINE_LIFF_ID?.split("-")[0] ?? "";
-}
 
 function safeNext(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
@@ -21,34 +18,15 @@ function safeNext(value: string | null) {
   }
 }
 
-function siteOrigin(request: Request) {
-  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (configuredSiteUrl) {
-    try {
-      return new URL(configuredSiteUrl).origin;
-    } catch {
-      return null;
-    }
-  }
-  if (process.env.NODE_ENV === "production") return null;
-  return new URL(request.url).origin;
-}
-
-function callbackUrl(request: Request) {
-  const origin = siteOrigin(request);
-  if (!origin) return null;
-  return `${origin}/api/line/callback`;
-}
-
 export async function GET(request: Request) {
-  const channelId = lineChannelId();
+  const channelId = getLineLoginChannelId();
   if (!channelId) {
     return Response.json({ error: "LINE login channel is not configured." }, { status: 503 });
   }
   if (!process.env.LINE_LOGIN_CHANNEL_SECRET) {
     return Response.json({ error: "LINE login channel secret is not configured." }, { status: 503 });
   }
-  const redirectUri = callbackUrl(request);
+  const redirectUri = getLineCallbackUrl();
   if (!redirectUri) {
     return Response.json({ error: "NEXT_PUBLIC_SITE_URL is required before production LINE login." }, { status: 503 });
   }

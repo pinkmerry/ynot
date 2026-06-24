@@ -42,6 +42,7 @@ function redirectWith(
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const nextPath = safeNextPath(requestUrl.searchParams.get("next"));
+  const mode = requestUrl.searchParams.get("mode") === "connect" ? "connect" : "login";
   const origin = appOrigin(request);
 
   if (!origin) {
@@ -54,10 +55,16 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
+  const callbackUrl = new URL("/auth/callback", origin);
+  callbackUrl.searchParams.set("next", nextPath);
+  if (mode === "connect") {
+    callbackUrl.searchParams.set("mode", "connect");
+  }
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
+      redirectTo: callbackUrl.toString(),
     },
   });
 

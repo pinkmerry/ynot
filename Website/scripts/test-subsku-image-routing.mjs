@@ -26,8 +26,13 @@ function between(source, start, end, label) {
 const directCustomerStockUnitRead =
   /\.from\("card_stock_units"\)[\s\S]*?\.select\([\s\S]*?\)[\s\S]*?\.in\("id",\s*(?!batch\b)[^)]+\)/;
 
-function loadTsModule(path) {
-  const source = readSource(path);
+function loadTsModule(path, cache = new Map()) {
+  const moduleUrl = new URL(path, import.meta.url);
+  const cacheKey = moduleUrl.href;
+  const cached = cache.get(cacheKey);
+  if (cached) return cached.exports;
+
+  const source = readFileSync(moduleUrl, "utf8");
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: {
       esModuleInterop: true,
@@ -36,10 +41,18 @@ function loadTsModule(path) {
     },
   });
   const cjsModule = { exports: {} };
+  cache.set(cacheKey, cjsModule);
+  const localRequire = (specifier) => {
+    if (specifier.startsWith(".")) {
+      const childPath = specifier.endsWith(".ts") ? specifier : `${specifier}.ts`;
+      return loadTsModule(new URL(childPath, moduleUrl).href, cache);
+    }
+    return require(specifier);
+  };
   vm.runInNewContext(outputText, {
     exports: cjsModule.exports,
     module: cjsModule,
-    require,
+    require: localRequire,
   });
   return cjsModule.exports;
 }
@@ -113,6 +126,32 @@ test("public sub-SKU image helper builds server-only image maps from linked priz
   );
 });
 
+test("public reward open item falls back from invalid displayTier to raw tier", () => {
+  const projection = loadTsModule("../src/features/ynot/public-reward-projection.ts");
+
+  assert.equal(
+    projection.toPublicRewardOpenItem(
+      { name: "High tier reward", displayTier: "owner-only", tier: "high" },
+      0,
+    ).displayTier,
+    "gold",
+  );
+  assert.equal(
+    projection.toPublicRewardOpenItem(
+      { name: "Blank tier reward", displayTier: "", tier: "high" },
+      1,
+    ).displayTier,
+    "gold",
+  );
+  assert.equal(
+    projection.toPublicRewardOpenItem(
+      { name: "Last Prize", displayTier: "owner-only", tier: "high", isLastPrize: true },
+      2,
+    ).displayTier,
+    "last_prize",
+  );
+});
+
 test("public pack detail prize lineups prefer linked sub-SKU images", () => {
   const dataSource = readSource("../src/features/ynot/data.ts");
 
@@ -154,11 +193,14 @@ test("public prize preview still strips internal stock and house fields", () => 
 
 test("pack opening API resolves awarded stock-unit image without exposing internal IDs", () => {
   const routeSource = readSource("../src/app/api/ynot/gacha/open/route.ts");
-  const publicOpenItemType = routeSource.match(/type PublicOpenItem = \{[\s\S]*?\};/)?.[0] ?? "";
+  const projectionSource = readSource("../src/features/ynot/public-reward-projection.ts");
+  const publicOpenItemType = projectionSource.match(/export type PublicRewardOpenItem = \{[\s\S]*?\};/)?.[0] ?? "";
   const toPublicOpenItem = routeSource.match(/function toPublicOpenItem[\s\S]*?function toPublicOpenResult/)?.[0] ?? "";
+  const publicRewardOpenItem = projectionSource.match(/export function toPublicRewardOpenItem[\s\S]*?export function toPublicRewardHighlight/)?.[0] ?? "";
 
   assert.match(routeSource, /stockImageUrlByPrizeUnitId/);
-  assert.match(routeSource, /publicSubSkuImageUrl/);
+  assert.match(routeSource, /publicRewardImageUrl/);
+  assert.match(routeSource, /toPublicRewardOpenItem/);
   assert.match(routeSource, /imageResolvedFromStockUnit/);
   assert.match(routeSource, /item\.imageResolvedFromStockUnit === true/);
   assert.match(routeSource, /draw_round_prize_unit_id/);
@@ -176,10 +218,11 @@ test("pack opening API resolves awarded stock-unit image without exposing intern
   );
   assert.match(
     routeSource,
-    /imageUrl:\s*publicSubSkuImageUrl\(stockImageUrl,\s*item\.imageUrl\s*\?\?\s*card\?\.image_url\s*\?\?\s*null,?\s*\)/,
+    /imageUrl:\s*publicRewardImageUrl\(stockImageUrl,\s*item\.imageUrl\s*\?\?\s*card\?\.image_url\s*\?\?\s*null,?\s*\)/,
   );
   assert.doesNotMatch(publicOpenItemType, /cardId|prizeUnitId|draw_round|card_stock|tier\?:/);
   assert.doesNotMatch(toPublicOpenItem, /cardId:|prizeUnitId:|draw_round_prize_unit_id|card_stock_unit_id/);
+  assert.doesNotMatch(publicRewardOpenItem, /cardId:|prizeUnitId:|draw_round_prize_unit_id|card_stock_unit_id/);
 });
 
 test("pack opening RPC returns sub-SKU image before the fast reveal skips hydration", () => {
@@ -287,10 +330,17 @@ test("card stock-unit batched reader contract keeps helper internals bounded", (
     "async function getPrizeUnitIdentityMismatches",
     "batched stock-unit reader",
   );
+  const batchReaderSource = between(
+    dataSource,
+    "async function readSupabaseRowsByInBatches",
+    "async function readCardStockUnitRowsByIds",
+    "shared batched reader",
+  );
 
   assert.match(dataSource, /const CARD_STOCK_UNIT_ID_BATCH_SIZE = 250;/);
-  assert.match(helperSource, /readSupabaseRows<T>\(/);
-  assert.match(helperSource, /`\$\{label\}_batch_\$\{Math\.floor\(i \/ CARD_STOCK_UNIT_ID_BATCH_SIZE\) \+ 1\}`/);
+  assert.match(helperSource, /readSupabaseRowsByInBatches<T>\(/);
+  assert.match(batchReaderSource, /readSupabaseRows<T>\(/);
+  assert.match(batchReaderSource, /`\$\{label\}_batch_\$\{Math\.floor\(i \/ batchSize\) \+ 1\}`/);
   assert.match(helperSource, /\.in\("id", batch\)/);
 });
 

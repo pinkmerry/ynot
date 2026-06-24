@@ -2,8 +2,10 @@ import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
 import { requireVerifiedAnchor } from "@/lib/auth/verified-anchor";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
+import { markPreviewPullAllHighlightsSeen } from "@/features/ynot/local-preview-rewards";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +23,6 @@ type SupabaseCompatClient = {
 };
 
 export async function POST(request: Request) {
-  if (!isSupabaseConfigured()) {
-    return Response.json({ error: "Supabase is not configured." }, { status: 503 });
-  }
   const crossOrigin = enforceSameOriginMutation(request);
   if (crossOrigin) return crossOrigin;
   const session = await resolveCurrentProfile();
@@ -47,6 +46,24 @@ export async function POST(request: Request) {
   const publicCode = typeof body?.publicCode === "string" ? body.publicCode.trim() : "";
   if (!/^BO-\d+$/.test(publicCode)) {
     return Response.json({ error: "Valid Pull All code is required." }, { status: 400 });
+  }
+
+  if (isDevAuthAllowed() && session.authUserId === "preview-user") {
+    const result = markPreviewPullAllHighlightsSeen({
+      profileId: session.profileId,
+      publicCode,
+    });
+    if (result.ok !== true) {
+      return Response.json(
+        { error: "Pull All highlights are not ready yet." },
+        { status: 409 },
+      );
+    }
+    return Response.json(result);
+  }
+
+  if (!isSupabaseConfigured()) {
+    return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   }
 
   const supabase = createServiceSupabaseClient() as unknown as SupabaseCompatClient;

@@ -25,6 +25,7 @@ Rules:
 - Server session creation is the source of truth, not only LIFF client login state.
 - LINE conflicts create admin-reviewed merge requests instead of silent profile merges.
 - Production must use `LINE_SESSION_SECRET`; do not fall back to service-role key signing.
+- Login and provider-linking changes must follow `login-identity-flow.md`.
 
 ### `/api/ynot/*` — normal website platform
 

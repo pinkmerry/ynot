@@ -4,6 +4,7 @@ import { PackDetailArena } from "@/features/ynot/cr/PackDetailArena";
 import { PageHead } from "@/features/ynot/cr/UiKit";
 import { YnotShell } from "@/features/ynot/components";
 import { getCampaign, getYnotDashboardSlice, getYnotViewer } from "@/features/ynot/data";
+import { I18nText, i18n } from "@/features/ynot/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +30,11 @@ export default async function PackDetailPage({
         ) : (
           <div className="cr-page">
             <PageHead
-              title="Pack not found"
-              lead="This pack may have been removed or doesn't exist yet."
+              title={i18n("Pack not found", "ไม่พบแพ็ก")}
+              lead={i18n(
+                "This pack may have been removed or doesn't exist yet.",
+                "แพ็กนี้อาจถูกลบหรือยังไม่มีในระบบ",
+              )}
               back={{ href: "/packs" }}
             />
             <div
@@ -38,16 +42,19 @@ export default async function PackDetailPage({
               style={{ padding: 40, textAlign: "center" }}
             >
               <strong style={{ display: "block", fontSize: 14, marginBottom: 8 }}>
-                No pack matches that link
+                <I18nText en="No pack matches that link" th="ไม่พบแพ็กจากลิงก์นี้" />
               </strong>
               <small
                 className="cr-mute"
                 style={{ display: "block", marginBottom: 18 }}
               >
-                Browse all live Y-Packs from the main list.
+                <I18nText
+                  en="Browse all live Y-Packs from the main list."
+                  th="ดู Y-Packs ที่เปิดอยู่ทั้งหมดจากรายการหลัก"
+                />
               </small>
               <Link className="cr-btn cr-btn-primary" href="/packs">
-                Back to Y-Packs
+                <I18nText en="Back to Y-Packs" th="กลับไป Y-Packs" />
               </Link>
             </div>
           </div>

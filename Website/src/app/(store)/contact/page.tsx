@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageHeader, YnotShell } from "@/features/ynot/components";
+import { I18nText, i18n } from "@/features/ynot/i18n";
 import type { YnotViewer } from "@/features/ynot/types";
 
 const guestViewer: YnotViewer = {
@@ -12,20 +13,31 @@ export default function ContactPage() {
   return (
     <YnotShell viewer={guestViewer} viewerMode="literal">
       <PageHeader
-        eyebrow="Support"
-        title="Contact YNOT"
-        description="Need help with packs, wallet top ups, collection, exchange, or shipping? Start with the channel below and include your account name plus the pack or order reference if you have one."
+        eyebrow={i18n("Support", "ซัพพอร์ต")}
+        title={i18n("Contact YNOT", "ติดต่อ YNOT")}
+        description={i18n(
+          "Need help with packs, wallet top ups, collection, exchange, or shipping? Start with the channel below and include your account name plus the pack or order reference if you have one.",
+          "ต้องการความช่วยเหลือเรื่องแพ็ก วอลเล็ต คอลเลกชัน แลกเหรียญ หรือจัดส่ง เริ่มจากช่องทางด้านล่างและแจ้งชื่อบัญชีพร้อมเลขอ้างอิงแพ็กหรือออเดอร์ถ้ามี",
+        )}
       />
 
-      <section className="profile-dashboard personal-info-page" aria-label="Contact support">
+      <section
+        className="profile-dashboard personal-info-page"
+        aria-label="Contact support / ติดต่อซัพพอร์ต"
+      >
         <div className="profile-panel">
           <div className="profile-section-head">
-            <span>Support channel</span>
-            <strong>Instagram direct message</strong>
+            <span>
+              <I18nText en="Support channel" th="ช่องทางซัพพอร์ต" />
+            </span>
+            <strong>
+              <I18nText en="Instagram direct message" th="ข้อความ Instagram" />
+            </strong>
             <p>
-              Message the YNOT team on Instagram for account and order help.
-              Keep payment slips, order references, and pack names ready so the
-              team can check your case faster.
+              <I18nText
+                en="Message the YNOT team on Instagram for account and order help. Keep payment slips, order references, and pack names ready so the team can check your case faster."
+                th="ส่งข้อความหา YNOT ทาง Instagram เพื่อขอความช่วยเหลือเรื่องบัญชีและออเดอร์ เตรียมสลิป เลขอ้างอิง และชื่อแพ็กไว้เพื่อให้ทีมตรวจสอบได้เร็วขึ้น"
+              />
             </p>
           </div>
           <div className="product-actions">
@@ -35,31 +47,46 @@ export default function ContactPage() {
               rel="noreferrer"
               target="_blank"
             >
-              Open Instagram
+              <I18nText en="Open Instagram" th="เปิด Instagram" />
             </a>
             <Link className="secondary-action" href="/packs">
-              Browse Y-Packs
+              <I18nText en="Browse Y-Packs" th="ดู Y-Packs" />
             </Link>
           </div>
         </div>
 
         <div className="metric-grid">
           <div className="metric-card">
-            <p className="section-label">Wallet help</p>
+            <p className="section-label">
+              <I18nText en="Wallet help" th="ช่วยเหลือเรื่องวอลเล็ต" />
+            </p>
             <p className="txt-s mt-2">
-              Include the top-up amount and time when asking about coin balance.
+              <I18nText
+                en="Include the top-up amount and time when asking about coin balance."
+                th="แจ้งจำนวนเงินและเวลาที่เติมเมื่อสอบถามเรื่องยอดเหรียญ"
+              />
             </p>
           </div>
           <div className="metric-card">
-            <p className="section-label">Pack help</p>
+            <p className="section-label">
+              <I18nText en="Pack help" th="ช่วยเหลือเรื่องแพ็ก" />
+            </p>
             <p className="txt-s mt-2">
-              Include the Y-Pack name and open reference when asking about a pull.
+              <I18nText
+                en="Include the Y-Pack name and open reference when asking about a pull."
+                th="แจ้งชื่อ Y-Pack และเลขอ้างอิงการเปิดเมื่อสอบถามเรื่องรางวัล"
+              />
             </p>
           </div>
           <div className="metric-card">
-            <p className="section-label">Shipping help</p>
+            <p className="section-label">
+              <I18nText en="Shipping help" th="ช่วยเหลือเรื่องจัดส่ง" />
+            </p>
             <p className="txt-s mt-2">
-              Include your shipping request reference when asking about delivery.
+              <I18nText
+                en="Include your shipping request reference when asking about delivery."
+                th="แจ้งเลขคำขอจัดส่งเมื่อสอบถามเรื่องการจัดส่ง"
+              />
             </p>
           </div>
         </div>
