@@ -566,6 +566,7 @@ type PrizePoolStockUnitRow = Pick<
   | "grading_service"
   | "cert_number"
   | "gemrate_id"
+  | "language"
   | "image_url"
   | "status"
 >;
@@ -680,6 +681,7 @@ function stockUnitForSku(unit: PrizePoolStockUnitRow) {
     gradingService: unit.grading_service,
     certNumber: unit.cert_number,
     gemrateId: unit.gemrate_id,
+    language: unit.language ?? null,
     imageUrl: unit.image_url ?? null,
     status: unit.status,
   };
@@ -701,7 +703,7 @@ function prizePoolStockUnitUsages(
     if (!card) continue;
     const displayUnit = stockUnitForSku(stockUnit);
     const groupKey = stockUnit.stock_sku_id
-      ? `stock-sku:${stockUnit.stock_sku_id}`
+      ? `stock-sku:${stockUnit.stock_sku_id}${displayUnit.language ? `${displayUnit.language}` : ""}`
       : stockUnitGroupKey(displayUnit);
     const stockSku = stockUnit.stock_sku_id
       ? stockSkuById.get(stockUnit.stock_sku_id)
@@ -850,9 +852,9 @@ async function readPrizePoolStockUnitRows(
   stockUnitIds: string[],
 ): Promise<PrizePoolStockUnitRow[]> {
   const fullSelect =
-    "id,card_id,stock_sku_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status";
+    "id,card_id,stock_sku_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status,language";
   const legacySelect =
-    "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status";
+    "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status,language";
   try {
     const { data, error } = await supabase
       .from("card_stock_units")

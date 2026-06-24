@@ -287,6 +287,7 @@ export function cardLanguageSkuPart(card: Pick<CardCatalogItem, "language">) {
   const language = String(card.language ?? "").trim().toLowerCase();
   if (language === "japanese") return "JP";
   if (language === "english") return "EN";
+  if (language === "korean") return "KR";
   if (language === "chinese") return "CN";
   return "";
 }
@@ -322,37 +323,44 @@ export function stockUnitSku(
 export function stockUnitGroupKey(
   unit: Pick<
     CatalogStockUnit,
-    "certNumber" | "condition" | "gemrateId" | "grade" | "gradingService"
+    "certNumber" | "condition" | "gemrateId" | "grade" | "gradingService" | "language"
   >,
 ) {
   const condition = unit.condition || "raw";
-  if (condition !== "graded") {
-    return [condition, "", "", "", ""].join("\u001f");
+  const base =
+    condition !== "graded"
+      ? [condition, "", "", "", ""]
+      : [condition, unit.grade || "", unit.gradingService || "", unit.certNumber || "", unit.gemrateId || ""];
+  if (unit.language) base.push(unit.language);
+  return base.join("\u001f");
+}
+
+function languageShort(language: string) {
+  switch (language.toLowerCase()) {
+    case "english": return "EN";
+    case "japanese": return "JP";
+    case "korean": return "KR";
+    case "chinese": return "CN";
+    default: return language.toUpperCase();
   }
-  return [
-    condition,
-    unit.grade || "",
-    unit.gradingService || "",
-    unit.certNumber || "",
-    unit.gemrateId || "",
-  ].join("\u001f");
 }
 
 export function stockUnitDisplayLabel(
-  unit: Pick<CatalogStockUnit, "certNumber" | "condition" | "grade" | "gradingService">,
+  unit: Pick<CatalogStockUnit, "certNumber" | "condition" | "grade" | "gradingService" | "language">,
 ) {
-  if (unit.condition === "graded") {
-    return [
-      unit.gradingService
-        ? gradingServiceLabel(unit.gradingService) || unit.gradingService.toUpperCase()
-        : "Graded",
-      unit.grade || "No grade",
-      unit.certNumber ? `#${unit.certNumber}` : "",
-    ]
-      .filter(Boolean)
-      .join(" · ");
-  }
-  return conditionLabel(unit.condition);
+  const base = unit.condition === "graded"
+    ? [
+        unit.gradingService
+          ? gradingServiceLabel(unit.gradingService) || unit.gradingService.toUpperCase()
+          : "Graded",
+        unit.grade || "No grade",
+        unit.certNumber ? `#${unit.certNumber}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : conditionLabel(unit.condition);
+  if (unit.language) return `${base} · ${languageShort(unit.language)}`;
+  return base;
 }
 
 function countValue(value: unknown) {

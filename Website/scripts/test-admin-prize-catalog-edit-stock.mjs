@@ -347,3 +347,13 @@ test("LedgerRow shows the card language next to the name", () => {
     "LedgerRow must render a language chip",
   );
 });
+
+// ---- Language-aware variant grouping ----
+
+const stockSkuUsage = read("../src/features/ynot/stock-sku-usage.ts");
+test("stockUnitGroupKey + label are language-aware", () => {
+  const keyFn = stockSkuUsage.slice(stockSkuUsage.indexOf("function stockUnitGroupKey"));
+  assert.ok(keyFn.includes("language"), "stockUnitGroupKey must include language");
+  assert.ok(stockSkuUsage.includes("languageShort"), "label helper maps language to EN/JP/KR/CN");
+  assert.ok(stockSkuUsage.includes('"korean"') || stockSkuUsage.includes("'korean'"), "Korean supported");
+});
