@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type {
   YnotAddress,
   YnotCollectionItem,
@@ -125,6 +125,8 @@ type ConvertQuote = {
 };
 
 type ConvertProgress = {
+  id?: string;
+  jobId?: string;
   status: string;
   itemCount: number;
   convertedCount: number;
@@ -153,6 +155,8 @@ type ShippingQuote = {
 };
 
 type ShippingProgress = {
+  id?: string;
+  jobId?: string;
   status: string;
   publicCode: string;
   itemCount: number;
@@ -256,6 +260,8 @@ function progressFromPayload(payload: unknown): ConvertProgress | null {
   if (!isRecord(payload) || !isRecord(payload.conversion)) return null;
   const conversion = payload.conversion;
   return {
+    id: typeof conversion.id === "string" ? conversion.id : undefined,
+    jobId: typeof conversion.jobId === "string" ? conversion.jobId : undefined,
     status: typeof conversion.status === "string" ? conversion.status : "pending",
     itemCount: numberFrom(conversion.itemCount),
     convertedCount: numberFrom(conversion.convertedCount),
@@ -278,6 +284,8 @@ function shippingProgressFromPayload(payload: unknown): ShippingProgress | null 
   if (!isRecord(payload) || !isRecord(payload.shipping)) return null;
   const shipping = payload.shipping;
   return {
+    id: typeof shipping.id === "string" ? shipping.id : undefined,
+    jobId: typeof shipping.jobId === "string" ? shipping.jobId : undefined,
     status: typeof shipping.status === "string" ? shipping.status : "preparing",
     publicCode: typeof shipping.publicCode === "string" ? shipping.publicCode : "",
     itemCount: numberFrom(shipping.itemCount),
@@ -431,21 +439,28 @@ export function HistoryExperience({
     0,
   );
 
-  // Source contract anchor: function refreshCollectionRoute(kind, progress)
-  function refreshCollectionRoute(kind: "conversion" | "shipping", progress: ConvertProgress | ShippingProgress) {
-    const key = [
-      kind,
-      progress.status,
-      progress.completedAt ?? "",
-      progress.updatedAt ?? "",
-      progress.itemCount,
-    ].join(":");
-    const keyRef =
-      kind === "conversion" ? refreshedConversionKeyRef : refreshedShippingKeyRef;
-    if (keyRef.current === key) return;
-    keyRef.current = key;
-    startRefreshTransition(() => router.refresh());
-  }
+  const refreshCollectionRoute = useCallback(
+    function refreshCollectionRoute(kind: "conversion" | "shipping", progress: ConvertProgress | ShippingProgress) {
+      const identity =
+        "publicCode" in progress && progress.publicCode
+          ? progress.publicCode
+          : progress.jobId ?? progress.id ?? "";
+      const key = [
+        kind,
+        identity,
+        progress.status,
+        progress.completedAt ?? "",
+        progress.updatedAt ?? "",
+        progress.itemCount,
+      ].join(":");
+      const keyRef =
+        kind === "conversion" ? refreshedConversionKeyRef : refreshedShippingKeyRef;
+      if (keyRef.current === key) return;
+      keyRef.current = key;
+      startRefreshTransition(() => router.refresh());
+    },
+    [router, startRefreshTransition],
+  );
 
   async function openSell(nextMode: ConvertSelectionMode) {
     if (shipActive) {
@@ -685,7 +700,7 @@ export function HistoryExperience({
       stopped = true;
       window.clearInterval(timer);
     };
-  }, [language, shouldPollConversion]);
+  }, [refreshCollectionRoute, shouldPollConversion]);
 
   useEffect(() => {
     if (!shouldPollShipping) return;
@@ -714,7 +729,7 @@ export function HistoryExperience({
       stopped = true;
       window.clearInterval(timer);
     };
-  }, [language, shouldPollShipping]);
+  }, [refreshCollectionRoute, shouldPollShipping]);
 
   useEffect(() => {
     let stopped = false;
