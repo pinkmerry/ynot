@@ -84,3 +84,17 @@ test("customer collection and reward surfaces do not render xN bundle badges", (
   );
   assert.doesNotMatch(pullThumb, /QuantityBadge/);
 });
+
+test("pack detail prize art uses stable contain frames and convert modal hover stays readable", () => {
+  const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
+  const theme = read("src/features/ynot/cr/theme.css");
+  const globals = read("src/app/globals.css");
+
+  assert.match(arena, /\.ac-grid \{ display: grid; grid-template-columns: repeat\(auto-fill, minmax\(220px, 274px\)\)/);
+  assert.match(arena, /\.ac-slab-art \{[^}]*aspect-ratio: 3 \/ 4/s);
+  assert.match(arena, /\.ac-slab-art img \{[^}]*object-fit: contain/s);
+  assert.match(theme, /\.cr-prize-card-art img \{[^}]*object-fit: contain/s);
+  assert.match(theme, /\.cr-coll-art-img \{[^}]*object-fit: contain/s);
+  assert.match(globals, /\.collection-convert-modal-button\.is-primary:hover:not\(:disabled\)/);
+  assert.match(globals, /color: #1d150a;/);
+});

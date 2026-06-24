@@ -1029,22 +1029,22 @@ const baseCss = `
   .ac-tier-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px; }
   .ac-tier-head h3 { font-size: clamp(16px, 1.05vw, 24px); font-weight: 600; line-height: 1.2; letter-spacing: 0.04em; margin: 0; color: #000; }
   /* FoG collection-grid gaps: row gap double the column gap */
-  .ac-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 40px 20px; align-items: start; }
-  /* prize tiers (FIRST / SECOND / THIRD) lock to 5 cards per row:
-     5 x 274px + 4 x 20px column-gap = 1450px container */
+  .ac-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 274px)); gap: 40px 20px; align-items: start; justify-content: center; }
+  /* prize tiers share one bounded card size so GRAND / LAST prizes do not
+     stretch into a zoomed full-width image when a tier only has one reward. */
   .ac-tier-gold .ac-grid,
   .ac-tier-silver .ac-grid,
-  .ac-tier-bronze .ac-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .ac-tier-bronze .ac-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 274px)); }
   /* reserve room for 3 text lines so 2- and 3-line cards take the same height
      and every card's text stays top-aligned (no shifting down) */
   .ac-slab-info { min-height: calc(3 * 1.35em); }
-  .ac-slab { background: #fff; border: none; border-radius: 14px; padding: 0; cursor: pointer; text-align: left; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .ac-slab { width: 100%; background: #fff; border: none; border-radius: 14px; padding: 0; cursor: pointer; text-align: left; transition: transform 0.15s ease, box-shadow 0.15s ease; }
   .ac-slab:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(0,0,0,0.1); }
   /* FoG-style card: fixed 3:4 gray frame (same shape for every card), with a
      20px inner border on all sides; the card is contained inside the padded
      area so tall/narrow or wide/short items never overflow */
-  .ac-slab-art { position: relative; aspect-ratio: 3 / 4; width: 100%; box-sizing: border-box; padding: 20px; margin: 0 0 10px; border-radius: 10px; overflow: hidden; background: #f5f5f5; display: flex; align-items: center; justify-content: center; }
-  .ac-slab-art img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+  .ac-slab-art { position: relative; aspect-ratio: 3 / 4; width: 100%; min-height: 0; box-sizing: border-box; padding: 20px; margin: 0 0 10px; border-radius: 10px; overflow: hidden; background: #f5f5f5; display: flex; align-items: center; justify-content: center; }
+  .ac-slab-art img { display: block; max-width: 100%; max-height: 100%; width: 100%; height: 100%; object-fit: contain; }
   /* copies-in-pack chip: solid tag pinned to the card's lower-right edge.
      50x30 on the large GRAND/LAST cards; scaled to ~79% on the smaller
      5-per-row prize cards below so it stays proportional to the card. */
