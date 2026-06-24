@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { CardCatalogItem } from "@/lib/lucky-draw/types";
+import { prizeCategoryForCatalogCategory } from "@/features/ynot/prize-category";
 import {
   createMainSku,
   updateMainSku,
@@ -11,19 +12,29 @@ import {
   type CertLookup,
 } from "./catalog-api";
 import { CertLookupField } from "./CertLookupField";
-import type { GradingService } from "./add-stock/types";
+import type { GradingService, StockCategory } from "./add-stock/types";
 
-const SERIES_OPTIONS = ["Pokemon", "One Piece", "Custom…"] as const;
+const CARD_SERIES_OPTIONS = ["Pokemon", "One Piece", "Custom…"] as const;
+const SEALED_SERIES_OPTIONS = ["Pokemon", "One Piece"] as const;
+const SEALED_LANGUAGE_OPTIONS = [
+  { value: "", label: "Not specified" },
+  { value: "english", label: "English" },
+  { value: "japanese", label: "Japanese" },
+  { value: "chinese", label: "Chinese" },
+  { value: "korean", label: "Korean" },
+] as const;
 const CATEGORY_OPTIONS = [
   "Single Cards",
   "Sealed Boxes",
   "Sealed Packs",
 ] as const;
-type SeriesOption = (typeof SERIES_OPTIONS)[number];
+type SeriesOption = (typeof CARD_SERIES_OPTIONS)[number];
 type CatalogCategory = (typeof CATEGORY_OPTIONS)[number];
 
 type MainSkuFormProps = {
   initial?: CardCatalogItem;
+  initialCategory?: StockCategory;
+  lockCategory?: boolean;
   onDone?: () => void;
 };
 
@@ -35,13 +46,67 @@ function seriesDisplayToOption(series: string | undefined): SeriesOption {
   return "Custom…";
 }
 
-function categoryDisplay(cat: string | undefined): CatalogCategory {
-  if (cat === "Sealed Boxes") return "Sealed Boxes";
-  if (cat === "Sealed Packs") return "Sealed Packs";
+function mainSkuCategoryFromStockCategory(
+  category: StockCategory | undefined,
+): CatalogCategory {
+  if (category === "box") return "Sealed Boxes";
+  if (category === "pack") return "Sealed Packs";
   return "Single Cards";
 }
 
-export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
+function mainSkuFormKindForCategory(category: unknown): StockCategory {
+  const clean =
+    typeof category === "string"
+      ? category.trim().toLowerCase().replace(/[_-]+/g, " ")
+      : "";
+  if (clean === "sealed boxes" || clean === "boxes" || clean === "box") {
+    return "box";
+  }
+  if (clean === "sealed packs" || clean === "packs" || clean === "pack") {
+    return "pack";
+  }
+  return "card";
+}
+
+function categoryDisplay(
+  cat: string | undefined,
+  fallback?: StockCategory,
+): CatalogCategory {
+  const kind = mainSkuFormKindForCategory(cat);
+  if (kind !== "card") return mainSkuCategoryFromStockCategory(kind);
+  return mainSkuCategoryFromStockCategory(fallback);
+}
+
+function categoryLabel(category: CatalogCategory) {
+  if (category === "Sealed Boxes") return "Boxes";
+  if (category === "Sealed Packs") return "Packs";
+  return category;
+}
+
+function mainSkuNameLabel(kind: StockCategory) {
+  if (kind === "box") return "Box name";
+  if (kind === "pack") return "Pack name";
+  return "Name";
+}
+
+function mainSkuNamePlaceholder(kind: StockCategory) {
+  if (kind === "box") return "Pokemon 151 Booster Box";
+  if (kind === "pack") return "One Piece OP-09 Booster Pack";
+  return "Monkey D. Luffy";
+}
+
+function normalizeSealedProductSeries(value: unknown) {
+  const clean = typeof value === "string" ? value.trim() : "";
+  const normalized = clean.toLowerCase().replace(/[_-]+/g, " ");
+  return normalized === "one piece" ? "One Piece" : "Pokemon";
+}
+
+export function MainSkuForm({
+  initial,
+  initialCategory,
+  lockCategory = false,
+  onDone,
+}: MainSkuFormProps) {
   const isEdit = Boolean(initial?.catalogCardId);
 
   const [code, setCode] = useState(initial?.code ?? initial?.modelCode ?? "");
@@ -58,8 +123,9 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
     initial?.releaseYear != null ? String(initial.releaseYear) : "",
   );
   const [category, setCategory] = useState<CatalogCategory>(
-    categoryDisplay(initial?.catalogCategory),
+    categoryDisplay(initial?.catalogCategory, initialCategory),
   );
+  const [language, setLanguage] = useState(initial?.language ?? "");
   const [image, setImage] = useState<{
     url: string;
     storagePath?: string;
@@ -76,8 +142,18 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const formKind = mainSkuFormKindForCategory(category);
+  const isSealedMainSku = formKind !== "card";
+  const categoryLocked =
+    lockCategory ||
+    (initial?.catalogCategory != null &&
+      mainSkuFormKindForCategory(initial.catalogCategory) !== "card");
   const resolvedSeries =
-    seriesOption === "Custom…" ? customSeries : seriesOption;
+    isSealedMainSku
+      ? normalizeSealedProductSeries(seriesOption)
+      : seriesOption === "Custom…"
+        ? customSeries
+        : seriesOption;
   async function onPickImage(file: File) {
     setError("");
     const res = await uploadCardImage(file);
@@ -90,7 +166,11 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
 
   function submit(confirmOverwrite = false) {
     if (!name.trim()) {
-      setError("Name is required.");
+      setError(`${mainSkuNameLabel(formKind)} is required.`);
+      return;
+    }
+    if (isSealedMainSku && !resolvedSeries) {
+      setError("Series is required.");
       return;
     }
     setError("");
@@ -99,11 +179,13 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
         cardId: initial?.catalogCardId,
         name: name.trim(),
         modelCode: code.trim() || undefined,
-        cardNumber: cardNumber.trim() || undefined,
+        cardNumber: isSealedMainSku ? undefined : cardNumber.trim() || undefined,
         series: resolvedSeries || undefined,
+        language: isSealedMainSku ? language || undefined : undefined,
         cardSet: cardSet.trim() || undefined,
         releaseYear: releaseYear.trim() || undefined,
         catalogCategory: category,
+        prizeCategory: prizeCategoryForCatalogCategory(category),
         imageUrl: image?.url,
         imageStoragePath: image?.storagePath,
         confirmOverwrite,
@@ -138,7 +220,7 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
 
   return (
     <div className="pcx-form">
-      {category === "Single Cards" && (
+      {!isSealedMainSku && (
         <div className="pcx-field">
           <span className="pcx-field-label">
             PSA / cert lookup<span className="pcx-opt"> optional</span>
@@ -165,22 +247,22 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
       )}
 
       <div className="pcx-form-row2">
-        <Field label="Code" htmlFor="pcx-code">
+        <Field label="Code" htmlFor="pcx-code" optional={isSealedMainSku}>
           <input
             id="pcx-code"
             className="pcx-input mono"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            placeholder="EB01-001"
+            placeholder={isSealedMainSku ? "Optional product code" : "EB01-001"}
           />
         </Field>
-        <Field label="Name" htmlFor="pcx-name">
+        <Field label={mainSkuNameLabel(formKind)} htmlFor="pcx-name">
           <input
             id="pcx-name"
             className="pcx-input"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Monkey D. Luffy"
+            placeholder={mainSkuNamePlaceholder(formKind)}
             required
           />
         </Field>
@@ -191,20 +273,21 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
           <select
             id="pcx-series"
             className="pcx-input"
-            value={seriesOption}
+            value={isSealedMainSku ? normalizeSealedProductSeries(seriesOption) : seriesOption}
             onChange={(e) => {
               const v = e.target.value as SeriesOption;
               setSeriesOption(v);
               if (v !== "Custom…") setCustomSeries("");
             }}
+            required={isSealedMainSku}
           >
-            {SERIES_OPTIONS.map((s) => (
+            {(isSealedMainSku ? SEALED_SERIES_OPTIONS : CARD_SERIES_OPTIONS).map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
             ))}
           </select>
-          {seriesOption === "Custom…" && (
+          {!isSealedMainSku && seriesOption === "Custom…" && (
             <input
               id="pcx-custom-series"
               aria-label="Custom series name"
@@ -215,7 +298,7 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
             />
           )}
         </Field>
-        <Field label="Set" htmlFor="pcx-set">
+        <Field label="Set" htmlFor="pcx-set" optional={isSealedMainSku}>
           <input
             id="pcx-set"
             className="pcx-input"
@@ -227,7 +310,7 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
       </div>
 
       <div className="pcx-form-row2">
-        <Field label="Year" htmlFor="pcx-year">
+        <Field label="Year" htmlFor="pcx-year" optional={isSealedMainSku}>
           <input
             id="pcx-year"
             className="pcx-input"
@@ -237,33 +320,66 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
             inputMode="numeric"
           />
         </Field>
-        <Field label="Card number" htmlFor="pcx-number">
-          <input
-            id="pcx-number"
-            className="pcx-input mono"
-            value={cardNumber}
-            onChange={(e) => setCardNumber(e.target.value)}
-            placeholder="001/115"
-          />
-        </Field>
+        {isSealedMainSku ? (
+          <Field label="Language" htmlFor="pcx-sealed-language" optional>
+            <select
+              id="pcx-sealed-language"
+              className="pcx-input"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            >
+              {SEALED_LANGUAGE_OPTIONS.map((option) => (
+                <option key={option.value || "none"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          <Field label="Card number" htmlFor="pcx-number">
+            <input
+              id="pcx-number"
+              className="pcx-input mono"
+              value={cardNumber}
+              onChange={(e) => setCardNumber(e.target.value)}
+              placeholder="001/115"
+            />
+          </Field>
+        )}
       </div>
 
       <Field label="Category" htmlFor="pcx-category">
-        <select
-          id="pcx-category"
-          className="pcx-input"
-          value={category}
-          onChange={(e) => setCategory(e.target.value as CatalogCategory)}
-        >
-          {CATEGORY_OPTIONS.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+        {categoryLocked ? (
+          <div id="pcx-category" className="pcx-input" aria-readonly="true">
+            {categoryLabel(category)}
+          </div>
+        ) : (
+          <select
+            id="pcx-category"
+            className="pcx-input"
+            value={category}
+            onChange={(e) => {
+              const next = e.target.value as CatalogCategory;
+              setCategory(next);
+              if (
+                mainSkuFormKindForCategory(next) !== "card" &&
+                seriesOption === "Custom…"
+              ) {
+                setSeriesOption("Pokemon");
+                setCustomSeries("");
+              }
+            }}
+          >
+            {CATEGORY_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {categoryLabel(c)}
+              </option>
+            ))}
+          </select>
+        )}
       </Field>
 
-      <Field label="Card image" htmlFor="pcx-image" optional>
+      <Field label={isSealedMainSku ? "Image" : "Card image"} htmlFor="pcx-image" optional>
         <input
           ref={fileRef}
           id="pcx-image"
@@ -285,7 +401,11 @@ export function MainSkuForm({ initial, onDone }: MainSkuFormProps) {
           }}
         >
           {image?.url ? (
-            <img src={image.url} alt="Card preview" className="pcx-img-preview" />
+            <img
+              src={image.url}
+              alt={isSealedMainSku ? "Product preview" : "Card preview"}
+              className="pcx-img-preview"
+            />
           ) : (
             <span className="pcx-img-ph">Click to upload</span>
           )}

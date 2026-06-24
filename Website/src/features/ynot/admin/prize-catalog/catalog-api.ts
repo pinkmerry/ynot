@@ -47,6 +47,7 @@ export type MainSkuInput = {
   cardSet?: string;
   catalogCategory?: string; // "Single Cards" | "Sealed Boxes" | "Sealed Packs" | custom
   prizeCategory?: string;
+  language?: string;
   imageUrl?: string;
   imageStoragePath?: string;
   confirmOverwrite?: boolean;

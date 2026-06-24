@@ -355,6 +355,7 @@ export function AddStockDrawer({ cards, state, onClose, onToast }: AddStockDrawe
 
           {step === 2 && createMode && category && (
             <Step2Create
+              category={category}
               onDone={(card) => {
                 if (card) {
                   selectCard(card);

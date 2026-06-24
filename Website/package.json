@@ -85,6 +85,7 @@
     "verify:production-env": "YNOT_ENV=production node tools/verification/verify-production-env.mjs",
     "verify:production-test": "node tools/verification/verify-production-test-readiness.mjs",
     "verify:production-db": "node tools/verification/check-production-supabase-readiness.mjs",
+    "test:admin-prize-catalog-mainsku": "node --test scripts/test-admin-prize-catalog-mainsku.mjs",
     "test:admin-prize-catalog": "node --test scripts/test-admin-prize-catalog-foundation.mjs scripts/test-admin-prize-catalog-screen.mjs scripts/test-admin-prize-catalog-mainsku.mjs scripts/test-admin-prize-catalog-variants.mjs scripts/test-admin-prize-catalog-stock.mjs scripts/test-admin-prize-catalog-edit-stock.mjs scripts/test-admin-prize-catalog-openbox.mjs scripts/test-admin-prize-catalog-campaign.mjs scripts/test-admin-prize-catalog-no-leak.mjs",
     "ops:restore-pack-stock": "node tools/ops/restore-pack-stock.mjs"
   },
