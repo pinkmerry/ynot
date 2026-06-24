@@ -5,6 +5,7 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { enforceSameOriginMutation } from "@/lib/security/same-origin";
+import { readWalletSnapshot } from "@/lib/ynot/wallet-snapshot";
 import {
   stockImageUrlByPrizeUnitId,
   type PublicPrizeUnitImageRow,
@@ -735,6 +736,7 @@ export async function POST(request: Request) {
     });
     return Response.json({
       result: previewResult,
+      wallet: await readWalletSnapshot(session.profileId),
     });
   }
 
@@ -755,5 +757,5 @@ export async function POST(request: Request) {
   const resultItems = shouldHydrate
     ? await hydrateItems(items, openId, session.profileId)
     : items;
-  return Response.json({ result: toPublicOpenResult(raw, resultItems) });
+  return Response.json({ result: toPublicOpenResult(raw, resultItems), wallet: await readWalletSnapshot(session.profileId) });
 }

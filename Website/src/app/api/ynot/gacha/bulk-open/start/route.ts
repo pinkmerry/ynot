@@ -7,6 +7,7 @@ import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { toPublicBulkOpenSessionSummary } from "@/features/ynot/bulk-open";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
+import { readWalletSnapshot } from "@/lib/ynot/wallet-snapshot";
 import {
   previewPullAllQuoteForToken,
   startPreviewPullAllSession,
@@ -381,6 +382,7 @@ export async function POST(request: Request) {
             ...summary,
             replayed: false,
           },
+          wallet: await readWalletSnapshot(session.profileId),
         });
       }
     }
@@ -446,5 +448,6 @@ export async function POST(request: Request) {
       ...summary,
       replayed: startedRecord.replayed === true,
     },
+    wallet: await readWalletSnapshot(session.profileId),
   });
 }

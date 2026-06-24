@@ -5,6 +5,7 @@ export type PullAllQuote = {
   startToken: string;
   targetRewards: number;
   totalCostCoins: number;
+  wallet?: PublicWalletSnapshot;
 };
 
 export type PullAllStartedSession = {
@@ -16,6 +17,12 @@ export type PullAllStartedSession = {
   status: string;
   totalCostCoins: number;
   totalPurchasedRewards: number;
+  wallet?: PublicWalletSnapshot;
+};
+
+export type PublicWalletSnapshot = {
+  balanceCoins: number;
+  version?: number;
 };
 
 export type PullAllHighlight = {
@@ -49,6 +56,18 @@ function stringValue(value: unknown) {
 function numberValue(value: unknown) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function walletFromPayload(payload: unknown): PublicWalletSnapshot | undefined {
+  const wallet = isRecord(payload) && isRecord(payload.wallet) ? payload.wallet : null;
+  const balanceCoins = numberValue(wallet?.balanceCoins);
+  if (balanceCoins === null) return undefined;
+  const snapshot: PublicWalletSnapshot = {
+    balanceCoins: Math.max(0, Math.floor(balanceCoins)),
+  };
+  const version = numberValue(wallet?.version);
+  if (version !== null) snapshot.version = Math.max(0, Math.floor(version));
+  return snapshot;
 }
 
 function requestErrorMessage(payload: unknown) {
@@ -143,6 +162,7 @@ function pullAllSessionFromPayload(payload: unknown) {
     status,
     totalCostCoins: Math.floor(totalCostCoins),
     totalPurchasedRewards: Math.floor(totalPurchasedRewards),
+    wallet: walletFromPayload(payload),
   } satisfies PullAllStartedSession;
 }
 
@@ -186,6 +206,7 @@ export async function preparePullAllQuote(campaignId: string) {
     startToken,
     targetRewards: Math.floor(targetRewards),
     totalCostCoins: Math.floor(totalCostCoins),
+    wallet: walletFromPayload(payload),
   } satisfies PullAllQuote;
 }
 
