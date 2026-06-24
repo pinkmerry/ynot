@@ -485,17 +485,21 @@ test("Customer Bag conversion UI requires explicit selection and keeps huge flow
     "conversion confirmation coin button must stay readable on hover like collection sell chips",
   );
   assert.doesNotMatch(history, /Admin reviews the request/, "conversion copy must not mention admin approval");
-  assert.doesNotMatch(history, /chunk|rpc|queue|job/i, "customer UI must not expose backend mechanics");
+  assert.doesNotMatch(history.replace(/\bjobId\b/g, "progressIdentity"), /chunk|rpc|queue|job/i, "customer UI must not expose backend mechanics");
 });
 
 test("collection conversion refreshes the server collection after terminal progress", () => {
   const historySource = read("src/features/ynot/cr/HistoryExperience.tsx");
 
   assert.match(historySource, /import \{ useRouter \} from "next\/navigation";/);
+  assert.match(historySource, /import \{ useCallback,/);
   assert.match(historySource, /const router = useRouter\(\);/);
   assert.match(historySource, /const refreshedConversionKeyRef = useRef\(""\);/);
-  assert.match(historySource, /function refreshCollectionRoute\(kind, progress\)/);
+  assert.match(historySource, /function refreshCollectionRoute\(kind: "conversion" \| "shipping", progress: ConvertProgress \| ShippingProgress\)/);
+  assert.match(historySource, /progress\.jobId \?\? progress\.id \?\? ""/);
+  assert.match(historySource, /\[\s*kind,\s*identity,\s*progress\.status,/);
   assert.match(historySource, /startRefreshTransition\(\(\) => router\.refresh\(\)\)/);
   assert.match(historySource, /if \(progress && conversionIsTerminal\(progress\)\) \{/);
   assert.match(historySource, /refreshCollectionRoute\("conversion", progress\)/);
+  assert.match(historySource, /\}, \[refreshCollectionRoute, shouldPollConversion\]\)/);
 });

@@ -695,7 +695,13 @@ test("Customer Bag shipping UI quotes selected cards or all eligible without sen
   assert.match(history, /const sellActive = Boolean\(sellProgress && !conversionIsTerminal\(sellProgress\)\)/);
   assert.match(history, /disabled=\{sellBusy \|\| shipActive\}/);
   assert.match(history, /disabled=\{shipBusy \|\| sellActive \|\| \(!shipActive && !selectedCards\.length && !ownedShipCards\.length\)\}/);
-  assert.match(history, /shipActive[\s\S]*View shipping progress[\s\S]*Request shipping/);
+  const shippingButtonBlock = between(
+    history,
+    'onClick={() => void openShip(selectedCards.length ? "selected" : "all_eligible")}',
+    "</button>",
+  );
+  assert.match(shippingButtonBlock, /disabled=\{shipBusy \|\| sellActive \|\| \(!shipActive && !selectedCards\.length && !ownedShipCards\.length\)\}/);
+  assert.match(shippingButtonBlock, /\{shipActive[\s\S]*View shipping progress[\s\S]*Request shipping[\s\S]*\}/);
 });
 
 test("Customer Bag shipping UI starts from quote token and shows/polls progress", () => {
@@ -716,6 +722,9 @@ test("Customer Bag shipping UI starts from quote token and shows/polls progress"
 
 test("customer shipping refreshes the collection after submitted progress", () => {
   assert.match(historySource, /const refreshedShippingKeyRef = useRef\(""\);/);
+  assert.match(historySource, /"publicCode" in progress && progress\.publicCode/);
+  assert.match(historySource, /\? progress\.publicCode[\s\S]*: progress\.jobId \?\? progress\.id \?\? ""/);
+  assert.match(historySource, /\[\s*kind,\s*identity,\s*progress\.status,/);
   assert.match(historySource, /if \(progress && progress\.completed\) \{/);
   assert.match(historySource, /refreshCollectionRoute\("shipping", progress\)/);
   assert.match(historySource, /Shipping request submitted/);
@@ -724,7 +733,7 @@ test("customer shipping refreshes the collection after submitted progress", () =
 
 test("customer shipping polling is paced for large background jobs", () => {
   assert.match(historySource, /const shouldPollShipping =\s*shipOpen && Boolean\(shipProgress && !shipProgress\.completed\)/);
-  assert.match(historySource, /\}, \[language, shouldPollShipping\]\)/);
+  assert.match(historySource, /\}, \[refreshCollectionRoute, shouldPollShipping\]\)/);
   assert.doesNotMatch(historySource, /\}, \[shipOpen, shipProgress\]\)/);
   assert.match(clientSource, /const shouldPollShipping =\s*showShippingConfirm && Boolean\(shippingProgress && !shippingProgress\.completed\)/);
   assert.match(clientSource, /\}, \[shouldPollShipping\]\)/);
