@@ -174,6 +174,11 @@ test("repeat pull options use locally updated remaining stock from open result",
   assert.match(fireOpen, /\.\.\.current/);
   assert.match(fireOpen, /\.\.\.result\.remaining/);
   assert.match(panel, /const visibleRemainingSlots =[\s\S]*remainingState\.remainingSlots \?\? remainingOpenUnits/);
+  assert.match(panel, /pullAllQuantity\(\{[\s\S]*remainingSlots: visibleRemainingSlots/);
+  assert.match(panel, /totalSlots: campaign\.totalSlots/);
+  assert.match(panel, /hasLastPrize: campaign\.hasLastPrize/);
+  assert.match(panel, /campaign\.pullAllReady === true/);
+  assert.match(panel, /quantity: pullAllRepeatQuantity/);
   assert.match(panel, /remainingSlots=\{visibleRemainingSlots\}/);
   assert.match(overlay, /remainingSlots\?: number/);
   assert.match(overlay, /Number\.isFinite\(remainingSlots\)/);
@@ -393,6 +398,31 @@ test("Pull All does not replace configured normal open quantity buttons", () => 
   );
 });
 
+test("active pack detail prize images stay in fixed-size card tracks", () => {
+  const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
+
+  assert.match(
+    arena,
+    /\.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(220px,\s*274px\)\)/,
+    "desktop prize grid should not stretch one GRAND prize across the full page",
+  );
+  assert.match(
+    arena,
+    /\.ac-grid \{[\s\S]*justify-content:\s*center;/,
+    "bounded prize tracks should be centered in the detail section",
+  );
+  assert.match(
+    arena,
+    /\.ac-tier-gold \.ac-grid,[\s\S]*\.ac-tier-bronze \.ac-grid \{[\s\S]*repeat\(auto-fill,\s*minmax\(220px,\s*274px\)\)/,
+    "grand, last, and normal tiers should share the same desktop card sizing",
+  );
+  assert.match(
+    arena,
+    /\.ac-slab-art img \{[\s\S]*width:\s*100%;[\s\S]*height:\s*100%;[\s\S]*object-fit:\s*contain;/,
+    "prize images should fit inside the fixed card frame without cropping",
+  );
+});
+
 test("public open quantity surfaces share final-slot helpers without exposing private logic terms", () => {
   const helper = read("src/features/ynot/open-quantity.ts");
   const client = read("src/features/ynot/client.tsx");
@@ -479,6 +509,7 @@ test("localhost preview opens land public rewards in the preview bag", () => {
   assert.match(data, /campaigns: projectedCampaigns/);
   assert.match(data, /localPreviewAfter60RemainingSlots/);
   assert.match(data, /pullAllAvailable: true/);
+  assert.match(data, /pullAllReady: true/);
   assert.match(data, /pullAllReadinessStatus: "ready"/);
   assert.match(data, /previewCollectionForProfile/);
   assert.match(data, /previewOpenHistoryForProfile/);

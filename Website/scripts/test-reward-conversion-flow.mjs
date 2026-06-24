@@ -5,6 +5,7 @@ import test from "node:test";
 const migrationPaths = [
   "../../Database/supabase/migrations/20260619130000_reward_conversion_jobs.sql",
   "../../Database/supabase/migrations/20260621062815_reward_conversion_forward_compat.sql",
+  "../../Database/supabase/migrations/20260624131500_fix_reward_conversion_uuid_hash.sql",
 ];
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
@@ -191,6 +192,9 @@ test("quote is non-committing and supports manual or whole-bag eligible selectio
   requirePattern(quote, /insert into public\.reward_conversion_quote_tokens/, "quote must issue opaque server token");
   requirePattern(quote, /if p_selection_mode = 'selected' then[\s\S]*array_agg\(id order by id\)[\s\S]*else selected_ids := '\{\}'::uuid\[\]/, "selected quotes may store selected IDs");
   assert.doesNotMatch(allEligibleQuoteBranch, /array_agg\(id order by id\)/, "all eligible quote must not build a giant UUID array");
+  requirePattern(allEligibleQuoteBranch, /min\(id::text\)/, "all-eligible quote must hash UUIDs through text-safe min");
+  requirePattern(allEligibleQuoteBranch, /max\(id::text\)/, "all-eligible quote must hash UUIDs through text-safe max");
+  assert.doesNotMatch(allEligibleQuoteBranch, /min\(id\)|max\(id\)/, "all-eligible quote must not call min/max directly on UUID");
   assert.doesNotMatch(quote, /update public\.collection_items/, "quote must not lock or mutate rewards");
 });
 
@@ -246,6 +250,9 @@ test("start only commits the conversion job and process freezes bounded membersh
   requirePattern(start, /p_quote_token_id/, "start must require quote token");
   requirePattern(start, /for update/, "start must lock quote/job data inside transaction");
   requirePattern(start, /reward_conversion_quote_changed/, "start must abort stale quotes before locking rewards");
+  requirePattern(start, /min\(eligible\.id::text\)/, "all-eligible start validation must hash UUIDs through text-safe min");
+  requirePattern(start, /max\(eligible\.id::text\)/, "all-eligible start validation must hash UUIDs through text-safe max");
+  assert.doesNotMatch(start, /min\(eligible\.id\)|max\(eligible\.id\)/, "start validation must not call min/max directly on UUID");
   requirePattern(start, /insert into public\.reward_conversion_jobs/, "start must create a conversion job");
   assert.doesNotMatch(quote, /insert into public\.reward_conversion_job_items/, "quote must not create frozen snapshot rows");
   assert.doesNotMatch(start, /insert into public\.reward_conversion_job_items/, "start must not freeze every selected/all-eligible reward before returning");
@@ -412,6 +419,7 @@ test("Cloudflare worker can continue reward conversion jobs without browser owne
 
 test("Customer Bag conversion UI requires explicit selection and keeps huge flow summary-only", () => {
   const history = read("src/features/ynot/cr/HistoryExperience.tsx");
+  const theme = read("src/features/ynot/cr/theme.css");
 
   requirePattern(history, /Select all eligible rewards to convert/, "UI must expose explicit whole-bag select-all conversion");
   requirePattern(history, /selectionMode:\s*"all_eligible"/, "whole-bag selection must be sent as scope, not IDs");
@@ -433,6 +441,11 @@ test("Customer Bag conversion UI requires explicit selection and keeps huge flow
   requirePattern(history, /Converting rewards to coins/, "UI must show calm progress copy");
   requirePattern(history, /coins credited/, "UI must show progressive credited coins");
   requirePattern(history, /You can leave this page/, "UI must make server-owned continuation clear");
+  requirePattern(
+    theme,
+    /\.cr-btn-mint:hover:not\(\[disabled\]\)\s*\{[\s\S]*background:\s*var\(--cr-mint\);[\s\S]*color:\s*#fff;/,
+    "conversion confirm mint button must stay readable on hover like collection sell buttons",
+  );
   assert.doesNotMatch(history, /Admin reviews the request/, "conversion copy must not mention admin approval");
   assert.doesNotMatch(history, /chunk|rpc|queue|job/i, "customer UI must not expose backend mechanics");
 });

@@ -48,7 +48,6 @@ import {
   type PullAllHighlight,
   type PullAllStartedSession,
 } from "./pull-all-client";
-import { QuantityBadge } from "./QuantityBadge";
 import {
   adminCardDuplicateUsage,
   buildAdminCardCatalogRows,
@@ -62,11 +61,11 @@ import {
   isOpenQuantityAvailable,
   normalizeOpenQuantityOptions,
   openQuantityLimit,
+  pullAllQuantity,
 } from "./open-quantity";
 import {
   defaultBundleQuantity,
-  maxBundleQuantity,
-  normalizeBundleQuantity,
+  publicPlannedQuantityBadge,
 } from "./bundle-quantity";
 import {
   buildPrizeStockShortages,
@@ -1193,11 +1192,17 @@ export function GachaOpenPanel({
     disabled: quantityDisabled(option),
     costCoins: campaign.costCoins * option,
   }));
+  const pullAllRepeatQuantity = pullAllQuantity({
+    remainingSlots: visibleRemainingSlots,
+    totalSlots: campaign.totalSlots,
+    hasLastPrize: campaign.hasLastPrize,
+  });
   const pullAllRepeatOption =
-    campaign.pullAllAvailable === true && visibleRemainingSlots > 0
+    (campaign.pullAllAvailable === true || campaign.pullAllReady === true) &&
+    pullAllRepeatQuantity !== null
       ? {
           kind: "pull_all" as const,
-          quantity: visibleRemainingSlots,
+          quantity: pullAllRepeatQuantity,
           disabled: false,
         }
       : null;
@@ -2438,7 +2443,6 @@ export function CollectionConvertPanel({
                     {(item.cardCode ?? "YN").toString().slice(0, 6).toUpperCase()}
                   </span>
                 )}
-                <QuantityBadge quantity={item.bundleQuantity} />
               </div>
               <div className="collection-convert-row-body">
                 <div className="collection-convert-row-titles">
@@ -4545,12 +4549,16 @@ function prizeUnitCount(prize: CampaignPrizeDraft) {
   return Math.max(0, Math.round(Number(prize.quantity) || 0));
 }
 
-function prizeBundleQuantity(prize: Pick<CampaignPrizeDraft, "bundleQuantity">) {
-  return normalizeBundleQuantity(prize.bundleQuantity);
+function normalRewardBundleQuantity() {
+  return defaultBundleQuantity;
+}
+
+function prizeQuantityBadge(prize: Pick<CampaignPrizeDraft, "quantity">) {
+  return publicPlannedQuantityBadge(prize.quantity);
 }
 
 function prizeRequiredStockUnits(prize: CampaignPrizeDraft) {
-  return prizeUnitCount(prize) * prizeBundleQuantity(prize);
+  return prizeUnitCount(prize);
 }
 
 function defaultPrizeValueThb(displayTier: PrizeDisplayTier, index: number) {
@@ -4596,9 +4604,6 @@ function createPrizeDraft(
       existing?.convertCoinValue ??
       defaultConvertCoinValue(displayTier, index),
     bundleQuantity: defaultBundleQuantity,
-    ...(existing
-      ? { bundleQuantity: normalizeBundleQuantity(existing.bundleQuantity) }
-      : {}),
     quantity: Math.max(
       0,
       Math.round(Number(existing?.quantity) || config.defaultQuantity),
@@ -4745,7 +4750,7 @@ function prizeLineupToDrafts(
       tierRank: Math.max(1, Math.round(prize.tierRank || 1)),
       valueThb: Math.max(0, Math.round(prize.valueThb ?? 0)),
       convertCoinValue: clampConvertCoinValue(prize.convertCoinValue ?? 0),
-      bundleQuantity: normalizeBundleQuantity(prize.bundleQuantity),
+      bundleQuantity: defaultBundleQuantity,
       quantity: Math.max(0, Math.round(prize.plannedQuantity ?? 0)),
       weight: Math.max(0, prize.weight ?? 1),
       unlockAtSoldPct: Math.max(0, Math.min(100, prize.unlockAtSoldPct ?? 0)),
@@ -5007,8 +5012,7 @@ export function AdminCampaignForm({
       counts.set(
         prize.cardId,
         (counts.get(prize.cardId) ?? 0) +
-          Math.max(0, Math.round(Number(prize.plannedQuantity) || 0)) *
-            normalizeBundleQuantity(prize.bundleQuantity),
+          Math.max(0, Math.round(Number(prize.plannedQuantity) || 0)),
       );
     }
     return counts;
@@ -5035,7 +5039,7 @@ export function AdminCampaignForm({
         prizes: activePrizeDrafts.map((prize) => ({
           cardId: prize.cardId,
           quantity: prizeUnitCount(prize),
-          bundleQuantity: prizeBundleQuantity(prize),
+          bundleQuantity: normalRewardBundleQuantity(),
         })),
         stockSummaries: prizeStockSummaries,
       }),
@@ -5055,8 +5059,7 @@ export function AdminCampaignForm({
       counts.set(
         key,
         (counts.get(key) ?? 0) +
-          Math.max(0, Math.round(Number(prize.plannedQuantity) || 0)) *
-            normalizeBundleQuantity(prize.bundleQuantity),
+          Math.max(0, Math.round(Number(prize.plannedQuantity) || 0)),
       );
     }
     return counts;
@@ -5604,7 +5607,7 @@ export function AdminCampaignForm({
               tier: dbTierForPrizeDisplayTier(prize.displayTier),
               rank: Math.max(1, Math.round(Number(prize.rank) || 1)),
               quantity: Math.max(0, Math.round(Number(prize.quantity) || 0)),
-              bundleQuantity: prizeBundleQuantity(prize),
+              bundleQuantity: normalRewardBundleQuantity(),
               convertCoinValue: clampConvertCoinValue(prize.convertCoinValue),
               metadata: {
                 displayTier: prize.displayTier,
@@ -6294,7 +6297,7 @@ export function AdminCampaignForm({
                       <span>Sub-SKU stock</span>
                       <span>Sub-category</span>
                       <span>Qty</span>
-                      <span>Per win</span>
+                      <span>Detail badge</span>
                       <span>Convert coins</span>
                       <span>Action</span>
                     </div>
@@ -6446,25 +6449,17 @@ export function AdminCampaignForm({
                               }
                             />
                           </label>
-                          <label className="admin-field admin-prize-bundle-field">
-                            <span>Per win</span>
-                            <input
-                              min={defaultBundleQuantity}
-                              max={maxBundleQuantity}
-                              type="number"
-                              value={prizeBundleQuantity(prize)}
-                              onChange={(event) =>
-                                updatePrizeDraft(prize.localId, {
-                                  bundleQuantity: normalizeBundleQuantity(
-                                    event.target.value,
-                                  ),
-                                })
-                              }
-                            />
+                          <div className="admin-field admin-prize-bundle-field">
+                            <span>Detail badge</span>
+                            <strong>
+                              {prizeQuantityBadge(prize)
+                                ? `x${prizeQuantityBadge(prize)}`
+                                : "x1"}
+                            </strong>
                             <small>
-                              {prizeRequiredStockUnits(prize).toLocaleString()} stock
+                              {prizeRequiredStockUnits(prize).toLocaleString()} wins, 1 reward each
                             </small>
-                          </label>
+                          </div>
                           <label className="admin-field admin-prize-convert-field">
                             <span>Convert coins</span>
                             <input

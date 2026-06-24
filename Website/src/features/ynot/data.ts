@@ -102,7 +102,11 @@ import {
   stockImageUrlByPrizeId,
   type PublicPrizeUnitImageRow,
 } from "./public-subsku-images";
-import { normalizeBundleQuantity, publicBundleQuantity } from "./bundle-quantity";
+import {
+  normalizeBundleQuantity,
+  publicBundleQuantity,
+  publicPlannedQuantityBadge,
+} from "./bundle-quantity";
 import { getProfileAddresses } from "./server-addresses";
 
 const dataIssueStorage = new AsyncLocalStorage<YnotDataIssue[]>();
@@ -1277,6 +1281,7 @@ async function getPublicPrizeLineupsBatch(
           valueThb: prize.value_thb,
           convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
           bundleQuantity: publicBundleQuantity(prize.bundle_quantity),
+          quantityBadge: publicPlannedQuantityBadge(counts.total),
           plannedQuantity: counts.total,
           availableUnits: counts.available || undefined,
           totalUnits: counts.total || undefined,
@@ -1394,6 +1399,7 @@ async function getPublicPrizeLineup(
         valueThb: prize.value_thb,
         convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
         bundleQuantity: publicBundleQuantity(prize.bundle_quantity),
+        quantityBadge: publicPlannedQuantityBadge(counts.total),
         plannedQuantity: counts.total,
         availableUnits: counts.available || undefined,
         totalUnits: counts.total || undefined,
@@ -1581,8 +1587,9 @@ function toYnotCampaign(
     identityMismatchCheckFailed?: boolean;
   };
   campaign.pullAllStatus = pullAllStatusFromCampaign(campaign);
+  campaign.pullAllReady = campaign.pullAllStatus.ready;
   campaign.pullAllAvailable =
-    campaign.pullAllStatus.ready &&
+    campaign.pullAllReady &&
     campaign.openable === true &&
     campaign.soldOut !== true &&
     (campaign.remainingSlots ?? 0) > 0 &&
@@ -1606,10 +1613,9 @@ function publicPrizePreview(prize: YnotPrizePreview, index: number): YnotPrizePr
     valueThb: prize.valueThb,
     convertCoinValue: prize.convertCoinValue,
     bundleQuantity: prize.bundleQuantity,
-    // Product decision (2026-06-15, owner): expose per-card copy count to
-    // customers on pack detail. This intentionally reverses the 2026-06-12
-    // "hide rate labels" guardrail for plannedQuantity only — stock planning
-    // internals (filters / group keys / available units) stay hidden.
+    quantityBadge: prize.quantityBadge,
+    // Product decision: expose duplicate planned rewards as a capped xN badge
+    // on pack detail only. Stock planning internals stay hidden.
     plannedQuantity: prize.plannedQuantity,
     prizeCategory: prize.prizeCategory,
     prizeCategoryLabel: prize.prizeCategoryLabel,
@@ -1650,6 +1656,7 @@ function publicYnotCampaign(campaign: YnotCampaign): YnotCampaign {
     bannerImageUrl: campaign.bannerImageUrl ?? null,
     openQuantityOptions: campaign.openQuantityOptions,
     pullAllAvailable: campaign.pullAllAvailable,
+    pullAllReady: campaign.pullAllReady === true,
     convertDeadlineDays: campaign.convertDeadlineDays,
     hasLastPrize:
       campaign.hasLastPrize ??
@@ -1689,6 +1696,7 @@ function applyLocalPreviewAfter60SoldState(
     openable: true,
     soldOut: false,
     pullAllAvailable: true,
+    pullAllReady: true,
     pullAllEnabled: true,
     pullAllRequested: true,
     pullAllAllowlisted: true,
@@ -2716,6 +2724,7 @@ function toOpenRevealCampaign(
     soldOut,
     bannerImageUrl: row.banner_image_url ?? null,
     openQuantityOptions: normalizeOpenQuantityOptions(row.logic_snapshot),
+    pullAllReady,
     pullAllAvailable:
       pullAllReady && openable && !soldOut && remainingSlots > 0 && soldPct >= 60,
     convertDeadlineDays:

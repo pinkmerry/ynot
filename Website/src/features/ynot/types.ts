@@ -66,6 +66,7 @@ export type YnotCampaign = {
   bannerImageStoragePath?: string | null;
   openQuantityOptions?: number[];
   pullAllAvailable?: boolean;
+  pullAllReady?: boolean;
   pullAllEnabled?: boolean;
   pullAllRequested?: boolean;
   pullAllAllowlisted?: boolean;
@@ -642,6 +643,7 @@ export type YnotPrizePreview = {
   valueThb?: number | null;
   convertCoinValue?: number;
   bundleQuantity?: number;
+  quantityBadge?: number;
   plannedQuantity?: number;
   availableUnits?: number;
   totalUnits?: number;

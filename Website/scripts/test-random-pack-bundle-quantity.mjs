@@ -72,8 +72,9 @@ describe("random pack bundled prizes", () => {
 
     const client = read("Website/src/features/ynot/client.tsx");
     assert.match(client, /bundleQuantity: defaultBundleQuantity/);
-    assert.match(client, /Per win/);
-    assert.match(client, /prizeRequiredStockUnits/);
+    assert.match(client, /normalRewardBundleQuantity/);
+    assert.match(client, /Detail badge/);
+    assert.doesNotMatch(client, /<span>Per win<\/span>/);
   });
 
   it("opens one public reward while awarding all bundled collection rows", () => {
@@ -165,15 +166,18 @@ describe("random pack bundled prizes", () => {
     assert.doesNotMatch(publicLineupMapper, /stockUnitFilter/);
   });
 
-  it("renders xN badges on the related customer surfaces", () => {
+  it("renders xN badges only on pack detail from planned quantity", () => {
     const packDetail = read("Website/src/features/ynot/cr/PackDetailExperience.tsx");
     const client = read("Website/src/features/ynot/client.tsx");
     const history = read("Website/src/features/ynot/cr/HistoryExperience.tsx");
     const pulls = read("Website/src/features/ynot/cr/AllPullsExperience.tsx");
-    assert.match(packDetail, /QuantityBadge/);
-    assert.match(client, /QuantityBadge/);
-    assert.match(history, /QuantityBadge/);
-    assert.match(pulls, /QuantityBadge/);
+    const data = read("Website/src/features/ynot/data.ts");
+
+    assert.match(packDetail, /<QuantityBadge quantity=\{prize\.quantityBadge\} \/>/);
+    assert.match(data, /quantityBadge: publicPlannedQuantityBadge\(counts\.total\)/);
+    assert.doesNotMatch(client, /<QuantityBadge quantity=\{item\.bundleQuantity\} \/>/);
+    assert.doesNotMatch(history, /<QuantityBadge quantity=\{card\.bundleQuantity\} \/>/);
+    assert.doesNotMatch(pulls, /<QuantityBadge quantity=\{row\.bundleQuantity\} \/>/);
   });
 
   it("uses an admin combobox instead of a full-page native select", () => {

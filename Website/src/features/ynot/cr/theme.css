@@ -597,6 +597,12 @@
   color: #fff;
   border-color: var(--cr-mint);
 }
+.cr-btn-mint:hover:not([disabled]) {
+  background: var(--cr-mint);
+  color: #fff;
+  border-color: var(--cr-mint);
+  filter: brightness(0.96);
+}
 .cr-btn-danger {
   color: var(--cr-rose);
   border-color: var(--cr-rose-soft);

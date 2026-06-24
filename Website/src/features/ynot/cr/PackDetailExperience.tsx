@@ -544,7 +544,7 @@ export function PackDetailExperience({
                               {initials(prize.cardName)}
                             </span>
                           )}
-                          <QuantityBadge quantity={prize.bundleQuantity} />
+                          <QuantityBadge quantity={prize.quantityBadge} />
                         </div>
                         <div className="cr-prize-card-name">
                           {prize.cardName}

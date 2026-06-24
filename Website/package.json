@@ -41,6 +41,7 @@
     "test:gacha-open-bundle": "node --test scripts/test-gacha-open-bundle.mjs",
     "test:gacha-open-launch-safety": "node --test scripts/test-gacha-open-launch-safety.mjs",
     "test:random-pack-bundles": "node --test scripts/test-random-pack-bundle-quantity.mjs",
+    "test:random-pack-qty-sticker": "node --test scripts/test-random-pack-qty-sticker.mjs",
     "test:production-security-regressions": "node --test scripts/test-production-security-regressions.mjs",
     "test:customer-security-hardening": "node --test scripts/test-customer-security-hardening.mjs",
     "test:pack-banner-images": "node --test scripts/test-pack-banner-image-upload.mjs",
