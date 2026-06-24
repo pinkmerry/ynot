@@ -337,15 +337,9 @@ test("handleVariantQuickRemove checks campaign guard before adjustCardStock", ()
 
 // ---- Card language display ----
 
-test("LedgerRow shows the card language next to the name", () => {
-  assert.ok(
-    ledgerRow.includes("row.card.language"),
-    "LedgerRow must read row.card.language for display",
-  );
-  assert.ok(
-    ledgerRow.includes("pcx-lang-chip"),
-    "LedgerRow must render a language chip",
-  );
+test("variant row shows the card language chip", () => {
+  assert.ok(variantTable.includes("pcx-lang-chip"), "language chip on the variant row");
+  assert.ok(variantTable.includes("languageLabel"), "variant row uses languageLabel");
 });
 
 // ---- Language-aware variant grouping ----

@@ -139,6 +139,7 @@ export type CardCatalogItem = Required<Pick<FeaturedCard, "catalogCardId">> &
         gradingService: string | null;
         certNumber: string | null;
         gemrateId: string | null;
+        language?: string | null;
         imageUrl: string | null;
         imageStoragePath: string | null;
         status: string;

@@ -95,11 +95,6 @@ export function LedgerRow({
           <div className="pcx-name">
             {row.card.name}{" "}
             <span className={`pcx-cat-chip ${chipClass(cat)}`}>{cat}</span>
-            {row.card.language && (
-              <span className="pcx-lang-chip" title="Card language">
-                {languageLabel(row.card.language)}
-              </span>
-            )}
           </div>
           <div className="pcx-meta">
             <span className="pcx-code">{row.card.code ?? ""}</span>
@@ -429,11 +424,6 @@ function BoxPanel({
       })}
     </>
   );
-}
-
-function languageLabel(language: string): string {
-  const l = language.trim();
-  return l ? l.charAt(0).toUpperCase() + l.slice(1) : l;
 }
 
 function chipClass(cat: string) {

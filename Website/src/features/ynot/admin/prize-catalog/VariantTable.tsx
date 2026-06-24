@@ -6,6 +6,7 @@ import {
   stockUnitKindType,
 } from "@/features/ynot/stock-sku-presentation";
 import { fmtInt } from "./catalog-format";
+import { languageLabel } from "./format";
 
 type StockSkuGroupElement = NonNullable<CardCatalogItem["stockSkuGroups"]>[number];
 
@@ -116,6 +117,7 @@ function VariantRow({
   const cert = certDisplay(group);
   const kindType = stockUnitKindType(group.unitKind);
   const kindLabel = stockUnitKindLabel(group.unitKind);
+  const groupLanguage = group.units.find((u) => u.language)?.language ?? null;
 
   return (
     <tr>
@@ -127,6 +129,9 @@ function VariantRow({
           <span className={gradeChipClass(group)}>{gradeChipLabel(group)}</span>
           <div className="pcx-vsub">
             <strong>{group.label}</strong>
+            {groupLanguage && (
+              <span className="pcx-lang-chip" title="Card language">{languageLabel(groupLanguage)}</span>
+            )}
             {cert && (
               <span className="pcx-cert">
                 <span className="pcx-cert-num">{cert}</span>
