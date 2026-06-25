@@ -437,23 +437,108 @@ test("active pack detail prize images stay in fixed-size card tracks", () => {
 
   assert.match(
     arena,
-    /\.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(220px,\s*274px\)\)/,
-    "desktop prize grid should not stretch one GRAND prize across the full page",
+    /className=(?:"ac-tier ac-tier-last"|\{"ac-tier ac-tier-last"\})/,
+    "last prize section should render the ac-tier-last class used by the desktop grid contract",
   );
   assert.match(
     arena,
-    /\.ac-grid \{[\s\S]*justify-content:\s*center;/,
-    "bounded prize tracks should be centered in the detail section",
+    /\.ac-tier-rainbow \.ac-grid,[\s\S]*\.ac-tier-last \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/,
+    "grand and last prize rows should use 4 larger cards on desktop",
   );
   assert.match(
     arena,
-    /\.ac-tier-gold \.ac-grid,[\s\S]*\.ac-tier-bronze \.ac-grid \{[\s\S]*repeat\(auto-fill,\s*minmax\(220px,\s*274px\)\)/,
-    "grand, last, and normal tiers should share the same desktop card sizing",
+    /\.ac-tier-gold \.ac-grid,[\s\S]*\.ac-tier-silver \.ac-grid,[\s\S]*\.ac-tier-bronze \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);/,
+    "first, second, and third prize rows should use 6 cards on desktop",
+  );
+  assert.match(
+    arena,
+    /@media \(min-width:\s*921px\) and \(max-width:\s*1180px\) \{[\s\S]*\.ac-tier-rainbow \.ac-grid,[\s\S]*\.ac-tier-last \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);[\s\S]*\.ac-tier-gold \.ac-grid,[\s\S]*\.ac-tier-silver \.ac-grid,[\s\S]*\.ac-tier-bronze \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/,
+    "tablet widths should reduce prize grids before the mobile breakpoint",
+  );
+  assert.match(
+    arena,
+    /@media \(max-width:\s*\d+px\) \{[\s\S]*\.ac-grid,[\s\S]*\.ac-tier-rainbow \.ac-grid,[\s\S]*\.ac-tier-last \.ac-grid,[\s\S]*\.ac-tier-gold \.ac-grid,[\s\S]*\.ac-tier-silver \.ac-grid,[\s\S]*\.ac-tier-bronze \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/,
+    "mobile should keep a two-card grid for all prize tiers",
   );
   assert.match(
     arena,
     /\.ac-slab-art img \{[\s\S]*width:\s*100%;[\s\S]*height:\s*100%;[\s\S]*object-fit:\s*contain;/,
     "prize images should fit inside the fixed card frame without cropping",
+  );
+  assert.match(
+    arena,
+    /\.ac-lightbox-backdrop \{[\s\S]*padding:\s*24px;[\s\S]*box-sizing:\s*border-box;/,
+    "lightbox backdrop should keep viewport padding in the box model",
+  );
+  assert.match(
+    arena,
+    /\.ac-lightbox-main \{[\s\S]*max-width:\s*min\(100%,\s*560px\);[\s\S]*max-height:\s*min\(68vh,\s*620px\);[\s\S]*object-fit:\s*contain;/,
+    "lightbox main image should be contained within a bounded viewport stage",
+  );
+});
+
+test("active pack detail fan cards open the spinning lightbox", () => {
+  const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
+  const fanButton =
+    arena.match(
+      /<button(?:(?!<\/button>)[\s\S])*className=\{`ac-fan-card\$\{o === 0 \? " is-center" : ""\}`\}(?:(?!<\/button>)[\s\S])*<\/button>/,
+    )?.[0] ?? "";
+
+  assert.match(
+    arena,
+    /const\s+openPrizeLightbox\s*=\s*\(\s*slab:\s*Slab\s*\)\s*=>\s*(?:\{\s*)?setLightbox\(slab\);?(?:\s*\})?/,
+    "pack detail should expose one shared prize-lightbox opener",
+  );
+  assert.match(
+    arena,
+    /const\s+isVisible\s*=\s*abs\s*<=\s*visHalf;/,
+    "fan-card rendering should distinguish visible cards from hidden animation buffers",
+  );
+  assert.match(fanButton, /type="button"/, "top fan cards should be rendered as buttons");
+  assert.match(
+    fanButton,
+    /tabIndex=\{isVisible \? 0 : -1\}/,
+    "hidden fan-card buffer buttons should be removed from tab order",
+  );
+  assert.match(
+    fanButton,
+    /aria-hidden=\{!isVisible\}/,
+    "hidden fan-card buffer buttons should be hidden from assistive tech",
+  );
+  assert.match(
+    fanButton,
+    /onClick=\{isVisible \? \(\) => openPrizeLightbox\(s\) : undefined\}/,
+    "only visible fan cards should be clickable buttons that open the lightbox",
+  );
+  assert.match(
+    arena,
+    /pointerEvents:\s*isVisible \? undefined : "none"/,
+    "hidden fan-card buffers should not receive pointer events",
+  );
+  assert.match(
+    fanButton,
+    /aria-label=\{isVisible \? \(language === "th" \? `ดูภาพรางวัล \$\{s\.name\}` : `View prize image \$\{s\.name\}`\) : undefined\}/,
+    "visible fan-card buttons should have localized accessible labels",
+  );
+  assert.doesNotMatch(
+    fanButton,
+    /onClick=\{\(\) => openPrizeLightbox\(s\)\}/,
+    "fan-card buttons should not keep hidden buffer cards clickable",
+  );
+  assert.doesNotMatch(
+    arena,
+    /<div className=\{`ac-fan-card\$\{o === 0 \? " is-center" : ""\}`\}/,
+    "top fan cards should not remain non-interactive divs",
+  );
+  assert.match(
+    arena,
+    /\.ac-fan-card \{[\s\S]*border:\s*0;[\s\S]*padding:\s*0;[\s\S]*cursor:\s*pointer;/,
+    "fan-card button reset should keep the existing visual treatment",
+  );
+  assert.match(
+    arena,
+    /\.ac-fan-card:focus-visible \{[\s\S]*outline:\s*2px solid #000;/,
+    "fan-card buttons should have a visible keyboard focus state",
   );
 });
 

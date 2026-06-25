@@ -90,7 +90,21 @@ test("pack detail prize art uses stable contain frames and convert modal hover s
   const theme = read("src/features/ynot/cr/theme.css");
   const globals = read("src/app/globals.css");
 
-  assert.match(arena, /\.ac-grid \{ display: grid; grid-template-columns: repeat\(auto-fill, minmax\(220px, 274px\)\)/);
+  assert.match(
+    arena,
+    /className=(?:"ac-tier ac-tier-last"|\{"ac-tier ac-tier-last"\})/,
+    "last prize section should render the ac-tier-last class used by the desktop grid contract",
+  );
+  assert.match(
+    arena,
+    /\.ac-tier-rainbow \.ac-grid,[\s\S]*\.ac-tier-last \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/,
+    "grand and last prize rows should use 4 larger cards on desktop",
+  );
+  assert.match(
+    arena,
+    /\.ac-tier-gold \.ac-grid,[\s\S]*\.ac-tier-silver \.ac-grid,[\s\S]*\.ac-tier-bronze \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);/,
+    "first, second, and third prize rows should use 6 cards on desktop",
+  );
   assert.match(arena, /\.ac-slab-art \{[^}]*aspect-ratio: 3 \/ 4/s);
   assert.match(arena, /\.ac-slab-art img \{[^}]*object-fit: contain/s);
   assert.match(theme, /\.cr-prize-card-art img \{[^}]*object-fit: contain/s);
