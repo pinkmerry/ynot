@@ -15,10 +15,11 @@ function sectionBetween(source, startPattern, endPattern, label) {
 
 test("planned quantity provides the public xN pack-detail badge", () => {
   const helper = read("src/features/ynot/bundle-quantity.ts");
-  assert.match(helper, /export const maxPublicQuantityBadge = 10;/);
   assert.match(helper, /export function publicPlannedQuantityBadge/);
   assert.match(helper, /plannedQuantityForPrize\(\{ quantity: value \}\)/);
-  assert.match(helper, /Math\.min\(planned, maxPublicQuantityBadge\)/);
+  assert.match(helper, /return planned;/);
+  assert.doesNotMatch(helper, /maxPublicQuantityBadge/);
+  assert.doesNotMatch(helper, /Math\.min\(planned/);
 
   const types = read("src/features/ynot/types.ts");
   assert.match(types, /quantityBadge\?: number;/);
