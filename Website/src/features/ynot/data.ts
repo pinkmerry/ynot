@@ -3336,6 +3336,7 @@ export async function getCollection(
         .select("*")
         .eq("profile_id", profileId)
         .order("acquired_at", { ascending: false })
+        .order("id", { ascending: false })
         .range(offset, pageEnd);
       if (error) throw error;
       const pageRows = data ?? [];
