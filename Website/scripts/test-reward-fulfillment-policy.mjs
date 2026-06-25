@@ -12,6 +12,9 @@ const packageJson = JSON.parse(read("../package.json"));
 const migration = readOptional(
   "../../Database/supabase/migrations/20260625120000_reward_fulfillment_policy.sql",
 );
+const legacyShippingPolicyMigration = readOptional(
+  "../../Database/supabase/migrations/20260625131500_harden_legacy_shipping_fulfillment_policy.sql",
+);
 const adminCampaignRoute = read("../src/app/api/ynot/admin/campaigns/route.ts");
 const prizeReadiness = read("../src/features/ynot/prize-readiness.ts");
 const dataSource = read("../src/features/ynot/data.ts");
@@ -86,7 +89,7 @@ test("database stores and snapshots reward fulfillment policy", () => {
 });
 
 test("shipping and conversion RPCs enforce policy at the database boundary", () => {
-  const sql = compact(migration);
+  const sql = compact(`${migration}\n${legacyShippingPolicyMigration}`);
 
   requirePattern(
     sql,
@@ -107,6 +110,16 @@ test("shipping and conversion RPCs enforce policy at the database boundary", () 
     sql,
     /fulfillment_policy_snapshot in \('ship_or_convert', 'convert_only'\)/,
     "conversion must only include convertible rewards",
+  );
+  requirePattern(
+    sql,
+    /create or replace function public\.request_shipping_for_items/,
+    "legacy shipping fallback must be explicitly hardened too",
+  );
+  requirePattern(
+    sql,
+    /ship_only_count = 0 and selected_coin_value < minimum_coin_value/,
+    "legacy shipping fallback must allow ship-only rewards without the normal minimum",
   );
   requirePattern(
     sql,

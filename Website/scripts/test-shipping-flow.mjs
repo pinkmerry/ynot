@@ -83,6 +83,12 @@ const shippingPullAllRecoveryMigration = readOptionalUrl(
     import.meta.url,
   ),
 );
+const legacyShippingPolicyMigration = readOptionalUrl(
+  new URL(
+    "../../Database/supabase/migrations/20260625131500_harden_legacy_shipping_fulfillment_policy.sql",
+    import.meta.url,
+  ),
+);
 const shippingStatusSource = readOptionalUrl(
   new URL("../src/features/ynot/shipping-status.ts", import.meta.url),
 );
@@ -399,7 +405,9 @@ test("shipping recovery migration aligns collection item request link with job p
 
   const recoverySql = compactSql(shippingPullAllRecoveryMigration);
   const processChunk = compactSql(functionBlock(shippingJobsMigration, "process_shipping_request_chunk"));
-  const requestShippingForItems = compactSql(functionBlock(shippingJobsMigration, "request_shipping_for_items"));
+  const requestShippingForItems = compactSql(
+    functionBlock(legacyShippingPolicyMigration || shippingJobsMigration, "request_shipping_for_items"),
+  );
   const updateShippingRequestStatus = compactSql(
     functionBlock(shippingJobsMigration, "update_shipping_request_status"),
   );
@@ -555,18 +563,23 @@ test("shipping process freezes selected or all-eligible membership in bounded ch
 });
 
 test("legacy shipping fallback is serialized and blocked by active async work", () => {
-  const legacy = compactSql(functionBlock(shippingJobsMigration, "request_shipping_for_items"));
+  const legacySource = legacyShippingPolicyMigration || shippingJobsMigration;
+  const legacy = compactSql(functionBlock(legacySource, "request_shipping_for_items"));
 
   assert.match(legacy, /pg_advisory_xact_lock\(hashtextextended\('ynot-profile-action:' \|\| p_profile_id::text, 0\)\)/);
   assert.match(legacy, /shipping_request_jobs[\s\S]*profile_id = p_profile_id[\s\S]*status in \('preparing', 'processing', 'retry_required'\)[\s\S]*shipping_request_active_exists/);
   assert.match(legacy, /reward_conversion_jobs[\s\S]*profile_id = p_profile_id[\s\S]*status in \('queued', 'processing', 'retry_required'\)[\s\S]*reward_conversion_active_blocks_shipping/);
   assert.match(legacy, /minimum_coin_value integer := 1000/);
+  assert.match(legacy, /ship_only_count integer := 0/);
   assert.match(legacy, /valid_shipping_address_required/);
-  assert.match(legacy, /status = 'owned'[\s\S]*shipping_request_job_id is null/);
+  assert.match(legacy, /status = 'owned'[\s\S]*fulfillment_policy_snapshot in \('ship_or_convert', 'ship_only'\)[\s\S]*shipping_request_job_id is null/);
+  assert.match(legacy, /sum\(case[\s\S]*fulfillment_policy_snapshot = 'ship_or_convert'[\s\S]*convert_coin_value_snapshot/);
+  assert.match(legacy, /count\(\*\) filter \(where ci\.fulfillment_policy_snapshot = 'ship_only'\)/);
+  assert.match(legacy, /ship_only_count = 0 and selected_coin_value < minimum_coin_value/);
   assert.match(legacy, /set status = 'shipping_requested'[\s\S]*shipping_request_id = shipping_row\.id[\s\S]*shipping_request_job_id = null/);
   assert.match(legacy, /get diagnostics [a-z_]+ = row_count[\s\S]*shipping_claim_mismatch/);
-  assert.match(shippingJobsMigration, /revoke all on function public\.request_shipping_for_items\(uuid, uuid, uuid\[\], text, text\) from public, anon, authenticated/);
-  assert.match(shippingJobsMigration, /grant execute on function public\.request_shipping_for_items\(uuid, uuid, uuid\[\], text, text\) to service_role/);
+  assert.match(legacySource, /revoke all on function public\.request_shipping_for_items\(uuid, uuid, uuid\[\], text, text\)[\s\S]*from public, anon, authenticated/);
+  assert.match(legacySource, /grant execute on function public\.request_shipping_for_items\(uuid, uuid, uuid\[\], text, text\)[\s\S]*to service_role/);
 });
 
 test("admin cancellation can terminate preparing shipping jobs and clear item job claims", () => {
