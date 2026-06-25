@@ -5247,7 +5247,7 @@ export function AdminCampaignForm({
   );
   const prizeBlockers = [
     !campaignCatalogCards.length
-      ? "Add at least one Prize Catalog item for the selected brand first."
+      ? "Add at least one Prize Catalog item for the current prize brand first."
       : "",
     !activePrizeDrafts.length ? "Choose prize inventory before saving." : "",
     configuredRewardUnits !== totalSlots
@@ -5772,7 +5772,7 @@ export function AdminCampaignForm({
               />
             </label>
             <label className="admin-field">
-              <span>Brand</span>
+              <span>Pack category</span>
               {categories.length ? (
                 <select
                   value={categoryId}
@@ -9782,12 +9782,12 @@ export function AdminCardForm({
                   placeholder="Kaya, Charizard, booster box, or supplies"
                 />
               </AdminField>
-              <AdminField label="Brands" required>
+              <AdminField label="Prize brand" required>
                 <AdminCardOptionSelect
                   kind="brand"
                   value={series}
                   onChange={setSeries}
-                  placeholder="Select brand…"
+                  placeholder="Select prize brand…"
                 />
               </AdminField>
               <AdminField label="Sub-category" required>
@@ -13397,12 +13397,12 @@ function AdminCardEditModal({
               <input value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} disabled={pending} />
             </label>
             <div className="admin-field">
-              <span>Brands</span>
+              <span>Prize brand</span>
               <AdminCardOptionSelect
                 kind="brand"
                 value={series}
                 onChange={setSeries}
-                placeholder="Select brand…"
+                placeholder="Select prize brand…"
                 disabled={pending}
               />
             </div>
