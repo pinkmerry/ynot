@@ -439,7 +439,7 @@ export async function recordPreviewOpenResult({
     result.items.map(async (item, index): Promise<YnotCollectionItem> => {
       const position = item.position ?? index + 1;
       const displayTier = item.displayTier ?? null;
-      const internalItemId = `preview-bag-${publicCode}-${position}`;
+      const internalItemId = crypto.randomUUID();
       const convertCoinValue = previewConvertCoinValue(item);
       const fulfillmentPolicy = previewFulfillmentPolicy(convertCoinValue);
       return {

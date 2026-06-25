@@ -87,7 +87,14 @@ test("open page validates and passes the intent to the client reveal panel", () 
   const source = read("src/app/(store)/gacha/[campaignId]/open/page.tsx");
   assert.match(source, /normalizeOpenIntentId/);
   assert.match(source, /const intent = normalizeOpenIntentId\(query\.intent\)/);
+  assert.match(source, /import \{ Shell \} from "@\/features\/ynot\/cr\/Shell"/);
+  assert.match(source, /<Shell className="cr-root-immersive">[\s\S]*<GachaOpenPanelLazy/);
   assert.match(source, /<GachaOpenPanelLazy[\s\S]*openIntentId=\{intent\}/);
+
+  const theme = read("src/features/ynot/cr/theme.css");
+  assert.match(theme, /\.cr-root\.cr-root-embedded\.cr-root-immersive/);
+  assert.match(theme, /\.cr-root-immersive \.cr-modal-backdrop/);
+  assert.match(theme, /\.cr-root-immersive \.cr-toasts/);
 });
 
 test("auto-start open uses intent-derived idempotency and strips replay URL after success", () => {
@@ -363,6 +370,11 @@ test("customer Pull All uses the real quote/start flow and stays separate from x
   assert.match(revealPanel, /displayQuantity=\{pullAllRevealSession\.totalPurchasedRewards\}/);
   assert.match(revealPanel, /summaryTitle=\{<I18nText en="Top rewards" th="รางวัลเด่น" \/>\}/);
   assert.match(revealPanel, /summaryNote=\{pullAllRevealSummaryNote\(pullAllRevealSession,\s*language\)\}/);
+  const openPullAllAgainBlock =
+    revealPanel.match(/function openPullAllAgain\(\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
+  assert.match(openPullAllAgainBlock, /setPullAllConfirmOpen\(true\)/);
+  assert.doesNotMatch(openPullAllAgainBlock, /setRevealResult\(null\)/);
+  assert.doesNotMatch(openPullAllAgainBlock, /startPullAllSession/);
   assert.match(revealOverlay, /displayQuantity\?: number/);
   assert.match(revealOverlay, /summaryNote\?: ReactNode/);
   assert.match(revealOverlay, /summaryTitle \?\? <I18nText en="Your Reward" th="รางวัลของคุณ" \/>/);

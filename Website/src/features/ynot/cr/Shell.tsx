@@ -8,6 +8,7 @@ import "./theme.css";
 
 export type ShellProps = {
   children: ReactNode;
+  className?: string;
 };
 
 /**
@@ -17,9 +18,9 @@ export type ShellProps = {
  * surrounding YnotShell at the page level so navigation looks identical to
  * every other store page.
  */
-export function Shell({ children }: ShellProps) {
+export function Shell({ children, className }: ShellProps) {
   return (
-    <div className="cr-root cr-root-embedded">
+    <div className={["cr-root cr-root-embedded", className].filter(Boolean).join(" ")}>
       <ToastProvider>{children}</ToastProvider>
     </div>
   );

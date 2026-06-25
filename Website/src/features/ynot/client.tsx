@@ -1134,7 +1134,6 @@ export function GachaOpenPanel({
 
   function openPullAllAgain() {
     setOpeningOverlayVisible(false);
-    setRevealResult(null);
     setMessage("");
     setPullAllConfirmOpen(true);
   }

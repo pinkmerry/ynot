@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { EmptyState, PageHeader, YnotShell } from "@/features/ynot/components";
 import { GachaOpenPanelLazy } from "@/features/ynot/cr/GachaOpenPanelLazy";
+import { Shell } from "@/features/ynot/cr/Shell";
 import { getOpenCampaignForReveal, getTierAnimations, getYnotDashboardSlice } from "@/features/ynot/data";
 import { i18n } from "@/features/ynot/i18n";
 import { normalizeOpenIntentId } from "@/features/ynot/open-intent";
@@ -30,17 +31,19 @@ export default async function GachaOpenPage({
   const intent = normalizeOpenIntentId(query.intent);
   if (campaign && ((campaign.openable && autoStart) || pullAllReveal)) {
     return (
-      <GachaOpenPanelLazy
-        campaign={campaign}
-        authenticated={data.viewer.authenticated}
-        initialQuantity={initialQuantity}
-        tierAnimations={tierAnimations}
-        balanceCoins={data.wallet.balanceCoins}
-        autoStart
-        openIntentId={intent}
-        pullAllReveal={pullAllReveal}
-        immersive
-      />
+      <Shell className="cr-root-immersive">
+        <GachaOpenPanelLazy
+          campaign={campaign}
+          authenticated={data.viewer.authenticated}
+          initialQuantity={initialQuantity}
+          tierAnimations={tierAnimations}
+          balanceCoins={data.wallet.balanceCoins}
+          autoStart
+          openIntentId={intent}
+          pullAllReveal={pullAllReveal}
+          immersive
+        />
+      </Shell>
     );
   }
   if (campaign) {
