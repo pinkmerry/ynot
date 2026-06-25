@@ -434,6 +434,7 @@ test("Pull All does not replace configured normal open quantity buttons", () => 
 
 test("active pack detail prize images stay in fixed-size card tracks", () => {
   const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
+  const globals = read("src/app/globals.css");
 
   assert.match(
     arena,
@@ -474,6 +475,21 @@ test("active pack detail prize images stay in fixed-size card tracks", () => {
     arena,
     /\.ac-lightbox-main \{[\s\S]*max-width:\s*min\(100%,\s*560px\);[\s\S]*max-height:\s*min\(68vh,\s*620px\);[\s\S]*object-fit:\s*contain;/,
     "lightbox main image should be contained within a bounded viewport stage",
+  );
+  assert.match(
+    globals,
+    /html\[data-ynot-theme\] \.ac-tier-rainbow \.ac-grid,[\s\S]*html\[data-ynot-theme\] \.ac-tier-last \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/,
+    "global YNOT theme override should not replace grand/last grids with auto-fit",
+  );
+  assert.match(
+    globals,
+    /html\[data-ynot-theme\] \.ac-tier-gold \.ac-grid,[\s\S]*html\[data-ynot-theme\] \.ac-tier-silver \.ac-grid,[\s\S]*html\[data-ynot-theme\] \.ac-tier-bronze \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);/,
+    "global YNOT theme override should preserve six-column lower prize grids",
+  );
+  assert.match(
+    globals,
+    /html\[data-ynot-theme\] \.ac-lightbox-main \{[\s\S]*max-width:\s*min\(100%,\s*560px\);[\s\S]*max-height:\s*min\(68vh,\s*620px\);[\s\S]*object-fit:\s*contain;/,
+    "global YNOT theme override should keep the lightbox image bounded",
   );
 });
 
