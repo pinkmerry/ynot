@@ -75,11 +75,11 @@ Manual smoke tests after deploy:
 
 ```bash
 # 1. whoami is closed on production
-curl -sI https://www.ynottcg.com/api/debug/whoami | head -1
+curl -sI https://www.ynotopen.com/api/debug/whoami | head -1
 # Expected: HTTP/2 404
 
 # 2. Security headers shipped
-curl -sI https://www.ynottcg.com/ | grep -iE "strict-transport|x-frame|x-content-type|referrer|permissions"
+curl -sI https://www.ynotopen.com/ | grep -iE "strict-transport|x-frame|x-content-type|referrer|permissions"
 
 # 3. Sign-up rejects an 11-char password
 # (manual browser test from the /signup form)

@@ -2,7 +2,7 @@
 
 Created: 2026-05-15
 Plan: `Website/docs/plans/ralplan-admin-production-click-test-cases.md`
-Target: `https://www.ynottcg.com/admin`
+Target: `https://www.ynotopen.com/admin`
 
 ## Scope
 
@@ -48,7 +48,7 @@ Record for every case:
 
 | ID | Page | Actor | Safety | Scenario | Real production click steps | Acceptance criteria |
 | --- | --- | --- | --- | --- | --- | --- |
-| TC-001 | `/admin` | Logged-out visitor | RO | Admin root requires login/admin gate | Open `https://www.ynottcg.com/admin` in a clean session. | User is not shown admin tools; login or access-required state appears; no admin data is visible. |
+| TC-001 | `/admin` | Logged-out visitor | RO | Admin root requires login/admin gate | Open `https://www.ynotopen.com/admin` in a clean session. | User is not shown admin tools; login or access-required state appears; no admin data is visible. |
 | TC-002 | `/admin` | Non-admin user | RO | Non-admin cannot enter admin | Log in as a normal customer; open `/admin`; click Back home if shown. | Admin tools are hidden; access-required message appears; Back home returns to storefront. |
 | TC-003 | Header/nav | Non-admin user | RO | Admin nav hidden for non-admin | Log in as normal customer; inspect main navigation and account menu. | No Admin link or admin-only page link is visible. |
 | TC-004 | `/admin` | Admin/staff | RO | Admin can open dashboard | Log in as admin/staff; open `/admin`. | Dashboard loads with admin shell, side navigation, and no permission error. |

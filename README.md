@@ -1,13 +1,12 @@
 # YNOTT Project
 
-This repository is the main **YNOTT** project. It keeps the normal website, LINE LIFF integration notes, and Supabase database source of truth together so agents and humans do not split work across the wrong repo.
+This repository is the main **YNOTT** project. It keeps the normal website and Supabase database source of truth together so agents and humans do not split work across the wrong repo.
 
 ## Folder map
 
 ```text
 YNOTT/
 ├── Website/       YNOTT Website: production Next.js website, admin/customer UI, APIs, docs
-├── Line LIFF/     YNOTT LIFF: LINE Console/rich-menu/LIFF notes and compatibility references
 ├── Database/      Supabase migrations, schema docs, backup/restore evidence, RLS/RPC plans
 ├── AGENTS.md      Root agent instructions and repo/deployment topology
 └── README.md      This project map
@@ -32,16 +31,15 @@ Website docs/status:
 - `Website/docs/plans/`
 - `Website/docs/verification/`
 
-### YNOTT LIFF
+### LINE Login
 
-Use `Line LIFF/` for LINE-specific product ownership:
+LINE Login is part of the website, not a separate LIFF app:
 
-- LINE Console / LIFF settings
-- LINE rich-menu URLs
-- future `liff.ynotopen.com` setup
-- LIFF compatibility notes and original design references
+- OAuth start/callback routes live in `Website/src/app/api/line/`.
+- LINE account linking helpers live in `Website/src/lib/line/`.
+- The website callback URL is `https://www.ynotopen.com/api/line/callback`.
 
-Current LIFF-compatible runtime code is still shared in `Website/src`. Until a separate LIFF app exists, the LIFF Vercel project must also build from `Website/`.
+There is no active `Line LIFF/` folder, LIFF Worker, or `liff.ynotopen.com` production surface for now. Recreate LIFF intentionally if it comes back later.
 
 ### Database
 
@@ -56,14 +54,13 @@ Website verification scripts read migrations directly from `../Database/supabase
 
 ## Production/deployment topology
 
-| Surface | Vercel project | Root Directory | Domain |
+| Surface | Cloudflare Worker | Root Directory | Domain |
 | --- | --- | --- | --- |
 | YNOTT Website | `ynott-website` | `Website` | `https://www.ynotopen.com` |
 | YNOTT Website apex | `ynott-website` | `Website` | `https://ynotopen.com` -> `www` |
 | YNOTT Website fallback | `ynott-website` | `Website` | `https://ynott-website.puppeteer-55b.workers.dev` |
-| Future YNOTT LIFF | `ynott-line-liff` | `Website` until extraction | `https://liff.ynotopen.com` when recreated |
 
-Important: do **not** set either Vercel project Root Directory to `.` while the Next.js app lives in `Website/`.
+Important: website deploys must target `ynott-website` only. The old LIFF Worker/deploy target is retired.
 
 ## Retired names
 
@@ -72,8 +69,9 @@ Do not use the old local folder, old repo names, or old Vercel aliases for new w
 - old local folder: `Lucky Draw/`
 - old repos: `pinkmerry/lucky-draw-liff`, `pinkmerry/ynot-lucky-draw-platform`
 - old Vercel aliases: `lucky-draw-liff.vercel.app`, `ynot-lucky-draw-platform.vercel.app`
+- old LIFF Worker/deploy target: `ynott-line-liff`
 
-Current source of truth is `YNOTT/` + `https://github.com/pinkmerry/ynott`.
+Current source of truth is `YNOTT/` + `https://github.com/pinkmerry/ynot`.
 
 ## Current production gate
 

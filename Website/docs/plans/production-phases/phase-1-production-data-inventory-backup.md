@@ -33,7 +33,7 @@ Not included:
 
 ## Work plan
 
-1. Confirm the live Supabase project ref and API URL used by production website and LIFF.
+1. Confirm the live Supabase project ref and API URL used by the production website.
 2. Export/read-only inventory:
    - core LIFF tables: `profiles`, `admin_users`, `draw_rounds`, `orders`, `payment_slips`, `order_picks`, `cards`, `draw_round_prizes`, `lucky_draw_realtime_events`;
    - storage buckets: `payment-slips`, `lucky-draw-assets`;

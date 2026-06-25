@@ -1,13 +1,13 @@
 # YNOTT Project Brief And Next Phase Plan
 
-Updated: 2026-05-07
-Status: **Alignment document plus production deployment/database gate update**
+Updated: 2026-06-25
+Status: **Alignment document plus production website/LINE Login topology update**
 
 ## 1. What this project is
 
-YNOTT is being built as a **normal production website** for card-pack lucky draw / gacha play. It must not be LIFF-only. LINE remains supported, but users who do not want LINE must still be able to use the website normally.
+YNOTT is being built as a **normal production website** for card-pack lucky draw / gacha play. It is not LIFF-only. LINE Login remains supported, but users who do not want LINE can still use the website normally.
 
-The website and the existing LINE LIFF app should share the **same Supabase database** so users, admins, orders, payments, wallet, prizes, and account linking are maintainable from one platform.
+The website uses the shared **Supabase database** so users, admins, orders, payments, wallet, prizes, and account linking are maintainable from one platform. The separate LIFF app/folder/deploy target is retired for now.
 
 ## 2. Product goal we aligned on
 
@@ -32,7 +32,6 @@ Build a production-ready platform where:
 YNOTT/
 ├── Website/       Normal production website app, website APIs, website UI, and website plan/docs
 ├── Database/      Supabase migrations, database architecture, RLS/RPC plans, and DB runbooks
-├── Line LIFF/     LINE LIFF integration notes and original LIFF/design references
 ├── AGENTS.md      Agent/project instructions
 └── README.md      Project map
 ```
@@ -58,14 +57,9 @@ Database/docs                   database architecture and runbook docs
 Database/docs/plans             database / LIFF+website shared-schema plans
 ```
 
-Important LINE LIFF folders:
+LINE Login remains in the website codebase under `Website/src/app/api/line/` and `Website/src/lib/line/`.
 
-```text
-Line LIFF/docs                  LIFF integration map and notes
-Line LIFF/design-references     original Lucky Draw / LIFF design references
-```
-
-The parent `YNOTT` folder is the git root. `.git` intentionally stays in the parent folder so history covers Website, Database, and Line LIFF together. Database files are intentionally kept outside `Website/` to make the project easy to see.
+The parent `YNOTT` folder is the git root. `.git` intentionally stays in the parent folder so history covers Website and Database together. Database files are intentionally kept outside `Website/` to make the project easy to see.
 
 ## 4. What is already built locally
 
@@ -104,12 +98,12 @@ Local API/backend foundation includes:
 
 ### Database plan and local migrations
 
-Database architecture has been planned to align with the existing LIFF database. Local migration files exist:
+Database architecture has been planned to preserve existing production data while adding the normal website platform. Local migration files exist:
 
 - `../Database/supabase/migrations/20260507015626_phase1_auth_identity_realtime.sql`
 - `../Database/supabase/migrations/20260507032000_phase2_platform_wallet_gacha.sql`
 
-These add the normal website identity bridge and platform domains while preserving existing LIFF-compatible tables/profile/admin concepts.
+These add the normal website identity bridge and platform domains while preserving existing profile/admin concepts.
 
 ## 5. What is not production-ready yet
 
@@ -124,15 +118,15 @@ Not complete yet:
 - Owner/admin bootstrap row must be confirmed in the real target database.
 - Manual payment/slip upload must be tested with safe test data.
 - Full end-to-end browser QA is still needed for login, top-up, admin approval, gacha, exchange, shipping, and account merge flows.
-- A separate Vercel production deployment now exists for page/navigation smoke, but full write-flow production testing should not continue before the database, auth provider, admin, and payment safety gates pass.
+- A Cloudflare production website deployment now exists for page/navigation smoke, but full write-flow production testing should not continue before the database, auth provider, admin, and payment safety gates pass.
 
 ## 6A. Current online testing deployment
 
-A separate GitHub/Vercel project has been created for online testing:
+A GitHub/Cloudflare website deployment exists for online testing:
 
-- GitHub: `https://github.com/pinkmerry/ynott`
-- Website Vercel project: `ynott-website`; LIFF Vercel project: `ynott-line-liff`
-- Production URL: `https://www.ynottcg.com`; LIFF URL: `https://liff.ynottcg.com`
+- GitHub: `https://github.com/pinkmerry/ynot`
+- Website Cloudflare Worker: `ynott-website`
+- Production URL: `https://www.ynotopen.com`
 - Deployment evidence: `docs/verification/2026-05-07-github-vercel-production-deploy.md`
 - Database gate evidence: `../Database/docs/verification/2026-05-07-production-db-next-phase-gate.md`
 
@@ -175,7 +169,7 @@ Checklist:
 - Record backup/export method and rollback plan.
 - Do not run production migration until backup evidence exists.
 
-### Phase 2 — Staging Supabase and Vercel preview
+### Phase 2 — Staging Supabase and website preview
 
 Goal: create safe online testing environment.
 
@@ -280,8 +274,8 @@ Do not start the next deployment/production phase until this document is reviewe
 
 Canonical repo/folder naming is **YNOTT**. Agents must distinguish:
 
-- **YNOTT Website**: code in `Website/`, Vercel project `ynott-website`, domain `www.ynottcg.com`.
-- **YNOTT LIFF**: LINE/LIFF ownership in `Line LIFF/`, Vercel project `ynott-line-liff`, domain `liff.ynottcg.com`.
+- **YNOTT Website**: code in `Website/`, Cloudflare Worker `ynott-website`, domain `www.ynotopen.com`.
+- **LINE Login**: website OAuth/account-linking routes in `Website/src/app/api/line/`.
 - **Database**: Supabase migrations and verification in `Database/`.
 
-Both Vercel projects should use Root Directory `Website` until a separate LIFF app is intentionally extracted.
+There is no active separate LIFF project for now.

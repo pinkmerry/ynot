@@ -70,7 +70,7 @@ Not included:
 
 Owner/admin/customer production pilot checks:
 
-1. Open `https://www.ynottcg.com`.
+1. Open `https://www.ynotopen.com`.
 2. Complete the selected login path with internal account.
 3. Owner/admin opens `/admin`.
 4. Customer opens one pilot pack.

@@ -1,28 +1,28 @@
-# API Boundary: Legacy Lucky Draw, LINE, and YNot Website
+# API Boundary: Legacy Lucky Draw, LINE Login, and YNot Website
 
-Updated: 2026-05-08
+Updated: 2026-06-25
 
 ## Why this boundary exists
 
-The website and LIFF experience share the same Supabase project. The safest migration shape is to keep legacy LIFF routes stable while new website work moves through the YNot platform routes and shared database/RPC contract.
+The website is the active production surface. LINE Login remains part of the website through `/api/line/*`, while the separate LIFF app/deploy surface is retired for now.
 
 ## Route ownership
 
-### `/api/lucky-draw/*` — legacy Lucky Draw / LIFF compatibility
+### `/api/lucky-draw/*` — legacy Lucky Draw compatibility
 
-Use this surface only when changing existing Lucky Draw/LIFF-compatible behavior: classic draw state, existing order/slip/pick flows, old admin draw controls, and compatibility smoke checks.
+Use this surface only when changing existing legacy Lucky Draw behavior: classic draw state, existing order/slip/pick flows, old admin draw controls, and compatibility smoke checks.
 
 Rules:
 - Preserve server-backed LINE session behavior.
 - Do not leak private payment/order identifiers through public realtime payloads.
 - Keep fake-slip testing on dry-run admin endpoints only.
 
-### `/api/line/*` — LINE login, callback, and LIFF session truth
+### `/api/line/*` — LINE login, callback, and account linking
 
-Use this surface for LINE OAuth, LIFF ID-token session creation, account linking, and account merge request creation.
+Use this surface for website LINE OAuth, ID-token session creation, account linking, and account merge request creation.
 
 Rules:
-- Server session creation is the source of truth, not only LIFF client login state.
+- Server session creation is the source of truth, not browser-only LINE state.
 - LINE conflicts create admin-reviewed merge requests instead of silent profile merges.
 - Production must use `LINE_SESSION_SECRET`; do not fall back to service-role key signing.
 - Login and provider-linking changes must follow `login-identity-flow.md`.
@@ -48,7 +48,7 @@ Rules:
 
 Before editing a route, answer:
 
-1. Is this LIFF compatibility, LINE identity, or normal website platform?
+1. Is this legacy Lucky Draw compatibility, LINE identity, or normal website platform?
 2. Does the change need production DB migration first?
 3. Is the action admin-only, customer-only, or public?
 4. Does it touch money, card ownership, payment slips, or shipping?

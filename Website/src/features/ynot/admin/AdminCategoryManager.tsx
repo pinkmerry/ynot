@@ -30,7 +30,7 @@ export function AdminCategoryManager({
   const futureCategories = [
     {
       title: "Pop Mart",
-      body: "Add only after the shared categories table exists for website and LIFF.",
+      body: "Add only after the shared categories table is live for the website storefront.",
     },
     {
       title: "Hobby",

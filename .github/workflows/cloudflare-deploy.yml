@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy website and LIFF Workers
+    name: Deploy website Worker
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -48,6 +48,3 @@ jobs:
 
       - name: Deploy website Worker
         run: npm run cf:deploy:website
-
-      - name: Deploy LIFF Worker
-        run: npm run cf:deploy:liff

@@ -1,14 +1,14 @@
 # YNOTT Project Status
 
-Updated: 2026-05-28
+Updated: 2026-06-25
 
 ## Current Phase
 
-Phase-by-phase implementation is underway. Backend/Auth Phase 1, website auth, LINE OAuth/linking, wallet/top-up/gacha/collection/exchange/shipping, admin campaign/prize/user management, account merge review, button-map foundation, Japan-Toreca-style responsive web layout, latest prototype-inspired cyber theme, local navigation cleanup, localhost admin control-center redesign, and the latest security-focused Supabase migrations are implemented and verified. The canonical GitHub repo and Vercel production projects are live for online testing at `https://www.ynottcg.com` / `https://liff.ynottcg.com`; production Supabase migration history is aligned with local migrations through `20260528050000_harden_top_up_approval.sql`.
+Phase-by-phase implementation is underway. Backend/Auth Phase 1, website auth, LINE OAuth/linking, wallet/top-up/gacha/collection/exchange/shipping, admin campaign/prize/user management, account merge review, button-map foundation, Japan-Toreca-style responsive web layout, latest production YNOTT UI, local navigation cleanup, admin control-center redesign, Cloudflare website deployment, and security-focused Supabase migrations are implemented and verified. The canonical GitHub repo is `pinkmerry/ynot`; the active production website is `https://www.ynotopen.com` on Cloudflare Worker `ynott-website`. The separate LIFF folder/Worker/deploy path is retired for now, while website LINE Login remains active through `/api/line/*`.
 
 ## Current Goal
 
-Build the production YNOTT platform as a normal website, not LIFF-only, while preserving and aligning with the existing LIFF Supabase database.
+Build the production YNOTT platform as a normal website with optional LINE Login, while keeping the shared Supabase database as the source of truth.
 
 
 ## Repo and deployment topology
@@ -16,30 +16,30 @@ Build the production YNOTT platform as a normal website, not LIFF-only, while pr
 Canonical naming target is **YNOTT**:
 
 - Local/git root: `YNOTT/`
-- GitHub repo target: `pinkmerry/ynott`
-- Website Vercel project target: `ynott-website`, Root Directory `Website`, domains `www.ynottcg.com` / `ynottcg.com`
-- LIFF Vercel project target: `ynott-line-liff`, Root Directory `Website` until LIFF extraction, domain `liff.ynottcg.com`
+- GitHub repo target: `pinkmerry/ynot`
+- Website Cloudflare Worker: `ynott-website`, source directory `Website`, domains `www.ynotopen.com` / `ynotopen.com`
+- LINE Login: website OAuth and account-linking routes under `Website/src/app/api/line/*`
+- LIFF: retired for now; no active folder, Worker, deploy script, or production route
 
-Future agents should decide lane by product surface: website/admin/customer work goes to `Website/`; LINE rich-menu/LIFF settings go to `Line LIFF/`; schema/backup/migration work goes to `Database/`.
+Future agents should decide lane by product surface: website/admin/customer/LINE Login work goes to `Website/`; schema/backup/migration work goes to `Database/`; any future LIFF work should start as a new intentional setup.
 
 Retired names are intentionally not active anymore: local folder `Lucky Draw/`, GitHub repos `pinkmerry/lucky-draw-liff` and `pinkmerry/ynot-lucky-draw-platform`, Vercel names `lucky-draw-liff` and `ynot-lucky-draw-platform`, and aliases `lucky-draw-liff.vercel.app` / `ynot-lucky-draw-platform.vercel.app`.
 
 ## Repository Layout Update
 
-- `YNOTT/` is the main project folder and git root. It now has three clear project areas: `Website/`, `Database/`, and `Line LIFF/`.
+- `YNOTT/` is the main project folder and git root. It now has two active project areas: `Website/` and `Database/`.
 - `Website/` contains the active Next.js website app, website APIs, website UI, website docs, website plan, website verification scripts, and website-specific references.
 - `Database/` contains the Supabase migration source of truth and database architecture/planning docs. Website verification scripts read migrations directly from `../Database/supabase`; no `Website/supabase` symlink is used because Next/Turbopack dev mode can fail when scanning symlinks outside the app root.
-- `Line LIFF/` contains LIFF integration notes and original YNOTT/LIFF design references. The current LIFF-compatible runtime code remains shared inside `Website/src` until/unless a later extraction is planned.
+- LINE Login remains inside `Website/`; the old `Line LIFF/` project folder has been removed.
 - Website alignment document before the next phase: `docs/PROJECT_BRIEF_AND_NEXT_PHASE_PLAN.md`.
 - Website plans are visible in `docs/plans/`; database/LIFF shared-schema plans are visible in `../Database/docs/plans/`.
 - Local run command from the active app root: `cd Website && npm run dev -- -p 3005` when starting from the parent folder, or `npm run dev -- -p 3005` when already inside `Website/`.
 - Post-move verification passed from `Website/`: `npm run check` completed successfully and localhost route smoke returned `200` for home, gacha detail/open, collection, ranking, exchange, shipping, wallet, profile, login, signup, and admin. Evidence: `docs/verification/2026-05-07-website-folder-move.md`.
-- Final project-organization verification passed after separating `Database/` and `Line LIFF/`: `npm run check` passed from `Website/`, scripts read migrations from `../Database/supabase`, and localhost route smoke returned `200` for the same customer/auth/admin pages. Evidence: `docs/verification/2026-05-07-project-organization.md`.
+- Project organization now keeps active code in `Website/` and `Database/`; historical `Line LIFF/` organization notes remain only as dated verification evidence.
 - Website folder cleanup completed: verification scripts moved to `tools/verification/`, fixtures moved to `tools/fixtures/`, website references moved to `docs/references/`, older plan moved to `docs/archive/`, and root clutter reduced while keeping Next.js-required root config files. Evidence: `docs/verification/2026-05-07-website-cleanup.md`; `npm run check` and localhost route smoke passed after cleanup.
-- Same-Supabase/LIFF access check completed: Website and LIFF code paths use the shared Supabase client/env, read-only access to project `szjoarkijeaspazbrchc` succeeded, existing LIFF tables/storage were reachable, live bundle/API point to the same ref, and the next phase is gated on applying missing website migrations first. Evidence: `docs/verification/2026-05-07-supabase-liff-access-check.md`.
+- Historical Same-Supabase/LIFF access check completed before LIFF retirement: read-only access to project `szjoarkijeaspazbrchc` succeeded and existing legacy tables/storage were reachable. Evidence: `docs/verification/2026-05-07-supabase-liff-access-check.md`.
 
-- Separate production deployment setup completed for online testing: private GitHub repo `https://github.com/pinkmerry/ynott` was created and pushed, Vercel project `ynott-website` was created/connected with root directory `Website`, production env names were configured, and the original stable Vercel alias was `https://ynott-website.vercel.app`. Evidence: `docs/verification/2026-05-07-github-vercel-production-deploy.md`.
-- Domain reorganization is live: the normal website owns `https://www.ynottcg.com` and apex `https://ynottcg.com`; the LINE LIFF Vercel project owns `https://liff.ynottcg.com` plus fallback `https://ynott-line-liff.vercel.app`. Squarespace DNS now resolves `liff.ynottcg.com` to Vercel, a Vercel SSL certificate was issued, and both LIFF URLs return `200`. Evidence: `docs/verification/2026-05-07-domain-reorganization.md`.
+- Cloudflare production deployment is active: GitHub repo `https://github.com/pinkmerry/ynot` deploys the website Worker `ynott-website` from `Website/`, with production URLs `https://www.ynotopen.com`, `https://ynotopen.com`, and fallback `https://ynott-website.puppeteer-55b.workers.dev`.
 - Production DB next-phase gate was originally documented on 2026-05-07. On 2026-05-11, SQL execution access was confirmed through Supabase CLI linked mode and the auth/platform/test-inventory unblock migrations were applied directly to live ref `szjoarkijeaspazbrchc`.
 - Phase 1 production data inventory/backup-readiness was refreshed read-only on 2026-05-10. Live ref `szjoarkijeaspazbrchc` is confirmed, LIFF-era table counts/storage bucket inventory were captured, admin roles exist without exposing names, and data-only REST backups exist. The later 2026-05-11 test unblock proceeded by explicit owner request, but a provider/PITR backup and restore drill are still recommended before any broader destructive cleanup.
 - Next-step backup refresh completed on 2026-05-10: a fresh ignored service-role REST data-only export was created at `../Database/backups/pre-migration-20260510T072634Z/`, with current counts matching the Phase 1 inventory and zero listed Storage objects. This improves stale data-export evidence but still does not satisfy the full backup/PITR + restore-drill gate. Evidence: `docs/verification/evidence/2026-05-10-phase-1/102-current-rest-backup-refresh.json`.
@@ -192,7 +192,7 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
   - `20260509162000_add_admin_shipping_status_rpc.sql`
 - Fixed the production readiness verifier so join tables without an `id` column are checked by REST visibility instead of an `id` projection.
 - Verification evidence: production `/login` and `/signup` render Google, LINE, and email/password with Apple removed; email/password signup smoke returned the expected confirmation-email redirect; `npm run verify:production-db` passed with only tone-cleanup warnings.
-- Remaining external blockers: Supabase Google provider is not enabled, LINE Developers is missing/does not accept `https://www.ynottcg.com/api/line/callback`, and leaked Supabase credentials still need rotation.
+- Remaining external blockers should be checked against the current domain: Supabase Google provider status, LINE Developers callback registration for `https://www.ynotopen.com/api/line/callback`, and any credential rotation still need live verification before a full auth-provider sign-off.
 
 ### Auth login v2 local implementation
 
@@ -216,8 +216,8 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 
 ## Not Implemented Yet
 
-- Google OAuth provider is still not enabled in Supabase Auth; production check returns `Unsupported provider: provider is not enabled`.
-- LINE OAuth still needs the callback URL registered in LINE Developers: `https://www.ynottcg.com/api/line/callback`; production check returns `Invalid redirect_uri value`.
+- Google OAuth provider status still needs current production verification.
+- LINE OAuth must use the current website callback URL in LINE Developers: `https://www.ynotopen.com/api/line/callback`.
 - Full Supabase CLI DB reset/RLS tests and Playwright e2e tests from the original test spec are not installed/run yet.
 - Supabase access/service-role credentials exposed in chat must still be rotated.
 
@@ -229,7 +229,7 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 | Frontend/platform architecture | Planned and approved | `docs/plans/ralplan-ynot-production-website.md` and PRD/test/ADR exist. |
 | Backend/database architecture | Planned and approved; production migrations aligned through 20260528050000 on 2026-05-28 | `../Database/supabase/migrations/20260507015626_phase1_auth_identity_realtime.sql`; `../Database/supabase/migrations/20260507032000_phase2_platform_wallet_gacha.sql`; `../Database/supabase/migrations/20260525100000_card_convert_to_coin.sql`; `../Database/supabase/migrations/20260528050000_harden_top_up_approval.sql`; `npm run verify:production-db` passed. |
 | Existing modularization slice | Previously verified | Prior status recorded lint/build/static smoke pass. |
-| Full production implementation | Separate GitHub/Vercel production deployment ready for page/navigation smoke; full write-flow validation still DB/provider gated | `https://github.com/pinkmerry/ynott`; canonical website `https://www.ynottcg.com`; website fallback alias `https://ynott-website.vercel.app`; LIFF fallback `https://ynott-line-liff.vercel.app`; production route/link smoke passed. |
+| Full production implementation | Cloudflare website deployment active; full write-flow validation still DB/provider gated | `https://github.com/pinkmerry/ynot`; canonical website `https://www.ynotopen.com`; website fallback `https://ynott-website.puppeteer-55b.workers.dev`; production route/link smoke passed in later Cloudflare verification. |
 | Database migration execution | Current through 20260528050000 | Applied all local migrations through top-up approval hardening to live ref `szjoarkijeaspazbrchc`; remote migration history was repaired/aligned; `npm run verify:production-db`, `npm run verify:hardening`, `npm run verify:platform`, and `npm run test:top-up-flow` passed. |
 | HTML wireframe UX/UI parity | Locally corrected and smoke-verified | Browser showed the paper/hand-drawn wireframe skin on `localhost:3005`; curl confirmed Pokemon/One Piece/POP MART, exchange category tabs, and `Charizard SAR` reward detail text. |
 | Full browser QA | Basic localhost and production page/link smoke passed; authenticated e2e not run | Production customer/admin pages returned 200; safe unauth API checks returned expected 400/401/403/503/405 responses; full user/payment/gacha journey remains DB/provider gated. |
@@ -240,11 +240,11 @@ Retired names are intentionally not active anymore: local folder `Lucky Draw/`, 
 - LINE email cannot be assumed; LINE conflicts create admin-reviewed merge requests.
 - Admin owner bootstrap still must exist in production data before admin features are usable by the real owner account.
 - Production data migration should continue to use a preview/staging pass and fresh backup evidence before future live SQL. The 2026-05-28 security migration used a no-data Supabase preview branch plus current physical-backup listing, but PITR remains unavailable on the current plan.
-- `liff.ynottcg.com` is assigned to the LIFF Vercel project, Squarespace DNS resolves it to Vercel, and HTTPS returns `200`; LINE rich-menu/LIFF dashboard URLs can move to the LIFF endpoint when ready.
+- No active LIFF production endpoint is maintained now; any future LINE rich-menu/LIFF dashboard work should start with a fresh setup.
 
 ## Recommended Next Slice
 
-**Next slice: finish external auth dashboard configuration. Enable Google provider in Supabase Auth with Google OAuth credentials, register `https://www.ynottcg.com/api/line/callback` in LINE Developers, rotate leaked Supabase credentials, then run a real account signup/login and random-pack smoke on production.**
+**Next slice: finish external auth dashboard verification. Confirm Google provider status in Supabase Auth, register or verify `https://www.ynotopen.com/api/line/callback` in LINE Developers, rotate any exposed credentials, then run a real account signup/login and random-pack smoke on production.**
 
 Completed locally in Phase 1:
 
@@ -256,11 +256,11 @@ Completed locally in Phase 1:
 6. Regenerate Supabase types and run typecheck.
 7. Verify existing LIFF session/admin/order compatibility still works.
 
-Next implementation slice: database migration execution and authenticated production pilot. Provide Supabase SQL execution access for project `szjoarkijeaspazbrchc`, take a full backup, apply both migrations in order, verify RLS/RPC/Data API exposure, configure remaining payment/provider secrets, bootstrap/confirm owner-admin, update LINE LIFF/rich-menu settings to the final LIFF URL, then run the browser/e2e journey against `https://www.ynottcg.com`.
+Next implementation slice: authenticated production pilot. Verify current production DB/RPC state, confirm payment/provider secrets, bootstrap/confirm owner-admin, confirm website LINE Login callback configuration, then run the browser/e2e journey against `https://www.ynotopen.com`.
 
 ## Short Answer
 
-Yes: we now have approved plans, an implemented website/database foundation, and a separate GitHub/Vercel production deployment for online testing. The remaining blocker is the database/provider gate: production Supabase migrations are not applied because SQL execution access/full backup are missing, and LINE/payment secrets still need completion before the full live journey can pass.
+Yes: we now have approved plans, an implemented website/database foundation, and a Cloudflare website production deployment for online testing. The remaining blocker is the current provider/live-flow gate: LINE/payment/provider settings and full live journeys still need verification before sign-off.
 
 ### Production storefront visual replacement
 
@@ -528,7 +528,7 @@ Yes: we now have approved plans, an implemented website/database foundation, and
   - legacy Lucky Draw admin card editors;
   - customer card rendering and DB-to-UI mapping;
   - Supabase TypeScript table types.
-- Added migration `../Database/supabase/migrations/20260509183000_remove_card_tone_fields.sql` to strip `tone` from stored JSON card arrays and drop `cards.tone` / `draw_round_prizes.tone` after both Website and LIFF are on no-tone code.
+- Added migration `../Database/supabase/migrations/20260509183000_remove_card_tone_fields.sql` to strip `tone` from stored JSON card arrays and drop `cards.tone` / `draw_round_prizes.tone` after the website stopped using tone.
 - Added optional production DB readiness checker: `npm run verify:production-db`. This reads `.env.local`, checks whether production has the required category/inventory tables and RPC, and warns whether legacy tone columns still exist.
 - Production schema probe now passes for required category/inventory tables and `get_draw_round_inventory_summary`.
 - Legacy `cards.tone` / `draw_round_prizes.tone` have been removed in production.

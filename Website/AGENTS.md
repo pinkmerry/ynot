@@ -14,14 +14,15 @@ Use it for:
 - Next.js API routes;
 - Supabase Auth/web sessions;
 - wallet, top-up, gacha, collection, ranking, exchange, shipping, profile, admin controls;
-- shared runtime code that LIFF currently also depends on.
+- website LINE Login and account linking routes.
 
 Important distinction:
-- `Website/` is the Next.js app root for Vercel builds.
-- `Line LIFF/` is the LIFF integration/reference area, not the current Next.js app root.
-- Preserve LIFF compatibility when editing shared LINE/session/lucky-draw code.
+- `Website/` is the Next.js app root and the active Cloudflare Worker source.
+- LINE Login remains active through `src/app/api/line/*` and `src/lib/line/*`.
+- The separate LIFF folder, Worker, and deploy scripts are retired for now.
+- Do not remove website LINE Login when removing or avoiding LIFF-specific work.
 
-Vercel expectation:
-- Website project: `ynott-website`, Root Directory `Website`.
-- LIFF project: `ynott-line-liff`, Root Directory `Website` until a separate LIFF app is intentionally extracted.
+Cloudflare expectation:
+- Website Worker: `ynott-website`, source directory `Website`.
+- No active LIFF Worker should be deployed from this app.
 - Do not use retired Vercel names/aliases `ynot-lucky-draw-platform`, `lucky-draw-liff`, `ynot-lucky-draw-platform.vercel.app`, or `lucky-draw-liff.vercel.app`.

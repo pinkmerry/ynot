@@ -122,12 +122,6 @@ validateWorkerConfig("wrangler.website.ci.jsonc", {
   routePatterns: [],
   bulkOpenQueue: true,
 });
-validateWorkerConfig("wrangler.liff.jsonc", {
-  siteUrl: "https://liff.ynotopen.com",
-  workerName: "ynott-line-liff",
-  lineLoginChannelId: "2009942829",
-  routePatterns: [],
-});
 
 const packageJson = parseJson("package.json");
 check("package exposes cf:build script", Boolean(packageJson.scripts?.["cf:build"]));
@@ -137,7 +131,16 @@ check(
   /wrangler\.website\.ci\.jsonc/.test(packageJson.scripts?.["cf:deploy:website"] ?? ""),
 );
 check("package exposes manual website route deploy script", Boolean(packageJson.scripts?.["cf:deploy:website:routes"]));
-check("package exposes LIFF Cloudflare deploy script", Boolean(packageJson.scripts?.["cf:deploy:liff"]));
+check("package omits retired LIFF Cloudflare deploy script", !packageJson.scripts?.["cf:deploy:liff"]);
+check("package omits retired LIFF Cloudflare build script", !packageJson.scripts?.["cf:build:liff"]);
+check("package omits retired LIFF Cloudflare preview script", !packageJson.scripts?.["cf:preview:liff"]);
+check("package omits retired LIFF Cloudflare typegen script", !packageJson.scripts?.["cf:typegen:liff"]);
+
+const deployWorkflow = read("../.github/workflows/cloudflare-deploy.yml");
+check(
+  "deploy workflow targets website Worker only",
+  !/cf:deploy:liff|ynott-line-liff|LIFF Worker/.test(deployWorkflow),
+);
 
 const campaignData = read("src/features/ynot/data.ts");
 check(
@@ -218,6 +221,10 @@ check("runbook lists Cloudflare account snapshot", /Account ID/.test(runbook));
 check("runbook lists resource creation gates", /Cloudflare Resources To Create/.test(runbook));
 check("runbook lists cutover gates", /Cutover Gates/.test(runbook));
 check("runbook documents secret handling", /wrangler secret put/.test(runbook));
+check(
+  "runbook documents website-only active deploy path",
+  !/cf:deploy:liff|cf:build:liff|cf:preview:liff|wrangler\.liff|ynott-line-liff/.test(runbook),
+);
 
 console.log("Cloudflare migration config verification");
 for (const item of passes) console.log(`PASS ${item}`);

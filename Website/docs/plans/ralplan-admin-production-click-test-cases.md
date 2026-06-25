@@ -8,7 +8,7 @@ Canonical test suite: `Website/docs/qa/admin-production-click-test-cases.md`
 
 ## Outcome
 
-Create a production real-click admin test suite that an operator can execute page by page against `https://www.ynottcg.com/admin`. The suite covers every current admin page, visible button/control, required form field, primary success path, disabled/negative path, owner-only path, and cleanup expectation.
+Create a production real-click admin test suite that an operator can execute page by page against `https://www.ynotopen.com/admin`. The suite covers every current admin page, visible button/control, required form field, primary success path, disabled/negative path, owner-only path, and cleanup expectation.
 
 This is documentation and planning only. It does not execute production mutations.
 
@@ -137,8 +137,8 @@ For `$team`: split lanes by page group:
 
 ## Launch Hints
 
-- Production URL: `https://www.ynottcg.com`.
-- Admin root: `https://www.ynottcg.com/admin`.
+- Production URL: `https://www.ynotopen.com`.
+- Admin root: `https://www.ynotopen.com/admin`.
 - Keep browser devtools console open during execution and record uncaught errors.
 - Capture screenshots for every failed, skipped, or destructive-gated case.
 - Use only production test records with `[E2E]` or run-id labels.

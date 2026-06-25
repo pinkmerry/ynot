@@ -8,29 +8,28 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## Repo and deployment topology
 
-This repository is the **YNOTT** project. It contains two product surfaces plus the shared database source of truth:
+This repository is the **YNOTT** project. It contains the production website plus the shared database source of truth:
 
 ```text
 YNOTT/
 ├── Website/       YNOTT Website: normal web app, customer/admin UI, API routes, shared Next.js runtime
-├── Line LIFF/     YNOTT LIFF: LINE channel/rich-menu/LIFF integration notes and compatibility references
 └── Database/      Supabase migrations, schema docs, backup/restore evidence, RLS/RPC plans
 ```
 
 ### How to decide what you are working on
 
 - If the task mentions **website**, `www.ynotopen.com`, admin pages, customer web pages, wallet, gacha, collection, exchange, shipping, auth, or Next.js code: work in `Website/` and treat it as **YNOTT Website**.
-- If the task mentions **LIFF**, LINE rich menu, LINE Console, `liff.ynotopen.com`, LINE login/session compatibility, or LIFF-specific routing: inspect `Line LIFF/` first, then update shared code in `Website/` only when needed to preserve LIFF behavior.
+- If the task mentions **LINE login**, LINE OAuth, account connect/linking, or `/api/line/*`: work in `Website/`; this is normal website LINE Login, not a separate LIFF app.
+- If the task mentions **LIFF**, LINE rich menu, LINE Console, or `liff.ynotopen.com`: treat LIFF as retired for now. A future LIFF app must be intentionally recreated instead of reusing a removed folder or deploy target.
 - If the task mentions **Supabase**, migrations, backups, RLS, RPCs, or production DB gates: work in `Database/` plus any related verification scripts in `Website/tools/verification/`.
 
-### Vercel projects
+### Cloudflare Worker
 
-Both Vercel projects are expected to build from repo root with **Root Directory = `Website`** unless/until LIFF is extracted into a separate app.
+The active production web surface builds from `Website/` and deploys to Cloudflare Workers.
 
 - **YNOTT Website**: Cloudflare Worker `ynott-website`, domains `www.ynotopen.com`, `ynotopen.com`, and fallback URL `https://ynott-website.puppeteer-55b.workers.dev`.
-- **YNOTT LIFF**: old `liff.ynottcg.com` routing is retired. Future LIFF work should use `liff.ynotopen.com` only after a new LIFF setup is intentionally created.
-
-Do not point the LIFF project root at `.`. That causes Vercel build failures because the Next.js app lives in `Website/`.
+- **LINE Login**: remains part of the website through `Website/src/app/api/line/*` and the website Worker.
+- **YNOTT LIFF**: no active folder, Worker, deploy script, or production route exists for now.
 
 ### Old names are retired
 
@@ -41,10 +40,10 @@ Do **not** use old local/repo/Vercel names for new work:
 - old Vercel project/alias names `lucky-draw-liff` and `ynot-lucky-draw-platform` are not active deployment targets;
 - old aliases `lucky-draw-liff.vercel.app` and `ynot-lucky-draw-platform.vercel.app` have been removed.
 
-Use only `YNOTT/`, `pinkmerry/ynott`, `ynott-website`, and `ynott-line-liff`.
+Use only `YNOTT/`, `pinkmerry/ynot`, and `ynott-website` for active website work.
 
 ### Safety
 
 - Do not apply production Supabase migrations until Phase 1 backup/PITR and restore-drill gates are satisfied.
-- Do not merge/push production-breaking topology changes unless Vercel root/source settings are verified.
-- Keep Website and LIFF URL ownership separate: normal web traffic goes to `www.ynotopen.com`; future LINE LIFF traffic should go to `liff.ynotopen.com` after the new LIFF setup exists.
+- Do not merge/push production-breaking topology changes unless the Cloudflare Worker config and website build are verified.
+- Keep LINE Login separate from LIFF cleanup: normal web traffic and LINE OAuth callbacks go through `www.ynotopen.com`; any future LIFF traffic should use `liff.ynotopen.com` only after a new setup exists.

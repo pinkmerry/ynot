@@ -27,6 +27,12 @@ npm run dev -- -p 3005
 npm run check
 ```
 
+## LINE Login
+
+LINE Login is still part of the website. OAuth start/callback/session code lives under `src/app/api/line/`, and shared helpers live under `src/lib/line/`.
+
+The separate LIFF app is retired for now. Do not add LIFF deploy commands back unless a new LIFF product surface is intentionally recreated.
+
 ## Main docs
 
 - `docs/PROJECT_BRIEF_AND_NEXT_PHASE_PLAN.md`
@@ -47,9 +53,8 @@ The Website verification scripts read those migration files directly.
 
 ## Production/deployment map
 
-| Surface | Vercel project | Root Directory | Domain |
+| Surface | Cloudflare Worker | Root Directory | Domain |
 | --- | --- | --- | --- |
 | YNOTT Website | `ynott-website` | `Website` | `https://www.ynotopen.com` |
-| Future YNOTT LIFF compatibility deploy | `ynott-line-liff` | `Website` until LIFF extraction | `https://liff.ynotopen.com` when recreated |
 
-This folder is the app root for both Vercel projects right now. Do not configure Vercel Root Directory as `.` while the Next.js app remains in `Website/`.
+This folder is the app root for the active website Worker only.

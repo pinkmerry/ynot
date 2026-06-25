@@ -20,7 +20,7 @@ Phase 0 is treated as complete: the local website, current UI navigation cleanup
 
 Key baseline facts:
 
-- Website and LIFF must continue sharing the same production Supabase project: `szjoarkijeaspazbrchc`.
+- Website must continue using the same production Supabase project: `szjoarkijeaspazbrchc`.
 - Production currently still lacks the new normal-website schema.
 - Existing migrations must be applied only after backup and staging evidence:
   1. `../../../../Database/supabase/migrations/20260507015626_phase1_auth_identity_realtime.sql`

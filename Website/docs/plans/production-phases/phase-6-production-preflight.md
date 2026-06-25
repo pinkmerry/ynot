@@ -39,7 +39,7 @@ Not included:
 2. Freeze production changes during the migration window.
 3. Confirm exact target refs and URLs:
    - production Supabase ref: `szjoarkijeaspazbrchc`;
-   - website domain: `https://www.ynottcg.com` and apex as configured;
+   - website domain: `https://www.ynotopen.com` and apex as configured;
    - LIFF domain/fallback targets;
    - Vercel production deployment/project.
 4. Confirm provider/env matrix:
