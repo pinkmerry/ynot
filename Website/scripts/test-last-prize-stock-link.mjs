@@ -75,7 +75,7 @@ test("admin builder sends last prize category and convert coin values", () => {
   assert.match(lastPrizeSection, /readOnly/);
 });
 
-test("customer collection and shipping hydrate images from private stock links without exposing them", () => {
+test("customer collection and internal shipping hydrate images from private stock links without exposing them", () => {
   const dataSource = read("../src/features/ynot/data.ts");
   const typesSource = read("../src/features/ynot/types.ts");
   const collectionSource = between(
@@ -83,10 +83,15 @@ test("customer collection and shipping hydrate images from private stock links w
     "export async function getCollection",
     "export async function getGachaOpenHistory"
   );
-  const shippingSource = between(
+  const customerShippingSource = between(
     dataSource,
-    "export async function getShipping",
-    "export async function getAddresses"
+    "export async function getCustomerShipping",
+    "export async function getAdminShippingFulfillment"
+  );
+  const adminShippingSource = between(
+    dataSource,
+    "export async function getAdminShippingFulfillment",
+    "export async function getShipping"
   );
   const historySource = between(
     dataSource,
@@ -107,8 +112,11 @@ test("customer collection and shipping hydrate images from private stock links w
     "customer stock-unit enrichment should use the batched reader",
   );
   assert.match(collectionSource, /imageUrl:\s*publicSubSkuImageUrl\(\s*wonUnit\?\.imageUrl,\s*card\?\.photoUrl,?\s*\)/);
-  assert.match(shippingSource, /item\.card_stock_unit_id/);
-  assert.match(shippingSource, /imageByCollectionItemId/);
+  assert.match(customerShippingSource, /getShippingRequestItemPreviews/);
+  assert.match(customerShippingSource, /imageUrl:\s*null/);
+  assert.match(adminShippingSource, /item\.card_stock_unit_id/);
+  assert.match(adminShippingSource, /imageByCollectionItemId/);
+  assert.match(adminShippingSource, /readCardStockUnitRowsByIds<\{[\s\S]*\}>\(\s*supabase,\s*"shipping_stock_unit_images"/);
   assert.match(historySource, /gacha_history_collection_stock_links/);
   assert.match(historySource, /\.from\("collection_items"\)[\s\S]*\.select\("gacha_open_item_id,card_stock_unit_id"\)/);
   assert.match(
@@ -117,7 +125,8 @@ test("customer collection and shipping hydrate images from private stock links w
   );
   assert.doesNotMatch(collectionSource, directCustomerStockUnitRead);
   assert.doesNotMatch(historySource, directCustomerStockUnitRead);
-  assert.doesNotMatch(shippingSource, directCustomerStockUnitRead);
+  assert.doesNotMatch(customerShippingSource, directCustomerStockUnitRead);
+  assert.doesNotMatch(adminShippingSource, directCustomerStockUnitRead);
 
   assert.doesNotMatch(collectionType, /cardStockUnitId|gachaOpenItemId|certNumber|gemrateId|stockUnitFilter|weight|unlockAtSoldPct/);
   assert.doesNotMatch(collectionSource, /cardStockUnitId:|gachaOpenItemId:|certNumber:|gemrateId:|stockUnitFilter:/);

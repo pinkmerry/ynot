@@ -137,6 +137,34 @@ test("pack open API sends x1, x10, and x100 pulls to one protected RPC call", ()
   assert.match(openRpc, /available_slot_count < p_quantity/);
 });
 
+test("normal pack opens debit exactly quantity cost and replay before wallet mutation", () => {
+  const openFunctionStart = openRpc.lastIndexOf("create or replace function public.open_gacha_campaign");
+  assert.notEqual(openFunctionStart, -1, "missing latest open_gacha_campaign function");
+  const openFunction = openRpc.slice(openFunctionStart);
+  const replayIndex = openFunction.indexOf("if p_idempotency_key is not null then");
+  const campaignIndex = openFunction.indexOf("select * into campaign");
+  const costIndex = openFunction.indexOf("total_cost :=");
+  const openInsertIndex = openFunction.indexOf("insert into public.gacha_opens");
+  const ledgerIndex = openFunction.indexOf("insert into public.coin_ledger");
+  const walletUpdateIndex = openFunction.indexOf("update public.wallet_accounts");
+
+  assert.ok(replayIndex >= 0, "open RPC must have an idempotency replay branch");
+  assert.ok(replayIndex < campaignIndex, "replay must happen before campaign locking");
+  assert.ok(replayIndex < costIndex, "replay must happen before cost calculation");
+  assert.ok(replayIndex < ledgerIndex, "replay must happen before ledger debit");
+  assert.ok(replayIndex < walletUpdateIndex, "replay must happen before wallet update");
+
+  assert.match(openFunction, /where profile_id = p_profile_id[\s\S]*and idempotency_key = p_idempotency_key/);
+  assert.match(openFunction, /'replayed', true/);
+  assert.match(openFunction, /total_cost := coalesce\(campaign\.cost_coins,[\s\S]*\* p_quantity;/);
+  assert.ok(costIndex < openInsertIndex, "cost must be frozen on the open row before rewards are awarded");
+  assert.ok(openInsertIndex < ledgerIndex, "ledger must reference the committed open row");
+  assert.match(openFunction, /values \([\s\S]*total_cost,[\s\S]*p_quantity,[\s\S]*p_idempotency_key,[\s\S]*jsonb_build_object/);
+  assert.match(openFunction, /'gacha_spend'[\s\S]*-total_cost[\s\S]*locked_wallet\.balance_coins[\s\S]*locked_wallet\.balance_coins - total_cost/);
+  assert.match(openFunction, /set balance_coins = balance_coins - total_cost,\s*version = version \+ 1/);
+  assert.match(openFunction, /'costCoins', total_cost/);
+});
+
 test("preview open mock uses the same public stock-image projection as reveal hydration", () => {
   assert.match(openRoute, /async function previewImageByPrizeId/);
   assert.match(openRoute, /PREVIEW_STOCK_UNIT_IMAGE_BATCH_SIZE\s*=\s*100/);

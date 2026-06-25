@@ -291,6 +291,15 @@ test("production CSP request override keeps refreshed Supabase auth cookies", ()
   );
 });
 
+test("complete-profile continuation redirects use the strict same-origin path sanitizer", () => {
+  const page = readApp("src/app/(auth)/complete-profile/page.tsx");
+  assert.match(page, /safeNextPath/);
+  assert.match(page, /const nextPath = safeNextPath\(params\?\.next\)/);
+  assert.match(page, /redirect\(nextPath\)/);
+  assert.match(page, /nextPath=\{nextPath\}/);
+  assert.doesNotMatch(page, /params\?\.next\?\.startsWith\("\/"\)/);
+});
+
 test("draw_rounds DELETE realtime migration does not reference the row being deleted", () => {
   const migrationDir = repoPath("Database/supabase/migrations");
   const migration = readdirSync(migrationDir)

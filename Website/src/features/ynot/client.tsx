@@ -32,10 +32,12 @@ import type {
   YnotPrizePoolItem,
   YnotPrizePreview,
   YnotRandomLogicMode,
+  YnotRewardFulfillmentPolicy,
   YnotShippingRequest,
   YnotTierAnimation,
 } from "./types";
 import type { YnotViewer } from "./types";
+import { ynotRewardFulfillmentPolicyValue } from "./types";
 import { AdminFrame } from "./admin/Shell";
 import { AdminIcon } from "./admin/Icon";
 import { AdminCardOptionSelect } from "./admin/AdminCardOptionSelect";
@@ -59,11 +61,11 @@ import {
   isOpenQuantityAvailable,
   normalizeOpenQuantityOptions,
   openQuantityLimit,
+  pullAllQuantity,
 } from "./open-quantity";
 import {
   defaultBundleQuantity,
-  maxBundleQuantity,
-  normalizeBundleQuantity,
+  publicPlannedQuantityBadge,
 } from "./bundle-quantity";
 import {
   buildPrizeStockShortages,
@@ -1168,7 +1170,7 @@ export function GachaOpenPanel({
 
   const handleRevealFinish = useCallback(() => {
     const detailHref = `/packs/${campaign.slug}`;
-    setOpeningOverlayVisible(true);
+    setOpeningOverlayVisible(false);
     setRevealResult(null);
     router.replace(detailHref);
     window.setTimeout(() => {
@@ -1214,11 +1216,17 @@ export function GachaOpenPanel({
     disabled: quantityDisabled(option),
     costCoins: campaign.costCoins * option,
   }));
+  const pullAllRepeatQuantity = pullAllQuantity({
+    remainingSlots: visibleRemainingSlots,
+    totalSlots: campaign.totalSlots,
+    hasLastPrize: campaign.hasLastPrize,
+  });
   const pullAllRepeatOption =
-    campaign.pullAllAvailable === true && visibleRemainingSlots > 0
+    (campaign.pullAllAvailable === true || campaign.pullAllReady === true) &&
+    pullAllRepeatQuantity !== null
       ? {
           kind: "pull_all" as const,
-          quantity: visibleRemainingSlots,
+          quantity: pullAllRepeatQuantity,
           disabled: false,
         }
       : null;
@@ -1827,6 +1835,42 @@ function formatCollectionGradeLabel(item: YnotCollectionItem) {
 
 const SHIPPING_REQUEST_MIN_COINS = 1000;
 
+function canShipReward(item: YnotCollectionItem) {
+  return item.status === "owned" && item.canShip;
+}
+
+function canConvertReward(item: YnotCollectionItem, nowMs: number) {
+  const expiresAt = item.convertExpiresAt
+    ? new Date(item.convertExpiresAt).valueOf()
+    : null;
+  return (
+    item.status === "owned" &&
+    item.canConvert &&
+    (item.convertCoinValue ?? 0) > 0 &&
+    (!expiresAt || expiresAt > nowMs)
+  );
+}
+
+function shippingRequestIsAllowed(items: YnotCollectionItem[]) {
+  const shippableItems = items.filter(canShipReward);
+  if (!shippableItems.length) return false;
+  const hasShipOnly = shippableItems.some(
+    (item) => item.fulfillmentPolicy === "ship_only",
+  );
+  if (hasShipOnly) return true;
+  const shipOrConvertValue = shippableItems.reduce((sum, item) => {
+    if (item.fulfillmentPolicy !== "ship_or_convert") return sum;
+    return sum + (item.convertCoinValue ?? 0);
+  }, 0);
+  return shipOrConvertValue >= SHIPPING_REQUEST_MIN_COINS;
+}
+
+function rewardFulfillmentPolicyLabel(policy: YnotRewardFulfillmentPolicy) {
+  if (policy === "ship_only") return "Ship only";
+  if (policy === "convert_only") return "Sell only";
+  return null;
+}
+
 type PanelShippingQuote = {
   quoteToken: string;
   selectionMode: "selected" | "all_eligible";
@@ -2015,29 +2059,15 @@ export function CollectionConvertPanel({
   );
   const selectedConvertableItems = useMemo(
     () =>
-      selectedItems.filter(
-        (item) =>
-          (item.convertCoinValue ?? 0) > 0 &&
-          (!item.convertExpiresAt ||
-            new Date(item.convertExpiresAt).valueOf() > currentTimeMs),
-      ),
+      selectedItems.filter((item) => canConvertReward(item, currentTimeMs)),
     [currentTimeMs, selectedItems],
   );
   const selectedTotalCoins = selectedConvertableItems.reduce(
     (sum, item) => sum + (item.convertCoinValue ?? 0),
     0,
   );
-  const allEligibleShippingValue = ownedItems.reduce((sum, item) => {
-    const expiresAt = item.convertExpiresAt
-      ? new Date(item.convertExpiresAt).valueOf()
-      : null;
-    const isEligible =
-      (item.convertCoinValue ?? 0) > 0 &&
-      (!expiresAt || expiresAt > currentTimeMs);
-    return isEligible ? sum + (item.convertCoinValue ?? 0) : sum;
-  }, 0);
-  const selectedShippingValue =
-    selectedItems.length > 0 ? selectedTotalCoins : allEligibleShippingValue;
+  const shippingCandidateItems =
+    selectedItems.length > 0 ? selectedItems : ownedItems;
   const shippingActive = Boolean(shippingProgress && !shippingProgress.completed);
   const conversionActive = Boolean(conversionProgress && !conversionProgress.completed);
   const canConvert =
@@ -2054,7 +2084,7 @@ export function CollectionConvertPanel({
     (shippingActive ||
       ((selectedItems.length > 0 || ownedItems.length > 0) &&
         isCompleteShippingAddress(selectedAddress) &&
-        selectedShippingValue >= SHIPPING_REQUEST_MIN_COINS));
+        shippingRequestIsAllowed(shippingCandidateItems)));
 
   function submitConvert() {
     if (conversionActive) {
@@ -2441,7 +2471,8 @@ export function CollectionConvertPanel({
             item.convertExpiresAt &&
             new Date(item.convertExpiresAt).valueOf() <= currentTimeMs;
           const coinValue = Math.max(0, Math.round(item.convertCoinValue ?? 0));
-          const convertable = coinValue > 0 && !expired;
+          const convertable = canConvertReward(item, currentTimeMs);
+          const policyLabel = rewardFulfillmentPolicyLabel(item.fulfillmentPolicy);
           return (
             <article
               key={item.id}
@@ -2475,6 +2506,11 @@ export function CollectionConvertPanel({
                     {item.sourceIsLastPrize ? (
                       <span className="collection-convert-grade-pill is-last-prize">
                         <I18nText en="Last Prize" th="รางวัลสุดท้าย" />
+                      </span>
+                    ) : null}
+                    {policyLabel ? (
+                      <span className="collection-convert-grade-pill">
+                        {policyLabel}
                       </span>
                     ) : null}
                     {item.cardCode ? (
@@ -2518,7 +2554,9 @@ export function CollectionConvertPanel({
                     <small>
                       {expired
                         ? localized({ en: "Expired", th: "หมดเวลาแล้ว" }, language)
-                        : localized({ en: "Not convertible", th: "แลกไม่ได้" }, language)}
+                        : item.fulfillmentPolicy === "ship_only"
+                          ? localized({ en: "Ship only", th: "จัดส่งเท่านั้น" }, language)
+                          : localized({ en: "Not convertible", th: "แลกไม่ได้" }, language)}
                     </small>
                   </span>
                 )}
@@ -2634,8 +2672,8 @@ export function CollectionConvertPanel({
         <p className="collection-convert-dock-foot">
           {localized(
             {
-              en: `Shipping requires a complete saved address and ${SHIPPING_REQUEST_MIN_COINS.toLocaleString()} coins or more in eligible reward value.`,
-              th: `การขอจัดส่งต้องมีที่อยู่ที่บันทึกครบถ้วน และมูลค่ารางวัลที่เข้าเงื่อนไขอย่างน้อย ${SHIPPING_REQUEST_MIN_COINS.toLocaleString()} เหรียญ`,
+              en: `Ship-only rewards can be shipped anytime. Other shippable rewards need ${SHIPPING_REQUEST_MIN_COINS.toLocaleString()} coins or more in eligible reward value.`,
+              th: `รางวัลจัดส่งเท่านั้นขอจัดส่งได้ทันที ส่วนรางวัลอื่นต้องมีมูลค่าที่เข้าเงื่อนไขอย่างน้อย ${SHIPPING_REQUEST_MIN_COINS.toLocaleString()} เหรียญ`,
             },
             language,
           )}
@@ -3644,6 +3682,7 @@ type CampaignPrizeDraft = {
   tierRank: number;
   valueThb: number;
   convertCoinValue: number;
+  fulfillmentPolicy: YnotRewardFulfillmentPolicy;
   quantity: number;
   bundleQuantity: number;
   weight: number;
@@ -3652,6 +3691,14 @@ type CampaignPrizeDraft = {
 
 const defaultConvertDeadlineDays = 14;
 const convertCoinValueMax = 10_000_000;
+const rewardFulfillmentPolicyOptions: Array<{
+  value: YnotRewardFulfillmentPolicy;
+  label: string;
+}> = [
+  { value: "ship_or_convert", label: "Ship or sell" },
+  { value: "ship_only", label: "Ship only" },
+  { value: "convert_only", label: "Sell only" },
+];
 
 function defaultConvertCoinValue(displayTier: PrizeDisplayTier, index: number) {
   if (displayTier === "rainbow") return index === 0 ? 5000 : 3000;
@@ -4566,12 +4613,16 @@ function prizeUnitCount(prize: CampaignPrizeDraft) {
   return Math.max(0, Math.round(Number(prize.quantity) || 0));
 }
 
-function prizeBundleQuantity(prize: Pick<CampaignPrizeDraft, "bundleQuantity">) {
-  return normalizeBundleQuantity(prize.bundleQuantity);
+function normalRewardBundleQuantity() {
+  return defaultBundleQuantity;
+}
+
+function prizeQuantityBadge(prize: Pick<CampaignPrizeDraft, "quantity">) {
+  return publicPlannedQuantityBadge(prize.quantity);
 }
 
 function prizeRequiredStockUnits(prize: CampaignPrizeDraft) {
-  return prizeUnitCount(prize) * prizeBundleQuantity(prize);
+  return prizeUnitCount(prize);
 }
 
 function defaultPrizeValueThb(displayTier: PrizeDisplayTier, index: number) {
@@ -4616,10 +4667,8 @@ function createPrizeDraft(
     convertCoinValue:
       existing?.convertCoinValue ??
       defaultConvertCoinValue(displayTier, index),
+    fulfillmentPolicy: existing?.fulfillmentPolicy ?? "ship_or_convert",
     bundleQuantity: defaultBundleQuantity,
-    ...(existing
-      ? { bundleQuantity: normalizeBundleQuantity(existing.bundleQuantity) }
-      : {}),
     quantity: Math.max(
       0,
       Math.round(Number(existing?.quantity) || config.defaultQuantity),
@@ -4766,7 +4815,10 @@ function prizeLineupToDrafts(
       tierRank: Math.max(1, Math.round(prize.tierRank || 1)),
       valueThb: Math.max(0, Math.round(prize.valueThb ?? 0)),
       convertCoinValue: clampConvertCoinValue(prize.convertCoinValue ?? 0),
-      bundleQuantity: normalizeBundleQuantity(prize.bundleQuantity),
+      fulfillmentPolicy: ynotRewardFulfillmentPolicyValue(
+        prize.fulfillmentPolicy,
+      ),
+      bundleQuantity: defaultBundleQuantity,
       quantity: Math.max(0, Math.round(prize.plannedQuantity ?? 0)),
       weight: Math.max(0, prize.weight ?? 1),
       unlockAtSoldPct: Math.max(0, Math.min(100, prize.unlockAtSoldPct ?? 0)),
@@ -4936,6 +4988,15 @@ export function AdminCampaignForm({
   const [lastPrizeConvertCoinValue, setLastPrizeConvertCoinValue] = useState(
     clampConvertCoinValue(editingCampaign?.lastPrizeConvertCoinValue ?? 0),
   );
+  const [lastPrizeFulfillmentPolicy, setLastPrizeFulfillmentPolicy] =
+    useState<YnotRewardFulfillmentPolicy>(() =>
+      ynotRewardFulfillmentPolicyValue(
+        editingCampaign?.lastPrizeFulfillmentPolicy ??
+          (clampConvertCoinValue(editingCampaign?.lastPrizeConvertCoinValue ?? 0) > 0
+            ? "ship_or_convert"
+            : "ship_only"),
+      ),
+    );
   const [draftPrizes, setDraftPrizes] = useState<CampaignPrizeDraft[]>(() =>
     editingPrizes && editingPrizes.length
       ? prizeLineupToDrafts(
@@ -5028,8 +5089,7 @@ export function AdminCampaignForm({
       counts.set(
         prize.cardId,
         (counts.get(prize.cardId) ?? 0) +
-          Math.max(0, Math.round(Number(prize.plannedQuantity) || 0)) *
-            normalizeBundleQuantity(prize.bundleQuantity),
+          Math.max(0, Math.round(Number(prize.plannedQuantity) || 0)),
       );
     }
     return counts;
@@ -5056,7 +5116,7 @@ export function AdminCampaignForm({
         prizes: activePrizeDrafts.map((prize) => ({
           cardId: prize.cardId,
           quantity: prizeUnitCount(prize),
-          bundleQuantity: prizeBundleQuantity(prize),
+          bundleQuantity: normalRewardBundleQuantity(),
         })),
         stockSummaries: prizeStockSummaries,
       }),
@@ -5076,8 +5136,7 @@ export function AdminCampaignForm({
       counts.set(
         key,
         (counts.get(key) ?? 0) +
-          Math.max(0, Math.round(Number(prize.plannedQuantity) || 0)) *
-            normalizeBundleQuantity(prize.bundleQuantity),
+          Math.max(0, Math.round(Number(prize.plannedQuantity) || 0)),
       );
     }
     return counts;
@@ -5231,7 +5290,7 @@ export function AdminCampaignForm({
   );
   const prizeBlockers = [
     !campaignCatalogCards.length
-      ? "Add at least one Prize Catalog item for the selected brand first."
+      ? "Add at least one Prize Catalog item for the current prize brand first."
       : "",
     !activePrizeDrafts.length ? "Choose prize inventory before saving." : "",
     configuredRewardUnits !== totalSlots
@@ -5374,6 +5433,7 @@ export function AdminCampaignForm({
     setLastPrizeCardId("");
     setLastPrizeStockUnitKey("");
     setLastPrizeConvertCoinValue(0);
+    setLastPrizeFulfillmentPolicy("ship_only");
     setDraftPrizes((current) =>
       withLowestTierRemainder(
         current,
@@ -5625,8 +5685,9 @@ export function AdminCampaignForm({
               tier: dbTierForPrizeDisplayTier(prize.displayTier),
               rank: Math.max(1, Math.round(Number(prize.rank) || 1)),
               quantity: Math.max(0, Math.round(Number(prize.quantity) || 0)),
-              bundleQuantity: prizeBundleQuantity(prize),
+              bundleQuantity: normalRewardBundleQuantity(),
               convertCoinValue: clampConvertCoinValue(prize.convertCoinValue),
+              fulfillmentPolicy: prize.fulfillmentPolicy,
               metadata: {
                 displayTier: prize.displayTier,
                 displayTierLabel: prizeDisplayTierLabel(prize.displayTier),
@@ -5665,6 +5726,7 @@ export function AdminCampaignForm({
               sourceType: prizeSourceType(prizeCategory),
               quantity: 1,
               convertCoinValue: clampConvertCoinValue(lastPrizeConvertCoinValue),
+              fulfillmentPolicy: lastPrizeFulfillmentPolicy,
               ...(stockMetadata ?? {}),
               ...(stockMetadata?.stockLabel ? { label: stockMetadata.stockLabel } : {}),
             };
@@ -5756,7 +5818,7 @@ export function AdminCampaignForm({
               />
             </label>
             <label className="admin-field">
-              <span>Brand</span>
+              <span>Pack category</span>
               {categories.length ? (
                 <select
                   value={categoryId}
@@ -6315,7 +6377,8 @@ export function AdminCampaignForm({
                       <span>Sub-SKU stock</span>
                       <span>Sub-category</span>
                       <span>Qty</span>
-                      <span>Per win</span>
+                      <span>Detail badge</span>
+                      <span>Reward action</span>
                       <span>Convert coins</span>
                       <span>Action</span>
                     </div>
@@ -6467,24 +6530,48 @@ export function AdminCampaignForm({
                               }
                             />
                           </label>
-                          <label className="admin-field admin-prize-bundle-field">
-                            <span>Per win</span>
-                            <input
-                              min={defaultBundleQuantity}
-                              max={maxBundleQuantity}
-                              type="number"
-                              value={prizeBundleQuantity(prize)}
-                              onChange={(event) =>
-                                updatePrizeDraft(prize.localId, {
-                                  bundleQuantity: normalizeBundleQuantity(
-                                    event.target.value,
-                                  ),
-                                })
-                              }
-                            />
+                          <div className="admin-field admin-prize-bundle-field">
+                            <span>Detail badge</span>
+                            <strong>
+                              {prizeQuantityBadge(prize)
+                                ? `x${prizeQuantityBadge(prize)}`
+                                : "x1"}
+                            </strong>
                             <small>
-                              {prizeRequiredStockUnits(prize).toLocaleString()} stock
+                              {prizeRequiredStockUnits(prize).toLocaleString()} wins, 1 reward each
                             </small>
+                          </div>
+                          <label className="admin-field admin-prize-policy-field">
+                            <span>Reward action</span>
+                            <select
+                              value={prize.fulfillmentPolicy}
+                              onChange={(event) => {
+                                const fulfillmentPolicy =
+                                  ynotRewardFulfillmentPolicyValue(
+                                    event.target.value,
+                                  );
+                                updatePrizeDraft(prize.localId, {
+                                  fulfillmentPolicy,
+                                  ...(fulfillmentPolicy === "ship_only"
+                                    ? { convertCoinValue: 0 }
+                                    : prize.convertCoinValue <= 0
+                                      ? {
+                                          convertCoinValue:
+                                            defaultConvertCoinValue(
+                                              prize.displayTier,
+                                              prize.tierRank - 1,
+                                            ),
+                                        }
+                                      : {}),
+                                });
+                              }}
+                            >
+                              {rewardFulfillmentPolicyOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
                           </label>
                           <label className="admin-field admin-prize-convert-field">
                             <span>Convert coins</span>
@@ -6492,6 +6579,7 @@ export function AdminCampaignForm({
                               min={0}
                               max={convertCoinValueMax}
                               type="number"
+                              disabled={prize.fulfillmentPolicy === "ship_only"}
                               value={prize.convertCoinValue}
                               onChange={(event) =>
                                 updatePrizeDraft(prize.localId, {
@@ -6541,6 +6629,8 @@ export function AdminCampaignForm({
                       <span>Sub-SKU stock</span>
                       <span>Sub-category</span>
                       <span>Qty</span>
+                      <span>Detail badge</span>
+                      <span>Reward action</span>
                       <span>Convert coins</span>
                       <span>Action</span>
                     </div>
@@ -6631,12 +6721,44 @@ export function AdminCampaignForm({
                         <span>Qty</span>
                         <input readOnly type="number" value={1} />
                       </label>
+                      <div className="admin-field admin-prize-bundle-field">
+                        <span>Detail badge</span>
+                        <strong>x1</strong>
+                        <small>final bonus</small>
+                      </div>
+                      <label className="admin-field admin-prize-policy-field">
+                        <span>Reward action</span>
+                        <select
+                          value={lastPrizeFulfillmentPolicy}
+                          onChange={(event) => {
+                            const fulfillmentPolicy =
+                              ynotRewardFulfillmentPolicyValue(
+                                event.target.value,
+                              );
+                            setLastPrizeFulfillmentPolicy(fulfillmentPolicy);
+                            if (fulfillmentPolicy === "ship_only") {
+                              setLastPrizeConvertCoinValue(0);
+                            } else if (lastPrizeConvertCoinValue <= 0) {
+                              setLastPrizeConvertCoinValue(
+                                defaultConvertCoinValue("rainbow", 0),
+                              );
+                            }
+                          }}
+                        >
+                          {rewardFulfillmentPolicyOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                       <label className="admin-field admin-prize-convert-field">
                         <span>Convert coins</span>
                         <input
                           min={0}
                           max={convertCoinValueMax}
                           type="number"
+                          disabled={lastPrizeFulfillmentPolicy === "ship_only"}
                           value={lastPrizeConvertCoinValue}
                           onChange={(event) =>
                             setLastPrizeConvertCoinValue(
@@ -9464,7 +9586,89 @@ function DuplicateCardCaution({
   );
 }
 
-type PrizeCreateModalKind = "card" | "stock";
+type PrizeCreateModalKind = "card" | "sealed_box" | "sealed_pack" | "stock";
+type MainSkuFormKind = "card" | "sealed_box" | "sealed_pack";
+
+const sealedProductSeriesOptions = ["Pokemon", "One Piece"] as const;
+
+function mainSkuFormKindForCategory(category: unknown): MainSkuFormKind {
+  const catalogCategory = catalogCategoryValue(category);
+  if (catalogCategory === "boxes") return "sealed_box";
+  if (catalogCategory === "packs") return "sealed_pack";
+  return "card";
+}
+
+function isSealedMainSkuKind(kind: MainSkuFormKind) {
+  return kind === "sealed_box" || kind === "sealed_pack";
+}
+
+function mainSkuCategoryForCreateKind(kind: PrizeCreateModalKind): CatalogCategory {
+  if (kind === "sealed_box") return "Boxes";
+  if (kind === "sealed_pack") return "Packs";
+  return "Single Cards";
+}
+
+function mainSkuCreateTitle(kind: PrizeCreateModalKind) {
+  if (kind === "sealed_box") return "Create Sealed Box";
+  if (kind === "sealed_pack") return "Create Sealed Pack";
+  if (kind === "stock") return "Add Sub-SKU stock";
+  return "Create Main SKU";
+}
+
+function mainSkuNameLabel(kind: MainSkuFormKind) {
+  if (kind === "sealed_box") return "Box name";
+  if (kind === "sealed_pack") return "Pack name";
+  return "Main SKU name";
+}
+
+function mainSkuNamePlaceholder(kind: MainSkuFormKind) {
+  if (kind === "sealed_box") return "Pokemon 151 Booster Box";
+  if (kind === "sealed_pack") return "One Piece OP-09 Booster Pack";
+  return "Kaya, Charizard, booster box, or supplies";
+}
+
+function normalizeSealedProductSeries(value: unknown) {
+  const clean = typeof value === "string" ? value.trim() : "";
+  const normalized = clean.toLowerCase().replace(/[_-]+/g, " ");
+  return normalized === "one piece" ? "One Piece" : "Pokemon";
+}
+
+function SealedProductSeriesSelect({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <select
+      className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+      value={normalizeSealedProductSeries(value)}
+      disabled={disabled}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      {sealedProductSeriesOptions.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function LockedCatalogCategoryDisplay({
+  catalogCategory,
+}: {
+  catalogCategory: CatalogCategory;
+}) {
+  return (
+    <div className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4 flex items-center">
+      {catalogCategoryLabel(catalogCategory)}
+    </div>
+  );
+}
 
 /**
  * Header actions for the Prize catalog page. Replaces the two always-visible
@@ -9523,6 +9727,22 @@ export function AdminPrizeCreateActions({
         <button
           type="button"
           className="admin-prize-create-btn"
+          onClick={() => setOpenModal("sealed_box")}
+        >
+          <AdminIcon name="plus" size={14} />
+          Add sealed box
+        </button>
+        <button
+          type="button"
+          className="admin-prize-create-btn"
+          onClick={() => setOpenModal("sealed_pack")}
+        >
+          <AdminIcon name="plus" size={14} />
+          Add sealed pack
+        </button>
+        <button
+          type="button"
+          className="admin-prize-create-btn"
           onClick={() => setOpenModal("stock")}
         >
           <AdminIcon name="plus" size={14} />
@@ -9550,7 +9770,7 @@ export function AdminPrizeCreateActions({
                 ×
               </button>
               <h2 className="admin-modal-title" style={{ color: "#fff" }}>
-                {openModal === "card" ? "Create Main SKU" : "Add Sub-SKU stock"}
+                {mainSkuCreateTitle(openModal)}
               </h2>
             </header>
             <div
@@ -9558,10 +9778,18 @@ export function AdminPrizeCreateActions({
               ref={modalBodyRef}
               onScroll={handleModalBodyScroll}
             >
-              {openModal === "card" ? (
-                <AdminCardForm cards={cards} prizes={prizes} />
-              ) : (
+              {openModal === "stock" ? (
                 <AdminCardStockUnitForm cards={cards} />
+              ) : (
+                <AdminCardForm
+                  key={openModal}
+                  cards={cards}
+                  prizes={prizes}
+                  initialCatalogCategory={mainSkuCategoryForCreateKind(openModal)}
+                  lockedCatalogCategory={
+                    openModal === "sealed_box" || openModal === "sealed_pack"
+                  }
+                />
               )}
             </div>
           </div>
@@ -9573,9 +9801,13 @@ export function AdminPrizeCreateActions({
 
 export function AdminCardForm({
   prizes,
+  initialCatalogCategory = "Single Cards",
+  lockedCatalogCategory = false,
 }: {
   cards?: CardCatalogItem[];
   prizes: YnotPrizePoolItem[];
+  initialCatalogCategory?: CatalogCategory;
+  lockedCatalogCategory?: boolean;
 }) {
   const router = useRouter();
   const [code, setCode] = useState("");
@@ -9587,8 +9819,9 @@ export function AdminCardForm({
   const [cardSet, setCardSet] = useState("");
   const [variant, setVariant] = useState("");
   const [printLabel, setPrintLabel] = useState("");
-  const [catalogCategory, setCatalogCategory] =
-    useState<CatalogCategory>("Single Cards");
+  const [catalogCategory, setCatalogCategory] = useState<CatalogCategory>(
+    initialCatalogCategory,
+  );
   const [imageUrl, setImageUrl] = useState("");
   const [imageStoragePath, setImageStoragePath] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -9619,6 +9852,8 @@ export function AdminCardForm({
       overwriteConfirmedForCardId === duplicateCard.catalogCardId,
   );
   const canConfirmOverwrite = Boolean(duplicateCard) && overwriteConfirmed;
+  const formKind = mainSkuFormKindForCategory(catalogCategory);
+  const isSealedMainSku = isSealedMainSkuKind(formKind);
 
   useEffect(() => {
     return () => {
@@ -9654,18 +9889,19 @@ export function AdminCardForm({
           setImageStoragePath(uploaded.storagePath);
           replaceImagePreviewUrl(uploaded.imageUrl);
         }
+        const catalogCategoryForSave = catalogCategoryValue(catalogCategory);
         const payload = await postJson("/api/ynot/admin/cards", {
-          modelCode: code,
-          cardNumber: cardNumber || null,
+          modelCode: code.trim() || null,
+          cardNumber: isSealedMainSku ? null : cardNumber || null,
           name,
-          series,
+          series: isSealedMainSku ? normalizeSealedProductSeries(series) : series,
           language: language || null,
           releaseYear: releaseYear || null,
           cardSet,
-          variant,
-          printLabel,
+          variant: isSealedMainSku ? "" : variant,
+          printLabel: isSealedMainSku ? "" : printLabel,
           catalogCategory,
-          prizeCategory: prizeCategoryForCatalogCategory(catalogCategory),
+          prizeCategory: prizeCategoryForCatalogCategory(catalogCategoryForSave),
           imageUrl: nextImageUrl,
           imageStoragePath: nextImageStoragePath,
           isTest,
@@ -9732,63 +9968,76 @@ export function AdminCardForm({
   return (
       <section className="admin-panel admin-form-panel soft-card">
         <div className="admin-form-sections">
-          <section className="admin-form-section">
-            <p className="admin-form-section-label">Import</p>
-            <div className="admin-field admin-field-wide">
-              <span>PSA cert</span>
-              <div className="admin-cert-fill">
-                <input
-                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-                  value={psaCert}
-                  onChange={(event) => setPsaCert(event.target.value)}
-                  placeholder="Enter PSA cert to fill product"
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      void fillFromCert();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="admin-cert-fill-btn"
-                  onClick={() => void fillFromCert()}
-                  disabled={filling || !psaCert.trim()}
-                >
-                  {filling ? "Filling…" : "Fill"}
-                </button>
+          {!isSealedMainSku && (
+            <section className="admin-form-section">
+              <p className="admin-form-section-label">Import</p>
+              <div className="admin-field admin-field-wide">
+                <span>PSA cert</span>
+                <div className="admin-cert-fill">
+                  <input
+                    className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                    value={psaCert}
+                    onChange={(event) => setPsaCert(event.target.value)}
+                    placeholder="Enter PSA cert to fill product"
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void fillFromCert();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="admin-cert-fill-btn"
+                    onClick={() => void fillFromCert()}
+                    disabled={filling || !psaCert.trim()}
+                  >
+                    {filling ? "Filling…" : "Fill"}
+                  </button>
+                </div>
+                {fillError && (
+                  <small style={{ color: "#ff8a98" }}>{fillError}</small>
+                )}
               </div>
-              {fillError && (
-                <small style={{ color: "#ff8a98" }}>{fillError}</small>
-              )}
-            </div>
-          </section>
+            </section>
+          )}
           <section className="admin-form-section">
             <p className="admin-form-section-label">Basic</p>
             <div className="admin-form-grid">
-              <AdminField label="Main SKU name" required>
+              <AdminField label={mainSkuNameLabel(formKind)} required>
                 <input
                   className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder="Kaya, Charizard, booster box, or supplies"
+                  placeholder={mainSkuNamePlaceholder(formKind)}
                 />
               </AdminField>
-              <AdminField label="Brands" required>
-                <AdminCardOptionSelect
-                  kind="brand"
-                  value={series}
-                  onChange={setSeries}
-                  placeholder="Select brand…"
-                />
+              <AdminField label={isSealedMainSku ? "Series" : "Prize brand"} required>
+                {isSealedMainSku ? (
+                  <SealedProductSeriesSelect
+                    value={series}
+                    onChange={setSeries}
+                  />
+                ) : (
+                  <AdminCardOptionSelect
+                    kind="brand"
+                    value={series}
+                    onChange={setSeries}
+                    placeholder="Select prize brand…"
+                  />
+                )}
               </AdminField>
-              <AdminField label="Sub-category" required>
-                <AdminCardOptionSelect
-                  kind="catalog_category"
-                  value={catalogCategory}
-                  onChange={setCatalogCategory}
-                  placeholder="Select sub-category…"
-                />
+              <AdminField label={isSealedMainSku ? "Category" : "Sub-category"} required>
+                {lockedCatalogCategory ? (
+                  <LockedCatalogCategoryDisplay catalogCategory={catalogCategory} />
+                ) : (
+                  <AdminCardOptionSelect
+                    kind="catalog_category"
+                    value={catalogCategory}
+                    onChange={setCatalogCategory}
+                    placeholder="Select sub-category…"
+                  />
+                )}
               </AdminField>
             </div>
           </section>
@@ -9796,22 +10045,24 @@ export function AdminCardForm({
           <section className="admin-form-section">
             <p className="admin-form-section-label">Details</p>
             <div className="admin-form-grid">
-              <AdminField label="Model code">
+              <AdminField label={isSealedMainSku ? "Code" : "Model code"}>
                 <input
                   className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
                   value={code}
                   onChange={(event) => setCode(event.target.value)}
-                  placeholder="OP-PSA10-001"
+                  placeholder={isSealedMainSku ? "Optional product code" : "OP-PSA10-001"}
                 />
               </AdminField>
-              <AdminField label="Card number">
-                <input
-                  className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
-                  value={cardNumber}
-                  onChange={(event) => setCardNumber(event.target.value)}
-                  placeholder="057 or #057/204"
-                />
-              </AdminField>
+              {!isSealedMainSku && (
+                <AdminField label="Card number">
+                  <input
+                    className="h-12 rounded-2xl border border-white/10 bg-black/25 px-4"
+                    value={cardNumber}
+                    onChange={(event) => setCardNumber(event.target.value)}
+                    placeholder="057 or #057/204"
+                  />
+                </AdminField>
+              )}
               <AdminField label="Language">
                 <AdminCardOptionSelect
                   kind="language"
@@ -9836,22 +10087,26 @@ export function AdminCardForm({
                   placeholder="Select set…"
                 />
               </AdminField>
-              <AdminField label="Variant">
-                <AdminCardOptionSelect
-                  kind="variant"
-                  value={variant}
-                  onChange={setVariant}
-                  placeholder="Select variant…"
-                />
-              </AdminField>
-              <AdminField label="Print label">
-                <AdminCardOptionSelect
-                  kind="print_label"
-                  value={printLabel}
-                  onChange={setPrintLabel}
-                  placeholder="Select print label…"
-                />
-              </AdminField>
+              {!isSealedMainSku && (
+                <>
+                  <AdminField label="Variant">
+                    <AdminCardOptionSelect
+                      kind="variant"
+                      value={variant}
+                      onChange={setVariant}
+                      placeholder="Select variant…"
+                    />
+                  </AdminField>
+                  <AdminField label="Print label">
+                    <AdminCardOptionSelect
+                      kind="print_label"
+                      value={printLabel}
+                      onChange={setPrintLabel}
+                      placeholder="Select print label…"
+                    />
+                  </AdminField>
+                </>
+              )}
             </div>
           </section>
 
@@ -13312,10 +13567,16 @@ function AdminCardEditModal({
   onClose: () => void;
   onSaved: (card: CardCatalogItem) => void;
 }) {
+  const initialEditFormKind = mainSkuFormKindForCategory(card.catalogCategory);
+  const initialEditIsSealedMainSku = isSealedMainSkuKind(initialEditFormKind);
   const [name, setName] = useState(card.name);
   const [code, setCode] = useState(card.modelCode ?? card.code ?? "");
   const [cardNumber, setCardNumber] = useState(card.cardNumber ?? "");
-  const [series, setSeries] = useState(card.series ?? "Pokemon");
+  const [series, setSeries] = useState(
+    initialEditIsSealedMainSku
+      ? normalizeSealedProductSeries(card.series)
+      : card.series ?? "Pokemon",
+  );
   const [language, setLanguage] = useState(card.language ?? "");
   const [releaseYear, setReleaseYear] = useState(
     card.releaseYear ? String(card.releaseYear) : "",
@@ -13342,6 +13603,8 @@ function AdminCardEditModal({
   const imagePreviewObjectUrlRef = useRef<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const editFormKind = mainSkuFormKindForCategory(catalogCategory);
+  const isEditingSealedMainSku = isSealedMainSkuKind(editFormKind);
 
   useEffect(() => {
     return () => {
@@ -13377,6 +13640,7 @@ function AdminCardEditModal({
         setImageStoragePath(uploaded.storagePath);
         replaceImagePreviewUrl(uploaded.imageUrl);
       }
+      const catalogCategoryForSave = catalogCategoryValue(catalogCategory);
       const response = await fetch("/api/ynot/admin/cards", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -13384,15 +13648,17 @@ function AdminCardEditModal({
           cardId: card.catalogCardId,
           name: name.trim() || card.name,
           modelCode: code.trim() || null,
-          cardNumber: cardNumber.trim() || null,
-          series,
+          cardNumber: isEditingSealedMainSku ? null : cardNumber.trim() || null,
+          series: isEditingSealedMainSku
+            ? normalizeSealedProductSeries(series)
+            : series,
           language: language || null,
           releaseYear: releaseYear || null,
           cardSet,
-          variant,
-          printLabel,
+          variant: isEditingSealedMainSku ? "" : variant,
+          printLabel: isEditingSealedMainSku ? "" : printLabel,
           catalogCategory,
-          prizeCategory: prizeCategoryForCatalogCategory(catalogCategory),
+          prizeCategory: prizeCategoryForCatalogCategory(catalogCategoryForSave),
           imageUrl: nextImageUrl || null,
           imageStoragePath: nextImageStoragePath || null,
           isTest,
@@ -13443,26 +13709,36 @@ function AdminCardEditModal({
         <div className="admin-card-edit-modal-body">
           <div className="admin-form-grid admin-card-edit-grid">
             <label className="admin-field">
-              <span>Main SKU name</span>
+              <span>{mainSkuNameLabel(editFormKind)}</span>
               <input value={name} onChange={(e) => setName(e.target.value)} disabled={pending} />
             </label>
             <label className="admin-field">
-              <span>Model code</span>
+              <span>{isEditingSealedMainSku ? "Code" : "Model code"}</span>
               <input value={code} onChange={(e) => setCode(e.target.value)} disabled={pending} />
             </label>
-            <label className="admin-field">
-              <span>Card number</span>
-              <input value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} disabled={pending} />
-            </label>
+            {!isEditingSealedMainSku && (
+              <label className="admin-field">
+                <span>Card number</span>
+                <input value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} disabled={pending} />
+              </label>
+            )}
             <div className="admin-field">
-              <span>Brands</span>
-              <AdminCardOptionSelect
-                kind="brand"
-                value={series}
-                onChange={setSeries}
-                placeholder="Select brand…"
-                disabled={pending}
-              />
+              <span>{isEditingSealedMainSku ? "Series" : "Prize brand"}</span>
+              {isEditingSealedMainSku ? (
+                <SealedProductSeriesSelect
+                  value={series}
+                  onChange={setSeries}
+                  disabled={pending}
+                />
+              ) : (
+                <AdminCardOptionSelect
+                  kind="brand"
+                  value={series}
+                  onChange={setSeries}
+                  placeholder="Select prize brand…"
+                  disabled={pending}
+                />
+              )}
             </div>
             <div className="admin-field">
               <span>Language</span>
@@ -13494,35 +13770,43 @@ function AdminCardEditModal({
                 disabled={pending}
               />
             </div>
+            {!isEditingSealedMainSku && (
+              <>
+                <div className="admin-field">
+                  <span>Variant</span>
+                  <AdminCardOptionSelect
+                    kind="variant"
+                    value={variant}
+                    onChange={setVariant}
+                    placeholder="Select variant…"
+                    disabled={pending}
+                  />
+                </div>
+                <div className="admin-field">
+                  <span>Print label</span>
+                  <AdminCardOptionSelect
+                    kind="print_label"
+                    value={printLabel}
+                    onChange={setPrintLabel}
+                    placeholder="Select print label…"
+                    disabled={pending}
+                  />
+                </div>
+              </>
+            )}
             <div className="admin-field">
-              <span>Variant</span>
-              <AdminCardOptionSelect
-                kind="variant"
-                value={variant}
-                onChange={setVariant}
-                placeholder="Select variant…"
-                disabled={pending}
-              />
-            </div>
-            <div className="admin-field">
-              <span>Print label</span>
-              <AdminCardOptionSelect
-                kind="print_label"
-                value={printLabel}
-                onChange={setPrintLabel}
-                placeholder="Select print label…"
-                disabled={pending}
-              />
-            </div>
-            <div className="admin-field">
-              <span>Prize catalog</span>
-              <AdminCardOptionSelect
-                kind="catalog_category"
-                value={catalogCategory}
-                onChange={setCatalogCategory}
-                placeholder="Select prize catalog…"
-                disabled={pending}
-              />
+              <span>{isEditingSealedMainSku ? "Category" : "Prize catalog"}</span>
+              {initialEditIsSealedMainSku ? (
+                <LockedCatalogCategoryDisplay catalogCategory={catalogCategory} />
+              ) : (
+                <AdminCardOptionSelect
+                  kind="catalog_category"
+                  value={catalogCategory}
+                  onChange={setCatalogCategory}
+                  placeholder="Select prize catalog…"
+                  disabled={pending}
+                />
+              )}
             </div>
             <div className="admin-field admin-field-wide admin-image-dropzone-field-wrap">
               <AdminImageDropzone

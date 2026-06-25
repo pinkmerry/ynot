@@ -99,6 +99,38 @@ test("auto-start open uses intent-derived idempotency and strips replay URL afte
   assert.match(client, /router\.replace\("\/collection"\)/);
 });
 
+test("browser reload or back cannot double-charge an auto-start, while Continue Pull creates a new paid intent", () => {
+  const helper = read("src/features/ynot/open-intent.ts");
+  const route = read("src/app/api/ynot/gacha/open/route.ts");
+  const client = read("src/features/ynot/client.tsx");
+  const panel = client.match(/export function GachaOpenPanel[\s\S]*?export function AddressForm/)?.[0] ?? "";
+  const fireOpen = client.match(/function fireOpen[\s\S]*?function openAgain/)?.[0] ?? "";
+  const openAgain = client.match(/function openAgain[\s\S]*?function openPullAllAgain/)?.[0] ?? "";
+  const autoStartEffect = client.match(/const autoStartFiredRef[\s\S]*?const openAgainOptions/)?.[0] ?? "";
+
+  assert.match(helper, /const normalized = normalizeOpenIntentId\(intentId\)/);
+  assert.match(helper, /const safeCampaign = campaignId\.trim\(\)\.toLowerCase\(\)/);
+  assert.match(helper, /const safeQuantity = Math\.max\(1, Math\.round\(Number\(quantity\) \|\| 1\)\)/);
+  assert.match(helper, /return `\$\{openIntentPrefix\}:\$\{safeCampaign\}:\$\{safeQuantity\}:\$\{normalized\}`;/);
+  assert.match(helper, /return `\$\{openIntentPrefix\}:\$\{safeCampaign\}:\$\{safeQuantity\}:\$\{createOpenIntentId\(\)\}`;/);
+
+  assert.match(helper, /url\.searchParams\.delete\("auto"\)/);
+  assert.match(helper, /window\.history\.replaceState\(window\.history\.state, "", url\.toString\(\)\)/);
+  assert.doesNotMatch(helper, /searchParams\.delete\("intent"\)/);
+  assert.doesNotMatch(helper, /searchParams\.delete\("qty"\)/);
+
+  assert.match(autoStartEffect, /if \(autoStartFiredRef\.current\) return/);
+  assert.match(autoStartEffect, /autoStartFiredRef\.current = true;[\s\S]*fireOpen\(initialOption\)/);
+  assert.match(fireOpen, /if \(openRequestInFlightRef\.current\) return/);
+  assert.match(fireOpen, /idempotencyKey: openIntentIdempotencyKey\(\s*intentId \?\? openIntentId \?\? null,\s*campaign\.id,\s*targetQuantity/s);
+  assert.match(fireOpen, /stripOpenAutoStartUrl\(\)/);
+  assert.match(route, /const idempotencyKey = normalizeIdempotencyKey\(body\?\.idempotencyKey\)/);
+  assert.match(route, /p_idempotency_key: idempotencyKey/);
+
+  assert.match(openAgain, /fireOpen\(nextQuantity,\s*createOpenIntentId\(\)\)/);
+  assert.doesNotMatch(openAgain, /fireOpen\(nextQuantity,\s*openIntentId/);
+});
+
 test("first auto-start pull preserves 1, 10, and 100 quantities as one open call", () => {
   const openPage = read("src/app/(store)/gacha/[campaignId]/open/page.tsx");
   const client = read("src/features/ynot/client.tsx");
@@ -142,6 +174,7 @@ test("repeat pull options use locally updated remaining stock from open result",
   const overlay = read("src/features/ynot/GachaRevealOverlay.tsx");
   const panel = client.match(/export function GachaOpenPanel[\s\S]*?export function AddressForm/)?.[0] ?? "";
   const fireOpen = client.match(/function fireOpen[\s\S]*?function openAgain/)?.[0] ?? "";
+  const finish = client.match(/const handleRevealFinish[\s\S]*?\}, \[campaign\.slug, router\]\);/)?.[0] ?? "";
 
   assert.match(panel, /const \[remainingState,\s*setRemainingState\]\s*=\s*useState/);
   assert.match(panel, /campaign\.remainingSlots/);
@@ -159,10 +192,18 @@ test("repeat pull options use locally updated remaining stock from open result",
   assert.match(fireOpen, /\.\.\.current/);
   assert.match(fireOpen, /\.\.\.result\.remaining/);
   assert.match(panel, /const visibleRemainingSlots =[\s\S]*remainingState\.remainingSlots \?\? remainingOpenUnits/);
+  assert.match(panel, /pullAllQuantity\(\{[\s\S]*remainingSlots: visibleRemainingSlots/);
+  assert.match(panel, /totalSlots: campaign\.totalSlots/);
+  assert.match(panel, /hasLastPrize: campaign\.hasLastPrize/);
+  assert.match(panel, /campaign\.pullAllReady === true/);
+  assert.match(panel, /quantity: pullAllRepeatQuantity/);
   assert.match(panel, /remainingSlots=\{visibleRemainingSlots\}/);
   assert.match(overlay, /remainingSlots\?: number/);
   assert.match(overlay, /Number\.isFinite\(remainingSlots\)/);
   assert.match(overlay, /gacha-reveal-repeat-stock-left/);
+  assert.match(finish, /setOpeningOverlayVisible\(false\)/);
+  assert.doesNotMatch(finish, /setOpeningOverlayVisible\(true\)/);
+  assert.match(finish, /router\.replace\(detailHref\)/);
 });
 
 test("reveal summary action buttons stay clickable above the auto-skip toggle", () => {
@@ -176,6 +217,7 @@ test("reveal summary action buttons stay clickable above the auto-skip toggle", 
   );
 
   assert.match(footer, /className="gacha-reveal-dock"/);
+  assert.match(footer, /className="gacha-reveal-repeat-row"/);
   assert.match(footer, /className="gacha-reveal-toggle"/);
   assert.match(footer, /View collection/);
   assert.match(
@@ -193,6 +235,14 @@ test("reveal summary action buttons stay clickable above the auto-skip toggle", 
   assert.match(
     css,
     /\.gacha-reveal-summary-footer \.gacha-reveal-dock-action \{[\s\S]*pointer-events:\s*auto;/,
+  );
+  assert.match(
+    css,
+    /\.gacha-reveal-repeat-stack \{[\s\S]*pointer-events:\s*auto;/,
+  );
+  assert.match(
+    css,
+    /\.gacha-reveal-repeat-action \{[\s\S]*pointer-events:\s*auto;/,
   );
   assert.match(
     css,
@@ -291,11 +341,11 @@ test("customer Pull All uses the real quote/start flow and stays separate from x
   assert.match(revealPanel, /const pullAllRevealActive =[\s\S]*Boolean\(pullAllRevealSession\)/);
   assert.match(revealPanel, /const revealOverlay = revealResult && !pullAllRevealActive/);
   assert.match(revealPanel, /displayQuantity=\{pullAllRevealSession\.totalPurchasedRewards\}/);
-  assert.match(revealPanel, /summaryTitle="Top rewards"/);
-  assert.match(revealPanel, /summaryNote=\{pullAllRevealSummaryNote\(pullAllRevealSession\)\}/);
+  assert.match(revealPanel, /summaryTitle=\{<I18nText en="Top rewards" th="รางวัลเด่น" \/>\}/);
+  assert.match(revealPanel, /summaryNote=\{pullAllRevealSummaryNote\(pullAllRevealSession,\s*language\)\}/);
   assert.match(revealOverlay, /displayQuantity\?: number/);
-  assert.match(revealOverlay, /summaryNote\?: string/);
-  assert.match(revealOverlay, /summaryTitle = "Your haul"/);
+  assert.match(revealOverlay, /summaryNote\?: ReactNode/);
+  assert.match(revealOverlay, /summaryTitle \?\? <I18nText en="Your Reward" th="รางวัลของคุณ" \/>/);
   assert.match(revealOverlay, /const displayedPullCount = Math\.max/);
   assert.match(revealOverlay, /gacha-reveal-summary-note/);
   assert.doesNotMatch(revealPanel, /onOpenAgain\(pullAll|openAgain\(pullAll/);
@@ -359,6 +409,120 @@ test("Pull All does not replace configured normal open quantity buttons", () => 
   assert.match(
     revealPanel,
     /pullAllRepeatOption \? \[\.\.\.openAgainOptions, pullAllRepeatOption\] : openAgainOptions/,
+  );
+});
+
+test("active pack detail prize images stay in fixed-size card tracks", () => {
+  const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
+
+  assert.match(
+    arena,
+    /className=(?:"ac-tier ac-tier-last"|\{"ac-tier ac-tier-last"\})/,
+    "last prize section should render the ac-tier-last class used by the desktop grid contract",
+  );
+  assert.match(
+    arena,
+    /\.ac-tier-rainbow \.ac-grid,[\s\S]*\.ac-tier-last \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/,
+    "grand and last prize rows should use 4 larger cards on desktop",
+  );
+  assert.match(
+    arena,
+    /\.ac-tier-gold \.ac-grid,[\s\S]*\.ac-tier-silver \.ac-grid,[\s\S]*\.ac-tier-bronze \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);/,
+    "first, second, and third prize rows should use 6 cards on desktop",
+  );
+  assert.match(
+    arena,
+    /@media \(min-width:\s*921px\) and \(max-width:\s*1180px\) \{[\s\S]*\.ac-tier-rainbow \.ac-grid,[\s\S]*\.ac-tier-last \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);[\s\S]*\.ac-tier-gold \.ac-grid,[\s\S]*\.ac-tier-silver \.ac-grid,[\s\S]*\.ac-tier-bronze \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/,
+    "tablet widths should reduce prize grids before the mobile breakpoint",
+  );
+  assert.match(
+    arena,
+    /@media \(max-width:\s*\d+px\) \{[\s\S]*\.ac-grid,[\s\S]*\.ac-tier-rainbow \.ac-grid,[\s\S]*\.ac-tier-last \.ac-grid,[\s\S]*\.ac-tier-gold \.ac-grid,[\s\S]*\.ac-tier-silver \.ac-grid,[\s\S]*\.ac-tier-bronze \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/,
+    "mobile should keep a two-card grid for all prize tiers",
+  );
+  assert.match(
+    arena,
+    /\.ac-slab-art img \{[\s\S]*width:\s*100%;[\s\S]*height:\s*100%;[\s\S]*object-fit:\s*contain;/,
+    "prize images should fit inside the fixed card frame without cropping",
+  );
+  assert.match(
+    arena,
+    /\.ac-lightbox-backdrop \{[\s\S]*padding:\s*24px;[\s\S]*box-sizing:\s*border-box;/,
+    "lightbox backdrop should keep viewport padding in the box model",
+  );
+  assert.match(
+    arena,
+    /\.ac-lightbox-main \{[\s\S]*max-width:\s*min\(100%,\s*560px\);[\s\S]*max-height:\s*min\(68vh,\s*620px\);[\s\S]*object-fit:\s*contain;/,
+    "lightbox main image should be contained within a bounded viewport stage",
+  );
+});
+
+test("active pack detail fan cards open the spinning lightbox", () => {
+  const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
+  const fanButton =
+    arena.match(
+      /<button(?:(?!<\/button>)[\s\S])*className=\{`ac-fan-card\$\{o === 0 \? " is-center" : ""\}`\}(?:(?!<\/button>)[\s\S])*<\/button>/,
+    )?.[0] ?? "";
+
+  assert.match(
+    arena,
+    /const\s+openPrizeLightbox\s*=\s*\(\s*slab:\s*Slab\s*\)\s*=>\s*(?:\{\s*)?setLightbox\(slab\);?(?:\s*\})?/,
+    "pack detail should expose one shared prize-lightbox opener",
+  );
+  assert.match(
+    arena,
+    /const\s+isVisible\s*=\s*abs\s*<=\s*visHalf;/,
+    "fan-card rendering should distinguish visible cards from hidden animation buffers",
+  );
+  assert.match(
+    fanButton,
+    /type="button"/,
+    "top fan cards should be rendered as buttons",
+  );
+  assert.match(
+    fanButton,
+    /tabIndex=\{isVisible \? 0 : -1\}/,
+    "hidden fan-card buffer buttons should be removed from tab order",
+  );
+  assert.match(
+    fanButton,
+    /aria-hidden=\{!isVisible\}/,
+    "hidden fan-card buffer buttons should be hidden from assistive tech",
+  );
+  assert.match(
+    fanButton,
+    /onClick=\{isVisible \? \(\) => openPrizeLightbox\(s\) : undefined\}/,
+    "only visible fan cards should be clickable buttons that open the lightbox",
+  );
+  assert.match(
+    arena,
+    /pointerEvents:\s*isVisible \? undefined : "none"/,
+    "hidden fan-card buffers should not receive pointer events",
+  );
+  assert.match(
+    fanButton,
+    /aria-label=\{isVisible \? \(language === "th" \? `ดูภาพรางวัล \$\{s\.name\}` : `View prize image \$\{s\.name\}`\) : undefined\}/,
+    "visible fan-card buttons should have localized accessible labels",
+  );
+  assert.doesNotMatch(
+    fanButton,
+    /onClick=\{\(\) => openPrizeLightbox\(s\)\}/,
+    "fan-card buttons should not keep hidden buffer cards clickable",
+  );
+  assert.doesNotMatch(
+    arena,
+    /<div className=\{`ac-fan-card\$\{o === 0 \? " is-center" : ""\}`\}/,
+    "top fan cards should not remain non-interactive divs",
+  );
+  assert.match(
+    arena,
+    /\.ac-fan-card \{[\s\S]*border:\s*0;[\s\S]*padding:\s*0;[\s\S]*cursor:\s*pointer;/,
+    "fan-card button reset should keep the existing visual treatment",
+  );
+  assert.match(
+    arena,
+    /\.ac-fan-card:focus-visible \{[\s\S]*outline:\s*2px solid #000;/,
+    "fan-card buttons should have a visible keyboard focus state",
   );
 });
 
@@ -448,6 +612,7 @@ test("localhost preview opens land public rewards in the preview bag", () => {
   assert.match(data, /campaigns: projectedCampaigns/);
   assert.match(data, /localPreviewAfter60RemainingSlots/);
   assert.match(data, /pullAllAvailable: true/);
+  assert.match(data, /pullAllReady: true/);
   assert.match(data, /pullAllReadinessStatus: "ready"/);
   assert.match(data, /previewCollectionForProfile/);
   assert.match(data, /previewOpenHistoryForProfile/);

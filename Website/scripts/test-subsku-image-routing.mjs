@@ -273,7 +273,7 @@ test("opening reward history carries a public image URL only", () => {
 test("shipping history images come from the won stock unit only", () => {
   const dataSource = readSource("../src/features/ynot/data.ts");
   const shippingSource =
-    dataSource.match(/export async function getShipping[\s\S]*?export async function getAddresses/)?.[0] ??
+    dataSource.match(/export async function getAdminShippingFulfillment[\s\S]*?export async function getShipping/)?.[0] ??
     "";
 
   assert.match(
@@ -308,8 +308,8 @@ test("stock-unit enrichment uses the batched reader on customer collection, hist
   );
   const shippingSource = between(
     dataSource,
+    "export async function getAdminShippingFulfillment",
     "export async function getShipping",
-    "export async function getAddresses",
     "shipping loader",
   );
 

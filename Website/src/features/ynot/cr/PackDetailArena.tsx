@@ -252,6 +252,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
 
   // Arena-style card lightbox — click a slab to inspect it big
   const [lightbox, setLightbox] = useState<Slab | null>(null);
+  const openPrizeLightbox = (slab: Slab) => setLightbox(slab);
   useEffect(() => {
     if (!lightbox) return;
     const onKey = (e: KeyboardEvent) => {
@@ -305,6 +306,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                 const idx = ((center + o) % n + n) % n;
                 const s = fanSlabs[idx];
                 const abs = Math.abs(o);
+                const isVisible = abs <= visHalf;
                 // arenaclub-style row: big upright slabs, no tilt, side cards
                 // tucked behind the center one at full opacity. Per-tier scale
                 // off the 400px base width: center 400 / 1st 300 / 2nd 250.
@@ -319,18 +321,28 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                   // on the fan anchor before the row offset applies
                   transform: `translate(-50%, -50%) translateX(${fanX}px) scale(${fanScale})`,
                   zIndex: 10 - abs,
-                  opacity: abs > visHalf ? 0 : 1,
+                  opacity: isVisible ? 1 : 0,
                   filter: o === 0 ? "none" : "brightness(0.95)",
+                  pointerEvents: isVisible ? undefined : "none",
                 };
                 return (
-                  <div className={`ac-fan-card${o === 0 ? " is-center" : ""}`} style={style} key={s.key}>
+                  <button
+                    type="button"
+                    className={`ac-fan-card${o === 0 ? " is-center" : ""}`}
+                    style={style}
+                    key={s.key}
+                    tabIndex={isVisible ? 0 : -1}
+                    aria-hidden={!isVisible}
+                    onClick={isVisible ? () => openPrizeLightbox(s) : undefined}
+                    aria-label={isVisible ? (language === "th" ? `ดูภาพรางวัล ${s.name}` : `View prize image ${s.name}`) : undefined}
+                  >
                     {s.img ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={s.img} alt={s.name} />
                     ) : (
                       <span className="ac-fan-ph">{initials(s.name)}</span>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -418,7 +430,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                       type="button"
                       className="ac-slab"
                       key={s.key}
-                      onClick={() => setLightbox(s)}
+                      onClick={() => openPrizeLightbox(s)}
                       style={{ ["--accent"]: TIER_ACCENT[tier] } as CSSProperties}
                     >
                       <div className="ac-slab-art">
@@ -481,7 +493,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
               .filter(Boolean)
               .join(" ");
             return (
-              <div className="ac-tier">
+              <div className="ac-tier ac-tier-last">
                 <div className="ac-tier-head">
                   <h3><I18nText en={LAST_PRIZE_NAME} th="รางวัลสุดท้าย" /></h3>
                   <span className="ac-muted">
@@ -495,7 +507,7 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                   <button
                     type="button"
                     className="ac-slab"
-                    onClick={() => setLightbox(lastPrizeSlab)}
+                    onClick={() => openPrizeLightbox(lastPrizeSlab)}
                     style={{ ["--accent"]: LAST_PRIZE_ACCENT } as CSSProperties}
                   >
                     <div className="ac-slab-art">
@@ -900,7 +912,8 @@ const baseCss = `
   .ac-fan { position: relative; width: 400px; height: 556px; }
   /* no fill behind the art — images are transparent already, so the shadow
      rides on the image alpha (drop-shadow) instead of the element box */
-  .ac-fan-card { position: absolute; left: 50%; top: 50%; width: 400px; height: auto; transition: transform 0.45s cubic-bezier(.2,.7,.2,1), opacity 0.45s ease; display: flex; align-items: center; justify-content: center; background: transparent; }
+  .ac-fan-card { position: absolute; left: 50%; top: 50%; width: 400px; height: auto; transition: transform 0.45s cubic-bezier(.2,.7,.2,1), opacity 0.45s ease; display: flex; align-items: center; justify-content: center; background: transparent; border: 0; padding: 0; margin: 0; appearance: none; text-align: inherit; cursor: pointer; }
+  .ac-fan-card:focus-visible { outline: 2px solid #000; outline-offset: 8px; }
   .ac-fan-card img { filter: drop-shadow(0 18px 28px rgba(0,0,0,0.28)); }
   .ac-fan-card.is-center img { filter: drop-shadow(0 26px 40px rgba(0,0,0,0.4)); }
   /* width is LOCKED (the card box is 400px wide) and height follows each
@@ -977,7 +990,7 @@ const baseCss = `
   .ac-drawer-body .ac-cl-body { max-height: none; padding-right: 0; }
   /* Arena-style card lightbox + the Courtyard turntable sway (see
      PackDetailExperience .cr-feat-turn — flat scans, so sway not real 360) */
-  .ac-lightbox-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; animation: ac-fade-in 0.2s ease; }
+  .ac-lightbox-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; animation: ac-fade-in 0.2s ease; }
   /* K4 stage: every technique together on bright mint — medium vignette,
      skylight from the top (::before), white halo behind the card (::after),
      and a very faint glass reflection swaying along below. An invisible
@@ -986,21 +999,20 @@ const baseCss = `
   /* panel is a fixed 3:4 portrait; inner zones are percentages of its
      height (19% spacer / 62% card / 19% reflection) so the card stays
      dead-center at any screen size */
-  .ac-lightbox { --lbw: min(600px, 90vw, 64.5vh); --lbh: calc(var(--lbw) * 4 / 3); position: relative; overflow: hidden; background: radial-gradient(95% 75% at 50% 42%, #f4fcf4 0%, #ebf8eb 45%, #cde4ce 78%, #afcdb1 100%); padding: 24px; width: var(--lbw); height: var(--lbh); display: flex; align-items: center; justify-content: center; animation: ac-pop 0.28s ease; }
+  .ac-lightbox { position: relative; overflow: hidden; background: radial-gradient(95% 75% at 50% 42%, #f4fcf4 0%, #ebf8eb 45%, #cde4ce 78%, #afcdb1 100%); padding: 24px; box-sizing: border-box; width: min(560px, calc(100vw - 48px)); max-height: calc(100vh - 48px); display: flex; align-items: center; justify-content: center; animation: ac-pop 0.28s ease; }
   .ac-lightbox::before { content: ""; position: absolute; inset: 0; background: radial-gradient(66% 46% at 50% -8%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0) 70%); }
   .ac-lightbox::after { content: ""; position: absolute; width: 64%; height: 54%; left: 18%; top: 17%; border-radius: 50%; background: #fff; filter: blur(44px); opacity: 0.95; }
   /* perspective only reaches DIRECT children, so it lives on each image's
      immediate parent — without it rotateY degrades into a width squeeze */
-  .ac-lightbox-card { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; height: 100%; width: 100%; perspective: 800px; }
-  .ac-lightbox-card::before { content: ""; height: calc((var(--lbh) - 48px) * 0.103); flex-shrink: 0; }
+  .ac-lightbox-card { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; width: 100%; max-height: calc(100vh - 96px); perspective: 800px; }
   /* the ONE animated element — card and reflection ride inside it */
-  .ac-lightbox-turn { display: flex; flex-direction: column; align-items: center; align-self: stretch; animation: ac-card-turn 8s ease-in-out infinite; }
-  .ac-lightbox-main { display: block; height: calc((var(--lbh) - 48px) * 0.794); max-width: 100%; object-fit: contain; filter: drop-shadow(0 14px 14px rgba(13, 20, 17, 0.2)); }
+  .ac-lightbox-turn { display: flex; flex-direction: column; align-items: center; justify-content: center; max-width: 100%; max-height: calc(100vh - 96px); transform-style: preserve-3d; animation: ac-card-turn 8s ease-in-out infinite; }
+  .ac-lightbox-main { display: block; width: auto; height: auto; max-width: min(100%, 560px); max-height: min(68vh, 620px); object-fit: contain; filter: drop-shadow(0 14px 14px rgba(13, 20, 17, 0.2)); }
   /* the clip runs through the panel's bottom padding (negative margin) so
      the reflection bleeds all the way to the bottom edge; the mask is tuned
      to hit zero right at that edge — no cut line */
-  .ac-lightbox-refl-clip { height: calc((var(--lbh) - 48px) * 0.103 - 2px + 24px); overflow: hidden; margin-top: 2px; margin-bottom: -24px; align-self: stretch; }
-  .ac-lightbox-refl { display: block; margin: 0 auto; height: calc((var(--lbh) - 48px) * 0.794); max-width: 100%; object-fit: contain; transform: scaleY(-1); opacity: 0.28; filter: blur(1px); -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0) 19%); mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0) 19%); }
+  .ac-lightbox-refl-clip { max-width: 100%; overflow: hidden; margin-top: 2px; margin-bottom: -24px; align-self: stretch; }
+  .ac-lightbox-refl { display: block; margin: 0 auto; width: auto; height: auto; max-width: min(100%, 560px); max-height: min(68vh, 620px); object-fit: contain; transform: scaleY(-1); opacity: 0.28; filter: blur(1px); -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0) 19%); mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0) 19%); }
   /* courtyard.io-style display sway (user-tuned ±21°) + a soft 7px float;
      the reflection runs the same path inside flipped (scaleY(-1)) space, so
      the same translateY reads as the mirror-correct opposite direction */
@@ -1029,12 +1041,21 @@ const baseCss = `
   .ac-tier-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px; }
   .ac-tier-head h3 { font-size: clamp(16px, 1.05vw, 24px); font-weight: 600; line-height: 1.2; letter-spacing: 0.04em; margin: 0; color: #000; }
   /* FoG collection-grid gaps: row gap double the column gap */
-  .ac-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 274px)); gap: 40px 20px; align-items: start; justify-content: center; }
+  .ac-grid { display: grid; gap: 40px 20px; align-items: start; justify-content: center; }
   /* prize tiers share one bounded card size so GRAND / LAST prizes do not
      stretch into a zoomed full-width image when a tier only has one reward. */
+  .ac-tier-rainbow .ac-grid,
+  .ac-tier-last .ac-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .ac-tier-gold .ac-grid,
   .ac-tier-silver .ac-grid,
-  .ac-tier-bronze .ac-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 274px)); }
+  .ac-tier-bronze .ac-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  @media (min-width: 921px) and (max-width: 1180px) {
+    .ac-tier-rainbow .ac-grid,
+    .ac-tier-last .ac-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .ac-tier-gold .ac-grid,
+    .ac-tier-silver .ac-grid,
+    .ac-tier-bronze .ac-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
   /* reserve room for 3 text lines so 2- and 3-line cards take the same height
      and every card's text stays top-aligned (no shifting down) */
   .ac-slab-info { min-height: calc(3 * 1.35em); }
@@ -1067,6 +1088,8 @@ const baseCss = `
     /* FoG mobile grid: 2 cards per row (minmax(0,1fr) so long names can't
        blow the track wider than the screen) */
     .ac-grid,
+    .ac-tier-rainbow .ac-grid,
+    .ac-tier-last .ac-grid,
     .ac-tier-gold .ac-grid,
     .ac-tier-silver .ac-grid,
     .ac-tier-bronze .ac-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12.5px; }

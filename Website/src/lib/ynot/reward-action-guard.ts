@@ -205,7 +205,10 @@ export function shippingRewardActionErrorMessage(message?: string) {
   if (message.includes("collection_items_required")) {
     return "Select at least one card.";
   }
-  if (message.includes("shipping_minimum_coin_value_required")) {
+  if (
+    message.includes("shipping_minimum_coin_value_required") ||
+    message.includes("shipping_minimum_not_met")
+  ) {
     return "A total of 1,000 coins or more in selected cards is required for shipping.";
   }
   if (message.includes("valid_shipping_address_required")) {

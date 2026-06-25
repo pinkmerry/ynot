@@ -77,6 +77,12 @@ const shippingEventHandoffMigration = readOptionalUrl(
 const shippingJobsMigration = readOptionalUrl(
   new URL("../../Database/supabase/migrations/20260620090000_shipping_request_jobs.sql", import.meta.url),
 );
+const shippingPullAllRecoveryMigration = readOptionalUrl(
+  new URL(
+    "../../Database/supabase/migrations/20260624103616_fix_shipping_and_pull_all_async_jobs.sql",
+    import.meta.url,
+  ),
+);
 const shippingStatusSource = readOptionalUrl(
   new URL("../src/features/ynot/shipping-status.ts", import.meta.url),
 );
@@ -388,6 +394,43 @@ test("shipping migration adds quote job pipeline with service-role RPCs only", (
   );
 });
 
+test("shipping recovery migration aligns collection item request link with job processors", () => {
+  assert.ok(shippingPullAllRecoveryMigration, "missing shipping + Pull All recovery migration");
+
+  const recoverySql = compactSql(shippingPullAllRecoveryMigration);
+  const processChunk = compactSql(functionBlock(shippingJobsMigration, "process_shipping_request_chunk"));
+  const requestShippingForItems = compactSql(functionBlock(shippingJobsMigration, "request_shipping_for_items"));
+  const updateShippingRequestStatus = compactSql(
+    functionBlock(shippingJobsMigration, "update_shipping_request_status"),
+  );
+
+  assert.match(
+    recoverySql,
+    /alter table public\.collection_items add column if not exists shipping_request_id uuid references public\.shipping_requests\(id\) on delete set null/,
+    "recovery migration should add the request link used by shipping processors",
+  );
+  assert.match(
+    recoverySql,
+    /create index if not exists collection_items_shipping_request_id_idx/,
+    "recovery migration should index the request link used by recovery/admin lookups",
+  );
+  assert.match(
+    processChunk,
+    /shipping_request_id = job_row\.shipping_request_id/,
+    "chunk processor writes the request link when claiming items",
+  );
+  assert.match(
+    requestShippingForItems,
+    /shipping_request_id = shipping_row\.id/,
+    "legacy fallback writes the same request link",
+  );
+  assert.match(
+    updateShippingRequestStatus,
+    /shipping_request_id = null/,
+    "status reset path clears the same request link",
+  );
+});
+
 test("shipping quote is non-mutating, verifies address and 1000 coin minimum, and supports all eligible without browser IDs", () => {
   const quote = compactSql(functionBlock(shippingJobsMigration, "prepare_shipping_request_quote"));
   const guard = readFileSync(
@@ -637,7 +680,8 @@ test("Customer Bag shipping UI quotes selected cards or all eligible without sen
   assert.match(history, /type ShippingSelectionMode = "selected" \| "all_eligible"/);
   assert.match(history, /function openShip\(nextMode: ShippingSelectionMode/);
   assert.match(history, /selectionMode:\s*"selected"/);
-  assert.match(history, /collectionItemIds:\s*selectedCards\.map\(\(card\) => card\.id\)/);
+  assert.match(history, /collectionItemIds:\s*selectedShippableCards\.map\(\(card\) => card\.id\)/);
+  assert.match(history, /selectedNonShippableCount > 0/);
   assert.match(history, /selectionMode:\s*"all_eligible"/);
   assert.match(history, /No shippable rewards are ready for shipping/);
   const allEligibleQuoteBody = between(
@@ -1179,9 +1223,14 @@ test("localhost preview supports address and shipping request mock data", () => 
 
   assert.match(previewStore, /previewAddressesForProfile/);
   assert.match(previewStore, /savePreviewAddressForProfile/);
+  assert.match(previewStore, /preparePreviewShippingQuote/);
+  assert.match(previewStore, /startPreviewShipping/);
   assert.match(previewStore, /requestPreviewShipping/);
+  assert.match(previewStore, /previewCurrentShippingForProfile/);
   assert.match(previewStore, /previewShippingForProfile/);
   assert.match(previewStore, /addressActionToken/);
+  assert.match(previewStore, /quoteToken: crypto\.randomUUID\(\)/);
+  assert.match(previewStore, /shipping_minimum_not_met/);
   assert.match(previewStore, /status: "shipping_requested"/);
   assert.doesNotMatch(previewStore, /draw_round_prize_units|card_stock_unit_id|stockUnitGroupKey/);
 
@@ -1190,9 +1239,14 @@ test("localhost preview supports address and shipping request mock data", () => 
   assert.match(addressRoute, /session\.authUserId === "preview-user"/);
 
   assert.match(shippingRoute, /isDevAuthAllowed/);
+  assert.match(shippingRoute, /preparePreviewShippingQuote/);
+  assert.match(shippingRoute, /startPreviewShipping/);
   assert.match(shippingRoute, /requestPreviewShipping/);
   assert.match(shippingRoute, /session\.authUserId === "preview-user"/);
-  assert.match(shippingRoute, /result:\s*presentShippingLegacyResult\(previewShipping\)/);
+  assert.match(shippingRoute, /quote:\s*presentShippingQuote\(previewQuote\)/);
+  assert.match(shippingRoute, /shipping:\s*presentShippingProgress\(previewShipping\)/);
+  assert.match(shippingCurrentRoute, /previewCurrentShippingForProfile/);
+  assert.match(shippingCurrentRoute, /presentShippingProgress/);
   assert.match(dataSource, /previewAddressesForProfile/);
   assert.match(dataSource, /previewShippingForProfile/);
   assert.match(dataSource, /previewExchangesForProfile/);

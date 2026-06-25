@@ -130,7 +130,7 @@ test("localhost preview can quote and start Pull All after the 60 percent sold s
     /preparePreviewPullAllQuote/,
     /targetRewards: 35/,
     /soldPct: 65/,
-    /return Response\.json\(\{ quote: previewQuote \}\)/,
+    /wallet:\s*await readWalletSnapshot\(session\.profileId\)/,
   ], "preview pull-all quote route");
 
   requireAll(start, [

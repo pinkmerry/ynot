@@ -35,6 +35,8 @@
     "test:prize-unit-identity-guards": "node --test scripts/test-prize-unit-identity-guards.mjs",
     "test:top-up-flow": "node --test scripts/test-top-up-flow.mjs",
     "test:reward-conversion-flow": "node --test scripts/test-reward-conversion-flow.mjs",
+    "test:reward-fulfillment-policy": "node --test scripts/test-reward-fulfillment-policy.mjs",
+    "test:collection-pagination-contract": "node --test scripts/test-collection-pagination-contract.mjs",
     "test:shipping-flow": "node --test scripts/test-shipping-flow.mjs",
     "test:rate-limits": "node --test scripts/test-rate-limit-config.mjs",
     "test:card-catalog-metadata": "node --test scripts/test-card-catalog-metadata.mjs",

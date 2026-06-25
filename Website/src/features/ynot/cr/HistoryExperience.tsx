@@ -182,10 +182,25 @@ function enrich(item: YnotCollectionItem, language: Language): EnrichedItem | nu
 
 function isConvertibleReward(item: EnrichedItem) {
   if (item.bucket !== "owned") return false;
+  if (!item.canConvert) return false;
   if ((item.sellValueCoins ?? 0) <= 0) return false;
   if (!item.convertExpiresAt) return true;
   const expiresAt = new Date(item.convertExpiresAt).getTime();
   return Number.isFinite(expiresAt) && expiresAt > Date.now();
+}
+
+function isShippableReward(item: EnrichedItem) {
+  return item.bucket === "owned" && item.canShip;
+}
+
+function rewardPolicyLabel(item: EnrichedItem, language: Language) {
+  if (item.fulfillmentPolicy === "ship_only") {
+    return localized({ en: "Ship only", th: "จัดส่งเท่านั้น" }, language);
+  }
+  if (item.fulfillmentPolicy === "convert_only") {
+    return localized({ en: "Sell only", th: "แลกเหรียญเท่านั้น" }, language);
+  }
+  return null;
 }
 
 function numberFrom(value: unknown) {
@@ -425,7 +440,9 @@ export function HistoryExperience({
   }
 
   const selectedCards = enriched.filter((c) => selected.has(c.id) && c.bucket === "owned");
-  const ownedShipCards = enriched.filter((c) => c.bucket === "owned");
+  const ownedShipCards = enriched.filter(isShippableReward);
+  const selectedShippableCards = selectedCards.filter(isShippableReward);
+  const selectedNonShippableCount = selectedCards.length - selectedShippableCards.length;
   const selectedConvertibleCards = selectedCards.filter(isConvertibleReward);
   const selectedNonConvertibleCount = selectedCards.length - selectedConvertibleCards.length;
   const sellTotal = selectedConvertibleCards.reduce(
@@ -440,9 +457,13 @@ export function HistoryExperience({
   const sellActive = Boolean(sellProgress && !conversionIsTerminal(sellProgress));
   const shipBusy = shipPreparing || shipConfirming;
   const shipQuoteExpired = shippingQuoteIsExpired(shipQuote);
-  const displayedShipCount = shipQuote?.itemCount ?? selectedCards.length;
-  const displayedShipTotal = shipQuote?.selectedCoinValue ?? selectedCards.reduce(
-    (sum, c) => sum + (c.sellValueCoins ?? 0),
+  const displayedShipCards = selectedCards.length ? selectedShippableCards : ownedShipCards;
+  const displayedShipCount = shipQuote?.itemCount ?? displayedShipCards.length;
+  const displayedShipTotal = shipQuote?.selectedCoinValue ?? displayedShipCards.reduce(
+    (sum, c) =>
+      c.fulfillmentPolicy === "ship_or_convert"
+        ? sum + (c.sellValueCoins ?? 0)
+        : sum,
     0,
   );
 
@@ -797,6 +818,21 @@ export function HistoryExperience({
     };
   }, []);
 
+  function toastSelectedNonShippable() {
+    toast(
+      "error",
+      localized(
+        {
+          en: `Remove ${selectedNonShippableCount} non-shippable reward${
+            selectedNonShippableCount === 1 ? "" : "s"
+          } before requesting shipping.`,
+          th: `นำรางวัลที่จัดส่งไม่ได้ออก ${selectedNonShippableCount} รายการก่อนขอจัดส่ง`,
+        },
+        language,
+      ),
+    );
+  }
+
   function openShip(nextMode: ShippingSelectionMode) {
     if (shipActive) {
       setShipOpen(true);
@@ -827,6 +863,14 @@ export function HistoryExperience({
           language,
         ),
       );
+      return;
+    }
+    if (nextMode === "selected" && selectedNonShippableCount > 0) {
+      toastSelectedNonShippable();
+      return;
+    }
+    if (nextMode === "selected" && !selectedShippableCards.length) {
+      toast("error", localized({ en: "No shippable rewards selected.", th: "ยังไม่ได้เลือกรางวัลที่จัดส่งได้" }, language));
       return;
     }
     if (nextMode === "all_eligible" && !ownedShipCards.length) {
@@ -872,6 +916,14 @@ export function HistoryExperience({
       toast("error", localized({ en: "Select at least one card.", th: "เลือกการ์ดอย่างน้อย 1 ใบ" }, language));
       return;
     }
+    if (shipMode === "selected" && selectedNonShippableCount > 0) {
+      toastSelectedNonShippable();
+      return;
+    }
+    if (shipMode === "selected" && !selectedShippableCards.length) {
+      toast("error", localized({ en: "No shippable rewards selected.", th: "ยังไม่ได้เลือกรางวัลที่จัดส่งได้" }, language));
+      return;
+    }
     if (shipMode === "all_eligible" && !ownedShipCards.length) {
       toast("error", localized({ en: "No shippable rewards are ready for shipping.", th: "ยังไม่มีของรางวัลที่พร้อมจัดส่ง" }, language));
       return;
@@ -895,7 +947,7 @@ export function HistoryExperience({
                 intent: "quote",
                 selectionMode: "selected",
                 addressId,
-                collectionItemIds: selectedCards.map((card) => card.id),
+                collectionItemIds: selectedShippableCards.map((card) => card.id),
               },
         ),
       });
@@ -1561,6 +1613,7 @@ function CollectionTile({
     card.status === "converting"
       ? localized({ en: "Converting", th: "กำลังแลก" }, language)
       : statusLabel(card.bucket, language);
+  const policyLabel = rewardPolicyLabel(card, language);
   return (
     <div
       className={`cr-coll-card ${selected ? "selected" : ""}`}
@@ -1601,7 +1654,12 @@ function CollectionTile({
             {card.cardGrade}
           </small>
         ) : null}
-        {card.bucket === "owned" && card.sellValueCoins > 0 && (
+        {policyLabel ? (
+          <small className="cr-mute" style={{ marginTop: 2 }}>
+            {policyLabel}
+          </small>
+        ) : null}
+        {card.bucket === "owned" && card.canConvert && card.sellValueCoins > 0 && (
           <span className="price">
             <CoinPip size={10} />{" "}
             {language === "th"

@@ -6,11 +6,20 @@ function read(path) {
   return readFileSync(new URL(path, import.meta.url), "utf8");
 }
 
+function sliceBetween(source, start, end) {
+  const from = source.indexOf(start);
+  assert.ok(from !== -1, `expected to find ${start}`);
+  const to = source.indexOf(end, from + start.length);
+  assert.ok(to !== -1 && to > from, `expected to find ${end} after ${start}`);
+  return source.slice(from, to);
+}
+
 const stockSkusRoute = read("../src/app/api/ynot/admin/stock-skus/route.ts");
 const openContainerRoute = read(
   "../src/app/api/ynot/admin/stock-skus/open-container/route.ts",
 );
 const cardStockRoute = read("../src/app/api/ynot/admin/card-stock/route.ts");
+const adminCardsRoute = read("../src/app/api/ynot/admin/cards/route.ts");
 const cardStockUnitRoute = read(
   "../src/app/api/ynot/admin/card-stock/unit/route.ts",
 );
@@ -59,6 +68,40 @@ test("stock SKU route is admin-only and calls summary/upsert RPCs", () => {
     stockSkusRoute,
     /Response\.json\(\{\s*error:\s*error\.message/,
   );
+});
+
+test("admin card catalog mutations reject cross-origin requests before body parsing", () => {
+  assert.match(
+    adminCardsRoute,
+    /import \{ enforceSameOriginMutation \} from "@\/lib\/security\/same-origin"/,
+  );
+
+  const postBlock = sliceBetween(
+    adminCardsRoute,
+    "export async function POST(request: Request)",
+    "export async function DELETE(request: Request)",
+  );
+  const deleteBlock = sliceBetween(
+    adminCardsRoute,
+    "export async function DELETE(request: Request)",
+    "export async function PATCH(request: Request)",
+  );
+  const patchBlock = adminCardsRoute.slice(
+    adminCardsRoute.indexOf("export async function PATCH(request: Request)"),
+  );
+
+  for (const block of [postBlock, deleteBlock, patchBlock]) {
+    const guardIndex = block.indexOf("enforceSameOriginMutation(request)");
+    const bodyIndex = block.indexOf("bodyJson(request)");
+    const serviceIndex = block.indexOf("createServiceSupabaseClient()");
+    assert.ok(guardIndex !== -1, "mutation handler must call the same-origin guard");
+    assert.ok(
+      /const crossOrigin = enforceSameOriginMutation\(request\);\s*if \(crossOrigin\) return crossOrigin;/.test(block),
+      "mutation handler must return the shared cross-origin response",
+    );
+    assert.ok(bodyIndex === -1 || guardIndex < bodyIndex, "same-origin guard must run before body parsing");
+    assert.ok(serviceIndex === -1 || guardIndex < serviceIndex, "same-origin guard must run before DB mutation setup");
+  }
 });
 
 test("open container route is admin-only and calls open_stock_container", () => {
@@ -267,6 +310,51 @@ test("admin catalog UI and data loader use first-class stock SKU identity", () =
   assert.match(stockSkuUsage, /parsedLegacyStockUnitKey\(legacyStockUnitGroupKey\(row\)\)/);
   assert.match(stockSkuUsage, /stockSkuId\?: string \| null/);
   assert.match(stockSkuUsage, /stockUnitSelectionMetadata[\s\S]*stockSkuId: group\.stockSkuId/);
+});
+
+test("admin can create sealed box and sealed pack Main SKUs with locked sealed fields", () => {
+  assert.match(adminClient, /setOpenModal\("sealed_box"\)/);
+  assert.match(adminClient, /setOpenModal\("sealed_pack"\)/);
+  assert.match(adminClient, />\s*Add sealed box\s*</);
+  assert.match(adminClient, />\s*Add sealed pack\s*</);
+  assert.match(
+    adminClient,
+    /initialCatalogCategory=\{mainSkuCategoryForCreateKind\(openModal\)\}/,
+  );
+  assert.match(
+    adminClient,
+    /lockedCatalogCategory=\{\s*openModal === "sealed_box" \|\| openModal === "sealed_pack"\s*\}/,
+  );
+  assert.match(adminClient, /label=\{mainSkuNameLabel\(formKind\)\}/);
+  assert.match(adminClient, /placeholder=\{mainSkuNamePlaceholder\(formKind\)\}/);
+  assert.match(adminClient, /<SealedProductSeriesSelect/);
+  assert.match(adminClient, /catalogCategoryLabel\(catalogCategory\)/);
+  assert.match(adminClient, /isSealedMainSku \? null : cardNumber/);
+  assert.match(adminClient, /isSealedMainSku \? "" : variant/);
+  assert.match(adminClient, /isSealedMainSku \? "" : printLabel/);
+});
+
+test("sealed Main SKU API requires product name and Pokemon or One Piece series only", () => {
+  assert.match(adminCardsRoute, /function isSealedMainSkuCategory/);
+  assert.match(adminCardsRoute, /Box name is required\./);
+  assert.match(adminCardsRoute, /Pack name is required\./);
+  assert.match(adminCardsRoute, /Series must be Pokemon or One Piece/);
+  assert.match(adminCardsRoute, /catalogCategoryValue\(category\)/);
+  assert.match(adminCardsRoute, /isSealedMainSkuCategory\(body\.catalogCategory\)/);
+  assert.doesNotMatch(adminCardsRoute, /cardSet[\s\S]{0,80}required/i);
+  assert.doesNotMatch(adminCardsRoute, /releaseYear[\s\S]{0,80}required/i);
+  assert.doesNotMatch(adminCardsRoute, /cardNumber[\s\S]{0,80}required/i);
+});
+
+test("editing sealed Main SKUs keeps sealed product fields", () => {
+  assert.match(adminClient, /const editFormKind = mainSkuFormKindForCategory\(catalogCategory\)/);
+  assert.match(adminClient, /const isEditingSealedMainSku = isSealedMainSkuKind\(editFormKind\)/);
+  assert.match(adminClient, /mainSkuNameLabel\(editFormKind\)/);
+  assert.match(adminClient, /isEditingSealedMainSku \? null : cardNumber\.trim\(\) \|\| null/);
+  assert.match(adminClient, /isEditingSealedMainSku \? "" : variant/);
+  assert.match(adminClient, /isEditingSealedMainSku \? "" : printLabel/);
+  assert.match(adminClient, /<SealedProductSeriesSelect[\s\S]*disabled=\{pending\}/);
+  assert.match(adminClient, /<LockedCatalogCategoryDisplay catalogCategory=\{catalogCategory\} \/>/);
 });
 
 test("localhost stock rehearsal page is gated from public production users", () => {

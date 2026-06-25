@@ -1,5 +1,6 @@
 export const defaultBundleQuantity = 1;
 export const maxBundleQuantity = 100;
+export const maxPublicQuantityBadge = 10;
 
 export function normalizeBundleQuantity(value: unknown): number {
   const numeric =
@@ -18,6 +19,12 @@ export function normalizeBundleQuantity(value: unknown): number {
 export function publicBundleQuantity(value: unknown): number | undefined {
   const normalized = normalizeBundleQuantity(value);
   return normalized > defaultBundleQuantity ? normalized : undefined;
+}
+
+export function publicPlannedQuantityBadge(value: unknown): number | undefined {
+  const planned = plannedQuantityForPrize({ quantity: value });
+  if (planned <= defaultBundleQuantity) return undefined;
+  return Math.min(planned, maxPublicQuantityBadge);
 }
 
 export function plannedQuantityForPrize(prize: {

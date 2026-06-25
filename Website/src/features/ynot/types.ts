@@ -7,6 +7,27 @@ export type YnotViewer = {
   adminRole?: "owner" | "admin" | "staff" | null;
 };
 
+export type YnotRewardFulfillmentPolicy =
+  | "ship_or_convert"
+  | "ship_only"
+  | "convert_only";
+
+export const ynotRewardFulfillmentPolicies = [
+  "ship_or_convert",
+  "ship_only",
+  "convert_only",
+] as const satisfies readonly YnotRewardFulfillmentPolicy[];
+
+export function ynotRewardFulfillmentPolicyValue(
+  value: unknown,
+): YnotRewardFulfillmentPolicy {
+  return ynotRewardFulfillmentPolicies.includes(
+    value as YnotRewardFulfillmentPolicy,
+  )
+    ? (value as YnotRewardFulfillmentPolicy)
+    : "ship_or_convert";
+}
+
 export type YnotCampaign = {
   id: string;
   slug: string;
@@ -18,6 +39,7 @@ export type YnotCampaign = {
   lastPrizeStockUnitKey?: string | null;
   lastPrizeCatalogCategory?: string | null;
   lastPrizeConvertCoinValue?: number | null;
+  lastPrizeFulfillmentPolicy?: YnotRewardFulfillmentPolicy | null;
   // Resolved view of the last prize (card name + sub-SKU image) for display.
   lastPrizePreview?: YnotLastPrizePreview | null;
   status: "draft" | "live" | "closed" | "archived";
@@ -66,6 +88,7 @@ export type YnotCampaign = {
   bannerImageStoragePath?: string | null;
   openQuantityOptions?: number[];
   pullAllAvailable?: boolean;
+  pullAllReady?: boolean;
   pullAllEnabled?: boolean;
   pullAllRequested?: boolean;
   pullAllAllowlisted?: boolean;
@@ -193,6 +216,7 @@ export type YnotLivePackRevisionReview = {
     plannedQuantity: number;
     bundleQuantity: number;
     convertCoinValue: number;
+    fulfillmentPolicy?: YnotRewardFulfillmentPolicy;
     valueThb?: number | null;
     weight: number;
     unlockAtSoldPct: number;
@@ -359,6 +383,9 @@ export type YnotCollectionItem = {
   cardGradingService?: string | null;
   cardPrizeCategory?: string | null;
   cardSeries?: string | null;
+  fulfillmentPolicy: YnotRewardFulfillmentPolicy;
+  canShip: boolean;
+  canConvert: boolean;
   convertCoinValue?: number | null;
   convertExpiresAt?: string | null;
   sourceCampaignTitle?: string | null;
@@ -641,6 +668,7 @@ export type YnotPrizePreview = {
   rank: number;
   valueThb?: number | null;
   convertCoinValue?: number;
+  fulfillmentPolicy?: YnotRewardFulfillmentPolicy;
   bundleQuantity?: number;
   quantityBadge?: number;
   plannedQuantity?: number;
@@ -756,6 +784,7 @@ export type YnotPrizePoolItem = {
   rank: number;
   valueThb?: number | null;
   convertCoinValue?: number;
+  fulfillmentPolicy?: YnotRewardFulfillmentPolicy;
   bundleQuantity?: number;
   weight: number;
   unlockAtSoldPct: number;

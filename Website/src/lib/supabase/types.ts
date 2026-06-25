@@ -496,6 +496,7 @@ export type Database = {
           rank: number;
           value_thb: number | null;
           convert_coin_value: number;
+          fulfillment_policy: "ship_or_convert" | "ship_only" | "convert_only";
           weight: number;
           unlock_at_sold_pct: number;
           planned_quantity: number;
@@ -514,6 +515,7 @@ export type Database = {
           rank: number;
           value_thb?: number | null;
           convert_coin_value?: number;
+          fulfillment_policy?: "ship_or_convert" | "ship_only" | "convert_only";
           weight?: number;
           unlock_at_sold_pct?: number;
           planned_quantity?: number;
@@ -762,8 +764,8 @@ export type Database = {
         Relationships: [];
       };
       collection_items: {
-        Row: { id: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id: string | null; status: "owned" | "locked" | "exchange_requested" | "exchanged" | "converting" | "shipping_preparing" | "shipping_requested" | "shipped" | "void"; serial_no: string | null; acquired_at: string; card_stock_unit_id: string | null; gacha_open_item_id: string | null; conversion_job_id: string | null; shipping_request_job_id: string | null; convert_coin_value_snapshot: number | null; convert_expires_at: string | null; created_at: string; updated_at: string };
-        Insert: { id?: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id?: string | null; status?: "owned" | "locked" | "exchange_requested" | "exchanged" | "converting" | "shipping_preparing" | "shipping_requested" | "shipped" | "void"; serial_no?: string | null; acquired_at?: string; card_stock_unit_id?: string | null; gacha_open_item_id?: string | null; conversion_job_id?: string | null; shipping_request_job_id?: string | null; convert_coin_value_snapshot?: number | null; convert_expires_at?: string | null; created_at?: string; updated_at?: string };
+        Row: { id: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id: string | null; status: "owned" | "locked" | "exchange_requested" | "exchanged" | "converting" | "shipping_preparing" | "shipping_requested" | "shipped" | "void"; serial_no: string | null; acquired_at: string; card_stock_unit_id: string | null; gacha_open_item_id: string | null; conversion_job_id: string | null; shipping_request_job_id: string | null; shipping_request_id: string | null; convert_coin_value_snapshot: number | null; convert_expires_at: string | null; fulfillment_policy_snapshot: "ship_or_convert" | "ship_only" | "convert_only"; created_at: string; updated_at: string };
+        Insert: { id?: string; profile_id: string; card_id: string; source_type: "gacha_open" | "admin_grant" | "legacy_import"; source_id?: string | null; status?: "owned" | "locked" | "exchange_requested" | "exchanged" | "converting" | "shipping_preparing" | "shipping_requested" | "shipped" | "void"; serial_no?: string | null; acquired_at?: string; card_stock_unit_id?: string | null; gacha_open_item_id?: string | null; conversion_job_id?: string | null; shipping_request_job_id?: string | null; shipping_request_id?: string | null; convert_coin_value_snapshot?: number | null; convert_expires_at?: string | null; fulfillment_policy_snapshot?: "ship_or_convert" | "ship_only" | "convert_only"; created_at?: string; updated_at?: string };
         Update: Partial<Database["public"]["Tables"]["collection_items"]["Insert"]>;
         Relationships: [];
       };

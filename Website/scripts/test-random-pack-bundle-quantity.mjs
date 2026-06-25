@@ -68,8 +68,9 @@ describe("random pack bundled prizes", () => {
 
     const client = read("Website/src/features/ynot/client.tsx");
     assert.match(client, /bundleQuantity: defaultBundleQuantity/);
-    assert.match(client, /Per win/);
-    assert.match(client, /prizeRequiredStockUnits/);
+    assert.match(client, /normalRewardBundleQuantity/);
+    assert.match(client, /Detail badge/);
+    assert.doesNotMatch(client, /<span>Per win<\/span>/);
   });
 
   it("opens one public reward while awarding all bundled collection rows", () => {
@@ -81,8 +82,8 @@ describe("random pack bundled prizes", () => {
     assert.match(sql, /for claimed_unit in/i);
   });
 
-  it("keeps Last One Prize as the final slot in the latest open RPC", () => {
-    const sql = latestMigrationContaining("last_prize_final_slot");
+  it("keeps Last One Prize first-class through final-slot and bonus open RPC patches", () => {
+    const sql = read("Database/supabase/migrations/20260605210000_last_prize_final_slot.sql");
     const openRpc = between(
       sql,
       "create or replace function public.open_gacha_campaign",
@@ -106,6 +107,13 @@ describe("random pack bundled prizes", () => {
     assert.match(sql, /last_prize_normal_prize_target/);
     assert.match(sql, /last_prize_stock_required/);
     assert.match(sql, /v_public_total_slots/);
+
+    const bonusSql = latestMigrationContaining("last_prize_bonus_award");
+    assert.match(bonusSql, /last_prize_substitutes boolean := false/);
+    assert.match(bonusSql, /normal_units_needed := p_quantity;/);
+    assert.match(bonusSql, /case when last_prize_substitutes then position_index else p_quantity \+ 1 end/);
+    assert.match(bonusSql, /'bundleQuantity', 1/);
+    assert.match(bonusSql, /v_public_total_slots := v_planned_total;/);
   });
 
   it("stages live Last Prize edits for owner-reviewed publish", () => {
@@ -151,15 +159,18 @@ describe("random pack bundled prizes", () => {
     assert.doesNotMatch(publicLineupMapper, /stockUnitFilter/);
   });
 
-  it("renders xN badges on the related customer surfaces", () => {
+  it("renders xN badges only on pack detail from planned quantity", () => {
     const packDetail = read("Website/src/features/ynot/cr/PackDetailExperience.tsx");
     const client = read("Website/src/features/ynot/client.tsx");
     const history = read("Website/src/features/ynot/cr/HistoryExperience.tsx");
     const pulls = read("Website/src/features/ynot/cr/AllPullsExperience.tsx");
-    assert.match(packDetail, /QuantityBadge/);
-    assert.match(client, /QuantityBadge/);
-    assert.match(history, /QuantityBadge/);
-    assert.match(pulls, /QuantityBadge/);
+    const data = read("Website/src/features/ynot/data.ts");
+
+    assert.match(packDetail, /<QuantityBadge quantity=\{prize\.quantityBadge\} \/>/);
+    assert.match(data, /quantityBadge: publicPlannedQuantityBadge\(counts\.total\)/);
+    assert.doesNotMatch(client, /<QuantityBadge quantity=\{item\.bundleQuantity\} \/>/);
+    assert.doesNotMatch(history, /<QuantityBadge quantity=\{card\.bundleQuantity\} \/>/);
+    assert.doesNotMatch(pulls, /<QuantityBadge quantity=\{row\.bundleQuantity\} \/>/);
   });
 
   it("uses an admin combobox instead of a full-page native select", () => {

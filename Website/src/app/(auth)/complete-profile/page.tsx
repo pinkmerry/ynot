@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { CompleteProfileForm } from "@/features/auth/CompleteProfileForm";
-import { requireCurrentProfile } from "@/lib/auth/protected-route";
+import { requireCurrentProfile, safeNextPath } from "@/lib/auth/protected-route";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,10 @@ type Props = {
 
 export default async function CompleteProfilePage({ searchParams }: Props) {
   const params = await searchParams;
-  const session = await requireCurrentProfile(`/complete-profile${params?.next ? `?next=${encodeURIComponent(params.next)}` : ""}`);
+  const nextPath = safeNextPath(params?.next);
+  const session = await requireCurrentProfile(
+    `/complete-profile${nextPath !== "/" ? `?next=${encodeURIComponent(nextPath)}` : ""}`,
+  );
 
   const supabase = createServiceSupabaseClient();
   const { data: profile } = await supabase
@@ -21,7 +24,7 @@ export default async function CompleteProfilePage({ searchParams }: Props) {
     .maybeSingle();
 
   if (profile?.email_verified_at) {
-    redirect(params?.next?.startsWith("/") ? params.next : "/");
+    redirect(nextPath);
   }
 
   return (
@@ -29,7 +32,7 @@ export default async function CompleteProfilePage({ searchParams }: Props) {
       profileId={session.profileId}
       defaultEmail={profile?.email ?? ""}
       displayName={profile?.display_name ?? session.displayName ?? "YNot Customer"}
-      nextPath={params?.next ?? "/"}
+      nextPath={nextPath}
     />
   );
 }

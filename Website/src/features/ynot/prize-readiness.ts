@@ -27,6 +27,10 @@ import {
   type PrizeUnitStatusRow,
 } from "./prize-unit-counts";
 import { finalPrizeAwareOpenableWinSlots } from "./open-quantity";
+import {
+  ynotRewardFulfillmentPolicyValue,
+  type YnotRewardFulfillmentPolicy,
+} from "./types";
 
 type SupabaseClient = ReturnType<typeof createServiceSupabaseClient>;
 type DrawRoundRow = Database["public"]["Tables"]["draw_rounds"]["Row"];
@@ -67,6 +71,7 @@ export type PrizeDraftInput = {
   rank: number;
   valueThb: number | null;
   convertCoinValue: number;
+  fulfillmentPolicy: YnotRewardFulfillmentPolicy;
   quantity: number;
   bundleQuantity?: number | string | null;
   weight: number;
@@ -101,6 +106,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isAdminHidden(metadata: unknown) {
   return isRecord(metadata) && metadata.adminHidden === true;
+}
+
+export function normalizeRewardFulfillmentPolicy(
+  value: unknown,
+): YnotRewardFulfillmentPolicy {
+  return ynotRewardFulfillmentPolicyValue(value);
+}
+
+export function validateRewardFulfillmentPolicyInput(input: {
+  fulfillmentPolicy: YnotRewardFulfillmentPolicy;
+  convertCoinValue: number;
+}) {
+  if (
+    input.fulfillmentPolicy === "ship_or_convert" &&
+    input.convertCoinValue <= 0
+  ) {
+    return "Ship or sell rewards need a sell coin value greater than 0.";
+  }
+  if (
+    input.fulfillmentPolicy === "convert_only" &&
+    input.convertCoinValue <= 0
+  ) {
+    return "Sell only rewards need a sell coin value greater than 0.";
+  }
+  return null;
 }
 
 function metadataString(metadata: unknown, key: string) {
@@ -540,6 +570,9 @@ export function normalizePrizeDrafts(value: unknown): PrizeDraftInput[] {
       10_000_000,
       Math.max(0, Math.round(numberOrZero(row.convertCoinValue))),
     );
+    const fulfillmentPolicy = normalizeRewardFulfillmentPolicy(
+      row.fulfillmentPolicy,
+    );
     return [
       {
         cardId,
@@ -547,6 +580,7 @@ export function normalizePrizeDrafts(value: unknown): PrizeDraftInput[] {
         rank,
         valueThb: numberOrZero(row.valueThb) > 0 ? Math.round(numberOrZero(row.valueThb)) : null,
         convertCoinValue,
+        fulfillmentPolicy,
         quantity,
         bundleQuantity: normalizeBundleQuantity(
           row.bundleQuantity ?? row.bundle_quantity,
@@ -589,6 +623,16 @@ export function validatePrizeDraftsForSave(
   }
   if (initialEligiblePrizeUnits <= 0) {
     blockers.push("Add at least one prize that is eligible when the pack launches.");
+  }
+  for (const prize of prizes) {
+    const policyError = validateRewardFulfillmentPolicyInput({
+      fulfillmentPolicy: prize.fulfillmentPolicy,
+      convertCoinValue: prize.convertCoinValue,
+    });
+    if (policyError) {
+      blockers.push(policyError);
+      break;
+    }
   }
   if (stockReadiness) {
     blockers.push(

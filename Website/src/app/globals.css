@@ -10245,9 +10245,10 @@ html[data-ynot-theme="light"] .gacha-detail-open-dock-info strong span {
     minmax(130px, 0.8fr)
     minmax(72px, 0.45fr)
     minmax(82px, 0.45fr)
+    minmax(130px, 0.7fr)
     minmax(110px, 0.65fr)
     minmax(84px, 0.45fr);
-  min-width: 1140px;
+  min-width: 1280px;
   padding: 10px;
 }
 
@@ -15388,6 +15389,7 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  pointer-events: auto;
 }
 .gacha-reveal-repeat-stock-left {
   display: inline-flex;
@@ -15416,6 +15418,7 @@ html[data-ynot-theme="light"] .profile-tab-menu strong {
   background: rgba(244, 197, 66, 0.1);
   color: var(--foreground);
   cursor: pointer;
+  pointer-events: auto;
   transition: transform 120ms ease, border-color 120ms ease, background 160ms ease;
 }
 .gacha-reveal-repeat-action:hover:not(:disabled) {
@@ -32464,10 +32467,10 @@ html[data-ynot-theme] .admin-frame .admin-card-catalog-row-footer-id {
 
 /* --- Admin: convert coins input column --- */
 html[data-ynot-theme] .admin-frame .admin-prize-table-head {
-  grid-template-columns: 90px minmax(180px, 1fr) minmax(220px, 1.1fr) 130px 80px 110px 120px auto;
+  grid-template-columns: 90px minmax(180px, 1fr) minmax(220px, 1.1fr) 130px 80px 110px minmax(140px, 0.8fr) 120px auto;
 }
 html[data-ynot-theme] .admin-frame .admin-prize-table-row {
-  grid-template-columns: 90px minmax(180px, 1fr) minmax(220px, 1.1fr) 130px 80px 110px 120px auto;
+  grid-template-columns: 90px minmax(180px, 1fr) minmax(220px, 1.1fr) 130px 80px 110px minmax(140px, 0.8fr) 120px auto;
 }
 html[data-ynot-theme] .admin-frame .admin-prize-stock-sku-field {
   display: flex;
@@ -32478,6 +32481,21 @@ html[data-ynot-theme] .admin-frame .admin-prize-convert-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+html[data-ynot-theme] .admin-frame .admin-prize-policy-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+html[data-ynot-theme] .admin-frame .admin-prize-policy-field select {
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--a-border-soft, rgba(255, 255, 255, 0.08));
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0 10px;
+  color: var(--a-fg, #f4efe1) !important;
+  font-weight: 700;
+  font-size: 13px;
 }
 html[data-ynot-theme] .admin-frame .admin-prize-convert-field input {
   height: 36px;

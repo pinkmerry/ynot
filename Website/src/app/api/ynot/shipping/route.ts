@@ -1,6 +1,10 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-import { requestPreviewShipping } from "@/features/ynot/local-preview-rewards";
+import {
+  preparePreviewShippingQuote,
+  requestPreviewShipping,
+  startPreviewShipping,
+} from "@/features/ynot/local-preview-rewards";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
@@ -215,6 +219,32 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+    if (
+      isDevAuthAllowed() &&
+      session.authUserId === "preview-user"
+    ) {
+      try {
+        const previewShipping = startPreviewShipping({
+          profileId: session.profileId,
+          quoteToken,
+          requestId: idempotencyKey,
+        });
+        if (!previewShipping) throw new Error("shipping_quote_expired");
+        return Response.json({
+          shipping: presentShippingProgress(previewShipping),
+          result: presentShippingLegacyResult(previewShipping),
+        });
+      } catch (error) {
+        return shippingErrorResponse(
+          {
+            message:
+              error instanceof Error
+                ? error.message
+                : "shipping_quote_expired",
+          },
+        );
+      }
+    }
     const { data: started, error } = await supabase.rpc("start_shipping_request_job", {
       p_profile_id: session.profileId,
       p_quote_token_id: quoteToken,
@@ -252,15 +282,26 @@ export async function POST(request: Request) {
     session.authUserId === "preview-user"
   ) {
     try {
-      const previewShipping = await requestPreviewShipping({
+      if (intent === "legacy") {
+        const previewShipping = await requestPreviewShipping({
+          addressId: addressToken,
+          collectionItemIds: collectionItemTokens,
+          idempotencyKey,
+          note,
+          profileId: session.profileId,
+        });
+        if (!previewShipping) throw new Error("collection_item_not_shippable");
+        return Response.json({ result: presentShippingLegacyResult(previewShipping) });
+      }
+      const previewQuote = await preparePreviewShippingQuote({
         addressId: addressToken,
         collectionItemIds: collectionItemTokens,
-        idempotencyKey,
         note,
         profileId: session.profileId,
+        selectionMode,
       });
-      if (!previewShipping) throw new Error("collection_item_not_shippable");
-      return Response.json({ result: presentShippingLegacyResult(previewShipping) });
+      if (!previewQuote) throw new Error("collection_item_not_shippable");
+      return Response.json({ quote: presentShippingQuote(previewQuote) });
     } catch (error) {
       return Response.json(
         {

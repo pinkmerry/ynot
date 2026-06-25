@@ -9,6 +9,8 @@ const lastPrizeBonusGuardMigrationPath =
   "../../Database/supabase/migrations/20260619143027_bulk_open_last_prize_bonus_guard.sql";
 const hardeningMigrationPath =
   "../../Database/supabase/migrations/20260619110000_production_security_advisor_hardening.sql";
+const asyncJobRecoveryMigrationPath =
+  "../../Database/supabase/migrations/20260624103616_fix_shipping_and_pull_all_async_jobs.sql";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const packageJson = JSON.parse(read("package.json"));
@@ -27,6 +29,10 @@ function lastPrizeBonusGuardMigrationSource() {
 
 function hardeningMigrationSource() {
   return readFileSync(new URL(hardeningMigrationPath, import.meta.url), "utf8");
+}
+
+function asyncJobRecoveryMigrationSource() {
+  return readFileSync(new URL(asyncJobRecoveryMigrationPath, import.meta.url), "utf8");
 }
 
 function stripSqlComments(source) {
@@ -480,6 +486,103 @@ test("bulk open start and processor foundations are idempotent and conservative"
   ]) {
     requirePattern(recovery, pattern, `recovery watchdog missing ${pattern}`);
   }
+});
+
+test("bulk open start charges the immutable quote once and replays before wallet mutation", () => {
+  const source = migrationSource();
+  const sql = compactSql(source);
+  const start = compactSql(functionBlock(source, "start_bulk_open_session"));
+
+  const replayIndex = start.indexOf("if token_row.consumed_by_session_id is not null");
+  const walletInsertIndex = start.indexOf("insert into public.wallet_accounts");
+  const sessionInsertIndex = start.indexOf("insert into public.gacha_bulk_open_sessions");
+  const ledgerIndex = start.indexOf("insert into public.coin_ledger");
+  const walletUpdateIndex = start.indexOf("update public.wallet_accounts");
+  const tokenConsumeIndex = start.indexOf("update public.gacha_bulk_open_start_tokens");
+
+  assert.ok(replayIndex >= 0, "start must replay an already consumed token");
+  assert.ok(replayIndex < walletInsertIndex, "token replay must happen before wallet creation");
+  assert.ok(replayIndex < sessionInsertIndex, "token replay must happen before session creation");
+  assert.ok(replayIndex < ledgerIndex, "token replay must happen before ledger debit");
+  assert.ok(replayIndex < walletUpdateIndex, "token replay must happen before wallet debit");
+  assert.ok(ledgerIndex < tokenConsumeIndex, "token should be marked consumed in the same transaction after the debit session is linked");
+
+  requirePattern(sql, /start_token_id uuid unique/, "each Pull All session must be tied to one start token");
+  requirePattern(sql, /create unique index if not exists gacha_bulk_open_sessions_profile_idempotency_unique_idx/, "sessions must be unique by profile idempotency key");
+  requirePattern(sql, /create unique index if not exists gacha_bulk_open_start_tokens_active_idempotency_idx/, "active quote tokens must be unique by profile, pack, and idempotency");
+  requirePattern(start, /if available_target <> p_target_slots then raise exception 'bulk_open_quote_stale'/, "start must reject stale target slot counts");
+  requirePattern(start, /if p_total_cost_coins <> cost_per_open \* available_target then raise exception 'bulk_open_quote_stale'/, "start must reject stale quote cost");
+  requirePattern(start, /'gacha_spend', -p_total_cost_coins, locked_wallet\.balance_coins, locked_wallet\.balance_coins - p_total_cost_coins/, "ledger must debit the quoted total once");
+  requirePattern(start, /set balance_coins = locked_wallet\.balance_coins - p_total_cost_coins,\s*version = version \+ 1/, "wallet update must subtract the same quoted total");
+  requirePattern(start, /'totalcostcoins', session_row\.total_cost_coins/, "public replay response must expose the same charged total");
+  requirePattern(start, /'replayed', true/, "consumed token retry must be marked replayed");
+  requirePattern(start, /'replayed', false/, "first start must be marked non-replayed");
+});
+
+test("bulk open recovery migration removes result payload PL/pgSQL ambiguity", () => {
+  const source = asyncJobRecoveryMigrationSource();
+  const processChunk = compactSql(functionBlock(source, "process_bulk_open_chunk"));
+
+  requirePattern(
+    processChunk,
+    /result_payload_value jsonb/,
+    "processor should use a local result payload name that cannot collide with table columns",
+  );
+  assert.doesNotMatch(
+    processChunk,
+    /\bresult_payload jsonb\b/,
+    "processor must not declare a local result_payload variable",
+  );
+  requirePattern(
+    processChunk,
+    /from public\.gacha_bulk_open_results (?:as )?results/,
+    "highlight query must alias gacha_bulk_open_results",
+  );
+  requirePattern(
+    processChunk,
+    /results\.result_payload as public_payload/,
+    "highlight query must qualify the result payload column",
+  );
+  requirePattern(
+    processChunk,
+    /results\.bulk_open_sequence/,
+    "highlight query must qualify bulk open sequence",
+  );
+  requirePattern(
+    processChunk,
+    /results\.status = 'awarded'/,
+    "highlight query must qualify result status",
+  );
+  requirePattern(
+    processChunk,
+    /last_error_code = left\(sqlstate \|\| ':' \|\| sqlerrm, 200\)/,
+    "future retry rows should preserve SQLSTATE and SQLERRM together",
+  );
+  requirePattern(
+    processChunk,
+    /lp_bonus_sequence integer/,
+    "processor should preserve the later Last Prize bonus sequence patch",
+  );
+  requirePattern(
+    processChunk,
+    /normal_bonus_available boolean := false/,
+    "processor should preserve the later Last Prize bonus availability guard",
+  );
+  requirePattern(
+    processChunk,
+    /case when normal_bonus_available then null::uuid else slot_id end/,
+    "Last Prize bonus result should not consume a paid draw slot when a normal final-slot prize exists",
+  );
+  requirePattern(
+    processChunk,
+    /if not normal_bonus_available then/,
+    "legacy substitute packs should still consume exactly one paid slot",
+  );
+  assert.doesNotMatch(
+    processChunk,
+    /insert into public\.gacha_bulk_open_results\([^)]*result_payload_value[^)]*\) values/,
+    "renamed PL/pgSQL variable must not replace the result_payload table column",
+  );
 });
 
 test("production advisor hardening keeps helper functions private and removes public bucket listing", () => {

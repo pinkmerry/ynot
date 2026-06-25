@@ -1,8 +1,13 @@
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
+import { previewCurrentShippingForProfile } from "@/features/ynot/local-preview-rewards";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { presentShippingCurrent } from "@/lib/ynot/reward-action-presenters";
+import {
+  presentShippingCurrent,
+  presentShippingProgress,
+} from "@/lib/ynot/reward-action-presenters";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +56,16 @@ export async function GET(request: Request) {
     session.profileId,
   );
   if (limited) return limited;
+
+  if (
+    isDevAuthAllowed() &&
+    session.authUserId === "preview-user"
+  ) {
+    const previewShipping = previewCurrentShippingForProfile(session.profileId);
+    return Response.json({
+      shipping: previewShipping ? presentShippingProgress(previewShipping) : null,
+    });
+  }
 
   const supabase = createServiceSupabaseClient() as unknown as SupabaseCompatClient;
   const shippingSelect =

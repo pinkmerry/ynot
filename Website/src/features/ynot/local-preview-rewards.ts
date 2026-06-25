@@ -9,7 +9,7 @@ import type {
   YnotGachaOpenHistory,
   YnotGachaOpenResult,
   YnotPublicPrizeDisplayTier,
-  YnotShippingAddressSnapshot,
+  YnotRewardFulfillmentPolicy,
   YnotShippingItem,
   YnotShippingRequest,
 } from "./types";
@@ -61,6 +61,37 @@ type PreviewConversionJob = {
   replayed: false;
 };
 
+type PreviewShippingQuote = {
+  address: {
+    label: string | null;
+    recipientName: string | null;
+    phone: string | null;
+    summary: string | null;
+  };
+  addressId: string;
+  collectionItemIds: string[];
+  expiresAt: string;
+  itemCount: number;
+  minimumCoinValue: number;
+  note: string | null;
+  profileId: string;
+  quoteToken: string;
+  selectedCoinValue: number;
+  selectionMode: "selected" | "all_eligible";
+  totalCoinValue: number;
+};
+
+type PreviewShippingJob = {
+  completed: true;
+  itemCount: number;
+  jobId: string;
+  preparedCount: number;
+  publicCode: string;
+  replayed: false;
+  status: "submitted";
+  totalCoinValue: number;
+};
+
 export type PreviewPullAllQuote = {
   campaignSlug: string;
   costPerReward: number;
@@ -104,6 +135,8 @@ type PreviewRewardStore = {
   historyByProfile: Map<string, YnotGachaOpenHistory[]>;
   openedSlotsByProfileCampaign: Map<string, number>;
   shippingByProfile: Map<string, YnotShippingRequest[]>;
+  shippingByQuoteToken: Map<string, PreviewShippingQuote>;
+  currentShippingByProfile: Map<string, PreviewShippingJob>;
   walletBonusCoinsByProfile: Map<string, number>;
 };
 
@@ -141,6 +174,8 @@ function previewStore(): PreviewRewardStore {
   store.historyByProfile ??= new Map();
   store.openedSlotsByProfileCampaign ??= new Map();
   store.shippingByProfile ??= new Map();
+  store.shippingByQuoteToken ??= new Map();
+  store.currentShippingByProfile ??= new Map();
   store.walletBonusCoinsByProfile ??= new Map();
 
   return store as PreviewRewardStore;
@@ -221,8 +256,15 @@ function previewConvertCoinValue(item: YnotGachaOpenResult["items"][number]) {
   }
 }
 
+function previewFulfillmentPolicy(
+  convertCoinValue: number,
+): YnotRewardFulfillmentPolicy {
+  return convertCoinValue > 0 ? "ship_or_convert" : "ship_only";
+}
+
 function isConvertiblePreviewReward(item: YnotCollectionItem) {
   if (item.status !== "owned") return false;
+  if (!item.canConvert) return false;
   if (itemCoinValue(item) <= 0) return false;
   if (!item.convertExpiresAt) return true;
   return Date.parse(item.convertExpiresAt) > Date.now();
@@ -277,11 +319,51 @@ function selectedPreviewItems(
     .filter((item): item is YnotCollectionItem => Boolean(item));
   if (
     selected.length !== collectionItemIds.length ||
-    selected.some((item) => item.status !== "owned")
+    selected.some((item) => item.status !== "owned" || !item.canShip)
   ) {
     throw new Error("collection_item_not_shippable");
   }
   return selected;
+}
+
+function shippablePreviewItemsForQuote(
+  profileId: string,
+  selectionMode: "selected" | "all_eligible",
+  collectionItemIds: string[],
+) {
+  if (selectionMode === "all_eligible") {
+    return (previewStore().collectionByProfile.get(profileId) ?? []).filter(
+      (item) => item.status === "owned" && item.canShip,
+    );
+  }
+  return selectedPreviewItems(profileId, collectionItemIds);
+}
+
+function previewShippingCoinValue(items: YnotCollectionItem[]) {
+  return items.reduce((sum, item) => {
+    if (item.fulfillmentPolicy !== "ship_or_convert") return sum;
+    return sum + itemCoinValue(item);
+  }, 0);
+}
+
+function previewShippingAddressSummary(address: YnotAddress) {
+  const summary = [
+    address.addressLine1,
+    address.addressLine2,
+    address.subdistrict,
+    address.district,
+    address.province,
+    address.postalCode,
+    address.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  return {
+    label: address.label ?? null,
+    recipientName: address.recipientName ?? null,
+    phone: address.phone ?? null,
+    summary: summary || null,
+  };
 }
 
 function updatePreviewCollectionItems(
@@ -298,24 +380,6 @@ function updatePreviewCollectionItems(
       selectedIds.has(item.id) ? { ...item, status } : item,
     ),
   );
-}
-
-function previewShippingAddressSnapshot(
-  address: YnotAddress,
-): YnotShippingAddressSnapshot {
-  return {
-    label: address.label,
-    recipientName: address.recipientName ?? null,
-    phone: address.phone ?? null,
-    addressLine1: address.addressLine1,
-    addressLine2: address.addressLine2 ?? null,
-    subdistrict: address.subdistrict ?? null,
-    district: address.district ?? null,
-    province: address.province ?? null,
-    postalCode: address.postalCode ?? null,
-    country: address.country ?? null,
-    deliveryNote: address.deliveryNote ?? null,
-  };
 }
 
 function previewShippingItem(item: YnotCollectionItem): YnotShippingItem {
@@ -376,6 +440,8 @@ export async function recordPreviewOpenResult({
       const position = item.position ?? index + 1;
       const displayTier = item.displayTier ?? null;
       const internalItemId = `preview-bag-${publicCode}-${position}`;
+      const convertCoinValue = previewConvertCoinValue(item);
+      const fulfillmentPolicy = previewFulfillmentPolicy(convertCoinValue);
       return {
         id: await collectionItemActionToken(profileId, internalItemId),
         cardName: item.name || "Mystery reward",
@@ -384,7 +450,14 @@ export async function recordPreviewOpenResult({
         status: "owned",
         serialNo: `${publicCode}-${String(position).padStart(3, "0")}`,
         acquiredAt: now,
-        convertCoinValue: previewConvertCoinValue(item),
+        fulfillmentPolicy,
+        canShip:
+          fulfillmentPolicy === "ship_or_convert" ||
+          fulfillmentPolicy === "ship_only",
+        canConvert:
+          fulfillmentPolicy === "ship_or_convert" ||
+          fulfillmentPolicy === "convert_only",
+        convertCoinValue,
         sourceCampaignTitle: title,
         sourceCampaignSlug: slug,
         sourcePrizeTier: displayTier,
@@ -428,6 +501,126 @@ export async function recordPreviewOpenResult({
     historyRow,
     ...existingHistory,
   ].slice(0, 100));
+}
+
+export async function seedPreviewRewardPolicySmokePack(
+  profileId = LOCAL_PREVIEW_PROFILE_ID,
+) {
+  if (!isPreviewProfile(profileId)) return null;
+  const store = previewStore();
+  const now = new Date().toISOString();
+  const publicCode = `POLICY-SMOKE-${Date.now()}`;
+  const campaignTitle = "Reward Policy Smoke Pack";
+  const campaignSlug = "reward-policy-smoke";
+  const rewards: Array<{
+    cardName: string;
+    convertCoinValue: number;
+    fulfillmentPolicy: YnotRewardFulfillmentPolicy;
+    sourcePrizeTier: YnotPublicPrizeDisplayTier;
+    sourcePrizeTierLabel: string;
+  }> = [
+    {
+      cardName: "Smoke Ship Only Reward",
+      convertCoinValue: 0,
+      fulfillmentPolicy: "ship_only",
+      sourcePrizeTier: "bronze",
+      sourcePrizeTierLabel: "Bronze",
+    },
+    {
+      cardName: "Smoke Sell Only Reward",
+      convertCoinValue: 1200,
+      fulfillmentPolicy: "convert_only",
+      sourcePrizeTier: "silver",
+      sourcePrizeTierLabel: "Silver",
+    },
+    {
+      cardName: "Smoke Ship Or Sell Low Reward",
+      convertCoinValue: 500,
+      fulfillmentPolicy: "ship_or_convert",
+      sourcePrizeTier: "gold",
+      sourcePrizeTierLabel: "Gold",
+    },
+    {
+      cardName: "Smoke Ship Or Sell High Reward",
+      convertCoinValue: 1200,
+      fulfillmentPolicy: "ship_or_convert",
+      sourcePrizeTier: "rainbow",
+      sourcePrizeTierLabel: "Rainbow",
+    },
+  ];
+  const collectionRows = await Promise.all(
+    rewards.map(async (reward, index): Promise<YnotCollectionItem> => {
+      const position = index + 1;
+      const internalItemId = crypto.randomUUID();
+      return {
+        id: await collectionItemActionToken(
+          profileId,
+          internalItemId,
+        ),
+        cardName: reward.cardName,
+        imageUrl: null,
+        status: "owned",
+        serialNo: `${publicCode}-${String(position).padStart(3, "0")}`,
+        acquiredAt: now,
+        fulfillmentPolicy: reward.fulfillmentPolicy,
+        canShip:
+          reward.fulfillmentPolicy === "ship_or_convert" ||
+          reward.fulfillmentPolicy === "ship_only",
+        canConvert:
+          reward.fulfillmentPolicy === "ship_or_convert" ||
+          reward.fulfillmentPolicy === "convert_only",
+        convertCoinValue: reward.convertCoinValue,
+        sourceCampaignTitle: campaignTitle,
+        sourceCampaignSlug: campaignSlug,
+        sourcePrizeTier: reward.sourcePrizeTier,
+        sourcePrizeTierLabel: reward.sourcePrizeTierLabel,
+        sourceIsLastPrize: false,
+        sourcePrizeValueThb: reward.convertCoinValue,
+        sourceOpenPosition: position,
+      };
+    }),
+  );
+
+  const historyRow: YnotGachaOpenHistory = {
+    id: publicCode,
+    publicCode,
+    campaignSlug,
+    campaignTitle,
+    costCoins: 0,
+    quantity: collectionRows.length,
+    status: "completed",
+    openedAt: now,
+    createdAt: now,
+    rewards: collectionRows.map((item, index) => ({
+      id: `${publicCode}-${index + 1}`,
+      cardName: item.cardName,
+      imageUrl: item.imageUrl ?? null,
+      displayTier: item.sourcePrizeTier ?? "bronze",
+      isLastPrize: false,
+      valueThb: item.convertCoinValue ?? 0,
+      resultPosition: index + 1,
+    })),
+  };
+
+  const existingCollection = store.collectionByProfile.get(profileId) ?? [];
+  const existingHistory = store.historyByProfile.get(profileId) ?? [];
+  store.collectionByProfile.set(profileId, [
+    ...collectionRows,
+    ...existingCollection.filter(
+      (item) => item.sourceCampaignSlug !== campaignSlug,
+    ),
+  ].slice(0, 500));
+  store.historyByProfile.set(profileId, [
+    historyRow,
+    ...existingHistory.filter((row) => row.campaignSlug !== campaignSlug),
+  ].slice(0, 100));
+
+  return {
+    campaignSlug,
+    campaignTitle,
+    publicCode,
+    rewardCount: collectionRows.length,
+  };
 }
 
 export function previewCollectionForProfile(
@@ -745,6 +938,13 @@ export function previewCurrentConversionForProfile(
   return previewStore().currentConversionByProfile.get(profileId) ?? null;
 }
 
+export function previewCurrentShippingForProfile(
+  profileId: string | undefined,
+) {
+  if (!isPreviewProfile(profileId)) return null;
+  return previewStore().currentShippingByProfile.get(profileId) ?? null;
+}
+
 export function previewWalletBonusForProfile(profileId: string | undefined) {
   if (!isPreviewProfile(profileId)) return 0;
   return previewStore().walletBonusCoinsByProfile.get(profileId) ?? 0;
@@ -772,17 +972,94 @@ export async function requestPreviewShipping({
   profileId: string;
 }) {
   if (!isPreviewProfile(profileId)) return null;
+  const quote = await preparePreviewShippingQuote({
+    addressId,
+    collectionItemIds,
+    note,
+    profileId,
+    selectionMode: "selected",
+  });
+  if (!quote) return null;
+  return startPreviewShipping({
+    profileId,
+    quoteToken: quote.quoteToken,
+    requestId: idempotencyKey,
+  });
+}
+
+export async function preparePreviewShippingQuote({
+  addressId,
+  collectionItemIds,
+  note,
+  profileId,
+  selectionMode,
+}: {
+  addressId: string;
+  collectionItemIds: string[];
+  note?: string | null;
+  profileId: string;
+  selectionMode: "selected" | "all_eligible";
+}) {
+  if (!isPreviewProfile(profileId)) return null;
   const store = previewStore();
   const addresses = await ensurePreviewAddresses(profileId);
   const address = addresses.find((row) => row.id === addressId);
   if (!address) throw new Error("valid_shipping_address_required");
 
-  const selected = selectedPreviewItems(profileId, collectionItemIds);
-  updatePreviewCollectionItems(profileId, collectionItemIds, "shipping_requested");
+  const selected = shippablePreviewItemsForQuote(
+    profileId,
+    selectionMode,
+    collectionItemIds,
+  );
+  if (!selected.length) throw new Error("collection_item_not_shippable");
+  const selectedCoinValue = previewShippingCoinValue(selected);
+  const hasShipOnly = selected.some(
+    (item) => item.fulfillmentPolicy === "ship_only",
+  );
+  if (!hasShipOnly && selectedCoinValue < 1000) {
+    throw new Error("shipping_minimum_not_met");
+  }
+
+  const quote: PreviewShippingQuote = {
+    address: previewShippingAddressSummary(address),
+    addressId,
+    collectionItemIds: selected.map((item) => item.id),
+    expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+    itemCount: selected.length,
+    minimumCoinValue: 1000,
+    note: note ?? null,
+    profileId,
+    quoteToken: crypto.randomUUID(),
+    selectedCoinValue,
+    selectionMode,
+    totalCoinValue: selectedCoinValue,
+  };
+  store.shippingByQuoteToken.set(quote.quoteToken, quote);
+  return quote;
+}
+
+export function startPreviewShipping({
+  profileId,
+  quoteToken,
+  requestId,
+}: {
+  profileId: string;
+  quoteToken: string;
+  requestId?: string;
+}) {
+  if (!isPreviewProfile(profileId)) return null;
+  const store = previewStore();
+  const quote = store.shippingByQuoteToken.get(quoteToken);
+  if (!quote || quote.profileId !== profileId || Date.parse(quote.expiresAt) <= Date.now()) {
+    throw new Error("shipping_quote_expired");
+  }
+
+  const selected = selectedPreviewItems(profileId, quote.collectionItemIds);
+  updatePreviewCollectionItems(profileId, quote.collectionItemIds, "shipping_requested");
 
   const now = new Date().toISOString();
   const request: YnotShippingRequest = {
-    id: idempotencyKey,
+    id: requestId ?? crypto.randomUUID(),
     publicCode: `PS-${Math.floor(Math.random() * 1_000_000)
       .toString()
       .padStart(6, "0")}`,
@@ -790,10 +1067,16 @@ export async function requestPreviewShipping({
     status: "submitted",
     createdAt: now,
     updatedAt: now,
-    customerNote: note ?? null,
+    customerNote: quote.note,
     adminNote: null,
     shippingFeeCoins: 0,
-    addressSnapshot: previewShippingAddressSnapshot(address),
+    itemCount: selected.length,
+    preparedCount: selected.length,
+    totalCoinValue: quote.totalCoinValue,
+    addressSnapshot: {
+      ...quote.address,
+      addressLine1: quote.address.summary,
+    },
     items: selected.map(previewShippingItem),
     timeline: [
       {
@@ -808,12 +1091,19 @@ export async function requestPreviewShipping({
   };
   const requests = store.shippingByProfile.get(profileId) ?? [];
   store.shippingByProfile.set(profileId, [request, ...requests].slice(0, 100));
-  return {
-    status: request.status,
-    publicCode: request.publicCode,
+  store.shippingByQuoteToken.delete(quoteToken);
+  const job: PreviewShippingJob = {
+    completed: true,
+    jobId: request.id,
     itemCount: selected.length,
+    preparedCount: selected.length,
+    publicCode: request.publicCode,
     replayed: false,
+    status: "submitted",
+    totalCoinValue: quote.totalCoinValue,
   };
+  store.currentShippingByProfile.set(profileId, job);
+  return job;
 }
 
 export function previewShippingForProfile(
@@ -830,6 +1120,7 @@ export function clearPreviewRewardsForProfile(profileId = LOCAL_PREVIEW_PROFILE_
   store.bulkOpenSessionsByProfile.delete(profileId);
   store.collectionByProfile.delete(profileId);
   store.currentConversionByProfile.delete(profileId);
+  store.currentShippingByProfile.delete(profileId);
   store.exchangesByProfile.delete(profileId);
   store.historyByProfile.delete(profileId);
   store.shippingByProfile.delete(profileId);
@@ -841,6 +1132,9 @@ export function clearPreviewRewardsForProfile(profileId = LOCAL_PREVIEW_PROFILE_
   }
   for (const [quoteToken, quote] of store.conversionByQuoteToken) {
     if (quote.profileId === profileId) store.conversionByQuoteToken.delete(quoteToken);
+  }
+  for (const [quoteToken, quote] of store.shippingByQuoteToken) {
+    if (quote.profileId === profileId) store.shippingByQuoteToken.delete(quoteToken);
   }
   for (const [startToken, quote] of store.bulkOpenQuotesByToken) {
     if (quote.profileId === profileId) store.bulkOpenQuotesByToken.delete(startToken);

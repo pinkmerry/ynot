@@ -12,6 +12,7 @@ import { enforceRateLimit } from "@/lib/security/rate-limit";
 import {
   getPrizeStockSummaries,
   normalizePrizeDrafts,
+  normalizeRewardFulfillmentPolicy,
   validatePrizeDraftsForSave,
   type PrizeDraftInput,
 } from "@/features/ynot/prize-readiness";
@@ -290,11 +291,21 @@ function metadataString(metadata: unknown, key: string) {
 }
 
 const convertCoinValueMax = 10_000_000;
+const FULFILLMENT_POLICIES = new Set([
+  "ship_or_convert",
+  "ship_only",
+  "convert_only",
+]);
 
 function clampConvertCoinValue(value: unknown) {
   const parsed = Math.round(Number(value));
   if (!Number.isFinite(parsed) || parsed <= 0) return 0;
   return Math.min(convertCoinValueMax, parsed);
+}
+
+function fulfillmentPolicyValue(value: unknown) {
+  const normalized = normalizeRewardFulfillmentPolicy(value);
+  return FULFILLMENT_POLICIES.has(normalized) ? normalized : "ship_or_convert";
 }
 
 function sanitizedLastPrizeStockFilter(value: unknown) {
@@ -321,6 +332,10 @@ function lastPrizeMetadataValue(value: unknown): Json | null {
   const stockSku = text(value.stockSku, 120);
   const label = text(value.label, 220);
   const stockUnitFilter = sanitizedLastPrizeStockFilter(value.stockUnitFilter);
+  const convertCoinValue = clampConvertCoinValue(value.convertCoinValue);
+  const fulfillmentPolicy = fulfillmentPolicyValue(
+    value.fulfillmentPolicy ?? (convertCoinValue > 0 ? "ship_or_convert" : "ship_only"),
+  );
 
   return {
     ...(stockUnitGroupKey ? { stockUnitGroupKey } : {}),
@@ -333,7 +348,8 @@ function lastPrizeMetadataValue(value: unknown): Json | null {
     prizeCategoryLabel: prizeCategoryLabel(prizeCategory),
     sourceType: prizeSourceType(prizeCategory),
     quantity: 1,
-    convertCoinValue: clampConvertCoinValue(value.convertCoinValue),
+    convertCoinValue,
+    fulfillmentPolicy,
     lastPrize: true,
   } as Json;
 }
@@ -716,6 +732,7 @@ async function saveInitialPrizes(
         rank: prize.rank,
         value_thb: prize.valueThb,
         convert_coin_value: prize.convertCoinValue,
+        fulfillment_policy: prize.fulfillmentPolicy,
         weight: prize.weight,
         unlock_at_sold_pct: prize.unlockAtSoldPct,
         planned_quantity: prize.quantity,
@@ -767,6 +784,7 @@ function liveEditPrizeRpcRows(
       rank: prize.rank,
       valueThb: prize.valueThb,
       convertCoinValue: prize.convertCoinValue,
+      fulfillmentPolicy: prize.fulfillmentPolicy,
       weight: prize.weight,
       unlockAtSoldPct: prize.unlockAtSoldPct,
       plannedQuantity: prize.quantity,
@@ -812,6 +830,7 @@ type LivePrizeRow = Pick<
   | "rank"
   | "value_thb"
   | "convert_coin_value"
+  | "fulfillment_policy"
   | "weight"
   | "unlock_at_sold_pct"
   | "planned_quantity"
@@ -830,6 +849,7 @@ function livePrizeDraftFromRow(row: LivePrizeRow): PrizeDraftInput {
     rank: row.rank,
     valueThb: row.value_thb,
     convertCoinValue: row.convert_coin_value,
+    fulfillmentPolicy: fulfillmentPolicyValue(row.fulfillment_policy),
     weight: row.weight,
     unlockAtSoldPct: row.unlock_at_sold_pct,
     quantity: row.planned_quantity,
@@ -845,7 +865,7 @@ async function loadLivePrizeDrafts(
   const { data, error } = await supabase
     .from("draw_round_prizes")
     .select(
-      "card_id,tier,rank,value_thb,convert_coin_value,weight,unlock_at_sold_pct,planned_quantity,bundle_quantity,metadata",
+      "card_id,tier,rank,value_thb,convert_coin_value,fulfillment_policy,weight,unlock_at_sold_pct,planned_quantity,bundle_quantity,metadata",
     )
     .eq("draw_round_id", campaignId)
     .order("tier", { ascending: true })

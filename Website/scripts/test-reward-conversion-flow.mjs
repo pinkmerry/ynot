@@ -5,6 +5,7 @@ import test from "node:test";
 const migrationPaths = [
   "../../Database/supabase/migrations/20260619130000_reward_conversion_jobs.sql",
   "../../Database/supabase/migrations/20260621062815_reward_conversion_forward_compat.sql",
+  "../../Database/supabase/migrations/20260624131500_fix_reward_conversion_uuid_hash.sql",
 ];
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
@@ -185,12 +186,18 @@ test("quote is non-committing and supports manual or whole-bag eligible selectio
   requirePattern(quote, /p_selection_mode/, "quote must accept a selection mode");
   requirePattern(quote, /all_eligible/, "quote must support whole Customer Bag eligible selection");
   requirePattern(quote, /selected/, "quote must support manually selected rewards");
+  requirePattern(quote, /count\(distinct item_id\)/, "selected conversion must count unique selected rewards");
+  requirePattern(quote, /requested_count <> cardinality\(p_collection_item_ids\)[\s\S]*duplicate_collection_items/, "selected conversion must reject duplicate selected rewards");
   requirePattern(quote, /status = 'owned'/, "quote must only count owned rewards");
   requirePattern(quote, /convert_coin_value_snapshot > 0/, "quote must only count positive conversion value");
+  requirePattern(quote, /coalesce\(sum\(convert_coin_value_snapshot\), 0\)::int/, "quote total must be the exact sum of selected reward coin snapshots");
   requirePattern(quote, /convert_expires_at is null or convert_expires_at > now\(\)/, "quote must reject expired rewards");
   requirePattern(quote, /insert into public\.reward_conversion_quote_tokens/, "quote must issue opaque server token");
   requirePattern(quote, /if p_selection_mode = 'selected' then[\s\S]*array_agg\(id order by id\)[\s\S]*else selected_ids := '\{\}'::uuid\[\]/, "selected quotes may store selected IDs");
   assert.doesNotMatch(allEligibleQuoteBranch, /array_agg\(id order by id\)/, "all eligible quote must not build a giant UUID array");
+  requirePattern(allEligibleQuoteBranch, /min\(id::text\)/, "all-eligible quote must hash UUIDs through text-safe min");
+  requirePattern(allEligibleQuoteBranch, /max\(id::text\)/, "all-eligible quote must hash UUIDs through text-safe max");
+  assert.doesNotMatch(allEligibleQuoteBranch, /min\(id\)|max\(id\)/, "all-eligible quote must not call min/max directly on UUID");
   assert.doesNotMatch(quote, /update public\.collection_items/, "quote must not lock or mutate rewards");
 });
 
@@ -246,6 +253,9 @@ test("start only commits the conversion job and process freezes bounded membersh
   requirePattern(start, /p_quote_token_id/, "start must require quote token");
   requirePattern(start, /for update/, "start must lock quote/job data inside transaction");
   requirePattern(start, /reward_conversion_quote_changed/, "start must abort stale quotes before locking rewards");
+  requirePattern(start, /min\(eligible\.id::text\)/, "all-eligible start validation must hash UUIDs through text-safe min");
+  requirePattern(start, /max\(eligible\.id::text\)/, "all-eligible start validation must hash UUIDs through text-safe max");
+  assert.doesNotMatch(start, /min\(eligible\.id\)|max\(eligible\.id\)/, "start validation must not call min/max directly on UUID");
   requirePattern(start, /insert into public\.reward_conversion_jobs/, "start must create a conversion job");
   assert.doesNotMatch(quote, /insert into public\.reward_conversion_job_items/, "quote must not create frozen snapshot rows");
   assert.doesNotMatch(start, /insert into public\.reward_conversion_job_items/, "start must not freeze every selected/all-eligible reward before returning");
@@ -283,6 +293,36 @@ test("start only commits the conversion job and process freezes bounded membersh
   requirePattern(recovery, /status = 'queued'/, "recovery must pick up queued conversions after enqueue failure");
   requirePattern(recovery, /status = 'retry_required'/, "recovery must pick up due retry conversions");
   requirePattern(recovery, /status = 'processing'[\s\S]*interval '2 minutes'/, "recovery must pick up stale processing conversions");
+});
+
+test("reward conversion replays before creating jobs and credits only worker-frozen chunks", () => {
+  const source = migrationSource();
+  const sql = compactSql(source);
+  const start = compactSql(functionBlock(source, "start_reward_conversion"));
+  const process = compactSql(functionBlock(source, "process_reward_conversion_chunk"));
+
+  const consumedReplayIndex = start.indexOf("if quote_row.consumed_by_job_id is not null");
+  const idempotencyReplayIndex = start.indexOf("where profile_id = p_profile_id and idempotency_key = coalesce");
+  const jobInsertIndex = start.indexOf("insert into public.reward_conversion_jobs");
+  const quoteConsumeIndex = start.indexOf("update public.reward_conversion_quote_tokens");
+
+  assert.ok(consumedReplayIndex >= 0, "start must replay a consumed quote token");
+  assert.ok(consumedReplayIndex < jobInsertIndex, "consumed quote replay must happen before job insert");
+  assert.ok(idempotencyReplayIndex >= 0, "start must replay matching conversion idempotency keys");
+  assert.ok(idempotencyReplayIndex < jobInsertIndex, "idempotency replay must happen before job insert");
+  assert.ok(jobInsertIndex < quoteConsumeIndex, "quote token should be consumed only after a job is created");
+  assert.doesNotMatch(start, /insert into public\.coin_ledger/, "start must never credit the wallet");
+  assert.match(start, /'creditedtotalcoins', existing_job\.credited_total_coins/);
+  assert.match(start, /'replayed', true/);
+  assert.match(start, /'replayed', false/);
+
+  requirePattern(sql, /check \(credited_total_coins <= total_coins\)/, "conversion jobs must never credit beyond the quoted total");
+  requirePattern(process, /chunk_idempotency_key := job_row\.id::text \|\| ':' \|\| \(job_row\.converted_count \+ 1\)::text \|\| ':' \|\| chunk_count::text/, "chunk ledger idempotency key must be deterministic per frozen chunk");
+  requirePattern(process, /coalesce\(sum\(chunk\.coin_value\), 0\)::int/, "chunk credit must sum frozen item coin values");
+  requirePattern(process, /insert into public\.coin_ledger/, "worker must write the wallet credit ledger");
+  requirePattern(process, /'exchange_credit'[\s\S]*chunk_total[\s\S]*locked_wallet\.balance_coins[\s\S]*locked_wallet\.balance_coins \+ chunk_total/, "ledger must credit exactly the frozen chunk total");
+  requirePattern(process, /update public\.wallet_accounts set balance_coins = balance_coins \+ chunk_total,\s*version = version \+ 1/, "wallet credit must add exactly the frozen chunk total");
+  requirePattern(process, /credited_total_coins = credited_total_coins \+ chunk_total/, "job progress must add the same credited chunk total");
 });
 
 test("collection conversion API is one dynamic pipeline with safe DTOs and queue enqueue", () => {
@@ -364,7 +404,9 @@ test("localhost preview conversion follows quote/start/current without private I
   requirePattern(previewStore, /crypto\.randomUUID\(\)/, "preview conversion must issue opaque UUID quote/job ids");
   requirePattern(previewStore, /function previewConvertCoinValue/, "preview open rewards must get public mock coin values");
   requirePattern(previewStore, /switch \(item\.displayTier\)/, "preview conversion values must use public display tiers only");
-  requirePattern(previewStore, /convertCoinValue: previewConvertCoinValue\(item\)/, "preview bag rows must be convertible on localhost");
+  requirePattern(previewStore, /const convertCoinValue = previewConvertCoinValue\(item\)/, "preview bag rows must derive public mock coin values");
+  requirePattern(previewStore, /fulfillmentPolicy,\s+canShip:/, "preview bag rows must carry the explicit reward policy");
+  requirePattern(previewStore, /canConvert:\s+fulfillmentPolicy === "ship_or_convert"/, "preview bag rows must expose convert eligibility");
   requirePattern(previewStore, /updatePreviewCollectionItems\(profileId, quote\.collectionItemIds, "exchanged"\)/, "preview conversion must move rewards into converted state");
   requirePattern(previewStore, /walletBonusCoinsByProfile/, "preview conversion must credit localhost wallet state");
   assert.doesNotMatch(previewStore, /draw_round_prize_units|card_stock_unit_id|stockUnitGroupKey/, "preview store must not model private stock tables");
@@ -412,6 +454,7 @@ test("Cloudflare worker can continue reward conversion jobs without browser owne
 
 test("Customer Bag conversion UI requires explicit selection and keeps huge flow summary-only", () => {
   const history = read("src/features/ynot/cr/HistoryExperience.tsx");
+  const theme = read("src/features/ynot/cr/theme.css");
 
   requirePattern(history, /Convert all eligible rewards/, "UI must expose explicit whole-bag conversion action");
   requirePattern(history, /selectionMode:\s*"all_eligible"/, "whole-bag selection must be sent as scope, not IDs");
@@ -433,6 +476,11 @@ test("Customer Bag conversion UI requires explicit selection and keeps huge flow
   requirePattern(history, /Converting rewards to coins/, "UI must show calm progress copy");
   requirePattern(history, /coins credited/, "UI must show progressive credited coins");
   requirePattern(history, /You can leave this page/, "UI must make server-owned continuation clear");
+  requirePattern(
+    theme,
+    /\.cr-btn-mint:hover:not\(\[disabled\]\)\s*\{[\s\S]*background:\s*var\(--cr-mint\);[\s\S]*color:\s*#fff;/,
+    "conversion confirm mint button must stay readable on hover like collection sell buttons",
+  );
   assert.doesNotMatch(history, /Admin reviews the request/, "conversion copy must not mention admin approval");
   assert.doesNotMatch(history.replace(/\bjobId\b/g, "progressIdentity"), /chunk|rpc|queue|job/i, "customer UI must not expose backend mechanics");
 });

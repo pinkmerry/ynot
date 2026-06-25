@@ -73,6 +73,7 @@ import type {
   YnotViewer,
   YnotWallet,
 } from "./types";
+import { ynotRewardFulfillmentPolicyValue } from "./types";
 import { featuredCampaigns } from "./storefront-content";
 import { allowDemoStorefront } from "./runtime-flags";
 import {
@@ -102,7 +103,10 @@ import {
   stockImageUrlByPrizeId,
   type PublicPrizeUnitImageRow,
 } from "./public-subsku-images";
-import { normalizeBundleQuantity, publicBundleQuantity } from "./bundle-quantity";
+import {
+  normalizeBundleQuantity,
+  publicBundleQuantity,
+} from "./bundle-quantity";
 import { getProfileAddresses } from "./server-addresses";
 
 const dataIssueStorage = new AsyncLocalStorage<YnotDataIssue[]>();
@@ -1212,6 +1216,7 @@ async function getPublicPrizeLineupsBatch(
           rank: prize.rank,
           valueThb: prize.value_thb,
           convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
+          fulfillmentPolicy: ynotRewardFulfillmentPolicyValue(prize.fulfillment_policy),
           bundleQuantity: publicBundleQuantity(prize.bundle_quantity),
           quantityBadge: publicBundleQuantity(prize.bundle_quantity),
           plannedQuantity: counts.total,
@@ -1330,6 +1335,7 @@ async function getPublicPrizeLineup(
         rank: prize.rank,
         valueThb: prize.value_thb,
         convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
+        fulfillmentPolicy: ynotRewardFulfillmentPolicyValue(prize.fulfillment_policy),
         bundleQuantity: publicBundleQuantity(prize.bundle_quantity),
         quantityBadge: publicBundleQuantity(prize.bundle_quantity),
         plannedQuantity: counts.total,
@@ -1481,6 +1487,12 @@ function toYnotCampaign(
       metadataString(row.last_prize_metadata, "catalogCategory") ?? null,
     lastPrizeConvertCoinValue:
       metadataInteger(row.last_prize_metadata, "convertCoinValue"),
+    lastPrizeFulfillmentPolicy: ynotRewardFulfillmentPolicyValue(
+      metadataString(row.last_prize_metadata, "fulfillmentPolicy") ??
+        ((metadataInteger(row.last_prize_metadata, "convertCoinValue") ?? 0) > 0
+          ? "ship_or_convert"
+          : "ship_only"),
+    ),
     sortOrder: row.sort_order,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
@@ -1519,8 +1531,9 @@ function toYnotCampaign(
     identityMismatchCheckFailed?: boolean;
   };
   campaign.pullAllStatus = pullAllStatusFromCampaign(campaign);
+  campaign.pullAllReady = campaign.pullAllStatus.ready;
   campaign.pullAllAvailable =
-    campaign.pullAllStatus.ready &&
+    campaign.pullAllReady &&
     campaign.openable === true &&
     campaign.soldOut !== true &&
     (campaign.remainingSlots ?? 0) > 0 &&
@@ -1544,10 +1557,9 @@ function publicPrizePreview(prize: YnotPrizePreview, index: number): YnotPrizePr
     valueThb: prize.valueThb,
     convertCoinValue: prize.convertCoinValue,
     bundleQuantity: prize.bundleQuantity,
-    // Product decision (2026-06-15, owner): expose per-card copy count to
-    // customers on pack detail. This intentionally reverses the 2026-06-12
-    // "hide rate labels" guardrail for plannedQuantity only — stock planning
-    // internals (filters / group keys / available units) stay hidden.
+    quantityBadge: prize.quantityBadge,
+    // Product decision: expose the duplicate reward count as a capped xN badge
+    // on pack detail only. Stock planning internals stay hidden.
     plannedQuantity: prize.plannedQuantity,
     prizeCategory: prize.prizeCategory,
     prizeCategoryLabel: prize.prizeCategoryLabel,
@@ -1588,6 +1600,7 @@ function publicYnotCampaign(campaign: YnotCampaign): YnotCampaign {
     bannerImageUrl: campaign.bannerImageUrl ?? null,
     openQuantityOptions: campaign.openQuantityOptions,
     pullAllAvailable: campaign.pullAllAvailable,
+    pullAllReady: campaign.pullAllReady === true,
     convertDeadlineDays: campaign.convertDeadlineDays,
     hasLastPrize:
       campaign.hasLastPrize ??
@@ -1627,6 +1640,7 @@ function applyLocalPreviewAfter60SoldState(
     openable: true,
     soldOut: false,
     pullAllAvailable: true,
+    pullAllReady: true,
     pullAllEnabled: true,
     pullAllRequested: true,
     pullAllAllowlisted: true,
@@ -2654,6 +2668,7 @@ function toOpenRevealCampaign(
     soldOut,
     bannerImageUrl: row.banner_image_url ?? null,
     openQuantityOptions: normalizeOpenQuantityOptions(row.logic_snapshot),
+    pullAllReady,
     pullAllAvailable:
       pullAllReady && openable && !soldOut && remainingSlots > 0 && soldPct >= 60,
     convertDeadlineDays:
@@ -3261,9 +3276,12 @@ export async function getCollection(
       const pageEnd = Math.min(offset + COLLECTION_PAGE_SIZE, collectionLimit) - 1;
       const { data, error } = await supabase
         .from("collection_items")
-        .select("*")
+        .select(
+          "id,profile_id,card_id,source_type,source_id,status,serial_no,acquired_at,card_stock_unit_id,gacha_open_item_id,conversion_job_id,shipping_request_job_id,shipping_request_id,convert_coin_value_snapshot,convert_expires_at,fulfillment_policy_snapshot,created_at,updated_at",
+        )
         .eq("profile_id", profileId)
         .order("acquired_at", { ascending: false })
+        .order("id", { ascending: false })
         .range(offset, pageEnd);
       if (error) throw error;
       const pageRows = data ?? [];
@@ -3536,6 +3554,26 @@ export async function getCollection(
 
   const cardsById = new Map(cards.map((card) => [card.catalogCardId, card]));
   return Promise.all(items.map(async (item) => {
+    const fulfillmentPolicy = ynotRewardFulfillmentPolicyValue(
+      item.fulfillment_policy_snapshot,
+    );
+    const convertCoinValue =
+      typeof item.convert_coin_value_snapshot === "number"
+        ? Math.max(0, Math.round(item.convert_coin_value_snapshot))
+        : null;
+    const convertExpiresAt = item.convert_expires_at ?? null;
+    const convertExpired =
+      convertExpiresAt !== null && new Date(convertExpiresAt).valueOf() <= Date.now();
+    const canConvert =
+      item.status === "owned" &&
+      (fulfillmentPolicy === "ship_or_convert" ||
+        fulfillmentPolicy === "convert_only") &&
+      (convertCoinValue ?? 0) > 0 &&
+      !convertExpired;
+    const canShip =
+      item.status === "owned" &&
+      (fulfillmentPolicy === "ship_or_convert" ||
+        fulfillmentPolicy === "ship_only");
     const card = cardsById.get(item.card_id);
     const wonUnit = wonUnitByItemId.get(item.id);
     const open = item.source_id ? opensById.get(item.source_id) : null;
@@ -3585,6 +3623,9 @@ export async function getCollection(
       cardPrizeCategory: card?.prizeCategory ?? null,
       cardSeries: card?.series ?? null,
       imageUrl: publicSubSkuImageUrl(wonUnit?.imageUrl, card?.photoUrl),
+      fulfillmentPolicy,
+      canShip,
+      canConvert,
       bundleQuantity,
       bundleIndex,
       bundleGroupId: bundleQuantity
@@ -3594,11 +3635,8 @@ export async function getCollection(
       status: item.status,
       serialNo: item.serial_no,
       acquiredAt: item.acquired_at,
-      convertCoinValue:
-        typeof item.convert_coin_value_snapshot === "number"
-          ? Math.max(0, Math.round(item.convert_coin_value_snapshot))
-          : null,
-      convertExpiresAt: item.convert_expires_at ?? null,
+      convertCoinValue,
+      convertExpiresAt,
       sourceCampaignTitle: campaign
         ? campaign.titleEn ?? campaign.titleTh ?? null
         : null,
@@ -5625,6 +5663,7 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         rank: prize.rank,
         valueThb: prize.value_thb,
         convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
+        fulfillmentPolicy: ynotRewardFulfillmentPolicyValue(prize.fulfillment_policy),
         bundleQuantity: normalizeBundleQuantity(prize.bundle_quantity),
         weight: Number(prize.weight ?? 1),
         unlockAtSoldPct: Number(prize.unlock_at_sold_pct ?? 0),

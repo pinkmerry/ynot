@@ -3,11 +3,13 @@ import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { getAdminCards } from "@/features/ynot/data";
 import { prizeCategoryValue } from "@/features/ynot/prize-category";
 import {
   cardConditionValue,
   cardGradeOptions,
+  catalogCategoryValue,
   gradingServiceValue,
   releaseYearValue,
 } from "@/features/ynot/card-catalog-metadata";
@@ -106,6 +108,22 @@ function gradeValue(value: unknown) {
   return clean || "Ungraded";
 }
 
+function isSealedMainSkuCategory(category: unknown) {
+  const catalogCategory = catalogCategoryValue(category);
+  return catalogCategory === "boxes" || catalogCategory === "packs";
+}
+
+function sealedMainSkuNameRequiredMessage(category: unknown) {
+  return catalogCategoryValue(category) === "packs"
+    ? "Pack name is required."
+    : "Box name is required.";
+}
+
+function isAllowedSealedProductSeries(value: unknown) {
+  const clean = text(value, 80).toLowerCase().replace(/[_-]+/g, " ");
+  return clean === "pokemon" || clean === "one piece";
+}
+
 function validateCardBody(body: CardBody) {
   const grade = text(body.grade, 80);
   if (
@@ -123,6 +141,14 @@ function validateCardBody(body: CardBody) {
     (typeof body.catalogCategory !== "string" || !body.catalogCategory.trim())
   ) {
     return "Catalog category is required.";
+  }
+  if (isSealedMainSkuCategory(body.catalogCategory)) {
+    if (!hasPayloadValue(body.name)) {
+      return sealedMainSkuNameRequiredMessage(body.catalogCategory);
+    }
+    if (!isAllowedSealedProductSeries(body.series)) {
+      return "Series must be Pokemon or One Piece for sealed Main SKUs.";
+    }
   }
   if (
     hasPayloadValue(body.condition) &&
@@ -351,6 +377,8 @@ async function duplicateCardResponse(
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
   const admin = await resolveAdminSession();
   if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
   const limited = await enforceRateLimit(request, "ynot:admin:cards", adminCardMutationRateLimit, admin.profileId);
@@ -381,6 +409,8 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
   const admin = await resolveAdminSession();
   if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
   const limited = await enforceRateLimit(request, "ynot:admin:cards", adminCardMutationRateLimit, admin.profileId);
@@ -471,6 +501,8 @@ export async function DELETE(request: Request) {
 
 export async function PATCH(request: Request) {
   if (!isSupabaseConfigured()) return Response.json({ error: "Supabase is not configured." }, { status: 503 });
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
   const admin = await resolveAdminSession();
   if (!admin) return Response.json({ error: "Admin access is required." }, { status: 403 });
   const limited = await enforceRateLimit(request, "ynot:admin:cards", adminCardMutationRateLimit, admin.profileId);
