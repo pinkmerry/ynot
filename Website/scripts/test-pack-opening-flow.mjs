@@ -476,6 +476,11 @@ test("active pack detail prize images stay in fixed-size card tracks", () => {
     /\.ac-lightbox-main \{[\s\S]*max-width:\s*min\(100%,\s*560px\);[\s\S]*max-height:\s*min\(68vh,\s*620px\);[\s\S]*object-fit:\s*contain;/,
     "lightbox main image should be contained within a bounded viewport stage",
   );
+  assert.doesNotMatch(
+    arena,
+    /ac-lightbox-refl/,
+    "lightbox should render exactly one card image with no mirrored duplicate",
+  );
   assert.match(
     globals,
     /html\[data-ynot-theme\] \.ac-tier-rainbow \.ac-grid,[\s\S]*html\[data-ynot-theme\] \.ac-tier-last \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/,
@@ -490,6 +495,11 @@ test("active pack detail prize images stay in fixed-size card tracks", () => {
     globals,
     /html\[data-ynot-theme\] \.ac-lightbox-main \{[\s\S]*max-width:\s*min\(100%,\s*560px\);[\s\S]*max-height:\s*min\(68vh,\s*620px\);[\s\S]*object-fit:\s*contain;/,
     "global YNOT theme override should keep the lightbox image bounded",
+  );
+  assert.doesNotMatch(
+    globals,
+    /ac-lightbox-refl/,
+    "global YNOT theme should not carry reflection styles for the one-card lightbox",
   );
   assert.match(
     globals,

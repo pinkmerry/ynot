@@ -120,6 +120,16 @@ test("pack detail prize art uses stable contain frames and convert modal hover s
     /@keyframes ac-card-turn \{[\s\S]*rotateY\(15deg\)[\s\S]*rotateY\(-15deg\)/,
     "global YNOT theme animation should include the card-turn keyframes it references",
   );
+  assert.doesNotMatch(
+    arena,
+    /ac-lightbox-refl/,
+    "pack detail lightbox should show one centered card with no reflected duplicate",
+  );
+  assert.doesNotMatch(
+    globals,
+    /ac-lightbox-refl/,
+    "global YNOT theme should not carry reflection styles for the one-card lightbox",
+  );
   assert.match(arena, /\.ac-slab-art \{[^}]*aspect-ratio: 3 \/ 4/s);
   assert.match(arena, /\.ac-slab-art img \{[^}]*object-fit: contain/s);
   assert.match(theme, /\.cr-prize-card-art img \{[^}]*object-fit: contain/s);

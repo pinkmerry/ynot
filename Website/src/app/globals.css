@@ -35264,24 +35264,6 @@ html[data-ynot-theme] .ac-lightbox-main {
   object-fit: contain;
 }
 
-html[data-ynot-theme] .ac-lightbox-refl-clip {
-  max-width: 100%;
-  overflow: hidden;
-  margin-top: 2px;
-  margin-bottom: -24px;
-  align-self: stretch;
-}
-
-html[data-ynot-theme] .ac-lightbox-refl {
-  display: block;
-  margin: 0 auto;
-  width: auto;
-  height: auto;
-  max-width: min(100%, 560px);
-  max-height: min(68vh, 620px);
-  object-fit: contain;
-}
-
 @keyframes ac-card-turn {
   0%,
   100% {
