@@ -491,6 +491,11 @@ test("active pack detail prize images stay in fixed-size card tracks", () => {
     /html\[data-ynot-theme\] \.ac-lightbox-main \{[\s\S]*max-width:\s*min\(100%,\s*560px\);[\s\S]*max-height:\s*min\(68vh,\s*620px\);[\s\S]*object-fit:\s*contain;/,
     "global YNOT theme override should keep the lightbox image bounded",
   );
+  assert.match(
+    globals,
+    /@keyframes ac-card-turn \{[\s\S]*rotateY\(15deg\)[\s\S]*rotateY\(-15deg\)/,
+    "global YNOT theme animation should include the card-turn keyframes it references",
+  );
 });
 
 test("active pack detail fan cards open the spinning lightbox", () => {

@@ -115,6 +115,11 @@ test("pack detail prize art uses stable contain frames and convert modal hover s
     /html\[data-ynot-theme\] \.ac-tier-gold \.ac-grid,[\s\S]*html\[data-ynot-theme\] \.ac-tier-silver \.ac-grid,[\s\S]*html\[data-ynot-theme\] \.ac-tier-bronze \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);/,
     "global YNOT theme override should preserve six-column lower prize grids",
   );
+  assert.match(
+    globals,
+    /@keyframes ac-card-turn \{[\s\S]*rotateY\(15deg\)[\s\S]*rotateY\(-15deg\)/,
+    "global YNOT theme animation should include the card-turn keyframes it references",
+  );
   assert.match(arena, /\.ac-slab-art \{[^}]*aspect-ratio: 3 \/ 4/s);
   assert.match(arena, /\.ac-slab-art img \{[^}]*object-fit: contain/s);
   assert.match(theme, /\.cr-prize-card-art img \{[^}]*object-fit: contain/s);

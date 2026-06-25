@@ -35282,6 +35282,17 @@ html[data-ynot-theme] .ac-lightbox-refl {
   object-fit: contain;
 }
 
+@keyframes ac-card-turn {
+  0%,
+  100% {
+    transform: rotateY(15deg) translateY(0);
+  }
+
+  50% {
+    transform: rotateY(-15deg) translateY(-8px);
+  }
+}
+
 @media (min-width: 921px) and (max-width: 1180px) {
   html[data-ynot-theme] .ac-tier-rainbow .ac-grid,
   html[data-ynot-theme] .ac-tier-last .ac-grid {
