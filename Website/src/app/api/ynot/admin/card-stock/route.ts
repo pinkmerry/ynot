@@ -32,6 +32,7 @@ type CardStockBody = {
   imageStoragePath?: unknown;
   stockUnitGroupKey?: unknown;
   stockSkuId?: unknown;
+  language?: unknown;
 };
 
 function text(value: unknown, max = 160) {
@@ -40,6 +41,7 @@ function text(value: unknown, max = 160) {
 
 const CONDITIONS = new Set(["sealed", "raw", "graded"]);
 const GRADING_SERVICES = new Set(["psa", "bgs", "cgc", "other"]);
+const LANGUAGES = new Set(["english", "japanese", "korean", "chinese"]);
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -164,6 +166,8 @@ export async function POST(request: Request) {
       : removeGroup?.condition === "graded"
         ? removeGroup.gemrateId || null
         : null;
+  const languageRaw = text(body?.language, 16).toLowerCase();
+  const language = delta > 0 && LANGUAGES.has(languageRaw) ? languageRaw : null;
   const imageUrl = delta > 0 ? text(body?.imageUrl, 600) || null : null;
   const imageStoragePath =
     delta > 0 ? text(body?.imageStoragePath, 400) || null : null;
@@ -200,6 +204,7 @@ export async function POST(request: Request) {
           sourceId,
           stockSkuId,
           stockUnitGroupKey: stockUnitGroupKey || null,
+          language,
         } satisfies Json,
         p_condition: condition,
         p_grade: grade,
@@ -220,6 +225,7 @@ export async function POST(request: Request) {
           reason,
           sourceId,
           stockUnitGroupKey: stockUnitGroupKey || null,
+          language,
         } satisfies Json,
         p_condition: condition,
         p_grade: grade,

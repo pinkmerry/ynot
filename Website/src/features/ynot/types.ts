@@ -768,6 +768,12 @@ export type YnotRankingRow = {
   metric: string;
 };
 
+export type PrizeWinner = {
+  profileId: string;
+  name: string;
+  awardedAt: string | null;
+};
+
 export type YnotPrizePoolItem = {
   id: string;
   campaignId: string;
@@ -814,6 +820,8 @@ export type YnotPrizePoolItem = {
   totalUnits: number;
   availableUnits: number;
   awardedUnits: number;
+  /** Admin-only: who won each awarded unit (display name, never email). */
+  awardedTo: PrizeWinner[];
   voidUnits: number;
 };
 

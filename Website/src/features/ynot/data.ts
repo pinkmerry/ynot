@@ -61,6 +61,7 @@ import type {
   YnotPullAllReadinessStatus,
   YnotPrizeUnitIdentityMismatch,
   YnotPrizePoolItem,
+  PrizeWinner,
   YnotPrizePreview,
   YnotRandomLogicMode,
   YnotRankingRow,
@@ -106,6 +107,7 @@ import {
 import {
   normalizeBundleQuantity,
   publicBundleQuantity,
+  publicPlannedQuantityBadge,
 } from "./bundle-quantity";
 import { getProfileAddresses } from "./server-addresses";
 
@@ -581,6 +583,7 @@ type PrizePoolStockUnitRow = Pick<
   | "grading_service"
   | "cert_number"
   | "gemrate_id"
+  | "language"
   | "image_url"
   | "status"
 >;
@@ -592,7 +595,7 @@ type PrizePoolStockSkuRow = Pick<
 
 type PrizePoolUnitRow = Pick<
   Database["public"]["Tables"]["draw_round_prize_units"]["Row"],
-  "card_stock_unit_id" | "draw_round_prize_id" | "status"
+  "card_stock_unit_id" | "draw_round_prize_id" | "status" | "profile_id" | "awarded_at"
 >;
 
 type PrizeUnitIdentityMismatch = YnotPrizeUnitIdentityMismatch;
@@ -695,6 +698,7 @@ function stockUnitForSku(unit: PrizePoolStockUnitRow) {
     gradingService: unit.grading_service,
     certNumber: unit.cert_number,
     gemrateId: unit.gemrate_id,
+    language: unit.language ?? null,
     imageUrl: unit.image_url ?? null,
     status: unit.status,
   };
@@ -864,37 +868,99 @@ async function readPrizePoolStockUnitRows(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   stockUnitIds: string[],
 ): Promise<PrizePoolStockUnitRow[]> {
-  const fullSelect =
-    "id,card_id,stock_sku_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status";
-  const legacySelect =
-    "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status";
+  // Ladder of literal selects: each step drops one column that may be missing
+  // from the un-migrated DB. On a missing-column error for stock_sku_id or
+  // language we fall through to the next rung; any other error records and
+  // returns [].
+
+  function isFallbackableError(err: unknown): boolean {
+    return (
+      isMissingColumnError(err, "stock_sku_id") ||
+      isMissingColumnError(err, "language")
+    );
+  }
+
+  // --- Rung 1: both stock_sku_id AND language present ---
   try {
     const { data, error } = await supabase
       .from("card_stock_units")
-      .select(fullSelect)
+      .select(
+        "id,card_id,stock_sku_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status,language",
+      )
       .in("id", stockUnitIds);
     if (!error) return data ?? [];
-    if (!isMissingColumnError(error, "stock_sku_id")) {
+    if (!isFallbackableError(error)) {
       recordDataIssue("prize_pool_stock_unit_identities", error);
       return [];
     }
   } catch (error) {
-    if (!isMissingColumnError(error, "stock_sku_id")) {
+    if (!isFallbackableError(error)) {
       recordDataIssue("prize_pool_stock_unit_identities", error);
       return [];
     }
   }
 
+  // --- Rung 2: stock_sku_id present, language missing ---
   try {
     const { data, error } = await supabase
       .from("card_stock_units")
-      .select(legacySelect)
+      .select(
+        "id,card_id,stock_sku_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status",
+      )
+      .in("id", stockUnitIds);
+    if (!error) {
+      return (data ?? []).map((unit) => ({ ...unit, language: null }));
+    }
+    if (!isFallbackableError(error)) {
+      recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
+      return [];
+    }
+  } catch (error) {
+    if (!isFallbackableError(error)) {
+      recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
+      return [];
+    }
+  }
+
+  // --- Rung 3: stock_sku_id missing, language present ---
+  try {
+    const { data, error } = await supabase
+      .from("card_stock_units")
+      .select(
+        "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status,language",
+      )
+      .in("id", stockUnitIds);
+    if (!error) {
+      return (data ?? []).map((unit) => ({ ...unit, stock_sku_id: null }));
+    }
+    if (!isFallbackableError(error)) {
+      recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
+      return [];
+    }
+  } catch (error) {
+    if (!isFallbackableError(error)) {
+      recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
+      return [];
+    }
+  }
+
+  // --- Rung 4: both stock_sku_id AND language missing ---
+  try {
+    const { data, error } = await supabase
+      .from("card_stock_units")
+      .select(
+        "id,card_id,condition,grade,grading_service,cert_number,gemrate_id,image_url,status",
+      )
       .in("id", stockUnitIds);
     if (error) {
       recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
       return [];
     }
-    return (data ?? []).map((unit) => ({ ...unit, stock_sku_id: null }));
+    return (data ?? []).map((unit) => ({
+      ...unit,
+      stock_sku_id: null,
+      language: null,
+    }));
   } catch (error) {
     recordDataIssue("prize_pool_stock_unit_identities_legacy", error);
     return [];
@@ -1218,7 +1284,7 @@ async function getPublicPrizeLineupsBatch(
           convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
           fulfillmentPolicy: ynotRewardFulfillmentPolicyValue(prize.fulfillment_policy),
           bundleQuantity: publicBundleQuantity(prize.bundle_quantity),
-          quantityBadge: publicBundleQuantity(prize.bundle_quantity),
+          quantityBadge: publicPlannedQuantityBadge(counts.total),
           plannedQuantity: counts.total,
           availableUnits: counts.available || undefined,
           totalUnits: counts.total || undefined,
@@ -1337,7 +1403,7 @@ async function getPublicPrizeLineup(
         convertCoinValue: Math.max(0, Math.round(Number(prize.convert_coin_value ?? 0))),
         fulfillmentPolicy: ynotRewardFulfillmentPolicyValue(prize.fulfillment_policy),
         bundleQuantity: publicBundleQuantity(prize.bundle_quantity),
-        quantityBadge: publicBundleQuantity(prize.bundle_quantity),
+        quantityBadge: publicPlannedQuantityBadge(counts.total),
         plannedQuantity: counts.total,
         availableUnits: counts.available || undefined,
         totalUnits: counts.total || undefined,
@@ -1558,7 +1624,7 @@ function publicPrizePreview(prize: YnotPrizePreview, index: number): YnotPrizePr
     convertCoinValue: prize.convertCoinValue,
     bundleQuantity: prize.bundleQuantity,
     quantityBadge: prize.quantityBadge,
-    // Product decision: expose the duplicate reward count as a capped xN badge
+    // Product decision: expose duplicate planned rewards as a capped xN badge
     // on pack detail only. Stock planning internals stay hidden.
     plannedQuantity: prize.plannedQuantity,
     prizeCategory: prize.prizeCategory,
@@ -5608,7 +5674,7 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
       ? await readSupabaseRows<PrizePoolUnitRow>("prize_pool_stock_units", () =>
           supabase
             .from("draw_round_prize_units")
-            .select("draw_round_prize_id,card_stock_unit_id,status")
+            .select("draw_round_prize_id,card_stock_unit_id,status,profile_id,awarded_at")
             .in("draw_round_prize_id", prizeIds),
         )
       : [];
@@ -5638,6 +5704,44 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
       new Map(visiblePrizes.map((prize) => [prize.id, prize.card_id])),
     );
     const prizeImageByPrizeId = stockImageUrlByPrizeId(prizeUnits, stockUnits);
+    // Winner identity for awarded units (admin-only; name not email).
+    const winnerProfileIds = [
+      ...new Set(
+        prizeUnits
+          .filter((unit) => unit.status === "awarded" && unit.profile_id)
+          .map((unit) => unit.profile_id as string),
+      ),
+    ];
+    const winnerProfiles = winnerProfileIds.length
+      ? await readSupabaseRows<
+          Pick<
+            Database["public"]["Tables"]["profiles"]["Row"],
+            "id" | "display_name" | "line_display_name"
+          >
+        >("prize_pool_winner_profiles", () =>
+          supabase
+            .from("profiles")
+            .select("id,display_name,line_display_name")
+            .in("id", winnerProfileIds),
+        )
+      : [];
+    const winnerNameById = new Map(
+      winnerProfiles.map((p) => [
+        p.id,
+        p.display_name ?? p.line_display_name ?? "YNot Player",
+      ]),
+    );
+    const winnersByPrizeId = new Map<string, PrizeWinner[]>();
+    for (const unit of prizeUnits) {
+      if (unit.status !== "awarded" || !unit.profile_id) continue;
+      const list = winnersByPrizeId.get(unit.draw_round_prize_id) ?? [];
+      list.push({
+        profileId: unit.profile_id,
+        name: winnerNameById.get(unit.profile_id) ?? "YNot Player",
+        awardedAt: unit.awarded_at ?? null,
+      });
+      winnersByPrizeId.set(unit.draw_round_prize_id, list);
+    }
     return visiblePrizes.map((prize) => {
       const campaign = campaignById.get(prize.draw_round_id);
       const card = cardById.get(prize.card_id);
@@ -5682,6 +5786,7 @@ export async function getAdminPrizePool(): Promise<YnotPrizePoolItem[]> {
         totalUnits: counts.total,
         availableUnits: counts.available,
         awardedUnits: counts.awarded,
+        awardedTo: winnersByPrizeId.get(prize.id) ?? [],
         voidUnits: counts.void,
       };
     });

@@ -539,7 +539,7 @@ test("customer wallet history exposes rejected top-up filter", () => {
   assert.match(walletExperience, /type HistoryFilter = "all" \| "approved" \| "pending" \| "rejected"/);
   assert.match(walletExperience, /entry\.group === historyFilter/);
   assert.match(walletExperience, /Rejected top-up/);
-  assert.match(walletExperience, /\{ id: "rejected", label: "Rejected" \}/);
+  assert.match(walletExperience, /\{ id: "rejected", label: language === "th" \? "ถูกปฏิเสธ" : "Rejected" \}/);
   assert.match(walletExperience, /autoRejected/);
 });
 

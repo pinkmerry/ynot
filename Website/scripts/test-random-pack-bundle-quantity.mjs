@@ -11,13 +11,17 @@ function read(relativePath) {
   return readFileSync(path.join(repoRoot, relativePath), "utf8");
 }
 
-function latestMigrationContaining(needle) {
+function latestMigrationContaining(needle, ...moreNeedles) {
+  const needles = [needle, ...moreNeedles];
   const dir = path.join(repoRoot, "Database/supabase/migrations");
   const matches = readdirSync(dir)
     .filter((file) => file.endsWith(".sql"))
     .sort()
-    .filter((file) => readFileSync(path.join(dir, file), "utf8").includes(needle));
-  assert.ok(matches.length > 0, `expected a migration containing ${needle}`);
+    .filter((file) => {
+      const sql = readFileSync(path.join(dir, file), "utf8");
+      return needles.every((candidate) => sql.includes(candidate));
+    });
+  assert.ok(matches.length > 0, `expected a migration containing ${needles.join(", ")}`);
   return readFileSync(path.join(dir, matches.at(-1)), "utf8");
 }
 
@@ -83,7 +87,10 @@ describe("random pack bundled prizes", () => {
   });
 
   it("keeps Last One Prize first-class through final-slot and bonus open RPC patches", () => {
-    const sql = read("Database/supabase/migrations/20260605210000_last_prize_final_slot.sql");
+    const sql = latestMigrationContaining(
+      "last_prize_final_slot",
+      "create or replace function public.open_gacha_campaign",
+    );
     const openRpc = between(
       sql,
       "create or replace function public.open_gacha_campaign",

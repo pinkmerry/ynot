@@ -95,7 +95,6 @@ type Slab = {
   brand: string | null;
   tier: TierKey;
   count: number;
-  bundleQuantity: number;
 };
 
 export type PackDetailArenaProps = {
@@ -216,13 +215,11 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
       const key = (p.cardCode?.trim() || p.cardName.trim().toLowerCase()) + "|" + (p.cardImageUrl ?? "");
       // copies of this card seeded into the pack (sum across duplicate rows)
       const copies = Number(p.plannedQuantity ?? 0) || 0;
-      const bundleQuantity = Number(p.bundleQuantity ?? p.quantityBadge ?? 1) || 1;
       const existing = byKey.get(key);
       if (existing) {
         // same card appears again (e.g. split across rows): keep one image,
         // accumulate the copy count
         existing.count += copies;
-        existing.bundleQuantity = Math.max(existing.bundleQuantity, bundleQuantity);
         continue;
       }
       byKey.set(key, {
@@ -235,7 +232,6 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
         brand: p.cardBrand ?? null,
         tier: tierOf(p),
         count: copies,
-        bundleQuantity: Number(p.bundleQuantity ?? p.quantityBadge ?? 1) || 1,
       });
     }
     return [...byKey.values()].sort(
@@ -440,8 +436,8 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                         ) : (
                           <span className="ac-fan-ph">{initials(s.name)}</span>
                         )}
-                        {s.bundleQuantity > 1 && (
-                          <span className="ac-slab-qty">×{s.bundleQuantity.toLocaleString()}</span>
+                        {s.count > 0 && (
+                          <span className="ac-slab-qty">×{s.count.toLocaleString()}</span>
                         )}
                       </div>
                       {/* Arena-style 3-line block: release year + brand / SKU name / model code.
@@ -484,7 +480,6 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
               brand: match?.brand ?? null,
               tier: "rainbow",
               count: 1,
-              bundleQuantity: 1,
             };
             const headline = [
               lastPrizeSlab.year,
@@ -517,8 +512,8 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
                       ) : (
                         <span className="ac-fan-ph">{initials(lastPrizeSlab.name)}</span>
                       )}
-                      {lastPrizeSlab.bundleQuantity > 1 && (
-                        <span className="ac-slab-qty">×{lastPrizeSlab.bundleQuantity.toLocaleString()}</span>
+                      {lastPrizeSlab.count > 0 && (
+                        <span className="ac-slab-qty">×{lastPrizeSlab.count.toLocaleString()}</span>
                       )}
                     </div>
                     <div className="ac-slab-info">
@@ -867,15 +862,9 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
             </button>
             {lightbox.img ? (
               <div className="ac-lightbox-card">
-                {/* card + reflection rotate together inside ONE animated
-                    wrapper, so the mirror can never fall out of sync */}
                 <div className="ac-lightbox-turn">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img className="ac-lightbox-main" src={lightbox.img} alt={lightbox.name} />
-                  <div className="ac-lightbox-refl-clip" aria-hidden="true">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img className="ac-lightbox-refl" src={lightbox.img} alt="" />
-                  </div>
                 </div>
               </div>
             ) : (
@@ -991,31 +980,17 @@ const baseCss = `
   /* Arena-style card lightbox + the Courtyard turntable sway (see
      PackDetailExperience .cr-feat-turn — flat scans, so sway not real 360) */
   .ac-lightbox-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; animation: ac-fade-in 0.2s ease; }
-  /* K4 stage: every technique together on bright mint — medium vignette,
-     skylight from the top (::before), white halo behind the card (::after),
-     and a very faint glass reflection swaying along below. An invisible
-     spacer above the card balances the reflection's height so the card
-     itself sits dead-center in the panel. */
-  /* panel is a fixed 3:4 portrait; inner zones are percentages of its
-     height (19% spacer / 62% card / 19% reflection) so the card stays
-     dead-center at any screen size */
+  /* K4 stage: bright mint vignette + skylight + halo, with one centered card. */
   .ac-lightbox { position: relative; overflow: hidden; background: radial-gradient(95% 75% at 50% 42%, #f4fcf4 0%, #ebf8eb 45%, #cde4ce 78%, #afcdb1 100%); padding: 24px; box-sizing: border-box; width: min(560px, calc(100vw - 48px)); max-height: calc(100vh - 48px); display: flex; align-items: center; justify-content: center; animation: ac-pop 0.28s ease; }
   .ac-lightbox::before { content: ""; position: absolute; inset: 0; background: radial-gradient(66% 46% at 50% -8%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0) 70%); }
   .ac-lightbox::after { content: ""; position: absolute; width: 64%; height: 54%; left: 18%; top: 17%; border-radius: 50%; background: #fff; filter: blur(44px); opacity: 0.95; }
   /* perspective only reaches DIRECT children, so it lives on each image's
      immediate parent — without it rotateY degrades into a width squeeze */
   .ac-lightbox-card { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; width: 100%; max-height: calc(100vh - 96px); perspective: 800px; }
-  /* the ONE animated element — card and reflection ride inside it */
+  /* the ONE animated element — only the inspected card rides inside it */
   .ac-lightbox-turn { display: flex; flex-direction: column; align-items: center; justify-content: center; max-width: 100%; max-height: calc(100vh - 96px); transform-style: preserve-3d; animation: ac-card-turn 8s ease-in-out infinite; }
   .ac-lightbox-main { display: block; width: auto; height: auto; max-width: min(100%, 560px); max-height: min(68vh, 620px); object-fit: contain; filter: drop-shadow(0 14px 14px rgba(13, 20, 17, 0.2)); }
-  /* the clip runs through the panel's bottom padding (negative margin) so
-     the reflection bleeds all the way to the bottom edge; the mask is tuned
-     to hit zero right at that edge — no cut line */
-  .ac-lightbox-refl-clip { max-width: 100%; overflow: hidden; margin-top: 2px; margin-bottom: -24px; align-self: stretch; }
-  .ac-lightbox-refl { display: block; margin: 0 auto; width: auto; height: auto; max-width: min(100%, 560px); max-height: min(68vh, 620px); object-fit: contain; transform: scaleY(-1); opacity: 0.28; filter: blur(1px); -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0) 19%); mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0) 19%); }
-  /* courtyard.io-style display sway (user-tuned ±21°) + a soft 7px float;
-     the reflection runs the same path inside flipped (scaleY(-1)) space, so
-     the same translateY reads as the mirror-correct opposite direction */
+  /* courtyard.io-style display sway (user-tuned ±21°) + a soft 7px float */
   @keyframes ac-card-turn {
     0%, 100% { transform: rotateY(15deg) translateY(0); }
     50% { transform: rotateY(-15deg) translateY(-8px); }

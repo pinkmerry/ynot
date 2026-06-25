@@ -1438,7 +1438,7 @@ export function HistoryExperience({
             </button>
             <button
               type="button"
-              className="cr-btn cr-btn-mint"
+              className="cr-btn cr-btn-gold"
               onClick={submitSell}
               disabled={sellBusy || !sellQuote}
             >

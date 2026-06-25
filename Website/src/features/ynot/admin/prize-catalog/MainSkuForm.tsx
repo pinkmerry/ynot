@@ -1,0 +1,481 @@
+"use client";
+
+import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import type { CardCatalogItem } from "@/lib/lucky-draw/types";
+import { prizeCategoryForCatalogCategory } from "@/features/ynot/prize-category";
+import {
+  createMainSku,
+  updateMainSku,
+  uploadCardImage,
+  type MainSkuInput,
+  type CertLookup,
+} from "./catalog-api";
+import { CertLookupField } from "./CertLookupField";
+import type { GradingService, StockCategory } from "./add-stock/types";
+
+const CARD_SERIES_OPTIONS = ["Pokemon", "One Piece", "Custom…"] as const;
+const SEALED_SERIES_OPTIONS = ["Pokemon", "One Piece"] as const;
+const SEALED_LANGUAGE_OPTIONS = [
+  { value: "", label: "Not specified" },
+  { value: "english", label: "English" },
+  { value: "japanese", label: "Japanese" },
+  { value: "chinese", label: "Chinese" },
+  { value: "korean", label: "Korean" },
+] as const;
+const CATEGORY_OPTIONS = [
+  "Single Cards",
+  "Sealed Boxes",
+  "Sealed Packs",
+] as const;
+type SeriesOption = (typeof CARD_SERIES_OPTIONS)[number];
+type CatalogCategory = (typeof CATEGORY_OPTIONS)[number];
+
+type MainSkuFormProps = {
+  initial?: CardCatalogItem;
+  initialCategory?: StockCategory;
+  lockCategory?: boolean;
+  onDone?: () => void;
+};
+
+function seriesDisplayToOption(series: string | undefined): SeriesOption {
+  if (!series) return "Pokemon";
+  const lower = series.toLowerCase();
+  if (lower === "pokemon") return "Pokemon";
+  if (lower === "one_piece" || lower === "one piece") return "One Piece";
+  return "Custom…";
+}
+
+function mainSkuCategoryFromStockCategory(
+  category: StockCategory | undefined,
+): CatalogCategory {
+  if (category === "box") return "Sealed Boxes";
+  if (category === "pack") return "Sealed Packs";
+  return "Single Cards";
+}
+
+function mainSkuFormKindForCategory(category: unknown): StockCategory {
+  const clean =
+    typeof category === "string"
+      ? category.trim().toLowerCase().replace(/[_-]+/g, " ")
+      : "";
+  if (clean === "sealed boxes" || clean === "boxes" || clean === "box") {
+    return "box";
+  }
+  if (clean === "sealed packs" || clean === "packs" || clean === "pack") {
+    return "pack";
+  }
+  return "card";
+}
+
+function categoryDisplay(
+  cat: string | undefined,
+  fallback?: StockCategory,
+): CatalogCategory {
+  const kind = mainSkuFormKindForCategory(cat);
+  if (kind !== "card") return mainSkuCategoryFromStockCategory(kind);
+  return mainSkuCategoryFromStockCategory(fallback);
+}
+
+function categoryLabel(category: CatalogCategory) {
+  if (category === "Sealed Boxes") return "Boxes";
+  if (category === "Sealed Packs") return "Packs";
+  return category;
+}
+
+function mainSkuNameLabel(kind: StockCategory) {
+  if (kind === "box") return "Box name";
+  if (kind === "pack") return "Pack name";
+  return "Name";
+}
+
+function mainSkuNamePlaceholder(kind: StockCategory) {
+  if (kind === "box") return "Pokemon 151 Booster Box";
+  if (kind === "pack") return "One Piece OP-09 Booster Pack";
+  return "Monkey D. Luffy";
+}
+
+function normalizeSealedProductSeries(value: unknown) {
+  const clean = typeof value === "string" ? value.trim() : "";
+  const normalized = clean.toLowerCase().replace(/[_-]+/g, " ");
+  return normalized === "one piece" ? "One Piece" : "Pokemon";
+}
+
+export function MainSkuForm({
+  initial,
+  initialCategory,
+  lockCategory = false,
+  onDone,
+}: MainSkuFormProps) {
+  const isEdit = Boolean(initial?.catalogCardId);
+
+  const [code, setCode] = useState(initial?.code ?? initial?.modelCode ?? "");
+  const [cardNumber, setCardNumber] = useState(initial?.cardNumber ?? "");
+  const [name, setName] = useState(initial?.name ?? "");
+  const initialSeriesOption = seriesDisplayToOption(initial?.series);
+  const [seriesOption, setSeriesOption] =
+    useState<SeriesOption>(initialSeriesOption);
+  const [customSeries, setCustomSeries] = useState(
+    initialSeriesOption === "Custom…" ? (initial?.series ?? "") : "",
+  );
+  const [cardSet, setCardSet] = useState(initial?.cardSet ?? "");
+  const [releaseYear, setReleaseYear] = useState(
+    initial?.releaseYear != null ? String(initial.releaseYear) : "",
+  );
+  const [category, setCategory] = useState<CatalogCategory>(
+    categoryDisplay(initial?.catalogCategory, initialCategory),
+  );
+  const [language, setLanguage] = useState(initial?.language ?? "");
+  const [image, setImage] = useState<{
+    url: string;
+    storagePath?: string;
+  } | null>(
+    initial?.photoUrl ? { url: initial.photoUrl, storagePath: initial.photoStoragePath ?? undefined } : null,
+  );
+
+  const [certNumber, setCertNumber] = useState("");
+  const [grader, setGrader] = useState<GradingService>("psa");
+
+  const [error, setError] = useState("");
+  const [showOverwrite, setShowOverwrite] = useState(false);
+  const [pending, start] = useTransition();
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const formKind = mainSkuFormKindForCategory(category);
+  const isSealedMainSku = formKind !== "card";
+  const categoryLocked =
+    lockCategory ||
+    (initial?.catalogCategory != null &&
+      mainSkuFormKindForCategory(initial.catalogCategory) !== "card");
+  const resolvedSeries =
+    isSealedMainSku
+      ? normalizeSealedProductSeries(seriesOption)
+      : seriesOption === "Custom…"
+        ? customSeries
+        : seriesOption;
+  async function onPickImage(file: File) {
+    setError("");
+    const res = await uploadCardImage(file);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    setImage(res.data);
+  }
+
+  function submit(confirmOverwrite = false) {
+    if (!name.trim()) {
+      setError(`${mainSkuNameLabel(formKind)} is required.`);
+      return;
+    }
+    if (isSealedMainSku && !resolvedSeries) {
+      setError("Series is required.");
+      return;
+    }
+    setError("");
+    start(async () => {
+      const input: MainSkuInput = {
+        cardId: initial?.catalogCardId,
+        name: name.trim(),
+        modelCode: code.trim() || undefined,
+        cardNumber: isSealedMainSku ? undefined : cardNumber.trim() || undefined,
+        series: resolvedSeries || undefined,
+        language: isSealedMainSku ? language || undefined : undefined,
+        cardSet: cardSet.trim() || undefined,
+        releaseYear: releaseYear.trim() || undefined,
+        catalogCategory: category,
+        prizeCategory: prizeCategoryForCatalogCategory(category),
+        imageUrl: image?.url,
+        imageStoragePath: image?.storagePath,
+        confirmOverwrite,
+      };
+      const res = initial?.catalogCardId
+        ? await updateMainSku({ ...input, cardId: initial.catalogCardId })
+        : await createMainSku(input);
+      if (!res.ok) {
+        if (res.code === "CARD_ALREADY_EXISTS" && !confirmOverwrite) {
+          setShowOverwrite(true);
+          return;
+        }
+        setError(res.error);
+        return;
+      }
+      router.refresh();
+      onDone?.();
+    });
+  }
+
+  function applyCertLookup(lookup: CertLookup) {
+    if (lookup.name) setName(lookup.name);
+    if (lookup.series) {
+      const opt = seriesDisplayToOption(lookup.series);
+      setSeriesOption(opt);
+      setCustomSeries(opt === "Custom…" ? lookup.series : "");
+    }
+    if (lookup.set) setCardSet(lookup.set);
+    if (lookup.year != null) setReleaseYear(String(lookup.year));
+    if (lookup.number) setCardNumber(lookup.number);
+  }
+
+  return (
+    <div className="pcx-form">
+      {!isSealedMainSku && (
+        <div className="pcx-field">
+          <span className="pcx-field-label">
+            PSA / cert lookup<span className="pcx-opt"> optional</span>
+          </span>
+          <div className="pcx-form-row2">
+            <CertLookupField
+              value={certNumber}
+              onChange={setCertNumber}
+              grader={grader}
+              onResult={applyCertLookup}
+            />
+            <select
+              aria-label="Grading service"
+              className="pcx-input"
+              value={grader}
+              onChange={(e) => setGrader(e.target.value as GradingService)}
+            >
+              <option value="psa">PSA</option>
+              <option value="bgs">BGS</option>
+              <option value="cgc">CGC</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      <div className="pcx-form-row2">
+        <Field label="Code" htmlFor="pcx-code" optional={isSealedMainSku}>
+          <input
+            id="pcx-code"
+            className="pcx-input mono"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder={isSealedMainSku ? "Optional product code" : "EB01-001"}
+          />
+        </Field>
+        <Field label={mainSkuNameLabel(formKind)} htmlFor="pcx-name">
+          <input
+            id="pcx-name"
+            className="pcx-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={mainSkuNamePlaceholder(formKind)}
+            required
+          />
+        </Field>
+      </div>
+
+      <div className="pcx-form-row2">
+        <Field label="Series" htmlFor="pcx-series">
+          <select
+            id="pcx-series"
+            className="pcx-input"
+            value={isSealedMainSku ? normalizeSealedProductSeries(seriesOption) : seriesOption}
+            onChange={(e) => {
+              const v = e.target.value as SeriesOption;
+              setSeriesOption(v);
+              if (v !== "Custom…") setCustomSeries("");
+            }}
+            required={isSealedMainSku}
+          >
+            {(isSealedMainSku ? SEALED_SERIES_OPTIONS : CARD_SERIES_OPTIONS).map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          {!isSealedMainSku && seriesOption === "Custom…" && (
+            <input
+              id="pcx-custom-series"
+              aria-label="Custom series name"
+              className="pcx-input pcx-mt4"
+              value={customSeries}
+              onChange={(e) => setCustomSeries(e.target.value)}
+              placeholder="Custom brand name"
+            />
+          )}
+        </Field>
+        <Field label="Set" htmlFor="pcx-set" optional={isSealedMainSku}>
+          <input
+            id="pcx-set"
+            className="pcx-input"
+            value={cardSet}
+            onChange={(e) => setCardSet(e.target.value)}
+            placeholder="Memorial Collection"
+          />
+        </Field>
+      </div>
+
+      <div className="pcx-form-row2">
+        <Field label="Year" htmlFor="pcx-year" optional={isSealedMainSku}>
+          <input
+            id="pcx-year"
+            className="pcx-input"
+            value={releaseYear}
+            onChange={(e) => setReleaseYear(e.target.value)}
+            placeholder="2026"
+            inputMode="numeric"
+          />
+        </Field>
+        {isSealedMainSku ? (
+          <Field label="Language" htmlFor="pcx-sealed-language" optional>
+            <select
+              id="pcx-sealed-language"
+              className="pcx-input"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            >
+              {SEALED_LANGUAGE_OPTIONS.map((option) => (
+                <option key={option.value || "none"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          <Field label="Card number" htmlFor="pcx-number">
+            <input
+              id="pcx-number"
+              className="pcx-input mono"
+              value={cardNumber}
+              onChange={(e) => setCardNumber(e.target.value)}
+              placeholder="001/115"
+            />
+          </Field>
+        )}
+      </div>
+
+      <Field label="Category" htmlFor="pcx-category">
+        {categoryLocked ? (
+          <div id="pcx-category" className="pcx-input" aria-readonly="true">
+            {categoryLabel(category)}
+          </div>
+        ) : (
+          <select
+            id="pcx-category"
+            className="pcx-input"
+            value={category}
+            onChange={(e) => {
+              const next = e.target.value as CatalogCategory;
+              setCategory(next);
+              if (
+                mainSkuFormKindForCategory(next) !== "card" &&
+                seriesOption === "Custom…"
+              ) {
+                setSeriesOption("Pokemon");
+                setCustomSeries("");
+              }
+            }}
+          >
+            {CATEGORY_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {categoryLabel(c)}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+
+      <Field label={isSealedMainSku ? "Image" : "Card image"} htmlFor="pcx-image" optional>
+        <input
+          ref={fileRef}
+          id="pcx-image"
+          type="file"
+          accept="image/*"
+          className="pcx-file-input"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) onPickImage(file);
+          }}
+        />
+        <div
+          className="pcx-img-drop"
+          onClick={() => fileRef.current?.click()}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") fileRef.current?.click();
+          }}
+        >
+          {image?.url ? (
+            <img
+              src={image.url}
+              alt={isSealedMainSku ? "Product preview" : "Card preview"}
+              className="pcx-img-preview"
+            />
+          ) : (
+            <span className="pcx-img-ph">Click to upload</span>
+          )}
+        </div>
+      </Field>
+
+      {error && <div className="pcx-form-error" role="alert">{error}</div>}
+
+      {showOverwrite && (
+        <div className="pcx-form-overwrite" role="alert">
+          <p>A card with this code already exists. Overwrite?</p>
+          <button
+            type="button"
+            className="pcx-btn pcx-btn-warn"
+            onClick={() => {
+              setShowOverwrite(false);
+              submit(true);
+            }}
+          >
+            Confirm overwrite
+          </button>
+        </div>
+      )}
+
+      <div className="pcx-form-actions">
+        <button
+          type="button"
+          className="pcx-btn pcx-btn-primary"
+          disabled={pending}
+          onClick={() => submit()}
+        >
+          {pending
+            ? "Saving…"
+            : isEdit
+              ? "Update Main SKU"
+              : "Create Main SKU"}
+        </button>
+        {onDone && (
+          <button
+            type="button"
+            className="pcx-btn pcx-btn-ghost"
+            onClick={onDone}
+            disabled={pending}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  htmlFor,
+  optional,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  optional?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="pcx-field">
+      <label htmlFor={htmlFor}>
+        {label}
+        {optional && <span className="pcx-opt"> optional</span>}
+      </label>
+      {children}
+    </div>
+  );
+}

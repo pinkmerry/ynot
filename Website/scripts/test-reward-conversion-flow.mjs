@@ -477,9 +477,14 @@ test("Customer Bag conversion UI requires explicit selection and keeps huge flow
   requirePattern(history, /coins credited/, "UI must show progressive credited coins");
   requirePattern(history, /You can leave this page/, "UI must make server-owned continuation clear");
   requirePattern(
+    history,
+    /className="cr-btn cr-btn-gold"[\s\S]*onClick=\{submitSell\}/,
+    "conversion confirmation CTA must use the readable coin/gold button treatment",
+  );
+  requirePattern(
     theme,
-    /\.cr-btn-mint:hover:not\(\[disabled\]\)\s*\{[\s\S]*background:\s*var\(--cr-mint\);[\s\S]*color:\s*#fff;/,
-    "conversion confirm mint button must stay readable on hover like collection sell buttons",
+    /\.cr-btn-gold:hover:not\(\[disabled\]\)\s*\{[\s\S]*background:\s*linear-gradient\(180deg,\s*#ffe07a,\s*#c98d10\);[\s\S]*color:\s*#211504;/,
+    "conversion confirmation coin button must stay readable on hover like collection sell chips",
   );
   assert.doesNotMatch(history, /Admin reviews the request/, "conversion copy must not mention admin approval");
   assert.doesNotMatch(history.replace(/\bjobId\b/g, "progressIdentity"), /chunk|rpc|queue|job/i, "customer UI must not expose backend mechanics");

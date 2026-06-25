@@ -69,6 +69,20 @@ test("open confirmation creates a stable intent before auto-start reveal", () =>
   }
 });
 
+test("pack detail renders fresh stock data and keeps arena imagery contained", () => {
+  const packDetailPage = read("src/app/(store)/packs/[slug]/page.tsx");
+  const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
+  const css = read("src/app/globals.css");
+
+  assert.match(packDetailPage, /searchParams\?: Promise<\{ opened\?: string \}>/);
+  assert.match(packDetailPage, /bypassPublicCache:\s*query\?\.opened === "1"/);
+  assert.match(arena, /className="ac-stage"/);
+  assert.match(css, /Pack detail arena production fallback/);
+  assert.match(css, /html\[data-ynot-theme\] \.ac-stage \{[\s\S]*overflow:\s*hidden/);
+  assert.match(css, /html\[data-ynot-theme\] \.ac-fan-card img \{[\s\S]*object-fit:\s*contain/);
+  assert.match(css, /max-height:\s*min\(62vh,\s*560px\)/);
+});
+
 test("open page validates and passes the intent to the client reveal panel", () => {
   const source = read("src/app/(store)/gacha/[campaignId]/open/page.tsx");
   assert.match(source, /normalizeOpenIntentId/);
@@ -103,7 +117,6 @@ test("browser reload or back cannot double-charge an auto-start, while Continue 
   const helper = read("src/features/ynot/open-intent.ts");
   const route = read("src/app/api/ynot/gacha/open/route.ts");
   const client = read("src/features/ynot/client.tsx");
-  const panel = client.match(/export function GachaOpenPanel[\s\S]*?export function AddressForm/)?.[0] ?? "";
   const fireOpen = client.match(/function fireOpen[\s\S]*?function openAgain/)?.[0] ?? "";
   const openAgain = client.match(/function openAgain[\s\S]*?function openPullAllAgain/)?.[0] ?? "";
   const autoStartEffect = client.match(/const autoStartFiredRef[\s\S]*?const openAgainOptions/)?.[0] ?? "";
@@ -122,7 +135,10 @@ test("browser reload or back cannot double-charge an auto-start, while Continue 
   assert.match(autoStartEffect, /if \(autoStartFiredRef\.current\) return/);
   assert.match(autoStartEffect, /autoStartFiredRef\.current = true;[\s\S]*fireOpen\(initialOption\)/);
   assert.match(fireOpen, /if \(openRequestInFlightRef\.current\) return/);
-  assert.match(fireOpen, /idempotencyKey: openIntentIdempotencyKey\(\s*intentId \?\? openIntentId \?\? null,\s*campaign\.id,\s*targetQuantity/s);
+  assert.match(
+    fireOpen,
+    /idempotencyKey: openIntentIdempotencyKey\(\s*intentId \?\? openIntentId \?\? null,\s*campaign\.id,\s*targetQuantity/s,
+  );
   assert.match(fireOpen, /stripOpenAutoStartUrl\(\)/);
   assert.match(route, /const idempotencyKey = normalizeIdempotencyKey\(body\?\.idempotencyKey\)/);
   assert.match(route, /p_idempotency_key: idempotencyKey/);
@@ -202,8 +218,12 @@ test("repeat pull options use locally updated remaining stock from open result",
   assert.match(overlay, /Number\.isFinite\(remainingSlots\)/);
   assert.match(overlay, /gacha-reveal-repeat-stock-left/);
   assert.match(finish, /setOpeningOverlayVisible\(false\)/);
+  assert.match(finish, /setRevealResult\(null\)/);
   assert.doesNotMatch(finish, /setOpeningOverlayVisible\(true\)/);
-  assert.match(finish, /router\.replace\(detailHref\)/);
+  assert.match(finish, /const freshDetailHref = `\$\{detailHref\}\?opened=1`/);
+  assert.match(finish, /router\.replace\(freshDetailHref,\s*\{\s*scroll:\s*true\s*\}\)/);
+  assert.match(finish, /router\.refresh\(\)/);
+  assert.match(finish, /window\.scrollTo\(0,\s*0\)/);
 });
 
 test("reveal summary action buttons stay clickable above the auto-skip toggle", () => {
@@ -414,6 +434,7 @@ test("Pull All does not replace configured normal open quantity buttons", () => 
 
 test("active pack detail prize images stay in fixed-size card tracks", () => {
   const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
+  const globals = read("src/app/globals.css");
 
   assert.match(
     arena,
@@ -455,6 +476,36 @@ test("active pack detail prize images stay in fixed-size card tracks", () => {
     /\.ac-lightbox-main \{[\s\S]*max-width:\s*min\(100%,\s*560px\);[\s\S]*max-height:\s*min\(68vh,\s*620px\);[\s\S]*object-fit:\s*contain;/,
     "lightbox main image should be contained within a bounded viewport stage",
   );
+  assert.doesNotMatch(
+    arena,
+    /ac-lightbox-refl/,
+    "lightbox should render exactly one card image with no mirrored duplicate",
+  );
+  assert.match(
+    globals,
+    /html\[data-ynot-theme\] \.ac-tier-rainbow \.ac-grid,[\s\S]*html\[data-ynot-theme\] \.ac-tier-last \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/,
+    "global YNOT theme override should not replace grand/last grids with auto-fit",
+  );
+  assert.match(
+    globals,
+    /html\[data-ynot-theme\] \.ac-tier-gold \.ac-grid,[\s\S]*html\[data-ynot-theme\] \.ac-tier-silver \.ac-grid,[\s\S]*html\[data-ynot-theme\] \.ac-tier-bronze \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);/,
+    "global YNOT theme override should preserve six-column lower prize grids",
+  );
+  assert.match(
+    globals,
+    /html\[data-ynot-theme\] \.ac-lightbox-main \{[\s\S]*max-width:\s*min\(100%,\s*560px\);[\s\S]*max-height:\s*min\(68vh,\s*620px\);[\s\S]*object-fit:\s*contain;/,
+    "global YNOT theme override should keep the lightbox image bounded",
+  );
+  assert.doesNotMatch(
+    globals,
+    /ac-lightbox-refl/,
+    "global YNOT theme should not carry reflection styles for the one-card lightbox",
+  );
+  assert.match(
+    globals,
+    /@keyframes ac-card-turn \{[\s\S]*rotateY\(15deg\)[\s\S]*rotateY\(-15deg\)/,
+    "global YNOT theme animation should include the card-turn keyframes it references",
+  );
 });
 
 test("active pack detail fan cards open the spinning lightbox", () => {
@@ -474,11 +525,7 @@ test("active pack detail fan cards open the spinning lightbox", () => {
     /const\s+isVisible\s*=\s*abs\s*<=\s*visHalf;/,
     "fan-card rendering should distinguish visible cards from hidden animation buffers",
   );
-  assert.match(
-    fanButton,
-    /type="button"/,
-    "top fan cards should be rendered as buttons",
-  );
+  assert.match(fanButton, /type="button"/, "top fan cards should be rendered as buttons");
   assert.match(
     fanButton,
     /tabIndex=\{isVisible \? 0 : -1\}/,

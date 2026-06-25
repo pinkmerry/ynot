@@ -483,7 +483,7 @@ test("Global, Main SKU, Sub-SKU, and pack-assigned stock counters stay separated
   const stockBreakdown = between(
     client,
     "function AdminStockSkuBreakdown",
-    "type AdminCardCatalogRow = {",
+    "function adminCardCatalogRowSearchText",
     "admin stock breakdown UI",
   );
   const stockSkuSummary = between(

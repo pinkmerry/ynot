@@ -13,27 +13,27 @@ function sectionBetween(source, startPattern, endPattern, label) {
   return rest.slice(0, end);
 }
 
-test("bundle quantity provides the public xN per-win pack-detail badge", () => {
+test("planned quantity provides the public xN pack-detail badge", () => {
   const helper = read("src/features/ynot/bundle-quantity.ts");
-  assert.match(helper, /export const maxPublicQuantityBadge = 10;/);
-  assert.match(helper, /export function publicBundleQuantity/);
+  assert.match(helper, /export function publicPlannedQuantityBadge/);
+  assert.match(helper, /plannedQuantityForPrize\(\{ quantity: value \}\)/);
+  assert.match(helper, /return planned;/);
+  assert.doesNotMatch(helper, /maxPublicQuantityBadge/);
+  assert.doesNotMatch(helper, /Math\.min\(planned/);
 
   const types = read("src/features/ynot/types.ts");
   assert.match(types, /quantityBadge\?: number;/);
-  assert.match(types, /bundleQuantity\?: number;/);
 
   const data = read("src/features/ynot/data.ts");
-  assert.match(data, /bundleQuantity: publicBundleQuantity\(prize\.bundle_quantity\)/);
-  assert.match(data, /quantityBadge: publicBundleQuantity\(prize\.bundle_quantity\)/);
-  assert.doesNotMatch(data, /quantityBadge: publicPlannedQuantityBadge\(counts\.total\)/);
+  assert.match(data, /publicPlannedQuantityBadge/);
+  assert.match(data, /quantityBadge: publicPlannedQuantityBadge\(counts\.total\)/);
+  assert.match(data, /quantityBadge: prize\.quantityBadge/);
 });
 
-test("pack detail renders xN from Per win instead of Qty", () => {
-  const arena = read("src/features/ynot/cr/PackDetailArena.tsx");
-  assert.match(arena, /bundleQuantity: Number\(p\.bundleQuantity \?\? p\.quantityBadge \?\? 1\)/);
-  assert.match(arena, /s\.bundleQuantity > 1/);
-  assert.match(arena, /×\{s\.bundleQuantity\.toLocaleString\(\)\}/);
-  assert.doesNotMatch(arena, /×\{s\.count\.toLocaleString\(\)\}/);
+test("pack detail renders quantity badge from Qty instead of Per win", () => {
+  const detail = read("src/features/ynot/cr/PackDetailExperience.tsx");
+  assert.match(detail, /<QuantityBadge quantity=\{prize\.quantityBadge\} \/>/);
+  assert.doesNotMatch(detail, /<QuantityBadge quantity=\{prize\.bundleQuantity\} \/>/);
 });
 
 test("normal admin pack creation keeps one reward per win", () => {
@@ -104,6 +104,31 @@ test("pack detail prize art uses stable contain frames and convert modal hover s
     arena,
     /\.ac-tier-gold \.ac-grid,[\s\S]*\.ac-tier-silver \.ac-grid,[\s\S]*\.ac-tier-bronze \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);/,
     "first, second, and third prize rows should use 6 cards on desktop",
+  );
+  assert.match(
+    globals,
+    /html\[data-ynot-theme\] \.ac-tier-rainbow \.ac-grid,[\s\S]*html\[data-ynot-theme\] \.ac-tier-last \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/,
+    "global YNOT theme override should not replace grand/last grids with auto-fit",
+  );
+  assert.match(
+    globals,
+    /html\[data-ynot-theme\] \.ac-tier-gold \.ac-grid,[\s\S]*html\[data-ynot-theme\] \.ac-tier-silver \.ac-grid,[\s\S]*html\[data-ynot-theme\] \.ac-tier-bronze \.ac-grid \{[\s\S]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);/,
+    "global YNOT theme override should preserve six-column lower prize grids",
+  );
+  assert.match(
+    globals,
+    /@keyframes ac-card-turn \{[\s\S]*rotateY\(15deg\)[\s\S]*rotateY\(-15deg\)/,
+    "global YNOT theme animation should include the card-turn keyframes it references",
+  );
+  assert.doesNotMatch(
+    arena,
+    /ac-lightbox-refl/,
+    "pack detail lightbox should show one centered card with no reflected duplicate",
+  );
+  assert.doesNotMatch(
+    globals,
+    /ac-lightbox-refl/,
+    "global YNOT theme should not carry reflection styles for the one-card lightbox",
   );
   assert.match(arena, /\.ac-slab-art \{[^}]*aspect-ratio: 3 \/ 4/s);
   assert.match(arena, /\.ac-slab-art img \{[^}]*object-fit: contain/s);

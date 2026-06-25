@@ -153,7 +153,7 @@ test("admin catalog UI and data loader use first-class stock SKU identity", () =
   assert.match(adminData, /rpc\("get_admin_stock_sku_summary"/);
   assert.match(adminData, /function readPrizePoolStockUnitRows/);
   assert.match(adminData, /function readPrizePoolStockSkuRows/);
-  assert.match(adminData, /isMissingColumnError\(error,\s*"stock_sku_id"\)/);
+  assert.match(adminData, /isMissingColumnError\(err,\s*"stock_sku_id"\)/);
   assert.match(adminData, /prize_pool_stock_unit_identities_legacy/);
   assert.match(adminData, /"id,sku_code,label"/);
   assert.match(adminData, /const stockSku = stockUnit\.stock_sku_id/);

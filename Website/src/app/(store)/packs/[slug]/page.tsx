@@ -10,13 +10,23 @@ export const dynamic = "force-dynamic";
 
 export default async function PackDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ opened?: string }>;
 }) {
-  const [{ slug }, viewer] = await Promise.all([params, getYnotViewer()]);
+  const [{ slug }, viewer, query] = await Promise.all([
+    params,
+    getYnotViewer(),
+    searchParams ?? Promise.resolve<{ opened?: string }>({}),
+  ]);
   const [data, campaign] = await Promise.all([
     getYnotDashboardSlice({ wallet: true }),
-    getCampaign(slug, { allowTestForCurrentViewer: true, viewer }),
+    getCampaign(slug, {
+      allowTestForCurrentViewer: true,
+      bypassPublicCache: query?.opened === "1",
+      viewer,
+    }),
   ]);
 
   return (

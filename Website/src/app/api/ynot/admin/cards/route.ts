@@ -108,13 +108,32 @@ function gradeValue(value: unknown) {
   return clean || "Ungraded";
 }
 
-function isSealedMainSkuCategory(category: unknown) {
+function sealedCatalogCategoryKind(category: unknown): "box" | "pack" | null {
   const catalogCategory = catalogCategoryValue(category);
-  return catalogCategory === "boxes" || catalogCategory === "packs";
+  const clean = text(category, 160).toLowerCase().replace(/[_-]+/g, " ");
+  if (
+    catalogCategory === "boxes" ||
+    clean === "sealed boxes" ||
+    clean === "box"
+  ) {
+    return "box";
+  }
+  if (
+    catalogCategory === "packs" ||
+    clean === "sealed packs" ||
+    clean === "pack"
+  ) {
+    return "pack";
+  }
+  return null;
+}
+
+function isSealedMainSkuCategory(category: unknown) {
+  return sealedCatalogCategoryKind(category) !== null;
 }
 
 function sealedMainSkuNameRequiredMessage(category: unknown) {
-  return catalogCategoryValue(category) === "packs"
+  return sealedCatalogCategoryKind(category) === "pack"
     ? "Pack name is required."
     : "Box name is required.";
 }
@@ -254,7 +273,11 @@ function cardPatch(
     patch.grade = gradeValue(body.grade);
   }
   if (!partial || body.prizeCategory !== undefined) {
-    patch.prize_category = prizeCategoryValue(body.prizeCategory);
+    patch.prize_category =
+      sealedCatalogCategoryKind(body.catalogCategory) &&
+      !hasPayloadValue(body.prizeCategory)
+        ? "sealed_product"
+        : prizeCategoryValue(body.prizeCategory);
   }
   if (!partial || body.imageUrl !== undefined) {
     patch.image_url = text(body.imageUrl, 1000) || null;
