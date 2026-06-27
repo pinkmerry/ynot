@@ -280,85 +280,101 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
   const hasBuffer = n >= visHalf * 2 + 3;
   const fanHalf = hasBuffer ? visHalf + 1 : visHalf;
   const offsets = Array.from({ length: fanHalf * 2 + 1 }, (_, i) => i - fanHalf);
+  const bannerImageUrl = campaign.bannerImageUrl?.trim() ?? "";
+  const hasBannerImage = Boolean(bannerImageUrl);
 
   return (
     <div className="ac-root">
       <main className="ac-main">
-        {/* LEFT — fanned carousel */}
+        {/* LEFT — campaign banner, with the fanned carousel as a fallback */}
         <section className="ac-stage-col">
-          <div className="ac-stage">
-            {n > 1 && (
-              <button
-                className="ac-arrow ac-prev"
-                onClick={() => move(-1)}
-                aria-label={language === "th" ? "ก่อนหน้า" : "previous"}
-              >
-                ‹
-              </button>
-            )}
-            <div className="ac-fan">
-              {offsets.map((o) => {
-                if (!n) return null;
-                const idx = ((center + o) % n + n) % n;
-                const s = fanSlabs[idx];
-                const abs = Math.abs(o);
-                const isVisible = abs <= visHalf;
-                // arenaclub-style row: big upright slabs, no tilt, side cards
-                // tucked behind the center one at full opacity. Per-tier scale
-                // off the 400px base width: center 400 / 1st 300 / 2nd 250.
-                const fanScale = abs === 0 ? 1 : abs === 1 ? 0.75 : abs === 2 ? 0.625 : 0.5;
-                // non-uniform offsets (like arenaclub): outer cards are smaller,
-                // so the step shrinks for them to keep a constant ~25% overlap
-                // instead of opening a gap. center 0 / 1st ±275 / 2nd ±488.
-                const FAN_X = [0, 275, 488, 663];
-                const fanX = Math.sign(o) * (FAN_X[abs] ?? FAN_X[FAN_X.length - 1]);
-                const style: CSSProperties = {
-                  // leading translate(-50%,-50%) centers the card
-                  // on the fan anchor before the row offset applies
-                  transform: `translate(-50%, -50%) translateX(${fanX}px) scale(${fanScale})`,
-                  zIndex: 10 - abs,
-                  opacity: isVisible ? 1 : 0,
-                  filter: o === 0 ? "none" : "brightness(0.95)",
-                  pointerEvents: isVisible ? undefined : "none",
-                };
-                return (
+          {hasBannerImage ? (
+            <div className="ac-stage ac-stage-banner">
+              {/* eslint-disable-next-line @next/next/no-img-element -- Campaign banners are admin-managed Supabase assets. */}
+              <img
+                src={bannerImageUrl}
+                alt=""
+                aria-hidden="true"
+                className="ac-stage-banner-image"
+              />
+            </div>
+          ) : (
+            <>
+              <div className="ac-stage">
+                {n > 1 && (
                   <button
-                    type="button"
-                    className={`ac-fan-card${o === 0 ? " is-center" : ""}`}
-                    style={style}
-                    key={s.key}
-                    tabIndex={isVisible ? 0 : -1}
-                    aria-hidden={!isVisible}
-                    onClick={isVisible ? () => openPrizeLightbox(s) : undefined}
-                    aria-label={isVisible ? (language === "th" ? `ดูภาพรางวัล ${s.name}` : `View prize image ${s.name}`) : undefined}
+                    className="ac-arrow ac-prev"
+                    onClick={() => move(-1)}
+                    aria-label={language === "th" ? "ก่อนหน้า" : "previous"}
                   >
-                    {s.img ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={s.img} alt={s.name} />
-                    ) : (
-                      <span className="ac-fan-ph">{initials(s.name)}</span>
-                    )}
+                    ‹
                   </button>
-                );
-              })}
-            </div>
-            {n > 1 && (
-              <button
-                className="ac-arrow ac-next"
-                onClick={() => move(1)}
-                aria-label={language === "th" ? "ถัดไป" : "next"}
-              >
-                ›
-              </button>
-            )}
-          </div>
-          {n > 0 && (
-            <div className="ac-center-name">
-              {fanSlabs[center].name}
-              <span className="ac-center-tier" style={{ color: TIER_ACCENT[fanSlabs[center].tier] }}>
-                {tierNameNode(fanSlabs[center].tier)}
-              </span>
-            </div>
+                )}
+                <div className="ac-fan">
+                  {offsets.map((o) => {
+                    if (!n) return null;
+                    const idx = ((center + o) % n + n) % n;
+                    const s = fanSlabs[idx];
+                    const abs = Math.abs(o);
+                    const isVisible = abs <= visHalf;
+                    // arenaclub-style row: big upright slabs, no tilt, side cards
+                    // tucked behind the center one at full opacity. Per-tier scale
+                    // off the 400px base width: center 400 / 1st 300 / 2nd 250.
+                    const fanScale = abs === 0 ? 1 : abs === 1 ? 0.75 : abs === 2 ? 0.625 : 0.5;
+                    // non-uniform offsets (like arenaclub): outer cards are smaller,
+                    // so the step shrinks for them to keep a constant ~25% overlap
+                    // instead of opening a gap. center 0 / 1st ±275 / 2nd ±488.
+                    const FAN_X = [0, 275, 488, 663];
+                    const fanX = Math.sign(o) * (FAN_X[abs] ?? FAN_X[FAN_X.length - 1]);
+                    const style: CSSProperties = {
+                      // leading translate(-50%,-50%) centers the card
+                      // on the fan anchor before the row offset applies
+                      transform: `translate(-50%, -50%) translateX(${fanX}px) scale(${fanScale})`,
+                      zIndex: 10 - abs,
+                      opacity: isVisible ? 1 : 0,
+                      filter: o === 0 ? "none" : "brightness(0.95)",
+                      pointerEvents: isVisible ? undefined : "none",
+                    };
+                    return (
+                      <button
+                        type="button"
+                        className={`ac-fan-card${o === 0 ? " is-center" : ""}`}
+                        style={style}
+                        key={s.key}
+                        tabIndex={isVisible ? 0 : -1}
+                        aria-hidden={!isVisible}
+                        onClick={isVisible ? () => openPrizeLightbox(s) : undefined}
+                        aria-label={isVisible ? (language === "th" ? `ดูภาพรางวัล ${s.name}` : `View prize image ${s.name}`) : undefined}
+                      >
+                        {s.img ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={s.img} alt={s.name} />
+                        ) : (
+                          <span className="ac-fan-ph">{initials(s.name)}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {n > 1 && (
+                  <button
+                    className="ac-arrow ac-next"
+                    onClick={() => move(1)}
+                    aria-label={language === "th" ? "ถัดไป" : "next"}
+                  >
+                    ›
+                  </button>
+                )}
+              </div>
+              {n > 0 && (
+                <div className="ac-center-name">
+                  {fanSlabs[center].name}
+                  <span className="ac-center-tier" style={{ color: TIER_ACCENT[fanSlabs[center].tier] }}>
+                    {tierNameNode(fanSlabs[center].tier)}
+                  </span>
+                </div>
+              )}
+            </>
           )}
         </section>
 
@@ -894,6 +910,10 @@ const baseCss = `
   .ac-stage { position: relative; aspect-ratio: 2 / 1; border-radius: 20px; overflow: hidden; background: radial-gradient(95% 75% at 50% 42%, #f4fcf4 0%, #ebf8eb 45%, #cde4ce 78%, #afcdb1 100%); display: flex; align-items: center; justify-content: center; }
   .ac-stage::before { content: ""; position: absolute; inset: 0; background: radial-gradient(66% 46% at 50% -8%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0) 70%); pointer-events: none; }
   .ac-stage::after { content: ""; position: absolute; width: 46%; height: 58%; left: 27%; top: 14%; border-radius: 50%; background: #fff; filter: blur(44px); opacity: 0.95; pointer-events: none; }
+  .ac-stage-banner { aspect-ratio: 1200 / 896; background: #05070a; }
+  .ac-stage-banner::before,
+  .ac-stage-banner::after { display: none; }
+  .ac-stage-banner-image { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
   .ac-fan { z-index: 2; }
   /* arena-scale cards: ~57% of the 725px stage height, like arenaclub's stage.
      Fixed HEIGHT only — width hugs each image's own aspect ratio so mixed
