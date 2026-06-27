@@ -289,13 +289,13 @@ export function PackDetailArena({ campaign, balanceCoins }: PackDetailArenaProps
         {/* LEFT — campaign banner, with the fanned carousel as a fallback */}
         <section className="ac-stage-col">
           {hasBannerImage ? (
-            <div className="ac-stage ac-stage-banner">
+            <div className="ac-banner-stage">
               {/* eslint-disable-next-line @next/next/no-img-element -- Campaign banners are admin-managed Supabase assets. */}
               <img
                 src={bannerImageUrl}
                 alt=""
                 aria-hidden="true"
-                className="ac-stage-banner-image"
+                className="ac-banner-stage-image"
               />
             </div>
           ) : (
@@ -910,10 +910,8 @@ const baseCss = `
   .ac-stage { position: relative; aspect-ratio: 2 / 1; border-radius: 20px; overflow: hidden; background: radial-gradient(95% 75% at 50% 42%, #f4fcf4 0%, #ebf8eb 45%, #cde4ce 78%, #afcdb1 100%); display: flex; align-items: center; justify-content: center; }
   .ac-stage::before { content: ""; position: absolute; inset: 0; background: radial-gradient(66% 46% at 50% -8%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0) 70%); pointer-events: none; }
   .ac-stage::after { content: ""; position: absolute; width: 46%; height: 58%; left: 27%; top: 14%; border-radius: 50%; background: #fff; filter: blur(44px); opacity: 0.95; pointer-events: none; }
-  .ac-stage-banner { aspect-ratio: 1200 / 896; background: #05070a; }
-  .ac-stage-banner::before,
-  .ac-stage-banner::after { display: none; }
-  .ac-stage-banner-image { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
+  .ac-banner-stage { position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: #05070a; display: block; }
+  .ac-banner-stage-image { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
   .ac-fan { z-index: 2; }
   /* arena-scale cards: ~57% of the 725px stage height, like arenaclub's stage.
      Fixed HEIGHT only — width hugs each image's own aspect ratio so mixed
