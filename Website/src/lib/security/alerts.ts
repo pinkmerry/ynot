@@ -34,7 +34,7 @@ export type SecurityAlert = {
   details?: Record<string, unknown>;
 };
 
-const DEFAULT_EMAIL_FROM = "YNOTT Security <no-reply@ynotopen.com>";
+const DEFAULT_EMAIL_FROM = "YNOT Security <no-reply@ynotopen.com>";
 
 function formatWebhookText(alert: SecurityAlert) {
   const lines = [

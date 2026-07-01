@@ -413,6 +413,91 @@ test("legacy customer pick route is rate-limited and not a public-code oracle", 
   assert.match(adminOrderRoute, /p_actor_admin_id: session\.adminId/);
 });
 
+test("admin upload and identity mutation routes reject hostile requests before body parsing", () => {
+  const uploadRoutes = [
+    {
+      file: "src/app/api/ynot/admin/cards/image/route.ts",
+      scope: "ynot:admin:cards:image",
+      parseMarker: "const form = await request.formData().catch(() => null);",
+    },
+    {
+      file: "src/app/api/ynot/admin/campaigns/banner-image/route.ts",
+      scope: "ynot:admin:campaigns:banner-image",
+      parseMarker: "const form = await request.formData().catch(() => null);",
+    },
+    {
+      file: "src/app/api/lucky-draw/admin/card-image/route.ts",
+      scope: "ynot:legacy-admin:card-image",
+      parseMarker: "const form = await request.formData()",
+    },
+    {
+      file: "src/app/api/lucky-draw/admin/qr/route.ts",
+      scope: "ynot:legacy-admin:qr-image",
+      parseMarker: "const form = await request.formData()",
+    },
+    {
+      file: "src/app/api/lucky-draw/admin/slip/verify-test/route.ts",
+      scope: "ynot:legacy-admin:slip-verify-test",
+      parseMarker: "form = await request.formData();",
+    },
+  ];
+
+  for (const { file, scope, parseMarker } of uploadRoutes) {
+    const source = readApp(file);
+    const beforeParsing = blockBetween(
+      source,
+      "export async function POST(request: Request)",
+      parseMarker,
+    );
+
+    assert.match(source, /import \{ enforceSameOriginMutation \} from "@\/lib\/security\/same-origin"/);
+    assert.match(source, /import \{ enforceRateLimit \} from "@\/lib\/security\/rate-limit"/);
+    assert.match(source, /requestExceedsUploadLimit/);
+    assertPatternsInOrder(
+      beforeParsing,
+      [
+        ["same-origin assignment", /const crossOrigin = enforceSameOriginMutation\(request\);/],
+        ["same-origin return", /if \(crossOrigin\) return crossOrigin;/],
+        ["admin session lookup", /resolveAdminSession\(\)/],
+        ["admin missing return", /Admin access is required/],
+        [
+          "route rate-limit assignment",
+          new RegExp(
+            `const limited = await enforceRateLimit\\(\\s*request,\\s*"${scope}",`,
+          ),
+        ],
+        ["route rate-limit return", /if \(limited\) return limited;/],
+        ["content-length upload limit", /requestExceedsUploadLimit\(request,\s*(?:maxSlipBytes|maxTestSlipBytes)\)/],
+      ],
+      `${file} before body parsing`,
+    );
+  }
+
+  const identityRoute = readApp("src/app/api/auth/identities/unlink/route.ts");
+  const identityBeforeJson = blockBetween(
+    identityRoute,
+    "export async function POST(request: Request)",
+    "payload = (await request.json())",
+  );
+  assert.match(identityRoute, /import \{ enforceSameOriginMutation \} from "@\/lib\/security\/same-origin"/);
+  assert.match(identityRoute, /import \{ enforceRateLimit \} from "@\/lib\/security\/rate-limit"/);
+  assertPatternsInOrder(
+    identityBeforeJson,
+    [
+      ["same-origin assignment", /const crossOrigin = enforceSameOriginMutation\(request\);/],
+      ["same-origin return", /if \(crossOrigin\) return crossOrigin;/],
+      ["profile session lookup", /resolveCurrentProfile\(\)/],
+      ["profile missing return", /Login is required/],
+      [
+        "identity unlink rate-limit assignment",
+        /const limited = await enforceRateLimit\(\s*request,\s*"ynot:auth:identity-unlink",\s*\{[\s\S]*limit:\s*20,[\s\S]*windowMs:\s*60_000[\s\S]*\},\s*session\.profileId,\s*\);/,
+      ],
+      ["identity unlink rate-limit return", /if \(limited\) return limited;/],
+    ],
+    "identity unlink before JSON parsing",
+  );
+});
+
 test("related customer APIs and RPCs keep their existing guardrails", () => {
   const walletRoute = readApp("src/app/api/ynot/wallet/route.ts");
   const walletPostBeforeParse = blockBetween(

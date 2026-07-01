@@ -56,8 +56,11 @@ export function MarketplaceCartDrawer() {
   useEffect(() => {
     if (!drawerOpen) return;
     let cancelled = false;
-    setLoading(true);
-    setNotice(null);
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLoading(true);
+      setNotice(null);
+    });
     fetch("/api/marketplace/cart", { headers: { accept: "application/json" } })
       .then(async (response) => {
         const result = (await response.json().catch(() => null)) as DrawerBody | null;

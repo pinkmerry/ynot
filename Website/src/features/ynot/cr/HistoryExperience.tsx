@@ -860,11 +860,7 @@ export function HistoryExperience({
   }, []);
 
   useEffect(() => {
-    if (!showMarketplace) {
-      setMarketplaceSummary(null);
-      setMarketplaceSummaryState("unavailable");
-      return;
-    }
+    if (!showMarketplace) return;
 
     let stopped = false;
     const loadMarketplaceSummary = async () => {
@@ -895,13 +891,6 @@ export function HistoryExperience({
       stopped = true;
     };
   }, [showMarketplace]);
-
-  useEffect(() => {
-    if (!showMarketplace && tab === "marketplace") {
-      setTab("collection");
-      clearSelection();
-    }
-  }, [showMarketplace, tab]);
 
   function toastSelectedNonShippable() {
     toast(

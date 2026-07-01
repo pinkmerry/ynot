@@ -340,6 +340,8 @@ test("browser-facing marketplace code does not expose service-role env names", (
   const allowedServerOnly = new Set([
     "src/lib/marketplace/config.ts",
     "src/lib/marketplace/supabase-adapter.ts",
+    "src/lib/worker/core-scheduled-jobs.ts",
+    "src/lib/worker/marketplace-scheduled-jobs.ts",
   ]);
 
   for (const absPath of walkFiles(path.join(appRoot, "src"), (file) =>

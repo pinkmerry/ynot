@@ -1,6 +1,7 @@
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import {
   allowedVisualAssetTypes,
@@ -29,6 +30,9 @@ function safePathPart(value: unknown) {
 }
 
 export async function POST(request: Request) {
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
+
   if (!isSupabaseConfigured()) {
     return Response.json(
       { error: "Supabase is not configured." },

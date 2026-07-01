@@ -33,11 +33,71 @@ Marketplace customer pages, marketplace admin pages, and marketplace HTTP routes
 
 The Worker split exists to keep marketplace traffic, payment-proof handling, payout operations, and marketplace scheduled jobs from sharing unnecessary blast radius with gacha pack opening and core reward operations.
 
+### Production Auth Bridge
+
+The marketplace Worker must not need the main website login secrets just to
+recognize the current YNOT account. In production, the marketplace runtime sets
+`YNOT_WORKER_SURFACE=marketplace` and calls the website-owned internal endpoint:
+
+`GET /api/internal/marketplace/session`
+
+That endpoint runs on the website Worker, verifies
+`MARKETPLACE_AUTH_BRIDGE_SECRET` with a constant-time header comparison, then
+returns only minimal profile/admin claims:
+
+`profileId`, `authUserId`, `lineUserId`, `displayName`, `adminId`, `adminRole`,
+and `authSource`.
+
+The marketplace Worker uses those claims to keep owner-only gates and customer
+flows seamless. It does not need `LINE_SESSION_SECRET` or the core
+`SUPABASE_SERVICE_ROLE_KEY` for one-account auth.
+
+Required marketplace Worker vars:
+
+- `YNOT_WORKER_SURFACE=marketplace`
+- `MARKETPLACE_AUTH_BRIDGE_URL=https://www.ynotopen.com/api/internal/marketplace/session`
+- `RATE_LIMIT_BACKEND=marketplace_supabase`
+- `MARKETPLACE_ENVIRONMENT=production`
+- `MARKETPLACE_SUPABASE_URL=<marketplace project URL>`
+- `MARKETPLACE_SUPABASE_PROJECT_REF=<marketplace project ref>`
+- `MARKETPLACE_EXPECTED_SUPABASE_PROJECT_REF=<same project ref for this environment>`
+
+Required secrets:
+
+- Website Worker: `MARKETPLACE_AUTH_BRIDGE_SECRET`
+- Marketplace Worker: `MARKETPLACE_AUTH_BRIDGE_SECRET`
+- Marketplace Worker: `MARKETPLACE_SUPABASE_SERVICE_ROLE_KEY`
+
+The bridge secret must be the same random value on both Workers. It must never
+be placed in checked-in `wrangler.*.jsonc` vars.
+
+### Production Database Gate
+
+Marketplace route deployment must run:
+
+`npm run verify:marketplace-production-db`
+
+before `cf:deploy:marketplace:routes` attaches production routes. The probe
+checks the configured marketplace Supabase ref, verifies that it is not the core
+YNOT Supabase ref by default, and calls the exact runtime tables/RPCs required
+by browse, filters, money policy, cart/order reads, and durable rate limiting.
+
+If the marketplace project has not been created or linked yet, production route
+deployment should stop. Reusing the core YNOT service-role key in the
+marketplace Worker is allowed only through the explicit emergency override
+`YNOT_ALLOW_CORE_MARKETPLACE_SUPABASE=true`, and that path should be treated as
+a temporary incident response exception rather than the long-run architecture.
+
 ## Security Rule
 
 Browser requests do not provide trusted marketplace account identity. Server code derives identity from the authenticated YNOT profile.
 
 Marketplace writes must not accept browser-supplied buyer account IDs, seller account IDs, payout account IDs, or actor profile IDs. Mutations use the existing marketplace mutation guard for same-origin checks, launch gates, action flags, rate limiting, request hashing, idempotency, and body allowlists before calling RPCs.
+
+Marketplace API rate limiting runs against the marketplace Supabase project via
+`RATE_LIMIT_BACKEND=marketplace_supabase`. This keeps marketplace request
+throttling durable across Workers without giving the marketplace runtime the
+core YNOT service-role key.
 
 ## Operations Rule
 

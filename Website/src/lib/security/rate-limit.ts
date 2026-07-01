@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
@@ -19,6 +20,20 @@ type RateLimitResult = {
   remaining: number;
   resetAt: number;
 };
+
+type RateLimitRpcResult = Promise<{
+  data: unknown;
+  error: { message?: string } | null;
+}>;
+
+type RateLimitRpcClient = {
+  rpc: unknown;
+};
+
+type RateLimitRpcCaller = (
+  name: string,
+  args: Record<string, unknown>,
+) => RateLimitRpcResult;
 
 const buckets = new Map<string, Bucket>();
 const MAX_BUCKETS = 2000;
@@ -93,10 +108,55 @@ function parseSupabaseLimitResult(value: unknown, fallbackResetAt: number): Rate
 }
 
 async function checkSupabaseRateLimit(key: string, options: RateLimitOptions): Promise<RateLimitResult> {
+  return checkSupabaseRateLimitWithClient(
+    createServiceSupabaseClient(),
+    key,
+    options,
+  );
+}
+
+function isMarketplaceSupabaseRateLimitConfigured() {
+  return Boolean(
+    process.env.MARKETPLACE_SUPABASE_URL?.trim() &&
+      process.env.MARKETPLACE_SUPABASE_SERVICE_ROLE_KEY?.trim(),
+  );
+}
+
+function createMarketplaceRateLimitClient() {
+  const supabaseUrl = process.env.MARKETPLACE_SUPABASE_URL?.trim();
+  const serviceRoleKey = process.env.MARKETPLACE_SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Missing Marketplace Supabase rate-limit configuration");
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+async function checkMarketplaceSupabaseRateLimit(
+  key: string,
+  options: RateLimitOptions,
+): Promise<RateLimitResult> {
+  return checkSupabaseRateLimitWithClient(
+    createMarketplaceRateLimitClient(),
+    key,
+    options,
+  );
+}
+
+async function checkSupabaseRateLimitWithClient(
+  supabase: RateLimitRpcClient,
+  key: string,
+  options: RateLimitOptions,
+): Promise<RateLimitResult> {
   const fallbackResetAt = now() + options.windowMs;
   const cost = normalizedRateLimitCost(options);
-  const supabase = createServiceSupabaseClient();
-  const { data, error } = await supabase.rpc("consume_api_rate_limit_weighted", {
+  const rpc = (supabase.rpc as RateLimitRpcCaller).bind(supabase);
+  const { data, error } = await rpc("consume_api_rate_limit_weighted", {
     p_key: key,
     p_limit: options.limit,
     p_window_seconds: Math.max(1, Math.ceil(options.windowMs / 1000)),
@@ -129,6 +189,27 @@ export function rateLimitKey(request: Request, scope: string, subject?: string |
 export async function enforceRateLimit(request: Request, scope: string, options: RateLimitOptions, subject?: string | null) {
   const key = rateLimitKey(request, scope, subject);
   const backend = process.env.RATE_LIMIT_BACKEND?.trim().toLowerCase();
+
+  if (backend === "marketplace_supabase") {
+    if (!isMarketplaceSupabaseRateLimitConfigured()) {
+      return Response.json(
+        { error: "Marketplace rate-limit backend is not configured." },
+        { status: 503 },
+      );
+    }
+    try {
+      return responseFromResult(await checkMarketplaceSupabaseRateLimit(key, options));
+    } catch (error) {
+      console.warn(
+        "marketplace_rate_limit_backend_unavailable",
+        error instanceof Error ? error.message : String(error),
+      );
+      return Response.json(
+        { error: "Rate-limit backend is unavailable." },
+        { status: 503 },
+      );
+    }
+  }
 
   if (backend === "supabase") {
     if (!isSupabaseConfigured()) {

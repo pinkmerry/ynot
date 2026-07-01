@@ -1,11 +1,16 @@
 import { getActiveDraw, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { allowedSlipTypes, extensionForVerifiedImage, maxSlipBytes, verifyImageMagicBytes } from "@/lib/uploads/magic-bytes";
+import { allowedSlipTypes, extensionForVerifiedImage, maxSlipBytes, requestExceedsUploadLimit, verifyImageMagicBytes } from "@/lib/uploads/magic-bytes";
 
 const bucketName = "lucky-draw-assets";
 
 export async function POST(request: Request) {
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
+
   if (!isSupabaseConfigured()) {
     return Response.json({ error: "Supabase is not configured." }, { status: 503 });
   }
@@ -15,7 +20,23 @@ export async function POST(request: Request) {
     return Response.json({ error: "Admin access is required." }, { status: 403 });
   }
 
-  const form = await request.formData();
+  const limited = await enforceRateLimit(
+    request,
+    "ynot:legacy-admin:qr-image",
+    { limit: 60, windowMs: 60_000 },
+    session.profileId,
+  );
+  if (limited) return limited;
+
+  if (requestExceedsUploadLimit(request, maxSlipBytes)) {
+    return Response.json({ error: "QR image must be 10 MB or smaller." }, { status: 413 });
+  }
+
+  const form = await request.formData().catch(() => null);
+  if (!form) {
+    return Response.json({ error: "Invalid form payload." }, { status: 400 });
+  }
+
   const file = form.get("file");
   if (!(file instanceof File)) {
     return Response.json({ error: "QR image file is required." }, { status: 400 });

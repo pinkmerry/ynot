@@ -1,5 +1,7 @@
 import { resolveIdentityActionToken } from "@/lib/auth/identity-action-tokens";
 import { resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -22,8 +24,19 @@ function identityUnlinkFailure(stage: string, error: { message?: string }) {
 }
 
 export async function POST(request: Request) {
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
+
   const session = await resolveCurrentProfile();
   if (!session?.profileId) return jsonNoStore({ error: "Login is required." }, { status: 401 });
+
+  const limited = await enforceRateLimit(
+    request,
+    "ynot:auth:identity-unlink",
+    { limit: 20, windowMs: 60_000 },
+    session.profileId,
+  );
+  if (limited) return limited;
 
   let payload: { identityToken?: unknown };
   try {

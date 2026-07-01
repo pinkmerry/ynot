@@ -1,8 +1,11 @@
 import { getActiveDraw, isSupabaseConfigured } from "@/lib/lucky-draw/data";
 import { resolveAdminSession } from "@/lib/auth/resolve-current-profile";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceSameOriginMutation } from "@/lib/security/same-origin";
 import { sha256Hex } from "@/lib/slip2go/client";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/types";
+import { requestExceedsUploadLimit, verifyImageMagicBytes } from "@/lib/uploads/magic-bytes";
 
 const maxTestSlipBytes = 10 * 1024 * 1024;
 const allowedSlipTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -25,6 +28,9 @@ function lastDigits(value: string | null | undefined, count = 4) {
 }
 
 export async function POST(request: Request) {
+  const crossOrigin = enforceSameOriginMutation(request);
+  if (crossOrigin) return crossOrigin;
+
   if (!isSupabaseConfigured()) {
     return jsonNoStore({ error: "Supabase is not configured." }, { status: 503 });
   }
@@ -32,6 +38,18 @@ export async function POST(request: Request) {
   const session = await resolveAdminSession();
   if (!session) {
     return jsonNoStore({ error: "Admin access is required." }, { status: 403 });
+  }
+
+  const limited = await enforceRateLimit(
+    request,
+    "ynot:legacy-admin:slip-verify-test",
+    { limit: 20, windowMs: 60_000 },
+    session.profileId,
+  );
+  if (limited) return limited;
+
+  if (requestExceedsUploadLimit(request, maxTestSlipBytes)) {
+    return jsonNoStore({ error: "Slip must be 10 MB or smaller." }, { status: 413 });
   }
 
   let form: FormData;
@@ -52,6 +70,14 @@ export async function POST(request: Request) {
 
   if (slip.size > maxTestSlipBytes) {
     return jsonNoStore({ error: "Slip must be 10 MB or smaller." }, { status: 400 });
+  }
+
+  const magicCheck = await verifyImageMagicBytes(slip);
+  if (!magicCheck.ok) {
+    return jsonNoStore({ error: magicCheck.error }, { status: 400 });
+  }
+  if (!allowedSlipTypes.has(magicCheck.contentType)) {
+    return jsonNoStore({ error: "Slip must be JPG, PNG, or WEBP." }, { status: 400 });
   }
 
   const supabase = createServiceSupabaseClient();

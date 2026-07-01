@@ -42,7 +42,7 @@ function MonitorPrizeImage({
   return (
     <span className="admin-monitor-prize-image">
       {prize.cardImageUrl ? (
-        // Card art URLs may be Supabase/public imports and match existing YNOTT
+        // Card art URLs may be Supabase/public imports and match existing YNOT
         // reward thumbnails, so keep the same plain image rendering path here.
         // eslint-disable-next-line @next/next/no-img-element
         <img src={prize.cardImageUrl} alt={prize.cardName} loading="lazy" />

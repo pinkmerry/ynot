@@ -1351,6 +1351,7 @@ declare
   payout_row public.marketplace_seller_payouts%rowtype;
   order_row public.marketplace_orders%rowtype;
   idempotency_row public.marketplace_idempotency_keys%rowtype;
+  has_open_reconciliation boolean := false;
   normalized_idempotency_key text := nullif(trim(coalesce(p_idempotency_key, '')), '');
   normalized_request_hash text := nullif(trim(coalesce(p_request_hash, '')), '');
   normalized_transfer_reference text := nullif(trim(coalesce(p_transfer_reference, '')), '');

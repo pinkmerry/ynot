@@ -45,14 +45,14 @@ export async function sendSignupCodeEmail({
   const replyTo = process.env.SIGNUP_EMAIL_REPLY_TO?.trim();
   const escapedCode = escapeHtml(code);
   const text = [
-    "Your YNOTT signup code is:",
+    "Your YNOT signup code is:",
     "",
     code,
     "",
     "This code expires in 10 minutes. If you did not request it, you can ignore this email.",
   ].join("\n");
   const html = [
-    "<p>Your YNOTT signup code is:</p>",
+    "<p>Your YNOT signup code is:</p>",
     `<p style="font-size:28px;font-weight:700;letter-spacing:6px">${escapedCode}</p>`,
     "<p>This code expires in 10 minutes. If you did not request it, you can ignore this email.</p>",
   ].join("");
@@ -66,7 +66,7 @@ export async function sendSignupCodeEmail({
     body: JSON.stringify({
       from,
       to: email,
-      subject: "Your YNOTT signup code",
+      subject: "Your YNOT signup code",
       text,
       html,
       ...(replyTo ? { reply_to: replyTo } : {}),

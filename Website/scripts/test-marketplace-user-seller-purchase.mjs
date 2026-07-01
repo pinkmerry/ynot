@@ -35,6 +35,13 @@ function requirePattern(source, pattern, label) {
   assert.match(source, pattern, label);
 }
 
+function compactFunctionBody(source, functionName) {
+  const start = source.indexOf(`create or replace function public.${functionName}`);
+  assert.notEqual(start, -1, `missing function body for ${functionName}`);
+  const nextFunction = source.indexOf("create or replace function public.", start + 1);
+  return source.slice(start, nextFunction === -1 ? undefined : nextFunction);
+}
+
 function assertCentralMutationGuard(source, relPath) {
   const mutationGuard = readApp("src/lib/marketplace/mutation-guard.ts");
   assert.match(source, /prepareMarketplaceMutation/, `${relPath} must use the centralized mutation guard`);
@@ -139,6 +146,11 @@ test("user-seller RPCs enforce activation guards, self-purchase rejection, payou
   requirePattern(sql, /order_row\.refund_state <> 'none'/);
   requirePattern(sql, /order_row\.seller_payout_state <> 'released'/);
   requirePattern(sql, /has_open_reconciliation/);
+  requirePattern(
+    compactFunctionBody(sql, "marketplace_mark_seller_payout_paid"),
+    /declare[\s\S]*has_open_reconciliation boolean := false;[\s\S]*begin[\s\S]*into has_open_reconciliation/,
+    "paid-payout RPC must declare the reconciliation guard it writes into",
+  );
 });
 
 test("user-seller server modules expose safe checkout, activation, payout queue, and seller sales APIs", () => {

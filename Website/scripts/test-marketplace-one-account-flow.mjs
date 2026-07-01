@@ -326,6 +326,71 @@ test("customer marketplace pages keep one-site UX language", () => {
   assert.match(layout + cart + orders, /marketplace/i);
 });
 
+test("marketplace runtime resolves the same YNOT login through a narrow auth bridge", () => {
+  const bridge = read("src/lib/auth/marketplace-auth-bridge.ts");
+  const resolver = read("src/lib/auth/resolve-current-profile.ts");
+  const route = read("src/app/api/internal/marketplace/session/route.ts");
+  const marketplaceConfig = JSON.parse(read("wrangler.marketplace.jsonc"));
+  const websiteConfig = JSON.parse(read("wrangler.website.jsonc"));
+
+  assert.equal(marketplaceConfig.vars.YNOT_WORKER_SURFACE, "marketplace");
+  assert.equal(websiteConfig.vars.YNOT_WORKER_SURFACE, "website");
+  assert.equal(
+    marketplaceConfig.vars.MARKETPLACE_AUTH_BRIDGE_URL,
+    "https://www.ynotopen.com/api/internal/marketplace/session",
+  );
+  assert.equal(marketplaceConfig.vars.RATE_LIMIT_BACKEND, "marketplace_supabase");
+  assert.ok(
+    !Object.hasOwn(
+      marketplaceConfig.vars,
+      "MARKETPLACE_AUTH_BRIDGE_SECRET",
+    ),
+    "auth bridge secret must stay in Cloudflare secrets, not checked-in vars",
+  );
+
+  assert.match(bridge, /MARKETPLACE_AUTH_BRIDGE_HEADER/);
+  assert.match(bridge, /timingSafeEqual/);
+  assert.match(bridge, /headers\(\)/);
+  assert.match(bridge, /cookie: cookieHeader/);
+  assert.match(bridge, /authResolution: "marketplace_auth_bridge"/);
+  assert.doesNotMatch(bridge, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.doesNotMatch(bridge, /LINE_SESSION_SECRET/);
+
+  assertAppearsBefore(
+    route,
+    /verifyMarketplaceAuthBridgeRequest\(request\)/,
+    /resolveCurrentProfile\(\)/,
+    "internal auth bridge route must verify the internal secret before reading session state",
+  );
+  assert.match(route, /resolveAdminSession\(profile\)/);
+  assert.match(route, /Cache-Control": "no-store"/);
+
+  assertAppearsBefore(
+    resolver,
+    /shouldUseMarketplaceAuthBridge\(\)/,
+    /const cookieStore = await cookies\(\)/,
+    "marketplace runtime must delegate session verification before local cookie decoding",
+  );
+  assert.match(resolver, /isMarketplaceAuthBridgeProfile\(session\)/);
+  assert.match(resolver, /return null;[\s\S]*adminId: session\.adminId/);
+});
+
+test("marketplace runtime throttles against marketplace Supabase, not the core service key", () => {
+  const rateLimit = read("src/lib/security/rate-limit.ts");
+  const migration = read(
+    "../Database/marketplace-supabase/migrations/20260701120000_marketplace_api_rate_limits.sql",
+  );
+  const marketplaceConfig = JSON.parse(read("wrangler.marketplace.jsonc"));
+
+  assert.equal(marketplaceConfig.vars.RATE_LIMIT_BACKEND, "marketplace_supabase");
+  assert.match(rateLimit, /backend === "marketplace_supabase"/);
+  assert.match(rateLimit, /MARKETPLACE_SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(rateLimit, /checkMarketplaceSupabaseRateLimit/);
+  assert.match(migration, /create table if not exists public\.api_rate_limits/);
+  assert.match(migration, /consume_api_rate_limit_weighted/);
+  assert.match(migration, /grant execute[\s\S]*to service_role/);
+});
+
 test("marketplace admin remains a marketplace surface without exposing private payment data", () => {
   const adminPage = read("src/app/admin/marketplace/page.tsx");
   assert.match(adminPage, /surface="marketplace"/);
@@ -432,7 +497,13 @@ test("marketplace storefront entry points stay owner-only during gated launch", 
   assert.match(history, /const showMarketplace = viewerRole === "owner"/);
   assert.match(
     history,
-    /if \(!showMarketplace\) \{[\s\S]*setMarketplaceSummaryState\("unavailable"\);[\s\S]*return;/,
+    /if \(!showMarketplace\) return;/,
+    "history page must skip marketplace summary calls for non-owners",
+  );
+  assertAppearsBefore(
+    history,
+    /if \(!showMarketplace\) return;/,
+    /fetch\("\/api\/marketplace\/bag\/summary"/,
     "history page must skip marketplace summary calls for non-owners",
   );
   assert.match(

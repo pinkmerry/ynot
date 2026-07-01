@@ -20,12 +20,17 @@
     "crons": ["*/5 * * * *"]
   },
   "vars": {
-    "RATE_LIMIT_BACKEND": "supabase",
+    "RATE_LIMIT_BACKEND": "marketplace_supabase",
     "NODE_ENV": "production",
     "NEXTJS_ENV": "production",
+    "YNOT_WORKER_SURFACE": "marketplace",
     "YNOT_MARKETPLACE_ENABLED": "true",
     "YNOT_MARKETPLACE_OWNER_ONLY": "true",
+    "MARKETPLACE_AUTH_BRIDGE_URL": "https://www.ynotopen.com/api/internal/marketplace/session",
     "MARKETPLACE_ENVIRONMENT": "production",
+    "MARKETPLACE_SUPABASE_URL": "https://lvdikmsygdstckhektth.supabase.co",
+    "MARKETPLACE_SUPABASE_PROJECT_REF": "lvdikmsygdstckhektth",
+    "MARKETPLACE_EXPECTED_SUPABASE_PROJECT_REF": "lvdikmsygdstckhektth",
     "LINE_LOGIN_CHANNEL_ID": "2009971080",
     "NEXT_PUBLIC_ENABLE_LINE_LOGIN": "true",
     "NEXT_PUBLIC_LINE_LIFF_ID": "2009971080-8exdgUaw",

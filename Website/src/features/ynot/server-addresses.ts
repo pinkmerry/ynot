@@ -1,5 +1,10 @@
 import "server-only";
 
+import {
+  LOCAL_PREVIEW_PROFILE_ID,
+  previewAddressesForProfile,
+} from "@/features/ynot/local-preview-rewards";
+import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { addressActionToken } from "@/lib/ynot/address-action-tokens";
 import { isCompleteShippingAddress } from "./address-utils";
@@ -168,6 +173,9 @@ export async function ensureDefaultAddressFromProfile(
 }
 
 export async function getProfileAddresses(profileId: string): Promise<YnotAddress[]> {
+  if (isDevAuthAllowed() && profileId === LOCAL_PREVIEW_PROFILE_ID) {
+    return previewAddressesForProfile(profileId);
+  }
   const rows = await ensureDefaultAddressFromProfile(profileId);
   return Promise.all(rows.map((row) => toYnotAddress(profileId, row)));
 }

@@ -34,6 +34,9 @@ function validateWorkerConfig(rel, expected) {
   const vars = config.vars ?? {};
   const forbiddenSecrets = [
     "SUPABASE_SERVICE_ROLE_KEY",
+    "MARKETPLACE_SUPABASE_SERVICE_ROLE_KEY",
+    "MARKETPLACE_AUTH_BRIDGE_SECRET",
+    "MARKETPLACE_PAYMENT_WEBHOOK_SECRET",
     "LINE_SESSION_SECRET",
     "LINE_LOGIN_CHANNEL_SECRET",
     "SLIP2GO_SECRET_KEY",
@@ -64,8 +67,12 @@ function validateWorkerConfig(rel, expected) {
   check(`${rel} uses free-first mode without Durable Objects`, !config.durable_objects);
   check(`${rel} uses free-first mode without DO migrations`, !config.migrations);
   check(`${rel} leaves image optimization unbound for free-first deploy`, !config.images);
-  check(`${rel} locks production rate-limit backend`, vars.RATE_LIMIT_BACKEND === "supabase");
+  check(
+    `${rel} locks production rate-limit backend`,
+    vars.RATE_LIMIT_BACKEND === (expected.rateLimitBackend ?? "supabase"),
+  );
   check(`${rel} sets production env`, vars.NEXTJS_ENV === "production");
+  check(`${rel} declares Worker surface`, vars.YNOT_WORKER_SURFACE === expected.workerSurface);
   check(`${rel} omits paid cache prefix`, !Object.hasOwn(vars, "NEXT_INC_CACHE_R2_PREFIX"));
   check(`${rel} sets LINE Login channel ID`, vars.LINE_LOGIN_CHANNEL_ID === expected.lineLoginChannelId);
   check(`${rel} enables LINE login`, vars.NEXT_PUBLIC_ENABLE_LINE_LOGIN === "true");
@@ -89,6 +96,31 @@ function validateWorkerConfig(rel, expected) {
     `${rel} keeps server secrets out of checked-in vars`,
     forbiddenSecrets.every((name) => !Object.hasOwn(vars, name)),
   );
+  if (expected.marketplaceRuntime) {
+    check(
+      `${rel} sets Marketplace auth bridge URL`,
+      vars.MARKETPLACE_AUTH_BRIDGE_URL ===
+        "https://www.ynotopen.com/api/internal/marketplace/session",
+    );
+    check(
+      `${rel} sets Marketplace Supabase URL`,
+      typeof vars.MARKETPLACE_SUPABASE_URL === "string" &&
+        /^https:\/\/[a-z0-9]+\.supabase\.co$/.test(vars.MARKETPLACE_SUPABASE_URL),
+    );
+    check(
+      `${rel} sets Marketplace Supabase project ref`,
+      typeof vars.MARKETPLACE_SUPABASE_PROJECT_REF === "string" &&
+        /^[a-z0-9]+$/.test(vars.MARKETPLACE_SUPABASE_PROJECT_REF),
+    );
+    check(
+      `${rel} pins expected Marketplace Supabase project ref`,
+      vars.MARKETPLACE_EXPECTED_SUPABASE_PROJECT_REF ===
+        vars.MARKETPLACE_SUPABASE_PROJECT_REF,
+    );
+  } else {
+    check(`${rel} omits Marketplace auth bridge URL`, !Object.hasOwn(vars, "MARKETPLACE_AUTH_BRIDGE_URL"));
+    check(`${rel} omits Marketplace Supabase URL`, !Object.hasOwn(vars, "MARKETPLACE_SUPABASE_URL"));
+  }
   if (expected.bulkOpenQueue) {
     check(
       `${rel} binds Pull All queue producer`,
@@ -114,6 +146,7 @@ validateWorkerConfig("wrangler.website.jsonc", {
   siteUrl: "https://www.ynotopen.com",
   workerName: "ynott-website",
   workerEntry: "bulk-open-worker.ts",
+  workerSurface: "website",
   lineLoginChannelId: "2009971080",
   routePatterns: ["ynotopen.com/*", "www.ynotopen.com/*"],
   bulkOpenQueue: true,
@@ -122,6 +155,7 @@ validateWorkerConfig("wrangler.website.ci.jsonc", {
   siteUrl: "https://www.ynotopen.com",
   workerName: "ynott-website",
   workerEntry: "bulk-open-worker.ts",
+  workerSurface: "website",
   lineLoginChannelId: "2009971080",
   routePatterns: [],
   bulkOpenQueue: true,
@@ -130,6 +164,9 @@ validateWorkerConfig("wrangler.marketplace.jsonc", {
   siteUrl: "https://www.ynotopen.com",
   workerName: "ynott-marketplace",
   workerEntry: "bulk-open-worker.ts",
+  workerSurface: "marketplace",
+  rateLimitBackend: "marketplace_supabase",
+  marketplaceRuntime: true,
   lineLoginChannelId: "2009971080",
   routePatterns: [
     "www.ynotopen.com/marketplace*",
@@ -147,6 +184,9 @@ validateWorkerConfig("wrangler.marketplace.ci.jsonc", {
   siteUrl: "https://www.ynotopen.com",
   workerName: "ynott-marketplace",
   workerEntry: "bulk-open-worker.ts",
+  workerSurface: "marketplace",
+  rateLimitBackend: "marketplace_supabase",
+  marketplaceRuntime: true,
   lineLoginChannelId: "2009971080",
   routePatterns: [],
   bulkOpenQueue: false,
@@ -168,6 +208,12 @@ check(
 );
 check("package exposes manual website route deploy script", Boolean(packageJson.scripts?.["cf:deploy:website:routes"]));
 check("package exposes manual marketplace route deploy script", Boolean(packageJson.scripts?.["cf:deploy:marketplace:routes"]));
+check(
+  "marketplace route deploy verifies production DB first",
+  /npm run verify:marketplace-production-db[\s\S]*opennextjs-cloudflare deploy --config wrangler\.marketplace\.jsonc/.test(
+    packageJson.scripts?.["cf:deploy:marketplace:routes"] ?? "",
+  ),
+);
 check(
   "website Cloudflare build prunes marketplace-only routes",
   /run-cloudflare-target-build\.mjs website -- opennextjs-cloudflare build --config wrangler\.website\.jsonc/.test(
@@ -300,6 +346,10 @@ for (const key of [
   "SUPABASE_SERVICE_ROLE_KEY=",
   "LINE_LOGIN_CHANNEL_SECRET=",
   "SLIP2GO_SECRET_KEY=",
+  "MARKETPLACE_AUTH_BRIDGE_URL=",
+  "MARKETPLACE_AUTH_BRIDGE_SECRET=",
+  "MARKETPLACE_SUPABASE_URL=",
+  "MARKETPLACE_SUPABASE_SERVICE_ROLE_KEY=",
 ]) {
   check(`.dev.vars.example documents ${key}`, devVarsExample.includes(key));
 }

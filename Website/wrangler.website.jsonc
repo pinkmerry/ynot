@@ -49,6 +49,7 @@
     "RATE_LIMIT_BACKEND": "supabase",
     "NODE_ENV": "production",
     "NEXTJS_ENV": "production",
+    "YNOT_WORKER_SURFACE": "website",
     "LINE_LOGIN_CHANNEL_ID": "2009971080",
     "NEXT_PUBLIC_ENABLE_LINE_LOGIN": "true",
     "NEXT_PUBLIC_LINE_LIFF_ID": "2009971080-8exdgUaw",

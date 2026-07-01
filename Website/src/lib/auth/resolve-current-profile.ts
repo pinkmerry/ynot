@@ -6,6 +6,11 @@ import {
   readSessionCookie,
   isSessionVersionCurrent,
 } from "@/lib/lucky-draw/session";
+import {
+  isMarketplaceAuthBridgeProfile,
+  resolveProfileViaMarketplaceAuthBridge,
+  shouldUseMarketplaceAuthBridge,
+} from "@/lib/auth/marketplace-auth-bridge";
 import { createServiceSupabaseClient, createSupabaseServerClient } from "@/lib/supabase/server";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import { ensureProfileForUser } from "./profile";
@@ -18,6 +23,7 @@ export type ResolvedProfileSession = {
   adminId?: string;
   adminRole?: "owner" | "admin" | "staff";
   authSource: "supabase" | "line";
+  authResolution?: "marketplace_auth_bridge";
 };
 
 export type ResolvedAdminSession = ResolvedProfileSession & {
@@ -87,6 +93,10 @@ async function resolveDevPreviewProfile(): Promise<ResolvedProfileSession | null
 }
 
 export const resolveCurrentProfile = cache(async (): Promise<ResolvedProfileSession | null> => {
+  if (shouldUseMarketplaceAuthBridge()) {
+    return resolveProfileViaMarketplaceAuthBridge();
+  }
+
   const cookieStore = await cookies();
 
   // Dev-only preview bypass: when ynot-preview-auth=1 is set (via
@@ -197,6 +207,15 @@ export const resolveCurrentProfile = cache(async (): Promise<ResolvedProfileSess
 export const resolveAdminSession = cache(async (baseSession?: ResolvedProfileSession | null): Promise<ResolvedAdminSession | null> => {
   const session = baseSession === undefined ? await resolveCurrentProfile() : baseSession;
   if (!session?.profileId) return null;
+
+  if (isMarketplaceAuthBridgeProfile(session)) {
+    if (!session.adminId || !session.adminRole) return null;
+    return {
+      ...session,
+      adminId: session.adminId,
+      adminRole: session.adminRole,
+    };
+  }
 
   // Dev-only preview bypass: preview session already carries admin role.
   if (

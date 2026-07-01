@@ -5,6 +5,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-or-anon-key
 NEXT_PUBLIC_LINE_LIFF_ID=2009971080-8exdgUaw
 NEXT_PUBLIC_ENABLE_LINE_LOGIN=false
 RATE_LIMIT_BACKEND=supabase
+YNOT_WORKER_SURFACE=website
 
 SUPABASE_SERVICE_ROLE_KEY=your-server-only-service-role-key
 LINE_SESSION_SECRET=your-server-only-line-session-secret
@@ -14,3 +15,11 @@ LINE_LOGIN_CHANNEL_SECRET=your-server-only-line-login-channel-secret
 SLIP2GO_API_URL=https://connect.slip2go.com
 SLIP2GO_SECRET_KEY=your-server-only-slip2go-secret
 SLIP2GO_TIMEOUT_MS=12000
+
+MARKETPLACE_AUTH_BRIDGE_URL=http://localhost:8787/api/internal/marketplace/session
+MARKETPLACE_AUTH_BRIDGE_SECRET=your-local-marketplace-auth-bridge-secret
+MARKETPLACE_ENVIRONMENT=local
+MARKETPLACE_SUPABASE_URL=http://127.0.0.1:55321
+MARKETPLACE_SUPABASE_PROJECT_REF=ynott-marketplace
+MARKETPLACE_EXPECTED_SUPABASE_PROJECT_REF=ynott-marketplace
+MARKETPLACE_SUPABASE_SERVICE_ROLE_KEY=your-local-marketplace-service-role-key

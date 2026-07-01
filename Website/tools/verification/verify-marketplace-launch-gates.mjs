@@ -43,7 +43,24 @@ for (const pattern of [
 
 check("marketplace Worker enables owner-only prelaunch", marketplaceConfig.vars?.YNOT_MARKETPLACE_OWNER_ONLY === "true");
 check("marketplace Worker enables marketplace flag", marketplaceConfig.vars?.YNOT_MARKETPLACE_ENABLED === "true");
+check("marketplace Worker declares marketplace surface", marketplaceConfig.vars?.YNOT_WORKER_SURFACE === "marketplace");
+check("marketplace Worker uses marketplace rate-limit backend", marketplaceConfig.vars?.RATE_LIMIT_BACKEND === "marketplace_supabase");
+check(
+  "marketplace Worker points to website auth bridge",
+  marketplaceConfig.vars?.MARKETPLACE_AUTH_BRIDGE_URL === "https://www.ynotopen.com/api/internal/marketplace/session",
+);
+check(
+  "marketplace Worker pins Marketplace Supabase project ref",
+  typeof marketplaceConfig.vars?.MARKETPLACE_SUPABASE_PROJECT_REF === "string" &&
+    marketplaceConfig.vars.MARKETPLACE_EXPECTED_SUPABASE_PROJECT_REF === marketplaceConfig.vars.MARKETPLACE_SUPABASE_PROJECT_REF,
+);
+check(
+  "marketplace Worker configures Marketplace Supabase URL",
+  typeof marketplaceConfig.vars?.MARKETPLACE_SUPABASE_URL === "string" &&
+    /^https:\/\/[a-z0-9]+\.supabase\.co$/.test(marketplaceConfig.vars.MARKETPLACE_SUPABASE_URL),
+);
 check("marketplace Worker omits Marketplace service-role key", !Object.hasOwn(marketplaceConfig.vars ?? {}, "MARKETPLACE_SUPABASE_SERVICE_ROLE_KEY"));
+check("marketplace Worker omits auth bridge secret", !Object.hasOwn(marketplaceConfig.vars ?? {}, "MARKETPLACE_AUTH_BRIDGE_SECRET"));
 check("marketplace Worker omits payment webhook secret", !Object.hasOwn(marketplaceConfig.vars ?? {}, "MARKETPLACE_PAYMENT_WEBHOOK_SECRET"));
 check("marketplace Worker has no gacha Pull All queue binding", !marketplaceConfig.queues);
 check("marketplace Worker can run marketplace cron", Array.isArray(marketplaceConfig.triggers?.crons) && marketplaceConfig.triggers.crons.length > 0);
@@ -54,9 +71,20 @@ for (const script of [
   "cf:deploy:marketplace",
   "cf:deploy:marketplace:routes",
   "verify:marketplace",
+  "verify:marketplace-production-db",
 ]) {
   check(`package exposes ${script}`, Boolean(packageJson.scripts?.[script]));
 }
+check(
+  "marketplace route deploy is gated by production DB probe",
+  packageJson.scripts?.["cf:deploy:marketplace:routes"]?.includes(
+    "verify:marketplace-production-db",
+  ),
+);
+check(
+  "marketplace production DB probe exists",
+  fileExists("tools/verification/verify-marketplace-production-db.mjs"),
+);
 
 includes(routeGuards, "config.ownerOnly && admin?.adminRole !== \"owner\"", "route guard enforces owner-only prelaunch server-side");
 includes(routeGuards, "marketplace_owner_required", "owner-only denial code exists");

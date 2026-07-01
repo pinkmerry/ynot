@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   type ChangeEvent,
   type MouseEvent,
-  useEffect,
-  useState,
+  useOptimistic,
   useTransition,
 } from "react";
 import { i18n } from "./i18n";
@@ -206,10 +205,14 @@ export function MarketplaceFilterControls({
   filterCounts?: MarketplaceFilterCounts;
 }) {
   const router = useRouter();
-  const [optimisticFilter, setOptimisticFilter] =
-    useState<MarketplaceFilterKey>(selectedFilterKey);
-  const [optimisticSort, setOptimisticSort] =
-    useState<MarketplaceSortKey>(selectedSort);
+  const [optimisticFilter, setOptimisticFilter] = useOptimistic(
+    selectedFilterKey,
+    (_current: MarketplaceFilterKey, next: MarketplaceFilterKey) => next,
+  );
+  const [optimisticSort, setOptimisticSort] = useOptimistic(
+    selectedSort,
+    (_current: MarketplaceSortKey, next: MarketplaceSortKey) => next,
+  );
   const [isPending, startTransition] = useTransition();
   const allFilters = [...sourceFilters, ...categoryFilters];
   const selectedOption =
@@ -220,14 +223,11 @@ export function MarketplaceFilterControls({
     optimisticFilter !== selectedFilterKey ||
     optimisticSort !== selectedSort;
 
-  useEffect(() => {
-    setOptimisticFilter(selectedFilterKey);
-    setOptimisticSort(selectedSort);
-  }, [selectedFilterKey, selectedSort]);
-
   function navigate(filterKey: MarketplaceFilterKey, sortKey: MarketplaceSortKey) {
     const href = marketplaceFilterHref(filterKey, sortKey);
     startTransition(() => {
+      setOptimisticFilter(filterKey);
+      setOptimisticSort(sortKey);
       router.push(href, { scroll: false });
     });
   }
@@ -238,13 +238,11 @@ export function MarketplaceFilterControls({
   ) {
     if (!isPlainClick(event)) return;
     event.preventDefault();
-    setOptimisticFilter(filterKey);
     navigate(filterKey, optimisticSort);
   }
 
   function handleSortChange(event: ChangeEvent<HTMLSelectElement>) {
     const nextSort = event.currentTarget.value as MarketplaceSortKey;
-    setOptimisticSort(nextSort);
     navigate(optimisticFilter, nextSort);
   }
 

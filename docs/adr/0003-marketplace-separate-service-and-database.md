@@ -18,9 +18,14 @@ We rejected putting marketplace tables and real-money workflows directly into th
 
 The marketplace can have its own runtime, database, RLS rules, scheduled jobs, payout audit trail, and operational dashboard without asking the customer to understand those internals. The public domain, login session, and navigation stay unified.
 
+The marketplace Worker resolves the shared login through a narrow auth bridge owned by the website Worker. The bridge verifies the YNOT session with website-only secrets and returns minimal profile/admin claims. This keeps marketplace pages seamless without copying `LINE_SESSION_SECRET` or the core YNOT service-role key into the marketplace runtime.
+
 ## Consequences
 
 - Marketplace browser actions derive identity from the authenticated YNOT profile on the server.
 - Marketplace writes continue through the central mutation guard and RPC layer.
 - Marketplace customer, admin, and HTTP routes belong to the marketplace Worker route set.
 - Gacha, wallet, Customer Bag, and marketplace records stay separated at the transactional boundary.
+- Marketplace rate limiting uses marketplace Supabase state, not the core YNOT database.
+- Production marketplace route deployment is blocked by `verify:marketplace-production-db` until the dedicated marketplace Supabase ref, service-role secret, tables, RPCs, and rate-limit state are available.
+- Reusing the core YNOT Supabase service-role key in the marketplace Worker is not the accepted architecture. It is only an explicit emergency override path, because it expands the blast radius from marketplace code into core customer, gacha, wallet, and admin data.
