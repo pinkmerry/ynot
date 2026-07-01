@@ -12,6 +12,30 @@ import {
   marketplaceRpcError,
   MarketplaceServiceError,
 } from "./supabase-adapter";
+import type {
+  MarketplaceCartItem,
+  MarketplaceCartMutationResult,
+  MarketplaceCartSummary,
+  MarketplaceCustomerCartState,
+  MarketplacePublicCartItem,
+  MarketplacePublicListingPayload,
+  MarketplacePublicWatchlistItem,
+  MarketplaceWatchlistItem,
+  MarketplaceWatchlistMutationResult,
+  MarketplaceWatchlistState,
+} from "./types";
+export type {
+  MarketplaceCartItem,
+  MarketplaceCartMutationResult,
+  MarketplaceCartSummary,
+  MarketplaceCustomerCartState,
+  MarketplacePublicCartItem,
+  MarketplacePublicListingPayload,
+  MarketplacePublicWatchlistItem,
+  MarketplaceWatchlistItem,
+  MarketplaceWatchlistMutationResult,
+  MarketplaceWatchlistState,
+} from "./types";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -32,94 +56,6 @@ type MarketplaceWatchlistRow = {
 };
 
 export type MarketplaceCartAccount = Pick<SafeMarketplaceAccount, "accountId">;
-
-export type MarketplaceCartSummary = {
-  cartCount: number;
-  watchlistCount: number;
-  subtotalSatang: number;
-  unavailableCount: number;
-  currency: "THB";
-  updatedAt: string | null;
-};
-
-export type MarketplaceCartItem = {
-  id: string;
-  listingId: string;
-  quantity: number;
-  createdAt: string;
-  updatedAt: string;
-  listing: MarketplaceListingSnapshot;
-};
-
-export type MarketplaceWatchlistItem = {
-  id: string;
-  listingId: string;
-  createdAt: string;
-  updatedAt: string;
-  listing: MarketplaceListingSnapshot;
-};
-
-export type MarketplaceCustomerCartState = {
-  items: MarketplaceCartItem[];
-  summary: MarketplaceCartSummary;
-};
-
-export type MarketplaceWatchlistState = {
-  items: MarketplaceWatchlistItem[];
-  summary: MarketplaceCartSummary;
-};
-
-export type MarketplaceCartMutationResult = {
-  status: "added" | "already_in_cart" | "removed" | "not_in_cart" | "unknown";
-  item: MarketplaceCartItem | null;
-  summary: MarketplaceCartSummary;
-};
-
-export type MarketplaceWatchlistMutationResult = {
-  status:
-    | "watched"
-    | "already_watched"
-    | "unwatched"
-    | "not_watched"
-    | "unknown";
-  item: MarketplaceWatchlistItem | null;
-  summary: MarketplaceCartSummary;
-};
-
-export type MarketplacePublicListingPayload = {
-  listingId: string;
-  inventoryItemId: string;
-  productId: string | null;
-  variantId: string | null;
-  sellerPublicProfileId: string | null;
-  listingSource: "official_shop" | "user_seller";
-  listingState: string;
-  publicSlug: string | null;
-  title: string;
-  itemPriceSatang: number;
-  currency: "THB";
-  quantityAvailableSnapshot: number;
-  publicDescription: string | null;
-  photoUrls: string[];
-  publicAttributes: NonNullable<MarketplaceListingSnapshot["snapshot_payload"]>;
-  snapshotVersion: number;
-  visibleFrom: string | null;
-  updatedAt: string | null;
-};
-
-export type MarketplacePublicCartItem = Omit<
-  MarketplaceCartItem,
-  "listing"
-> & {
-  listing: MarketplacePublicListingPayload;
-};
-
-export type MarketplacePublicWatchlistItem = Omit<
-  MarketplaceWatchlistItem,
-  "listing"
-> & {
-  listing: MarketplacePublicListingPayload;
-};
 
 export type MarketplaceCartMutationInput = {
   account: MarketplaceCartAccount;

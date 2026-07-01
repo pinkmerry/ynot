@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import type { MarketplaceMoneyPolicy } from "@/lib/marketplace/money";
+import type { MarketplaceMoneyPolicy } from "@/lib/marketplace/types";
 
 type MarketplaceMoneyPolicyControlsProps = {
   policy: MarketplaceMoneyPolicy;

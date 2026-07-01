@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { MarketplaceListingSnapshot } from "@/lib/marketplace/listings";
+import type { MarketplaceListingSnapshot } from "@/lib/marketplace/types";
 
 type ProductMarket = {
   product: {

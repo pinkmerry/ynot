@@ -7,22 +7,13 @@ import {
   marketplaceRpcError,
   MarketplaceServiceError,
 } from "./supabase-adapter";
+import type { MarketplaceMoneyPolicy } from "./types";
+export type { MarketplaceMoneyPolicy } from "./types";
 
 export const MARKETPLACE_CURRENCY = "THB" as const;
 export const DEFAULT_MARKETPLACE_SHIPPING_FEE_SATANG = 15_000;
 export const DEFAULT_MARKETPLACE_SELLER_FEE_BPS = 1_000;
 export const DEFAULT_MARKETPLACE_BUYER_SERVICE_FEE_BPS = 1_000;
-
-export type MarketplaceMoneyPolicy = {
-  policyId: string | null;
-  sellerFeeBps: number;
-  buyerServiceFeeBps: number;
-  shippingFeeSatang: number;
-  currency: typeof MARKETPLACE_CURRENCY;
-  calculationVersion: number;
-  effectiveFrom: string | null;
-  adminNote: string | null;
-};
 
 function envInteger(name: string, fallback: number, options: { min: number; max: number }) {
   const raw = process.env[name]?.trim();

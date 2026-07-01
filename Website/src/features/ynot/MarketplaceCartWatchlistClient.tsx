@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import type {
   MarketplaceCartItem,
   MarketplaceWatchlistItem,
-} from "@/lib/marketplace/cart-watchlist";
+} from "@/lib/marketplace/types";
 import {
   type MarketplaceCartSummaryView,
   useMarketplaceCart,

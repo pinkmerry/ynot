@@ -6,7 +6,7 @@ import {
   MarketplacePaymentProofClient,
   type MarketplacePaymentProofOrder,
 } from "./MarketplacePaymentProofClient";
-import type { MarketplacePaymentInstructions } from "@/lib/marketplace/payment-instructions";
+import type { MarketplacePaymentInstructions } from "@/lib/marketplace/types";
 
 type MarketplaceCheckoutClientProps = {
   listingId: string;

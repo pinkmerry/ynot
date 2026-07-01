@@ -11,45 +11,17 @@ import {
   mockMarketplaceListingPage,
 } from "./mock-data";
 import { projectPublicListingSnapshot } from "./public-projection";
+import type {
+  MarketplaceListingSnapshot,
+  MarketplaceOfficialListingSnapshot,
+} from "./types";
+export type {
+  MarketplaceListingSnapshot,
+  MarketplaceOfficialListingSnapshot,
+} from "./types";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-export type MarketplaceListingSnapshot = {
-  listing_id: string;
-  inventory_item_id: string;
-  product_id: string | null;
-  variant_id: string | null;
-  seller_public_profile_id: string | null;
-  listing_source: "official_shop" | "user_seller";
-  listing_state: "active";
-  public_slug: string | null;
-  title: string;
-  item_price_satang: number;
-  currency: "THB";
-  quantity_available_snapshot: number;
-  public_description: string | null;
-  photo_urls: string[] | null;
-  snapshot_payload: {
-    sourceBadge?: string;
-    itemType?: string;
-    conditionCode?: string | null;
-    sourceKind?: string;
-    productSlug?: string;
-    variantSlug?: string;
-    variantLabel?: string;
-    conditionBucket?: string;
-    gradeService?: string;
-    gradeValue?: string;
-  } | null;
-  snapshot_version: number;
-  visible_from: string | null;
-  updated_at: string | null;
-};
-
-export type MarketplaceOfficialListingSnapshot = MarketplaceListingSnapshot & {
-  listing_source: "official_shop";
-};
 
 function assertUuid(value: string, label: string) {
   if (!UUID_RE.test(value)) {

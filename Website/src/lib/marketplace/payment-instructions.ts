@@ -1,16 +1,7 @@
 import "server-only";
 
-export type MarketplacePaymentInstructions = {
-  method: "bank_transfer";
-  currency: "THB";
-  bankName: string | null;
-  accountName: string | null;
-  accountNumber: string | null;
-  promptPayId: string | null;
-  paymentWindowMinutes: number;
-  receiverConfigured: boolean;
-  acceptedImageTypes: readonly string[];
-};
+import type { MarketplacePaymentInstructions } from "./types";
+export type { MarketplacePaymentInstructions } from "./types";
 
 function envText(name: string) {
   const value = process.env[name]?.trim();

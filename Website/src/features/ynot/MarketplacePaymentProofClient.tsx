@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { MarketplacePaymentInstructions } from "@/lib/marketplace/payment-instructions";
+import type { MarketplacePaymentInstructions } from "@/lib/marketplace/types";
 
 export type MarketplacePaymentProofOrder = {
   pendingPaymentOrderId?: string;

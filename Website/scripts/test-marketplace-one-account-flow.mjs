@@ -81,6 +81,22 @@ function walkRouteFiles(dir) {
   return files.sort();
 }
 
+function walkSourceFiles(dir) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...walkSourceFiles(fullPath));
+    } else if (entry.isFile() && /\.(tsx?|jsx?)$/.test(entry.name)) {
+      files.push(fullPath);
+    }
+  }
+
+  return files.sort();
+}
+
 function isExcludedMutationSurface(relPath) {
   // Privileged admin routes derive admin/owner authority, not customer ownership.
   if (relPath.includes("/admin/")) return true;
@@ -429,4 +445,40 @@ test("marketplace storefront entry points stay owner-only during gated launch", 
   assert.match(adminShell, /AdminSurfaceSwitch\(\{[\s\S]*isOwner/);
   assert.match(adminShell, /item\.surface !== "marketplace"/);
   assert.match(adminShell, /!item\.href\.startsWith\("\/marketplace"\)/);
+});
+
+test("marketplace client components import shared types without server-only modules", () => {
+  const clientFiles = walkSourceFiles(path.join(appRoot, "src"))
+    .map((absPath) => ({
+      relPath: toRelPath(absPath),
+      source: readAbsolute(absPath),
+    }))
+    .filter(({ source }) => /^\s*["']use client["'];?/m.test(source));
+  const serverOnlyTypeModules = [
+    "@/lib/marketplace/cart-watchlist",
+    "@/lib/marketplace/listings",
+    "@/lib/marketplace/money",
+    "@/lib/marketplace/payment-instructions",
+  ];
+  const importPattern = /from\s+["']([^"']+)["']/g;
+
+  assert(
+    clientFiles.length > 0,
+    "expected client component files to guard marketplace imports",
+  );
+
+  for (const file of clientFiles) {
+    const imports = [...file.source.matchAll(importPattern)].map(
+      (match) => match[1],
+    );
+    for (const specifier of serverOnlyTypeModules) {
+      assert(
+        !imports.includes(specifier),
+        `${file.relPath} must import marketplace shared types from @/lib/marketplace/types, not ${specifier}`,
+      );
+    }
+  }
+
+  const sharedTypes = read("src/lib/marketplace/types.ts");
+  assert.doesNotMatch(sharedTypes, /server-only/);
 });

@@ -3,8 +3,10 @@ import { MarketplaceCheckoutClient } from "./MarketplaceCheckoutClient";
 import { MarketplaceListingActionsClient } from "./MarketplaceListingActionsClient";
 import { MarketplaceListingGallery } from "./MarketplaceListingGallery";
 import { MarketplaceStickyCommerceBar } from "./MarketplaceStickyCommerceBar";
-import type { MarketplaceListingSnapshot } from "@/lib/marketplace/listings";
-import type { MarketplacePaymentInstructions } from "@/lib/marketplace/payment-instructions";
+import type {
+  MarketplaceListingSnapshot,
+  MarketplacePaymentInstructions,
+} from "@/lib/marketplace/types";
 
 export type MarketplaceListingCheckoutAddress = {
   id: string;
