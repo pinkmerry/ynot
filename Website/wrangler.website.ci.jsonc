@@ -5,6 +5,8 @@
   "workers_dev": true,
   "compatibility_date": "2026-05-17",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "minify": true,
+  "keep_names": false,
   "routes": [],
   "assets": {
     "directory": ".open-next/assets",

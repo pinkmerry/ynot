@@ -46,6 +46,8 @@ function validateWorkerConfig(rel, expected) {
     `${rel} enables global_fetch_strictly_public`,
     config.compatibility_flags?.includes("global_fetch_strictly_public"),
   );
+  check(`${rel} minifies Worker uploads`, config.minify === true);
+  check(`${rel} allows name mangling to stay under free Worker limit`, config.keep_names === false);
   check(`${rel} binds static assets`, config.assets?.binding === "ASSETS");
   check(`${rel} enables observability`, config.observability?.enabled === true);
   if (expected.routePatterns) {
