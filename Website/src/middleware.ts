@@ -88,6 +88,16 @@ function crossOriginMutationResponse(request: NextRequest) {
   return null;
 }
 
+function marketplaceApiRewrite(request: NextRequest) {
+  if (!request.nextUrl.pathname.startsWith("/api/marketplace/")) return null;
+
+  const url = request.nextUrl.clone();
+  url.pathname = `/api/ynot/marketplace/${request.nextUrl.pathname.slice(
+    "/api/marketplace/".length,
+  )}`;
+  return url;
+}
+
 export async function middleware(request: NextRequest) {
   const { cspHeader, requestHeaders } = cspContext(request);
   const redirectHost = APEX_WEBSITE_REDIRECTS.get(request.nextUrl.hostname);
@@ -101,6 +111,15 @@ export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/api/")) {
     const blocked = crossOriginMutationResponse(request);
     if (blocked) return withCspResponse(blocked, cspHeader);
+    const marketplaceRewrite = marketplaceApiRewrite(request);
+    if (marketplaceRewrite) {
+      return withCspResponse(
+        NextResponse.rewrite(marketplaceRewrite, {
+          request: { headers: requestHeaders },
+        }),
+        cspHeader,
+      );
+    }
     return nextWithCsp(requestHeaders, cspHeader);
   }
 

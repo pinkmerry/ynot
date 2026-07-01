@@ -447,6 +447,20 @@ test("marketplace storefront entry points stay owner-only during gated launch", 
   assert.match(adminShell, /!item\.href\.startsWith\("\/marketplace"\)/);
 });
 
+test("Cloudflare marketplace API aliases are rewritten before route handling", () => {
+  const middleware = read("src/middleware.ts");
+  assert.match(middleware, /function marketplaceApiRewrite/);
+  assert.match(middleware, /startsWith\("\/api\/marketplace\/"\)/);
+  assert.match(middleware, /`\/api\/ynot\/marketplace\/\$\{/);
+  assert.match(middleware, /NextResponse\.rewrite\(marketplaceRewrite/);
+  assertAppearsBefore(
+    middleware,
+    /crossOriginMutationResponse\(request\)/,
+    /marketplaceApiRewrite\(request\)/,
+    "middleware must keep cross-origin mutation blocking before marketplace alias rewrite",
+  );
+});
+
 test("marketplace client components import shared types without server-only modules", () => {
   const clientFiles = walkSourceFiles(path.join(appRoot, "src"))
     .map((absPath) => ({

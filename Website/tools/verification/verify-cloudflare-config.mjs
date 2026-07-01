@@ -166,6 +166,18 @@ check(
 );
 check("package exposes manual website route deploy script", Boolean(packageJson.scripts?.["cf:deploy:website:routes"]));
 check("package exposes manual marketplace route deploy script", Boolean(packageJson.scripts?.["cf:deploy:marketplace:routes"]));
+check(
+  "website Cloudflare build prunes marketplace-only routes",
+  /run-cloudflare-target-build\.mjs website -- opennextjs-cloudflare build --config wrangler\.website\.jsonc/.test(
+    packageJson.scripts?.["cf:build:website"] ?? "",
+  ),
+);
+check(
+  "marketplace Cloudflare build prunes non-marketplace routes",
+  /run-cloudflare-target-build\.mjs marketplace -- opennextjs-cloudflare build --config wrangler\.marketplace\.jsonc/.test(
+    packageJson.scripts?.["cf:build:marketplace"] ?? "",
+  ),
+);
 for (const scriptName of [
   "cf:deploy:website",
   "cf:deploy:website:routes",
@@ -179,6 +191,32 @@ for (const scriptName of [
     ),
   );
 }
+
+const targetBuildScript = read("scripts/run-cloudflare-target-build.mjs");
+check(
+  "website target build excludes marketplace route tree",
+  /website:[\s\S]*"src\/app\/\(store\)\/marketplace"[\s\S]*"src\/app\/api\/ynot\/marketplace"/.test(
+    targetBuildScript,
+  ),
+);
+check(
+  "marketplace target build excludes normal storefront route tree",
+  /marketplace:[\s\S]*"src\/app\/\(store\)\/packs"[\s\S]*"src\/app\/api\/ynot\/gacha"/.test(
+    targetBuildScript,
+  ),
+);
+check(
+  "target build restores pruned route paths after OpenNext build",
+  /finally \{[\s\S]*restoreMovedPaths\(\)/.test(targetBuildScript),
+);
+
+const middleware = read("src/middleware.ts");
+check(
+  "middleware rewrites public marketplace API aliases to canonical marketplace API routes",
+  /marketplaceApiRewrite[\s\S]*"\/api\/marketplace\/"[\s\S]*`\/api\/ynot\/marketplace\/\$\{/.test(
+    middleware,
+  ) && /NextResponse\.rewrite\(marketplaceRewrite/.test(middleware),
+);
 check("package omits retired LIFF Cloudflare deploy script", !packageJson.scripts?.["cf:deploy:liff"]);
 check("package omits retired LIFF Cloudflare build script", !packageJson.scripts?.["cf:build:liff"]);
 check("package omits retired LIFF Cloudflare preview script", !packageJson.scripts?.["cf:preview:liff"]);
