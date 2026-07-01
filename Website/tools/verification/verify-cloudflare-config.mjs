@@ -6,6 +6,7 @@ import process from "node:process";
 const root = process.cwd();
 const failures = [];
 const passes = [];
+const productionCloudflareAccountId = "55be25428739205c62a6bb0c711a0b8b";
 
 function read(rel) {
   return fs.readFileSync(path.join(root, rel), "utf8");
@@ -41,6 +42,7 @@ function validateWorkerConfig(rel, expected) {
   const expectedEntry = expected.workerEntry ?? ".open-next/worker.js";
   check(`${rel} uses expected Worker entry`, config.main === expectedEntry);
   check(`${rel} has expected Worker name`, config.name === expected.workerName);
+  check(`${rel} pins the Puppeteer Cloudflare account`, config.account_id === productionCloudflareAccountId);
   check(`${rel} enables nodejs_compat`, config.compatibility_flags?.includes("nodejs_compat"));
   check(
     `${rel} enables global_fetch_strictly_public`,

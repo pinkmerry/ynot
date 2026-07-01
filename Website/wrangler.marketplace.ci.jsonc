@@ -2,6 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "main": "bulk-open-worker.ts",
   "name": "ynott-marketplace",
+  "account_id": "55be25428739205c62a6bb0c711a0b8b",
   "workers_dev": true,
   "compatibility_date": "2026-05-17",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
