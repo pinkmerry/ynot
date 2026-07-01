@@ -5,10 +5,6 @@ import process from "node:process";
 
 const appRoot = process.cwd();
 const openNextRoot = path.join(appRoot, ".open-next");
-const nextEncryptionRuntime = path.join(
-  openNextRoot,
-  "server-functions/default/node_modules/next/dist/server/app-render/encryption.js",
-);
 const generatedWorkerEntry = path.join(openNextRoot, "worker.js");
 
 function fail(message) {
@@ -26,12 +22,20 @@ function patchFile(filePath) {
 
   const patched = source
     .replaceAll(
+      'import "server-only";',
+      "/* stripped server-only marker for Cloudflare Worker validation */",
+    )
+    .replaceAll(
+      "import 'server-only';",
+      "/* stripped server-only marker for Cloudflare Worker validation */",
+    )
+    .replaceAll(
       'require("server-only");',
-      '/* stripped Next server-only marker for Cloudflare Worker validation */',
+      "/* stripped server-only marker for Cloudflare Worker validation */",
     )
     .replaceAll(
       "require('server-only');",
-      "/* stripped Next server-only marker for Cloudflare Worker validation */",
+      "/* stripped server-only marker for Cloudflare Worker validation */",
     );
 
   if (patched !== source) {
@@ -66,8 +70,13 @@ function walkJsFiles(dir) {
 if (!fs.existsSync(generatedWorkerEntry)) {
   fail("OpenNext build output is missing; run opennextjs-cloudflare build first.");
 } else {
-  const patched = patchFile(nextEncryptionRuntime);
   const generatedFiles = walkJsFiles(openNextRoot);
+  let patchedCount = 0;
+
+  for (const filePath of generatedFiles) {
+    if (patchFile(filePath)) patchedCount += 1;
+  }
+
   const unresolved = [];
 
   for (const filePath of generatedFiles) {
@@ -85,7 +94,7 @@ if (!fs.existsSync(generatedWorkerEntry)) {
     fail(`unresolved server-only imports in ${unresolved.join(", ")}`);
   } else {
     console.log(
-      `[cf:patch:server-only] ${patched ? "patched" : "verified"} generated Worker output`,
+      `[cf:patch:server-only] patched ${patchedCount} generated file(s)`,
     );
   }
 }
