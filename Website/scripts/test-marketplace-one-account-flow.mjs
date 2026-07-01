@@ -482,3 +482,22 @@ test("marketplace client components import shared types without server-only modu
   const sharedTypes = read("src/lib/marketplace/types.ts");
   assert.doesNotMatch(sharedTypes, /server-only/);
 });
+
+test("storefront client menu receives logout action from the server shell", () => {
+  const storePreferences = read("src/features/ynot/StorePreferences.tsx");
+  assert.doesNotMatch(
+    storePreferences,
+    /@\/features\/auth\/actions/,
+    "client storefront menu must not import the full auth server action module",
+  );
+  assert.match(storePreferences, /signOutAction\?: SignOutFormAction/);
+  assert.match(
+    storePreferences,
+    /\{signOutAction \? \([\s\S]*<form action=\{signOutAction\}>/,
+    "client storefront menu should render the server-provided logout action only when available",
+  );
+
+  const components = read("src/features/ynot/components.tsx");
+  assert.match(components, /import \{ signOutAction \} from "@\/features\/auth\/actions"/);
+  assert.match(components, /signOutAction=\{signOutAction\}/);
+});

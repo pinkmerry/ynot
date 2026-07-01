@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { signOutAction } from "@/features/auth/actions";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import type {
   HomeFilterState,
@@ -613,6 +614,7 @@ export async function YnotShell({
               isAdmin={renderViewer.isAdmin}
               displayName={renderViewer.displayName}
               balance={renderBalance}
+              signOutAction={signOutAction}
             />
           </div>
         </div>

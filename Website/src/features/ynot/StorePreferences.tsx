@@ -12,7 +12,6 @@ import {
 } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { createPortal } from "react-dom";
-import { signOutAction } from "@/features/auth/actions";
 import type { HomeFilterState, HomeSortOption } from "./types";
 import { CoinMark } from "./cr/Icons";
 import type { Language } from "./i18n";
@@ -149,6 +148,7 @@ type HeaderMegaMenu = {
 };
 
 type HeaderMegaKey = "main" | "mysteryPacks" | "marketplace";
+type SignOutFormAction = (formData: FormData) => void | Promise<void>;
 
 const headerMegaMenus: Record<
   Language,
@@ -932,6 +932,7 @@ export function StoreHeaderRightNav({
   isAdmin = false,
   displayName,
   balance,
+  signOutAction,
 }: {
   authenticated: boolean;
   /** When true, the My Page drawer surfaces the Admin Console link. */
@@ -940,6 +941,7 @@ export function StoreHeaderRightNav({
   displayName?: string;
   /** Viewer's current coin balance — formatted for the My Page surface. */
   balance?: number;
+  signOutAction?: SignOutFormAction;
 }) {
   const { preferences } = useStorePreferences();
   const copy = settingsCopy[preferences.language];
@@ -1173,14 +1175,16 @@ export function StoreHeaderRightNav({
                 {copy.admin}
               </Link>
             )}
-            <form action={signOutAction}>
-              <button
-                className="store-profile-link store-profile-link-danger"
-                type="submit"
-              >
-                {copy.logout}
-              </button>
-            </form>
+            {signOutAction ? (
+              <form action={signOutAction}>
+                <button
+                  className="store-profile-link store-profile-link-danger"
+                  type="submit"
+                >
+                  {copy.logout}
+                </button>
+              </form>
+            ) : null}
           </div>
         </div>
       </aside>
