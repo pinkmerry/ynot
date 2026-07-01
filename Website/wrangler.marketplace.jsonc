@@ -10,6 +10,10 @@
   "keep_names": false,
   "routes": [
     {
+      "pattern": "www.ynotopen.com/marketplace-assets/*",
+      "zone_name": "ynotopen.com"
+    },
+    {
       "pattern": "www.ynotopen.com/marketplace*",
       "zone_name": "ynotopen.com"
     },
@@ -23,6 +27,10 @@
     },
     {
       "pattern": "www.ynotopen.com/api/ynot/marketplace/*",
+      "zone_name": "ynotopen.com"
+    },
+    {
+      "pattern": "ynotopen.com/marketplace-assets/*",
       "zone_name": "ynotopen.com"
     },
     {

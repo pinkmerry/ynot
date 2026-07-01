@@ -335,6 +335,15 @@ test("marketplace runtime resolves the same YNOT login through a narrow auth bri
 
   assert.equal(marketplaceConfig.vars.YNOT_WORKER_SURFACE, "marketplace");
   assert.equal(websiteConfig.vars.YNOT_WORKER_SURFACE, "website");
+  assert.deepEqual(
+    marketplaceConfig.routes
+      .map((route) => route.pattern)
+      .filter((pattern) => pattern.includes("marketplace-assets")),
+    [
+      "www.ynotopen.com/marketplace-assets/*",
+      "ynotopen.com/marketplace-assets/*",
+    ],
+  );
   assert.equal(
     marketplaceConfig.vars.MARKETPLACE_AUTH_BRIDGE_URL,
     "https://www.ynotopen.com/api/internal/marketplace/session",

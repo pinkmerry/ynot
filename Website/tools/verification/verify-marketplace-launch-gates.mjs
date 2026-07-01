@@ -29,10 +29,12 @@ check("marketplace CI deploy has no production routes by default", Array.isArray
 
 const routePatterns = (marketplaceConfig.routes ?? []).map((route) => route.pattern);
 for (const pattern of [
+  "www.ynotopen.com/marketplace-assets/*",
   "www.ynotopen.com/marketplace*",
   "www.ynotopen.com/admin/marketplace*",
   "www.ynotopen.com/api/marketplace/*",
   "www.ynotopen.com/api/ynot/marketplace/*",
+  "ynotopen.com/marketplace-assets/*",
   "ynotopen.com/marketplace*",
   "ynotopen.com/admin/marketplace*",
   "ynotopen.com/api/marketplace/*",

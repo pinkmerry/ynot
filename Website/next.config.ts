@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 
+const buildSurface =
+  process.env.YNOT_CLOUDFLARE_TARGET ?? process.env.YNOT_WORKER_SURFACE;
+
 const securityHeaders = [
   {
     key: "Strict-Transport-Security",
@@ -15,6 +18,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  assetPrefix:
+    buildSurface === "marketplace" ? "/marketplace-assets" : undefined,
   async headers() {
     return [
       {

@@ -169,10 +169,12 @@ validateWorkerConfig("wrangler.marketplace.jsonc", {
   marketplaceRuntime: true,
   lineLoginChannelId: "2009971080",
   routePatterns: [
+    "www.ynotopen.com/marketplace-assets/*",
     "www.ynotopen.com/marketplace*",
     "www.ynotopen.com/admin/marketplace*",
     "www.ynotopen.com/api/marketplace/*",
     "www.ynotopen.com/api/ynot/marketplace/*",
+    "ynotopen.com/marketplace-assets/*",
     "ynotopen.com/marketplace*",
     "ynotopen.com/admin/marketplace*",
     "ynotopen.com/api/marketplace/*",
@@ -256,6 +258,23 @@ check(
 check(
   "target build restores pruned route paths after OpenNext build",
   /finally \{[\s\S]*restoreMovedPaths\(\)/.test(targetBuildScript),
+);
+check(
+  "target build exposes target name to Next config",
+  /YNOT_CLOUDFLARE_TARGET: target/.test(targetBuildScript),
+);
+check(
+  "marketplace target build publishes prefixed Next static assets",
+  /marketplace-assets[\s\S]*_next[\s\S]*static/.test(targetBuildScript) &&
+    /fs\.cpSync\(source, destination/.test(targetBuildScript),
+);
+
+const nextConfig = read("next.config.ts");
+check(
+  "marketplace build uses distinct Next static asset prefix",
+  /assetPrefix:[\s\S]*buildSurface === "marketplace"[\s\S]*"\/marketplace-assets"/.test(
+    nextConfig,
+  ),
 );
 
 const middleware = read("src/middleware.ts");

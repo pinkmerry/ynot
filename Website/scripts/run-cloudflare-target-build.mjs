@@ -111,6 +111,31 @@ function restoreMovedPaths() {
   fs.rmSync(stagingRoot, { recursive: true, force: true });
 }
 
+function publishMarketplacePrefixedStaticAssets() {
+  const source = path.join(root, ".open-next", "assets", "_next", "static");
+  const destination = path.join(
+    root,
+    ".open-next",
+    "assets",
+    "marketplace-assets",
+    "_next",
+    "static",
+  );
+
+  if (!fs.existsSync(source)) {
+    throw new Error(
+      "Marketplace OpenNext build did not emit .open-next/assets/_next/static",
+    );
+  }
+
+  fs.rmSync(destination, { recursive: true, force: true });
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.cpSync(source, destination, { recursive: true });
+  console.log(
+    "[cf:target-build] marketplace: copied Next static chunks to /marketplace-assets/_next/static",
+  );
+}
+
 cleanGeneratedOutput();
 
 try {
@@ -124,11 +149,14 @@ try {
 
   const result = spawnSync(command[0], command.slice(1), {
     cwd: root,
-    env: process.env,
+    env: { ...process.env, YNOT_CLOUDFLARE_TARGET: target },
     stdio: "inherit",
   });
 
   if (result.error) throw result.error;
+  if ((result.status ?? 1) === 0 && target === "marketplace") {
+    publishMarketplacePrefixedStaticAssets();
+  }
   process.exitCode = result.status ?? 1;
 } finally {
   restoreMovedPaths();
