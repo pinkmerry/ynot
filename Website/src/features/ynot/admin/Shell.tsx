@@ -12,7 +12,9 @@ type NavItem = {
   badge?: number;
 };
 
-const NAV: { group: string; items: NavItem[] }[] = [
+type AdminSurface = "gacha" | "marketplace";
+
+const GACHA_NAV: { group: string; items: NavItem[] }[] = [
   {
     group: "Overview",
     items: [{ href: "/admin", label: "Dashboard", icon: "grid", kbd: "G D" }],
@@ -50,20 +52,67 @@ const NAV: { group: string; items: NavItem[] }[] = [
   },
 ];
 
-const PUBLIC_TOP_MENU = [
+const MARKETPLACE_NAV: { group: string; items: NavItem[] }[] = [
+  {
+    group: "Marketplace",
+    items: [
+      { href: "/admin/marketplace", label: "Ops dashboard", icon: "grid", kbd: "M D" },
+      { href: "/admin/marketplace#orders", label: "Order review", icon: "coin" },
+      { href: "/admin/marketplace#sell-requests", label: "Sell requests", icon: "upload" },
+      { href: "/admin/marketplace#payouts", label: "Seller payouts", icon: "swap" },
+      { href: "/admin/marketplace#reconciliation", label: "Reconciliation", icon: "shield" },
+    ],
+  },
+  {
+    group: "Customer ops",
+    items: [
+      { href: "/admin/users", label: "Customers", icon: "users" },
+      { href: "/admin/shipping", label: "Shipping", icon: "truck" },
+    ],
+  },
+  {
+    group: "Platform",
+    items: [
+      { href: "/admin/audit", label: "Audit log", icon: "shield" },
+      { href: "/admin/health", label: "Health", icon: "pulse" },
+      { href: "/admin/settings", label: "Settings", icon: "sliders" },
+    ],
+  },
+];
+
+const GACHA_PUBLIC_TOP_MENU = [
   { href: "/", label: "Home page", primary: true },
   { href: "/packs", label: "Y-Packs", primary: false },
   { href: "/marketplace", label: "Marketplace", primary: false },
 ] as const;
 
+const MARKETPLACE_PUBLIC_TOP_MENU = [
+  { href: "/marketplace", label: "Marketplace", primary: true },
+  { href: "/marketplace/seller", label: "Seller desk", primary: false },
+  { href: "/", label: "Home page", primary: false },
+] as const;
+
+function surfaceNav(surface: AdminSurface) {
+  return surface === "marketplace" ? MARKETPLACE_NAV : GACHA_NAV;
+}
+
+function surfaceTopMenu(surface: AdminSurface, isOwner: boolean) {
+  const items = surface === "marketplace"
+    ? MARKETPLACE_PUBLIC_TOP_MENU
+    : GACHA_PUBLIC_TOP_MENU;
+  return items.filter((item) => isOwner || !item.href.startsWith("/marketplace"));
+}
+
 function Sidebar({
   active,
   viewer,
   badges,
+  surface,
 }: {
   active: string;
   viewer: YnotViewer;
   badges?: Partial<Record<string, number>>;
+  surface: AdminSurface;
 }) {
   const initials =
     (viewer.displayName ?? "U")
@@ -73,24 +122,29 @@ function Sidebar({
       .map((s) => s[0])
       .join("")
       .toUpperCase() || "U";
+  const nav = surfaceNav(surface);
+  const brandHref = surface === "marketplace" ? "/admin/marketplace" : "/admin";
+  const brandName = surface === "marketplace" ? "YNOT Marketplace" : "YNOT Admin";
+  const brandEnvPrefix = surface === "marketplace" ? "Ops" : "Admin";
   return (
     <aside className="a-side" aria-label="Admin navigation">
-      <Link href="/admin" className="a-brand" prefetch={false}>
+      <Link href={brandHref} className="a-brand" prefetch={false}>
         <span className="a-brand-mark">Y</span>
         <span>
-          <span className="a-brand-name">YNOTT Admin</span>
+          <span className="a-brand-name">{brandName}</span>
           <span className="a-brand-env">
-            {process.env.NODE_ENV === "production" ? "Production · TH" : "Dev · TH"}
+            {brandEnvPrefix} · {process.env.NODE_ENV === "production" ? "Production" : "Dev"} · TH
           </span>
         </span>
       </Link>
-      {NAV.map((group) => (
+      {nav.map((group) => (
         <div className="a-side-section" key={group.group}>
           <div className="a-side-label">{group.group}</div>
           {group.items.map((item) => {
+            const itemPath = item.href.split("#")[0] ?? item.href;
             const isActive =
-              item.href === active ||
-              (item.href !== "/admin" && active.startsWith(item.href));
+              itemPath === active ||
+              (itemPath !== "/admin" && active.startsWith(itemPath));
             const badge = badges?.[item.href];
             return (
               <Link
@@ -149,11 +203,61 @@ function Breadcrumbs({ trail }: { trail: string[] }) {
   );
 }
 
-function TopBar({ trail }: { trail: string[] }) {
+function AdminSurfaceSwitch({
+  surface,
+  isOwner,
+}: {
+  surface: AdminSurface;
+  isOwner: boolean;
+}) {
+  const items = [
+    { href: "/admin", label: "Gacha admin", icon: "stack" as const, surface: "gacha" as const },
+    {
+      href: "/admin/marketplace",
+      label: "Marketplace admin",
+      icon: "globe" as const,
+      surface: "marketplace" as const,
+    },
+  ].filter((item) => isOwner || item.surface !== "marketplace");
+  return (
+    <nav className="a-surface-switch" aria-label="Admin workspace">
+      {items.map((item) => {
+        const active = item.surface === surface;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            prefetch={false}
+            aria-current={active ? "page" : undefined}
+            className={active ? "active" : undefined}
+          >
+            <AdminIcon name={item.icon} size={13} />
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+function TopBar({
+  trail,
+  surface,
+  isOwner,
+}: {
+  trail: string[];
+  surface: AdminSurface;
+  isOwner: boolean;
+}) {
+  const topMenu = surfaceTopMenu(surface, isOwner);
+  const searchPlaceholder =
+    surface === "marketplace"
+      ? "Search orders, seller requests, listings..."
+      : "Search packs, users, prize codes...";
   return (
     <div className="a-top">
       <nav className="a-top-menu" aria-label="Public site shortcuts">
-        {PUBLIC_TOP_MENU.map((item) => (
+        {topMenu.map((item) => (
           <Link
             href={item.href}
             key={item.href}
@@ -165,10 +269,11 @@ function TopBar({ trail }: { trail: string[] }) {
           </Link>
         ))}
       </nav>
+      <AdminSurfaceSwitch surface={surface} isOwner={isOwner} />
       <Breadcrumbs trail={trail} />
       <div className="a-search">
         <AdminIcon name="search" size={13} />
-        <span>Search packs, users, prize codes…</span>
+        <span>{searchPlaceholder}</span>
         <span className="kbd">⌘K</span>
       </div>
       <div className="a-top-actions">
@@ -211,6 +316,7 @@ export function AdminFrame({
   viewer,
   active,
   trail,
+  surface = "gacha",
   eyebrow,
   title,
   desc,
@@ -221,6 +327,7 @@ export function AdminFrame({
   viewer: YnotViewer;
   active: string;
   trail: string[];
+  surface?: AdminSurface;
   eyebrow?: ReactNode;
   title: ReactNode;
   desc?: ReactNode;
@@ -228,12 +335,14 @@ export function AdminFrame({
   badges?: Partial<Record<string, number>>;
   children: ReactNode;
 }) {
+  const isOwner = viewer.adminRole === "owner";
+
   return (
     <div className="admin-frame">
       <AdminScrollbarAutoHide />
-      <Sidebar active={active} viewer={viewer} badges={badges} />
+      <Sidebar active={active} viewer={viewer} badges={badges} surface={surface} />
       <div className="a-main">
-        <TopBar trail={trail} />
+        <TopBar trail={trail} surface={surface} isOwner={isOwner} />
         <div className="a-content">
           <AdminPageHead
             eyebrow={eyebrow}

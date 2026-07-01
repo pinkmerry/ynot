@@ -25,6 +25,7 @@ export default async function CollectionPage() {
         <HistoryExperience
           collection={data.collection}
           addresses={data.addresses}
+          viewerRole={data.viewer.adminRole}
         />
       </Shell>
     </YnotShell>

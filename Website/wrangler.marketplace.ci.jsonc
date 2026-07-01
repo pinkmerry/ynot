@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": "bulk-open-worker.ts",
+  "name": "ynott-marketplace",
+  "workers_dev": true,
+  "compatibility_date": "2026-05-17",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "routes": [],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+  "vars": {
+    "RATE_LIMIT_BACKEND": "supabase",
+    "NODE_ENV": "production",
+    "NEXTJS_ENV": "production",
+    "YNOT_MARKETPLACE_ENABLED": "true",
+    "YNOT_MARKETPLACE_OWNER_ONLY": "true",
+    "MARKETPLACE_ENVIRONMENT": "production",
+    "LINE_LOGIN_CHANNEL_ID": "2009971080",
+    "NEXT_PUBLIC_ENABLE_LINE_LOGIN": "true",
+    "NEXT_PUBLIC_LINE_LIFF_ID": "2009971080-8exdgUaw",
+    "NEXT_PUBLIC_SITE_URL": "https://www.ynotopen.com",
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInJlZiI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6am9hcmtpamVhc3BhemJyY2hjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMjMwMzIsImV4cCI6MjA5MzU5OTAzMn0.yElDtqBA8NPWW8kMRqw3jltuFqfPDJpr1Fek8AjTwFM",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://szjoarkijeaspazbrchc.supabase.co",
+    "SLIP2GO_API_URL": "https://connect.slip2go.com",
+    "SIGNUP_OTP_DELIVERY": "resend",
+    "SIGNUP_EMAIL_FROM": "YNOTT <no-reply@ynotopen.com>"
+  }
+}

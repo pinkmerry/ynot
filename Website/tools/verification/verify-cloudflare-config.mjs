@@ -122,15 +122,47 @@ validateWorkerConfig("wrangler.website.ci.jsonc", {
   routePatterns: [],
   bulkOpenQueue: true,
 });
+validateWorkerConfig("wrangler.marketplace.jsonc", {
+  siteUrl: "https://www.ynotopen.com",
+  workerName: "ynott-marketplace",
+  workerEntry: "bulk-open-worker.ts",
+  lineLoginChannelId: "2009971080",
+  routePatterns: [
+    "www.ynotopen.com/marketplace*",
+    "www.ynotopen.com/admin/marketplace*",
+    "www.ynotopen.com/api/marketplace/*",
+    "www.ynotopen.com/api/ynot/marketplace/*",
+    "ynotopen.com/marketplace*",
+    "ynotopen.com/admin/marketplace*",
+    "ynotopen.com/api/marketplace/*",
+    "ynotopen.com/api/ynot/marketplace/*",
+  ],
+  bulkOpenQueue: false,
+});
+validateWorkerConfig("wrangler.marketplace.ci.jsonc", {
+  siteUrl: "https://www.ynotopen.com",
+  workerName: "ynott-marketplace",
+  workerEntry: "bulk-open-worker.ts",
+  lineLoginChannelId: "2009971080",
+  routePatterns: [],
+  bulkOpenQueue: false,
+});
 
 const packageJson = parseJson("package.json");
 check("package exposes cf:build script", Boolean(packageJson.scripts?.["cf:build"]));
 check("package exposes website Cloudflare deploy script", Boolean(packageJson.scripts?.["cf:deploy:website"]));
+check("package exposes marketplace Cloudflare build script", Boolean(packageJson.scripts?.["cf:build:marketplace"]));
+check("package exposes marketplace Cloudflare deploy script", Boolean(packageJson.scripts?.["cf:deploy:marketplace"]));
 check(
   "website Cloudflare deploy script uses route-safe CI config",
   /wrangler\.website\.ci\.jsonc/.test(packageJson.scripts?.["cf:deploy:website"] ?? ""),
 );
+check(
+  "marketplace Cloudflare deploy script uses route-safe CI config",
+  /wrangler\.marketplace\.ci\.jsonc/.test(packageJson.scripts?.["cf:deploy:marketplace"] ?? ""),
+);
 check("package exposes manual website route deploy script", Boolean(packageJson.scripts?.["cf:deploy:website:routes"]));
+check("package exposes manual marketplace route deploy script", Boolean(packageJson.scripts?.["cf:deploy:marketplace:routes"]));
 check("package omits retired LIFF Cloudflare deploy script", !packageJson.scripts?.["cf:deploy:liff"]);
 check("package omits retired LIFF Cloudflare build script", !packageJson.scripts?.["cf:build:liff"]);
 check("package omits retired LIFF Cloudflare preview script", !packageJson.scripts?.["cf:preview:liff"]);

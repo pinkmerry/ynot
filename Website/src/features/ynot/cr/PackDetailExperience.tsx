@@ -620,7 +620,7 @@ export function PackDetailExperience({
                 className="cr-mute"
                 style={{ fontSize: 12.5, margin: 0 }}
               >
-                Every open is recorded by YNOTT before cards land in your
+                Every open is recorded by YNOT before cards land in your
                 collection. Disputes need order reference + unboxing video.
               </p>
             </div>

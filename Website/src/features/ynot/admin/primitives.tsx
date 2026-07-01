@@ -1,14 +1,19 @@
-import type { ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { AdminIcon } from "./Icon";
 
 export function AdminCard({
   children,
   className = "",
-}: {
+  ...props
+}: ComponentPropsWithoutRef<"section"> & {
   children: ReactNode;
   className?: string;
 }) {
-  return <section className={`card ${className}`.trim()}>{children}</section>;
+  return (
+    <section {...props} className={`card ${className}`.trim()}>
+      {children}
+    </section>
+  );
 }
 
 export function AdminCardHead({

@@ -20,6 +20,7 @@ export default async function ProfilePage() {
         <HistoryExperience
           collection={data.collection}
           addresses={data.addresses}
+          viewerRole={data.viewer.adminRole}
         />
       </Shell>
     </YnotShell>

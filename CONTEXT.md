@@ -83,3 +83,57 @@ _Avoid_: Live edit during Pull All, reward edit while settling
 **Pack Open Contract**:
 The pack state that affects whether a customer can open, what they pay, what reward outcome is possible, and how fulfilment works. If this changes before a Pull All confirmation completes, the customer must refresh and reconfirm.
 _Avoid_: Cosmetic pack snapshot, public display copy, banner metadata
+
+## Marketplace MVP Language
+
+**YNOTT Customer Account**:
+The real human customer account represented by a YNOTT profile. It is used for both gacha and marketplace activity.
+_Avoid_: Separate marketplace login, duplicate customer account
+
+**Marketplace Account**:
+An internal marketplace record linked to one existing YNOTT Customer Account. It supports buyer, seller, payout, and admin-facing marketplace state without creating a second public login.
+_Avoid_: Second user account, marketplace password, separate LINE account
+
+**Marketplace Inventory**:
+The marketplace-owned stock record for a sellable physical item. It may come from official shop stock or admin-approved seller consignment, but it never comes from a Customer Bag reward.
+_Avoid_: Gacha reward row, raw collection item, automatic resale copy
+
+**Official Shop Product**:
+A Marketplace Inventory item or product group owned by YNOTT and sold directly by YNOTT. In MVP it can be a card, sealed box, or sealed pack, and it does not create a seller payout.
+_Avoid_: User listing, seller consignment item
+
+**Consignment Intake**:
+The seller-to-YNOTT middleman process where a seller submits a physical card, YNOTT receives and inspects it, and only then can Marketplace Inventory be approved for listing.
+_Avoid_: Seller-direct shipping, instant listing from Customer Bag, uninspected listing
+
+**Marketplace Listing**:
+The public sellable offer created from Marketplace Inventory. It has its own price, listing state, snapshots, and pending-payment order rules.
+_Avoid_: Reward Conversion, Customer Bag sell action, raw inventory row
+
+**Marketplace Cart**:
+The customer-facing saved purchase list for active Marketplace Listings. It is linked to a Marketplace Account, persists across sessions, and does not lock stock until checkout creates a Pending Payment Order.
+_Avoid_: Customer Bag, order, checkout hold, browser cart
+
+**Marketplace Watchlist**:
+The customer-facing saved comparison list for Marketplace Listings. It lets the customer revisit price, condition, and seller source without implying purchase intent.
+_Avoid_: hidden cart, seller follow, browser-only favorite
+
+**Marketplace Cart Summary**:
+The public-safe count and subtotal snapshot for Marketplace Cart and Marketplace Watchlist state. It is used by header badges, listing actions, cart drawer, and cart/watchlist pages without exposing private account IDs.
+_Avoid_: raw cart rows, private buyer state, full order summary
+
+**Pending Payment Order**:
+The short-lived marketplace order created when a buyer starts checkout and receives a server-calculated total. It locks the listing while payment proof is submitted and verified, then becomes paid or expires.
+_Avoid_: Long unpaid cart hold, browser-only hold, pay-without-lock
+
+**Marketplace Order**:
+The real-money purchase record for a buyer checkout. It tracks item price, shipping fee, payment state, fulfilment state, refund state, and audit events.
+_Avoid_: Wallet ledger row, gacha open, reward conversion job
+
+**Marketplace Fee**:
+The YNOTT fee charged on the item price for a seller listing. Shipping charged to the buyer is not seller revenue and is excluded from seller payout.
+_Avoid_: Coin fee, shipping commission, hidden payout adjustment
+
+**Seller Payout**:
+The money owed to a seller after a Marketplace Order is paid, fee is deducted, and the required inspection, shipment, delivery, or admin-release milestone is met.
+_Avoid_: Instant wallet credit, automatic payout before fulfilment

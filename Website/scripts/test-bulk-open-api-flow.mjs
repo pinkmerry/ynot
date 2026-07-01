@@ -193,6 +193,7 @@ test("start route loads token service-side and does not trust client quote value
 
 test("Cloudflare worker settles Pull All through one queue-backed RPC chunk at a time", () => {
   const worker = read("bulk-open-worker.ts");
+  const coreScheduledJobs = read("src/lib/worker/core-scheduled-jobs.ts");
   const websiteConfig = JSON.parse(read("wrangler.website.jsonc"));
   const ciConfig = JSON.parse(read("wrangler.website.ci.jsonc"));
 
@@ -200,6 +201,10 @@ test("Cloudflare worker settles Pull All through one queue-backed RPC chunk at a
     /openNextWorker\.fetch/,
     /async queue\(batch/,
     /async scheduled/,
+    /handleCoreQueueMessage/,
+    /runCoreScheduledJobs/,
+  ], "bulk open worker");
+  requireAll(coreScheduledJobs, [
     /process_bulk_open_chunk/,
     /p_limit:\s*1000/,
     /list_bulk_open_recovery_sessions/,
@@ -211,8 +216,9 @@ test("Cloudflare worker settles Pull All through one queue-backed RPC chunk at a
     /attempts\?: number/,
     /message\.attempts/,
     /bulk_open_queue_retry/,
-  ], "bulk open worker");
-  assert.doesNotMatch(worker, /console\.(log|warn)\([^)]*SUPABASE_SERVICE_ROLE_KEY/);
+  ], "core scheduled jobs");
+  assert.doesNotMatch(worker + coreScheduledJobs, /console\.(log|warn)\([^)]*SUPABASE_SERVICE_ROLE_KEY/);
+  assert.doesNotMatch(coreScheduledJobs, /MARKETPLACE_SUPABASE|marketplace_expire_pending_payment_orders/);
   assert.equal(websiteConfig.main, "bulk-open-worker.ts");
   assert.equal(ciConfig.main, "bulk-open-worker.ts");
   for (const config of [websiteConfig, ciConfig]) {

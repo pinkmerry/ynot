@@ -29,6 +29,7 @@ import { allowDemoStorefront, productionSafetyLabel } from "./runtime-flags";
 import { CoinMark } from "./cr/Icons";
 import { FilterScrollGuard } from "./FilterScrollGuard";
 import { HeaderScrollEffect } from "./HeaderScrollEffect";
+import { MarketplaceFilterControls } from "./MarketplaceFilterControls";
 import { normalizeOpenQuantityOptions } from "./open-quantity";
 import {
   StoreAdminLink,
@@ -72,6 +73,7 @@ const adminNavItems = [
   { href: "/admin/prizes", label: "Prizes", kicker: "Cards" },
   { href: "/admin/users", label: "Users", kicker: "Accounts" },
   { href: "/admin/top-ups", label: "Top-ups", kicker: "Wallet" },
+  { href: "/admin/marketplace", label: "Marketplace", kicker: "Orders" },
   { href: "/admin/rankings", label: "Rankings", kicker: "Leaderboard" },
   { href: "/admin/shipping", label: "Shipping", kicker: "Fulfill" },
   { href: "/admin/settings", label: "Settings", kicker: "Payments" },
@@ -574,6 +576,7 @@ export async function YnotShell({
               <StoreSettingsMenu
                 authenticated
                 isAdmin={renderViewer.isAdmin}
+                isOwner={renderViewer.adminRole === "owner"}
               />
             ) : (
               <StoreSettingsMenu />
@@ -581,6 +584,7 @@ export async function YnotShell({
             <StoreHeaderNav
               authenticated={renderViewer.authenticated}
               isAdmin={renderViewer.isAdmin}
+              isOwner={renderViewer.adminRole === "owner"}
             />
           </div>
           <StoreBrandHomeLink />
@@ -920,11 +924,12 @@ export function YnotHomeExperience({
   homeFilter?: HomeFilterState;
 }) {
   const campaigns = filteredCampaigns(data.campaigns, homeFilter);
+  const showMarketplace = data.viewer.adminRole === "owner";
 
   return (
     <>
       <MobileTorecaHero campaign={campaigns[0]} />
-      <SeriesEssentialsSection />
+      <SeriesEssentialsSection showMarketplace={showMarketplace} />
     </>
   );
 }
@@ -1163,121 +1168,497 @@ export async function PacksExperience({
 }
 
 const marketplaceFilters = [
-  { label: i18n("All", "ทั้งหมด"), key: "all" },
+  { label: i18n("All offers", "ทั้งหมด"), key: "all" },
+  { label: i18n("Official Shop", "ร้านทางการ"), key: "official_shop" },
+  { label: i18n("User Sellers", "ผู้ขายทั่วไป"), key: "user_seller" },
   { label: i18n("Pokemon", "Pokemon"), key: "pokemon" },
   { label: i18n("One Piece", "One Piece"), key: "one_piece" },
-  { label: i18n("PSA10", "PSA10"), key: "psa10" },
+  { label: i18n("PSA 10", "PSA 10"), key: "psa10" },
+  { label: i18n("Raw", "การ์ดไม่เกรด"), key: "raw" },
   { label: i18n("Holo", "โฮโล"), key: "holo" },
   { label: i18n("Promo", "โปรโม"), key: "promo" },
 ] as const;
 
-const marketplaceSort = [
-  { en: "Recommended", th: "แนะนำ", key: "recommended" },
-  { en: "Lowest price", th: "ราคาต่ำสุด", key: "price-asc" },
-  { en: "Highest price", th: "ราคาสูงสุด", key: "price-desc" },
-  { en: "Newest", th: "ใหม่ล่าสุด", key: "newest" },
-] as const;
+type MarketplaceFilterKey = (typeof marketplaceFilters)[number]["key"];
+type MarketplaceSortKey =
+  | "recommended"
+  | "popular"
+  | "newest"
+  | "price_asc"
+  | "price_desc"
+  | "recent_sales";
+type MarketplaceFilterCount = {
+  productCount: number;
+  offerCount: number;
+};
+type MarketplaceFilterCounts = Partial<Record<MarketplaceFilterKey, MarketplaceFilterCount>>;
 
-/** Marketplace page — arenaclub.com/marketplace inspired in FOG mint theme.
- *  Filter pills on top, sort dropdown, then card listing grid.
- *
- *  There is no marketplace listing backend yet, so there are no listings to
- *  show. We intentionally do NOT mirror the viewer's own collection here —
- *  that surfaced owned/seeded cards (e.g. "OP16 Pack") as misleading
- *  0-priced placeholder "listings". Real listings will populate `items` once
- *  a marketplace catalog exists; until then the page renders its empty state. */
-export function MarketplaceExperience() {
-  const items: YnotCollectionItem[] = [];
+type MarketplaceCapabilityStatus = {
+  canBrowse: boolean;
+  canCheckout: boolean;
+  canSell: boolean;
+  canAcceptSellerTerms: boolean;
+  canReceivePayout: boolean;
+  isMarketplaceOperator: boolean;
+  isMarketplaceOwner: boolean;
+};
+
+type MarketplaceAccountStatus = {
+  account: null | {
+    accountId: string;
+    buyerStatus: string;
+    sellerStatus: string;
+    payoutStatus: string;
+    sellerTermsVersion: string | null;
+    sellerTermsAcceptedAt: string | null;
+    buyerTermsVersion: string | null;
+    buyerTermsAcceptedAt: string | null;
+    capabilities: MarketplaceCapabilityStatus;
+  };
+  capabilities?: MarketplaceCapabilityStatus;
+};
+
+type MarketplaceLaunchStatus = {
+  enabled: boolean;
+  configured: boolean;
+  ownerOnly: boolean;
+  mockData?: boolean;
+  reason: string | null;
+  actions?: {
+    publicNav: boolean;
+    browse: boolean;
+    checkout: boolean;
+    sellerSubmission: boolean;
+    listingActivation: boolean;
+    paymentProof: boolean;
+    payoutRelease: boolean;
+  };
+};
+
+type MarketplaceListing = {
+  listing_id: string;
+  listing_source: string;
+  title: string;
+  item_price_satang: number;
+  currency: string;
+  quantity_available_snapshot: number;
+  public_description: string | null;
+  photo_urls: string[] | null;
+  snapshot_payload: {
+    sourceBadge?: string;
+    itemType?: string;
+    conditionCode?: string | null;
+    productSlug?: string;
+  } | null;
+};
+
+type MarketplaceProduct = {
+  product_id: string;
+  product_slug: string;
+  title: string;
+  brand: string | null;
+  category: string | null;
+  series_name: string | null;
+  set_name: string | null;
+  card_code: string | null;
+  language: string | null;
+  hero_image_url: string | null;
+  product_metadata: Record<string, unknown>;
+  active_listing_count: number;
+  official_listing_count: number;
+  user_seller_listing_count: number;
+  variant_count: number;
+  lowest_price_satang: number;
+  highest_price_satang: number;
+  recent_listing_at: string | null;
+  sold_count: number;
+  last_sold_at: string | null;
+  ranking_score: number;
+};
+
+function marketplaceThb(amountSatang: number) {
+  return new Intl.NumberFormat("th-TH", {
+    style: "currency",
+    currency: "THB",
+    maximumFractionDigits: 0,
+  }).format(amountSatang / 100);
+}
+
+function marketplaceItemTypeLabel(value: string | undefined) {
+  switch (value) {
+    case "sealed_box":
+      return i18n("Sealed box", "กล่องซีล");
+    case "sealed_pack":
+      return i18n("Sealed pack", "แพ็กซีล");
+    default:
+      return i18n("Card", "การ์ด");
+  }
+}
+
+function marketplaceFilterParams(filterKey: MarketplaceFilterKey) {
+  const params = new URLSearchParams();
+  switch (filterKey) {
+    case "official_shop":
+      params.set("source", "official_shop");
+      break;
+    case "user_seller":
+      params.set("source", "user_seller");
+      break;
+    case "pokemon":
+      params.set("q", "pokemon");
+      break;
+    case "one_piece":
+      params.set("q", "one piece");
+      break;
+    case "psa10":
+      params.set("grade", "psa_10");
+      break;
+    case "raw":
+      params.set("condition", "raw_a");
+      break;
+    case "holo":
+      params.set("q", "holo");
+      break;
+    case "promo":
+      params.set("q", "promo");
+      break;
+    case "all":
+    default:
+      break;
+  }
+  return params;
+}
+
+function marketplaceFilterLabel(filterKey: MarketplaceFilterKey) {
+  return marketplaceFilters.find((filter) => filter.key === filterKey)?.label ?? "All";
+}
+
+function marketplaceSearchHiddenFields(
+  filterKey: MarketplaceFilterKey,
+  sortKey: MarketplaceSortKey,
+) {
+  const params = marketplaceFilterParams(filterKey);
+  if (filterKey !== "official_shop" && filterKey !== "user_seller") {
+    params.delete("q");
+  }
+  if (sortKey !== "recommended") params.set("sort", sortKey);
+  return Array.from(params);
+}
+
+function marketplaceSourceLabel(source: string) {
+  return source === "user_seller"
+    ? i18n("User seller", "ผู้ขายทั่วไป")
+    : i18n("Official shop", "ร้านทางการ");
+}
+
+function marketplaceProductSourceLabel(product: MarketplaceProduct) {
+  if (product.official_listing_count > 0 && product.user_seller_listing_count > 0) {
+    return i18n("Official + sellers", "ร้านทางการ + ผู้ขาย");
+  }
+  if (product.user_seller_listing_count > 0) {
+    return i18n("User sellers", "ผู้ขายทั่วไป");
+  }
+  return i18n("Official shop", "ร้านทางการ");
+}
+
+function marketplaceProductMeta(product: MarketplaceProduct) {
+  return [
+    product.card_code,
+    product.set_name,
+    product.language,
+    product.brand,
+  ].filter(Boolean);
+}
+
+function marketplaceNextProductPageHref(
+  filterKey: MarketplaceFilterKey,
+  sortKey: MarketplaceSortKey,
+  cursor: string | null | undefined,
+) {
+  const params = marketplaceFilterParams(filterKey);
+  if (sortKey !== "recommended") params.set("sort", sortKey);
+  if (cursor) params.set("cursor", cursor);
+  const query = params.toString();
+  return query ? `/marketplace?${query}` : "/marketplace";
+}
+
+function marketplaceListingHref(item: MarketplaceListing) {
+  const productSlug =
+    typeof item.snapshot_payload?.productSlug === "string"
+      ? item.snapshot_payload.productSlug
+      : null;
+  return productSlug
+    ? `/marketplace/products/${productSlug}`
+    : `/marketplace/listings/${item.listing_id}`;
+}
+
+/** Marketplace page. Prelaunch stays owner-gated while browse reads public-safe
+ *  grouped product summaries from the Marketplace service. */
+export function MarketplaceExperience({
+  accountStatus,
+  launchStatus,
+  marketplaceProducts,
+  productNextCursor,
+  filterCounts = {},
+  selectedFilterKey = "all",
+  selectedSort = "recommended",
+}: {
+  accountStatus: MarketplaceAccountStatus;
+  launchStatus: MarketplaceLaunchStatus;
+  marketplaceProducts?: MarketplaceProduct[];
+  productNextCursor?: string | null;
+  filterCounts?: MarketplaceFilterCounts;
+  selectedFilterKey?: MarketplaceFilterKey;
+  selectedSort?: MarketplaceSortKey;
+}) {
+  const products = marketplaceProducts ?? [];
+  const activeFilterLabel = marketplaceFilterLabel(selectedFilterKey);
+  const canOpenMarketplaceAdmin = Boolean(
+    accountStatus.capabilities?.isMarketplaceOperator ||
+      accountStatus.capabilities?.isMarketplaceOwner,
+  );
+  const officialCount = products.reduce(
+    (count, product) => count + product.official_listing_count,
+    0,
+  );
+  const userSellerCount = products.reduce(
+    (count, product) => count + product.user_seller_listing_count,
+    0,
+  );
+  const currentOfferCount = products.reduce(
+    (count, product) => count + product.active_listing_count,
+    0,
+  );
+  const lowestPriceSatang =
+    products.length > 0
+      ? products.reduce(
+          (lowest, product) => Math.min(lowest, product.lowest_price_satang),
+          products[0]?.lowest_price_satang ?? 0,
+        )
+      : null;
+  const heroProducts = products.slice(0, 3);
+  const searchDefault = ["pokemon", "one_piece", "holo", "promo"].includes(
+    selectedFilterKey,
+  )
+    ? marketplaceFilterParams(selectedFilterKey).get("q") ?? ""
+    : "";
 
   return (
     <div className="store-home-grid marketplace-page">
-      <div className="store-main-stack">
-        <div className="catalog-toolbar marketplace-toolbar">
-          <h1>{i18n("Marketplace", "ตลาด")}</h1>
-          <p>
-            {i18n(
-              `${items.length} listing${items.length === 1 ? "" : "s"}`,
-              `${items.length} รายการ`,
-            )}
-          </p>
-        </div>
-
-        {items.length > 0 && (
-          <div
-            className="marketplace-controls"
-            aria-label="Marketplace filters / ตัวกรองตลาด"
-          >
-            <div className="marketplace-filters">
-              {marketplaceFilters.map((f, index) => (
-                <button
-                  key={f.key}
-                  type="button"
-                  className={`marketplace-chip${index === 0 ? " active" : ""}`}
-                  aria-current={index === 0 ? "page" : undefined}
-                >
-                  {f.label}
-                </button>
-              ))}
+      <div className="store-main-stack marketplace-shell">
+        <section className="marketplace-masthead" aria-label="Marketplace overview">
+          <div className="marketplace-masthead-copy">
+            <span className="marketplace-kicker">
+              {i18n("YNOT", "YNOT")}
+            </span>
+            <h1>{i18n("Marketplace", "Marketplace")}</h1>
+            <p>
+              {i18n(
+                "Search one card, compare every offer, and choose the exact listing by photo, grade, seller source, and market price.",
+                "ค้นหาการ์ดหนึ่งใบ เทียบทุกข้อเสนอ แล้วเลือกสินค้าจริงจากรูป เกรด แหล่งผู้ขาย และราคาตลาด",
+              )}
+            </p>
+            <div className="marketplace-masthead-actions">
+              <Link href="/marketplace/cart" className="btn btn-ghost" prefetch={false}>
+                {i18n("Cart", "รถเข็น")}
+              </Link>
+              <Link href="/marketplace/watchlist" className="btn btn-ghost" prefetch={false}>
+                {i18n("Watchlist", "รายการที่สนใจ")}
+              </Link>
+              <Link href="/marketplace/orders" className="btn btn-ghost" prefetch={false}>
+                {i18n("My orders", "ออเดอร์ของฉัน")}
+              </Link>
+              <Link href="/marketplace/seller" className="btn btn-sm" prefetch={false}>
+                {i18n("Sell cards", "ฝากขายการ์ด")}
+              </Link>
+              {canOpenMarketplaceAdmin ? (
+                <Link href="/admin/marketplace" className="btn btn-sm" prefetch={false}>
+                  {i18n("Admin", "แอดมิน")}
+                </Link>
+              ) : null}
             </div>
-            <label className="marketplace-sort">
-              <span>{i18n("Sort", "เรียง")}</span>
-              <select
-                className="i18n-en"
-                aria-label="Sort marketplace listings / เรียงรายการในตลาด"
-              >
-                {marketplaceSort.map((s) => (
-                  <option key={s.key} value={s.key}>
-                    {s.en}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="i18n-th"
-                aria-label="Sort marketplace listings / เรียงรายการในตลาด"
-              >
-                {marketplaceSort.map((s) => (
-                  <option key={s.key} value={s.key}>
-                    {s.th}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
-        )}
+
+          <div className="marketplace-market-snapshot" aria-label="Live marketplace summary">
+            <dl className="marketplace-snapshot-grid">
+              <div>
+                <dt>{i18n("Products", "สินค้า")}</dt>
+                <dd>{products.length}</dd>
+              </div>
+              <div>
+                <dt>{i18n("Official offers", "ข้อเสนอร้านทางการ")}</dt>
+                <dd>{officialCount}</dd>
+              </div>
+              <div>
+                <dt>{i18n("Seller offers", "ข้อเสนอผู้ขาย")}</dt>
+                <dd>{userSellerCount}</dd>
+              </div>
+              <div>
+                <dt>{i18n("Best from price", "ราคาเริ่มต้น")}</dt>
+                <dd>{lowestPriceSatang === null ? "-" : marketplaceThb(lowestPriceSatang)}</dd>
+              </div>
+            </dl>
+            {heroProducts.length > 0 ? (
+              <div className="marketplace-preview-stack" aria-hidden="true">
+                {heroProducts.map((product, index) => (
+                  <span
+                    key={product.product_id}
+                    className={`marketplace-preview-card marketplace-preview-card--${index + 1}`}
+                    style={
+                      product.hero_image_url
+                        ? { backgroundImage: `url(${product.hero_image_url})` }
+                        : undefined
+                    }
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </section>
+
+        <section
+          className="marketplace-discovery"
+          aria-label="Marketplace filters / ตัวกรองตลาด"
+        >
+          <div className="marketplace-discovery-head">
+            <div>
+              <span className="marketplace-kicker">
+                {i18n("Filter marketplace", "กรองสินค้าในตลาด")}
+              </span>
+              <h2>{activeFilterLabel}</h2>
+            </div>
+            <span className="marketplace-result-count">
+              {i18n(
+                `${products.length} product${products.length === 1 ? "" : "s"} / ${currentOfferCount} offer${currentOfferCount === 1 ? "" : "s"}`,
+                `${products.length} สินค้า / ${currentOfferCount} ข้อเสนอ`,
+              )}
+            </span>
+          </div>
+
+          <form className="marketplace-search" action="/marketplace">
+            {marketplaceSearchHiddenFields(selectedFilterKey, selectedSort).map(
+              ([key, value]) => (
+                <input key={key} type="hidden" name={key} value={value} />
+              ),
+            )}
+            <label htmlFor="marketplace-search-input">
+              {i18n("Search card name or code", "ค้นหาชื่อหรือรหัสการ์ด")}
+            </label>
+            <div className="marketplace-search-box">
+              <input
+                id="marketplace-search-input"
+                type="search"
+                name="q"
+                defaultValue={searchDefault}
+                placeholder="EB02-001, Zoro, PSA 10..."
+              />
+              <button type="submit">{i18n("Search", "ค้นหา")}</button>
+            </div>
+          </form>
+
+          <MarketplaceFilterControls
+            selectedFilterKey={selectedFilterKey}
+            selectedSort={selectedSort}
+            resultCount={products.length}
+            filterCounts={filterCounts}
+          />
+        </section>
 
         <section
           className="marketplace-grid"
-          aria-label="Marketplace listings / รายการในตลาด"
+          aria-label="Marketplace products / สินค้าในตลาด"
         >
-          {items.length ? (
-            items.map((item) => (
-              <article key={item.id} className="marketplace-card">
-                <div className="marketplace-card-art" aria-hidden>
-                  <span>{(item.cardName || "?").slice(0, 1)}</span>
-                </div>
-                <div className="marketplace-card-body">
-                  <span className="marketplace-card-eyebrow">
-                    {item.cardCode ?? i18n("Card", "การ์ด")}
-                  </span>
-                  <strong className="marketplace-card-title">
-                    {item.cardName}
-                  </strong>
-                  {item.cardGrade ? (
-                    <span className="marketplace-card-grade">{item.cardGrade}</span>
-                  ) : null}
-                  <span className="marketplace-card-price">
-                    <CoinIcon /> 0
-                  </span>
-                </div>
-              </article>
-            ))
+          {products.length ? (
+            <>
+              {products.map((product) => {
+                const meta = marketplaceProductMeta(product);
+                const imageUrl = product.hero_image_url;
+              return (
+                <Link
+                  key={product.product_id}
+                  href={`/marketplace/products/${product.product_slug}`}
+                  className="marketplace-card"
+                  prefetch={false}
+                >
+                  <div
+                    className="marketplace-card-art"
+                    aria-label={product.title}
+                    style={
+                      imageUrl
+                        ? { backgroundImage: `url(${imageUrl})` }
+                        : undefined
+                    }
+                  >
+                    <span className="marketplace-source-badge marketplace-source-badge--product">
+                      {marketplaceProductSourceLabel(product)}
+                    </span>
+                    {!imageUrl ? <span>{product.title.slice(0, 1)}</span> : null}
+                  </div>
+                  <div className="marketplace-card-body">
+                    <div className="marketplace-card-meta-row">
+                      <span className="marketplace-card-eyebrow">
+                        {product.card_code ?? product.brand ?? i18n("Trading card", "การ์ดสะสม")}
+                      </span>
+                      <span>
+                        {i18n(
+                          `${product.active_listing_count} offer${product.active_listing_count === 1 ? "" : "s"}`,
+                          `${product.active_listing_count} ข้อเสนอ`,
+                        )}
+                      </span>
+                    </div>
+                    <strong className="marketplace-card-title">
+                      {product.title}
+                    </strong>
+                    <div className="marketplace-card-details">
+                      {meta.length ? (
+                        meta.slice(0, 3).map((value) => (
+                          <span key={String(value)}>{value}</span>
+                        ))
+                      ) : (
+                        <span>{marketplaceItemTypeLabel("card")}</span>
+                      )}
+                    </div>
+                    <p>
+                      {i18n(
+                        `${product.variant_count} variant${product.variant_count === 1 ? "" : "s"} available from official shop and member sellers.`,
+                        `${product.variant_count} รุ่นย่อยจากร้านทางการและผู้ขายสมาชิก`,
+                      )}
+                    </p>
+                    <div className="marketplace-card-foot">
+                      <span className="marketplace-card-price">
+                        <small>{i18n("From", "เริ่มต้น")}</small>
+                        {marketplaceThb(product.lowest_price_satang)}
+                      </span>
+                      <span className="marketplace-card-cta">
+                        {i18n("View prices", "ดูราคา")}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              );
+              })}
+              {productNextCursor ? (
+                <Link
+                  href={marketplaceNextProductPageHref(
+                    selectedFilterKey,
+                    selectedSort,
+                    productNextCursor,
+                  )}
+                  className="marketplace-more-link"
+                  prefetch={false}
+                  scroll={false}
+                >
+                  {i18n("Show more products", "ดูสินค้าเพิ่มเติม")}
+                </Link>
+              ) : null}
+            </>
           ) : (
             <div className="marketplace-empty">
-              <strong>{i18n("No listings yet", "ยังไม่มีรายการขาย")}</strong>
+              <strong>{i18n("No products found", "ไม่พบสินค้า")}</strong>
               <p>
                 {i18n(
-                  "Marketplace listings will appear once collectors put their cards up for sale.",
-                  "รายการในตลาดจะแสดงเมื่อผู้สะสมประกาศขายการ์ด",
+                  "Try another filter or search term. Product pages appear here when at least one offer is available.",
+                  "ลองเปลี่ยนตัวกรองหรือคำค้นหา หน้าสินค้าจะแสดงเมื่อมีข้อเสนอขายอย่างน้อยหนึ่งรายการ",
                 )}
               </p>
             </div>
@@ -1289,7 +1670,11 @@ export function MarketplaceExperience() {
 }
 
 /** Series essentials section — FOG-style 2-column image cards with CTA. */
-function SeriesEssentialsSection() {
+function SeriesEssentialsSection({
+  showMarketplace = false,
+}: {
+  showMarketplace?: boolean;
+}) {
   return (
     <section
       className="series-essentials"
@@ -1310,16 +1695,18 @@ function SeriesEssentialsSection() {
             <span className="i18n-th">Y-Packs</span>
           </span>
         </Link>
-        <Link
-          href="/marketplace"
-          className="series-essentials-card series-essentials-card--one-piece"
-        >
-          <div className="series-essentials-art" aria-hidden />
-          <span className="series-essentials-cta">
-            <span className="i18n-en">Marketplace</span>
-            <span className="i18n-th">ตลาด</span>
-          </span>
-        </Link>
+        {showMarketplace ? (
+          <Link
+            href="/marketplace"
+            className="series-essentials-card series-essentials-card--one-piece"
+          >
+            <div className="series-essentials-art" aria-hidden />
+            <span className="series-essentials-cta">
+              <span className="i18n-en">Marketplace</span>
+              <span className="i18n-th">ตลาด</span>
+            </span>
+          </Link>
+        ) : null}
       </div>
     </section>
   );
@@ -1717,7 +2104,7 @@ export function CampaignDetailPanel({
           />
         )}
       </section>
-      <section className="gacha-detail-terms-panel" aria-label="YNOTT pack notes / หมายเหตุแพ็ก YNOTT">
+      <section className="gacha-detail-terms-panel" aria-label="YNOT pack notes / หมายเหตุแพ็ก YNOT">
         <div className="section-heading-row">
           <div>
             <p className="section-label">
@@ -1758,8 +2145,8 @@ export function CampaignDetailPanel({
         </strong>
         <span>
           <I18nText
-            en="Every production pull is recorded by YNOTT before rewards can move to collection, exchange, or shipping."
-            th="การเปิดแพ็กจริงทุกครั้งถูกบันทึกโดย YNOTT ก่อนรางวัลจะย้ายไปคอลเลกชัน แลกเหรียญ หรือจัดส่งได้"
+            en="Every production pull is recorded by YNOT before rewards can move to collection, exchange, or shipping."
+            th="การเปิดแพ็กจริงทุกครั้งถูกบันทึกโดย YNOT ก่อนรางวัลจะย้ายไปคอลเลกชัน แลกเหรียญ หรือจัดส่งได้"
           />
         </span>
       </div>
@@ -2432,7 +2819,7 @@ export function AdminSectionShell({
     <AdminGate viewer={viewer}>
       <YnotShell viewer={viewer}>
         <div className="admin-workspace admin-redesign-reference">
-          <AdminNav activeHref={activeHref} />
+          <AdminNav activeHref={activeHref} viewerRole={viewer.adminRole} />
           <section className="admin-workspace-main">{children}</section>
         </div>
       </YnotShell>
@@ -2456,9 +2843,25 @@ function AdminRouteLink({
   );
 }
 
-export function AdminNav({ activeHref }: { activeHref: string }) {
+function adminNavVisibleForRole(
+  item: (typeof adminNavItems)[number],
+  viewerRole: YnotViewer["adminRole"],
+) {
+  return item.href !== "/admin/marketplace" || viewerRole === "owner";
+}
+
+export function AdminNav({
+  activeHref,
+  viewerRole,
+}: {
+  activeHref: string;
+  viewerRole?: YnotViewer["adminRole"];
+}) {
+  const visibleItems = adminNavItems.filter((item) =>
+    adminNavVisibleForRole(item, viewerRole),
+  );
   const activeItem =
-    adminNavItems.find((item) => item.href === activeHref) ?? adminNavItems[0];
+    visibleItems.find((item) => item.href === activeHref) ?? visibleItems[0];
 
   return (
     <aside className="admin-side-nav soft-card" aria-label="Admin sections">
@@ -2468,7 +2871,7 @@ export function AdminNav({ activeHref }: { activeHref: string }) {
         <span>{activeItem.label}</span>
       </div>
       <div className="admin-side-nav-links">
-        {adminNavItems.map((item) => (
+        {visibleItems.map((item) => (
           <AdminRouteLink
             key={item.href}
             className={`admin-side-nav-link ${activeHref === item.href ? "active" : ""}`}

@@ -137,7 +137,7 @@ const customerNav = [
   // grid + reward timeline. Profile edit lives under Personal Info; we do
   // not want two drawer items that both feel like "edit profile".
   { key: "mysteryPacks", href: "/packs", protected: false, placement: ["left", "drawer"] },
-  { key: "marketplace", href: "/marketplace", protected: false, adminOnly: true, placement: ["left", "drawer"] },
+  { key: "marketplace", href: "/marketplace", protected: false, ownerOnly: true, placement: ["left", "drawer"] },
   // Card history, Wallet + Personal Info intentionally omitted from the
   // hamburger drawer — they all live in the My Page (account) drawer now,
   // so listing them here too is redundant.
@@ -456,13 +456,24 @@ function isNavActive(pathname: string | null, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function canRenderCustomerNavItem(
+  item: (typeof customerNav)[number],
+  flags: { isAdmin: boolean; isOwner: boolean },
+) {
+  if ("ownerOnly" in item && item.ownerOnly && !flags.isOwner) return false;
+  if ("adminOnly" in item && item.adminOnly && !flags.isAdmin) return false;
+  return true;
+}
+
 export function StoreHeaderNav({
   authenticated,
   isAdmin = false,
+  isOwner = false,
 }: {
   authenticated: boolean;
   /** Kept for compatibility — admin nav now renders on the right side. */
   isAdmin?: boolean;
+  isOwner?: boolean;
 }) {
   const { preferences } = useStorePreferences();
   const labels = navLabels[preferences.language];
@@ -518,7 +529,7 @@ export function StoreHeaderNav({
 
   const leftNav = customerNav.filter((item) =>
     (item.placement as readonly string[]).includes("left") &&
-    (!("adminOnly" in item) || !item.adminOnly || isAdmin),
+    canRenderCustomerNavItem(item, { isAdmin, isOwner }),
   );
 
   return (
@@ -1239,9 +1250,11 @@ export function StoreHeaderRightNav({
 export function StoreSettingsMenu({
   authenticated = false,
   isAdmin = false,
+  isOwner = false,
 }: {
   authenticated?: boolean;
   isAdmin?: boolean;
+  isOwner?: boolean;
   variant?: "bell" | "language";
 } = {}) {
   const { preferences, setLanguage } = useStorePreferences();
@@ -1371,7 +1384,7 @@ export function StoreSettingsMenu({
               {customerNav
                 .filter((item) =>
                   (item.placement as readonly string[]).includes("drawer") &&
-                  (!("adminOnly" in item) || !item.adminOnly || isAdmin),
+                  canRenderCustomerNavItem(item, { isAdmin, isOwner }),
                 )
                 .map((item) => {
                   // Cast to a plain string[] so `.includes` doesn't narrow

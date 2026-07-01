@@ -1609,7 +1609,7 @@ export function PersonalInfoForm({
   accountType: string;
 }) {
   const [draft, setDraft] = useState<ProfileInfo>(emptyProfileInfo);
-  const [displayName, setDisplayName] = useState("YNOTT Customer");
+  const [displayName, setDisplayName] = useState("YNOT Customer");
   const [loaded, setLoaded] = useState(false);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -1627,7 +1627,7 @@ export function PersonalInfoForm({
         if (!active) return;
         if (!response.ok) throw new Error(payload?.error ?? "Profile failed.");
         setDraft({ ...emptyProfileInfo, ...payload?.profile });
-        setDisplayName(payload?.displayName ?? "YNOTT Customer");
+        setDisplayName(payload?.displayName ?? "YNOT Customer");
         setLoaded(true);
       } catch (error) {
         if (!active) return;
@@ -1989,6 +1989,7 @@ export function CollectionConvertPanel({
   onSelectedAddressIdChange,
   prefilterOpenId,
   autoConvertOnLoad,
+  showMarketplace = false,
 }: {
   collection: YnotCollectionItem[];
   addresses?: YnotAddress[];
@@ -1996,6 +1997,7 @@ export function CollectionConvertPanel({
   onSelectedAddressIdChange?: (addressId: string) => void;
   prefilterOpenId?: string | null;
   autoConvertOnLoad?: boolean;
+  showMarketplace?: boolean;
 }) {
   const router = useRouter();
   const language = useStoreLanguage();
@@ -2592,6 +2594,48 @@ export function CollectionConvertPanel({
           );
         })}
       </div>
+
+      {showMarketplace ? (
+        <section
+          className="collection-marketplace-separation"
+          aria-label={localized(
+            {
+              en: "Gacha Rewards and Marketplace sections",
+              th: "ส่วนรางวัลกาชาและตลาด",
+            },
+            language,
+          )}
+        >
+          <div>
+            <span>
+              <I18nText en="Gacha Rewards" th="รางวัลกาชา" />
+            </span>
+            <strong>
+              <I18nText en="Ship or convert only" th="จัดส่งหรือแลกเหรียญเท่านั้น" />
+            </strong>
+            <p>
+              <I18nText
+                en="Rewards in this bag cannot become marketplace listings."
+                th="รางวัลในกระเป๋านี้จะไม่ถูกนำไปลงขายในตลาด"
+              />
+            </p>
+          </div>
+          <div>
+            <span>
+              <I18nText en="Marketplace" th="ตลาด" />
+            </span>
+            <strong>
+              <I18nText en="Physical consignment only" th="ฝากขายสินค้าจริงเท่านั้น" />
+            </strong>
+            <p>
+              <I18nText
+                en="Submit cards, sealed boxes, or sealed packs from the seller dashboard."
+                th="ส่งการ์ด กล่องซีล หรือแพ็กซีลจากแดชบอร์ดผู้ขาย"
+              />
+            </p>
+          </div>
+        </section>
+      ) : null}
 
       {message ? (
         <p
@@ -4197,7 +4241,7 @@ function AdminQrImageDropzone({
             {hasPreview ? "QR image ready" : "Drop payment QR image here"}
           </strong>
           <p className="admin-image-dropzone-hint">
-            JPG, PNG, or WEBP. Uploaded to the public YNOTT asset bucket and
+            JPG, PNG, or WEBP. Uploaded to the public YNOT asset bucket and
             shown on the customer top-up page.
           </p>
           <div className="admin-image-dropzone-actions">

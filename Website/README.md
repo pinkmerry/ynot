@@ -1,4 +1,4 @@
-# YNOTT Website
+# YNOT Website
 
 This folder is the normal production website app.
 
@@ -55,6 +55,6 @@ The Website verification scripts read those migration files directly.
 
 | Surface | Cloudflare Worker | Root Directory | Domain |
 | --- | --- | --- | --- |
-| YNOTT Website | `ynott-website` | `Website` | `https://www.ynotopen.com` |
+| YNOT Website | `ynott-website` | `Website` | `https://www.ynotopen.com` |
 
 This folder is the app root for the active website Worker only.

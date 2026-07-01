@@ -1,0 +1,71 @@
+import { getMarketplaceAccountForProfile } from "@/lib/marketplace/account-bridge";
+import {
+  assertMarketplaceCartUuid,
+  removeMarketplaceCartItem,
+  toMarketplacePublicCartMutation,
+} from "@/lib/marketplace/cart-watchlist";
+import { prepareMarketplaceMutation } from "@/lib/marketplace/mutation-guard";
+import { marketplaceErrorResponse } from "@/lib/marketplace/route-guards";
+import { MarketplaceServiceError } from "@/lib/marketplace/supabase-adapter";
+
+export const dynamic = "force-dynamic";
+
+type RouteParams = {
+  params: Promise<{ listingId: string }>;
+};
+
+function parseCartRemoveTarget(value: string) {
+  return assertMarketplaceCartUuid(value, "listing_id");
+}
+
+export async function DELETE(request: Request, { params }: RouteParams) {
+  const mutation = await prepareMarketplaceMutation(request, {
+    method: "DELETE",
+    accessMode: "customer",
+    action: "checkout",
+    rateLimit: {
+      key: "ynot:marketplace:cart:remove",
+      limit: 30,
+      windowMs: 60_000,
+    },
+    allowedFields: [],
+  });
+  if (!mutation.ok) return mutation.response;
+
+  const { access, idempotencyKey, profile, requestId } = mutation;
+
+  try {
+    const account = await getMarketplaceAccountForProfile(profile, access.admin);
+    if (!account) {
+      throw new MarketplaceServiceError(
+        "marketplace_account_required",
+        "Marketplace account is required.",
+        400,
+      );
+    }
+    const routeParams = await params;
+    const safeListingId = parseCartRemoveTarget(routeParams.listingId);
+    const requestHash = await mutation.requestHashForTarget(
+      "cart.item.remove",
+      safeListingId,
+    );
+    const result = await removeMarketplaceCartItem({
+      account,
+      listingId: safeListingId,
+      actorProfileId: profile.profileId,
+      requestId,
+      idempotencyKey,
+      requestHash,
+    });
+    const payload = toMarketplacePublicCartMutation(result);
+
+    return Response.json({
+      ok: true,
+      request_id: requestId,
+      cart: payload,
+      summary: payload.summary,
+    });
+  } catch (error) {
+    return marketplaceErrorResponse(error, requestId);
+  }
+}

@@ -8,6 +8,7 @@ import type {
   YnotAddress,
   YnotCollectionItem,
   YnotPublicPrizeDisplayTier,
+  YnotViewer,
 } from "../types";
 import {
   isCompleteShippingAddress,
@@ -19,7 +20,8 @@ import { BulkOpenBagStatus } from "./BulkOpenBagStatus";
 import { CoinPip, Ico, formatCoins } from "./Icons";
 import { Modal, PageHead, useToast } from "./UiKit";
 
-type TabKey = "collection" | "shipped" | "converted";
+type TabKey = "collection" | "marketplace" | "shipped" | "converted";
+type RewardTabKey = Exclude<TabKey, "marketplace">;
 type TierKey = YnotPublicPrizeDisplayTier;
 type StatusKey = "owned" | "shipped" | "converted";
 
@@ -165,6 +167,32 @@ type ShippingProgress = {
   completedAt?: string;
   updatedAt?: string;
 };
+
+type MarketplaceBagSummary = {
+  accountId: string | null;
+  ordersTotal: number;
+  pendingPaymentOrders: number;
+  paidOrders: number;
+  refundOrders: number;
+  sellerSubmissions: number;
+  sellerListings: number;
+  sellerPayouts: number;
+};
+
+function marketplaceSummaryFromPayload(payload: unknown): MarketplaceBagSummary | null {
+  if (!isRecord(payload) || !isRecord(payload.summary)) return null;
+  const summary = payload.summary;
+  return {
+    accountId: typeof summary.accountId === "string" ? summary.accountId : null,
+    ordersTotal: numberFrom(summary.ordersTotal),
+    pendingPaymentOrders: numberFrom(summary.pendingPaymentOrders),
+    paidOrders: numberFrom(summary.paidOrders),
+    refundOrders: numberFrom(summary.refundOrders),
+    sellerSubmissions: numberFrom(summary.sellerSubmissions),
+    sellerListings: numberFrom(summary.sellerListings),
+    sellerPayouts: numberFrom(summary.sellerPayouts),
+  };
+}
 
 function enrich(item: YnotCollectionItem, language: Language): EnrichedItem | null {
   const bucket = statusBucket(item.status);
@@ -316,11 +344,13 @@ function shippingProgressFromPayload(payload: unknown): ShippingProgress | null 
 export type HistoryExperienceProps = {
   collection: YnotCollectionItem[];
   addresses: YnotAddress[];
+  viewerRole?: YnotViewer["adminRole"];
 };
 
 export function HistoryExperience({
   collection,
   addresses,
+  viewerRole,
 }: HistoryExperienceProps) {
   const { toast } = useToast();
   const language = useStoreLanguage();
@@ -328,6 +358,7 @@ export function HistoryExperience({
   const [, startRefreshTransition] = useTransition();
   const refreshedConversionKeyRef = useRef("");
   const refreshedShippingKeyRef = useRef("");
+  const showMarketplace = viewerRole === "owner";
   const [tab, setTab] = useState<TabKey>("collection");
   const [seriesFilter, setSeriesFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -347,6 +378,11 @@ export function HistoryExperience({
   const [shipProgress, setShipProgress] = useState<ShippingProgress | null>(null);
   const [shipPreparing, setShipPreparing] = useState(false);
   const [shipConfirming, setShipConfirming] = useState(false);
+  const [marketplaceSummary, setMarketplaceSummary] =
+    useState<MarketplaceBagSummary | null>(null);
+  const [marketplaceSummaryState, setMarketplaceSummaryState] = useState<
+    "idle" | "loading" | "ready" | "unavailable" | "error"
+  >("idle");
 
   const enriched = useMemo(() => {
     const list: EnrichedItem[] = [];
@@ -357,7 +393,7 @@ export function HistoryExperience({
     return list;
   }, [collection, language]);
 
-  const byTab: Record<TabKey, EnrichedItem[]> = useMemo(() => {
+  const byTab: Record<RewardTabKey, EnrichedItem[]> = useMemo(() => {
     return {
       collection: enriched.filter((c) => c.bucket === "owned"),
       shipped: enriched.filter((c) => c.bucket === "shipped"),
@@ -366,6 +402,7 @@ export function HistoryExperience({
   }, [enriched]);
 
   const visibleCards = useMemo(() => {
+    if (tab === "marketplace") return [];
     return byTab[tab]
       .filter(
         (c) => seriesFilter === "all" || c.series === seriesFilter,
@@ -466,6 +503,10 @@ export function HistoryExperience({
         : sum,
     0,
   );
+  const marketplaceActivityCount =
+    (marketplaceSummary?.ordersTotal ?? 0) +
+    (marketplaceSummary?.pendingPaymentOrders ?? 0) +
+    (marketplaceSummary?.sellerSubmissions ?? 0);
 
   const refreshCollectionRoute = useCallback(
     function refreshCollectionRoute(kind: "conversion" | "shipping", progress: ConvertProgress | ShippingProgress) {
@@ -818,6 +859,50 @@ export function HistoryExperience({
     };
   }, []);
 
+  useEffect(() => {
+    if (!showMarketplace) {
+      setMarketplaceSummary(null);
+      setMarketplaceSummaryState("unavailable");
+      return;
+    }
+
+    let stopped = false;
+    const loadMarketplaceSummary = async () => {
+      setMarketplaceSummaryState("loading");
+      try {
+        const response = await fetch("/api/marketplace/bag/summary", {
+          cache: "no-store",
+        });
+        const payload: unknown = await response.json().catch(() => null);
+        if (stopped) return;
+        if (response.status === 403 || response.status === 503) {
+          setMarketplaceSummary(null);
+          setMarketplaceSummaryState("unavailable");
+          return;
+        }
+        if (!response.ok) throw new Error("Marketplace summary failed.");
+        setMarketplaceSummary(marketplaceSummaryFromPayload(payload));
+        setMarketplaceSummaryState("ready");
+      } catch {
+        if (!stopped) {
+          setMarketplaceSummary(null);
+          setMarketplaceSummaryState("error");
+        }
+      }
+    };
+    void loadMarketplaceSummary();
+    return () => {
+      stopped = true;
+    };
+  }, [showMarketplace]);
+
+  useEffect(() => {
+    if (!showMarketplace && tab === "marketplace") {
+      setTab("collection");
+      clearSelection();
+    }
+  }, [showMarketplace, tab]);
+
   function toastSelectedNonShippable() {
     toast(
       "error",
@@ -1162,6 +1247,19 @@ export function HistoryExperience({
               <I18nText en="My collection" th="คอลเลกชันของฉัน" />{" "}
               <span className="count">{byTab.collection.length}</span>
             </button>
+            {showMarketplace ? (
+              <button
+                type="button"
+                className={`cr-tab ${tab === "marketplace" ? "active" : ""}`}
+                onClick={() => {
+                  setTab("marketplace");
+                  clearSelection();
+                }}
+              >
+                <I18nText en="Marketplace" th="ตลาด" />{" "}
+                <span className="count">{marketplaceActivityCount}</span>
+              </button>
+            ) : null}
             <button
               type="button"
               className={`cr-tab ${tab === "shipped" ? "active" : ""}`}
@@ -1186,6 +1284,7 @@ export function HistoryExperience({
             </button>
           </div>
 
+          {tab !== "marketplace" ? (
           <div className="cr-toolbar" style={{ gap: 8 }}>
             <div className="cr-row" style={{ gap: 4 }}>
               <button
@@ -1221,6 +1320,7 @@ export function HistoryExperience({
               />
             </div>
           </div>
+          ) : null}
 
           {tab === "collection" && byTab.collection.length > 0 && (
             <div className="cr-row" style={{ gap: 10, padding: "0 4px" }}>
@@ -1277,7 +1377,89 @@ export function HistoryExperience({
             </div>
           )}
 
-          {visibleCards.length === 0 ? (
+          {showMarketplace && tab === "marketplace" ? (
+            <section className="cr-section" style={{ padding: 18 }}>
+              <div className="cr-stack" style={{ gap: 14 }}>
+                <div>
+                  <strong style={{ display: "block", fontSize: 15 }}>
+                    <I18nText en="Marketplace activity" th="กิจกรรมตลาด" />
+                  </strong>
+                  <small className="cr-mute">
+                    <I18nText
+                      en="Physical-money marketplace orders, seller submissions, listings, and payout activity live here. Gacha rewards stay in My collection."
+                      th="คำสั่งซื้อเงินจริง รายการฝากขาย รายการขาย และสถานะจ่ายเงินของตลาดอยู่ที่นี่ รางวัลกาชายังอยู่ในคอลเลกชันของฉัน"
+                    />
+                  </small>
+                </div>
+
+                {marketplaceSummaryState === "loading" ||
+                marketplaceSummaryState === "idle" ? (
+                  <small className="cr-mute">
+                    <I18nText en="Loading marketplace activity..." th="กำลังโหลดกิจกรรมตลาด..." />
+                  </small>
+                ) : null}
+
+                {marketplaceSummaryState === "unavailable" ? (
+                  <small className="cr-mute">
+                    <I18nText
+                      en="Marketplace activity is owner-only or unavailable in this environment."
+                      th="กิจกรรมตลาดยังจำกัดเฉพาะเจ้าของหรือยังไม่พร้อมในสภาพแวดล้อมนี้"
+                    />
+                  </small>
+                ) : null}
+
+                {marketplaceSummaryState === "error" ? (
+                  <small className="cr-mute">
+                    <I18nText
+                      en="Marketplace activity could not be loaded."
+                      th="โหลดกิจกรรมตลาดไม่สำเร็จ"
+                    />
+                  </small>
+                ) : null}
+
+                {marketplaceSummary ? (
+                  <div className="marketplace-bag-grid">
+                    <div>
+                      <span>{marketplaceSummary.ordersTotal}</span>
+                      <small><I18nText en="Buyer orders" th="คำสั่งซื้อ" /></small>
+                    </div>
+                    <div>
+                      <span>{marketplaceSummary.pendingPaymentOrders}</span>
+                      <small><I18nText en="Pending payments" th="รอชำระเงิน" /></small>
+                    </div>
+                    <div>
+                      <span>{marketplaceSummary.sellerSubmissions}</span>
+                      <small><I18nText en="Seller submissions" th="รายการฝากขาย" /></small>
+                    </div>
+                    <div>
+                      <span>{marketplaceSummary.sellerListings}</span>
+                      <small><I18nText en="Seller listings" th="รายการที่ลงขาย" /></small>
+                    </div>
+                    <div>
+                      <span>{marketplaceSummary.sellerPayouts}</span>
+                      <small><I18nText en="Payout records" th="รายการจ่ายเงิน" /></small>
+                    </div>
+                    <div>
+                      <span>{marketplaceSummary.refundOrders}</span>
+                      <small><I18nText en="Refund states" th="สถานะคืนเงิน" /></small>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="cr-row" style={{ gap: 8 }}>
+                  <Link className="cr-btn cr-btn-primary" href="/marketplace/orders">
+                    <I18nText en="View orders" th="ดูคำสั่งซื้อ" />
+                  </Link>
+                  <Link className="cr-btn" href="/marketplace/seller">
+                    <I18nText en="Seller dashboard" th="แดชบอร์ดผู้ขาย" />
+                  </Link>
+                  <Link className="cr-btn" href="/marketplace">
+                    <I18nText en="Browse marketplace" th="ดูตลาด" />
+                  </Link>
+                </div>
+              </div>
+            </section>
+          ) : visibleCards.length === 0 ? (
             <div
               className="cr-section"
               style={{ padding: 60, textAlign: "center" }}

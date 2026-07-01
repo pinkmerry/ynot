@@ -33,6 +33,7 @@ export default async function ExchangePage() {
         <CollectionConvertPanel
           collection={data.collection}
           addresses={data.addresses}
+          showMarketplace={data.viewer.adminRole === "owner"}
         />
         <OrderList title={i18n("Exchange history", "ประวัติการแลก")} orders={data.exchanges} />
       </div>
