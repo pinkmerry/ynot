@@ -1,5 +1,3 @@
-import "server-only";
-
 export type MarketplaceScheduledEnv = {
   MARKETPLACE_ENVIRONMENT?: string;
   MARKETPLACE_SUPABASE_URL?: string;

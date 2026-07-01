@@ -1,5 +1,3 @@
-import "server-only";
-
 type QueueBinding = {
   send(body: unknown, options?: { delaySeconds?: number }): Promise<unknown>;
 };

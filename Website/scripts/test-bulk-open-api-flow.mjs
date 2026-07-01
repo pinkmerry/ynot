@@ -217,6 +217,10 @@ test("Cloudflare worker settles Pull All through one queue-backed RPC chunk at a
     /message\.attempts/,
     /bulk_open_queue_retry/,
   ], "core scheduled jobs");
+  assert.doesNotMatch(
+    coreScheduledJobs,
+    /import\s+["']server-only["']|require\(["']server-only["']\)/,
+  );
   assert.doesNotMatch(worker + coreScheduledJobs, /console\.(log|warn)\([^)]*SUPABASE_SERVICE_ROLE_KEY/);
   assert.doesNotMatch(coreScheduledJobs, /MARKETPLACE_SUPABASE|marketplace_expire_pending_payment_orders/);
   assert.equal(websiteConfig.main, "bulk-open-worker.ts");

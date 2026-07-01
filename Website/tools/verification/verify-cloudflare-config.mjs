@@ -153,6 +153,7 @@ check("package exposes cf:build script", Boolean(packageJson.scripts?.["cf:build
 check("package exposes website Cloudflare deploy script", Boolean(packageJson.scripts?.["cf:deploy:website"]));
 check("package exposes marketplace Cloudflare build script", Boolean(packageJson.scripts?.["cf:build:marketplace"]));
 check("package exposes marketplace Cloudflare deploy script", Boolean(packageJson.scripts?.["cf:deploy:marketplace"]));
+check("package exposes generated Worker server-only patch", packageJson.scripts?.["cf:patch:server-only"] === "node scripts/patch-cloudflare-server-only.mjs");
 check(
   "website Cloudflare deploy script uses route-safe CI config",
   /wrangler\.website\.ci\.jsonc/.test(packageJson.scripts?.["cf:deploy:website"] ?? ""),
@@ -163,6 +164,19 @@ check(
 );
 check("package exposes manual website route deploy script", Boolean(packageJson.scripts?.["cf:deploy:website:routes"]));
 check("package exposes manual marketplace route deploy script", Boolean(packageJson.scripts?.["cf:deploy:marketplace:routes"]));
+for (const scriptName of [
+  "cf:deploy:website",
+  "cf:deploy:website:routes",
+  "cf:deploy:marketplace",
+  "cf:deploy:marketplace:routes",
+]) {
+  check(
+    `${scriptName} patches generated Worker output before deploy`,
+    /opennextjs-cloudflare build[\s\S]*npm run cf:patch:server-only[\s\S]*opennextjs-cloudflare deploy/.test(
+      packageJson.scripts?.[scriptName] ?? "",
+    ),
+  );
+}
 check("package omits retired LIFF Cloudflare deploy script", !packageJson.scripts?.["cf:deploy:liff"]);
 check("package omits retired LIFF Cloudflare build script", !packageJson.scripts?.["cf:build:liff"]);
 check("package omits retired LIFF Cloudflare preview script", !packageJson.scripts?.["cf:preview:liff"]);

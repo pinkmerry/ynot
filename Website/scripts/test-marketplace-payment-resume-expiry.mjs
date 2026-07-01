@@ -135,6 +135,10 @@ test("expired pending bank-transfer orders are released by a service-role cron p
   assert.match(marketplaceScheduledJobs, /MARKETPLACE_ENVIRONMENT/);
   assert.match(marketplaceScheduledJobs, /MARKETPLACE_SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(marketplaceScheduledJobs, /p_limit: 100/);
+  assert.doesNotMatch(
+    marketplaceScheduledJobs,
+    /import\s+["']server-only["']|require\(["']server-only["']\)/,
+  );
   assert.doesNotMatch(marketplaceScheduledJobs, /BULK_OPEN_QUEUE/);
 
   const marketplaceWrangler = readApp("wrangler.marketplace.jsonc");
