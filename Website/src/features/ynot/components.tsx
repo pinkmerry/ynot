@@ -671,7 +671,7 @@ function YnotFooter() {
             </li>
             <li className="ynot-footer-item">
               <Link
-                href="/help/pokemon-card-packs-thailand"
+                href="/pokemon-card"
                 className="ynot-footer-link"
                 prefetch={false}
               >
@@ -681,7 +681,7 @@ function YnotFooter() {
             </li>
             <li className="ynot-footer-item">
               <Link
-                href="/help/one-piece-card-packs-thailand"
+                href="/one-piece-card"
                 className="ynot-footer-link"
                 prefetch={false}
               >
@@ -1054,7 +1054,7 @@ function YnotEntitySignalSection() {
         </Link>
         <Link
           className="secondary-action"
-          href="/help/pokemon-card-packs-thailand"
+          href="/pokemon-card"
           prefetch={false}
         >
           <span className="i18n-en">Pokemon card packs</span>
@@ -1062,7 +1062,7 @@ function YnotEntitySignalSection() {
         </Link>
         <Link
           className="secondary-action"
-          href="/help/one-piece-card-packs-thailand"
+          href="/one-piece-card"
           prefetch={false}
         >
           <span className="i18n-en">One Piece card packs</span>

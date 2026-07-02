@@ -321,6 +321,22 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     "https://www.ynotopen.com/packs?search={search_term_string}",
     "WebSite schema should expose a crawlable SearchAction for YNOT packs",
   );
+  assert.ok(
+    seo.websiteJsonLd.hasPart.some(
+      (part) =>
+        part["@type"] === "CollectionPage" &&
+        part.url === "https://www.ynotopen.com/pokemon-card",
+    ),
+    "WebSite schema must expose the Pokemon card series hub",
+  );
+  assert.ok(
+    seo.websiteJsonLd.hasPart.some(
+      (part) =>
+        part["@type"] === "CollectionPage" &&
+        part.url === "https://www.ynotopen.com/one-piece-card",
+    ),
+    "WebSite schema must expose the One Piece card series hub",
+  );
 
   const homepageJsonLd = seo.buildHomePageJsonLd();
   assert.equal(homepageJsonLd["@context"], "https://schema.org");
@@ -359,11 +375,79 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
   }
 });
 
+test("public series landing pages target broad card category intent", () => {
+  const seo = loadSeoModule();
+
+  assert.ok(Array.isArray(seo.publicSeriesLandingPages));
+  assert.equal(seo.publicSeriesLandingPages.length, 2);
+
+  const pokemonHub = seo.getPublicSeriesLandingPage("pokemon-card");
+  assert.equal(pokemonHub.path, "/pokemon-card");
+  assert.equal(pokemonHub.seriesParam, "pokemon");
+  assert.match(pokemonHub.title.en, /Pokemon Card Packs Thailand/);
+  assert.match(pokemonHub.answer.en, /official Pokemon rules/i);
+  assert.ok(
+    pokemonHub.queryTargets.includes("pokemon card"),
+    "Pokemon hub must target the exact broad query",
+  );
+  assert.ok(
+    pokemonHub.queryTargets.includes("open Pokemon card packs online Thailand"),
+    "Pokemon hub must target the reachable commercial/local pack-opening query",
+  );
+  assert.ok(
+    pokemonHub.relatedLinks.some((link) => link.href === "/packs?series=pokemon"),
+    "Pokemon hub must link directly to the filtered public pack browse route",
+  );
+
+  const onePieceHub = seo.getPublicSeriesLandingPage("one-piece-card");
+  assert.equal(onePieceHub.path, "/one-piece-card");
+  assert.equal(onePieceHub.seriesParam, "one_piece");
+  assert.match(onePieceHub.title.en, /One Piece Card Packs Thailand/);
+  assert.match(onePieceHub.answer.en, /official One Piece Card Game rules/i);
+  assert.ok(
+    onePieceHub.queryTargets.includes("one piece card"),
+    "One Piece hub must target the exact broad query",
+  );
+  assert.ok(
+    onePieceHub.queryTargets.includes("open One Piece card packs online Thailand"),
+    "One Piece hub must target the reachable commercial/local pack-opening query",
+  );
+  assert.ok(
+    onePieceHub.relatedLinks.some((link) => link.href === "/packs?series=one_piece"),
+    "One Piece hub must link directly to the filtered public pack browse route",
+  );
+
+  for (const page of seo.publicSeriesLandingPages) {
+    assert.equal(page.owner, "YNOT Operations");
+    assert.match(page.updatedAt, /^\d{4}-\d{2}-\d{2}$/);
+    assert.ok(page.searchIntents.length >= 3, `${page.slug} needs intent coverage`);
+    assert.ok(page.relatedLinks.length >= 3, `${page.slug} needs supporting links`);
+    assert.ok(page.faqs.length >= 2, `${page.slug} needs FAQ coverage`);
+
+    const jsonLd = seo.buildSeriesLandingPageJsonLd(page);
+    assert.equal(jsonLd.collectionPage["@type"], "CollectionPage");
+    assert.equal(jsonLd.collectionPage.publisher.name, "YNOT");
+    assert.equal(
+      jsonLd.collectionPage.mainEntity.itemListElement.length,
+      page.relatedLinks.length,
+      `${page.slug} ItemList schema must match visible related links`,
+    );
+    assert.equal(jsonLd.faq["@type"], "FAQPage");
+    assert.equal(jsonLd.breadcrumb["@type"], "BreadcrumbList");
+  }
+});
+
 test("sitemap and robots routes publish the public answer surface", () => {
   const seo = loadSeoModule();
 
   const sitemapEntries = seo.getPublicSitemapEntries();
   for (const page of seo.publicAnswerPages) {
+    assert.ok(
+      sitemapEntries.some((entry) => entry.url === `https://www.ynotopen.com${page.path}`),
+      `sitemap missing ${page.path}`,
+    );
+  }
+  for (const page of seo.publicSeriesLandingPages) {
     assert.ok(
       sitemapEntries.some((entry) => entry.url === `https://www.ynotopen.com${page.path}`),
       `sitemap missing ${page.path}`,
@@ -404,6 +488,10 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   assert.match(llms, /Official source index for YNOT/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/help\/ynot-official-site/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/help\/ynot-tcg-lucky-draw-thailand/);
+  assert.match(llms, /https:\/\/www\.ynotopen\.com\/pokemon-card/);
+  assert.match(llms, /https:\/\/www\.ynotopen\.com\/one-piece-card/);
+  assert.match(llms, /Filtered Y-Pack browse route: https:\/\/www\.ynotopen\.com\/packs\?series=pokemon/);
+  assert.match(llms, /Filtered Y-Pack browse route: https:\/\/www\.ynotopen\.com\/packs\?series=one_piece/);
   assert.match(llms, /pokemon card/);
   assert.match(llms, /one piece card/);
   assert.match(llms, /SNKRDUNK alternative trading cards Thailand/);
@@ -448,13 +536,13 @@ test("footer and route files make answer pages reachable from public UI", () => 
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
-    /href="\/help\/pokemon-card-packs-thailand"/,
-    "footer and homepage should link to the Pokemon card page",
+    /href="\/pokemon-card"/,
+    "footer and homepage should link to the Pokemon card series hub",
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
-    /href="\/help\/one-piece-card-packs-thailand"/,
-    "footer and homepage should link to the One Piece card page",
+    /href="\/one-piece-card"/,
+    "footer and homepage should link to the One Piece card series hub",
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
@@ -474,6 +562,29 @@ test("footer and route files make answer pages reachable from public UI", () => 
   assert.ok(
     existsSync(appPath("src/app/(store)/help/[slug]/page.tsx")),
     "missing help answer route",
+  );
+  assert.ok(
+    existsSync(appPath("src/app/(store)/pokemon-card/page.tsx")),
+    "missing Pokemon card series hub route",
+  );
+  assert.ok(
+    existsSync(appPath("src/app/(store)/one-piece-card/page.tsx")),
+    "missing One Piece card series hub route",
+  );
+  assert.match(
+    readApp("src/app/(store)/pokemon-card/page.tsx"),
+    /dynamic = "force-static"/,
+    "Pokemon card hub should declare static intent even while the root app layout remains dynamic",
+  );
+  assert.match(
+    readApp("src/app/(store)/one-piece-card/page.tsx"),
+    /dynamic = "force-static"/,
+    "One Piece card hub should declare static intent even while the root app layout remains dynamic",
+  );
+  assert.match(
+    readApp("src/features/ynot/SeriesSeoLandingPage.tsx"),
+    /buildSeriesLandingPageJsonLd/,
+    "series hub component must render structured data",
   );
   assert.ok(existsSync(appPath("src/app/(store)/about/page.tsx")), "missing about route");
 });

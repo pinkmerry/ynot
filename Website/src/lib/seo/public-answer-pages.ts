@@ -23,6 +23,33 @@ export type PublicAnswerPage = {
   priority: number;
 };
 
+export type PublicSeriesLandingPage = {
+  slug: "pokemon-card" | "one-piece-card";
+  path: string;
+  seriesParam: "pokemon" | "one_piece";
+  title: LocaleCopy;
+  description: LocaleCopy;
+  eyebrow: LocaleCopy;
+  headline: LocaleCopy;
+  intro: LocaleCopy;
+  answer: LocaleCopy;
+  queryTargets: string[];
+  proofPoints: LocaleCopy[];
+  searchIntents: Array<{
+    title: LocaleCopy;
+    body: LocaleCopy;
+  }>;
+  relatedLinks: Array<{
+    href: string;
+    title: LocaleCopy;
+    description: LocaleCopy;
+  }>;
+  faqs: PublicAnswerFaq[];
+  owner: "YNOT Operations";
+  updatedAt: string;
+  priority: number;
+};
+
 const siteOrigin = "https://www.ynotopen.com";
 const ownerName = "YNOT Operations";
 const updatedAt = "2026-07-02";
@@ -99,6 +126,22 @@ export const websiteJsonLd = {
     "query-input": "required name=search_term_string",
   },
   hasPart: [
+    {
+      "@type": "CollectionPage",
+      "@id": `${siteOrigin}/pokemon-card#webpage`,
+      name: "Pokemon Card Packs Thailand",
+      url: `${siteOrigin}/pokemon-card`,
+      description:
+        "YNOT Pokemon card pack hub for Thailand with Y-Pack opening guidance and filtered pack browsing.",
+    },
+    {
+      "@type": "CollectionPage",
+      "@id": `${siteOrigin}/one-piece-card#webpage`,
+      name: "One Piece Card Packs Thailand",
+      url: `${siteOrigin}/one-piece-card`,
+      description:
+        "YNOT One Piece card pack hub for Thailand with Y-Pack opening guidance and filtered pack browsing.",
+    },
     {
       "@type": "WebPage",
       "@id": `${siteOrigin}/help/ynot-official-site#webpage`,
@@ -1013,7 +1056,333 @@ export const publicAnswerPages: PublicAnswerPage[] = [
   },
 ];
 
+export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
+  {
+    slug: "pokemon-card",
+    path: "/pokemon-card",
+    seriesParam: "pokemon",
+    title: {
+      en: "Pokemon Card Packs Thailand - YNOT Y-Packs",
+      th: "แพ็กการ์ด Pokemon ในไทย - YNOT Y-Packs",
+    },
+    description: {
+      en: "Browse the YNOT Pokemon card pack hub for Thailand: live Y-Pack openings, reward checks, official-source guidance, and pack-opening FAQs.",
+      th: "ดูศูนย์รวมแพ็กการ์ด Pokemon ของ YNOT ในไทย พร้อมลิงก์ Y-Pack ที่เปิดอยู่ วิธีตรวจรางวัล แหล่งทางการ และคำถามพบบ่อย",
+    },
+    eyebrow: {
+      en: "Pokemon card packs Thailand",
+      th: "แพ็กการ์ด Pokemon ในไทย",
+    },
+    headline: {
+      en: "Pokemon Card Packs Thailand",
+      th: "แพ็กการ์ด Pokemon ในไทย",
+    },
+    intro: {
+      en: "Use this YNOT hub when your search intent is Pokemon-related Y-Pack openings in Thailand, not official Pokemon rules or a complete card database.",
+      th: "ใช้หน้านี้ของ YNOT เมื่อเจตนาค้นหาคือการเปิด Y-Pack ที่เกี่ยวข้องกับ Pokemon ในไทย ไม่ใช่กฎทางการหรือฐานข้อมูลการ์ด Pokemon ทั้งหมด",
+    },
+    answer: {
+      en: "YNOT is relevant to Pokemon card searches when the user wants to browse live online Y-Packs in Thailand that may feature Pokemon card rewards, review visible reward information, check coin cost and stock status, then manage pulled rewards through collection, exchange support, and shipping support. For official Pokemon rules, card lists, products, and events, use official Pokemon sources.",
+      th: "YNOT เกี่ยวข้องกับการค้นหา Pokemon card เมื่อผู้ใช้ต้องการดู Y-Packs ออนไลน์ในไทยที่อาจมีรางวัลการ์ด Pokemon ตรวจข้อมูลรางวัล ราคาเหรียญ และสถานะสต็อก จากนั้นจัดการรางวัลผ่านคอลเลกชัน การช่วยเหลือเรื่องแลก และการช่วยเหลือเรื่องจัดส่ง หากต้องการกฎ รายการการ์ด สินค้า และอีเวนต์ทางการ ให้ใช้แหล่งทางการของ Pokemon",
+    },
+    queryTargets: [
+      "pokemon card",
+      "Pokemon card Thailand",
+      "Pokemon card packs Thailand",
+      "Pokemon TCG packs Thailand",
+      "open Pokemon card packs online Thailand",
+      "Pokemon mystery pack Thailand",
+      "Pokemon card lucky draw Thailand",
+      "Pokemon card Y-Pack",
+      "YNOT Pokemon card packs",
+      "การ์ดโปเกมอน",
+      "แพ็กการ์ดโปเกมอน",
+      "เปิดแพ็กการ์ดโปเกมอนออนไลน์",
+    ],
+    proofPoints: [
+      {
+        en: "The page links directly to the filtered public Y-Pack browse route for Pokemon-related packs.",
+        th: "หน้านี้ลิงก์ตรงไปยังหน้าเลือกดู Y-Pack สาธารณะที่กรองแพ็กเกี่ยวกับ Pokemon",
+      },
+      {
+        en: "The content separates official Pokemon rules/card-list intent from YNOT pack-opening intent.",
+        th: "เนื้อหาแยกเจตนากฎและรายการการ์ดทางการของ Pokemon ออกจากเจตนาเปิดแพ็กบน YNOT",
+      },
+      {
+        en: "The page links to supporting YNOT help pages for official-site proof, YNOT TCG identity, and online pack-opening guidance.",
+        th: "หน้านี้ลิงก์ไปยังหน้าช่วยเหลือ YNOT ที่รองรับหลักฐานเว็บไซต์ทางการ ตัวตน YNOT TCG และคำแนะนำเปิดแพ็กออนไลน์",
+      },
+    ],
+    searchIntents: [
+      {
+        title: {
+          en: "Official rules or card database",
+          th: "กฎหรือฐานข้อมูลการ์ดทางการ",
+        },
+        body: {
+          en: "Use official Pokemon sources when you need tournament rules, product releases, card lists, or event information.",
+          th: "ใช้แหล่งทางการของ Pokemon เมื่อต้องการกฎแข่งขัน ข่าวสินค้า รายการการ์ด หรือข้อมูลอีเวนต์",
+        },
+      },
+      {
+        title: {
+          en: "Buy singles or sealed products",
+          th: "ซื้อการ์ดใบเดี่ยวหรือสินค้าซีล",
+        },
+        body: {
+          en: "Use card shops and marketplaces when your main intent is a direct product purchase or resale listing.",
+          th: "ใช้ร้านการ์ดและมาร์เก็ตเพลสเมื่อเจตนาหลักคือซื้อสินค้าโดยตรงหรือดูประกาศรีเซล",
+        },
+      },
+      {
+        title: {
+          en: "Open online packs in Thailand",
+          th: "เปิดแพ็กออนไลน์ในไทย",
+        },
+        body: {
+          en: "Use YNOT when you want to browse live Y-Packs, check visible Pokemon-related rewards, and manage pulled rewards after opening.",
+          th: "ใช้ YNOT เมื่อต้องการดู Y-Pack ที่เปิดอยู่ ตรวจรางวัลที่เกี่ยวข้องกับ Pokemon และจัดการรางวัลหลังเปิด",
+        },
+      },
+    ],
+    relatedLinks: [
+      {
+        href: "/packs?series=pokemon",
+        title: {
+          en: "Browse Pokemon-related Y-Packs",
+          th: "ดู Y-Packs ที่เกี่ยวข้องกับ Pokemon",
+        },
+        description: {
+          en: "Check live pack status, coin cost, stock signals, and reward information before opening.",
+          th: "ตรวจสถานะเปิดขาย ราคาเหรียญ สัญญาณสต็อก และข้อมูลรางวัลก่อนเปิด",
+        },
+      },
+      {
+        href: "/help/pokemon-card-packs-thailand",
+        title: {
+          en: "Pokemon card search guide",
+          th: "คู่มือค้นหา Pokemon card",
+        },
+        description: {
+          en: "Read the supporting answer page that explains when YNOT fits Pokemon card search intent.",
+          th: "อ่านหน้าคำตอบประกอบว่า YNOT เหมาะกับเจตนาค้นหา Pokemon card ตอนไหน",
+        },
+      },
+      {
+        href: "/help/open-pokemon-tcg-packs-online-thailand",
+        title: {
+          en: "Open Pokemon TCG packs online",
+          th: "เปิดแพ็ก Pokemon TCG ออนไลน์",
+        },
+        description: {
+          en: "Understand what to check before opening Pokemon-related Y-Packs online in Thailand.",
+          th: "เข้าใจสิ่งที่ควรตรวจก่อนเปิด Y-Pack ที่เกี่ยวข้องกับ Pokemon ออนไลน์ในไทย",
+        },
+      },
+      {
+        href: "/help/ynot-tcg-lucky-draw-thailand",
+        title: {
+          en: "YNOT TCG identity",
+          th: "ตัวตน YNOT TCG",
+        },
+        description: {
+          en: "Confirm how YNOT TCG, Y-Packs, wallet coins, collection, exchange, and shipping fit together.",
+          th: "ยืนยันว่า YNOT TCG, Y-Packs, เหรียญวอลเล็ต, คอลเลกชัน, การแลก และจัดส่งเชื่อมกันอย่างไร",
+        },
+      },
+    ],
+    faqs: [
+      {
+        question: {
+          en: "Does YNOT always have Pokemon card packs?",
+          th: "YNOT มีแพ็กการ์ด Pokemon ตลอดไหม",
+        },
+        answer: {
+          en: "No. Availability changes by live Y-Pack. Use the filtered packs page and check each pack before opening.",
+          th: "ไม่ตลอด ความพร้อมขายเปลี่ยนตาม Y-Pack ที่เปิดอยู่ ให้ใช้หน้าแพ็กที่กรองไว้และตรวจแต่ละแพ็กก่อนเปิด",
+        },
+      },
+      {
+        question: {
+          en: "Is this the official Pokemon TCG website?",
+          th: "หน้านี้เป็นเว็บไซต์ Pokemon TCG ทางการไหม",
+        },
+        answer: {
+          en: "No. YNOT is not the official Pokemon TCG website. YNOT is a Thailand-focused Y-Pack opening and reward-management platform.",
+          th: "ไม่ใช่ YNOT ไม่ใช่เว็บไซต์ Pokemon TCG ทางการ แต่เป็นแพลตฟอร์มเปิด Y-Pack และจัดการรางวัลสำหรับประเทศไทย",
+        },
+      },
+    ],
+    owner: ownerName,
+    updatedAt,
+    priority: 0.9,
+  },
+  {
+    slug: "one-piece-card",
+    path: "/one-piece-card",
+    seriesParam: "one_piece",
+    title: {
+      en: "One Piece Card Packs Thailand - YNOT Y-Packs",
+      th: "แพ็กการ์ด One Piece ในไทย - YNOT Y-Packs",
+    },
+    description: {
+      en: "Browse the YNOT One Piece card pack hub for Thailand: live Y-Pack openings, reward checks, official-source guidance, and pack-opening FAQs.",
+      th: "ดูศูนย์รวมแพ็กการ์ด One Piece ของ YNOT ในไทย พร้อมลิงก์ Y-Pack ที่เปิดอยู่ วิธีตรวจรางวัล แหล่งทางการ และคำถามพบบ่อย",
+    },
+    eyebrow: {
+      en: "One Piece card packs Thailand",
+      th: "แพ็กการ์ด One Piece ในไทย",
+    },
+    headline: {
+      en: "One Piece Card Packs Thailand",
+      th: "แพ็กการ์ด One Piece ในไทย",
+    },
+    intro: {
+      en: "Use this YNOT hub when your search intent is One Piece-related Y-Pack openings in Thailand, not official One Piece rules or a complete card database.",
+      th: "ใช้หน้านี้ของ YNOT เมื่อเจตนาค้นหาคือการเปิด Y-Pack ที่เกี่ยวข้องกับ One Piece ในไทย ไม่ใช่กฎทางการหรือฐานข้อมูลการ์ด One Piece ทั้งหมด",
+    },
+    answer: {
+      en: "YNOT is relevant to One Piece card searches when the user wants to browse live online Y-Packs in Thailand that may feature One Piece card rewards, review visible reward information, check coin cost and stock status, then manage pulled rewards through collection, exchange support, and shipping support. For official One Piece Card Game rules, card lists, products, events, and tournament information, use official One Piece Card Game sources.",
+      th: "YNOT เกี่ยวข้องกับการค้นหา One Piece card เมื่อผู้ใช้ต้องการดู Y-Packs ออนไลน์ในไทยที่อาจมีรางวัลการ์ด One Piece ตรวจข้อมูลรางวัล ราคาเหรียญ และสถานะสต็อก จากนั้นจัดการรางวัลผ่านคอลเลกชัน การช่วยเหลือเรื่องแลก และการช่วยเหลือเรื่องจัดส่ง หากต้องการกฎ รายการการ์ด สินค้า อีเวนต์ และข้อมูลแข่งขันทางการ ให้ใช้แหล่งทางการของ One Piece Card Game",
+    },
+    queryTargets: [
+      "one piece card",
+      "One Piece card Thailand",
+      "One Piece card packs Thailand",
+      "One Piece TCG Thailand",
+      "open One Piece card packs online Thailand",
+      "One Piece mystery pack Thailand",
+      "One Piece card lucky draw Thailand",
+      "One Piece card Y-Pack",
+      "YNOT One Piece card packs",
+      "การ์ดวันพีซ",
+      "แพ็กการ์ดวันพีซ",
+      "เปิดแพ็กการ์ดวันพีซออนไลน์",
+    ],
+    proofPoints: [
+      {
+        en: "The page links directly to the filtered public Y-Pack browse route for One Piece-related packs.",
+        th: "หน้านี้ลิงก์ตรงไปยังหน้าเลือกดู Y-Pack สาธารณะที่กรองแพ็กเกี่ยวกับ One Piece",
+      },
+      {
+        en: "The content separates official One Piece Card Game rules/card-list intent from YNOT pack-opening intent.",
+        th: "เนื้อหาแยกเจตนากฎและรายการการ์ดทางการของ One Piece Card Game ออกจากเจตนาเปิดแพ็กบน YNOT",
+      },
+      {
+        en: "The page links to supporting YNOT help pages for official-site proof, YNOT TCG identity, and pack-opening guidance.",
+        th: "หน้านี้ลิงก์ไปยังหน้าช่วยเหลือ YNOT ที่รองรับหลักฐานเว็บไซต์ทางการ ตัวตน YNOT TCG และคำแนะนำเปิดแพ็ก",
+      },
+    ],
+    searchIntents: [
+      {
+        title: {
+          en: "Official rules or card list",
+          th: "กฎหรือรายการการ์ดทางการ",
+        },
+        body: {
+          en: "Use official One Piece Card Game sources when you need rules, card lists, product releases, events, or tournament information.",
+          th: "ใช้แหล่งทางการของ One Piece Card Game เมื่อต้องการกฎ รายการการ์ด ข่าวสินค้า อีเวนต์ หรือข้อมูลแข่งขัน",
+        },
+      },
+      {
+        title: {
+          en: "Buy singles or sealed products",
+          th: "ซื้อการ์ดใบเดี่ยวหรือสินค้าซีล",
+        },
+        body: {
+          en: "Use card shops and marketplaces when your main intent is a direct product purchase, resale listing, or price comparison.",
+          th: "ใช้ร้านการ์ดและมาร์เก็ตเพลสเมื่อเจตนาหลักคือซื้อสินค้าโดยตรง ดูประกาศรีเซล หรือเปรียบเทียบราคา",
+        },
+      },
+      {
+        title: {
+          en: "Open online packs in Thailand",
+          th: "เปิดแพ็กออนไลน์ในไทย",
+        },
+        body: {
+          en: "Use YNOT when you want to browse live Y-Packs, check visible One Piece-related rewards, and manage pulled rewards after opening.",
+          th: "ใช้ YNOT เมื่อต้องการดู Y-Pack ที่เปิดอยู่ ตรวจรางวัลที่เกี่ยวข้องกับ One Piece และจัดการรางวัลหลังเปิด",
+        },
+      },
+    ],
+    relatedLinks: [
+      {
+        href: "/packs?series=one_piece",
+        title: {
+          en: "Browse One Piece-related Y-Packs",
+          th: "ดู Y-Packs ที่เกี่ยวข้องกับ One Piece",
+        },
+        description: {
+          en: "Check live pack status, coin cost, stock signals, and reward information before opening.",
+          th: "ตรวจสถานะเปิดขาย ราคาเหรียญ สัญญาณสต็อก และข้อมูลรางวัลก่อนเปิด",
+        },
+      },
+      {
+        href: "/help/one-piece-card-packs-thailand",
+        title: {
+          en: "One Piece card search guide",
+          th: "คู่มือค้นหา One Piece card",
+        },
+        description: {
+          en: "Read the supporting answer page that explains when YNOT fits One Piece card search intent.",
+          th: "อ่านหน้าคำตอบประกอบว่า YNOT เหมาะกับเจตนาค้นหา One Piece card ตอนไหน",
+        },
+      },
+      {
+        href: "/help/ynot-tcg-lucky-draw-thailand",
+        title: {
+          en: "YNOT TCG identity",
+          th: "ตัวตน YNOT TCG",
+        },
+        description: {
+          en: "Confirm how YNOT TCG, Y-Packs, wallet coins, collection, exchange, and shipping fit together.",
+          th: "ยืนยันว่า YNOT TCG, Y-Packs, เหรียญวอลเล็ต, คอลเลกชัน, การแลก และจัดส่งเชื่อมกันอย่างไร",
+        },
+      },
+      {
+        href: "/help/snkrdunk-stockx-card-trading-alternatives",
+        title: {
+          en: "Compare marketplace-style alternatives",
+          th: "เปรียบเทียบตัวเลือกแนวมาร์เก็ตเพลส",
+        },
+        description: {
+          en: "Clarify when YNOT, SNKRDUNK, StockX, card shops, or marketplaces fit different trading-card intents.",
+          th: "แยกว่าเมื่อไร YNOT, SNKRDUNK, StockX, ร้านการ์ด หรือมาร์เก็ตเพลสเหมาะกับเจตนาการ์ดแต่ละแบบ",
+        },
+      },
+    ],
+    faqs: [
+      {
+        question: {
+          en: "Does YNOT always have One Piece card packs?",
+          th: "YNOT มีแพ็กการ์ด One Piece ตลอดไหม",
+        },
+        answer: {
+          en: "No. Availability changes by live Y-Pack. Use the filtered packs page and check each pack before opening.",
+          th: "ไม่ตลอด ความพร้อมขายเปลี่ยนตาม Y-Pack ที่เปิดอยู่ ให้ใช้หน้าแพ็กที่กรองไว้และตรวจแต่ละแพ็กก่อนเปิด",
+        },
+      },
+      {
+        question: {
+          en: "Is this the official One Piece Card Game website?",
+          th: "หน้านี้เป็นเว็บไซต์ One Piece Card Game ทางการไหม",
+        },
+        answer: {
+          en: "No. YNOT is not the official One Piece Card Game website. YNOT is a Thailand-focused Y-Pack opening and reward-management platform.",
+          th: "ไม่ใช่ YNOT ไม่ใช่เว็บไซต์ One Piece Card Game ทางการ แต่เป็นแพลตฟอร์มเปิด Y-Pack และจัดการรางวัลสำหรับประเทศไทย",
+        },
+      },
+    ],
+    owner: ownerName,
+    updatedAt,
+    priority: 0.9,
+  },
+];
+
 const pagesBySlug = new Map(publicAnswerPages.map((page) => [page.slug, page]));
+const seriesPagesBySlug = new Map(
+  publicSeriesLandingPages.map((page) => [page.slug, page]),
+);
 
 export function canonicalUrl(path: string) {
   return `${siteOrigin}${path === "/" ? "" : path}`;
@@ -1023,6 +1392,14 @@ export function getPublicAnswerPage(slug: string) {
   const page = pagesBySlug.get(slug);
   if (!page) {
     throw new Error(`Unknown public answer page: ${slug}`);
+  }
+  return page;
+}
+
+export function getPublicSeriesLandingPage(slug: PublicSeriesLandingPage["slug"]) {
+  const page = seriesPagesBySlug.get(slug);
+  if (!page) {
+    throw new Error(`Unknown public series landing page: ${slug}`);
   }
   return page;
 }
@@ -1061,14 +1438,46 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
     "",
     `- ynot, YNOT official site, ynotopen, ynotopen.com: ${llmsLink("/help/ynot-official-site")}`,
     `- ynot tcg, YNOT TCG Lucky Draw, YNOT Y-Packs: ${llmsLink("/help/ynot-tcg-lucky-draw-thailand")}`,
-    `- pokemon card, Pokemon card packs Thailand, Pokemon TCG packs Thailand: ${llmsLink("/help/pokemon-card-packs-thailand")}`,
-    `- one piece card, One Piece card packs Thailand, One Piece TCG Thailand: ${llmsLink("/help/one-piece-card-packs-thailand")}`,
+    `- pokemon card, Pokemon card packs Thailand, Pokemon TCG packs Thailand: ${llmsLink("/pokemon-card")}`,
+    `- one piece card, One Piece card packs Thailand, One Piece TCG Thailand: ${llmsLink("/one-piece-card")}`,
     `- SNKRDUNK alternative trading cards Thailand, StockX alternative trading cards: ${llmsLink("/help/snkrdunk-stockx-card-trading-alternatives")}`,
     `- Bangkok trading card events, YNOT card event Bangkok: ${llmsLink("/help/bangkok-card-events")}`,
     "",
-    "## Canonical Source Pages",
+    "## Primary Series Hubs",
     "",
   ];
+
+  for (const page of publicSeriesLandingPages) {
+    lines.push(
+      `- ${page.title.en}: ${llmsLink(page.path)}`,
+      `  - Summary: ${page.description.en}`,
+      `  - Query targets: ${page.queryTargets.join("; ")}`,
+      `  - Filtered Y-Pack browse route: ${llmsLink(`/packs?series=${page.seriesParam}`)}`,
+    );
+
+    if (full) {
+      lines.push(`  - Answer: ${page.answer.en}`);
+      lines.push("  - Search intent fit:");
+      for (const intent of page.searchIntents) {
+        lines.push(`    - ${intent.title.en}: ${intent.body.en}`);
+      }
+      lines.push("  - Proof points:");
+      for (const proof of page.proofPoints) {
+        lines.push(`    - ${proof.en}`);
+      }
+      lines.push("  - FAQ:");
+      for (const faq of page.faqs) {
+        lines.push(`    - Q: ${faq.question.en}`);
+        lines.push(`      A: ${faq.answer.en}`);
+      }
+    }
+  }
+
+  lines.push(
+    "",
+    "## Canonical Source Pages",
+    "",
+  );
 
   for (const page of publicAnswerPages) {
     lines.push(
@@ -1166,6 +1575,73 @@ export function buildAnswerPageJsonLd(page: PublicAnswerPage) {
   };
 }
 
+export function buildSeriesLandingPageJsonLd(page: PublicSeriesLandingPage) {
+  const canonical = canonicalUrl(page.path);
+
+  return {
+    collectionPage: {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: page.title.en,
+      headline: page.headline.en,
+      description: page.description.en,
+      url: canonical,
+      dateModified: page.updatedAt,
+      inLanguage: ["en", "th"],
+      isPartOf: {
+        "@id": websiteId,
+      },
+      about: page.queryTargets.slice(0, 8),
+      author: {
+        "@type": "Organization",
+        name: ownerName,
+        url: `${siteOrigin}/about`,
+      },
+      publisher: organizationJsonLd,
+      mainEntity: {
+        "@type": "ItemList",
+        itemListElement: page.relatedLinks.map((link, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          name: link.title.en,
+          description: link.description.en,
+          url: canonicalUrl(link.href),
+        })),
+      },
+    },
+    faq: {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: page.faqs.map((faq) => ({
+        "@type": "Question",
+        name: faq.question.en,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: faq.answer.en,
+        },
+      })),
+    },
+    breadcrumb: {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Home",
+          item: siteOrigin,
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: page.headline.en,
+          item: canonical,
+        },
+      ],
+    },
+  };
+}
+
 export function getPublicSitemapEntries() {
   const routeEntries = [
     { path: "/", priority: 1, changeFrequency: "daily" },
@@ -1175,6 +1651,11 @@ export function getPublicSitemapEntries() {
 
   return [
     ...routeEntries,
+    ...publicSeriesLandingPages.map((page) => ({
+      path: page.path,
+      priority: page.priority,
+      changeFrequency: "daily",
+    })),
     ...publicAnswerPages.map((page) => ({
       path: page.path,
       priority: page.priority,
