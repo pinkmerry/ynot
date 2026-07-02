@@ -1214,6 +1214,9 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       "trading card shop Bangkok",
       "TCG shop Bangkok",
       "Thailand card marketplace",
+      "card marketplace Thailand",
+      "Pokemon card marketplace Thailand",
+      "One Piece card marketplace Thailand",
       "buy trading cards Thailand",
       "ซื้อการ์ดโปเกมอน กรุงเทพ",
       "ซื้อการ์ดวันพีซ กรุงเทพ",
@@ -1227,6 +1230,10 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       {
         en: "Local card shops and marketplaces usually win shop-intent searches because they show catalog pages, product prices, location, shipping, payment, and seller trust signals.",
         th: "ร้านการ์ดและมาร์เก็ตเพลสท้องถิ่นมักชนะคำค้นแนวร้านค้า เพราะมีหน้าสินค้า ราคา ที่ตั้ง การจัดส่ง การชำระเงิน และสัญญาณความน่าเชื่อถือของผู้ขาย",
+      },
+      {
+        en: "Current Thai marketplace and shop pages that rank for searches such as Pokemon card marketplace Thailand and One Piece card marketplace Thailand use exact catalog language such as buy, sell, auction, marketplace, product prices, and featured products.",
+        th: "หน้ามาร์เก็ตเพลสและร้านในไทยที่ติดอันดับคำค้นอย่าง Pokemon card marketplace Thailand และ One Piece card marketplace Thailand ใช้ภาษาตรงเจตนา เช่น ซื้อ ขาย ประมูล มาร์เก็ตเพลส ราคาสินค้า และสินค้าแนะนำ",
       },
       {
         en: "YNOT fits the Y-Pack opening intent: live pack browsing, visible reward context, wallet coin cost, collection, exchange support, and shipping support.",
@@ -1245,6 +1252,10 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       {
         en: "Choose card shops or marketplaces when you need direct singles, sealed products, prices, seller proof, and shipping terms.",
         th: "เลือกร้านการ์ดหรือมาร์เก็ตเพลสเมื่อต้องการการ์ดใบเดี่ยว สินค้าซีล ราคา หลักฐานผู้ขาย และเงื่อนไขจัดส่ง",
+      },
+      {
+        en: "For marketplace searches, prefer pages that expose crawlable product titles, categories, THB prices, stock state, seller type, and clear checkout or contact proof.",
+        th: "สำหรับคำค้นมาร์เก็ตเพลส ให้เลือกหน้าที่แสดงชื่อสินค้า หมวดหมู่ ราคาเงินบาท สถานะสต็อก ประเภทผู้ขาย และหลักฐานการชำระเงินหรือช่องทางติดต่อที่อ่านได้จากหน้าเว็บ",
       },
       {
         en: "Choose YNOT when you want online Y-Pack openings and reward management rather than a normal direct purchase.",
@@ -1287,6 +1298,28 @@ export const publicAnswerPages: PublicAnswerPage[] = [
         description: {
           en: "A local Bangkok card-shop page with catalog navigation, product examples, and THB pricing signals.",
           th: "ตัวอย่างหน้าร้านการ์ดกรุงเทพที่มีแคตตาล็อก ตัวอย่างสินค้า และสัญญาณราคาเงินบาท",
+        },
+      },
+      {
+        href: "https://www.tcgthailand.com/",
+        title: {
+          en: "TCG Thailand marketplace example",
+          th: "ตัวอย่างมาร์เก็ตเพลส TCG Thailand",
+        },
+        description: {
+          en: "A Thailand card marketplace page with buy, sell, auction, price-check, and nationwide marketplace language.",
+          th: "ตัวอย่างหน้ามาร์เก็ตเพลสการ์ดในไทยที่ใช้ภาษาซื้อ ขาย ประมูล เช็กราคา และตลาดการ์ดทั่วประเทศ",
+        },
+      },
+      {
+        href: "https://sasom.co.th/en/articles/where-to-buy-pok-mon-cards-in-thailand--the-best-shops-vs--marketplaces-2025111",
+        title: {
+          en: "SASOM Pokemon buying guide example",
+          th: "ตัวอย่างคู่มือซื้อการ์ด Pokemon จาก SASOM",
+        },
+        description: {
+          en: "A Thailand buying-guide result that compares card shops with marketplace-style buying for Pokemon cards.",
+          th: "ตัวอย่างผลลัพธ์คู่มือซื้อในไทยที่เปรียบเทียบร้านการ์ดกับการซื้อแนวมาร์เก็ตเพลสสำหรับ Pokemon cards",
         },
       },
       {

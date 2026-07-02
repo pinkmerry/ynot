@@ -45,19 +45,22 @@ export default function ContactPage() {
             </strong>
             <p>
               <I18nText
-                en="Message the YNOT team on Instagram for account and order help. Keep payment slips, order references, and pack names ready so the team can check your case faster."
-                th="ส่งข้อความหา YNOT ทาง Instagram เพื่อขอความช่วยเหลือเรื่องบัญชีและออเดอร์ เตรียมสลิป เลขอ้างอิง และชื่อแพ็กไว้เพื่อให้ทีมตรวจสอบได้เร็วขึ้น"
+                en="Message the YNOT team on the official Instagram account @_yfifteen for account and order help. Keep payment slips, order references, and pack names ready so the team can check your case faster."
+                th="ส่งข้อความหา YNOT ทาง Instagram ทางการ @_yfifteen เพื่อขอความช่วยเหลือเรื่องบัญชีและออเดอร์ เตรียมสลิป เลขอ้างอิง และชื่อแพ็กไว้เพื่อให้ทีมตรวจสอบได้เร็วขึ้น"
               />
             </p>
           </div>
           <div className="product-actions">
             <a
               className="primary-action"
-              href="https://instagram.com/ynot"
+              href="https://www.instagram.com/_yfifteen/"
               rel="noreferrer"
               target="_blank"
             >
-              <I18nText en="Open Instagram" th="เปิด Instagram" />
+              <I18nText
+                en="Open @_yfifteen Instagram"
+                th="เปิด Instagram @_yfifteen"
+              />
             </a>
             <Link className="secondary-action" href="/packs">
               <I18nText en="Browse Y-Packs" th="ดู Y-Packs" />

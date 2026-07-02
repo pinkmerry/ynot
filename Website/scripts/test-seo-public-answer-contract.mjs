@@ -287,8 +287,16 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "buying guide must target local trading-card-shop searches",
   );
   assert.ok(
+    buyingGuide.queryTargets.includes("Pokemon card marketplace Thailand"),
+    "buying guide must target Pokemon marketplace searches while marketplace is gated",
+  );
+  assert.ok(
     buyingGuide.proofPoints.some((proof) => /official/.test(proof.en)),
     "buying guide must send official product/store-list intent to official sources",
+  );
+  assert.ok(
+    buyingGuide.proofPoints.some((proof) => /buy, sell, auction, marketplace/.test(proof.en)),
+    "buying guide must explain the catalog language used by ranked shop and marketplace pages",
   );
   assert.ok(
     buyingGuide.proofPoints.some((proof) => /Y-Pack/.test(proof.en)),
@@ -305,6 +313,14 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.ok(
     buyingGuide.sourceLinks.some((source) => /bangkoktcg\.com/.test(source.href)),
     "buying guide must cite local card-shop source evidence",
+  );
+  assert.ok(
+    buyingGuide.sourceLinks.some((source) => /tcgthailand\.com/.test(source.href)),
+    "buying guide must cite Thai marketplace source evidence",
+  );
+  assert.ok(
+    buyingGuide.sourceLinks.some((source) => /sasom\.co\.th/.test(source.href)),
+    "buying guide must cite a ranked Pokemon buying-guide source example",
   );
 
   const bangkokEvents = seo.getPublicAnswerPage("bangkok-card-events");
@@ -966,6 +982,7 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   assert.match(full, /official Instagram/);
   assert.match(full, /where to buy Pokemon cards in Thailand/);
   assert.match(full, /trading card shop Thailand/);
+  assert.match(full, /Pokemon card marketplace Thailand/);
   assert.match(full, /Card shop and marketplace intent/);
   assert.match(full, /Community market and shop intent/);
   assert.match(full, /FAQ:/);
@@ -1035,6 +1052,16 @@ test("footer and route files make answer pages reachable from public UI", () => 
     readApp("src/features/ynot/components.tsx"),
     /href="https:\/\/instagram\.com\/ynot"/,
     "footer Social link must not point to the unrelated instagram.com/ynot profile",
+  );
+  assert.match(
+    readApp("src/app/(store)/contact/page.tsx"),
+    /href="https:\/\/www\.instagram\.com\/_yfifteen\/"/,
+    "contact page should point support users to the official YNOT Instagram profile",
+  );
+  assert.doesNotMatch(
+    readApp("src/app/(store)/contact/page.tsx"),
+    /href="https:\/\/instagram\.com\/ynot"/,
+    "contact page must not point to the unrelated instagram.com/ynot profile",
   );
   assert.ok(
     existsSync(appPath("src/app/(store)/help/[slug]/page.tsx")),
