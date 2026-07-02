@@ -7,7 +7,6 @@ import { getMarketplaceAccountForProfile } from "@/lib/marketplace/account-bridg
 import { getMarketplaceCustomerCartSummary } from "@/lib/marketplace/cart-watchlist";
 import { MarketplaceCartDrawer } from "@/features/ynot/MarketplaceCartDrawer";
 import { MarketplaceCartProvider } from "@/features/ynot/MarketplaceCartProvider";
-import { MarketplaceHeaderActions } from "@/features/ynot/MarketplaceHeaderActions";
 
 export default async function MarketplaceLayout({
   children,
@@ -23,17 +22,9 @@ export default async function MarketplaceLayout({
     account,
     profile?.profileId ?? null,
   );
-  const showAdmin = admin?.adminRole === "owner" || admin?.adminRole === "admin";
 
   return (
     <MarketplaceCartProvider initialSummary={initialSummary}>
-      <div className="marketplace-shared-actions-shell">
-        <div>
-          <span>YNOT Marketplace</span>
-          <strong>Card market</strong>
-        </div>
-        <MarketplaceHeaderActions showAdmin={showAdmin} />
-      </div>
       <MarketplaceCartDrawer />
       {children}
     </MarketplaceCartProvider>

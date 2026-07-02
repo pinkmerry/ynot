@@ -16764,6 +16764,15 @@ html[data-ynot-theme="light"] .store-shell > div:not(.store-home-grid):not(.stor
   box-sizing: border-box !important;
 }
 
+html[data-ynot-theme="light"] .store-shell > .cr-root.cr-root-embedded {
+  max-width: none !important;
+  width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
 /* Page content sections — centered max-width Arena Club container. */
 html[data-ynot-theme="light"] .store-shell > .store-home-grid,
 html[data-ynot-theme="light"] .store-shell > .store-main-stack,
