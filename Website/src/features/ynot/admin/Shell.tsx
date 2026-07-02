@@ -45,6 +45,7 @@ const GACHA_NAV: { group: string; items: NavItem[] }[] = [
   {
     group: "Platform",
     items: [
+      { href: "/admin/seo", label: "SEO cockpit", icon: "search" },
       { href: "/admin/settings", label: "Settings", icon: "sliders" },
       { href: "/admin/audit", label: "Audit log", icon: "shield" },
       { href: "/admin/health", label: "Health", icon: "pulse" },
