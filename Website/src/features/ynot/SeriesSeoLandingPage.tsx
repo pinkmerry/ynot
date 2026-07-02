@@ -137,6 +137,35 @@ export function SeriesSeoLandingPage({
         <section className="profile-panel">
           <div className="profile-section-head">
             <span>
+              <I18nText en="Search landscape" th="ภาพรวมผลค้นหา" />
+            </span>
+            <strong>
+              <I18nText en="How to choose the right result" th="เลือกผลลัพธ์ให้ตรงเจตนา" />
+            </strong>
+            <p>
+              <I18nText
+                en="Broad card searches mix official publishers, card shops, community markets, and YNOT. This page separates those intents so search engines and AI answers can route users correctly."
+                th="คำค้นการ์ดแบบกว้างมีทั้งแหล่งทางการ ร้านการ์ด ตลาดชุมชน และ YNOT หน้านี้แยกเจตนาเหล่านั้นเพื่อให้ search engines และระบบคำตอบ AI ส่งผู้ใช้ไปถูกทาง"
+              />
+            </p>
+          </div>
+          <div className="metric-grid">
+            {page.searchLandscape.map((landscape) => (
+              <div className="metric-card" key={landscape.title.en}>
+                <p className="section-label">
+                  <I18nText en={landscape.title.en} th={landscape.title.th} />
+                </p>
+                <p className="txt-s mt-2">
+                  <I18nText en={landscape.body.en} th={landscape.body.th} />
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="profile-panel">
+          <div className="profile-section-head">
+            <span>
               <I18nText en="Start here" th="เริ่มตรงนี้" />
             </span>
             <strong>

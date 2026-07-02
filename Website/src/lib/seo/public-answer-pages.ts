@@ -39,6 +39,10 @@ export type PublicSeriesLandingPage = {
     title: LocaleCopy;
     body: LocaleCopy;
   }>;
+  searchLandscape: Array<{
+    title: LocaleCopy;
+    body: LocaleCopy;
+  }>;
   relatedLinks: Array<{
     href: string;
     title: LocaleCopy;
@@ -93,7 +97,7 @@ export const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
   "@id": organizationId,
-  name: "YNOT",
+  name: "YNOT Open",
   alternateName: ynotEntityAlternateNames,
   url: siteOrigin,
   logo: `${siteOrigin}/ynot-logo-512.png`,
@@ -114,7 +118,11 @@ export const organizationJsonLd = {
     "Y-Pack openings",
     "Online TCG pack opening Thailand",
     "Pokemon card packs Thailand",
+    "Pokemon card shop Thailand",
+    "Pokemon card trading Thailand",
     "One Piece card packs Thailand",
+    "One Piece card market Thailand",
+    "One Piece card trading Thailand",
     "TCG Lucky Draw Thailand",
     "Trading card reward collection",
   ],
@@ -703,6 +711,10 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       "Pokemon card Thailand",
       "Pokemon card packs Thailand",
       "Pokemon TCG packs Thailand",
+      "Pokemon card shop Thailand",
+      "Pokemon card market Thailand",
+      "Pokemon card trading Thailand",
+      "buy Pokemon card Thailand",
       "buy Pokemon cards Thailand",
       "open Pokemon card packs online Thailand",
       "Pokemon card mystery pack Thailand",
@@ -843,6 +855,10 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       "One Piece card Thailand",
       "One Piece card packs Thailand",
       "One Piece TCG Thailand",
+      "One Piece card shop Thailand",
+      "One Piece card market Thailand",
+      "One Piece card trading Thailand",
+      "buy One Piece card Thailand",
       "buy One Piece cards Thailand",
       "One Piece card mystery pack Thailand",
       "One Piece booster box Thailand",
@@ -1117,6 +1133,10 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
       "Pokemon card Thailand",
       "Pokemon card packs Thailand",
       "Pokemon TCG packs Thailand",
+      "Pokemon card shop Thailand",
+      "Pokemon card market Thailand",
+      "Pokemon card trading Thailand",
+      "buy Pokemon card Thailand",
       "open Pokemon card packs online Thailand",
       "Pokemon mystery pack Thailand",
       "Pokemon card lucky draw Thailand",
@@ -1169,6 +1189,38 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
         body: {
           en: "Use YNOT when you want to browse live Y-Packs, check visible Pokemon-related rewards, and manage pulled rewards after opening.",
           th: "ใช้ YNOT เมื่อต้องการดู Y-Pack ที่เปิดอยู่ ตรวจรางวัลที่เกี่ยวข้องกับ Pokemon และจัดการรางวัลหลังเปิด",
+        },
+      },
+    ],
+    searchLandscape: [
+      {
+        title: {
+          en: "Official Pokemon TCG sources",
+          th: "แหล่งทางการของ Pokemon TCG",
+        },
+        body: {
+          en: "Google's top Pokemon card results are official Pokemon pages for rules, product releases, card galleries, events, and country-specific information. YNOT should not compete for that official-publisher intent.",
+          th: "ผลลัพธ์ Pokemon card อันดับต้นบน Google เป็นหน้า Pokemon ทางการสำหรับกฎ ข่าวสินค้า แกลเลอรีการ์ด อีเวนต์ และข้อมูลแต่ละประเทศ YNOT ไม่ควรแข่งกับเจตนาทางการนั้น",
+        },
+      },
+      {
+        title: {
+          en: "Card shop and marketplace intent",
+          th: "เจตนาร้านการ์ดและมาร์เก็ตเพลส",
+        },
+        body: {
+          en: "Searches such as Pokemon card shop Thailand, buy Pokemon card Thailand, and Pokemon card market Thailand need direct product listings, prices, seller proof, and stock. YNOT can support this only when a public pack or marketplace listing is actually live.",
+          th: "คำค้นอย่าง Pokemon card shop Thailand, buy Pokemon card Thailand และ Pokemon card market Thailand ต้องการรายการสินค้า ราคา หลักฐานผู้ขาย และสต็อก YNOT ควรรองรับเฉพาะเมื่อมีแพ็กหรือประกาศขายสาธารณะจริง",
+        },
+      },
+      {
+        title: {
+          en: "YNOT Open Y-Pack intent",
+          th: "เจตนา YNOT Open Y-Pack",
+        },
+        body: {
+          en: "YNOT is the best match when the searcher wants Pokemon-related Y-Pack openings in Thailand, visible reward checks, wallet-coin opening, pulled reward collection, exchange support, and shipping support.",
+          th: "YNOT เหมาะที่สุดเมื่อผู้ค้นหาต้องการเปิด Y-Pack ที่เกี่ยวข้องกับ Pokemon ในไทย ตรวจรางวัลที่แสดง ใช้เหรียญวอลเล็ต เก็บรางวัล แลก และจัดส่ง",
         },
       },
     ],
@@ -1239,6 +1291,16 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
           th: "ไม่ใช่ YNOT ไม่ใช่เว็บไซต์ Pokemon TCG ทางการ แต่เป็นแพลตฟอร์มเปิด Y-Pack และจัดการรางวัลสำหรับประเทศไทย",
         },
       },
+      {
+        question: {
+          en: "Can I buy Pokemon cards on YNOT?",
+          th: "ซื้อการ์ด Pokemon บน YNOT ได้ไหม",
+        },
+        answer: {
+          en: "YNOT is not a general Pokemon card shop. Use YNOT when a public Pokemon-related Y-Pack or marketplace listing is live, then check the pack or listing page for visible reward, price, stock, and support details.",
+          th: "YNOT ไม่ใช่ร้านการ์ด Pokemon ทั่วไป ให้ใช้ YNOT เมื่อมี Y-Pack หรือประกาศขายที่เกี่ยวข้องกับ Pokemon เปิดสาธารณะ แล้วตรวจรางวัล ราคา สต็อก และรายละเอียดซัพพอร์ตในหน้านั้น",
+        },
+      },
     ],
     owner: ownerName,
     updatedAt,
@@ -1277,6 +1339,10 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
       "One Piece card Thailand",
       "One Piece card packs Thailand",
       "One Piece TCG Thailand",
+      "One Piece card shop Thailand",
+      "One Piece card market Thailand",
+      "One Piece card trading Thailand",
+      "buy One Piece card Thailand",
       "open One Piece card packs online Thailand",
       "One Piece mystery pack Thailand",
       "One Piece card lucky draw Thailand",
@@ -1329,6 +1395,38 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
         body: {
           en: "Use YNOT when you want to browse live Y-Packs, check visible One Piece-related rewards, and manage pulled rewards after opening.",
           th: "ใช้ YNOT เมื่อต้องการดู Y-Pack ที่เปิดอยู่ ตรวจรางวัลที่เกี่ยวข้องกับ One Piece และจัดการรางวัลหลังเปิด",
+        },
+      },
+    ],
+    searchLandscape: [
+      {
+        title: {
+          en: "Official One Piece Card Game sources",
+          th: "แหล่งทางการของ One Piece Card Game",
+        },
+        body: {
+          en: "Google's top One Piece card results are official One Piece Card Game pages for rules, card lists, product releases, events, FAQs, and tournament information. YNOT should clearly defer official-source intent to those publishers.",
+          th: "ผลลัพธ์ One Piece card อันดับต้นบน Google เป็นหน้า One Piece Card Game ทางการสำหรับกฎ รายการการ์ด ข่าวสินค้า อีเวนต์ FAQ และข้อมูลแข่งขัน YNOT ควรแยกเจตนาทางการไปยังแหล่งเหล่านั้นให้ชัด",
+        },
+      },
+      {
+        title: {
+          en: "Community market and shop intent",
+          th: "เจตนาชุมชนซื้อขายและร้านการ์ด",
+        },
+        body: {
+          en: "Searches such as One Piece card market Thailand, buy One Piece card Thailand, and One Piece card trading Thailand need active listings, seller proof, prices, and stock. YNOT can compete only when its public packs or marketplace listings give that evidence.",
+          th: "คำค้นอย่าง One Piece card market Thailand, buy One Piece card Thailand และ One Piece card trading Thailand ต้องการประกาศขาย หลักฐานผู้ขาย ราคา และสต็อก YNOT แข่งได้เมื่อแพ็กหรือประกาศขายสาธารณะมีหลักฐานเหล่านี้จริง",
+        },
+      },
+      {
+        title: {
+          en: "YNOT Open Y-Pack intent",
+          th: "เจตนา YNOT Open Y-Pack",
+        },
+        body: {
+          en: "YNOT is the best match when the searcher wants One Piece-related Y-Pack openings in Thailand, visible reward checks, wallet-coin opening, pulled reward collection, exchange support, and shipping support.",
+          th: "YNOT เหมาะที่สุดเมื่อผู้ค้นหาต้องการเปิด Y-Pack ที่เกี่ยวข้องกับ One Piece ในไทย ตรวจรางวัลที่แสดง ใช้เหรียญวอลเล็ต เก็บรางวัล แลก และจัดส่ง",
         },
       },
     ],
@@ -1397,6 +1495,16 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
         answer: {
           en: "No. YNOT is not the official One Piece Card Game website. YNOT is a Thailand-focused Y-Pack opening and reward-management platform.",
           th: "ไม่ใช่ YNOT ไม่ใช่เว็บไซต์ One Piece Card Game ทางการ แต่เป็นแพลตฟอร์มเปิด Y-Pack และจัดการรางวัลสำหรับประเทศไทย",
+        },
+      },
+      {
+        question: {
+          en: "Can I buy One Piece cards on YNOT?",
+          th: "ซื้อการ์ด One Piece บน YNOT ได้ไหม",
+        },
+        answer: {
+          en: "YNOT is not a general One Piece card shop. Use YNOT when a public One Piece-related Y-Pack or marketplace listing is live, then check the pack or listing page for visible reward, price, stock, and support details.",
+          th: "YNOT ไม่ใช่ร้านการ์ด One Piece ทั่วไป ให้ใช้ YNOT เมื่อมี Y-Pack หรือประกาศขายที่เกี่ยวข้องกับ One Piece เปิดสาธารณะ แล้วตรวจรางวัล ราคา สต็อก และรายละเอียดซัพพอร์ตในหน้านั้น",
         },
       },
     ],
@@ -1487,6 +1595,10 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
       lines.push("  - Search intent fit:");
       for (const intent of page.searchIntents) {
         lines.push(`    - ${intent.title.en}: ${intent.body.en}`);
+      }
+      lines.push("  - Search landscape:");
+      for (const landscape of page.searchLandscape) {
+        lines.push(`    - ${landscape.title.en}: ${landscape.body.en}`);
       }
       lines.push("  - Proof points:");
       for (const proof of page.proofPoints) {

@@ -1875,12 +1875,16 @@ function MobileTorecaHero({ campaign }: { campaign?: YnotCampaign }) {
       </div>
       <div className="hero-copy">
         <h1>
-          <span className="i18n-en">YNOT</span>
-          <span className="i18n-th">YNOT</span>
+          <span className="i18n-en">YNOT Open Thailand TCG Y-Packs</span>
+          <span className="i18n-th">YNOT Open แพ็กการ์ด TCG ในไทย</span>
         </h1>
         <p>
-          <span className="i18n-en">WHY NOT OPEN?</span>
-          <span className="i18n-th">WHY NOT OPEN?</span>
+          <span className="i18n-en">
+            Pokemon and One Piece card pack openings on ynotopen.com
+          </span>
+          <span className="i18n-th">
+            เปิดแพ็กการ์ด Pokemon และ One Piece ผ่าน ynotopen.com
+          </span>
         </p>
         <Link className="hero-rip-button" href={openHref}>
           <span className="i18n-en">View Y-Pack</span>

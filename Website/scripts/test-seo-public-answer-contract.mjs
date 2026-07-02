@@ -149,6 +149,14 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "Pokemon category page must target local pack intent",
   );
   assert.ok(
+    pokemonCategory.queryTargets.includes("Pokemon card shop Thailand"),
+    "Pokemon category page must target card-shop intent without pretending YNOT is the official publisher",
+  );
+  assert.ok(
+    pokemonCategory.queryTargets.includes("buy Pokemon card Thailand"),
+    "Pokemon category page must target commercial purchase variants",
+  );
+  assert.ok(
     pokemonCategory.queryTargets.includes("การ์ดโปเกมอน"),
     "Pokemon category page must target Thai-language collector intent",
   );
@@ -169,6 +177,14 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.ok(
     onePieceCategory.queryTargets.includes("One Piece card packs Thailand"),
     "One Piece category page must target local pack intent",
+  );
+  assert.ok(
+    onePieceCategory.queryTargets.includes("One Piece card market Thailand"),
+    "One Piece category page must target community market intent",
+  );
+  assert.ok(
+    onePieceCategory.queryTargets.includes("buy One Piece card Thailand"),
+    "One Piece category page must target commercial purchase variants",
   );
   assert.ok(
     onePieceCategory.queryTargets.includes("การ์ดวันพีซ"),
@@ -249,6 +265,11 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     "Organization schema needs a stable entity id for YNOT",
   );
   assert.equal(seo.organizationJsonLd.url, "https://www.ynotopen.com");
+  assert.equal(
+    seo.organizationJsonLd.name,
+    "YNOT Open",
+    "Organization schema should use the disambiguated public entity name",
+  );
   assert.equal(
     seo.organizationJsonLd.logo,
     "https://www.ynotopen.com/ynot-logo-512.png",
@@ -374,6 +395,11 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
+    /YNOT Open Thailand TCG Y-Packs/,
+    "homepage H1 should describe the public entity and category, not only the short brand",
+  );
+  assert.match(
+    readApp("src/features/ynot/components.tsx"),
     /YNOT Open is a Thailand TCG Y-Pack and card trading site/,
     "homepage should expose a concise What is YNOT Open answer block",
   );
@@ -423,6 +449,18 @@ test("public series landing pages target broad card category intent", () => {
     "Pokemon hub must target the reachable commercial/local pack-opening query",
   );
   assert.ok(
+    pokemonHub.queryTargets.includes("Pokemon card shop Thailand"),
+    "Pokemon hub must include card shop variants from the current SERP landscape",
+  );
+  assert.ok(
+    pokemonHub.searchLandscape.some((item) => /Official Pokemon TCG/i.test(item.title.en)),
+    "Pokemon hub must explain official-source intent from the top Google results",
+  );
+  assert.ok(
+    pokemonHub.searchLandscape.some((item) => /Card shop and marketplace/i.test(item.title.en)),
+    "Pokemon hub must explain shop and marketplace intent",
+  );
+  assert.ok(
     pokemonHub.relatedLinks.some((link) => link.href === "/packs?series=pokemon"),
     "Pokemon hub must link directly to the filtered public pack browse route",
   );
@@ -441,6 +479,18 @@ test("public series landing pages target broad card category intent", () => {
     "One Piece hub must target the reachable commercial/local pack-opening query",
   );
   assert.ok(
+    onePieceHub.queryTargets.includes("One Piece card market Thailand"),
+    "One Piece hub must include market variants from the current SERP landscape",
+  );
+  assert.ok(
+    onePieceHub.searchLandscape.some((item) => /Official One Piece Card Game/i.test(item.title.en)),
+    "One Piece hub must explain official-source intent from the top Google results",
+  );
+  assert.ok(
+    onePieceHub.searchLandscape.some((item) => /Community market and shop/i.test(item.title.en)),
+    "One Piece hub must explain community market and shop intent",
+  );
+  assert.ok(
     onePieceHub.relatedLinks.some((link) => link.href === "/packs?series=one_piece"),
     "One Piece hub must link directly to the filtered public pack browse route",
   );
@@ -449,12 +499,13 @@ test("public series landing pages target broad card category intent", () => {
     assert.equal(page.owner, "YNOT Operations");
     assert.match(page.updatedAt, /^\d{4}-\d{2}-\d{2}$/);
     assert.ok(page.searchIntents.length >= 3, `${page.slug} needs intent coverage`);
+    assert.ok(page.searchLandscape.length >= 3, `${page.slug} needs SERP landscape coverage`);
     assert.ok(page.relatedLinks.length >= 3, `${page.slug} needs supporting links`);
     assert.ok(page.faqs.length >= 2, `${page.slug} needs FAQ coverage`);
 
     const jsonLd = seo.buildSeriesLandingPageJsonLd(page);
     assert.equal(jsonLd.collectionPage["@type"], "CollectionPage");
-    assert.equal(jsonLd.collectionPage.publisher.name, "YNOT");
+    assert.equal(jsonLd.collectionPage.publisher.name, "YNOT Open");
     assert.equal(
       jsonLd.collectionPage.mainEntity.itemListElement.length,
       page.relatedLinks.length,
@@ -562,6 +613,9 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
     "full AI source index should include expanded answers, proof points, and FAQs",
   );
   assert.match(full, /Proof points:/);
+  assert.match(full, /Search landscape:/);
+  assert.match(full, /Card shop and marketplace intent/);
+  assert.match(full, /Community market and shop intent/);
   assert.match(full, /FAQ:/);
   assert.match(full, /YNOT wallet coins are platform credits/);
 
@@ -599,6 +653,11 @@ test("footer and route files make answer pages reachable from public UI", () => 
     readApp("src/features/ynot/components.tsx"),
     /href="\/one-piece-card"/,
     "footer and homepage should link to the One Piece card series hub",
+  );
+  assert.match(
+    readApp("src/features/ynot/SeriesSeoLandingPage.tsx"),
+    /Search landscape/,
+    "series hubs should render the SERP landscape analysis for broad card terms",
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
