@@ -110,6 +110,24 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     officialSite.proofPoints.some((proof) => /_yfifteen/.test(proof.en)),
     "official-site page must cite the official Instagram identity",
   );
+  assert.ok(
+    Array.isArray(officialSite.sourceLinks) && officialSite.sourceLinks.length >= 3,
+    "official-site page must expose public social and event proof links",
+  );
+  assert.ok(
+    officialSite.sourceLinks.some((source) =>
+      /instagram\.com\/_yfifteen/.test(source.href),
+    ),
+    "official-site page must link the official Instagram profile",
+  );
+  assert.ok(
+    officialSite.sourceLinks.some((source) => /DY4XJw9JwIF/.test(source.href)),
+    "official-site page must link public YNOT x MIDNIGHT event proof",
+  );
+  assert.ok(
+    officialSite.sourceLinks.some((source) => /DaFBrCTjqZ8/.test(source.href)),
+    "official-site page must link public VIP Card International Expo YNOT proof",
+  );
 
   const ynotTcg = seo.getPublicAnswerPage("ynot-tcg-lucky-draw-thailand");
   assert.equal(ynotTcg.path, "/help/ynot-tcg-lucky-draw-thailand");
@@ -506,6 +524,19 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
   assert.ok(
     seo.organizationJsonLd.sameAs.includes("https://www.instagram.com/_yfifteen/"),
     "Organization schema must point to the official YNOT Instagram profile",
+  );
+  assert.ok(
+    Array.isArray(seo.organizationJsonLd.subjectOf) &&
+      seo.organizationJsonLd.subjectOf.some((subject) =>
+        /DY4XJw9JwIF/.test(subject.url),
+      ),
+    "Organization schema must connect YNOT to public YNOT x MIDNIGHT event proof",
+  );
+  assert.ok(
+    seo.organizationJsonLd.subjectOf.some((subject) =>
+      /DaFBrCTjqZ8/.test(subject.url),
+    ),
+    "Organization schema must connect YNOT to public VIP Card International Expo proof",
   );
   assert.ok(
     seo.organizationJsonLd.knowsAbout.includes("Y-Pack openings"),

@@ -133,6 +133,22 @@ export const organizationJsonLd = {
   disambiguatingDescription:
     "YNOT on ynotopen.com is the Thailand-focused trading card and Y-Pack platform also searched as YNOT Open, ynotopen, YNOT TCG Thailand, and _yfifteen. It is separate from unrelated YNOT free YouTube downloader pages, Ynot7 and Y Not 7 music results, BEST OF Y NOT 7 Spotify albums, Y Not Festival, YnotOne education CRM pages, YNOT phone-case brands, restaurant, software, and studio brands.",
   sameAs: ["https://www.instagram.com/_yfifteen/"],
+  subjectOf: [
+    {
+      "@type": "WebPage",
+      name: "YNOT x MIDNIGHT Thailand International Card Expo public mention",
+      url: "https://www.instagram.com/p/DY4XJw9JwIF/",
+      description:
+        "Public Instagram event mention with YNOT x MIDNIGHT booth wording for Thailand International Card Expo context.",
+    },
+    {
+      "@type": "WebPage",
+      name: "CGC by Eur-Seree x YNOT VIP Card International Expo 2026 mention",
+      url: "https://www.instagram.com/reel/DaFBrCTjqZ8/",
+      description:
+        "Public Instagram event mention connecting CGC by Eur-Seree x YNOT with VIP Card International Expo 2026.",
+    },
+  ],
   brand: {
     "@id": brandId,
   },
@@ -436,6 +452,41 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       {
         en: "For the shortest branded query, search YNOT official site or YNOT ynotopen.com.",
         th: "สำหรับคำค้นสั้นที่สุด ให้ค้นว่า YNOT official site หรือ YNOT ynotopen.com",
+      },
+    ],
+    sourceLinks: [
+      {
+        href: "https://www.instagram.com/_yfifteen/",
+        title: {
+          en: "Official YNOT Instagram _yfifteen",
+          th: "Instagram ทางการของ YNOT _yfifteen",
+        },
+        description: {
+          en: "Official Instagram profile linked from ynotopen.com for YNOT identity, social proof, and event updates.",
+          th: "โปรไฟล์ Instagram ทางการที่ลิงก์จาก ynotopen.com สำหรับตัวตน YNOT หลักฐานโซเชียล และอัปเดตอีเวนต์",
+        },
+      },
+      {
+        href: "https://www.instagram.com/p/DY4XJw9JwIF/",
+        title: {
+          en: "YNOT x MIDNIGHT event proof",
+          th: "หลักฐานอีเวนต์ YNOT x MIDNIGHT",
+        },
+        description: {
+          en: "Public Instagram event mention with YNOT x MIDNIGHT booth wording for Thailand International Card Expo context.",
+          th: "โพสต์ Instagram สาธารณะที่กล่าวถึงบูธ YNOT x MIDNIGHT ในบริบท Thailand International Card Expo",
+        },
+      },
+      {
+        href: "https://www.instagram.com/reel/DaFBrCTjqZ8/",
+        title: {
+          en: "CGC by Eur-Seree x YNOT event proof",
+          th: "หลักฐานอีเวนต์ CGC by Eur-Seree x YNOT",
+        },
+        description: {
+          en: "Public Instagram event mention connecting CGC by Eur-Seree x YNOT with VIP Card International Expo 2026.",
+          th: "รีล Instagram สาธารณะที่เชื่อม CGC by Eur-Seree x YNOT กับ VIP Card International Expo 2026",
+        },
       },
     ],
     faqs: [

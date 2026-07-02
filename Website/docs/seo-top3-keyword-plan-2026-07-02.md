@@ -315,6 +315,13 @@ ChatGPT Search answered that `https://www.ynotopen.com/` was not top 3 for exact
 - Added the URL to the AI source index through the public answer-page source loop and priority search intent list.
 - Kept the page truthful: it positions YNOT as a Y-Pack opening and reward-management platform, while sending official rules, product, event, and tournament intent to official One Piece Card Game sources.
 
+### Done in the exact-YNOT entity-proof pass
+
+- Added public source links to `/ynot` for the official `_yfifteen` Instagram profile plus two public event/social mentions that connect YNOT to card-event activity.
+- Added Organization `subjectOf` schema for public YNOT x MIDNIGHT and CGC by Eur-Seree x YNOT event mentions while keeping `sameAs` limited to the official YNOT Instagram profile.
+- Locked the new entity-proof layer in `test:seo-public-answer-contract` so the exact-match YNOT page does not regress to a text-only disambiguation page.
+- This supports exact `ynot` and AI citation trust, but it still depends on recrawl plus off-site links/mentions before Google can outrank unrelated Ynot7, downloader, music, festival, and studio entities.
+
 ### Next actions outside code
 
 - Submit these URLs in Google Search Console URL Inspection:
@@ -330,6 +337,7 @@ ChatGPT Search answered that `https://www.ynotopen.com/` was not top 3 for exact
   - `/help/one-piece-card-packs-thailand`
   - `/help/open-one-piece-card-packs-online-thailand`
   - the strongest live pack URLs for Pokemon and One Piece
+- Ask public event/social sources that mention YNOT, YNOT x MIDNIGHT, or CGC by Eur-Seree x YNOT to link back to `https://www.ynotopen.com/ynot` or `https://www.ynotopen.com/`.
 - Update Instagram bio/name and event captions to say `YNOT Open - Thailand TCG Y-Packs` and link to `https://www.ynotopen.com/ynot`.
 - Ask event partners and card communities to link to `https://www.ynotopen.com/ynot`, `/pokemon-card`, or `/one-piece-card` using descriptive anchor text.
 - Preserve event pages/posts as proof. Do not replace old event proof every week; add new dated proof and keep stable evergreen pages linked.
