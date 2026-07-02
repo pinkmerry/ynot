@@ -247,12 +247,48 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "Bangkok event page must target branded local event searches",
   );
   assert.ok(
+    bangkokEvents.queryTargets.includes("YNOT TCG VIP Card International Expo"),
+    "Bangkok event page must target the public VIP Card International Expo YNOT mention",
+  );
+  assert.ok(
+    bangkokEvents.queryTargets.includes("YNOT x MIDNIGHT Bangkok"),
+    "Bangkok event page must target the YNOT x MIDNIGHT event proof phrase",
+  );
+  assert.ok(
+    bangkokEvents.queryTargets.includes("_yfifteen Bangkok card event"),
+    "Bangkok event page must target the official Instagram event proof phrase",
+  );
+  assert.ok(
     bangkokEvents.faqs.some((faq) => /rotate.*every week/i.test(faq.question.en)),
     "Bangkok event page must answer the weekly rotation question",
   );
   assert.ok(
     bangkokEvents.proofPoints.some((proof) => /past-event proof/i.test(proof.en)),
     "Bangkok event page must preserve event proof instead of replacing it",
+  );
+  assert.ok(
+    bangkokEvents.proofPoints.some((proof) => /YNOT x MIDNIGHT/.test(proof.en)),
+    "Bangkok event page must preserve the YNOT x MIDNIGHT external proof phrase",
+  );
+  assert.ok(
+    Array.isArray(bangkokEvents.sourceLinks) && bangkokEvents.sourceLinks.length >= 3,
+    "Bangkok event page must expose public source links for event/entity proof",
+  );
+  assert.ok(
+    bangkokEvents.sourceLinks.some(
+      (source) => source.href === "https://www.instagram.com/_yfifteen/",
+    ),
+    "Bangkok event page must link the official Instagram source",
+  );
+  assert.ok(
+    bangkokEvents.sourceLinks.some((source) => /DYG_PoKhWtr/.test(source.href)),
+    "Bangkok event page must link the YNOT x MIDNIGHT source mention",
+  );
+  assert.ok(
+    bangkokEvents.sourceLinks.some((source) =>
+      /VIP CARD INTERNATIONAL EXPO 2026/.test(source.title.en),
+    ),
+    "Bangkok event page must link a VIP Card International Expo 2026 YNOT TCG mention",
   );
 });
 
@@ -305,6 +341,14 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
   assert.ok(
     seo.organizationJsonLd.knowsAbout.includes("Y-Pack openings"),
     "Organization schema must describe the YNOT card-platform knowledge area",
+  );
+  assert.ok(
+    seo.organizationJsonLd.knowsAbout.includes("Bangkok trading card events"),
+    "Organization schema must connect YNOT with local Bangkok event authority",
+  );
+  assert.ok(
+    seo.organizationJsonLd.knowsAbout.includes("TCG events Bangkok"),
+    "Organization schema must connect YNOT with TCG event searches in Bangkok",
   );
   assert.match(
     seo.organizationJsonLd.disambiguatingDescription,
@@ -420,6 +464,17 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     const jsonLd = seo.buildAnswerPageJsonLd(page);
     assert.equal(jsonLd.article["@type"], "Article");
     assert.equal(jsonLd.article.author.name, "YNOT Operations");
+    if (page.sourceLinks && page.sourceLinks.length > 0) {
+      assert.equal(
+        jsonLd.article.mentions.length,
+        page.sourceLinks.length,
+        `${page.slug} Article mentions must match visible source links`,
+      );
+      assert.ok(
+        jsonLd.article.mentions.every((mention) => mention["@type"] === "WebPage"),
+        `${page.slug} Article mentions must describe source links as WebPage nodes`,
+      );
+    }
     assert.equal(jsonLd.faq["@type"], "FAQPage");
     assert.equal(
       jsonLd.faq.mainEntity.length,
@@ -464,6 +519,10 @@ test("public series landing pages target broad card category intent", () => {
     pokemonHub.relatedLinks.some((link) => link.href === "/packs?series=pokemon"),
     "Pokemon hub must link directly to the filtered public pack browse route",
   );
+  assert.ok(
+    pokemonHub.relatedLinks.some((link) => link.href === "/help/bangkok-card-events"),
+    "Pokemon hub must link to local Bangkok event proof",
+  );
 
   const onePieceHub = seo.getPublicSeriesLandingPage("one-piece-card");
   assert.equal(onePieceHub.path, "/one-piece-card");
@@ -493,6 +552,10 @@ test("public series landing pages target broad card category intent", () => {
   assert.ok(
     onePieceHub.relatedLinks.some((link) => link.href === "/packs?series=one_piece"),
     "One Piece hub must link directly to the filtered public pack browse route",
+  );
+  assert.ok(
+    onePieceHub.relatedLinks.some((link) => link.href === "/help/bangkok-card-events"),
+    "One Piece hub must link to local Bangkok event proof",
   );
 
   for (const page of seo.publicSeriesLandingPages) {
@@ -671,6 +734,16 @@ test("public pack browse and detail routes expose commerce-ready proof schema", 
     /visibility === "public"/,
     "pack SEO eligibility must preserve the public/private crawl boundary",
   );
+  assert.match(
+    readApp("src/features/ynot/PublicAnswerPage.tsx"),
+    /Source links/,
+    "public answer pages must visibly render source-link proof when configured",
+  );
+  assert.match(
+    readApp("src/features/ynot/PublicAnswerPage.tsx"),
+    /Public event and social proof/,
+    "public answer pages must label event and social proof for crawlers and users",
+  );
 });
 
 test("sitemap and robots routes publish the public answer surface", () => {
@@ -767,6 +840,9 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   );
   assert.match(full, /Proof points:/);
   assert.match(full, /Search landscape:/);
+  assert.match(full, /Source links:/);
+  assert.match(full, /VIP CARD INTERNATIONAL EXPO 2026/);
+  assert.match(full, /YNOT x MIDNIGHT/);
   assert.match(full, /Card shop and marketplace intent/);
   assert.match(full, /Community market and shop intent/);
   assert.match(full, /FAQ:/);

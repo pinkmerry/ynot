@@ -123,6 +123,37 @@ export function PublicAnswerPage({
           </div>
         </section>
 
+        {page.sourceLinks && page.sourceLinks.length > 0 && (
+          <section className="profile-panel">
+            <div className="profile-section-head">
+              <span>
+                <I18nText en="Source links" th="ลิงก์หลักฐาน" />
+              </span>
+              <strong>
+                <I18nText en="Public event and social proof" th="หลักฐานอีเวนต์และโซเชียลสาธารณะ" />
+              </strong>
+            </div>
+            <div className="stack-list">
+              {page.sourceLinks.map((source) => (
+                <a
+                  className="activity-card"
+                  href={source.href}
+                  key={source.href}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  <span className="section-label">
+                    <I18nText en={source.title.en} th={source.title.th} />
+                  </span>
+                  <span className="txt-s mt-2">
+                    <I18nText en={source.description.en} th={source.description.th} />
+                  </span>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className="profile-panel">
           <div className="profile-section-head">
             <span>

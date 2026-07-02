@@ -17,6 +17,11 @@ export type PublicAnswerPage = {
   queryTargets: string[];
   proofPoints: LocaleCopy[];
   steps?: LocaleCopy[];
+  sourceLinks?: Array<{
+    href: string;
+    title: LocaleCopy;
+    description: LocaleCopy;
+  }>;
   faqs: PublicAnswerFaq[];
   owner: "YNOT Operations";
   updatedAt: string;
@@ -136,6 +141,8 @@ export const organizationJsonLd = {
     "One Piece card trading Thailand",
     "TCG Lucky Draw Thailand",
     "Trading card reward collection",
+    "Bangkok trading card events",
+    "TCG events Bangkok",
   ],
   contactPoint: [
     {
@@ -647,6 +654,8 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       "TCG lucky draw Thailand",
       "online card pack opening Thailand",
       "YNOT Pokemon One Piece cards",
+      "YNOT TCG Bangkok event",
+      "YNOT TCG VIP Card International Expo",
     ],
     proofPoints: [
       {
@@ -660,6 +669,10 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       {
         en: "Public Y-Pack pages should be checked for current series, visible reward details, coin cost, stock status, and account requirements before opening.",
         th: "ควรตรวจหน้า Y-Pack สาธารณะเพื่อดูซีรีส์ปัจจุบัน รายละเอียดรางวัล ราคาเหรียญ สถานะสต็อก และเงื่อนไขบัญชีก่อนเปิด",
+      },
+      {
+        en: "YNOT event and social proof should point back to ynotopen.com and the official _yfifteen Instagram profile so search systems can connect off-site mentions with the same entity.",
+        th: "หลักฐานอีเวนต์และโซเชียลของ YNOT ควรลิงก์กลับมาที่ ynotopen.com และ Instagram _yfifteen ทางการ เพื่อให้ระบบค้นหาเชื่อม mention ภายนอกกับตัวตนเดียวกันได้",
       },
     ],
     steps: [
@@ -1043,6 +1056,9 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       "TCG event Bangkok",
       "YNOT card event Bangkok",
       "YNOT event Bangkok",
+      "YNOT TCG VIP Card International Expo",
+      "YNOT x MIDNIGHT Bangkok",
+      "_yfifteen Bangkok card event",
     ],
     proofPoints: [
       {
@@ -1057,6 +1073,10 @@ export const publicAnswerPages: PublicAnswerPage[] = [
         en: "Create a separate dated event page only when a confirmed event has enough unique information, such as venue, date, booth number, lineup, offers, or recap media.",
         th: "ควรสร้างหน้าอีเวนต์แยกตามวันที่เฉพาะเมื่องานนั้นยืนยันแล้วและมีข้อมูลเฉพาะพอ เช่น สถานที่ วันที่ เลขบูธ ไลน์อัป โปรโมชัน หรือสื่อสรุปงาน",
       },
+      {
+        en: "Official social and third-party event mentions should use consistent language such as YNOT Open, YNOT TCG, YNOT x MIDNIGHT, ynotopen.com, and _yfifteen.",
+        th: "โซเชียลทางการและ mention อีเวนต์จากภายนอกควรใช้ภาษาเดียวกัน เช่น YNOT Open, YNOT TCG, YNOT x MIDNIGHT, ynotopen.com และ _yfifteen",
+      },
     ],
     steps: [
       {
@@ -1070,6 +1090,41 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       {
         en: "After each event, add recap proof instead of deleting the old event signal.",
         th: "หลังจบแต่ละงาน ให้เพิ่มหลักฐานสรุปงานแทนการลบสัญญาณอีเวนต์เดิม",
+      },
+    ],
+    sourceLinks: [
+      {
+        href: "https://www.instagram.com/_yfifteen/",
+        title: {
+          en: "Official YNOT Instagram _yfifteen",
+          th: "Instagram ทางการของ YNOT _yfifteen",
+        },
+        description: {
+          en: "Primary public social profile for YNOT event updates, social proof, and entity consistency.",
+          th: "โปรไฟล์โซเชียลสาธารณะหลักของ YNOT สำหรับอัปเดตอีเวนต์ หลักฐานโซเชียล และความสม่ำเสมอของตัวตน",
+        },
+      },
+      {
+        href: "https://www.instagram.com/reel/DYG_PoKhWtr/",
+        title: {
+          en: "Bangkok boothing mention with YNOT x MIDNIGHT",
+          th: "mention งานบูธกรุงเทพที่กล่าวถึง YNOT x MIDNIGHT",
+        },
+        description: {
+          en: "A public event/social mention that connects Bangkok booth activity with YNOT x MIDNIGHT and _yfifteen.",
+          th: "mention อีเวนต์/โซเชียลสาธารณะที่เชื่อมกิจกรรมบูธกรุงเทพกับ YNOT x MIDNIGHT และ _yfifteen",
+        },
+      },
+      {
+        href: "https://www.facebook.com/groups/299453794859662/posts/1654459322692429/",
+        title: {
+          en: "VIP CARD INTERNATIONAL EXPO 2026 public YNOT TCG mention",
+          th: "mention สาธารณะ YNOT TCG ในงาน VIP CARD INTERNATIONAL EXPO 2026",
+        },
+        description: {
+          en: "A public community/event mention that includes YNOT TCG around VIP CARD INTERNATIONAL EXPO 2026.",
+          th: "mention จากคอมมูนิตี้/อีเวนต์สาธารณะที่รวม YNOT TCG ในบริบท VIP CARD INTERNATIONAL EXPO 2026",
+        },
       },
     ],
     faqs: [
@@ -1280,6 +1335,17 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
           th: "ยืนยันว่า YNOT TCG, Y-Packs, เหรียญวอลเล็ต, คอลเลกชัน, การแลก และจัดส่งเชื่อมกันอย่างไร",
         },
       },
+      {
+        href: "/help/bangkok-card-events",
+        title: {
+          en: "Bangkok card event proof",
+          th: "หลักฐานอีเวนต์การ์ดกรุงเทพ",
+        },
+        description: {
+          en: "Connect Pokemon-related Y-Pack searches with YNOT event and social proof in Bangkok.",
+          th: "เชื่อมคำค้น Y-Pack ที่เกี่ยวข้องกับ Pokemon กับหลักฐานอีเวนต์และโซเชียลของ YNOT ในกรุงเทพ",
+        },
+      },
     ],
     faqs: [
       {
@@ -1486,6 +1552,17 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
           th: "แยกว่าเมื่อไร YNOT, SNKRDUNK, StockX, ร้านการ์ด หรือมาร์เก็ตเพลสเหมาะกับเจตนาการ์ดแต่ละแบบ",
         },
       },
+      {
+        href: "/help/bangkok-card-events",
+        title: {
+          en: "Bangkok card event proof",
+          th: "หลักฐานอีเวนต์การ์ดกรุงเทพ",
+        },
+        description: {
+          en: "Connect One Piece-related Y-Pack searches with YNOT event and social proof in Bangkok.",
+          th: "เชื่อมคำค้น Y-Pack ที่เกี่ยวข้องกับ One Piece กับหลักฐานอีเวนต์และโซเชียลของ YNOT ในกรุงเทพ",
+        },
+      },
     ],
     faqs: [
       {
@@ -1642,6 +1719,13 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
       for (const proof of page.proofPoints) {
         lines.push(`    - ${proof.en}`);
       }
+      if (page.sourceLinks && page.sourceLinks.length > 0) {
+        lines.push("  - Source links:");
+        for (const source of page.sourceLinks) {
+          lines.push(`    - ${source.title.en}: ${source.href}`);
+          lines.push(`      ${source.description.en}`);
+        }
+      }
       lines.push("  - FAQ:");
       for (const faq of page.faqs) {
         lines.push(`    - Q: ${faq.question.en}`);
@@ -1704,6 +1788,12 @@ export function buildAnswerPageJsonLd(page: PublicAnswerPage) {
         url: `${siteOrigin}/about`,
       },
       publisher: organizationJsonLd,
+      mentions: page.sourceLinks?.map((source) => ({
+        "@type": "WebPage",
+        name: source.title.en,
+        url: source.href,
+        description: source.description.en,
+      })),
     },
     faq: {
       "@context": "https://schema.org",
