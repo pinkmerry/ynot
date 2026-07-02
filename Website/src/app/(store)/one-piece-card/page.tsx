@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SeriesSeoLandingPage } from "@/features/ynot/SeriesSeoLandingPage";
+import { getPublicSeriesSeoData } from "@/features/ynot/series-seo-campaigns";
 import {
   canonicalUrl,
   getPublicSeriesLandingPage,
@@ -7,7 +8,7 @@ import {
 
 const page = getPublicSeriesLandingPage("one-piece-card");
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: page.title.en,
@@ -29,6 +30,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function OnePieceCardLandingPage() {
-  return <SeriesSeoLandingPage page={page} />;
+export default async function OnePieceCardLandingPage() {
+  const data = await getPublicSeriesSeoData(page.seriesParam);
+
+  return (
+    <SeriesSeoLandingPage
+      campaigns={data.campaigns}
+      page={page}
+      viewer={data.viewer}
+    />
+  );
 }

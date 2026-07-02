@@ -58,28 +58,28 @@ const prompt = Prompt({
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.ynotopen.com"),
   title: {
-    default: "YNOT · Open TCG Y-Packs Online",
+    default: "YNOT Open · Thailand TCG Y-Packs Online",
     template: "%s | YNOT",
   },
   description:
-    "YNOT is a Thailand-focused trading card platform for opening digital Y-Packs, managing pulled rewards, topping up wallet coins, and requesting exchange or shipping support.",
+    "YNOT Open is a Thailand TCG Y-Pack and card trading site for Pokemon and One Piece collectors, wallet coins, pulled rewards, exchange, and shipping support.",
   applicationName: "YNOT",
   alternates: {
     canonical: "https://www.ynotopen.com",
   },
   openGraph: {
-    title: "YNOT · Open TCG Y-Packs Online",
+    title: "YNOT Open · Thailand TCG Y-Packs Online",
     description:
-      "Browse public Y-Packs, open with YNOT wallet coins, and manage pulled trading card rewards through collection, exchange, and shipping flows.",
+      "Browse public Y-Packs, open with YNOT wallet coins, and manage Pokemon, One Piece, and other trading card rewards through collection, exchange, and shipping flows.",
     url: "https://www.ynotopen.com",
     siteName: "YNOT",
     type: "website",
   },
   twitter: {
     card: "summary",
-    title: "YNOT · Open TCG Y-Packs Online",
+    title: "YNOT Open · Thailand TCG Y-Packs Online",
     description:
-      "Open digital TCG Y-Packs online in Thailand and manage pulled rewards with YNOT.",
+      "Open digital TCG Y-Packs online in Thailand and manage pulled Pokemon, One Piece, and other card rewards with YNOT.",
   },
   robots: {
     index: true,

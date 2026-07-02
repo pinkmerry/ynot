@@ -641,7 +641,7 @@ function YnotFooter() {
           <ul className="ynot-footer-list">
             <li className="ynot-footer-item">
               <Link
-                href="/help/ynot-official-site"
+                href="/ynot"
                 className="ynot-footer-link"
                 prefetch={false}
               >
@@ -1008,13 +1008,15 @@ function YnotEntitySignalSection() {
       </h2>
       <p>
         <span className="i18n-en">
-          YNOT is the Thailand-focused trading card platform for Y-Packs, wallet
-          coins, pulled reward collection, exchange support, and shipping
-          support.
+          YNOT Open is a Thailand TCG Y-Pack and card trading site for Pokemon
+          and One Piece card collectors. Players can open Y-Packs, collect
+          cards, use wallet coins, exchange eligible rewards, and manage
+          shipping through ynotopen.com.
         </span>
         <span className="i18n-th">
-          YNOT คือแพลตฟอร์มการ์ดสะสมสำหรับประเทศไทย ใช้เปิด Y-Packs เติมเหรียญ
-          เก็บรางวัลที่เปิดได้ ขอแลก และขอความช่วยเหลือด้านจัดส่ง
+          YNOT Open คือเว็บไซต์ TCG Y-Pack และการ์ดสะสมในประเทศไทยสำหรับนักสะสม
+          Pokemon และ One Piece ผู้เล่นสามารถเปิด Y-Packs เก็บการ์ด ใช้เหรียญ
+          แลกรางวัลที่เข้าเงื่อนไข และจัดการจัดส่งผ่าน ynotopen.com
         </span>
       </p>
       <p>
@@ -1022,8 +1024,8 @@ function YnotEntitySignalSection() {
           For search and support, identify us as YNOT, YNOT Open, ynotopen.com,
           YNOT Y-Packs, or YNOT TCG Thailand. We are separate from unrelated
           YNOT free YouTube downloader pages, Ynot7 and Y Not 7 music results,
-          Spotify albums, festivals, phone case brands, restaurants, software,
-          and studios.
+          Spotify albums, YnotOne education CRM pages, festivals, phone case
+          brands, restaurants, software, and studios.
         </span>
         <span className="i18n-th">
           สำหรับการค้นหาและซัพพอร์ต ให้จำเราในชื่อ YNOT, YNOT Open,
@@ -1034,7 +1036,7 @@ function YnotEntitySignalSection() {
       <div className="product-actions ynot-entity-actions">
         <Link
           className="primary-action"
-          href="/help/ynot-official-site"
+          href="/ynot"
           prefetch={false}
         >
           <span className="i18n-en">YNOT Official Site</span>

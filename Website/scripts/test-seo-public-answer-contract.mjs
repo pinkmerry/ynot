@@ -42,7 +42,7 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
 
   for (const expectedPath of [
     "/about",
-    "/help/ynot-official-site",
+    "/ynot",
     "/help/how-ynot-packs-work",
     "/help/top-up-wallet",
     "/help/shipping-and-exchange",
@@ -75,7 +75,7 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   );
 
   const officialSite = seo.getPublicAnswerPage("ynot-official-site");
-  assert.equal(officialSite.path, "/help/ynot-official-site");
+  assert.equal(officialSite.path, "/ynot");
   assert.match(officialSite.title.en, /YNOT Official Site/i);
   assert.match(officialSite.answer.en, /https:\/\/www\.ynotopen\.com/);
   assert.match(officialSite.answer.en, /YNOT Open/);
@@ -85,6 +85,7 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.match(officialSite.answer.en, /BEST OF Y NOT 7/);
   assert.match(officialSite.answer.en, /Spotify/);
   assert.match(officialSite.answer.en, /Y Not Festival/);
+  assert.match(officialSite.answer.en, /YnotOne/);
   assert.ok(
     officialSite.queryTargets.includes("ynot"),
     "official-site page must target the exact one-word YNOT query",
@@ -299,6 +300,21 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     /Spotify/,
     "Organization schema must disambiguate against the live Spotify result",
   );
+  assert.match(
+    seo.organizationJsonLd.disambiguatingDescription,
+    /YnotOne/,
+    "Organization schema must disambiguate against the live ChatGPT YnotOne result",
+  );
+  assert.equal(
+    seo.organizationJsonLd.areaServed["@type"],
+    "Country",
+    "Organization schema must identify the Thailand service-area type",
+  );
+  assert.equal(
+    seo.organizationJsonLd.areaServed.name,
+    "Thailand",
+    "Organization schema must identify the Thailand service area",
+  );
   assert.ok(
     !seo.organizationJsonLd.sameAs.includes("https://instagram.com/ynot"),
     "Organization schema must not point to the unrelated instagram.com/ynot profile",
@@ -310,8 +326,12 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
 
   assert.equal(seo.websiteJsonLd["@type"], "WebSite");
   assert.equal(seo.websiteJsonLd["@id"], "https://www.ynotopen.com/#website");
-  assert.equal(seo.websiteJsonLd.name, "YNOT");
+  assert.equal(seo.websiteJsonLd.name, "YNOT Open");
   assert.equal(seo.websiteJsonLd.url, "https://www.ynotopen.com");
+  assert.ok(
+    seo.websiteJsonLd.alternateName.includes("YNOT"),
+    "WebSite schema must keep the short brand as an alternate site name",
+  );
   assert.ok(
     seo.websiteJsonLd.alternateName.includes("YNOT Open"),
     "WebSite schema must support Google's site-name disambiguation",
@@ -343,11 +363,19 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
   assert.ok(Array.isArray(homepageJsonLd["@graph"]));
   assert.equal(homepageJsonLd["@graph"].length, 2);
   assert.match(readApp("src/app/page.tsx"), /buildHomePageJsonLd/);
-  assert.match(readApp("src/app/page.tsx"), /YNOT Official Site - TCG Y-Packs Thailand/);
+  assert.match(
+    readApp("src/app/page.tsx"),
+    /YNOT Open Official Site - Thailand TCG Y-Packs/,
+  );
+  assert.match(
+    readApp("src/app/layout.tsx"),
+    /YNOT Open · Thailand TCG Y-Packs Online/,
+    "root metadata should use the YNOT Open site name",
+  );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
-    /YNOT Official Site/,
-    "homepage and footer should expose exact YNOT official-site anchor text",
+    /YNOT Open is a Thailand TCG Y-Pack and card trading site/,
+    "homepage should expose a concise What is YNOT Open answer block",
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
@@ -434,6 +462,34 @@ test("public series landing pages target broad card category intent", () => {
     );
     assert.equal(jsonLd.faq["@type"], "FAQPage");
     assert.equal(jsonLd.breadcrumb["@type"], "BreadcrumbList");
+
+    const campaignJsonLd = seo.buildSeriesLandingPageJsonLd(page, [
+      {
+        slug: `${page.slug}-test-pack`,
+        status: "live",
+        titleTh: "Test Pack",
+        titleEn: `${page.headline.en} Test Pack`,
+        series: page.seriesParam,
+        costCoins: 150,
+        totalSlots: 100,
+        remainingSlots: 24,
+        openable: true,
+        soldOut: false,
+        categoryLabel: page.headline.en,
+        heroLabel: "Visible chase card proof",
+        displayTags: ["PSA10"],
+      },
+    ]);
+    assert.equal(
+      campaignJsonLd.collectionPage.mainEntity.itemListElement.length,
+      1,
+      `${page.slug} live campaign ItemList should replace supporting-link fallback`,
+    );
+    assert.equal(
+      campaignJsonLd.collectionPage.mainEntity.itemListElement[0].url,
+      `https://www.ynotopen.com/packs/${page.slug}-test-pack`,
+      `${page.slug} live campaign ItemList must link to the public pack detail page`,
+    );
   }
 });
 
@@ -486,7 +542,7 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   const llms = seo.buildLlmsText();
   assert.match(llms, /^# YNOT/m);
   assert.match(llms, /Official source index for YNOT/);
-  assert.match(llms, /https:\/\/www\.ynotopen\.com\/help\/ynot-official-site/);
+  assert.match(llms, /https:\/\/www\.ynotopen\.com\/ynot/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/help\/ynot-tcg-lucky-draw-thailand/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/pokemon-card/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/one-piece-card/);
@@ -521,8 +577,8 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
 test("footer and route files make answer pages reachable from public UI", () => {
   assert.match(
     readApp("src/features/ynot/components.tsx"),
-    /href="\/help\/ynot-official-site"/,
-    "footer and homepage should link to the YNOT official-site disambiguation page",
+    /href="\/ynot"/,
+    "footer and homepage should link to the exact-match YNOT official-site disambiguation page",
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
@@ -571,20 +627,43 @@ test("footer and route files make answer pages reachable from public UI", () => 
     existsSync(appPath("src/app/(store)/one-piece-card/page.tsx")),
     "missing One Piece card series hub route",
   );
+  assert.ok(
+    existsSync(appPath("src/app/(store)/ynot/page.tsx")),
+    "missing exact-match YNOT official-site route",
+  );
+  assert.ok(
+    existsSync(appPath("src/features/ynot/series-seo-campaigns.ts")),
+    "missing public series SEO campaign helper",
+  );
   assert.match(
     readApp("src/app/(store)/pokemon-card/page.tsx"),
-    /dynamic = "force-static"/,
-    "Pokemon card hub should declare static intent even while the root app layout remains dynamic",
+    /dynamic = "force-dynamic"/,
+    "Pokemon card hub should fetch live public pack evidence",
   );
   assert.match(
     readApp("src/app/(store)/one-piece-card/page.tsx"),
-    /dynamic = "force-static"/,
-    "One Piece card hub should declare static intent even while the root app layout remains dynamic",
+    /dynamic = "force-dynamic"/,
+    "One Piece card hub should fetch live public pack evidence",
+  );
+  assert.match(
+    readApp("src/app/(store)/pokemon-card/page.tsx"),
+    /getPublicSeriesSeoData/,
+    "Pokemon card hub should load public series campaign evidence",
+  );
+  assert.match(
+    readApp("src/app/(store)/one-piece-card/page.tsx"),
+    /getPublicSeriesSeoData/,
+    "One Piece card hub should load public series campaign evidence",
   );
   assert.match(
     readApp("src/features/ynot/SeriesSeoLandingPage.tsx"),
     /buildSeriesLandingPageJsonLd/,
     "series hub component must render structured data",
+  );
+  assert.match(
+    readApp("src/features/ynot/SeriesSeoLandingPage.tsx"),
+    /Current public Y-Packs/,
+    "series hub component must render visible current public pack evidence",
   );
   assert.ok(existsSync(appPath("src/app/(store)/about/page.tsx")), "missing about route");
 });

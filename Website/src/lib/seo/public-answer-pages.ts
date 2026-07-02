@@ -50,6 +50,22 @@ export type PublicSeriesLandingPage = {
   priority: number;
 };
 
+export type PublicSeriesPackListItem = {
+  slug: string;
+  status: "draft" | "live" | "closed" | "archived";
+  titleTh: string;
+  titleEn: string;
+  series: "one_piece" | "pokemon";
+  costCoins: number;
+  totalSlots: number;
+  remainingSlots?: number;
+  openable?: boolean;
+  soldOut?: boolean;
+  categoryLabel?: string;
+  heroLabel?: string;
+  displayTags?: string[];
+};
+
 const siteOrigin = "https://www.ynotopen.com";
 const ownerName = "YNOT Operations";
 const updatedAt = "2026-07-02";
@@ -58,6 +74,7 @@ const websiteId = `${siteOrigin}/#website`;
 
 export const ynotEntityAlternateNames = [
   "ynot",
+  "YNOT",
   "ynotopen",
   "ynotopen.com",
   "YNOT Open",
@@ -66,6 +83,8 @@ export const ynotEntityAlternateNames = [
   "YNOT Thailand",
   "YNOT official site",
   "YNOT card platform",
+  "YNOT Open Thailand",
+  "YNOT Y-Pack Thailand",
   "YFIFTEEN",
   "_yfifteen",
 ];
@@ -82,8 +101,12 @@ export const organizationJsonLd = {
   description:
     "YNOT is the official ynotopen.com trading card platform for Y-Pack openings, wallet coins, pulled reward collection, exchange support, and shipping support in Thailand.",
   disambiguatingDescription:
-    "YNOT on ynotopen.com is the Thailand-focused trading card and Y-Pack platform also searched as YNOT Open, ynotopen, YNOT TCG Thailand, and _yfifteen. It is separate from unrelated YNOT free YouTube downloader pages, Ynot7 and Y Not 7 music results, BEST OF Y NOT 7 Spotify albums, Y Not Festival, YNOT phone-case brands, restaurant, software, and studio brands.",
+    "YNOT on ynotopen.com is the Thailand-focused trading card and Y-Pack platform also searched as YNOT Open, ynotopen, YNOT TCG Thailand, and _yfifteen. It is separate from unrelated YNOT free YouTube downloader pages, Ynot7 and Y Not 7 music results, BEST OF Y NOT 7 Spotify albums, Y Not Festival, YnotOne education CRM pages, YNOT phone-case brands, restaurant, software, and studio brands.",
   sameAs: ["https://www.instagram.com/_yfifteen/"],
+  areaServed: {
+    "@type": "Country",
+    name: "Thailand",
+  },
   knowsAbout: [
     "Trading card games",
     "Pokemon trading cards",
@@ -109,11 +132,11 @@ export const websiteJsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   "@id": websiteId,
-  name: "YNOT",
+  name: "YNOT Open",
   alternateName: ynotEntityAlternateNames,
   url: siteOrigin,
   description:
-    "Official YNOT Open website for TCG Y-Packs, wallet coins, reward collection, exchange support, and shipping support in Thailand.",
+    "Official YNOT Open website for Thailand TCG Y-Packs, Pokemon and One Piece card collectors, wallet coins, reward collection, exchange support, and shipping support.",
   publisher: {
     "@id": organizationId,
   },
@@ -144,9 +167,9 @@ export const websiteJsonLd = {
     },
     {
       "@type": "WebPage",
-      "@id": `${siteOrigin}/help/ynot-official-site#webpage`,
+      "@id": `${siteOrigin}/ynot#webpage`,
       name: "YNOT Official Site",
-      url: `${siteOrigin}/help/ynot-official-site`,
+      url: `${siteOrigin}/ynot`,
       description:
         "Official YNOT identity and ynotopen.com disambiguation page.",
     },
@@ -163,12 +186,12 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       th: "เกี่ยวกับ YNOT",
     },
     description: {
-      en: "YNOT is the official ynotopen.com trading card platform for opening Y-Packs, managing pulled rewards, wallet coins, exchange, and shipping support.",
-      th: "YNOT คือแพลตฟอร์มการ์ดสะสมสำหรับประเทศไทย ใช้เปิด Y-Packs จัดการรางวัล เติมเหรียญ และขอแลกหรือจัดส่ง",
+      en: "YNOT Open is the official ynotopen.com Thailand TCG Y-Pack and card trading site for opening Y-Packs, managing pulled rewards, wallet coins, exchange, and shipping support.",
+      th: "YNOT Open คือเว็บไซต์ TCG Y-Pack และการ์ดสะสมในประเทศไทยที่ ynotopen.com สำหรับเปิด Y-Packs จัดการรางวัล เติมเหรียญ และขอแลกหรือจัดส่ง",
     },
     answer: {
-      en: "YNOT is the official public website at ynotopen.com for digital Y-Pack openings and trading card reward management. Customers browse public pack pages, use platform wallet coins to open eligible Y-Packs, keep pulled rewards in their collection, and contact YNOT support for account, order, exchange, and shipping help.",
-      th: "YNOT คือเว็บไซต์ทางการที่ ynotopen.com สำหรับเปิด Y-Packs และจัดการรางวัลการ์ดสะสม ลูกค้าดูหน้าแพ็กสาธารณะ ใช้เหรียญในวอลเล็ตเพื่อเปิด Y-Packs ที่เปิดขาย เก็บรางวัลในคอลเลกชัน และติดต่อทีม YNOT เพื่อช่วยเหลือเรื่องบัญชี ออเดอร์ แลกเหรียญ และจัดส่ง",
+      en: "YNOT Open is a Thailand TCG Y-Pack and card trading site for Pokemon and One Piece card collectors at ynotopen.com. Customers browse public pack pages, use platform wallet coins to open eligible Y-Packs, keep pulled rewards in their collection, and contact YNOT support for account, order, exchange, and shipping help.",
+      th: "YNOT Open คือเว็บไซต์ TCG Y-Pack และการ์ดสะสมในประเทศไทยสำหรับนักสะสม Pokemon และ One Piece ที่ ynotopen.com ลูกค้าดูหน้าแพ็กสาธารณะ ใช้เหรียญในวอลเล็ตเพื่อเปิด Y-Packs ที่เปิดขาย เก็บรางวัลในคอลเลกชัน และติดต่อทีม YNOT เพื่อช่วยเหลือเรื่องบัญชี ออเดอร์ แลกเหรียญ และจัดส่ง",
     },
     queryTargets: [
       "ynot",
@@ -220,7 +243,7 @@ export const publicAnswerPages: PublicAnswerPage[] = [
   },
   {
     slug: "ynot-official-site",
-    path: "/help/ynot-official-site",
+    path: "/ynot",
     title: {
       en: "YNOT Official Site Is ynotopen.com",
       th: "เว็บไซต์ทางการของ YNOT คือ ynotopen.com",
@@ -230,8 +253,8 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       th: "หน้านี้ใช้ยืนยันเว็บไซต์ทางการของ YNOT คือ ynotopen.com รวมถึงชื่อ YNOT Open, YNOT Y-Packs, YNOT TCG Thailand และ Instagram _yfifteen ทางการ",
     },
     answer: {
-      en: "YNOT is the official trading card and Y-Pack platform at https://www.ynotopen.com. The same YNOT entity may also be searched as YNOT Open, ynotopen, ynotopen.com, YNOT Y-Packs, YNOT TCG Thailand, or _yfifteen. On this site, YNOT means the Thailand-focused card platform for public Y-Pack browsing, wallet coins, pulled reward collection, exchange support, shipping support, and customer help. It is not the unrelated YNOT free YouTube downloader page, Ynot7 or Y Not 7 music act, BEST OF Y NOT 7 Spotify album, Y Not Festival, YNOT Limited phone-case brand, YNOT software project, or other brands using a similar name.",
-      th: "YNOT คือแพลตฟอร์มการ์ดสะสมและ Y-Pack ทางการที่ https://www.ynotopen.com โดยอาจถูกค้นหาในชื่อ YNOT Open, ynotopen, ynotopen.com, YNOT Y-Packs, YNOT TCG Thailand หรือ _yfifteen บนเว็บไซต์นี้ YNOT หมายถึงแพลตฟอร์มการ์ดสำหรับประเทศไทยที่ใช้ดู Y-Packs สาธารณะ เติมเหรียญวอลเล็ต จัดการรางวัลที่เปิดได้ ขอความช่วยเหลือเรื่องแลก จัดส่ง และซัพพอร์ตลูกค้า ไม่ใช่หน้า YNOT free YouTube downloader, ศิลปิน Ynot7 หรือ Y Not 7, อัลบั้ม BEST OF Y NOT 7 บน Spotify, Y Not Festival, แบรนด์เคส YNOT Limited, โปรเจกต์ซอฟต์แวร์ YNOT หรือแบรนด์ชื่อคล้ายกันอื่น",
+      en: "YNOT is the official trading card and Y-Pack platform at https://www.ynotopen.com. The same YNOT entity may also be searched as YNOT Open, ynotopen, ynotopen.com, YNOT Y-Packs, YNOT TCG Thailand, or _yfifteen. On this site, YNOT means the Thailand-focused card platform for public Y-Pack browsing, wallet coins, pulled reward collection, exchange support, shipping support, and customer help. It is not the unrelated YNOT free YouTube downloader page, Ynot7 or Y Not 7 music act, BEST OF Y NOT 7 Spotify album, Y Not Festival, YnotOne education CRM, YNOT Limited phone-case brand, YNOT software project, or other brands using a similar name.",
+      th: "YNOT คือแพลตฟอร์มการ์ดสะสมและ Y-Pack ทางการที่ https://www.ynotopen.com โดยอาจถูกค้นหาในชื่อ YNOT Open, ynotopen, ynotopen.com, YNOT Y-Packs, YNOT TCG Thailand หรือ _yfifteen บนเว็บไซต์นี้ YNOT หมายถึงแพลตฟอร์มการ์ดสำหรับประเทศไทยที่ใช้ดู Y-Packs สาธารณะ เติมเหรียญวอลเล็ต จัดการรางวัลที่เปิดได้ ขอความช่วยเหลือเรื่องแลก จัดส่ง และซัพพอร์ตลูกค้า ไม่ใช่หน้า YNOT free YouTube downloader, ศิลปิน Ynot7 หรือ Y Not 7, อัลบั้ม BEST OF Y NOT 7 บน Spotify, Y Not Festival, YnotOne education CRM, แบรนด์เคส YNOT Limited, โปรเจกต์ซอฟต์แวร์ YNOT หรือแบรนด์ชื่อคล้ายกันอื่น",
     },
     queryTargets: [
       "ynot",
@@ -267,6 +290,10 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       {
         en: "Single-word YNOT searches can also surface unrelated downloader pages, Ynot7 social profiles, and Spotify music results, so this page states the official ynotopen.com identity in plain text.",
         th: "การค้นหา YNOT คำเดียวอาจเจอหน้า downloader, โปรไฟล์ Ynot7 และผลลัพธ์เพลงบน Spotify ที่ไม่เกี่ยวข้อง หน้านี้จึงระบุตัวตนทางการของ ynotopen.com แบบชัดเจน",
+      },
+      {
+        en: "Single-word AI answers may also connect YNOT with YnotOne education CRM content, so this page keeps the YNOT Open card-platform entity separate.",
+        th: "คำตอบ AI สำหรับคำว่า YNOT คำเดียวอาจเชื่อมกับเนื้อหา YnotOne education CRM หน้านี้จึงแยกตัวตน YNOT Open ที่เป็นแพลตฟอร์มการ์ดให้ชัดเจน",
       },
     ],
     steps: [
@@ -1436,7 +1463,7 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
     "",
     "## Priority Search Intents",
     "",
-    `- ynot, YNOT official site, ynotopen, ynotopen.com: ${llmsLink("/help/ynot-official-site")}`,
+    `- ynot, YNOT official site, ynotopen, ynotopen.com: ${llmsLink("/ynot")}`,
     `- ynot tcg, YNOT TCG Lucky Draw, YNOT Y-Packs: ${llmsLink("/help/ynot-tcg-lucky-draw-thailand")}`,
     `- pokemon card, Pokemon card packs Thailand, Pokemon TCG packs Thailand: ${llmsLink("/pokemon-card")}`,
     `- one piece card, One Piece card packs Thailand, One Piece TCG Thailand: ${llmsLink("/one-piece-card")}`,
@@ -1528,6 +1555,11 @@ export function buildAnswerPageJsonLd(page: PublicAnswerPage) {
           { name: "Home", item: siteOrigin },
           { name: "About", item: canonical },
         ]
+      : page.path === "/ynot"
+        ? [
+            { name: "Home", item: siteOrigin },
+            { name: "YNOT Official Site", item: canonical },
+          ]
       : [
           { name: "Home", item: siteOrigin },
           { name: "Help", item: `${siteOrigin}/help/how-ynot-packs-work` },
@@ -1575,8 +1607,49 @@ export function buildAnswerPageJsonLd(page: PublicAnswerPage) {
   };
 }
 
-export function buildSeriesLandingPageJsonLd(page: PublicSeriesLandingPage) {
+function packTitle(campaign: PublicSeriesPackListItem) {
+  return campaign.titleEn || campaign.titleTh || campaign.slug;
+}
+
+function packDescription(campaign: PublicSeriesPackListItem) {
+  const details = [
+    campaign.heroLabel,
+    `${campaign.costCoins} YNOT wallet coins`,
+    typeof campaign.remainingSlots === "number" &&
+    typeof campaign.totalSlots === "number"
+      ? `${campaign.remainingSlots} of ${campaign.totalSlots} slots remaining`
+      : undefined,
+    campaign.soldOut ? "sold out" : campaign.openable ? "openable" : campaign.status,
+  ].filter(Boolean);
+  return details.join(" · ");
+}
+
+export function buildSeriesLandingPageJsonLd(
+  page: PublicSeriesLandingPage,
+  campaigns: PublicSeriesPackListItem[] = [],
+) {
   const canonical = canonicalUrl(page.path);
+  const itemListElement =
+    campaigns.length > 0
+      ? campaigns.map((campaign, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          name: packTitle(campaign),
+          description: packDescription(campaign),
+          url: canonicalUrl(`/packs/${campaign.slug}`),
+          item: {
+            "@type": "WebPage",
+            name: packTitle(campaign),
+            url: canonicalUrl(`/packs/${campaign.slug}`),
+          },
+        }))
+      : page.relatedLinks.map((link, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          name: link.title.en,
+          description: link.description.en,
+          url: canonicalUrl(link.href),
+        }));
 
   return {
     collectionPage: {
@@ -1600,13 +1673,7 @@ export function buildSeriesLandingPageJsonLd(page: PublicSeriesLandingPage) {
       publisher: organizationJsonLd,
       mainEntity: {
         "@type": "ItemList",
-        itemListElement: page.relatedLinks.map((link, index) => ({
-          "@type": "ListItem",
-          position: index + 1,
-          name: link.title.en,
-          description: link.description.en,
-          url: canonicalUrl(link.href),
-        })),
+        itemListElement,
       },
     },
     faq: {

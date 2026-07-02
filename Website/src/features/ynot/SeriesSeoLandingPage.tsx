@@ -3,6 +3,7 @@ import { YnotShell } from "@/features/ynot/components";
 import { I18nText } from "@/features/ynot/i18n";
 import type { YnotViewer } from "@/features/ynot/types";
 import {
+  type PublicSeriesPackListItem,
   type PublicSeriesLandingPage as PublicSeriesLandingPageContent,
   buildSeriesLandingPageJsonLd,
   serializeJsonLd,
@@ -14,16 +15,41 @@ const guestViewer: YnotViewer = {
   isAdmin: false,
 };
 
+function campaignTitle(campaign: PublicSeriesPackListItem) {
+  return campaign.titleEn || campaign.titleTh || campaign.slug;
+}
+
+function campaignStatusText(campaign: PublicSeriesPackListItem) {
+  if (campaign.soldOut) return "Sold out";
+  if (campaign.openable) return "Live";
+  if (campaign.status === "live") return "Live";
+  return campaign.status;
+}
+
+function campaignStockText(campaign: PublicSeriesPackListItem) {
+  if (
+    typeof campaign.remainingSlots === "number" &&
+    typeof campaign.totalSlots === "number"
+  ) {
+    return `${campaign.remainingSlots} / ${campaign.totalSlots} slots remaining`;
+  }
+  return "Check pack page for current stock";
+}
+
 export function SeriesSeoLandingPage({
+  campaigns = [],
   page,
+  viewer = guestViewer,
 }: {
+  campaigns?: PublicSeriesPackListItem[];
   page: PublicSeriesLandingPageContent;
+  viewer?: YnotViewer;
 }) {
-  const jsonLd = buildSeriesLandingPageJsonLd(page);
+  const jsonLd = buildSeriesLandingPageJsonLd(page, campaigns);
   const browseHref = `/packs?series=${page.seriesParam}`;
 
   return (
-    <YnotShell viewer={guestViewer} viewerMode="literal">
+    <YnotShell viewer={viewer} viewerMode="literal">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd.collectionPage) }}
@@ -134,6 +160,72 @@ export function SeriesSeoLandingPage({
               </Link>
             ))}
           </div>
+        </section>
+
+        <section className="profile-panel">
+          <div className="profile-section-head">
+            <span>
+              <I18nText en="Current public Y-Packs" th="Y-Packs สาธารณะตอนนี้" />
+            </span>
+            <strong>
+              <I18nText en="Live pack evidence for this category" th="หลักฐานแพ็กที่เปิดให้ดูในหมวดนี้" />
+            </strong>
+            <p>
+              <I18nText
+                en="These public pack links give search engines and AI answer systems the current YNOT category context: pack name, coin cost, stock signal, and pack detail URL."
+                th="ลิงก์แพ็กสาธารณะเหล่านี้ให้บริบทหมวดหมู่ YNOT ปัจจุบันกับ search engines และระบบคำตอบ AI ได้แก่ชื่อแพ็ก ราคาเหรียญ สัญญาณสต็อก และ URL รายละเอียดแพ็ก"
+              />
+            </p>
+          </div>
+          {campaigns.length > 0 ? (
+            <div className="stack-list">
+              {campaigns.map((campaign) => (
+                <Link
+                  className="activity-card"
+                  href={`/packs/${campaign.slug}`}
+                  key={campaign.slug}
+                  prefetch={false}
+                >
+                  <span className="section-label">
+                    {campaignStatusText(campaign)} ·{" "}
+                    {campaign.categoryLabel ?? page.headline.en}
+                  </span>
+                  <strong>{campaignTitle(campaign)}</strong>
+                  <span className="txt-s mt-2">
+                    {campaign.costCoins} YNOT wallet coins ·{" "}
+                    {campaignStockText(campaign)}
+                  </span>
+                  {campaign.heroLabel ? (
+                    <span className="txt-s mt-2">{campaign.heroLabel}</span>
+                  ) : null}
+                  {campaign.displayTags && campaign.displayTags.length > 0 ? (
+                    <span className="tag-filter-list mt-2" aria-label="Pack tags">
+                      {campaign.displayTags.slice(0, 4).map((tag) => (
+                        <span className="tag-chip" key={tag}>
+                          {tag}
+                        </span>
+                      ))}
+                    </span>
+                  ) : null}
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="activity-card">
+              <span className="section-label">
+                <I18nText en="No public packs currently listed" th="ยังไม่มีแพ็กสาธารณะในตอนนี้" />
+              </span>
+              <p className="txt-s mt-2">
+                <I18nText
+                  en="Use the filtered packs page to check the latest public Y-Pack availability for this category."
+                  th="ใช้หน้าแพ็กที่กรองไว้เพื่อตรวจความพร้อมของ Y-Pack สาธารณะล่าสุดในหมวดนี้"
+                />
+              </p>
+              <Link className="secondary-action mt-2" href={browseHref} prefetch={false}>
+                <I18nText en="Check Filtered Packs" th="ตรวจหน้าแพ็กที่กรองไว้" />
+              </Link>
+            </div>
+          )}
         </section>
 
         <section className="profile-panel">

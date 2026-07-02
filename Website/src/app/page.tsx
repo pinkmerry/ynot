@@ -9,25 +9,25 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "YNOT Official Site - TCG Y-Packs Thailand",
+  title: "YNOT Open Official Site - Thailand TCG Y-Packs",
   description:
-    "YNOT official website at ynotopen.com for TCG Y-Packs, wallet coins, pulled reward collection, exchange support, and shipping in Thailand.",
+    "YNOT Open official website at ynotopen.com for Thailand TCG Y-Packs, Pokemon and One Piece card collectors, wallet coins, exchange, and shipping support.",
   alternates: {
     canonical: "https://www.ynotopen.com",
   },
   openGraph: {
-    title: "YNOT Official Site - TCG Y-Packs Thailand",
+    title: "YNOT Open Official Site - Thailand TCG Y-Packs",
     description:
-      "Official YNOT website for online TCG Y-Packs, wallet coins, reward collection, exchange support, and shipping in Thailand.",
+      "Official YNOT Open website for online TCG Y-Packs, Pokemon and One Piece collectors, wallet coins, reward collection, exchange, and shipping in Thailand.",
     url: "https://www.ynotopen.com",
     siteName: "YNOT",
     type: "website",
   },
   twitter: {
     card: "summary",
-    title: "YNOT Official Site - TCG Y-Packs Thailand",
+    title: "YNOT Open Official Site - Thailand TCG Y-Packs",
     description:
-      "Official YNOT website for online TCG Y-Packs, wallet coins, and trading card reward management in Thailand.",
+      "Official YNOT Open website for online TCG Y-Packs, wallet coins, and trading card reward management in Thailand.",
   },
 };
 
