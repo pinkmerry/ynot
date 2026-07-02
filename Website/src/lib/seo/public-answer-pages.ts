@@ -50,6 +50,11 @@ export type PublicSeriesLandingPage = {
     title: LocaleCopy;
     body: LocaleCopy;
   }>;
+  serpCompetitors: Array<{
+    query: string;
+    topResults: string[];
+    takeaway: LocaleCopy;
+  }>;
   relatedLinks: Array<{
     href: string;
     title: LocaleCopy;
@@ -1862,6 +1867,44 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
         },
       },
     ],
+    serpCompetitors: [
+      {
+        query: "pokemon card",
+        topResults: [
+          "Official Pokemon Trading Card Game Thailand",
+          "Pokemon Trading Card Game global site",
+          "Regional Pokemon Trading Card Game website",
+        ],
+        takeaway: {
+          en: "The broad query is publisher-led. YNOT should not try to look like an official Pokemon rules or card-database page; the stronger YNOT angle is Pokemon-related Y-Pack opening in Thailand.",
+          th: "คำค้นกว้างนี้ถูกนำโดยแหล่งทางการของผู้ถือสิทธิ์ YNOT ไม่ควรทำตัวเหมือนหน้า Pokemon ทางการด้านกฎหรือฐานข้อมูลการ์ด แต่มุมที่แข็งแรงกว่าคือการเปิด Y-Pack ที่เกี่ยวข้องกับ Pokemon ในไทย",
+        },
+      },
+      {
+        query: "pokemon card packs thailand",
+        topResults: [
+          "ToysRUs Thailand Pokemon retail category",
+          "Official Pokemon Trading Card Game Thailand",
+          "SASOM trading-card box and pack catalog",
+        ],
+        takeaway: {
+          en: "The pack query rewards retail/catalog evidence: product category pages, product names, pack wording, and availability signals. YNOT must keep live Pokemon-related pack names, wallet-coin cost, stock signal, and reward context visible.",
+          th: "คำค้นเรื่องแพ็กให้คะแนนกับหลักฐานแบบร้านค้า/แคตตาล็อก ได้แก่หน้าหมวดสินค้า ชื่อสินค้า คำว่า pack และสัญญาณความพร้อมขาย YNOT ต้องแสดงชื่อแพ็กที่เกี่ยวข้องกับ Pokemon ราคาเหรียญ สต็อก และบริบทรางวัลให้เห็นจริง",
+        },
+      },
+      {
+        query: "pokemon card thailand",
+        topResults: [
+          "Official Pokemon Trading Card Game Thailand",
+          "TCG Thailand marketplace",
+          "Pokemon Thailand social profile",
+        ],
+        takeaway: {
+          en: "The local query mixes official-source authority, marketplace authority, and social proof. YNOT needs consistent external mentions from _yfifteen, event pages, and partner pages that link back to ynotopen.com.",
+          th: "คำค้นท้องถิ่นผสมทั้งอำนาจแหล่งทางการ อำนาจมาร์เก็ตเพลส และหลักฐานโซเชียล YNOT ต้องมี mention ภายนอกจาก _yfifteen หน้าอีเวนต์ และพาร์ตเนอร์ที่ลิงก์กลับมายัง ynotopen.com อย่างสม่ำเสมอ",
+        },
+      },
+    ],
     relatedLinks: [
       {
         href: "/packs/pokemon",
@@ -2136,6 +2179,44 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
         },
       },
     ],
+    serpCompetitors: [
+      {
+        query: "one piece card",
+        topResults: [
+          "Official One Piece Card Game Thailand",
+          "Official One Piece Card Game global site",
+          "One Piece Market Thailand community group",
+        ],
+        takeaway: {
+          en: "The broad query is split between official publisher pages and a very large community market. YNOT should clearly defer rules/card-list intent and compete for One Piece-related Y-Pack opening and reward-management intent.",
+          th: "คำค้นกว้างแบ่งระหว่างหน้าเจ้าของลิขสิทธิ์ทางการกับคอมมูนิตี้มาร์เก็ตขนาดใหญ่ YNOT ควรส่งเจตนากฎ/รายการการ์ดไปยังแหล่งทางการ และแข่งในเจตนาเปิด Y-Pack กับจัดการรางวัล One Piece",
+        },
+      },
+      {
+        query: "one piece card packs thailand",
+        topResults: [
+          "Official One Piece Card Game Thailand",
+          "One Piece Market Thailand community group",
+          "SASOM One Piece TCG catalog",
+        ],
+        takeaway: {
+          en: "The pack query rewards official product context, social-market authority, and catalog language. YNOT needs live One Piece pack titles, pack status, wallet-coin cost, and visible reward proof on crawlable pages.",
+          th: "คำค้นเรื่องแพ็กให้คะแนนกับบริบทสินค้าทางการ อำนาจคอมมูนิตี้มาร์เก็ต และภาษาแคตตาล็อก YNOT ต้องมีชื่อแพ็ก One Piece สถานะแพ็ก ราคาเหรียญ และหลักฐานรางวัลที่อ่านได้บนหน้าสาธารณะ",
+        },
+      },
+      {
+        query: "one piece card thailand",
+        topResults: [
+          "Official One Piece Card Game Thailand",
+          "One Piece Market Thailand community group",
+          "One Piece Card Game Thailand community group",
+        ],
+        takeaway: {
+          en: "The local query is heavily social/community-driven after the official source. YNOT's route to stronger ranking is more crawlable event proof, community mentions, and official _yfifteen captions that repeat YNOT Open, YNOT TCG, and ynotopen.com.",
+          th: "คำค้นท้องถิ่นหลังแหล่งทางการพึ่งพาโซเชียลและคอมมูนิตี้สูง เส้นทางของ YNOT คือเพิ่มหลักฐานอีเวนต์ที่ crawl ได้ mention จากคอมมูนิตี้ และแคปชัน _yfifteen ที่ใช้ภาษา YNOT Open, YNOT TCG และ ynotopen.com ซ้ำอย่างสม่ำเสมอ",
+        },
+      },
+    ],
     relatedLinks: [
       {
         href: "/packs/one-piece",
@@ -2381,6 +2462,12 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
       lines.push("  - Search landscape:");
       for (const landscape of page.searchLandscape) {
         lines.push(`    - ${landscape.title.en}: ${landscape.body.en}`);
+      }
+      lines.push("  - Current top-result evidence:");
+      for (const snapshot of page.serpCompetitors) {
+        lines.push(`    - Query: ${snapshot.query}`);
+        lines.push(`      Top visible result types: ${snapshot.topResults.join("; ")}`);
+        lines.push(`      YNOT takeaway: ${snapshot.takeaway.en}`);
       }
       if (page.sourceLinks && page.sourceLinks.length > 0) {
         lines.push("  - Source links:");

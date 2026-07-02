@@ -725,6 +725,24 @@ test("public series landing pages target broad card category intent", () => {
     "Pokemon hub must explain shop and marketplace intent",
   );
   assert.ok(
+    pokemonHub.serpCompetitors.some(
+      (snapshot) =>
+        snapshot.query === "pokemon card" &&
+        snapshot.topResults.some((result) => /Official Pokemon/i.test(result)) &&
+        /Y-Pack opening in Thailand/i.test(snapshot.takeaway.en),
+    ),
+    "Pokemon hub must expose current top-result evidence for the broad query",
+  );
+  assert.ok(
+    pokemonHub.serpCompetitors.some(
+      (snapshot) =>
+        snapshot.query === "pokemon card packs thailand" &&
+        snapshot.topResults.some((result) => /SASOM|ToysRUs/i.test(result)) &&
+        /wallet-coin cost/i.test(snapshot.takeaway.en),
+    ),
+    "Pokemon hub must compare pack-intent competitors against YNOT pack proof",
+  );
+  assert.ok(
     pokemonHub.relatedLinks.some((link) => link.href === "/packs/pokemon"),
     "Pokemon hub must link directly to the static public pack catalog route",
   );
@@ -773,6 +791,24 @@ test("public series landing pages target broad card category intent", () => {
     "One Piece hub must explain community market and shop intent",
   );
   assert.ok(
+    onePieceHub.serpCompetitors.some(
+      (snapshot) =>
+        snapshot.query === "one piece card" &&
+        snapshot.topResults.some((result) => /Official One Piece/i.test(result)) &&
+        /reward-management intent/i.test(snapshot.takeaway.en),
+    ),
+    "One Piece hub must expose current top-result evidence for the broad query",
+  );
+  assert.ok(
+    onePieceHub.serpCompetitors.some(
+      (snapshot) =>
+        snapshot.query === "one piece card packs thailand" &&
+        snapshot.topResults.some((result) => /SASOM|Market Thailand/i.test(result)) &&
+        /wallet-coin cost/i.test(snapshot.takeaway.en),
+    ),
+    "One Piece hub must compare pack-intent competitors against YNOT pack proof",
+  );
+  assert.ok(
     onePieceHub.relatedLinks.some((link) => link.href === "/packs/one-piece"),
     "One Piece hub must link directly to the static public pack catalog route",
   );
@@ -800,6 +836,16 @@ test("public series landing pages target broad card category intent", () => {
     assert.match(page.updatedAt, /^\d{4}-\d{2}-\d{2}$/);
     assert.ok(page.searchIntents.length >= 3, `${page.slug} needs intent coverage`);
     assert.ok(page.searchLandscape.length >= 3, `${page.slug} needs SERP landscape coverage`);
+    assert.ok(page.serpCompetitors.length >= 3, `${page.slug} needs top-result evidence`);
+    assert.ok(
+      page.serpCompetitors.every(
+        (snapshot) =>
+          snapshot.query.length >= 8 &&
+          snapshot.topResults.length >= 3 &&
+          /YNOT/i.test(snapshot.takeaway.en),
+      ),
+      `${page.slug} top-result evidence must include query, top result types, and a YNOT takeaway`,
+    );
     assert.ok(page.relatedLinks.length >= 3, `${page.slug} needs supporting links`);
     assert.ok(page.faqs.length >= 2, `${page.slug} needs FAQ coverage`);
 
@@ -860,6 +906,17 @@ test("public series landing pages target broad card category intent", () => {
       `${page.slug} Y-Pack Product schema must not invent cash currency`,
     );
   }
+
+  assert.match(
+    readApp("src/features/ynot/SeriesSeoLandingPage.tsx"),
+    /Who currently ranks and why/,
+    "series hubs must render the top-result evidence section visibly",
+  );
+  assert.match(
+    seo.buildLlmsText({ full: true }),
+    /Current top-result evidence/,
+    "llms-full output must include the competitor evidence layer for AI answer systems",
+  );
 });
 
 test("public pack browse and detail routes expose commerce-ready proof schema", () => {

@@ -204,6 +204,41 @@ export function SeriesSeoLandingPage({
         <section className="profile-panel">
           <div className="profile-section-head">
             <span>
+              <I18nText en="Top-result evidence" th="หลักฐานจากผลลัพธ์อันดับต้น" />
+            </span>
+            <h2>
+              <I18nText en="Who currently ranks and why" th="ใครติดอันดับอยู่และเพราะอะไร" />
+            </h2>
+            <p>
+              <I18nText
+                en="These snapshots summarize the current top Google result patterns this YNOT page is separating from: official publisher pages, marketplaces, retail catalogs, community groups, and YNOT Y-Pack intent."
+                th="สรุปภาพรวมผลลัพธ์อันดับต้นบน Google ที่หน้านี้แยกออกจากกัน ได้แก่หน้าเจ้าของสิทธิ์ทางการ มาร์เก็ตเพลส แคตตาล็อกร้านค้า กลุ่มคอมมูนิตี้ และเจตนา Y-Pack ของ YNOT"
+              />
+            </p>
+          </div>
+          <div className="stack-list">
+            {page.serpCompetitors.map((snapshot) => (
+              <div className="activity-card" key={snapshot.query}>
+                <span className="section-label">{snapshot.query}</span>
+                <strong>
+                  <I18nText en="Top visible result types" th="ประเภทผลลัพธ์อันดับต้นที่เห็น" />
+                </strong>
+                <ul className="mt-2 space-y-1 txt-s">
+                  {snapshot.topResults.map((result) => (
+                    <li key={result}>{result}</li>
+                  ))}
+                </ul>
+                <p className="txt-s mt-2">
+                  <I18nText en={snapshot.takeaway.en} th={snapshot.takeaway.th} />
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="profile-panel">
+          <div className="profile-section-head">
+            <span>
               <I18nText en="Start here" th="เริ่มตรงนี้" />
             </span>
             <h2>

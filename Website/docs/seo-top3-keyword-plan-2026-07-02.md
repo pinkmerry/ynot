@@ -19,6 +19,32 @@ Tested in Chrome with:
 https://www.google.com/search?q=<query>&num=10&hl=en&pws=0
 ```
 
+Retested again with Thailand-biased Google parameters:
+
+```text
+https://www.google.com/search?q=<query>&num=10&hl=en&gl=th&pws=0
+```
+
+### Current top-3 status after the first deployment
+
+| Query | YNOT Open result | Top visible result pattern |
+| --- | --- | --- |
+| `ynotopen` | #1 | YNOT Open, then unrelated Ynot7 social profiles |
+| `ynot tcg` | #1 | YNOT Open, `_yfifteen`/event social proof, card-community event mentions |
+| `pokemon card` | not top 10 | official Pokemon publisher pages and large retail/social surfaces |
+| `pokemon card thailand` | not top 10 | official Pokemon Thailand, TCG Thailand, Pokemon social proof |
+| `pokemon card packs thailand` | not top 10 | ToysRUs, official Pokemon, SASOM, Shopee, TCG Thailand |
+| `one piece card` | not top 10 | official One Piece Card Game, large Facebook market group, TCG Thailand |
+| `one piece card thailand` | not top 10 | official One Piece Thailand plus large Facebook market groups |
+| `one piece card packs thailand` | not top 10 | official One Piece, community market, SASOM, Lazada, Shopee |
+| `trading card marketplace thailand` | not top 10 | TCG Thailand, Facebook, Tongkam, Instagram/local shop signals |
+| `snkrdunk stockx trading card thailand` | not top 10 | SNKRDUNK category/fees, Remambo guide, SASOM/SNKRDUNK press/social |
+
+Conclusion: `ynotopen` and `ynot tcg` are already top-1. The broad category terms need a two-track strategy:
+
+1. Do not try to outrank official franchise pages for official rules/card database intent.
+2. Build rankable relevance for the narrower commercial/local layer: `packs Thailand`, `open packs online Thailand`, `Y-Pack`, `marketplace alternative`, `Bangkok events`, `buy/shop/market Thailand` when public YNOT evidence exists.
+
 ### `pokemon card`
 
 YNOT Open did not appear in the visible top 10.
@@ -92,6 +118,18 @@ Pattern: official authority plus community market authority. YNOT should target 
 - `www.ynotopen.com` is already #1 for `ynot tcg` and `ynotopen`.
 - Before this pass, the homepage H1 was visual-only (`YNOT`), while metadata and schema were stronger.
 - The new H1 is now `YNOT Open Thailand TCG Y-Packs`, and the page continues to expose YNOT Open, ynotopen.com, Pokemon, One Piece, wallet coins, exchange, and shipping language.
+
+### Current HTML signal comparison
+
+The accessible competitor pages showed these durable patterns:
+
+- Official Pokemon and One Piece pages win broad head terms through publisher authority, product/rules/event language, large pages, and official regional URLs.
+- TCG Thailand wins marketplace intent with buy/sell/store-finder language, Organization/WebSite/WebPage schema, and a large crawlable app shell.
+- ToysRUs and SASOM win pack/buy intent with product/category catalog pages, retail copy, item-list schema, product names, and availability/price context.
+- SNKRDUNK and Remambo win SNKRDUNK-adjacent intent with category pages, guides, authenticity language, fees, and marketplace trust wording.
+- YNOT's current on-site edge is truthful public Y-Pack detail: pack names, wallet-coin cost, stock signals, reward context, Product/Offer schema without inventing THB cash pricing, and `_yfifteen` event/social proof.
+
+Action from this comparison: keep YNOT pages honest and specific. The page should say "YNOT is for live Y-Pack opening and reward management" more strongly than "YNOT is a general Pokemon/One Piece marketplace" until public marketplace listings are live and crawlable.
 
 ## Related Keyword Map
 
@@ -262,6 +300,13 @@ ChatGPT Search answered that `https://www.ynotopen.com/` was not top 3 for exact
   - `/packs/pokemon` returned 200 with title `Pokemon Card Thailand | YNOT Open Y-Packs | YNOT Open`, `og:site_name` `YNOT Open`, H1 `Pokemon Card Y-Packs Thailand`, and H2 `Current public Pokemon card Y-Packs`.
   - `/packs/one-piece` returned 200 with title `One Piece Card Thailand | YNOT Open Y-Packs | YNOT Open`, `og:site_name` `YNOT Open`, H1 `One Piece Card Y-Packs Thailand`, and H2 `Current public One Piece card Y-Packs`.
   - `/pokemon-card`, `/one-piece-card`, and `/ynot` returned 200 with semantic H2 sections for source checks, live pack evidence, proof, FAQ, and brand disambiguation.
+
+### Done in the competitor-evidence pass
+
+- Added visible `Top-result evidence` sections to `/pokemon-card` and `/one-piece-card`.
+- The new sections list the current broad and pack-intent queries, summarize the top visible result types, and explain the YNOT takeaway.
+- Included the same evidence in `llms-full.txt` under `Current top-result evidence`.
+- Locked this in `test:seo-public-answer-contract`.
 
 ### Next actions outside code
 
