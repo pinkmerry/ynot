@@ -618,6 +618,15 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     seo.websiteJsonLd.hasPart.some(
       (part) =>
         part["@type"] === "CollectionPage" &&
+        part.url === "https://www.ynotopen.com/oripa" &&
+        /oripa|mystery-pack/i.test(part.description),
+    ),
+    "WebSite schema must expose the online oripa / mystery-pack catalog",
+  );
+  assert.ok(
+    seo.websiteJsonLd.hasPart.some(
+      (part) =>
+        part["@type"] === "CollectionPage" &&
         part.url === "https://www.ynotopen.com/pokemon-card",
     ),
     "WebSite schema must expose the Pokemon card series hub",
@@ -1065,6 +1074,36 @@ test("public pack browse and detail routes expose commerce-ready proof schema", 
     browseJsonLd.breadcrumb.itemListElement.at(-1).item,
     "https://www.ynotopen.com/packs/pokemon",
   );
+  const oripaBrowseJsonLd = seo.buildPacksBrowseJsonLd([livePack, closedPack], {
+    path: "/oripa",
+    series: "all",
+  });
+  assert.equal(
+    oripaBrowseJsonLd.collectionPage.url,
+    "https://www.ynotopen.com/oripa",
+  );
+  assert.match(
+    oripaBrowseJsonLd.collectionPage.name,
+    /Online Oripa.*TCG Mystery Packs Thailand/i,
+  );
+  assert.match(
+    oripaBrowseJsonLd.collectionPage.description,
+    /oripa-style TCG mystery packs/i,
+  );
+  assert.ok(
+    oripaBrowseJsonLd.collectionPage.about.includes(
+      "Pokemon card mystery packs Thailand",
+    ),
+    "oripa catalog schema must expose Pokemon mystery-pack intent",
+  );
+  assert.equal(
+    oripaBrowseJsonLd.collectionPage.mainEntity.name,
+    "Online oripa-style TCG mystery pack listings",
+  );
+  assert.equal(
+    oripaBrowseJsonLd.breadcrumb.itemListElement.at(-1).name,
+    "Online Oripa & TCG Mystery Packs",
+  );
 
   const detailJsonLd = seo.buildPackDetailJsonLd(livePack);
   assert.equal(detailJsonLd.product["@type"], "Product");
@@ -1100,6 +1139,30 @@ test("public pack browse and detail routes expose commerce-ready proof schema", 
   assert.ok(
     existsSync(appPath("src/app/(store)/packs/one-piece/page.tsx")),
     "missing static One Piece pack catalog route",
+  );
+  assert.ok(
+    existsSync(appPath("src/app/(store)/oripa/page.tsx")),
+    "missing online oripa / mystery-pack catalog route",
+  );
+  assert.match(
+    readApp("src/app/(store)/oripa/page.tsx"),
+    /canonicalPath=\{canonicalPath\}/,
+    "oripa catalog route must use a static canonical route constant",
+  );
+  assert.match(
+    readApp("src/app/(store)/oripa/page.tsx"),
+    /Online Oripa & TCG Mystery Packs/,
+    "oripa catalog route must expose a search-intent H1",
+  );
+  assert.match(
+    readApp("src/app/(store)/oripa/page.tsx"),
+    /oripa-style Y-Packs/,
+    "oripa catalog route must expose crawlable original oripa context",
+  );
+  assert.match(
+    readApp("src/features/ynot/cr/YPackExperience.tsx"),
+    /seoContent/,
+    "pack browse experience must accept route-specific SEO content",
   );
   assert.match(
     readApp("src/app/(store)/packs/pokemon/page.tsx"),
@@ -1227,6 +1290,10 @@ test("sitemap and robots routes publish the public answer surface", () => {
     "sitemap must expose the static Pokemon pack catalog route",
   );
   assert.ok(
+    sitemapEntries.some((entry) => entry.url === "https://www.ynotopen.com/oripa"),
+    "sitemap must expose the online oripa / mystery-pack catalog route",
+  );
+  assert.ok(
     sitemapEntries.some((entry) => entry.url === "https://www.ynotopen.com/packs/one-piece"),
     "sitemap must expose the static One Piece pack catalog route",
   );
@@ -1275,6 +1342,8 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   assert.match(llms, /Official source index for YNOT/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/ynot/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/help\/ynot-tcg-lucky-draw-thailand/);
+  assert.match(llms, /https:\/\/www\.ynotopen\.com\/oripa/);
+  assert.match(llms, /oripa, online mystery packs, TCG mystery packs Thailand/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/help\/is-ynot-legit/);
   assert.match(
     llms,
@@ -1339,6 +1408,11 @@ test("footer and route files make answer pages reachable from public UI", () => 
     readApp("src/features/ynot/components.tsx"),
     /href="\/help\/how-ynot-packs-work"/,
     "footer How It Works link should point to the Y-Pack explainer",
+  );
+  assert.match(
+    readApp("src/features/ynot/components.tsx"),
+    /href="\/oripa"/,
+    "footer and homepage should link to the online oripa / mystery-pack catalog",
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),

@@ -174,6 +174,9 @@ export const organizationJsonLd = {
     "One Piece card trading Thailand",
     "One Piece card lucky draw Thailand",
     "TCG Lucky Draw Thailand",
+    "Online oripa-style TCG mystery packs",
+    "Pokemon card mystery packs Thailand",
+    "One Piece card random packs Thailand",
     "Trading card reward collection",
     "Bangkok trading card events",
     "TCG events Bangkok",
@@ -257,6 +260,14 @@ export const websiteJsonLd = {
     "query-input": "required name=search_term_string",
   },
   hasPart: [
+    {
+      "@type": "CollectionPage",
+      "@id": `${siteOrigin}/oripa#webpage`,
+      name: "Online Oripa & TCG Mystery Packs Thailand",
+      url: `${siteOrigin}/oripa`,
+      description:
+        "YNOT online oripa-style TCG mystery-pack catalog for Thailand collectors with live categories, wallet coin cost, stock signals, and public pack detail pages.",
+    },
     {
       "@type": "CollectionPage",
       "@id": `${siteOrigin}/pokemon-card#webpage`,
@@ -2609,6 +2620,7 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
     "",
     `- ynot, YNOT official site, ynotopen, ynotopen.com: ${llmsLink("/ynot")}`,
     `- ynot tcg, YNOT TCG Lucky Draw, YNOT Y-Packs: ${llmsLink("/help/ynot-tcg-lucky-draw-thailand")}`,
+    `- oripa, online mystery packs, TCG mystery packs Thailand, Pokemon card mystery pack Thailand: ${llmsLink("/oripa")}`,
     `- is YNOT legit, is ynotopen safe, YNOT reviews Thailand: ${llmsLink("/help/is-ynot-legit")}`,
     `- pokemon card, Pokemon card packs Thailand, Pokemon TCG packs Thailand: ${llmsLink("/pokemon-card")}`,
     `- one piece card, One Piece card packs Thailand, One Piece TCG Thailand: ${llmsLink("/one-piece-card")}`,
@@ -2918,36 +2930,63 @@ export function buildPacksBrowseJsonLd(
 ) {
   const canonical = canonicalUrl(path);
   const visibleCampaigns = campaigns.slice(0, 50);
+  const isOripaPath = path === "/oripa";
   const seriesLabel =
     series === "pokemon"
       ? "Pokemon card"
       : series === "one_piece"
         ? "One Piece card"
         : "Pokemon and One Piece card";
+  const collectionName = isOripaPath
+    ? "Online Oripa & TCG Mystery Packs Thailand"
+    : "Browse YNOT Open Y-Packs";
+  const collectionHeadline = isOripaPath
+    ? "YNOT online oripa-style TCG mystery pack catalog"
+    : "YNOT Open public Y-Pack catalog";
+  const collectionDescription = isOripaPath
+    ? "Browse YNOT online oripa-style TCG mystery packs with visible pack names, wallet coin cost, stock signals, reward context, and public pack detail URLs."
+    : "Browse public YNOT Open Y-Packs with visible pack names, wallet coin cost, stock signals, reward context, and pack detail URLs.";
+  const collectionAbout = isOripaPath
+    ? [
+        "online oripa-style TCG mystery packs",
+        "Pokemon card mystery packs Thailand",
+        "One Piece card random packs Thailand",
+        "YNOT wallet coin Y-Packs",
+      ]
+    : [
+        "YNOT Open Y-Packs",
+        `${seriesLabel} packs Thailand`,
+        "online TCG pack opening Thailand",
+        "YNOT wallet coin packs",
+      ];
+  const itemListName = isOripaPath
+    ? "Online oripa-style TCG mystery pack listings"
+    : `${seriesLabel} Y-Pack listings`;
+  const breadcrumbName = isOripaPath
+    ? "Online Oripa & TCG Mystery Packs"
+    : series === "pokemon"
+      ? "Pokemon Card Y-Packs"
+      : series === "one_piece"
+        ? "One Piece Card Y-Packs"
+        : "Y-Packs";
 
   return {
     collectionPage: {
       "@context": "https://schema.org",
       "@type": "CollectionPage",
       "@id": `${canonical}#webpage`,
-      name: "Browse YNOT Open Y-Packs",
-      headline: "YNOT Open public Y-Pack catalog",
-      description:
-        "Browse public YNOT Open Y-Packs with visible pack names, wallet coin cost, stock signals, reward context, and pack detail URLs.",
+      name: collectionName,
+      headline: collectionHeadline,
+      description: collectionDescription,
       url: canonical,
       isPartOf: {
         "@id": websiteId,
       },
-      about: [
-        "YNOT Open Y-Packs",
-        `${seriesLabel} packs Thailand`,
-        "online TCG pack opening Thailand",
-        "YNOT wallet coin packs",
-      ],
+      about: collectionAbout,
       publisher: organizationJsonLd,
       mainEntity: {
         "@type": "ItemList",
-        name: `${seriesLabel} Y-Pack listings`,
+        name: itemListName,
         numberOfItems: visibleCampaigns.length,
         itemListElement: visibleCampaigns.map((campaign, index) => ({
           "@type": "ListItem",
@@ -2970,12 +3009,7 @@ export function buildPacksBrowseJsonLd(
         {
           "@type": "ListItem",
           position: 2,
-          name:
-            series === "pokemon"
-              ? "Pokemon Card Y-Packs"
-              : series === "one_piece"
-                ? "One Piece Card Y-Packs"
-                : "Y-Packs",
+          name: breadcrumbName,
           item: canonical,
         },
       ],
@@ -3098,6 +3132,7 @@ export function buildSeriesLandingPageJsonLd(
 export function getPublicSitemapEntries(extraEntries: PublicSitemapRouteEntry[] = []) {
   const routeEntries: PublicSitemapRouteEntry[] = [
     { path: "/", priority: 1, changeFrequency: "daily" },
+    { path: "/oripa", priority: 0.93, changeFrequency: "daily" },
     { path: "/packs", priority: 0.92, changeFrequency: "daily" },
     { path: "/packs/pokemon", priority: 0.91, changeFrequency: "daily" },
     { path: "/packs/one-piece", priority: 0.91, changeFrequency: "daily" },
