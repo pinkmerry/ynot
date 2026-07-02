@@ -1,7 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader, YnotShell } from "@/features/ynot/components";
 import { I18nText, i18n } from "@/features/ynot/i18n";
 import type { YnotViewer } from "@/features/ynot/types";
+
+export const metadata: Metadata = {
+  title: "Contact YNOT Support",
+  description:
+    "Contact YNOT support for help with Y-Packs, wallet top-ups, collection, exchange, and shipping references.",
+  alternates: {
+    canonical: "https://www.ynotopen.com/contact",
+  },
+};
 
 const guestViewer: YnotViewer = {
   authenticated: false,

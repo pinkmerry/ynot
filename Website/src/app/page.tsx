@@ -1,7 +1,35 @@
+import type { Metadata } from "next";
 import { normalizeHomeSeries, normalizeHomeSort, normalizeHomeTag, YnotHomeExperience, YnotShell } from "@/features/ynot/components";
 import { getYnotPublicHomeData } from "@/features/ynot/data";
+import {
+  buildHomePageJsonLd,
+  serializeJsonLd,
+} from "@/lib/seo/public-answer-pages";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "YNOT Official Site - TCG Y-Packs Thailand",
+  description:
+    "YNOT official website at ynotopen.com for TCG Y-Packs, wallet coins, pulled reward collection, exchange support, and shipping in Thailand.",
+  alternates: {
+    canonical: "https://www.ynotopen.com",
+  },
+  openGraph: {
+    title: "YNOT Official Site - TCG Y-Packs Thailand",
+    description:
+      "Official YNOT website for online TCG Y-Packs, wallet coins, reward collection, exchange support, and shipping in Thailand.",
+    url: "https://www.ynotopen.com",
+    siteName: "YNOT",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "YNOT Official Site - TCG Y-Packs Thailand",
+    description:
+      "Official YNOT website for online TCG Y-Packs, wallet coins, and trading card reward management in Thailand.",
+  },
+};
 
 export default async function HomePage({
   searchParams,
@@ -15,12 +43,19 @@ export default async function HomePage({
     sort: normalizeHomeSort(params?.sort),
   };
   const data = await getYnotPublicHomeData();
+  const homepageJsonLd = buildHomePageJsonLd();
   return (
-    <YnotShell
-      viewer={data.viewer}
-      shellClassName="ynot-home-mint"
-    >
-      <YnotHomeExperience data={data} homeFilter={homeFilter} />
-    </YnotShell>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(homepageJsonLd) }}
+      />
+      <YnotShell
+        viewer={data.viewer}
+        shellClassName="ynot-home-mint"
+      >
+        <YnotHomeExperience data={data} homeFilter={homeFilter} />
+      </YnotShell>
+    </>
   );
 }

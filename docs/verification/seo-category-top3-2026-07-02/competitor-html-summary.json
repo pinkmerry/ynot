@@ -1,0 +1,438 @@
+{
+  "checkedAt": "2026-07-02T08:26:09.601Z",
+  "results": [
+    {
+      "query": "pokemon card",
+      "label": "Pokemon official Thailand",
+      "url": "https://asia.pokemon-card.com/th/",
+      "status": 200,
+      "finalUrl": "https://asia.pokemon-card.com/th/",
+      "title": "โฮมเพจอย่างเป็นทางการของโปเกมอนเทรดดิ้งการ์ดเกม &#8220;เว็บไซต์เทรนเนอร์&#8221; ใน ไทย",
+      "metaDescription": "เว็บไซต์อย่างเป็นทางการ แนะนำวิธีเล่นโปเกมอนเทรดดิ้งการ์ดเกม แนะนำสินค้า ข่าวสารอีเวนต์ และอื่น ๆ",
+      "canonical": "https://asia.pokemon-card.com/th/",
+      "h1": [],
+      "h2": [
+        "หัวข้อแนะนำ",
+        "ข่าวการ์ดเกม",
+        "วิธีการเล่นเกม"
+      ],
+      "jsonLdTypes": [],
+      "contentSignals": {
+        "thailand": true,
+        "pokemon": true,
+        "onePiece": false,
+        "booster": false,
+        "singles": false,
+        "official": true,
+        "shipping": false,
+        "faq": false
+      }
+    },
+    {
+      "query": "pokemon card",
+      "label": "Pokemon official global",
+      "url": "https://tcg.pokemon.com/",
+      "status": 200,
+      "finalUrl": "https://tcg.pokemon.com/en-us/",
+      "title": "Pokémon Trading Card Game",
+      "metaDescription": "Expand your Pokémon TCG collection with beautiful artwork, and work toward building your next deck with powerful cards.",
+      "canonical": null,
+      "h1": [
+        "Pokémon TCG: Mega Evolution—Chaos Rising"
+      ],
+      "h2": [
+        "What's new!",
+        "Pokémon TCG Live",
+        "Pokémon Trading Card Game Pocket",
+        "Pokémon Championship Series",
+        "Play! Pokémon",
+        "Product Guide"
+      ],
+      "jsonLdTypes": [],
+      "contentSignals": {
+        "thailand": false,
+        "pokemon": false,
+        "onePiece": false,
+        "booster": false,
+        "singles": false,
+        "official": false,
+        "shipping": false,
+        "faq": false
+      }
+    },
+    {
+      "query": "pokemon card thailand",
+      "label": "Pokesona",
+      "url": "https://pokesona.com/",
+      "status": 200,
+      "finalUrl": "https://pokesona.com/",
+      "title": "English &amp; Japanese Pokemon TCG Cards Thailand | Pokesona Thailand",
+      "metaDescription": "Shop authentic English &amp; Japanese Pokemon TCG cards at Pokesona Thailand. Booster boxes, booster packs, singles &amp; more. Fast nationwide shipping &amp; BNPL available.",
+      "canonical": "https://pokesona.com/",
+      "h1": [
+        ""
+      ],
+      "h2": [
+        "Language",
+        "Language",
+        "Item added to your cart",
+        "Booster Bundles Restocked!",
+        "Collections",
+        "Featured Products"
+      ],
+      "jsonLdTypes": [
+        "Organization",
+        "WebSite",
+        "SearchAction"
+      ],
+      "contentSignals": {
+        "thailand": true,
+        "pokemon": true,
+        "onePiece": false,
+        "booster": true,
+        "singles": true,
+        "official": false,
+        "shipping": false,
+        "faq": true
+      }
+    },
+    {
+      "query": "pokemon card thailand",
+      "label": "Kira Cards Pokemon",
+      "url": "https://www.kira-cards.com/en/pokemon",
+      "status": 200,
+      "finalUrl": "https://www.kira-cards.com/en/pokemon",
+      "title": "Pokemon TCG, Booster Boxes, Packs &amp; Elite Trainer Boxes | Kira Cards",
+      "metaDescription": "Buy Pokemon Trading Card Game products in Thailand. Scarlet &amp; Violet, Prismatic Evolutions, and more. Booster boxes, ETBs, and single packs sourced through verified supply channels.",
+      "canonical": "https://www.kira-cards.com/en/pokemon",
+      "h1": [],
+      "h2": [],
+      "jsonLdTypes": [
+        "Store",
+        "LocalBusiness",
+        "BuyAction",
+        "Offer",
+        "Service",
+        "OfferCatalog",
+        "OpeningHoursSpecification",
+        "Language",
+        "AdministrativeArea",
+        "Country",
+        "GeoCoordinates",
+        "PostalAddress",
+        "Place",
+        "ImageObject",
+        "WebSite",
+        "SearchAction",
+        "EntryPoint",
+        "Event",
+        "Organization",
+        "BreadcrumbList",
+        "ListItem",
+        "CollectionPage",
+        "ItemList",
+        "Product",
+        "OfferShippingDetails",
+        "ShippingDeliveryTime",
+        "QuantitativeValue",
+        "DefinedRegion",
+        "MonetaryAmount",
+        "MerchantReturnPolicy"
+      ],
+      "contentSignals": {
+        "thailand": true,
+        "pokemon": true,
+        "onePiece": true,
+        "booster": true,
+        "singles": true,
+        "official": true,
+        "shipping": true,
+        "faq": true
+      }
+    },
+    {
+      "query": "pokemon card thailand",
+      "label": "Toys R Us Thailand Pokemon",
+      "url": "https://www.toysrus.co.th/en-th/pokemon/",
+      "status": 200,
+      "finalUrl": "https://www.toysrus.co.th/en-th/pokemon/",
+      "title": "Pokemon | Toys&quot;R&quot;Us – Thailand",
+      "metaDescription": "Live Toyful today! Discover simple joys with Pokemon at Toys&quot;R&quot;Us &ndash; Thailand. Inspire generations with thousands of toys and lifestyle rangesin-store and online!",
+      "canonical": "https://www.toysrus.co.th/en-th/pokemon/",
+      "h1": [
+        "shop popular brands",
+        "Pokemon"
+      ],
+      "h2": [
+        "Remove Product?",
+        "filter by 223",
+        "sign up to save"
+      ],
+      "jsonLdTypes": [
+        "ItemList",
+        "ListItem"
+      ],
+      "contentSignals": {
+        "thailand": true,
+        "pokemon": true,
+        "onePiece": false,
+        "booster": false,
+        "singles": false,
+        "official": false,
+        "shipping": false,
+        "faq": true
+      }
+    },
+    {
+      "query": "one piece card",
+      "label": "One Piece official Thailand",
+      "url": "https://asia-th.onepiece-cardgame.com/",
+      "status": 200,
+      "finalUrl": "https://asia-th.onepiece-cardgame.com/",
+      "title": "ONE PIECE CARD GAME - เว็บไซต์ทางการ",
+      "metaDescription": "เว็บไซต์อย่างเป็นทางการของ ONE PIECE Card Game พบกับการ์ดใหม่ล่าสุด, สินค้า, อีเวนต์, กิจกรรม, กฎการเล่น, FAQ และอีกมากมาย ร่วมออกเรือไปสู่ยุคใหม่ของการ์ดเกม!",
+      "canonical": null,
+      "h1": [
+        ""
+      ],
+      "h2": [
+        "เด็คแดง (Aggro)เด็คบุกความเร็วสูงสีแดง!",
+        "เด็คเขียว (Battle) เด็คสีเขียวที่เน้นการต่อสู้และโจมตีอย่างดุดัน!",
+        "เด็คน้ำเงิน (Control)เด็คควบคุมเกม!",
+        "\"เด็คม่วง (Future Sight Control) เด็คควบคุมเกมสีม่วงที่ใช้พลังแห่งการมองเห็นอนาคต!\"",
+        "เด็คแดง-ดำ (Midrange) เด็คมิดเรนจ์สีแดง-ดำ!",
+        "ควบคุมสถานการณ์ในสนาม พร้อมขัดขวางแผนการของคู่แข่งได้อย่างมีประสิทธิภาพ!"
+      ],
+      "jsonLdTypes": [],
+      "contentSignals": {
+        "thailand": true,
+        "pokemon": false,
+        "onePiece": true,
+        "booster": true,
+        "singles": false,
+        "official": true,
+        "shipping": false,
+        "faq": false
+      }
+    },
+    {
+      "query": "one piece card",
+      "label": "One Piece official global",
+      "url": "https://en.onepiece-cardgame.com/",
+      "status": 200,
+      "finalUrl": "https://en.onepiece-cardgame.com/",
+      "title": "ONE PIECE CARD GAME - Official Web Site",
+      "metaDescription": "The official ONE PIECE Card Game website. Find out about the latest cards, products, events, rules, FAQ and more! Set sail for the new era of card games!",
+      "canonical": null,
+      "h1": [
+        ""
+      ],
+      "h2": [
+        "Introducing the brand-new Leader Card “Luffy & Ace” Starter Deck!",
+        "The great earth‑shaking battle returns...!",
+        "“Monkey.D.Luffy” vs “God Enel”",
+        "An Extra Booster honoring your favorite Heroines is finally here!",
+        "“The Seven Warlords of the Sea” make a powerful entrance!",
+        "A World of Treasure and Adventure Await."
+      ],
+      "jsonLdTypes": [],
+      "contentSignals": {
+        "thailand": true,
+        "pokemon": false,
+        "onePiece": true,
+        "booster": true,
+        "singles": false,
+        "official": true,
+        "shipping": false,
+        "faq": true
+      }
+    },
+    {
+      "query": "one piece card thailand",
+      "label": "Kira Cards One Piece",
+      "url": "https://www.kira-cards.com/en/one-piece",
+      "status": 200,
+      "finalUrl": "https://www.kira-cards.com/en/one-piece",
+      "title": "One Piece TCG, Booster Boxes, Starter Decks &amp; Packs | Kira Cards",
+      "metaDescription": "Buy official One Piece Trading Card Game by Bandai in Thailand. Booster boxes, starter decks, and single packs from all available sets. Romance Dawn, Paramount War, and more.",
+      "canonical": "https://www.kira-cards.com/en/one-piece",
+      "h1": [],
+      "h2": [],
+      "jsonLdTypes": [
+        "Store",
+        "LocalBusiness",
+        "BuyAction",
+        "Offer",
+        "Service",
+        "OfferCatalog",
+        "OpeningHoursSpecification",
+        "Language",
+        "AdministrativeArea",
+        "Country",
+        "GeoCoordinates",
+        "PostalAddress",
+        "Place",
+        "ImageObject",
+        "WebSite",
+        "SearchAction",
+        "EntryPoint",
+        "Event",
+        "Organization",
+        "BreadcrumbList",
+        "ListItem",
+        "CollectionPage",
+        "ItemList",
+        "Product",
+        "OfferShippingDetails",
+        "ShippingDeliveryTime",
+        "QuantitativeValue",
+        "DefinedRegion",
+        "MonetaryAmount",
+        "MerchantReturnPolicy"
+      ],
+      "contentSignals": {
+        "thailand": true,
+        "pokemon": true,
+        "onePiece": true,
+        "booster": true,
+        "singles": true,
+        "official": true,
+        "shipping": true,
+        "faq": true
+      }
+    },
+    {
+      "query": "one piece card thailand",
+      "label": "Kira Cards One Piece guide",
+      "url": "https://www.kira-cards.com/en/blog/one-piece-japanese-vs-english-cards",
+      "status": 200,
+      "finalUrl": "https://www.kira-cards.com/en/blog/one-piece-japanese-vs-english-cards",
+      "title": "Japanese vs English One Piece Cards in Thailand | Kira Cards | Kira Cards",
+      "metaDescription": "A decision guide for Thai collectors choosing between Japanese and English One Piece TCG cards. Why the same publisher changes everything, release timing, card backs, pricing, and which to pick for play or collecting.",
+      "canonical": "https://www.kira-cards.com/en/blog/one-piece-japanese-vs-english-cards",
+      "h1": [
+        "Japanese or English One Piece Cards, the Thailand Buyer&#x27;s Guide"
+      ],
+      "h2": [
+        "One key difference, same publisher",
+        "Release timing and set codes",
+        "Print quality and grading",
+        "Rarity tiers and the cards that hold value",
+        "Card backs and tournament play in Thailand",
+        "Pricing and availability in Thailand"
+      ],
+      "jsonLdTypes": [
+        "Store",
+        "LocalBusiness",
+        "BuyAction",
+        "Offer",
+        "Service",
+        "OfferCatalog",
+        "OpeningHoursSpecification",
+        "Language",
+        "AdministrativeArea",
+        "Country",
+        "GeoCoordinates",
+        "PostalAddress",
+        "Place",
+        "ImageObject",
+        "WebSite",
+        "SearchAction",
+        "EntryPoint",
+        "Event",
+        "Organization",
+        "BlogPosting",
+        "WebPage",
+        "FAQPage",
+        "Question",
+        "Answer",
+        "BreadcrumbList",
+        "ListItem",
+        "SpeakableSpecification"
+      ],
+      "contentSignals": {
+        "thailand": true,
+        "pokemon": true,
+        "onePiece": true,
+        "booster": true,
+        "singles": true,
+        "official": false,
+        "shipping": false,
+        "faq": false
+      }
+    },
+    {
+      "query": "ynot",
+      "label": "YNOT YouTube downloader result",
+      "url": "https://james-see.github.io/ynot/",
+      "status": 200,
+      "finalUrl": "https://james-see.github.io/ynot/",
+      "title": "YNOT - Free YouTube Video Downloader | Download YouTube Videos for Windows, Mac, Linux",
+      "metaDescription": "Download YouTube videos and transcripts easily with YNOT - a free, open-source YouTube downloader with a simple GUI. Available for Windows, macOS, and Linux. No ads, no tracking.",
+      "canonical": "https://james-see.github.io/ynot/",
+      "h1": [
+        "Free, Open-Source YouTube Downloader – YNOT"
+      ],
+      "h2": [
+        "Download YNOT for Windows, Mac, and Linux",
+        "Why Choose YNOT YouTube Downloader?",
+        "How to Download YouTube Videos with YNOT",
+        "Frequently Asked Questions About YNOT YouTube Downloader"
+      ],
+      "jsonLdTypes": [
+        "SoftwareApplication",
+        "AggregateRating",
+        "Person",
+        "Offer"
+      ],
+      "contentSignals": {
+        "thailand": false,
+        "pokemon": false,
+        "onePiece": false,
+        "booster": false,
+        "singles": false,
+        "official": false,
+        "shipping": false,
+        "faq": true
+      }
+    },
+    {
+      "query": "ynot",
+      "label": "Ynot Italian result",
+      "url": "https://www.ynotitalian.com/",
+      "status": 200,
+      "finalUrl": "https://www.ynotitalian.com/",
+      "title": "Home - Ynot Italian - Pizza Delivery &amp; Family Dining",
+      "metaDescription": "Ynot Italian restaurants in Virginia Beach, Norfolk, Chesapeake, Voted Best Pizza, Family Dining &amp; Delivery, Get it Hot, Get Ynot!",
+      "canonical": "https://www.ynotitalian.com/",
+      "h1": [],
+      "h2": [
+        "We’re not just a food business, we’re a family business.",
+        "Events",
+        "Catering",
+        "Sponsorships"
+      ],
+      "jsonLdTypes": [
+        "Organization",
+        "ImageObject",
+        "WebSite",
+        "SearchAction",
+        "EntryPoint",
+        "BreadcrumbList",
+        "ListItem",
+        "WebPage",
+        "ReadAction"
+      ],
+      "contentSignals": {
+        "thailand": false,
+        "pokemon": false,
+        "onePiece": false,
+        "booster": false,
+        "singles": false,
+        "official": false,
+        "shipping": false,
+        "faq": false
+      }
+    }
+  ]
+}

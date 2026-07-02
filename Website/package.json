@@ -41,6 +41,8 @@
     "test:shipping-flow": "node --test scripts/test-shipping-flow.mjs",
     "test:rate-limits": "node --test scripts/test-rate-limit-config.mjs",
     "test:card-catalog-metadata": "node --test scripts/test-card-catalog-metadata.mjs",
+    "test:seo-public-answer-contract": "node --test scripts/test-seo-public-answer-contract.mjs",
+    "test:seo": "npm run test:seo-public-answer-contract",
     "test:gacha-open-bundle": "node --test scripts/test-gacha-open-bundle.mjs",
     "test:gacha-open-launch-safety": "node --test scripts/test-gacha-open-launch-safety.mjs",
     "test:random-pack-bundles": "node --test scripts/test-random-pack-bundle-quantity.mjs",

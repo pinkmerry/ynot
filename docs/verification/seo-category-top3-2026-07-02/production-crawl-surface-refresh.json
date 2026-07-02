@@ -1,0 +1,60 @@
+{
+  "checkedAt": "2026-07-02T08:29:33.261Z",
+  "results": [
+    {
+      "url": "https://www.ynotopen.com/sitemap.xml",
+      "status": 404,
+      "contentType": "text/html; charset=utf-8",
+      "hasOaiSearchBot": false,
+      "hasSitemapReference": false,
+      "hasYnotTcgPageContent": false,
+      "hasPokemonPageContent": false,
+      "hasOnePiecePageContent": false,
+      "hasNoIndex": true
+    },
+    {
+      "url": "https://www.ynotopen.com/robots.txt",
+      "status": 200,
+      "contentType": "text/plain; charset=utf-8",
+      "hasOaiSearchBot": false,
+      "hasSitemapReference": false,
+      "hasYnotTcgPageContent": false,
+      "hasPokemonPageContent": false,
+      "hasOnePiecePageContent": false,
+      "hasNoIndex": false
+    },
+    {
+      "url": "https://www.ynotopen.com/help/ynot-tcg-lucky-draw-thailand",
+      "status": 404,
+      "contentType": "text/html; charset=utf-8",
+      "hasOaiSearchBot": false,
+      "hasSitemapReference": false,
+      "hasYnotTcgPageContent": false,
+      "hasPokemonPageContent": false,
+      "hasOnePiecePageContent": false,
+      "hasNoIndex": true
+    },
+    {
+      "url": "https://www.ynotopen.com/help/pokemon-card-packs-thailand",
+      "status": 404,
+      "contentType": "text/html; charset=utf-8",
+      "hasOaiSearchBot": false,
+      "hasSitemapReference": false,
+      "hasYnotTcgPageContent": false,
+      "hasPokemonPageContent": false,
+      "hasOnePiecePageContent": false,
+      "hasNoIndex": true
+    },
+    {
+      "url": "https://www.ynotopen.com/help/one-piece-card-packs-thailand",
+      "status": 404,
+      "contentType": "text/html; charset=utf-8",
+      "hasOaiSearchBot": false,
+      "hasSitemapReference": false,
+      "hasYnotTcgPageContent": false,
+      "hasPokemonPageContent": false,
+      "hasOnePiecePageContent": false,
+      "hasNoIndex": true
+    }
+  ]
+}

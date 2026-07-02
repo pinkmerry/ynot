@@ -1,8 +1,17 @@
+import type { Metadata } from "next";
 import { PageHeader, RankingTable, YnotShell } from "@/features/ynot/components";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
 import { i18n } from "@/features/ynot/i18n";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "YNOT Ranking",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function RankingPage() {
   const data = await getYnotDashboardSlice({ rankings: true });

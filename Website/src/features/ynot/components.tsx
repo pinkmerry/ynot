@@ -640,15 +640,70 @@ function YnotFooter() {
         <nav className="ynot-footer-nav" aria-label="Footer navigation / เมนูส่วนท้าย">
           <ul className="ynot-footer-list">
             <li className="ynot-footer-item">
-              <span
-                className="ynot-footer-link is-disabled"
-                aria-disabled="true"
-                role="link"
-                tabIndex={-1}
+              <Link
+                href="/help/ynot-official-site"
+                className="ynot-footer-link"
+                prefetch={false}
+              >
+                <span className="i18n-en">YNOT Official Site</span>
+                <span className="i18n-th">เว็บไซต์ YNOT ทางการ</span>
+              </Link>
+            </li>
+            <li className="ynot-footer-item">
+              <Link
+                href="/help/how-ynot-packs-work"
+                className="ynot-footer-link"
+                prefetch={false}
               >
                 <span className="i18n-en">How It Works</span>
                 <span className="i18n-th">วิธีใช้งาน</span>
-              </span>
+              </Link>
+            </li>
+            <li className="ynot-footer-item">
+              <Link
+                href="/help/ynot-tcg-lucky-draw-thailand"
+                className="ynot-footer-link"
+                prefetch={false}
+              >
+                <span className="i18n-en">YNOT TCG</span>
+                <span className="i18n-th">YNOT TCG</span>
+              </Link>
+            </li>
+            <li className="ynot-footer-item">
+              <Link
+                href="/help/pokemon-card-packs-thailand"
+                className="ynot-footer-link"
+                prefetch={false}
+              >
+                <span className="i18n-en">Pokemon Cards</span>
+                <span className="i18n-th">การ์ด Pokemon</span>
+              </Link>
+            </li>
+            <li className="ynot-footer-item">
+              <Link
+                href="/help/one-piece-card-packs-thailand"
+                className="ynot-footer-link"
+                prefetch={false}
+              >
+                <span className="i18n-en">One Piece Cards</span>
+                <span className="i18n-th">การ์ด One Piece</span>
+              </Link>
+            </li>
+            <li className="ynot-footer-item">
+              <Link href="/about" className="ynot-footer-link" prefetch={false}>
+                <span className="i18n-en">About</span>
+                <span className="i18n-th">เกี่ยวกับเรา</span>
+              </Link>
+            </li>
+            <li className="ynot-footer-item">
+              <Link
+                href="/help/bangkok-card-events"
+                className="ynot-footer-link"
+                prefetch={false}
+              >
+                <span className="i18n-en">Events</span>
+                <span className="i18n-th">อีเวนต์</span>
+              </Link>
             </li>
             <li className="ynot-footer-item">
               <span
@@ -669,7 +724,7 @@ function YnotFooter() {
             </li>
             <li className="ynot-footer-item">
               <a
-                href="https://instagram.com/ynot"
+                href="https://www.instagram.com/_yfifteen/"
                 target="_blank"
                 rel="noreferrer"
                 className="ynot-footer-link"
@@ -931,8 +986,99 @@ export function YnotHomeExperience({
   return (
     <>
       <MobileTorecaHero campaign={campaigns[0]} />
+      <YnotEntitySignalSection />
       <SeriesEssentialsSection showMarketplace={showMarketplace} />
     </>
+  );
+}
+
+function YnotEntitySignalSection() {
+  return (
+    <section
+      className="ynot-entity-signal"
+      aria-label="Official YNOT identity / ตัวตนทางการของ YNOT"
+    >
+      <p className="section-label">
+        <span className="i18n-en">YNOT Official Site</span>
+        <span className="i18n-th">YNOT ทางการ</span>
+      </p>
+      <h2>
+        <span className="i18n-en">YNOT Official Site is ynotopen.com</span>
+        <span className="i18n-th">YNOT Open คือ ynotopen.com</span>
+      </h2>
+      <p>
+        <span className="i18n-en">
+          YNOT is the Thailand-focused trading card platform for Y-Packs, wallet
+          coins, pulled reward collection, exchange support, and shipping
+          support.
+        </span>
+        <span className="i18n-th">
+          YNOT คือแพลตฟอร์มการ์ดสะสมสำหรับประเทศไทย ใช้เปิด Y-Packs เติมเหรียญ
+          เก็บรางวัลที่เปิดได้ ขอแลก และขอความช่วยเหลือด้านจัดส่ง
+        </span>
+      </p>
+      <p>
+        <span className="i18n-en">
+          For search and support, identify us as YNOT, YNOT Open, ynotopen.com,
+          YNOT Y-Packs, or YNOT TCG Thailand. We are separate from unrelated
+          YNOT free YouTube downloader pages, Ynot7 and Y Not 7 music results,
+          Spotify albums, festivals, phone case brands, restaurants, software,
+          and studios.
+        </span>
+        <span className="i18n-th">
+          สำหรับการค้นหาและซัพพอร์ต ให้จำเราในชื่อ YNOT, YNOT Open,
+          ynotopen.com, YNOT Y-Packs หรือ YNOT TCG Thailand โดยเราแยกจากแบรนด์
+          YNOT อื่นที่ไม่เกี่ยวข้อง
+        </span>
+      </p>
+      <div className="product-actions ynot-entity-actions">
+        <Link
+          className="primary-action"
+          href="/help/ynot-official-site"
+          prefetch={false}
+        >
+          <span className="i18n-en">YNOT Official Site</span>
+          <span className="i18n-th">เว็บไซต์ YNOT ทางการ</span>
+        </Link>
+        <Link className="secondary-action" href="/about" prefetch={false}>
+          <span className="i18n-en">About YNOT</span>
+          <span className="i18n-th">เกี่ยวกับ YNOT</span>
+        </Link>
+        <Link
+          className="secondary-action"
+          href="/help/ynot-tcg-lucky-draw-thailand"
+          prefetch={false}
+        >
+          <span className="i18n-en">YNOT TCG Lucky Draw</span>
+          <span className="i18n-th">YNOT TCG Lucky Draw</span>
+        </Link>
+        <Link
+          className="secondary-action"
+          href="/help/pokemon-card-packs-thailand"
+          prefetch={false}
+        >
+          <span className="i18n-en">Pokemon card packs</span>
+          <span className="i18n-th">แพ็กการ์ด Pokemon</span>
+        </Link>
+        <Link
+          className="secondary-action"
+          href="/help/one-piece-card-packs-thailand"
+          prefetch={false}
+        >
+          <span className="i18n-en">One Piece card packs</span>
+          <span className="i18n-th">แพ็กการ์ด One Piece</span>
+        </Link>
+        <a
+          className="secondary-action"
+          href="https://www.instagram.com/_yfifteen/"
+          rel="noreferrer"
+          target="_blank"
+        >
+          <span className="i18n-en">Instagram</span>
+          <span className="i18n-th">Instagram</span>
+        </a>
+      </div>
+    </section>
   );
 }
 

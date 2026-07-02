@@ -1,9 +1,19 @@
+import type { Metadata } from "next";
 import { Shell } from "@/features/ynot/cr/Shell";
 import { YPackExperience } from "@/features/ynot/cr/YPackExperience";
 import { YnotShell } from "@/features/ynot/components";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Browse Y-Packs",
+  description:
+    "Browse public YNOT Y-Packs, check coin cost and reward information, and choose eligible trading card packs to open online.",
+  alternates: {
+    canonical: "https://www.ynotopen.com/packs",
+  },
+};
 
 const validSeriesParams = new Set([
   "all",
