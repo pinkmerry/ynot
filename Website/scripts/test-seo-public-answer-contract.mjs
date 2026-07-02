@@ -726,18 +726,23 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
-    /YNOT Open Thailand TCG Y-Packs/,
-    "homepage H1 should describe the public entity and category, not only the short brand",
+    /<span className="i18n-en">YNOT<\/span>/,
+    "homepage should keep the original short YNOT hero copy",
   );
-  assert.match(
+  assert.doesNotMatch(
     readApp("src/features/ynot/components.tsx"),
     /YNOT Open is a Thailand TCG Y-Pack and card trading site/,
-    "homepage should expose a concise What is YNOT Open answer block",
+    "homepage should not render the SEO identity answer block",
   );
-  assert.match(
+  assert.doesNotMatch(
     readApp("src/features/ynot/components.tsx"),
     /YouTube downloader/,
-    "homepage identity block should disambiguate current live Google conflicts",
+    "homepage should keep YNOT disambiguation content on dedicated SEO pages",
+  );
+  assert.doesNotMatch(
+    readApp("src/features/ynot/components.tsx"),
+    /YnotEntitySignalSection|ynot-entity-signal/,
+    "homepage should not include the removed visible SEO identity section",
   );
 
   for (const page of seo.publicAnswerPages) {
