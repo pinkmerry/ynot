@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Shell } from "@/features/ynot/cr/Shell";
 import { YPackExperience } from "@/features/ynot/cr/YPackExperience";
 import { YnotShell } from "@/features/ynot/components";
@@ -23,12 +24,18 @@ function filterSeoSeries<T extends { series: string }>(
 
 export async function PackCatalogRoute({
   canonicalPath = "/packs",
+  catalogHeading,
   initialSeries = "all",
   initialTag = "",
+  pageLead,
+  pageTitle,
 }: {
   canonicalPath?: string;
+  catalogHeading?: ReactNode;
   initialSeries?: PackCatalogSeries;
   initialTag?: string;
+  pageLead?: ReactNode;
+  pageTitle?: ReactNode;
 }) {
   const data = await getYnotDashboardSlice({
     campaigns: true,
@@ -71,8 +78,11 @@ export async function PackCatalogRoute({
             key={`${initialSeries}:${initialTag}`}
             campaigns={visibleCampaigns}
             balanceCoins={data.wallet.balanceCoins}
+            catalogHeading={catalogHeading}
             initialSeries={initialSeries}
             initialTag={initialTag}
+            pageLead={pageLead}
+            pageTitle={pageTitle}
           />
         </Shell>
       </YnotShell>

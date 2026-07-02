@@ -632,6 +632,21 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     "root metadata should use the YNOT Open site name",
   );
   assert.match(
+    readApp("src/app/layout.tsx"),
+    /template: "%s \| YNOT Open"/,
+    "root title template should use the disambiguated YNOT Open site name",
+  );
+  assert.match(
+    readApp("src/app/layout.tsx"),
+    /applicationName: "YNOT Open"/,
+    "application metadata should use YNOT Open for site-name consistency",
+  );
+  assert.match(
+    readApp("src/app/layout.tsx"),
+    /siteName: "YNOT Open"/,
+    "root Open Graph metadata should use YNOT Open for site-name consistency",
+  );
+  assert.match(
     readApp("src/features/ynot/components.tsx"),
     /YNOT Open Thailand TCG Y-Packs/,
     "homepage H1 should describe the public entity and category, not only the short brand",
@@ -968,9 +983,39 @@ test("public pack browse and detail routes expose commerce-ready proof schema", 
     "Pokemon pack catalog route must use a static canonical URL",
   );
   assert.match(
+    readApp("src/app/(store)/packs/pokemon/page.tsx"),
+    /pageTitle=\{\s*<I18nText\s+en="Pokemon Card Y-Packs Thailand"/,
+    "Pokemon pack catalog route must expose a series-specific H1",
+  );
+  assert.match(
+    readApp("src/app/(store)/packs/pokemon/page.tsx"),
+    /pageLead=\{\s*<I18nText\s+en="Browse current public Pokemon card Y-Packs/,
+    "Pokemon pack catalog route must expose a crawlable category intro",
+  );
+  assert.match(
+    readApp("src/app/(store)/packs/pokemon/page.tsx"),
+    /catalogHeading=\{\s*<I18nText\s+en="Current public Pokemon card Y-Packs"/,
+    "Pokemon pack catalog route must expose a crawlable category H2",
+  );
+  assert.match(
     readApp("src/app/(store)/packs/one-piece/page.tsx"),
     /canonicalPath="\/packs\/one-piece"/,
     "One Piece pack catalog route must use a static canonical URL",
+  );
+  assert.match(
+    readApp("src/app/(store)/packs/one-piece/page.tsx"),
+    /pageTitle=\{\s*<I18nText\s+en="One Piece Card Y-Packs Thailand"/,
+    "One Piece pack catalog route must expose a series-specific H1",
+  );
+  assert.match(
+    readApp("src/app/(store)/packs/one-piece/page.tsx"),
+    /pageLead=\{\s*<I18nText\s+en="Browse current public One Piece card Y-Packs/,
+    "One Piece pack catalog route must expose a crawlable category intro",
+  );
+  assert.match(
+    readApp("src/app/(store)/packs/one-piece/page.tsx"),
+    /catalogHeading=\{\s*<I18nText\s+en="Current public One Piece card Y-Packs"/,
+    "One Piece pack catalog route must expose a crawlable category H2",
   );
   assert.match(
     readApp("src/app/(store)/packs/[slug]/page.tsx"),
@@ -989,13 +1034,33 @@ test("public pack browse and detail routes expose commerce-ready proof schema", 
   );
   assert.match(
     readApp("src/features/ynot/PublicAnswerPage.tsx"),
-    /Source links/,
-    "public answer pages must visibly render source-link proof when configured",
+    /<h2[^>]*id="public-answer-title"/,
+    "public answer pages must expose their direct answer as a semantic H2",
+  );
+  assert.match(
+    readApp("src/features/ynot/PublicAnswerPage.tsx"),
+    /<h2>\s*<I18nText en="Public event and social proof"/,
+    "public answer pages must expose source-link proof under a semantic H2",
   );
   assert.match(
     readApp("src/features/ynot/PublicAnswerPage.tsx"),
     /Public event and social proof/,
     "public answer pages must label event and social proof for crawlers and users",
+  );
+  assert.match(
+    readApp("src/features/ynot/SeriesSeoLandingPage.tsx"),
+    /<h2[^>]*id="series-hub-title"/,
+    "series landing pages must expose the search-intent answer as a semantic H2",
+  );
+  assert.match(
+    readApp("src/features/ynot/SeriesSeoLandingPage.tsx"),
+    /<h2>\s*<I18nText en="Live pack evidence for this category"/,
+    "series landing pages must expose current pack evidence under a semantic H2",
+  );
+  assert.match(
+    readApp("src/features/ynot/cr/YPackExperience.tsx"),
+    /pageTitle/,
+    "pack browse experience must accept route-specific H1 copy",
   );
 });
 

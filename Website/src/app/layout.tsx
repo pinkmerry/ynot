@@ -59,11 +59,11 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://www.ynotopen.com"),
   title: {
     default: "YNOT Open · Thailand TCG Y-Packs Online",
-    template: "%s | YNOT",
+    template: "%s | YNOT Open",
   },
   description:
     "YNOT Open is a Thailand TCG Y-Pack and card trading site for Pokemon and One Piece collectors, wallet coins, pulled rewards, exchange, and shipping support.",
-  applicationName: "YNOT",
+  applicationName: "YNOT Open",
   alternates: {
     canonical: "https://www.ynotopen.com",
   },
@@ -72,7 +72,7 @@ export const metadata: Metadata = {
     description:
       "Browse public Y-Packs, open with YNOT wallet coins, and manage Pokemon, One Piece, and other trading card rewards through collection, exchange, and shipping flows.",
     url: "https://www.ynotopen.com",
-    siteName: "YNOT",
+    siteName: "YNOT Open",
     type: "website",
   },
   twitter: {

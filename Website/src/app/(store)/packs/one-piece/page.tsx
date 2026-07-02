@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PackCatalogRoute } from "@/features/ynot/PackCatalogRoute";
+import { I18nText } from "@/features/ynot/i18n";
 import { canonicalUrl } from "@/lib/seo/public-answer-pages";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
     description:
       "Browse One Piece card Y-Packs on YNOT Open with wallet coin cost, stock signals, reward context, and public pack details.",
     url: canonicalUrl("/packs/one-piece"),
-    siteName: "YNOT",
+    siteName: "YNOT Open",
     type: "website",
   },
   twitter: {
@@ -31,7 +32,25 @@ export default function OnePiecePackCatalogPage() {
   return (
     <PackCatalogRoute
       canonicalPath="/packs/one-piece"
+      catalogHeading={
+        <I18nText
+          en="Current public One Piece card Y-Packs"
+          th="One Piece card Y-Packs สาธารณะตอนนี้"
+        />
+      }
       initialSeries="one_piece"
+      pageLead={
+        <I18nText
+          en="Browse current public One Piece card Y-Packs on YNOT Open with wallet coin cost, stock signals, reward context, and pack detail pages."
+          th="ดู One Piece card Y-Packs สาธารณะบน YNOT Open พร้อมราคาเหรียญ สถานะสต็อก บริบทรางวัล และหน้ารายละเอียดแพ็ก"
+        />
+      }
+      pageTitle={
+        <I18nText
+          en="One Piece Card Y-Packs Thailand"
+          th="One Piece Card Y-Packs Thailand"
+        />
+      }
     />
   );
 }

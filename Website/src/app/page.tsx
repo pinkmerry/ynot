@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     description:
       "Official YNOT Open website for online TCG Y-Packs, Pokemon and One Piece collectors, wallet coins, reward collection, exchange, and shipping in Thailand.",
     url: "https://www.ynotopen.com",
-    siteName: "YNOT",
+    siteName: "YNOT Open",
     type: "website",
   },
   twitter: {

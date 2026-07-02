@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import type { YnotCampaign } from "../types";
 import {
   isOpenQuantityAvailable,
@@ -158,15 +158,21 @@ function resolveInitialTag(initialTag: string, tags: string[]): string {
 export type YPackExperienceProps = {
   campaigns: YnotCampaign[];
   balanceCoins: number;
+  catalogHeading?: ReactNode;
   initialSeries?: string;
   initialTag?: string;
+  pageLead?: ReactNode;
+  pageTitle?: ReactNode;
 };
 
 export function YPackExperience({
   campaigns,
   balanceCoins,
+  catalogHeading,
   initialSeries = "all",
   initialTag = "",
+  pageLead,
+  pageTitle,
 }: YPackExperienceProps) {
   const router = useRouter();
   const language = useStoreLanguage();
@@ -245,7 +251,28 @@ export function YPackExperience({
 
   return (
     <div className="cr-page cr-page--packs">
-      <PageHead title="Y-PACKS" />
+      <PageHead
+        lead={pageLead}
+        title={pageTitle ?? <I18nText en="Y-PACKS" th="Y-PACKS" />}
+      />
+
+      <section
+        aria-labelledby="pack-catalog-heading"
+        className="cr-stack"
+        style={{ gap: 4 }}
+      >
+        <span className="cr-eyebrow">
+          <I18nText en="Public catalog" th="แคตตาล็อกสาธารณะ" />
+        </span>
+        <h2 className="cr-h2" id="pack-catalog-heading">
+          {catalogHeading ?? (
+            <I18nText
+              en="Current public Y-Packs"
+              th="Y-Packs สาธารณะตอนนี้"
+            />
+          )}
+        </h2>
+      </section>
 
       <div
         className="cr-cat-strip"

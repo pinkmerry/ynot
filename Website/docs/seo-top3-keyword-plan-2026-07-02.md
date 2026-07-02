@@ -250,6 +250,19 @@ ChatGPT Search answered that `https://www.ynotopen.com/` was not top 3 for exact
 - Add footer links to the same three URLs so crawlers and users can reach them from every public shell page.
 - Lock those internal crawl paths in the SEO contract test.
 
+### Done in the semantic heading and site-name pass
+
+- Changed public answer-page panel titles from visual-only `strong` text to semantic `h2` headings, including proof, FAQ, reviewed-by, and source-proof sections.
+- Changed Pokemon and One Piece series hub panel titles to semantic `h2` headings so broad category pages expose the same hierarchy users see.
+- Added route-specific H1 and H2 copy to the static pack catalog URLs:
+  - `/packs/pokemon`: `Pokemon Card Y-Packs Thailand` and `Current public Pokemon card Y-Packs`
+  - `/packs/one-piece`: `One Piece Card Y-Packs Thailand` and `Current public One Piece card Y-Packs`
+- Updated public Open Graph site-name metadata from `YNOT` to `YNOT Open` across the crawlable public pages, while schema still keeps `YNOT` as an alternate brand name.
+- Local served HTML proof after `NEXT_PUBLIC_SITE_URL=https://www.ynotopen.com npm run build`:
+  - `/packs/pokemon` returned 200 with title `Pokemon Card Thailand | YNOT Open Y-Packs | YNOT Open`, `og:site_name` `YNOT Open`, H1 `Pokemon Card Y-Packs Thailand`, and H2 `Current public Pokemon card Y-Packs`.
+  - `/packs/one-piece` returned 200 with title `One Piece Card Thailand | YNOT Open Y-Packs | YNOT Open`, `og:site_name` `YNOT Open`, H1 `One Piece Card Y-Packs Thailand`, and H2 `Current public One Piece card Y-Packs`.
+  - `/pokemon-card`, `/one-piece-card`, and `/ynot` returned 200 with semantic H2 sections for source checks, live pack evidence, proof, FAQ, and brand disambiguation.
+
 ### Next actions outside code
 
 - Submit these URLs in Google Search Console URL Inspection:

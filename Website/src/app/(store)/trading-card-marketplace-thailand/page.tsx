@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     title: marketplaceGuide.title.en,
     description: marketplaceGuide.description.en,
     url: canonicalUrl(marketplaceGuide.path),
-    siteName: "YNOT",
+    siteName: "YNOT Open",
     type: "article",
   },
   twitter: {

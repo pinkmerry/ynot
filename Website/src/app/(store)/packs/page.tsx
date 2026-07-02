@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     description:
       "Browse public YNOT Open card Y-Packs with wallet coin cost, visible stock signals, reward context, and detail pages.",
     url: "https://www.ynotopen.com/packs",
-    siteName: "YNOT",
+    siteName: "YNOT Open",
     type: "website",
   },
   twitter: {

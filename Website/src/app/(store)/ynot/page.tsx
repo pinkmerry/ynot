@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     title: ynotPage.title.en,
     description: ynotPage.description.en,
     url: canonicalUrl(ynotPage.path),
-    siteName: "YNOT",
+    siteName: "YNOT Open",
     type: "website",
   },
   twitter: {

@@ -61,9 +61,9 @@ export function PublicAnswerPage({
             <span>
               <I18nText en="Direct answer" th="คำตอบสั้น" />
             </span>
-            <strong id="public-answer-title">
+            <h2 id="public-answer-title">
               <I18nText en={page.title.en} th={page.title.th} />
-            </strong>
+            </h2>
             <p>
               <I18nText en={page.answer.en} th={page.answer.th} />
             </p>
@@ -84,9 +84,9 @@ export function PublicAnswerPage({
               <span>
                 <I18nText en="Steps" th="ขั้นตอน" />
               </span>
-              <strong>
+              <h2>
                 <I18nText en="How the flow works" th="ขั้นตอนการใช้งาน" />
-              </strong>
+              </h2>
             </div>
             <div className="metric-grid">
               {page.steps.map((step, index) => (
@@ -108,9 +108,9 @@ export function PublicAnswerPage({
             <span>
               <I18nText en="Proof" th="หลักฐานประกอบ" />
             </span>
-            <strong>
+            <h2>
               <I18nText en="Why this answer is reliable" th="เหตุผลที่คำตอบนี้เชื่อถือได้" />
-            </strong>
+            </h2>
           </div>
           <div className="metric-grid">
             {page.proofPoints.map((proof) => (
@@ -129,9 +129,9 @@ export function PublicAnswerPage({
               <span>
                 <I18nText en="Source links" th="ลิงก์หลักฐาน" />
               </span>
-              <strong>
+              <h2>
                 <I18nText en="Public event and social proof" th="หลักฐานอีเวนต์และโซเชียลสาธารณะ" />
-              </strong>
+              </h2>
             </div>
             <div className="stack-list">
               {page.sourceLinks.map((source) => (
@@ -159,9 +159,9 @@ export function PublicAnswerPage({
             <span>
               <I18nText en="FAQ" th="คำถามที่พบบ่อย" />
             </span>
-            <strong>
+            <h2>
               <I18nText en="Common questions" th="คำถามทั่วไป" />
-            </strong>
+            </h2>
           </div>
           <div className="stack-list">
             {page.faqs.map((faq) => (
@@ -182,7 +182,7 @@ export function PublicAnswerPage({
             <span>
               <I18nText en="Reviewed by" th="ตรวจทานโดย" />
             </span>
-            <strong>{page.owner}</strong>
+            <h2>{page.owner}</h2>
             <p>
               <I18nText
                 en={`Updated ${page.updatedAt}. This page is written for public search and AI answer systems, with private account actions kept behind sign-in.`}

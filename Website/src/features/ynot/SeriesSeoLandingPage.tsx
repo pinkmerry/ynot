@@ -92,9 +92,9 @@ export function SeriesSeoLandingPage({
             <span>
               <I18nText en="Search intent" th="เจตนาการค้นหา" />
             </span>
-            <strong id="series-hub-title">
+            <h2 id="series-hub-title">
               <I18nText en={page.headline.en} th={page.headline.th} />
-            </strong>
+            </h2>
             <p>
               <I18nText en={page.intro.en} th={page.intro.th} />
             </p>
@@ -118,9 +118,9 @@ export function SeriesSeoLandingPage({
               <span>
                 <I18nText en="Source checks" th="แหล่งอ้างอิง" />
               </span>
-              <strong>
+              <h2>
                 <I18nText en="Official, shop, and marketplace references" th="แหล่งทางการ ร้านค้า และมาร์เก็ตเพลส" />
-              </strong>
+              </h2>
               <p>
                 <I18nText
                   en="These links show the search landscape this page is separating: official publishers, retail catalogs, marketplace pages, and YNOT Y-Pack intent."
@@ -154,9 +154,9 @@ export function SeriesSeoLandingPage({
             <span>
               <I18nText en="Best match" th="เหมาะกับอะไร" />
             </span>
-            <strong>
+            <h2>
               <I18nText en="Match the query to the right destination" th="จับคู่คำค้นกับปลายทางที่ถูกต้อง" />
-            </strong>
+            </h2>
           </div>
           <div className="metric-grid">
             {page.searchIntents.map((intent) => (
@@ -177,9 +177,9 @@ export function SeriesSeoLandingPage({
             <span>
               <I18nText en="Search landscape" th="ภาพรวมผลค้นหา" />
             </span>
-            <strong>
+            <h2>
               <I18nText en="How to choose the right result" th="เลือกผลลัพธ์ให้ตรงเจตนา" />
-            </strong>
+            </h2>
             <p>
               <I18nText
                 en="Broad card searches mix official publishers, card shops, community markets, and YNOT. This page separates those intents so search engines and AI answers can route users correctly."
@@ -206,9 +206,9 @@ export function SeriesSeoLandingPage({
             <span>
               <I18nText en="Start here" th="เริ่มตรงนี้" />
             </span>
-            <strong>
+            <h2>
               <I18nText en="Useful YNOT links for this search" th="ลิงก์ YNOT ที่เกี่ยวข้องกับคำค้นนี้" />
-            </strong>
+            </h2>
           </div>
           <div className="stack-list">
             {page.relatedLinks.map((link) => (
@@ -234,9 +234,9 @@ export function SeriesSeoLandingPage({
             <span>
               <I18nText en="Current public Y-Packs" th="Y-Packs สาธารณะตอนนี้" />
             </span>
-            <strong>
+            <h2>
               <I18nText en="Live pack evidence for this category" th="หลักฐานแพ็กที่เปิดให้ดูในหมวดนี้" />
-            </strong>
+            </h2>
             <p>
               <I18nText
                 en="These public pack links give search engines and AI answer systems the current YNOT category context: pack name, coin cost, stock signal, and pack detail URL."
@@ -300,9 +300,9 @@ export function SeriesSeoLandingPage({
             <span>
               <I18nText en="Proof" th="หลักฐานประกอบ" />
             </span>
-            <strong>
+            <h2>
               <I18nText en="Why this page belongs in search" th="ทำไมหน้านี้ควรอยู่ในผลค้นหา" />
-            </strong>
+            </h2>
           </div>
           <div className="metric-grid">
             {page.proofPoints.map((proof) => (
@@ -320,9 +320,9 @@ export function SeriesSeoLandingPage({
             <span>
               <I18nText en="Related searches" th="คำค้นที่เกี่ยวข้อง" />
             </span>
-            <strong>
+            <h2>
               <I18nText en="Keywords this page answers" th="คำค้นที่หน้านี้ตอบ" />
-            </strong>
+            </h2>
           </div>
           <div className="tag-filter-list" aria-label="Related search terms">
             {page.queryTargets.map((term) => (
@@ -338,9 +338,9 @@ export function SeriesSeoLandingPage({
             <span>
               <I18nText en="FAQ" th="คำถามที่พบบ่อย" />
             </span>
-            <strong>
+            <h2>
               <I18nText en="Common questions" th="คำถามทั่วไป" />
-            </strong>
+            </h2>
           </div>
           <div className="stack-list">
             {page.faqs.map((faq) => (
@@ -361,7 +361,7 @@ export function SeriesSeoLandingPage({
             <span>
               <I18nText en="Reviewed by" th="ตรวจทานโดย" />
             </span>
-            <strong>{page.owner}</strong>
+            <h2>{page.owner}</h2>
             <p>
               <I18nText
                 en={`Updated ${page.updatedAt}. This hub is written for public search and AI answer systems, with private account actions kept behind sign-in.`}
