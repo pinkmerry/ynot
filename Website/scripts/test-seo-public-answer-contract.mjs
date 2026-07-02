@@ -558,6 +558,12 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     seo.organizationJsonLd.knowsAbout.includes("Trading card shops Thailand"),
     "Organization schema must connect YNOT with local card-shop searches",
   );
+  assert.ok(
+    !seo.organizationJsonLd.knowsAbout.some((topic) =>
+      /oripa|mystery pack|mystery-pack/i.test(topic),
+    ),
+    "Organization homepage schema must keep isolated /oripa topics off the old main page",
+  );
   assert.match(
     seo.organizationJsonLd.disambiguatingDescription,
     /YouTube downloader/,
@@ -615,13 +621,10 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     "WebSite schema should expose a crawlable SearchAction for YNOT packs",
   );
   assert.ok(
-    seo.websiteJsonLd.hasPart.some(
-      (part) =>
-        part["@type"] === "CollectionPage" &&
-        part.url === "https://www.ynotopen.com/oripa" &&
-        /oripa|mystery-pack/i.test(part.description),
+    !seo.websiteJsonLd.hasPart.some(
+      (part) => part.url === "https://www.ynotopen.com/oripa",
     ),
-    "WebSite schema must expose the online oripa / mystery-pack catalog",
+    "WebSite homepage schema must not inject the isolated /oripa route into the old main page",
   );
   assert.ok(
     seo.websiteJsonLd.hasPart.some(
@@ -669,6 +672,11 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
   assert.equal(homepageJsonLd["@context"], "https://schema.org");
   assert.ok(Array.isArray(homepageJsonLd["@graph"]));
   assert.equal(homepageJsonLd["@graph"].length, 4);
+  assert.doesNotMatch(
+    JSON.stringify(homepageJsonLd),
+    /https:\/\/www\.ynotopen\.com\/oripa|online oripa-style|mystery-pack catalog/i,
+    "homepage JSON-LD must stay free of isolated /oripa route content",
+  );
   assert.ok(
     homepageJsonLd["@graph"].some(
       (node) =>

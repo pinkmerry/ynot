@@ -174,9 +174,6 @@ export const organizationJsonLd = {
     "One Piece card trading Thailand",
     "One Piece card lucky draw Thailand",
     "TCG Lucky Draw Thailand",
-    "Online oripa-style TCG mystery packs",
-    "Pokemon card mystery packs Thailand",
-    "One Piece card random packs Thailand",
     "Trading card reward collection",
     "Bangkok trading card events",
     "TCG events Bangkok",
@@ -260,14 +257,6 @@ export const websiteJsonLd = {
     "query-input": "required name=search_term_string",
   },
   hasPart: [
-    {
-      "@type": "CollectionPage",
-      "@id": `${siteOrigin}/oripa#webpage`,
-      name: "Online Oripa & TCG Mystery Packs Thailand",
-      url: `${siteOrigin}/oripa`,
-      description:
-        "YNOT online oripa-style TCG mystery-pack catalog for Thailand collectors with live categories, wallet coin cost, stock signals, and public pack detail pages.",
-    },
     {
       "@type": "CollectionPage",
       "@id": `${siteOrigin}/pokemon-card#webpage`,
