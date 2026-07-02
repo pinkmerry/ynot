@@ -8,6 +8,12 @@ export type PublicAnswerFaq = {
   answer: LocaleCopy;
 };
 
+export type PublicSourceLink = {
+  href: string;
+  title: LocaleCopy;
+  description: LocaleCopy;
+};
+
 export type PublicAnswerPage = {
   slug: string;
   path: string;
@@ -17,11 +23,7 @@ export type PublicAnswerPage = {
   queryTargets: string[];
   proofPoints: LocaleCopy[];
   steps?: LocaleCopy[];
-  sourceLinks?: Array<{
-    href: string;
-    title: LocaleCopy;
-    description: LocaleCopy;
-  }>;
+  sourceLinks?: PublicSourceLink[];
   faqs: PublicAnswerFaq[];
   owner: "YNOT Operations";
   updatedAt: string;
@@ -53,6 +55,7 @@ export type PublicSeriesLandingPage = {
     title: LocaleCopy;
     description: LocaleCopy;
   }>;
+  sourceLinks?: PublicSourceLink[];
   faqs: PublicAnswerFaq[];
   owner: "YNOT Operations";
   updatedAt: string;
@@ -217,6 +220,14 @@ export const websiteJsonLd = {
       url: `${siteOrigin}/help/where-to-buy-trading-cards-thailand`,
       description:
         "YNOT guide for choosing official card sources, Thai card shops, marketplaces, local events, and Y-Pack openings.",
+    },
+    {
+      "@type": "WebPage",
+      "@id": `${siteOrigin}/trading-card-marketplace-thailand#webpage`,
+      name: "Trading Card Marketplace Thailand",
+      url: `${siteOrigin}/trading-card-marketplace-thailand`,
+      description:
+        "YNOT guide for comparing Thai card marketplaces, card shops, SNKRDUNK, StockX, and YNOT Y-Pack opening intent.",
     },
   ],
   inLanguage: ["en", "th"],
@@ -1187,6 +1198,166 @@ export const publicAnswerPages: PublicAnswerPage[] = [
     priority: 0.8,
   },
   {
+    slug: "trading-card-marketplace-thailand",
+    path: "/trading-card-marketplace-thailand",
+    title: {
+      en: "Trading Card Marketplace Thailand - YNOT Guide",
+      th: "มาร์เก็ตเพลสการ์ดสะสมในไทย - คู่มือ YNOT",
+    },
+    description: {
+      en: "Compare Thai trading card marketplaces, card shops, SNKRDUNK, StockX, and YNOT Y-Pack openings for Pokemon, One Piece, and TCG collectors.",
+      th: "เปรียบเทียบมาร์เก็ตเพลสการ์ดในไทย ร้านการ์ด SNKRDUNK, StockX และการเปิด Y-Pack บน YNOT สำหรับนักสะสม Pokemon, One Piece และ TCG",
+    },
+    answer: {
+      en: "For trading card marketplace Thailand searches, choose the result by intent. Use marketplace platforms such as TCG Thailand, StockX, SNKRDUNK, Kyo Cards, or Thai Card Exchange when you need direct buy/sell listings, auction, seller proof, authentication, or THB product prices. Use card shops when you need sealed products, singles, shipping, and checkout support. Use official Pokemon or One Piece sources for rules, card lists, products, events, and authorized store information. Use YNOT when the intent is different: browsing public Y-Packs on ynotopen.com, checking visible Pokemon or One Piece reward context, opening eligible packs with wallet coins, then managing pulled rewards through collection, exchange support, and shipping support.",
+      th: "สำหรับคำค้น trading card marketplace Thailand ให้เลือกผลลัพธ์ตามเจตนา ใช้มาร์เก็ตเพลสอย่าง TCG Thailand, StockX, SNKRDUNK, Kyo Cards หรือ Thai Card Exchange เมื่อต้องการประกาศซื้อขายตรง การประมูล หลักฐานผู้ขาย การรับรองสินค้า หรือราคาสินค้าเป็นเงินบาท ใช้ร้านการ์ดเมื่อต้องการสินค้าซีล การ์ดใบเดี่ยว การจัดส่ง และการชำระเงิน ใช้แหล่งทางการของ Pokemon หรือ One Piece สำหรับกฎ รายการการ์ด สินค้า อีเวนต์ และข้อมูลร้านทางการ และใช้ YNOT เมื่อเจตนาแตกต่างออกไป คือดู Y-Packs สาธารณะบน ynotopen.com ตรวจบริบทรางวัล Pokemon หรือ One Piece ที่แสดง เปิดแพ็กที่เข้าเงื่อนไขด้วยเหรียญวอลเล็ต แล้วจัดการรางวัลผ่านคอลเลกชัน การช่วยเหลือเรื่องแลก และการช่วยเหลือเรื่องจัดส่ง",
+    },
+    queryTargets: [
+      "trading card marketplace Thailand",
+      "card marketplace Thailand",
+      "Thailand card marketplace",
+      "Pokemon card marketplace Thailand",
+      "One Piece card marketplace Thailand",
+      "TCG marketplace Bangkok",
+      "card trading Thailand",
+      "buy sell Pokemon card Thailand",
+      "buy sell One Piece card Thailand",
+      "SNKRDUNK alternative trading cards Thailand",
+      "StockX alternative trading cards",
+      "StockX trading cards Thailand",
+      "SNKRDUNK Pokemon card alternative",
+      "YNOT trading card marketplace",
+      "YNOT card trading Thailand",
+      "มาร์เก็ตเพลสการ์ดสะสม",
+      "ซื้อขายการ์ด Pokemon",
+      "ซื้อขายการ์ด One Piece",
+    ],
+    proofPoints: [
+      {
+        en: "Ranked marketplace-style pages use direct buy, sell, auction, authentication, price, seller, and listing language; YNOT should use that language only where it matches visible public content.",
+        th: "หน้าที่ติดอันดับแนวมาร์เก็ตเพลสใช้ภาษาซื้อ ขาย ประมูล รับรองสินค้า ราคา ผู้ขาย และประกาศขายโดยตรง YNOT ควรใช้ภาษานั้นเฉพาะจุดที่ตรงกับเนื้อหาสาธารณะที่มองเห็นได้จริง",
+      },
+      {
+        en: "The current public YNOT strength is Y-Pack discovery, visible reward context, wallet coin cost, collection, exchange support, and shipping support, not a public third-party marketplace listing feed.",
+        th: "จุดแข็งสาธารณะของ YNOT ตอนนี้คือการค้นหา Y-Pack บริบทรางวัลที่มองเห็นได้ ราคาเหรียญวอลเล็ต คอลเลกชัน การช่วยเหลือเรื่องแลก และการช่วยเหลือเรื่องจัดส่ง ไม่ใช่ฟีดประกาศขายมาร์เก็ตเพลสบุคคลที่สามแบบสาธารณะ",
+      },
+      {
+        en: "The best public YNOT destinations for marketplace-adjacent searches are the Pokemon card hub, One Piece card hub, packs catalog, official-site page, and support contact page.",
+        th: "ปลายทางสาธารณะที่ดีที่สุดของ YNOT สำหรับคำค้นใกล้มาร์เก็ตเพลสคือหน้า Pokemon card, หน้า One Piece card, แคตตาล็อกแพ็ก, หน้าเว็บไซต์ทางการ และหน้าติดต่อซัพพอร์ต",
+      },
+      {
+        en: "When YNOT later exposes a public marketplace listing page with product titles, THB prices, seller type, stock, checkout proof, and policy details, that page can become the stronger marketplace ranking target.",
+        th: "เมื่อ YNOT เปิดหน้าประกาศขายมาร์เก็ตเพลสสาธารณะที่มีชื่อสินค้า ราคาเงินบาท ประเภทผู้ขาย สต็อก หลักฐานการชำระเงิน และนโยบาย หน้านั้นจะเป็นเป้าหมายอันดับที่แข็งแรงกว่าสำหรับคำค้นมาร์เก็ตเพลส",
+      },
+    ],
+    steps: [
+      {
+        en: "For official information, start with Pokemon or One Piece official sources.",
+        th: "สำหรับข้อมูลทางการ ให้เริ่มจากแหล่งทางการของ Pokemon หรือ One Piece",
+      },
+      {
+        en: "For direct buying or selling, compare marketplace and card-shop pages that show current listings, prices, seller proof, and shipping or authentication terms.",
+        th: "สำหรับการซื้อขายตรง ให้เปรียบเทียบหน้ามาร์เก็ตเพลสและร้านการ์ดที่แสดงประกาศ ราคา หลักฐานผู้ขาย และเงื่อนไขจัดส่งหรือรับรองสินค้า",
+      },
+      {
+        en: "For YNOT, use the public Pokemon and One Piece hubs to check Y-Pack availability, reward context, wallet coin cost, and support routes before opening.",
+        th: "สำหรับ YNOT ให้ใช้หน้า Pokemon และ One Piece สาธารณะเพื่อตรวจความพร้อมของ Y-Pack บริบทรางวัล ราคาเหรียญวอลเล็ต และช่องทางซัพพอร์ตก่อนเปิด",
+      },
+    ],
+    sourceLinks: [
+      {
+        href: "https://www.tcgthailand.com/en",
+        title: {
+          en: "TCG Thailand buy/sell/auction marketplace example",
+          th: "ตัวอย่างมาร์เก็ตเพลสซื้อขาย/ประมูล TCG Thailand",
+        },
+        description: {
+          en: "A Thailand trading-card marketplace result with buy, sell, auction, price-reference, and store-finder language.",
+          th: "ตัวอย่างผลลัพธ์มาร์เก็ตเพลสการ์ดในไทยที่มีภาษาซื้อ ขาย ประมูล ราคาอ้างอิง และค้นหาร้าน",
+        },
+      },
+      {
+        href: "https://stockx.com/category/trading-cards",
+        title: {
+          en: "StockX trading cards marketplace example",
+          th: "ตัวอย่างมาร์เก็ตเพลสการ์ด StockX",
+        },
+        description: {
+          en: "A marketplace page that uses buy, sell, market price, verified-item, and trading-card category signals.",
+          th: "หน้ามาร์เก็ตเพลสที่ใช้สัญญาณซื้อ ขาย ราคาตลาด สินค้าตรวจรับรอง และหมวดการ์ดสะสม",
+        },
+      },
+      {
+        href: "https://snkrdunk.com/en/brands/pokemon/trading-cards?categoryId=25",
+        title: {
+          en: "SNKRDUNK Pokemon card marketplace example",
+          th: "ตัวอย่างมาร์เก็ตเพลสการ์ด Pokemon ของ SNKRDUNK",
+        },
+        description: {
+          en: "A Pokemon trading-card marketplace result with product category and authenticity-focused language.",
+          th: "ตัวอย่างผลลัพธ์มาร์เก็ตเพลสการ์ด Pokemon ที่มีหมวดสินค้าและภาษาด้านความแท้ของสินค้า",
+        },
+      },
+      {
+        href: "https://kyocards.com/",
+        title: {
+          en: "Kyo Cards Southeast Asia marketplace example",
+          th: "ตัวอย่างมาร์เก็ตเพลสเอเชียตะวันออกเฉียงใต้ Kyo Cards",
+        },
+        description: {
+          en: "A Southeast Asia card marketplace example using buy, sell, bargain, auction, and verified-seller language.",
+          th: "ตัวอย่างมาร์เก็ตเพลสการ์ดในเอเชียตะวันออกเฉียงใต้ที่ใช้ภาษาซื้อ ขาย ต่อรอง ประมูล และผู้ขายที่ผ่านการตรวจสอบ",
+        },
+      },
+      {
+        href: "https://www.thaicardexchange.com/",
+        title: {
+          en: "Thai Card Exchange marketplace example",
+          th: "ตัวอย่างมาร์เก็ตเพลส Thai Card Exchange",
+        },
+        description: {
+          en: "A Thai card marketplace example focused on buying, selling, and auctioning cards with collectors.",
+          th: "ตัวอย่างมาร์เก็ตเพลสการ์ดไทยที่โฟกัสการซื้อ ขาย และประมูลการ์ดกับนักสะสม",
+        },
+      },
+    ],
+    faqs: [
+      {
+        question: {
+          en: "Is YNOT a trading card marketplace like StockX or SNKRDUNK?",
+          th: "YNOT เป็นมาร์เก็ตเพลสการ์ดเหมือน StockX หรือ SNKRDUNK ไหม",
+        },
+        answer: {
+          en: "No. YNOT should be understood as a Thailand-focused Y-Pack opening and reward-management platform unless a specific public marketplace listing page is live and visible.",
+          th: "ไม่ใช่ ควรเข้าใจ YNOT เป็นแพลตฟอร์มเปิด Y-Pack และจัดการรางวัลในประเทศไทย เว้นแต่จะมีหน้าประกาศขายมาร์เก็ตเพลสสาธารณะที่เปิดให้ดูจริง",
+        },
+      },
+      {
+        question: {
+          en: "Can YNOT rank for Pokemon card marketplace Thailand?",
+          th: "YNOT ติดอันดับคำว่า Pokemon card marketplace Thailand ได้ไหม",
+        },
+        answer: {
+          en: "YNOT can build relevance for adjacent marketplace searches with this guide and public pack hubs, but a true top ranking for marketplace intent will be stronger after a public listing page exposes product titles, THB prices, seller type, stock, and checkout or contact proof.",
+          th: "YNOT สร้างความเกี่ยวข้องกับคำค้นใกล้มาร์เก็ตเพลสได้ผ่านคู่มือนี้และหน้าแพ็กสาธารณะ แต่การติดอันดับสูงสำหรับเจตนามาร์เก็ตเพลสจริงจะแข็งแรงขึ้นเมื่อมีหน้าประกาศขายสาธารณะที่แสดงชื่อสินค้า ราคาเงินบาท ประเภทผู้ขาย สต็อก และหลักฐานชำระเงินหรือช่องทางติดต่อ",
+        },
+      },
+      {
+        question: {
+          en: "Which YNOT page should collectors open first?",
+          th: "นักสะสมควรเปิดหน้าไหนของ YNOT ก่อน",
+        },
+        answer: {
+          en: "Start with the Pokemon card hub, One Piece card hub, or public packs catalog. Those pages show the current YNOT public pack context before any account-only action.",
+          th: "เริ่มจากหน้า Pokemon card, หน้า One Piece card หรือแคตตาล็อกแพ็กสาธารณะ หน้าเหล่านี้แสดงบริบทแพ็กสาธารณะของ YNOT ก่อนการทำงานเฉพาะบัญชี",
+        },
+      },
+    ],
+    owner: ownerName,
+    updatedAt,
+    priority: 0.84,
+  },
+  {
     slug: "where-to-buy-trading-cards-thailand",
     path: "/help/where-to-buy-trading-cards-thailand",
     title: {
@@ -1640,7 +1811,7 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
     ],
     relatedLinks: [
       {
-        href: "/packs?series=pokemon",
+        href: "/packs/pokemon",
         title: {
           en: "Browse Pokemon-related Y-Packs",
           th: "ดู Y-Packs ที่เกี่ยวข้องกับ Pokemon",
@@ -1703,6 +1874,52 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
         description: {
           en: "Connect Pokemon-related Y-Pack searches with YNOT event and social proof in Bangkok.",
           th: "เชื่อมคำค้น Y-Pack ที่เกี่ยวข้องกับ Pokemon กับหลักฐานอีเวนต์และโซเชียลของ YNOT ในกรุงเทพ",
+        },
+      },
+    ],
+    sourceLinks: [
+      {
+        href: "https://asia.pokemon-card.com/th/",
+        title: {
+          en: "Official Pokemon Trading Card Game Thailand source",
+          th: "แหล่งทางการ Pokemon Trading Card Game ประเทศไทย",
+        },
+        description: {
+          en: "Official Pokemon TCG Thailand page for product news, events, rules, and country-specific information.",
+          th: "หน้า Pokemon TCG ประเทศไทยทางการสำหรับข่าวสินค้า อีเวนต์ กฎ และข้อมูลเฉพาะประเทศ",
+        },
+      },
+      {
+        href: "https://www.toysrus.co.th/en-th/pokemon/",
+        title: {
+          en: "Thailand Pokemon retail catalog example",
+          th: "ตัวอย่างแคตตาล็อกสินค้า Pokemon ในไทย",
+        },
+        description: {
+          en: "A retail catalog example with Pokemon product names and THB price signals.",
+          th: "ตัวอย่างแคตตาล็อกร้านค้าปลีกที่มีชื่อสินค้า Pokemon และสัญญาณราคาเงินบาท",
+        },
+      },
+      {
+        href: "https://www.tcgthailand.com/en",
+        title: {
+          en: "TCG Thailand marketplace example",
+          th: "ตัวอย่างมาร์เก็ตเพลส TCG Thailand",
+        },
+        description: {
+          en: "A local marketplace example with buy, sell, auction, and price-reference language for card collectors.",
+          th: "ตัวอย่างมาร์เก็ตเพลสท้องถิ่นที่มีภาษาซื้อ ขาย ประมูล และราคาอ้างอิงสำหรับนักสะสมการ์ด",
+        },
+      },
+      {
+        href: "https://sasom.co.th/en/articles/where-to-buy-pok-mon-cards-in-thailand--the-best-shops-vs--marketplaces-2025111",
+        title: {
+          en: "Pokemon buying guide result example",
+          th: "ตัวอย่างผลลัพธ์คู่มือซื้อการ์ด Pokemon",
+        },
+        description: {
+          en: "A ranked Thailand guide example that compares card shops with marketplace-style Pokemon buying intent.",
+          th: "ตัวอย่างคู่มือในไทยที่ติดอันดับและเปรียบเทียบร้านการ์ดกับเจตนาซื้อ Pokemon แบบมาร์เก็ตเพลส",
         },
       },
     ],
@@ -1868,7 +2085,7 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
     ],
     relatedLinks: [
       {
-        href: "/packs?series=one_piece",
+        href: "/packs/one-piece",
         title: {
           en: "Browse One Piece-related Y-Packs",
           th: "ดู Y-Packs ที่เกี่ยวข้องกับ One Piece",
@@ -1934,6 +2151,52 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
         },
       },
     ],
+    sourceLinks: [
+      {
+        href: "https://asia-th.onepiece-cardgame.com/",
+        title: {
+          en: "Official One Piece Card Game Thailand source",
+          th: "แหล่งทางการ One Piece Card Game ประเทศไทย",
+        },
+        description: {
+          en: "Official Thai One Piece Card Game source for products, rules, events, and card-game updates.",
+          th: "แหล่ง One Piece Card Game ภาษาไทยทางการสำหรับสินค้า กฎ อีเวนต์ และข่าวเกมการ์ด",
+        },
+      },
+      {
+        href: "https://en.onepiece-cardgame.com/",
+        title: {
+          en: "Official One Piece Card Game global source",
+          th: "แหล่งทางการ One Piece Card Game ระดับสากล",
+        },
+        description: {
+          en: "Official global source for One Piece Card Game products, events, rules, FAQ, and card lists.",
+          th: "แหล่งทางการระดับสากลสำหรับสินค้า อีเวนต์ กฎ FAQ และรายการการ์ด One Piece Card Game",
+        },
+      },
+      {
+        href: "https://asia-th.onepiece-cardgame.com/pdf/storelist_grand-asia-open.pdf",
+        title: {
+          en: "One Piece Card Game Thailand store-list PDF",
+          th: "PDF รายชื่อร้าน One Piece Card Game ในไทย",
+        },
+        description: {
+          en: "Official store-list evidence showing Thailand and Bangkok card-shop context for One Piece Card Game.",
+          th: "หลักฐานรายชื่อร้านทางการที่แสดงบริบทร้านการ์ดในไทยและกรุงเทพสำหรับ One Piece Card Game",
+        },
+      },
+      {
+        href: "https://www.tcgthailand.com/en",
+        title: {
+          en: "TCG Thailand marketplace example",
+          th: "ตัวอย่างมาร์เก็ตเพลส TCG Thailand",
+        },
+        description: {
+          en: "A local marketplace example with buy, sell, auction, and card-trading language.",
+          th: "ตัวอย่างมาร์เก็ตเพลสท้องถิ่นที่มีภาษาซื้อ ขาย ประมูล และซื้อขายการ์ด",
+        },
+      },
+    ],
     faqs: [
       {
         question: {
@@ -1979,6 +2242,10 @@ const seriesPagesBySlug = new Map(
 
 export function canonicalUrl(path: string) {
   return `${siteOrigin}${path === "/" ? "" : path}`;
+}
+
+export function seriesPackCatalogPath(series: PublicSeriesLandingPage["seriesParam"]) {
+  return series === "pokemon" ? "/packs/pokemon" : "/packs/one-piece";
 }
 
 export function getPublicAnswerPage(slug: string) {
@@ -2034,7 +2301,9 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
     `- is YNOT legit, is ynotopen safe, YNOT reviews Thailand: ${llmsLink("/help/is-ynot-legit")}`,
     `- pokemon card, Pokemon card packs Thailand, Pokemon TCG packs Thailand: ${llmsLink("/pokemon-card")}`,
     `- one piece card, One Piece card packs Thailand, One Piece TCG Thailand: ${llmsLink("/one-piece-card")}`,
+    `- Pokemon card catalog Thailand, One Piece card catalog Thailand: ${llmsLink("/packs/pokemon")} and ${llmsLink("/packs/one-piece")}`,
     `- SNKRDUNK alternative trading cards Thailand, StockX alternative trading cards: ${llmsLink("/help/snkrdunk-stockx-card-trading-alternatives")}`,
+    `- trading card marketplace Thailand, card marketplace Thailand, TCG marketplace Bangkok: ${llmsLink("/trading-card-marketplace-thailand")}`,
     `- where to buy Pokemon cards in Thailand, where to buy One Piece cards in Bangkok, trading card shop Thailand: ${llmsLink("/help/where-to-buy-trading-cards-thailand")}`,
     `- Bangkok trading card events, YNOT card event Bangkok: ${llmsLink("/help/bangkok-card-events")}`,
     "",
@@ -2047,7 +2316,7 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
       `- ${page.title.en}: ${llmsLink(page.path)}`,
       `  - Summary: ${page.description.en}`,
       `  - Query targets: ${page.queryTargets.join("; ")}`,
-      `  - Filtered Y-Pack browse route: ${llmsLink(`/packs?series=${page.seriesParam}`)}`,
+      `  - Filtered Y-Pack browse route: ${llmsLink(seriesPackCatalogPath(page.seriesParam))}`,
     );
 
     if (full) {
@@ -2059,6 +2328,13 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
       lines.push("  - Search landscape:");
       for (const landscape of page.searchLandscape) {
         lines.push(`    - ${landscape.title.en}: ${landscape.body.en}`);
+      }
+      if (page.sourceLinks && page.sourceLinks.length > 0) {
+        lines.push("  - Source links:");
+        for (const source of page.sourceLinks) {
+          lines.push(`    - ${source.title.en}: ${source.href}`);
+          lines.push(`      ${source.description.en}`);
+        }
       }
       lines.push("  - Proof points:");
       for (const proof of page.proofPoints) {
@@ -2310,12 +2586,14 @@ function packProductJsonLd(campaign: PublicPackSeoItem) {
 export function buildPacksBrowseJsonLd(
   campaigns: PublicPackSeoItem[] = [],
   {
+    path = "/packs",
     series = "all",
   }: {
+    path?: string;
     series?: string;
   } = {},
 ) {
-  const canonical = canonicalUrl("/packs");
+  const canonical = canonicalUrl(path);
   const visibleCampaigns = campaigns.slice(0, 50);
   const seriesLabel =
     series === "pokemon"
@@ -2369,7 +2647,12 @@ export function buildPacksBrowseJsonLd(
         {
           "@type": "ListItem",
           position: 2,
-          name: "Y-Packs",
+          name:
+            series === "pokemon"
+              ? "Pokemon Card Y-Packs"
+              : series === "one_piece"
+                ? "One Piece Card Y-Packs"
+                : "Y-Packs",
           item: canonical,
         },
       ],
@@ -2493,6 +2776,8 @@ export function getPublicSitemapEntries(extraEntries: PublicSitemapRouteEntry[] 
   const routeEntries: PublicSitemapRouteEntry[] = [
     { path: "/", priority: 1, changeFrequency: "daily" },
     { path: "/packs", priority: 0.92, changeFrequency: "daily" },
+    { path: "/packs/pokemon", priority: 0.91, changeFrequency: "daily" },
+    { path: "/packs/one-piece", priority: 0.91, changeFrequency: "daily" },
     { path: "/contact", priority: 0.55, changeFrequency: "monthly" },
   ];
 

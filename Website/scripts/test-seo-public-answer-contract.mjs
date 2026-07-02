@@ -55,6 +55,7 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "/help/snkrdunk-stockx-card-trading-alternatives",
     "/help/where-to-buy-trading-cards-thailand",
     "/help/bangkok-card-events",
+    "/trading-card-marketplace-thailand",
   ]) {
     assert.ok(
       pages.some((page) => page.path === expectedPath),
@@ -261,6 +262,51 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
       /same as SNKRDUNK or StockX/i.test(faq.question.en),
     ),
     "competitor-intent page must answer the obvious comparison question",
+  );
+
+  const marketplaceGuide = seo.getPublicAnswerPage(
+    "trading-card-marketplace-thailand",
+  );
+  assert.equal(marketplaceGuide.path, "/trading-card-marketplace-thailand");
+  assert.match(marketplaceGuide.title.en, /Trading Card Marketplace Thailand/i);
+  assert.match(marketplaceGuide.answer.en, /SNKRDUNK/);
+  assert.match(marketplaceGuide.answer.en, /StockX/);
+  assert.match(marketplaceGuide.answer.en, /Y-Pack/i);
+  assert.ok(
+    marketplaceGuide.queryTargets.includes("trading card marketplace Thailand"),
+    "marketplace guide must target broad Thailand marketplace searches",
+  );
+  assert.ok(
+    marketplaceGuide.queryTargets.includes("Pokemon card marketplace Thailand"),
+    "marketplace guide must target Pokemon marketplace intent",
+  );
+  assert.ok(
+    marketplaceGuide.queryTargets.includes("SNKRDUNK alternative trading cards Thailand"),
+    "marketplace guide must target SNKRDUNK-adjacent intent",
+  );
+  assert.ok(
+    marketplaceGuide.queryTargets.includes("StockX alternative trading cards"),
+    "marketplace guide must target StockX-adjacent intent",
+  );
+  assert.ok(
+    marketplaceGuide.sourceLinks.some((source) => /stockx\.com/.test(source.href)),
+    "marketplace guide must cite StockX marketplace evidence",
+  );
+  assert.ok(
+    marketplaceGuide.sourceLinks.some((source) => /snkrdunk\.com/.test(source.href)),
+    "marketplace guide must cite SNKRDUNK marketplace evidence",
+  );
+  assert.ok(
+    marketplaceGuide.sourceLinks.some((source) => /tcgthailand\.com/.test(source.href)),
+    "marketplace guide must cite Thai marketplace evidence",
+  );
+  assert.ok(
+    marketplaceGuide.sourceLinks.some((source) => /kyocards\.com/.test(source.href)),
+    "marketplace guide must cite Southeast Asia marketplace evidence",
+  );
+  assert.ok(
+    marketplaceGuide.sourceLinks.some((source) => /thaicardexchange\.com/.test(source.href)),
+    "marketplace guide must cite Thai card exchange evidence",
   );
 
   const buyingGuide = seo.getPublicAnswerPage(
@@ -540,6 +586,14 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     ),
     "WebSite schema must expose the local trading-card buying guide",
   );
+  assert.ok(
+    seo.websiteJsonLd.hasPart.some(
+      (part) =>
+        part["@type"] === "WebPage" &&
+        part.url === "https://www.ynotopen.com/trading-card-marketplace-thailand",
+    ),
+    "WebSite schema must expose the trading-card marketplace guide",
+  );
 
   const homepageJsonLd = seo.buildHomePageJsonLd();
   assert.equal(homepageJsonLd["@context"], "https://schema.org");
@@ -634,8 +688,8 @@ test("public series landing pages target broad card category intent", () => {
     "Pokemon hub must explain shop and marketplace intent",
   );
   assert.ok(
-    pokemonHub.relatedLinks.some((link) => link.href === "/packs?series=pokemon"),
-    "Pokemon hub must link directly to the filtered public pack browse route",
+    pokemonHub.relatedLinks.some((link) => link.href === "/packs/pokemon"),
+    "Pokemon hub must link directly to the static public pack catalog route",
   );
   assert.ok(
     pokemonHub.relatedLinks.some((link) => link.href === "/help/bangkok-card-events"),
@@ -646,6 +700,14 @@ test("public series landing pages target broad card category intent", () => {
       (link) => link.href === "/help/where-to-buy-trading-cards-thailand",
     ),
     "Pokemon hub must link to the local trading-card buying guide",
+  );
+  assert.ok(
+    pokemonHub.sourceLinks.some((source) => /asia\.pokemon-card\.com\/th/.test(source.href)),
+    "Pokemon hub must cite the official Thailand Pokemon source",
+  );
+  assert.ok(
+    pokemonHub.sourceLinks.some((source) => /sasom\.co\.th/.test(source.href)),
+    "Pokemon hub must cite a ranked Pokemon buying-guide source example",
   );
 
   const onePieceHub = seo.getPublicSeriesLandingPage("one-piece-card");
@@ -674,8 +736,8 @@ test("public series landing pages target broad card category intent", () => {
     "One Piece hub must explain community market and shop intent",
   );
   assert.ok(
-    onePieceHub.relatedLinks.some((link) => link.href === "/packs?series=one_piece"),
-    "One Piece hub must link directly to the filtered public pack browse route",
+    onePieceHub.relatedLinks.some((link) => link.href === "/packs/one-piece"),
+    "One Piece hub must link directly to the static public pack catalog route",
   );
   assert.ok(
     onePieceHub.relatedLinks.some((link) => link.href === "/help/bangkok-card-events"),
@@ -686,6 +748,14 @@ test("public series landing pages target broad card category intent", () => {
       (link) => link.href === "/help/where-to-buy-trading-cards-thailand",
     ),
     "One Piece hub must link to the local trading-card buying guide",
+  );
+  assert.ok(
+    onePieceHub.sourceLinks.some((source) => /asia-th\.onepiece-cardgame\.com/.test(source.href)),
+    "One Piece hub must cite the official Thailand One Piece source",
+  );
+  assert.ok(
+    onePieceHub.sourceLinks.some((source) => /en\.onepiece-cardgame\.com/.test(source.href)),
+    "One Piece hub must cite the official global One Piece source",
   );
 
   for (const page of seo.publicSeriesLandingPages) {
@@ -785,9 +855,14 @@ test("public pack browse and detail routes expose commerce-ready proof schema", 
   };
 
   const browseJsonLd = seo.buildPacksBrowseJsonLd([livePack, closedPack], {
+    path: "/packs/pokemon",
     series: "pokemon",
   });
   assert.equal(browseJsonLd.collectionPage["@type"], "CollectionPage");
+  assert.equal(
+    browseJsonLd.collectionPage.url,
+    "https://www.ynotopen.com/packs/pokemon",
+  );
   assert.equal(browseJsonLd.collectionPage.mainEntity["@type"], "ItemList");
   assert.equal(browseJsonLd.collectionPage.mainEntity.numberOfItems, 2);
   assert.equal(
@@ -821,6 +896,14 @@ test("public pack browse and detail routes expose commerce-ready proof schema", 
     ),
     "Y-Pack priceSpecification must stay truthful to wallet coins",
   );
+  assert.equal(
+    browseJsonLd.breadcrumb.itemListElement.at(-1).name,
+    "Pokemon Card Y-Packs",
+  );
+  assert.equal(
+    browseJsonLd.breadcrumb.itemListElement.at(-1).item,
+    "https://www.ynotopen.com/packs/pokemon",
+  );
 
   const detailJsonLd = seo.buildPackDetailJsonLd(livePack);
   assert.equal(detailJsonLd.product["@type"], "Product");
@@ -840,14 +923,32 @@ test("public pack browse and detail routes expose commerce-ready proof schema", 
     "missing pack SEO helper",
   );
   assert.match(
-    readApp("src/app/(store)/packs/page.tsx"),
+    readApp("src/features/ynot/PackCatalogRoute.tsx"),
     /buildPacksBrowseJsonLd/,
-    "pack browse page must render CollectionPage and ItemList schema",
+    "pack catalog route must render CollectionPage and ItemList schema",
   );
   assert.match(
-    readApp("src/app/(store)/packs/page.tsx"),
+    readApp("src/features/ynot/PackCatalogRoute.tsx"),
     /isPublicPackSeoCampaign/,
-    "pack browse page must filter schema to public SEO-eligible packs",
+    "pack catalog route must filter schema to public SEO-eligible packs",
+  );
+  assert.ok(
+    existsSync(appPath("src/app/(store)/packs/pokemon/page.tsx")),
+    "missing static Pokemon pack catalog route",
+  );
+  assert.ok(
+    existsSync(appPath("src/app/(store)/packs/one-piece/page.tsx")),
+    "missing static One Piece pack catalog route",
+  );
+  assert.match(
+    readApp("src/app/(store)/packs/pokemon/page.tsx"),
+    /canonicalPath="\/packs\/pokemon"/,
+    "Pokemon pack catalog route must use a static canonical URL",
+  );
+  assert.match(
+    readApp("src/app/(store)/packs/one-piece/page.tsx"),
+    /canonicalPath="\/packs\/one-piece"/,
+    "One Piece pack catalog route must use a static canonical URL",
   );
   assert.match(
     readApp("src/app/(store)/packs/[slug]/page.tsx"),
@@ -910,6 +1011,14 @@ test("sitemap and robots routes publish the public answer surface", () => {
     ),
     "sitemap helper must accept live public pack detail URLs",
   );
+  assert.ok(
+    sitemapEntries.some((entry) => entry.url === "https://www.ynotopen.com/packs/pokemon"),
+    "sitemap must expose the static Pokemon pack catalog route",
+  );
+  assert.ok(
+    sitemapEntries.some((entry) => entry.url === "https://www.ynotopen.com/packs/one-piece"),
+    "sitemap must expose the static One Piece pack catalog route",
+  );
 
   const robots = seo.getRobotsPolicy();
   assert.ok(
@@ -958,11 +1067,13 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   );
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/pokemon-card/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/one-piece-card/);
-  assert.match(llms, /Filtered Y-Pack browse route: https:\/\/www\.ynotopen\.com\/packs\?series=pokemon/);
-  assert.match(llms, /Filtered Y-Pack browse route: https:\/\/www\.ynotopen\.com\/packs\?series=one_piece/);
+  assert.match(llms, /Filtered Y-Pack browse route: https:\/\/www\.ynotopen\.com\/packs\/pokemon/);
+  assert.match(llms, /Filtered Y-Pack browse route: https:\/\/www\.ynotopen\.com\/packs\/one-piece/);
+  assert.match(llms, /https:\/\/www\.ynotopen\.com\/trading-card-marketplace-thailand/);
   assert.match(llms, /pokemon card/);
   assert.match(llms, /one piece card/);
   assert.match(llms, /SNKRDUNK alternative trading cards Thailand/);
+  assert.match(llms, /trading card marketplace Thailand/);
   assert.match(llms, /Bangkok trading card events/);
   assert.match(llms, /https:\/\/www\.instagram\.com\/_yfifteen\//);
   assert.doesNotMatch(llms, /https:\/\/www\.ynotopen\.com\/admin/);
@@ -983,6 +1094,8 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   assert.match(full, /where to buy Pokemon cards in Thailand/);
   assert.match(full, /trading card shop Thailand/);
   assert.match(full, /Pokemon card marketplace Thailand/);
+  assert.match(full, /StockX trading cards marketplace example/);
+  assert.match(full, /SNKRDUNK Pokemon card marketplace example/);
   assert.match(full, /Card shop and marketplace intent/);
   assert.match(full, /Community market and shop intent/);
   assert.match(full, /FAQ:/);
@@ -1078,6 +1191,10 @@ test("footer and route files make answer pages reachable from public UI", () => 
   assert.ok(
     existsSync(appPath("src/app/(store)/ynot/page.tsx")),
     "missing exact-match YNOT official-site route",
+  );
+  assert.ok(
+    existsSync(appPath("src/app/(store)/trading-card-marketplace-thailand/page.tsx")),
+    "missing public trading-card marketplace guide route",
   );
   assert.ok(
     existsSync(appPath("src/features/ynot/series-seo-campaigns.ts")),

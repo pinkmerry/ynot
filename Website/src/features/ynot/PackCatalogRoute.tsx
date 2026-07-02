@@ -1,0 +1,81 @@
+import { Shell } from "@/features/ynot/cr/Shell";
+import { YPackExperience } from "@/features/ynot/cr/YPackExperience";
+import { YnotShell } from "@/features/ynot/components";
+import { getYnotDashboardSlice } from "@/features/ynot/data";
+import {
+  isPublicPackSeoCampaign,
+  toPublicPackSeoItem,
+} from "@/features/ynot/pack-seo";
+import {
+  buildPacksBrowseJsonLd,
+  serializeJsonLd,
+} from "@/lib/seo/public-answer-pages";
+
+type PackCatalogSeries = string;
+
+function filterSeoSeries<T extends { series: string }>(
+  campaigns: T[],
+  series: PackCatalogSeries,
+) {
+  if (series === "all") return campaigns;
+  return campaigns.filter((campaign) => campaign.series === series);
+}
+
+export async function PackCatalogRoute({
+  canonicalPath = "/packs",
+  initialSeries = "all",
+  initialTag = "",
+}: {
+  canonicalPath?: string;
+  initialSeries?: PackCatalogSeries;
+  initialTag?: string;
+}) {
+  const data = await getYnotDashboardSlice({
+    campaigns: true,
+    campaignVisibility: "public",
+    includeSoldOutCampaigns: true,
+    campaignLimit: null,
+    wallet: true,
+  });
+
+  const visibleCampaigns = data.campaigns.filter(
+    (campaign) =>
+      campaign.status === "live" || campaign.demo || campaign.status === "closed",
+  );
+  const seoCampaigns = filterSeoSeries(
+    visibleCampaigns.filter(isPublicPackSeoCampaign).map(toPublicPackSeoItem),
+    initialSeries,
+  );
+  const jsonLd = buildPacksBrowseJsonLd(seoCampaigns, {
+    path: canonicalPath,
+    series: initialSeries,
+  });
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd(jsonLd.collectionPage),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd(jsonLd.breadcrumb),
+        }}
+      />
+      <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
+        <Shell>
+          <YPackExperience
+            key={`${initialSeries}:${initialTag}`}
+            campaigns={visibleCampaigns}
+            balanceCoins={data.wallet.balanceCoins}
+            initialSeries={initialSeries}
+            initialTag={initialTag}
+          />
+        </Shell>
+      </YnotShell>
+    </>
+  );
+}

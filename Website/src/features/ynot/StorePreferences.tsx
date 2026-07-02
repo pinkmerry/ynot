@@ -159,8 +159,8 @@ const headerMegaMenus: Record<
       links: [
         { label: "New Y-Packs", href: "/packs" },
         { label: "Marketplace", href: "/marketplace" },
-        { label: "Pokemon", href: "/packs?series=pokemon" },
-        { label: "One Piece", href: "/packs?series=one_piece" },
+        { label: "Pokemon", href: "/packs/pokemon" },
+        { label: "One Piece", href: "/packs/one-piece" },
       ],
       features: [
         {
@@ -180,19 +180,19 @@ const headerMegaMenus: Record<
     mysteryPacks: {
       links: [
         { label: "All Packs", href: "/packs" },
-        { label: "Pokemon", href: "/packs?series=pokemon" },
-        { label: "One Piece", href: "/packs?series=one_piece" },
+        { label: "Pokemon", href: "/packs/pokemon" },
+        { label: "One Piece", href: "/packs/one-piece" },
       ],
       features: [
         {
           title: "Pokemon",
-          href: "/packs?series=pokemon",
+          href: "/packs/pokemon",
           image: "/ynot-pack-psa-cards-mobile.jpg",
           alt: "Pokemon card mystery pack",
         },
         {
           title: "One Piece",
-          href: "/packs?series=one_piece",
+          href: "/packs/one-piece",
           image: "/ynot-pack-psa-cards-mobile.jpg",
           alt: "One Piece card mystery pack",
         },
@@ -225,8 +225,8 @@ const headerMegaMenus: Record<
       links: [
         { label: "Y-Packs ใหม่", href: "/packs" },
         { label: "ตลาด", href: "/marketplace" },
-        { label: "Pokemon", href: "/packs?series=pokemon" },
-        { label: "One Piece", href: "/packs?series=one_piece" },
+        { label: "Pokemon", href: "/packs/pokemon" },
+        { label: "One Piece", href: "/packs/one-piece" },
       ],
       features: [
         {
@@ -246,19 +246,19 @@ const headerMegaMenus: Record<
     mysteryPacks: {
       links: [
         { label: "Y-Packs ทั้งหมด", href: "/packs" },
-        { label: "Pokemon", href: "/packs?series=pokemon" },
-        { label: "One Piece", href: "/packs?series=one_piece" },
+        { label: "Pokemon", href: "/packs/pokemon" },
+        { label: "One Piece", href: "/packs/one-piece" },
       ],
       features: [
         {
           title: "Pokemon",
-          href: "/packs?series=pokemon",
+          href: "/packs/pokemon",
           image: "/ynot-pack-psa-cards-mobile.jpg",
           alt: "กล่องสุ่มการ์ด Pokemon",
         },
         {
           title: "One Piece",
-          href: "/packs?series=one_piece",
+          href: "/packs/one-piece",
           image: "/ynot-pack-psa-cards-mobile.jpg",
           alt: "กล่องสุ่มการ์ด One Piece",
         },

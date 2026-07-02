@@ -146,6 +146,12 @@ Pattern: official authority plus community market authority. YNOT should target 
 - `SNKRDUNK alternative trading cards Thailand`
 - `StockX alternative trading cards`
 - `trading card marketplace Thailand`
+- `card marketplace Thailand`
+- `Pokemon card marketplace Thailand`
+- `One Piece card marketplace Thailand`
+- `TCG marketplace Bangkok`
+- `StockX trading cards Thailand`
+- `SNKRDUNK Pokemon card alternative`
 - `card trading Thailand`
 - `online TCG pack opening Thailand`
 
@@ -177,6 +183,22 @@ Pattern: official authority plus community market authority. YNOT should target 
 - Add FAQ answers that clarify YNOT is not a general card shop, but is relevant when public packs or marketplace listings are live.
 - Include the new landscape content in `llms-full.txt` for AI answer systems.
 
+### Done in the marketplace/category pass
+
+- Add static crawlable pack catalog routes:
+  - `/packs/pokemon`
+  - `/packs/one-piece`
+- Keep the older `/packs?series=...` filters functional for users, but link public navigation, series hubs, sitemap entries, schema, and `llms.txt` to the static URLs.
+- Add `/trading-card-marketplace-thailand` as a public answer page for marketplace and competitor-adjacent intent:
+  - `trading card marketplace Thailand`
+  - `Pokemon card marketplace Thailand`
+  - `One Piece card marketplace Thailand`
+  - `SNKRDUNK alternative trading cards Thailand`
+  - `StockX alternative trading cards`
+- Add visible source-check sections to the Pokemon and One Piece hubs, with links to official publisher sources, retail/catalog examples, and marketplace examples.
+- Keep the content truthful: YNOT is positioned as a Y-Pack opening and reward-management platform unless a public third-party marketplace listing page is later launched.
+- Add SEO contract tests for the static catalog routes, marketplace guide, source links, sitemap entries, and AI source index updates.
+
 ### Next actions outside code
 
 - Submit these URLs in Google Search Console URL Inspection:
@@ -184,6 +206,9 @@ Pattern: official authority plus community market authority. YNOT should target 
   - `/ynot`
   - `/pokemon-card`
   - `/one-piece-card`
+  - `/packs/pokemon`
+  - `/packs/one-piece`
+  - `/trading-card-marketplace-thailand`
   - `/help/ynot-tcg-lucky-draw-thailand`
   - `/help/pokemon-card-packs-thailand`
   - `/help/one-piece-card-packs-thailand`
@@ -198,4 +223,3 @@ Pattern: official authority plus community market authority. YNOT should target 
 - `ynot tcg`: maintain position 1 and improve the displayed title/snippet after recrawl.
 - `pokemon card`: do not attempt to beat official Pokemon pages for official-source intent. Target top visibility for narrower local/commercial variants first.
 - `one piece card`: do not attempt to beat official One Piece pages for official-source intent. Target local market and Y-Pack variants first.
-

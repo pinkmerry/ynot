@@ -6,6 +6,7 @@ import {
   type PublicSeriesPackListItem,
   type PublicSeriesLandingPage as PublicSeriesLandingPageContent,
   buildSeriesLandingPageJsonLd,
+  seriesPackCatalogPath,
   serializeJsonLd,
 } from "@/lib/seo/public-answer-pages";
 
@@ -46,7 +47,7 @@ export function SeriesSeoLandingPage({
   viewer?: YnotViewer;
 }) {
   const jsonLd = buildSeriesLandingPageJsonLd(page, campaigns);
-  const browseHref = `/packs?series=${page.seriesParam}`;
+  const browseHref = seriesPackCatalogPath(page.seriesParam);
 
   return (
     <YnotShell viewer={viewer} viewerMode="literal">
@@ -110,6 +111,43 @@ export function SeriesSeoLandingPage({
             </Link>
           </div>
         </section>
+
+        {page.sourceLinks && page.sourceLinks.length > 0 ? (
+          <section className="profile-panel">
+            <div className="profile-section-head">
+              <span>
+                <I18nText en="Source checks" th="แหล่งอ้างอิง" />
+              </span>
+              <strong>
+                <I18nText en="Official, shop, and marketplace references" th="แหล่งทางการ ร้านค้า และมาร์เก็ตเพลส" />
+              </strong>
+              <p>
+                <I18nText
+                  en="These links show the search landscape this page is separating: official publishers, retail catalogs, marketplace pages, and YNOT Y-Pack intent."
+                  th="ลิงก์เหล่านี้แสดงภาพรวมผลค้นหาที่หน้านี้แยกออกจากกัน ได้แก่ แหล่งทางการ แคตตาล็อกร้านค้า หน้ามาร์เก็ตเพลส และเจตนา Y-Pack ของ YNOT"
+                />
+              </p>
+            </div>
+            <div className="stack-list">
+              {page.sourceLinks.map((source) => (
+                <a
+                  className="activity-card"
+                  href={source.href}
+                  key={source.href}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  <span className="section-label">
+                    <I18nText en={source.title.en} th={source.title.th} />
+                  </span>
+                  <span className="txt-s mt-2">
+                    <I18nText en={source.description.en} th={source.description.th} />
+                  </span>
+                </a>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="profile-panel">
           <div className="profile-section-head">
