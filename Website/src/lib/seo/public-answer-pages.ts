@@ -94,6 +94,8 @@ const ownerName = "YNOT Operations";
 const updatedAt = "2026-07-02";
 const organizationId = `${siteOrigin}/#organization`;
 const websiteId = `${siteOrigin}/#website`;
+const brandId = `${siteOrigin}/#brand`;
+const ynotOfficialPageId = `${siteOrigin}/ynot#webpage`;
 
 export const ynotEntityAlternateNames = [
   "ynot",
@@ -126,6 +128,12 @@ export const organizationJsonLd = {
   disambiguatingDescription:
     "YNOT on ynotopen.com is the Thailand-focused trading card and Y-Pack platform also searched as YNOT Open, ynotopen, YNOT TCG Thailand, and _yfifteen. It is separate from unrelated YNOT free YouTube downloader pages, Ynot7 and Y Not 7 music results, BEST OF Y NOT 7 Spotify albums, Y Not Festival, YnotOne education CRM pages, YNOT phone-case brands, restaurant, software, and studio brands.",
   sameAs: ["https://www.instagram.com/_yfifteen/"],
+  brand: {
+    "@id": brandId,
+  },
+  mainEntityOfPage: {
+    "@id": ynotOfficialPageId,
+  },
   areaServed: {
     "@type": "Country",
     name: "Thailand",
@@ -158,6 +166,51 @@ export const organizationJsonLd = {
       availableLanguage: ["en", "th"],
     },
   ],
+};
+
+export const brandJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Brand",
+  "@id": brandId,
+  name: "YNOT",
+  alternateName: ynotEntityAlternateNames,
+  url: siteOrigin,
+  logo: `${siteOrigin}/ynot-logo-512.png`,
+  image: `${siteOrigin}/ynot-logo-512.png`,
+  sameAs: ["https://www.instagram.com/_yfifteen/"],
+  parentOrganization: {
+    "@id": organizationId,
+  },
+  description:
+    "YNOT is the short brand name for YNOT Open, the official ynotopen.com Thailand TCG Y-Pack and trading card platform.",
+  disambiguatingDescription:
+    "YNOT in this site means YNOT Open on ynotopen.com for Thailand trading card Y-Packs, not unrelated Ynot7 music, Y Not Festival, Spotify, downloader, education CRM, phone-case, software, restaurant, or studio results.",
+};
+
+export const ynotOfficialSitePageJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  "@id": ynotOfficialPageId,
+  name: "YNOT Official Site Is ynotopen.com",
+  url: `${siteOrigin}/ynot`,
+  description:
+    "Official YNOT identity and ynotopen.com disambiguation page for the one-word YNOT brand query.",
+  dateModified: updatedAt,
+  datePublished: updatedAt,
+  inLanguage: ["en", "th"],
+  isPartOf: {
+    "@id": websiteId,
+  },
+  about: {
+    "@id": brandId,
+  },
+  mainEntity: {
+    "@id": organizationId,
+  },
+  primaryImageOfPage: {
+    "@type": "ImageObject",
+    url: `${siteOrigin}/ynot-logo-512.png`,
+  },
 };
 
 export const websiteJsonLd = {
@@ -198,8 +251,8 @@ export const websiteJsonLd = {
         "YNOT One Piece card pack hub for Thailand with Y-Pack opening guidance and filtered pack browsing.",
     },
     {
-      "@type": "WebPage",
-      "@id": `${siteOrigin}/ynot#webpage`,
+      "@type": "AboutPage",
+      "@id": ynotOfficialPageId,
       name: "YNOT Official Site",
       url: `${siteOrigin}/ynot`,
       description:
@@ -2398,7 +2451,12 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
 export function buildHomePageJsonLd() {
   return {
     "@context": "https://schema.org",
-    "@graph": [organizationJsonLd, websiteJsonLd],
+    "@graph": [
+      organizationJsonLd,
+      brandJsonLd,
+      websiteJsonLd,
+      ynotOfficialSitePageJsonLd,
+    ],
   };
 }
 
@@ -2831,11 +2889,6 @@ export function getRobotsPolicy() {
     rules: [
       {
         userAgent: "OAI-SearchBot",
-        allow: "/",
-        disallow: privateDisallows,
-      },
-      {
-        userAgent: "GPTBot",
         allow: "/",
         disallow: privateDisallows,
       },

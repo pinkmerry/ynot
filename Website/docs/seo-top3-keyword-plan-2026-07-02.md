@@ -166,6 +166,48 @@ Pattern: official authority plus community market authority. YNOT should target 
 
 ## Implementation Plan
 
+## Retest Evidence From 2026-07-02
+
+### Cloudflare account and crawler state
+
+- `npx wrangler whoami` confirmed the active Cloudflare login is `puppeteer@yfifteen.com`.
+- Cloudflare account ID confirmed: `55be25428739205c62a6bb0c711a0b8b`.
+- Live `robots.txt` includes Cloudflare Managed Content before the app robots.
+- Cloudflare Managed Content allows search use with `Content-Signal: search=yes,ai-train=no,use=reference`.
+- Live app robots allowed `OAI-SearchBot`, `Googlebot`, and `Bingbot` on public paths, while blocking private/account paths.
+- Before this cleanup, app robots also published a custom `GPTBot Allow: /`, which conflicted with Cloudflare's managed `GPTBot Disallow: /`.
+
+### Google check in Chrome
+
+- Query `ynot`: `www.ynotopen.com` was not visible in the top 10. Top results were unrelated Ynot7/Facebook, a YNOT downloader, Spotify/Y Not 7, YouTube, Y Not Festival, and similar entities.
+- Query `ynotopen`: `https://www.ynotopen.com/` ranked #1.
+- Query `ynot tcg`: `https://www.ynotopen.com/` ranked #1, with the official `_yfifteen` Instagram event post also visible near the top.
+- Query `pokemon card`: YNOT was not visible in the top results. Official Pokemon, Facebook community groups, ToysRUs, and TCG Thailand dominated.
+- Query `one piece card`: YNOT was not visible in the top results. Official One Piece, Facebook market groups, TCG Thailand, and retail marketplaces dominated.
+- Query `trading card marketplace Thailand`: YNOT was not visible in the top results. TCG Thailand, Facebook, Tongkam, Instagram, store lists, and community sources dominated.
+
+### ChatGPT Search check
+
+Prompt used: `Search the web for the exact query: ynot. Does https://www.ynotopen.com/ appear in the top 3 results or top 3 entities you would cite?`
+
+ChatGPT Search answered that `https://www.ynotopen.com/` was not top 3 for exact `ynot`; it cited Y Not Festival, an Instagram result, and Spotify.
+
+### Official research conclusion
+
+- OpenAI documents `OAI-SearchBot` as the search crawler used for ChatGPT Search discovery, while `GPTBot` is for training/foundation-model crawling.
+- Google documents that site names and title links are automated and influenced by homepage references, `WebSite` structured data, titles, headings, and off-site references.
+- Google documents `Organization` structured data as a way to describe online presence with `name`, `alternateName`, `url`, `logo`, `sameAs`, and contact information.
+- Cloudflare documents Managed `robots.txt` as an AI crawler policy layer; Cloudflare's new Content Signals are preferences and not a direct ranking mechanism.
+
+### Done in the brand/entity crawler cleanup pass
+
+- Add a dedicated `Brand` JSON-LD node for the short `YNOT` entity.
+- Add an `AboutPage` JSON-LD node for `https://www.ynotopen.com/ynot`, connected to the `YNOT` brand and `YNOT Open` organization.
+- Keep homepage JSON-LD as a graph with Organization, Brand, WebSite, and the exact-match `/ynot` disambiguation page.
+- Remove the app-level custom `GPTBot Allow: /` rule so the site no longer contradicts Cloudflare's managed AI-training crawler block.
+- Keep `OAI-SearchBot`, `Googlebot`, `Bingbot`, and `*` allowed for public paths while private/account paths remain disallowed.
+- Add SEO contract tests for the new homepage entity graph and the crawler-policy cleanup.
+
 ### Done in this pass
 
 - Make the homepage H1 describe the entity and category: `YNOT Open Thailand TCG Y-Packs`.

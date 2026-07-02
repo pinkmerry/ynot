@@ -598,7 +598,29 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
   const homepageJsonLd = seo.buildHomePageJsonLd();
   assert.equal(homepageJsonLd["@context"], "https://schema.org");
   assert.ok(Array.isArray(homepageJsonLd["@graph"]));
-  assert.equal(homepageJsonLd["@graph"].length, 2);
+  assert.equal(homepageJsonLd["@graph"].length, 4);
+  assert.ok(
+    homepageJsonLd["@graph"].some(
+      (node) =>
+        node["@type"] === "Brand" &&
+        node.name === "YNOT" &&
+        node.url === "https://www.ynotopen.com" &&
+        node.sameAs.includes("https://www.instagram.com/_yfifteen/") &&
+        node.parentOrganization["@id"] === "https://www.ynotopen.com/#organization",
+    ),
+    "homepage JSON-LD must expose a dedicated YNOT Brand node for ambiguous one-word entity searches",
+  );
+  assert.ok(
+    homepageJsonLd["@graph"].some(
+      (node) =>
+        node["@type"] === "AboutPage" &&
+        node["@id"] === "https://www.ynotopen.com/ynot#webpage" &&
+        node.url === "https://www.ynotopen.com/ynot" &&
+        node.about["@id"] === "https://www.ynotopen.com/#brand" &&
+        node.mainEntity["@id"] === "https://www.ynotopen.com/#organization",
+    ),
+    "homepage JSON-LD must point crawlers to the exact-match /ynot brand disambiguation page",
+  );
   assert.match(readApp("src/app/page.tsx"), /buildHomePageJsonLd/);
   assert.match(
     readApp("src/app/page.tsx"),
@@ -1024,6 +1046,10 @@ test("sitemap and robots routes publish the public answer surface", () => {
   assert.ok(
     robots.rules.some((rule) => rule.userAgent === "OAI-SearchBot" && rule.allow === "/"),
     "robots must explicitly allow OAI-SearchBot for ChatGPT Search discovery",
+  );
+  assert.ok(
+    !robots.rules.some((rule) => rule.userAgent === "GPTBot" && rule.allow === "/"),
+    "robots must not publish a custom GPTBot Allow that conflicts with Cloudflare's AI-training crawler block",
   );
   assert.ok(
     robots.rules.some(
