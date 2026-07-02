@@ -53,6 +53,7 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "/help/open-pokemon-tcg-packs-online-thailand",
     "/help/one-piece-card-packs-thailand",
     "/help/snkrdunk-stockx-card-trading-alternatives",
+    "/help/where-to-buy-trading-cards-thailand",
     "/help/bangkok-card-events",
   ]) {
     assert.ok(
@@ -262,6 +263,50 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "competitor-intent page must answer the obvious comparison question",
   );
 
+  const buyingGuide = seo.getPublicAnswerPage(
+    "where-to-buy-trading-cards-thailand",
+  );
+  assert.equal(
+    buyingGuide.path,
+    "/help/where-to-buy-trading-cards-thailand",
+  );
+  assert.match(buyingGuide.title.en, /Where To Buy Trading Cards In Thailand/i);
+  assert.match(buyingGuide.answer.en, /Pokemon/i);
+  assert.match(buyingGuide.answer.en, /One Piece/i);
+  assert.match(buyingGuide.answer.en, /YNOT/i);
+  assert.ok(
+    buyingGuide.queryTargets.includes("where to buy Pokemon cards in Thailand"),
+    "buying guide must target Pokemon buying searches",
+  );
+  assert.ok(
+    buyingGuide.queryTargets.includes("where to buy One Piece cards in Bangkok"),
+    "buying guide must target One Piece Bangkok buying searches",
+  );
+  assert.ok(
+    buyingGuide.queryTargets.includes("trading card shop Thailand"),
+    "buying guide must target local trading-card-shop searches",
+  );
+  assert.ok(
+    buyingGuide.proofPoints.some((proof) => /official/.test(proof.en)),
+    "buying guide must send official product/store-list intent to official sources",
+  );
+  assert.ok(
+    buyingGuide.proofPoints.some((proof) => /Y-Pack/.test(proof.en)),
+    "buying guide must connect adjacent buying intent back to YNOT Y-Packs",
+  );
+  assert.ok(
+    Array.isArray(buyingGuide.sourceLinks) && buyingGuide.sourceLinks.length >= 4,
+    "buying guide must expose external source links for competitor/source proof",
+  );
+  assert.ok(
+    buyingGuide.sourceLinks.some((source) => /onepiece-cardgame/.test(source.href)),
+    "buying guide must cite official One Piece source evidence",
+  );
+  assert.ok(
+    buyingGuide.sourceLinks.some((source) => /bangkoktcg\.com/.test(source.href)),
+    "buying guide must cite local card-shop source evidence",
+  );
+
   const bangkokEvents = seo.getPublicAnswerPage("bangkok-card-events");
   assert.equal(bangkokEvents.path, "/help/bangkok-card-events");
   assert.match(bangkokEvents.answer.en, /Bangkok|BKK/i);
@@ -386,6 +431,10 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     seo.organizationJsonLd.knowsAbout.includes("YNOT trust and safety"),
     "Organization schema must connect YNOT with trust and safety searches",
   );
+  assert.ok(
+    seo.organizationJsonLd.knowsAbout.includes("Trading card shops Thailand"),
+    "Organization schema must connect YNOT with local card-shop searches",
+  );
   assert.match(
     seo.organizationJsonLd.disambiguatingDescription,
     /YouTube downloader/,
@@ -465,6 +514,15 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
         part.url === "https://www.ynotopen.com/help/is-ynot-legit",
     ),
     "WebSite schema must expose the YNOT trust and safety page",
+  );
+  assert.ok(
+    seo.websiteJsonLd.hasPart.some(
+      (part) =>
+        part["@type"] === "WebPage" &&
+        part.url ===
+          "https://www.ynotopen.com/help/where-to-buy-trading-cards-thailand",
+    ),
+    "WebSite schema must expose the local trading-card buying guide",
   );
 
   const homepageJsonLd = seo.buildHomePageJsonLd();
@@ -567,6 +625,12 @@ test("public series landing pages target broad card category intent", () => {
     pokemonHub.relatedLinks.some((link) => link.href === "/help/bangkok-card-events"),
     "Pokemon hub must link to local Bangkok event proof",
   );
+  assert.ok(
+    pokemonHub.relatedLinks.some(
+      (link) => link.href === "/help/where-to-buy-trading-cards-thailand",
+    ),
+    "Pokemon hub must link to the local trading-card buying guide",
+  );
 
   const onePieceHub = seo.getPublicSeriesLandingPage("one-piece-card");
   assert.equal(onePieceHub.path, "/one-piece-card");
@@ -600,6 +664,12 @@ test("public series landing pages target broad card category intent", () => {
   assert.ok(
     onePieceHub.relatedLinks.some((link) => link.href === "/help/bangkok-card-events"),
     "One Piece hub must link to local Bangkok event proof",
+  );
+  assert.ok(
+    onePieceHub.relatedLinks.some(
+      (link) => link.href === "/help/where-to-buy-trading-cards-thailand",
+    ),
+    "One Piece hub must link to the local trading-card buying guide",
   );
 
   for (const page of seo.publicSeriesLandingPages) {
@@ -866,6 +936,10 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/ynot/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/help\/ynot-tcg-lucky-draw-thailand/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/help\/is-ynot-legit/);
+  assert.match(
+    llms,
+    /https:\/\/www\.ynotopen\.com\/help\/where-to-buy-trading-cards-thailand/,
+  );
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/pokemon-card/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/one-piece-card/);
   assert.match(llms, /Filtered Y-Pack browse route: https:\/\/www\.ynotopen\.com\/packs\?series=pokemon/);
@@ -890,6 +964,8 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   assert.match(full, /YNOT x MIDNIGHT/);
   assert.match(full, /is YNOT legit/);
   assert.match(full, /official Instagram/);
+  assert.match(full, /where to buy Pokemon cards in Thailand/);
+  assert.match(full, /trading card shop Thailand/);
   assert.match(full, /Card shop and marketplace intent/);
   assert.match(full, /Community market and shop intent/);
   assert.match(full, /FAQ:/);
@@ -924,6 +1000,11 @@ test("footer and route files make answer pages reachable from public UI", () => 
     readApp("src/features/ynot/components.tsx"),
     /href="\/help\/is-ynot-legit"/,
     "footer and homepage should link to the YNOT trust page",
+  );
+  assert.match(
+    readApp("src/features/ynot/components.tsx"),
+    /href="\/help\/where-to-buy-trading-cards-thailand"/,
+    "footer should link to the local trading-card buying guide",
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),

@@ -681,6 +681,16 @@ function YnotFooter() {
             </li>
             <li className="ynot-footer-item">
               <Link
+                href="/help/where-to-buy-trading-cards-thailand"
+                className="ynot-footer-link"
+                prefetch={false}
+              >
+                <span className="i18n-en">Buy Cards Guide</span>
+                <span className="i18n-th">คู่มือซื้อการ์ด</span>
+              </Link>
+            </li>
+            <li className="ynot-footer-item">
+              <Link
                 href="/pokemon-card"
                 className="ynot-footer-link"
                 prefetch={false}
@@ -1071,6 +1081,14 @@ function YnotEntitySignalSection() {
         >
           <span className="i18n-en">Is YNOT legit?</span>
           <span className="i18n-th">ตรวจสอบ YNOT</span>
+        </Link>
+        <Link
+          className="secondary-action"
+          href="/help/where-to-buy-trading-cards-thailand"
+          prefetch={false}
+        >
+          <span className="i18n-en">Where to buy cards</span>
+          <span className="i18n-th">ซื้อการ์ดที่ไหนดี</span>
         </Link>
         <Link
           className="secondary-action"

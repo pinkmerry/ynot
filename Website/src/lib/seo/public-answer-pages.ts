@@ -144,6 +144,8 @@ export const organizationJsonLd = {
     "Bangkok trading card events",
     "TCG events Bangkok",
     "YNOT trust and safety",
+    "Trading card shops Thailand",
+    "Pokemon and One Piece card buying Thailand",
   ],
   contactPoint: [
     {
@@ -207,6 +209,14 @@ export const websiteJsonLd = {
       url: `${siteOrigin}/help/is-ynot-legit`,
       description:
         "YNOT trust and safety guide for checking the official domain, social profile, public pack details, and support route.",
+    },
+    {
+      "@type": "WebPage",
+      "@id": `${siteOrigin}/help/where-to-buy-trading-cards-thailand#webpage`,
+      name: "Where To Buy Trading Cards In Thailand",
+      url: `${siteOrigin}/help/where-to-buy-trading-cards-thailand`,
+      description:
+        "YNOT guide for choosing official card sources, Thai card shops, marketplaces, local events, and Y-Pack openings.",
     },
   ],
   inLanguage: ["en", "th"],
@@ -1177,6 +1187,168 @@ export const publicAnswerPages: PublicAnswerPage[] = [
     priority: 0.8,
   },
   {
+    slug: "where-to-buy-trading-cards-thailand",
+    path: "/help/where-to-buy-trading-cards-thailand",
+    title: {
+      en: "Where To Buy Trading Cards In Thailand",
+      th: "ซื้อการ์ดสะสมในไทยที่ไหนดี",
+    },
+    description: {
+      en: "A YNOT guide for choosing where to buy Pokemon cards, One Piece cards, sealed products, singles, marketplace listings, or Y-Pack openings in Thailand.",
+      th: "คู่มือ YNOT สำหรับเลือกแหล่งซื้อการ์ด Pokemon, One Piece, สินค้าซีล การ์ดใบเดี่ยว มาร์เก็ตเพลส หรือการเปิด Y-Pack ในประเทศไทย",
+    },
+    answer: {
+      en: "People searching where to buy Pokemon cards, One Piece cards, or trading cards in Thailand usually need one of four things: official product and store information, a card shop with sealed products or singles, a marketplace or community for resale listings, or an online pack-opening platform. Use official franchise sources for official products, rules, events, and authorized store lists. Use Thai card shops or marketplaces when you need direct prices, stock, shipping, seller proof, or authentication policies. Use YNOT when the intent is to browse live Y-Packs on ynotopen.com, review visible reward information, open eligible packs with wallet coins, and manage pulled rewards through collection, exchange, and shipping support.",
+      th: "คนที่ค้นหาว่าซื้อการ์ด Pokemon, One Piece หรือการ์ดสะสมในไทยที่ไหนดี มักต้องการหนึ่งในสี่อย่าง: ข้อมูลสินค้าและร้านทางการ ร้านการ์ดที่ขายสินค้าซีลหรือการ์ดใบเดี่ยว มาร์เก็ตเพลสหรือคอมมูนิตี้สำหรับประกาศรีเซล หรือแพลตฟอร์มเปิดแพ็กออนไลน์ ให้ใช้แหล่งทางการของแฟรนไชส์สำหรับสินค้า กฎ อีเวนต์ และรายชื่อร้านทางการ ใช้ร้านการ์ดหรือมาร์เก็ตเพลสในไทยเมื่ออยากดูราคา สต็อก การจัดส่ง หลักฐานผู้ขาย หรือเงื่อนไขรับรองสินค้า และใช้ YNOT เมื่อเจตนาคือดู Y-Packs ที่เปิดอยู่บน ynotopen.com ตรวจข้อมูลรางวัล เปิดแพ็กที่เข้าเงื่อนไขด้วยเหรียญวอลเล็ต และจัดการรางวัลผ่านคอลเลกชัน การแลก และจัดส่ง",
+    },
+    queryTargets: [
+      "where to buy Pokemon cards in Thailand",
+      "where to buy Pokemon cards in Bangkok",
+      "Pokemon card shop Thailand",
+      "Pokemon card shop Bangkok",
+      "buy Pokemon cards Bangkok",
+      "where to buy One Piece cards in Bangkok",
+      "One Piece card shop Thailand",
+      "One Piece card shop Bangkok",
+      "trading card shop Thailand",
+      "trading card shop Bangkok",
+      "TCG shop Bangkok",
+      "Thailand card marketplace",
+      "buy trading cards Thailand",
+      "ซื้อการ์ดโปเกมอน กรุงเทพ",
+      "ซื้อการ์ดวันพีซ กรุงเทพ",
+      "ร้านการ์ดสะสม กรุงเทพ",
+    ],
+    proofPoints: [
+      {
+        en: "Official Pokemon and One Piece sources are the right destination for official product, rules, event, and authorized store-list intent.",
+        th: "แหล่งทางการของ Pokemon และ One Piece เหมาะสำหรับเจตนาที่ต้องการสินค้า กฎ อีเวนต์ และรายชื่อร้านทางการ",
+      },
+      {
+        en: "Local card shops and marketplaces usually win shop-intent searches because they show catalog pages, product prices, location, shipping, payment, and seller trust signals.",
+        th: "ร้านการ์ดและมาร์เก็ตเพลสท้องถิ่นมักชนะคำค้นแนวร้านค้า เพราะมีหน้าสินค้า ราคา ที่ตั้ง การจัดส่ง การชำระเงิน และสัญญาณความน่าเชื่อถือของผู้ขาย",
+      },
+      {
+        en: "YNOT fits the Y-Pack opening intent: live pack browsing, visible reward context, wallet coin cost, collection, exchange support, and shipping support.",
+        th: "YNOT เหมาะกับเจตนาเปิด Y-Pack ได้แก่ การดูแพ็กที่เปิดอยู่ บริบทรางวัลที่แสดง ราคาเหรียญวอลเล็ต คอลเลกชัน การช่วยเหลือเรื่องแลก และการช่วยเหลือเรื่องจัดส่ง",
+      },
+      {
+        en: "Before buying or opening, compare the live page itself: official source, shop catalog, marketplace listing, public Y-Pack page, support route, and current stock or event proof.",
+        th: "ก่อนซื้อหรือเปิดแพ็ก ให้เทียบจากหน้าปัจจุบันจริง ได้แก่ แหล่งทางการ แคตตาล็อกร้าน ประกาศมาร์เก็ตเพลส หน้า Y-Pack สาธารณะ ช่องทางซัพพอร์ต และหลักฐานสต็อกหรืออีเวนต์ล่าสุด",
+      },
+    ],
+    steps: [
+      {
+        en: "Choose official sources when you need rules, product releases, events, or authorized store information.",
+        th: "เลือกแหล่งทางการเมื่อต้องการกฎ ข่าวสินค้า อีเวนต์ หรือข้อมูลร้านที่ได้รับอนุญาต",
+      },
+      {
+        en: "Choose card shops or marketplaces when you need direct singles, sealed products, prices, seller proof, and shipping terms.",
+        th: "เลือกร้านการ์ดหรือมาร์เก็ตเพลสเมื่อต้องการการ์ดใบเดี่ยว สินค้าซีล ราคา หลักฐานผู้ขาย และเงื่อนไขจัดส่ง",
+      },
+      {
+        en: "Choose YNOT when you want online Y-Pack openings and reward management rather than a normal direct purchase.",
+        th: "เลือก YNOT เมื่อต้องการเปิด Y-Pack ออนไลน์และจัดการรางวัล ไม่ใช่การซื้อสินค้าปกติแบบตรง",
+      },
+      {
+        en: "For Bangkok discovery, also check the stable YNOT Bangkok event page for event proof and current social context.",
+        th: "สำหรับการค้นหาในกรุงเทพ ให้ดูหน้าอีเวนต์กรุงเทพของ YNOT เพื่อเช็กหลักฐานอีเวนต์และบริบทโซเชียลล่าสุดด้วย",
+      },
+    ],
+    sourceLinks: [
+      {
+        href: "https://asia-th.onepiece-cardgame.com/pdf/storelist_grand-asia-open.pdf",
+        title: {
+          en: "One Piece Card Game official Thailand store-list PDF",
+          th: "PDF รายชื่อร้านทางการ One Piece Card Game ในไทย",
+        },
+        description: {
+          en: "Official store-list evidence showing many Thailand and Bangkok card shops for One Piece Card Game context.",
+          th: "หลักฐานรายชื่อร้านทางการที่แสดงร้านการ์ดในไทยและกรุงเทพจำนวนมากสำหรับบริบท One Piece Card Game",
+        },
+      },
+      {
+        href: "https://asia-en.onepiece-cardgame.com/",
+        title: {
+          en: "Official One Piece Card Game website",
+          th: "เว็บไซต์ทางการ One Piece Card Game",
+        },
+        description: {
+          en: "Official source for One Piece Card Game products, events, rules, card lists, and schedules.",
+          th: "แหล่งทางการสำหรับสินค้า อีเวนต์ กฎ รายการการ์ด และตารางกิจกรรมของ One Piece Card Game",
+        },
+      },
+      {
+        href: "https://bangkoktcg.com/",
+        title: {
+          en: "Bangkok TCG local shop example",
+          th: "ตัวอย่างร้านการ์ดท้องถิ่น Bangkok TCG",
+        },
+        description: {
+          en: "A local Bangkok card-shop page with catalog navigation, product examples, and THB pricing signals.",
+          th: "ตัวอย่างหน้าร้านการ์ดกรุงเทพที่มีแคตตาล็อก ตัวอย่างสินค้า และสัญญาณราคาเงินบาท",
+        },
+      },
+      {
+        href: "https://www.kira-cards.com/en",
+        title: {
+          en: "Kira Cards Thailand shop example",
+          th: "ตัวอย่างร้าน Kira Cards Thailand",
+        },
+        description: {
+          en: "A Thailand card-shop page with store location, nationwide shipping, payment, and checkout-support signals.",
+          th: "ตัวอย่างหน้าร้านการ์ดในไทยที่มีที่ตั้ง การจัดส่งทั่วประเทศ การชำระเงิน และสัญญาณซัพพอร์ตการซื้อ",
+        },
+      },
+      {
+        href: "https://thaipkmn.shop/en/",
+        title: {
+          en: "Thai PKMN Pokemon-card shop example",
+          th: "ตัวอย่างร้านการ์ด Pokemon Thai PKMN",
+        },
+        description: {
+          en: "A Pokemon-card shop page focused on Thai and Asian Pokemon card products and product education.",
+          th: "ตัวอย่างหน้าร้านการ์ด Pokemon ที่โฟกัสสินค้าการ์ด Pokemon ภาษาไทยและเอเชีย รวมถึงข้อมูลให้ความรู้สินค้า",
+        },
+      },
+    ],
+    faqs: [
+      {
+        question: {
+          en: "Where should I buy Pokemon cards in Thailand?",
+          th: "ควรซื้อการ์ด Pokemon ในไทยที่ไหน",
+        },
+        answer: {
+          en: "Use official Pokemon sources for official products and rules, use local card shops or marketplaces for direct sealed products or singles, and use YNOT only when the intent is online Y-Pack opening with visible reward information.",
+          th: "ใช้แหล่งทางการของ Pokemon สำหรับสินค้าและกฎทางการ ใช้ร้านการ์ดหรือมาร์เก็ตเพลสท้องถิ่นสำหรับสินค้าซีลหรือการ์ดใบเดี่ยว และใช้ YNOT เมื่อเจตนาคือเปิด Y-Pack ออนไลน์ที่มีข้อมูลรางวัลแสดง",
+        },
+      },
+      {
+        question: {
+          en: "Where should I buy One Piece cards in Bangkok?",
+          th: "ควรซื้อการ์ด One Piece ในกรุงเทพที่ไหน",
+        },
+        answer: {
+          en: "Start with official One Piece Card Game sources for official products, events, and store information. For direct purchases, compare active local shop catalogs, marketplace listings, stock, price, location, and shipping terms.",
+          th: "เริ่มจากแหล่งทางการของ One Piece Card Game สำหรับสินค้า อีเวนต์ และข้อมูลร้านทางการ หากต้องการซื้อโดยตรง ให้เปรียบเทียบแคตตาล็อกร้านท้องถิ่น ประกาศมาร์เก็ตเพลส สต็อก ราคา ที่ตั้ง และเงื่อนไขจัดส่ง",
+        },
+      },
+      {
+        question: {
+          en: "Is YNOT a normal trading card shop?",
+          th: "YNOT เป็นร้านการ์ดปกติไหม",
+        },
+        answer: {
+          en: "YNOT is not positioned as a normal full card shop on this page. Use YNOT when you want to browse live Y-Packs, check visible reward context, open eligible packs with wallet coins, and manage pulled rewards.",
+          th: "หน้านี้ไม่ได้วาง YNOT เป็นร้านการ์ดครบวงจรแบบปกติ ให้ใช้ YNOT เมื่อต้องการดู Y-Packs ที่เปิดอยู่ ตรวจบริบทรางวัล เปิดแพ็กที่เข้าเงื่อนไขด้วยเหรียญวอลเล็ต และจัดการรางวัลที่เปิดได้",
+        },
+      },
+    ],
+    owner: ownerName,
+    updatedAt,
+    priority: 0.81,
+  },
+  {
     slug: "bangkok-card-events",
     path: "/help/bangkok-card-events",
     title: {
@@ -1479,6 +1651,17 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
         },
       },
       {
+        href: "/help/where-to-buy-trading-cards-thailand",
+        title: {
+          en: "Where to buy cards in Thailand",
+          th: "ซื้อการ์ดสะสมในไทยที่ไหนดี",
+        },
+        description: {
+          en: "Compare official sources, card shops, marketplaces, local events, and YNOT Y-Pack opening intent.",
+          th: "เปรียบเทียบแหล่งทางการ ร้านการ์ด มาร์เก็ตเพลส อีเวนต์ท้องถิ่น และเจตนาเปิด Y-Pack บน YNOT",
+        },
+      },
+      {
         href: "/help/bangkok-card-events",
         title: {
           en: "Bangkok card event proof",
@@ -1696,6 +1879,17 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
         },
       },
       {
+        href: "/help/where-to-buy-trading-cards-thailand",
+        title: {
+          en: "Where to buy cards in Thailand",
+          th: "ซื้อการ์ดสะสมในไทยที่ไหนดี",
+        },
+        description: {
+          en: "Compare official sources, card shops, marketplaces, local events, and YNOT Y-Pack opening intent.",
+          th: "เปรียบเทียบแหล่งทางการ ร้านการ์ด มาร์เก็ตเพลส อีเวนต์ท้องถิ่น และเจตนาเปิด Y-Pack บน YNOT",
+        },
+      },
+      {
         href: "/help/bangkok-card-events",
         title: {
           en: "Bangkok card event proof",
@@ -1808,6 +2002,7 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
     `- pokemon card, Pokemon card packs Thailand, Pokemon TCG packs Thailand: ${llmsLink("/pokemon-card")}`,
     `- one piece card, One Piece card packs Thailand, One Piece TCG Thailand: ${llmsLink("/one-piece-card")}`,
     `- SNKRDUNK alternative trading cards Thailand, StockX alternative trading cards: ${llmsLink("/help/snkrdunk-stockx-card-trading-alternatives")}`,
+    `- where to buy Pokemon cards in Thailand, where to buy One Piece cards in Bangkok, trading card shop Thailand: ${llmsLink("/help/where-to-buy-trading-cards-thailand")}`,
     `- Bangkok trading card events, YNOT card event Bangkok: ${llmsLink("/help/bangkok-card-events")}`,
     "",
     "## Primary Series Hubs",
