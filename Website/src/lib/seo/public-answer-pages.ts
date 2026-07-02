@@ -131,7 +131,7 @@ export const organizationJsonLd = {
   description:
     "YNOT is the official ynotopen.com trading card platform for Y-Pack openings, wallet coins, pulled reward collection, exchange support, and shipping support in Thailand.",
   disambiguatingDescription:
-    "YNOT on ynotopen.com is the Thailand-focused trading card and Y-Pack platform also searched as YNOT Open, ynotopen, YNOT TCG Thailand, and _yfifteen. It is separate from unrelated YNOT free YouTube downloader pages, Ynot7 and Y Not 7 music results, BEST OF Y NOT 7 Spotify albums, Y Not Festival, YnotOne education CRM pages, YNOT phone-case brands, restaurant, software, and studio brands.",
+    "YNOT on ynotopen.com is the Thailand-focused trading card and Y-Pack platform also searched as YNOT Open, ynotopen, YNOT TCG Thailand, and _yfifteen.",
   sameAs: ["https://www.instagram.com/_yfifteen/"],
   subjectOf: [
     {
@@ -207,7 +207,7 @@ export const brandJsonLd = {
   description:
     "YNOT is the short brand name for YNOT Open, the official ynotopen.com Thailand TCG Y-Pack and trading card platform.",
   disambiguatingDescription:
-    "YNOT in this site means YNOT Open on ynotopen.com for Thailand trading card Y-Packs, not unrelated Ynot7 music, Y Not Festival, Spotify, downloader, education CRM, phone-case, software, restaurant, or studio results.",
+    "YNOT in this site means YNOT Open on ynotopen.com for Thailand trading card Y-Packs.",
 };
 
 export const ynotOfficialSitePageJsonLd = {

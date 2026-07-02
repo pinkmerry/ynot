@@ -564,25 +564,15 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     ),
     "Organization homepage schema must keep isolated /oripa topics off the old main page",
   );
-  assert.match(
+  assert.doesNotMatch(
     seo.organizationJsonLd.disambiguatingDescription,
-    /YouTube downloader/,
-    "Organization schema must disambiguate against the live Google top result",
+    /YouTube downloader|Ynot7|Spotify|YnotOne/,
+    "Organization homepage schema must keep conflict disambiguation on the dedicated /ynot page",
   );
-  assert.match(
-    seo.organizationJsonLd.disambiguatingDescription,
-    /Ynot7/,
-    "Organization schema must disambiguate against the live Ynot7 result",
-  );
-  assert.match(
-    seo.organizationJsonLd.disambiguatingDescription,
-    /Spotify/,
-    "Organization schema must disambiguate against the live Spotify result",
-  );
-  assert.match(
-    seo.organizationJsonLd.disambiguatingDescription,
-    /YnotOne/,
-    "Organization schema must disambiguate against the live ChatGPT YnotOne result",
+  assert.doesNotMatch(
+    seo.brandJsonLd.disambiguatingDescription,
+    /downloader|Ynot7|Spotify|YnotOne/,
+    "Brand homepage schema must keep conflict disambiguation on the dedicated /ynot page",
   );
   assert.equal(
     seo.organizationJsonLd.areaServed["@type"],
@@ -674,8 +664,8 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
   assert.equal(homepageJsonLd["@graph"].length, 4);
   assert.doesNotMatch(
     JSON.stringify(homepageJsonLd),
-    /https:\/\/www\.ynotopen\.com\/oripa|online oripa-style|mystery-pack catalog/i,
-    "homepage JSON-LD must stay free of isolated /oripa route content",
+    /https:\/\/www\.ynotopen\.com\/oripa|online oripa-style|mystery-pack catalog|YouTube downloader|Ynot7|Spotify|YnotOne/i,
+    "homepage JSON-LD must stay free of isolated route and detailed disambiguation content",
   );
   assert.ok(
     homepageJsonLd["@graph"].some(
