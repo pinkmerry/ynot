@@ -28,7 +28,6 @@ export async function PackCatalogRoute({
   initialSeries = "all",
   initialTag = "",
   pageLead,
-  seoContent,
   pageTitle,
 }: {
   canonicalPath?: string;
@@ -36,7 +35,6 @@ export async function PackCatalogRoute({
   initialSeries?: PackCatalogSeries;
   initialTag?: string;
   pageLead?: ReactNode;
-  seoContent?: ReactNode;
   pageTitle?: ReactNode;
 }) {
   const data = await getYnotDashboardSlice({
@@ -85,7 +83,6 @@ export async function PackCatalogRoute({
             initialTag={initialTag}
             pageLead={pageLead}
             pageTitle={pageTitle}
-            seoContent={seoContent}
           />
         </Shell>
       </YnotShell>

@@ -163,7 +163,6 @@ export type YPackExperienceProps = {
   initialTag?: string;
   pageLead?: ReactNode;
   pageTitle?: ReactNode;
-  seoContent?: ReactNode;
 };
 
 export function YPackExperience({
@@ -174,7 +173,6 @@ export function YPackExperience({
   initialTag = "",
   pageLead,
   pageTitle,
-  seoContent,
 }: YPackExperienceProps) {
   const router = useRouter();
   const language = useStoreLanguage();
@@ -413,8 +411,6 @@ export function YPackExperience({
           ))}
         </div>
       )}
-
-      {seoContent && <div className="cr-pack-seo-footer">{seoContent}</div>}
 
       <OpenPackModal
         state={openState}

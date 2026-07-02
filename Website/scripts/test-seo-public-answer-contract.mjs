@@ -1146,7 +1146,7 @@ test("public pack browse and detail routes expose commerce-ready proof schema", 
   );
   assert.match(
     readApp("src/app/(store)/oripa/page.tsx"),
-    /canonicalPath=\{canonicalPath\}/,
+    /const canonicalPath = "\/oripa"/,
     "oripa catalog route must use a static canonical route constant",
   );
   assert.match(
@@ -1156,13 +1156,23 @@ test("public pack browse and detail routes expose commerce-ready proof schema", 
   );
   assert.match(
     readApp("src/app/(store)/oripa/page.tsx"),
-    /oripa-style Y-Packs/,
+    /online oripa-style mystery packs/,
     "oripa catalog route must expose crawlable original oripa context",
   );
-  assert.match(
+  assert.doesNotMatch(
+    readApp("src/features/ynot/PackCatalogRoute.tsx"),
+    /seoContent/,
+    "pack catalog route must stay unchanged for the old /packs pages",
+  );
+  assert.doesNotMatch(
     readApp("src/features/ynot/cr/YPackExperience.tsx"),
     /seoContent/,
-    "pack browse experience must accept route-specific SEO content",
+    "pack browse experience must stay unchanged for the old /packs pages",
+  );
+  assert.doesNotMatch(
+    readApp("src/features/ynot/cr/theme.css"),
+    /cr-pack-seo/,
+    "pack catalog CSS must stay unchanged for the old /packs pages",
   );
   assert.match(
     readApp("src/app/(store)/packs/pokemon/page.tsx"),
@@ -1398,7 +1408,7 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   assert.match(readApp("src/app/llms-full.txt/route.ts"), /full: true/);
 });
 
-test("footer and route files make answer pages reachable from public UI", () => {
+test("footer keeps existing links while the oripa route stays isolated", () => {
   assert.match(
     readApp("src/features/ynot/components.tsx"),
     /href="\/ynot"/,
@@ -1409,10 +1419,10 @@ test("footer and route files make answer pages reachable from public UI", () => 
     /href="\/help\/how-ynot-packs-work"/,
     "footer How It Works link should point to the Y-Pack explainer",
   );
-  assert.match(
+  assert.doesNotMatch(
     readApp("src/features/ynot/components.tsx"),
     /href="\/oripa"/,
-    "footer and homepage should link to the online oripa / mystery-pack catalog",
+    "existing footer and homepage links must stay unchanged; /oripa is isolated to sitemap and direct URL",
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),

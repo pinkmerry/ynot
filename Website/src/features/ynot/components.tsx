@@ -661,16 +661,6 @@ function YnotFooter() {
             </li>
             <li className="ynot-footer-item">
               <Link
-                href="/oripa"
-                className="ynot-footer-link"
-                prefetch={false}
-              >
-                <span className="i18n-en">Online Oripa</span>
-                <span className="i18n-th">Online Oripa</span>
-              </Link>
-            </li>
-            <li className="ynot-footer-item">
-              <Link
                 href="/help/ynot-tcg-lucky-draw-thailand"
                 className="ynot-footer-link"
                 prefetch={false}
@@ -1113,10 +1103,6 @@ function YnotEntitySignalSection() {
         >
           <span className="i18n-en">YNOT TCG Lucky Draw</span>
           <span className="i18n-th">YNOT TCG Lucky Draw</span>
-        </Link>
-        <Link className="secondary-action" href="/oripa" prefetch={false}>
-          <span className="i18n-en">Online oripa mystery packs</span>
-          <span className="i18n-th">Online oripa mystery packs</span>
         </Link>
         <Link
           className="secondary-action"
