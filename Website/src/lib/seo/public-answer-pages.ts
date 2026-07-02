@@ -2721,7 +2721,6 @@ export function buildHomePageJsonLd() {
       organizationJsonLd,
       brandJsonLd,
       websiteJsonLd,
-      ynotOfficialSitePageJsonLd,
     ],
   };
 }

@@ -661,11 +661,11 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
   const homepageJsonLd = seo.buildHomePageJsonLd();
   assert.equal(homepageJsonLd["@context"], "https://schema.org");
   assert.ok(Array.isArray(homepageJsonLd["@graph"]));
-  assert.equal(homepageJsonLd["@graph"].length, 4);
+  assert.equal(homepageJsonLd["@graph"].length, 3);
   assert.doesNotMatch(
     JSON.stringify(homepageJsonLd),
-    /https:\/\/www\.ynotopen\.com\/oripa|online oripa-style|mystery-pack catalog|YouTube downloader|Ynot7|Spotify|YnotOne/i,
-    "homepage JSON-LD must stay free of isolated route and detailed disambiguation content",
+    /https:\/\/www\.ynotopen\.com\/oripa|online oripa-style|mystery-pack catalog|YNOT Official Site Is ynotopen\.com|YouTube downloader|Ynot7|Spotify|YnotOne/i,
+    "homepage JSON-LD must stay free of isolated route and dedicated SEO page content",
   );
   assert.ok(
     homepageJsonLd["@graph"].some(
@@ -677,17 +677,6 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
         node.parentOrganization["@id"] === "https://www.ynotopen.com/#organization",
     ),
     "homepage JSON-LD must expose a dedicated YNOT Brand node for ambiguous one-word entity searches",
-  );
-  assert.ok(
-    homepageJsonLd["@graph"].some(
-      (node) =>
-        node["@type"] === "AboutPage" &&
-        node["@id"] === "https://www.ynotopen.com/ynot#webpage" &&
-        node.url === "https://www.ynotopen.com/ynot" &&
-        node.about["@id"] === "https://www.ynotopen.com/#brand" &&
-        node.mainEntity["@id"] === "https://www.ynotopen.com/#organization",
-    ),
-    "homepage JSON-LD must point crawlers to the exact-match /ynot brand disambiguation page",
   );
   assert.match(readApp("src/app/page.tsx"), /buildHomePageJsonLd/);
   assert.match(
