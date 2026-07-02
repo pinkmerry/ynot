@@ -1138,13 +1138,28 @@ test("footer and route files make answer pages reachable from public UI", () => 
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
+    /href="\/trading-card-marketplace-thailand"/,
+    "footer and homepage should link to the trading-card marketplace guide",
+  );
+  assert.match(
+    readApp("src/features/ynot/components.tsx"),
     /href="\/pokemon-card"/,
     "footer and homepage should link to the Pokemon card series hub",
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
+    /href="\/packs\/pokemon"/,
+    "footer and homepage should link to the static Pokemon Y-Pack catalog",
+  );
+  assert.match(
+    readApp("src/features/ynot/components.tsx"),
     /href="\/one-piece-card"/,
     "footer and homepage should link to the One Piece card series hub",
+  );
+  assert.match(
+    readApp("src/features/ynot/components.tsx"),
+    /href="\/packs\/one-piece"/,
+    "footer and homepage should link to the static One Piece Y-Pack catalog",
   );
   assert.match(
     readApp("src/features/ynot/SeriesSeoLandingPage.tsx"),

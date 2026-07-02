@@ -691,6 +691,16 @@ function YnotFooter() {
             </li>
             <li className="ynot-footer-item">
               <Link
+                href="/trading-card-marketplace-thailand"
+                className="ynot-footer-link"
+                prefetch={false}
+              >
+                <span className="i18n-en">Marketplace Guide</span>
+                <span className="i18n-th">คู่มือตลาดการ์ด</span>
+              </Link>
+            </li>
+            <li className="ynot-footer-item">
+              <Link
                 href="/pokemon-card"
                 className="ynot-footer-link"
                 prefetch={false}
@@ -701,12 +711,32 @@ function YnotFooter() {
             </li>
             <li className="ynot-footer-item">
               <Link
+                href="/packs/pokemon"
+                className="ynot-footer-link"
+                prefetch={false}
+              >
+                <span className="i18n-en">Pokemon Y-Packs</span>
+                <span className="i18n-th">Y-Packs Pokemon</span>
+              </Link>
+            </li>
+            <li className="ynot-footer-item">
+              <Link
                 href="/one-piece-card"
                 className="ynot-footer-link"
                 prefetch={false}
               >
                 <span className="i18n-en">One Piece Cards</span>
                 <span className="i18n-th">การ์ด One Piece</span>
+              </Link>
+            </li>
+            <li className="ynot-footer-item">
+              <Link
+                href="/packs/one-piece"
+                className="ynot-footer-link"
+                prefetch={false}
+              >
+                <span className="i18n-en">One Piece Y-Packs</span>
+                <span className="i18n-th">Y-Packs One Piece</span>
               </Link>
             </li>
             <li className="ynot-footer-item">
@@ -1092,6 +1122,14 @@ function YnotEntitySignalSection() {
         </Link>
         <Link
           className="secondary-action"
+          href="/trading-card-marketplace-thailand"
+          prefetch={false}
+        >
+          <span className="i18n-en">Trading card marketplace guide</span>
+          <span className="i18n-th">คู่มือตลาดการ์ดสะสม</span>
+        </Link>
+        <Link
+          className="secondary-action"
           href="/pokemon-card"
           prefetch={false}
         >
@@ -1100,11 +1138,27 @@ function YnotEntitySignalSection() {
         </Link>
         <Link
           className="secondary-action"
+          href="/packs/pokemon"
+          prefetch={false}
+        >
+          <span className="i18n-en">Pokemon Y-Pack catalog</span>
+          <span className="i18n-th">แคตตาล็อก Y-Pack Pokemon</span>
+        </Link>
+        <Link
+          className="secondary-action"
           href="/one-piece-card"
           prefetch={false}
         >
           <span className="i18n-en">One Piece card packs</span>
           <span className="i18n-th">แพ็กการ์ด One Piece</span>
+        </Link>
+        <Link
+          className="secondary-action"
+          href="/packs/one-piece"
+          prefetch={false}
+        >
+          <span className="i18n-en">One Piece Y-Pack catalog</span>
+          <span className="i18n-th">แคตตาล็อก Y-Pack One Piece</span>
         </Link>
         <a
           className="secondary-action"

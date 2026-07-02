@@ -199,6 +199,15 @@ Pattern: official authority plus community market authority. YNOT should target 
 - Keep the content truthful: YNOT is positioned as a Y-Pack opening and reward-management platform unless a public third-party marketplace listing page is later launched.
 - Add SEO contract tests for the static catalog routes, marketplace guide, source links, sitemap entries, and AI source index updates.
 
+### Done in the crawl-path pass
+
+- Add visible homepage identity-section links to:
+  - `/trading-card-marketplace-thailand`
+  - `/packs/pokemon`
+  - `/packs/one-piece`
+- Add footer links to the same three URLs so crawlers and users can reach them from every public shell page.
+- Lock those internal crawl paths in the SEO contract test.
+
 ### Next actions outside code
 
 - Submit these URLs in Google Search Console URL Inspection:
