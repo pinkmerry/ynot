@@ -3,15 +3,37 @@ import { Shell } from "@/features/ynot/cr/Shell";
 import { YPackExperience } from "@/features/ynot/cr/YPackExperience";
 import { YnotShell } from "@/features/ynot/components";
 import { getYnotDashboardSlice } from "@/features/ynot/data";
+import {
+  isPublicPackSeoCampaign,
+  toPublicPackSeoItem,
+} from "@/features/ynot/pack-seo";
+import {
+  buildPacksBrowseJsonLd,
+  serializeJsonLd,
+} from "@/lib/seo/public-answer-pages";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Browse Y-Packs",
+  title: "Browse YNOT Open Y-Packs",
   description:
-    "Browse public YNOT Y-Packs, check coin cost and reward information, and choose eligible trading card packs to open online.",
+    "Browse public YNOT Open Pokemon and One Piece card Y-Packs with wallet coin cost, visible stock signals, reward context, and pack detail pages.",
   alternates: {
     canonical: "https://www.ynotopen.com/packs",
+  },
+  openGraph: {
+    title: "Browse YNOT Open Y-Packs",
+    description:
+      "Browse public YNOT Open card Y-Packs with wallet coin cost, visible stock signals, reward context, and detail pages.",
+    url: "https://www.ynotopen.com/packs",
+    siteName: "YNOT",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Browse YNOT Open Y-Packs",
+    description:
+      "Browse Pokemon and One Piece card Y-Packs on YNOT Open with wallet coin cost and public pack detail pages.",
   },
 };
 
@@ -61,18 +83,36 @@ export default async function PacksPage({
     (campaign) =>
       campaign.status === "live" || campaign.demo || campaign.status === "closed",
   );
+  const seoCampaigns = visibleCampaigns
+    .filter(isPublicPackSeoCampaign)
+    .map(toPublicPackSeoItem);
+  const jsonLd = buildPacksBrowseJsonLd(seoCampaigns, { series: initialSeries });
 
   return (
-    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
-      <Shell>
-        <YPackExperience
-          key={`${initialSeries}:${initialTag}`}
-          campaigns={visibleCampaigns}
-          balanceCoins={data.wallet.balanceCoins}
-          initialSeries={initialSeries}
-          initialTag={initialTag}
-        />
-      </Shell>
-    </YnotShell>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd(jsonLd.collectionPage),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd(jsonLd.breadcrumb),
+        }}
+      />
+      <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
+        <Shell>
+          <YPackExperience
+            key={`${initialSeries}:${initialTag}`}
+            campaigns={visibleCampaigns}
+            balanceCoins={data.wallet.balanceCoins}
+            initialSeries={initialSeries}
+            initialTag={initialTag}
+          />
+        </Shell>
+      </YnotShell>
+    </>
   );
 }

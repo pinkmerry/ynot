@@ -544,6 +544,117 @@ test("public series landing pages target broad card category intent", () => {
   }
 });
 
+test("public pack browse and detail routes expose commerce-ready proof schema", () => {
+  const seo = loadSeoModule();
+  const livePack = {
+    slug: "pokemon-public-pack",
+    status: "live",
+    titleTh: "Pokemon Public Pack",
+    titleEn: "Pokemon Public Pack",
+    series: "pokemon",
+    costCoins: 250,
+    totalSlots: 100,
+    remainingSlots: 12,
+    openable: true,
+    soldOut: false,
+    categoryLabel: "Pokemon card packs",
+    heroLabel: "Visible chase card proof",
+    displayTags: ["PSA10", "sealed"],
+    bannerImageUrl: "/packs/pokemon-public-pack.png",
+  };
+  const closedPack = {
+    ...livePack,
+    slug: "sold-one-piece-pack",
+    status: "closed",
+    titleEn: "Sold One Piece Pack",
+    series: "one_piece",
+    remainingSlots: 0,
+    openable: false,
+    soldOut: true,
+  };
+
+  const browseJsonLd = seo.buildPacksBrowseJsonLd([livePack, closedPack], {
+    series: "pokemon",
+  });
+  assert.equal(browseJsonLd.collectionPage["@type"], "CollectionPage");
+  assert.equal(browseJsonLd.collectionPage.mainEntity["@type"], "ItemList");
+  assert.equal(browseJsonLd.collectionPage.mainEntity.numberOfItems, 2);
+  assert.equal(
+    browseJsonLd.collectionPage.mainEntity.itemListElement[0].item["@type"],
+    "Product",
+  );
+  assert.equal(
+    browseJsonLd.collectionPage.mainEntity.itemListElement[0].item.offers
+      .priceSpecification.unitText,
+    "YNOT wallet coins per pack",
+  );
+  assert.equal(
+    browseJsonLd.collectionPage.mainEntity.itemListElement[0].item.offers
+      .availability,
+    "https://schema.org/InStock",
+  );
+  assert.equal(
+    browseJsonLd.collectionPage.mainEntity.itemListElement[1].item.offers
+      .availability,
+    "https://schema.org/SoldOut",
+  );
+  assert.ok(
+    !("priceCurrency" in browseJsonLd.collectionPage.mainEntity.itemListElement[0].item.offers),
+    "Y-Pack schema must not invent a THB priceCurrency for wallet coin packs",
+  );
+  assert.ok(
+    !(
+      "priceCurrency" in
+      browseJsonLd.collectionPage.mainEntity.itemListElement[0].item.offers
+        .priceSpecification
+    ),
+    "Y-Pack priceSpecification must stay truthful to wallet coins",
+  );
+
+  const detailJsonLd = seo.buildPackDetailJsonLd(livePack);
+  assert.equal(detailJsonLd.product["@type"], "Product");
+  assert.equal(
+    detailJsonLd.product.url,
+    "https://www.ynotopen.com/packs/pokemon-public-pack",
+  );
+  assert.equal(detailJsonLd.breadcrumb["@type"], "BreadcrumbList");
+  assert.match(
+    JSON.stringify(detailJsonLd.product),
+    /YNOT wallet coins per pack/,
+    "pack detail product schema must expose wallet coin cost",
+  );
+
+  assert.ok(
+    existsSync(appPath("src/features/ynot/pack-seo.ts")),
+    "missing pack SEO helper",
+  );
+  assert.match(
+    readApp("src/app/(store)/packs/page.tsx"),
+    /buildPacksBrowseJsonLd/,
+    "pack browse page must render CollectionPage and ItemList schema",
+  );
+  assert.match(
+    readApp("src/app/(store)/packs/page.tsx"),
+    /isPublicPackSeoCampaign/,
+    "pack browse page must filter schema to public SEO-eligible packs",
+  );
+  assert.match(
+    readApp("src/app/(store)/packs/[slug]/page.tsx"),
+    /generateMetadata/,
+    "pack detail pages must produce per-pack metadata",
+  );
+  assert.match(
+    readApp("src/app/(store)/packs/[slug]/page.tsx"),
+    /buildPackDetailJsonLd/,
+    "pack detail pages must render Product schema",
+  );
+  assert.match(
+    readApp("src/features/ynot/pack-seo.ts"),
+    /visibility === "public"/,
+    "pack SEO eligibility must preserve the public/private crawl boundary",
+  );
+});
+
 test("sitemap and robots routes publish the public answer surface", () => {
   const seo = loadSeoModule();
 
@@ -563,6 +674,20 @@ test("sitemap and robots routes publish the public answer surface", () => {
   assert.ok(
     !sitemapEntries.some((entry) => entry.url.includes("/ranking")),
     "ranking must stay out of the public sitemap",
+  );
+  const sitemapEntriesWithPack = seo.getPublicSitemapEntries([
+    {
+      path: "/packs/pokemon-public-pack",
+      priority: 0.86,
+      changeFrequency: "daily",
+    },
+  ]);
+  assert.ok(
+    sitemapEntriesWithPack.some(
+      (entry) =>
+        entry.url === "https://www.ynotopen.com/packs/pokemon-public-pack",
+    ),
+    "sitemap helper must accept live public pack detail URLs",
   );
 
   const robots = seo.getRobotsPolicy();
@@ -584,6 +709,16 @@ test("sitemap and robots routes publish the public answer surface", () => {
   assert.equal(robots.sitemap, "https://www.ynotopen.com/sitemap.xml");
 
   assert.match(readApp("src/app/sitemap.ts"), /getPublicSitemapEntries/);
+  assert.match(
+    readApp("src/app/sitemap.ts"),
+    /packSitemapEntries/,
+    "sitemap route must append public pack detail URLs",
+  );
+  assert.match(
+    readApp("src/app/sitemap.ts"),
+    /getCampaigns/,
+    "sitemap route must fetch current public campaigns for pack URL discovery",
+  );
   assert.match(readApp("src/app/robots.ts"), /getRobotsPolicy/);
 });
 

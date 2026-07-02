@@ -70,6 +70,17 @@ export type PublicSeriesPackListItem = {
   displayTags?: string[];
 };
 
+export type PublicPackSeoItem = PublicSeriesPackListItem & {
+  bannerImageUrl?: string | null;
+};
+
+export type PublicSitemapRouteEntry = {
+  path: string;
+  priority: number;
+  changeFrequency: "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
+  lastModified?: string;
+};
+
 const siteOrigin = "https://www.ynotopen.com";
 const ownerName = "YNOT Operations";
 const updatedAt = "2026-07-02";
@@ -1723,6 +1734,10 @@ function packTitle(campaign: PublicSeriesPackListItem) {
   return campaign.titleEn || campaign.titleTh || campaign.slug;
 }
 
+function packSeriesName(series: PublicSeriesPackListItem["series"]) {
+  return series === "pokemon" ? "Pokemon card" : "One Piece card";
+}
+
 function packDescription(campaign: PublicSeriesPackListItem) {
   const details = [
     campaign.heroLabel,
@@ -1734,6 +1749,201 @@ function packDescription(campaign: PublicSeriesPackListItem) {
     campaign.soldOut ? "sold out" : campaign.openable ? "openable" : campaign.status,
   ].filter(Boolean);
   return details.join(" · ");
+}
+
+function packAvailability(campaign: PublicSeriesPackListItem) {
+  if (campaign.soldOut || campaign.status === "closed") {
+    return "https://schema.org/SoldOut";
+  }
+  if (campaign.openable || campaign.status === "live") {
+    return "https://schema.org/InStock";
+  }
+  return "https://schema.org/LimitedAvailability";
+}
+
+function packImageUrl(campaign: PublicPackSeoItem) {
+  const imageUrl = campaign.bannerImageUrl?.trim();
+  if (!imageUrl) return undefined;
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
+  if (imageUrl.startsWith("/")) return canonicalUrl(imageUrl);
+  return undefined;
+}
+
+function packProductJsonLd(campaign: PublicPackSeoItem) {
+  const canonical = canonicalUrl(`/packs/${campaign.slug}`);
+  const title = packTitle(campaign);
+  const description =
+    packDescription(campaign) ||
+    `${title} is a ${packSeriesName(campaign.series)} YNOT Open Y-Pack on ynotopen.com.`;
+  const additionalProperty = [
+    {
+      "@type": "PropertyValue",
+      name: "Series",
+      value: packSeriesName(campaign.series),
+    },
+    {
+      "@type": "PropertyValue",
+      name: "YNOT wallet coin cost",
+      value: campaign.costCoins,
+      unitText: "YNOT wallet coins per pack",
+    },
+    {
+      "@type": "PropertyValue",
+      name: "Pack status",
+      value: campaign.soldOut ? "sold out" : campaign.status,
+    },
+    typeof campaign.remainingSlots === "number"
+      ? {
+          "@type": "PropertyValue",
+          name: "Remaining slots",
+          value: campaign.remainingSlots,
+        }
+      : undefined,
+    typeof campaign.totalSlots === "number"
+      ? {
+          "@type": "PropertyValue",
+          name: "Total slots",
+          value: campaign.totalSlots,
+        }
+      : undefined,
+    ...(campaign.displayTags ?? []).slice(0, 6).map((tag) => ({
+      "@type": "PropertyValue",
+      name: "Pack tag",
+      value: tag,
+    })),
+  ].filter(Boolean);
+  const image = packImageUrl(campaign);
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": `${canonical}#product`,
+    name: title,
+    alternateName: campaign.titleTh && campaign.titleTh !== title ? campaign.titleTh : undefined,
+    description,
+    url: canonical,
+    image: image ? [image] : undefined,
+    sku: campaign.slug,
+    brand: {
+      "@id": organizationId,
+    },
+    category: `${packSeriesName(campaign.series)} Y-Pack`,
+    additionalProperty,
+    offers: {
+      "@type": "Offer",
+      url: canonical,
+      availability: packAvailability(campaign),
+      seller: {
+        "@id": organizationId,
+      },
+      priceSpecification: {
+        "@type": "UnitPriceSpecification",
+        price: campaign.costCoins,
+        unitText: "YNOT wallet coins per pack",
+      },
+    },
+  };
+}
+
+export function buildPacksBrowseJsonLd(
+  campaigns: PublicPackSeoItem[] = [],
+  {
+    series = "all",
+  }: {
+    series?: string;
+  } = {},
+) {
+  const canonical = canonicalUrl("/packs");
+  const visibleCampaigns = campaigns.slice(0, 50);
+  const seriesLabel =
+    series === "pokemon"
+      ? "Pokemon card"
+      : series === "one_piece"
+        ? "One Piece card"
+        : "Pokemon and One Piece card";
+
+  return {
+    collectionPage: {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "@id": `${canonical}#webpage`,
+      name: "Browse YNOT Open Y-Packs",
+      headline: "YNOT Open public Y-Pack catalog",
+      description:
+        "Browse public YNOT Open Y-Packs with visible pack names, wallet coin cost, stock signals, reward context, and pack detail URLs.",
+      url: canonical,
+      isPartOf: {
+        "@id": websiteId,
+      },
+      about: [
+        "YNOT Open Y-Packs",
+        `${seriesLabel} packs Thailand`,
+        "online TCG pack opening Thailand",
+        "YNOT wallet coin packs",
+      ],
+      publisher: organizationJsonLd,
+      mainEntity: {
+        "@type": "ItemList",
+        name: `${seriesLabel} Y-Pack listings`,
+        numberOfItems: visibleCampaigns.length,
+        itemListElement: visibleCampaigns.map((campaign, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          url: canonicalUrl(`/packs/${campaign.slug}`),
+          item: packProductJsonLd(campaign),
+        })),
+      },
+    },
+    breadcrumb: {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Home",
+          item: siteOrigin,
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: "Y-Packs",
+          item: canonical,
+        },
+      ],
+    },
+  };
+}
+
+export function buildPackDetailJsonLd(campaign: PublicPackSeoItem) {
+  const canonical = canonicalUrl(`/packs/${campaign.slug}`);
+  return {
+    product: packProductJsonLd(campaign),
+    breadcrumb: {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Home",
+          item: siteOrigin,
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: "Y-Packs",
+          item: canonicalUrl("/packs"),
+        },
+        {
+          "@type": "ListItem",
+          position: 3,
+          name: packTitle(campaign),
+          item: canonical,
+        },
+      ],
+    },
+  };
 }
 
 export function buildSeriesLandingPageJsonLd(
@@ -1821,31 +2031,41 @@ export function buildSeriesLandingPageJsonLd(
   };
 }
 
-export function getPublicSitemapEntries() {
-  const routeEntries = [
+export function getPublicSitemapEntries(extraEntries: PublicSitemapRouteEntry[] = []) {
+  const routeEntries: PublicSitemapRouteEntry[] = [
     { path: "/", priority: 1, changeFrequency: "daily" },
     { path: "/packs", priority: 0.92, changeFrequency: "daily" },
     { path: "/contact", priority: 0.55, changeFrequency: "monthly" },
   ];
 
-  return [
+  const entries: PublicSitemapRouteEntry[] = [
     ...routeEntries,
-    ...publicSeriesLandingPages.map((page) => ({
+    ...publicSeriesLandingPages.map((page): PublicSitemapRouteEntry => ({
       path: page.path,
       priority: page.priority,
       changeFrequency: "daily",
     })),
-    ...publicAnswerPages.map((page) => ({
+    ...publicAnswerPages.map((page): PublicSitemapRouteEntry => ({
       path: page.path,
       priority: page.priority,
       changeFrequency: "monthly",
     })),
-  ].map((entry) => ({
-    url: canonicalUrl(entry.path),
-    lastModified: updatedAt,
-    changeFrequency: entry.changeFrequency,
-    priority: entry.priority,
-  }));
+    ...extraEntries,
+  ];
+  const seenUrls = new Set<string>();
+
+  return entries
+    .map((entry) => ({
+      url: canonicalUrl(entry.path),
+      lastModified: entry.lastModified ?? updatedAt,
+      changeFrequency: entry.changeFrequency,
+      priority: entry.priority,
+    }))
+    .filter((entry) => {
+      if (seenUrls.has(entry.url)) return false;
+      seenUrls.add(entry.url);
+      return true;
+    });
 }
 
 export function getRobotsPolicy() {
