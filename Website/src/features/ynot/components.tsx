@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { signOutAction } from "@/features/auth/actions";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 import type {
@@ -60,6 +60,33 @@ import {
 } from "./shipping-status";
 import { TopUpTable } from "./TopUpTable";
 import { I18nText, i18n } from "./i18n";
+
+const ynotFooterInteriorStyle: CSSProperties = {
+  alignItems: "flex-start",
+  height: "auto",
+  justifyContent: "flex-start",
+  minHeight: "89.8px",
+  paddingBottom: 20,
+  paddingTop: 20,
+};
+
+const ynotFooterNavStyle: CSSProperties = {
+  flex: "1 1 auto",
+  minWidth: 0,
+  width: "100%",
+};
+
+const ynotFooterListStyle: CSSProperties = {
+  alignItems: "center",
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "14px clamp(18px, 1.875vw, 36px)",
+  justifyContent: "flex-start",
+  listStyle: "none",
+  margin: 0,
+  padding: 0,
+  width: "100%",
+};
 
 const defaultHomeFilter: HomeFilterState = {
   series: "all",
@@ -636,9 +663,13 @@ export async function YnotShell({
 function YnotFooter() {
   return (
     <footer className="ynot-footer" aria-label="Site footer / ส่วนท้ายเว็บไซต์">
-      <div className="ynot-footer-interior">
-        <nav className="ynot-footer-nav" aria-label="Footer navigation / เมนูส่วนท้าย">
-          <ul className="ynot-footer-list">
+      <div className="ynot-footer-interior" style={ynotFooterInteriorStyle}>
+        <nav
+          className="ynot-footer-nav"
+          style={ynotFooterNavStyle}
+          aria-label="Footer navigation / เมนูส่วนท้าย"
+        >
+          <ul className="ynot-footer-list" style={ynotFooterListStyle}>
             <li className="ynot-footer-item">
               <Link
                 href="/ynot"
