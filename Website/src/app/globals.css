@@ -16754,7 +16754,7 @@ html[data-ynot-theme="light"] .store-shell > .market-shell,
 html[data-ynot-theme="light"] .store-shell > .product-detail-grid,
 html[data-ynot-theme="light"] .store-shell > .phone-page-shell,
 html[data-ynot-theme="light"] .store-shell > .soft-card,
-html[data-ynot-theme="light"] .store-shell > div:not(.store-home-grid):not(.storefront-header) {
+html[data-ynot-theme="light"] .store-shell > div:not(.store-home-grid):not(.storefront-header):not(.cr-root-embedded) {
   max-width: var(--arena-max) !important;
   width: 100% !important;
   margin-left: auto !important;
@@ -16764,13 +16764,27 @@ html[data-ynot-theme="light"] .store-shell > div:not(.store-home-grid):not(.stor
   box-sizing: border-box !important;
 }
 
-html[data-ynot-theme="light"] .store-shell > .cr-root.cr-root-embedded {
+html[lang][data-ynot-theme="light"][data-ynot-language][class] body > main.app-shell.store-shell > .cr-root.cr-root-embedded {
+  align-self: stretch !important;
+  flex: 1 1 auto !important;
   max-width: none !important;
   width: 100% !important;
   margin-left: 0 !important;
   margin-right: 0 !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
+}
+
+html[data-ynot-theme="light"]:has(body > main.store-shell > .cr-root.cr-root-embedded),
+html[data-ynot-theme="light"] body:has(> main.store-shell > .cr-root.cr-root-embedded) {
+  background: #ebf8eb !important;
+}
+
+html[data-ynot-theme="light"]:has(body > main.store-shell > .cr-root.cr-root-embedded:has(.cr-detail-centered)),
+html[data-ynot-theme="light"] body:has(> main.store-shell > .cr-root.cr-root-embedded:has(.cr-detail-centered)),
+html[data-ynot-theme="light"]:has(body > main.store-shell > .cr-root.cr-root-embedded:has(.ac-root)),
+html[data-ynot-theme="light"] body:has(> main.store-shell > .cr-root.cr-root-embedded:has(.ac-root)) {
+  background: #ffffff !important;
 }
 
 /* Page content sections — centered max-width Arena Club container. */
@@ -17787,6 +17801,31 @@ html[lang][data-ynot-theme][data-ynot-language][class] .ynot-footer-item .ynot-f
 }
 .ynot-footer-link.is-disabled:hover {
   opacity: 1;
+}
+
+@media only screen and (min-width: 768px) {
+  .ynot-footer-interior {
+    align-items: flex-start;
+    height: auto;
+    justify-content: flex-start;
+    min-height: 89.8px;
+    padding-bottom: 20px;
+    padding-top: 20px;
+  }
+  .ynot-footer-nav {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+  }
+  .ynot-footer-list {
+    flex-wrap: wrap;
+    gap: 14px clamp(18px, 1.875vw, 36px);
+    justify-content: flex-start;
+    width: 100%;
+  }
+  .ynot-footer-item {
+    margin: 0 !important;
+  }
 }
 
 /* Tablet / smaller desktop */
