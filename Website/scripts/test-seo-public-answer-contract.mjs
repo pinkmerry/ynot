@@ -48,6 +48,7 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "/help/shipping-and-exchange",
     "/help/ynot-wallet-coins-not-crypto",
     "/help/ynot-tcg-lucky-draw-thailand",
+    "/help/is-ynot-legit",
     "/help/pokemon-card-packs-thailand",
     "/help/open-pokemon-tcg-packs-online-thailand",
     "/help/one-piece-card-packs-thailand",
@@ -124,6 +125,37 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.ok(
     ynotTcg.proofPoints.some((proof) => /ynotopen\.com/.test(proof.en)),
     "YNOT TCG page must connect the entity to the official domain",
+  );
+
+  const ynotTrust = seo.getPublicAnswerPage("is-ynot-legit");
+  assert.equal(ynotTrust.path, "/help/is-ynot-legit");
+  assert.match(ynotTrust.title.en, /YNOT.*Legit|Legit.*YNOT/i);
+  assert.match(ynotTrust.answer.en, /ynotopen\.com/);
+  assert.match(ynotTrust.answer.en, /official Instagram/i);
+  assert.match(ynotTrust.answer.en, /public/i);
+  assert.ok(
+    ynotTrust.queryTargets.includes("is YNOT legit"),
+    "YNOT trust page must target direct legitimacy searches",
+  );
+  assert.ok(
+    ynotTrust.queryTargets.includes("is ynotopen safe"),
+    "YNOT trust page must target safety searches for the official domain",
+  );
+  assert.ok(
+    ynotTrust.queryTargets.includes("YNOT reviews Thailand"),
+    "YNOT trust page must target review-style trust searches",
+  );
+  assert.ok(
+    ynotTrust.proofPoints.some((proof) => /_yfifteen/.test(proof.en)),
+    "YNOT trust page must connect trust proof to the official Instagram profile",
+  );
+  assert.ok(
+    ynotTrust.proofPoints.some((proof) => /public pack/.test(proof.en)),
+    "YNOT trust page must tell users to verify public pack details before opening",
+  );
+  assert.ok(
+    Array.isArray(ynotTrust.sourceLinks) && ynotTrust.sourceLinks.length >= 2,
+    "YNOT trust page must expose source links for public proof",
   );
 
   const cryptoDisambiguation = seo.getPublicAnswerPage(
@@ -350,6 +382,10 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     seo.organizationJsonLd.knowsAbout.includes("TCG events Bangkok"),
     "Organization schema must connect YNOT with TCG event searches in Bangkok",
   );
+  assert.ok(
+    seo.organizationJsonLd.knowsAbout.includes("YNOT trust and safety"),
+    "Organization schema must connect YNOT with trust and safety searches",
+  );
   assert.match(
     seo.organizationJsonLd.disambiguatingDescription,
     /YouTube downloader/,
@@ -421,6 +457,14 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
         part.url === "https://www.ynotopen.com/one-piece-card",
     ),
     "WebSite schema must expose the One Piece card series hub",
+  );
+  assert.ok(
+    seo.websiteJsonLd.hasPart.some(
+      (part) =>
+        part["@type"] === "WebPage" &&
+        part.url === "https://www.ynotopen.com/help/is-ynot-legit",
+    ),
+    "WebSite schema must expose the YNOT trust and safety page",
   );
 
   const homepageJsonLd = seo.buildHomePageJsonLd();
@@ -821,6 +865,7 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   assert.match(llms, /Official source index for YNOT/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/ynot/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/help\/ynot-tcg-lucky-draw-thailand/);
+  assert.match(llms, /https:\/\/www\.ynotopen\.com\/help\/is-ynot-legit/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/pokemon-card/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/one-piece-card/);
   assert.match(llms, /Filtered Y-Pack browse route: https:\/\/www\.ynotopen\.com\/packs\?series=pokemon/);
@@ -843,6 +888,8 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   assert.match(full, /Source links:/);
   assert.match(full, /VIP CARD INTERNATIONAL EXPO 2026/);
   assert.match(full, /YNOT x MIDNIGHT/);
+  assert.match(full, /is YNOT legit/);
+  assert.match(full, /official Instagram/);
   assert.match(full, /Card shop and marketplace intent/);
   assert.match(full, /Community market and shop intent/);
   assert.match(full, /FAQ:/);
@@ -872,6 +919,11 @@ test("footer and route files make answer pages reachable from public UI", () => 
     readApp("src/features/ynot/components.tsx"),
     /href="\/help\/ynot-tcg-lucky-draw-thailand"/,
     "footer and homepage should link to the YNOT TCG page",
+  );
+  assert.match(
+    readApp("src/features/ynot/components.tsx"),
+    /href="\/help\/is-ynot-legit"/,
+    "footer and homepage should link to the YNOT trust page",
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),

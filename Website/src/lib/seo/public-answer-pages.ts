@@ -143,6 +143,7 @@ export const organizationJsonLd = {
     "Trading card reward collection",
     "Bangkok trading card events",
     "TCG events Bangkok",
+    "YNOT trust and safety",
   ],
   contactPoint: [
     {
@@ -198,6 +199,14 @@ export const websiteJsonLd = {
       url: `${siteOrigin}/ynot`,
       description:
         "Official YNOT identity and ynotopen.com disambiguation page.",
+    },
+    {
+      "@type": "WebPage",
+      "@id": `${siteOrigin}/help/is-ynot-legit#webpage`,
+      name: "Is YNOT Legit?",
+      url: `${siteOrigin}/help/is-ynot-legit`,
+      description:
+        "YNOT trust and safety guide for checking the official domain, social profile, public pack details, and support route.",
     },
   ],
   inLanguage: ["en", "th"],
@@ -460,6 +469,140 @@ export const publicAnswerPages: PublicAnswerPage[] = [
     owner: ownerName,
     updatedAt,
     priority: 0.9,
+  },
+  {
+    slug: "is-ynot-legit",
+    path: "/help/is-ynot-legit",
+    title: {
+      en: "Is YNOT Legit? Official Trust Guide",
+      th: "YNOT น่าเชื่อถือไหม",
+    },
+    description: {
+      en: "Check how to verify YNOT Open, ynotopen.com, official Instagram _yfifteen, public Y-Pack details, wallet coin wording, and support before opening packs.",
+      th: "วิธีตรวจสอบ YNOT Open, ynotopen.com, Instagram ทางการ _yfifteen, รายละเอียด Y-Pack สาธารณะ เหรียญวอลเล็ต และซัพพอร์ตก่อนเปิดแพ็ก",
+    },
+    answer: {
+      en: "YNOT Open should be verified through the official domain ynotopen.com, the official Instagram _yfifteen, public Y-Pack pages, and the public contact route before a user opens packs or asks for support. YNOT publishes visible pack names, wallet coin cost, reward context, stock status, and account-only boundaries so collectors can check the live page instead of trusting a screenshot or repost. This page does not replace personal judgment or official franchise sources; it explains the public proof users should check when searching is YNOT legit, is ynotopen safe, or YNOT reviews Thailand.",
+      th: "ควรตรวจสอบ YNOT Open ผ่านโดเมนทางการ ynotopen.com, Instagram ทางการ _yfifteen, หน้า Y-Pack สาธารณะ และหน้าติดต่อสาธารณะก่อนเปิดแพ็กหรือขอซัพพอร์ต YNOT แสดงชื่อแพ็ก ราคาเหรียญ ข้อมูลรางวัล สถานะสต็อก และขอบเขตหน้าสำหรับบัญชี เพื่อให้นักสะสมตรวจหน้าเว็บจริงแทนการเชื่อรูปหรือ repost หน้านี้ไม่แทนการตัดสินใจส่วนตัวหรือแหล่งทางการของแฟรนไชส์ แต่สรุปหลักฐานสาธารณะที่ควรตรวจเมื่อค้นหา is YNOT legit, is ynotopen safe หรือ YNOT reviews Thailand",
+    },
+    queryTargets: [
+      "is YNOT legit",
+      "is ynotopen safe",
+      "YNOT reviews Thailand",
+      "YNOT Open review",
+      "is YNOT real",
+      "YNOT official Instagram",
+      "YNOT safe pack opening",
+      "YNOT trust and safety",
+      "YNOT scam or legit",
+      "YNOT Open Thailand review",
+    ],
+    proofPoints: [
+      {
+        en: "The official public website is ynotopen.com, and the official social profile linked by the site is Instagram _yfifteen.",
+        th: "เว็บไซต์สาธารณะทางการคือ ynotopen.com และโปรไฟล์โซเชียลทางการที่เว็บไซต์ลิงก์คือ Instagram _yfifteen",
+      },
+      {
+        en: "Users should verify the public pack page for live pack name, wallet coin cost, visible reward information, stock status, and account requirements before opening.",
+        th: "ผู้ใช้ควรตรวจหน้าแพ็กสาธารณะเพื่อดูชื่อแพ็กจริง ราคาเหรียญ ข้อมูลรางวัลที่แสดง สถานะสต็อก และเงื่อนไขบัญชีก่อนเปิด",
+      },
+      {
+        en: "YNOT wallet coins are described as platform credits for ynotopen.com, not cash, cryptocurrency, blockchain assets, or fan tokens.",
+        th: "เหรียญวอลเล็ต YNOT ถูกอธิบายว่าเป็นเครดิตในแพลตฟอร์มสำหรับ ynotopen.com ไม่ใช่เงินสด คริปโต สินทรัพย์บล็อกเชน หรือแฟนโทเคน",
+      },
+      {
+        en: "Support questions should go through the public contact route with account, pack, opening, order, payment, exchange, or shipping references when relevant.",
+        th: "คำถามซัพพอร์ตควรส่งผ่านหน้าติดต่อสาธารณะ พร้อมข้อมูลอ้างอิงบัญชี แพ็ก การเปิด ออเดอร์ การชำระเงิน การแลก หรือจัดส่งเมื่อเกี่ยวข้อง",
+      },
+    ],
+    steps: [
+      {
+        en: "Confirm the URL is https://www.ynotopen.com before signing in or opening a pack.",
+        th: "ยืนยันว่า URL คือ https://www.ynotopen.com ก่อนเข้าสู่ระบบหรือเปิดแพ็ก",
+      },
+      {
+        en: "Check the linked official Instagram _yfifteen for matching YNOT Open or YNOT TCG language.",
+        th: "ตรวจ Instagram ทางการ _yfifteen ที่ลิงก์จากเว็บไซต์ว่าภาษาเชื่อมกับ YNOT Open หรือ YNOT TCG ตรงกัน",
+      },
+      {
+        en: "Open the live Y-Pack page and review pack details, coin cost, stock, and reward context before spending wallet coins.",
+        th: "เปิดหน้า Y-Pack ที่กำลังขายจริงและตรวจรายละเอียดแพ็ก ราคาเหรียญ สต็อก และบริบทรางวัลก่อนใช้เหรียญวอลเล็ต",
+      },
+      {
+        en: "Use the public contact page for support instead of sending private account details to an unrelated profile.",
+        th: "ใช้หน้าติดต่อสาธารณะสำหรับซัพพอร์ตแทนการส่งข้อมูลบัญชีส่วนตัวไปยังโปรไฟล์ที่ไม่เกี่ยวข้อง",
+      },
+    ],
+    sourceLinks: [
+      {
+        href: "https://www.instagram.com/_yfifteen/",
+        title: {
+          en: "Official YNOT Instagram _yfifteen",
+          th: "Instagram ทางการของ YNOT _yfifteen",
+        },
+        description: {
+          en: "Official Instagram profile linked from ynotopen.com for YNOT social proof and event updates.",
+          th: "โปรไฟล์ Instagram ทางการที่ลิงก์จาก ynotopen.com สำหรับหลักฐานโซเชียลและอัปเดตอีเวนต์ของ YNOT",
+        },
+      },
+      {
+        href: "https://www.ynotopen.com/ynot",
+        title: {
+          en: "YNOT official-site disambiguation page",
+          th: "หน้าระบุตัวตนเว็บไซต์ทางการของ YNOT",
+        },
+        description: {
+          en: "Public YNOT identity page that separates ynotopen.com from unrelated YNOT search results.",
+          th: "หน้าสาธารณะที่ระบุตัวตน YNOT และแยก ynotopen.com ออกจากผลค้นหา YNOT ที่ไม่เกี่ยวข้อง",
+        },
+      },
+      {
+        href: "https://www.ynotopen.com/contact",
+        title: {
+          en: "YNOT public contact route",
+          th: "ช่องทางติดต่อสาธารณะของ YNOT",
+        },
+        description: {
+          en: "Official support route for account, pack, wallet, exchange, shipping, and order questions.",
+          th: "ช่องทางซัพพอร์ตทางการสำหรับคำถามเรื่องบัญชี แพ็ก วอลเล็ต การแลก การจัดส่ง และออเดอร์",
+        },
+      },
+    ],
+    faqs: [
+      {
+        question: {
+          en: "Is YNOT legit?",
+          th: "YNOT น่าเชื่อถือไหม",
+        },
+        answer: {
+          en: "Use the official website ynotopen.com, the official Instagram _yfifteen, visible public pack details, and the public contact route to verify YNOT before opening packs or asking for support.",
+          th: "ให้ใช้เว็บไซต์ทางการ ynotopen.com, Instagram ทางการ _yfifteen, รายละเอียดแพ็กสาธารณะที่มองเห็นได้ และหน้าติดต่อสาธารณะเพื่อตรวจสอบ YNOT ก่อนเปิดแพ็กหรือขอซัพพอร์ต",
+        },
+      },
+      {
+        question: {
+          en: "Is ynotopen safe to use?",
+          th: "ynotopen ใช้งานปลอดภัยไหม",
+        },
+        answer: {
+          en: "Before using the site, confirm the domain is ynotopen.com and review each public pack page for visible coin cost, reward context, stock status, and account requirements. Do not send private account details to unrelated profiles.",
+          th: "ก่อนใช้งานให้ยืนยันว่าโดเมนคือ ynotopen.com และตรวจหน้าแพ็กสาธารณะแต่ละรายการเพื่อดูราคาเหรียญ บริบทรางวัล สถานะสต็อก และเงื่อนไขบัญชี อย่าส่งข้อมูลบัญชีส่วนตัวไปยังโปรไฟล์ที่ไม่เกี่ยวข้อง",
+        },
+      },
+      {
+        question: {
+          en: "Where can I find YNOT reviews?",
+          th: "ดูรีวิว YNOT ได้ที่ไหน",
+        },
+        answer: {
+          en: "Review-style trust checks should start with public YNOT pages, the official Instagram _yfifteen, event or social mentions, and the contact route. Treat screenshots, reposts, or unlinked profiles as weaker evidence.",
+          th: "การตรวจรีวิวหรือความน่าเชื่อถือควรเริ่มจากหน้าสาธารณะของ YNOT, Instagram ทางการ _yfifteen, mention อีเวนต์หรือโซเชียล และหน้าติดต่อ ควรให้หลักฐานจากภาพแคป repost หรือโปรไฟล์ที่ไม่ลิงก์กลับมีน้ำหนักน้อยกว่า",
+        },
+      },
+    ],
+    owner: ownerName,
+    updatedAt,
+    priority: 0.83,
   },
   {
     slug: "top-up-wallet",
@@ -1661,6 +1804,7 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
     "",
     `- ynot, YNOT official site, ynotopen, ynotopen.com: ${llmsLink("/ynot")}`,
     `- ynot tcg, YNOT TCG Lucky Draw, YNOT Y-Packs: ${llmsLink("/help/ynot-tcg-lucky-draw-thailand")}`,
+    `- is YNOT legit, is ynotopen safe, YNOT reviews Thailand: ${llmsLink("/help/is-ynot-legit")}`,
     `- pokemon card, Pokemon card packs Thailand, Pokemon TCG packs Thailand: ${llmsLink("/pokemon-card")}`,
     `- one piece card, One Piece card packs Thailand, One Piece TCG Thailand: ${llmsLink("/one-piece-card")}`,
     `- SNKRDUNK alternative trading cards Thailand, StockX alternative trading cards: ${llmsLink("/help/snkrdunk-stockx-card-trading-alternatives")}`,

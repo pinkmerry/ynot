@@ -671,6 +671,16 @@ function YnotFooter() {
             </li>
             <li className="ynot-footer-item">
               <Link
+                href="/help/is-ynot-legit"
+                className="ynot-footer-link"
+                prefetch={false}
+              >
+                <span className="i18n-en">Trust Guide</span>
+                <span className="i18n-th">ตรวจสอบ YNOT</span>
+              </Link>
+            </li>
+            <li className="ynot-footer-item">
+              <Link
                 href="/pokemon-card"
                 className="ynot-footer-link"
                 prefetch={false}
@@ -1053,6 +1063,14 @@ function YnotEntitySignalSection() {
         >
           <span className="i18n-en">YNOT TCG Lucky Draw</span>
           <span className="i18n-th">YNOT TCG Lucky Draw</span>
+        </Link>
+        <Link
+          className="secondary-action"
+          href="/help/is-ynot-legit"
+          prefetch={false}
+        >
+          <span className="i18n-en">Is YNOT legit?</span>
+          <span className="i18n-th">ตรวจสอบ YNOT</span>
         </Link>
         <Link
           className="secondary-action"
