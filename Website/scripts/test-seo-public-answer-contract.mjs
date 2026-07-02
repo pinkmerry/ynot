@@ -541,6 +541,24 @@ test("public series landing pages target broad card category intent", () => {
       `https://www.ynotopen.com/packs/${page.slug}-test-pack`,
       `${page.slug} live campaign ItemList must link to the public pack detail page`,
     );
+    assert.equal(
+      campaignJsonLd.collectionPage.mainEntity.itemListElement[0].item["@type"],
+      "Product",
+      `${page.slug} live campaign ItemList must expose Product schema, not only a generic page link`,
+    );
+    assert.equal(
+      campaignJsonLd.collectionPage.mainEntity.itemListElement[0].item.offers
+        .priceSpecification.unitText,
+      "YNOT wallet coins per pack",
+      `${page.slug} Product schema must expose the visible wallet-coin cost unit`,
+    );
+    assert.ok(
+      !(
+        "priceCurrency" in
+        campaignJsonLd.collectionPage.mainEntity.itemListElement[0].item.offers
+      ),
+      `${page.slug} Y-Pack Product schema must not invent cash currency`,
+    );
   }
 });
 

@@ -1959,11 +1959,7 @@ export function buildSeriesLandingPageJsonLd(
           name: packTitle(campaign),
           description: packDescription(campaign),
           url: canonicalUrl(`/packs/${campaign.slug}`),
-          item: {
-            "@type": "WebPage",
-            name: packTitle(campaign),
-            url: canonicalUrl(`/packs/${campaign.slug}`),
-          },
+          item: packProductJsonLd(campaign),
         }))
       : page.relatedLinks.map((link, index) => ({
           "@type": "ListItem",
