@@ -396,6 +396,40 @@ test("sitemap and robots routes publish the public answer surface", () => {
   assert.match(readApp("src/app/robots.ts"), /getRobotsPolicy/);
 });
 
+test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
+  const seo = loadSeoModule();
+
+  const llms = seo.buildLlmsText();
+  assert.match(llms, /^# YNOT/m);
+  assert.match(llms, /Official source index for YNOT/);
+  assert.match(llms, /https:\/\/www\.ynotopen\.com\/help\/ynot-official-site/);
+  assert.match(llms, /https:\/\/www\.ynotopen\.com\/help\/ynot-tcg-lucky-draw-thailand/);
+  assert.match(llms, /pokemon card/);
+  assert.match(llms, /one piece card/);
+  assert.match(llms, /SNKRDUNK alternative trading cards Thailand/);
+  assert.match(llms, /Bangkok trading card events/);
+  assert.match(llms, /https:\/\/www\.instagram\.com\/_yfifteen\//);
+  assert.doesNotMatch(llms, /https:\/\/www\.ynotopen\.com\/admin/);
+  assert.doesNotMatch(llms, /https:\/\/www\.ynotopen\.com\/wallet/);
+
+  const full = seo.buildLlmsText({ full: true });
+  assert.ok(
+    full.length > llms.length,
+    "full AI source index should include expanded answers, proof points, and FAQs",
+  );
+  assert.match(full, /Proof points:/);
+  assert.match(full, /FAQ:/);
+  assert.match(full, /YNOT wallet coins are platform credits/);
+
+  assert.ok(existsSync(appPath("src/app/llms.txt/route.ts")), "missing llms.txt route");
+  assert.ok(
+    existsSync(appPath("src/app/llms-full.txt/route.ts")),
+    "missing llms-full.txt route",
+  );
+  assert.match(readApp("src/app/llms.txt/route.ts"), /buildLlmsText/);
+  assert.match(readApp("src/app/llms-full.txt/route.ts"), /full: true/);
+});
+
 test("footer and route files make answer pages reachable from public UI", () => {
   assert.match(
     readApp("src/features/ynot/components.tsx"),

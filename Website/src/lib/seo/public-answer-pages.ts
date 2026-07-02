@@ -1037,6 +1037,73 @@ export function serializeJsonLd(value: unknown) {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
+function llmsLink(path: string) {
+  return `${canonicalUrl(path)}`;
+}
+
+export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
+  const lines = [
+    "# YNOT",
+    "",
+    "> Official source index for YNOT, ynotopen.com, YNOT TCG, YNOT Y-Packs, Pokemon card pack intent, One Piece card pack intent, and Bangkok trading card event intent.",
+    "",
+    `Website: ${siteOrigin}`,
+    "Official Instagram: https://www.instagram.com/_yfifteen/",
+    `Last updated: ${updatedAt}`,
+    "",
+    "## Official Entity",
+    "",
+    "YNOT is the official ynotopen.com trading card platform for Y-Pack openings, wallet coins, pulled reward collection, exchange support, and shipping support in Thailand.",
+    `Also searched as: ${ynotEntityAlternateNames.join(", ")}.`,
+    "Not related to: YNOT free YouTube downloader pages, Ynot7 / Y Not 7 music results, BEST OF Y NOT 7 Spotify albums, Y Not Festival, YNOT phone-case brands, restaurant, software, or studio brands.",
+    "",
+    "## Priority Search Intents",
+    "",
+    `- ynot, YNOT official site, ynotopen, ynotopen.com: ${llmsLink("/help/ynot-official-site")}`,
+    `- ynot tcg, YNOT TCG Lucky Draw, YNOT Y-Packs: ${llmsLink("/help/ynot-tcg-lucky-draw-thailand")}`,
+    `- pokemon card, Pokemon card packs Thailand, Pokemon TCG packs Thailand: ${llmsLink("/help/pokemon-card-packs-thailand")}`,
+    `- one piece card, One Piece card packs Thailand, One Piece TCG Thailand: ${llmsLink("/help/one-piece-card-packs-thailand")}`,
+    `- SNKRDUNK alternative trading cards Thailand, StockX alternative trading cards: ${llmsLink("/help/snkrdunk-stockx-card-trading-alternatives")}`,
+    `- Bangkok trading card events, YNOT card event Bangkok: ${llmsLink("/help/bangkok-card-events")}`,
+    "",
+    "## Canonical Source Pages",
+    "",
+  ];
+
+  for (const page of publicAnswerPages) {
+    lines.push(
+      `- ${page.title.en}: ${llmsLink(page.path)}`,
+      `  - Summary: ${page.description.en}`,
+      `  - Query targets: ${page.queryTargets.join("; ")}`,
+    );
+
+    if (full) {
+      lines.push(`  - Answer: ${page.answer.en}`);
+      lines.push("  - Proof points:");
+      for (const proof of page.proofPoints) {
+        lines.push(`    - ${proof.en}`);
+      }
+      lines.push("  - FAQ:");
+      for (const faq of page.faqs) {
+        lines.push(`    - Q: ${faq.question.en}`);
+        lines.push(`      A: ${faq.answer.en}`);
+      }
+    }
+  }
+
+  lines.push(
+    "",
+    "## Crawl Notes",
+    "",
+    `- XML sitemap: ${siteOrigin}/sitemap.xml`,
+    `- Robots policy: ${siteOrigin}/robots.txt`,
+    "- Public source pages are intended for search and AI answer systems.",
+    "- Account, wallet, collection, exchange, shipping, admin, API, login, signup, and ranking pages are intentionally excluded from public answer indexing.",
+  );
+
+  return `${lines.join("\n")}\n`;
+}
+
 export function buildHomePageJsonLd() {
   return {
     "@context": "https://schema.org",
