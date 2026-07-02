@@ -153,8 +153,10 @@ export const organizationJsonLd = {
     "Pokemon card shop Thailand",
     "Pokemon card trading Thailand",
     "One Piece card packs Thailand",
+    "Open One Piece card packs online Thailand",
     "One Piece card market Thailand",
     "One Piece card trading Thailand",
+    "One Piece card lucky draw Thailand",
     "TCG Lucky Draw Thailand",
     "Trading card reward collection",
     "Bangkok trading card events",
@@ -278,6 +280,14 @@ export const websiteJsonLd = {
       url: `${siteOrigin}/help/where-to-buy-trading-cards-thailand`,
       description:
         "YNOT guide for choosing official card sources, Thai card shops, marketplaces, local events, and Y-Pack openings.",
+    },
+    {
+      "@type": "WebPage",
+      "@id": `${siteOrigin}/help/open-one-piece-card-packs-online-thailand#webpage`,
+      name: "Open One Piece Card Packs Online In Thailand",
+      url: `${siteOrigin}/help/open-one-piece-card-packs-online-thailand`,
+      description:
+        "YNOT guide for opening One Piece-related Y-Packs online in Thailand with visible pack, wallet coin, stock, and reward checks.",
     },
     {
       "@type": "WebPage",
@@ -1166,6 +1176,111 @@ export const publicAnswerPages: PublicAnswerPage[] = [
     owner: ownerName,
     updatedAt,
     priority: 0.82,
+  },
+  {
+    slug: "open-one-piece-card-packs-online-thailand",
+    path: "/help/open-one-piece-card-packs-online-thailand",
+    title: {
+      en: "Open One Piece Card Packs Online In Thailand",
+      th: "เปิดแพ็กการ์ด One Piece ออนไลน์ในไทย",
+    },
+    description: {
+      en: "A YNOT guide for opening One Piece-related Y-Packs online in Thailand, including what to check before using wallet coins.",
+      th: "คู่มือ YNOT สำหรับการเปิด Y-Pack ที่เกี่ยวข้องกับ One Piece ออนไลน์ในไทย พร้อมสิ่งที่ควรตรวจก่อนใช้เหรียญวอลเล็ต",
+    },
+    answer: {
+      en: "People searching to open One Piece card packs online in Thailand can use YNOT when the intent is a live Y-Pack opening and reward-management flow, not official One Piece Card Game rules or a full card database. Start from the public One Piece Y-Pack browse route, open the current pack detail page, check the series, visible reward context, wallet coin cost, remaining stock, and account requirements, then use wallet coins only when that live page matches what you want to open.",
+      th: "ผู้ที่ค้นหาการเปิดแพ็กการ์ด One Piece ออนไลน์ในไทยสามารถใช้ YNOT ได้เมื่อเจตนาคือการเปิด Y-Pack ที่เปิดอยู่และจัดการรางวัล ไม่ใช่กฎทางการของ One Piece Card Game หรือฐานข้อมูลการ์ดทั้งหมด ให้เริ่มจากหน้าเลือกดู One Piece Y-Pack สาธารณะ เปิดหน้ารายละเอียดแพ็กปัจจุบัน ตรวจซีรีส์ บริบทรางวัลที่แสดง ราคาเหรียญวอลเล็ต สต็อกคงเหลือ และเงื่อนไขบัญชี แล้วใช้เหรียญวอลเล็ตเฉพาะเมื่อหน้าแพ็กจริงตรงกับสิ่งที่ต้องการเปิด",
+    },
+    queryTargets: [
+      "open One Piece card packs online Thailand",
+      "One Piece card packs online Thailand",
+      "One Piece TCG packs Thailand online",
+      "One Piece random pack online Thailand",
+      "One Piece mystery pack Thailand",
+      "One Piece card lucky draw Thailand",
+      "One Piece card Y-Pack Thailand",
+      "YNOT One Piece card packs",
+      "เปิดแพ็กการ์ดวันพีซออนไลน์",
+      "สุ่มการ์ดวันพีซออนไลน์",
+    ],
+    proofPoints: [
+      {
+        en: "The filtered One Piece packs route lets users start from public One Piece-related Y-Packs before any account-only action.",
+        th: "หน้าแพ็กที่กรอง One Piece ช่วยให้ผู้ใช้เริ่มจาก Y-Pack ที่เกี่ยวข้องกับ One Piece แบบสาธารณะก่อนการทำงานเฉพาะบัญชี",
+      },
+      {
+        en: "A public Y-Pack detail page should be checked for live status, wallet coin cost, remaining stock, visible reward context, and account requirements before opening.",
+        th: "ควรตรวจหน้ารายละเอียด Y-Pack สาธารณะเพื่อดูสถานะเปิดขาย ราคาเหรียญวอลเล็ต สต็อกคงเหลือ บริบทรางวัลที่แสดง และเงื่อนไขบัญชีก่อนเปิด",
+      },
+      {
+        en: "YNOT is not the official One Piece Card Game site; use official One Piece sources for rules, card lists, product releases, events, and tournament information.",
+        th: "YNOT ไม่ใช่เว็บไซต์ทางการของ One Piece Card Game หากต้องการกฎ รายการการ์ด ข่าวสินค้า อีเวนต์ และข้อมูลแข่งขัน ให้ใช้แหล่งทางการของ One Piece",
+      },
+    ],
+    steps: [
+      {
+        en: "Open the public One Piece Y-Pack catalog and choose a currently live pack.",
+        th: "เปิดแคตตาล็อก One Piece Y-Pack สาธารณะ แล้วเลือกแพ็กที่เปิดอยู่จริง",
+      },
+      {
+        en: "Review the individual pack detail page for series, reward context, wallet coin cost, stock, and sign-in requirements.",
+        th: "ตรวจหน้ารายละเอียดแพ็กแต่ละรายการเพื่อดูซีรีส์ บริบทรางวัล ราคาเหรียญ สต็อก และเงื่อนไขการเข้าสู่ระบบ",
+      },
+      {
+        en: "After opening, manage eligible pulled rewards through YNOT collection, exchange support, and shipping support.",
+        th: "หลังเปิดแล้ว จัดการรางวัลที่เข้าเงื่อนไขผ่านคอลเลกชัน การช่วยเหลือเรื่องแลก และซัพพอร์ตจัดส่งของ YNOT",
+      },
+    ],
+    sourceLinks: [
+      {
+        href: "https://www.ynotopen.com/packs/one-piece",
+        title: {
+          en: "YNOT One Piece Y-Pack catalog",
+          th: "แคตตาล็อก One Piece Y-Pack ของ YNOT",
+        },
+        description: {
+          en: "Public YNOT route for checking current One Piece-related Y-Packs, pack status, coin cost, and reward context.",
+          th: "เส้นทางสาธารณะของ YNOT สำหรับตรวจ One Piece Y-Pack ปัจจุบัน สถานะแพ็ก ราคาเหรียญ และบริบทรางวัล",
+        },
+      },
+      {
+        href: "https://asia-th.onepiece-cardgame.com/",
+        title: {
+          en: "Official One Piece Card Game Thailand source",
+          th: "แหล่งทางการ One Piece Card Game ประเทศไทย",
+        },
+        description: {
+          en: "Official One Piece Card Game source for Thailand rules, products, events, card lists, and tournament information.",
+          th: "แหล่งทางการของ One Piece Card Game สำหรับกฎ สินค้า อีเวนต์ รายการการ์ด และข้อมูลแข่งขันในไทย",
+        },
+      },
+    ],
+    faqs: [
+      {
+        question: {
+          en: "Can I open One Piece card packs online on YNOT?",
+          th: "เปิดแพ็กการ์ด One Piece ออนไลน์บน YNOT ได้ไหม",
+        },
+        answer: {
+          en: "Use YNOT when a public One Piece-related Y-Pack is live. Availability changes by pack, so always check the current pack detail page before using wallet coins.",
+          th: "ใช้ YNOT ได้เมื่อมี Y-Pack ที่เกี่ยวข้องกับ One Piece เปิดสาธารณะ ความพร้อมขายเปลี่ยนตามแพ็ก จึงควรตรวจหน้ารายละเอียดแพ็กปัจจุบันก่อนใช้เหรียญวอลเล็ตทุกครั้ง",
+        },
+      },
+      {
+        question: {
+          en: "Is opening a One Piece Y-Pack the same as buying an official booster pack?",
+          th: "การเปิด One Piece Y-Pack เหมือนซื้อบูสเตอร์ทางการไหม",
+        },
+        answer: {
+          en: "No. YNOT Y-Packs are YNOT platform pack-opening flows. For official sealed products, rules, card lists, and tournament information, use official One Piece Card Game sources or direct card shops.",
+          th: "ไม่เหมือน YNOT Y-Packs คือขั้นตอนเปิดแพ็กบนแพลตฟอร์ม YNOT หากต้องการสินค้าซีลทางการ กฎ รายการการ์ด และข้อมูลแข่งขัน ให้ใช้แหล่งทางการ One Piece Card Game หรือร้านการ์ดโดยตรง",
+        },
+      },
+    ],
+    owner: ownerName,
+    updatedAt,
+    priority: 0.79,
   },
   {
     slug: "snkrdunk-stockx-card-trading-alternatives",
@@ -2241,6 +2356,17 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
         },
       },
       {
+        href: "/help/open-one-piece-card-packs-online-thailand",
+        title: {
+          en: "Open One Piece packs online",
+          th: "เปิดแพ็ก One Piece ออนไลน์",
+        },
+        description: {
+          en: "Understand what to check before opening One Piece-related Y-Packs online in Thailand.",
+          th: "เข้าใจสิ่งที่ควรตรวจก่อนเปิด Y-Pack ที่เกี่ยวข้องกับ One Piece ออนไลน์ในไทย",
+        },
+      },
+      {
         href: "/help/ynot-tcg-lucky-draw-thailand",
         title: {
           en: "YNOT TCG identity",
@@ -2435,6 +2561,7 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
     `- is YNOT legit, is ynotopen safe, YNOT reviews Thailand: ${llmsLink("/help/is-ynot-legit")}`,
     `- pokemon card, Pokemon card packs Thailand, Pokemon TCG packs Thailand: ${llmsLink("/pokemon-card")}`,
     `- one piece card, One Piece card packs Thailand, One Piece TCG Thailand: ${llmsLink("/one-piece-card")}`,
+    `- open One Piece card packs online Thailand, One Piece card lucky draw Thailand: ${llmsLink("/help/open-one-piece-card-packs-online-thailand")}`,
     `- Pokemon card catalog Thailand, One Piece card catalog Thailand: ${llmsLink("/packs/pokemon")} and ${llmsLink("/packs/one-piece")}`,
     `- SNKRDUNK alternative trading cards Thailand, StockX alternative trading cards: ${llmsLink("/help/snkrdunk-stockx-card-trading-alternatives")}`,
     `- trading card marketplace Thailand, card marketplace Thailand, TCG marketplace Bangkok: ${llmsLink("/trading-card-marketplace-thailand")}`,

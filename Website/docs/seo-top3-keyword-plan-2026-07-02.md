@@ -308,6 +308,13 @@ ChatGPT Search answered that `https://www.ynotopen.com/` was not top 3 for exact
 - Included the same evidence in `llms-full.txt` under `Current top-result evidence`.
 - Locked this in `test:seo-public-answer-contract`.
 
+### Done in the One Piece opening-intent pass
+
+- Added `/help/open-one-piece-card-packs-online-thailand` as the direct answer page for `open One Piece card packs online Thailand`, `One Piece card lucky draw Thailand`, `One Piece mystery pack Thailand`, and Thai One Piece online-opening variants.
+- Linked the One Piece hub to that page so `/one-piece-card` now points users and crawlers to the narrower Y-Pack opening explanation.
+- Added the URL to the AI source index through the public answer-page source loop and priority search intent list.
+- Kept the page truthful: it positions YNOT as a Y-Pack opening and reward-management platform, while sending official rules, product, event, and tournament intent to official One Piece Card Game sources.
+
 ### Next actions outside code
 
 - Submit these URLs in Google Search Console URL Inspection:
@@ -321,6 +328,7 @@ ChatGPT Search answered that `https://www.ynotopen.com/` was not top 3 for exact
   - `/help/ynot-tcg-lucky-draw-thailand`
   - `/help/pokemon-card-packs-thailand`
   - `/help/one-piece-card-packs-thailand`
+  - `/help/open-one-piece-card-packs-online-thailand`
   - the strongest live pack URLs for Pokemon and One Piece
 - Update Instagram bio/name and event captions to say `YNOT Open - Thailand TCG Y-Packs` and link to `https://www.ynotopen.com/ynot`.
 - Ask event partners and card communities to link to `https://www.ynotopen.com/ynot`, `/pokemon-card`, or `/one-piece-card` using descriptive anchor text.

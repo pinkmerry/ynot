@@ -52,6 +52,7 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "/help/pokemon-card-packs-thailand",
     "/help/open-pokemon-tcg-packs-online-thailand",
     "/help/one-piece-card-packs-thailand",
+    "/help/open-one-piece-card-packs-online-thailand",
     "/help/snkrdunk-stockx-card-trading-alternatives",
     "/help/where-to-buy-trading-cards-thailand",
     "/help/bangkok-card-events",
@@ -227,6 +228,35 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.ok(
     onePieceCategory.proofPoints.some((proof) => /official One Piece/.test(proof.en)),
     "One Piece category page must send official rules/card database intent to official sources",
+  );
+
+  const onePieceOpening = seo.getPublicAnswerPage(
+    "open-one-piece-card-packs-online-thailand",
+  );
+  assert.equal(
+    onePieceOpening.path,
+    "/help/open-one-piece-card-packs-online-thailand",
+  );
+  assert.match(onePieceOpening.title.en, /Open One Piece Card Packs Online/i);
+  assert.match(onePieceOpening.answer.en, /Y-Pack/i);
+  assert.match(onePieceOpening.answer.en, /Thailand/i);
+  assert.ok(
+    onePieceOpening.queryTargets.includes(
+      "open One Piece card packs online Thailand",
+    ),
+    "One Piece opening page must target the direct online pack-opening query",
+  );
+  assert.ok(
+    onePieceOpening.queryTargets.includes("One Piece card lucky draw Thailand"),
+    "One Piece opening page must target lucky-draw variants",
+  );
+  assert.ok(
+    onePieceOpening.proofPoints.some((proof) => /wallet coin cost/i.test(proof.en)),
+    "One Piece opening page must expose visible Y-Pack proof for AI citations",
+  );
+  assert.ok(
+    onePieceOpening.proofPoints.some((proof) => /official One Piece/i.test(proof.en)),
+    "One Piece opening page must avoid confusing YNOT with official One Piece sources",
   );
 
   const marketplaceAlternatives = seo.getPublicAnswerPage(
@@ -813,6 +843,12 @@ test("public series landing pages target broad card category intent", () => {
     "One Piece hub must link directly to the static public pack catalog route",
   );
   assert.ok(
+    onePieceHub.relatedLinks.some(
+      (link) => link.href === "/help/open-one-piece-card-packs-online-thailand",
+    ),
+    "One Piece hub must link to the direct online pack-opening answer page",
+  );
+  assert.ok(
     onePieceHub.relatedLinks.some((link) => link.href === "/help/bangkok-card-events"),
     "One Piece hub must link to local Bangkok event proof",
   );
@@ -1215,6 +1251,10 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   );
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/pokemon-card/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/one-piece-card/);
+  assert.match(
+    llms,
+    /https:\/\/www\.ynotopen\.com\/help\/open-one-piece-card-packs-online-thailand/,
+  );
   assert.match(llms, /Filtered Y-Pack browse route: https:\/\/www\.ynotopen\.com\/packs\/pokemon/);
   assert.match(llms, /Filtered Y-Pack browse route: https:\/\/www\.ynotopen\.com\/packs\/one-piece/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/trading-card-marketplace-thailand/);
