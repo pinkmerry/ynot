@@ -2620,6 +2620,12 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
     `- where to buy Pokemon cards in Thailand, where to buy One Piece cards in Bangkok, trading card shop Thailand: ${llmsLink("/help/where-to-buy-trading-cards-thailand")}`,
     `- Bangkok trading card events, YNOT card event Bangkok: ${llmsLink("/help/bangkok-card-events")}`,
     "",
+    "## Organized Content Hubs",
+    "",
+    `- FAQ and useful YNOT info: ${llmsLink("/faq")}`,
+    `- Trading card content and guides: ${llmsLink("/content")}`,
+    `- YNOT news and events: ${llmsLink("/news")}`,
+    "",
     "## Primary Series Hubs",
     "",
   ];
@@ -3124,6 +3130,9 @@ export function getPublicSitemapEntries(extraEntries: PublicSitemapRouteEntry[] 
     { path: "/packs", priority: 0.92, changeFrequency: "daily" },
     { path: "/packs/pokemon", priority: 0.91, changeFrequency: "daily" },
     { path: "/packs/one-piece", priority: 0.91, changeFrequency: "daily" },
+    { path: "/faq", priority: 0.84, changeFrequency: "weekly" },
+    { path: "/content", priority: 0.82, changeFrequency: "weekly" },
+    { path: "/news", priority: 0.76, changeFrequency: "weekly" },
     { path: "/contact", priority: 0.55, changeFrequency: "monthly" },
   ];
 

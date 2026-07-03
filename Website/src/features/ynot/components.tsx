@@ -672,102 +672,32 @@ function YnotFooter() {
           <ul className="ynot-footer-list" style={ynotFooterListStyle}>
             <li className="ynot-footer-item">
               <Link
-                href="/ynot"
+                href="/faq"
                 className="ynot-footer-link"
                 prefetch={false}
               >
-                <span className="i18n-en">YNOT Official Site</span>
-                <span className="i18n-th">เว็บไซต์ YNOT ทางการ</span>
+                <span className="i18n-en">FAQ</span>
+                <span className="i18n-th">FAQ</span>
               </Link>
             </li>
             <li className="ynot-footer-item">
               <Link
-                href="/help/how-ynot-packs-work"
+                href="/content"
                 className="ynot-footer-link"
                 prefetch={false}
               >
-                <span className="i18n-en">How It Works</span>
-                <span className="i18n-th">วิธีใช้งาน</span>
+                <span className="i18n-en">Content</span>
+                <span className="i18n-th">คอนเทนต์</span>
               </Link>
             </li>
             <li className="ynot-footer-item">
               <Link
-                href="/help/ynot-tcg-lucky-draw-thailand"
+                href="/news"
                 className="ynot-footer-link"
                 prefetch={false}
               >
-                <span className="i18n-en">YNOT TCG</span>
-                <span className="i18n-th">YNOT TCG</span>
-              </Link>
-            </li>
-            <li className="ynot-footer-item">
-              <Link
-                href="/help/is-ynot-legit"
-                className="ynot-footer-link"
-                prefetch={false}
-              >
-                <span className="i18n-en">Trust Guide</span>
-                <span className="i18n-th">ตรวจสอบ YNOT</span>
-              </Link>
-            </li>
-            <li className="ynot-footer-item">
-              <Link
-                href="/help/where-to-buy-trading-cards-thailand"
-                className="ynot-footer-link"
-                prefetch={false}
-              >
-                <span className="i18n-en">Buy Cards Guide</span>
-                <span className="i18n-th">คู่มือซื้อการ์ด</span>
-              </Link>
-            </li>
-            <li className="ynot-footer-item">
-              <Link
-                href="/trading-card-marketplace-thailand"
-                className="ynot-footer-link"
-                prefetch={false}
-              >
-                <span className="i18n-en">Marketplace Guide</span>
-                <span className="i18n-th">คู่มือตลาดการ์ด</span>
-              </Link>
-            </li>
-            <li className="ynot-footer-item">
-              <Link
-                href="/pokemon-card"
-                className="ynot-footer-link"
-                prefetch={false}
-              >
-                <span className="i18n-en">Pokemon Cards</span>
-                <span className="i18n-th">การ์ด Pokemon</span>
-              </Link>
-            </li>
-            <li className="ynot-footer-item">
-              <Link
-                href="/packs/pokemon"
-                className="ynot-footer-link"
-                prefetch={false}
-              >
-                <span className="i18n-en">Pokemon Y-Packs</span>
-                <span className="i18n-th">Y-Packs Pokemon</span>
-              </Link>
-            </li>
-            <li className="ynot-footer-item">
-              <Link
-                href="/one-piece-card"
-                className="ynot-footer-link"
-                prefetch={false}
-              >
-                <span className="i18n-en">One Piece Cards</span>
-                <span className="i18n-th">การ์ด One Piece</span>
-              </Link>
-            </li>
-            <li className="ynot-footer-item">
-              <Link
-                href="/packs/one-piece"
-                className="ynot-footer-link"
-                prefetch={false}
-              >
-                <span className="i18n-en">One Piece Y-Packs</span>
-                <span className="i18n-th">Y-Packs One Piece</span>
+                <span className="i18n-en">News</span>
+                <span className="i18n-th">ข่าวสาร</span>
               </Link>
             </li>
             <li className="ynot-footer-item">
@@ -775,27 +705,6 @@ function YnotFooter() {
                 <span className="i18n-en">About</span>
                 <span className="i18n-th">เกี่ยวกับเรา</span>
               </Link>
-            </li>
-            <li className="ynot-footer-item">
-              <Link
-                href="/help/bangkok-card-events"
-                className="ynot-footer-link"
-                prefetch={false}
-              >
-                <span className="i18n-en">Events</span>
-                <span className="i18n-th">อีเวนต์</span>
-              </Link>
-            </li>
-            <li className="ynot-footer-item">
-              <span
-                className="ynot-footer-link is-disabled"
-                aria-disabled="true"
-                role="link"
-                tabIndex={-1}
-              >
-                <span className="i18n-en">Terms &amp; Conditions</span>
-                <span className="i18n-th">ข้อกำหนดและเงื่อนไข</span>
-              </span>
             </li>
             <li className="ynot-footer-item">
               <Link href="/contact" className="ynot-footer-link" prefetch={false}>
@@ -810,8 +719,8 @@ function YnotFooter() {
                 rel="noreferrer"
                 className="ynot-footer-link"
               >
-                <span className="i18n-en">Social</span>
-                <span className="i18n-th">โซเชียล</span>
+                <span className="i18n-en">Instagram</span>
+                <span className="i18n-th">Instagram</span>
               </a>
             </li>
           </ul>

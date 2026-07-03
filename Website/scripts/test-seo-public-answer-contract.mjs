@@ -1400,61 +1400,38 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   assert.match(readApp("src/app/llms-full.txt/route.ts"), /full: true/);
 });
 
-test("footer keeps existing links while the oripa route stays isolated", () => {
+test("footer links to grouped SEO hubs while detailed answer pages stay discoverable", () => {
+  assert.ok(existsSync(appPath("src/app/(store)/faq/page.tsx")), "missing FAQ hub route");
+  assert.ok(
+    existsSync(appPath("src/app/(store)/content/page.tsx")),
+    "missing content hub route",
+  );
+  assert.ok(existsSync(appPath("src/app/(store)/news/page.tsx")), "missing news hub route");
+
   assert.match(
     readApp("src/features/ynot/components.tsx"),
-    /href="\/ynot"/,
-    "footer and homepage should link to the exact-match YNOT official-site disambiguation page",
+    /href="\/faq"/,
+    "footer should point useful-info links to the FAQ hub",
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
-    /href="\/help\/how-ynot-packs-work"/,
-    "footer How It Works link should point to the Y-Pack explainer",
-  );
-  assert.doesNotMatch(
-    readApp("src/features/ynot/components.tsx"),
-    /href="\/oripa"/,
-    "existing footer and homepage links must stay unchanged; /oripa is isolated to sitemap and direct URL",
+    /href="\/content"/,
+    "footer should point guide links to the content hub",
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
-    /href="\/help\/ynot-tcg-lucky-draw-thailand"/,
-    "footer and homepage should link to the YNOT TCG page",
+    /href="\/news"/,
+    "footer should point event links to the news hub",
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
-    /href="\/help\/is-ynot-legit"/,
-    "footer and homepage should link to the YNOT trust page",
+    /href="\/about"/,
+    "footer should keep the about link",
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
-    /href="\/help\/where-to-buy-trading-cards-thailand"/,
-    "footer should link to the local trading-card buying guide",
-  );
-  assert.match(
-    readApp("src/features/ynot/components.tsx"),
-    /href="\/trading-card-marketplace-thailand"/,
-    "footer and homepage should link to the trading-card marketplace guide",
-  );
-  assert.match(
-    readApp("src/features/ynot/components.tsx"),
-    /href="\/pokemon-card"/,
-    "footer and homepage should link to the Pokemon card series hub",
-  );
-  assert.match(
-    readApp("src/features/ynot/components.tsx"),
-    /href="\/packs\/pokemon"/,
-    "footer and homepage should link to the static Pokemon Y-Pack catalog",
-  );
-  assert.match(
-    readApp("src/features/ynot/components.tsx"),
-    /href="\/one-piece-card"/,
-    "footer and homepage should link to the One Piece card series hub",
-  );
-  assert.match(
-    readApp("src/features/ynot/components.tsx"),
-    /href="\/packs\/one-piece"/,
-    "footer and homepage should link to the static One Piece Y-Pack catalog",
+    /href="\/contact"/,
+    "footer should keep the contact link",
   );
   assert.match(
     readApp("src/features/ynot/SeriesSeoLandingPage.tsx"),
@@ -1462,19 +1439,34 @@ test("footer keeps existing links while the oripa route stays isolated", () => {
     "series hubs should render the SERP landscape analysis for broad card terms",
   );
   assert.match(
-    readApp("src/features/ynot/components.tsx"),
-    /href="\/help\/bangkok-card-events"/,
-    "footer should link to the Bangkok events page",
+    readApp("src/app/(store)/faq/page.tsx"),
+    /href: "\/ynot"[\s\S]*href: "\/help\/how-ynot-packs-work"[\s\S]*href: "\/help\/is-ynot-legit"/,
+    "FAQ hub should group official identity, how-it-works, and trust pages",
+  );
+  assert.match(
+    readApp("src/app/(store)/content/page.tsx"),
+    /href: "\/help\/ynot-tcg-lucky-draw-thailand"[\s\S]*href: "\/pokemon-card"[\s\S]*href: "\/one-piece-card"[\s\S]*href: "\/help\/snkrdunk-stockx-card-trading-alternatives"/,
+    "content hub should group YNOT TCG, series, and marketplace comparison content",
+  );
+  assert.match(
+    readApp("src/app/(store)/news/page.tsx"),
+    /href: "\/help\/bangkok-card-events"/,
+    "news hub should point to the stable Bangkok event page",
   );
   assert.match(
     readApp("src/features/ynot/components.tsx"),
     /href="https:\/\/www\.instagram\.com\/_yfifteen\/"/,
-    "footer Social link should point to the official YNOT Instagram profile",
+    "footer Instagram link should point to the official YNOT Instagram profile",
+  );
+  assert.match(
+    readApp("src/lib/seo/public-answer-pages.ts"),
+    /path: "\/faq"[\s\S]*path: "\/content"[\s\S]*path: "\/news"/,
+    "sitemap source should include grouped SEO hubs",
   );
   assert.doesNotMatch(
     readApp("src/features/ynot/components.tsx"),
     /href="https:\/\/instagram\.com\/ynot"/,
-    "footer Social link must not point to the unrelated instagram.com/ynot profile",
+    "footer Instagram link must not point to the unrelated instagram.com/ynot profile",
   );
   assert.match(
     readApp("src/app/(store)/contact/page.tsx"),

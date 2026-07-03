@@ -1,0 +1,156 @@
+import type { Metadata } from "next";
+import {
+  PublicSeoHubPage,
+  type PublicSeoHub,
+} from "@/features/ynot/PublicSeoHubPage";
+import { canonicalUrl } from "@/lib/seo/public-answer-pages";
+
+const faqHub: PublicSeoHub = {
+  eyebrow: {
+    en: "YNOT FAQ",
+    th: "คำถามที่พบบ่อยของ YNOT",
+  },
+  title: {
+    en: "FAQ And Useful YNOT Info",
+    th: "FAQ และข้อมูลสำคัญของ YNOT",
+  },
+  description: {
+    en: "Useful answers about the official YNOT site, Y-Packs, wallet coins, collection, exchange, shipping, safety, and support.",
+    th: "คำตอบสำคัญเกี่ยวกับเว็บไซต์ทางการ YNOT, Y-Packs, เหรียญวอลเล็ต, คอลเลกชัน, การแลก, การจัดส่ง, ความน่าเชื่อถือ และซัพพอร์ต",
+  },
+  primaryHref: "/packs",
+  primaryLabel: {
+    en: "Browse Y-Packs",
+    th: "ดู Y-Packs",
+  },
+  groups: [
+    {
+      title: {
+        en: "Start Here",
+        th: "เริ่มต้นที่นี่",
+      },
+      description: {
+        en: "Core pages that explain what YNOT is and how the pack-opening flow works.",
+        th: "หน้าหลักที่อธิบายว่า YNOT คืออะไร และขั้นตอนเปิดแพ็กทำงานอย่างไร",
+      },
+      links: [
+        {
+          href: "/ynot",
+          label: {
+            en: "YNOT Official Site",
+            th: "เว็บไซต์ YNOT ทางการ",
+          },
+          description: {
+            en: "Official ynotopen.com identity page for the YNOT brand query.",
+            th: "หน้าระบุตัวตน ynotopen.com ทางการสำหรับคำค้น YNOT",
+          },
+        },
+        {
+          href: "/help/how-ynot-packs-work",
+          label: {
+            en: "How YNOT Y-Packs Work",
+            th: "วิธีใช้งาน YNOT Y-Packs",
+          },
+          description: {
+            en: "What a Y-Pack is, how opening works, and where pulled rewards go.",
+            th: "Y-Pack คืออะไร เปิดอย่างไร และรางวัลที่เปิดได้ไปอยู่ที่ไหน",
+          },
+        },
+        {
+          href: "/help/is-ynot-legit",
+          label: {
+            en: "Is YNOT Legit?",
+            th: "YNOT น่าเชื่อถือไหม",
+          },
+          description: {
+            en: "Trust, support, official domain, and how to identify the real YNOT site.",
+            th: "ความน่าเชื่อถือ ซัพพอร์ต โดเมนทางการ และวิธีดูเว็บ YNOT จริง",
+          },
+        },
+      ],
+    },
+    {
+      title: {
+        en: "Wallet, Collection, And Support",
+        th: "วอลเล็ต คอลเลกชัน และซัพพอร์ต",
+      },
+      description: {
+        en: "Practical account help for coins, pulled rewards, exchange, shipping, and contact.",
+        th: "ข้อมูลใช้งานจริงสำหรับเหรียญ รางวัลที่เปิดได้ การแลก การจัดส่ง และการติดต่อ",
+      },
+      links: [
+        {
+          href: "/help/top-up-wallet",
+          label: {
+            en: "Top Up Wallet Coins",
+            th: "เติมเหรียญวอลเล็ต",
+          },
+          description: {
+            en: "How YNOT wallet coins are used and what support needs for balance questions.",
+            th: "เหรียญวอลเล็ตใช้ทำอะไร และต้องแจ้งอะไรเมื่อสอบถามยอด",
+          },
+        },
+        {
+          href: "/help/ynot-wallet-coins-not-crypto",
+          label: {
+            en: "YNOT Coins Are Not Crypto",
+            th: "เหรียญ YNOT ไม่ใช่คริปโต",
+          },
+          description: {
+            en: "Clarifies that YNOT wallet coins are platform credits, not a fan token.",
+            th: "อธิบายว่าเหรียญวอลเล็ต YNOT เป็นเครดิตในเว็บ ไม่ใช่แฟนโทเคน",
+          },
+        },
+        {
+          href: "/help/shipping-and-exchange",
+          label: {
+            en: "Collection, Exchange, And Shipping",
+            th: "คอลเลกชัน การแลก และจัดส่ง",
+          },
+          description: {
+            en: "How pulled rewards move through collection, eligible exchange, and shipping support.",
+            th: "รางวัลที่เปิดได้ไปคอลเลกชัน แลกเมื่อเข้าเงื่อนไข และขอจัดส่งอย่างไร",
+          },
+        },
+        {
+          href: "/contact",
+          label: {
+            en: "Contact Support",
+            th: "ติดต่อซัพพอร์ต",
+          },
+          description: {
+            en: "Use the official support page for account, wallet, pack, and shipping questions.",
+            th: "ใช้หน้าซัพพอร์ตทางการสำหรับคำถามบัญชี วอลเล็ต แพ็ก และจัดส่ง",
+          },
+        },
+      ],
+    },
+  ],
+};
+
+export const metadata: Metadata = {
+  title: "YNOT FAQ And Useful Info",
+  description:
+    "Useful YNOT answers about the official site, Y-Packs, wallet coins, collection, exchange, shipping, safety, and support.",
+  alternates: {
+    canonical: canonicalUrl("/faq"),
+  },
+  openGraph: {
+    title: "YNOT FAQ And Useful Info",
+    description:
+      "Useful YNOT answers about the official site, Y-Packs, wallet coins, collection, exchange, shipping, safety, and support.",
+    url: canonicalUrl("/faq"),
+    siteName: "YNOT Open",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "YNOT FAQ And Useful Info",
+    description:
+      "Useful YNOT answers about the official site, Y-Packs, wallet coins, collection, exchange, shipping, safety, and support.",
+  },
+};
+
+export default function FaqPage() {
+  return <PublicSeoHubPage hub={faqHub} />;
+}
