@@ -68,7 +68,7 @@ export default async function PackDetailPage({
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{
-              __html: serializeJsonLd(jsonLd.product),
+              __html: serializeJsonLd(jsonLd.service),
             }}
           />
           <script

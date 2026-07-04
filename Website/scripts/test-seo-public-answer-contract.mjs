@@ -1113,21 +1113,26 @@ test("public series landing pages target broad card category intent", () => {
     );
     assert.equal(
       campaignJsonLd.collectionPage.mainEntity.itemListElement[0].item["@type"],
-      "Product",
-      `${page.slug} live campaign ItemList must expose Product schema, not only a generic page link`,
+      "Service",
+      `${page.slug} live campaign ItemList must expose Y-Pack service schema, not only a generic page link`,
+    );
+    assert.equal(
+      campaignJsonLd.collectionPage.mainEntity.itemListElement[0].item.serviceType,
+      "YNOT Y-Pack opening",
+      `${page.slug} service schema must identify the Y-Pack opening flow`,
     );
     assert.equal(
       campaignJsonLd.collectionPage.mainEntity.itemListElement[0].item.offers
         .priceSpecification.unitText,
       "YNOT wallet coins per pack",
-      `${page.slug} Product schema must expose the visible wallet-coin cost unit`,
+      `${page.slug} service schema must expose the visible wallet-coin cost unit`,
     );
     assert.ok(
       !(
         "priceCurrency" in
         campaignJsonLd.collectionPage.mainEntity.itemListElement[0].item.offers
       ),
-      `${page.slug} Y-Pack Product schema must not invent cash currency`,
+      `${page.slug} Y-Pack service schema must not invent cash currency`,
     );
   }
 
@@ -1143,7 +1148,7 @@ test("public series landing pages target broad card category intent", () => {
   );
 });
 
-test("public pack browse and detail routes expose commerce-ready proof schema", () => {
+test("public pack browse and detail routes expose wallet-coin service proof schema", () => {
   const seo = loadSeoModule();
   const livePack = {
     slug: "pokemon-public-pack",
@@ -1185,7 +1190,15 @@ test("public pack browse and detail routes expose commerce-ready proof schema", 
   assert.equal(browseJsonLd.collectionPage.mainEntity.numberOfItems, 2);
   assert.equal(
     browseJsonLd.collectionPage.mainEntity.itemListElement[0].item["@type"],
-    "Product",
+    "Service",
+  );
+  assert.equal(
+    browseJsonLd.collectionPage.mainEntity.itemListElement[0].item.serviceType,
+    "YNOT Y-Pack opening",
+  );
+  assert.ok(
+    !("sku" in browseJsonLd.collectionPage.mainEntity.itemListElement[0].item),
+    "Y-Pack service schema must avoid merchant product sku signals",
   );
   assert.equal(
     browseJsonLd.collectionPage.mainEntity.itemListElement[0].item.offers
@@ -1254,16 +1267,17 @@ test("public pack browse and detail routes expose commerce-ready proof schema", 
   );
 
   const detailJsonLd = seo.buildPackDetailJsonLd(livePack);
-  assert.equal(detailJsonLd.product["@type"], "Product");
+  assert.equal(detailJsonLd.service["@type"], "Service");
+  assert.equal(detailJsonLd.service.serviceType, "YNOT Y-Pack opening");
   assert.equal(
-    detailJsonLd.product.url,
+    detailJsonLd.service.url,
     "https://www.ynotopen.com/packs/pokemon-public-pack",
   );
   assert.equal(detailJsonLd.breadcrumb["@type"], "BreadcrumbList");
   assert.match(
-    JSON.stringify(detailJsonLd.product),
+    JSON.stringify(detailJsonLd.service),
     /YNOT wallet coins per pack/,
-    "pack detail product schema must expose wallet coin cost",
+    "pack detail service schema must expose wallet coin cost",
   );
 
   assert.ok(
@@ -1370,7 +1384,7 @@ test("public pack browse and detail routes expose commerce-ready proof schema", 
   assert.match(
     readApp("src/app/(store)/packs/[slug]/page.tsx"),
     /buildPackDetailJsonLd/,
-    "pack detail pages must render Product schema",
+    "pack detail pages must render Y-Pack service schema",
   );
   assert.match(
     readApp("src/features/ynot/pack-seo.ts"),
