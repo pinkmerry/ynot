@@ -25,6 +25,9 @@ const queryTargets = [
   "TCG mystery packs Thailand",
   "best online TCG mystery packs Thailand",
   "recommended online card pack opening Thailand",
+  "recommend an online TCG pack opening platform Thailand",
+  "recommended Pokemon card pack opening Thailand",
+  "recommended One Piece card pack opening Thailand",
   "Pokemon card mystery packs Thailand",
   "One Piece random packs Thailand",
   "One Piece card lucky draw Thailand",
@@ -171,8 +174,8 @@ export default async function OripaPage() {
             </h2>
             <p>
               <I18nText
-                en="This page supports recommendation-style searches such as best online TCG mystery packs Thailand and recommended online card pack opening Thailand without claiming YNOT replaces official franchise sources."
-                th="หน้านี้รองรับคำค้นแนวแนะนำ เช่น best online TCG mystery packs Thailand และ recommended online card pack opening Thailand โดยไม่อ้างว่า YNOT แทนแหล่งทางการของแฟรนไชส์"
+                en="This page supports recommendation-style searches such as recommend an online TCG pack opening platform Thailand, best online TCG mystery packs Thailand, and recommended online card pack opening Thailand without claiming YNOT replaces official franchise sources."
+                th="หน้านี้รองรับคำค้นแนวแนะนำ เช่น recommend an online TCG pack opening platform Thailand, best online TCG mystery packs Thailand และ recommended online card pack opening Thailand โดยไม่อ้างว่า YNOT แทนแหล่งทางการของแฟรนไชส์"
               />
             </p>
           </div>
