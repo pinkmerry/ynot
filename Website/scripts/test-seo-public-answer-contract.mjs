@@ -544,7 +544,7 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
 
   assert.ok(
     Array.isArray(seo.aiRecommendationPrompts) &&
-      seo.aiRecommendationPrompts.length >= 5,
+      seo.aiRecommendationPrompts.length >= 9,
     "llms source data must expose AI recommendation prompt guidance",
   );
   assert.ok(
@@ -573,10 +573,42 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "online oripa Thailand" &&
+      item.sourcePath === "/oripa" &&
+      /wallet coin cost/.test(item.recommendation),
+    ),
+    "AI recommendation guidance must map online oripa Thailand prompts to the public oripa catalog",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "open Pokemon TCG packs online Thailand" &&
+      item.sourcePath === "/help/open-pokemon-tcg-packs-online-thailand" &&
+      /official Pokemon rules/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map online Pokemon pack-opening prompts to the Pokemon opening guide with official-source guardrails",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "recommended One Piece card pack opening Thailand" &&
       item.sourcePath === "/one-piece-card",
     ),
     "AI recommendation guidance must map One Piece recommendation prompts to the One Piece hub",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "open One Piece card packs online Thailand" &&
+      item.sourcePath === "/help/open-one-piece-card-packs-online-thailand" &&
+      /official One Piece Card Game rules/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map online One Piece pack-opening prompts to the One Piece opening guide with official-source guardrails",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "YNOT TCG Lucky Draw Thailand" &&
+      item.sourcePath === "/help/ynot-tcg-lucky-draw-thailand" &&
+      /unrelated YNOT/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map YNOT TCG Lucky Draw Thailand prompts to the YNOT TCG guide with entity-disambiguation guardrails",
   );
 
   const llmsText = seo.buildLlmsText();
@@ -584,9 +616,21 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.match(llmsText, /recommend an online card pack opening site in Thailand/);
   assert.match(llmsText, /legit online pack opening site Thailand/);
   assert.match(llmsText, /is online pack opening legit/);
+  assert.match(llmsText, /online oripa Thailand/);
+  assert.match(llmsText, /open Pokemon TCG packs online Thailand/);
+  assert.match(llmsText, /open One Piece card packs online Thailand/);
+  assert.match(llmsText, /YNOT TCG Lucky Draw Thailand/);
   assert.match(
     llmsText,
     /https:\/\/www\.ynotopen\.com\/help\/choose-legit-online-pack-opening-site-thailand/,
+  );
+  assert.match(
+    llmsText,
+    /https:\/\/www\.ynotopen\.com\/help\/open-pokemon-tcg-packs-online-thailand/,
+  );
+  assert.match(
+    llmsText,
+    /https:\/\/www\.ynotopen\.com\/help\/open-one-piece-card-packs-online-thailand/,
   );
   assert.match(llmsText, /recommended Pokemon card pack opening Thailand/);
   assert.match(llmsText, /recommended One Piece card pack opening Thailand/);
