@@ -10,6 +10,7 @@ const ynotPage = getPublicAnswerPage("ynot-official-site");
 export const metadata: Metadata = {
   title: ynotPage.title.en,
   description: ynotPage.description.en,
+  keywords: ynotPage.queryTargets,
   alternates: {
     canonical: canonicalUrl(ynotPage.path),
   },

@@ -18,6 +18,15 @@ const contentHub: PublicSeoHub = {
     en: "Guides for Pokemon cards, One Piece cards, YNOT TCG, Y-Packs, online pack opening, and marketplace comparison searches.",
     th: "คู่มือสำหรับการ์ด Pokemon, การ์ด One Piece, YNOT TCG, Y-Packs, การเปิดแพ็กออนไลน์ และการเปรียบเทียบมาร์เก็ตเพลส",
   },
+  queryTargets: [
+    "YNOT trading card guides",
+    "Pokemon card packs Thailand",
+    "One Piece card packs Thailand",
+    "where to buy trading cards Thailand",
+    "trading card marketplace Thailand",
+    "Bangkok trading card events",
+    "YNOT TCG Lucky Draw",
+  ],
   primaryHref: "/marketplace",
   primaryLabel: {
     en: "Open Marketplace",
@@ -188,6 +197,7 @@ export const metadata: Metadata = {
   title: "YNOT Trading Card Content And Guides",
   description:
     "YNOT guides for Pokemon cards, One Piece cards, Y-Packs, online pack opening, and marketplace comparison searches in Thailand.",
+  keywords: contentHub.queryTargets,
   alternates: {
     canonical: canonicalUrl("/content"),
   },

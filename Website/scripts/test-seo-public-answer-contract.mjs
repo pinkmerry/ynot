@@ -735,6 +735,11 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     const jsonLd = seo.buildAnswerPageJsonLd(page);
     assert.equal(jsonLd.article["@type"], "Article");
     assert.equal(jsonLd.article.author.name, "YNOT Operations");
+    assert.equal(
+      jsonLd.article.keywords,
+      page.queryTargets.join(", "),
+      `${page.path} Article schema should expose query targets as keywords`,
+    );
     if (page.sourceLinks && page.sourceLinks.length > 0) {
       assert.equal(
         jsonLd.article.mentions.length,
@@ -1391,6 +1396,24 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   assert.match(full, /FAQ:/);
   assert.match(full, /YNOT wallet coins are platform credits/);
 
+  const relatedFromYnot = seo.getRelatedPublicAnswerPages("/ynot");
+  assert.ok(
+    relatedFromYnot.some((guide) => guide.path === "/faq"),
+    "YNOT official page should recommend the FAQ hub",
+  );
+  assert.ok(
+    relatedFromYnot.some((guide) => guide.path === "/content"),
+    "YNOT official page should recommend the content hub",
+  );
+  assert.ok(
+    relatedFromYnot.some((guide) => guide.path === "/news"),
+    "YNOT official page should recommend the news hub",
+  );
+  assert.ok(
+    !relatedFromYnot.some((guide) => guide.path === "/ynot"),
+    "related guides should not link the current page to itself",
+  );
+
   assert.ok(existsSync(appPath("src/app/llms.txt/route.ts")), "missing llms.txt route");
   assert.ok(
     existsSync(appPath("src/app/llms-full.txt/route.ts")),
@@ -1407,6 +1430,10 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     "missing content hub route",
   );
   assert.ok(existsSync(appPath("src/app/(store)/news/page.tsx")), "missing news hub route");
+  assert.ok(
+    existsSync(appPath("tools/verification/verify-seo-live-public-pages.mjs")),
+    "missing live SEO public-page verifier",
+  );
 
   assert.match(
     readApp("src/features/ynot/components.tsx"),
@@ -1453,6 +1480,40 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     /href: "\/help\/bangkok-card-events"/,
     "news hub should point to the stable Bangkok event page",
   );
+  assert.match(
+    readApp("src/features/ynot/PublicAnswerPage.tsx"),
+    /page\.queryTargets\.map/,
+    "public answer pages should render visible search topics",
+  );
+  assert.match(
+    readApp("src/features/ynot/PublicAnswerPage.tsx"),
+    /getRelatedPublicAnswerPages/,
+    "public answer pages should render related official guide links",
+  );
+  assert.match(
+    readApp("src/features/ynot/PublicSeoHubPage.tsx"),
+    /hub\.queryTargets/,
+    "SEO hub pages should render visible search topics",
+  );
+  assert.match(
+    readApp("src/features/ynot/PublicSeoHubPage.tsx"),
+    /Search topics/,
+    "SEO hub pages should label their visible query coverage",
+  );
+  for (const routeFile of [
+    "src/app/(store)/about/page.tsx",
+    "src/app/(store)/ynot/page.tsx",
+    "src/app/(store)/help/[slug]/page.tsx",
+    "src/app/(store)/faq/page.tsx",
+    "src/app/(store)/content/page.tsx",
+    "src/app/(store)/news/page.tsx",
+  ]) {
+    assert.match(
+      readApp(routeFile),
+      /keywords:/,
+      `${routeFile} should expose metadata keywords for target query mapping`,
+    );
+  }
   assert.match(
     readApp("src/features/ynot/components.tsx"),
     /href="https:\/\/www\.instagram\.com\/_yfifteen\/"/,

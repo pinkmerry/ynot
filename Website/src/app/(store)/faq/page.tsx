@@ -18,6 +18,15 @@ const faqHub: PublicSeoHub = {
     en: "Useful answers about the official YNOT site, Y-Packs, wallet coins, collection, exchange, shipping, safety, and support.",
     th: "คำตอบสำคัญเกี่ยวกับเว็บไซต์ทางการ YNOT, Y-Packs, เหรียญวอลเล็ต, คอลเลกชัน, การแลก, การจัดส่ง, ความน่าเชื่อถือ และซัพพอร์ต",
   },
+  queryTargets: [
+    "YNOT FAQ",
+    "YNOT frequently asked questions",
+    "is YNOT legit",
+    "how do YNOT Y-Packs work",
+    "YNOT wallet coins",
+    "YNOT support Thailand",
+    "YNOT shipping exchange help",
+  ],
   primaryHref: "/packs",
   primaryLabel: {
     en: "Browse Y-Packs",
@@ -132,6 +141,7 @@ export const metadata: Metadata = {
   title: "YNOT FAQ And Useful Info",
   description:
     "Useful YNOT answers about the official site, Y-Packs, wallet coins, collection, exchange, shipping, safety, and support.",
+  keywords: faqHub.queryTargets,
   alternates: {
     canonical: canonicalUrl("/faq"),
   },
