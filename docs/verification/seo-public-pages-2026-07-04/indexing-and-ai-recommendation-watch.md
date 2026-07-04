@@ -19,6 +19,23 @@ The goal is not complete yet because current search checks have not proven first
 
 Use Google Search Console for `https://www.ynotopen.com`.
 
+### Access Attempt - 2026-07-04 19:27 +07
+
+Chrome/Search Console was opened for both likely property forms:
+
+```text
+sc-domain:ynotopen.com
+https://www.ynotopen.com/
+```
+
+Both attempts returned:
+
+```text
+Oops, you don't have access to this property
+```
+
+This means sitemap submission and URL Inspection requests are currently gated on Search Console access. The next owner action is to grant Search Console access to the Google account available in Chrome or sign in with a Google account that owns the `ynotopen.com` property. Until then, use public search checks and live crawl checks as weaker evidence only.
+
 Submit sitemap:
 
 ```text
@@ -48,6 +65,16 @@ Google's public guidance says crawling can take from a few days to a few weeks, 
 ## Priority Query Watchlist
 
 Track rank, matching URL, snippet, and date checked.
+
+### Public Search Snapshot - 2026-07-04
+
+Current public search checks show partial discovery, not completion:
+
+- `YNOT TCG Lucky Draw ynotopen` can surface `https://www.ynotopen.com/`.
+- Generic/branded searches such as `YNOT official site ynotopen.com` still compete with unrelated Y Not Festival, YNOT bag, Ynot Italian, music, and other YNOT entities.
+- New target pages such as `/ynot`, `/faq`, `/content`, `/news`, `/about`, and `/help/how-ynot-packs-work` were not yet proven as individually indexed by the public search checks.
+
+Do not mark the SEO/GEO/AEO goal complete until Search Console or external search results prove the target pages are indexed and the priority queries show first-page YNOT results.
 
 | Query | Target URL | Desired evidence |
 | --- | --- | --- |
