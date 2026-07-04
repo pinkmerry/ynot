@@ -43,7 +43,7 @@ The crawler policy keeps account-only and sensitive paths out of the public surf
 - FAQ, Content, News, About, YNOT, and dynamic Help routes now expose Next.js metadata `keywords`.
 - `verify:seo-live` can validate localhost or production public SEO pages, sitemap, robots, `llms.txt`, and private-route boundaries.
 
-## Verification Plan
+## Verification Evidence
 
 Run from `Website/`:
 
@@ -54,4 +54,32 @@ npm run build
 SEO_VERIFY_BASE_URL=http://127.0.0.1:3009 npm run verify:seo-live
 ```
 
-Production verification should be run after an SEO-only deploy. Until that deploy happens, live production may still fail the new verifier because the new metadata and visible query sections are not on `www.ynotopen.com` yet.
+Production verification after deploy:
+
+```bash
+npm run verify:seo-live
+```
+
+Result:
+
+```text
+SEO live verifier passed for https://www.ynotopen.com
+Checked 6 public SEO pages, sitemap, robots, llms.txt, and private boundaries.
+```
+
+Deployment evidence:
+
+- GitHub Actions run: `28705753767`
+- Production commit on `origin/main`: `8e79061a Make public YNOT sources answer search intent`
+
+## Remaining Goal Evidence
+
+The technical SEO/GEO/AEO surfaces are live, but the business goal is not complete until external search and answer systems prove the site is being surfaced.
+
+Completion requires current evidence from:
+
+- Google Search Console indexing status for the target pages.
+- Search result checks showing YNOT on the first page for priority queries.
+- Gemini and ChatGPT answer checks recommending or citing `www.ynotopen.com` for relevant YNOT/card-pack queries.
+
+Track those checks in `docs/verification/seo-public-pages-2026-07-04/indexing-and-ai-recommendation-watch.md`.
