@@ -18,6 +18,15 @@ const newsHub: PublicSeoHub = {
     en: "A stable hub for Bangkok trading card events, YNOT event proof, pack-drop news, collaboration notes, and future recap posts.",
     th: "ฮับถาวรสำหรับอีเวนต์การ์ดสะสมในกรุงเทพ หลักฐานอีเวนต์ YNOT ข่าวแพ็กใหม่ ความร่วมมือ และโพสต์สรุปงานในอนาคต",
   },
+  queryTargets: [
+    "YNOT news",
+    "YNOT events",
+    "YNOT card event Bangkok",
+    "Bangkok trading card events",
+    "Pokemon card event Bangkok",
+    "One Piece card event Bangkok",
+    "YNOT pack launch",
+  ],
   primaryHref: "/help/bangkok-card-events",
   primaryLabel: {
     en: "Open Events Guide",
@@ -99,6 +108,7 @@ export const metadata: Metadata = {
   title: "YNOT News And Events",
   description:
     "YNOT news hub for Bangkok trading card events, event proof, pack-drop updates, collaborations, and future recap posts.",
+  keywords: newsHub.queryTargets,
   alternates: {
     canonical: canonicalUrl("/news"),
   },

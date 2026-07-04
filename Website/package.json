@@ -24,6 +24,7 @@
     "verify:auth": "node tools/verification/verify-auth-foundation.mjs && node tools/verification/verify-signup-pending-flow.mjs && npm run test:identity-review-db-safety && npm run test:auth-session-hardening",
     "verify:platform": "node tools/verification/verify-platform-foundation.mjs",
     "verify:cloudflare": "node tools/verification/verify-cloudflare-config.mjs",
+    "verify:seo-live": "node tools/verification/verify-seo-live-public-pages.mjs",
     "verify:ynot": "npm run verify:phase1 && npm run verify:auth && npm run verify:platform && npm run verify:phase-readiness && npm run verify:hardening && npm run verify:production-test && node tools/verification/verify-lucky-draw-plan.mjs",
     "check": "npm run lint && npm run typecheck && npm run verify:ynot && npm run build",
     "verify:phase-readiness": "node tools/verification/verify-phase-readiness.mjs",

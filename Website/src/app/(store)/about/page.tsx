@@ -10,6 +10,7 @@ const aboutPage = getPublicAnswerPage("about");
 export const metadata: Metadata = {
   title: aboutPage.title.en,
   description: aboutPage.description.en,
+  keywords: aboutPage.queryTargets,
   alternates: {
     canonical: canonicalUrl(aboutPage.path),
   },

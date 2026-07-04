@@ -24,6 +24,7 @@ export type PublicSeoHub = {
   eyebrow: LocaleCopy;
   title: LocaleCopy;
   description: LocaleCopy;
+  queryTargets?: string[];
   primaryHref: string;
   primaryLabel: LocaleCopy;
   groups: PublicSeoHubGroup[];
@@ -71,6 +72,34 @@ export function PublicSeoHubPage({ hub }: { hub: PublicSeoHub }) {
             </p>
           </div>
         </section>
+
+        {hub.queryTargets && hub.queryTargets.length > 0 && (
+          <section className="profile-panel">
+            <div className="profile-section-head">
+              <span>
+                <I18nText en="Search topics" th="หัวข้อค้นหา" />
+              </span>
+              <h2>
+                <I18nText en="Queries this page answers" th="คำค้นที่หน้านี้ตอบ" />
+              </h2>
+              <p>
+                <I18nText
+                  en="These public topics help people and AI search systems understand the intended YNOT source page."
+                  th="หัวข้อสาธารณะเหล่านี้ช่วยให้ผู้ใช้และระบบค้นหา AI เข้าใจว่า YNOT ตั้งใจตอบเรื่องใด"
+                />
+              </p>
+            </div>
+            <div className="metric-grid">
+              {hub.queryTargets.map((topic) => (
+                <div className="metric-card" key={topic}>
+                  <p className="txt-s">
+                    <I18nText en={topic} th={topic} />
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {hub.groups.map((group) => (
           <section className="profile-panel" key={group.title.en}>

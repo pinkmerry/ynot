@@ -30,6 +30,8 @@ export type PublicAnswerPage = {
   priority: number;
 };
 
+export type PublicRelatedGuide = Pick<PublicAnswerPage, "path" | "title" | "description">;
+
 export type PublicSeriesLandingPage = {
   slug: "pokemon-card" | "one-piece-card";
   path: string;
@@ -2547,9 +2549,76 @@ export const publicSeriesLandingPages: PublicSeriesLandingPage[] = [
 ];
 
 const pagesBySlug = new Map(publicAnswerPages.map((page) => [page.slug, page]));
+const pagesByPath = new Map(publicAnswerPages.map((page) => [page.path, page]));
 const seriesPagesBySlug = new Map(
   publicSeriesLandingPages.map((page) => [page.slug, page]),
 );
+const seriesPagesByPath = new Map(
+  publicSeriesLandingPages.map((page) => [page.path, page]),
+);
+const staticRelatedGuides = new Map<string, PublicRelatedGuide>(
+  [
+    {
+      path: "/faq",
+      title: {
+        en: "FAQ And Useful YNOT Info",
+        th: "FAQ และข้อมูลสำคัญของ YNOT",
+      },
+      description: {
+        en: "Useful answers about the official YNOT site, Y-Packs, wallet coins, collection, exchange, shipping, safety, and support.",
+        th: "คำตอบสำคัญเกี่ยวกับเว็บไซต์ทางการ YNOT, Y-Packs, เหรียญวอลเล็ต, คอลเลกชัน, การแลก, การจัดส่ง, ความน่าเชื่อถือ และซัพพอร์ต",
+      },
+    },
+    {
+      path: "/content",
+      title: {
+        en: "Trading Card Content And Guides",
+        th: "คอนเทนต์และคู่มือการ์ดสะสม",
+      },
+      description: {
+        en: "Guides for Pokemon cards, One Piece cards, YNOT TCG, Y-Packs, online pack opening, and marketplace comparison searches.",
+        th: "คู่มือสำหรับการ์ด Pokemon, การ์ด One Piece, YNOT TCG, Y-Packs, การเปิดแพ็กออนไลน์ และการเปรียบเทียบมาร์เก็ตเพลส",
+      },
+    },
+    {
+      path: "/news",
+      title: {
+        en: "YNOT News And Events",
+        th: "ข่าวสารและอีเวนต์ YNOT",
+      },
+      description: {
+        en: "A stable hub for Bangkok trading card events, YNOT event proof, pack-drop news, collaboration notes, and future recap posts.",
+        th: "ฮับถาวรสำหรับอีเวนต์การ์ดสะสมในกรุงเทพ หลักฐานอีเวนต์ YNOT ข่าวแพ็กใหม่ ความร่วมมือ และโพสต์สรุปงานในอนาคต",
+      },
+    },
+    {
+      path: "/oripa",
+      title: {
+        en: "Online Oripa And TCG Mystery Packs Thailand",
+        th: "Online Oripa และมิสทรีแพ็กการ์ดในไทย",
+      },
+      description: {
+        en: "YNOT online oripa-style mystery pack catalog for Pokemon and One Piece card collectors in Thailand.",
+        th: "แคตตาล็อกมิสทรีแพ็กออนไลน์สไตล์ oripa ของ YNOT สำหรับนักสะสมการ์ด Pokemon และ One Piece ในไทย",
+      },
+    },
+  ].map((guide) => [guide.path, guide]),
+);
+const relatedGuidePriorityPaths = [
+  "/ynot",
+  "/about",
+  "/faq",
+  "/content",
+  "/news",
+  "/help/how-ynot-packs-work",
+  "/help/is-ynot-legit",
+  "/help/ynot-tcg-lucky-draw-thailand",
+  "/pokemon-card",
+  "/one-piece-card",
+  "/oripa",
+  "/trading-card-marketplace-thailand",
+  "/help/bangkok-card-events",
+];
 
 export function canonicalUrl(path: string) {
   return `${siteOrigin}${path === "/" ? "" : path}`;
@@ -2573,6 +2642,36 @@ export function getPublicSeriesLandingPage(slug: PublicSeriesLandingPage["slug"]
     throw new Error(`Unknown public series landing page: ${slug}`);
   }
   return page;
+}
+
+function relatedGuideForPath(path: string): PublicRelatedGuide | undefined {
+  const answerPage = pagesByPath.get(path);
+  if (answerPage) {
+    return {
+      path: answerPage.path,
+      title: answerPage.title,
+      description: answerPage.description,
+    };
+  }
+
+  const seriesPage = seriesPagesByPath.get(path);
+  if (seriesPage) {
+    return {
+      path: seriesPage.path,
+      title: seriesPage.title,
+      description: seriesPage.description,
+    };
+  }
+
+  return staticRelatedGuides.get(path);
+}
+
+export function getRelatedPublicAnswerPages(currentPath: string) {
+  return relatedGuidePriorityPaths
+    .filter((path) => path !== currentPath)
+    .map((path) => relatedGuideForPath(path))
+    .filter((guide): guide is PublicRelatedGuide => Boolean(guide))
+    .slice(0, 6);
 }
 
 export function publicAnswerSlugs() {
@@ -2756,6 +2855,7 @@ export function buildAnswerPageJsonLd(page: PublicAnswerPage) {
       "@type": "Article",
       headline: page.title.en,
       description: page.description.en,
+      keywords: page.queryTargets.join(", "),
       dateModified: page.updatedAt,
       datePublished: page.updatedAt,
       mainEntityOfPage: canonical,

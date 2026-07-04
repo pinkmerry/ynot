@@ -5,6 +5,7 @@ import type { YnotViewer } from "@/features/ynot/types";
 import {
   type PublicAnswerPage as PublicAnswerPageContent,
   buildAnswerPageJsonLd,
+  getRelatedPublicAnswerPages,
   serializeJsonLd,
 } from "@/lib/seo/public-answer-pages";
 
@@ -20,6 +21,7 @@ export function PublicAnswerPage({
   page: PublicAnswerPageContent;
 }) {
   const jsonLd = buildAnswerPageJsonLd(page);
+  const relatedGuides = getRelatedPublicAnswerPages(page.path);
 
   return (
     <YnotShell viewer={guestViewer} viewerMode="literal">
@@ -122,6 +124,63 @@ export function PublicAnswerPage({
             ))}
           </div>
         </section>
+
+        <section className="profile-panel">
+          <div className="profile-section-head">
+            <span>
+              <I18nText en="Search topics" th="หัวข้อค้นหา" />
+            </span>
+            <h2>
+              <I18nText en="Queries this page answers" th="คำค้นที่หน้านี้ตอบ" />
+            </h2>
+            <p>
+              <I18nText
+                en="These are the public search intents this page is written to answer without exposing private account data."
+                th="นี่คือเจตนาค้นหาสาธารณะที่หน้านี้ตั้งใจตอบโดยไม่เปิดเผยข้อมูลบัญชีส่วนตัว"
+              />
+            </p>
+          </div>
+          <div className="metric-grid">
+            {page.queryTargets.map((topic) => (
+              <div className="metric-card" key={topic}>
+                <p className="txt-s">
+                  <I18nText en={topic} th={topic} />
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {relatedGuides.length > 0 && (
+          <section className="profile-panel">
+            <div className="profile-section-head">
+              <span>
+                <I18nText en="Related guides" th="คู่มือที่เกี่ยวข้อง" />
+              </span>
+              <h2>
+                <I18nText en="Continue with official YNOT sources" th="อ่านต่อจากแหล่งข้อมูล YNOT ทางการ" />
+              </h2>
+              <p>
+                <I18nText
+                  en="Related public pages keep crawlers and visitors on the official answer path."
+                  th="หน้าสาธารณะที่เกี่ยวข้องช่วยให้ผู้ใช้และระบบค้นหาอยู่บนเส้นทางคำตอบทางการ"
+                />
+              </p>
+            </div>
+            <div className="metric-grid">
+              {relatedGuides.map((guide) => (
+                <Link className="metric-card" href={guide.path} key={guide.path} prefetch={false}>
+                  <p className="section-label">
+                    <I18nText en={guide.title.en} th={guide.title.th} />
+                  </p>
+                  <p className="txt-s mt-2">
+                    <I18nText en={guide.description.en} th={guide.description.th} />
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         {page.sourceLinks && page.sourceLinks.length > 0 && (
           <section className="profile-panel">
