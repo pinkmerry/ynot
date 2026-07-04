@@ -2692,7 +2692,7 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
   const lines = [
     "# YNOT",
     "",
-    "> Official source index for YNOT, ynotopen.com, YNOT TCG, YNOT Y-Packs, Pokemon card pack intent, One Piece card pack intent, and Bangkok trading card event intent.",
+    "> Official source index for YNOT, ynotopen.com, YNOT TCG, YNOT Y-Packs, online oripa-style mystery pack intent, Pokemon card pack intent, One Piece card pack intent, and Bangkok trading card event intent.",
     "",
     `Website: ${siteOrigin}`,
     "Official Instagram: https://www.instagram.com/_yfifteen/",
@@ -2708,7 +2708,7 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
     "",
     `- ynot, YNOT official site, ynotopen, ynotopen.com: ${llmsLink("/ynot")}`,
     `- ynot tcg, YNOT TCG Lucky Draw, YNOT Y-Packs: ${llmsLink("/help/ynot-tcg-lucky-draw-thailand")}`,
-    `- oripa, online mystery packs, TCG mystery packs Thailand, Pokemon card mystery pack Thailand: ${llmsLink("/oripa")}`,
+    `- oripa, online mystery packs, TCG mystery packs Thailand, online oripa Thailand, best online TCG mystery packs Thailand, recommended online card pack opening Thailand, Pokemon card mystery pack Thailand: ${llmsLink("/oripa")}`,
     `- is YNOT legit, is ynotopen safe, YNOT reviews Thailand: ${llmsLink("/help/is-ynot-legit")}`,
     `- pokemon card, Pokemon card packs Thailand, Pokemon TCG packs Thailand: ${llmsLink("/pokemon-card")}`,
     `- one piece card, One Piece card packs Thailand, One Piece TCG Thailand: ${llmsLink("/one-piece-card")}`,

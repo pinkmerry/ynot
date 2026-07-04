@@ -1421,6 +1421,16 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   );
   assert.match(readApp("src/app/llms.txt/route.ts"), /buildLlmsText/);
   assert.match(readApp("src/app/llms-full.txt/route.ts"), /full: true/);
+  assert.match(
+    seo.buildLlmsText(),
+    /recommended online card pack opening Thailand/,
+    "llms.txt should expose recommendation-style card opening intent",
+  );
+  assert.match(
+    seo.buildLlmsText({ full: true }),
+    /best online TCG mystery packs Thailand/,
+    "llms-full.txt should expose oripa-style mystery-pack recommendation intent",
+  );
 });
 
 test("footer links to grouped SEO hubs while detailed answer pages stay discoverable", () => {
@@ -1594,4 +1604,44 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     "series hub component must render visible current public pack evidence",
   );
   assert.ok(existsSync(appPath("src/app/(store)/about/page.tsx")), "missing about route");
+});
+
+test("IndexNow discovery is wired only to public SEO URLs", () => {
+  const indexNowKey = "2109ba479390d13c62dad1ff7c01d21f6bd15d46c3c59c5c";
+  const keyFilePath = `public/${indexNowKey}.txt`;
+  const submitter = readApp("tools/ops/submit-indexnow-urls.mjs");
+  const packageJson = JSON.parse(readApp("package.json"));
+
+  assert.equal(readApp(keyFilePath).trim(), indexNowKey);
+  assert.equal(
+    packageJson.scripts["ops:indexnow"],
+    "node tools/ops/submit-indexnow-urls.mjs",
+  );
+  assert.equal(
+    packageJson.scripts["ops:indexnow:dry-run"],
+    "node tools/ops/submit-indexnow-urls.mjs --dry-run --skip-key-check",
+  );
+  assert.match(submitter, /https:\/\/api\.indexnow\.org\/indexnow/);
+  assert.match(submitter, /keyLocation/);
+  for (const publicPath of [
+    "/",
+    "/ynot",
+    "/oripa",
+    "/pokemon-card",
+    "/one-piece-card",
+    "/trading-card-marketplace-thailand",
+    "/help/how-ynot-packs-work",
+    "/help/is-ynot-legit",
+    "/help/bangkok-card-events",
+  ]) {
+    assert.match(submitter, new RegExp(JSON.stringify(publicPath).slice(1, -1)));
+  }
+  for (const privatePath of ["/admin", "/wallet", "/ranking", "/api/ynot/wallet"]) {
+    assert.doesNotMatch(submitter, new RegExp(JSON.stringify(privatePath).slice(1, -1)));
+  }
+  assert.match(
+    readApp("tools/verification/verify-seo-live-public-pages.mjs"),
+    new RegExp(indexNowKey),
+    "live verifier should prove the deployed IndexNow key file is reachable",
+  );
 });

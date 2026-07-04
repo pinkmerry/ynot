@@ -41,7 +41,9 @@ The crawler policy keeps account-only and sensitive paths out of the public surf
 - Public answer pages now show visible search topics plus related official YNOT guide links.
 - Article JSON-LD now includes the page query targets as schema `keywords`.
 - FAQ, Content, News, About, YNOT, and dynamic Help routes now expose Next.js metadata `keywords`.
-- `verify:seo-live` can validate localhost or production public SEO pages, sitemap, robots, `llms.txt`, and private-route boundaries.
+- `llms.txt` now includes recommendation-style oripa/online mystery-pack prompts for AI answer retrieval.
+- IndexNow discovery is prepared with a public root key file and `npm run ops:indexnow` for participating search engines.
+- `verify:seo-live` can validate localhost or production public SEO pages, sitemap, robots, `llms.txt`, `llms-full.txt`, the IndexNow key file, and private-route boundaries.
 
 ## Verification Evidence
 
@@ -64,13 +66,14 @@ Result:
 
 ```text
 SEO live verifier passed for https://www.ynotopen.com
-Checked 6 public SEO pages, sitemap, robots, llms.txt, and private boundaries.
+Checked 22 public SEO pages, sitemap, robots, llms files, IndexNow key, and private boundaries.
 ```
 
 Deployment evidence:
 
 - GitHub Actions run: `28705753767`
 - Production commit on `origin/main`: `8e79061a Make public YNOT sources answer search intent`
+- Later broadened production SEO verifier commit: `255064d5 Broaden public SEO verification`
 
 ## Remaining Goal Evidence
 
