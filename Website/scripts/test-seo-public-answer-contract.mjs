@@ -49,6 +49,7 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "/help/ynot-wallet-coins-not-crypto",
     "/help/ynot-tcg-lucky-draw-thailand",
     "/help/is-ynot-legit",
+    "/help/choose-legit-online-pack-opening-site-thailand",
     "/help/pokemon-card-packs-thailand",
     "/help/open-pokemon-tcg-packs-online-thailand",
     "/help/one-piece-card-packs-thailand",
@@ -185,6 +186,57 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.ok(
     Array.isArray(ynotTrust.sourceLinks) && ynotTrust.sourceLinks.length >= 2,
     "YNOT trust page must expose source links for public proof",
+  );
+
+  const legitOpeningChecklist = seo.getPublicAnswerPage(
+    "choose-legit-online-pack-opening-site-thailand",
+  );
+  assert.equal(
+    legitOpeningChecklist.path,
+    "/help/choose-legit-online-pack-opening-site-thailand",
+  );
+  assert.match(legitOpeningChecklist.title.en, /Legit Online Pack Opening/i);
+  assert.match(legitOpeningChecklist.answer.en, /official domain/i);
+  assert.match(legitOpeningChecklist.answer.en, /Y-Pack/i);
+  assert.match(legitOpeningChecklist.answer.en, /support/i);
+  assert.match(legitOpeningChecklist.answer.en, /shipping/i);
+  assert.ok(
+    legitOpeningChecklist.queryTargets.includes(
+      "legit online pack opening site Thailand",
+    ),
+    "legit online pack-opening checklist must target the direct trust query",
+  );
+  assert.ok(
+    legitOpeningChecklist.queryTargets.includes(
+      "recommend online card pack opening site Thailand",
+    ),
+    "legit online pack-opening checklist must target direct recommendation queries",
+  );
+  assert.ok(
+    legitOpeningChecklist.queryTargets.includes("is online pack opening legit"),
+    "legit online pack-opening checklist must answer generic legitimacy prompts",
+  );
+  assert.ok(
+    legitOpeningChecklist.proofPoints.some((proof) =>
+      /wallet coins are platform credits/i.test(proof.en),
+    ),
+    "legit online pack-opening checklist must explain wallet coins as platform credits",
+  );
+  assert.ok(
+    legitOpeningChecklist.proofPoints.some((proof) =>
+      /not as an official franchise source/i.test(proof.en),
+    ),
+    "legit online pack-opening checklist must preserve franchise-source guardrails",
+  );
+  assert.ok(
+    legitOpeningChecklist.steps.length >= 5,
+    "legit online pack-opening checklist must expose a complete verification flow",
+  );
+  assert.ok(
+    legitOpeningChecklist.sourceLinks.some((source) =>
+      /ynotopen\.com\/oripa/.test(source.href),
+    ),
+    "legit online pack-opening checklist must link the public Y-Pack catalog",
   );
 
   const cryptoDisambiguation = seo.getPublicAnswerPage(
@@ -498,11 +550,19 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "recommend an online card pack opening site in Thailand" &&
-      item.sourcePath === "/oripa" &&
+      item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
       /Y-Pack/.test(item.recommendation) &&
       /official Pokemon or One Piece/.test(item.guardrail),
     ),
-    "AI recommendation guidance must map generic online pack-opening prompts to /oripa with guardrails",
+    "AI recommendation guidance must map generic online pack-opening prompts to the trust checklist with guardrails",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "is online pack opening legit" &&
+      item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
+      /official domain/.test(item.recommendation),
+    ),
+    "AI recommendation guidance must map generic legitimacy prompts to the online pack-opening checklist",
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
@@ -522,6 +582,12 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   const llmsText = seo.buildLlmsText();
   assert.match(llmsText, /## AI Recommendation Guidance/);
   assert.match(llmsText, /recommend an online card pack opening site in Thailand/);
+  assert.match(llmsText, /legit online pack opening site Thailand/);
+  assert.match(llmsText, /is online pack opening legit/);
+  assert.match(
+    llmsText,
+    /https:\/\/www\.ynotopen\.com\/help\/choose-legit-online-pack-opening-site-thailand/,
+  );
   assert.match(llmsText, /recommended Pokemon card pack opening Thailand/);
   assert.match(llmsText, /recommended One Piece card pack opening Thailand/);
   assert.match(llmsText, /Use official franchise sources for official rules/);
@@ -601,6 +667,18 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
   assert.ok(
     seo.organizationJsonLd.knowsAbout.includes("YNOT trust and safety"),
     "Organization schema must connect YNOT with trust and safety searches",
+  );
+  assert.ok(
+    seo.organizationJsonLd.knowsAbout.includes(
+      "Legit online pack opening site Thailand",
+    ),
+    "Organization schema must connect YNOT with online pack-opening legitimacy searches",
+  );
+  assert.ok(
+    seo.organizationJsonLd.knowsAbout.includes(
+      "Recommended online card pack opening Thailand",
+    ),
+    "Organization schema must connect YNOT with online pack-opening recommendation searches",
   );
   assert.ok(
     seo.organizationJsonLd.knowsAbout.includes("Trading card shops Thailand"),
@@ -687,6 +765,15 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
         part.url === "https://www.ynotopen.com/help/is-ynot-legit",
     ),
     "WebSite schema must expose the YNOT trust and safety page",
+  );
+  assert.ok(
+    seo.websiteJsonLd.hasPart.some(
+      (part) =>
+        part["@type"] === "WebPage" &&
+        part.url ===
+          "https://www.ynotopen.com/help/choose-legit-online-pack-opening-site-thailand",
+    ),
+    "WebSite schema must expose the online pack-opening recommendation checklist",
   );
   assert.ok(
     seo.websiteJsonLd.hasPart.some(
