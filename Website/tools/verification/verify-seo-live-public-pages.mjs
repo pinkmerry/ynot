@@ -63,6 +63,9 @@ const publicPages = [
       "online oripa-style mystery packs",
       "best online TCG mystery packs Thailand",
       "recommended online card pack opening Thailand",
+      "recommend an online TCG pack opening platform Thailand",
+      "recommended Pokemon card pack opening Thailand",
+      "recommended One Piece card pack opening Thailand",
       "Pokemon card mystery packs Thailand",
       "One Piece random packs",
     ],
@@ -76,6 +79,8 @@ const publicPages = [
       "Search landscape",
       "Current public Y-Packs",
       "YNOT Pokemon card packs",
+      "recommended Pokemon card pack opening Thailand",
+      "best Pokemon card mystery packs Thailand",
     ],
   },
   {
@@ -87,6 +92,8 @@ const publicPages = [
       "Search landscape",
       "Current public Y-Packs",
       "YNOT One Piece card packs",
+      "recommended One Piece card pack opening Thailand",
+      "best One Piece card mystery packs Thailand",
     ],
   },
   {
@@ -123,7 +130,12 @@ const publicPages = [
   {
     path: "/help/ynot-tcg-lucky-draw-thailand",
     kind: "answer",
-    topics: ["YNOT TCG Lucky Draw", "YNOT card opening Thailand"],
+    topics: [
+      "YNOT TCG Lucky Draw",
+      "YNOT card opening Thailand",
+      "recommend an online card pack opening site in Thailand",
+      "recommended online card pack opening Thailand",
+    ],
   },
   {
     path: "/help/is-ynot-legit",
@@ -141,6 +153,8 @@ const publicPages = [
     topics: [
       "open Pokemon card packs online Thailand",
       "Pokemon TCG packs Thailand online",
+      "recommended Pokemon card pack opening Thailand",
+      "best Pokemon card mystery packs Thailand",
     ],
   },
   {
@@ -154,6 +168,8 @@ const publicPages = [
     topics: [
       "open One Piece card packs online Thailand",
       "One Piece card lucky draw Thailand",
+      "recommended One Piece card pack opening Thailand",
+      "best One Piece card mystery packs Thailand",
     ],
   },
   {
@@ -302,8 +318,12 @@ async function verifyLlmsText() {
     text,
     [
       "YNOT TCG Thailand",
+      "AI Recommendation Guidance",
+      "recommend an online card pack opening site in Thailand",
       "online oripa Thailand",
       "recommended online card pack opening Thailand",
+      "recommended Pokemon card pack opening Thailand",
+      "recommended One Piece card pack opening Thailand",
       `${siteOrigin}/oripa`,
       `${siteOrigin}/pokemon-card`,
       `${siteOrigin}/one-piece-card`,
@@ -325,6 +345,7 @@ async function verifyLlmsText() {
     [
       "Current top-result evidence",
       "Source links",
+      "Use official franchise sources for official rules",
       "best online TCG mystery packs Thailand",
       "recommended online card pack opening Thailand",
     ],

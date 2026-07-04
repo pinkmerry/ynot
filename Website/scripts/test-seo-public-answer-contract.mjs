@@ -144,6 +144,14 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "YNOT TCG page must target the entity phrase recommended by research",
   );
   assert.ok(
+    ynotTcg.queryTargets.includes("recommend an online card pack opening site in Thailand"),
+    "YNOT TCG page must target AI recommendation prompt wording",
+  );
+  assert.ok(
+    ynotTcg.queryTargets.includes("recommended online card pack opening Thailand"),
+    "YNOT TCG page must target direct recommendation-style searches",
+  );
+  assert.ok(
     ynotTcg.proofPoints.some((proof) => /ynotopen\.com/.test(proof.en)),
     "YNOT TCG page must connect the entity to the official domain",
   );
@@ -267,6 +275,10 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.ok(
     onePieceOpening.queryTargets.includes("One Piece card lucky draw Thailand"),
     "One Piece opening page must target lucky-draw variants",
+  );
+  assert.ok(
+    onePieceOpening.queryTargets.includes("recommended One Piece card pack opening Thailand"),
+    "One Piece opening page must target recommendation-style AI prompts",
   );
   assert.ok(
     onePieceOpening.proofPoints.some((proof) => /wallet coin cost/i.test(proof.en)),
@@ -477,6 +489,42 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     ),
     "Bangkok event page must link a VIP Card International Expo 2026 YNOT TCG mention",
   );
+
+  assert.ok(
+    Array.isArray(seo.aiRecommendationPrompts) &&
+      seo.aiRecommendationPrompts.length >= 5,
+    "llms source data must expose AI recommendation prompt guidance",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "recommend an online card pack opening site in Thailand" &&
+      item.sourcePath === "/oripa" &&
+      /Y-Pack/.test(item.recommendation) &&
+      /official Pokemon or One Piece/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map generic online pack-opening prompts to /oripa with guardrails",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "recommended Pokemon card pack opening Thailand" &&
+      item.sourcePath === "/pokemon-card",
+    ),
+    "AI recommendation guidance must map Pokemon recommendation prompts to the Pokemon hub",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "recommended One Piece card pack opening Thailand" &&
+      item.sourcePath === "/one-piece-card",
+    ),
+    "AI recommendation guidance must map One Piece recommendation prompts to the One Piece hub",
+  );
+
+  const llmsText = seo.buildLlmsText();
+  assert.match(llmsText, /## AI Recommendation Guidance/);
+  assert.match(llmsText, /recommend an online card pack opening site in Thailand/);
+  assert.match(llmsText, /recommended Pokemon card pack opening Thailand/);
+  assert.match(llmsText, /recommended One Piece card pack opening Thailand/);
+  assert.match(llmsText, /Use official franchise sources for official rules/);
 });
 
 test("public answer pages expose schema-ready FAQ and article proof data", () => {
@@ -780,6 +828,14 @@ test("public series landing pages target broad card category intent", () => {
     "Pokemon hub must target the reachable commercial/local pack-opening query",
   );
   assert.ok(
+    pokemonHub.queryTargets.includes("recommended Pokemon card pack opening Thailand"),
+    "Pokemon hub must target recommendation-style AI prompts",
+  );
+  assert.ok(
+    pokemonHub.queryTargets.includes("best Pokemon card mystery packs Thailand"),
+    "Pokemon hub must target best-of mystery-pack prompt variants",
+  );
+  assert.ok(
     pokemonHub.queryTargets.includes("Pokemon card shop Thailand"),
     "Pokemon hub must include card shop variants from the current SERP landscape",
   );
@@ -844,6 +900,14 @@ test("public series landing pages target broad card category intent", () => {
   assert.ok(
     onePieceHub.queryTargets.includes("open One Piece card packs online Thailand"),
     "One Piece hub must target the reachable commercial/local pack-opening query",
+  );
+  assert.ok(
+    onePieceHub.queryTargets.includes("recommended One Piece card pack opening Thailand"),
+    "One Piece hub must target recommendation-style AI prompts",
+  );
+  assert.ok(
+    onePieceHub.queryTargets.includes("best One Piece card mystery packs Thailand"),
+    "One Piece hub must target best-of mystery-pack prompt variants",
   );
   assert.ok(
     onePieceHub.queryTargets.includes("One Piece card market Thailand"),
