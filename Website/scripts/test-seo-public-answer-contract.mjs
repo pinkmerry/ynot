@@ -1642,13 +1642,18 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
   );
   assert.match(
     readApp("src/app/(store)/faq/page.tsx"),
-    /href: "\/ynot"[\s\S]*href: "\/help\/how-ynot-packs-work"[\s\S]*href: "\/help\/is-ynot-legit"/,
-    "FAQ hub should group official identity, how-it-works, and trust pages",
+    /href: "\/ynot"[\s\S]*href: "\/help\/how-ynot-packs-work"[\s\S]*href: "\/help\/is-ynot-legit"[\s\S]*href: "\/help\/choose-legit-online-pack-opening-site-thailand"/,
+    "FAQ hub should group official identity, how-it-works, trust, and recommendation-checklist pages",
   );
   assert.match(
     readApp("src/app/(store)/content/page.tsx"),
-    /href: "\/help\/ynot-tcg-lucky-draw-thailand"[\s\S]*href: "\/pokemon-card"[\s\S]*href: "\/one-piece-card"[\s\S]*href: "\/help\/snkrdunk-stockx-card-trading-alternatives"/,
-    "content hub should group YNOT TCG, series, and marketplace comparison content",
+    /primaryHref: "\/oripa"/,
+    "content hub primary CTA should point to the public pack-opening surface",
+  );
+  assert.match(
+    readApp("src/app/(store)/content/page.tsx"),
+    /href: "\/help\/ynot-tcg-lucky-draw-thailand"[\s\S]*href: "\/oripa"[\s\S]*href: "\/help\/choose-legit-online-pack-opening-site-thailand"[\s\S]*href: "\/pokemon-card"[\s\S]*href: "\/one-piece-card"[\s\S]*href: "\/help\/snkrdunk-stockx-card-trading-alternatives"/,
+    "content hub should group YNOT TCG, online pack-opening recommendation, series, and marketplace comparison content",
   );
   assert.match(
     readApp("src/app/(store)/news/page.tsx"),
