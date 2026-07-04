@@ -2,6 +2,11 @@ import Link from "next/link";
 import { YnotShell } from "@/features/ynot/components";
 import { I18nText } from "@/features/ynot/i18n";
 import type { YnotViewer } from "@/features/ynot/types";
+import {
+  canonicalUrl,
+  organizationJsonLd,
+  serializeJsonLd,
+} from "@/lib/seo/public-answer-pages";
 
 type LocaleCopy = {
   en: string;
@@ -21,6 +26,7 @@ export type PublicSeoHubGroup = {
 };
 
 export type PublicSeoHub = {
+  path: string;
   eyebrow: LocaleCopy;
   title: LocaleCopy;
   description: LocaleCopy;
@@ -36,9 +42,93 @@ const guestViewer: YnotViewer = {
   isAdmin: false,
 };
 
+function hubLinkUrl(href: string) {
+  return /^https?:\/\//i.test(href) ? href : canonicalUrl(href);
+}
+
+function buildPublicSeoHubJsonLd(hub: PublicSeoHub) {
+  const canonical = canonicalUrl(hub.path);
+  const listItems = hub.groups.flatMap((group) =>
+    group.links.map((link) => ({
+      group,
+      link,
+    })),
+  );
+
+  return {
+    collectionPage: {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "@id": `${canonical}#webpage`,
+      name: hub.title.en,
+      headline: hub.title.en,
+      description: hub.description.en,
+      url: canonical,
+      inLanguage: ["en", "th"],
+      isPartOf: {
+        "@id": canonicalUrl("/#website"),
+      },
+      publisher: organizationJsonLd,
+      about: hub.queryTargets?.slice(0, 12),
+      mainEntity: {
+        "@type": "ItemList",
+        name: `${hub.title.en} source links`,
+        numberOfItems: listItems.length,
+        itemListElement: listItems.map(({ group, link }, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          name: link.label.en,
+          description: link.description.en,
+          url: hubLinkUrl(link.href),
+          item: {
+            "@type": "WebPage",
+            name: link.label.en,
+            description: link.description.en,
+            url: hubLinkUrl(link.href),
+            about: group.title.en,
+          },
+        })),
+      },
+    },
+    breadcrumb: {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Home",
+          item: canonicalUrl("/"),
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: hub.title.en,
+          item: canonical,
+        },
+      ],
+    },
+  };
+}
+
 export function PublicSeoHubPage({ hub }: { hub: PublicSeoHub }) {
+  const jsonLd = buildPublicSeoHubJsonLd(hub);
+
   return (
     <YnotShell viewer={guestViewer} viewerMode="literal">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd(jsonLd.collectionPage),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd(jsonLd.breadcrumb),
+        }}
+      />
+
       <section className="page-intro">
         <div className="min-w-0">
           <p className="section-label">

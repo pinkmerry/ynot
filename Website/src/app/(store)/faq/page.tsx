@@ -6,6 +6,7 @@ import {
 import { canonicalUrl } from "@/lib/seo/public-answer-pages";
 
 const faqHub: PublicSeoHub = {
+  path: "/faq",
   eyebrow: {
     en: "YNOT FAQ",
     th: "คำถามที่พบบ่อยของ YNOT",

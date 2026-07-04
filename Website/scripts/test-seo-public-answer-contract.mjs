@@ -1680,6 +1680,37 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     /Search topics/,
     "SEO hub pages should label their visible query coverage",
   );
+  assert.match(
+    readApp("src/features/ynot/PublicSeoHubPage.tsx"),
+    /buildPublicSeoHubJsonLd/,
+    "SEO hub pages should build structured source-hub schema",
+  );
+  assert.match(
+    readApp("src/features/ynot/PublicSeoHubPage.tsx"),
+    /"@type": "CollectionPage"/,
+    "SEO hub pages should expose CollectionPage schema",
+  );
+  assert.match(
+    readApp("src/features/ynot/PublicSeoHubPage.tsx"),
+    /"@type": "BreadcrumbList"/,
+    "SEO hub pages should expose BreadcrumbList schema",
+  );
+  assert.match(
+    readApp("src/features/ynot/PublicSeoHubPage.tsx"),
+    /serializeJsonLd/,
+    "SEO hub pages should render JSON-LD safely",
+  );
+  for (const hubRouteFile of [
+    "src/app/(store)/faq/page.tsx",
+    "src/app/(store)/content/page.tsx",
+    "src/app/(store)/news/page.tsx",
+  ]) {
+    assert.match(
+      readApp(hubRouteFile),
+      /path: "\/(faq|content|news)"/,
+      `${hubRouteFile} should provide a canonical path for hub JSON-LD`,
+    );
+  }
   for (const routeFile of [
     "src/app/(store)/about/page.tsx",
     "src/app/(store)/ynot/page.tsx",
