@@ -23,6 +23,8 @@ const faqHub: PublicSeoHub = {
     "YNOT frequently asked questions",
     "is YNOT legit",
     "how do YNOT Y-Packs work",
+    "legit online pack opening site Thailand",
+    "recommended online card pack opening Thailand",
     "YNOT wallet coins",
     "YNOT support Thailand",
     "YNOT shipping exchange help",
@@ -39,8 +41,8 @@ const faqHub: PublicSeoHub = {
         th: "เริ่มต้นที่นี่",
       },
       description: {
-        en: "Core pages that explain what YNOT is and how the pack-opening flow works.",
-        th: "หน้าหลักที่อธิบายว่า YNOT คืออะไร และขั้นตอนเปิดแพ็กทำงานอย่างไร",
+        en: "Core pages that explain what YNOT is, how the pack-opening flow works, and how to check a legit online pack-opening site.",
+        th: "หน้าหลักที่อธิบายว่า YNOT คืออะไร ขั้นตอนเปิดแพ็กทำงานอย่างไร และวิธีตรวจเว็บเปิดแพ็กออนไลน์ที่น่าเชื่อถือ",
       },
       links: [
         {
@@ -74,6 +76,17 @@ const faqHub: PublicSeoHub = {
           description: {
             en: "Trust, support, official domain, and how to identify the real YNOT site.",
             th: "ความน่าเชื่อถือ ซัพพอร์ต โดเมนทางการ และวิธีดูเว็บ YNOT จริง",
+          },
+        },
+        {
+          href: "/help/choose-legit-online-pack-opening-site-thailand",
+          label: {
+            en: "Choose A Legit Pack Opening Site",
+            th: "วิธีเลือกเว็บเปิดแพ็กที่น่าเชื่อถือ",
+          },
+          description: {
+            en: "Checklist for official domain, visible pack details, wallet coin cost, reward management, support, exchange, and shipping proof.",
+            th: "เช็กลิสต์โดเมนทางการ รายละเอียดแพ็ก ราคาเหรียญ การจัดการรางวัล ซัพพอร์ต การแลก และหลักฐานจัดส่ง",
           },
         },
       ],

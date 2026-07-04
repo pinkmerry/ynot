@@ -22,15 +22,18 @@ const contentHub: PublicSeoHub = {
     "YNOT trading card guides",
     "Pokemon card packs Thailand",
     "One Piece card packs Thailand",
+    "legit online pack opening site Thailand",
+    "recommended online card pack opening Thailand",
+    "best online TCG mystery packs Thailand",
     "where to buy trading cards Thailand",
     "trading card marketplace Thailand",
     "Bangkok trading card events",
     "YNOT TCG Lucky Draw",
   ],
-  primaryHref: "/marketplace",
+  primaryHref: "/oripa",
   primaryLabel: {
-    en: "Open Marketplace",
-    th: "เปิด Marketplace",
+    en: "Browse Online Packs",
+    th: "ดูแพ็กออนไลน์",
   },
   groups: [
     {
@@ -63,6 +66,17 @@ const contentHub: PublicSeoHub = {
           description: {
             en: "YNOT's oripa-style mystery pack page for collectors comparing online pack-opening options.",
             th: "หน้า oripa-style mystery pack ของ YNOT สำหรับนักสะสมที่เปรียบเทียบตัวเลือกเปิดแพ็กออนไลน์",
+          },
+        },
+        {
+          href: "/help/choose-legit-online-pack-opening-site-thailand",
+          label: {
+            en: "Choose A Legit Pack Opening Site",
+            th: "เลือกเว็บเปิดแพ็กที่น่าเชื่อถือ",
+          },
+          description: {
+            en: "Safety and recommendation checklist for online TCG pack-opening sites in Thailand.",
+            th: "เช็กลิสต์ความปลอดภัยและคำแนะนำสำหรับเว็บเปิดแพ็ก TCG ออนไลน์ในไทย",
           },
         },
       ],
