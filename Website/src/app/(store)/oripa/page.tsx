@@ -19,10 +19,23 @@ const canonicalPath = "/oripa";
 const title = "Online Oripa & TCG Mystery Packs Thailand | YNOT";
 const description =
   "YNOT guide to online oripa-style TCG mystery packs for Pokemon and One Piece collectors in Thailand, with links to the public Y-Pack catalog.";
+const queryTargets = [
+  "online oripa Thailand",
+  "online mystery packs Thailand",
+  "TCG mystery packs Thailand",
+  "best online TCG mystery packs Thailand",
+  "recommended online card pack opening Thailand",
+  "Pokemon card mystery packs Thailand",
+  "One Piece random packs Thailand",
+  "One Piece card lucky draw Thailand",
+  "YNOT online oripa",
+  "YNOT Y-Packs",
+];
 
 export const metadata: Metadata = {
   title,
   description,
+  keywords: queryTargets,
   alternates: {
     canonical: canonicalUrl(canonicalPath),
   },
@@ -142,6 +155,35 @@ export default async function OripaPage() {
             <Link className="secondary-action" href="/help/how-ynot-packs-work" prefetch={false}>
               <I18nText en="How Y-Packs work" th="วิธีใช้ Y-Packs" />
             </Link>
+          </div>
+        </section>
+
+        <section className="profile-panel">
+          <div className="profile-section-head">
+            <span>
+              <I18nText en="Search topics" th="หัวข้อค้นหา" />
+            </span>
+            <h2>
+              <I18nText
+                en="Queries this page answers"
+                th="คำค้นที่หน้านี้ตอบ"
+              />
+            </h2>
+            <p>
+              <I18nText
+                en="This page supports recommendation-style searches such as best online TCG mystery packs Thailand and recommended online card pack opening Thailand without claiming YNOT replaces official franchise sources."
+                th="หน้านี้รองรับคำค้นแนวแนะนำ เช่น best online TCG mystery packs Thailand และ recommended online card pack opening Thailand โดยไม่อ้างว่า YNOT แทนแหล่งทางการของแฟรนไชส์"
+              />
+            </p>
+          </div>
+          <div className="metric-grid">
+            {queryTargets.map((topic) => (
+              <div className="metric-card" key={topic}>
+                <p className="txt-s">
+                  <I18nText en={topic} th={topic} />
+                </p>
+              </div>
+            ))}
           </div>
         </section>
 

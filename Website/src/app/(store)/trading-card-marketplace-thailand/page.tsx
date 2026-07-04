@@ -10,6 +10,7 @@ const marketplaceGuide = getPublicAnswerPage("trading-card-marketplace-thailand"
 export const metadata: Metadata = {
   title: marketplaceGuide.title.en,
   description: marketplaceGuide.description.en,
+  keywords: marketplaceGuide.queryTargets,
   alternates: {
     canonical: canonicalUrl(marketplaceGuide.path),
   },

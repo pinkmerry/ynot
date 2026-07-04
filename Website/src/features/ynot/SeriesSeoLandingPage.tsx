@@ -175,6 +175,32 @@ export function SeriesSeoLandingPage({
         <section className="profile-panel">
           <div className="profile-section-head">
             <span>
+              <I18nText en="Search topics" th="หัวข้อค้นหา" />
+            </span>
+            <h2>
+              <I18nText en="Queries this page answers" th="คำค้นที่หน้านี้ตอบ" />
+            </h2>
+            <p>
+              <I18nText
+                en="These public topics help search engines and AI answer systems connect this YNOT source page with the intended collector searches."
+                th="หัวข้อสาธารณะเหล่านี้ช่วยให้ search engines และระบบคำตอบ AI เชื่อมหน้า YNOT นี้กับคำค้นของนักสะสมที่ตั้งใจรองรับ"
+              />
+            </p>
+          </div>
+          <div className="metric-grid">
+            {page.queryTargets.map((topic) => (
+              <div className="metric-card" key={topic}>
+                <p className="txt-s">
+                  <I18nText en={topic} th={topic} />
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="profile-panel">
+          <div className="profile-section-head">
+            <span>
               <I18nText en="Search landscape" th="ภาพรวมผลค้นหา" />
             </span>
             <h2>
