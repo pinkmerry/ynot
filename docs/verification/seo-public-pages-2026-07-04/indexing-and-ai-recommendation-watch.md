@@ -64,6 +64,34 @@ https://www.ynotopen.com/trading-card-marketplace-thailand
 
 Google's public guidance says crawling can take from a few days to a few weeks, and requesting a crawl does not guarantee immediate indexing or ranking. Treat Search Console status as the authoritative indexing proof.
 
+## IndexNow Discovery Lane
+
+### Prepared - 2026-07-04 19:51 +07
+
+Google Search still requires Search Console ownership for URL Inspection/request-indexing, and Google's old unauthenticated sitemap ping endpoint is deprecated. To make progress while Search Console access is gated, YNOT now has an IndexNow discovery path for Bing and other participating engines.
+
+Root key file:
+
+```text
+https://www.ynotopen.com/2109ba479390d13c62dad1ff7c01d21f6bd15d46c3c59c5c.txt
+```
+
+Submit command after deploy:
+
+```bash
+cd Website
+npm run ops:indexnow
+```
+
+Dry-run command:
+
+```bash
+cd Website
+npm run ops:indexnow:dry-run
+```
+
+Important boundary: IndexNow is not Google Search Console and does not guarantee indexing or ranking. It is a safe public-URL discovery signal for participating search engines. Keep Google completion evidence tied to Search Console and Google search results.
+
 ## Priority Query Watchlist
 
 Track rank, matching URL, snippet, and date checked.
@@ -77,6 +105,24 @@ Current public search checks show partial discovery, not completion:
 - New target pages such as `/ynot`, `/faq`, `/content`, `/news`, `/about`, and `/help/how-ynot-packs-work` were not yet proven as individually indexed by the public search checks.
 
 Do not mark the SEO/GEO/AEO goal complete until Search Console or external search results prove the target pages are indexed and the priority queries show first-page YNOT results.
+
+### Public Search Snapshot - 2026-07-04 19:51 +07
+
+Current public web search still does not prove completion:
+
+- `site:ynotopen.com ynotopen YNOT TCG lucky draw` shows only the homepage as public search evidence.
+- `site:ynotopen.com/pokemon-card YNOT pokemon card Thailand` does not prove the `/pokemon-card` target URL is individually indexed.
+- `site:ynotopen.com/oripa YNOT online oripa Thailand` does not prove the `/oripa` target URL is individually indexed.
+- `site:ynotopen.com/trading-card-marketplace-thailand YNOT marketplace Thailand` does not prove the marketplace guide URL is individually indexed.
+- `YNOT TCG Thailand` currently shows YNOT Instagram/social evidence, not a proven first-page `www.ynotopen.com` page result.
+
+Next evidence to capture after deploy:
+
+```bash
+cd Website
+npm run verify:seo-live
+npm run ops:indexnow
+```
 
 ### Verification Expansion - 2026-07-04 19:41 +07
 

@@ -2,6 +2,7 @@
 
 const siteOrigin = "https://www.ynotopen.com";
 const baseUrl = new URL(process.env.SEO_VERIFY_BASE_URL ?? siteOrigin);
+const indexNowKey = "2109ba479390d13c62dad1ff7c01d21f6bd15d46c3c59c5c";
 const failures = [];
 
 const publicPages = [
@@ -301,6 +302,8 @@ async function verifyLlmsText() {
     text,
     [
       "YNOT TCG Thailand",
+      "online oripa Thailand",
+      "recommended online card pack opening Thailand",
       `${siteOrigin}/oripa`,
       `${siteOrigin}/pokemon-card`,
       `${siteOrigin}/one-piece-card`,
@@ -314,6 +317,26 @@ async function verifyLlmsText() {
   );
   expect(!text.includes(`${siteOrigin}/admin`), "llms.txt must not include /admin");
   expect(!text.includes(`${siteOrigin}/wallet`), "llms.txt must not include /wallet");
+
+  const { response: fullResponse, text: fullText } = await fetchPath("/llms-full.txt");
+  expect(fullResponse.status === 200, `/llms-full.txt should return 200, got ${fullResponse.status}`);
+  includesAll(
+    fullText,
+    [
+      "Current top-result evidence",
+      "Source links",
+      "best online TCG mystery packs Thailand",
+      "recommended online card pack opening Thailand",
+    ],
+    "/llms-full.txt",
+  );
+}
+
+async function verifyIndexNowKeyFile() {
+  const path = `/${indexNowKey}.txt`;
+  const { response, text } = await fetchPath(path);
+  expect(response.status === 200, `${path} should return 200, got ${response.status}`);
+  expect(text.trim() === indexNowKey, `${path} should contain the IndexNow key`);
 }
 
 async function verifyPrivateBoundary() {
@@ -340,6 +363,7 @@ async function main() {
   await verifySitemap();
   await verifyRobots();
   await verifyLlmsText();
+  await verifyIndexNowKeyFile();
   await verifyPrivateBoundary();
 
   if (failures.length > 0) {
@@ -351,7 +375,7 @@ async function main() {
   }
 
   console.log(`SEO live verifier passed for ${baseUrl.origin}`);
-  console.log(`Checked ${publicPages.length} public SEO pages, sitemap, robots, llms.txt, and private boundaries.`);
+  console.log(`Checked ${publicPages.length} public SEO pages, sitemap, robots, llms files, IndexNow key, and private boundaries.`);
 }
 
 main().catch((error) => {

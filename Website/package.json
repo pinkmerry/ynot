@@ -136,7 +136,9 @@
     "test:admin-prize-catalog-mainsku": "node --test scripts/test-admin-prize-catalog-mainsku.mjs",
     "test:admin-prize-catalog": "node --test scripts/test-admin-prize-catalog-foundation.mjs scripts/test-admin-prize-catalog-screen.mjs scripts/test-admin-prize-catalog-mainsku.mjs scripts/test-admin-prize-catalog-variants.mjs scripts/test-admin-prize-catalog-stock.mjs scripts/test-admin-prize-catalog-edit-stock.mjs scripts/test-admin-prize-catalog-openbox.mjs scripts/test-admin-prize-catalog-campaign.mjs scripts/test-admin-prize-catalog-no-leak.mjs",
     "ops:restore-pack-stock": "node tools/ops/restore-pack-stock.mjs",
-    "ops:backfill-marketplace-accounts": "node tools/ops/backfill-marketplace-accounts.mjs"
+    "ops:backfill-marketplace-accounts": "node tools/ops/backfill-marketplace-accounts.mjs",
+    "ops:indexnow": "node tools/ops/submit-indexnow-urls.mjs",
+    "ops:indexnow:dry-run": "node tools/ops/submit-indexnow-urls.mjs --dry-run --skip-key-check"
   },
   "dependencies": {
     "@line/liff": "^2.28.0",
