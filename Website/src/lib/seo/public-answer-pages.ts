@@ -3203,7 +3203,7 @@ function packImageUrl(campaign: PublicPackSeoItem) {
   return undefined;
 }
 
-function packProductJsonLd(campaign: PublicPackSeoItem) {
+function packOpeningServiceJsonLd(campaign: PublicPackSeoItem) {
   const canonical = canonicalUrl(`/packs/${campaign.slug}`);
   const title = packTitle(campaign);
   const description =
@@ -3250,16 +3250,20 @@ function packProductJsonLd(campaign: PublicPackSeoItem) {
 
   return {
     "@context": "https://schema.org",
-    "@type": "Product",
-    "@id": `${canonical}#product`,
+    "@type": "Service",
+    "@id": `${canonical}#ypack-service`,
     name: title,
     alternateName: campaign.titleTh && campaign.titleTh !== title ? campaign.titleTh : undefined,
     description,
     url: canonical,
     image: image ? [image] : undefined,
-    sku: campaign.slug,
-    brand: {
+    serviceType: "YNOT Y-Pack opening",
+    provider: {
       "@id": organizationId,
+    },
+    areaServed: {
+      "@type": "Country",
+      name: "Thailand",
     },
     category: `${packSeriesName(campaign.series)} Y-Pack`,
     additionalProperty,
@@ -3353,7 +3357,7 @@ export function buildPacksBrowseJsonLd(
           "@type": "ListItem",
           position: index + 1,
           url: canonicalUrl(`/packs/${campaign.slug}`),
-          item: packProductJsonLd(campaign),
+          item: packOpeningServiceJsonLd(campaign),
         })),
       },
     },
@@ -3381,7 +3385,7 @@ export function buildPacksBrowseJsonLd(
 export function buildPackDetailJsonLd(campaign: PublicPackSeoItem) {
   const canonical = canonicalUrl(`/packs/${campaign.slug}`);
   return {
-    product: packProductJsonLd(campaign),
+    service: packOpeningServiceJsonLd(campaign),
     breadcrumb: {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
@@ -3422,7 +3426,7 @@ export function buildSeriesLandingPageJsonLd(
           name: packTitle(campaign),
           description: packDescription(campaign),
           url: canonicalUrl(`/packs/${campaign.slug}`),
-          item: packProductJsonLd(campaign),
+          item: packOpeningServiceJsonLd(campaign),
         }))
       : page.relatedLinks.map((link, index) => ({
           "@type": "ListItem",
