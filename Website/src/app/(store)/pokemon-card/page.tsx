@@ -13,6 +13,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: page.title.en,
   description: page.description.en,
+  keywords: page.queryTargets,
   alternates: {
     canonical: canonicalUrl(page.path),
   },

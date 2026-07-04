@@ -7,6 +7,7 @@ Goal: make YNOT appear on the first page of Google for relevant searches and mak
 Technical deployment is complete and verified live:
 
 - Public pages are crawlable: `/faq`, `/content`, `/news`, `/about`, `/ynot`, and key `/help/*` pages.
+- Series and recommendation-intent pages are part of the crawl target set: `/pokemon-card`, `/one-piece-card`, `/oripa`, and `/trading-card-marketplace-thailand`.
 - Sitemap includes the intended public SEO pages.
 - Robots allows `Googlebot` and `OAI-SearchBot` for public pages.
 - Robots keeps private and account-only routes out of crawl paths.
@@ -51,6 +52,7 @@ https://www.ynotopen.com/about
 https://www.ynotopen.com/faq
 https://www.ynotopen.com/content
 https://www.ynotopen.com/news
+https://www.ynotopen.com/oripa
 https://www.ynotopen.com/help/how-ynot-packs-work
 https://www.ynotopen.com/help/is-ynot-legit
 https://www.ynotopen.com/help/ynot-tcg-lucky-draw-thailand
@@ -76,6 +78,21 @@ Current public search checks show partial discovery, not completion:
 
 Do not mark the SEO/GEO/AEO goal complete until Search Console or external search results prove the target pages are indexed and the priority queries show first-page YNOT results.
 
+### Verification Expansion - 2026-07-04 19:41 +07
+
+The live verifier was expanded from a 6-page sample to 22 public SEO pages so future deploy checks cover the broader answer/recommendation surface:
+
+- Hubs: `/faq`, `/content`, `/news`, `/oripa`, `/pokemon-card`, `/one-piece-card`, `/trading-card-marketplace-thailand`.
+- Entity and trust pages: `/about`, `/ynot`, `/help/is-ynot-legit`, `/help/ynot-tcg-lucky-draw-thailand`.
+- Recommendation and collector-intent pages: `/help/how-ynot-packs-work`, `/help/pokemon-card-packs-thailand`, `/help/open-pokemon-tcg-packs-online-thailand`, `/help/one-piece-card-packs-thailand`, `/help/open-one-piece-card-packs-online-thailand`, `/help/where-to-buy-trading-cards-thailand`, `/help/bangkok-card-events`, `/help/snkrdunk-stockx-card-trading-alternatives`.
+
+Local verification passed against `http://127.0.0.1:3010`:
+
+```text
+SEO live verifier passed for http://127.0.0.1:3010
+Checked 22 public SEO pages, sitemap, robots, llms.txt, and private boundaries.
+```
+
 | Query | Target URL | Desired evidence |
 | --- | --- | --- |
 | `ynot` | `/ynot` or `/` | First page shows the official YNOT Open result, not unrelated YNOT entities. |
@@ -85,6 +102,9 @@ Do not mark the SEO/GEO/AEO goal complete until Search Console or external searc
 | `YNOT TCG Thailand` | `/ynot` or `/help/ynot-tcg-lucky-draw-thailand` | YNOT card-platform identity appears. |
 | `YNOT TCG Lucky Draw` | `/help/ynot-tcg-lucky-draw-thailand` | YNOT appears for the lucky-draw/card-platform intent. |
 | `YNOT Y-Packs` | `/help/how-ynot-packs-work` or `/packs` | YNOT appears for Y-Pack explanation/browsing. |
+| `online oripa Thailand` | `/oripa` | YNOT appears for online oripa-style mystery-pack intent. |
+| `best online TCG mystery packs Thailand` | `/oripa` | YNOT appears as a relevant option without claiming official franchise authority. |
+| `recommended online card pack opening Thailand` | `/oripa` or `/help/how-ynot-packs-work` | YNOT appears for recommendation-style online pack-opening intent. |
 | `is YNOT legit` | `/help/is-ynot-legit` | Trust/verification answer page appears. |
 | `how do YNOT Y-Packs work` | `/help/how-ynot-packs-work` | How-it-works answer page appears. |
 | `Pokemon card packs Thailand` | `/pokemon-card` or `/help/pokemon-card-packs-thailand` | YNOT appears when pack-opening intent is relevant. |
@@ -116,6 +136,14 @@ How do YNOT Y-Packs work?
 
 ```text
 What are trading card marketplace options in Thailand?
+```
+
+```text
+What is a recommended online card pack opening site in Thailand?
+```
+
+```text
+What are the best online TCG mystery packs or oripa-style sites in Thailand?
 ```
 
 Expected proof:
