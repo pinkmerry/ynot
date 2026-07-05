@@ -55,6 +55,10 @@ export type MarketplaceMoneyPolicy = {
   calculationVersion: number;
   effectiveFrom: string | null;
   adminNote: string | null;
+  payoutHoldDays: number;
+  disputeWindowDays: number;
+  listingAutoLive: boolean;
+  slipAutoVerify: boolean;
 };
 
 export type MarketplaceCartSummary = {

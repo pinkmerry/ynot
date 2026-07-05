@@ -14,6 +14,10 @@ export const MARKETPLACE_CURRENCY = "THB" as const;
 export const DEFAULT_MARKETPLACE_SHIPPING_FEE_SATANG = 15_000;
 export const DEFAULT_MARKETPLACE_SELLER_FEE_BPS = 1_000;
 export const DEFAULT_MARKETPLACE_BUYER_SERVICE_FEE_BPS = 1_000;
+export const DEFAULT_MARKETPLACE_PAYOUT_HOLD_DAYS = 10;
+export const DEFAULT_MARKETPLACE_DISPUTE_WINDOW_DAYS = 3;
+export const DEFAULT_MARKETPLACE_LISTING_AUTO_LIVE = true;
+export const DEFAULT_MARKETPLACE_SLIP_AUTO_VERIFY = true;
 
 function envInteger(name: string, fallback: number, options: { min: number; max: number }) {
   const raw = process.env[name]?.trim();
@@ -47,6 +51,18 @@ export function marketplaceMoneyPolicy(): MarketplaceMoneyPolicy {
     calculationVersion: 1,
     effectiveFrom: null,
     adminNote: "Environment/default fallback policy",
+    payoutHoldDays: envInteger(
+      "YNOT_MARKETPLACE_PAYOUT_HOLD_DAYS",
+      DEFAULT_MARKETPLACE_PAYOUT_HOLD_DAYS,
+      { min: 0, max: 30 },
+    ),
+    disputeWindowDays: envInteger(
+      "YNOT_MARKETPLACE_DISPUTE_WINDOW_DAYS",
+      DEFAULT_MARKETPLACE_DISPUTE_WINDOW_DAYS,
+      { min: 0, max: 14 },
+    ),
+    listingAutoLive: DEFAULT_MARKETPLACE_LISTING_AUTO_LIVE,
+    slipAutoVerify: DEFAULT_MARKETPLACE_SLIP_AUTO_VERIFY,
   };
 }
 
@@ -68,6 +84,18 @@ function numberField(value: unknown, fallback: number, label: string, options: {
 
 function optionalString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function booleanField(value: unknown, fallback: boolean, label: string) {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value !== "boolean") {
+    throw new MarketplaceServiceError(
+      `marketplace_${label}_invalid`,
+      "Marketplace money policy is invalid.",
+      500,
+    );
+  }
+  return value;
 }
 
 function normalizePolicy(value: unknown): MarketplaceMoneyPolicy {
@@ -108,6 +136,28 @@ function normalizePolicy(value: unknown): MarketplaceMoneyPolicy {
     ),
     effectiveFrom: optionalString(record.effectiveFrom),
     adminNote: optionalString(record.adminNote),
+    payoutHoldDays: numberField(
+      record.payoutHoldDays,
+      fallback.payoutHoldDays,
+      "payout_hold_days",
+      { min: 0, max: 30 },
+    ),
+    disputeWindowDays: numberField(
+      record.disputeWindowDays,
+      fallback.disputeWindowDays,
+      "dispute_window_days",
+      { min: 0, max: 14 },
+    ),
+    listingAutoLive: booleanField(
+      record.listingAutoLive,
+      fallback.listingAutoLive,
+      "listing_auto_live",
+    ),
+    slipAutoVerify: booleanField(
+      record.slipAutoVerify,
+      fallback.slipAutoVerify,
+      "slip_auto_verify",
+    ),
   };
 }
 
@@ -143,6 +193,27 @@ function policyNote(value: unknown) {
     );
   }
   return value.trim();
+}
+
+function optionalPolicyInteger(
+  value: unknown,
+  label: string,
+  options: { min: number; max: number },
+) {
+  if (value === undefined || value === null) return null;
+  return policyInteger(value, label, options);
+}
+
+function optionalPolicyBoolean(value: unknown, label: string) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "boolean") {
+    throw new MarketplaceServiceError(
+      `marketplace_${label}_invalid`,
+      "Marketplace money policy is invalid.",
+      400,
+    );
+  }
+  return value;
 }
 
 export async function getActiveMarketplaceMoneyPolicy() {
@@ -188,6 +259,24 @@ export async function updateMarketplaceMoneyPolicy(input: {
       { min: 0, max: 1_000_000 },
     ),
     p_admin_note: policyNote(input.body.adminNote),
+    p_payout_hold_days: optionalPolicyInteger(
+      input.body.payoutHoldDays,
+      "payout_hold_days",
+      { min: 0, max: 30 },
+    ),
+    p_dispute_window_days: optionalPolicyInteger(
+      input.body.disputeWindowDays,
+      "dispute_window_days",
+      { min: 0, max: 14 },
+    ),
+    p_listing_auto_live: optionalPolicyBoolean(
+      input.body.listingAutoLive,
+      "listing_auto_live",
+    ),
+    p_slip_auto_verify: optionalPolicyBoolean(
+      input.body.slipAutoVerify,
+      "slip_auto_verify",
+    ),
   })) as {
     data: unknown;
     error: { message?: string; code?: string } | null;

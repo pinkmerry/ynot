@@ -17,6 +17,10 @@ const MONEY_POLICY_FIELDS = [
   "sellerFeeBps",
   "buyerServiceFeeBps",
   "shippingFeeSatang",
+  "payoutHoldDays",
+  "disputeWindowDays",
+  "listingAutoLive",
+  "slipAutoVerify",
   "adminNote",
 ] as const;
 
