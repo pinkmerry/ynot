@@ -32,6 +32,27 @@ test("policy json + admin set rpc expose the new fields", () => {
   assert.match(migration, /p_slip_auto_verify/);
 });
 
+test("admin set rpc pins the trust-control param signature", () => {
+  // Pin the ordered param list so dropping/reordering a param fails this test.
+  assert.match(migration, /p_payout_hold_days\s+integer\s+default\s+null/);
+  assert.match(migration, /p_dispute_window_days\s+integer\s+default\s+null/);
+  assert.match(migration, /p_listing_auto_live\s+boolean\s+default\s+null/);
+  assert.match(migration, /p_slip_auto_verify\s+boolean\s+default\s+null/);
+
+  const payoutHoldIndex = migration.search(/p_payout_hold_days\s+integer\s+default\s+null/);
+  const disputeWindowIndex = migration.search(/p_dispute_window_days\s+integer\s+default\s+null/);
+  const listingAutoLiveIndex = migration.search(/p_listing_auto_live\s+boolean\s+default\s+null/);
+  const slipAutoVerifyIndex = migration.search(/p_slip_auto_verify\s+boolean\s+default\s+null/);
+
+  assert.ok(payoutHoldIndex < disputeWindowIndex, "p_payout_hold_days must precede p_dispute_window_days");
+  assert.ok(disputeWindowIndex < listingAutoLiveIndex, "p_dispute_window_days must precede p_listing_auto_live");
+  assert.ok(listingAutoLiveIndex < slipAutoVerifyIndex, "p_listing_auto_live must precede p_slip_auto_verify");
+
+  // Pin the grant tail: the last two positional args before the closing paren
+  // must be the two new boolean trust-control params, so dropping one fails.
+  assert.match(migration, /boolean,\s*boolean\s*\)\s*to service_role/);
+});
+
 test("route and lib carry the new fields", () => {
   const money = readFileSync(path.join(appRoot, "src/lib/marketplace/money.ts"), "utf8");
   assert.match(money, /payoutHoldDays/);

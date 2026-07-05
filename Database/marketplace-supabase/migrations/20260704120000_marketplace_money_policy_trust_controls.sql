@@ -7,6 +7,9 @@ alter table public.marketplace_money_policies
   add column if not exists listing_auto_live boolean not null default true,
   add column if not exists slip_auto_verify boolean not null default true;
 
+-- Column defaults above (payout_hold_days = 10, dispute_window_days = 3) must
+-- stay within these check ranges, since this same migration backfills
+-- existing rows with those defaults before the constraint validates them.
 alter table public.marketplace_money_policies
   drop constraint if exists marketplace_money_policies_payout_hold_days_check,
   add constraint marketplace_money_policies_payout_hold_days_check
