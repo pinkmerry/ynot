@@ -64,7 +64,6 @@ export async function POST(request: Request) {
   const mutation = await prepareMarketplaceMutation(request, {
     method: "POST",
     accessMode: "customer",
-    action: "checkout",
     rateLimit: {
       key: "ynot:marketplace:alerts:subscribe",
       limit: 20,
@@ -110,7 +109,6 @@ export async function DELETE(request: Request) {
   const mutation = await prepareMarketplaceMutation(request, {
     method: "DELETE",
     accessMode: "customer",
-    action: "checkout",
     rateLimit: {
       key: "ynot:marketplace:alerts:cancel",
       limit: 20,
@@ -137,6 +135,10 @@ export async function DELETE(request: Request) {
   try {
     const account = await getMarketplaceAccountForProfile(profile, access.admin);
     if (!account) {
+      // Intentional asymmetry with GET (which returns an empty list for an
+      // accountless profile): you cannot cancel an alert you could never
+      // have created, so this is a 400 rather than a silent no-op. Do not
+      // "fix" this into an empty-body success.
       return Response.json(
         {
           error: "Marketplace account is required.",

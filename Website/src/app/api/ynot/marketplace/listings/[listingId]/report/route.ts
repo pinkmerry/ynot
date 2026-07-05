@@ -24,7 +24,6 @@ export async function POST(request: Request, { params }: RouteParams) {
   const mutation = await prepareMarketplaceMutation(request, {
     method: "POST",
     accessMode: "customer",
-    action: "checkout",
     rateLimit: {
       key: "ynot:marketplace:listings:report",
       limit: 5,
