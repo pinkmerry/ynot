@@ -77,6 +77,8 @@ begin
   return to_jsonb(v_alert);
 end $$;
 
+drop function if exists public.marketplace_list_product_alerts(uuid);
+
 create or replace function public.marketplace_list_product_alerts(
   p_account_id uuid,
   p_limit integer default 100

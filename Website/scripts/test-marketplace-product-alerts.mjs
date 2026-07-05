@@ -95,6 +95,13 @@ test("product alerts list rpc is bounded", () => {
   assert.match(migration, /limit greatest\(p_limit, 1\)/);
 });
 
+test("superseded one-arg product alerts list overload is dropped", () => {
+  assert.match(
+    migration,
+    /drop function if exists public\.marketplace_list_product_alerts\(uuid\)/,
+  );
+});
+
 test("product alerts migration is idempotent", () => {
   assert.match(migration, /create table if not exists public\.marketplace_product_alerts/);
   assert.match(migration, /create index if not exists|create unique index if not exists/);

@@ -91,6 +91,13 @@ test("admin reports list rpc is bounded", () => {
   assert.match(migration, /limit greatest\(p_limit, 1\)/);
 });
 
+test("superseded one-arg admin reports list overload is dropped", () => {
+  assert.match(
+    migration,
+    /drop function if exists public\.marketplace_admin_list_listing_reports\(text\)/,
+  );
+});
+
 test("listing reports migration is idempotent", () => {
   assert.match(migration, /create table if not exists public\.marketplace_listing_reports/);
   assert.match(migration, /create index if not exists/);

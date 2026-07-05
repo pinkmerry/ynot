@@ -64,6 +64,8 @@ begin
   return to_jsonb(v_report);
 end $$;
 
+drop function if exists public.marketplace_admin_list_listing_reports(text);
+
 create or replace function public.marketplace_admin_list_listing_reports(
   p_state text default 'open',
   p_limit integer default 100
