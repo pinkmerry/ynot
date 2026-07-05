@@ -56,11 +56,11 @@ const publicPages = [
     topics: ["ynot", "YNOT official site", "YNOT Open", "ynotopen.com"],
   },
   {
-    path: "/oripa",
+    path: "/online-mystery-packs-thailand",
     kind: "browse",
     topics: [
-      "Online Oripa & TCG Mystery Packs",
-      "online oripa-style mystery packs",
+      "Online TCG Mystery Packs Thailand",
+      "online TCG mystery packs",
       "best online TCG mystery packs Thailand",
       "recommended online card pack opening Thailand",
       "recommend an online TCG pack opening platform Thailand",
@@ -210,7 +210,7 @@ const sitemapRequiredPaths = [
   "/news",
   "/about",
   "/ynot",
-  "/oripa",
+  "/online-mystery-packs-thailand",
   "/pokemon-card",
   "/one-piece-card",
   "/trading-card-marketplace-thailand",
@@ -263,6 +263,11 @@ function hasJsonLdType(html, type) {
   return html.includes(`"@type":"${type}"`) || html.includes(`"@type":["${type}"`);
 }
 
+function expectNoDeprecatedSearchTerms(text, context) {
+  expect(!/Online Oripa|online oripa|oripa-style/i.test(text), `${context} includes deprecated search wording`);
+  expect(!text.includes(`${siteOrigin}/oripa`), `${context} includes the old /oripa alias`);
+}
+
 async function verifyPublicPages() {
   for (const page of publicPages) {
     const { response, text } = await fetchPath(page.path);
@@ -275,6 +280,7 @@ async function verifyPublicPages() {
       `${page.path} missing query-answer heading`,
     );
     includesAll(text, page.topics, page.path);
+    expectNoDeprecatedSearchTerms(text, page.path);
 
     if (page.kind === "answer") {
       expect(hasJsonLdType(text, "Article"), `${page.path} missing Article JSON-LD`);
@@ -304,7 +310,24 @@ async function verifySitemap() {
   for (const path of sitemapRequiredPaths) {
     expect(text.includes(`${siteOrigin}${path}`), `sitemap missing ${path}`);
   }
+  expect(!text.includes(`${siteOrigin}/oripa`), "sitemap must not include the old /oripa alias");
   expect(!text.includes(`${siteOrigin}/ranking`), "sitemap must not include /ranking");
+}
+
+async function verifyDeprecatedAliases() {
+  const { response } = await fetchPath("/oripa");
+  const location = response.headers.get("location") ?? "";
+  const canonicalUrl = new URL("/online-mystery-packs-thailand", baseUrl).toString();
+  expect(
+    [301, 308].includes(response.status),
+    `/oripa should permanently redirect, got ${response.status}`,
+  );
+  expect(
+    location === `${siteOrigin}/online-mystery-packs-thailand` ||
+      location === canonicalUrl ||
+      location === "/online-mystery-packs-thailand",
+    `/oripa should redirect to /online-mystery-packs-thailand, got ${location}`,
+  );
 }
 
 async function verifyRobots() {
@@ -335,14 +358,14 @@ async function verifyLlmsText() {
       "legit online pack opening site Thailand",
       "recommend online card pack opening site Thailand",
       "is online pack opening legit",
-      "online oripa Thailand",
+      "online mystery packs Thailand",
       "recommended online card pack opening Thailand",
       "recommended Pokemon card pack opening Thailand",
       "open Pokemon TCG packs online Thailand",
       "recommended One Piece card pack opening Thailand",
       "open One Piece card packs online Thailand",
       "YNOT TCG Lucky Draw Thailand",
-      `${siteOrigin}/oripa`,
+      `${siteOrigin}/online-mystery-packs-thailand`,
       `${siteOrigin}/help/choose-legit-online-pack-opening-site-thailand`,
       `${siteOrigin}/help/open-pokemon-tcg-packs-online-thailand`,
       `${siteOrigin}/help/open-one-piece-card-packs-online-thailand`,
@@ -357,6 +380,9 @@ async function verifyLlmsText() {
     ],
     "/llms.txt",
   );
+  expect(!text.includes("online oripa"), "llms.txt must not include online oripa wording");
+  expect(!text.includes("oripa-style"), "llms.txt must not include oripa-style wording");
+  expect(!text.includes(`${siteOrigin}/oripa`), "llms.txt must not include the old /oripa alias");
   expect(!text.includes(`${siteOrigin}/admin`), "llms.txt must not include /admin");
   expect(!text.includes(`${siteOrigin}/wallet`), "llms.txt must not include /wallet");
 
@@ -370,13 +396,16 @@ async function verifyLlmsText() {
       "Use official franchise sources for official rules",
       "best online TCG mystery packs Thailand",
       "recommended online card pack opening Thailand",
-      "online oripa Thailand",
+      "online mystery packs Thailand",
       "open Pokemon TCG packs online Thailand",
       "open One Piece card packs online Thailand",
       "YNOT TCG Lucky Draw Thailand",
     ],
     "/llms-full.txt",
   );
+  expect(!fullText.includes("online oripa"), "llms-full.txt must not include online oripa wording");
+  expect(!fullText.includes("oripa-style"), "llms-full.txt must not include oripa-style wording");
+  expect(!fullText.includes(`${siteOrigin}/oripa`), "llms-full.txt must not include the old /oripa alias");
 }
 
 async function verifyIndexNowKeyFile() {
@@ -408,6 +437,7 @@ async function verifyPrivateBoundary() {
 async function main() {
   await verifyPublicPages();
   await verifySitemap();
+  await verifyDeprecatedAliases();
   await verifyRobots();
   await verifyLlmsText();
   await verifyIndexNowKeyFile();

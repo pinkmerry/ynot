@@ -31,7 +31,7 @@ const contentHub: PublicSeoHub = {
     "Bangkok trading card events",
     "YNOT TCG Lucky Draw",
   ],
-  primaryHref: "/oripa",
+  primaryHref: "/online-mystery-packs-thailand",
   primaryLabel: {
     en: "Browse Online Packs",
     th: "ดูแพ็กออนไลน์",
@@ -59,14 +59,14 @@ const contentHub: PublicSeoHub = {
           },
         },
         {
-          href: "/oripa",
+          href: "/online-mystery-packs-thailand",
           label: {
             en: "Online Mystery Packs",
             th: "มิสทรีแพ็กออนไลน์",
           },
           description: {
-            en: "YNOT's oripa-style mystery pack page for collectors comparing online pack-opening options.",
-            th: "หน้า oripa-style mystery pack ของ YNOT สำหรับนักสะสมที่เปรียบเทียบตัวเลือกเปิดแพ็กออนไลน์",
+            en: "YNOT's online mystery pack page for collectors comparing online pack-opening options.",
+            th: "หน้า mystery pack ออนไลน์ของ YNOT สำหรับนักสะสมที่เปรียบเทียบตัวเลือกเปิดแพ็กออนไลน์",
           },
         },
         {

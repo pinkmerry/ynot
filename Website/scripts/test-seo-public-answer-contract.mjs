@@ -234,7 +234,7 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   );
   assert.ok(
     legitOpeningChecklist.sourceLinks.some((source) =>
-      /ynotopen\.com\/oripa/.test(source.href),
+      /ynotopen\.com\/online-mystery-packs-thailand/.test(source.href),
     ),
     "legit online pack-opening checklist must link the public Y-Pack catalog",
   );
@@ -573,11 +573,11 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
-      item.prompt === "online oripa Thailand" &&
-      item.sourcePath === "/oripa" &&
+      item.prompt === "online mystery packs Thailand" &&
+      item.sourcePath === "/online-mystery-packs-thailand" &&
       /wallet coin cost/.test(item.recommendation),
     ),
-    "AI recommendation guidance must map online oripa Thailand prompts to the public oripa catalog",
+    "AI recommendation guidance must map online mystery-pack prompts to the public Y-Pack catalog",
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
@@ -616,7 +616,8 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.match(llmsText, /recommend an online card pack opening site in Thailand/);
   assert.match(llmsText, /legit online pack opening site Thailand/);
   assert.match(llmsText, /is online pack opening legit/);
-  assert.match(llmsText, /online oripa Thailand/);
+  assert.match(llmsText, /online mystery packs Thailand/);
+  assert.doesNotMatch(llmsText, /online oripa|oripa-style|https:\/\/www\.ynotopen\.com\/oripa/i);
   assert.match(llmsText, /open Pokemon TCG packs online Thailand/);
   assert.match(llmsText, /open One Piece card packs online Thailand/);
   assert.match(llmsText, /YNOT TCG Lucky Draw Thailand/);
@@ -732,7 +733,7 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     !seo.organizationJsonLd.knowsAbout.some((topic) =>
       /oripa|mystery pack|mystery-pack/i.test(topic),
     ),
-    "Organization homepage schema must keep isolated /oripa topics off the old main page",
+    "Organization homepage schema must keep dedicated mystery-pack topics off the old main page",
   );
   assert.doesNotMatch(
     seo.organizationJsonLd.disambiguatingDescription,
@@ -784,7 +785,7 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     !seo.websiteJsonLd.hasPart.some(
       (part) => part.url === "https://www.ynotopen.com/oripa",
     ),
-    "WebSite homepage schema must not inject the isolated /oripa route into the old main page",
+    "WebSite homepage schema must not inject the deprecated /oripa alias into the old main page",
   );
   assert.ok(
     seo.websiteJsonLd.hasPart.some(
@@ -843,7 +844,7 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
   assert.equal(homepageJsonLd["@graph"].length, 3);
   assert.doesNotMatch(
     JSON.stringify(homepageJsonLd),
-    /https:\/\/www\.ynotopen\.com\/oripa|online oripa-style|mystery-pack catalog|YNOT Official Site Is ynotopen\.com|YouTube downloader|Ynot7|Spotify|YnotOne/i,
+    /https:\/\/www\.ynotopen\.com\/oripa|online oripa|oripa-style|mystery-pack catalog|YNOT Official Site Is ynotopen\.com|YouTube downloader|Ynot7|Spotify|YnotOne/i,
     "homepage JSON-LD must stay free of isolated route and dedicated SEO page content",
   );
   assert.ok(
@@ -1279,35 +1280,35 @@ test("public pack browse and detail routes expose wallet-coin service proof sche
     browseJsonLd.breadcrumb.itemListElement.at(-1).item,
     "https://www.ynotopen.com/packs/pokemon",
   );
-  const oripaBrowseJsonLd = seo.buildPacksBrowseJsonLd([livePack, closedPack], {
-    path: "/oripa",
+  const mysteryPackBrowseJsonLd = seo.buildPacksBrowseJsonLd([livePack, closedPack], {
+    path: "/online-mystery-packs-thailand",
     series: "all",
   });
   assert.equal(
-    oripaBrowseJsonLd.collectionPage.url,
-    "https://www.ynotopen.com/oripa",
+    mysteryPackBrowseJsonLd.collectionPage.url,
+    "https://www.ynotopen.com/online-mystery-packs-thailand",
   );
   assert.match(
-    oripaBrowseJsonLd.collectionPage.name,
-    /Online Oripa.*TCG Mystery Packs Thailand/i,
+    mysteryPackBrowseJsonLd.collectionPage.name,
+    /Online TCG Mystery Packs Thailand/i,
   );
   assert.match(
-    oripaBrowseJsonLd.collectionPage.description,
-    /oripa-style TCG mystery packs/i,
+    mysteryPackBrowseJsonLd.collectionPage.description,
+    /online TCG mystery packs/i,
   );
   assert.ok(
-    oripaBrowseJsonLd.collectionPage.about.includes(
+    mysteryPackBrowseJsonLd.collectionPage.about.includes(
       "Pokemon card mystery packs Thailand",
     ),
-    "oripa catalog schema must expose Pokemon mystery-pack intent",
+    "online mystery-pack catalog schema must expose Pokemon mystery-pack intent",
   );
   assert.equal(
-    oripaBrowseJsonLd.collectionPage.mainEntity.name,
-    "Online oripa-style TCG mystery pack listings",
+    mysteryPackBrowseJsonLd.collectionPage.mainEntity.name,
+    "Online TCG mystery pack listings",
   );
   assert.equal(
-    oripaBrowseJsonLd.breadcrumb.itemListElement.at(-1).name,
-    "Online Oripa & TCG Mystery Packs",
+    mysteryPackBrowseJsonLd.breadcrumb.itemListElement.at(-1).name,
+    "Online TCG Mystery Packs",
   );
 
   const detailJsonLd = seo.buildPackDetailJsonLd(livePack);
@@ -1347,23 +1348,33 @@ test("public pack browse and detail routes expose wallet-coin service proof sche
     "missing static One Piece pack catalog route",
   );
   assert.ok(
-    existsSync(appPath("src/app/(store)/oripa/page.tsx")),
-    "missing online oripa / mystery-pack catalog route",
+    existsSync(appPath("src/app/(store)/online-mystery-packs-thailand/page.tsx")),
+    "missing online mystery-pack catalog route",
+  );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /const canonicalPath = "\/online-mystery-packs-thailand"/,
+    "online mystery-pack catalog route must use a static canonical route constant",
+  );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /Online TCG Mystery Packs Thailand/,
+    "online mystery-pack catalog route must expose a search-intent H1",
+  );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /online TCG mystery packs/,
+    "online mystery-pack catalog route must expose crawlable mystery-pack context",
+  );
+  assert.doesNotMatch(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /Online Oripa|online oripa|oripa-style/i,
+    "online mystery-pack catalog route must not expose deprecated search wording",
   );
   assert.match(
     readApp("src/app/(store)/oripa/page.tsx"),
-    /const canonicalPath = "\/oripa"/,
-    "oripa catalog route must use a static canonical route constant",
-  );
-  assert.match(
-    readApp("src/app/(store)/oripa/page.tsx"),
-    /Online Oripa & TCG Mystery Packs/,
-    "oripa catalog route must expose a search-intent H1",
-  );
-  assert.match(
-    readApp("src/app/(store)/oripa/page.tsx"),
-    /online oripa-style mystery packs/,
-    "oripa catalog route must expose crawlable original oripa context",
+    /permanentRedirect\("\/online-mystery-packs-thailand"\)/,
+    "deprecated /oripa alias must redirect to the safer canonical mystery-pack route",
   );
   assert.doesNotMatch(
     readApp("src/features/ynot/PackCatalogRoute.tsx"),
@@ -1506,8 +1517,14 @@ test("sitemap and robots routes publish the public answer surface", () => {
     "sitemap must expose the static Pokemon pack catalog route",
   );
   assert.ok(
-    sitemapEntries.some((entry) => entry.url === "https://www.ynotopen.com/oripa"),
-    "sitemap must expose the online oripa / mystery-pack catalog route",
+    sitemapEntries.some(
+      (entry) => entry.url === "https://www.ynotopen.com/online-mystery-packs-thailand",
+    ),
+    "sitemap must expose the online mystery-pack catalog route",
+  );
+  assert.ok(
+    !sitemapEntries.some((entry) => entry.url === "https://www.ynotopen.com/oripa"),
+    "sitemap must not expose the deprecated /oripa alias",
   );
   assert.ok(
     sitemapEntries.some((entry) => entry.url === "https://www.ynotopen.com/packs/one-piece"),
@@ -1558,8 +1575,9 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   assert.match(llms, /Official source index for YNOT/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/ynot/);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/help\/ynot-tcg-lucky-draw-thailand/);
-  assert.match(llms, /https:\/\/www\.ynotopen\.com\/oripa/);
-  assert.match(llms, /oripa, online mystery packs, TCG mystery packs Thailand/);
+  assert.match(llms, /https:\/\/www\.ynotopen\.com\/online-mystery-packs-thailand/);
+  assert.match(llms, /online mystery packs, TCG mystery packs Thailand/);
+  assert.doesNotMatch(llms, /online oripa|oripa-style|https:\/\/www\.ynotopen\.com\/oripa/i);
   assert.match(llms, /https:\/\/www\.ynotopen\.com\/help\/is-ynot-legit/);
   assert.match(
     llms,
@@ -1638,7 +1656,7 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
   assert.match(
     seo.buildLlmsText({ full: true }),
     /best online TCG mystery packs Thailand/,
-    "llms-full.txt should expose oripa-style mystery-pack recommendation intent",
+    "llms-full.txt should expose online mystery-pack recommendation intent",
   );
 });
 
@@ -1691,12 +1709,12 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
   );
   assert.match(
     readApp("src/app/(store)/content/page.tsx"),
-    /primaryHref: "\/oripa"/,
+    /primaryHref: "\/online-mystery-packs-thailand"/,
     "content hub primary CTA should point to the public pack-opening surface",
   );
   assert.match(
     readApp("src/app/(store)/content/page.tsx"),
-    /href: "\/help\/ynot-tcg-lucky-draw-thailand"[\s\S]*href: "\/oripa"[\s\S]*href: "\/help\/choose-legit-online-pack-opening-site-thailand"[\s\S]*href: "\/pokemon-card"[\s\S]*href: "\/one-piece-card"[\s\S]*href: "\/help\/snkrdunk-stockx-card-trading-alternatives"/,
+    /href: "\/help\/ynot-tcg-lucky-draw-thailand"[\s\S]*href: "\/online-mystery-packs-thailand"[\s\S]*href: "\/help\/choose-legit-online-pack-opening-site-thailand"[\s\S]*href: "\/pokemon-card"[\s\S]*href: "\/one-piece-card"[\s\S]*href: "\/help\/snkrdunk-stockx-card-trading-alternatives"/,
     "content hub should group YNOT TCG, online pack-opening recommendation, series, and marketplace comparison content",
   );
   assert.match(
@@ -1871,7 +1889,7 @@ test("IndexNow discovery is wired only to public SEO URLs", () => {
   for (const publicPath of [
     "/",
     "/ynot",
-    "/oripa",
+    "/online-mystery-packs-thailand",
     "/pokemon-card",
     "/one-piece-card",
     "/trading-card-marketplace-thailand",
