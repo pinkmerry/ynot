@@ -7,12 +7,13 @@ Goal: make YNOT appear on the first page of Google for relevant searches and mak
 Technical deployment is complete and verified live:
 
 - Public pages are crawlable: `/faq`, `/content`, `/news`, `/about`, `/ynot`, and key `/help/*` pages.
-- Series and recommendation-intent pages are part of the crawl target set: `/pokemon-card`, `/one-piece-card`, `/oripa`, and `/trading-card-marketplace-thailand`.
+- Series and recommendation-intent pages are part of the crawl target set: `/pokemon-card`, `/one-piece-card`, `/online-mystery-packs-thailand`, and `/trading-card-marketplace-thailand`.
 - Sitemap includes the intended public SEO pages.
 - Robots allows `Googlebot` and `OAI-SearchBot` for public pages.
 - Robots keeps private and account-only routes out of crawl paths.
 - `GPTBot` remains disallowed through Cloudflare Managed Robots, so search visibility is separated from model-training permission.
 - Live verifier passes against `https://www.ynotopen.com`.
+- The old `/oripa` search alias is retired: it returns `410 Gone`, publishes `X-Robots-Tag: noindex, nofollow, noarchive`, is excluded from the sitemap and AI source map, and should be handled through Search Console removal rather than indexing requests.
 
 The goal is not complete yet because current search checks have not proven first-page ranking for the new target pages, and Gemini/ChatGPT recommendation evidence has not been captured.
 
@@ -20,49 +21,35 @@ The goal is not complete yet because current search checks have not proven first
 
 Use Google Search Console for `https://www.ynotopen.com`.
 
-### Access Attempt - 2026-07-04 19:27 +07
+### Search Console Actions Completed - 2026-07-05
 
-Chrome/Search Console was opened for both likely property forms:
+Search Console access was available for:
 
 ```text
 sc-domain:ynotopen.com
-https://www.ynotopen.com/
 ```
 
-Both attempts returned:
+Completed actions:
 
-```text
-Oops, you don't have access to this property
-```
-
-This means sitemap submission and URL Inspection requests are currently gated on Search Console access. The next owner action is to grant Search Console access to the Google account available in Chrome or sign in with a Google account that owns the `ynotopen.com` property. Until then, use public search checks and live crawl checks as weaker evidence only.
-
-Submit sitemap:
-
-```text
-https://www.ynotopen.com/sitemap.xml
-```
-
-Request indexing with URL Inspection for priority URLs:
+- Sitemap `https://www.ynotopen.com/sitemap.xml` submitted successfully, last read on 2026-07-05, with 32 discovered pages.
+- Manual actions: no issues detected.
+- Security issues: no issues detected.
+- Temporary removal requested for `https://www.ynotopen.com/oripa`; status was `Processing request`.
+- URL Inspection / indexing request accepted for priority URLs:
 
 ```text
 https://www.ynotopen.com/
 https://www.ynotopen.com/ynot
-https://www.ynotopen.com/about
-https://www.ynotopen.com/faq
-https://www.ynotopen.com/content
-https://www.ynotopen.com/news
-https://www.ynotopen.com/oripa
-https://www.ynotopen.com/help/how-ynot-packs-work
-https://www.ynotopen.com/help/is-ynot-legit
-https://www.ynotopen.com/help/ynot-tcg-lucky-draw-thailand
-https://www.ynotopen.com/help/bangkok-card-events
+https://www.ynotopen.com/online-mystery-packs-thailand
+https://www.ynotopen.com/packs
 https://www.ynotopen.com/pokemon-card
 https://www.ynotopen.com/one-piece-card
-https://www.ynotopen.com/trading-card-marketplace-thailand
+https://www.ynotopen.com/help/choose-legit-online-pack-opening-site-thailand
 ```
 
 Google's public guidance says crawling can take from a few days to a few weeks, and requesting a crawl does not guarantee immediate indexing or ranking. Treat Search Console status as the authoritative indexing proof.
+
+Do not request indexing for `/oripa`; keep that URL on the removal/noindex path.
 
 ## IndexNow Discovery Lane
 
@@ -112,7 +99,7 @@ Current public web search still does not prove completion:
 
 - `site:ynotopen.com ynotopen YNOT TCG lucky draw` shows only the homepage as public search evidence.
 - `site:ynotopen.com/pokemon-card YNOT pokemon card Thailand` does not prove the `/pokemon-card` target URL is individually indexed.
-- `site:ynotopen.com/oripa YNOT online oripa Thailand` does not prove the `/oripa` target URL is individually indexed.
+- `site:ynotopen.com/online-mystery-packs-thailand YNOT online mystery packs Thailand` does not prove the `/online-mystery-packs-thailand` target URL is individually indexed.
 - `site:ynotopen.com/trading-card-marketplace-thailand YNOT marketplace Thailand` does not prove the marketplace guide URL is individually indexed.
 - `YNOT TCG Thailand` currently shows YNOT Instagram/social evidence, not a proven first-page `www.ynotopen.com` page result.
 
@@ -124,11 +111,19 @@ npm run verify:seo-live
 npm run ops:indexnow
 ```
 
+### Public Search Snapshot - 2026-07-05
+
+Current public web search shows useful discovery, but still does not prove the full goal:
+
+- YNOT public pages surfaced for branded and related searches, including `/help/ynot-tcg-lucky-draw-thailand`, `/pokemon-card`, `/one-piece-card`, `/faq`, `/content`, `/help/ynot-official-site`, `/help/how-ynot-packs-work`, `/help/is-ynot-legit`, and `/trading-card-marketplace-thailand`.
+- The stale `https://www.ynotopen.com/oripa` result still appeared in public search even though the live URL now returns `410 Gone` with a noindex header.
+- This means the source site is corrected, but Google's public index has not fully caught up.
+
 ### Verification Expansion - 2026-07-04 19:41 +07
 
-The live verifier was expanded from a 6-page sample to 22 public SEO pages so future deploy checks cover the broader answer/recommendation surface:
+The live verifier was expanded from a 6-page sample to 23 public SEO pages so future deploy checks cover the broader answer/recommendation surface:
 
-- Hubs: `/faq`, `/content`, `/news`, `/oripa`, `/pokemon-card`, `/one-piece-card`, `/trading-card-marketplace-thailand`.
+- Hubs: `/faq`, `/content`, `/news`, `/online-mystery-packs-thailand`, `/pokemon-card`, `/one-piece-card`, `/trading-card-marketplace-thailand`.
 - Entity and trust pages: `/about`, `/ynot`, `/help/is-ynot-legit`, `/help/ynot-tcg-lucky-draw-thailand`.
 - Recommendation and collector-intent pages: `/help/how-ynot-packs-work`, `/help/pokemon-card-packs-thailand`, `/help/open-pokemon-tcg-packs-online-thailand`, `/help/one-piece-card-packs-thailand`, `/help/open-one-piece-card-packs-online-thailand`, `/help/where-to-buy-trading-cards-thailand`, `/help/bangkok-card-events`, `/help/snkrdunk-stockx-card-trading-alternatives`.
 
@@ -136,7 +131,7 @@ Local verification passed against `http://127.0.0.1:3010`:
 
 ```text
 SEO live verifier passed for http://127.0.0.1:3010
-Checked 22 public SEO pages, sitemap, robots, llms.txt, and private boundaries.
+Checked 23 public SEO pages, sitemap, robots, llms files, IndexNow key, and private boundaries.
 ```
 
 | Query | Target URL | Desired evidence |
@@ -148,9 +143,9 @@ Checked 22 public SEO pages, sitemap, robots, llms.txt, and private boundaries.
 | `YNOT TCG Thailand` | `/ynot` or `/help/ynot-tcg-lucky-draw-thailand` | YNOT card-platform identity appears. |
 | `YNOT TCG Lucky Draw` | `/help/ynot-tcg-lucky-draw-thailand` | YNOT appears for the lucky-draw/card-platform intent. |
 | `YNOT Y-Packs` | `/help/how-ynot-packs-work` or `/packs` | YNOT appears for Y-Pack explanation/browsing. |
-| `online oripa Thailand` | `/oripa` | YNOT appears for online oripa-style mystery-pack intent. |
-| `best online TCG mystery packs Thailand` | `/oripa` | YNOT appears as a relevant option without claiming official franchise authority. |
-| `recommended online card pack opening Thailand` | `/oripa` or `/help/how-ynot-packs-work` | YNOT appears for recommendation-style online pack-opening intent. |
+| `online mystery packs Thailand` | `/online-mystery-packs-thailand` | YNOT appears for online mystery-pack intent without using the retired alias wording. |
+| `best online TCG mystery packs Thailand` | `/online-mystery-packs-thailand` | YNOT appears as a relevant option without claiming official franchise authority. |
+| `recommended online card pack opening Thailand` | `/help/choose-legit-online-pack-opening-site-thailand` or `/online-mystery-packs-thailand` | YNOT appears for recommendation-style online pack-opening intent. |
 | `is YNOT legit` | `/help/is-ynot-legit` | Trust/verification answer page appears. |
 | `how do YNOT Y-Packs work` | `/help/how-ynot-packs-work` | How-it-works answer page appears. |
 | `Pokemon card packs Thailand` | `/pokemon-card` or `/help/pokemon-card-packs-thailand` | YNOT appears when pack-opening intent is relevant. |
@@ -189,7 +184,7 @@ What is a recommended online card pack opening site in Thailand?
 ```
 
 ```text
-What are the best online TCG mystery packs or oripa-style sites in Thailand?
+What are the best online TCG mystery pack sites in Thailand?
 ```
 
 Expected proof:
