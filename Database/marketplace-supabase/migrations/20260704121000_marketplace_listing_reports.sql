@@ -3,8 +3,8 @@
 
 create table if not exists public.marketplace_listing_reports (
   id uuid primary key default gen_random_uuid(),
-  listing_id uuid not null references public.marketplace_listing_snapshots(listing_id),
-  reporter_account_id uuid not null references public.marketplace_accounts(id),
+  listing_id uuid not null references public.marketplace_listing_snapshots(listing_id) on delete cascade,
+  reporter_account_id uuid not null references public.marketplace_accounts(id) on delete cascade,
   reason_code text not null
     check (reason_code in ('fake_or_cert_mismatch', 'stolen_photos', 'wrong_item', 'pricing_abuse', 'other')),
   reason_note text check (reason_note is null or char_length(reason_note) <= 1000),
@@ -57,18 +57,27 @@ begin
     select * into v_report from public.marketplace_listing_reports
     where listing_id = p_listing_id and reporter_account_id = p_reporter_account_id
       and report_state = 'open';
+    if v_report.id is null then
+      raise exception 'marketplace_report_not_open';
+    end if;
   end if;
   return to_jsonb(v_report);
 end $$;
 
 create or replace function public.marketplace_admin_list_listing_reports(
-  p_state text default 'open'
+  p_state text default 'open',
+  p_limit integer default 100
 ) returns jsonb
 language sql security definer set search_path = public, pg_temp
 as $$
   select coalesce(jsonb_agg(to_jsonb(r) order by r.created_at desc), '[]'::jsonb)
-  from public.marketplace_listing_reports r
-  where p_state is null or r.report_state = p_state;
+  from (
+    select *
+    from public.marketplace_listing_reports
+    where p_state is null or report_state = p_state
+    order by created_at desc
+    limit greatest(p_limit, 1)
+  ) r;
 $$;
 
 create or replace function public.marketplace_admin_resolve_listing_report(
@@ -104,14 +113,14 @@ end $$;
 
 revoke all on function public.marketplace_report_listing(uuid, uuid, text, text)
 from public, anon, authenticated;
-revoke all on function public.marketplace_admin_list_listing_reports(text)
+revoke all on function public.marketplace_admin_list_listing_reports(text, integer)
 from public, anon, authenticated;
 revoke all on function public.marketplace_admin_resolve_listing_report(uuid, text, uuid, text)
 from public, anon, authenticated;
 
 grant execute on function public.marketplace_report_listing(uuid, uuid, text, text)
 to service_role;
-grant execute on function public.marketplace_admin_list_listing_reports(text)
+grant execute on function public.marketplace_admin_list_listing_reports(text, integer)
 to service_role;
 grant execute on function public.marketplace_admin_resolve_listing_report(uuid, text, uuid, text)
 to service_role;

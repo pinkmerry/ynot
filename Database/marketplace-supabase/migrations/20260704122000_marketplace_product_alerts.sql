@@ -8,8 +8,8 @@
 
 create table if not exists public.marketplace_product_alerts (
   id uuid primary key default gen_random_uuid(),
-  product_id uuid not null references public.marketplace_products(id),
-  account_id uuid not null references public.marketplace_accounts(id),
+  product_id uuid not null references public.marketplace_products(id) on delete cascade,
+  account_id uuid not null references public.marketplace_accounts(id) on delete cascade,
   alert_state text not null default 'active'
     check (alert_state in ('active', 'cancelled', 'notified')),
   created_at timestamptz not null default now(),
@@ -78,25 +78,31 @@ begin
 end $$;
 
 create or replace function public.marketplace_list_product_alerts(
-  p_account_id uuid
+  p_account_id uuid,
+  p_limit integer default 100
 ) returns jsonb
 language sql security definer set search_path = public, pg_temp
 as $$
   select coalesce(jsonb_agg(to_jsonb(a) order by a.created_at desc), '[]'::jsonb)
-  from public.marketplace_product_alerts a
-  where a.account_id = p_account_id;
+  from (
+    select *
+    from public.marketplace_product_alerts
+    where account_id = p_account_id
+    order by created_at desc
+    limit greatest(p_limit, 1)
+  ) a;
 $$;
 
 revoke all on function public.marketplace_subscribe_product_alert(uuid, uuid)
 from public, anon, authenticated;
 revoke all on function public.marketplace_cancel_product_alert(uuid, uuid)
 from public, anon, authenticated;
-revoke all on function public.marketplace_list_product_alerts(uuid)
+revoke all on function public.marketplace_list_product_alerts(uuid, integer)
 from public, anon, authenticated;
 
 grant execute on function public.marketplace_subscribe_product_alert(uuid, uuid)
 to service_role;
 grant execute on function public.marketplace_cancel_product_alert(uuid, uuid)
 to service_role;
-grant execute on function public.marketplace_list_product_alerts(uuid)
+grant execute on function public.marketplace_list_product_alerts(uuid, integer)
 to service_role;

@@ -3,7 +3,22 @@ import "server-only";
 import {
   createMarketplaceSupabaseClient,
   marketplaceRpcError,
+  MarketplaceServiceError,
 } from "./supabase-adapter";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function assertUuid(value: string, label: string) {
+  if (!UUID_RE.test(value)) {
+    throw new MarketplaceServiceError(
+      `marketplace_${label}_invalid`,
+      "Marketplace request is invalid.",
+      400,
+    );
+  }
+  return value.toLowerCase();
+}
 
 export type MarketplaceListingReportReasonCode =
   | "fake_or_cert_mismatch"
@@ -37,6 +52,7 @@ export type ReportMarketplaceListingInput = {
 
 export type ListMarketplaceListingReportsInput = {
   state?: MarketplaceListingReportState | null;
+  limit?: number;
 };
 
 export type ResolveMarketplaceListingReportInput = {
@@ -51,8 +67,11 @@ export async function reportMarketplaceListing(
 ): Promise<MarketplaceListingReportRow> {
   const supabase = createMarketplaceSupabaseClient();
   const result = await supabase.rpc("marketplace_report_listing", {
-    p_listing_id: input.listingId,
-    p_reporter_account_id: input.reporterAccountId,
+    p_listing_id: assertUuid(input.listingId, "listing_id"),
+    p_reporter_account_id: assertUuid(
+      input.reporterAccountId,
+      "reporter_account_id",
+    ),
     p_reason_code: input.reasonCode,
     p_reason_note: input.reasonNote ?? null,
   });
@@ -66,6 +85,7 @@ export async function listMarketplaceListingReports(
   const supabase = createMarketplaceSupabaseClient();
   const result = await supabase.rpc("marketplace_admin_list_listing_reports", {
     p_state: input.state ?? "open",
+    p_limit: input.limit ?? 100,
   });
   if (result.error) throw marketplaceRpcError(result.error);
   return (result.data ?? []) as MarketplaceListingReportRow[];
@@ -78,9 +98,9 @@ export async function resolveMarketplaceListingReport(
   const result = await supabase.rpc(
     "marketplace_admin_resolve_listing_report",
     {
-      p_report_id: input.reportId,
+      p_report_id: assertUuid(input.reportId, "report_id"),
       p_resolution: input.resolution,
-      p_admin_profile_id: input.adminProfileId,
+      p_admin_profile_id: assertUuid(input.adminProfileId, "admin_profile_id"),
       p_resolution_note: input.resolutionNote ?? null,
     },
   );

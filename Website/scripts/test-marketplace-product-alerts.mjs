@@ -21,8 +21,8 @@ test("migration states notification delivery is out of scope", () => {
 
 test("product alerts table carries the required columns and checks", () => {
   assert.match(migration, /create table if not exists public\.marketplace_product_alerts/);
-  assert.match(migration, /product_id uuid not null references public\.marketplace_products\(id\)/);
-  assert.match(migration, /account_id uuid not null references public\.marketplace_accounts\(id\)/);
+  assert.match(migration, /product_id uuid not null references public\.marketplace_products\(id\) on delete cascade/);
+  assert.match(migration, /account_id uuid not null references public\.marketplace_accounts\(id\) on delete cascade/);
   assert.match(migration, /alert_state text not null default 'active'/);
   assert.match(migration, /check \(alert_state in \('active', 'cancelled', 'notified'\)\)/);
   assert.match(migration, /created_at timestamptz not null default now\(\)/);
@@ -75,7 +75,7 @@ test("product alerts rpcs exist with revoke/grant discipline", () => {
   const cancelRevokeGrant =
     /revoke all on function public\.marketplace_cancel_product_alert\([^)]*\)\s*from public, anon, authenticated;[\s\S]*?grant execute on function public\.marketplace_cancel_product_alert\([^)]*\)\s*to service_role/;
   const listRevokeGrant =
-    /revoke all on function public\.marketplace_list_product_alerts\([^)]*\)\s*from public, anon, authenticated;[\s\S]*?grant execute on function public\.marketplace_list_product_alerts\([^)]*\)\s*to service_role/;
+    /revoke all on function public\.marketplace_list_product_alerts\(uuid, integer\)\s*from public, anon, authenticated;[\s\S]*?grant execute on function public\.marketplace_list_product_alerts\(uuid, integer\)\s*to service_role/;
 
   assert.match(migration, subscribeRevokeGrant);
   assert.match(migration, cancelRevokeGrant);
@@ -88,6 +88,11 @@ test("subscribe rpc verifies the product exists before inserting", () => {
 
 test("cancel rpc raises when nothing was active to cancel", () => {
   assert.match(migration, /marketplace_alert_not_active/);
+});
+
+test("product alerts list rpc is bounded", () => {
+  assert.match(migration, /p_limit integer default 100/);
+  assert.match(migration, /limit greatest\(p_limit, 1\)/);
 });
 
 test("product alerts migration is idempotent", () => {
@@ -108,4 +113,6 @@ test("product alerts lib exists and references all three rpcs", () => {
   assert.match(lib, /export async function subscribeProductAlert/);
   assert.match(lib, /export async function cancelProductAlert/);
   assert.match(lib, /export async function listProductAlerts/);
+  assert.match(lib, /p_limit/);
+  assert.match(lib, /assertUuid/);
 });

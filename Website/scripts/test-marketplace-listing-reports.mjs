@@ -16,8 +16,8 @@ const migration = readFileSync(
 
 test("listing reports table carries the required columns and checks", () => {
   assert.match(migration, /create table if not exists public\.marketplace_listing_reports/);
-  assert.match(migration, /listing_id uuid not null references public\.marketplace_listing_snapshots\(listing_id\)/);
-  assert.match(migration, /reporter_account_id uuid not null references public\.marketplace_accounts\(id\)/);
+  assert.match(migration, /listing_id uuid not null references public\.marketplace_listing_snapshots\(listing_id\) on delete cascade/);
+  assert.match(migration, /reporter_account_id uuid not null references public\.marketplace_accounts\(id\) on delete cascade/);
   assert.match(migration, /reason_code text not null/);
   assert.match(
     migration,
@@ -70,13 +70,25 @@ test("listing reports rpcs exist with revoke/grant discipline", () => {
   const reportListingRevokeGrant =
     /revoke all on function public\.marketplace_report_listing\([^)]*\)\s*from public, anon, authenticated;[\s\S]*?grant execute on function public\.marketplace_report_listing\([^)]*\)\s*to service_role/;
   const adminListRevokeGrant =
-    /revoke all on function public\.marketplace_admin_list_listing_reports\([^)]*\)\s*from public, anon, authenticated;[\s\S]*?grant execute on function public\.marketplace_admin_list_listing_reports\([^)]*\)\s*to service_role/;
+    /revoke all on function public\.marketplace_admin_list_listing_reports\(text, integer\)\s*from public, anon, authenticated;[\s\S]*?grant execute on function public\.marketplace_admin_list_listing_reports\(text, integer\)\s*to service_role/;
   const adminResolveRevokeGrant =
     /revoke all on function public\.marketplace_admin_resolve_listing_report\([^)]*\)\s*from public, anon, authenticated;[\s\S]*?grant execute on function public\.marketplace_admin_resolve_listing_report\([^)]*\)\s*to service_role/;
 
   assert.match(migration, reportListingRevokeGrant);
   assert.match(migration, adminListRevokeGrant);
   assert.match(migration, adminResolveRevokeGrant);
+});
+
+test("report rpc guards the lost-race path against all-null returns", () => {
+  assert.match(
+    migration,
+    /and report_state = 'open';\s*if v_report\.id is null then\s*raise exception 'marketplace_report_not_open';/,
+  );
+});
+
+test("admin reports list rpc is bounded", () => {
+  assert.match(migration, /p_limit integer default 100/);
+  assert.match(migration, /limit greatest\(p_limit, 1\)/);
 });
 
 test("listing reports migration is idempotent", () => {
@@ -98,4 +110,6 @@ test("listing reports lib exists and references all three rpcs", () => {
   assert.match(lib, /export async function reportMarketplaceListing/);
   assert.match(lib, /export async function listMarketplaceListingReports/);
   assert.match(lib, /export async function resolveMarketplaceListingReport/);
+  assert.match(lib, /p_limit/);
+  assert.match(lib, /assertUuid/);
 });
