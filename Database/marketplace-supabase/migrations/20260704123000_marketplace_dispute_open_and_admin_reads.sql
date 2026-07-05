@@ -92,10 +92,13 @@ begin
 
   v_window_days := coalesce(policy_row.dispute_window_days, 3);
 
-  -- marketplace_orders has no dedicated delivered_at column, so
-  -- updated_at is used as the delivery-time proxy: the window starts
-  -- from the order's last state change, which for a completed order is
-  -- effectively its delivery/completion time.
+  -- WARNING: updated_at is an imprecise delivery proxy. marketplace_orders
+  -- has no dedicated completion timestamp, and the touch-updated-at trigger
+  -- bumps updated_at on EVERY order write, so any later update (e.g. a payout
+  -- release writing money_snapshot) pushes updated_at forward and thereby
+  -- EXTENDS the buyer's dispute window (it can never shrink it). The correct
+  -- future fix is a dedicated completed_at anchor set exactly once at
+  -- fulfilment completion and read here instead of updated_at.
   if now() > order_row.updated_at + (v_window_days || ' days')::interval then
     raise exception 'marketplace_dispute_window_closed';
   end if;
@@ -134,14 +137,20 @@ begin
   set refund_state = 'requested'
   where id = p_order_id;
 
-  -- Freeze a payout that has cleared its hold window but has not yet
-  -- been released/paid. A payout already released or paid is untouched
-  -- because the money has already moved; an already-held payout stays
-  -- held.
+  -- Defense-in-depth: pull any not-yet-released payout for this order back
+  -- to 'held' so it cannot be released while a dispute is open. This covers
+  -- a still-'held' payout (the only state the schema currently produces,
+  -- since the held->eligible maturation implied by payout_hold_days is not
+  -- built yet) and a matured 'eligible' payout once that path exists. A
+  -- payout already 'released' or 'paid' is left alone because the money has
+  -- already moved. The authoritative protection is the refund_state <> 'none'
+  -- gate in marketplace_release_seller_payout, which the order's
+  -- refund_state = 'requested' set just above already trips under the
+  -- order-row lock held by this transaction.
   update public.marketplace_seller_payouts
   set payout_state = 'held'
   where order_id = p_order_id
-    and payout_state = 'eligible';
+    and payout_state in ('held', 'eligible');
 
   -- Buyer-safe minimal projection: never return amounts, seller
   -- identity, or admin fields to the buyer who opened the dispute.
