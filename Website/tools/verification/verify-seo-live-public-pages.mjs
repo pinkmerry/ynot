@@ -327,18 +327,18 @@ async function verifySitemap() {
 }
 
 async function verifyDeprecatedAliases() {
-  const { response } = await fetchPath("/oripa");
-  const location = response.headers.get("location") ?? "";
-  const canonicalUrl = new URL("/online-mystery-packs-thailand", baseUrl).toString();
+  const { response, text } = await fetchPath("/oripa");
   expect(
-    [301, 308].includes(response.status),
-    `/oripa should permanently redirect, got ${response.status}`,
+    response.status === 410,
+    `/oripa should return 410 Gone for permanent search cleanup, got ${response.status}`,
   );
   expect(
-    location === `${siteOrigin}/online-mystery-packs-thailand` ||
-      location === canonicalUrl ||
-      location === "/online-mystery-packs-thailand",
-    `/oripa should redirect to /online-mystery-packs-thailand, got ${location}`,
+    response.headers.get("x-robots-tag")?.includes("noindex"),
+    "/oripa should publish X-Robots-Tag noindex",
+  );
+  expect(
+    text.includes("/online-mystery-packs-thailand"),
+    "/oripa gone response should point humans at the safe canonical guide",
   );
 }
 

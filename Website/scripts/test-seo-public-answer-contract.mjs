@@ -1493,9 +1493,14 @@ test("public pack browse and detail routes expose wallet-coin service proof sche
     "online mystery-pack catalog route must not expose deprecated search wording",
   );
   assert.match(
-    readApp("src/app/(store)/oripa/page.tsx"),
-    /permanentRedirect\("\/online-mystery-packs-thailand"\)/,
-    "deprecated /oripa alias must redirect to the safer canonical mystery-pack route",
+    readApp("src/app/(store)/oripa/route.ts"),
+    /status:\s*410/,
+    "deprecated /oripa alias must return 410 Gone for permanent search cleanup",
+  );
+  assert.match(
+    readApp("src/app/(store)/oripa/route.ts"),
+    /X-Robots-Tag["']:\s*["']noindex, nofollow, noarchive["']/,
+    "deprecated /oripa alias must publish an X-Robots-Tag noindex guard",
   );
   assert.doesNotMatch(
     readApp("src/features/ynot/PackCatalogRoute.tsx"),
