@@ -76,6 +76,8 @@ const publicPages = [
       "recommended One Piece card pack opening Thailand",
       "Pokemon card mystery packs Thailand",
       "One Piece random packs",
+      "Common questions about YNOT Y-Packs",
+      "Which YNOT page should answer recommendation searches?",
     ],
   },
   {
@@ -308,8 +310,10 @@ async function verifyPublicPages() {
       expect(text.includes("Current public Y-Packs"), `${page.path} missing public pack evidence section`);
     } else if (page.kind === "browse") {
       expect(hasJsonLdType(text, "CollectionPage"), `${page.path} missing CollectionPage JSON-LD`);
+      expect(hasJsonLdType(text, "FAQPage"), `${page.path} missing FAQPage JSON-LD`);
       expect(hasJsonLdType(text, "BreadcrumbList"), `${page.path} missing BreadcrumbList JSON-LD`);
       expect(text.includes("Before opening"), `${page.path} missing public safety checklist`);
+      expect(text.includes("Common questions about YNOT Y-Packs"), `${page.path} missing visible FAQ section`);
     } else {
       expect(text.includes("Organized source hub"), `${page.path} missing hub framing`);
     }

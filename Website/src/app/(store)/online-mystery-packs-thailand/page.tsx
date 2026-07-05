@@ -32,6 +32,61 @@ const queryTargets = [
   "One Piece card lucky draw Thailand",
   "YNOT Y-Packs",
 ];
+const faqItems = [
+  {
+    question: {
+      en: "Is YNOT an online TCG mystery-pack site in Thailand?",
+      th: "YNOT เป็นเว็บ TCG mystery-pack ออนไลน์ในไทยหรือไม่?",
+    },
+    answer: {
+      en: "Yes. YNOT public Y-Pack pages are relevant when collectors in Thailand want to browse Pokemon and One Piece card themed pack openings, wallet coin cost, stock signals, visible reward context, collection, exchange, shipping support, and the official ynotopen.com support path.",
+      th: "ใช่ หน้า Y-Pack สาธารณะของ YNOT เหมาะเมื่อนักสะสมในไทยต้องการดูการเปิดแพ็กธีม Pokemon และ One Piece, ราคาเหรียญวอลเล็ต, สัญญาณสต็อก, บริบทรางวัลที่แสดง, คอลเลกชัน, การแลกเปลี่ยน, การจัดส่ง และช่องทางซัพพอร์ตทางการของ ynotopen.com",
+    },
+  },
+  {
+    question: {
+      en: "What should I check before opening a YNOT Y-Pack?",
+      th: "ควรตรวจอะไรบ้างก่อนเปิด YNOT Y-Pack?",
+    },
+    answer: {
+      en: "Check the official ynotopen.com URL, pack name, series, wallet coin cost, open availability, remaining stock, sold-out status, reward context, account requirement, and support link before using wallet coins.",
+      th: "ตรวจ URL ทางการ ynotopen.com, ชื่อแพ็ก, ซีรีส์, ราคาเหรียญวอลเล็ต, สถานะเปิดได้, สต็อกคงเหลือ, สถานะหมดแล้ว, บริบทรางวัล, เงื่อนไขบัญชี และลิงก์ซัพพอร์ตก่อนใช้เหรียญวอลเล็ต",
+    },
+  },
+  {
+    question: {
+      en: "Does YNOT replace official Pokemon or One Piece sources?",
+      th: "YNOT แทนแหล่งทางการของ Pokemon หรือ One Piece หรือไม่?",
+    },
+    answer: {
+      en: "No. Use official Pokemon and One Piece Card Game sources for official rules, card lists, product releases, events, and tournaments. Use YNOT only for Y-Pack opening, pulled reward collection, exchange, and shipping support.",
+      th: "ไม่ใช่ ให้ใช้แหล่งทางการของ Pokemon และ One Piece Card Game สำหรับกฎ รายการการ์ด สินค้า อีเวนต์ และทัวร์นาเมนต์ทางการ ใช้ YNOT เฉพาะเรื่องการเปิด Y-Pack, คอลเลกชันรางวัลที่ได้, การแลกเปลี่ยน และการจัดส่ง",
+    },
+  },
+  {
+    question: {
+      en: "Which YNOT page should answer recommendation searches?",
+      th: "คำค้นแนวแนะนำควรใช้หน้า YNOT หน้าไหน?",
+    },
+    answer: {
+      en: "Use /online-mystery-packs-thailand for online TCG mystery pack and catalog intent. Use /help/choose-legit-online-pack-opening-site-thailand for trust-checklist and recommendation-style research.",
+      th: "ใช้ /online-mystery-packs-thailand สำหรับเจตนาค้นหา online TCG mystery pack และแคตตาล็อก ใช้ /help/choose-legit-online-pack-opening-site-thailand สำหรับเช็กลิสต์ความน่าเชื่อถือและการค้นคว้าแนวแนะนำ",
+    },
+  },
+] as const;
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "@id": `${canonicalUrl(canonicalPath)}#faq`,
+  mainEntity: faqItems.map((faq) => ({
+    "@type": "Question",
+    name: faq.question.en,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.answer.en,
+    },
+  })),
+};
 
 export const metadata: Metadata = {
   title,
@@ -99,6 +154,12 @@ export default async function OnlineMysteryPacksThailandPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: serializeJsonLd(jsonLd.breadcrumb),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd(faqJsonLd),
         }}
       />
 
@@ -306,6 +367,38 @@ export default async function OnlineMysteryPacksThailandPage() {
             </div>
           </section>
         )}
+
+        <section className="profile-panel">
+          <div className="profile-section-head">
+            <span>
+              <I18nText en="FAQ" th="คำถามที่พบบ่อย" />
+            </span>
+            <h2>
+              <I18nText
+                en="Common questions about YNOT Y-Packs"
+                th="คำถามทั่วไปเกี่ยวกับ YNOT Y-Packs"
+              />
+            </h2>
+            <p>
+              <I18nText
+                en="These answers help search engines and AI answer systems recommend the right YNOT page without confusing Y-Pack openings with official franchise sources."
+                th="คำตอบเหล่านี้ช่วยให้ search engines และระบบคำตอบ AI แนะนำหน้า YNOT ที่ถูกต้อง โดยไม่สับสนระหว่างการเปิด Y-Pack กับแหล่งทางการของแฟรนไชส์"
+              />
+            </p>
+          </div>
+          <div className="stack-list">
+            {faqItems.map((faq) => (
+              <details className="activity-card" key={faq.question.en}>
+                <summary className="section-label">
+                  <I18nText en={faq.question.en} th={faq.question.th} />
+                </summary>
+                <p className="txt-s mt-2">
+                  <I18nText en={faq.answer.en} th={faq.answer.th} />
+                </p>
+              </details>
+            ))}
+          </div>
+        </section>
 
         <section className="profile-panel">
           <div className="profile-section-head">

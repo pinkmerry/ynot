@@ -1516,6 +1516,21 @@ test("public pack browse and detail routes expose wallet-coin service proof sche
     /online TCG mystery packs/,
     "online mystery-pack catalog route must expose crawlable mystery-pack context",
   );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /faqJsonLd/,
+    "online mystery-pack catalog route must publish FAQPage JSON-LD for answer engines",
+  );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /Which YNOT page should answer recommendation searches\?/,
+    "online mystery-pack catalog route must answer recommendation-style searches",
+  );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /Common questions about YNOT Y-Packs/,
+    "online mystery-pack catalog route must expose a visible FAQ section",
+  );
   assert.doesNotMatch(
     readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
     /Online Oripa|online oripa|oripa-style/i,
