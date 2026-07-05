@@ -123,3 +123,73 @@ test("product alerts lib exists and references all three rpcs", () => {
   assert.match(lib, /p_limit/);
   assert.match(lib, /assertUuid/);
 });
+
+test("alerts route exists with GET, POST, and DELETE handlers", () => {
+  const routeSrc = readFileSync(
+    path.join(appRoot, "src/app/api/ynot/marketplace/alerts/route.ts"),
+    "utf8",
+  );
+  assert.match(routeSrc, /export async function GET/);
+  assert.match(routeSrc, /export async function POST/);
+  assert.match(routeSrc, /export async function DELETE/);
+});
+
+test("alerts GET handler resolves the profile, gates access, and rate limits the list", () => {
+  const routeSrc = readFileSync(
+    path.join(appRoot, "src/app/api/ynot/marketplace/alerts/route.ts"),
+    "utf8",
+  );
+  assert.match(routeSrc, /resolveCurrentProfile/);
+  assert.match(routeSrc, /customerMarketplaceAccess/);
+  assert.match(routeSrc, /ynot:marketplace:alerts:list/);
+  assert.match(routeSrc, /listProductAlerts/);
+});
+
+test("alerts POST and DELETE handlers go through prepareMarketplaceMutation with the expected allowedFields", () => {
+  const routeSrc = readFileSync(
+    path.join(appRoot, "src/app/api/ynot/marketplace/alerts/route.ts"),
+    "utf8",
+  );
+  assert.match(routeSrc, /prepareMarketplaceMutation/);
+  assert.match(routeSrc, /method:\s*"POST"/);
+  assert.match(routeSrc, /method:\s*"DELETE"/);
+  assert.match(routeSrc, /accessMode:\s*"customer"/);
+  assert.match(
+    routeSrc,
+    /allowedFields:\s*\[\s*"productId"\s*\]/,
+  );
+  assert.match(routeSrc, /ynot:marketplace:alerts:subscribe/);
+  assert.match(routeSrc, /ynot:marketplace:alerts:cancel/);
+  assert.match(routeSrc, /subscribeProductAlert/);
+  assert.match(routeSrc, /cancelProductAlert/);
+});
+
+test("alerts route derives accountId from the session account, never the request body", () => {
+  const routeSrc = readFileSync(
+    path.join(appRoot, "src/app/api/ynot/marketplace/alerts/route.ts"),
+    "utf8",
+  );
+  assert.match(routeSrc, /accountId:\s*account\.accountId/);
+  assert.doesNotMatch(routeSrc, /accountId:\s*body\./);
+});
+
+test("alerts route re-export mirrors the ynot handlers", () => {
+  const reexport = readFileSync(
+    path.join(appRoot, "src/app/api/marketplace/alerts/route.ts"),
+    "utf8",
+  );
+  assert.match(reexport, /@\/app\/api\/ynot\/marketplace\/alerts\/route/);
+  assert.match(reexport, /GET/);
+  assert.match(reexport, /POST/);
+  assert.match(reexport, /DELETE/);
+});
+
+test("new marketplace error codes for alerts, reports, and disputes are registered", () => {
+  const adapter = readFileSync(
+    path.join(appRoot, "src/lib/marketplace/supabase-adapter.ts"),
+    "utf8",
+  );
+  assert.match(adapter, /marketplace_alert_product_missing/);
+  assert.match(adapter, /marketplace_alert_not_active/);
+  assert.match(adapter, /marketplace_dispute_window_closed/);
+});

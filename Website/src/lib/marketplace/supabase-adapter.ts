@@ -102,9 +102,33 @@ const SAFE_RPC_ERRORS: Record<string, { message: string; status: number }> = {
     message: "Marketplace admin note is invalid.",
     status: 400,
   },
+  marketplace_alert_not_active: {
+    message: "Marketplace product alert is not active.",
+    status: 409,
+  },
+  marketplace_alert_product_missing: {
+    message: "Marketplace product was not found.",
+    status: 404,
+  },
   marketplace_auth_source_invalid: {
     message: "Marketplace account request is invalid.",
     status: 400,
+  },
+  marketplace_dispute_already_open: {
+    message: "A dispute is already open for this order.",
+    status: 409,
+  },
+  marketplace_dispute_not_deliverable: {
+    message: "Marketplace order is not eligible for a dispute.",
+    status: 409,
+  },
+  marketplace_dispute_reason_invalid: {
+    message: "Marketplace dispute reason is invalid.",
+    status: 400,
+  },
+  marketplace_dispute_window_closed: {
+    message: "Marketplace dispute window has closed for this order.",
+    status: 422,
   },
   marketplace_idempotency_conflict: {
     message: "Idempotency key was already used for a different request.",
@@ -145,6 +169,10 @@ const SAFE_RPC_ERRORS: Record<string, { message: string; status: number }> = {
   marketplace_listing_not_found: {
     message: "Marketplace listing was not found.",
     status: 404,
+  },
+  marketplace_listing_not_reportable: {
+    message: "Marketplace listing is not reportable.",
+    status: 409,
   },
   marketplace_listing_state_invalid: {
     message: "Marketplace listing state does not allow this action.",
@@ -248,6 +276,14 @@ const SAFE_RPC_ERRORS: Record<string, { message: string; status: number }> = {
   },
   marketplace_release_reason_invalid: {
     message: "Marketplace release reason is invalid.",
+    status: 400,
+  },
+  marketplace_report_not_open: {
+    message: "Marketplace listing report is not open.",
+    status: 409,
+  },
+  marketplace_report_resolution_invalid: {
+    message: "Marketplace report resolution is invalid.",
     status: 400,
   },
   marketplace_request_hash_invalid: {

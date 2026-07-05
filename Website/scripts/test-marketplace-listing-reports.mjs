@@ -120,3 +120,87 @@ test("listing reports lib exists and references all three rpcs", () => {
   assert.match(lib, /p_limit/);
   assert.match(lib, /assertUuid/);
 });
+
+test("listing report route exists at the ynot path with a POST handler", () => {
+  const routeSrc = readFileSync(
+    path.join(
+      appRoot,
+      "src/app/api/ynot/marketplace/listings/[listingId]/report/route.ts",
+    ),
+    "utf8",
+  );
+  assert.match(routeSrc, /export async function POST/);
+  assert.match(routeSrc, /Promise<\{\s*listingId:\s*string\s*\}>/);
+});
+
+test("listing report POST goes through prepareMarketplaceMutation with the expected allowedFields", () => {
+  const routeSrc = readFileSync(
+    path.join(
+      appRoot,
+      "src/app/api/ynot/marketplace/listings/[listingId]/report/route.ts",
+    ),
+    "utf8",
+  );
+  assert.match(routeSrc, /prepareMarketplaceMutation/);
+  assert.match(routeSrc, /method:\s*"POST"/);
+  assert.match(routeSrc, /accessMode:\s*"customer"/);
+  assert.match(
+    routeSrc,
+    /allowedFields:\s*\[\s*"reasonCode",\s*"reasonNote"\s*\]/,
+  );
+  assert.match(routeSrc, /ynot:marketplace:listings:report/);
+  assert.match(routeSrc, /reportMarketplaceListing/);
+});
+
+test("listing report route validates reasonCode against the known set before calling the lib", () => {
+  const routeSrc = readFileSync(
+    path.join(
+      appRoot,
+      "src/app/api/ynot/marketplace/listings/[listingId]/report/route.ts",
+    ),
+    "utf8",
+  );
+  assert.match(routeSrc, /fake_or_cert_mismatch/);
+  assert.match(routeSrc, /stolen_photos/);
+  assert.match(routeSrc, /wrong_item/);
+  assert.match(routeSrc, /pricing_abuse/);
+  assert.match(routeSrc, /marketplace_report_reason_invalid/);
+});
+
+test("listing report route derives listingId from the path param, not the body", () => {
+  const routeSrc = readFileSync(
+    path.join(
+      appRoot,
+      "src/app/api/ynot/marketplace/listings/[listingId]/report/route.ts",
+    ),
+    "utf8",
+  );
+  assert.match(routeSrc, /const\s*\{\s*listingId\s*\}\s*=\s*await params/);
+  assert.doesNotMatch(routeSrc, /listingId:\s*body\./);
+});
+
+test("listing report response never exposes seller identity, bank, or payout fields", () => {
+  const routeSrc = readFileSync(
+    path.join(
+      appRoot,
+      "src/app/api/ynot/marketplace/listings/[listingId]/report/route.ts",
+    ),
+    "utf8",
+  );
+  assert.doesNotMatch(routeSrc, /bank|payout_amount|seller_payout|seller_account_id/i);
+});
+
+test("listing report route re-export mirrors the ynot handler", () => {
+  const reexport = readFileSync(
+    path.join(
+      appRoot,
+      "src/app/api/marketplace/listings/[listingId]/report/route.ts",
+    ),
+    "utf8",
+  );
+  assert.match(
+    reexport,
+    /@\/app\/api\/ynot\/marketplace\/listings\/\[listingId\]\/report\/route/,
+  );
+  assert.match(reexport, /POST/);
+});

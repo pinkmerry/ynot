@@ -67,3 +67,77 @@ test("admin-orders lib calls both admin read rpcs", () => {
   assert.match(adminOrders, /marketplace_admin_list_orders/);
   assert.match(adminOrders, /marketplace_admin_daily_gmv/);
 });
+
+test("dispute route exists at the ynot path with a POST handler", () => {
+  const routeSrc = readFileSync(
+    path.join(appRoot, "src/app/api/ynot/marketplace/orders/[orderId]/dispute/route.ts"),
+    "utf8",
+  );
+  assert.match(routeSrc, /export async function POST/);
+  assert.match(routeSrc, /Promise<\{\s*orderId:\s*string\s*\}>/);
+});
+
+test("dispute POST goes through prepareMarketplaceMutation with the expected allowedFields", () => {
+  const routeSrc = readFileSync(
+    path.join(appRoot, "src/app/api/ynot/marketplace/orders/[orderId]/dispute/route.ts"),
+    "utf8",
+  );
+  assert.match(routeSrc, /prepareMarketplaceMutation/);
+  assert.match(routeSrc, /method:\s*"POST"/);
+  assert.match(routeSrc, /accessMode:\s*"customer"/);
+  assert.match(routeSrc, /allowedFields:\s*\[\s*"reason"\s*\]/);
+  assert.match(routeSrc, /ynot:marketplace:orders:dispute/);
+  assert.match(routeSrc, /openBuyerRefundRequest/);
+});
+
+test("dispute route validates reason length before calling the lib", () => {
+  const routeSrc = readFileSync(
+    path.join(appRoot, "src/app/api/ynot/marketplace/orders/[orderId]/dispute/route.ts"),
+    "utf8",
+  );
+  assert.match(routeSrc, /marketplace_dispute_reason_invalid/);
+  assert.match(routeSrc, /reason\.length\s*<\s*(MIN_REASON_LENGTH|10)/);
+  assert.match(routeSrc, /reason\.length\s*>\s*(MAX_REASON_LENGTH|1000)/);
+});
+
+test("dispute route derives orderId from the path param, not the body", () => {
+  const routeSrc = readFileSync(
+    path.join(appRoot, "src/app/api/ynot/marketplace/orders/[orderId]/dispute/route.ts"),
+    "utf8",
+  );
+  assert.match(routeSrc, /const\s*\{\s*orderId\s*\}\s*=\s*await params/);
+  assert.doesNotMatch(routeSrc, /orderId:\s*body\./);
+});
+
+test("dispute route derives accountId and buyerYnotProfileId from the session, never the request body", () => {
+  const routeSrc = readFileSync(
+    path.join(appRoot, "src/app/api/ynot/marketplace/orders/[orderId]/dispute/route.ts"),
+    "utf8",
+  );
+  assert.match(routeSrc, /accountId:\s*account\.accountId/);
+  assert.match(routeSrc, /buyerYnotProfileId:\s*profile\.profileId/);
+  assert.doesNotMatch(routeSrc, /accountId:\s*body\./);
+});
+
+test("dispute route response never exposes amounts, seller identity, bank, or payout fields", () => {
+  const routeSrc = readFileSync(
+    path.join(appRoot, "src/app/api/ynot/marketplace/orders/[orderId]/dispute/route.ts"),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    routeSrc,
+    /bank|payout_amount|seller_payout|seller_account_id|refund_amount|buyer_total_satang/i,
+  );
+});
+
+test("dispute route re-export mirrors the ynot handler", () => {
+  const reexport = readFileSync(
+    path.join(appRoot, "src/app/api/marketplace/orders/[orderId]/dispute/route.ts"),
+    "utf8",
+  );
+  assert.match(
+    reexport,
+    /@\/app\/api\/ynot\/marketplace\/orders\/\[orderId\]\/dispute\/route/,
+  );
+  assert.match(reexport, /POST/);
+});
