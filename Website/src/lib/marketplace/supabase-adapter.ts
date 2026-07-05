@@ -274,6 +274,14 @@ const SAFE_RPC_ERRORS: Record<string, { message: string; status: number }> = {
     message: "Marketplace profile is not active.",
     status: 403,
   },
+  marketplace_proof_missing: {
+    message: "No payment proof on file.",
+    status: 404,
+  },
+  marketplace_proof_url_failed: {
+    message: "Could not create proof link.",
+    status: 500,
+  },
   marketplace_release_reason_invalid: {
     message: "Marketplace release reason is invalid.",
     status: 400,

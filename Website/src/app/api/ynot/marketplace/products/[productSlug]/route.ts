@@ -36,7 +36,14 @@ export async function GET(
       productSlug,
       marketplaceQueryPlanFromUrl(request.url),
     );
-    return Response.json({ ok: true, request_id: requestId, market });
+    return Response.json(
+      { ok: true, request_id: requestId, market },
+      {
+        headers: {
+          "Cache-Control": "public, max-age=15, stale-while-revalidate=45",
+        },
+      },
+    );
   } catch (error) {
     return marketplaceErrorResponse(error, requestId);
   }

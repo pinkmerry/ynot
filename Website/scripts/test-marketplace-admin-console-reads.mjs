@@ -15,12 +15,16 @@ const RESOLVE_ROUTE =
   "src/app/api/ynot/marketplace/admin/reports/[reportId]/resolve/route.ts";
 const ORDERS_ROUTE = "src/app/api/ynot/marketplace/admin/orders/route.ts";
 const STATS_ROUTE = "src/app/api/ynot/marketplace/admin/stats/route.ts";
+const PROOF_URL_ROUTE =
+  "src/app/api/ynot/marketplace/admin/orders/[orderId]/payment-proof-url/route.ts";
 
 const REPORTS_REEXPORT = "src/app/api/marketplace/admin/reports/route.ts";
 const RESOLVE_REEXPORT =
   "src/app/api/marketplace/admin/reports/[reportId]/resolve/route.ts";
 const ORDERS_REEXPORT = "src/app/api/marketplace/admin/orders/route.ts";
 const STATS_REEXPORT = "src/app/api/marketplace/admin/stats/route.ts";
+const PROOF_URL_REEXPORT =
+  "src/app/api/marketplace/admin/orders/[orderId]/payment-proof-url/route.ts";
 
 test("all four ynot admin console route files exist", () => {
   for (const relativePath of [
@@ -147,4 +151,36 @@ test("all four ynot routes keep the server-only import guard via their libs", ()
     const libSrc = readSrc(relativePath);
     assert.match(libSrc, /^import "server-only";/m);
   }
+});
+
+test("payment-proof-url route file exists and is owner-only", () => {
+  const routeSrc = readSrc(PROOF_URL_ROUTE);
+  assert.match(routeSrc, /ownerOnlyMarketplaceAccess/);
+  assert.match(routeSrc, /if \(!access\.allowed\) return access\.response/);
+});
+
+test("payment-proof-url route creates a signed URL with a 120s TTL and no-store caching", () => {
+  const routeSrc = readSrc(PROOF_URL_ROUTE);
+  assert.match(routeSrc, /createSignedUrl/);
+  assert.match(routeSrc, /createSignedUrl\(\s*proof\.path\s*,\s*(?:PROOF_URL_TTL_SECONDS|120)\s*\)/);
+  assert.doesNotMatch(routeSrc, /createSignedUrl\([^)]*,\s*(1[3-9]\d|[2-9]\d{2}|\d{4,})\s*\)/);
+  assert.match(routeSrc, /no-store/);
+});
+
+test("payment-proof-url route re-export exists and references the ynot path", () => {
+  const reexport = readSrc(PROOF_URL_REEXPORT);
+  assert.match(
+    reexport,
+    /@\/app\/api\/ynot\/marketplace\/admin\/orders\/\[orderId\]\/payment-proof-url\/route/,
+  );
+  assert.match(reexport, /GET/);
+});
+
+test("getMarketplaceOrderProofPath exists in orders.ts and selects the latest proof", () => {
+  const ordersSrc = readSrc("src/lib/marketplace/orders.ts");
+  assert.match(ordersSrc, /export async function getMarketplaceOrderProofPath/);
+  assert.match(ordersSrc, /marketplace_payment_proofs/);
+  assert.match(ordersSrc, /proof_storage_path/);
+  assert.match(ordersSrc, /order_id/);
+  assert.match(ordersSrc, /ascending:\s*false/);
 });
