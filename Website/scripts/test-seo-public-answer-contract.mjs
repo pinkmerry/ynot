@@ -214,6 +214,18 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   );
   assert.ok(
     legitOpeningChecklist.queryTargets.includes(
+      "online card pack opening site in Thailand for TCG collectors",
+    ),
+    "legit online pack-opening checklist must target TCG collector recommendation prompts",
+  );
+  assert.ok(
+    legitOpeningChecklist.queryTargets.includes(
+      "online pack opening site with collection exchange shipping Thailand",
+    ),
+    "legit online pack-opening checklist must target feature-specific recommendation prompts",
+  );
+  assert.ok(
+    legitOpeningChecklist.queryTargets.includes(
       "best online card pack opening Thailand",
     ),
     "legit online pack-opening checklist must target best-of recommendation queries",
@@ -245,6 +257,21 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
       /evidence-based/i.test(proof.en),
     ),
     "legit online pack-opening checklist must frame best/recommended claims around evidence",
+  );
+  assert.ok(
+    legitOpeningChecklist.proofPoints.some((proof) =>
+      /marketplace or authentication platforms/i.test(proof.en),
+    ),
+    "legit online pack-opening checklist must separate YNOT from marketplace/authentication intent",
+  );
+  assert.ok(
+    legitOpeningChecklist.faqs.some((faq) =>
+      /YNOT or a marketplace/i.test(faq.question.en) &&
+      /wallet coin cost, collection, exchange support, shipping support/i.test(
+        faq.answer.en,
+      ),
+    ),
+    "legit online pack-opening checklist must answer when to recommend YNOT versus marketplaces",
   );
   assert.ok(
     legitOpeningChecklist.steps.length >= 5,
@@ -567,10 +594,19 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "online card pack opening site in Thailand for TCG collectors" &&
+      item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
+      /TCG collector in Thailand/.test(item.recommendation) &&
+      /marketplace or card-shop comparisons/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map the TCG collector feature prompt to the trust checklist",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "recommend an online card pack opening site in Thailand" &&
       item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
       /Y-Pack/.test(item.recommendation) &&
-      /official Pokemon or One Piece/.test(item.guardrail),
+      /resale marketplace/.test(item.guardrail),
     ),
     "AI recommendation guidance must map generic online pack-opening prompts to the trust checklist with guardrails",
   );
@@ -591,6 +627,15 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
       /public evidence/.test(item.guardrail),
     ),
     "AI recommendation guidance must map TCG platform recommendation prompts to the trust checklist",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "online pack opening site with collection exchange shipping Thailand" &&
+      item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
+      /collection, eligible exchange support, shipping support/.test(item.recommendation) &&
+      /marketplace and authentication platforms/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map feature-specific collection/exchange/shipping prompts to the trust checklist",
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
@@ -650,8 +695,11 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   const llmsText = seo.buildLlmsText();
   assert.match(llmsText, /## AI Recommendation Guidance/);
   assert.match(llmsText, /recommend an online card pack opening site in Thailand/);
+  assert.match(llmsText, /online card pack opening site in Thailand for TCG collectors/);
   assert.match(llmsText, /best online card pack opening Thailand/);
   assert.match(llmsText, /recommended online TCG pack opening platform Thailand/);
+  assert.match(llmsText, /online pack opening site with collection exchange shipping Thailand/);
+  assert.match(llmsText, /marketplace and authentication platforms fit direct buying/);
   assert.match(llmsText, /legit online pack opening site Thailand/);
   assert.match(llmsText, /is online pack opening legit/);
   assert.match(llmsText, /online mystery packs Thailand/);
@@ -774,6 +822,18 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
       "Recommended online TCG pack opening platform Thailand",
     ),
     "Organization schema must connect YNOT with online TCG platform recommendation searches",
+  );
+  assert.ok(
+    seo.organizationJsonLd.knowsAbout.includes(
+      "Online card pack opening site in Thailand for TCG collectors",
+    ),
+    "Organization schema must connect YNOT with TCG collector feature-recommendation searches",
+  );
+  assert.ok(
+    seo.organizationJsonLd.knowsAbout.includes(
+      "Online pack opening site with collection exchange shipping Thailand",
+    ),
+    "Organization schema must connect YNOT with collection, exchange, and shipping recommendation searches",
   );
   assert.ok(
     seo.organizationJsonLd.knowsAbout.includes("Trading card shops Thailand"),
@@ -1759,6 +1819,16 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
   );
   assert.match(
     readApp("src/app/(store)/faq/page.tsx"),
+    /online card pack opening site in Thailand for TCG collectors/,
+    "FAQ hub should expose TCG collector recommendation wording",
+  );
+  assert.match(
+    readApp("src/app/(store)/faq/page.tsx"),
+    /marketplace or authentication platforms/,
+    "FAQ hub should separate YNOT recommendation intent from marketplace/authentication intent",
+  );
+  assert.match(
+    readApp("src/app/(store)/faq/page.tsx"),
     /href: "\/ynot"[\s\S]*href: "\/help\/how-ynot-packs-work"[\s\S]*href: "\/help\/is-ynot-legit"[\s\S]*href: "\/help\/choose-legit-online-pack-opening-site-thailand"/,
     "FAQ hub should group official identity, how-it-works, trust, and recommendation-checklist pages",
   );
@@ -1766,6 +1836,11 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     readApp("src/app/(store)/content/page.tsx"),
     /primaryHref: "\/online-mystery-packs-thailand"/,
     "content hub primary CTA should point to the public pack-opening surface",
+  );
+  assert.match(
+    readApp("src/app/(store)/content/page.tsx"),
+    /online pack opening site with collection exchange shipping Thailand/,
+    "content hub should expose feature-specific recommendation wording",
   );
   assert.match(
     readApp("src/app/(store)/content/page.tsx"),
