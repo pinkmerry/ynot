@@ -96,6 +96,7 @@
     "test:marketplace-product-alerts": "node --test scripts/test-marketplace-product-alerts.mjs",
     "test:marketplace-dispute-open-admin-reads": "node --test scripts/test-marketplace-dispute-open-admin-reads.mjs",
     "test:marketplace-payout-refund-gate": "node --test scripts/test-marketplace-payout-refund-gate.mjs",
+    "test:marketplace-user-seller-payment-result": "node --test scripts/test-marketplace-user-seller-payment-result.mjs",
     "test:marketplace-one-account-flow": "node --test scripts/test-marketplace-one-account-flow.mjs",
     "test:marketplace-admin-console-reads": "node --test scripts/test-marketplace-admin-console-reads.mjs",
     "test:marketplace-public-cache-headers": "node --test scripts/test-marketplace-public-cache-headers.mjs",

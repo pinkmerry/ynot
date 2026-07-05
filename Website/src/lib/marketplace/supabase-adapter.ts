@@ -202,9 +202,17 @@ const SAFE_RPC_ERRORS: Record<string, { message: string; status: number }> = {
     message: "Marketplace order must be paid before fulfilment.",
     status: 409,
   },
+  marketplace_payment_amount_mismatch: {
+    message: "Marketplace payment amount does not match the order total.",
+    status: 409,
+  },
   marketplace_payment_duplicate: {
     message: "This payment proof was already used.",
     status: 409,
+  },
+  marketplace_payment_evidence_required: {
+    message: "Marketplace payment evidence is required.",
+    status: 422,
   },
   marketplace_payment_proof_invalid: {
     message: "Payment proof is invalid.",

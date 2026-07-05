@@ -661,6 +661,26 @@ export async function getMarketplaceOrderProofPath(
   return { bucket: PAYMENT_PROOF_BUCKET, path: row.proof_storage_path };
 }
 
+type MarketplaceOrderSourceRow = {
+  listing_source: "official_shop" | "user_seller";
+};
+
+export async function getMarketplaceOrderSource(
+  orderId: string,
+): Promise<"official_shop" | "user_seller" | null> {
+  const supabase = createMarketplaceSupabaseClient();
+  const result = await supabase
+    .from("marketplace_orders")
+    .select("listing_source")
+    .eq("id", assertUuid(orderId, "order_id"))
+    .maybeSingle();
+
+  if (result.error) throw marketplaceRpcError(result.error);
+
+  const row = result.data as unknown as MarketplaceOrderSourceRow | null;
+  return row?.listing_source ?? null;
+}
+
 export async function expireMarketplacePendingPaymentOrders(input?: {
   requestId?: string | null;
   limit?: number | null;
