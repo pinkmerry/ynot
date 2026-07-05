@@ -14,7 +14,7 @@ const priorityPaths = [
   "/faq",
   "/content",
   "/news",
-  "/oripa",
+  "/online-mystery-packs-thailand",
   "/pokemon-card",
   "/one-piece-card",
   "/trading-card-marketplace-thailand",
