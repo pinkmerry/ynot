@@ -94,6 +94,7 @@
     "test:marketplace-money-policy-trust-controls": "node --test scripts/test-marketplace-money-policy-trust-controls.mjs",
     "test:marketplace-listing-reports": "node --test scripts/test-marketplace-listing-reports.mjs",
     "test:marketplace-product-alerts": "node --test scripts/test-marketplace-product-alerts.mjs",
+    "test:marketplace-dispute-open-admin-reads": "node --test scripts/test-marketplace-dispute-open-admin-reads.mjs",
     "test:marketplace-one-account-flow": "node --test scripts/test-marketplace-one-account-flow.mjs",
     "test:marketplace-current-gate": "npm run verify:marketplace",
     "test:marketplace-api-contracts": "npm run verify:marketplace-rpc-contracts && npm run verify:marketplace-doc-traceability",
