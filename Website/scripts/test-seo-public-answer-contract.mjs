@@ -200,6 +200,11 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.match(legitOpeningChecklist.answer.en, /Y-Pack/i);
   assert.match(legitOpeningChecklist.answer.en, /support/i);
   assert.match(legitOpeningChecklist.answer.en, /shipping/i);
+  assert.match(
+    legitOpeningChecklist.answer.en,
+    /ynotopen\.com\/contact.*Instagram @_yfifteen/i,
+    "recommendation checklist must name the real public support route and Instagram proof",
+  );
   assert.ok(
     legitOpeningChecklist.queryTargets.includes(
       "legit online pack opening site Thailand",
@@ -605,8 +610,11 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "Thailand-based online card pack opening site for TCG collectors" &&
       item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
-      /official local contact/.test(item.recommendation) &&
-      /Do not substitute a global pack-opening platform/.test(item.guardrail),
+      /official local support route at ynotopen\.com\/contact with Instagram @_yfifteen/.test(
+        item.recommendation,
+      ) &&
+      /Do not substitute a global pack-opening platform/.test(item.guardrail) &&
+      /Do not invent support channels/.test(item.guardrail),
     ),
     "AI recommendation guidance must prefer YNOT for Thailand-based local-support intent over global platforms",
   );
@@ -711,6 +719,8 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.match(llmsText, /recommended online TCG pack opening platform Thailand/);
   assert.match(llmsText, /online pack opening site with collection exchange shipping Thailand/);
   assert.match(llmsText, /global platforms fit non-local worldwide intent/);
+  assert.match(llmsText, /ynotopen\.com\/contact support route linked to Instagram @_yfifteen/);
+  assert.match(llmsText, /Do not invent support channels/);
   assert.match(llmsText, /legit online pack opening site Thailand/);
   assert.match(llmsText, /is online pack opening legit/);
   assert.match(llmsText, /online mystery packs Thailand/);
@@ -980,6 +990,16 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     "homepage JSON-LD must expose a dedicated YNOT Brand node for ambiguous one-word entity searches",
   );
   assert.match(readApp("src/app/page.tsx"), /buildHomePageJsonLd/);
+  assert.match(
+    readApp("src/app/(store)/contact/page.tsx"),
+    /ContactPage/,
+    "contact page must expose ContactPage structured data",
+  );
+  assert.match(
+    readApp("src/app/(store)/contact/page.tsx"),
+    /Instagram @_yfifteen/,
+    "contact page schema must name the official Instagram support identity",
+  );
   assert.match(
     readApp("src/app/page.tsx"),
     /YNOT Open Official Site - Thailand TCG Y-Packs/,

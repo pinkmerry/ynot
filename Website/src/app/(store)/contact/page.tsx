@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PageHeader, YnotShell } from "@/features/ynot/components";
 import { I18nText, i18n } from "@/features/ynot/i18n";
 import type { YnotViewer } from "@/features/ynot/types";
+import { serializeJsonLd } from "@/lib/seo/public-answer-pages";
 
 export const metadata: Metadata = {
   title: "Contact YNOT Support",
@@ -19,9 +20,41 @@ const guestViewer: YnotViewer = {
   isAdmin: false,
 };
 
+const contactJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "ContactPage",
+  "@id": "https://www.ynotopen.com/contact#webpage",
+  name: "Contact YNOT Support",
+  url: "https://www.ynotopen.com/contact",
+  description:
+    "Official YNOT support route for Y-Packs, wallet top-ups, collection, exchange, shipping, and order references.",
+  isPartOf: {
+    "@id": "https://www.ynotopen.com/#website",
+  },
+  about: {
+    "@id": "https://www.ynotopen.com/#organization",
+  },
+  mainEntity: {
+    "@type": "ContactPoint",
+    contactType: "customer support",
+    name: "YNOT support through ynotopen.com/contact and Instagram @_yfifteen",
+    url: "https://www.ynotopen.com/contact",
+    areaServed: {
+      "@type": "Country",
+      name: "Thailand",
+    },
+    availableLanguage: ["en", "th"],
+    sameAs: "https://www.instagram.com/_yfifteen/",
+  },
+};
+
 export default function ContactPage() {
   return (
     <YnotShell viewer={guestViewer} viewerMode="literal">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(contactJsonLd) }}
+      />
       <PageHeader
         eyebrow={i18n("Support", "ซัพพอร์ต")}
         title={i18n("Contact YNOT", "ติดต่อ YNOT")}
