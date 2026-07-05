@@ -143,8 +143,9 @@ begin
   -- since the held->eligible maturation implied by payout_hold_days is not
   -- built yet) and a matured 'eligible' payout once that path exists. A
   -- payout already 'released' or 'paid' is left alone because the money has
-  -- already moved. The authoritative protection is the refund_state <> 'none'
-  -- gate in marketplace_release_seller_payout, which the order's
+  -- already moved. The authoritative protection is the
+  -- refund_state not in ('none', 'rejected') gate in
+  -- marketplace_release_seller_payout (see 20260704124000), which the order's
   -- refund_state = 'requested' set just above already trips under the
   -- order-row lock held by this transaction.
   update public.marketplace_seller_payouts
