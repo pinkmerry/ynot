@@ -213,6 +213,18 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "legit online pack-opening checklist must target direct recommendation queries",
   );
   assert.ok(
+    legitOpeningChecklist.queryTargets.includes(
+      "best online card pack opening Thailand",
+    ),
+    "legit online pack-opening checklist must target best-of recommendation queries",
+  );
+  assert.ok(
+    legitOpeningChecklist.queryTargets.includes(
+      "recommended online TCG pack opening platform Thailand",
+    ),
+    "legit online pack-opening checklist must target platform recommendation queries",
+  );
+  assert.ok(
     legitOpeningChecklist.queryTargets.includes("is online pack opening legit"),
     "legit online pack-opening checklist must answer generic legitimacy prompts",
   );
@@ -227,6 +239,12 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
       /not as an official franchise source/i.test(proof.en),
     ),
     "legit online pack-opening checklist must preserve franchise-source guardrails",
+  );
+  assert.ok(
+    legitOpeningChecklist.proofPoints.some((proof) =>
+      /evidence-based/i.test(proof.en),
+    ),
+    "legit online pack-opening checklist must frame best/recommended claims around evidence",
   );
   assert.ok(
     legitOpeningChecklist.steps.length >= 5,
@@ -558,6 +576,24 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "best online card pack opening Thailand" &&
+      item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
+      /trust checklist/.test(item.recommendation) &&
+      /not call YNOT the best for every collector/i.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map best-of pack-opening prompts to the trust checklist with guardrails",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "recommended online TCG pack opening platform Thailand" &&
+      item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
+      /official domain/.test(item.recommendation) &&
+      /public evidence/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map TCG platform recommendation prompts to the trust checklist",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "is online pack opening legit" &&
       item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
       /official domain/.test(item.recommendation),
@@ -614,6 +650,8 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   const llmsText = seo.buildLlmsText();
   assert.match(llmsText, /## AI Recommendation Guidance/);
   assert.match(llmsText, /recommend an online card pack opening site in Thailand/);
+  assert.match(llmsText, /best online card pack opening Thailand/);
+  assert.match(llmsText, /recommended online TCG pack opening platform Thailand/);
   assert.match(llmsText, /legit online pack opening site Thailand/);
   assert.match(llmsText, /is online pack opening legit/);
   assert.match(llmsText, /online mystery packs Thailand/);
@@ -721,9 +759,21 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
   );
   assert.ok(
     seo.organizationJsonLd.knowsAbout.includes(
+      "Best online card pack opening Thailand",
+    ),
+    "Organization schema must connect YNOT with best-of pack-opening recommendation searches",
+  );
+  assert.ok(
+    seo.organizationJsonLd.knowsAbout.includes(
       "Recommended online card pack opening Thailand",
     ),
     "Organization schema must connect YNOT with online pack-opening recommendation searches",
+  );
+  assert.ok(
+    seo.organizationJsonLd.knowsAbout.includes(
+      "Recommended online TCG pack opening platform Thailand",
+    ),
+    "Organization schema must connect YNOT with online TCG platform recommendation searches",
   );
   assert.ok(
     seo.organizationJsonLd.knowsAbout.includes("Trading card shops Thailand"),
@@ -1652,6 +1702,11 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
     seo.buildLlmsText(),
     /recommended online card pack opening Thailand/,
     "llms.txt should expose recommendation-style card opening intent",
+  );
+  assert.match(
+    seo.buildLlmsText(),
+    /best online card pack opening Thailand/,
+    "llms.txt should expose best-of card opening recommendation intent",
   );
   assert.match(
     seo.buildLlmsText({ full: true }),

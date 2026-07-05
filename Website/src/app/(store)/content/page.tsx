@@ -24,7 +24,9 @@ const contentHub: PublicSeoHub = {
     "Pokemon card packs Thailand",
     "One Piece card packs Thailand",
     "legit online pack opening site Thailand",
+    "best online card pack opening Thailand",
     "recommended online card pack opening Thailand",
+    "recommended online TCG pack opening platform Thailand",
     "best online TCG mystery packs Thailand",
     "where to buy trading cards Thailand",
     "trading card marketplace Thailand",
@@ -76,7 +78,7 @@ const contentHub: PublicSeoHub = {
             th: "เลือกเว็บเปิดแพ็กที่น่าเชื่อถือ",
           },
           description: {
-            en: "Safety and recommendation checklist for online TCG pack-opening sites in Thailand.",
+            en: "Safety and recommendation checklist for best or recommended online TCG pack-opening searches in Thailand.",
             th: "เช็กลิสต์ความปลอดภัยและคำแนะนำสำหรับเว็บเปิดแพ็ก TCG ออนไลน์ในไทย",
           },
         },
