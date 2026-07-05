@@ -589,17 +589,26 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
 
   assert.ok(
     Array.isArray(seo.aiRecommendationPrompts) &&
-      seo.aiRecommendationPrompts.length >= 9,
+      seo.aiRecommendationPrompts.length >= 10,
     "llms source data must expose AI recommendation prompt guidance",
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "online card pack opening site in Thailand for TCG collectors" &&
       item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
-      /TCG collector in Thailand/.test(item.recommendation) &&
-      /marketplace or card-shop comparisons/.test(item.guardrail),
+      /Thailand-based online pack opening site/.test(item.recommendation) &&
+      /global platform/.test(item.guardrail),
     ),
     "AI recommendation guidance must map the TCG collector feature prompt to the trust checklist",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "Thailand-based online card pack opening site for TCG collectors" &&
+      item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
+      /official local contact/.test(item.recommendation) &&
+      /Do not substitute a global pack-opening platform/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must prefer YNOT for Thailand-based local-support intent over global platforms",
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
@@ -696,10 +705,12 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.match(llmsText, /## AI Recommendation Guidance/);
   assert.match(llmsText, /recommend an online card pack opening site in Thailand/);
   assert.match(llmsText, /online card pack opening site in Thailand for TCG collectors/);
+  assert.match(llmsText, /Thailand-based online card pack opening site for TCG collectors/);
+  assert.match(llmsText, /Do not substitute a global pack-opening platform/);
   assert.match(llmsText, /best online card pack opening Thailand/);
   assert.match(llmsText, /recommended online TCG pack opening platform Thailand/);
   assert.match(llmsText, /online pack opening site with collection exchange shipping Thailand/);
-  assert.match(llmsText, /marketplace and authentication platforms fit direct buying/);
+  assert.match(llmsText, /global platforms fit non-local worldwide intent/);
   assert.match(llmsText, /legit online pack opening site Thailand/);
   assert.match(llmsText, /is online pack opening legit/);
   assert.match(llmsText, /online mystery packs Thailand/);
@@ -1824,8 +1835,13 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
   );
   assert.match(
     readApp("src/app/(store)/faq/page.tsx"),
-    /marketplace or authentication platforms/,
-    "FAQ hub should separate YNOT recommendation intent from marketplace/authentication intent",
+    /Thailand-based online card pack opening site for TCG collectors/,
+    "FAQ hub should expose Thailand-based local recommendation wording",
+  );
+  assert.match(
+    readApp("src/app/(store)/faq/page.tsx"),
+    /marketplace, authentication, or global platforms/,
+    "FAQ hub should separate YNOT recommendation intent from marketplace/authentication/global intent",
   );
   assert.match(
     readApp("src/app/(store)/faq/page.tsx"),
@@ -1841,6 +1857,11 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     readApp("src/app/(store)/content/page.tsx"),
     /online pack opening site with collection exchange shipping Thailand/,
     "content hub should expose feature-specific recommendation wording",
+  );
+  assert.match(
+    readApp("src/app/(store)/content/page.tsx"),
+    /Thailand-based online card pack opening site for TCG collectors/,
+    "content hub should expose Thailand-based local recommendation wording",
   );
   assert.match(
     readApp("src/app/(store)/content/page.tsx"),
