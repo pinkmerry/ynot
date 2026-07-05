@@ -66,6 +66,7 @@ test("all four re-export files exist and reference the ynot path", () => {
 test("reports GET route is owner-only and reads state query param", () => {
   const routeSrc = readSrc(REPORTS_ROUTE);
   assert.match(routeSrc, /ownerOnlyMarketplaceAccess/);
+  assert.match(routeSrc, /if \(!access\.allowed\) return access\.response/);
   assert.match(routeSrc, /listMarketplaceListingReports/);
   assert.match(routeSrc, /ynot:marketplace:admin:reports/);
 });
@@ -73,6 +74,7 @@ test("reports GET route is owner-only and reads state query param", () => {
 test("orders GET route is owner-only and reads state/limit query params", () => {
   const routeSrc = readSrc(ORDERS_ROUTE);
   assert.match(routeSrc, /ownerOnlyMarketplaceAccess/);
+  assert.match(routeSrc, /if \(!access\.allowed\) return access\.response/);
   assert.match(routeSrc, /listAdminMarketplaceOrders/);
   assert.match(routeSrc, /ynot:marketplace:admin:orders/);
 });
@@ -80,6 +82,7 @@ test("orders GET route is owner-only and reads state/limit query params", () => 
 test("stats GET route is owner-only", () => {
   const routeSrc = readSrc(STATS_ROUTE);
   assert.match(routeSrc, /ownerOnlyMarketplaceAccess/);
+  assert.match(routeSrc, /if \(!access\.allowed\) return access\.response/);
   assert.match(routeSrc, /ynot:marketplace:admin:stats/);
 });
 
@@ -93,6 +96,14 @@ test("resolve POST route uses prepareMarketplaceMutation with the expected allow
   );
   assert.doesNotMatch(routeSrc, /accessMode:\s*"customer"/);
   assert.match(routeSrc, /ynot:marketplace:admin:reports:resolve/);
+});
+
+test("resolve POST route enforces an explicit admin-role guard before the lib call", () => {
+  const routeSrc = readSrc(RESOLVE_ROUTE);
+  assert.match(routeSrc, /if \(!access\.admin\?\.adminRole\)/);
+  assert.match(routeSrc, /marketplace_admin_required/);
+  assert.match(routeSrc, /status:\s*403/);
+  assert.doesNotMatch(routeSrc, /adminProfileId:\s*access\.admin\?\.profileId\s*\?\?\s*""/);
 });
 
 test("resolve POST route validates resolution against dismissed/unlisted before calling the lib", () => {

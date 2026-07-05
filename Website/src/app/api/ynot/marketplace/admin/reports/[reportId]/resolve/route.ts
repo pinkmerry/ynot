@@ -24,6 +24,16 @@ export async function POST(
 
   const { access, body, requestId } = mutation;
 
+  if (!access.admin?.adminRole) {
+    return Response.json(
+      {
+        error: "Marketplace admin access is required.",
+        code: "marketplace_admin_required",
+      },
+      { status: 403 },
+    );
+  }
+
   try {
     if (!VALID_RESOLUTIONS.has(body.resolution as string)) {
       throw new MarketplaceServiceError(
@@ -42,7 +52,7 @@ export async function POST(
     const report = await resolveMarketplaceListingReport({
       reportId,
       resolution: String(body.resolution) as "dismissed" | "unlisted",
-      adminProfileId: access.admin?.profileId ?? "",
+      adminProfileId: access.admin.profileId,
       resolutionNote,
     });
 
