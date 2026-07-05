@@ -1307,18 +1307,19 @@ test("public series landing pages target broad card category intent", () => {
       "YNOT Y-Pack opening",
       `${page.slug} service schema must identify the Y-Pack opening flow`,
     );
-    assert.equal(
-      campaignJsonLd.collectionPage.mainEntity.itemListElement[0].item.offers
-        .priceSpecification.unitText,
-      "YNOT wallet coins per pack",
+    const campaignService = campaignJsonLd.collectionPage.mainEntity.itemListElement[0].item;
+    assert.ok(
+      campaignService.additionalProperty.some(
+        (property) =>
+          property.name === "YNOT wallet coin cost" &&
+          property.value === 150 &&
+          property.unitText === "YNOT wallet coins per pack",
+      ),
       `${page.slug} service schema must expose the visible wallet-coin cost unit`,
     );
     assert.ok(
-      !(
-        "priceCurrency" in
-        campaignJsonLd.collectionPage.mainEntity.itemListElement[0].item.offers
-      ),
-      `${page.slug} Y-Pack service schema must not invent cash currency`,
+      !("offers" in campaignService),
+      `${page.slug} Y-Pack service schema must not emit merchant Offer pricing for wallet coins`,
     );
   }
 
@@ -1386,32 +1387,40 @@ test("public pack browse and detail routes expose wallet-coin service proof sche
     !("sku" in browseJsonLd.collectionPage.mainEntity.itemListElement[0].item),
     "Y-Pack service schema must avoid merchant product sku signals",
   );
-  assert.equal(
-    browseJsonLd.collectionPage.mainEntity.itemListElement[0].item.offers
-      .priceSpecification.unitText,
-    "YNOT wallet coins per pack",
-  );
-  assert.equal(
-    browseJsonLd.collectionPage.mainEntity.itemListElement[0].item.offers
-      .availability,
-    "https://schema.org/InStock",
-  );
-  assert.equal(
-    browseJsonLd.collectionPage.mainEntity.itemListElement[1].item.offers
-      .availability,
-    "https://schema.org/SoldOut",
-  );
+  const livePackService = browseJsonLd.collectionPage.mainEntity.itemListElement[0].item;
+  const closedPackService = browseJsonLd.collectionPage.mainEntity.itemListElement[1].item;
   assert.ok(
-    !("priceCurrency" in browseJsonLd.collectionPage.mainEntity.itemListElement[0].item.offers),
-    "Y-Pack schema must not invent a THB priceCurrency for wallet coin packs",
-  );
-  assert.ok(
-    !(
-      "priceCurrency" in
-      browseJsonLd.collectionPage.mainEntity.itemListElement[0].item.offers
-        .priceSpecification
+    livePackService.additionalProperty.some(
+      (property) =>
+        property.name === "YNOT wallet coin cost" &&
+        property.value === 250 &&
+        property.unitText === "YNOT wallet coins per pack",
     ),
-    "Y-Pack priceSpecification must stay truthful to wallet coins",
+    "Y-Pack service schema must expose the visible wallet-coin cost unit",
+  );
+  assert.ok(
+    livePackService.additionalProperty.some(
+      (property) =>
+        property.name === "Schema.org availability" &&
+        property.value === "https://schema.org/InStock",
+    ),
+    "Y-Pack service schema must expose in-stock availability as service evidence",
+  );
+  assert.ok(
+    closedPackService.additionalProperty.some(
+      (property) =>
+        property.name === "Schema.org availability" &&
+        property.value === "https://schema.org/SoldOut",
+    ),
+    "Y-Pack service schema must expose sold-out availability as service evidence",
+  );
+  assert.ok(
+    !("offers" in livePackService),
+    "Y-Pack schema must not emit merchant Offer pricing for wallet coin packs",
+  );
+  assert.ok(
+    !JSON.stringify(livePackService).includes("priceCurrency"),
+    "Y-Pack schema must not invent a THB priceCurrency for wallet coin packs",
   );
   assert.equal(
     browseJsonLd.breadcrumb.itemListElement.at(-1).name,

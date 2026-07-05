@@ -3356,6 +3356,11 @@ function packOpeningServiceJsonLd(campaign: PublicPackSeoItem) {
       name: "Pack status",
       value: campaign.soldOut ? "sold out" : campaign.status,
     },
+    {
+      "@type": "PropertyValue",
+      name: "Schema.org availability",
+      value: packAvailability(campaign),
+    },
     typeof campaign.remainingSlots === "number"
       ? {
           "@type": "PropertyValue",
@@ -3397,19 +3402,6 @@ function packOpeningServiceJsonLd(campaign: PublicPackSeoItem) {
     },
     category: `${packSeriesName(campaign.series)} Y-Pack`,
     additionalProperty,
-    offers: {
-      "@type": "Offer",
-      url: canonical,
-      availability: packAvailability(campaign),
-      seller: {
-        "@id": organizationId,
-      },
-      priceSpecification: {
-        "@type": "UnitPriceSpecification",
-        price: campaign.costCoins,
-        unitText: "YNOT wallet coins per pack",
-      },
-    },
   };
 }
 
