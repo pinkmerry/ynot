@@ -92,6 +92,7 @@
     "test:marketplace-snkrdunk-parity": "node scripts/test-marketplace-snkrdunk-parity.mjs",
     "test:marketplace-customer-cart": "node --test scripts/test-marketplace-customer-cart-rpc.mjs",
     "test:marketplace-money-policy-trust-controls": "node --test scripts/test-marketplace-money-policy-trust-controls.mjs",
+    "test:marketplace-listing-reports": "node --test scripts/test-marketplace-listing-reports.mjs",
     "test:marketplace-one-account-flow": "node --test scripts/test-marketplace-one-account-flow.mjs",
     "test:marketplace-current-gate": "npm run verify:marketplace",
     "test:marketplace-api-contracts": "npm run verify:marketplace-rpc-contracts && npm run verify:marketplace-doc-traceability",
