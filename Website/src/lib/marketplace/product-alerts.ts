@@ -81,3 +81,17 @@ export async function listProductAlerts(
   if (result.error) throw marketplaceRpcError(result.error);
   return (result.data ?? []) as MarketplaceProductAlertRow[];
 }
+
+function normalizeCountResult(data: unknown) {
+  return typeof data === "number" && Number.isFinite(data) ? data : 0;
+}
+
+export async function countActiveProductAlerts(): Promise<number> {
+  const supabase = createMarketplaceSupabaseClient();
+  const result = await supabase
+    .from("marketplace_product_alerts")
+    .select("id", { count: "exact", head: true })
+    .eq("alert_state", "active");
+  if (result.error) throw marketplaceRpcError(result.error);
+  return normalizeCountResult(result.count);
+}

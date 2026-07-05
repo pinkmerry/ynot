@@ -107,3 +107,17 @@ export async function resolveMarketplaceListingReport(
   if (result.error) throw marketplaceRpcError(result.error);
   return result.data as MarketplaceListingReportRow;
 }
+
+function normalizeCountResult(data: unknown) {
+  return typeof data === "number" && Number.isFinite(data) ? data : 0;
+}
+
+export async function countOpenListingReports(): Promise<number> {
+  const supabase = createMarketplaceSupabaseClient();
+  const result = await supabase
+    .from("marketplace_listing_reports")
+    .select("id", { count: "exact", head: true })
+    .eq("report_state", "open");
+  if (result.error) throw marketplaceRpcError(result.error);
+  return normalizeCountResult(result.count);
+}

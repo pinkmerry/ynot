@@ -97,6 +97,7 @@
     "test:marketplace-dispute-open-admin-reads": "node --test scripts/test-marketplace-dispute-open-admin-reads.mjs",
     "test:marketplace-payout-refund-gate": "node --test scripts/test-marketplace-payout-refund-gate.mjs",
     "test:marketplace-one-account-flow": "node --test scripts/test-marketplace-one-account-flow.mjs",
+    "test:marketplace-admin-console-reads": "node --test scripts/test-marketplace-admin-console-reads.mjs",
     "test:marketplace-current-gate": "npm run verify:marketplace",
     "test:marketplace-api-contracts": "npm run verify:marketplace-rpc-contracts && npm run verify:marketplace-doc-traceability",
     "test:marketplace-rpc-transactions": "npm run verify:marketplace-rpc-contracts",
