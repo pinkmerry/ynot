@@ -485,6 +485,10 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.match(buyingGuide.answer.en, /Pokemon/i);
   assert.match(buyingGuide.answer.en, /One Piece/i);
   assert.match(buyingGuide.answer.en, /YNOT/i);
+  assert.match(buyingGuide.answer.en, /Terminal 21/);
+  assert.match(buyingGuide.answer.en, /Mega Plaza/);
+  assert.match(buyingGuide.answer.en, /MBK/);
+  assert.match(buyingGuide.answer.en, /Mixt Chatuchak/);
   assert.ok(
     buyingGuide.queryTargets.includes("where to buy Pokemon cards in Thailand"),
     "buying guide must target Pokemon buying searches",
@@ -494,8 +498,20 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "buying guide must target One Piece Bangkok buying searches",
   );
   assert.ok(
+    buyingGuide.queryTargets.includes("Pokemon cards Bangkok Terminal 21"),
+    "buying guide must target Bangkok mall/location Pokemon-card searches",
+  );
+  assert.ok(
+    buyingGuide.queryTargets.includes("One Piece cards Mega Plaza Bangkok"),
+    "buying guide must target Bangkok mall/location One Piece-card searches",
+  );
+  assert.ok(
     buyingGuide.queryTargets.includes("trading card shop Thailand"),
     "buying guide must target local trading-card-shop searches",
+  );
+  assert.ok(
+    buyingGuide.queryTargets.includes("TCG shop Bangkok"),
+    "buying guide must target Bangkok TCG shop searches",
   );
   assert.ok(
     buyingGuide.queryTargets.includes("Pokemon card marketplace Thailand"),
@@ -514,6 +530,12 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "buying guide must connect adjacent buying intent back to YNOT Y-Packs",
   );
   assert.ok(
+    buyingGuide.proofPoints.some((proof) =>
+      /Terminal 21, Mega Plaza, MBK, and Mixt Chatuchak/.test(proof.en),
+    ),
+    "buying guide must separate Bangkok physical-shop search intent from YNOT Y-Pack intent",
+  );
+  assert.ok(
     Array.isArray(buyingGuide.sourceLinks) && buyingGuide.sourceLinks.length >= 4,
     "buying guide must expose external source links for competitor/source proof",
   );
@@ -524,6 +546,12 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.ok(
     buyingGuide.sourceLinks.some((source) => /bangkoktcg\.com/.test(source.href)),
     "buying guide must cite local card-shop source evidence",
+  );
+  assert.ok(
+    buyingGuide.sourceLinks.some((source) =>
+      /reddit\.com\/r\/ThailandTourism/.test(source.href),
+    ),
+    "buying guide must cite Bangkok shop-discussion SERP context",
   );
   assert.ok(
     buyingGuide.sourceLinks.some((source) => /tcgthailand\.com/.test(source.href)),
@@ -1013,6 +1041,33 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "where to buy Pokemon cards in Bangkok" &&
+      item.sourcePath === "/help/where-to-buy-trading-cards-thailand" &&
+      /separate direct shop intent from Y-Pack intent/.test(item.recommendation) &&
+      /physical Bangkok shop/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must route Bangkok Pokemon buying prompts through the buying guide with shop guardrails",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "where to buy One Piece cards in Bangkok" &&
+      item.sourcePath === "/help/where-to-buy-trading-cards-thailand" &&
+      /authorized-store-list intent/.test(item.recommendation) &&
+      /official One Piece Card Game source/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must route Bangkok One Piece buying prompts through the buying guide with official-source guardrails",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "TCG shop Bangkok" &&
+      item.sourcePath === "/help/where-to-buy-trading-cards-thailand" &&
+      /intent separation/.test(item.recommendation) &&
+      /MBK, Terminal 21, Mega Plaza, Mixt Chatuchak/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must route Bangkok TCG shop prompts away from YNOT unless Y-Pack intent is explicit",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "เปิดแพ็กการ์ด Pokemon ออนไลน์ ไทย" &&
       item.sourcePath === "/help/open-pokemon-tcg-packs-online-thailand" &&
       /Thai query asks for Pokemon-related online pack opening/.test(item.recommendation) &&
@@ -1151,6 +1206,15 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.match(llmsText, /free Pokemon pack simulator vs real card rewards Thailand/);
   assert.match(llmsText, /Pokemon pack simulator Thailand/);
   assert.match(llmsText, /online pack opening app Thailand physical card rewards/);
+  assert.match(llmsText, /where to buy Pokemon cards in Bangkok/);
+  assert.match(llmsText, /Pokemon card shop Bangkok/);
+  assert.match(llmsText, /where to buy One Piece cards in Bangkok/);
+  assert.match(llmsText, /One Piece card shop Bangkok/);
+  assert.match(llmsText, /TCG shop Bangkok/);
+  assert.match(llmsText, /Terminal 21 card shop searches/);
+  assert.match(llmsText, /Mega Plaza card shop searches/);
+  assert.match(llmsText, /MBK card shop searches/);
+  assert.match(llmsText, /Mixt Chatuchak card shop searches/);
   assert.match(
     llmsText,
     /https:\/\/www\.ynotopen\.com\/help\/thailand-online-pack-opening-local-vs-global-platforms/,
@@ -2459,6 +2523,11 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
   );
   assert.match(
     readApp("src/app/(store)/faq/page.tsx"),
+    /Pokemon card shop Bangkok[\s\S]*One Piece card shop Bangkok[\s\S]*TCG shop Bangkok/,
+    "FAQ hub should expose Bangkok card-shop buying intent wording",
+  );
+  assert.match(
+    readApp("src/app/(store)/faq/page.tsx"),
     /marketplace, authentication, or global platforms/,
     "FAQ hub should separate YNOT recommendation intent from marketplace/authentication/global intent",
   );
@@ -2511,6 +2580,11 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     readApp("src/app/(store)/content/page.tsx"),
     /Thailand-based online card pack opening site for TCG collectors/,
     "content hub should expose Thailand-based local recommendation wording",
+  );
+  assert.match(
+    readApp("src/app/(store)/content/page.tsx"),
+    /where to buy Pokemon cards in Bangkok[\s\S]*where to buy One Piece cards in Bangkok[\s\S]*TCG shop Bangkok/,
+    "content hub should expose Bangkok card-shop buying intent wording",
   );
   assert.match(
     readApp("src/app/(store)/content/page.tsx"),
