@@ -7,9 +7,14 @@ import type {
   MarketplaceConditionBucket,
   MarketplaceGradeBucket,
   MarketplaceProductSort,
+  MarketplaceQueryPlan,
 } from "@/lib/marketplace/query-plan";
-import type { MarketplaceListingSource } from "@/lib/marketplace/listings";
 import type { MarketplaceBrowseFilterCounts } from "@/lib/marketplace/product-browse";
+
+// Derived from the query plan (not @/lib/marketplace/listings, which is a
+// server-only module client components must not import — see
+// scripts/test-marketplace-one-account-flow.mjs).
+type MarketplaceListingSource = NonNullable<MarketplaceQueryPlan["source"]>;
 
 /**
  * Filter rail — visuals ported from the design prototype's ProtoBrowse rail
