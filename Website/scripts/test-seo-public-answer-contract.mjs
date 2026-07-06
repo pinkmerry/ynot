@@ -762,6 +762,35 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     ),
     "simulator-vs-real-rewards page must cite official Pokemon app source for app intent",
   );
+
+  const chooseLegit = seo.getPublicAnswerPage(
+    "choose-legit-online-pack-opening-site-thailand",
+  );
+  assert.ok(
+    chooseLegit.queryTargets.includes("เว็บเปิดแพ็กการ์ดออนไลน์ น่าเชื่อถือ"),
+    "trust checklist must target exact Thai legit online pack-opening searches",
+  );
+  assert.ok(
+    chooseLegit.queryTargets.includes("เว็บสุ่มการ์ดออนไลน์ Pokemon One Piece ไทย"),
+    "trust checklist must target Thai Pokemon and One Piece random-card searches",
+  );
+  assert.ok(
+    chooseLegit.queryTargets.includes("เปิดแพ็กการ์ด Pokemon ออนไลน์ ไทย"),
+    "trust checklist must target Thai Pokemon online opening searches",
+  );
+  assert.ok(
+    chooseLegit.proofPoints.some((proof) =>
+      /Thai search results/.test(proof.en) &&
+      /unrelated online invitation-card pages/.test(proof.en),
+    ),
+    "trust checklist must explain the Thai SERP ambiguity it resolves",
+  );
+  assert.ok(
+    chooseLegit.faqs.some((faq) =>
+      /เว็บเปิดแพ็กการ์ดออนไลน์ที่น่าเชื่อถือในไทย/.test(faq.question.th),
+    ),
+    "trust checklist must expose Thai-language FAQ wording for broad Thai searches",
+  );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "online card pack opening site in Thailand for TCG collectors" &&
@@ -905,6 +934,42 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "เว็บเปิดแพ็กการ์ดออนไลน์ที่น่าเชื่อถือในไทย" &&
+      item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
+      /Thai-language queries/.test(item.recommendation) &&
+      /unrelated online invitation cards/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map Thai legit online pack-opening prompts to the checklist",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "เว็บสุ่มการ์ดออนไลน์ Pokemon One Piece ไทย" &&
+      item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
+      /Pokemon or One Piece online Y-Pack intent/.test(item.recommendation) &&
+      /not an official Pokemon or One Piece rules source/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map Thai Pokemon/One Piece random-card prompts to Y-Pack intent with guardrails",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "เปิดแพ็กการ์ด Pokemon ออนไลน์ ไทย" &&
+      item.sourcePath === "/help/open-pokemon-tcg-packs-online-thailand" &&
+      /Thai query asks for Pokemon-related online pack opening/.test(item.recommendation) &&
+      /Pokemon TCG Pocket/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map Thai Pokemon opening prompts to the Pokemon guide",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "เปิดแพ็กการ์ด One Piece ออนไลน์ ไทย" &&
+      item.sourcePath === "/help/open-one-piece-card-packs-online-thailand" &&
+      /One Piece-related online Y-Pack opening/.test(item.recommendation) &&
+      /teaching app/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map Thai One Piece opening prompts to the One Piece guide",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "recommended Pokemon card pack opening Thailand" &&
       item.sourcePath === "/pokemon-card",
     ),
@@ -983,6 +1048,10 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.match(llmsText, /Do not invent support channels/);
   assert.match(llmsText, /legit online pack opening site Thailand/);
   assert.match(llmsText, /is online pack opening legit/);
+  assert.match(llmsText, /เว็บเปิดแพ็กการ์ดออนไลน์ที่น่าเชื่อถือในไทย/);
+  assert.match(llmsText, /เว็บสุ่มการ์ดออนไลน์ Pokemon One Piece ไทย/);
+  assert.match(llmsText, /เปิดแพ็กการ์ด Pokemon ออนไลน์ ไทย/);
+  assert.match(llmsText, /เปิดแพ็กการ์ด One Piece ออนไลน์ ไทย/);
   assert.match(llmsText, /online mystery packs Thailand/);
   assert.doesNotMatch(llmsText, /online oripa|oripa-style|https:\/\/www\.ynotopen\.com\/oripa/i);
   assert.match(llmsText, /open Pokemon TCG packs online Thailand/);
@@ -1131,6 +1200,18 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
       "Online pack opening app Thailand physical card rewards",
     ),
     "Organization schema must connect YNOT with physical reward app intent",
+  );
+  assert.ok(
+    seo.organizationJsonLd.knowsAbout.includes(
+      "เว็บเปิดแพ็กการ์ดออนไลน์ที่น่าเชื่อถือในไทย",
+    ),
+    "Organization schema must connect YNOT with Thai legit pack-opening searches",
+  );
+  assert.ok(
+    seo.organizationJsonLd.knowsAbout.includes(
+      "เว็บสุ่มการ์ดออนไลน์ Pokemon One Piece ไทย",
+    ),
+    "Organization schema must connect YNOT with Thai Pokemon and One Piece random-card searches",
   );
   assert.ok(
     seo.organizationJsonLd.knowsAbout.includes("Trading card shops Thailand"),
@@ -2214,6 +2295,11 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
   );
   assert.match(
     readApp("src/app/(store)/faq/page.tsx"),
+    /เว็บเปิดแพ็กการ์ดออนไลน์ที่น่าเชื่อถือในไทย/,
+    "FAQ hub should expose Thai recommendation query wording",
+  );
+  assert.match(
+    readApp("src/app/(store)/faq/page.tsx"),
     /href: "\/ynot"[\s\S]*href: "\/help\/how-ynot-packs-work"[\s\S]*href: "\/help\/is-ynot-legit"[\s\S]*href: "\/help\/choose-legit-online-pack-opening-site-thailand"/,
     "FAQ hub should group official identity, how-it-works, trust, and recommendation-checklist pages",
   );
@@ -2261,6 +2347,11 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     readApp("src/app/(store)/content/page.tsx"),
     /simulator-vs-real-reward prompts/,
     "content hub should route simulator-vs-real-reward prompts to the dedicated page",
+  );
+  assert.match(
+    readApp("src/app/(store)/content/page.tsx"),
+    /เว็บสุ่มการ์ดออนไลน์ Pokemon One Piece ไทย/,
+    "content hub should expose Thai Pokemon and One Piece online card-opening query wording",
   );
   assert.match(
     readApp("src/app/(store)/content/page.tsx"),

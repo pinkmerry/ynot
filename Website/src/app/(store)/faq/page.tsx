@@ -38,6 +38,8 @@ const faqHub: PublicSeoHub = {
     "free Pokemon pack simulator vs real card rewards Thailand",
     "Pokemon pack simulator Thailand",
     "online pack opening app Thailand physical card rewards",
+    "เว็บเปิดแพ็กการ์ดออนไลน์ที่น่าเชื่อถือในไทย",
+    "เว็บสุ่มการ์ดออนไลน์ Pokemon One Piece ไทย",
     "YNOT wallet coins",
     "YNOT support Thailand",
     "YNOT shipping exchange help",
