@@ -24,6 +24,7 @@ const priorityPaths = [
   "/help/ynot-wallet-coins-not-crypto",
   "/help/is-ynot-legit",
   "/help/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand",
+  "/help/thailand-online-pack-opening-local-vs-global-platforms",
   "/help/ynot-tcg-lucky-draw-thailand",
   "/help/pokemon-card-packs-thailand",
   "/help/open-pokemon-tcg-packs-online-thailand",

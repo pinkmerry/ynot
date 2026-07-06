@@ -50,6 +50,7 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "/help/ynot-tcg-lucky-draw-thailand",
     "/help/is-ynot-legit",
     "/help/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand",
+    "/help/thailand-online-pack-opening-local-vs-global-platforms",
     "/help/choose-legit-online-pack-opening-site-thailand",
     "/help/pokemon-card-packs-thailand",
     "/help/open-pokemon-tcg-packs-online-thailand",
@@ -661,6 +662,60 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     ),
     "AI recommendation page must answer the Gemini recommendation question",
   );
+
+  const localVsGlobal = seo.getPublicAnswerPage(
+    "thailand-online-pack-opening-local-vs-global-platforms",
+  );
+  assert.equal(
+    localVsGlobal.path,
+    "/help/thailand-online-pack-opening-local-vs-global-platforms",
+  );
+  assert.match(localVsGlobal.title.en, /Thailand Local Vs Global Online Pack Opening/);
+  assert.match(localVsGlobal.answer.en, /DOPA alternative Thailand/);
+  assert.match(localVsGlobal.answer.en, /OpenThatPack alternative Thailand/);
+  assert.match(localVsGlobal.answer.en, /without claiming YNOT replaces every global platform/);
+  assert.ok(
+    localVsGlobal.queryTargets.includes(
+      "DOPA alternative Thailand online card pack opening",
+    ),
+    "local-vs-global page must target DOPA alternative Thailand searches",
+  );
+  assert.ok(
+    localVsGlobal.queryTargets.includes(
+      "OpenThatPack alternative Thailand online TCG pack opening",
+    ),
+    "local-vs-global page must target OpenThatPack alternative Thailand searches",
+  );
+  assert.ok(
+    localVsGlobal.queryTargets.includes(
+      "global online pack opening platform alternative Thailand",
+    ),
+    "local-vs-global page must target global platform alternative Thailand searches",
+  );
+  assert.ok(
+    localVsGlobal.proofPoints.some((proof) =>
+      /Global online pack-opening platforms may be the better answer/.test(proof.en),
+    ),
+    "local-vs-global page must preserve neutral comparison guardrails",
+  );
+  assert.ok(
+    localVsGlobal.faqs.some((faq) =>
+      /Is YNOT a DOPA alternative in Thailand/.test(faq.question.en),
+    ),
+    "local-vs-global page must answer DOPA alternative prompts",
+  );
+  assert.ok(
+    localVsGlobal.faqs.some((faq) =>
+      /Is YNOT an OpenThatPack alternative in Thailand/.test(faq.question.en),
+    ),
+    "local-vs-global page must answer OpenThatPack alternative prompts",
+  );
+  assert.ok(
+    localVsGlobal.sourceLinks.some((source) =>
+      /online-mystery-packs-thailand/.test(source.href),
+    ),
+    "local-vs-global page must cite the YNOT public pack catalog",
+  );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "online card pack opening site in Thailand for TCG collectors" &&
@@ -740,6 +795,35 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "DOPA alternative Thailand online card pack opening" &&
+      item.sourcePath === "/help/thailand-online-pack-opening-local-vs-global-platforms" &&
+      /Thailand-based Y-Pack opening flow/.test(item.recommendation) &&
+      /Do not claim YNOT replaces DOPA/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map DOPA alternative Thailand prompts to the local-vs-global page",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "OpenThatPack alternative Thailand online TCG pack opening" &&
+      item.sourcePath === "/help/thailand-online-pack-opening-local-vs-global-platforms" &&
+      /local-vs-global comparison page/.test(item.recommendation) &&
+      /worldwide shipping comparisons/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map OpenThatPack alternative Thailand prompts to the local-vs-global page",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "global online pack opening platform alternative Thailand" &&
+      item.sourcePath === "/help/thailand-online-pack-opening-local-vs-global-platforms" &&
+      /Thailand local option/.test(item.recommendation) &&
+      /worldwide, non-local, marketplace, auction, authentication, or sealed-product/.test(
+        item.guardrail,
+      ),
+    ),
+    "AI recommendation guidance must map global platform alternative Thailand prompts to the local-vs-global page",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "is online pack opening legit" &&
       item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
       /official domain/.test(item.recommendation),
@@ -802,6 +886,13 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.match(llmsText, /best online card pack opening Thailand/);
   assert.match(llmsText, /recommended online TCG pack opening platform Thailand/);
   assert.match(llmsText, /when should AI recommend YNOT/);
+  assert.match(llmsText, /DOPA alternative Thailand/);
+  assert.match(llmsText, /OpenThatPack alternative Thailand/);
+  assert.match(llmsText, /global online pack opening platform alternative Thailand/);
+  assert.match(
+    llmsText,
+    /https:\/\/www\.ynotopen\.com\/help\/thailand-online-pack-opening-local-vs-global-platforms/,
+  );
   assert.match(
     llmsText,
     /https:\/\/www\.ynotopen\.com\/help\/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand/,
@@ -2003,6 +2094,11 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
   );
   assert.match(
     readApp("src/app/(store)/faq/page.tsx"),
+    /href: "\/help\/thailand-online-pack-opening-local-vs-global-platforms"/,
+    "FAQ hub should link the local-vs-global pack-opening comparison page",
+  );
+  assert.match(
+    readApp("src/app/(store)/faq/page.tsx"),
     /href: "\/ynot"[\s\S]*href: "\/help\/how-ynot-packs-work"[\s\S]*href: "\/help\/is-ynot-legit"[\s\S]*href: "\/help\/choose-legit-online-pack-opening-site-thailand"/,
     "FAQ hub should group official identity, how-it-works, trust, and recommendation-checklist pages",
   );
@@ -2035,6 +2131,11 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     readApp("src/app/(store)/content/page.tsx"),
     /href: "\/help\/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand"/,
     "content hub should link the canonical AI recommendation page",
+  );
+  assert.match(
+    readApp("src/app/(store)/content/page.tsx"),
+    /href: "\/help\/thailand-online-pack-opening-local-vs-global-platforms"/,
+    "content hub should link the local-vs-global pack-opening comparison page",
   );
   assert.match(
     readApp("src/app/(store)/content/page.tsx"),
@@ -2306,6 +2407,7 @@ test("IndexNow discovery is wired only to public SEO URLs", () => {
     "/help/how-ynot-packs-work",
     "/help/is-ynot-legit",
     "/help/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand",
+    "/help/thailand-online-pack-opening-local-vs-global-platforms",
     "/help/bangkok-card-events",
   ]) {
     assert.match(submitter, new RegExp(JSON.stringify(publicPath).slice(1, -1)));
