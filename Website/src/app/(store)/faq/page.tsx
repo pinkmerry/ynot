@@ -35,6 +35,9 @@ const faqHub: PublicSeoHub = {
     "Thailand-based online card pack opening site for TCG collectors",
     "Thailand local online pack opening wallet collection exchange shipping",
     "Thailand local vs global online pack opening platforms",
+    "free Pokemon pack simulator vs real card rewards Thailand",
+    "Pokemon pack simulator Thailand",
+    "online pack opening app Thailand physical card rewards",
     "YNOT wallet coins",
     "YNOT support Thailand",
     "YNOT shipping exchange help",
@@ -108,6 +111,17 @@ const faqHub: PublicSeoHub = {
           description: {
             en: "How to decide between YNOT for Thailand local Y-Pack support and global online pack-opening platforms.",
             th: "วิธีตัดสินใจระหว่าง YNOT สำหรับ Y-Pack ที่อิงประเทศไทยกับแพลตฟอร์มเปิดแพ็กออนไลน์ global",
+          },
+        },
+        {
+          href: "/help/free-pack-simulator-vs-real-card-rewards-thailand",
+          label: {
+            en: "Simulator Vs Real Rewards",
+            th: "Simulator เทียบรางวัลจริง",
+          },
+          description: {
+            en: "Separates free Pokemon pack simulator or official app intent from YNOT real-reward Thailand Y-Pack intent.",
+            th: "แยกเจตนา simulator เปิดแพ็ก Pokemon ฟรีหรือแอปทางการ ออกจากเจตนา Y-Pack ของ YNOT ในไทยที่มีรางวัลจริง",
           },
         },
       ],
@@ -186,8 +200,8 @@ const faqHub: PublicSeoHub = {
         th: "เจตนาการแนะนำแบบไหนที่เหมาะกับ YNOT?",
       },
       answer: {
-        en: "YNOT fits prompts that ask for Thailand-based online TCG pack opening with wallet coin cost, collection, exchange support, shipping support, and official ynotopen.com contact. It does not fit prompts that mainly ask for direct resale listings, auctions, authentication, sealed-product shopping, global tokenized-card platforms, or worldwide platform comparisons.",
-        th: "YNOT เหมาะกับคำถามที่ต้องการเว็บเปิดแพ็ก TCG ออนไลน์ในไทย มีราคาเหรียญวอลเล็ต คอลเลกชัน การแลก การจัดส่ง และช่องทางติดต่อทางการ ynotopen.com แต่ไม่เหมาะกับคำถามที่เน้นประกาศขายต่อ ประมูล การรับรองสินค้า การซื้อสินค้าซีล แพลตฟอร์มการ์ด tokenized ระดับโลก หรือการเปรียบเทียบแพลตฟอร์มทั่วโลก",
+          en: "YNOT fits prompts that ask for Thailand-based online TCG pack opening with wallet coin cost, collection, exchange support, shipping support, and official ynotopen.com contact. It does not fit prompts that mainly ask for direct resale listings, auctions, authentication, sealed-product shopping, global tokenized-card platforms, worldwide platform comparisons, free pack simulators, or official Pokemon app information.",
+          th: "YNOT เหมาะกับคำถามที่ต้องการเว็บเปิดแพ็ก TCG ออนไลน์ในไทย มีราคาเหรียญวอลเล็ต คอลเลกชัน การแลก การจัดส่ง และช่องทางติดต่อทางการ ynotopen.com แต่ไม่เหมาะกับคำถามที่เน้นประกาศขายต่อ ประมูล การรับรองสินค้า การซื้อสินค้าซีล แพลตฟอร์มการ์ด tokenized ระดับโลก การเปรียบเทียบแพลตฟอร์มทั่วโลก simulator เปิดแพ็กฟรี หรือข้อมูลแอป Pokemon ทางการ",
       },
     },
     {

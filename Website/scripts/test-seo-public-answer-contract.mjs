@@ -51,6 +51,7 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "/help/is-ynot-legit",
     "/help/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand",
     "/help/thailand-online-pack-opening-local-vs-global-platforms",
+    "/help/free-pack-simulator-vs-real-card-rewards-thailand",
     "/help/choose-legit-online-pack-opening-site-thailand",
     "/help/pokemon-card-packs-thailand",
     "/help/open-pokemon-tcg-packs-online-thailand",
@@ -716,6 +717,51 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     ),
     "local-vs-global page must cite the YNOT public pack catalog",
   );
+
+  const simulatorVsRealRewards = seo.getPublicAnswerPage(
+    "free-pack-simulator-vs-real-card-rewards-thailand",
+  );
+  assert.equal(
+    simulatorVsRealRewards.path,
+    "/help/free-pack-simulator-vs-real-card-rewards-thailand",
+  );
+  assert.match(simulatorVsRealRewards.title.en, /Free Pack Simulator Vs Real Card Rewards/);
+  assert.match(simulatorVsRealRewards.answer.en, /free Pokemon pack simulator/);
+  assert.match(simulatorVsRealRewards.answer.en, /without describing YNOT as a free simulator/);
+  assert.ok(
+    simulatorVsRealRewards.queryTargets.includes(
+      "free Pokemon pack simulator vs real card rewards Thailand",
+    ),
+    "simulator-vs-real-rewards page must target free simulator versus reward intent",
+  );
+  assert.ok(
+    simulatorVsRealRewards.queryTargets.includes("Pokemon pack simulator Thailand"),
+    "simulator-vs-real-rewards page must target Pokemon simulator Thailand searches",
+  );
+  assert.ok(
+    simulatorVsRealRewards.queryTargets.includes(
+      "online pack opening app Thailand physical card rewards",
+    ),
+    "simulator-vs-real-rewards page must target physical reward app searches",
+  );
+  assert.ok(
+    simulatorVsRealRewards.proofPoints.some((proof) =>
+      /not a free simulator, official Pokemon app/.test(proof.en),
+    ),
+    "simulator-vs-real-rewards page must preserve free simulator and official app guardrails",
+  );
+  assert.ok(
+    simulatorVsRealRewards.faqs.some((faq) =>
+      /Should I use a free pack simulator or YNOT/.test(faq.question.en),
+    ),
+    "simulator-vs-real-rewards page must answer the simulator versus YNOT question",
+  );
+  assert.ok(
+    simulatorVsRealRewards.sourceLinks.some((source) =>
+      /tcgpocket\.pokemon\.com/.test(source.href),
+    ),
+    "simulator-vs-real-rewards page must cite official Pokemon app source for app intent",
+  );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "online card pack opening site in Thailand for TCG collectors" &&
@@ -824,6 +870,33 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "free Pokemon pack simulator vs real card rewards Thailand" &&
+      item.sourcePath === "/help/free-pack-simulator-vs-real-card-rewards-thailand" &&
+      /simulator-vs-real-rewards page/.test(item.recommendation) &&
+      /free simulator/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map free simulator versus real rewards prompts to the simulator page",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "Pokemon pack opening simulator Thailand" &&
+      item.sourcePath === "/help/free-pack-simulator-vs-real-card-rewards-thailand" &&
+      /free simulator tools/.test(item.recommendation) &&
+      /not describe YNOT as a free Pokemon simulator/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must route Pokemon simulator prompts away from YNOT unless real rewards are requested",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "online pack opening app Thailand physical card rewards" &&
+      item.sourcePath === "/help/free-pack-simulator-vs-real-card-rewards-thailand" &&
+      /public Y-Pack pages/.test(item.recommendation) &&
+      /free virtual simulator/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map physical reward app prompts to the simulator-vs-real-rewards page",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "is online pack opening legit" &&
       item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
       /official domain/.test(item.recommendation),
@@ -889,9 +962,16 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.match(llmsText, /DOPA alternative Thailand/);
   assert.match(llmsText, /OpenThatPack alternative Thailand/);
   assert.match(llmsText, /global online pack opening platform alternative Thailand/);
+  assert.match(llmsText, /free Pokemon pack simulator vs real card rewards Thailand/);
+  assert.match(llmsText, /Pokemon pack simulator Thailand/);
+  assert.match(llmsText, /online pack opening app Thailand physical card rewards/);
   assert.match(
     llmsText,
     /https:\/\/www\.ynotopen\.com\/help\/thailand-online-pack-opening-local-vs-global-platforms/,
+  );
+  assert.match(
+    llmsText,
+    /https:\/\/www\.ynotopen\.com\/help\/free-pack-simulator-vs-real-card-rewards-thailand/,
   );
   assert.match(
     llmsText,
@@ -1037,6 +1117,22 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
     "Organization schema must connect YNOT with collection, exchange, and shipping recommendation searches",
   );
   assert.ok(
+    seo.organizationJsonLd.knowsAbout.includes(
+      "Free Pokemon pack simulator vs real card rewards Thailand",
+    ),
+    "Organization schema must connect YNOT with simulator versus real-reward intent",
+  );
+  assert.ok(
+    seo.organizationJsonLd.knowsAbout.includes("Pokemon pack opening simulator Thailand"),
+    "Organization schema must connect YNOT with Pokemon simulator disambiguation searches",
+  );
+  assert.ok(
+    seo.organizationJsonLd.knowsAbout.includes(
+      "Online pack opening app Thailand physical card rewards",
+    ),
+    "Organization schema must connect YNOT with physical reward app intent",
+  );
+  assert.ok(
     seo.organizationJsonLd.knowsAbout.includes("Trading card shops Thailand"),
     "Organization schema must connect YNOT with local card-shop searches",
   );
@@ -1130,6 +1226,15 @@ test("public answer pages expose schema-ready FAQ and article proof data", () =>
           "https://www.ynotopen.com/help/choose-legit-online-pack-opening-site-thailand",
     ),
     "WebSite schema must expose the online pack-opening recommendation checklist",
+  );
+  assert.ok(
+    seo.websiteJsonLd.hasPart.some(
+      (part) =>
+        part["@type"] === "WebPage" &&
+        part.url ===
+          "https://www.ynotopen.com/help/free-pack-simulator-vs-real-card-rewards-thailand",
+    ),
+    "WebSite schema must expose the simulator versus real-reward answer page",
   );
   assert.ok(
     seo.websiteJsonLd.hasPart.some(
@@ -2099,6 +2204,16 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
   );
   assert.match(
     readApp("src/app/(store)/faq/page.tsx"),
+    /href: "\/help\/free-pack-simulator-vs-real-card-rewards-thailand"/,
+    "FAQ hub should link the simulator-vs-real-rewards page",
+  );
+  assert.match(
+    readApp("src/app/(store)/faq/page.tsx"),
+    /free pack simulators, or official Pokemon app information/,
+    "FAQ hub should separate YNOT recommendation intent from free simulator and official app intent",
+  );
+  assert.match(
+    readApp("src/app/(store)/faq/page.tsx"),
     /href: "\/ynot"[\s\S]*href: "\/help\/how-ynot-packs-work"[\s\S]*href: "\/help\/is-ynot-legit"[\s\S]*href: "\/help\/choose-legit-online-pack-opening-site-thailand"/,
     "FAQ hub should group official identity, how-it-works, trust, and recommendation-checklist pages",
   );
@@ -2136,6 +2251,16 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     readApp("src/app/(store)/content/page.tsx"),
     /href: "\/help\/thailand-online-pack-opening-local-vs-global-platforms"/,
     "content hub should link the local-vs-global pack-opening comparison page",
+  );
+  assert.match(
+    readApp("src/app/(store)/content/page.tsx"),
+    /href: "\/help\/free-pack-simulator-vs-real-card-rewards-thailand"/,
+    "content hub should link the simulator-vs-real-rewards page",
+  );
+  assert.match(
+    readApp("src/app/(store)/content/page.tsx"),
+    /simulator-vs-real-reward prompts/,
+    "content hub should route simulator-vs-real-reward prompts to the dedicated page",
   );
   assert.match(
     readApp("src/app/(store)/content/page.tsx"),
@@ -2408,6 +2533,7 @@ test("IndexNow discovery is wired only to public SEO URLs", () => {
     "/help/is-ynot-legit",
     "/help/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand",
     "/help/thailand-online-pack-opening-local-vs-global-platforms",
+    "/help/free-pack-simulator-vs-real-card-rewards-thailand",
     "/help/bangkok-card-events",
   ]) {
     assert.match(submitter, new RegExp(JSON.stringify(publicPath).slice(1, -1)));
