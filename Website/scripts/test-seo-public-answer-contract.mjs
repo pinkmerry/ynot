@@ -558,18 +558,31 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     bangkokEvents.queryTargets.includes("Card Addicted Rembrandt Hotel Bangkok"),
     "Bangkok event page must target the Rembrandt Hotel event query",
   );
+  assert.ok(
+    bangkokEvents.queryTargets.includes("buy sell trade card event Bangkok"),
+    "Bangkok event page must target the buy-sell-trade card event query",
+  );
   assert.match(
     bangkokEvents.answer.en,
     /Card Addicted Thailand Card Exhibition[\s\S]*Rembrandt Hotel Bangkok/,
     "Bangkok event page must expose the current event watch in the direct answer",
+  );
+  assert.match(
+    bangkokEvents.answer.en,
+    /more than 70 shops[\s\S]*Pokemon[\s\S]*One Piece[\s\S]*Dragon Ball[\s\S]*Lorcana[\s\S]*sports card/,
+    "Bangkok event page must expose verified Ticketmelon event category details",
   );
   assert.ok(
     bangkokEvents.sourceLinks.some((source) => /ticketmelon\.com\/cardaddicted\/tce1st/.test(source.href)),
     "Bangkok event page must cite the public Ticketmelon event source",
   );
   assert.ok(
-    bangkokEvents.sourceLinks.some((source) => /bkk-events\.com\/events\/thailand-card-exhibition/.test(source.href)),
-    "Bangkok event page must cite the public BKK Events listing",
+    bangkokEvents.sourceLinks.some((source) => /rembrandthotelbangkok\.com\/meeting-events/.test(source.href)),
+    "Bangkok event page must cite the official Rembrandt Hotel venue source",
+  );
+  assert.ok(
+    !bangkokEvents.sourceLinks.some((source) => /bkk-events\.com\/events\/thailand-card-exhibition/.test(source.href)),
+    "Bangkok event page should not cite the secondary BKK Events listing because its structured venue data conflicts with Ticketmelon",
   );
   assert.ok(
     bangkokEvents.queryTargets.includes("YNOT TCG VIP Card International Expo"),
@@ -2459,6 +2472,16 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
   );
   assert.match(
     readApp("src/app/(store)/news/page.tsx"),
+    /buy-sell-trade[\s\S]*more than 70 shops[\s\S]*Pokemon[\s\S]*One Piece[\s\S]*Dragon Ball[\s\S]*Lorcana[\s\S]*sports card/,
+    "news hub should include verified Ticketmelon event category details",
+  );
+  assert.doesNotMatch(
+    readApp("src/app/(store)/news/page.tsx"),
+    /bkk-events\.com\/events\/thailand-card-exhibition/,
+    "news hub should avoid the secondary BKK Events source with conflicting venue structured data",
+  );
+  assert.match(
+    readApp("src/app/(store)/news/page.tsx"),
     /What is the next Bangkok card event YNOT is tracking\?/,
     "news hub should answer the current Bangkok event question",
   );
@@ -2469,7 +2492,7 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
   );
   assert.match(
     readApp("src/app/(store)/news/page.tsx"),
-    /Sukhumvit Soi 18, Sukhumvit Road, Klong Toey/,
+    /19 Soi Sukhumvit 18, Khlong Toei, Bangkok/,
     "news hub should publish the verified Rembrandt Hotel Bangkok address for structured data",
   );
   assert.match(

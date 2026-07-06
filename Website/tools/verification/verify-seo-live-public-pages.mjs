@@ -76,6 +76,10 @@ const publicPages = [
       "https://www.rembrandthotelbangkok.com/meeting-events/",
       "Rembrandt Hotel Bangkok card event",
       "Bangkok card exhibition July 2026",
+      "19 Soi Sukhumvit 18",
+      "buy-sell-trade",
+      "more than 70 shops",
+      "Pokemon, One Piece, Dragon Ball, Lorcana, sports card",
       "When YNOT is the right source",
       "What is the next Bangkok card event YNOT is tracking?",
       "Common source questions",
@@ -416,7 +420,7 @@ async function verifyPublicPages() {
           `${page.path} missing Card Addicted event startDate`,
         );
         expect(
-          text.includes("Sukhumvit Soi 18, Sukhumvit Road, Klong Toey"),
+          text.includes("19 Soi Sukhumvit 18, Khlong Toei, Bangkok"),
           `${page.path} missing Rembrandt Hotel Bangkok address`,
         );
       }
