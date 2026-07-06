@@ -31,6 +31,17 @@ const HANDOFF_METHODS = [
   { value: "bring_to_store", label: "Bring to YNOTT store" },
 ] as const;
 
+// Statuses where the seller has not yet confirmed handoff, so "Mark as
+// shipped" is meaningful. Real enum: submitted / intake_instruction_sent
+// (see 20260628110000_marketplace_seller_consignment.sql); submitted_for_review
+// covers mock/preview data. Post-handoff states (handoff_confirmed, received,
+// inspection_*, inventory_created, listed, sold, returned) never re-offer it.
+const PRE_HANDOFF_STATUSES: ReadonlySet<string> = new Set([
+  "submitted",
+  "submitted_for_review",
+  "intake_instruction_sent",
+]);
+
 function badgeFor(status: string): {
   kind: "community" | "sold" | "graded";
   label: string;
@@ -149,9 +160,7 @@ export function ListingsTab({ submissions }: { submissions: SubmissionRow[] }) {
         const badge = badgeFor(row.status);
         const isTerminal = row.status === "sold";
         const isLive = row.status === "listed";
-        const canHandoff = !["draft", "listed", "sold", "cancelled"].includes(
-          row.status,
-        );
+        const canHandoff = PRE_HANDOFF_STATUSES.has(row.status);
         const status = rowStatus[row.id] ?? { kind: "idle" };
         return (
           <div key={row.id} className="mp-listing-row">
