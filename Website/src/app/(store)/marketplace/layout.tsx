@@ -1,3 +1,4 @@
+import { JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import {
   resolveAdminSession,
@@ -7,6 +8,14 @@ import { getMarketplaceAccountForProfile } from "@/lib/marketplace/account-bridg
 import { getMarketplaceCustomerCartSummary } from "@/lib/marketplace/cart-watchlist";
 import { MarketplaceCartDrawer } from "@/features/ynot/MarketplaceCartDrawer";
 import { MarketplaceCartProvider } from "@/features/ynot/MarketplaceCartProvider";
+import "@/features/marketplace-ui/theme/marketplace-theme.css";
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--mp-font-mono",
+});
 
 export default async function MarketplaceLayout({
   children,
@@ -24,9 +33,11 @@ export default async function MarketplaceLayout({
   );
 
   return (
-    <MarketplaceCartProvider initialSummary={initialSummary}>
-      <MarketplaceCartDrawer />
-      {children}
-    </MarketplaceCartProvider>
+    <div className={`mp-root ${jetbrainsMono.variable}`}>
+      <MarketplaceCartProvider initialSummary={initialSummary}>
+        <MarketplaceCartDrawer />
+        {children}
+      </MarketplaceCartProvider>
+    </div>
   );
 }

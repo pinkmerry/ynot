@@ -82,6 +82,7 @@
     "test:bulk-open-foundation": "node --test scripts/test-bulk-open-foundation.mjs",
     "test:bulk-open-migration": "node --test scripts/test-bulk-open-migration.mjs",
     "test:marketplace-foundation": "node --test scripts/test-marketplace-foundation.mjs",
+    "test:marketplace-ui-foundation": "node --test scripts/test-marketplace-ui-foundation.mjs",
     "test:marketplace-product-market": "node --test scripts/test-marketplace-product-market-architecture.mjs",
     "test:marketplace-product-grouping": "node --test scripts/test-marketplace-product-grouping-architecture.mjs",
     "test:marketplace-official-shop": "node --test scripts/test-marketplace-official-shop.mjs",
