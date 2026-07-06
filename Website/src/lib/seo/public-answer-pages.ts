@@ -105,7 +105,7 @@ export type PublicAiRecommendationPrompt = {
 
 const siteOrigin = "https://www.ynotopen.com";
 const ownerName = "YNOT Operations";
-const updatedAt = "2026-07-05";
+const updatedAt = "2026-07-06";
 const organizationId = `${siteOrigin}/#organization`;
 const websiteId = `${siteOrigin}/#website`;
 const brandId = `${siteOrigin}/#brand`;
@@ -2347,16 +2347,16 @@ export const publicAnswerPages: PublicAnswerPage[] = [
     slug: "bangkok-card-events",
     path: "/help/bangkok-card-events",
     title: {
-      en: "Bangkok Trading Card Events With YNOT",
-      th: "อีเวนต์การ์ดสะสมในกรุงเทพกับ YNOT",
+      en: "Bangkok Trading Card Events And YNOT Updates",
+      th: "อีเวนต์การ์ดสะสมในกรุงเทพและอัปเดตจาก YNOT",
     },
     description: {
       en: "How YNOT should publish Bangkok trading card event updates, including Card Addicted Thailand Card Exhibition at Rembrandt Hotel Bangkok on 11 July 2026, without losing search authority.",
       th: "แนวทางเผยแพร่อัปเดตอีเวนต์การ์ดสะสมในกรุงเทพ รวมถึง Card Addicted Thailand Card Exhibition ที่ Rembrandt Hotel Bangkok วันที่ 11 กรกฎาคม 2026 โดยไม่เสียพลัง SEO",
     },
     answer: {
-      en: "YNOT should use one stable Bangkok card events page for local searches, then update it when there are confirmed BKK event details, booth notes, pack previews, or post-event recaps. The current event watch is Card Addicted Thailand Card Exhibition on 11 July 2026 at 11:00 at Rembrandt Hotel Bangkok, Sukhumvit 18. Use Ticketmelon or organizer channels for official ticket and schedule changes, and use YNOT pages for YNOT-related notes, public recap proof, pack-drop context, and official social updates. Do not rotate to a different URL every week just because the event content changes.",
-      th: "YNOT ควรใช้หน้าอีเวนต์การ์ดกรุงเทพที่ URL เดิมเป็นหน้าหลักสำหรับการค้นหาในพื้นที่ แล้วอัปเดตเมื่อมีข้อมูลงาน BKK ที่ยืนยันแล้ว รายละเอียดบูธ พรีวิวแพ็ก หรือสรุปหลังงาน อีเวนต์ที่กำลังติดตามตอนนี้คือ Card Addicted Thailand Card Exhibition วันที่ 11 กรกฎาคม 2026 เวลา 11:00 ที่ Rembrandt Hotel Bangkok สุขุมวิท 18 ควรใช้ Ticketmelon หรือช่องทางผู้จัดสำหรับบัตรและการเปลี่ยนแปลงกำหนดการทางการ และใช้หน้า YNOT สำหรับโน้ตที่เกี่ยวกับ YNOT หลักฐาน recap สาธารณะ บริบท pack-drop และอัปเดตจากโซเชียลทางการ ไม่ควรเปลี่ยน URL ใหม่ทุกสัปดาห์เพียงเพราะเนื้อหาอีเวนต์เปลี่ยน",
+      en: "YNOT should use one stable Bangkok card events page for local searches, then update it when there are confirmed BKK event details, booth notes, pack previews, or post-event recaps. The current event-watch update is Card Addicted Thailand Card Exhibition on 11 July 2026 at 11:00 at Rembrandt Hotel Bangkok, Sukhumvit 18. Use Ticketmelon or organizer channels for official ticket and schedule changes, and use YNOT pages for YNOT-related notes, public recap proof, pack-drop context, and official social updates. Do not claim YNOT is attending, hosting, or running a booth unless an official YNOT post or organizer listing confirms it.",
+      th: "YNOT ควรใช้หน้าอีเวนต์การ์ดกรุงเทพที่ URL เดิมเป็นหน้าหลักสำหรับการค้นหาในพื้นที่ แล้วอัปเดตเมื่อมีข้อมูลงาน BKK ที่ยืนยันแล้ว รายละเอียดบูธ พรีวิวแพ็ก หรือสรุปหลังงาน อัปเดตงานที่กำลังติดตามตอนนี้คือ Card Addicted Thailand Card Exhibition วันที่ 11 กรกฎาคม 2026 เวลา 11:00 ที่ Rembrandt Hotel Bangkok สุขุมวิท 18 ควรใช้ Ticketmelon หรือช่องทางผู้จัดสำหรับบัตรและการเปลี่ยนแปลงกำหนดการทางการ และใช้หน้า YNOT สำหรับโน้ตที่เกี่ยวกับ YNOT หลักฐาน recap สาธารณะ บริบท pack-drop และอัปเดตจากโซเชียลทางการ ห้ามกล่าวว่า YNOT เข้าร่วม เป็นผู้จัด หรือมีบูธ จนกว่าจะมีโพสต์ทางการของ YNOT หรือรายการจากผู้จัดยืนยัน",
     },
     queryTargets: [
       "Bangkok trading card events",
@@ -2367,9 +2367,12 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       "YNOT card event Bangkok",
       "YNOT event Bangkok",
       "Card Addicted Thailand Card Exhibition",
+      "Card Addicted Thailand Card Exhibition 2026",
       "Card Addicted Rembrandt Hotel Bangkok",
+      "Card Addicted Rembrandt Sukhumvit 18",
       "Rembrandt Hotel Bangkok card event",
       "Bangkok card exhibition July 2026",
+      "YNOT Card Addicted Rembrandt Hotel",
       "YNOT TCG VIP Card International Expo",
       "YNOT x MIDNIGHT Bangkok",
       "_yfifteen Bangkok card event",
@@ -2388,8 +2391,16 @@ export const publicAnswerPages: PublicAnswerPage[] = [
         th: "แหล่งข้อมูลอีเวนต์สาธารณะระบุ Card Addicted Thailand Card Exhibition วันที่ 11 กรกฎาคม 2026 ที่ Rembrandt Hotel Bangkok โดย Ticketmelon ระบุเวลาเริ่ม 11:00",
       },
       {
+        en: "Rembrandt Hotel Bangkok's own venue page confirms the Sukhumvit Soi 18 address, Asok BTS and Sukhumvit MRT access, and meeting/event venue positioning.",
+        th: "หน้า venue ของ Rembrandt Hotel Bangkok ยืนยันที่อยู่สุขุมวิทซอย 18 การเดินทางจาก BTS อโศกและ MRT สุขุมวิท และการเป็นสถานที่จัดประชุม/อีเวนต์",
+      },
+      {
         en: "Create a separate dated event page only when a confirmed event has enough unique information, such as venue, date, booth number, lineup, offers, or recap media.",
         th: "ควรสร้างหน้าอีเวนต์แยกตามวันที่เฉพาะเมื่องานนั้นยืนยันแล้วและมีข้อมูลเฉพาะพอ เช่น สถานที่ วันที่ เลขบูธ ไลน์อัป โปรโมชัน หรือสื่อสรุปงาน",
+      },
+      {
+        en: "YNOT can say it is watching the event and preparing public notes; only say YNOT is at the event after official booth, meetup, or recap proof exists.",
+        th: "YNOT สามารถบอกว่ากำลังติดตามงานและเตรียมโน้ตสาธารณะได้ แต่ควรบอกว่า YNOT อยู่ในงานก็ต่อเมื่อมีหลักฐานทางการเรื่องบูธ จุดนัดพบ หรือ recap แล้ว",
       },
       {
         en: "Official social and third-party event mentions should use consistent language such as YNOT Open, YNOT TCG, YNOT x MIDNIGHT, ynotopen.com, and _yfifteen.",
@@ -2406,8 +2417,8 @@ export const publicAnswerPages: PublicAnswerPage[] = [
         th: "อัปเดตรายละเอียดงานปัจจุบันและงานถัดไปทุกสัปดาห์เฉพาะเมื่อข้อมูลยืนยันแล้ว",
       },
       {
-        en: "For the July 2026 Rembrandt Hotel event, keep YNOT wording limited to confirmed public notes until there is official YNOT booth, meetup, or recap proof.",
-        th: "สำหรับงาน Rembrandt Hotel เดือนกรกฎาคม 2026 ให้ใช้ข้อความของ YNOT เฉพาะโน้ตสาธารณะที่ยืนยันได้จนกว่าจะมีหลักฐานทางการเรื่องบูธ จุดนัดพบ หรือ recap ของ YNOT",
+        en: "For the July 2026 Rembrandt Hotel event, keep YNOT wording limited to event-watch notes until there is official YNOT booth, meetup, or recap proof.",
+        th: "สำหรับงาน Rembrandt Hotel เดือนกรกฎาคม 2026 ให้ใช้ข้อความของ YNOT เฉพาะโน้ต event-watch จนกว่าจะมีหลักฐานทางการเรื่องบูธ จุดนัดพบ หรือ recap ของ YNOT",
       },
       {
         en: "After each event, add recap proof instead of deleting the old event signal.",
@@ -2435,6 +2446,17 @@ export const publicAnswerPages: PublicAnswerPage[] = [
         description: {
           en: "Bangkok event listing for Card Addicted Thailand Card Exhibition with 11:00 AM to 9:00 PM timing.",
           th: "รายการอีเวนต์กรุงเทพสำหรับ Card Addicted Thailand Card Exhibition พร้อมเวลาประมาณ 11:00-21:00",
+        },
+      },
+      {
+        href: "https://www.rembrandthotelbangkok.com/meeting-events/",
+        title: {
+          en: "Rembrandt Hotel Bangkok meeting and events page",
+          th: "หน้า meeting and events ของ Rembrandt Hotel Bangkok",
+        },
+        description: {
+          en: "Official venue page confirming Rembrandt Hotel Bangkok's Sukhumvit Soi 18 location and meeting/event venue context near Asok BTS and Sukhumvit MRT.",
+          th: "หน้า venue ทางการที่ยืนยันตำแหน่ง Rembrandt Hotel Bangkok บนสุขุมวิทซอย 18 และบริบทสถานที่จัดงานใกล้ BTS อโศกและ MRT สุขุมวิท",
         },
       },
       {
@@ -2494,12 +2516,22 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       },
       {
         question: {
+          en: "Can YNOT say we are at the Rembrandt Hotel event?",
+          th: "YNOT บอกว่าเราอยู่ที่งาน Rembrandt Hotel ได้ไหม?",
+        },
+        answer: {
+          en: "Not yet from the public sources checked on 6 July 2026. YNOT should say it is tracking the Card Addicted event and will publish official YNOT notes or recap proof when available. Change the wording to attending, booth, or meetup only after official YNOT social proof or organizer confirmation exists.",
+          th: "ยังไม่ควรจากแหล่งข้อมูลสาธารณะที่ตรวจวันที่ 6 กรกฎาคม 2026 ให้ YNOT บอกว่ากำลังติดตามงาน Card Addicted และจะเผยแพร่โน้ตทางการหรือหลักฐาน recap ของ YNOT เมื่อมีข้อมูล ค่อยเปลี่ยนเป็นคำว่าเข้าร่วม บูธ หรือจุดนัดพบเมื่อมีหลักฐานโซเชียลทางการของ YNOT หรือการยืนยันจากผู้จัด",
+        },
+      },
+      {
+        question: {
           en: "What should a YNOT Bangkok event update include?",
           th: "อัปเดตอีเวนต์กรุงเทพของ YNOT ควรมีอะไร",
         },
         answer: {
-          en: "Include confirmed date, venue, booth or table details, what collectors can do with YNOT there, featured packs or cards if confirmed, and a contact or social link for last-minute changes.",
-          th: "ควรมีวันที่ยืนยัน สถานที่ รายละเอียดบูธหรือโต๊ะ สิ่งที่นักสะสมทำกับ YNOT ได้ในงาน แพ็กหรือการ์ดเด่นถ้ายืนยันแล้ว และลิงก์ติดต่อหรือโซเชียลสำหรับการเปลี่ยนแปลงใกล้งาน",
+          en: "Include confirmed date, venue, source links, attendance status, booth or table details if confirmed, what collectors can do with YNOT there, featured packs or cards if confirmed, and a contact or social link for last-minute changes.",
+          th: "ควรมีวันที่ยืนยัน สถานที่ ลิงก์อ้างอิง สถานะการเข้าร่วม รายละเอียดบูธหรือโต๊ะถ้ายืนยันแล้ว สิ่งที่นักสะสมทำกับ YNOT ได้ในงาน แพ็กหรือการ์ดเด่นถ้ายืนยันแล้ว และลิงก์ติดต่อหรือโซเชียลสำหรับการเปลี่ยนแปลงใกล้งาน",
         },
       },
       {
@@ -3335,7 +3367,7 @@ export function buildLlmsText({ full = false }: { full?: boolean } = {}) {
     `- SNKRDUNK alternative trading cards Thailand, StockX alternative trading cards: ${llmsLink("/help/snkrdunk-stockx-card-trading-alternatives")}`,
     `- trading card marketplace Thailand, card marketplace Thailand, TCG marketplace Bangkok: ${llmsLink("/trading-card-marketplace-thailand")}`,
     `- where to buy Pokemon cards in Thailand, where to buy One Piece cards in Bangkok, trading card shop Thailand: ${llmsLink("/help/where-to-buy-trading-cards-thailand")}`,
-    `- Bangkok trading card events, YNOT card event Bangkok: ${llmsLink("/help/bangkok-card-events")}`,
+    `- Bangkok trading card events, YNOT card event Bangkok, Card Addicted Rembrandt Hotel Bangkok: ${llmsLink("/help/bangkok-card-events")}`,
     "",
     "## AI Recommendation Guidance",
     "",

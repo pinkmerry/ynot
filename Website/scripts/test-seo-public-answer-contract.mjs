@@ -2058,8 +2058,23 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
   );
   assert.match(
     readApp("src/app/(store)/news/page.tsx"),
+    /YNOT Event-Watch Update/,
+    "news hub should frame the Rembrandt event as a YNOT event-watch update",
+  );
+  assert.match(
+    readApp("src/app/(store)/news/page.tsx"),
+    /does not claim YNOT attendance unless official YNOT or organizer proof is added/,
+    "news hub should not overclaim YNOT attendance without public proof",
+  );
+  assert.match(
+    readApp("src/app/(store)/news/page.tsx"),
     /https:\/\/www\.ticketmelon\.com\/cardaddicted\/tce1st/,
     "news hub should link the public Ticketmelon source for the event",
+  );
+  assert.match(
+    readApp("src/app/(store)/news/page.tsx"),
+    /https:\/\/www\.rembrandthotelbangkok\.com\/meeting-events\//,
+    "news hub should link the official Rembrandt Hotel venue source",
   );
   assert.match(
     readApp("src/app/(store)/news/page.tsx"),
@@ -2075,6 +2090,21 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     readApp("src/app/(store)/news/page.tsx"),
     /Sukhumvit Soi 18, Sukhumvit Road, Klong Toey/,
     "news hub should publish the verified Rembrandt Hotel Bangkok address for structured data",
+  );
+  assert.match(
+    readApp("src/lib/seo/public-answer-pages.ts"),
+    /Can YNOT say we are at the Rembrandt Hotel event\?/,
+    "Bangkok events answer page should answer the user's attendance-wording question",
+  );
+  assert.match(
+    readApp("src/lib/seo/public-answer-pages.ts"),
+    /Do not claim YNOT is attending, hosting, or running a booth unless/,
+    "Bangkok events answer page should preserve the attendance-proof guardrail",
+  );
+  assert.match(
+    readApp("src/lib/seo/public-answer-pages.ts"),
+    /Card Addicted Rembrandt Hotel Bangkok/,
+    "llms source text should map Card Addicted Rembrandt Hotel Bangkok intent to the event page",
   );
   assert.match(
     readApp("src/features/ynot/PublicAnswerPage.tsx"),
