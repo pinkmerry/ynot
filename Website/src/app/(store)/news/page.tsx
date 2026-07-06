@@ -41,6 +41,29 @@ const newsHub: PublicSeoHub = {
     en: "Open Events Guide",
     th: "เปิดคู่มืออีเวนต์",
   },
+  events: [
+    {
+      name: {
+        en: "Card Addicted Thailand Card Exhibition",
+        th: "Card Addicted Thailand Card Exhibition",
+      },
+      description: {
+        en: "Public Bangkok trading-card collector event listed for 11 July 2026 at Rembrandt Hotel Bangkok. YNOT is tracking the event for related public notes and later recap proof, not acting as the official organizer page.",
+        th: "อีเวนต์นักสะสมการ์ดในกรุงเทพที่ถูกระบุวันที่ 11 กรกฎาคม 2026 ที่ Rembrandt Hotel Bangkok โดย YNOT กำลังติดตามงานนี้สำหรับโน้ตสาธารณะที่เกี่ยวข้องและหลักฐาน recap ภายหลัง ไม่ใช่หน้า organizer ทางการ",
+      },
+      startDate: "2026-07-11T11:00:00+07:00",
+      endDate: "2026-07-11T21:00:00+07:00",
+      url: "https://www.ticketmelon.com/cardaddicted/tce1st",
+      sameAs: [
+        "https://www.ticketmelon.com/cardaddicted/tce1st",
+        "https://bkk-events.com/events/thailand-card-exhibition-1efc44c0",
+      ],
+      location: {
+        name: "Rembrandt Hotel Bangkok",
+        address: "Sukhumvit Soi 18, Sukhumvit Road, Klong Toey",
+      },
+    },
+  ],
   groups: [
     {
       title: {

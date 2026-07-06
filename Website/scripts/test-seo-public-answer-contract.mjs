@@ -1979,6 +1979,16 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     "news hub should answer the current Bangkok event question",
   );
   assert.match(
+    readApp("src/app/(store)/news/page.tsx"),
+    /startDate: "2026-07-11T11:00:00\+07:00"/,
+    "news hub should publish the confirmed Card Addicted event start time for structured data",
+  );
+  assert.match(
+    readApp("src/app/(store)/news/page.tsx"),
+    /Sukhumvit Soi 18, Sukhumvit Road, Klong Toey/,
+    "news hub should publish the verified Rembrandt Hotel Bangkok address for structured data",
+  );
+  assert.match(
     readApp("src/features/ynot/PublicAnswerPage.tsx"),
     /page\.queryTargets\.map/,
     "public answer pages should render visible search topics",
@@ -2017,6 +2027,11 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     readApp("src/features/ynot/PublicSeoHubPage.tsx"),
     /"@type": "FAQPage"/,
     "SEO hub pages should support FAQPage schema when hub FAQs are present",
+  );
+  assert.match(
+    readApp("src/features/ynot/PublicSeoHubPage.tsx"),
+    /"@type": "Event"/,
+    "SEO hub pages should support conservative Event schema for verified third-party Bangkok events",
   );
   assert.match(
     readApp("src/features/ynot/PublicSeoHubPage.tsx"),

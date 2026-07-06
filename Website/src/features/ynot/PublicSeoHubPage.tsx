@@ -25,6 +25,19 @@ export type PublicSeoHubGroup = {
   links: PublicSeoHubLink[];
 };
 
+export type PublicSeoHubEvent = {
+  name: LocaleCopy;
+  description: LocaleCopy;
+  startDate: string;
+  endDate?: string;
+  url: string;
+  sameAs?: string[];
+  location: {
+    name: string;
+    address: string;
+  };
+};
+
 export type PublicSeoHub = {
   path: string;
   eyebrow: LocaleCopy;
@@ -35,6 +48,7 @@ export type PublicSeoHub = {
   primaryHref: string;
   primaryLabel: LocaleCopy;
   groups: PublicSeoHubGroup[];
+  events?: PublicSeoHubEvent[];
   faqs?: Array<{
     question: LocaleCopy;
     answer: LocaleCopy;
@@ -110,6 +124,34 @@ function buildPublicSeoHubJsonLd(hub: PublicSeoHub) {
           })),
         }
       : null,
+    events: hub.events?.map((event) => ({
+      "@context": "https://schema.org",
+      "@type": "Event",
+      "@id": `${canonical}#event-${event.startDate.slice(0, 10)}`,
+      name: event.name.en,
+      description: event.description.en,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+      eventStatus: "https://schema.org/EventScheduled",
+      inLanguage: ["en", "th"],
+      url: event.url,
+      sameAs: event.sameAs,
+      location: {
+        "@type": "Place",
+        name: event.location.name,
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: event.location.address,
+          addressLocality: "Bangkok",
+          postalCode: "10110",
+          addressCountry: "TH",
+        },
+      },
+      subjectOf: {
+        "@id": `${canonical}#webpage`,
+      },
+    })) ?? [],
     breadcrumb: {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
@@ -156,6 +198,15 @@ export function PublicSeoHubPage({ hub }: { hub: PublicSeoHub }) {
           }}
         />
       ) : null}
+      {jsonLd.events.map((event) => (
+        <script
+          key={event["@id"]}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: serializeJsonLd(event),
+          }}
+        />
+      ))}
 
       <section className="page-intro">
         <div className="min-w-0">

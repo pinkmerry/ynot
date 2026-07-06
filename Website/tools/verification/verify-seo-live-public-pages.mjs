@@ -340,6 +340,17 @@ async function verifyPublicPages() {
         expect(text.includes("Direct answer"), `${page.path} missing direct answer section`);
         expect(text.includes("Common source questions"), `${page.path} missing visible FAQ section`);
       }
+      if (page.path === "/news") {
+        expect(hasJsonLdType(text, "Event"), `${page.path} missing Card Addicted Event JSON-LD`);
+        expect(
+          text.includes("2026-07-11T11:00:00+07:00"),
+          `${page.path} missing Card Addicted event startDate`,
+        );
+        expect(
+          text.includes("Sukhumvit Soi 18, Sukhumvit Road, Klong Toey"),
+          `${page.path} missing Rembrandt Hotel Bangkok address`,
+        );
+      }
     }
   }
 }
