@@ -110,6 +110,61 @@
   display: inline-flex; align-items: center; justify-content: center;
   color: var(--mp-ink-2);
 }
+.mp-avatar-btn { border: 0; padding: 0; }
+
+/* ---------- my page drawer ----------
+   Ported from marketplace-proto-1.jsx:61-125's MyPageDrawer (inline styles
+   there — reimplemented here as theme classes per repo CSS-variable style). */
+.mp-drawer-backdrop {
+  position: fixed; inset: 0; z-index: 80;
+  background: rgba(23, 22, 16, 0.28);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--duration-normal, 250ms) ease;
+}
+.mp-drawer-backdrop[data-open="true"] { opacity: 1; pointer-events: auto; }
+.mp-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 81;
+  width: 372px; max-width: 90vw;
+  background: var(--mp-green-tint);
+  border-left: 1px solid var(--mp-line);
+  box-shadow: -14px 0 40px rgba(23, 22, 16, 0.1);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1), visibility 280ms;
+  display: flex; flex-direction: column;
+  padding: 26px 30px 24px;
+}
+.mp-drawer[data-open="true"] { transform: translateX(0); visibility: visible; }
+.mp-drawer-close { background: transparent; border: 0; }
+.mp-drawer-identity { gap: 14px; margin-top: 22px; }
+.mp-drawer-identity-avatar {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: var(--mp-paper); border: 1px solid var(--mp-line-strong);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--mp-mute); flex-shrink: 0;
+}
+.mp-drawer-identity-text { gap: 1px; }
+.mp-drawer-identity-name { font-size: 17px; font-weight: 800; }
+.mp-drawer-identity-edit { font-size: 12.5px; font-weight: 700; color: var(--mp-green); }
+.mp-drawer-balance { gap: 10px; margin-top: 26px; }
+.mp-drawer-balance-label { font-size: 15px; font-weight: 800; }
+.mp-drawer-balance-coin { gap: 9px; font-size: 14px; font-weight: 600; }
+.mp-drawer-balance-value { font-size: 20px; font-weight: 800; }
+.mp-drawer-topup {
+  margin-left: 12px; width: 26px; height: 26px; border-radius: 50%;
+  border: 0; background: var(--mp-rose); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.mp-drawer-hairline { margin: 24px 0; background: var(--mp-line-strong); }
+.mp-drawer-nav { gap: 4px; }
+.mp-drawer-link {
+  font-size: 14px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 11px 0; color: var(--mp-ink-2);
+  display: flex; align-items: center; gap: 8px;
+  background: transparent; border: 0; text-align: left; width: 100%;
+}
+.mp-drawer-foot { gap: 4px; }
+.mp-drawer-logout { color: var(--mp-rose); }
 
 /* ---------- buttons ---------- */
 .mp-btn {
