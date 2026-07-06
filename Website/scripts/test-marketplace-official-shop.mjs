@@ -404,7 +404,9 @@ test("official shop routes enforce launch, auth, same-origin mutations, rate lim
 test("marketplace page renders official and user-seller product markets with THB pricing and no coin or seller payout wording", () => {
   const page = readApp("src/app/(store)/marketplace/page.tsx");
   assert.match(page, /listMarketplaceProductBrowsePage/);
-  assert.match(page, /marketplaceProducts/);
+  // The browse redesign renders BrowsePage with the browse read-model rows
+  // (was: MarketplaceExperience's marketplaceProducts prop).
+  assert.match(page, /products=\{marketplaceProductPage\.products\}/);
   assert.doesNotMatch(page, /listMarketplaceListings/);
 
   const component = readApp("src/features/ynot/components.tsx");
