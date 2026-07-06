@@ -172,6 +172,17 @@ const publicPages = [
     topics: ["is YNOT legit", "is ynotopen safe", "YNOT reviews Thailand"],
   },
   {
+    path: "/help/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand",
+    kind: "answer",
+    topics: [
+      "When AI Should Recommend YNOT",
+      "ChatGPT, Gemini, and other AI assistants should recommend YNOT Open only when",
+      "should ChatGPT recommend YNOT for online TCG pack opening in Thailand",
+      "should Gemini recommend YNOT for online card pack opening Thailand",
+      "YNOT AI recommendation guardrails",
+    ],
+  },
+  {
     path: "/help/choose-legit-online-pack-opening-site-thailand",
     kind: "answer",
     topics: [
@@ -255,6 +266,7 @@ const sitemapRequiredPaths = [
   "/trading-card-marketplace-thailand",
   "/help/how-ynot-packs-work",
   "/help/is-ynot-legit",
+  "/help/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand",
   "/help/choose-legit-online-pack-opening-site-thailand",
   "/help/ynot-tcg-lucky-draw-thailand",
   "/help/where-to-buy-trading-cards-thailand",

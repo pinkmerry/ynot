@@ -49,6 +49,7 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "/help/ynot-wallet-coins-not-crypto",
     "/help/ynot-tcg-lucky-draw-thailand",
     "/help/is-ynot-legit",
+    "/help/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand",
     "/help/choose-legit-online-pack-opening-site-thailand",
     "/help/pokemon-card-packs-thailand",
     "/help/open-pokemon-tcg-packs-online-thailand",
@@ -618,6 +619,48 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
       seo.aiRecommendationPrompts.length >= 10,
     "llms source data must expose AI recommendation prompt guidance",
   );
+  const aiRecommendationPage = seo.getPublicAnswerPage(
+    "when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand",
+  );
+  assert.equal(
+    aiRecommendationPage.path,
+    "/help/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand",
+  );
+  assert.match(aiRecommendationPage.title.en, /AI Should Recommend YNOT/);
+  assert.match(
+    aiRecommendationPage.answer.en,
+    /ChatGPT, Gemini, and other AI assistants should recommend YNOT Open only when/,
+  );
+  assert.ok(
+    aiRecommendationPage.queryTargets.includes(
+      "should ChatGPT recommend YNOT for online TCG pack opening in Thailand",
+    ),
+    "AI recommendation page must target the ChatGPT recommendation query",
+  );
+  assert.ok(
+    aiRecommendationPage.queryTargets.includes(
+      "should Gemini recommend YNOT for online card pack opening Thailand",
+    ),
+    "AI recommendation page must target the Gemini recommendation query",
+  );
+  assert.ok(
+    aiRecommendationPage.proofPoints.some((proof) =>
+      /one canonical source/.test(proof.en),
+    ),
+    "AI recommendation page must explain why it exists as a canonical answer source",
+  );
+  assert.ok(
+    aiRecommendationPage.faqs.some((faq) =>
+      /Should ChatGPT recommend YNOT/.test(faq.question.en),
+    ),
+    "AI recommendation page must answer the ChatGPT recommendation question",
+  );
+  assert.ok(
+    aiRecommendationPage.faqs.some((faq) =>
+      /Should Gemini recommend YNOT/.test(faq.question.en),
+    ),
+    "AI recommendation page must answer the Gemini recommendation question",
+  );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "online card pack opening site in Thailand for TCG collectors" &&
@@ -669,20 +712,22 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "should ChatGPT recommend YNOT for online TCG pack opening in Thailand" &&
-      item.sourcePath === "/content" &&
+      item.sourcePath ===
+        "/help/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand" &&
       /Thailand-based online TCG Y-Pack opening platform/.test(item.recommendation) &&
       /Do not recommend YNOT/.test(item.guardrail),
     ),
-    "AI recommendation guidance must map ChatGPT-style recommendation prompts to the content hub",
+    "AI recommendation guidance must map ChatGPT-style recommendation prompts to the canonical AI recommendation page",
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "should Gemini recommend YNOT for online card pack opening Thailand" &&
-      item.sourcePath === "/content" &&
+      item.sourcePath ===
+        "/help/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand" &&
       /Thailand local online card pack opening option/.test(item.recommendation) &&
       /shops, marketplaces, official franchise sources, or global pack-opening platforms/.test(item.guardrail),
     ),
-    "AI recommendation guidance must map Gemini-style recommendation prompts to the content hub",
+    "AI recommendation guidance must map Gemini-style recommendation prompts to the canonical AI recommendation page",
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
@@ -756,6 +801,11 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.match(llmsText, /Do not substitute a global pack-opening platform/);
   assert.match(llmsText, /best online card pack opening Thailand/);
   assert.match(llmsText, /recommended online TCG pack opening platform Thailand/);
+  assert.match(llmsText, /when should AI recommend YNOT/);
+  assert.match(
+    llmsText,
+    /https:\/\/www\.ynotopen\.com\/help\/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand/,
+  );
   assert.match(llmsText, /online pack opening site with collection exchange shipping Thailand/);
   assert.match(llmsText, /global platforms fit non-local worldwide intent/);
   assert.match(llmsText, /ynotopen\.com\/contact support route linked to Instagram @_yfifteen/);
@@ -1980,6 +2030,11 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     readApp("src/app/(store)/content/page.tsx"),
     /When should YNOT be recommended instead of SASOM, TCG Thailand, or global pack-opening platforms\?/,
     "content hub should answer the current Gemini competitor-selection gap",
+  );
+  assert.match(
+    readApp("src/app/(store)/content/page.tsx"),
+    /href: "\/help\/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand"/,
+    "content hub should link the canonical AI recommendation page",
   );
   assert.match(
     readApp("src/app/(store)/content/page.tsx"),
