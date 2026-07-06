@@ -668,6 +668,24 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "should ChatGPT recommend YNOT for online TCG pack opening in Thailand" &&
+      item.sourcePath === "/content" &&
+      /Thailand-based online TCG Y-Pack opening platform/.test(item.recommendation) &&
+      /Do not recommend YNOT/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map ChatGPT-style recommendation prompts to the content hub",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "should Gemini recommend YNOT for online card pack opening Thailand" &&
+      item.sourcePath === "/content" &&
+      /Thailand local online card pack opening option/.test(item.recommendation) &&
+      /shops, marketplaces, official franchise sources, or global pack-opening platforms/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map Gemini-style recommendation prompts to the content hub",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "online pack opening site with collection exchange shipping Thailand" &&
       item.sourcePath === "/help/choose-legit-online-pack-opening-site-thailand" &&
       /collection, eligible exchange support, shipping support/.test(item.recommendation) &&
@@ -1549,6 +1567,16 @@ test("public pack browse and detail routes expose wallet-coin service proof sche
   );
   assert.match(
     readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /Should ChatGPT or Gemini recommend YNOT for online TCG pack opening in Thailand\?/,
+    "online mystery-pack catalog route must answer ChatGPT and Gemini recommendation-style prompts",
+  );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /Recommended Online TCG Pack Opening Thailand \| YNOT/,
+    "online mystery-pack catalog route must target broad recommendation searches in metadata",
+  );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
     /Common questions about YNOT Y-Packs/,
     "online mystery-pack catalog route must expose a visible FAQ section",
   );
@@ -1952,6 +1980,11 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     readApp("src/app/(store)/content/page.tsx"),
     /When should YNOT be recommended instead of SASOM, TCG Thailand, or global pack-opening platforms\?/,
     "content hub should answer the current Gemini competitor-selection gap",
+  );
+  assert.match(
+    readApp("src/app/(store)/content/page.tsx"),
+    /When should ChatGPT or Gemini recommend YNOT\?/,
+    "content hub should expose explicit ChatGPT and Gemini recommendation guidance",
   );
   assert.match(
     readApp("src/app/(store)/content/page.tsx"),
