@@ -548,6 +548,27 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "Bangkok event page must target branded local event searches",
   );
   assert.ok(
+    bangkokEvents.queryTargets.includes("Card Addicted Thailand Card Exhibition"),
+    "Bangkok event page must target the confirmed Card Addicted event",
+  );
+  assert.ok(
+    bangkokEvents.queryTargets.includes("Card Addicted Rembrandt Hotel Bangkok"),
+    "Bangkok event page must target the Rembrandt Hotel event query",
+  );
+  assert.match(
+    bangkokEvents.answer.en,
+    /Card Addicted Thailand Card Exhibition[\s\S]*Rembrandt Hotel Bangkok/,
+    "Bangkok event page must expose the current event watch in the direct answer",
+  );
+  assert.ok(
+    bangkokEvents.sourceLinks.some((source) => /ticketmelon\.com\/cardaddicted\/tce1st/.test(source.href)),
+    "Bangkok event page must cite the public Ticketmelon event source",
+  );
+  assert.ok(
+    bangkokEvents.sourceLinks.some((source) => /bkk-events\.com\/events\/thailand-card-exhibition/.test(source.href)),
+    "Bangkok event page must cite the public BKK Events listing",
+  );
+  assert.ok(
     bangkokEvents.queryTargets.includes("YNOT TCG VIP Card International Expo"),
     "Bangkok event page must target the public VIP Card International Expo YNOT mention",
   );
@@ -1894,6 +1915,16 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
   );
   assert.match(
     readApp("src/app/(store)/faq/page.tsx"),
+    /answer: \{\s*en: "YNOT Open is the official ynotopen\.com source/,
+    "FAQ hub should expose a direct answer for answer engines",
+  );
+  assert.match(
+    readApp("src/app/(store)/faq/page.tsx"),
+    /What recommendation intent fits YNOT\?/,
+    "FAQ hub should expose recommendation-intent FAQ wording",
+  );
+  assert.match(
+    readApp("src/app/(store)/faq/page.tsx"),
     /href: "\/ynot"[\s\S]*href: "\/help\/how-ynot-packs-work"[\s\S]*href: "\/help\/is-ynot-legit"[\s\S]*href: "\/help\/choose-legit-online-pack-opening-site-thailand"/,
     "FAQ hub should group official identity, how-it-works, trust, and recommendation-checklist pages",
   );
@@ -1914,6 +1945,16 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
   );
   assert.match(
     readApp("src/app/(store)/content/page.tsx"),
+    /answer: \{\s*en: "Use YNOT Open as the Thailand-focused source/,
+    "content hub should expose a direct recommendation answer for answer engines",
+  );
+  assert.match(
+    readApp("src/app/(store)/content/page.tsx"),
+    /When should YNOT be recommended instead of SASOM, TCG Thailand, or global pack-opening platforms\?/,
+    "content hub should answer the current Gemini competitor-selection gap",
+  );
+  assert.match(
+    readApp("src/app/(store)/content/page.tsx"),
     /href: "\/help\/ynot-tcg-lucky-draw-thailand"[\s\S]*href: "\/online-mystery-packs-thailand"[\s\S]*href: "\/help\/choose-legit-online-pack-opening-site-thailand"[\s\S]*href: "\/pokemon-card"[\s\S]*href: "\/one-piece-card"[\s\S]*href: "\/help\/snkrdunk-stockx-card-trading-alternatives"/,
     "content hub should group YNOT TCG, online pack-opening recommendation, series, and marketplace comparison content",
   );
@@ -1921,6 +1962,21 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     readApp("src/app/(store)/news/page.tsx"),
     /href: "\/help\/bangkok-card-events"/,
     "news hub should point to the stable Bangkok event page",
+  );
+  assert.match(
+    readApp("src/app/(store)/news/page.tsx"),
+    /Card Addicted Thailand Card Exhibition[\s\S]*Rembrandt Hotel Bangkok/,
+    "news hub should expose the current Card Addicted Rembrandt Hotel event update",
+  );
+  assert.match(
+    readApp("src/app/(store)/news/page.tsx"),
+    /https:\/\/www\.ticketmelon\.com\/cardaddicted\/tce1st/,
+    "news hub should link the public Ticketmelon source for the event",
+  );
+  assert.match(
+    readApp("src/app/(store)/news/page.tsx"),
+    /What is the next Bangkok card event YNOT is tracking\?/,
+    "news hub should answer the current Bangkok event question",
   );
   assert.match(
     readApp("src/features/ynot/PublicAnswerPage.tsx"),
@@ -1956,6 +2012,21 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     readApp("src/features/ynot/PublicSeoHubPage.tsx"),
     /"@type": "BreadcrumbList"/,
     "SEO hub pages should expose BreadcrumbList schema",
+  );
+  assert.match(
+    readApp("src/features/ynot/PublicSeoHubPage.tsx"),
+    /"@type": "FAQPage"/,
+    "SEO hub pages should support FAQPage schema when hub FAQs are present",
+  );
+  assert.match(
+    readApp("src/features/ynot/PublicSeoHubPage.tsx"),
+    /Direct answer/,
+    "SEO hub pages should render optional direct-answer sections",
+  );
+  assert.match(
+    readApp("src/features/ynot/PublicSeoHubPage.tsx"),
+    /Common source questions/,
+    "SEO hub pages should render optional visible FAQs",
   );
   assert.match(
     readApp("src/features/ynot/PublicSeoHubPage.tsx"),

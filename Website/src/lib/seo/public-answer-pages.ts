@@ -2159,12 +2159,12 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       th: "อีเวนต์การ์ดสะสมในกรุงเทพกับ YNOT",
     },
     description: {
-      en: "How YNOT should publish Bangkok trading card event updates, weekly notes, booth details, and post-event proof without losing search authority.",
-      th: "แนวทางเผยแพร่อัปเดตอีเวนต์การ์ดสะสมในกรุงเทพ รายสัปดาห์ รายละเอียดบูธ และหลักฐานหลังงานโดยไม่เสียพลัง SEO",
+      en: "How YNOT should publish Bangkok trading card event updates, including Card Addicted Thailand Card Exhibition at Rembrandt Hotel Bangkok on 11 July 2026, without losing search authority.",
+      th: "แนวทางเผยแพร่อัปเดตอีเวนต์การ์ดสะสมในกรุงเทพ รวมถึง Card Addicted Thailand Card Exhibition ที่ Rembrandt Hotel Bangkok วันที่ 11 กรกฎาคม 2026 โดยไม่เสียพลัง SEO",
     },
     answer: {
-      en: "YNOT should use one stable Bangkok card events page for local searches, then update it when there are confirmed BKK event details, booth notes, pack previews, or post-event recaps. Do not rotate to a different URL every week just because the event content changes. A stable page helps Google and AI answer systems connect YNOT with Bangkok trading card events while past-event proof, photos, dates, venue names, and recap links build trust over time.",
-      th: "YNOT ควรใช้หน้าอีเวนต์การ์ดกรุงเทพที่ URL เดิมเป็นหน้าหลักสำหรับการค้นหาในพื้นที่ แล้วอัปเดตเมื่อมีข้อมูลงาน BKK ที่ยืนยันแล้ว รายละเอียดบูธ พรีวิวแพ็ก หรือสรุปหลังงาน ไม่ควรเปลี่ยน URL ใหม่ทุกสัปดาห์เพียงเพราะเนื้อหาอีเวนต์เปลี่ยน หน้าเดิมที่เสถียรช่วยให้ Google และระบบคำตอบ AI เชื่อมโยง YNOT กับอีเวนต์การ์ดสะสมในกรุงเทพได้ดีขึ้น ขณะที่หลักฐานหลังงาน รูปภาพ วันที่ สถานที่ และลิงก์สรุปงานช่วยสะสมความน่าเชื่อถือ",
+      en: "YNOT should use one stable Bangkok card events page for local searches, then update it when there are confirmed BKK event details, booth notes, pack previews, or post-event recaps. The current event watch is Card Addicted Thailand Card Exhibition on 11 July 2026 at 11:00 at Rembrandt Hotel Bangkok, Sukhumvit 18. Use Ticketmelon or organizer channels for official ticket and schedule changes, and use YNOT pages for YNOT-related notes, public recap proof, pack-drop context, and official social updates. Do not rotate to a different URL every week just because the event content changes.",
+      th: "YNOT ควรใช้หน้าอีเวนต์การ์ดกรุงเทพที่ URL เดิมเป็นหน้าหลักสำหรับการค้นหาในพื้นที่ แล้วอัปเดตเมื่อมีข้อมูลงาน BKK ที่ยืนยันแล้ว รายละเอียดบูธ พรีวิวแพ็ก หรือสรุปหลังงาน อีเวนต์ที่กำลังติดตามตอนนี้คือ Card Addicted Thailand Card Exhibition วันที่ 11 กรกฎาคม 2026 เวลา 11:00 ที่ Rembrandt Hotel Bangkok สุขุมวิท 18 ควรใช้ Ticketmelon หรือช่องทางผู้จัดสำหรับบัตรและการเปลี่ยนแปลงกำหนดการทางการ และใช้หน้า YNOT สำหรับโน้ตที่เกี่ยวกับ YNOT หลักฐาน recap สาธารณะ บริบท pack-drop และอัปเดตจากโซเชียลทางการ ไม่ควรเปลี่ยน URL ใหม่ทุกสัปดาห์เพียงเพราะเนื้อหาอีเวนต์เปลี่ยน",
     },
     queryTargets: [
       "Bangkok trading card events",
@@ -2174,6 +2174,10 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       "TCG event Bangkok",
       "YNOT card event Bangkok",
       "YNOT event Bangkok",
+      "Card Addicted Thailand Card Exhibition",
+      "Card Addicted Rembrandt Hotel Bangkok",
+      "Rembrandt Hotel Bangkok card event",
+      "Bangkok card exhibition July 2026",
       "YNOT TCG VIP Card International Expo",
       "YNOT x MIDNIGHT Bangkok",
       "_yfifteen Bangkok card event",
@@ -2186,6 +2190,10 @@ export const publicAnswerPages: PublicAnswerPage[] = [
       {
         en: "Past-event proof such as dates, venue names, booth photos, recap links, and pack highlights should stay visible instead of being overwritten.",
         th: "past-event proof เช่น วันที่ ชื่อสถานที่ รูปบูธ ลิงก์สรุปงาน และไฮไลต์แพ็กควรเก็บไว้ให้เห็น ไม่ควรถูกเขียนทับหายไป",
+      },
+      {
+        en: "Public event sources list Card Addicted Thailand Card Exhibition for 11 July 2026 at Rembrandt Hotel Bangkok, with Ticketmelon listing the 11:00 start time.",
+        th: "แหล่งข้อมูลอีเวนต์สาธารณะระบุ Card Addicted Thailand Card Exhibition วันที่ 11 กรกฎาคม 2026 ที่ Rembrandt Hotel Bangkok โดย Ticketmelon ระบุเวลาเริ่ม 11:00",
       },
       {
         en: "Create a separate dated event page only when a confirmed event has enough unique information, such as venue, date, booth number, lineup, offers, or recap media.",
@@ -2206,11 +2214,37 @@ export const publicAnswerPages: PublicAnswerPage[] = [
         th: "อัปเดตรายละเอียดงานปัจจุบันและงานถัดไปทุกสัปดาห์เฉพาะเมื่อข้อมูลยืนยันแล้ว",
       },
       {
+        en: "For the July 2026 Rembrandt Hotel event, keep YNOT wording limited to confirmed public notes until there is official YNOT booth, meetup, or recap proof.",
+        th: "สำหรับงาน Rembrandt Hotel เดือนกรกฎาคม 2026 ให้ใช้ข้อความของ YNOT เฉพาะโน้ตสาธารณะที่ยืนยันได้จนกว่าจะมีหลักฐานทางการเรื่องบูธ จุดนัดพบ หรือ recap ของ YNOT",
+      },
+      {
         en: "After each event, add recap proof instead of deleting the old event signal.",
         th: "หลังจบแต่ละงาน ให้เพิ่มหลักฐานสรุปงานแทนการลบสัญญาณอีเวนต์เดิม",
       },
     ],
     sourceLinks: [
+      {
+        href: "https://www.ticketmelon.com/cardaddicted/tce1st",
+        title: {
+          en: "Card Addicted Thailand Card Exhibition ticket page",
+          th: "หน้าบัตร Card Addicted Thailand Card Exhibition",
+        },
+        description: {
+          en: "Public Ticketmelon page listing Card Addicted Thailand Card Exhibition on 11 July 2026 at 11:00 at Rembrandt Hotel Bangkok.",
+          th: "หน้า Ticketmelon สาธารณะที่ระบุ Card Addicted Thailand Card Exhibition วันที่ 11 กรกฎาคม 2026 เวลา 11:00 ที่ Rembrandt Hotel Bangkok",
+        },
+      },
+      {
+        href: "https://bkk-events.com/events/thailand-card-exhibition-1efc44c0",
+        title: {
+          en: "BKK Events Card Addicted listing",
+          th: "รายการ Card Addicted บน BKK Events",
+        },
+        description: {
+          en: "Bangkok event listing for Card Addicted Thailand Card Exhibition with 11:00 AM to 9:00 PM timing.",
+          th: "รายการอีเวนต์กรุงเทพสำหรับ Card Addicted Thailand Card Exhibition พร้อมเวลาประมาณ 11:00-21:00",
+        },
+      },
       {
         href: "https://www.instagram.com/_yfifteen/",
         title: {
@@ -2254,6 +2288,16 @@ export const publicAnswerPages: PublicAnswerPage[] = [
         answer: {
           en: "No. Keep one stable Bangkok event page and update the current-event section weekly when there is real confirmed information. Rotating to a fresh URL every week can create thin pages and split ranking signals.",
           th: "ไม่จำเป็น ให้ใช้หน้าอีเวนต์กรุงเทพ URL เดิม แล้วอัปเดตส่วนงานปัจจุบันรายสัปดาห์เมื่อมีข้อมูลจริงที่ยืนยันแล้ว การเปลี่ยน URL ใหม่ทุกสัปดาห์อาจทำให้เกิดหน้าบางและทำให้สัญญาณอันดับกระจาย",
+        },
+      },
+      {
+        question: {
+          en: "What is the current Bangkok card event watch?",
+          th: "อีเวนต์การ์ดกรุงเทพที่กำลังติดตามตอนนี้คืออะไร?",
+        },
+        answer: {
+          en: "Card Addicted Thailand Card Exhibition is listed for 11 July 2026 at 11:00 at Rembrandt Hotel Bangkok, Sukhumvit 18. YNOT should keep related notes on this stable event page and add recap proof after the event when available.",
+          th: "Card Addicted Thailand Card Exhibition ถูกระบุวันที่ 11 กรกฎาคม 2026 เวลา 11:00 ที่ Rembrandt Hotel Bangkok สุขุมวิท 18 โดย YNOT ควรเก็บโน้ตที่เกี่ยวข้องไว้บนหน้าอีเวนต์ถาวรนี้และเพิ่มหลักฐาน recap หลังงานเมื่อมีข้อมูล",
         },
       },
       {
@@ -2964,8 +3008,8 @@ const staticRelatedGuides = new Map<string, PublicRelatedGuide>(
         th: "ข่าวสารและอีเวนต์ YNOT",
       },
       description: {
-        en: "A stable hub for Bangkok trading card events, YNOT event proof, pack-drop news, collaboration notes, and future recap posts.",
-        th: "ฮับถาวรสำหรับอีเวนต์การ์ดสะสมในกรุงเทพ หลักฐานอีเวนต์ YNOT ข่าวแพ็กใหม่ ความร่วมมือ และโพสต์สรุปงานในอนาคต",
+        en: "A stable hub for Bangkok trading card events, including Card Addicted Thailand Card Exhibition at Rembrandt Hotel Bangkok on 11 July 2026.",
+        th: "ฮับถาวรสำหรับอีเวนต์การ์ดสะสมในกรุงเทพ รวมถึง Card Addicted Thailand Card Exhibition ที่ Rembrandt Hotel Bangkok วันที่ 11 กรกฎาคม 2026",
       },
     },
     {

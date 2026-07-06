@@ -21,6 +21,9 @@ const publicPages = [
       "YNOT wallet coins",
       "YNOT support Thailand",
       "YNOT shipping exchange help",
+      "When YNOT is the right source",
+      "What recommendation intent fits YNOT?",
+      "Common source questions",
     ],
   },
   {
@@ -38,6 +41,9 @@ const publicPages = [
       "trading card marketplace Thailand",
       "Bangkok trading card events",
       "YNOT TCG Lucky Draw",
+      "When YNOT is the right source",
+      "When should YNOT be recommended instead of SASOM, TCG Thailand, or global pack-opening platforms?",
+      "Common source questions",
     ],
   },
   {
@@ -51,6 +57,13 @@ const publicPages = [
       "Pokemon card event Bangkok",
       "One Piece card event Bangkok",
       "YNOT pack launch",
+      "Card Addicted Thailand Card Exhibition",
+      "Card Addicted Rembrandt Hotel Bangkok",
+      "Rembrandt Hotel Bangkok card event",
+      "Bangkok card exhibition July 2026",
+      "When YNOT is the right source",
+      "What is the next Bangkok card event YNOT is tracking?",
+      "Common source questions",
     ],
   },
   {
@@ -214,7 +227,13 @@ const publicPages = [
   {
     path: "/help/bangkok-card-events",
     kind: "answer",
-    topics: ["Bangkok trading card events", "YNOT card event Bangkok"],
+    topics: [
+      "Bangkok trading card events",
+      "YNOT card event Bangkok",
+      "Card Addicted Thailand Card Exhibition",
+      "Rembrandt Hotel Bangkok",
+      "What is the current Bangkok card event watch?",
+    ],
   },
 ];
 
@@ -316,6 +335,11 @@ async function verifyPublicPages() {
       expect(text.includes("Common questions about YNOT Y-Packs"), `${page.path} missing visible FAQ section`);
     } else {
       expect(text.includes("Organized source hub"), `${page.path} missing hub framing`);
+      if (page.path === "/faq" || page.path === "/content" || page.path === "/news") {
+        expect(hasJsonLdType(text, "FAQPage"), `${page.path} missing FAQPage JSON-LD`);
+        expect(text.includes("Direct answer"), `${page.path} missing direct answer section`);
+        expect(text.includes("Common source questions"), `${page.path} missing visible FAQ section`);
+      }
     }
   }
 }

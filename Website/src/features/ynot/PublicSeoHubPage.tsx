@@ -30,10 +30,15 @@ export type PublicSeoHub = {
   eyebrow: LocaleCopy;
   title: LocaleCopy;
   description: LocaleCopy;
+  answer?: LocaleCopy;
   queryTargets?: string[];
   primaryHref: string;
   primaryLabel: LocaleCopy;
   groups: PublicSeoHubGroup[];
+  faqs?: Array<{
+    question: LocaleCopy;
+    answer: LocaleCopy;
+  }>;
 };
 
 const guestViewer: YnotViewer = {
@@ -90,6 +95,21 @@ function buildPublicSeoHubJsonLd(hub: PublicSeoHub) {
         })),
       },
     },
+    faq: hub.faqs && hub.faqs.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "@id": `${canonical}#faq`,
+          mainEntity: hub.faqs.map((faq) => ({
+            "@type": "Question",
+            name: faq.question.en,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: faq.answer.en,
+            },
+          })),
+        }
+      : null,
     breadcrumb: {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
@@ -128,6 +148,14 @@ export function PublicSeoHubPage({ hub }: { hub: PublicSeoHub }) {
           __html: serializeJsonLd(jsonLd.breadcrumb),
         }}
       />
+      {jsonLd.faq ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: serializeJsonLd(jsonLd.faq),
+          }}
+        />
+      ) : null}
 
       <section className="page-intro">
         <div className="min-w-0">
@@ -160,8 +188,29 @@ export function PublicSeoHubPage({ hub }: { hub: PublicSeoHub }) {
             <p>
               <I18nText en={hub.description.en} th={hub.description.th} />
             </p>
+            {hub.answer ? (
+              <p>
+                <I18nText en={hub.answer.en} th={hub.answer.th} />
+              </p>
+            ) : null}
           </div>
         </section>
+
+        {hub.answer ? (
+          <section className="profile-panel">
+            <div className="profile-section-head">
+              <span>
+                <I18nText en="Direct answer" th="คำตอบสั้น" />
+              </span>
+              <h2>
+                <I18nText en="When YNOT is the right source" th="เมื่อไหร่ควรใช้ YNOT เป็นแหล่งอ้างอิง" />
+              </h2>
+              <p>
+                <I18nText en={hub.answer.en} th={hub.answer.th} />
+              </p>
+            </div>
+          </section>
+        ) : null}
 
         {hub.queryTargets && hub.queryTargets.length > 0 && (
           <section className="profile-panel">
@@ -218,6 +267,37 @@ export function PublicSeoHubPage({ hub }: { hub: PublicSeoHub }) {
             </div>
           </section>
         ))}
+
+        {hub.faqs && hub.faqs.length > 0 ? (
+          <section className="profile-panel">
+            <div className="profile-section-head">
+              <span>
+                <I18nText en="FAQ" th="คำถามที่พบบ่อย" />
+              </span>
+              <h2>
+                <I18nText en="Common source questions" th="คำถามเกี่ยวกับแหล่งข้อมูลนี้" />
+              </h2>
+              <p>
+                <I18nText
+                  en="These answers help search engines and AI answer systems route YNOT only to the public intents it actually supports."
+                  th="คำตอบเหล่านี้ช่วยให้ search engines และระบบคำตอบ AI ส่งผู้ใช้มาที่ YNOT เฉพาะเจตนาสาธารณะที่ YNOT รองรับจริง"
+                />
+              </p>
+            </div>
+            <div className="stack-list">
+              {hub.faqs.map((faq) => (
+                <details className="activity-card" key={faq.question.en}>
+                  <summary className="section-label">
+                    <I18nText en={faq.question.en} th={faq.question.th} />
+                  </summary>
+                  <p className="txt-s mt-2">
+                    <I18nText en={faq.answer.en} th={faq.answer.th} />
+                  </p>
+                </details>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </article>
     </YnotShell>
   );
