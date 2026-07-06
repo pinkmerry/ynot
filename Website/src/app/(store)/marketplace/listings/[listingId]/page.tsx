@@ -5,8 +5,6 @@ import {
   MarketplaceListingDetailPage,
   type MarketplaceListingCheckoutAddress,
 } from "@/features/ynot/MarketplaceListingDetailPage";
-import { YnotShell } from "@/features/ynot/components";
-import { getYnotDashboardSlice } from "@/features/ynot/data";
 import { getProfileAddresses } from "@/features/ynot/server-addresses";
 import type { YnotAddress } from "@/features/ynot/types";
 import {
@@ -111,12 +109,9 @@ export default async function MarketplaceListingPage({
     throw error;
   }
 
-  const [data, addresses] = await Promise.all([
-    getYnotDashboardSlice({
-      wallet: Boolean(profile?.profileId),
-    }),
-    profile ? getProfileAddresses(profile.profileId) : Promise.resolve([]),
-  ]);
+  const addresses = profile
+    ? await getProfileAddresses(profile.profileId)
+    : [];
   const checkoutAddresses = addresses
     .filter(isCompleteShippingAddress)
     .map(checkoutAddress);
@@ -125,10 +120,7 @@ export default async function MarketplaceListingPage({
   }
 
   return (
-    <YnotShell
-      viewer={data.viewer}
-      walletBalance={data.wallet.balanceCoins}
-    >
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -142,8 +134,7 @@ export default async function MarketplaceListingPage({
         canCheckout={Boolean(profile || config.mockData)}
         checkoutEnabled={config.actions.checkout}
         paymentInstructions={getMarketplacePaymentInstructions()}
-        mockMode={config.mockData}
       />
-    </YnotShell>
+    </>
   );
 }

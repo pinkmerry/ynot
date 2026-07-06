@@ -86,6 +86,7 @@
     "test:marketplace-ui-shell": "node --test scripts/test-marketplace-ui-shell.mjs",
     "test:marketplace-ui-browse": "node --test scripts/test-marketplace-ui-browse.mjs",
     "test:marketplace-ui-product": "node --test scripts/test-marketplace-ui-product.mjs",
+    "test:marketplace-ui-checkout": "node --test scripts/test-marketplace-ui-checkout.mjs",
     "test:marketplace-product-market": "node --test scripts/test-marketplace-product-market-architecture.mjs",
     "test:marketplace-product-grouping": "node --test scripts/test-marketplace-product-grouping-architecture.mjs",
     "test:marketplace-official-shop": "node --test scripts/test-marketplace-official-shop.mjs",

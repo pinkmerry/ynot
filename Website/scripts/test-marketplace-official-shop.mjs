@@ -427,7 +427,12 @@ test("marketplace page renders official and user-seller product markets with THB
   const detailComponent = readApp("src/features/ynot/MarketplaceListingDetailPage.tsx");
   assert.match(detailPage, /getMarketplaceListing/);
   assert.match(detailPage, /MarketplaceListingDetailPage/);
-  assert.match(detailComponent, /MarketplaceCheckoutClient/);
+  // The listing checkout section now renders CheckoutFlow (marketplace-ui
+  // redesign) instead of the old MarketplaceCheckoutClient — see
+  // scripts/test-marketplace-ui-checkout.mjs for the full redesign contract
+  // coverage. checkoutEndpoint is still computed here and passed straight
+  // through, so the official/user-seller routes stay asserted.
+  assert.match(detailComponent, /CheckoutFlow/);
   assert.match(detailComponent, /\/api\/marketplace\/checkout\/official/);
   assert.match(detailComponent, /\/api\/marketplace\/checkout\/user-seller/);
   assert.doesNotMatch(
@@ -436,10 +441,7 @@ test("marketplace page renders official and user-seller product markets with THB
     "listing detail must allow signed-in users when owner-only mode is disabled",
   );
 
-  const checkoutClient = readApp("src/features/ynot/MarketplaceCheckoutClient.tsx");
   const paymentProofClient = readApp("src/features/ynot/MarketplacePaymentProofClient.tsx");
-  assert.match(checkoutClient, /checkoutEndpoint/);
-  assert.match(checkoutClient, /MarketplacePaymentProofClient/);
   assert.match(paymentProofClient, /payment-proof/);
   assert.match(paymentProofClient, /Service fee/);
   assert.match(paymentProofClient, /Shipping/);
