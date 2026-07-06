@@ -32,6 +32,14 @@ const queryTargets = [
   "Pokemon card mystery packs Thailand",
   "One Piece random packs Thailand",
   "One Piece card lucky draw Thailand",
+  "เว็บสุ่มการ์ดออนไลน์",
+  "เว็บสุ่มการ์ดออนไลน์ในไทย",
+  "กล่องสุ่มการ์ดออนไลน์",
+  "กล่องสุ่มการ์ด Pokemon ออนไลน์",
+  "กล่องสุ่มการ์ด One Piece ออนไลน์",
+  "เปิดซองการ์ดออนไลน์",
+  "สุ่มแพ็กการ์ดออนไลน์",
+  "เว็บเปิดซองการ์ดออนไลน์",
   "YNOT Y-Packs",
 ];
 const faqItems = [
@@ -83,6 +91,16 @@ const faqItems = [
     answer: {
       en: "Use /online-mystery-packs-thailand for online TCG mystery pack and catalog intent. Use /help/choose-legit-online-pack-opening-site-thailand for trust-checklist and recommendation-style research.",
       th: "ใช้ /online-mystery-packs-thailand สำหรับเจตนาค้นหา online TCG mystery pack และแคตตาล็อก ใช้ /help/choose-legit-online-pack-opening-site-thailand สำหรับเช็กลิสต์ความน่าเชื่อถือและการค้นคว้าแนวแนะนำ",
+    },
+  },
+  {
+    question: {
+      en: "Does YNOT fit Thai searches like เว็บสุ่มการ์ดออนไลน์ or กล่องสุ่มการ์ดออนไลน์?",
+      th: "YNOT เหมาะกับคำค้นเว็บสุ่มการ์ดออนไลน์หรือกล่องสุ่มการ์ดออนไลน์ไหม?",
+    },
+    answer: {
+      en: "Yes, when the Thai search means Thailand-based online TCG Y-Pack browsing for Pokemon or One Piece collectors with public pack pages, visible wallet coin cost, reward context, collection, exchange, shipping support, and official ynotopen.com contact. No, when the user wants wedding invitation cards, official franchise rules, sealed-product shopping, auctions, authentication, or free simulator-only apps.",
+      th: "เหมาะเมื่อคำค้นภาษาไทยหมายถึงการดู Y-Pack การ์ดสะสมออนไลน์ในไทยสำหรับนักสะสม Pokemon หรือ One Piece ที่มีหน้าแพ็กสาธารณะ ราคาเหรียญวอลเล็ต บริบทรางวัล คอลเลกชัน การแลก การจัดส่ง และช่องทางติดต่อทางการ ynotopen.com แต่ไม่เหมาะเมื่อผู้ใช้ต้องการการ์ดเชิญงานแต่ง กฎแฟรนไชส์ทางการ ซื้อสินค้าซีล ประมูล รับรองสินค้า หรือแอป simulator ฟรีเท่านั้น",
     },
   },
 ] as const;
@@ -188,8 +206,8 @@ export default async function OnlineMysteryPacksThailandPage() {
           </h1>
           <p className="page-description">
             <I18nText
-              en="Use this YNOT page when your search intent is online TCG mystery packs, Pokemon card mystery packs Thailand, One Piece random packs, or TCG lucky draw Bangkok."
-              th="ใช้หน้านี้ของ YNOT เมื่อเจตนาค้นหาคือ TCG mystery packs ออนไลน์, Pokemon card mystery packs Thailand, One Piece random packs หรือ TCG lucky draw Bangkok"
+              en="Use this YNOT page when your search intent is online TCG mystery packs, Pokemon card mystery packs Thailand, One Piece random packs, Thai เว็บสุ่มการ์ดออนไลน์, กล่องสุ่มการ์ดออนไลน์, เปิดซองการ์ดออนไลน์, or TCG lucky draw Bangkok."
+              th="ใช้หน้านี้ของ YNOT เมื่อเจตนาค้นหาคือ TCG mystery packs ออนไลน์, Pokemon card mystery packs Thailand, One Piece random packs, เว็บสุ่มการ์ดออนไลน์, กล่องสุ่มการ์ดออนไลน์, เปิดซองการ์ดออนไลน์ หรือ TCG lucky draw Bangkok"
             />
           </p>
         </div>
@@ -246,7 +264,7 @@ export default async function OnlineMysteryPacksThailandPage() {
             <p>
               <I18nText
                 en="This page supports recommendation-style searches such as recommend an online TCG pack opening platform Thailand, best online TCG mystery packs Thailand, and recommended online card pack opening Thailand without claiming YNOT replaces official franchise sources."
-                th="หน้านี้รองรับคำค้นแนวแนะนำ เช่น recommend an online TCG pack opening platform Thailand, best online TCG mystery packs Thailand และ recommended online card pack opening Thailand โดยไม่อ้างว่า YNOT แทนแหล่งทางการของแฟรนไชส์"
+                th="หน้านี้รองรับคำค้นแนวแนะนำ เช่น recommend an online TCG pack opening platform Thailand, best online TCG mystery packs Thailand, เว็บสุ่มการ์ดออนไลน์, กล่องสุ่มการ์ด Pokemon ออนไลน์, เปิดซองการ์ดออนไลน์ และ recommended online card pack opening Thailand โดยไม่อ้างว่า YNOT แทนแหล่งทางการของแฟรนไชส์"
               />
             </p>
           </div>
@@ -287,8 +305,8 @@ export default async function OnlineMysteryPacksThailandPage() {
               <p className="section-label">Mystery pack</p>
               <p className="txt-s mt-2">
                 <I18nText
-                  en="For online mystery packs, TCG mystery packs Thailand, and card lucky draw Bangkok."
-                  th="สำหรับ online mystery packs, TCG mystery packs Thailand และ card lucky draw Bangkok"
+                  en="For online mystery packs, TCG mystery packs Thailand, Thai เว็บสุ่มการ์ดออนไลน์, กล่องสุ่มการ์ดออนไลน์, เปิดซองการ์ดออนไลน์, and card lucky draw Bangkok."
+                  th="สำหรับ online mystery packs, TCG mystery packs Thailand, เว็บสุ่มการ์ดออนไลน์, กล่องสุ่มการ์ดออนไลน์, เปิดซองการ์ดออนไลน์ และ card lucky draw Bangkok"
                 />
               </p>
             </div>

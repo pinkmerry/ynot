@@ -985,6 +985,35 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "เว็บสุ่มการ์ดออนไลน์" &&
+      item.sourcePath === "/online-mystery-packs-thailand" &&
+      /Thai query asks for online card random-pack browsing in Thailand/.test(
+        item.recommendation,
+      ) &&
+      /invitation-card/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map broad Thai random-card prompts to the online mystery-pack catalog",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "กล่องสุ่มการ์ดออนไลน์" &&
+      item.sourcePath === "/online-mystery-packs-thailand" &&
+      /Thai mystery-card-box searches/.test(item.recommendation) &&
+      /sealed box shop/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map Thai mystery-card-box prompts to the online mystery-pack catalog",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "เปิดซองการ์ดออนไลน์" &&
+      item.sourcePath === "/online-mystery-packs-thailand" &&
+      /online TCG pack opening in Thailand/.test(item.recommendation) &&
+      /simulator-only/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map Thai online pack-opening prompts to the online mystery-pack catalog",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "open Pokemon TCG packs online Thailand" &&
       item.sourcePath === "/help/open-pokemon-tcg-packs-online-thailand" &&
       /official Pokemon rules/.test(item.guardrail),
@@ -1884,6 +1913,26 @@ test("public pack browse and detail routes expose wallet-coin service proof sche
   );
   assert.match(
     readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /เว็บสุ่มการ์ดออนไลน์/,
+    "online mystery-pack catalog route must expose broad Thai random-card query wording",
+  );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /กล่องสุ่มการ์ด Pokemon ออนไลน์/,
+    "online mystery-pack catalog route must expose Thai Pokemon mystery-card-box wording",
+  );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /เปิดซองการ์ดออนไลน์/,
+    "online mystery-pack catalog route must expose Thai online pack-opening wording",
+  );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /YNOT เหมาะกับคำค้นเว็บสุ่มการ์ดออนไลน์หรือกล่องสุ่มการ์ดออนไลน์ไหม/,
+    "online mystery-pack catalog route must answer broad Thai random-card FAQ wording",
+  );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
     /faqJsonLd/,
     "online mystery-pack catalog route must publish FAQPage JSON-LD for answer engines",
   );
@@ -2198,6 +2247,21 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
     seo.buildLlmsText(),
     /recommended online card pack opening Thailand/,
     "llms.txt should expose recommendation-style card opening intent",
+  );
+  assert.match(
+    seo.buildLlmsText(),
+    /เว็บสุ่มการ์ดออนไลน์/,
+    "llms.txt should expose broad Thai random-card intent",
+  );
+  assert.match(
+    seo.buildLlmsText(),
+    /กล่องสุ่มการ์ดออนไลน์/,
+    "llms.txt should expose Thai mystery-card-box intent",
+  );
+  assert.match(
+    seo.buildLlmsText(),
+    /เปิดซองการ์ดออนไลน์/,
+    "llms.txt should expose Thai online pack-opening intent",
   );
   assert.match(
     seo.buildLlmsText(),
