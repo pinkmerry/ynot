@@ -547,3 +547,47 @@ html:has(.mp-root),
 body:has(.mp-root) {
   background: #f7f5ee;
 }
+
+/* ============================================
+   Product-detail responsive grids (ProductDetail.tsx)
+   ============================================
+   ProtoDetail's own inline grids (380px 1fr / 1fr 400px) are desktop-only —
+   ported as-is they push the second column off-screen below ~860px. These
+   named classes replace the equivalent inline gridTemplateColumns so the
+   product-detail page can collapse to a single column on narrow viewports
+   without touching any class used by other already-shipped marketplace-ui
+   surfaces (BrowsePage/FilterRail keep their existing inline grids as-is). */
+.mp-detail-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 30px;
+  align-items: start;
+}
+.mp-detail-history-grid {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 22px;
+  align-items: start;
+  margin-top: 30px;
+}
+.mp-detail-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+@media (max-width: 860px) {
+  .mp-detail-grid,
+  .mp-detail-history-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 640px) {
+  .mp-detail-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 420px) {
+  .mp-detail-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
