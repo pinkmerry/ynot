@@ -3,6 +3,7 @@
 import {
   Fragment,
   useCallback,
+  useEffect,
   useRef,
   useState,
   type ButtonHTMLAttributes,
@@ -85,11 +86,16 @@ export interface MpChipProps {
 
 export function MpChip({ active, children, className, onClick }: MpChipProps) {
   const cls = ["mp-chip", active && "active", className].filter(Boolean).join(" ");
-  return (
-    <span className={cls} onClick={onClick}>
-      {children}
-    </span>
-  );
+  // Interactive chips (used as filter toggles) render a real button for native
+  // keyboard/focus behavior; static label chips stay a plain span.
+  if (onClick) {
+    return (
+      <button type="button" className={cls} onClick={onClick}>
+        {children}
+      </button>
+    );
+  }
+  return <span className={cls}>{children}</span>;
 }
 
 // ---------- MpEmpty ----------
@@ -167,20 +173,32 @@ export interface UseToastsResult {
 /**
  * Client-side toast queue. `toast(message)` pushes a { id, kind, message }
  * entry that auto-dismisses after TOAST_AUTO_DISMISS_MS, mirroring the
- * prototype's `ProtoToasts` + inline toast() helper.
+ * prototype's `ProtoToasts` + inline toast() helper. Pending dismiss timers
+ * are tracked and cleared on unmount so we never setState after unmount.
  */
 export function useToasts(): UseToastsResult {
   const [toasts, setToasts] = useState<MpToast[]>([]);
   const nextId = useRef(0);
+  const timers = useRef<Set<number>>(new Set());
 
   const toast = useCallback((message: string, kind: MpToastKind = "info") => {
     const id = nextId.current++;
     setToasts((current) => [...current, { id, kind, message }]);
     if (typeof window !== "undefined") {
-      window.setTimeout(() => {
+      const timerId = window.setTimeout(() => {
+        timers.current.delete(timerId);
         setToasts((current) => current.filter((t) => t.id !== id));
       }, TOAST_AUTO_DISMISS_MS);
+      timers.current.add(timerId);
     }
+  }, []);
+
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      for (const timerId of pending) window.clearTimeout(timerId);
+      pending.clear();
+    };
   }, []);
 
   return { toasts, toast };

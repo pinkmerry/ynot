@@ -144,6 +144,8 @@ test("money.ts exports formatThb (satang->baht) and formatNumber", () => {
   assert.match(source, /export function formatThb/, "must export formatThb");
   assert.match(source, /export function formatNumber/, "must export formatNumber");
   assert.match(source, /\/\s*100/, "formatThb must convert satang to baht via / 100");
+  // non-finite input must fall back to 0 so prices never render "฿NaN"
+  assert.match(source, /Number\.isFinite/, "money helpers must guard non-finite input");
 });
 
 test("MpPrimitives.tsx exports all shared primitives with prototype-matching classes", () => {
@@ -178,6 +180,15 @@ test("MpPrimitives.tsx exports all shared primitives with prototype-matching cla
 
   // MpToasts/useToasts need client-side hooks
   assert.match(source, /"use client"/, "hook-using primitives must opt into the client boundary");
+
+  // hardening: interactive chips render a real <button type="button"> for keyboard access
+  assert.match(
+    source,
+    /<button type="button"/,
+    "interactive MpChip must render a native button for keyboard accessibility",
+  );
+  // hardening: useToasts must clear pending dismiss timers on unmount
+  assert.match(source, /clearTimeout/, "useToasts must clear pending toast timers on unmount");
 });
 
 function escapeRegExp(value) {
