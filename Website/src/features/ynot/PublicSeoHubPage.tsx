@@ -239,11 +239,6 @@ export function PublicSeoHubPage({ hub }: { hub: PublicSeoHub }) {
             <p>
               <I18nText en={hub.description.en} th={hub.description.th} />
             </p>
-            {hub.answer ? (
-              <p>
-                <I18nText en={hub.answer.en} th={hub.answer.th} />
-              </p>
-            ) : null}
           </div>
         </section>
 

@@ -2071,6 +2071,12 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     /Direct answer/,
     "SEO hub pages should render optional direct-answer sections",
   );
+  assert.equal(
+    readApp("src/features/ynot/PublicSeoHubPage.tsx").match(/I18nText en=\{hub\.answer\.en\}/g)
+      ?.length,
+    1,
+    "SEO hub pages should render the direct answer once to avoid duplicate search snippets",
+  );
   assert.match(
     readApp("src/features/ynot/PublicSeoHubPage.tsx"),
     /Common source questions/,
