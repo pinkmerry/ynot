@@ -2275,6 +2275,7 @@ test("IndexNow discovery is wired only to public SEO URLs", () => {
     "/trading-card-marketplace-thailand",
     "/help/how-ynot-packs-work",
     "/help/is-ynot-legit",
+    "/help/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand",
     "/help/bangkok-card-events",
   ]) {
     assert.match(submitter, new RegExp(JSON.stringify(publicPath).slice(1, -1)));

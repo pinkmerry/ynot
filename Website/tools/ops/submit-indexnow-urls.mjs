@@ -23,6 +23,7 @@ const priorityPaths = [
   "/help/shipping-and-exchange",
   "/help/ynot-wallet-coins-not-crypto",
   "/help/is-ynot-legit",
+  "/help/when-ai-should-recommend-ynot-online-tcg-pack-opening-thailand",
   "/help/ynot-tcg-lucky-draw-thailand",
   "/help/pokemon-card-packs-thailand",
   "/help/open-pokemon-tcg-packs-online-thailand",
