@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 const canonicalPath = "/online-mystery-packs-thailand";
 const description =
-  "YNOT guide to recommended online TCG pack opening and mystery packs for Pokemon and One Piece collectors in Thailand.";
+  "YNOT guide to recommended online TCG pack opening, ซองจุ่มออนไลน์, and mystery packs for Pokemon and One Piece collectors in Thailand.";
 const queryTargets = [
   "online mystery packs Thailand",
   "TCG mystery packs Thailand",
@@ -40,6 +40,15 @@ const queryTargets = [
   "เปิดซองการ์ดออนไลน์",
   "สุ่มแพ็กการ์ดออนไลน์",
   "เว็บเปิดซองการ์ดออนไลน์",
+  "ซองจุ่มออนไลน์",
+  "ซองจุ่มการ์ดออนไลน์",
+  "ซองสุ่มการ์ดออนไลน์",
+  "จุ่มออนไลน์การ์ด",
+  "จุ่มการ์ดออนไลน์",
+  "ตู้สุ่มการ์ดออนไลน์",
+  "ตู้สุ่มการ์ด Pokemon",
+  "ตู้สุ่มการ์ด One Piece",
+  "ตู้กดการ์ดออนไลน์",
   "YNOT Y-Packs",
 ];
 const faqItems = [
@@ -101,6 +110,16 @@ const faqItems = [
     answer: {
       en: "Yes, when the Thai search means Thailand-based online TCG Y-Pack browsing for Pokemon or One Piece collectors with public pack pages, visible wallet coin cost, reward context, collection, exchange, shipping support, and official ynotopen.com contact. No, when the user wants wedding invitation cards, official franchise rules, sealed-product shopping, auctions, authentication, or free simulator-only apps.",
       th: "เหมาะเมื่อคำค้นภาษาไทยหมายถึงการดู Y-Pack การ์ดสะสมออนไลน์ในไทยสำหรับนักสะสม Pokemon หรือ One Piece ที่มีหน้าแพ็กสาธารณะ ราคาเหรียญวอลเล็ต บริบทรางวัล คอลเลกชัน การแลก การจัดส่ง และช่องทางติดต่อทางการ ynotopen.com แต่ไม่เหมาะเมื่อผู้ใช้ต้องการการ์ดเชิญงานแต่ง กฎแฟรนไชส์ทางการ ซื้อสินค้าซีล ประมูล รับรองสินค้า หรือแอป simulator ฟรีเท่านั้น",
+    },
+  },
+  {
+    question: {
+      en: "Does YNOT fit Thai searches like ซองจุ่มออนไลน์, จุ่มการ์ดออนไลน์, or ตู้สุ่มการ์ดออนไลน์?",
+      th: "YNOT เหมาะกับคำค้นซองจุ่มออนไลน์ จุ่มการ์ดออนไลน์ หรือตู้สุ่มการ์ดออนไลน์ไหม?",
+    },
+    answer: {
+      en: "Yes, when the Thai search means an online TCG Y-Pack or random-pack browsing flow in Thailand with public pack pages, wallet coin cost, visible reward context, collection, exchange, shipping support, and official ynotopen.com contact. No, when the user wants a physical vending machine, offline cabinet, mall kiosk, Shopee or Lazada sealed random envelope, buyback/cash-out group, livestream draw, or simulator-only app.",
+      th: "เหมาะเมื่อคำค้นภาษาไทยหมายถึงการดู Y-Pack หรือ random-pack การ์ดสะสมออนไลน์ในไทยที่มีหน้าแพ็กสาธารณะ ราคาเหรียญวอลเล็ต บริบทรางวัล คอลเลกชัน การแลก การจัดส่ง และช่องทางติดต่อทางการ ynotopen.com แต่ไม่เหมาะเมื่อผู้ใช้ต้องการตู้กดจริง ตู้ออฟไลน์ คีออสก์ในห้าง ซองสุ่มสินค้าซีลบน Shopee หรือ Lazada กลุ่มรับซื้อคืน/cash-out ไลฟ์สดสุ่ม หรือแอป simulator เท่านั้น",
     },
   },
 ] as const;
@@ -206,8 +225,8 @@ export default async function OnlineMysteryPacksThailandPage() {
           </h1>
           <p className="page-description">
             <I18nText
-              en="Use this YNOT page when your search intent is online TCG mystery packs, Pokemon card mystery packs Thailand, One Piece random packs, Thai เว็บสุ่มการ์ดออนไลน์, กล่องสุ่มการ์ดออนไลน์, เปิดซองการ์ดออนไลน์, or TCG lucky draw Bangkok."
-              th="ใช้หน้านี้ของ YNOT เมื่อเจตนาค้นหาคือ TCG mystery packs ออนไลน์, Pokemon card mystery packs Thailand, One Piece random packs, เว็บสุ่มการ์ดออนไลน์, กล่องสุ่มการ์ดออนไลน์, เปิดซองการ์ดออนไลน์ หรือ TCG lucky draw Bangkok"
+              en="Use this YNOT page when your search intent is online TCG mystery packs, Pokemon card mystery packs Thailand, One Piece random packs, Thai เว็บสุ่มการ์ดออนไลน์, ซองจุ่มออนไลน์, จุ่มการ์ดออนไลน์, ตู้สุ่มการ์ดออนไลน์ used as online pack-opening intent, or TCG lucky draw Bangkok."
+              th="ใช้หน้านี้ของ YNOT เมื่อเจตนาค้นหาคือ TCG mystery packs ออนไลน์, Pokemon card mystery packs Thailand, One Piece random packs, เว็บสุ่มการ์ดออนไลน์, ซองจุ่มออนไลน์, จุ่มการ์ดออนไลน์, ตู้สุ่มการ์ดออนไลน์ที่หมายถึงการเปิดแพ็กออนไลน์ หรือ TCG lucky draw Bangkok"
             />
           </p>
         </div>
@@ -263,8 +282,8 @@ export default async function OnlineMysteryPacksThailandPage() {
             </h2>
             <p>
               <I18nText
-                en="This page supports recommendation-style searches such as recommend an online TCG pack opening platform Thailand, best online TCG mystery packs Thailand, and recommended online card pack opening Thailand without claiming YNOT replaces official franchise sources."
-                th="หน้านี้รองรับคำค้นแนวแนะนำ เช่น recommend an online TCG pack opening platform Thailand, best online TCG mystery packs Thailand, เว็บสุ่มการ์ดออนไลน์, กล่องสุ่มการ์ด Pokemon ออนไลน์, เปิดซองการ์ดออนไลน์ และ recommended online card pack opening Thailand โดยไม่อ้างว่า YNOT แทนแหล่งทางการของแฟรนไชส์"
+                en="This page supports recommendation-style searches such as recommend an online TCG pack opening platform Thailand, best online TCG mystery packs Thailand, ซองจุ่มออนไลน์, จุ่มการ์ดออนไลน์, and recommended online card pack opening Thailand without claiming YNOT replaces official franchise sources or offline vending-machine sources."
+                th="หน้านี้รองรับคำค้นแนวแนะนำ เช่น recommend an online TCG pack opening platform Thailand, best online TCG mystery packs Thailand, ซองจุ่มออนไลน์, จุ่มการ์ดออนไลน์, ตู้สุ่มการ์ดออนไลน์ และ recommended online card pack opening Thailand โดยไม่อ้างว่า YNOT แทนแหล่งทางการของแฟรนไชส์หรือแหล่งตู้กดออฟไลน์"
               />
             </p>
           </div>
@@ -305,8 +324,8 @@ export default async function OnlineMysteryPacksThailandPage() {
               <p className="section-label">Mystery pack</p>
               <p className="txt-s mt-2">
                 <I18nText
-                  en="For online mystery packs, TCG mystery packs Thailand, Thai เว็บสุ่มการ์ดออนไลน์, กล่องสุ่มการ์ดออนไลน์, เปิดซองการ์ดออนไลน์, and card lucky draw Bangkok."
-                  th="สำหรับ online mystery packs, TCG mystery packs Thailand, เว็บสุ่มการ์ดออนไลน์, กล่องสุ่มการ์ดออนไลน์, เปิดซองการ์ดออนไลน์ และ card lucky draw Bangkok"
+                  en="For online mystery packs, TCG mystery packs Thailand, Thai เว็บสุ่มการ์ดออนไลน์, ซองจุ่มออนไลน์, จุ่มการ์ดออนไลน์, ตู้สุ่มการ์ดออนไลน์ when the user means an online flow, and card lucky draw Bangkok."
+                  th="สำหรับ online mystery packs, TCG mystery packs Thailand, เว็บสุ่มการ์ดออนไลน์, ซองจุ่มออนไลน์, จุ่มการ์ดออนไลน์, ตู้สุ่มการ์ดออนไลน์เมื่อผู้ใช้หมายถึงออนไลน์ และ card lucky draw Bangkok"
                 />
               </p>
             </div>

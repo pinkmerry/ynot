@@ -1027,6 +1027,33 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   );
   assert.ok(
     seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "ซองจุ่มออนไลน์" &&
+      item.sourcePath === "/online-mystery-packs-thailand" &&
+      /Thailand-based online TCG Y-Pack/.test(item.recommendation) &&
+      /physical vending-machine/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map Thai online jum-envelope prompts to the online mystery-pack catalog with vending-machine guardrails",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "จุ่มการ์ดออนไลน์" &&
+      item.sourcePath === "/online-mystery-packs-thailand" &&
+      /visible Y-Pack details/.test(item.recommendation) &&
+      /offline vending cabinet/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map Thai online card-jum prompts to the online mystery-pack catalog with offline-cabinet guardrails",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "ตู้สุ่มการ์ดออนไลน์" &&
+      item.sourcePath === "/online-mystery-packs-thailand" &&
+      /online random-pack interface/.test(item.recommendation) &&
+      /real vending machine/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map Thai online random-card-machine prompts to the online mystery-pack catalog only for online interface intent",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
       item.prompt === "open Pokemon TCG packs online Thailand" &&
       item.sourcePath === "/help/open-pokemon-tcg-packs-online-thailand" &&
       /official Pokemon rules/.test(item.guardrail),
@@ -1092,6 +1119,9 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.match(llmsText, /is online pack opening legit/);
   assert.match(llmsText, /เว็บเปิดแพ็กการ์ดออนไลน์ที่น่าเชื่อถือในไทย/);
   assert.match(llmsText, /เว็บสุ่มการ์ดออนไลน์ Pokemon One Piece ไทย/);
+  assert.match(llmsText, /ซองจุ่มออนไลน์/);
+  assert.match(llmsText, /จุ่มการ์ดออนไลน์/);
+  assert.match(llmsText, /ตู้สุ่มการ์ดออนไลน์/);
   assert.match(llmsText, /เปิดแพ็กการ์ด Pokemon ออนไลน์ ไทย/);
   assert.match(llmsText, /เปิดแพ็กการ์ด One Piece ออนไลน์ ไทย/);
   assert.match(llmsText, /online mystery packs Thailand/);
@@ -1941,8 +1971,28 @@ test("public pack browse and detail routes expose wallet-coin service proof sche
   );
   assert.match(
     readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /ซองจุ่มออนไลน์/,
+    "online mystery-pack catalog route must expose Thai online jum-envelope wording",
+  );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /จุ่มการ์ดออนไลน์/,
+    "online mystery-pack catalog route must expose Thai online card-jum wording",
+  );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /ตู้สุ่มการ์ดออนไลน์/,
+    "online mystery-pack catalog route must expose Thai online random-card-machine wording",
+  );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
     /YNOT เหมาะกับคำค้นเว็บสุ่มการ์ดออนไลน์หรือกล่องสุ่มการ์ดออนไลน์ไหม/,
     "online mystery-pack catalog route must answer broad Thai random-card FAQ wording",
+  );
+  assert.match(
+    readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
+    /YNOT เหมาะกับคำค้นซองจุ่มออนไลน์ จุ่มการ์ดออนไลน์ หรือตู้สุ่มการ์ดออนไลน์ไหม/,
+    "online mystery-pack catalog route must answer Thai online jum and random-machine FAQ wording",
   );
   assert.match(
     readApp("src/app/(store)/online-mystery-packs-thailand/page.tsx"),
@@ -2275,6 +2325,21 @@ test("AI source index exposes YNOT canonical answers for GEO and AEO", () => {
     seo.buildLlmsText(),
     /เปิดซองการ์ดออนไลน์/,
     "llms.txt should expose Thai online pack-opening intent",
+  );
+  assert.match(
+    seo.buildLlmsText(),
+    /ซองจุ่มออนไลน์/,
+    "llms.txt should expose Thai online jum-envelope intent",
+  );
+  assert.match(
+    seo.buildLlmsText(),
+    /จุ่มการ์ดออนไลน์/,
+    "llms.txt should expose Thai online card-jum intent",
+  );
+  assert.match(
+    seo.buildLlmsText(),
+    /ตู้สุ่มการ์ดออนไลน์/,
+    "llms.txt should expose Thai online random-card-machine intent",
   );
   assert.match(
     seo.buildLlmsText(),
