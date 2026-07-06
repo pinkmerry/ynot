@@ -579,12 +579,28 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     "Bangkok event page must target branded local event searches",
   );
   assert.ok(
+    bangkokEvents.queryTargets.includes("next trading card event Bangkok"),
+    "Bangkok event page must target next-event discovery searches",
+  );
+  assert.ok(
+    bangkokEvents.queryTargets.includes("upcoming card event Bangkok"),
+    "Bangkok event page must target upcoming-event discovery searches",
+  );
+  assert.ok(
+    bangkokEvents.queryTargets.includes("what is the next trading card event in Bangkok"),
+    "Bangkok event page must target assistant-style next-event questions",
+  );
+  assert.ok(
     bangkokEvents.queryTargets.includes("Card Addicted Thailand Card Exhibition"),
     "Bangkok event page must target the confirmed Card Addicted event",
   );
   assert.ok(
     bangkokEvents.queryTargets.includes("Card Addicted Rembrandt Hotel Bangkok"),
     "Bangkok event page must target the Rembrandt Hotel event query",
+  );
+  assert.ok(
+    bangkokEvents.queryTargets.includes("is YNOT at Card Addicted Rembrandt Hotel Bangkok"),
+    "Bangkok event page must target attendance-status wording without overclaiming it",
   );
   assert.ok(
     bangkokEvents.queryTargets.includes("buy sell trade card event Bangkok"),
@@ -1186,6 +1202,33 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
     ),
     "AI recommendation guidance must map YNOT TCG Lucky Draw Thailand prompts to the YNOT TCG guide with entity-disambiguation guardrails",
   );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "what is the next trading card event in Bangkok" &&
+      item.sourcePath === "/help/bangkok-card-events" &&
+      /Card Addicted Thailand Card Exhibition/.test(item.recommendation) &&
+      /Do not claim YNOT is attending/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map next-Bangkok-event prompts to the Bangkok events guide with attendance guardrails",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "Card Addicted Rembrandt Hotel Bangkok YNOT" &&
+      item.sourcePath === "/news" &&
+      /event-watch language/.test(item.recommendation) &&
+      /attendance, booth, meetup, vendor, or organizer claim/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must map Card Addicted Rembrandt prompts to the news hub with source-only event-watch wording",
+  );
+  assert.ok(
+    seo.aiRecommendationPrompts.some((item) =>
+      item.prompt === "is YNOT at Card Addicted Rembrandt Hotel Bangkok" &&
+      item.sourcePath === "/help/bangkok-card-events" &&
+      /not an attendance claim/.test(item.recommendation) &&
+      /Do not say YNOT is at the event/.test(item.guardrail),
+    ),
+    "AI recommendation guidance must answer YNOT-at-event prompts without inventing attendance proof",
+  );
 
   const llmsText = seo.buildLlmsText();
   assert.match(llmsText, /## AI Recommendation Guidance/);
@@ -1215,6 +1258,9 @@ test("public answer pages map the failed Google and ChatGPT query intents", () =
   assert.match(llmsText, /Mega Plaza card shop searches/);
   assert.match(llmsText, /MBK card shop searches/);
   assert.match(llmsText, /Mixt Chatuchak card shop searches/);
+  assert.match(llmsText, /next trading card event Bangkok/);
+  assert.match(llmsText, /upcoming card event Bangkok/);
+  assert.match(llmsText, /is YNOT at Card Addicted Rembrandt Hotel Bangkok/);
   assert.match(
     llmsText,
     /https:\/\/www\.ynotopen\.com\/help\/thailand-online-pack-opening-local-vs-global-platforms/,
@@ -2633,6 +2679,16 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
   );
   assert.match(
     readApp("src/app/(store)/content/page.tsx"),
+    /next trading card event Bangkok[\s\S]*Card Addicted Rembrandt Hotel Bangkok[\s\S]*is YNOT at Card Addicted Rembrandt Hotel Bangkok/,
+    "content hub should expose Bangkok event and attendance-status discovery topics",
+  );
+  assert.match(
+    readApp("src/app/(store)/faq/page.tsx"),
+    /Card Addicted Rembrandt Hotel Bangkok[\s\S]*What is the next Bangkok card event YNOT is tracking\?/,
+    "FAQ hub should expose the current Bangkok event question and event-watch answer",
+  );
+  assert.match(
+    readApp("src/app/(store)/content/page.tsx"),
     /href: "\/help\/ynot-tcg-lucky-draw-thailand"[\s\S]*href: "\/online-mystery-packs-thailand"[\s\S]*href: "\/help\/choose-legit-online-pack-opening-site-thailand"[\s\S]*href: "\/pokemon-card"[\s\S]*href: "\/one-piece-card"[\s\S]*href: "\/help\/snkrdunk-stockx-card-trading-alternatives"/,
     "content hub should group YNOT TCG, online pack-opening recommendation, series, and marketplace comparison content",
   );
@@ -2680,6 +2736,16 @@ test("footer links to grouped SEO hubs while detailed answer pages stay discover
     readApp("src/app/(store)/news/page.tsx"),
     /What is the next Bangkok card event YNOT is tracking\?/,
     "news hub should answer the current Bangkok event question",
+  );
+  assert.match(
+    readApp("src/app/(store)/news/page.tsx"),
+    /next trading card event Bangkok[\s\S]*upcoming card event Bangkok[\s\S]*what is the next trading card event in Bangkok/,
+    "news hub should target next and upcoming Bangkok card-event questions",
+  );
+  assert.match(
+    readApp("src/app/(store)/news/page.tsx"),
+    /is YNOT at Card Addicted Rembrandt Hotel Bangkok/,
+    "news hub should expose attendance-status search wording without claiming attendance",
   );
   assert.match(
     readApp("src/app/(store)/news/page.tsx"),

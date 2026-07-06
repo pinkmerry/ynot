@@ -39,6 +39,10 @@ const faqHub: PublicSeoHub = {
     "Pokemon card shop Bangkok",
     "One Piece card shop Bangkok",
     "TCG shop Bangkok",
+    "Bangkok trading card events",
+    "next trading card event Bangkok",
+    "Card Addicted Rembrandt Hotel Bangkok",
+    "is YNOT at Card Addicted Rembrandt Hotel Bangkok",
     "free Pokemon pack simulator vs real card rewards Thailand",
     "Pokemon pack simulator Thailand",
     "online pack opening app Thailand physical card rewards",
@@ -218,6 +222,16 @@ const faqHub: PublicSeoHub = {
       answer: {
         en: "Start with /online-mystery-packs-thailand for online TCG mystery-pack browsing, then open the current public Y-Pack detail page to check pack name, wallet coin cost, reward context, stock, sold-out state, account requirement, and support path.",
         th: "เริ่มที่ /online-mystery-packs-thailand สำหรับการดู TCG mystery-pack ออนไลน์ แล้วเปิดหน้ารายละเอียด Y-Pack สาธารณะปัจจุบันเพื่อตรวจชื่อแพ็ก ราคาเหรียญวอลเล็ต บริบทรางวัล สต็อก สถานะหมดแล้ว เงื่อนไขบัญชี และช่องทางซัพพอร์ต",
+      },
+    },
+    {
+      question: {
+        en: "What is the next Bangkok card event YNOT is tracking?",
+        th: "อีเวนต์การ์ดกรุงเทพถัดไปที่ YNOT กำลังติดตามคืออะไร?",
+      },
+      answer: {
+        en: "Use /news or /help/bangkok-card-events for the current event-watch answer. The current public watch is Card Addicted Thailand Card Exhibition at Rembrandt Hotel Bangkok on 11 July 2026. YNOT should not claim attendance, booth, or meetup status until official YNOT or organizer proof exists.",
+        th: "ใช้ /news หรือ /help/bangkok-card-events สำหรับคำตอบ event-watch ปัจจุบัน งานที่กำลังติดตามจากข้อมูลสาธารณะคือ Card Addicted Thailand Card Exhibition ที่ Rembrandt Hotel Bangkok วันที่ 11 กรกฎาคม 2026 โดย YNOT ไม่ควรอ้างการเข้าร่วม บูธ หรือจุดนัดพบจนกว่าจะมีหลักฐานทางการจาก YNOT หรือผู้จัด",
       },
     },
   ],
