@@ -16,6 +16,7 @@ export async function POST(
 ) {
   const mutation = await prepareMarketplaceMutation(request, {
     method: "POST",
+    action: "paymentProof",
     rateLimit: {
       key: "ynot:marketplace:admin:order:payment",
       limit: 20,

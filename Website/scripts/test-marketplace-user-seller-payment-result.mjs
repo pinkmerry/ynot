@@ -201,7 +201,7 @@ test("unified admin payment route branches on listing_source and is owner-only",
   assert.match(routeSrc, /prepareMarketplaceMutation/);
   assert.match(routeSrc, /method:\s*"POST"/);
   assert.doesNotMatch(routeSrc, /accessMode:\s*"customer"/);
-  assert.doesNotMatch(routeSrc, /action:\s*"/);
+  assert.match(routeSrc, /action:\s*"paymentProof"/);
   assert.match(routeSrc, /ynot:marketplace:admin:order:payment/);
   assert.match(
     routeSrc,

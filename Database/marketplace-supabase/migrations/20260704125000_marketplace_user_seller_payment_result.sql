@@ -197,6 +197,9 @@ begin
         money_snapshot = money_snapshot || jsonb_build_object(
           'manualPaymentRejectedAt', now(),
           'manualPaymentRejectedBy', p_admin_profile_id,
+          'manualPaymentProviderReference', normalized_provider_reference,
+          'manualPaymentProviderAmountSatang', p_provider_amount_satang,
+          'manualPaymentProviderCurrency', normalized_provider_currency,
           'adminNote', nullif(trim(coalesce(p_admin_note, '')), '')
         )
     where id = order_row.id
