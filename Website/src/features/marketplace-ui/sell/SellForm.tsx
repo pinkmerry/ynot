@@ -325,7 +325,12 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
         return;
       }
 
-      const payload = await parseJson<{ submission?: { id?: string; version?: number } }>(
+      // Real backend: the create RPC returns { submissionId, version, ... }
+      // (marketplace_create_seller_submission's jsonb_build_object). Mock mode
+      // returns a row-shaped { id, ... }. Accept both keys.
+      const payload = await parseJson<{
+        submission?: { submissionId?: string; id?: string; version?: number };
+      }>(
         await fetch("/api/marketplace/seller/submissions", {
           method: "POST",
           headers: {
@@ -353,14 +358,15 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
       );
 
       const submission = payload.submission;
-      if (!submission?.id) {
+      const submissionId = submission?.submissionId ?? submission?.id;
+      if (!submissionId) {
         throw new Error("Submission was saved but its ID was not returned.");
       }
 
-      let expectedVersion = submission.version;
+      let expectedVersion = submission?.version;
       for (const [index, photo] of photos.entries()) {
         setUploadProgress(`Uploading photo ${index + 1} of ${photos.length}...`);
-        const uploaded = await uploadPhoto(submission.id, expectedVersion, index + 1, photo.file);
+        const uploaded = await uploadPhoto(submissionId, expectedVersion, index + 1, photo.file);
         expectedVersion = uploaded.photo?.version ?? expectedVersion;
       }
 

@@ -398,3 +398,10 @@ test("sellFormTypes.ts stays framework-free (no server-only, no React/Next impor
   assert.doesNotMatch(source, /from ["']@\/lib\//, "shared types module must not import server libs");
   assert.doesNotMatch(source, /from ["']react["']|from ["']next\//, "shared types module must stay framework-free");
 });
+
+test("create-submission response is read via the real RPC key (submissionId)", () => {
+  const source = readApp(`${SELL_DIR}/SellForm.tsx`);
+  // The create RPC returns { submissionId, ... } (not { id }); mock mode
+  // returns row-shaped { id }. The form must accept the real key first.
+  assert.match(source, /submission\?\.submissionId \?\? submission\?\.id/);
+});
