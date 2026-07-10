@@ -1,8 +1,16 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { MarketplaceSellerClient } from "@/features/ynot/MarketplaceSellerClient";
-import { YnotShell } from "@/features/ynot/components";
-import { getYnotDashboardSlice } from "@/features/ynot/data";
+import {
+  SellForm,
+  type SellFormEditSubmission,
+} from "@/features/marketplace-ui/sell/SellForm";
+import {
+  cardConditionOptions,
+  cardGradeOptions,
+  cardLanguageOptions,
+  cardReleaseYearOptions,
+  catalogCategoryOptions,
+  gradingServiceOptions,
+} from "@/features/ynot/card-catalog-metadata";
 import {
   resolveAdminSession,
   resolveCurrentProfile,
@@ -12,13 +20,24 @@ import {
   getMarketplaceAccountForProfile,
 } from "@/lib/marketplace/account-bridge";
 import { marketplaceConfig } from "@/lib/marketplace/config";
-import { getActiveMarketplaceMoneyPolicy } from "@/lib/marketplace/money";
-import { listSellerSubmissions } from "@/lib/marketplace/seller-consignment";
+import { getSellerSubmissionDetail } from "@/lib/marketplace/seller-consignment";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 
 export const dynamic = "force-dynamic";
 
-export default async function MarketplaceSellerPage() {
+type SellerPageSearchParams = Promise<
+  Record<string, string | string[] | undefined>
+>;
+
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function MarketplaceSellerPage({
+  searchParams,
+}: {
+  searchParams?: SellerPageSearchParams;
+}) {
   const profile = await resolveCurrentProfile();
   const config = marketplaceConfig();
   const mockMode = config.mockData;
@@ -41,37 +60,58 @@ export default async function MarketplaceSellerPage() {
   const account = profile
     ? await getMarketplaceAccountForProfile(profile, admin)
     : getMockMarketplaceAccount(admin);
-  const [submissions, moneyPolicy] = await Promise.all([
-    listSellerSubmissions(account),
-    getActiveMarketplaceMoneyPolicy(),
-  ]);
-  const data = await getYnotDashboardSlice({
-    wallet: Boolean(profile?.profileId),
-  });
+
+  const submissionId = firstParam((searchParams ? await searchParams : {}).submission);
+
+  // Edit-mode prefill only: there is no seller-submission list rendered on
+  // this page (the sell form is the whole page; "My listings" lives on the
+  // orders page), so we only fetch a single submission when ?submission=ID
+  // is present instead of loading the full list unconditionally.
+  const editDetail = submissionId
+    ? await getSellerSubmissionDetail({ submissionId, account }).catch(() => null)
+    : null;
+
+  const editSubmission: SellFormEditSubmission | null = editDetail
+    ? {
+        id: editDetail.id,
+        submissionNumber: editDetail.submission_number,
+        status: editDetail.status,
+        version: editDetail.version,
+        titleSnapshot: editDetail.title_snapshot,
+        conditionCode: editDetail.condition_code,
+        askingPriceSatang: editDetail.asking_price_satang,
+        gradeLabel: editDetail.grade_label,
+        language: editDetail.language,
+        certNumber: editDetail.cert_number,
+        conditionNotes: editDetail.condition_notes,
+        sellerNote: editDetail.seller_note,
+        referenceCardId: editDetail.reference_card_id,
+        referenceVariantId: editDetail.reference_variant_id,
+        variantSnapshot: editDetail.variant_snapshot ?? {},
+        referenceSnapshot: editDetail.reference_snapshot ?? {},
+        photoCount: editDetail.photos?.length ?? 0,
+      }
+    : null;
+
+  const sellerActive = mockMode || account?.sellerStatus === "active";
 
   return (
-    <YnotShell
-      viewer={data.viewer}
-      walletBalance={data.wallet.balanceCoins}
-    >
-      <div className="store-home-grid marketplace-detail-page">
-        <div className="store-main-stack">
-          <Link href="/marketplace" className="marketplace-back-link" prefetch={false}>
-            Marketplace
-          </Link>
-          <div className="catalog-toolbar marketplace-toolbar">
-            <h1>Sell cards and upload photos</h1>
-            <p>{submissions.length} item request{submissions.length === 1 ? "" : "s"}</p>
-          </div>
-          <MarketplaceSellerClient
-            sellerStatus={account?.sellerStatus ?? null}
-            payoutStatus={account?.payoutStatus ?? null}
-            sellerFeeBps={moneyPolicy.sellerFeeBps}
-            submissions={submissions}
-            mockMode={mockMode}
-          />
-        </div>
+    <div className="store-home-grid marketplace-detail-page">
+      <div className="store-main-stack">
+        <SellForm
+          sellerActive={sellerActive}
+          mockMode={mockMode}
+          options={{
+            categoryOptions: catalogCategoryOptions,
+            conditionOptions: cardConditionOptions,
+            gradingServiceOptions,
+            gradeOptions: cardGradeOptions,
+            languageOptions: cardLanguageOptions,
+            releaseYearOptions: cardReleaseYearOptions,
+          }}
+          editSubmission={editSubmission}
+        />
       </div>
-    </YnotShell>
+    </div>
   );
 }
