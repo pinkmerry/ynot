@@ -453,6 +453,12 @@ test("marketplace page renders official and user-seller product markets with THB
   assert.match(adminDashboard, /buildMarketplaceOpsSnapshot/);
   assert.match(opsSnapshot, /listOfficialOrderDashboard/);
   assert.match(opsSnapshot, /marketplaceAdminAllowed && !config\.mockData/);
-  assert.match(adminDashboard, /Paid revenue/);
-  assert.match(adminDashboard, /Payment review/);
+  // Admin shell + overview redesign (see test-marketplace-ui-admin-shell.mjs):
+  // the inline AdminKPI tiles labeled "Paid revenue"/"Payment review" moved
+  // off this page into OverviewScreen.tsx's GMV + queue-summary KPI strip.
+  // Assert the new screen is wired in and still surfaces the payment-review
+  // queue count instead of re-asserting now-removed label text here.
+  const overviewScreen = readApp("src/features/marketplace-ui/admin/OverviewScreen.tsx");
+  assert.match(adminDashboard, /<OverviewScreen/);
+  assert.match(overviewScreen, /queueSummary\.paymentReviewCount/);
 });

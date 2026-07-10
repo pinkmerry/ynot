@@ -591,3 +591,56 @@ body:has(.mp-root) {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================
+   Admin overview (AdminShell.tsx / OverviewScreen.tsx)
+   ============================================
+   .mpa-shell/.mpa-side/.mpa-nav-item/.mpa-main/.mpa-kpis/.mpa-table/
+   .mpa-thumb/.mpa-btn-sm/.mpa-overlay/.mpa-modal/.mpa-photo/
+   .mpa-checkrow already exist above (ported earlier for the full admin
+   console). These are the few additional pieces the overview screen
+   needs that weren't covered yet: the chart+queues two-panel row, the
+   queue list rows, a scroll wrapper for the recent-orders table, and a
+   couple of designed hover/focus states. */
+.mpa-overview-row {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+  align-items: stretch;
+}
+.mpa-side-spacer { flex: 1 1 auto; }
+.mpa-queue-list { display: flex; flex-direction: column; }
+.mpa-queue-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 2px; border-bottom: 1px solid var(--mp-line-soft);
+  font-size: 13px; font-weight: 600; color: var(--mp-ink-2);
+  transition: color 0.15s ease;
+}
+.mpa-queue-row:last-child { border-bottom: 0; }
+.mpa-queue-row:hover, .mpa-queue-row:focus-visible { color: var(--mp-green); }
+.mpa-queue-row .cnt { font-family: var(--mp-mono); font-weight: 700; margin-left: auto; }
+.mpa-table-wrap { overflow-x: auto; }
+.mpa-table tbody tr:hover { background: var(--mp-bg-soft); }
+.mpa-nav-item:focus-visible {
+  outline: 2px solid var(--mp-gold);
+  outline-offset: 2px;
+}
+
+/* ---------- admin console responsive ---------- */
+@media (max-width: 860px) {
+  .mpa-shell { grid-template-columns: 1fr; margin: -26px -20px -40px; }
+  .mpa-side {
+    position: static; height: auto;
+    flex-direction: row; flex-wrap: wrap; align-items: center;
+    padding: 14px;
+  }
+  .mpa-side .grp { display: none; }
+  .mpa-side .brand { width: 100%; padding-bottom: 8px; }
+  .mpa-side-spacer { display: none; }
+  .mpa-main { padding: 20px; }
+  .mpa-overview-row { grid-template-columns: 1fr; }
+  .mpa-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .mpa-kpis { grid-template-columns: 1fr; }
+}

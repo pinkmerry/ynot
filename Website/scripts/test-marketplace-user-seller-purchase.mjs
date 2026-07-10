@@ -247,9 +247,19 @@ test("buyer/detail/admin UI surfaces user-seller checkout and payout queue witho
   const opsSnapshot = readApp("src/lib/marketplace/ops-snapshot.ts");
   assert.match(adminPage, /buildMarketplaceOpsSnapshot/);
   assert.match(opsSnapshot, /listSellerPayoutQueue/);
-  assert.match(adminPage, /Seller payout queue/);
-  assert.match(adminPage, /shipping/i);
-  assert.match(adminPage, /service fee/i);
+  // Admin shell + overview redesign (see test-marketplace-ui-admin-shell.mjs):
+  // the inline "Seller payout queue" table moved off this page -- a later
+  // task rebuilds a dedicated payouts screen (AdminShell already has a
+  // "Seller payouts" nav entry at /admin/marketplace/payouts). The
+  // overview's queue summary list still surfaces the payout-blocked count,
+  // and this page still wires the real MarketplaceMoneyPolicyControls
+  // (shipping fee + buyer service fee editor) as the fees panel.
+  const overviewScreen = readApp("src/features/marketplace-ui/admin/OverviewScreen.tsx");
+  const moneyPolicyControls = readApp("src/features/ynot/MarketplaceMoneyPolicyControls.tsx");
+  assert.match(adminPage, /MarketplaceMoneyPolicyControls/);
+  assert.match(overviewScreen, /queueSummary\.payoutBlockedCount/);
+  assert.match(moneyPolicyControls, /Shipping THB/);
+  assert.match(moneyPolicyControls, /buyerServiceFeeBps/);
   assert.doesNotMatch(adminPage, /provider_response|proof_storage_path|buyer_marketplace_account_id/i);
 });
 

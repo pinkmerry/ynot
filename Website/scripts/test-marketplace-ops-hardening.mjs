@@ -215,10 +215,15 @@ test("admin marketplace page surfaces ops counts without raw payment or private 
   assert.match(snapshot, /!config\.ownerOnly \|\| admin\?\.adminRole === "owner"/);
   assert.match(snapshot, /listMarketplaceQueueSummary/);
   assert.match(snapshot, /listMarketplaceReconciliationItems/);
-  assert.match(page, /Ops hardening/);
-  assert.match(page, /Reconciliation/);
-  assert.match(page, /No raw provider payloads/);
+  // Admin shell + overview redesign (see test-marketplace-ui-admin-shell.mjs):
+  // the inline "Ops hardening"/"Reconciliation" AdminCard sections and their
+  // raw reconciliation-items table moved off this page. The overview's
+  // queue summary list still surfaces the reconciliation-open count as a
+  // link out, with no raw provider payloads rendered anywhere.
+  const overviewScreen = readApp("src/features/marketplace-ui/admin/OverviewScreen.tsx");
+  assert.match(overviewScreen, /queueSummary\.reconciliationOpenCount/);
   assert.doesNotMatch(page, /provider_response|proof_storage_path|bankAccount|buyer_marketplace_account_id/i);
+  assert.doesNotMatch(overviewScreen, /provider_response|proof_storage_path|bankAccount|buyer_marketplace_account_id/i);
 });
 
 test("marketplace ops dashboard uses redacted ops snapshot module", () => {

@@ -402,7 +402,12 @@ test("marketplace runtime throttles against marketplace Supabase, not the core s
 
 test("marketplace admin remains a marketplace surface without exposing private payment data", () => {
   const adminPage = read("src/app/admin/marketplace/page.tsx");
-  assert.match(adminPage, /surface="marketplace"/);
+  // Admin shell + overview redesign (see test-marketplace-ui-admin-shell.mjs):
+  // the old AdminFrame's surface="marketplace" prop is gone -- the page now
+  // renders through the dedicated marketplace-ui AdminShell instead of the
+  // shared cross-surface AdminFrame, which is a stronger "this is the
+  // marketplace admin surface" signal than the old string prop was.
+  assert.match(adminPage, /<AdminShell active="overview">/);
   assert.doesNotMatch(
     adminPage,
     /provider_response|proof_storage_path|buyer_marketplace_account_id|seller_marketplace_account_id/i,

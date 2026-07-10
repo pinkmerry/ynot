@@ -395,9 +395,18 @@ test("seller dashboard is a separate marketplace surface with terms, submission 
 
   const adminPage = readApp("src/app/admin/marketplace/page.tsx");
   assert.match(adminPage, /buildMarketplaceOpsSnapshot/);
-  assert.match(adminPage, /Seller intake/);
-  assert.match(adminPage, /Sell requests/);
-  assert.match(adminPage, /photo_count/);
+  // Admin shell + overview redesign (see test-marketplace-ui-admin-shell.mjs):
+  // the inline "Seller intake" / "Sell requests" submissions table (with its
+  // raw photo_count field) moved off this page -- a later task rebuilds a
+  // dedicated seller-submissions list screen (AdminShell's "Verification
+  // queue" nav entry already points at /admin/marketplace/seller-submissions).
+  // The overview's queue summary list still surfaces how many submissions
+  // are waiting for review.
+  const overviewScreen = readApp("src/features/marketplace-ui/admin/OverviewScreen.tsx");
+  const adminShell = readApp("src/features/marketplace-ui/admin/AdminShell.tsx");
+  assert.match(adminPage, /sellerSubmissionReviewCount/);
+  assert.match(overviewScreen, /Seller submissions to review/);
+  assert.match(adminShell, /"\/admin\/marketplace\/seller-submissions"/);
   const opsSnapshot = readApp("src/lib/marketplace/ops-snapshot.ts");
   assert.match(opsSnapshot, /listAdminSellerSubmissionQueue/);
 
