@@ -47,8 +47,9 @@ interface AdminNavGroup {
 // segment (orders/[orderId], seller-submissions/[submissionId],
 // listings/[listingId]) even though the bare list page at the segment
 // root ships in a later task -- that's what "leave them working, later
-// tasks rebuild them" refers to. Moderation/disputes/payouts/settings
-// have no admin/marketplace route at all yet, so those are `soon`.
+// tasks rebuild them" refers to. Moderation and disputes now have real
+// routes too (ModerationScreen/DisputesScreen). Payouts/settings still
+// have no admin/marketplace route at all yet, so those stay `soon`.
 const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     label: "Marketplace",
@@ -57,8 +58,8 @@ const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { id: "orders", label: "Orders & escrow", href: "/admin/marketplace/orders", icon: "bag" },
       { id: "verify", label: "Verification queue", href: "/admin/marketplace/seller-submissions", icon: "shield" },
       { id: "listings", label: "Listings", href: "/admin/marketplace/listings", icon: "store" },
-      { id: "moderation", label: "Reported listings", href: "/admin/marketplace/moderation", icon: "filter", soon: true },
-      { id: "disputes", label: "Disputes & refunds", href: "/admin/marketplace/disputes", icon: "swap", soon: true },
+      { id: "moderation", label: "Reported listings", href: "/admin/marketplace/moderation", icon: "filter" },
+      { id: "disputes", label: "Disputes & refunds", href: "/admin/marketplace/disputes", icon: "swap" },
     ],
   },
   {

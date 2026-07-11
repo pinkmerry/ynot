@@ -91,6 +91,7 @@
     "test:marketplace-ui-sell": "node --test scripts/test-marketplace-ui-sell.mjs",
     "test:marketplace-ui-admin-shell": "node --test scripts/test-marketplace-ui-admin-shell.mjs",
     "test:marketplace-ui-admin-orders": "node --test scripts/test-marketplace-ui-admin-orders.mjs",
+    "test:marketplace-ui-admin-moderation-disputes": "node --test scripts/test-marketplace-ui-admin-moderation-disputes.mjs",
     "test:marketplace-product-market": "node --test scripts/test-marketplace-product-market-architecture.mjs",
     "test:marketplace-product-grouping": "node --test scripts/test-marketplace-product-grouping-architecture.mjs",
     "test:marketplace-official-shop": "node --test scripts/test-marketplace-official-shop.mjs",
