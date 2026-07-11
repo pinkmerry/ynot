@@ -83,8 +83,14 @@ test("DisputeActions.tsx reuses the client-safe formatThb helper for the mark-re
 });
 
 // ---------------------------------------------------------------------------
-// AdminShell -- un-soon moderation + disputes, leave payouts/settings alone
+// AdminShell -- un-soon moderation + disputes
 // ---------------------------------------------------------------------------
+//
+// This suite originally also pinned "payouts/settings still soon-tagged" --
+// both have since shipped their own real screens (PayoutsScreen,
+// FeesSettingsScreen; see test-marketplace-ui-admin-money-shop.mjs, which
+// owns their un-soon assertions now), so that half of the original test is
+// gone rather than left pinned to a state that's no longer true.
 
 test("AdminShell.tsx no longer soon-tags moderation or disputes", () => {
   const source = readApp(SHELL_PATH);
@@ -97,20 +103,6 @@ test("AdminShell.tsx no longer soon-tags moderation or disputes", () => {
     source,
     /\{ id: "disputes", label: "Disputes & refunds", href: "\/admin\/marketplace\/disputes", icon: "swap" \},/,
     "disputes nav item must be un-soon'd (exact shape, no soon: true)",
-  );
-});
-
-test("AdminShell.tsx still soon-tags payouts and settings", () => {
-  const source = readApp(SHELL_PATH);
-  assert.match(
-    source,
-    /\{ id: "payouts", label: "Seller payouts", href: "\/admin\/marketplace\/payouts", icon: "swap", soon: true \},/,
-    "payouts must remain soon: true -- it has no route yet",
-  );
-  assert.match(
-    source,
-    /\{ id: "settings", label: "Fees & settings", href: "\/admin\/marketplace\/settings", icon: "tag", soon: true \},/,
-    "settings must remain soon: true -- it has no route yet",
   );
 });
 

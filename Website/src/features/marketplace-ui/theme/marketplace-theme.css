@@ -693,3 +693,37 @@ body:has(.mp-root) {
   .mp-sale-row { flex-direction: column; align-items: stretch; }
   .mp-orders-head { flex-direction: column; align-items: stretch; }
 }
+
+/* ---------------------------------------------------------------------------
+   Toggle switch (MpSwitch, shared/MpPrimitives.tsx) -- used by the admin
+   Fees & settings screen's auto-live/Slip2GO trust-control rows. A real
+   checkbox input drives the visuals via :checked/:focus-visible so keyboard
+   and screen-reader users get native control semantics for free. */
+.mp-switch { position: relative; display: inline-flex; align-items: center; width: 40px; height: 23px; flex-shrink: 0; cursor: pointer; }
+.mp-switch-input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.mp-switch-track {
+  position: absolute; inset: 0; border-radius: 999px;
+  background: var(--mp-line-strong);
+  transition: background 0.15s ease;
+}
+.mp-switch-thumb {
+  position: absolute; top: 2.5px; left: 3px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(23, 22, 16, 0.25);
+  transition: left 0.15s ease;
+}
+.mp-switch-input:checked + .mp-switch-track { background: var(--mp-green); }
+.mp-switch-input:checked + .mp-switch-track .mp-switch-thumb { left: 19px; }
+.mp-switch-input:focus-visible + .mp-switch-track { outline: 2px solid var(--mp-gold); outline-offset: 2px; }
+.mp-switch-input:disabled + .mp-switch-track { opacity: 0.5; cursor: not-allowed; }
+
+/* ---------------------------------------------------------------------------
+   Fees & settings rows (FeesSettingsForm.tsx) -- horizontal label+hint vs.
+   control rows, ported from marketplace-admin-2.jsx's MpaRow/mpaSetRow
+   (prototype: /Users/pinkmerry/Downloads/ynott/project/
+   marketplace-admin-2.jsx:241-254), styled through existing theme tokens
+   instead of the prototype's inline color literals. */
+.mpa-settings-row { padding: 14px 0; border-bottom: 1px solid var(--mp-line-soft); gap: 16px; }
+.mpa-settings-row:last-child { border-bottom: 0; }
+.mpa-num-input { width: 76px; text-align: right; font-family: var(--mp-mono); font-weight: 700; }

@@ -14,6 +14,17 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// This codebase's doc comments routinely name other functions/components in
+// prose, including call-shaped ("callThing()") and JSX-shaped
+// ("<Component>") references (see OverviewScreen.tsx's "the page
+// instantiates the existing <MarketplaceMoneyPolicyControls> client island
+// itself"). Assertions below that check "must not be CALLED/RENDERED here"
+// strip comments first so a doc comment naming the thing it deliberately
+// avoids doesn't self-trip the check.
+function stripComments(source) {
+  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+}
+
 const ADMIN_DIR = "src/features/marketplace-ui/admin";
 const SHELL_PATH = `${ADMIN_DIR}/AdminShell.tsx`;
 
@@ -81,7 +92,8 @@ test("PayoutActions.tsx reuses the client-safe formatThb helper for its confirm 
 });
 
 // ---------------------------------------------------------------------------
-// AdminShell -- un-soon payouts, leave settings alone
+// AdminShell -- un-soon payouts (settings follows further below, once its
+// own screen exists later in this same file)
 // ---------------------------------------------------------------------------
 
 test("AdminShell.tsx no longer soon-tags payouts", () => {
@@ -90,15 +102,6 @@ test("AdminShell.tsx no longer soon-tags payouts", () => {
     source,
     /\{ id: "payouts", label: "Seller payouts", href: "\/admin\/marketplace\/payouts", icon: "swap" \},/,
     "payouts nav item must be un-soon'd (exact shape, no soon: true)",
-  );
-});
-
-test("AdminShell.tsx still soon-tags settings", () => {
-  const source = readApp(SHELL_PATH);
-  assert.match(
-    source,
-    /\{ id: "settings", label: "Fees & settings", href: "\/admin\/marketplace\/settings", icon: "tag", soon: true \},/,
-    "settings must remain soon: true until its own commit lands",
   );
 });
 
@@ -263,4 +266,205 @@ test("listSellerPayoutQueue queries the real three-state subset, ordered and bou
   assert.match(source, /\.in\("payout_state",\s*\["held",\s*"eligible",\s*"released"\]\)/);
   assert.match(source, /\.order\(\s*"updated_at"/);
   assert.match(source, /\.limit\(/);
+});
+
+// ---------------------------------------------------------------------------
+// Fees & settings (9h)
+// ---------------------------------------------------------------------------
+
+const SETTINGS_PAGE_PATH = "src/app/admin/marketplace/settings/page.tsx";
+const SETTINGS_SCREEN_PATH = `${ADMIN_DIR}/FeesSettingsScreen.tsx`;
+const SETTINGS_FORM_PATH = `${ADMIN_DIR}/FeesSettingsForm.tsx`;
+const MONEY_POLICY_ROUTE_PATH = "src/app/api/ynot/marketplace/admin/money-policy/route.ts";
+const OVERVIEW_PAGE_PATH = "src/app/admin/marketplace/page.tsx";
+const MONEY_POLICY_CONTROLS_PATH = "src/features/ynot/MarketplaceMoneyPolicyControls.tsx";
+
+const SETTINGS_SERVER_FILES = [SETTINGS_PAGE_PATH, SETTINGS_SCREEN_PATH];
+const SETTINGS_CLIENT_FILES = [SETTINGS_FORM_PATH];
+
+test("all fees-and-settings files exist", () => {
+  for (const relPath of [...SETTINGS_SERVER_FILES, ...SETTINGS_CLIENT_FILES]) {
+    assert.ok(existsSync(path.join(appRoot, relPath)), `missing ${relPath}`);
+  }
+});
+
+test("settings server files (page + screen) stay server components", () => {
+  for (const relPath of SETTINGS_SERVER_FILES) {
+    const source = readApp(relPath);
+    assert.doesNotMatch(source, /^"use client"/m, `${relPath} must stay a server component`);
+  }
+});
+
+test("FeesSettingsForm.tsx declares use client", () => {
+  const source = readApp(SETTINGS_FORM_PATH);
+  assert.match(source, /^"use client"/m);
+});
+
+test("FeesSettingsForm.tsx does not import a house-guarded server-only marketplace lib", () => {
+  const source = readApp(SETTINGS_FORM_PATH);
+  for (const forbidden of FORBIDDEN_CLIENT_MODULES) {
+    assert.doesNotMatch(
+      source,
+      new RegExp(`from\\s*["']${escapeRegExp(forbidden)}["']`),
+      `must not import house-guarded module ${forbidden}`,
+    );
+  }
+  assert.doesNotMatch(source, /^import\s*["']server-only["']/m, "must not import \"server-only\"");
+});
+
+// ---------------------------------------------------------------------------
+// AdminShell -- un-soon settings; nothing should still be soon-tagged
+// ---------------------------------------------------------------------------
+
+test("AdminShell.tsx no longer soon-tags settings", () => {
+  const source = readApp(SHELL_PATH);
+  assert.match(
+    source,
+    /\{ id: "settings", label: "Fees & settings", href: "\/admin\/marketplace\/settings", icon: "tag" \},/,
+    "settings nav item must be un-soon'd (exact shape, no soon: true)",
+  );
+});
+
+test("AdminShell.tsx has no soon-tagged nav items left (payouts and settings both shipped)", () => {
+  const source = readApp(SHELL_PATH);
+  assert.doesNotMatch(source, /soon:\s*true/);
+});
+
+// ---------------------------------------------------------------------------
+// Settings page + FeesSettingsScreen
+// ---------------------------------------------------------------------------
+
+test("settings/page.tsx follows the admin guard pattern (AdminGate, resolveAdminSession, buildMarketplaceOpsSnapshot, config.ownerOnly)", () => {
+  const source = readApp(SETTINGS_PAGE_PATH);
+  for (const needle of ["AdminGate", "resolveAdminSession", "buildMarketplaceOpsSnapshot", "config.ownerOnly"]) {
+    assert.match(source, new RegExp(escapeRegExp(needle)), `settings/page.tsx must reference ${needle}`);
+  }
+});
+
+test("settings/page.tsx renders AdminShell active=\"settings\" and FeesSettingsScreen", () => {
+  const source = readApp(SETTINGS_PAGE_PATH);
+  assert.match(source, /<AdminShell active="settings">/);
+  assert.match(source, /<FeesSettingsScreen/);
+});
+
+test("settings/page.tsx reuses buildMarketplaceOpsSnapshot's moneyPolicy instead of calling getActiveMarketplaceMoneyPolicy a second time", () => {
+  const source = readApp(SETTINGS_PAGE_PATH);
+  assert.match(source, /const\s*\{\s*config,\s*moneyPolicy\s*\}\s*=\s*snapshot;/);
+  assert.match(source, /policy=\{moneyPolicy\}/);
+  assert.doesNotMatch(
+    stripComments(source),
+    /getActiveMarketplaceMoneyPolicy\(/,
+    "must not CALL getActiveMarketplaceMoneyPolicy directly -- snapshot.moneyPolicy is already the gated read (the doc comment may still name it in prose)",
+  );
+});
+
+test("FeesSettingsScreen.tsx documents reusing the money-policy contract rather than forking it", () => {
+  const source = readApp(SETTINGS_SCREEN_PATH);
+  assert.match(source, /money-policy/);
+  assert.doesNotMatch(source, /"use client"/, "screen must stay a server component");
+});
+
+test("FeesSettingsScreen.tsx delegates to the FeesSettingsForm client island", () => {
+  const source = readApp(SETTINGS_SCREEN_PATH);
+  assert.match(source, /from\s*["']\.\/FeesSettingsForm["']/);
+  assert.match(source, /<FeesSettingsForm/);
+});
+
+// ---------------------------------------------------------------------------
+// FeesSettingsForm
+// ---------------------------------------------------------------------------
+
+test("FeesSettingsForm.tsx posts to the real money-policy route with an idempotency-key header", () => {
+  const source = readApp(SETTINGS_FORM_PATH);
+  assert.match(source, /fetch\("\/api\/marketplace\/admin\/money-policy",/);
+  assert.match(source, /"idempotency-key":\s*nextIdempotencyKey\(\)/);
+});
+
+test("FeesSettingsForm.tsx converts seller/buyer fee bps <-> percent both ways", () => {
+  const source = readApp(SETTINGS_FORM_PATH);
+  assert.match(source, /function bpsToPercent\(value: number\)/);
+  assert.match(source, /function percentToBps\(value: string\): number \| null/);
+  assert.match(source, /bpsToPercent\(policy\.sellerFeeBps\)/);
+  assert.match(source, /bpsToPercent\(policy\.buyerServiceFeeBps\)/);
+  assert.match(source, /percentToBps\(sellerFeePercent\)/);
+  assert.match(source, /percentToBps\(buyerFeePercent\)/);
+});
+
+test("FeesSettingsForm.tsx converts shipping fee satang <-> THB both ways, mirroring OrderActions' thbInput helpers", () => {
+  const source = readApp(SETTINGS_FORM_PATH);
+  assert.match(source, /function thbInputFor\(satang: number\)/);
+  assert.match(source, /function thbInputToSatang\(value: string\): number \| null/);
+  assert.match(source, /thbInputFor\(policy\.shippingFeeSatang\)/);
+});
+
+test("FeesSettingsForm.tsx always sends the three fields with no server-side fallback (sellerFeeBps, buyerServiceFeeBps, shippingFeeSatang)", () => {
+  const source = readApp(SETTINGS_FORM_PATH);
+  assert.match(
+    source,
+    /const body: Record<string, unknown> = \{ sellerFeeBps, buyerServiceFeeBps, shippingFeeSatang \};/,
+  );
+});
+
+test("FeesSettingsForm.tsx only sends payoutHoldDays/disputeWindowDays/listingAutoLive/slipAutoVerify/adminNote when they differ from the loaded policy", () => {
+  const source = readApp(SETTINGS_FORM_PATH);
+  assert.match(source, /if\s*\(payoutHold\s*!==\s*policy\.payoutHoldDays\)\s*body\.payoutHoldDays\s*=\s*payoutHold;/);
+  assert.match(
+    source,
+    /if\s*\(disputeWindow\s*!==\s*policy\.disputeWindowDays\)\s*body\.disputeWindowDays\s*=\s*disputeWindow;/,
+  );
+  assert.match(
+    source,
+    /if\s*\(listingAutoLive\s*!==\s*policy\.listingAutoLive\)\s*body\.listingAutoLive\s*=\s*listingAutoLive;/,
+  );
+  assert.match(
+    source,
+    /if\s*\(slipAutoVerify\s*!==\s*policy\.slipAutoVerify\)\s*body\.slipAutoVerify\s*=\s*slipAutoVerify;/,
+  );
+  assert.match(source, /if\s*\(adminNote\.trim\(\)\s*!==\s*\(policy\.adminNote\s*\?\?\s*""\)\.trim\(\)\)/);
+});
+
+test("FeesSettingsForm.tsx renders auto-live and Slip2GO as real MpSwitch toggles, not the prototype's unlabelled span", () => {
+  const source = readApp(SETTINGS_FORM_PATH);
+  assert.match(source, /from\s*["']\.\.\/shared\/MpPrimitives["']/);
+  assert.match(source, /<MpSwitch[\s\S]*?checked=\{listingAutoLive\}/);
+  assert.match(source, /<MpSwitch[\s\S]*?checked=\{slipAutoVerify\}/);
+});
+
+test("FeesSettingsForm.tsx renders escrow release as a static Always-on badge, not a control", () => {
+  const source = readApp(SETTINGS_FORM_PATH);
+  assert.match(source, /label="Escrow release"/);
+  assert.match(source, /<span className="mp-badge mp-badge-official">Always on<\/span>/);
+});
+
+test("FeesSettingsForm.tsx surfaces server errors verbatim and treats 401 as a login prompt", () => {
+  const source = readApp(SETTINGS_FORM_PATH);
+  assert.match(source, /payload\?\.error\s*\?\?/);
+  assert.match(source, /response\.status === 401/);
+});
+
+test("FeesSettingsForm.tsx does not import or render the sibling MarketplaceMoneyPolicyControls (independent caller of the same contract, may still name it in prose)", () => {
+  const code = stripComments(readApp(SETTINGS_FORM_PATH));
+  assert.doesNotMatch(code, /from\s*["'][^"']*MarketplaceMoneyPolicyControls["']/);
+  assert.doesNotMatch(code, /<MarketplaceMoneyPolicyControls/);
+});
+
+// ---------------------------------------------------------------------------
+// money-policy route / overview page -- must still work, contract not forked
+// ---------------------------------------------------------------------------
+
+test("money-policy route.ts still exposes the full real allowedFields this form relies on", () => {
+  const source = readApp(MONEY_POLICY_ROUTE_PATH);
+  assert.match(
+    source,
+    /const MONEY_POLICY_FIELDS = \[\s*"sellerFeeBps",\s*"buyerServiceFeeBps",\s*"shippingFeeSatang",\s*"payoutHoldDays",\s*"disputeWindowDays",\s*"listingAutoLive",\s*"slipAutoVerify",\s*"adminNote",\s*\] as const;/,
+  );
+});
+
+test("the overview page's MarketplaceMoneyPolicyControls usage is untouched", () => {
+  const overviewSource = readApp(OVERVIEW_PAGE_PATH);
+  assert.match(overviewSource, /moneyPolicyPanel={<MarketplaceMoneyPolicyControls policy={moneyPolicy} \/>}/);
+  assert.ok(
+    existsSync(path.join(appRoot, MONEY_POLICY_CONTROLS_PATH)),
+    "MarketplaceMoneyPolicyControls.tsx must still exist",
+  );
 });

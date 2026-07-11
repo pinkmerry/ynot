@@ -22,9 +22,9 @@ import { MpIcon } from "./MpIcon";
  *
  * The whole module is marked "use client" because MpToasts/useToasts need
  * hooks (state + timers). The other primitives here (MpBadge, MpBtn,
- * MpPanel, MpChip, MpEmpty, MpSteps) are pure/presentational and would be
- * server-safe on their own — they only inherit the client boundary because
- * they share this file with the toast hook.
+ * MpPanel, MpChip, MpEmpty, MpSteps, MpSwitch) are pure/presentational and
+ * would be server-safe on their own — they only inherit the client boundary
+ * because they share this file with the toast hook.
  */
 
 // ---------- MpBadge ----------
@@ -96,6 +96,41 @@ export function MpChip({ active, children, className, onClick }: MpChipProps) {
     );
   }
   return <span className={cls}>{children}</span>;
+}
+
+// ---------- MpSwitch ----------
+
+export interface MpSwitchProps {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  ariaLabel: string;
+  disabled?: boolean;
+}
+
+/**
+ * Accessible boolean toggle -- a real `<input type="checkbox">` (keyboard
+ * and screen-reader operable) visually styled as a pill switch, rather than
+ * the design prototype's `MpaToggle` (marketplace-admin-2.jsx:255-261),
+ * which is a plain `<span onClick>` with no keyboard support. Rendered
+ * classes (.mp-switch/.mp-switch-input/.mp-switch-track/.mp-switch-thumb)
+ * live in ../theme/marketplace-theme.css.
+ */
+export function MpSwitch({ checked, onChange, ariaLabel, disabled }: MpSwitchProps) {
+  return (
+    <label className="mp-switch">
+      <input
+        type="checkbox"
+        className="mp-switch-input"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+        aria-label={ariaLabel}
+      />
+      <span className="mp-switch-track">
+        <span className="mp-switch-thumb" />
+      </span>
+    </label>
+  );
 }
 
 // ---------- MpEmpty ----------

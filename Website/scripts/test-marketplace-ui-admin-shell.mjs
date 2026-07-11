@@ -55,7 +55,15 @@ test("AdminShell.tsx wires the four real admin routes", () => {
   }
 });
 
-test("AdminShell.tsx renders the not-yet-built areas as soon-tagged future routes", () => {
+test("AdminShell.tsx wires moderation/disputes/payouts/settings as real routes and keeps the soon-tag mechanism available for future areas", () => {
+  // moderation/disputes/payouts/settings started life as soon-tagged
+  // placeholders and have since shipped real screens one at a time
+  // (ModerationScreen/DisputesScreen, PayoutsScreen, FeesSettingsScreen) --
+  // by the end of that rollout none of them are soon-tagged anymore. The
+  // AdminNavItem.soon field and its conditional Soon-tag render stay in
+  // AdminShell so a genuinely future area can still opt into the same
+  // mechanism later; this test now pins that the mechanism exists rather
+  // than that some specific item is currently using it.
   const source = readApp(SHELL_PATH);
   for (const href of [
     '"/admin/marketplace/moderation"',
@@ -63,10 +71,19 @@ test("AdminShell.tsx renders the not-yet-built areas as soon-tagged future route
     '"/admin/marketplace/payouts"',
     '"/admin/marketplace/settings"',
   ]) {
-    assert.match(source, new RegExp(escapeRegExp(href)), `missing future route ${href}`);
+    assert.match(source, new RegExp(escapeRegExp(href)), `missing route ${href}`);
   }
-  assert.match(source, /soon:\s*true/, "future nav entries must be flagged soon: true");
-  assert.match(source, />Soon</, "future nav items must render a Soon tag");
+  assert.match(source, /soon\?:\s*boolean;/, "AdminNavItem must still declare the optional soon flag");
+  assert.match(
+    source,
+    /item\.soon\s*\?\s*<span className="n">Soon<\/span>\s*:\s*null/,
+    "the Soon-tag render branch must stay available for a future not-yet-built area",
+  );
+  assert.doesNotMatch(
+    source,
+    /soon:\s*true/,
+    "no current nav item should be soon-tagged now that moderation/disputes/payouts/settings are all real routes",
+  );
 });
 
 test("AdminShell.tsx links back to the real marketplace root and takes an active prop", () => {
