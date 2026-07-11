@@ -38,13 +38,14 @@ async function loadOrders(
 export default async function AdminMarketplaceOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ state?: string }>;
+  searchParams?: Promise<{ state?: string }>;
 }) {
   const data = await getYnotDashboardSlice({});
   const admin = await resolveAdminSession();
   const snapshot = await buildMarketplaceOpsSnapshot(admin);
   const { config, canReadMarketplaceQueues } = snapshot;
-  const { state: stateParam } = await searchParams;
+  const { state: stateParam } = await (searchParams ??
+    Promise.resolve({} as { state?: string }));
   const activeState = stateParam && VALID_ORDER_STATES.has(stateParam) ? stateParam : null;
 
   if (config.ownerOnly && admin?.adminRole !== "owner") {

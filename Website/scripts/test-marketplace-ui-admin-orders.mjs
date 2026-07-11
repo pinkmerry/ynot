@@ -237,7 +237,7 @@ test("seller-submissions/page.tsx follows the admin guard pattern from admin/mar
     "AdminGate",
     "resolveAdminSession",
     "buildMarketplaceOpsSnapshot",
-    "canReadMarketplaceQueues",
+    "marketplaceAdminAllowed",
     "config.ownerOnly",
   ]) {
     assert.match(source, new RegExp(escapeRegExp(needle)), `seller-submissions/page.tsx must reference ${needle}`);
@@ -250,10 +250,15 @@ test("seller-submissions/page.tsx renders AdminShell active=\"verify\" and Verif
   assert.match(source, /<VerifyQueueScreen/);
 });
 
-test("seller-submissions/page.tsx calls listAdminSellerSubmissionQueue gated on canReadMarketplaceQueues and a non-null admin", () => {
+test("seller-submissions/page.tsx calls listAdminSellerSubmissionQueue gated on marketplaceAdminAllowed and a non-null admin", () => {
   const source = readApp(VERIFY_PAGE_PATH);
   assert.match(source, /listAdminSellerSubmissionQueue\(admin\)/);
-  assert.match(source, /if\s*\(!canRead\s*\|\|\s*!admin\)\s*return\s*\[\];/);
+  assert.match(source, /if\s*\(!allowed\s*\|\|\s*!admin\)\s*return\s*\[\];/);
+  assert.match(
+    source,
+    /loadSubmissions\(marketplaceAdminAllowed,\s*admin\)/,
+    "must use the snapshot's marketplaceAdminAllowed (NOT canReadMarketplaceQueues, which blanks the queue in mock mode while the overview badge still counts it)",
+  );
 });
 
 test("VerifyQueueScreen.tsx documents listAdminSellerSubmissionQueue as its data source", () => {
@@ -286,15 +291,31 @@ test("VerifyActions.tsx posts activation to the real activate route with idempot
   );
 });
 
-test("VerifyActions.tsx encodes the real legal transition targets read from the migration", () => {
+test("VerifyActions.tsx encodes the real legal transition map read from the migration", () => {
   const source = readApp(VERIFY_ACTIONS_PATH);
-  for (const target of ["intake_instruction_sent", "received", "inspection_passed", "inspection_failed"]) {
-    assert.match(source, new RegExp(escapeRegExp(`"${target}"`)), `must reference legal target status ${target}`);
-  }
-  // real from-state guard, not invented ones
-  for (const fromStatus of ["submitted", "handoff_confirmed", "intake_instruction_sent", "received"]) {
-    assert.match(source, new RegExp(escapeRegExp(`"${fromStatus}"`)), `must key off real source status ${fromStatus}`);
-  }
+  // Pin each from-status to its exact action set (marketplace_admin_transition_seller_intake,
+  // 20260628110000_marketplace_seller_consignment.sql) so a scrambled mapping fails, not just
+  // a missing status literal.
+  assert.match(
+    source,
+    /case "submitted":\s*case "submitted_for_review":\s*return \[SEND_INTAKE_INSTRUCTIONS\];/,
+    "submitted (and its mock alias) must offer only Send intake instructions",
+  );
+  assert.match(
+    source,
+    /case "handoff_confirmed":\s*return \[SEND_INTAKE_INSTRUCTIONS, MARK_RECEIVED\];/,
+    "handoff_confirmed must offer Send intake instructions or Mark received",
+  );
+  assert.match(
+    source,
+    /case "intake_instruction_sent":\s*return \[MARK_RECEIVED\];/,
+    "intake_instruction_sent must offer only Mark received",
+  );
+  assert.match(
+    source,
+    /case "received":\s*return \[PASS_INSPECTION, \{ kind: "transition", target: "inspection_failed"/,
+    "received must offer pass/fail inspection",
+  );
 });
 
 test("VerifyActions.tsx only offers Activate listing from inspection_passed and confirms the already-set price", () => {

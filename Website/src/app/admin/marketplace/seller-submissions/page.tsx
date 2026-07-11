@@ -17,29 +17,32 @@ export const dynamic = "force-dynamic";
 /**
  * listAdminSellerSubmissionQueue asserts admin itself (throws
  * marketplace_admin_required when admin is null -- see assertAdmin in
- * src/lib/marketplace/seller-consignment.ts), so this is gated on both
- * canReadMarketplaceQueues AND a non-null admin, matching the exact same
- * double guard buildMarketplaceOpsSnapshot already uses for this same call
- * (src/lib/marketplace/ops-snapshot.ts:123-125).
+ * src/lib/marketplace/seller-consignment.ts) and has its own mock-data
+ * branch, so this is gated on marketplaceAdminAllowed AND a non-null admin
+ * -- the exact double guard buildMarketplaceOpsSnapshot uses for this same
+ * call (src/lib/marketplace/ops-snapshot.ts:123-125). NOT the stricter
+ * canReadMarketplaceQueues, which also excludes mock mode and would blank
+ * this queue while the overview badge still counts it.
  */
 async function loadSubmissions(
-  canRead: boolean,
+  allowed: boolean,
   admin: ResolvedAdminSession | null,
 ): Promise<AdminSellerSubmissionQueueRow[]> {
-  if (!canRead || !admin) return [];
+  if (!allowed || !admin) return [];
   return listAdminSellerSubmissionQueue(admin);
 }
 
 export default async function AdminMarketplaceSellerSubmissionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string }>;
+  searchParams?: Promise<{ filter?: string }>;
 }) {
   const data = await getYnotDashboardSlice({});
   const admin = await resolveAdminSession();
   const snapshot = await buildMarketplaceOpsSnapshot(admin);
-  const { config, canReadMarketplaceQueues } = snapshot;
-  const { filter: filterParam } = await searchParams;
+  const { config, marketplaceAdminAllowed } = snapshot;
+  const { filter: filterParam } = await (searchParams ??
+    Promise.resolve({} as { filter?: string }));
   const filter = filterParam === "all" ? "all" : "needs_action";
 
   if (config.ownerOnly && admin?.adminRole !== "owner") {
@@ -61,7 +64,7 @@ export default async function AdminMarketplaceSellerSubmissionsPage({
     );
   }
 
-  const submissions = await loadSubmissions(canReadMarketplaceQueues, admin);
+  const submissions = await loadSubmissions(marketplaceAdminAllowed, admin);
 
   return (
     <AdminGate viewer={data.viewer}>
