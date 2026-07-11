@@ -20,6 +20,7 @@ export const REFUND_TRANSITION_FIELDS = [
   "refundState",
   "providerReference",
   "adminNote",
+  "expectedRefundState",
 ] as const;
 
 type AdminRole = "owner" | "admin" | "staff";
@@ -293,6 +294,21 @@ export async function recordMarketplaceRefundTransition(input: {
       422,
     );
   }
+  const expectedRefundState = optionalTextField(
+    input.body.expectedRefundState,
+    "expected_refund_state",
+    40,
+  );
+  if (
+    expectedRefundState &&
+    !["requested", "approved", "rejected", "refunded"].includes(expectedRefundState)
+  ) {
+    throw new MarketplaceServiceError(
+      "marketplace_refund_state_invalid",
+      "Marketplace refund state is invalid.",
+      400,
+    );
+  }
 
   const supabase = createMarketplaceSupabaseClient();
   const result = (await supabase.rpc("marketplace_record_refund_transition", {
@@ -305,6 +321,7 @@ export async function recordMarketplaceRefundTransition(input: {
     p_refund_state: refundState,
     p_provider_reference: providerReference,
     p_admin_note: textField(input.body.adminNote, "admin_note", 1000),
+    p_expected_refund_state: expectedRefundState,
   })) as {
     data: unknown;
     error: { message?: string; code?: string } | null;

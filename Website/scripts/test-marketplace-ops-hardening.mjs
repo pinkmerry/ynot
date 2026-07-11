@@ -10,6 +10,10 @@ const migrationPath = path.join(
   repoRoot,
   "Database/marketplace-supabase/migrations/20260628130000_marketplace_ops_hardening.sql",
 );
+const expectedStateMigrationPath = path.join(
+  repoRoot,
+  "Database/marketplace-supabase/migrations/20260712100000_marketplace_refund_transition_expected_state.sql",
+);
 
 function readApp(relPath) {
   return readFileSync(path.join(appRoot, relPath), "utf8");
@@ -17,6 +21,10 @@ function readApp(relPath) {
 
 function readMigration() {
   return readFileSync(migrationPath, "utf8");
+}
+
+function readExpectedStateMigration() {
+  return readFileSync(expectedStateMigrationPath, "utf8");
 }
 
 function compactSql(source) {
@@ -134,6 +142,97 @@ test("ops RPCs lock search_path, revoke browser roles, and grant service_role on
   requirePattern(sql, /or has_open_reconciliation/);
   requirePattern(sql, /order_row\.fulfilment_state not in \('shipped', 'completed'\)/);
   requirePattern(sql, /order_row\.refund_state <> 'none'/);
+});
+
+// ---------------------------------------------------------------------------
+// Refund transition optimistic-concurrency guard (review finding on
+// ee419d7d). marketplace_record_refund_transition never conditioned its
+// update on the refund request's current refund_state, so a stale admin
+// Disputes tab could re-fire a transition another admin already resolved.
+// 20260712100000_marketplace_refund_transition_expected_state.sql adds a
+// p_expected_refund_state text default null parameter and a precondition
+// that raises marketplace_refund_state_stale when the row has moved on.
+// ---------------------------------------------------------------------------
+
+test("refund transition expected-state migration drops the old 9-param signature before re-creating it", () => {
+  assert.ok(existsSync(expectedStateMigrationPath), "missing refund transition expected-state migration");
+  const sql = compactSql(readExpectedStateMigration());
+
+  requirePattern(
+    sql,
+    /drop function if exists public\.marketplace_record_refund_transition\(uuid, text, text, text, uuid, text, text, text, text\);/,
+    "must drop the exact old 9-parameter signature (required so PostgREST named-param dispatch cannot see two overloads)",
+  );
+  requirePattern(
+    sql,
+    /create or replace function public\.marketplace_record_refund_transition\(/,
+    "must re-create marketplace_record_refund_transition",
+  );
+});
+
+test("refund transition expected-state migration appends p_expected_refund_state as a trailing defaulted param", () => {
+  const sql = compactSql(readExpectedStateMigration());
+  requirePattern(
+    sql,
+    /p_admin_note text, p_expected_refund_state text default null/,
+    "p_expected_refund_state text default null must be appended after p_admin_note, defaulted so existing callers are unaffected",
+  );
+});
+
+test("refund transition expected-state migration's precondition sits immediately after the refund row is loaded, before the order lookup", () => {
+  const sql = compactSql(readExpectedStateMigration());
+  requirePattern(
+    sql,
+    /if refund_row\.id is null then raise exception 'marketplace_refund_not_found'; end if; if p_expected_refund_state is not null and refund_row\.refund_state is distinct from p_expected_refund_state then raise exception 'marketplace_refund_state_stale'; end if; select \* into order_row/,
+    "the staleness precondition must be adjacent to (immediately after) the not-found check and before the order_row select -- lock semantics on refund_row must stay unchanged",
+  );
+});
+
+test("refund transition expected-state migration re-issues the service-role-only grants on the new 10-param signature", () => {
+  const sql = compactSql(readExpectedStateMigration());
+  requirePattern(
+    sql,
+    /revoke all on function public\.marketplace_record_refund_transition\(uuid, text, text, text, uuid, text, text, text, text, text\) from public, anon, authenticated;/,
+    "dropping the function drops its grants -- must re-revoke browser roles on the new signature",
+  );
+  requirePattern(
+    sql,
+    /grant execute on function public\.marketplace_record_refund_transition\(uuid, text, text, text, uuid, text, text, text, text, text\) to service_role;/,
+    "must re-grant execute to service_role only on the new signature",
+  );
+});
+
+test("recordMarketplaceRefundTransition wrapper validates expectedRefundState against the real enum and forwards it as p_expected_refund_state", () => {
+  const source = readApp("src/lib/marketplace/ops-hardening.ts");
+  assert.match(
+    source,
+    /"expectedRefundState",\n\] as const;/,
+    "expectedRefundState must be in the REFUND_TRANSITION_FIELDS JSON body allowlist",
+  );
+  assert.match(
+    source,
+    /optionalTextField\(\s*input\.body\.expectedRefundState,\s*"expected_refund_state",\s*40,\s*\)/,
+    "expectedRefundState must be read as an optional text field so omit/null forwards null",
+  );
+  assert.match(
+    source,
+    /\["requested", "approved", "rejected", "refunded"\]\.includes\(expectedRefundState\)/,
+    "expectedRefundState must be validated against the real refund-state enum before being forwarded",
+  );
+  assert.match(
+    source,
+    /p_expected_refund_state:\s*expectedRefundState/,
+    "wrapper must forward expectedRefundState to the RPC as p_expected_refund_state",
+  );
+});
+
+test("supabase-adapter maps marketplace_refund_state_stale to 409 with a refresh-and-review message", () => {
+  const source = readApp("src/lib/marketplace/supabase-adapter.ts");
+  assert.match(
+    source,
+    /marketplace_refund_state_stale:\s*\{\s*message:\s*"[^"]+",\s*status:\s*409,\s*\}/,
+    "marketplace_refund_state_stale must be a safe RPC error mapped to 409",
+  );
 });
 
 test("server ops module is server-only, redacts private data, and verifies webhook signature before JSON parsing", () => {

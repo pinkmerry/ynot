@@ -298,9 +298,24 @@ test("DisputeActions.tsx posts to the refund transition route with the exact all
     "must POST to /api/marketplace/admin/refunds/[refundRequestId]/transition",
   );
   assert.match(source, /"idempotency-key":\s*nextIdempotencyKey/);
-  for (const field of ["refundState", "providerReference", "adminNote"]) {
+  for (const field of ["refundState", "providerReference", "adminNote", "expectedRefundState"]) {
     assert.match(source, new RegExp(escapeRegExp(field)), `must send the allowed field ${field}`);
   }
+});
+
+test("DisputeActions.tsx sends expectedRefundState sourced from dispute.refund_state on every transition (approve/reject/refunded)", () => {
+  // Money-path optimistic-concurrency guard (review finding on ee419d7d):
+  // marketplace_record_refund_transition now accepts p_expected_refund_state
+  // (20260712100000_marketplace_refund_transition_expected_state.sql). The
+  // client must source it from the dispute row it actually rendered, not a
+  // hardcoded literal, or a stale tab would silently defeat the guard.
+  const source = readApp(DISPUTE_ACTIONS_PATH);
+  const matches = source.match(/expectedRefundState:\s*dispute\.refund_state/g) ?? [];
+  assert.equal(
+    matches.length,
+    3,
+    "expectedRefundState: dispute.refund_state must be sent on all three transitions (approve, reject, refunded)",
+  );
 });
 
 test("DisputeActions.tsx encodes the real legal transition map read from the migration", () => {
@@ -323,6 +338,11 @@ test("DisputeActions.tsx encodes the real legal transition map read from the mig
     /default:\s*return \[\];/,
     "rejected/refunded (and anything unrecognized) must be terminal -- no actions",
   );
+  // Minor guard from the ee419d7d review: terminal states must fall through
+  // to default, not get their own case branch that could later be edited to
+  // return actions again.
+  assert.doesNotMatch(source, /case "rejected":/, "rejected must have no explicit case -- it must fall to default");
+  assert.doesNotMatch(source, /case "refunded":/, "refunded must have no explicit case -- it must fall to default");
 });
 
 test("DisputeActions.tsx requires a non-empty adminNote before submitting any transition", () => {

@@ -342,6 +342,10 @@ const SAFE_RPC_ERRORS: Record<string, { message: string; status: number }> = {
     message: "Marketplace refund state is invalid.",
     status: 400,
   },
+  marketplace_refund_state_stale: {
+    message: "This dispute changed since you loaded it. Refresh and review again.",
+    status: 409,
+  },
   marketplace_version_conflict: {
     message: "Marketplace record changed. Refresh and try again.",
     status: 409,

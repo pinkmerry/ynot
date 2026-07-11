@@ -19,17 +19,22 @@ import { formatThb } from "../shared/money";
  * POSTs to POST /api/marketplace/admin/refunds/[refundRequestId]/transition
  * (src/app/api/ynot/marketplace/admin/refunds/[refundRequestId]/transition/
  * route.ts). allowedFields is exactly REFUND_TRANSITION_FIELDS =
- * ["refundState","providerReference","adminNote"] (src/lib/marketplace/
- * ops-hardening.ts:19-23). Real legal transitions, read directly off
- * marketplace_record_refund_transition (Database/marketplace-supabase/
- * migrations/20260628130000_marketplace_ops_hardening.sql:603-754):
+ * ["refundState","providerReference","adminNote","expectedRefundState"]
+ * (src/lib/marketplace/ops-hardening.ts:19-24). Real legal transitions,
+ * read directly off marketplace_record_refund_transition
+ * (Database/marketplace-supabase/migrations/20260628130000_marketplace_
+ * ops_hardening.sql:603-756, extended by 20260712100000_marketplace_
+ * refund_transition_expected_state.sql):
  *   - refundState must be "approved" | "rejected" | "refunded" (line
- *     631) -- the RPC does not gate on the row's CURRENT refund_state
- *     (no "where refund_state = ..." precondition), but the product
- *     flow only ever offers Approve/Reject from "requested" and Mark
- *     refunded from "approved" -- actionsFor() below encodes exactly
- *     that pair, and rejected/refunded are terminal (no actions) on
- *     this screen.
+ *     631) -- the product flow only ever offers Approve/Reject from
+ *     "requested" and Mark refunded from "approved" -- actionsFor()
+ *     below encodes exactly that pair, and rejected/refunded are
+ *     terminal (no actions) on this screen.
+ *   - expectedRefundState is sent as the refund_state this screen last
+ *     rendered for the dispute. The RPC raises "marketplace_refund_
+ *     state_stale" (mapped to 409 in supabase-adapter.ts) if the row's
+ *     current refund_state no longer matches -- guards against a stale
+ *     tab re-firing a transition another admin already resolved.
  *   - adminNote is REQUIRED and non-empty for every transition (line
  *     637-639, raises "marketplace_admin_note_required" otherwise) --
  *     unlike OrderActions'/ModerationActions' optional notes, this one
@@ -155,14 +160,22 @@ export function DisputeActions({ dispute }: { dispute: DisputeActionRefund }) {
     }
     if (kind === "approve") {
       void transition(
-        { refundState: "approved", adminNote: adminNote.trim() },
+        {
+          refundState: "approved",
+          adminNote: adminNote.trim(),
+          expectedRefundState: dispute.refund_state,
+        },
         `Approve the refund for order ${shortOrder}? The seller payout stays frozen until you mark it refunded.`,
       );
       return;
     }
     if (kind === "reject") {
       void transition(
-        { refundState: "rejected", adminNote: adminNote.trim() },
+        {
+          refundState: "rejected",
+          adminNote: adminNote.trim(),
+          expectedRefundState: dispute.refund_state,
+        },
         `Reject the refund for order ${shortOrder}? The seller payout can proceed on its normal schedule.`,
       );
       return;
@@ -176,6 +189,7 @@ export function DisputeActions({ dispute }: { dispute: DisputeActionRefund }) {
         refundState: "refunded",
         providerReference: providerReference.trim(),
         adminNote: adminNote.trim(),
+        expectedRefundState: dispute.refund_state,
       },
       `Mark order ${shortOrder} as refunded (approved → refunded), ${formatThb(dispute.refund_amount_satang)} sent to the buyer? This cannot be undone.`,
     );
