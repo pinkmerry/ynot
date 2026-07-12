@@ -276,7 +276,7 @@ export function MarketplaceSellerClient({
           {
             id: `mock-submission-${Date.now()}`,
             submission_number: `MKT-MOCK-${current.length + 1001}`,
-            status: submitForReview ? "submitted_for_review" : "draft",
+            status: submitForReview ? "submitted" : "draft",
             item_type: itemType,
             title_snapshot: String(form.get("titleSnapshot") ?? ""),
             condition_code: String(form.get("conditionCode") ?? ""),

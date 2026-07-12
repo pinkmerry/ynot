@@ -27,7 +27,6 @@ import { VerifyActions } from "./VerifyActions";
 
 const NEEDS_ACTION_STATUSES: ReadonlySet<string> = new Set([
   "submitted",
-  "submitted_for_review",
   "handoff_confirmed",
   "intake_instruction_sent",
   "received",

@@ -93,7 +93,6 @@ const PASS_INSPECTION: TransitionAction = {
 function actionsFor(status: string): Action[] {
   switch (status) {
     case "submitted":
-    case "submitted_for_review":
       return [SEND_INTAKE_INSTRUCTIONS];
     case "handoff_confirmed":
       return [SEND_INTAKE_INSTRUCTIONS, MARK_RECEIVED];

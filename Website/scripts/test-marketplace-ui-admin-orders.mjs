@@ -298,8 +298,8 @@ test("VerifyActions.tsx encodes the real legal transition map read from the migr
   // a missing status literal.
   assert.match(
     source,
-    /case "submitted":\s*case "submitted_for_review":\s*return \[SEND_INTAKE_INSTRUCTIONS\];/,
-    "submitted (and its mock alias) must offer only Send intake instructions",
+    /case "submitted":\s*return \[SEND_INTAKE_INSTRUCTIONS\];/,
+    "submitted must offer only Send intake instructions",
   );
   assert.match(
     source,

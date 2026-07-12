@@ -33,12 +33,11 @@ const HANDOFF_METHODS = [
 
 // Statuses where the seller has not yet confirmed handoff, so "Mark as
 // shipped" is meaningful. Real enum: submitted / intake_instruction_sent
-// (see 20260628110000_marketplace_seller_consignment.sql); submitted_for_review
-// covers mock/preview data. Post-handoff states (handoff_confirmed, received,
-// inspection_*, inventory_created, listed, sold, returned) never re-offer it.
+// (see 20260628110000_marketplace_seller_consignment.sql). Post-handoff
+// states (handoff_confirmed, received, inspection_*, inventory_created,
+// listed, sold, returned) never re-offer it.
 const PRE_HANDOFF_STATUSES: ReadonlySet<string> = new Set([
   "submitted",
-  "submitted_for_review",
   "intake_instruction_sent",
 ]);
 
