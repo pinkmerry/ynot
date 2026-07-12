@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MarketplaceCheckoutClient } from "./MarketplaceCheckoutClient";
+import { CheckoutFlow } from "@/features/marketplace-ui/checkout/CheckoutFlow";
 import { MarketplaceListingActionsClient } from "./MarketplaceListingActionsClient";
 import { MarketplaceListingGallery } from "./MarketplaceListingGallery";
 import { MarketplaceStickyCommerceBar } from "./MarketplaceStickyCommerceBar";
@@ -24,7 +24,6 @@ type MarketplaceListingDetailPageProps = {
   canCheckout: boolean;
   checkoutEnabled: boolean;
   paymentInstructions: MarketplacePaymentInstructions;
-  mockMode: boolean;
 };
 
 function thb(amountSatang: number) {
@@ -107,7 +106,6 @@ export function MarketplaceListingDetailPage({
   canCheckout,
   checkoutEnabled,
   paymentInstructions,
-  mockMode,
 }: MarketplaceListingDetailPageProps) {
   const photos = (listing.photo_urls ?? [])
     .filter((photo): photo is string => Boolean(photo))
@@ -341,17 +339,27 @@ export function MarketplaceListingDetailPage({
               is created.
             </p>
           </div>
-          {canCheckout ? (
-            <MarketplaceCheckoutClient
-              listingId={listing.listing_id}
+          {canCheckout && checkoutEnabled && available ? (
+            <CheckoutFlow
+              listing={{
+                listingId: listing.listing_id,
+                title: listing.title,
+                photoUrl: photos[0] ?? null,
+                itemPriceSatang: listing.item_price_satang,
+                gradeLabel: currentCondition,
+                isOfficial,
+                listingSource: listing.listing_source,
+              }}
               checkoutEndpoint={checkoutEndpoint}
-              listingSource={listing.listing_source}
-              checkoutEnabled={checkoutEnabled && available}
               shippingAddresses={checkoutAddresses}
-              itemPriceSatang={listing.item_price_satang}
               paymentInstructions={paymentInstructions}
-              mockMode={mockMode}
             />
+          ) : canCheckout ? (
+            <p className="marketplace-listing-unavailable" role="status">
+              {available
+                ? "Checkout is unavailable right now."
+                : "This listing is no longer available to buy."}
+            </p>
           ) : (
             <Link href="/login" className="btn btn-primary" prefetch={false}>
               Sign in to checkout

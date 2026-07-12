@@ -404,7 +404,9 @@ test("official shop routes enforce launch, auth, same-origin mutations, rate lim
 test("marketplace page renders official and user-seller product markets with THB pricing and no coin or seller payout wording", () => {
   const page = readApp("src/app/(store)/marketplace/page.tsx");
   assert.match(page, /listMarketplaceProductBrowsePage/);
-  assert.match(page, /marketplaceProducts/);
+  // The browse redesign renders BrowsePage with the browse read-model rows
+  // (was: MarketplaceExperience's marketplaceProducts prop).
+  assert.match(page, /products=\{marketplaceProductPage\.products\}/);
   assert.doesNotMatch(page, /listMarketplaceListings/);
 
   const component = readApp("src/features/ynot/components.tsx");
@@ -427,7 +429,12 @@ test("marketplace page renders official and user-seller product markets with THB
   const detailComponent = readApp("src/features/ynot/MarketplaceListingDetailPage.tsx");
   assert.match(detailPage, /getMarketplaceListing/);
   assert.match(detailPage, /MarketplaceListingDetailPage/);
-  assert.match(detailComponent, /MarketplaceCheckoutClient/);
+  // The listing checkout section now renders CheckoutFlow (marketplace-ui
+  // redesign) instead of the old MarketplaceCheckoutClient — see
+  // scripts/test-marketplace-ui-checkout.mjs for the full redesign contract
+  // coverage. checkoutEndpoint is still computed here and passed straight
+  // through, so the official/user-seller routes stay asserted.
+  assert.match(detailComponent, /CheckoutFlow/);
   assert.match(detailComponent, /\/api\/marketplace\/checkout\/official/);
   assert.match(detailComponent, /\/api\/marketplace\/checkout\/user-seller/);
   assert.doesNotMatch(
@@ -436,10 +443,7 @@ test("marketplace page renders official and user-seller product markets with THB
     "listing detail must allow signed-in users when owner-only mode is disabled",
   );
 
-  const checkoutClient = readApp("src/features/ynot/MarketplaceCheckoutClient.tsx");
   const paymentProofClient = readApp("src/features/ynot/MarketplacePaymentProofClient.tsx");
-  assert.match(checkoutClient, /checkoutEndpoint/);
-  assert.match(checkoutClient, /MarketplacePaymentProofClient/);
   assert.match(paymentProofClient, /payment-proof/);
   assert.match(paymentProofClient, /Service fee/);
   assert.match(paymentProofClient, /Shipping/);
@@ -449,6 +453,12 @@ test("marketplace page renders official and user-seller product markets with THB
   assert.match(adminDashboard, /buildMarketplaceOpsSnapshot/);
   assert.match(opsSnapshot, /listOfficialOrderDashboard/);
   assert.match(opsSnapshot, /marketplaceAdminAllowed && !config\.mockData/);
-  assert.match(adminDashboard, /Paid revenue/);
-  assert.match(adminDashboard, /Payment review/);
+  // Admin shell + overview redesign (see test-marketplace-ui-admin-shell.mjs):
+  // the inline AdminKPI tiles labeled "Paid revenue"/"Payment review" moved
+  // off this page into OverviewScreen.tsx's GMV + queue-summary KPI strip.
+  // Assert the new screen is wired in and still surfaces the payment-review
+  // queue count instead of re-asserting now-removed label text here.
+  const overviewScreen = readApp("src/features/marketplace-ui/admin/OverviewScreen.tsx");
+  assert.match(adminDashboard, /<OverviewScreen/);
+  assert.match(overviewScreen, /queueSummary\.paymentReviewCount/);
 });

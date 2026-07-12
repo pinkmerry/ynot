@@ -1,8 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { MarketplaceProductPage } from "@/features/ynot/MarketplaceProductPage";
-import { YnotShell } from "@/features/ynot/components";
-import { getYnotDashboardSlice } from "@/features/ynot/data";
+import { ProductDetail } from "@/features/marketplace-ui/product/ProductDetail";
 import {
   resolveAdminSession,
   resolveCurrentProfile,
@@ -104,22 +102,18 @@ export default async function MarketplaceProductRoute({
     throw error;
   }
 
-  const data = await getYnotDashboardSlice({
-    wallet: Boolean(profile?.profileId),
-  });
-
   return (
-    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
+    <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: serializeMarketplaceJsonLd(buildMarketplaceProductJsonLd(market)),
         }}
       />
-      <MarketplaceProductPage
+      <ProductDetail
         market={market}
         selectedGrade={query.grade ?? query.condition ?? null}
       />
-    </YnotShell>
+    </>
   );
 }

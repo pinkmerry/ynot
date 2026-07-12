@@ -94,6 +94,7 @@ export function MarketplaceMoneyPolicyControls({
             buyerServiceFeeBps,
             shippingFeeSatang,
             adminNote,
+            expectedPolicyId: policy.policyId,
           }),
         }),
       );

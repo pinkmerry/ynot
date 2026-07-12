@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { YnotShell } from "@/features/ynot/components";
-import { getYnotDashboardSlice } from "@/features/ynot/data";
 import {
   MarketplacePaymentProofClient,
   type MarketplacePaymentProofOrder,
 } from "@/features/ynot/MarketplacePaymentProofClient";
+import { OrderConfirmView } from "@/features/marketplace-ui/orders/OrderConfirmView";
 import {
   resolveAdminSession,
   resolveCurrentProfile,
@@ -21,18 +20,6 @@ import { MarketplaceServiceError } from "@/lib/marketplace/supabase-adapter";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 
 export const dynamic = "force-dynamic";
-
-function thb(amountSatang: number) {
-  return new Intl.NumberFormat("th-TH", {
-    style: "currency",
-    currency: "THB",
-    maximumFractionDigits: 0,
-  }).format(amountSatang / 100);
-}
-
-function stateLabel(value: string) {
-  return value.replace(/_/g, " ");
-}
 
 export default async function MarketplaceOrderDetailPage({
   params,
@@ -59,12 +46,9 @@ export default async function MarketplaceOrderDetailPage({
   }
 
   const { orderId } = await params;
-  const [data, account] = await Promise.all([
-    getYnotDashboardSlice({ wallet: Boolean(profile?.profileId) }),
-    profile
-      ? getMarketplaceAccountForProfile(profile, admin)
-      : Promise.resolve(getMockMarketplaceAccount(admin)),
-  ]);
+  const account = profile
+    ? await getMarketplaceAccountForProfile(profile, admin)
+    : getMockMarketplaceAccount(admin);
   if (!account) notFound();
 
   let order: Awaited<ReturnType<typeof getBuyerOrder>>;
@@ -95,74 +79,32 @@ export default async function MarketplaceOrderDetailPage({
   };
 
   return (
-    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
-      <div className="store-home-grid marketplace-detail-page">
-        <div className="store-main-stack">
-          <Link href="/marketplace/orders" className="marketplace-back-link" prefetch={false}>
-            Marketplace orders
-          </Link>
-          <section className="marketplace-order-detail">
-            <div>
-              <span className="marketplace-card-eyebrow">
-                {order.listing_source === "user_seller"
-                  ? "Seller consignment"
-                  : "Official shop"}
-              </span>
-              <h1>{order.listing?.title ?? `Order ${order.id.slice(0, 8)}`}</h1>
-              <p>
-                Payment {stateLabel(order.payment_state)} · Fulfilment{" "}
-                {stateLabel(order.fulfilment_state)}
-              </p>
-            </div>
-
-            <dl className="marketplace-checkout-summary">
-              <div>
-                <dt>Item</dt>
-                <dd>{thb(order.item_price_satang)}</dd>
-              </div>
-              <div>
-                <dt>Service fee</dt>
-                <dd>{thb(order.buyer_service_fee_satang)}</dd>
-              </div>
-              <div>
-                <dt>Shipping</dt>
-                <dd>{thb(order.shipping_fee_satang)}</dd>
-              </div>
-              <div>
-                <dt>Total paid</dt>
-                <dd>{thb(order.buyer_total_satang)}</dd>
-              </div>
-            </dl>
-
-            <div className="marketplace-order-states">
-              <span className="status-pill ready">
-                Payment {stateLabel(order.payment_state)}
-              </span>
-              <span className="status-pill">
-                Fulfilment {stateLabel(order.fulfilment_state)}
-              </span>
-              {order.refund_state !== "none" ? (
-                <span className="status-pill warn">
-                  Refund {stateLabel(order.refund_state)}
-                </span>
-              ) : null}
-            </div>
-
-            <small>
-              Order ID {order.id} · Created{" "}
-              {new Date(order.created_at).toLocaleString("th-TH")}
-            </small>
-
-            {canResumePayment ? (
-              <MarketplacePaymentProofClient
-                order={paymentProofOrder}
-                paymentInstructions={getMarketplacePaymentInstructions()}
-                mockMode={mockMode}
-              />
-            ) : null}
-          </section>
-        </div>
-      </div>
-    </YnotShell>
+    <div className="mp-order-detail-page">
+      <Link href="/marketplace/orders" className="mp-back-link">
+        ← My buying &amp; selling
+      </Link>
+      {canResumePayment ? (
+        <section className="mp-order-resume">
+          <h1 className="mp-h1">Finish your payment</h1>
+          <MarketplacePaymentProofClient
+            order={paymentProofOrder}
+            paymentInstructions={getMarketplacePaymentInstructions()}
+            mockMode={mockMode}
+          />
+        </section>
+      ) : (
+        <OrderConfirmView
+          order={{
+            id: order.id,
+            payment_state: order.payment_state,
+            fulfilment_state: order.fulfilment_state,
+            refund_state: order.refund_state,
+            buyer_total_satang: order.buyer_total_satang,
+            created_at: order.created_at,
+            title: order.listing?.title ?? null,
+          }}
+        />
+      )}
+    </div>
   );
 }

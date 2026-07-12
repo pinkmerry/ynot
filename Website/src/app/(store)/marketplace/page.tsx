@@ -1,14 +1,10 @@
 import { redirect } from "next/navigation";
-import { MarketplaceExperience, YnotShell } from "@/features/ynot/components";
-import { getYnotDashboardSlice } from "@/features/ynot/data";
+import { BrowsePage } from "@/features/marketplace-ui/browse/BrowsePage";
 import {
   resolveAdminSession,
   resolveCurrentProfile,
 } from "@/lib/auth/resolve-current-profile";
-import {
-  getMarketplaceAccountForProfile,
-  safeMarketplaceAccountResponse,
-} from "@/lib/marketplace/account-bridge";
+import { getMarketplaceAccountForProfile } from "@/lib/marketplace/account-bridge";
 import { marketplaceConfig } from "@/lib/marketplace/config";
 import {
   listMarketplaceProductBrowseFilterCounts,
@@ -88,50 +84,43 @@ export default async function MarketplacePage({
     redirect("/packs");
   }
 
-  let marketplaceAccount = safeMarketplaceAccountResponse(null, admin);
   let marketplaceProductPage: MarketplaceProductBrowsePage = {
     products: [],
     nextCursor: null,
   };
   let marketplaceFilterCounts: MarketplaceBrowseFilterCounts = {};
   if (config.unavailableReason === null && config.actions.browse) {
-    const [account, productPage, filterCounts] = await Promise.all([
+    // The account read stays in this parallel batch untouched (same
+    // guard, same Promise.all shape as before) even though its result is no
+    // longer rendered here — BrowsePage has no account-gated affordance on
+    // the browse page itself (unlike the previous experience component this
+    // replaced), so there is nothing left to feed
+    // safeMarketplaceAccountResponse() into.
+    const [, productPage, filterCounts] = await Promise.all([
       profile
         ? getMarketplaceAccountForProfile(profile, admin)
         : Promise.resolve(null),
       listMarketplaceProductBrowsePage(productQuery),
       listMarketplaceProductBrowseFilterCounts(),
     ]);
-    marketplaceAccount = safeMarketplaceAccountResponse(account, admin);
     marketplaceProductPage = productPage;
     marketplaceFilterCounts = filterCounts;
   }
 
-  const data = await getYnotDashboardSlice({
-    wallet: Boolean(profile?.profileId),
-  });
+  // The wallet balance / viewer data getYnotDashboardSlice used to fetch for
+  // the old page-level header shell is no longer needed here: the
+  // marketplace layout (src/app/(store)/marketplace/layout.tsx) already
+  // renders MarketTopbar with its own getYnotDashboardSlice({wallet: true})
+  // read for the coin pill, so fetching it again here would be a redundant
+  // duplicate read.
 
   return (
-    <YnotShell
-      viewer={data.viewer}
-      walletBalance={data.wallet.balanceCoins}
-    >
-      <MarketplaceExperience
-        accountStatus={marketplaceAccount}
-        launchStatus={{
-          enabled: config.enabled,
-          configured: config.unavailableReason === null,
-          ownerOnly: config.ownerOnly,
-          mockData: config.mockData,
-          reason: config.unavailableReason,
-          actions: config.actions,
-        }}
-        marketplaceProducts={marketplaceProductPage.products}
-        productNextCursor={marketplaceProductPage.nextCursor}
-        filterCounts={marketplaceFilterCounts}
-        selectedFilterKey={selectedMarketplaceFilter(productQuery)}
-        selectedSort={selectedMarketplaceSort(productQuery)}
-      />
-    </YnotShell>
+    <BrowsePage
+      query={productQuery}
+      products={marketplaceProductPage.products}
+      filterCounts={marketplaceFilterCounts}
+      selectedFilterKey={selectedMarketplaceFilter(productQuery)}
+      selectedSort={selectedMarketplaceSort(productQuery)}
+    />
   );
 }

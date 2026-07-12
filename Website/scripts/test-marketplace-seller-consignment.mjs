@@ -355,8 +355,12 @@ test("seller modules and routes enforce account bridge, owner gate, validation, 
 
 test("seller dashboard is a separate marketplace surface with terms, submission form, and payout estimate", () => {
   const page = readApp("src/app/(store)/marketplace/seller/page.tsx");
-  assert.match(page, /MarketplaceSellerClient/);
-  assert.match(page, /listSellerSubmissions/);
+  // Redesign (feat: marketplace sell-a-card redesign): the seller page now
+  // renders marketplace-ui SellForm instead of MarketplaceSellerClient, and
+  // fetches a single submission for ?submission=ID edit prefill instead of
+  // the full list (the list moved to the orders page's listings tab).
+  assert.match(page, /SellForm/);
+  assert.match(page, /getSellerSubmissionDetail/);
   assert.match(page, /ownerOnly|config\.ownerOnly/);
   assert.doesNotMatch(
     page,
@@ -364,27 +368,45 @@ test("seller dashboard is a separate marketplace surface with terms, submission 
     "seller page must allow signed-in users when owner-only mode is disabled",
   );
 
-  const client = readApp("src/features/ynot/MarketplaceSellerClient.tsx");
+  const client = readApp("src/features/marketplace-ui/sell/SellForm.tsx");
+  const uploader = readApp("src/features/marketplace-ui/sell/PhotoUploader.tsx");
+  const rail = readApp("src/features/marketplace-ui/sell/SellSummaryRail.tsx");
   assert.match(client, /\/api\/marketplace\/seller\/terms/);
   assert.match(client, /\/api\/marketplace\/seller\/submissions/);
   assert.match(client, /Accept seller terms/);
-  assert.match(client, /Estimated payout/);
-  assert.match(client, /Submit for YNOT intake review/);
-  assert.match(client, /MAX_SELLER_PHOTOS = 10/);
-  assert.match(client, /Add another photo/);
-  assert.match(client, /Upload item photos/);
+  assert.match(client, /\/api\/marketplace\/seller\/payout-preview/);
+  assert.match(client, /sellerPayoutSatang/);
+  assert.match(client, /submitNow/);
+  assert.match(rail, /You receive/);
+  assert.match(rail, /formatThb\(/);
+  assert.match(uploader, /MAX_SELL_PHOTOS = 10/);
+  assert.match(uploader, /Upload card photos/);
   assert.match(client, /photoRole/);
   assert.match(client, /displayOrder/);
-  assert.match(client, /\/api\/marketplace\/seller\/submissions\/\$\{input\.submissionId\}\/photos/);
-  assert.doesNotMatch(client, /front and back/i);
-  assert.doesNotMatch(client, /perspective/i);
-  assert.doesNotMatch(client, /CoinMark|coin/i);
+  assert.match(client, /\/api\/marketplace\/seller\/submissions\/\$\{submissionId\}\/photos/);
+  for (const source of [client, uploader]) {
+    assert.doesNotMatch(source, /front and back/i);
+    assert.doesNotMatch(source, /perspective/i);
+    assert.doesNotMatch(source, /CoinMark|coin/i);
+  }
+  // The rail's "coins" span is the shared mp-price CSS hook from the theme;
+  // the payout itself must render THB via formatThb with no coin iconography.
+  assert.doesNotMatch(rail, /CoinMark|MpCoin/);
 
   const adminPage = readApp("src/app/admin/marketplace/page.tsx");
   assert.match(adminPage, /buildMarketplaceOpsSnapshot/);
-  assert.match(adminPage, /Seller intake/);
-  assert.match(adminPage, /Sell requests/);
-  assert.match(adminPage, /photo_count/);
+  // Admin shell + overview redesign (see test-marketplace-ui-admin-shell.mjs):
+  // the inline "Seller intake" / "Sell requests" submissions table (with its
+  // raw photo_count field) moved off this page -- a later task rebuilds a
+  // dedicated seller-submissions list screen (AdminShell's "Verification
+  // queue" nav entry already points at /admin/marketplace/seller-submissions).
+  // The overview's queue summary list still surfaces how many submissions
+  // are waiting for review.
+  const overviewScreen = readApp("src/features/marketplace-ui/admin/OverviewScreen.tsx");
+  const adminShell = readApp("src/features/marketplace-ui/admin/AdminShell.tsx");
+  assert.match(adminPage, /sellerSubmissionReviewCount/);
+  assert.match(overviewScreen, /Seller submissions to review/);
+  assert.match(adminShell, /"\/admin\/marketplace\/seller-submissions"/);
   const opsSnapshot = readApp("src/lib/marketplace/ops-snapshot.ts");
   assert.match(opsSnapshot, /listAdminSellerSubmissionQueue/);
 

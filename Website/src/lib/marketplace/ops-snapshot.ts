@@ -143,7 +143,7 @@ export async function buildMarketplaceOpsSnapshot(
     0,
   );
   const sellerSubmissionReviewCount = sellerSubmissions.filter((submission) =>
-    ["submitted", "submitted_for_review", "intake_instruction_sent", "received"].includes(
+    ["submitted", "intake_instruction_sent", "received"].includes(
       submission.status,
     ),
   ).length;

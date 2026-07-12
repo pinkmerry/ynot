@@ -635,6 +635,52 @@ export async function releaseMarketplacePendingPaymentOrder(
   return releaseOfficialPendingPaymentOrder(releaseInput);
 }
 
+type MarketplacePaymentProofRow = {
+  proof_storage_path: string | null;
+};
+
+const PAYMENT_PROOF_BUCKET = "marketplace-payment-proofs";
+
+export async function getMarketplaceOrderProofPath(
+  orderId: string,
+): Promise<{ bucket: string; path: string } | null> {
+  const supabase = createMarketplaceSupabaseClient();
+  const result = await supabase
+    .from("marketplace_payment_proofs")
+    .select("proof_storage_path")
+    .eq("order_id", assertUuid(orderId, "order_id"))
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (result.error) throw marketplaceRpcError(result.error);
+
+  const row = result.data as unknown as MarketplacePaymentProofRow | null;
+  if (!row || !row.proof_storage_path) return null;
+
+  return { bucket: PAYMENT_PROOF_BUCKET, path: row.proof_storage_path };
+}
+
+type MarketplaceOrderSourceRow = {
+  listing_source: "official_shop" | "user_seller";
+};
+
+export async function getMarketplaceOrderSource(
+  orderId: string,
+): Promise<"official_shop" | "user_seller" | null> {
+  const supabase = createMarketplaceSupabaseClient();
+  const result = await supabase
+    .from("marketplace_orders")
+    .select("listing_source")
+    .eq("id", assertUuid(orderId, "order_id"))
+    .maybeSingle();
+
+  if (result.error) throw marketplaceRpcError(result.error);
+
+  const row = result.data as unknown as MarketplaceOrderSourceRow | null;
+  return row?.listing_source ?? null;
+}
+
 export async function expireMarketplacePendingPaymentOrders(input?: {
   requestId?: string | null;
   limit?: number | null;

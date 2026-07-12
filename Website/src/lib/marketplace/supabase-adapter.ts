@@ -102,9 +102,33 @@ const SAFE_RPC_ERRORS: Record<string, { message: string; status: number }> = {
     message: "Marketplace admin note is invalid.",
     status: 400,
   },
+  marketplace_alert_not_active: {
+    message: "Marketplace product alert is not active.",
+    status: 409,
+  },
+  marketplace_alert_product_missing: {
+    message: "Marketplace product was not found.",
+    status: 404,
+  },
   marketplace_auth_source_invalid: {
     message: "Marketplace account request is invalid.",
     status: 400,
+  },
+  marketplace_dispute_already_open: {
+    message: "A dispute is already open for this order.",
+    status: 409,
+  },
+  marketplace_dispute_not_deliverable: {
+    message: "Marketplace order is not eligible for a dispute.",
+    status: 409,
+  },
+  marketplace_dispute_reason_invalid: {
+    message: "Marketplace dispute reason is invalid.",
+    status: 400,
+  },
+  marketplace_dispute_window_closed: {
+    message: "Marketplace dispute window has closed for this order.",
+    status: 422,
   },
   marketplace_idempotency_conflict: {
     message: "Idempotency key was already used for a different request.",
@@ -146,6 +170,10 @@ const SAFE_RPC_ERRORS: Record<string, { message: string; status: number }> = {
     message: "Marketplace listing was not found.",
     status: 404,
   },
+  marketplace_listing_not_reportable: {
+    message: "Marketplace listing is not reportable.",
+    status: 409,
+  },
   marketplace_listing_state_invalid: {
     message: "Marketplace listing state does not allow this action.",
     status: 409,
@@ -174,9 +202,17 @@ const SAFE_RPC_ERRORS: Record<string, { message: string; status: number }> = {
     message: "Marketplace order must be paid before fulfilment.",
     status: 409,
   },
+  marketplace_payment_amount_mismatch: {
+    message: "Marketplace payment amount does not match the order total.",
+    status: 409,
+  },
   marketplace_payment_duplicate: {
     message: "This payment proof was already used.",
     status: 409,
+  },
+  marketplace_payment_evidence_required: {
+    message: "Marketplace payment evidence is required.",
+    status: 422,
   },
   marketplace_payment_proof_invalid: {
     message: "Payment proof is invalid.",
@@ -246,8 +282,24 @@ const SAFE_RPC_ERRORS: Record<string, { message: string; status: number }> = {
     message: "Marketplace profile is not active.",
     status: 403,
   },
+  marketplace_proof_missing: {
+    message: "No payment proof on file.",
+    status: 404,
+  },
+  marketplace_proof_url_failed: {
+    message: "Could not create proof link.",
+    status: 500,
+  },
   marketplace_release_reason_invalid: {
     message: "Marketplace release reason is invalid.",
+    status: 400,
+  },
+  marketplace_report_not_open: {
+    message: "Marketplace listing report is not open.",
+    status: 409,
+  },
+  marketplace_report_resolution_invalid: {
+    message: "Marketplace report resolution is invalid.",
     status: 400,
   },
   marketplace_request_hash_invalid: {
@@ -274,6 +326,10 @@ const SAFE_RPC_ERRORS: Record<string, { message: string; status: number }> = {
     message: "Marketplace shipping fee is invalid.",
     status: 400,
   },
+  marketplace_money_policy_stale: {
+    message: "Money policy changed since you loaded it. Refresh and review again.",
+    status: 409,
+  },
   marketplace_shipping_snapshot_invalid: {
     message: "Marketplace shipping address snapshot is invalid.",
     status: 400,
@@ -289,6 +345,10 @@ const SAFE_RPC_ERRORS: Record<string, { message: string; status: number }> = {
   marketplace_refund_state_invalid: {
     message: "Marketplace refund state is invalid.",
     status: 400,
+  },
+  marketplace_refund_state_stale: {
+    message: "This dispute changed since you loaded it. Refresh and review again.",
+    status: 409,
   },
   marketplace_version_conflict: {
     message: "Marketplace record changed. Refresh and try again.",

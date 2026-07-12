@@ -32,7 +32,9 @@ const buyerOrderSelect = orders.slice(
   orders.indexOf("const ORDER_SELECT"),
   orders.indexOf("const LISTING_SUMMARY_SELECT"),
 );
-const checkoutClient = readWebsite("src/features/ynot/MarketplaceCheckoutClient.tsx");
+// MarketplaceCheckoutClient.tsx was retired by the marketplace-ui redesign
+// (the listing checkout section now renders CheckoutFlow).
+const checkoutFlow = readWebsite("src/features/marketplace-ui/checkout/CheckoutFlow.tsx");
 const paymentProofRoute = readWebsite("src/app/api/ynot/marketplace/checkout/pending-orders/[pendingOrderId]/payment-proof/route.ts");
 const sellerPhotoRoute = readWebsite("src/app/api/ynot/marketplace/seller/submissions/[submissionId]/photos/route.ts");
 const watchlistItemRoute = readWebsite("src/app/api/ynot/marketplace/watchlist/items/[listingId]/route.ts");
@@ -242,7 +244,7 @@ includes(paymentProofRoute, "findLiveDuplicateSlip", "marketplace payment proof 
 includes(paymentProofRoute, "createServiceSupabaseClient", "marketplace payment proof duplicate check uses core service client");
 includes(paymentProofRoute, "LOCAL_CORE_DUPLICATE", "marketplace payment proof marks reused core slips as duplicate");
 includes(paymentProofRoute, "core_payment_slips_duplicate_check_failed", "duplicate-check lookup failure sends proof to admin review");
-notMatches(checkoutClient, /15_000|15000|Math\.floor\(itemPriceSatang|estimated/, "checkout client does not calculate fees or shipping");
+notMatches(checkoutFlow, /15_000|15000|Math\.floor\(itemPriceSatang|estimated/, "checkout flow does not calculate fees or shipping");
 includes(sellerPhotoRoute, "multipart/form-data", "seller photo upload requires multipart form data");
 includes(sellerPhotoRoute, "verifyImageMagicBytes", "seller photo upload verifies magic bytes");
 includes(sellerPhotoRoute, "marketplace-seller-submission-photos", "seller photos use private marketplace bucket");

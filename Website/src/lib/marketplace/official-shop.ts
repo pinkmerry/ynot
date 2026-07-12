@@ -779,6 +779,38 @@ export async function recordOfficialPaymentResult(input: {
   return result.data;
 }
 
+export async function recordUserSellerPaymentResult(input: {
+  orderId: string;
+  body: Record<string, unknown>;
+  admin: ResolvedAdminSession | null;
+  requestId: string;
+  idempotencyKey: string;
+  requestHash: string;
+}) {
+  const admin = assertAdmin(input.admin);
+  const evidence = paymentProviderEvidence(input.body);
+  const supabase = createMarketplaceSupabaseClient();
+  const result = (await supabase.rpc("marketplace_record_user_seller_payment_result", {
+    p_order_id: assertUuid(input.orderId, "order_id"),
+    p_request_id: input.requestId,
+    p_idempotency_key: input.idempotencyKey,
+    p_request_hash: input.requestHash,
+    p_admin_profile_id: admin.profileId,
+    p_admin_role: admin.adminRole,
+    p_payment_state: evidence.paymentState,
+    p_provider_reference: evidence.providerReference,
+    p_provider_amount_satang: evidence.providerAmountSatang,
+    p_provider_currency: evidence.providerCurrency,
+    p_admin_note: optionalTextField(input.body.adminNote, "admin_note", 1000),
+  })) as {
+    data: unknown;
+    error: { message?: string; code?: string } | null;
+  };
+
+  if (result.error) throw marketplaceRpcError(result.error);
+  return result.data;
+}
+
 export async function createOfficialRefund(input: {
   orderId: string;
   body: Record<string, unknown>;

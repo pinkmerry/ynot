@@ -617,7 +617,7 @@ export async function createSellerSubmission(input: {
     return {
       id: `mock-submission-${Date.now()}`,
       submission_number: `MKT-MOCK-${Math.floor(Date.now() / 1000)}`,
-      status: submission.submitNow ? "submitted_for_review" : "draft",
+      status: submission.submitNow ? "submitted" : "draft",
       item_type: submission.itemType,
       title_snapshot: submission.titleSnapshot,
       condition_code: submission.conditionCode,

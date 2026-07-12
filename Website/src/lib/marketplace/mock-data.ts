@@ -536,7 +536,7 @@ export const mockMarketplaceSellerSubmissions = [
   {
     id: "88888888-8888-4888-8888-888888888888",
     submission_number: "MKT-MOCK-1002",
-    status: "submitted_for_review",
+    status: "submitted",
     item_type: "sealed_pack",
     title_snapshot: "Mock Seller One Piece OP Pack",
     condition_code: "sealed",

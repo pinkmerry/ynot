@@ -17,7 +17,12 @@ const MONEY_POLICY_FIELDS = [
   "sellerFeeBps",
   "buyerServiceFeeBps",
   "shippingFeeSatang",
+  "payoutHoldDays",
+  "disputeWindowDays",
+  "listingAutoLive",
+  "slipAutoVerify",
   "adminNote",
+  "expectedPolicyId",
 ] as const;
 
 export async function GET(request: Request) {

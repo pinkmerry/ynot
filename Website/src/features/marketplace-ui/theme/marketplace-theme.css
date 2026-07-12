@@ -1,0 +1,729 @@
+/* ============================================
+   YNOTT Marketplace — Fresh light theme (MP)
+   Warm ivory paper, ink, deep green accent,
+   gold coin economy. Hairlines, minimal shadow.
+   ============================================ */
+.mp-root {
+  /* surfaces */
+  --mp-bg: #f7f5ee;
+  --mp-bg-soft: #fbfaf5;
+  --mp-paper: #ffffff;
+  --mp-line: #e8e4d7;
+  --mp-line-strong: #d4cfbe;
+  --mp-line-soft: #f0ede2;
+
+  /* ink */
+  --mp-ink: #171610;
+  --mp-ink-2: #2b2a21;
+  --mp-mute: #6d685a;
+  --mp-mute-2: #9b9686;
+
+  /* accent — deep green for official / primary actions */
+  --mp-green: #1a6b50;
+  --mp-green-ink: #0f4634;
+  --mp-green-soft: #ddefe5;
+  --mp-green-tint: #eef7f1;
+
+  /* coin economy */
+  --mp-gold: #d9a022;
+  --mp-gold-ink: #8a6a14;
+  --mp-gold-tint: #fbf3da;
+
+  /* signal */
+  --mp-rose: #b8434f;
+  --mp-rose-soft: #f6dcde;
+
+  --mp-font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mp-mono: var(--mp-font-mono), ui-monospace, monospace;
+  --mp-track: 0.15em;
+
+  --mp-r-sm: 8px;
+  --mp-r-md: 14px;
+  --mp-r-lg: 20px;
+
+  --mp-shadow: 0 1px 0 rgba(23, 22, 16, 0.03), 0 6px 20px rgba(23, 22, 16, 0.05);
+
+  background: var(--mp-bg);
+  color: var(--mp-ink);
+  font-family: var(--mp-font);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  width: 100%;
+  min-height: 100%;
+  padding: 26px 30px 40px;
+}
+.mp-root *, .mp-root *::before, .mp-root *::after { box-sizing: border-box; }
+.mp-root a { color: inherit; text-decoration: none; cursor: pointer; }
+.mp-root button { font-family: inherit; cursor: pointer; }
+
+/* layout */
+.mp-row { display: flex; align-items: center; gap: 12px; }
+.mp-stack { display: flex; flex-direction: column; gap: 12px; }
+.mp-grow { flex: 1 1 auto; min-width: 0; }
+.mp-spacer { flex: 1 1 auto; }
+
+/* type */
+.mp-eyebrow {
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: var(--mp-track); text-transform: uppercase;
+  color: var(--mp-mute);
+}
+.mp-h1 { font-size: 34px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.08; margin: 0; }
+.mp-h2 { font-size: 19px; font-weight: 700; letter-spacing: -0.005em; margin: 0; }
+.mp-h3 { font-size: 15px; font-weight: 700; margin: 0; }
+.mp-lead { color: var(--mp-mute); font-size: 13.5px; margin: 0; max-width: 58ch; }
+.mp-mono { font-family: var(--mp-mono); font-feature-settings: "tnum"; }
+.mp-mute { color: var(--mp-mute); }
+.mp-small { font-size: 12px; }
+
+/* ---------- topbar ---------- */
+.mp-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 4px 18px;
+  border-bottom: 1px solid var(--mp-line-strong);
+  margin-bottom: 24px;
+}
+.mp-brand { font-weight: 900; font-size: 18px; letter-spacing: 0.2em; }
+.mp-nav { display: flex; gap: 24px; align-items: baseline; }
+.mp-nav a {
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--mp-mute); padding-bottom: 2px;
+}
+.mp-nav a.active { color: var(--mp-ink); border-bottom: 2px solid var(--mp-ink); }
+.mp-coin-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 13px 6px 8px; border-radius: 999px;
+  background: var(--mp-gold-tint); color: var(--mp-gold-ink);
+  font-weight: 700; font-size: 13px;
+  font-family: var(--mp-mono);
+}
+.mp-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--mp-ink); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+}
+.mp-icon-btn {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--mp-line-strong); background: var(--mp-paper);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--mp-ink-2);
+}
+.mp-avatar-btn { border: 0; padding: 0; }
+
+/* ---------- my page drawer ----------
+   Ported from marketplace-proto-1.jsx:61-125's MyPageDrawer (inline styles
+   there — reimplemented here as theme classes per repo CSS-variable style). */
+.mp-drawer-backdrop {
+  position: fixed; inset: 0; z-index: 80;
+  background: rgba(23, 22, 16, 0.28);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--duration-normal, 250ms) ease;
+}
+.mp-drawer-backdrop[data-open="true"] { opacity: 1; pointer-events: auto; }
+.mp-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 81;
+  width: 372px; max-width: 90vw;
+  background: var(--mp-green-tint);
+  border-left: 1px solid var(--mp-line);
+  box-shadow: -14px 0 40px rgba(23, 22, 16, 0.1);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1), visibility 280ms;
+  display: flex; flex-direction: column;
+  padding: 26px 30px 24px;
+}
+.mp-drawer[data-open="true"] { transform: translateX(0); visibility: visible; }
+.mp-drawer-close { background: transparent; border: 0; }
+.mp-drawer-identity { gap: 14px; margin-top: 22px; }
+.mp-drawer-identity-avatar {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: var(--mp-paper); border: 1px solid var(--mp-line-strong);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--mp-mute); flex-shrink: 0;
+}
+.mp-drawer-identity-text { gap: 1px; }
+.mp-drawer-identity-name { font-size: 17px; font-weight: 800; }
+.mp-drawer-identity-edit { font-size: 12.5px; font-weight: 700; color: var(--mp-green); }
+.mp-drawer-balance { gap: 10px; margin-top: 26px; }
+.mp-drawer-balance-label { font-size: 15px; font-weight: 800; }
+.mp-drawer-balance-coin { gap: 9px; font-size: 14px; font-weight: 600; }
+.mp-drawer-balance-value { font-size: 20px; font-weight: 800; }
+.mp-drawer-topup {
+  margin-left: 12px; width: 26px; height: 26px; border-radius: 50%;
+  border: 0; background: var(--mp-rose); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.mp-drawer-hairline { margin: 24px 0; background: var(--mp-line-strong); }
+.mp-drawer-nav { gap: 4px; }
+.mp-drawer-link {
+  font-size: 14px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 11px 0; color: var(--mp-ink-2);
+  display: flex; align-items: center; gap: 8px;
+  background: transparent; border: 0; text-align: left; width: 100%;
+}
+.mp-drawer-foot { gap: 4px; }
+.mp-drawer-logout { color: var(--mp-rose); }
+
+/* ---------- buttons ---------- */
+.mp-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1px solid var(--mp-line-strong); background: var(--mp-paper);
+  color: var(--mp-ink); border-radius: 999px;
+  padding: 9px 18px; font-size: 13px; font-weight: 600;
+}
+.mp-btn-primary { background: var(--mp-ink); border-color: var(--mp-ink); color: #fff; }
+.mp-btn-green { background: var(--mp-green); border-color: var(--mp-green); color: #fff; }
+.mp-btn-lg { padding: 13px 24px; font-size: 14px; border-radius: 999px; width: 100%; }
+.mp-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+/* ---------- chips & badges ---------- */
+.mp-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 999px;
+  border: 1px solid var(--mp-line-strong); background: var(--mp-paper);
+  font-size: 12.5px; font-weight: 600; color: var(--mp-ink-2);
+  white-space: nowrap;
+}
+.mp-chip.active { background: var(--mp-ink); border-color: var(--mp-ink); color: #fff; }
+.mp-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+}
+.mp-badge-official { background: var(--mp-green); color: #fff; }
+.mp-badge-community { background: var(--mp-paper); color: var(--mp-mute); border: 1px solid var(--mp-line-strong); }
+.mp-badge-graded { background: var(--mp-gold-tint); color: var(--mp-gold-ink); }
+.mp-badge-sold { background: var(--mp-ink); color: #fff; }
+.mp-badge-raw { background: var(--mp-line-soft); color: var(--mp-mute); }
+
+/* ---------- listing card ---------- */
+.mp-card {
+  background: var(--mp-paper);
+  border: 1px solid var(--mp-line);
+  border-radius: var(--mp-r-md);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+  position: relative;
+}
+.mp-card:hover { border-color: var(--mp-line-strong); transform: translateY(-2px); box-shadow: var(--mp-shadow); }
+.mp-card-art {
+  aspect-ratio: 3 / 4;
+  position: relative;
+  background:
+    repeating-linear-gradient(-45deg, #f1eee3 0 10px, #eceadf 10px 20px);
+  display: flex; align-items: center; justify-content: center;
+}
+.mp-card-art .ph {
+  font-family: var(--mp-mono); font-size: 10.5px; color: var(--mp-mute-2);
+  letter-spacing: 0.06em;
+}
+.mp-card-art .corner { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; }
+.mp-card-body { padding: 13px 15px 15px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
+.mp-card-set {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase;
+  color: var(--mp-mute-2);
+}
+.mp-card-title { font-size: 13.5px; font-weight: 700; line-height: 1.3; }
+.mp-card-meta { font-size: 11.5px; color: var(--mp-mute); font-family: var(--mp-mono); }
+.mp-card-foot { margin-top: auto; padding-top: 9px; display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+.mp-price { display: flex; flex-direction: column; gap: 1px; }
+.mp-price .coins { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mp-mono); font-weight: 700; font-size: 15px; }
+.mp-price .thb { font-size: 10.5px; color: var(--mp-mute-2); font-family: var(--mp-mono); }
+.mp-seller-mini { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--mp-mute); }
+.mp-seller-mini .dot {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--mp-line-soft); border: 1px solid var(--mp-line-strong);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 8px; font-weight: 700; color: var(--mp-ink-2);
+}
+.mp-card.sold .mp-card-art::after {
+  content: ""; position: absolute; inset: 0; background: rgba(247, 245, 238, 0.55);
+}
+
+/* coin glyph */
+.mp-coin {
+  display: inline-block; width: 13px; height: 13px; border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #fff3c0, #d9a022 70%, #8a6a14);
+  flex-shrink: 0;
+}
+
+/* ---------- panels ---------- */
+.mp-panel {
+  background: var(--mp-paper);
+  border: 1px solid var(--mp-line);
+  border-radius: var(--mp-r-lg);
+  padding: 20px;
+}
+.mp-hairline { height: 1px; background: var(--mp-line); border: 0; margin: 0; }
+
+/* ---------- filter rail ---------- */
+.mp-rail { display: flex; flex-direction: column; gap: 22px; }
+.mp-rail-group { display: flex; flex-direction: column; gap: 9px; }
+.mp-rail-label {
+  font-size: 10px; font-weight: 700; letter-spacing: var(--mp-track); text-transform: uppercase;
+  color: var(--mp-mute-2);
+}
+.mp-check { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--mp-ink-2); }
+.mp-check .box {
+  width: 16px; height: 16px; border-radius: 4px;
+  border: 1.5px solid var(--mp-line-strong); background: var(--mp-paper); flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.mp-check.on .box { background: var(--mp-ink); border-color: var(--mp-ink); }
+.mp-check.on .box svg { stroke: #fff; }
+.mp-check .count { margin-left: auto; font-family: var(--mp-mono); font-size: 11px; color: var(--mp-mute-2); }
+
+/* ---------- search ---------- */
+.mp-search {
+  display: flex; align-items: center; gap: 9px;
+  background: var(--mp-paper); border: 1px solid var(--mp-line-strong);
+  border-radius: 999px; padding: 9px 16px;
+  color: var(--mp-mute); font-size: 13px;
+}
+
+/* ---------- sort ---------- */
+.mp-sort {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
+  color: var(--mp-mute-2); white-space: nowrap;
+}
+.mp-sort .val {
+  border: 1px solid var(--mp-line-strong); background: var(--mp-paper);
+  border-radius: 999px; padding: 7px 14px;
+  font-size: 12.5px; font-weight: 600; color: var(--mp-ink);
+  letter-spacing: 0; text-transform: none;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+
+/* ---------- seller card ---------- */
+.mp-seller {
+  display: flex; align-items: center; gap: 12px;
+}
+.mp-seller .av {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--mp-line-soft); border: 1px solid var(--mp-line-strong);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+}
+.mp-seller .nm { font-size: 14px; font-weight: 700; }
+.mp-seller .st { font-size: 11.5px; color: var(--mp-mute); font-family: var(--mp-mono); }
+
+/* ---------- steps ---------- */
+.mp-steps { display: flex; align-items: center; gap: 10px; }
+.mp-step { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--mp-mute-2); }
+.mp-step .n {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1.5px solid var(--mp-line-strong);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-family: var(--mp-mono);
+}
+.mp-step.done .n, .mp-step.now .n { background: var(--mp-ink); border-color: var(--mp-ink); color: #fff; }
+.mp-step.now { color: var(--mp-ink); }
+.mp-step-sep { width: 26px; height: 1px; background: var(--mp-line-strong); }
+
+/* ---------- line rows (checkout summary) ---------- */
+.mp-line-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; padding: 7px 0; }
+.mp-line-row .l { color: var(--mp-mute); }
+.mp-line-row .v { font-family: var(--mp-mono); font-weight: 600; }
+.mp-line-row.total .l { color: var(--mp-ink); font-weight: 700; }
+.mp-line-row.total .v { font-size: 16px; font-weight: 700; }
+
+/* ---------- alert ---------- */
+.mp-alert {
+  display: flex; gap: 10px; align-items: flex-start;
+  border-radius: var(--mp-r-sm); padding: 12px 14px; font-size: 12.5px; line-height: 1.5;
+}
+.mp-alert-rose { background: var(--mp-rose-soft); color: #7c2c34; }
+.mp-alert-green { background: var(--mp-green-tint); color: var(--mp-green-ink); }
+.mp-alert-gold { background: var(--mp-gold-tint); color: var(--mp-gold-ink); }
+
+/* ---------- radio option card ---------- */
+.mp-opt {
+  display: flex; align-items: flex-start; gap: 11px;
+  border: 1px solid var(--mp-line); border-radius: var(--mp-r-md);
+  padding: 13px 15px; background: var(--mp-paper);
+}
+.mp-opt.on { border-color: var(--mp-ink); box-shadow: 0 0 0 1px var(--mp-ink); }
+.mp-opt .rad {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 1.5px solid var(--mp-line-strong); flex-shrink: 0; margin-top: 2px;
+}
+.mp-opt.on .rad { border: 5px solid var(--mp-ink); }
+.mp-opt .t { font-size: 13px; font-weight: 700; }
+.mp-opt .s { font-size: 11.5px; color: var(--mp-mute); }
+
+/* ---------- big art panel (detail) ---------- */
+.mp-art-lg {
+  border-radius: var(--mp-r-lg);
+  border: 1px solid var(--mp-line);
+  background: repeating-linear-gradient(-45deg, #f1eee3 0 12px, #eceadf 12px 24px);
+  aspect-ratio: 3 / 4;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.mp-art-lg .ph { font-family: var(--mp-mono); font-size: 12px; color: var(--mp-mute-2); letter-spacing: 0.06em; }
+.mp-thumbs { display: flex; gap: 10px; }
+.mp-thumb {
+  width: 62px; height: 78px; border-radius: 10px;
+  border: 1px solid var(--mp-line);
+  background: repeating-linear-gradient(-45deg, #f1eee3 0 8px, #eceadf 8px 16px);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mp-mono); font-size: 8.5px; color: var(--mp-mute-2);
+}
+.mp-thumb.on { border-color: var(--mp-ink); box-shadow: 0 0 0 1px var(--mp-ink); }
+
+/* ---------- spec table ---------- */
+.mp-spec { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--mp-line); border: 1px solid var(--mp-line); border-radius: var(--mp-r-md); overflow: hidden; }
+.mp-spec > div { background: var(--mp-paper); padding: 11px 14px; }
+.mp-spec .k { font-size: 10px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; color: var(--mp-mute-2); margin-bottom: 3px; }
+.mp-spec .v { font-size: 13px; font-weight: 600; font-family: var(--mp-mono); }
+
+/* ---------- empty state ---------- */
+.mp-empty {
+  border: 1.5px dashed var(--mp-line-strong); border-radius: var(--mp-r-lg);
+  padding: 56px 24px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.mp-empty .glyph {
+  width: 52px; height: 52px; border-radius: 50%;
+  border: 1.5px dashed var(--mp-line-strong);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--mp-mute-2); margin-bottom: 4px;
+}
+
+/* ---------- admin link (owner only) ---------- */
+.mp-admin-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border-radius: 999px;
+  border: 1px solid var(--mp-green);
+  color: var(--mp-green-ink) !important;
+  font-size: 10.5px !important;
+}
+
+/* ---------- grade tabs (lowest ask per grade) ---------- */
+.mp-grades { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.mp-grade {
+  border: 1px solid var(--mp-line); border-radius: var(--mp-r-sm);
+  background: var(--mp-paper);
+  padding: 9px 11px; display: flex; flex-direction: column; gap: 2px;
+  cursor: pointer;
+}
+.mp-grade .g { font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--mp-mute); }
+.mp-grade .p { font-family: var(--mp-mono); font-weight: 700; font-size: 13.5px; display: inline-flex; align-items: center; gap: 5px; }
+.mp-grade .c { font-size: 10px; color: var(--mp-mute-2); font-family: var(--mp-mono); }
+.mp-grade.on { border-color: var(--mp-ink); box-shadow: 0 0 0 1px var(--mp-ink); }
+.mp-grade.off { opacity: 0.5; }
+
+/* ---------- listing rows (sellers) ---------- */
+.mp-listing-rows { display: flex; flex-direction: column; border: 1px solid var(--mp-line); border-radius: var(--mp-r-md); overflow: hidden; background: var(--mp-paper); }
+.mp-lrow {
+  display: grid; grid-template-columns: 84px 1fr auto auto; gap: 14px; align-items: center;
+  padding: 13px 16px;
+}
+.mp-lrow + .mp-lrow { border-top: 1px solid var(--mp-line-soft); }
+.mp-lrow.pinned { background: var(--mp-green-tint); }
+.mp-lrow .gr { display: flex; }
+.mp-lrow .who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mp-lrow .who .nm { font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+.mp-lrow .who .st { font-size: 11px; color: var(--mp-mute); font-family: var(--mp-mono); }
+.mp-lrow .pr { font-family: var(--mp-mono); font-weight: 700; font-size: 15px; display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---------- price chart ---------- */
+.mp-chart { display: flex; flex-direction: column; gap: 10px; }
+.mp-chart svg { width: 100%; height: auto; display: block; }
+.mp-chart .axis { font-family: var(--mp-mono); font-size: 9px; fill: var(--mp-mute-2); }
+.mp-range { display: inline-flex; gap: 4px; }
+.mp-range span {
+  padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  color: var(--mp-mute); cursor: pointer;
+}
+.mp-range span.on { background: var(--mp-ink); color: #fff; }
+
+/* ---------- sales table ---------- */
+.mp-sales { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.mp-sales th {
+  text-align: left; font-size: 9.5px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase;
+  color: var(--mp-mute-2); padding: 6px 10px; border-bottom: 1px solid var(--mp-line);
+}
+.mp-sales td { padding: 9px 10px; border-bottom: 1px solid var(--mp-line-soft); }
+.mp-sales td.num { font-family: var(--mp-mono); font-weight: 600; }
+.mp-sales tr:last-child td { border-bottom: 0; }
+
+/* ---------- stat tiles ---------- */
+.mp-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--mp-line); border: 1px solid var(--mp-line); border-radius: var(--mp-r-md); overflow: hidden; }
+.mp-stats > div { background: var(--mp-paper); padding: 12px 14px; }
+.mp-stats .k { font-size: 9.5px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; color: var(--mp-mute-2); margin-bottom: 3px; }
+.mp-stats .v { font-size: 15px; font-weight: 700; font-family: var(--mp-mono); display: inline-flex; align-items: center; gap: 6px; }
+.mp-stats .d { font-size: 10.5px; font-family: var(--mp-mono); }
+.mp-stats .up { color: var(--mp-green); }
+.mp-stats .down { color: var(--mp-rose); }
+
+/* ---------- marketplace source tabs (official vs community) ---------- */
+.mp-market-tabs { display: flex; gap: 8px; margin-bottom: 22px; }
+.mp-market-tab {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--mp-line-strong); border-radius: 999px;
+  background: var(--mp-paper); padding: 9px 18px; cursor: pointer;
+  font-size: 13px; font-weight: 700;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.mp-market-tab .ct { font-family: var(--mp-mono); font-size: 10.5px; font-weight: 700; color: var(--mp-mute-2); }
+.mp-market-tab.on { border-color: var(--mp-ink); background: var(--mp-ink); color: #fff; }
+.mp-market-tab.on .ct { color: rgba(255,255,255,0.65); }
+.mp-market-tab.on.official { border-color: var(--mp-green); background: var(--mp-green); }
+
+/* ---------- admin console ---------- */
+.mpa-shell { display: grid; grid-template-columns: 216px 1fr; min-height: 100vh; margin: -26px -30px -40px; }
+.mpa-side {
+  background: var(--mp-ink); color: #f2efe4;
+  padding: 22px 14px; display: flex; flex-direction: column; gap: 3px;
+  position: sticky; top: 0; height: 100vh;
+}
+.mpa-side .brand { font-weight: 900; letter-spacing: 0.18em; font-size: 15px; padding: 2px 12px 16px; display: flex; align-items: baseline; gap: 8px; }
+.mpa-side .brand small { font-size: 9px; letter-spacing: 0.14em; color: #a49e8c; font-weight: 700; }
+.mpa-side .grp { font-size: 9px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #797463; padding: 14px 12px 6px; }
+.mpa-nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 9px; cursor: pointer;
+  font-size: 12.5px; font-weight: 600; color: #c9c4b2;
+}
+.mpa-nav-item:hover { color: #fff; background: rgba(255,255,255,0.06); }
+.mpa-nav-item.on { background: rgba(255,255,255,0.12); color: #fff; }
+.mpa-nav-item .n { margin-left: auto; font-family: var(--mp-mono); font-size: 10px; background: var(--mp-gold); color: #171610; border-radius: 999px; padding: 1px 7px; font-weight: 700; }
+.mpa-main { padding: 26px 32px 48px; min-width: 0; }
+.mpa-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--mp-line); border: 1px solid var(--mp-line); border-radius: var(--mp-r-md); overflow: hidden; }
+.mpa-kpis > div { background: var(--mp-paper); padding: 14px 16px; }
+.mpa-kpis .k { font-size: 9.5px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; color: var(--mp-mute-2); margin-bottom: 4px; }
+.mpa-kpis .v { font-size: 20px; font-weight: 800; font-family: var(--mp-mono); }
+.mpa-kpis .d { font-size: 10.5px; font-family: var(--mp-mono); margin-left: 6px; }
+.mpa-table { width: 100%; border-collapse: collapse; font-size: 12.5px; background: var(--mp-paper); border: 1px solid var(--mp-line); border-radius: var(--mp-r-md); overflow: hidden; }
+.mpa-table th { text-align: left; font-size: 9.5px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; color: var(--mp-mute-2); padding: 10px 14px; border-bottom: 1px solid var(--mp-line); background: var(--mp-bg-soft); }
+.mpa-table td { padding: 11px 14px; border-bottom: 1px solid var(--mp-line-soft); vertical-align: middle; }
+.mpa-table tr:last-child td { border-bottom: 0; }
+.mpa-table .num { font-family: var(--mp-mono); font-weight: 600; }
+.mpa-thumb { width: 34px; height: 44px; border-radius: 6px; border: 1px solid var(--mp-line); background: repeating-linear-gradient(-45deg, #f1eee3 0 6px, #eceadf 6px 12px); flex-shrink: 0; }
+.mpa-btn-sm { padding: 5px 12px; font-size: 11.5px; border-radius: 999px; }
+.mpa-overlay { position: fixed; inset: 0; background: rgba(23,22,16,0.42); z-index: 70; display: flex; align-items: center; justify-content: center; padding: 30px; }
+.mpa-modal { background: var(--mp-bg); border: 1px solid var(--mp-line-strong); border-radius: var(--mp-r-lg); box-shadow: 0 24px 80px rgba(23,22,16,0.25); width: 100%; max-height: 90vh; overflow: auto; padding: 22px 26px 26px; }
+.mpa-photo { border-radius: 12px; border: 1px solid var(--mp-line); background: repeating-linear-gradient(-45deg, #f1eee3 0 10px, #eceadf 10px 20px); aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; font-family: var(--mp-mono); font-size: 10.5px; color: var(--mp-mute-2); }
+.mpa-checkrow { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--mp-line-soft); font-size: 13px; cursor: pointer; }
+
+/* ---------- phone frame (mobile artboards) ---------- */
+.mp-phone {
+  width: 390px; margin: 0 auto;
+  background: var(--mp-bg);
+  border: 1px solid var(--mp-line-strong);
+  border-radius: 34px;
+  overflow: hidden;
+  box-shadow: var(--mp-shadow);
+  display: flex; flex-direction: column;
+}
+.mp-phone-status {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 24px 6px; font-family: var(--mp-mono); font-size: 11px; font-weight: 600;
+}
+.mp-phone-body { padding: 10px 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+.mp-tabbar {
+  margin-top: auto;
+  display: flex; justify-content: space-around; align-items: center;
+  border-top: 1px solid var(--mp-line);
+  background: var(--mp-paper);
+  padding: 10px 8px 18px;
+}
+.mp-tab { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mp-mute-2); min-width: 52px; }
+.mp-tab.on { color: var(--mp-ink); }
+
+/* ============================================
+   Ported from "YNOTT Marketplace Prototype.html" <style>
+   ============================================ */
+@keyframes mpToastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes mpSpin { to { transform: rotate(360deg); } }
+
+/* page background scoped to .mp-root — matches the prototype's html/body bg (#f7f5ee = --mp-bg) */
+html:has(.mp-root),
+body:has(.mp-root) {
+  background: #f7f5ee;
+}
+
+/* ============================================
+   Product-detail responsive grids (ProductDetail.tsx)
+   ============================================
+   ProtoDetail's own inline grids (380px 1fr / 1fr 400px) are desktop-only —
+   ported as-is they push the second column off-screen below ~860px. These
+   named classes replace the equivalent inline gridTemplateColumns so the
+   product-detail page can collapse to a single column on narrow viewports
+   without touching any class used by other already-shipped marketplace-ui
+   surfaces (BrowsePage/FilterRail keep their existing inline grids as-is). */
+.mp-detail-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 30px;
+  align-items: start;
+}
+.mp-detail-history-grid {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 22px;
+  align-items: start;
+  margin-top: 30px;
+}
+.mp-detail-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+@media (max-width: 860px) {
+  .mp-detail-grid,
+  .mp-detail-history-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 640px) {
+  .mp-detail-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 420px) {
+  .mp-detail-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================
+   Admin overview (AdminShell.tsx / OverviewScreen.tsx)
+   ============================================
+   .mpa-shell/.mpa-side/.mpa-nav-item/.mpa-main/.mpa-kpis/.mpa-table/
+   .mpa-thumb/.mpa-btn-sm/.mpa-overlay/.mpa-modal/.mpa-photo/
+   .mpa-checkrow already exist above (ported earlier for the full admin
+   console). These are the few additional pieces the overview screen
+   needs that weren't covered yet: the chart+queues two-panel row, the
+   queue list rows, a scroll wrapper for the recent-orders table, and a
+   couple of designed hover/focus states. */
+.mpa-overview-row {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+  align-items: stretch;
+}
+.mpa-side-spacer { flex: 1 1 auto; }
+.mpa-queue-list { display: flex; flex-direction: column; }
+.mpa-queue-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 2px; border-bottom: 1px solid var(--mp-line-soft);
+  font-size: 13px; font-weight: 600; color: var(--mp-ink-2);
+  transition: color 0.15s ease;
+}
+.mpa-queue-row:last-child { border-bottom: 0; }
+.mpa-queue-row:hover, .mpa-queue-row:focus-visible { color: var(--mp-green); }
+.mpa-queue-row .cnt { font-family: var(--mp-mono); font-weight: 700; margin-left: auto; }
+.mpa-table-wrap { overflow-x: auto; }
+.mpa-table tbody tr:hover { background: var(--mp-bg-soft); }
+.mpa-nav-item:focus-visible {
+  outline: 2px solid var(--mp-gold);
+  outline-offset: 2px;
+}
+
+/* ---------- admin console responsive ---------- */
+@media (max-width: 860px) {
+  .mpa-shell { grid-template-columns: 1fr; margin: -26px -20px -40px; }
+  .mpa-side {
+    position: static; height: auto;
+    flex-direction: row; flex-wrap: wrap; align-items: center;
+    padding: 14px;
+  }
+  .mpa-side .grp { display: none; }
+  .mpa-side .brand { width: 100%; padding-bottom: 8px; }
+  .mpa-side-spacer { display: none; }
+  .mpa-main { padding: 20px; }
+  .mpa-overview-row { grid-template-columns: 1fr; }
+  .mpa-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .mpa-kpis { grid-template-columns: 1fr; }
+}
+
+/* ---------------------------------------------------------------------------
+   Customer orders surfaces (My buying & selling + order detail/confirm).
+   Added after the orders redesign shipped className hooks without styles. */
+.mp-orders-page { display: flex; flex-direction: column; gap: 18px; max-width: 980px; margin: 0 auto; padding: 26px 20px 60px; }
+.mp-orders-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.mp-orders-head-actions { display: flex; gap: 8px; }
+.mp-orders-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.mp-orders-body { display: flex; flex-direction: column; gap: 12px; }
+.mp-buying-tab, .mp-selling-tab, .mp-listings-tab { display: flex; flex-direction: column; gap: 10px; }
+.mp-order-row, .mp-sale-row, .mp-listing-row { border: 1px solid var(--mp-line); border-radius: var(--mp-r-md); background: var(--mp-paper); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.mp-order-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mp-order-head > strong { flex: 1; min-width: 160px; }
+.mp-sale-row { flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.mp-sale-main, .mp-listing-main { display: flex; flex-direction: column; gap: 2px; }
+.mp-sale-payout { display: flex; align-items: center; gap: 10px; font-family: var(--mp-mono); font-size: 13px; }
+.mp-listing-row { gap: 8px; }
+.mp-listing-money { display: flex; gap: 12px; align-items: baseline; font-family: var(--mp-mono); }
+.mp-listing-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.mp-handoff-box, .mp-report-box { display: flex; flex-direction: column; gap: 8px; border-top: 1px dashed var(--mp-line); padding-top: 10px; }
+.mp-report-actions { display: flex; gap: 8px; }
+.mp-input, .mp-select, .mp-textarea { border: 1px solid var(--mp-line); border-radius: var(--mp-r-sm); background: var(--mp-paper); font: inherit; font-size: 13px; padding: 8px 10px; color: var(--mp-ink); }
+.mp-textarea { resize: vertical; }
+.mp-input:focus, .mp-select:focus, .mp-textarea:focus { outline: 2px solid var(--mp-green); outline-offset: 1px; }
+.mp-link { background: none; border: none; padding: 0; color: var(--mp-green-ink); text-decoration: underline; cursor: pointer; font: inherit; }
+.mp-order-timeline { display: flex; flex-direction: column; gap: 12px; border-top: 1px dashed var(--mp-line); padding-top: 12px; }
+.mp-order-steps { list-style: none; display: flex; gap: 6px; margin: 0; padding: 0; align-items: center; flex-wrap: wrap; }
+.mp-order-steps .mp-step { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mp-mute); }
+.mp-order-steps .mp-step.done, .mp-order-steps .mp-step.now { color: var(--mp-ink); font-weight: 600; }
+.mp-step-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--mp-line); display: inline-block; }
+.mp-order-steps .done .mp-step-dot, .mp-order-steps .now .mp-step-dot { background: var(--mp-green); }
+.mp-order-steps .ended .mp-step-dot { background: var(--mp-rose); }
+.mp-order-ended { margin: 0; }
+.mp-order-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 0; font-size: 13px; }
+.mp-order-totals dt { color: var(--mp-mute); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.mp-order-totals dd { margin: 0; font-family: var(--mp-mono); font-weight: 600; }
+.mp-empty-panel { padding: 22px; text-align: center; }
+.mp-order-detail-page { max-width: 720px; margin: 0 auto; padding: 26px 20px 60px; display: flex; flex-direction: column; gap: 16px; }
+.mp-back-link { color: var(--mp-mute); font-size: 13px; text-decoration: none; }
+.mp-back-link:hover { color: var(--mp-ink); }
+.mp-order-resume { display: flex; flex-direction: column; gap: 14px; }
+.mp-order-confirm { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding: 34px 24px; }
+.mp-order-confirm-check { width: 54px; height: 54px; border-radius: 50%; background: var(--mp-green-tint); color: var(--mp-green-ink); display: flex; align-items: center; justify-content: center; }
+.mp-order-confirm-total { font-family: var(--mp-mono); font-size: 26px; font-weight: 700; margin: 0; }
+.mp-order-confirm-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+@media (max-width: 640px) {
+  .mp-sale-row { flex-direction: column; align-items: stretch; }
+  .mp-orders-head { flex-direction: column; align-items: stretch; }
+}
+
+/* ---------------------------------------------------------------------------
+   Toggle switch (MpSwitch, shared/MpPrimitives.tsx) -- used by the admin
+   Fees & settings screen's auto-live/Slip2GO trust-control rows. A real
+   checkbox input drives the visuals via :checked/:focus-visible so keyboard
+   and screen-reader users get native control semantics for free. */
+.mp-switch { position: relative; display: inline-flex; align-items: center; width: 40px; height: 23px; flex-shrink: 0; cursor: pointer; }
+.mp-switch-input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.mp-switch-track {
+  position: absolute; inset: 0; border-radius: 999px;
+  background: var(--mp-line-strong);
+  transition: background 0.15s ease;
+}
+.mp-switch-thumb {
+  position: absolute; top: 2.5px; left: 3px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(23, 22, 16, 0.25);
+  transition: left 0.15s ease;
+}
+.mp-switch-input:checked + .mp-switch-track { background: var(--mp-green); }
+.mp-switch-input:checked + .mp-switch-track .mp-switch-thumb { left: 19px; }
+.mp-switch-input:focus-visible + .mp-switch-track { outline: 2px solid var(--mp-gold); outline-offset: 2px; }
+.mp-switch-input:disabled + .mp-switch-track { opacity: 0.5; cursor: not-allowed; }
+
+/* ---------------------------------------------------------------------------
+   Fees & settings rows (FeesSettingsForm.tsx) -- horizontal label+hint vs.
+   control rows, ported from marketplace-admin-2.jsx's MpaRow/mpaSetRow
+   (prototype: /Users/pinkmerry/Downloads/ynott/project/
+   marketplace-admin-2.jsx:241-254), styled through existing theme tokens
+   instead of the prototype's inline color literals. */
+.mpa-settings-row { padding: 14px 0; border-bottom: 1px solid var(--mp-line-soft); gap: 16px; }
+.mpa-settings-row:last-child { border-bottom: 0; }
+.mpa-num-input { width: 76px; text-align: right; font-family: var(--mp-mono); font-weight: 700; }
