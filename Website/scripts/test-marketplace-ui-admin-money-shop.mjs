@@ -402,11 +402,28 @@ test("FeesSettingsForm.tsx converts shipping fee satang <-> THB both ways, mirro
   assert.match(source, /thbInputFor\(policy\.shippingFeeSatang\)/);
 });
 
-test("FeesSettingsForm.tsx always sends the three fields with no server-side fallback (sellerFeeBps, buyerServiceFeeBps, shippingFeeSatang)", () => {
+test("FeesSettingsForm.tsx always sends the three fields with no server-side fallback (sellerFeeBps, buyerServiceFeeBps, shippingFeeSatang), plus expectedPolicyId", () => {
   const source = readApp(SETTINGS_FORM_PATH);
   assert.match(
     source,
-    /const body: Record<string, unknown> = \{ sellerFeeBps, buyerServiceFeeBps, shippingFeeSatang \};/,
+    /const body: Record<string, unknown> = \{\s*sellerFeeBps,\s*buyerServiceFeeBps,\s*shippingFeeSatang,\s*expectedPolicyId:\s*policy\.policyId,\s*\};/,
+  );
+});
+
+test("FeesSettingsForm.tsx sends expectedPolicyId unconditionally, not diffed against the loaded policy like the optional fields below it", () => {
+  // Money-path optimistic-concurrency guard (review finding on d678a267):
+  // marketplace_admin_set_money_policy now accepts p_expected_policy_id
+  // (20260712110000_marketplace_money_policy_expected_state.sql).
+  // expectedPolicyId is metadata about which policy row this form loaded,
+  // not an editable value, so -- like sellerFeeBps/buyerServiceFeeBps/
+  // shippingFeeSatang -- it must never be gated behind an `if (... !==
+  // policy...)` diff the way payoutHoldDays/disputeWindowDays/
+  // listingAutoLive/slipAutoVerify/adminNote are.
+  const source = readApp(SETTINGS_FORM_PATH);
+  assert.doesNotMatch(
+    source,
+    /if\s*\([^)]*expectedPolicyId[^)]*\)\s*body\.expectedPolicyId/,
+    "expectedPolicyId must not be conditionally assigned -- it belongs in the initial body literal",
   );
 });
 
@@ -461,7 +478,7 @@ test("money-policy route.ts still exposes the full real allowedFields this form 
   const source = readApp(MONEY_POLICY_ROUTE_PATH);
   assert.match(
     source,
-    /const MONEY_POLICY_FIELDS = \[\s*"sellerFeeBps",\s*"buyerServiceFeeBps",\s*"shippingFeeSatang",\s*"payoutHoldDays",\s*"disputeWindowDays",\s*"listingAutoLive",\s*"slipAutoVerify",\s*"adminNote",\s*\] as const;/,
+    /const MONEY_POLICY_FIELDS = \[\s*"sellerFeeBps",\s*"buyerServiceFeeBps",\s*"shippingFeeSatang",\s*"payoutHoldDays",\s*"disputeWindowDays",\s*"listingAutoLive",\s*"slipAutoVerify",\s*"adminNote",\s*"expectedPolicyId",\s*\] as const;/,
   );
 });
 

@@ -14,13 +14,21 @@ import { MpBtn, MpPanel, MpSwitch } from "../shared/MpPrimitives";
  * same contract. allowedFields is exactly MONEY_POLICY_FIELDS =
  * ["sellerFeeBps", "buyerServiceFeeBps", "shippingFeeSatang",
  * "payoutHoldDays", "disputeWindowDays", "listingAutoLive",
- * "slipAutoVerify", "adminNote"].
+ * "slipAutoVerify", "adminNote", "expectedPolicyId"].
  *
  * updateMarketplaceMoneyPolicy (money.ts) validates sellerFeeBps/
  * buyerServiceFeeBps/shippingFeeSatang with policyInteger, which has no
  * fallback and throws marketplace_*_invalid if the field is missing --
  * those three are therefore sent on every save, whether or not they
- * changed. payoutHoldDays/disputeWindowDays (optionalPolicyInteger),
+ * changed. expectedPolicyId rides along with them unconditionally too,
+ * set to the policyId this form last rendered -- it is optimistic-
+ * concurrency metadata about the load, not an editable value, so it is
+ * never diffed. marketplace_admin_set_money_policy raises
+ * "marketplace_money_policy_stale" (mapped to 409 in
+ * supabase-adapter.ts) if the active policy has moved on since this form
+ * loaded it (20260712110000_marketplace_money_policy_expected_state.sql)
+ * -- guards against a stale tab silently clobbering another admin's
+ * save. payoutHoldDays/disputeWindowDays (optionalPolicyInteger),
  * listingAutoLive/slipAutoVerify (optionalPolicyBoolean), and adminNote
  * (policyNote) all pass a missing value straight through as "leave this
  * field unchanged" -- those five are the ones actually diffed against the
@@ -156,7 +164,12 @@ export function FeesSettingsForm({ policy }: FeesSettingsFormProps) {
 
     // Changed-fields-only diff -- see the file doc comment for exactly
     // which fields the server treats as optional vs. required.
-    const body: Record<string, unknown> = { sellerFeeBps, buyerServiceFeeBps, shippingFeeSatang };
+    const body: Record<string, unknown> = {
+      sellerFeeBps,
+      buyerServiceFeeBps,
+      shippingFeeSatang,
+      expectedPolicyId: policy.policyId,
+    };
     if (payoutHold !== policy.payoutHoldDays) body.payoutHoldDays = payoutHold;
     if (disputeWindow !== policy.disputeWindowDays) body.disputeWindowDays = disputeWindow;
     if (listingAutoLive !== policy.listingAutoLive) body.listingAutoLive = listingAutoLive;

@@ -10,6 +10,9 @@ import {
 import type { MarketplaceMoneyPolicy } from "./types";
 export type { MarketplaceMoneyPolicy } from "./types";
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export const MARKETPLACE_CURRENCY = "THB" as const;
 export const DEFAULT_MARKETPLACE_SHIPPING_FEE_SATANG = 15_000;
 export const DEFAULT_MARKETPLACE_SELLER_FEE_BPS = 1_000;
@@ -216,6 +219,18 @@ function optionalPolicyBoolean(value: unknown, label: string) {
   return value;
 }
 
+function optionalPolicyUuid(value: unknown, label: string) {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || !UUID_RE.test(value)) {
+    throw new MarketplaceServiceError(
+      `marketplace_${label}_invalid`,
+      "Marketplace money policy is invalid.",
+      400,
+    );
+  }
+  return value.toLowerCase();
+}
+
 export async function getActiveMarketplaceMoneyPolicy() {
   if (marketplaceConfig().mockData) return marketplaceMoneyPolicy();
 
@@ -276,6 +291,10 @@ export async function updateMarketplaceMoneyPolicy(input: {
     p_slip_auto_verify: optionalPolicyBoolean(
       input.body.slipAutoVerify,
       "slip_auto_verify",
+    ),
+    p_expected_policy_id: optionalPolicyUuid(
+      input.body.expectedPolicyId,
+      "expected_policy_id",
     ),
   })) as {
     data: unknown;

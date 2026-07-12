@@ -326,6 +326,10 @@ const SAFE_RPC_ERRORS: Record<string, { message: string; status: number }> = {
     message: "Marketplace shipping fee is invalid.",
     status: 400,
   },
+  marketplace_money_policy_stale: {
+    message: "Money policy changed since you loaded it. Refresh and review again.",
+    status: 409,
+  },
   marketplace_shipping_snapshot_invalid: {
     message: "Marketplace shipping address snapshot is invalid.",
     status: 400,

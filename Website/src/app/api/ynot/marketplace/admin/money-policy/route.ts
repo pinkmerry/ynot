@@ -22,6 +22,7 @@ const MONEY_POLICY_FIELDS = [
   "listingAutoLive",
   "slipAutoVerify",
   "adminNote",
+  "expectedPolicyId",
 ] as const;
 
 export async function GET(request: Request) {
