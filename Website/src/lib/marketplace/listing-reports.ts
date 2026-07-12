@@ -46,8 +46,12 @@ export type MarketplaceListingReportRow = {
 export type ReportMarketplaceListingInput = {
   listingId: string;
   reporterAccountId: string;
+  reporterProfileId: string;
   reasonCode: MarketplaceListingReportReasonCode;
   reasonNote?: string | null;
+  requestId: string;
+  idempotencyKey: string;
+  requestHash: string;
 };
 
 export type ListMarketplaceListingReportsInput = {
@@ -59,7 +63,11 @@ export type ResolveMarketplaceListingReportInput = {
   reportId: string;
   resolution: "dismissed" | "unlisted";
   adminProfileId: string;
+  adminRole: string;
   resolutionNote?: string | null;
+  requestId: string;
+  idempotencyKey: string;
+  requestHash: string;
 };
 
 export async function reportMarketplaceListing(
@@ -72,6 +80,13 @@ export async function reportMarketplaceListing(
       input.reporterAccountId,
       "reporter_account_id",
     ),
+    p_reporter_profile_id: assertUuid(
+      input.reporterProfileId,
+      "reporter_profile_id",
+    ),
+    p_request_id: input.requestId,
+    p_idempotency_key: input.idempotencyKey,
+    p_request_hash: input.requestHash,
     p_reason_code: input.reasonCode,
     p_reason_note: input.reasonNote ?? null,
   });
@@ -99,8 +114,12 @@ export async function resolveMarketplaceListingReport(
     "marketplace_admin_resolve_listing_report",
     {
       p_report_id: assertUuid(input.reportId, "report_id"),
-      p_resolution: input.resolution,
+      p_request_id: input.requestId,
+      p_idempotency_key: input.idempotencyKey,
+      p_request_hash: input.requestHash,
       p_admin_profile_id: assertUuid(input.adminProfileId, "admin_profile_id"),
+      p_admin_role: input.adminRole,
+      p_resolution: input.resolution,
       p_resolution_note: input.resolutionNote ?? null,
     },
   );

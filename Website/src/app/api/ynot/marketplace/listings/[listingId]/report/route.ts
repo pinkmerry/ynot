@@ -33,7 +33,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   });
   if (!mutation.ok) return mutation.response;
 
-  const { access, body, profile, requestId } = mutation;
+  const { access, body, idempotencyKey, profile, requestId } = mutation;
 
   const reasonCode = String(body.reasonCode ?? "");
   if (!REPORT_REASON_CODES.has(reasonCode)) {
@@ -64,6 +64,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     const report = await reportMarketplaceListing({
       listingId,
       reporterAccountId: account.accountId,
+      reporterProfileId: profile.profileId,
       reasonCode: reasonCode as
         | "fake_or_cert_mismatch"
         | "stolen_photos"
@@ -71,6 +72,12 @@ export async function POST(request: Request, { params }: RouteParams) {
         | "pricing_abuse"
         | "other",
       reasonNote,
+      requestId,
+      idempotencyKey,
+      requestHash: await mutation.requestHashForTarget(
+        "listing.report",
+        listingId,
+      ),
     });
     return Response.json({ ok: true, request_id: requestId, report });
   } catch (error) {

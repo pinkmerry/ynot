@@ -26,7 +26,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   });
   if (!mutation.ok) return mutation.response;
 
-  const { access, body, profile, requestId } = mutation;
+  const { access, body, idempotencyKey, profile, requestId } = mutation;
 
   const reason = String(body.reason ?? "").trim();
   if (reason.length < MIN_REASON_LENGTH || reason.length > MAX_REASON_LENGTH) {
@@ -55,6 +55,12 @@ export async function POST(request: Request, { params }: RouteParams) {
       accountId: account.accountId,
       reason,
       buyerYnotProfileId: profile.profileId,
+      requestId,
+      idempotencyKey,
+      requestHash: await mutation.requestHashForTarget(
+        "dispute.open",
+        orderId,
+      ),
     });
     return Response.json({ ok: true, request_id: requestId, dispute });
   } catch (error) {

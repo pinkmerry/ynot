@@ -49,6 +49,9 @@ export type OpenBuyerRefundRequestInput = {
   accountId: string;
   reason: string;
   buyerYnotProfileId: string;
+  requestId: string;
+  idempotencyKey: string;
+  requestHash: string;
 };
 
 // Buyer-safe minimal projection only: id/state/created_at. Amounts,
@@ -67,11 +70,14 @@ export async function openBuyerRefundRequest(
   const result = await supabase.rpc("marketplace_open_buyer_refund_request", {
     p_order_id: assertUuid(input.orderId, "order_id"),
     p_account_id: assertUuid(input.accountId, "account_id"),
-    p_reason: input.reason,
     p_buyer_ynot_profile_id: assertUuid(
       input.buyerYnotProfileId,
       "buyer_ynot_profile_id",
     ),
+    p_request_id: input.requestId,
+    p_idempotency_key: input.idempotencyKey,
+    p_request_hash: input.requestHash,
+    p_reason: input.reason,
   });
   if (result.error) throw marketplaceRpcError(result.error);
   return result.data as MarketplaceBuyerRefundRequestSummary;

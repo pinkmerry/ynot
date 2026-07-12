@@ -22,7 +22,7 @@ export async function POST(
   });
   if (!mutation.ok) return mutation.response;
 
-  const { access, body, requestId } = mutation;
+  const { access, body, idempotencyKey, requestId } = mutation;
 
   if (!access.admin?.adminRole) {
     return Response.json(
@@ -35,6 +35,8 @@ export async function POST(
   }
 
   try {
+    const { reportId } = await ctx.params;
+
     if (!VALID_RESOLUTIONS.has(body.resolution as string)) {
       throw new MarketplaceServiceError(
         "marketplace_report_resolution_invalid",
@@ -48,12 +50,18 @@ export async function POST(
         ? null
         : String(body.resolutionNote).trim().slice(0, 1000);
 
-    const { reportId } = await ctx.params;
     const report = await resolveMarketplaceListingReport({
       reportId,
       resolution: String(body.resolution) as "dismissed" | "unlisted",
       adminProfileId: access.admin.profileId,
+      adminRole: access.admin.adminRole,
       resolutionNote,
+      requestId,
+      idempotencyKey,
+      requestHash: await mutation.requestHashForTarget(
+        "report.resolve",
+        reportId,
+      ),
     });
 
     return Response.json({ ok: true, request_id: requestId, report });

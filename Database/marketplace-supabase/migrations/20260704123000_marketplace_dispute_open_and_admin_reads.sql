@@ -46,11 +46,26 @@ create unique index if not exists marketplace_refund_requests_one_open_per_order
   on public.marketplace_refund_requests(order_id)
   where refund_state = 'requested';
 
+-- Idempotency dedupe mirrors marketplace_watch_listing (see
+-- 20260630133000_marketplace_customer_cart_rpc.sql): customer-initiated
+-- action, so it uses the marketplace_idempotency_keys ledger (scope =
+-- 'dispute.open', keyed by the buyer's ynot_profile_id) rather than
+-- marketplace_admin_commands. This matters more here than for a "watch a
+-- listing" retry: opening a dispute already has its own natural-key guard
+-- (the one-open-per-order unique index below), but that guard *raises*
+-- marketplace_dispute_already_open on a second insert -- including when
+-- the "second insert" is really the buyer's own request being retried
+-- after a dropped response. The idempotency ledger is checked first so a
+-- same-key retry replays the original success instead of surfacing a
+-- false conflict error.
 create or replace function public.marketplace_open_buyer_refund_request(
   p_order_id uuid,
   p_account_id uuid,
-  p_reason text,
-  p_buyer_ynot_profile_id uuid
+  p_buyer_ynot_profile_id uuid,
+  p_request_id text,
+  p_idempotency_key text,
+  p_request_hash text,
+  p_reason text
 ) returns jsonb
 language plpgsql security definer set search_path = public, pg_temp
 as $$
@@ -59,7 +74,51 @@ declare
   policy_row public.marketplace_money_policies%rowtype;
   v_window_days integer;
   v_refund public.marketplace_refund_requests%rowtype;
+  idempotency_row public.marketplace_idempotency_keys%rowtype;
+  normalized_idempotency_key text := nullif(trim(coalesce(p_idempotency_key, '')), '');
+  normalized_request_hash text := nullif(trim(coalesce(p_request_hash, '')), '');
+  rpc_response_payload jsonb;
 begin
+  if normalized_idempotency_key is null or normalized_request_hash is null then
+    raise exception 'marketplace_idempotency_key_required';
+  end if;
+
+  insert into public.marketplace_idempotency_keys(
+    marketplace_account_id,
+    ynot_profile_id,
+    scope,
+    idempotency_key,
+    request_hash,
+    locked_at,
+    expires_at
+  ) values (
+    p_account_id,
+    p_buyer_ynot_profile_id,
+    'dispute.open',
+    normalized_idempotency_key,
+    normalized_request_hash,
+    now(),
+    now() + interval '24 hours'
+  )
+  on conflict (ynot_profile_id, scope, idempotency_key) do nothing
+  returning * into idempotency_row;
+
+  if idempotency_row.id is null then
+    select * into idempotency_row
+    from public.marketplace_idempotency_keys
+    where ynot_profile_id = p_buyer_ynot_profile_id
+      and scope = 'dispute.open'
+      and idempotency_key = normalized_idempotency_key
+    for update;
+
+    if idempotency_row.request_hash <> normalized_request_hash then
+      raise exception 'marketplace_idempotency_conflict';
+    end if;
+    if idempotency_row.response_payload is not null then
+      return idempotency_row.response_payload;
+    end if;
+  end if;
+
   select * into order_row
   from public.marketplace_orders
   where id = p_order_id
@@ -155,11 +214,19 @@ begin
 
   -- Buyer-safe minimal projection: never return amounts, seller
   -- identity, or admin fields to the buyer who opened the dispute.
-  return jsonb_build_object(
+  rpc_response_payload := jsonb_build_object(
     'id', v_refund.id,
     'refund_state', v_refund.refund_state,
     'created_at', v_refund.created_at
   );
+
+  update public.marketplace_idempotency_keys
+  set response_payload = rpc_response_payload,
+      locked_at = now(),
+      expires_at = now() + interval '24 hours'
+  where id = idempotency_row.id;
+
+  return rpc_response_payload;
 end $$;
 
 create or replace function public.marketplace_admin_list_orders(
@@ -209,14 +276,14 @@ as $$
   ) d;
 $$;
 
-revoke all on function public.marketplace_open_buyer_refund_request(uuid, uuid, text, uuid)
+revoke all on function public.marketplace_open_buyer_refund_request(uuid, uuid, uuid, text, text, text, text)
 from public, anon, authenticated;
 revoke all on function public.marketplace_admin_list_orders(text, integer)
 from public, anon, authenticated;
 revoke all on function public.marketplace_admin_daily_gmv(integer)
 from public, anon, authenticated;
 
-grant execute on function public.marketplace_open_buyer_refund_request(uuid, uuid, text, uuid)
+grant execute on function public.marketplace_open_buyer_refund_request(uuid, uuid, uuid, text, text, text, text)
 to service_role;
 grant execute on function public.marketplace_admin_list_orders(text, integer)
 to service_role;

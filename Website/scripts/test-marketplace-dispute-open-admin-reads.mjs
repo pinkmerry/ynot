@@ -49,6 +49,25 @@ test("dispute rpc reads the active policy window and raises the expected errors"
   assert.match(migration, /marketplace_dispute_reason_invalid/);
 });
 
+test("marketplace_open_buyer_refund_request binds idempotency via the customer idempotency_keys ledger", () => {
+  assert.match(
+    migration,
+    /create or replace function public\.marketplace_open_buyer_refund_request\(\s*p_order_id uuid,\s*p_account_id uuid,\s*p_buyer_ynot_profile_id uuid,\s*p_request_id text,\s*p_idempotency_key text,\s*p_request_hash text,\s*p_reason text\s*\)/,
+  );
+  assert.match(
+    migration,
+    /insert into public\.marketplace_idempotency_keys\([\s\S]*?'dispute\.open',[\s\S]*?on conflict \(ynot_profile_id, scope, idempotency_key\) do nothing/,
+  );
+  assert.match(
+    migration,
+    /if idempotency_row\.request_hash <> normalized_request_hash then\s*raise exception 'marketplace_idempotency_conflict';/,
+  );
+  assert.match(
+    migration,
+    /if idempotency_row\.response_payload is not null then\s*return idempotency_row\.response_payload;/,
+  );
+});
+
 test("admin read rpcs are bounded", () => {
   assert.match(migration, /marketplace_admin_list_orders\s*\(\s*p_state text default null,\s*p_limit integer default 100/);
   assert.match(migration, /greatest\(p_limit/);
@@ -117,6 +136,17 @@ test("dispute route derives accountId and buyerYnotProfileId from the session, n
   assert.match(routeSrc, /accountId:\s*account\.accountId/);
   assert.match(routeSrc, /buyerYnotProfileId:\s*profile\.profileId/);
   assert.doesNotMatch(routeSrc, /accountId:\s*body\./);
+});
+
+test("dispute route binds the order id into the idempotency hash before calling the lib", () => {
+  const routeSrc = readFileSync(
+    path.join(appRoot, "src/app/api/ynot/marketplace/orders/[orderId]/dispute/route.ts"),
+    "utf8",
+  );
+  assert.match(
+    routeSrc,
+    /requestHash:\s*await mutation\.requestHashForTarget\(\s*"dispute\.open",\s*orderId,\s*\)/,
+  );
 });
 
 test("dispute route response never exposes amounts, seller identity, bank, or payout fields", () => {

@@ -86,6 +86,44 @@ test("report rpc guards the lost-race path against all-null returns", () => {
   );
 });
 
+test("marketplace_report_listing binds idempotency via the customer idempotency_keys ledger", () => {
+  assert.match(
+    migration,
+    /create or replace function public\.marketplace_report_listing\(\s*p_listing_id uuid,\s*p_reporter_account_id uuid,\s*p_reporter_profile_id uuid,\s*p_request_id text,\s*p_idempotency_key text,\s*p_request_hash text,\s*p_reason_code text,\s*p_reason_note text default null\s*\)/,
+  );
+  assert.match(
+    migration,
+    /insert into public\.marketplace_idempotency_keys\([\s\S]*?'listing\.report',[\s\S]*?on conflict \(ynot_profile_id, scope, idempotency_key\) do nothing/,
+  );
+  assert.match(
+    migration,
+    /if idempotency_row\.request_hash <> normalized_request_hash then\s*raise exception 'marketplace_idempotency_conflict';/,
+  );
+  assert.match(
+    migration,
+    /if idempotency_row\.response_payload is not null then\s*return idempotency_row\.response_payload;/,
+  );
+});
+
+test("marketplace_admin_resolve_listing_report binds idempotency via the shared admin_commands ledger", () => {
+  assert.match(
+    migration,
+    /create or replace function public\.marketplace_admin_resolve_listing_report\(\s*p_report_id uuid,\s*p_request_id text,\s*p_idempotency_key text,\s*p_request_hash text,\s*p_admin_profile_id uuid,\s*p_admin_role text,\s*p_resolution text,/,
+  );
+  assert.match(
+    migration,
+    /insert into public\.marketplace_admin_commands\([\s\S]*?'report\.resolve',\s*'listing',\s*v_report\.listing_id,[\s\S]*?on conflict \(actor_ynot_profile_id, command_name, idempotency_key\) do nothing/,
+  );
+  assert.match(
+    migration,
+    /if command_row\.request_hash <> normalized_request_hash then\s*raise exception 'marketplace_idempotency_conflict';/,
+  );
+  assert.match(
+    migration,
+    /if command_row\.result_payload is not null then\s*return command_row\.result_payload;\s*end if;\s*raise exception 'marketplace_admin_command_replay_incomplete';/,
+  );
+});
+
 test("admin reports list rpc is bounded", () => {
   assert.match(migration, /p_limit integer default 100/);
   assert.match(migration, /limit greatest\(p_limit, 1\)/);
@@ -119,6 +157,54 @@ test("listing reports lib exists and references all three rpcs", () => {
   assert.match(lib, /export async function resolveMarketplaceListingReport/);
   assert.match(lib, /p_limit/);
   assert.match(lib, /assertUuid/);
+});
+
+test("reportMarketplaceListing and resolveMarketplaceListingReport forward requestId/idempotencyKey/requestHash to their rpcs", () => {
+  const lib = readFileSync(
+    path.join(appRoot, "src/lib/marketplace/listing-reports.ts"),
+    "utf8",
+  );
+  assert.match(
+    lib,
+    /p_reporter_profile_id:\s*assertUuid\(\s*input\.reporterProfileId,/,
+  );
+  assert.match(lib, /p_request_id:\s*input\.requestId,\s*p_idempotency_key:\s*input\.idempotencyKey,\s*p_request_hash:\s*input\.requestHash,\s*p_reason_code:/);
+  assert.match(lib, /p_admin_role:\s*input\.adminRole,/);
+  assert.match(
+    lib,
+    /p_request_id:\s*input\.requestId,\s*p_idempotency_key:\s*input\.idempotencyKey,\s*p_request_hash:\s*input\.requestHash,\s*p_admin_profile_id:/,
+  );
+});
+
+test("admin resolve route binds the report id into the idempotency hash before calling the lib", () => {
+  const routeSrc = readFileSync(
+    path.join(
+      appRoot,
+      "src/app/api/ynot/marketplace/admin/reports/[reportId]/resolve/route.ts",
+    ),
+    "utf8",
+  );
+  assert.match(routeSrc, /const\s*\{\s*reportId\s*\}\s*=\s*await ctx\.params;/);
+  assert.match(
+    routeSrc,
+    /requestHash:\s*await mutation\.requestHashForTarget\(\s*"report\.resolve",\s*reportId,\s*\)/,
+  );
+  assert.match(routeSrc, /adminRole:\s*access\.admin\.adminRole,/);
+});
+
+test("listing report route binds the listing id into the idempotency hash before calling the lib", () => {
+  const routeSrc = readFileSync(
+    path.join(
+      appRoot,
+      "src/app/api/ynot/marketplace/listings/[listingId]/report/route.ts",
+    ),
+    "utf8",
+  );
+  assert.match(
+    routeSrc,
+    /requestHash:\s*await mutation\.requestHashForTarget\(\s*"listing\.report",\s*listingId,\s*\)/,
+  );
+  assert.match(routeSrc, /reporterProfileId:\s*profile\.profileId,/);
 });
 
 test("listing report route exists at the ynot path with a POST handler", () => {
