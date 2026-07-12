@@ -239,9 +239,12 @@ test("buyer/detail/admin UI surfaces user-seller checkout and payout queue witho
   assert.doesNotMatch(detail, /seller_payout|provider_response|proof_storage_path|buyer_marketplace_account_id/i);
   assert.doesNotMatch(detailComponent, /seller_payout|provider_response|proof_storage_path|buyer_marketplace_account_id/i);
 
-  const checkoutClient = readApp("src/features/ynot/MarketplaceCheckoutClient.tsx");
-  assert.match(checkoutClient, /checkoutEndpoint/);
-  assert.match(checkoutClient, /user-seller/);
+  // MarketplaceCheckoutClient.tsx was retired by the marketplace-ui redesign
+  // (the listing checkout section now renders CheckoutFlow — see
+  // test-marketplace-ui-checkout.mjs for the full contract coverage).
+  const checkoutFlow = readApp("src/features/marketplace-ui/checkout/CheckoutFlow.tsx");
+  assert.match(checkoutFlow, /checkoutEndpoint/);
+  assert.match(checkoutFlow, /user-seller/);
 
   const adminPage = readApp("src/app/admin/marketplace/page.tsx");
   const opsSnapshot = readApp("src/lib/marketplace/ops-snapshot.ts");

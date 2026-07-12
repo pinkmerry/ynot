@@ -55,9 +55,12 @@ test("buyer can see bank-transfer instructions and resume slip upload from order
   assert.match(panel, /\/api\/marketplace\/checkout\/pending-orders\/\$\{order\.pendingPaymentOrderId\}\/payment-proof/);
   assert.match(panel, /\/api\/marketplace\/checkout\/pending-orders\/\$\{order\.pendingPaymentOrderId\}\/release/);
 
-  const checkoutClient = readApp("src/features/ynot/MarketplaceCheckoutClient.tsx");
-  assert.match(checkoutClient, /MarketplacePaymentProofClient/);
-  assert.match(checkoutClient, /paymentInstructions/);
+  // MarketplaceCheckoutClient.tsx was retired by the marketplace-ui redesign
+  // (the listing checkout section now renders CheckoutFlow — see
+  // test-marketplace-ui-checkout.mjs for the full contract coverage).
+  const checkoutFlow = readApp("src/features/marketplace-ui/checkout/CheckoutFlow.tsx");
+  assert.match(checkoutFlow, /SlipUploader/);
+  assert.match(checkoutFlow, /paymentInstructions/);
 
   const listingDetail = readApp("src/features/ynot/MarketplaceListingDetailPage.tsx");
   assert.match(listingDetail, /paymentInstructions/);

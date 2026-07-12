@@ -117,7 +117,6 @@ test("customer cart UI modules exist and update visible state", () => {
   for (const relPath of [
     "src/features/ynot/MarketplaceCartProvider.tsx",
     "src/features/ynot/MarketplaceCartDrawer.tsx",
-    "src/features/ynot/MarketplaceHeaderActions.tsx",
   ]) {
     assert.ok(existsSync(path.join(appRoot, relPath)), `missing ${relPath}`);
   }
@@ -142,7 +141,6 @@ test("cart payloads avoid private marketplace identifiers", () => {
   const clientPayloadSources = [
     "src/features/ynot/MarketplaceCartProvider.tsx",
     "src/features/ynot/MarketplaceCartDrawer.tsx",
-    "src/features/ynot/MarketplaceHeaderActions.tsx",
     "src/features/ynot/MarketplaceListingActionsClient.tsx",
     "src/features/ynot/MarketplaceCartWatchlistClient.tsx",
   ];
