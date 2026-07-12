@@ -243,8 +243,12 @@ export function StockModal({ mode, onClose, onSaved }: StockModalProps) {
 
   useEffect(() => {
     if (!prefillId) return;
+    // No mid-lifecycle reset needed here either (see SlipModal.tsx): both
+    // StockModal call sites (AddStockButton, StockActions) only ever mount
+    // this component while a modal-open state is truthy, so mode/prefillId
+    // is fixed for the component's whole lifetime and the useState
+    // initializer above already starts this mount at { kind: "loading" }.
     let cancelled = false;
-    setLoadState({ kind: "loading" });
     fetch(`/api/marketplace/admin/official-inventory/${prefillId}`, { cache: "no-store" })
       .then(async (response) => {
         if (cancelled) return;

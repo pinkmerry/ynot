@@ -48,14 +48,13 @@ import { formatThb } from "../shared/money";
  * "reject" note below is offered but never required client-side either.
  */
 
-const TARGET_STATUSES = [
-  "intake_instruction_sent",
-  "received",
-  "inspection_passed",
-  "inspection_failed",
-] as const;
-
-type TargetStatus = (typeof TARGET_STATUSES)[number];
+// The four legal p_target_status values (see the state machine above).
+// A plain union type -- nothing needs the list at runtime.
+type TargetStatus =
+  | "intake_instruction_sent"
+  | "received"
+  | "inspection_passed"
+  | "inspection_failed";
 
 type TransitionAction = {
   kind: "transition";

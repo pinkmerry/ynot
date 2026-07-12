@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { MpIcon } from "../shared/MpIcon";
 import { formatThb } from "../shared/money";

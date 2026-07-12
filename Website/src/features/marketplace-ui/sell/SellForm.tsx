@@ -84,6 +84,18 @@ export interface SellFormProps {
   editSubmission: SellFormEditSubmission | null;
 }
 
+/**
+ * Last payout quote fetched from the server, tagged with the price it was
+ * requested for. The rail's `preview`/`previewLoading` props are DERIVED
+ * from this during render (see the payout-preview effect in SellForm) —
+ * the effect itself only talks to the network and never calls setState
+ * synchronously in its body (react-hooks/set-state-in-effect).
+ */
+type PayoutQuoteState = {
+  requestedPriceSatang: number;
+  preview: SellPayoutPreview;
+} | null;
+
 const DEFAULT_FIELDS: SellFieldValues = {
   name: "",
   series: "",
@@ -153,8 +165,7 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
 
   const [fields, setFields] = useState<SellFieldValues>(() => fieldsFromEdit(editSubmission));
   const [photos, setPhotos] = useState<SellPhoto[]>([]);
-  const [preview, setPreview] = useState<SellPayoutPreview>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
+  const [payoutQuote, setPayoutQuote] = useState<PayoutQuoteState>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [termsBusy, setTermsBusy] = useState(false);
@@ -185,19 +196,20 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
   // Live payout preview: debounce 400ms on price change, then ask the server
   // for the real fee/net split. The seeded policy is 10% today but this must
   // never be assumed client-side — only the server response is rendered.
+  //
+  // The effect body only syncs with the network: every setState lives inside
+  // the debounced async callback, never the synchronous body
+  // (react-hooks/set-state-in-effect). The old effect-body resets are now
+  // render-time derivations below — `preview` is null whenever there is no
+  // price or we're in mock mode (mock has no live backend; the summary card
+  // stays honest with "Quoted at submit" instead of a fabricated fee split),
+  // and `previewLoading` falls out of comparing the quote's requested price
+  // against the current one, which covers the same visible window the old
+  // effect-managed flag did (from the moment the price changes, through the
+  // debounce, until its fetch settles).
   useEffect(() => {
-    if (priceSatang <= 0) {
-      setPreview(null);
-      return;
-    }
-    if (mockMode) {
-      // Mock mode has no live backend; keep the summary card honest by
-      // showing "Quoted at submit" rather than fabricating a fee split.
-      setPreview(null);
-      return;
-    }
+    if (priceSatang <= 0 || mockMode) return;
     const controller = new AbortController();
-    setPreviewLoading(true);
     const timer = window.setTimeout(async () => {
       try {
         const response = await fetch("/api/marketplace/seller/payout-preview", {
@@ -212,27 +224,47 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
             sellerPayoutSatang?: number;
           };
         } | null;
-        if (!response.ok || !payload?.preview) return;
-        setPreview({
-          priceSatang,
-          feeSatang: Number(payload.preview.sellerMarketplaceFeeSatang ?? 0),
-          feeLabel: "Seller fee",
-          payoutSatang: Number(payload.preview.sellerPayoutSatang ?? 0),
+        if (controller.signal.aborted) return;
+        if (!response.ok || !payload?.preview) {
+          // Leave the previous preview (or none) visible rather than guessing
+          // a number; recording the attempted price clears the loading state.
+          setPayoutQuote((current) => ({
+            requestedPriceSatang: priceSatang,
+            preview: current?.preview ?? null,
+          }));
+          return;
+        }
+        setPayoutQuote({
+          requestedPriceSatang: priceSatang,
+          preview: {
+            priceSatang,
+            feeSatang: Number(payload.preview.sellerMarketplaceFeeSatang ?? 0),
+            feeLabel: "Seller fee",
+            payoutSatang: Number(payload.preview.sellerPayoutSatang ?? 0),
+          },
         });
       } catch {
-        // Network hiccup — leave the previous preview (or none) visible
-        // rather than guessing a number.
-      } finally {
-        setPreviewLoading(false);
+        // Aborted: a newer price (or unmount) owns the state now — do
+        // nothing. Network hiccup: same keep-the-previous-preview handling
+        // as the !ok branch above.
+        if (controller.signal.aborted) return;
+        setPayoutQuote((current) => ({
+          requestedPriceSatang: priceSatang,
+          preview: current?.preview ?? null,
+        }));
       }
     }, PRICE_PREVIEW_DEBOUNCE_MS);
 
     return () => {
       controller.abort();
       window.clearTimeout(timer);
-      setPreviewLoading(false);
     };
   }, [priceSatang, mockMode]);
+
+  const previewActive = priceSatang > 0 && !mockMode;
+  const preview = previewActive ? payoutQuote?.preview ?? null : null;
+  const previewLoading =
+    previewActive && payoutQuote?.requestedPriceSatang !== priceSatang;
 
   async function acceptTerms() {
     setTermsBusy(true);

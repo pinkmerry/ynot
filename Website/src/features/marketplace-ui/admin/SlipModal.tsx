@@ -38,8 +38,12 @@ export function SlipModal({ orderId, orderCode, onClose }: SlipModalProps) {
   const [state, setState] = useState<ProofState>({ kind: "loading" });
 
   useEffect(() => {
+    // No mid-lifecycle reset needed: OrderActions only ever renders this
+    // component while panel === "slip" (conditional mount, see
+    // OrderActions.tsx), so orderId is fixed for the component's whole
+    // lifetime and the useState initializer above already starts every
+    // mount at { kind: "loading" }.
     let cancelled = false;
-    setState({ kind: "loading" });
 
     fetch(`/api/marketplace/admin/orders/${orderId}/payment-proof-url`, {
       cache: "no-store",
