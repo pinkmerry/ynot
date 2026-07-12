@@ -790,6 +790,50 @@ test("StockModal.tsx surfaces server errors verbatim and treats 401 as a login p
 });
 
 // ---------------------------------------------------------------------------
+// Edit-mode coalesce-kept-field hints (review finding). marketplace_
+// update_official_inventory coalesces a blank publicDescription/
+// sourceReferenceId/procurementNote to the existing stored value, so
+// clearing one of these three fields in edit mode silently keeps the old
+// value instead of clearing it. Frontend-only mitigation: an edit-mode-only
+// "Leave blank to keep the current value." hint under exactly those three
+// fields.
+// ---------------------------------------------------------------------------
+
+test("StockModal.tsx passes isEditMode to StockModalFields, true only in edit mode", () => {
+  const source = readApp(STOCK_MODAL_PATH);
+  assert.match(source, /isEditMode=\{mode\.kind === "edit"\}/);
+});
+
+test("StockModalFields.tsx renders the keep-current-value hint under sourceReferenceId, procurementNote, and publicDescription in edit mode only", () => {
+  const source = readApp(STOCK_MODAL_FIELDS_PATH);
+
+  assert.match(
+    source,
+    /const KEEP_CURRENT_VALUE_HINT = "Leave blank to keep the current value\.";/,
+    "must define the exact hint string once",
+  );
+  assert.match(source, /isEditMode: boolean;/, "StockModalFieldsProps must declare isEditMode");
+
+  assert.match(
+    source,
+    /hint=\{\s*isEditMode\s*\?\s*`Supplier invoice \/ PO number\. \$\{KEEP_CURRENT_VALUE_HINT\}`\s*:\s*"Supplier invoice \/ PO number"\s*\}/,
+    "sourceReferenceId's SellField hint must append the keep-current-value sentence only in edit mode",
+  );
+
+  assert.match(
+    source,
+    /procurementNote", event\.target\.value\)\}\s*\/>\s*\{isEditMode \? <span className="mp-small mp-mute">\{KEEP_CURRENT_VALUE_HINT\}<\/span> : null\}/,
+    "procurementNote's textarea must be followed immediately by the edit-mode-only hint",
+  );
+
+  assert.match(
+    source,
+    /publicDescription", event\.target\.value\)\}\s*\/>\s*\{isEditMode \? <span className="mp-small mp-mute">\{KEEP_CURRENT_VALUE_HINT\}<\/span> : null\}/,
+    "publicDescription's textarea must be followed immediately by the edit-mode-only hint",
+  );
+});
+
+// ---------------------------------------------------------------------------
 // official-shop.ts / routes -- allowedFields sanity (the contracts this
 // screen was built against)
 // ---------------------------------------------------------------------------

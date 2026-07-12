@@ -64,7 +64,12 @@ import {
  * marketplace_update_official_inventory coalesces a missing/empty scalar
  * field to its existing value either way (`coalesce(nullif(trim(...), ''),
  * existing)`), so sending the full current form state is exactly as safe
- * as diffing and a lot simpler.
+ * as diffing and a lot simpler. That same coalesce means clearing
+ * publicDescription/sourceReferenceId/procurementNote to blank in edit
+ * mode silently keeps the old value instead of clearing it -- isEditMode
+ * (passed to StockModalFields below) renders a "Leave blank to keep the
+ * current value." hint under exactly those three fields so this isn't a
+ * surprise. Frontend-only mitigation: no RPC/behavior change here.
  */
 
 export type StockModalMode =
@@ -360,6 +365,7 @@ export function StockModal({ mode, onClose, onSaved }: StockModalProps) {
               form={form}
               setField={setField}
               itemTypeLocked={mode.kind === "edit"}
+              isEditMode={mode.kind === "edit"}
               photoUrlDraft={photoUrlDraft}
               setPhotoUrlDraft={setPhotoUrlDraft}
               onAddPhotoUrl={addPhotoUrl}

@@ -47,10 +47,22 @@ const ITEM_TYPE_OPTIONS: { value: OfficialItemType; label: string }[] = [
 
 const MAX_STOCK_PHOTOS = 10;
 
+/**
+ * marketplace_update_official_inventory coalesces a blank/missing
+ * publicDescription, sourceReferenceId, or procurementNote to the
+ * existing stored value (`coalesce(nullif(trim(...), ''), existing)`,
+ * see StockModal.tsx's file doc comment) -- clearing one of these three
+ * fields in edit mode does not clear it server-side. This hint is the
+ * frontend-only mitigation: shown under exactly those three fields, edit
+ * mode only.
+ */
+const KEEP_CURRENT_VALUE_HINT = "Leave blank to keep the current value.";
+
 export interface StockModalFieldsProps {
   form: StockFormState;
   setField: <K extends keyof StockFormState>(key: K, value: StockFormState[K]) => void;
   itemTypeLocked: boolean;
+  isEditMode: boolean;
   photoUrlDraft: string;
   setPhotoUrlDraft: (value: string) => void;
   onAddPhotoUrl: () => void;
@@ -61,6 +73,7 @@ export function StockModalFields({
   form,
   setField,
   itemTypeLocked,
+  isEditMode,
   photoUrlDraft,
   setPhotoUrlDraft,
   onAddPhotoUrl,
@@ -217,7 +230,14 @@ export function StockModalFields({
         <div className="mp-stack" style={{ gap: 8 }}>
           <span className="mp-eyebrow">Sourcing (internal)</span>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <SellField label="Source reference" hint="Supplier invoice / PO number">
+            <SellField
+              label="Source reference"
+              hint={
+                isEditMode
+                  ? `Supplier invoice / PO number. ${KEEP_CURRENT_VALUE_HINT}`
+                  : "Supplier invoice / PO number"
+              }
+            >
               <SellInput
                 value={form.sourceReferenceId}
                 onChange={(event) => setField("sourceReferenceId", event.target.value)}
@@ -236,6 +256,7 @@ export function StockModalFields({
               value={form.procurementNote}
               onChange={(event) => setField("procurementNote", event.target.value)}
             />
+            {isEditMode ? <span className="mp-small mp-mute">{KEEP_CURRENT_VALUE_HINT}</span> : null}
           </label>
           <label className="mp-stack" style={{ gap: 6 }}>
             <span className="mp-rail-label" style={{ color: "var(--mp-mute)" }}>
@@ -248,6 +269,7 @@ export function StockModalFields({
               value={form.publicDescription}
               onChange={(event) => setField("publicDescription", event.target.value)}
             />
+            {isEditMode ? <span className="mp-small mp-mute">{KEEP_CURRENT_VALUE_HINT}</span> : null}
           </label>
         </div>
       </div>
