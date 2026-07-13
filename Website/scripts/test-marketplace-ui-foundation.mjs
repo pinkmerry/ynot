@@ -194,3 +194,19 @@ test("MpPrimitives.tsx exports all shared primitives with prototype-matching cla
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+test("theme: the .mp-root anchor reset must not declare color", () => {
+  const theme = readApp(THEME_CSS_PATH);
+  const resetRules = theme.match(/\.mp-root a[^,{]*\{[^}]*\}/g) ?? [];
+  assert.ok(resetRules.length > 0, "expected the .mp-root a reset rule to exist");
+  for (const rule of resetRules) {
+    assert.doesNotMatch(
+      rule,
+      /[^-]color\s*:/,
+      ".mp-root a must not set color: at (0,1,1) it beats every single-class color (.mp-btn-primary, .mp-tab) on <Link> anchors, producing black-on-black buttons",
+    );
+  }
+  // The variant colors that reset was silently defeating on anchors.
+  assert.match(theme, /\.mp-btn-primary \{[^}]*color: #fff/);
+  assert.match(theme, /\.mp-btn-green \{[^}]*color: #fff/);
+});
