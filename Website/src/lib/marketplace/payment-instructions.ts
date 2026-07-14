@@ -1,5 +1,9 @@
 import "server-only";
 
+import {
+  isMarketplaceWorkerRuntime,
+  marketplacePaymentReceiverBridgeConfig,
+} from "@/lib/auth/marketplace-auth-bridge";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { hasSlip2GoReceiverCheck } from "@/lib/slip2go/client";
 import type { MarketplacePaymentInstructions } from "./types";
@@ -10,6 +14,10 @@ import {
   type MarketplaceReceiver,
 } from "./payment-receiver";
 import { MarketplaceServiceError } from "./supabase-adapter";
+import {
+  fetchMarketplaceReceiverViaBridge,
+  resolveMarketplaceReceiverForRuntime,
+} from "./payment-receiver-bridge";
 export type { MarketplacePaymentInstructions } from "./types";
 
 function envText(name: string) {
@@ -53,7 +61,7 @@ function envReceiver(): MarketplaceReceiver {
   };
 }
 
-async function getCoreReceiver(): Promise<MarketplaceReceiver | null> {
+export async function getCoreMarketplaceReceiver(): Promise<MarketplaceReceiver | null> {
   const { data, error } = await createServiceSupabaseClient()
     .from("payment_methods")
     .select(
@@ -75,19 +83,32 @@ async function getCoreReceiver(): Promise<MarketplaceReceiver | null> {
   };
 }
 
-export async function getMarketplacePaymentInstructions(): Promise<MarketplacePaymentInstructions> {
-  let receiver: MarketplaceReceiver | null = null;
-  try {
-    receiver = await getCoreReceiver();
-  } catch (error) {
-    console.warn("marketplace_payment_receiver_lookup_failed", {
-      message: error instanceof Error ? error.message : String(error),
-    });
+async function getMarketplaceReceiverViaBridge(): Promise<MarketplaceReceiver | null> {
+  const config = marketplacePaymentReceiverBridgeConfig();
+  if (!config) {
+    console.warn("marketplace_payment_receiver_bridge_not_configured");
+    return null;
   }
 
-  return receiver
-    ? paymentInstructions(receiver)
-    : paymentInstructions(envReceiver());
+  return fetchMarketplaceReceiverViaBridge(config, fetch, (status) => {
+    console.warn("marketplace_payment_receiver_bridge_failed", status);
+  });
+}
+
+export async function getMarketplacePaymentInstructions(): Promise<MarketplacePaymentInstructions> {
+  const receiver = await resolveMarketplaceReceiverForRuntime({
+    marketplaceRuntime: isMarketplaceWorkerRuntime(),
+    loadBridgeReceiver: getMarketplaceReceiverViaBridge,
+    loadCoreReceiver: getCoreMarketplaceReceiver,
+    fallbackReceiver: envReceiver,
+    onLookupError: (error) => {
+      console.warn("marketplace_payment_receiver_lookup_failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    },
+  });
+
+  return paymentInstructions(receiver);
 }
 
 export function getMarketplacePaymentInstructionsFromSnapshot(

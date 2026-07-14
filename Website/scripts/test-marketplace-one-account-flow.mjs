@@ -328,8 +328,12 @@ test("customer marketplace pages keep one-site UX language", () => {
 
 test("marketplace runtime resolves the same YNOT login through a narrow auth bridge", () => {
   const bridge = read("src/lib/auth/marketplace-auth-bridge.ts");
+  const bridgeConfig = read("src/lib/auth/marketplace-bridge-config.ts");
   const resolver = read("src/lib/auth/resolve-current-profile.ts");
   const route = read("src/app/api/internal/marketplace/session/route.ts");
+  const receiverRoute = read(
+    "src/app/api/internal/marketplace/payment-receiver/route.ts",
+  );
   const marketplaceConfig = JSON.parse(read("wrangler.marketplace.jsonc"));
   const websiteConfig = JSON.parse(read("wrangler.website.jsonc"));
 
@@ -358,6 +362,10 @@ test("marketplace runtime resolves the same YNOT login through a narrow auth bri
   );
 
   assert.match(bridge, /MARKETPLACE_AUTH_BRIDGE_HEADER/);
+  assert.match(bridge, /marketplacePaymentReceiverBridgeConfig/);
+  assert.match(bridgeConfig, /\/api\/internal\/marketplace\/payment-receiver/);
+  assert.match(bridgeConfig, /https:\/\/www\.ynotopen\.com/);
+  assert.match(bridgeConfig, /url\.username\s*\|\|\s*url\.password/);
   assert.match(bridge, /timingSafeEqual/);
   assert.match(bridge, /headers\(\)/);
   assert.match(bridge, /cookie: cookieHeader/);
@@ -373,6 +381,14 @@ test("marketplace runtime resolves the same YNOT login through a narrow auth bri
   );
   assert.match(route, /resolveAdminSession\(profile\)/);
   assert.match(route, /Cache-Control": "no-store"/);
+
+  assertAppearsBefore(
+    receiverRoute,
+    /verifyMarketplaceAuthBridgeRequest\(request\)/,
+    /getCoreMarketplaceReceiver\(\)/,
+    "internal receiver bridge must authenticate before reading core payment data",
+  );
+  assert.match(receiverRoute, /Cache-Control": "no-store"/);
 
   assertAppearsBefore(
     resolver,

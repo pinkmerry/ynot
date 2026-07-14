@@ -2,6 +2,12 @@ import "server-only";
 
 import { timingSafeEqual } from "node:crypto";
 import { headers } from "next/headers";
+import {
+  buildMarketplacePaymentReceiverBridgeConfig,
+  MARKETPLACE_AUTH_BRIDGE_HEADER,
+  MARKETPLACE_PAYMENT_RECEIVER_BRIDGE_PATH,
+  validatedMarketplaceAuthBridgeUrl,
+} from "./marketplace-bridge-config";
 import type {
   ResolvedAdminSession,
   ResolvedProfileSession,
@@ -12,8 +18,10 @@ export const MARKETPLACE_AUTH_BRIDGE_SECRET_ENV =
 export const MARKETPLACE_AUTH_BRIDGE_URL_ENV =
   "MARKETPLACE_AUTH_BRIDGE_URL" as const;
 export const MARKETPLACE_WORKER_SURFACE_ENV = "YNOT_WORKER_SURFACE" as const;
-export const MARKETPLACE_AUTH_BRIDGE_HEADER =
-  "x-ynot-marketplace-auth" as const;
+export {
+  MARKETPLACE_AUTH_BRIDGE_HEADER,
+  MARKETPLACE_PAYMENT_RECEIVER_BRIDGE_PATH,
+};
 
 type BridgeSessionPayload = {
   ok?: unknown;
@@ -80,18 +88,18 @@ export function verifyMarketplaceAuthBridgeRequest(request: Request) {
 }
 
 function bridgeUrl() {
-  const raw = authBridgeUrl();
-  if (!raw) return null;
+  return validatedMarketplaceAuthBridgeUrl({
+    rawUrl: authBridgeUrl(),
+    nodeEnv: process.env.NODE_ENV,
+  });
+}
 
-  try {
-    const parsed = new URL(raw);
-    if (process.env.NODE_ENV === "production" && parsed.protocol !== "https:") {
-      return null;
-    }
-    return parsed.toString();
-  } catch {
-    return null;
-  }
+export function marketplacePaymentReceiverBridgeConfig() {
+  return buildMarketplacePaymentReceiverBridgeConfig({
+    rawUrl: authBridgeUrl(),
+    secret: authBridgeSecret(),
+    nodeEnv: process.env.NODE_ENV,
+  });
 }
 
 function normalizeBridgeProfile(value: unknown): ResolvedProfileSession | null {

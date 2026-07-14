@@ -43,6 +43,23 @@ export function selectMarketplaceReceiverRow<
   );
 }
 
+export function marketplaceReceiverFromBridgePayload(
+  payload: unknown,
+): MarketplaceReceiver | null {
+  const root = recordValue(payload);
+  if (root?.ok !== true) return null;
+
+  const receiver = recordValue(root.receiver);
+  if (!receiver) return null;
+
+  return {
+    bankName: nullableText(receiver.bankName),
+    accountName: nullableText(receiver.accountName),
+    accountNumber: nullableText(receiver.accountNumber),
+    promptPayId: nullableText(receiver.promptPayId),
+  };
+}
+
 export function marketplacePaymentReceiverSnapshot(
   instructions: MarketplacePaymentInstructions,
 ): MarketplacePaymentReceiverSnapshot {

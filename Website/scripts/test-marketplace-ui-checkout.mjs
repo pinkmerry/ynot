@@ -343,11 +343,27 @@ test("checkout cannot reserve stock until the payment receiver is configured", (
 
 test("marketplace checkout resolves the canonical core receiver and reuses it for Slip2Go", () => {
   const paymentInstructions = readApp("src/lib/marketplace/payment-instructions.ts");
+  const paymentReceiverBridge = readApp(
+    "src/lib/marketplace/payment-receiver-bridge.ts",
+  );
+  const receiverBridge = readApp(
+    "src/app/api/internal/marketplace/payment-receiver/route.ts",
+  );
   const paymentProofRoute = readApp(
     "src/app/api/ynot/marketplace/checkout/pending-orders/[pendingOrderId]/payment-proof/route.ts",
   );
 
   assert.match(paymentInstructions, /createServiceSupabaseClient/);
+  assert.match(paymentInstructions, /isMarketplaceWorkerRuntime/);
+  assert.match(paymentInstructions, /marketplacePaymentReceiverBridgeConfig/);
+  assert.match(paymentReceiverBridge, /MARKETPLACE_AUTH_BRIDGE_HEADER/);
+  assert.match(paymentReceiverBridge, /cache:\s*"no-store"/);
+  assert.match(paymentReceiverBridge, /redirect:\s*"manual"/);
+  assert.match(
+    paymentInstructions,
+    /resolveMarketplaceReceiverForRuntime\(\{[\s\S]*marketplaceRuntime:\s*isMarketplaceWorkerRuntime\(\)[\s\S]*loadBridgeReceiver:\s*getMarketplaceReceiverViaBridge[\s\S]*loadCoreReceiver:\s*getCoreMarketplaceReceiver/,
+    "Marketplace runtime must choose the bridge instead of a privileged core lookup",
+  );
   assert.match(paymentInstructions, /\.from\("payment_methods"\)/);
   assert.match(paymentInstructions, /\.eq\("is_active", true\)/);
   assert.match(paymentInstructions, /\.eq\("type", "bank_transfer"\)/);
@@ -355,6 +371,15 @@ test("marketplace checkout resolves the canonical core receiver and reuses it fo
   assert.match(
     paymentInstructions,
     /export async function getMarketplacePaymentInstructions/,
+  );
+
+  assert.match(receiverBridge, /verifyMarketplaceAuthBridgeRequest\(request\)/);
+  assert.match(receiverBridge, /getCoreMarketplaceReceiver\(\)/);
+  assert.match(receiverBridge, /Cache-Control": "no-store"/);
+  assert.ok(
+    receiverBridge.indexOf("verifyMarketplaceAuthBridgeRequest(request)") <
+      receiverBridge.indexOf("getCoreMarketplaceReceiver()"),
+    "internal receiver route must authenticate before reading bank details",
   );
   assert.match(
     paymentInstructions,
@@ -365,11 +390,7 @@ test("marketplace checkout resolves the canonical core receiver and reuses it fo
     paymentInstructions,
     /getMarketplacePaymentInstructionsFromSnapshot/,
   );
-  assert.match(
-    paymentInstructions,
-    /receiver\s*\?\s*paymentInstructions\([\s\S]*?:\s*paymentInstructions\(/,
-    "environment values must remain a fallback when no core receiver is available",
-  );
+  assert.match(paymentInstructions, /fallbackReceiver:\s*envReceiver/);
 
   assert.match(
     paymentProofRoute,

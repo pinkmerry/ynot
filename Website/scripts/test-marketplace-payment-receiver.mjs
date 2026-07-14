@@ -4,10 +4,20 @@ import test from "node:test";
 import {
   checkoutSnapshotContainsPaymentReceiver,
   marketplacePaymentReceiverSnapshot,
+  marketplaceReceiverFromBridgePayload,
   marketplaceReceiverFromCheckoutSnapshot,
   selectMarketplaceReceiverRow,
   withMarketplacePaymentReceiverSnapshot,
 } from "../src/lib/marketplace/payment-receiver.ts";
+import {
+  buildMarketplacePaymentReceiverBridgeConfig,
+  MARKETPLACE_AUTH_BRIDGE_HEADER,
+  MARKETPLACE_PAYMENT_RECEIVER_BRIDGE_PATH,
+} from "../src/lib/auth/marketplace-bridge-config.ts";
+import {
+  fetchMarketplaceReceiverViaBridge,
+  resolveMarketplaceReceiverForRuntime,
+} from "../src/lib/marketplace/payment-receiver-bridge.ts";
 import { hasSlip2GoReceiverCheck } from "../src/lib/slip2go/client.ts";
 
 const canonical = {
@@ -29,6 +39,198 @@ test("receiver selection falls back deterministically without a canonical row", 
   assert.equal(selectMarketplaceReceiverRow([legacy, alternate]), alternate);
   assert.equal(selectMarketplaceReceiverRow([legacy]), legacy);
   assert.equal(selectMarketplaceReceiverRow([]), null);
+});
+
+test("internal bridge payloads expose only normalized receiver fields", () => {
+  assert.deepEqual(
+    marketplaceReceiverFromBridgePayload({
+      ok: true,
+      receiver: {
+        bankName: "  Kasikornbank  ",
+        accountName: "  YNOT  ",
+        accountNumber: "  123-4-56789-0  ",
+        promptPayId: "  0812345678  ",
+        ignored: "must not cross the boundary",
+      },
+    }),
+    {
+      bankName: "Kasikornbank",
+      accountName: "YNOT",
+      accountNumber: "123-4-56789-0",
+      promptPayId: "0812345678",
+    },
+  );
+  assert.equal(
+    marketplaceReceiverFromBridgePayload({ ok: false, receiver: canonical }),
+    null,
+  );
+  assert.equal(
+    marketplaceReceiverFromBridgePayload({ ok: true, receiver: null }),
+    null,
+  );
+});
+
+test("receiver bridge config allows only the canonical production origin and local development", () => {
+  const secret = "test-bridge-secret";
+  assert.deepEqual(
+    buildMarketplacePaymentReceiverBridgeConfig({
+      rawUrl: "https://www.ynotopen.com/api/internal/marketplace/session?old=1",
+      secret,
+      nodeEnv: "production",
+    }),
+    {
+      url: `https://www.ynotopen.com${MARKETPLACE_PAYMENT_RECEIVER_BRIDGE_PATH}`,
+      secret,
+    },
+  );
+  assert.equal(
+    buildMarketplacePaymentReceiverBridgeConfig({
+      rawUrl: "https://attacker.example/api/internal/marketplace/session",
+      secret,
+      nodeEnv: "production",
+    }),
+    null,
+  );
+  assert.equal(
+    buildMarketplacePaymentReceiverBridgeConfig({
+      rawUrl: "https://user:password@www.ynotopen.com/api/internal/marketplace/session",
+      secret,
+      nodeEnv: "production",
+    }),
+    null,
+  );
+  assert.deepEqual(
+    buildMarketplacePaymentReceiverBridgeConfig({
+      rawUrl: "http://localhost:8787/api/internal/marketplace/session",
+      secret,
+      nodeEnv: "development",
+    }),
+    {
+      url: `http://localhost:8787${MARKETPLACE_PAYMENT_RECEIVER_BRIDGE_PATH}`,
+      secret,
+    },
+  );
+  assert.equal(
+    buildMarketplacePaymentReceiverBridgeConfig({
+      rawUrl: "https://preview.example/api/internal/marketplace/session",
+      secret,
+      nodeEnv: "development",
+    }),
+    null,
+  );
+});
+
+test("receiver bridge fetch is no-store, non-redirecting, authenticated, and normalized", async () => {
+  const config = {
+    url: `https://www.ynotopen.com${MARKETPLACE_PAYMENT_RECEIVER_BRIDGE_PATH}`,
+    secret: "test-bridge-secret",
+  };
+  let observedUrl;
+  let observedInit;
+  const receiver = await fetchMarketplaceReceiverViaBridge(
+    config,
+    async (url, init) => {
+      observedUrl = url;
+      observedInit = init;
+      return Response.json({
+        ok: true,
+        receiver: {
+          bankName: " Kasikornbank ",
+          accountName: " YNOT ",
+          accountNumber: " 123-4-56789-0 ",
+          promptPayId: null,
+        },
+      });
+    },
+  );
+
+  assert.equal(observedUrl, config.url);
+  assert.equal(observedInit.method, "GET");
+  assert.equal(observedInit.cache, "no-store");
+  assert.equal(observedInit.redirect, "manual");
+  assert.equal(
+    observedInit.headers[MARKETPLACE_AUTH_BRIDGE_HEADER],
+    config.secret,
+  );
+  assert.deepEqual(receiver, {
+    bankName: "Kasikornbank",
+    accountName: "YNOT",
+    accountNumber: "123-4-56789-0",
+    promptPayId: null,
+  });
+});
+
+test("runtime receiver selection never recurses into core from Marketplace and falls back safely", async () => {
+  const fallback = {
+    bankName: "Fallback bank",
+    accountName: "Fallback account",
+    accountNumber: "9999999999",
+    promptPayId: null,
+  };
+  let coreCalls = 0;
+  let bridgeCalls = 0;
+  const marketplaceReceiver = await resolveMarketplaceReceiverForRuntime({
+    marketplaceRuntime: true,
+    loadBridgeReceiver: async () => {
+      bridgeCalls += 1;
+      return null;
+    },
+    loadCoreReceiver: async () => {
+      coreCalls += 1;
+      return canonical;
+    },
+    fallbackReceiver: () => fallback,
+  });
+  assert.deepEqual(marketplaceReceiver, fallback);
+  assert.equal(bridgeCalls, 1);
+  assert.equal(coreCalls, 0);
+
+  const coreReceiver = await resolveMarketplaceReceiverForRuntime({
+    marketplaceRuntime: false,
+    loadBridgeReceiver: async () => {
+      throw new Error("website runtime must not call the Marketplace bridge");
+    },
+    loadCoreReceiver: async () => {
+      coreCalls += 1;
+      return canonical;
+    },
+    fallbackReceiver: () => fallback,
+  });
+  assert.equal(coreReceiver, canonical);
+  assert.equal(coreCalls, 1);
+});
+
+test("malformed, non-200, and thrown bridge responses use the explicit fallback", async () => {
+  const config = {
+    url: `https://www.ynotopen.com${MARKETPLACE_PAYMENT_RECEIVER_BRIDGE_PATH}`,
+    secret: "test-bridge-secret",
+  };
+  const fallback = {
+    bankName: null,
+    accountName: null,
+    accountNumber: null,
+    promptPayId: null,
+  };
+  const responses = [
+    async () => Response.json({ ok: true, receiver: null }),
+    async () => Response.json({ ok: false }, { status: 503 }),
+    async () => {
+      throw new Error("network unavailable");
+    },
+  ];
+
+  for (const fetchImpl of responses) {
+    const receiver = await resolveMarketplaceReceiverForRuntime({
+      marketplaceRuntime: true,
+      loadBridgeReceiver: () =>
+        fetchMarketplaceReceiverViaBridge(config, fetchImpl),
+      loadCoreReceiver: async () => {
+        throw new Error("must not recurse into core");
+      },
+      fallbackReceiver: () => fallback,
+    });
+    assert.deepEqual(receiver, fallback);
+  }
 });
 
 test("checkout snapshot preserves one immutable receiver for UI resume and proof", () => {
