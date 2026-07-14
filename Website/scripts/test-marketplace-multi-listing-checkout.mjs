@@ -10,6 +10,10 @@ const migrationPath = path.join(
   repoRoot,
   "Database/marketplace-supabase/migrations/20260714110000_marketplace_multi_listing_checkout.sql",
 );
+const cartRestoreMigrationPath = path.join(
+  repoRoot,
+  "Database/marketplace-supabase/migrations/20260714120000_marketplace_restore_cancelled_checkout_cart.sql",
+);
 
 function readApp(relPath) {
   return readFileSync(path.join(appRoot, relPath), "utf8");
@@ -17,6 +21,12 @@ function readApp(relPath) {
 
 function readMigration() {
   return existsSync(migrationPath) ? readFileSync(migrationPath, "utf8") : "";
+}
+
+function readCartRestoreMigration() {
+  return existsSync(cartRestoreMigrationPath)
+    ? readFileSync(cartRestoreMigrationPath, "utf8")
+    : "";
 }
 
 function stripSqlComments(source) {
@@ -208,6 +218,29 @@ test("release RPC locks the whole group and atomically restores every unpaid chi
   assert.match(sql, /update public\.marketplace_pending_payment_orders pending_order set order_state = next_pending_state/);
   assert.match(sql, /update public\.marketplace_orders child_order set payment_state = 'failed', fulfilment_state = 'cancelled'/);
   assert.match(sql, /update public\.marketplace_checkout_groups set checkout_state = next_group_state, payment_state = 'failed'/);
+});
+
+test("failed checkout groups restore the cart rows consumed when checkout started", () => {
+  assert.equal(existsSync(cartRestoreMigrationPath), true);
+  const sql = compactSql(readCartRestoreMigration());
+
+  assert.match(
+    sql,
+    /create or replace function public\.marketplace_restore_failed_checkout_group_cart\(\)/,
+  );
+  assert.match(
+    sql,
+    /if new\.checkout_state not in \('cancelled', 'expired'\) or new\.payment_state <> 'failed' then return new/,
+  );
+  assert.match(
+    sql,
+    /insert into public\.marketplace_cart_items\( buyer_marketplace_account_id, listing_id, quantity \) select new\.buyer_marketplace_account_id, checkout_item\.listing_id, 1 from public\.marketplace_checkout_items checkout_item where checkout_item\.checkout_group_id = new\.id on conflict \(buyer_marketplace_account_id, listing_id\) do nothing/,
+  );
+  assert.match(
+    sql,
+    /after update of checkout_state, payment_state on public\.marketplace_checkout_groups for each row execute function public\.marketplace_restore_failed_checkout_group_cart\(\)/,
+  );
+  assert.match(sql, /security definer set search_path = public, pg_temp/);
 });
 
 test("group proof RPC inserts one canonical proof and transitions all children together", () => {

@@ -211,7 +211,12 @@ includes(ops, ".from(\"marketplace_audit_event_targets\")", "audit timeline read
 notMatches(ops, /event_payload\s*->>|event_payload->>/, "audit timeline service avoids JSON target scans");
 includes(orders, "sanitizeBuyerPayload", "buyer order RPC responses are sanitized");
 includes(orders, "sellerFeeBps", "buyer sanitizer removes seller fee fields from RPC payloads");
-includes(orders, "p_shipping_snapshot: input.shippingSnapshot", "checkout sends validated shipping snapshot to RPC");
+includes(
+  orders,
+  "const checkoutSnapshot = withMarketplacePaymentReceiverSnapshot(",
+  "checkout augments the validated shipping snapshot with the payment receiver",
+);
+includes(orders, "p_shipping_snapshot: checkoutSnapshot", "checkout sends validated shipping snapshot to RPC");
 includes(orders, "mockPendingPaymentOrder", "local mock checkout exercises the server checkout route");
 includes(orders, "marketplaceMoneyPreview", "local mock checkout uses the server money policy calculator");
 includes(serverAddresses, "previewAddressesForProfile", "marketplace checkout reads local preview shipping addresses");
