@@ -124,9 +124,9 @@ export async function ProductDetail({ market, selectedGrade }: ProductDetailProp
       <div className="mp-detail-grid">
         <div className="mp-stack" style={{ gap: 12 }}>
           <div
-            className="mp-art-lg"
+            className={`mp-art-lg${heroImage ? " mp-product-media" : ""}`}
             aria-label={market.product.title}
-            style={heroImage ? { backgroundImage: `url(${heroImage})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+            style={heroImage ? { backgroundImage: `url(${heroImage})` } : undefined}
           >
             {!heroImage ? <span className="ph">[ {market.product.title.slice(0, 24)} ]</span> : null}
           </div>
@@ -135,8 +135,8 @@ export async function ProductDetail({ market, selectedGrade }: ProductDetailProp
               {images.slice(0, 8).map((url, index) => (
                 <span
                   key={`${url}-${index}`}
-                  className={`mp-thumb${index === 0 ? " on" : ""}`}
-                  style={{ backgroundImage: `url(${url})`, backgroundSize: "cover", backgroundPosition: "center" }}
+                  className={`mp-thumb mp-product-media${index === 0 ? " on" : ""}`}
+                  style={{ backgroundImage: `url(${url})` }}
                   aria-hidden="true"
                 />
               ))}
@@ -264,7 +264,7 @@ export async function ProductDetail({ market, selectedGrade }: ProductDetailProp
               return (
                 <Link key={product.product_id} href={`/marketplace/products/${product.product_slug}`} className="mp-card" prefetch={false}>
                   <div
-                    className="mp-card-art"
+                    className={`mp-card-art${product.hero_image_url ? " mp-product-media" : ""}`}
                     style={product.hero_image_url ? { backgroundImage: `url(${product.hero_image_url})` } : undefined}
                   >
                     {!product.hero_image_url ? <span className="ph">{product.title.slice(0, 24)}</span> : null}

@@ -378,6 +378,24 @@
 }
 .mp-thumb.on { border-color: var(--mp-ink); box-shadow: 0 0 0 1px var(--mp-ink); }
 
+/* Product and listing photos must remain fully visible. The source upload is
+   never cropped or rewritten; these contracts only control presentation. Keep
+   these after the art background shorthands so they win the cascade. */
+.mp-product-media {
+  background-color: var(--mp-bg-soft);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+.mp-product-media-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  background: var(--mp-bg-soft);
+}
+
 /* ---------- spec table ---------- */
 .mp-spec { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--mp-line); border: 1px solid var(--mp-line); border-radius: var(--mp-r-md); overflow: hidden; }
 .mp-spec > div { background: var(--mp-paper); padding: 11px 14px; }
@@ -557,9 +575,18 @@ body:has(.mp-root) {
    ProtoDetail's own inline grids (380px 1fr / 1fr 400px) are desktop-only —
    ported as-is they push the second column off-screen below ~860px. These
    named classes replace the equivalent inline gridTemplateColumns so the
-   product-detail page can collapse to a single column on narrow viewports
-   without touching any class used by other already-shipped marketplace-ui
-   surfaces (BrowsePage/FilterRail keep their existing inline grids as-is). */
+   product-detail page can collapse to a single column on narrow viewports. */
+.mp-browse-layout {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 26px;
+  align-items: start;
+}
+.mp-browse-products-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
 .mp-detail-grid {
   display: grid;
   grid-template-columns: 380px 1fr;
@@ -579,17 +606,26 @@ body:has(.mp-root) {
   gap: 16px;
 }
 @media (max-width: 860px) {
+  .mp-browse-layout {
+    grid-template-columns: 1fr;
+  }
   .mp-detail-grid,
   .mp-detail-history-grid {
     grid-template-columns: 1fr;
   }
 }
 @media (max-width: 640px) {
+  .mp-browse-products-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .mp-detail-cards-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 420px) {
+  .mp-browse-products-grid {
+    grid-template-columns: 1fr;
+  }
   .mp-detail-cards-grid {
     grid-template-columns: 1fr;
   }

@@ -57,9 +57,9 @@ export function SellSummaryRail({
             {coverPhoto ? (
               // eslint-disable-next-line @next/next/no-img-element -- local object URL, not a remote asset
               <img
+                className="mp-product-media-image"
                 src={coverPhoto.previewUrl}
                 alt=""
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             ) : (
               <span className="ph">[ your cover photo ]</span>

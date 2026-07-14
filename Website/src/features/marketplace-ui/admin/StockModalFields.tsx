@@ -328,9 +328,9 @@ export function StockModalFields({
               {form.photoUrls[0] ? (
                 // eslint-disable-next-line @next/next/no-img-element -- admin-entered remote URL, not a Next-optimizable local asset
                 <img
+                  className="mp-product-media-image"
                   src={form.photoUrls[0]}
                   alt=""
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               ) : (
                 <span className="ph">[ cover photo ]</span>

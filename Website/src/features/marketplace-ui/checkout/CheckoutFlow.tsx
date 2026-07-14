@@ -243,6 +243,7 @@ export function CheckoutFlow({
           <MpPanel>
             <div className="mp-row" style={{ gap: 16 }}>
               <div
+                className={listing.photoUrl ? "mp-product-media" : undefined}
                 style={{
                   width: 92,
                   borderRadius: 10,
@@ -250,8 +251,6 @@ export function CheckoutFlow({
                   aspectRatio: "3/4",
                   flexShrink: 0,
                   backgroundImage: listing.photoUrl ? `url(${listing.photoUrl})` : undefined,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
                   background: listing.photoUrl
                     ? undefined
                     : "repeating-linear-gradient(-45deg, #f1eee3 0 8px, #eceadf 8px 16px)",

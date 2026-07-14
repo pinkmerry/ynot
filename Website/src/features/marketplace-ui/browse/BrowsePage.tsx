@@ -145,7 +145,7 @@ export function BrowsePage({
         </Link>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "230px 1fr", gap: 26, alignItems: "start" }}>
+      <div className="mp-browse-layout">
         <FilterRail
           source={query.source}
           q={query.q ?? ""}
@@ -180,7 +180,7 @@ export function BrowsePage({
               </div>
             </MpEmpty>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+            <div className="mp-browse-products-grid">
               {products.map((product) => {
                 const meta = productMeta(product);
                 return (
@@ -190,7 +190,7 @@ export function BrowsePage({
                     className="mp-card"
                   >
                     <div
-                      className="mp-card-art"
+                      className={`mp-card-art${product.hero_image_url ? " mp-product-media" : ""}`}
                       style={
                         product.hero_image_url
                           ? { backgroundImage: `url(${product.hero_image_url})` }

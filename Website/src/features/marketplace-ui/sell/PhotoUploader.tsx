@@ -149,9 +149,9 @@ export function PhotoUploader({
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- local object URL, not a remote asset */}
               <img
+                className="mp-product-media-image"
                 src={photo.previewUrl}
                 alt={`Item photo ${index + 1}`}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
               {index === 0 ? (
                 <span
