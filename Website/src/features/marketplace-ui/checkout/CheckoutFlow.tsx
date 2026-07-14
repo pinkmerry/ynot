@@ -16,6 +16,7 @@ import {
 } from "../shared/MpPrimitives";
 import { MpIcon } from "../shared/MpIcon";
 import { formatThb } from "../shared/money";
+import { notifyCartStateChanged } from "./notify-cart-state-changed";
 import type { SlipUploadProofResult } from "./SlipUploader";
 import type { MarketplacePaymentInstructions } from "@/lib/marketplace/types";
 
@@ -98,6 +99,7 @@ export type CheckoutFlowProps = CheckoutFlowItemProps & {
   checkoutEndpoint: string;
   shippingAddresses: CheckoutFlowAddress[];
   paymentInstructions: MarketplacePaymentInstructions;
+  onCartStateChanged?: () => void | Promise<void>;
 };
 
 type FlowStep = "review" | "pay" | "slip" | "done";
@@ -140,7 +142,12 @@ function stepList(step: FlowStep): MpStep[] {
 }
 
 export function CheckoutFlow(props: CheckoutFlowProps) {
-  const { checkoutEndpoint, shippingAddresses, paymentInstructions } = props;
+  const {
+    checkoutEndpoint,
+    shippingAddresses,
+    paymentInstructions,
+    onCartStateChanged,
+  } = props;
   const checkoutListings = props.listings ?? [props.listing];
   const listing = checkoutListings[0];
   const isGroupCheckout = checkoutListings.length > 1;
@@ -201,6 +208,7 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
       const body = await parseJson(response);
       setOrder(body?.order ?? null);
       setStep("pay");
+      notifyCartStateChanged(onCartStateChanged);
     } catch (error) {
       const code = (error as { code?: string } | undefined)?.code;
       const message = error instanceof Error ? error.message : "Checkout failed.";
@@ -233,6 +241,7 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
         },
       );
       await parseJson(response);
+      notifyCartStateChanged(onCartStateChanged);
       toast("Order cancelled", "info");
       setOrder(null);
       setStep("review");

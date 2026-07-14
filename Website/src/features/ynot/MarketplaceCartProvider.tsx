@@ -6,8 +6,10 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
 } from "react";
+import { createMarketplaceCartSummaryRevisionGate } from "./marketplace-cart-summary-revision";
 
 export type MarketplaceCartSummaryView = {
   cartCount: number;
@@ -90,8 +92,12 @@ export function MarketplaceCartProvider({
   const [listingActionStates, setListingActionStates] = useState<
     Record<string, MarketplaceListingActionState>
   >({});
+  const summaryRevisionGate = useRef(
+    createMarketplaceCartSummaryRevisionGate(),
+  );
 
   const setSummary = useCallback((next: MarketplaceCartSummaryView) => {
+    summaryRevisionGate.current.invalidate();
     setSummaryState(normalizeSummary(next));
   }, []);
 
@@ -110,6 +116,7 @@ export function MarketplaceCartProvider({
   );
 
   const refreshCartSummary = useCallback(async () => {
+    const refreshRevision = summaryRevisionGate.current.beginRefresh();
     const response = await fetch("/api/marketplace/cart/summary", {
       method: "GET",
       headers: { accept: "application/json" },
@@ -120,7 +127,9 @@ export function MarketplaceCartProvider({
     if (!response.ok) {
       throw new Error("Could not refresh cart.");
     }
-    setSummaryState(normalizeSummary(result?.summary));
+    if (summaryRevisionGate.current.isCurrent(refreshRevision)) {
+      setSummaryState(normalizeSummary(result?.summary));
+    }
   }, []);
 
   const value = useMemo(

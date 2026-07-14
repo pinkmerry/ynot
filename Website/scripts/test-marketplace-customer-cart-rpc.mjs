@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -17,6 +17,18 @@ function readApp(relPath) {
 
 function readRepo(relPath) {
   return readFileSync(path.join(repoRoot, relPath), "utf8");
+}
+
+async function importApp(relPath) {
+  return import(pathToFileURL(path.join(appRoot, relPath)).href);
+}
+
+async function loadSummaryRevisionModule() {
+  const revisionModule = await importApp(
+    "src/features/ynot/marketplace-cart-summary-revision.ts",
+  ).catch(() => null);
+  assert.ok(revisionModule, "missing marketplace cart summary revision gate");
+  return revisionModule;
 }
 
 function compactSql(source) {
@@ -37,6 +49,37 @@ test("package exposes the customer cart RPC guard", () => {
     packageJson.scripts["test:marketplace-customer-cart"],
     "node --test scripts/test-marketplace-customer-cart-rpc.mjs",
   );
+});
+
+test("later cart summary refresh supersedes an earlier in-flight refresh", async () => {
+  const { createMarketplaceCartSummaryRevisionGate } =
+    await loadSummaryRevisionModule();
+  const gate = createMarketplaceCartSummaryRevisionGate();
+  const earlierRefresh = gate.beginRefresh();
+  const laterRefresh = gate.beginRefresh();
+
+  assert.equal(gate.isCurrent(earlierRefresh), false);
+  assert.equal(gate.isCurrent(laterRefresh), true);
+});
+
+test("direct cart summary commits invalidate an in-flight refresh", async () => {
+  const { createMarketplaceCartSummaryRevisionGate } =
+    await loadSummaryRevisionModule();
+  const gate = createMarketplaceCartSummaryRevisionGate();
+  const inFlightRefresh = gate.beginRefresh();
+
+  gate.invalidate();
+
+  assert.equal(gate.isCurrent(inFlightRefresh), false);
+});
+
+test("the latest cart summary refresh remains eligible to commit", async () => {
+  const { createMarketplaceCartSummaryRevisionGate } =
+    await loadSummaryRevisionModule();
+  const gate = createMarketplaceCartSummaryRevisionGate();
+  const latestRefresh = gate.beginRefresh();
+
+  assert.equal(gate.isCurrent(latestRefresh), true);
 });
 
 test("domain language names the customer cart concepts", () => {
@@ -141,6 +184,13 @@ test("customer cart UI modules exist and update visible state", () => {
   requireSource(provider, /\/api\/marketplace\/cart\/summary/);
   requireSource(provider, /openCartDrawer/);
   requireSource(provider, /cartCount/);
+  requireSource(provider, /createMarketplaceCartSummaryRevisionGate/);
+  requireSource(provider, /summaryRevisionGate\.current\.beginRefresh\(\)/);
+  requireSource(provider, /summaryRevisionGate\.current\.isCurrent\(/);
+  requireSource(
+    provider,
+    /summaryRevisionGate\.current\.invalidate\(\)[\s\S]{0,160}setSummaryState/,
+  );
 
   const listingActions = readApp("src/features/ynot/MarketplaceListingActionsClient.tsx");
   requireSource(listingActions, /useMarketplaceCart/);

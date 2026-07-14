@@ -132,7 +132,12 @@ export function MarketplaceCartWatchlistClient(
   props: MarketplaceCartWatchlistClientProps,
 ) {
   const { mode, initialItems, initialSummary } = props;
-  const { summary, setSummary, updateListingActionState } = useMarketplaceCart();
+  const {
+    summary,
+    setSummary,
+    refreshCartSummary,
+    updateListingActionState,
+  } = useMarketplaceCart();
   const [items, setItems] = useState<DisplayItem[]>(initialItems);
   const [selectedListingIds, setSelectedListingIds] = useState<string[]>(() =>
     mode === "cart" ? initialCartSelection(initialItems) : [],
@@ -310,6 +315,7 @@ export function MarketplaceCartWatchlistClient(
               }
               shippingAddresses={props.checkoutAddresses}
               paymentInstructions={props.paymentInstructions}
+              onCartStateChanged={refreshCartSummary}
             />
           ) : (
             <CheckoutFlow
@@ -317,6 +323,7 @@ export function MarketplaceCartWatchlistClient(
               checkoutEndpoint="/api/marketplace/checkout/groups"
               shippingAddresses={props.checkoutAddresses}
               paymentInstructions={props.paymentInstructions}
+              onCartStateChanged={refreshCartSummary}
             />
           )}
         </section>
