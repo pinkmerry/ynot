@@ -43,7 +43,6 @@ export const SELLER_PAYOUT_PREVIEW_FIELDS = [
 export const SELLER_LISTING_ACTIVATION_FIELDS = [
   "expectedVersion",
   "publicDescription",
-  "photoUrls",
   "adminNote",
 ] as const;
 
@@ -492,39 +491,294 @@ function assertUuid(value: string, label: string) {
   return value.toLowerCase();
 }
 
-function photoUrls(value: unknown) {
-  if (value === undefined || value === null) return [];
-  if (!Array.isArray(value) || value.length > 10) {
+export function marketplaceSellerSubmissionPhotoUrl(input: {
+  submissionId: string;
+  photoId: string;
+}) {
+  const submissionId = assertUuid(input.submissionId, "submission_id");
+  const photoId = assertUuid(input.photoId, "photo_id");
+  return `/api/marketplace/files/seller-submissions/${submissionId}/photos/${photoId}`;
+}
+
+type SellerPublishSubmission = {
+  id: string;
+  title_snapshot: string;
+  condition_code: string;
+  reference_card_id: string | null;
+  reference_variant_id: string | null;
+  variant_snapshot: Record<string, unknown>;
+  reference_snapshot: Record<string, unknown>;
+  grade_label: string | null;
+  language: string | null;
+};
+
+function optionalUuid(value: unknown) {
+  if (
+    typeof value !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  ) {
+    return null;
+  }
+  return value.toLowerCase();
+}
+
+function snapshotText(snapshot: Record<string, unknown>, key: string) {
+  const value = snapshot[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function sellerVariantProjection(submission: SellerPublishSubmission) {
+  const grader = snapshotText(submission.variant_snapshot, "grader")?.toLowerCase() ?? "";
+  const gradeService =
+    submission.condition_code !== "graded"
+      ? null
+      : grader === "psa"
+        ? "PSA"
+        : grader === "bgs"
+          ? "BGS"
+          : grader === "ars"
+            ? "ARS"
+            : "OTHER";
+  const gradeValue = submission.grade_label?.trim() || null;
+  const grade = gradeValue?.toLowerCase() ?? "";
+  let conditionBucket = "raw_a";
+  if (submission.condition_code === "graded") {
+    if (gradeService === "PSA") {
+      conditionBucket = /(^|\D)10(\D|$)/.test(grade)
+        ? "psa_10"
+        : /(^|\D)9(\D|$)/.test(grade)
+          ? "psa_9"
+          : "psa_8_or_under";
+    } else if (gradeService === "BGS") {
+      conditionBucket = grade.includes("black label")
+        ? "bgs_10_black_label"
+        : /(^|\D)10(\D|$)/.test(grade)
+          ? "bgs_10_gold_label"
+          : /9[.]5/.test(grade)
+            ? "bgs_9_5"
+            : "bgs_9_or_under";
+    } else if (gradeService === "ARS") {
+      conditionBucket = /10\+/.test(grade)
+        ? "ars_10_plus"
+        : /(^|\D)10(\D|$)/.test(grade)
+          ? "ars_10"
+          : /(^|\D)9(\D|$)/.test(grade)
+            ? "ars_9"
+            : "ars_8_or_under";
+    } else {
+      conditionBucket = "other_graded";
+    }
+  }
+  return {
+    conditionBucket,
+    gradeService,
+    gradeValue,
+    variantLabel:
+      gradeValue ??
+      `${submission.condition_code.charAt(0).toUpperCase()}${submission.condition_code.slice(1)}`,
+  };
+}
+
+async function resolveSellerSubmissionPhotoUrls(input: {
+  submissionId: string;
+  supabase: ReturnType<typeof createMarketplaceSupabaseClient>;
+}) {
+  const [submissionResult, photosResult] = await Promise.all([
+    input.supabase
+      .from("marketplace_seller_submissions")
+      .select(
+        [
+          "id",
+          "title_snapshot",
+          "condition_code",
+          "reference_card_id",
+          "reference_variant_id",
+          "variant_snapshot",
+          "reference_snapshot",
+          "grade_label",
+          "language",
+        ].join(","),
+      )
+      .eq("id", input.submissionId)
+      .maybeSingle(),
+    input.supabase
+      .from("marketplace_seller_submission_photos")
+      .select("id")
+      .eq("submission_id", input.submissionId)
+      .in("status", ["seller_attached", "admin_approved", "public_derivative_ready"])
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true }),
+  ]);
+
+  if (submissionResult.error) throw marketplaceRpcError(submissionResult.error);
+  if (photosResult.error) throw marketplaceRpcError(photosResult.error);
+  if (!submissionResult.data) {
     throw new MarketplaceServiceError(
-      "marketplace_photo_urls_invalid",
-      "Marketplace product photos are invalid.",
-      400,
+      "marketplace_seller_submission_not_found",
+      "Marketplace seller submission was not found.",
+      404,
     );
   }
-  return value.map((entry) => {
-    if (typeof entry !== "string" || entry.length > 500) {
-      throw new MarketplaceServiceError(
-        "marketplace_photo_urls_invalid",
-        "Marketplace product photos are invalid.",
-        400,
-      );
-    }
-    const url = entry.trim();
-    if (
-      url.startsWith("//") ||
-      url.includes("..") ||
-      (!url.startsWith("/test-assets/") &&
-        !url.startsWith("/api/files/") &&
-        !url.startsWith("/marketplace-assets/"))
-    ) {
-      throw new MarketplaceServiceError(
-        "marketplace_photo_urls_invalid",
-        "Marketplace product photos must use approved site paths.",
-        400,
-      );
-    }
-    return url;
-  });
+  const uploadedPhotoUrls = (photosResult.data ?? []).map((photo) =>
+    marketplaceSellerSubmissionPhotoUrl({
+      submissionId: input.submissionId,
+      photoId: String(photo.id),
+    }),
+  );
+  if (uploadedPhotoUrls.length === 0) {
+    throw new MarketplaceServiceError(
+      "marketplace_seller_photo_required",
+      "At least one seller photo is required before this listing can go live.",
+      409,
+    );
+  }
+  return {
+    submission: submissionResult.data as unknown as SellerPublishSubmission,
+    uploadedPhotoUrls,
+  };
+}
+
+async function ensureSellerListingProductProjection(input: {
+  activationPayload: Record<string, unknown>;
+  submission: SellerPublishSubmission;
+  uploadedPhotoUrls: string[];
+  supabase: ReturnType<typeof createMarketplaceSupabaseClient>;
+}) {
+  const inventoryId = optionalUuid(input.activationPayload.inventoryId);
+  const listingId = optionalUuid(input.activationPayload.listingId);
+  if (!inventoryId || !listingId) {
+    throw new MarketplaceServiceError(
+      "marketplace_listing_activation_invalid",
+      "Marketplace listing activation did not return its inventory records.",
+      500,
+    );
+  }
+
+  const productSlug = `seller-${input.submission.id.replaceAll("-", "")}`;
+  let productId =
+    optionalUuid(input.activationPayload.productId) ??
+    optionalUuid(input.submission.reference_card_id);
+  if (productId) {
+    const existingProduct = await input.supabase
+      .from("marketplace_products")
+      .select("id")
+      .eq("id", productId)
+      .maybeSingle();
+    if (existingProduct.error) throw marketplaceRpcError(existingProduct.error);
+    if (!existingProduct.data) productId = null;
+  }
+
+  if (!productId) {
+    const productResult = await input.supabase
+      .from("marketplace_products")
+      .upsert(
+        {
+          product_slug: productSlug,
+          title: input.submission.title_snapshot,
+          category:
+            snapshotText(input.submission.reference_snapshot, "categoryLabel") ??
+            snapshotText(input.submission.reference_snapshot, "category") ??
+            "Single Cards",
+          series_name: snapshotText(input.submission.variant_snapshot, "series"),
+          set_name: snapshotText(input.submission.variant_snapshot, "set"),
+          card_code: snapshotText(input.submission.variant_snapshot, "code"),
+          language: input.submission.language,
+          hero_image_url: input.uploadedPhotoUrls[0],
+          product_metadata: {
+            sourceKind: "seller_consignment",
+            sellerSubmissionId: input.submission.id,
+          },
+        },
+        { onConflict: "product_slug" },
+      )
+      .select("id")
+      .single();
+    if (productResult.error) throw marketplaceRpcError(productResult.error);
+    productId = optionalUuid(productResult.data?.id);
+  } else {
+    const productResult = await input.supabase
+      .from("marketplace_products")
+      .update({ hero_image_url: input.uploadedPhotoUrls[0] })
+      .eq("id", productId);
+    if (productResult.error) throw marketplaceRpcError(productResult.error);
+  }
+  if (!productId) {
+    throw new MarketplaceServiceError(
+      "marketplace_product_projection_failed",
+      "Marketplace product projection could not be created.",
+      500,
+    );
+  }
+
+  const variantProjection = sellerVariantProjection(input.submission);
+  let variantId =
+    optionalUuid(input.activationPayload.variantId) ??
+    optionalUuid(input.submission.reference_variant_id);
+  if (variantId) {
+    const existingVariant = await input.supabase
+      .from("marketplace_product_variants")
+      .select("id")
+      .eq("id", variantId)
+      .eq("product_id", productId)
+      .maybeSingle();
+    if (existingVariant.error) throw marketplaceRpcError(existingVariant.error);
+    if (!existingVariant.data) variantId = null;
+  }
+
+  if (!variantId) {
+    const variantResult = await input.supabase
+      .from("marketplace_product_variants")
+      .upsert(
+        {
+          product_id: productId,
+          variant_slug: productSlug,
+          variant_label: variantProjection.variantLabel.slice(0, 120),
+          condition_bucket: variantProjection.conditionBucket,
+          grade_service: variantProjection.gradeService,
+          grade_value: variantProjection.gradeValue,
+          variant_snapshot: input.submission.variant_snapshot,
+          image_urls: input.uploadedPhotoUrls,
+        },
+        { onConflict: "product_id,variant_slug" },
+      )
+      .select("id")
+      .single();
+    if (variantResult.error) throw marketplaceRpcError(variantResult.error);
+    variantId = optionalUuid(variantResult.data?.id);
+  } else {
+    const variantResult = await input.supabase
+      .from("marketplace_product_variants")
+      .update({ image_urls: input.uploadedPhotoUrls })
+      .eq("id", variantId)
+      .eq("product_id", productId);
+    if (variantResult.error) throw marketplaceRpcError(variantResult.error);
+  }
+  if (!variantId) {
+    throw new MarketplaceServiceError(
+      "marketplace_variant_projection_failed",
+      "Marketplace product variant projection could not be created.",
+      500,
+    );
+  }
+
+  const [inventoryResult, listingResult] = await Promise.all([
+    input.supabase
+      .from("marketplace_inventory_items")
+      .update({ product_id: productId, variant_id: variantId })
+      .eq("id", inventoryId)
+      .eq("source_kind", "seller_consignment"),
+    input.supabase
+      .from("marketplace_listing_snapshots")
+      .update({ product_id: productId, variant_id: variantId })
+      .eq("listing_id", listingId)
+      .eq("listing_source", "user_seller"),
+  ]);
+  if (inventoryResult.error) throw marketplaceRpcError(inventoryResult.error);
+  if (listingResult.error) throw marketplaceRpcError(listingResult.error);
+
+  return { productId, variantId };
 }
 
 export function normalizeSellerSubmissionInput(
@@ -1073,10 +1327,15 @@ export async function activateSellerConsignmentListing(input: {
   const admin = assertAdmin(input.admin);
   const expectedVersion = positiveInteger(input.body.expectedVersion, "version");
   const supabase = createMarketplaceSupabaseClient();
+  const submissionId = assertUuid(input.submissionId, "submission_id");
+  const { submission, uploadedPhotoUrls } = await resolveSellerSubmissionPhotoUrls({
+    submissionId,
+    supabase,
+  });
   const result = (await supabase.rpc(
     "marketplace_admin_activate_seller_listing",
     {
-      p_submission_id: assertUuid(input.submissionId, "submission_id"),
+      p_submission_id: submissionId,
       p_request_id: input.requestId,
       p_idempotency_key: input.idempotencyKey,
       p_request_hash: input.requestHash,
@@ -1088,7 +1347,7 @@ export async function activateSellerConsignmentListing(input: {
         "public_description",
         1000,
       ),
-      p_photo_urls: photoUrls(input.body.photoUrls),
+      p_photo_urls: uploadedPhotoUrls,
       p_admin_note: optionalTextField(input.body.adminNote, "admin_note", 1000),
     },
   )) as {
@@ -1097,7 +1356,21 @@ export async function activateSellerConsignmentListing(input: {
   };
 
   if (result.error) throw marketplaceRpcError(result.error);
-  return result.data;
+  if (!result.data || typeof result.data !== "object" || Array.isArray(result.data)) {
+    throw new MarketplaceServiceError(
+      "marketplace_listing_activation_invalid",
+      "Marketplace listing activation returned an invalid response.",
+      500,
+    );
+  }
+  const activationPayload = result.data as Record<string, unknown>;
+  const projection = await ensureSellerListingProductProjection({
+    activationPayload,
+    submission,
+    uploadedPhotoUrls,
+    supabase,
+  });
+  return { ...activationPayload, ...projection, heroImageUrl: uploadedPhotoUrls[0] };
 }
 
 export async function listSellerSales(account: SafeMarketplaceAccount | null) {

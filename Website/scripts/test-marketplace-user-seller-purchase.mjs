@@ -10,6 +10,10 @@ const migrationPath = path.join(
   repoRoot,
   "Database/marketplace-supabase/migrations/20260628120000_marketplace_user_seller_purchase.sql",
 );
+const sellerPhotoPublishingMigrationPath = path.join(
+  repoRoot,
+  "Database/marketplace-supabase/migrations/20260714100000_marketplace_publish_seller_photos.sql",
+);
 const forbiddenCoreMigrationPath = path.join(
   repoRoot,
   "Database/supabase/migrations/20260628120000_marketplace_user_seller_purchase.sql",
@@ -200,6 +204,75 @@ test("user-seller server modules expose safe checkout, activation, payout queue,
   assert.match(payouts, /marketplace_release_seller_payout/);
   assert.match(payouts, /marketplace_mark_seller_payout_paid/);
   assert.doesNotMatch(payouts, /proof_storage_path|provider_response|buyer_marketplace_account_id/);
+});
+
+test("real seller uploads publish in display order and photo one becomes the product hero", () => {
+  assert.ok(
+    existsSync(sellerPhotoPublishingMigrationPath),
+    "missing seller-photo publishing marketplace migration",
+  );
+
+  const consignment = readApp("src/lib/marketplace/seller-consignment.ts");
+  requirePattern(consignment, /resolveSellerSubmissionPhotoUrls/);
+  requirePattern(consignment, /\.order\("display_order", \{ ascending: true \}\)/);
+  requirePattern(consignment, /\.order\("created_at", \{ ascending: true \}\)/);
+  requirePattern(consignment, /marketplaceSellerSubmissionPhotoUrl/);
+  requirePattern(consignment, /p_photo_urls: uploadedPhotoUrls/);
+  requirePattern(consignment, /ensureSellerListingProductProjection/);
+  requirePattern(consignment, /\.from\("marketplace_products"\)/);
+  requirePattern(consignment, /\.from\("marketplace_product_variants"\)/);
+  requirePattern(consignment, /product_id: productId/);
+  requirePattern(consignment, /variant_id: variantId/);
+  const activationStart = consignment.indexOf(
+    "export async function activateSellerConsignmentListing",
+  );
+  const activationEnd = consignment.indexOf(
+    "export async function listSellerSales",
+    activationStart,
+  );
+  assert.notEqual(activationStart, -1, "missing activateSellerConsignmentListing");
+  assert.doesNotMatch(
+    consignment.slice(activationStart, activationEnd === -1 ? undefined : activationEnd),
+    /photoUrls\(input\.body\.photoUrls\)/,
+    "activation must publish the stored seller-photo order instead of trusting client URLs",
+  );
+
+  const canonicalPhotoRoute =
+    "src/app/api/ynot/marketplace/files/seller-submissions/[submissionId]/photos/[photoId]/route.ts";
+  const aliasPhotoRoute =
+    "src/app/api/marketplace/files/seller-submissions/[submissionId]/photos/[photoId]/route.ts";
+  assert.ok(existsSync(path.join(appRoot, canonicalPhotoRoute)), `missing ${canonicalPhotoRoute}`);
+  assert.ok(existsSync(path.join(appRoot, aliasPhotoRoute)), `missing ${aliasPhotoRoute}`);
+  const photoRoute = readApp(canonicalPhotoRoute);
+  requirePattern(photoRoute, /marketplace_seller_submissions/);
+  requirePattern(photoRoute, /\.in\("status", \["listed", "sold"\]\)/);
+  requirePattern(photoRoute, /marketplace_seller_submission_photos/);
+  requirePattern(photoRoute, /\.download\(photo\.storage_path\)/);
+  requirePattern(photoRoute, /Content-Type/);
+  requirePattern(photoRoute, /Cache-Control/);
+  requirePattern(readApp(aliasPhotoRoute), /@\/app\/api\/ynot\/marketplace\/files/);
+
+  const sql = compactSql(readFileSync(sellerPhotoPublishingMigrationPath, "utf8"));
+  requirePattern(sql, /create or replace function public\.marketplace_admin_activate_seller_listing\b/);
+  requirePattern(sql, /jsonb_array_length\(coalesce\(p_photo_urls, '\[\]'::jsonb\)\) < 1/);
+  requirePattern(sql, /insert into public\.marketplace_products/);
+  requirePattern(sql, /hero_image_url/);
+  requirePattern(sql, /p_photo_urls ->> 0/);
+  requirePattern(sql, /insert into public\.marketplace_product_variants/);
+  requirePattern(sql, /product_id/);
+  requirePattern(sql, /variant_id/);
+  requirePattern(sql, /listing_source[\s\S]*'user_seller'/);
+  requirePattern(sql, /revoke all on function public\.marketplace_admin_activate_seller_listing/);
+  requirePattern(sql, /grant execute on function public\.marketplace_admin_activate_seller_listing[\s\S]*to service_role/);
+
+  const sellForm = readApp("src/features/marketplace-ui/sell/SellForm.tsx");
+  requirePattern(sellForm, /for \(const \[index, photo\] of photos\.entries\(\)\)/);
+  requirePattern(sellForm, /index \+ 1, photo\.file/);
+  requirePattern(sellForm, /coverPhoto=\{photos\[0\]\}/);
+  const uploader = readApp("src/features/marketplace-ui/sell/PhotoUploader.tsx");
+  requirePattern(uploader, /index === 0/);
+  requirePattern(uploader, />\s*Cover\s*</);
+  requirePattern(uploader, /mp-product-media-image/);
 });
 
 test("user-seller routes keep owner-only prelaunch gate, same-origin mutations, rate limits, idempotency, and aliases", () => {

@@ -241,14 +241,16 @@ test("seller modules and routes enforce account bridge, owner gate, validation, 
   assert.match(serviceModule, /storagePath\.includes\(":\/\/"\)/);
   assert.match(serviceModule, /storagePath\.startsWith\(requiredPrefix\)/);
   assert.match(serviceModule, /SELLER_PHOTO_CONTENT_TYPES/);
-  assert.match(serviceModule, /url\.startsWith\("\/\/"\)/);
-  assert.match(serviceModule, /\/test-assets\//);
-  assert.match(serviceModule, /\/api\/files\//);
-  assert.match(serviceModule, /\/marketplace-assets\//);
+  assert.match(serviceModule, /marketplaceSellerSubmissionPhotoUrl/);
+  assert.match(
+    serviceModule,
+    /\/api\/marketplace\/files\/seller-submissions\/\$\{submissionId\}\/photos\/\$\{photoId\}/,
+  );
+  assert.match(serviceModule, /resolveSellerSubmissionPhotoUrls/);
   assert.doesNotMatch(
     serviceModule,
-    /!url\.startsWith\("https:\/\/"\) && !url\.startsWith\("\/"\)/,
-    "seller listing photo URLs must not allow arbitrary HTTPS or protocol-relative URLs",
+    /SELLER_LISTING_ACTIVATION_FIELDS\s*=\s*\[[\s\S]*?"photoUrls"[\s\S]*?\] as const/,
+    "seller listing activation must derive photo URLs from stored uploads",
   );
 
   for (const relPath of ynotRoutes) {

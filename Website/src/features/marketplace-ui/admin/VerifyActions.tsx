@@ -31,8 +31,10 @@ import { formatThb } from "../shared/money";
  * POST /api/marketplace/admin/seller-consignments/[submissionId]/activate
  * -> marketplace_admin_activate_seller_listing (.../20260628120000_
  *    marketplace_user_seller_purchase.sql:80-260). allowedFields:
- *    expectedVersion, publicDescription, photoUrls, adminNote
- *    (SELLER_LISTING_ACTIVATION_FIELDS) -- notably NO price field: the
+ *    expectedVersion, publicDescription, adminNote
+ *    (SELLER_LISTING_ACTIVATION_FIELDS). Uploaded seller photos are resolved
+ *    server-side in display order so the client cannot substitute public URLs;
+ *    notably there is also NO price field because the
  *    listing price is always submission.asking_price_satang, already set
  *    at intake time, so "activate with price confirm" means the admin
  *    confirms that already-set price in a window.confirm() rather than
