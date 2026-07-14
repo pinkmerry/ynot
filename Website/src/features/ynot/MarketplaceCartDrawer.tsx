@@ -2,8 +2,18 @@
 
 import Link from "next/link";
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useMarketplaceCart } from "./MarketplaceCartProvider";
+
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+  '[contenteditable="true"]',
+].join(",");
 
 type DrawerItem = {
   id: string;
@@ -59,6 +69,26 @@ export function MarketplaceCartDrawer() {
   const [loading, setLoading] = useState(false);
   const [busyListingId, setBusyListingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const initialFocusTarget = closeButtonRef.current ?? dialogRef.current;
+    initialFocusTarget?.focus();
+
+    return () => {
+      const previousFocus = previousFocusRef.current;
+      previousFocusRef.current = null;
+      if (previousFocus?.isConnected) {
+        previousFocus.focus();
+      }
+    };
+  }, [drawerOpen]);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -113,10 +143,66 @@ export function MarketplaceCartDrawer() {
     }
   }
 
+  function handleDialogKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeCartDrawer();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    const focusableElements = Array.from(
+      dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+    ).filter((element) => element.tabIndex >= 0);
+
+    if (focusableElements.length === 0) {
+      event.preventDefault();
+      dialog.focus();
+      return;
+    }
+
+    const firstFocusable = focusableElements[0]!;
+    const lastFocusable = focusableElements[focusableElements.length - 1]!;
+    const activeElement = document.activeElement;
+
+    if (event.shiftKey) {
+      if (
+        activeElement === firstFocusable ||
+        activeElement === dialog ||
+        !dialog.contains(activeElement)
+      ) {
+        event.preventDefault();
+        lastFocusable.focus();
+      }
+      return;
+    }
+
+    if (
+      activeElement === lastFocusable ||
+      activeElement === dialog ||
+      !dialog.contains(activeElement)
+    ) {
+      event.preventDefault();
+      firstFocusable.focus();
+    }
+  }
+
   if (!drawerOpen) return null;
 
   return (
-    <aside className="marketplace-cart-drawer" aria-label="Cart">
+    <aside
+      id="marketplace-cart-drawer"
+      className="marketplace-cart-drawer"
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Cart"
+      tabIndex={-1}
+      onKeyDown={handleDialogKeyDown}
+    >
       <div className="marketplace-cart-drawer-panel">
         <div className="marketplace-cart-drawer-head">
           <div>
@@ -127,6 +213,7 @@ export function MarketplaceCartDrawer() {
             </span>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             className="marketplace-icon-button"
             aria-label="Close cart"
@@ -197,6 +284,7 @@ export function MarketplaceCartDrawer() {
       </div>
       <button
         type="button"
+        tabIndex={-1}
         className="marketplace-cart-drawer-backdrop"
         aria-label="Close cart"
         onClick={closeCartDrawer}

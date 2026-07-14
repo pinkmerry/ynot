@@ -50,15 +50,15 @@ export default async function MarketplaceLayout({
 
   return (
     <div className={`mp-root ${jetbrainsMono.variable}`}>
-      <MarketTopbar
-        isAdmin={!!admin}
-        isAuthenticated={!!profile}
-        displayName={profile?.displayName?.trim() || "YNOTT Customer"}
-        balanceCoins={balanceCoins}
-        pendingActionCount={pendingActionCount}
-        signOutAction={signOutAction}
-      />
       <MarketplaceCartProvider initialSummary={initialSummary}>
+        <MarketTopbar
+          isAdmin={!!admin}
+          isAuthenticated={!!profile}
+          displayName={profile?.displayName?.trim() || "YNOTT Customer"}
+          balanceCoins={balanceCoins}
+          pendingActionCount={pendingActionCount}
+          signOutAction={signOutAction}
+        />
         <MarketplaceCartDrawer />
         {children}
       </MarketplaceCartProvider>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MarketplaceCartTrigger } from "@/features/marketplace-ui/shell/MarketplaceCartTrigger";
 import { MpIcon } from "../shared/MpIcon";
 import { formatNumber } from "../shared/money";
 import { MyPageTrigger } from "./MyPageTrigger";
@@ -10,11 +11,11 @@ import { MyPageTrigger } from "./MyPageTrigger";
  * admin session, the real wallet balance, and the real bag summary instead
  * of the prototype's mock `go()`/`toast()` handlers.
  *
- * Server component: only the avatar button + drawer (MyPageTrigger) cross
- * the client boundary. The prototype's notification icon-button is omitted
- * entirely — there is no notification backend behind it (see the
- * prototype's dead "Notifications" toast handler), so it would ship as a
- * non-functional control.
+ * Server component: only the interactive cart and avatar controls cross the
+ * client boundary. The prototype's notification icon-button is omitted
+ * entirely — there is no notification backend behind it (see the prototype's
+ * dead "Notifications" toast handler), so it would ship as a non-functional
+ * control.
  */
 
 export interface MarketTopbarProps {
@@ -41,7 +42,7 @@ export function MarketTopbar({
 }: MarketTopbarProps) {
   return (
     <div className="mp-topbar">
-      <div className="mp-row" style={{ gap: 26 }}>
+      <div className="mp-row mp-topbar-nav" style={{ gap: 26 }}>
         <nav className="mp-nav" aria-label="Main navigation">
           <Link href="/">Home</Link>
           <Link href="/ynot">Y-Pack</Link>
@@ -53,7 +54,7 @@ export function MarketTopbar({
       <Link href="/marketplace" className="mp-brand">
         YNOTT
       </Link>
-      <div className="mp-row" style={{ gap: 12 }}>
+      <div className="mp-row mp-topbar-actions" style={{ gap: 12 }}>
         {isAdmin ? (
           <Link href="/admin/marketplace" className="mp-admin-link">
             <MpIcon name="shield" size={11} /> Admin console
@@ -65,6 +66,7 @@ export function MarketTopbar({
             {formatNumber(balanceCoins)}
           </span>
         ) : null}
+        {isAuthenticated ? <MarketplaceCartTrigger /> : null}
         {isAuthenticated ? (
           <MyPageTrigger
             displayName={displayName}
