@@ -6,7 +6,7 @@
 ## Outcome
 
 1. A buyer can create a one-listing checkout using the same active bank-transfer receiver already used by the YNOTT wallet.
-2. The receiver shown to the buyer and the receiver supplied to Slip2Go are always the same resolved record.
+2. The receiver shown to the buyer and the receiver supplied to Slip2Go are always the immutable receiver snapshot saved with that pending order.
 3. A later cart checkout can accept two or three compatible listings under one payment obligation without replacing the existing one-listing order, fulfilment, payout, refund, or audit records.
 4. No Marketplace production migration is applied before a restore into a separate Supabase project is proven with row-count and hash evidence.
 
@@ -26,11 +26,13 @@
 2. Prefer the canonical row whose code is `bank-transfer`.
 3. If the canonical row is absent, prefer the first non-legacy bank-transfer row; otherwise use the first active bank-transfer row.
 4. Only when the core query is unavailable or returns no active bank-transfer row, use the optional environment receiver fields as a fallback.
-5. Mark the receiver configured only when account name and either account number or PromptPay ID are present.
+5. Mark the receiver configured only when account name is present, at least one real Slip2Go receiver check can be produced, and every populated destination is valid. A valid PromptPay identifier cannot mask an invalid bank destination, or vice versa.
 
 An incomplete canonical row remains fail-closed. It must not silently fall back to a different legacy receiver, because the transfer instructions and wallet would otherwise disagree.
 
-All checkout creation routes await `assertMarketplacePaymentReceiverConfigured()` before reserving stock. The payment-proof route stores the returned instructions and passes those exact receiver fields to Slip2Go. No receiver values are logged or sent anywhere except the existing buyer payment-instruction view and verification provider call.
+All checkout creation routes await `assertMarketplacePaymentReceiverConfigured()` before reserving stock. During the same order-creation RPC that reserves inventory, the resolved receiver is written as a versioned `shipping_snapshot.paymentReceiver` value. This uses the existing atomic JSON snapshot while the production migration gate blocks a dedicated payment-snapshot column. The create response reads back the persisted value; the payment UI, order-resume page, and payment-proof route then use that persisted snapshot. A later admin change therefore cannot make the buyer transfer to one receiver while Slip2Go checks another.
+
+Legacy pending orders that predate the snapshot fall back to the current resolver. New version-1 snapshots fail closed when incomplete. No receiver values are logged or sent anywhere except the existing buyer payment-instruction view and verification provider call.
 
 ## Multi-listing checkout boundary
 
@@ -96,8 +98,10 @@ Rollback is forward-only: disable group creation, release unpaid groups through 
 - Canonical core `bank-transfer` is selected even when legacy `main-transfer` sorts first.
 - A core lookup failure or no active bank-transfer row uses a complete environment fallback.
 - An incomplete selected receiver blocks checkout before stock reservation or proof upload.
-- Listing checkout and order-resume pages await the same resolver.
-- Slip2Go receives the exact resolved bank name, account name, account number, and PromptPay ID; it does not read those fields directly from `process.env`.
+- The pending-order RPC atomically persists the resolved receiver as a versioned snapshot beside the existing shipping snapshot.
+- The create response, order-resume page, and payment-proof route reuse that persisted receiver rather than re-resolving mutable admin data.
+- Slip2Go receives the exact snapshotted bank name, account name, account number, and PromptPay ID; it does not read those fields directly from `process.env`.
+- Malformed PromptPay identifiers and unrecognized bank-name/account combinations block checkout before stock reservation.
 
 ### Grouped checkout
 

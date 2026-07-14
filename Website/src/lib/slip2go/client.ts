@@ -102,6 +102,14 @@ function normalizePaymentAccount(value: string | null | undefined) {
   return (value ?? "").replace(/\D+/g, "");
 }
 
+function normalizeBankAccount(value: string | null | undefined) {
+  const digits = normalizePaymentAccount(value);
+  if (digits.length < 6 || digits.length > 20 || /^0+$/.test(digits)) {
+    return null;
+  }
+  return digits;
+}
+
 function normalizeLookup(value: string | null | undefined) {
   return (value ?? "").toLowerCase().replace(/[\s._()[\]{}\-]+/g, "");
 }
@@ -200,11 +208,13 @@ function getNumberEnv(name: string, fallback: number) {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
-function buildReceiverChecks(context: Slip2GoPaymentContext) {
+function buildReceiverChecks(
+  context: Omit<Slip2GoPaymentContext, "amountThb">,
+) {
   const receivers: Slip2GoReceiver[] = [];
   const promptPay = normalizePromptPayAccount(context.promptPayId);
   const bankAccountType = slip2GoBankAccountType(context.bankName) ?? getAccountTypeEnv("SLIP2GO_BANK_ACCOUNT_TYPE");
-  const bankAccountNumber = normalizePaymentAccount(context.bankAccountNumber);
+  const bankAccountNumber = normalizeBankAccount(context.bankAccountNumber);
 
   if (promptPay) {
     receivers.push({
@@ -229,6 +239,31 @@ function buildReceiverChecks(context: Slip2GoPaymentContext) {
   }
 
   return receivers.filter((receiver, index) => receivers.findIndex((candidate) => receiverKey(candidate) === receiverKey(receiver)) === index);
+}
+
+export function hasSlip2GoReceiverCheck(
+  context: Omit<Slip2GoPaymentContext, "amountThb">,
+) {
+  const promptPayProvided = Boolean(context.promptPayId?.trim());
+  const bankDestinationProvided = Boolean(
+    context.bankName?.trim() || context.bankAccountNumber?.trim(),
+  );
+  const promptPayValid =
+    !promptPayProvided || Boolean(normalizePromptPayAccount(context.promptPayId));
+  const bankDestinationValid =
+    !bankDestinationProvided ||
+    Boolean(
+      (slip2GoBankAccountType(context.bankName) ??
+        getAccountTypeEnv("SLIP2GO_BANK_ACCOUNT_TYPE")) &&
+        normalizeBankAccount(context.bankAccountNumber),
+    );
+
+  return Boolean(
+    (promptPayProvided || bankDestinationProvided) &&
+      promptPayValid &&
+      bankDestinationValid &&
+      buildReceiverChecks(context).length > 0,
+  );
 }
 
 function getProviderString(response: unknown, key: string) {

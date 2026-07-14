@@ -67,13 +67,32 @@ test("buyer can see bank-transfer instructions and resume slip upload from order
 
   const listingRoute = readApp("src/app/(store)/marketplace/listings/[listingId]/page.tsx");
   assert.match(listingRoute, /getMarketplacePaymentInstructions/);
+  assert.match(
+    listingRoute,
+    /const paymentInstructions = await getMarketplacePaymentInstructions\(\)/,
+  );
+  assert.match(listingRoute, /paymentInstructions=\{paymentInstructions\}/);
 
   const orderDetail = readApp("src/app/(store)/marketplace/orders/[orderId]/page.tsx");
   assert.match(orderDetail, /MarketplacePaymentProofClient/);
   assert.match(orderDetail, /getMarketplacePaymentInstructions/);
+  assert.match(orderDetail, /await getMarketplacePaymentInstructions\(\)/);
+  assert.match(orderDetail, /paymentInstructions=\{paymentInstructions\}/);
   assert.match(orderDetail, /pending_payment_order_id/);
   assert.match(orderDetail, /pendingPaymentOrderId/);
   assert.match(orderDetail, /payment_state === "pending_payment"/);
+  assert.match(orderDetail, /getBuyerPendingPaymentOrder/);
+  assert.match(
+    orderDetail,
+    /getMarketplacePaymentInstructionsFromSnapshot\(\s*pendingOrder\?\.shipping_snapshot\s*,?\s*\)/,
+  );
+
+  const ordersModule = readApp("src/lib/marketplace/orders.ts");
+  assert.match(
+    ordersModule,
+    /export async function getBuyerPendingPaymentOrder[\s\S]{0,1000}"shipping_snapshot"/,
+    "the owned pending-order query must actually select the immutable receiver snapshot",
+  );
 });
 
 test("expired pending bank-transfer orders are released by a service-role cron path", () => {

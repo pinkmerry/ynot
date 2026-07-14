@@ -42,7 +42,8 @@ import type { MarketplacePaymentInstructions } from "@/lib/marketplace/types";
  * computed or guessed client-side. Payment instructions (bank name, account
  * name/number, PromptPay id) are passed in as a prop sourced from
  * getMarketplacePaymentInstructions() (src/lib/marketplace/payment-instructions.ts),
- * which reads real env vars — never hardcoded here.
+ * then replaced by the persisted order snapshot after creation — never
+ * hardcoded here.
  */
 
 const SlipUploader = dynamic(
@@ -78,6 +79,7 @@ interface PendingOrderResponse {
   buyerServiceFeeSatang?: number;
   buyerTotalSatang?: number;
   currency?: string;
+  paymentInstructions?: MarketplacePaymentInstructions;
 }
 
 export interface CheckoutFlowProps {
@@ -148,6 +150,8 @@ export function CheckoutFlow({
   );
 
   const total = Number(order?.buyerTotalSatang ?? 0);
+  const activePaymentInstructions =
+    order?.paymentInstructions ?? paymentInstructions;
   const isUserSellerCheckout = listing.listingSource === "user_seller";
 
   async function createPendingOrder() {
@@ -363,47 +367,48 @@ export function CheckoutFlow({
               </div>
               <div className="mp-row" style={{ gap: 10, marginBottom: 14 }}>
                 <MpChip active>Bank transfer</MpChip>
-                {paymentInstructions.promptPayId ? <MpChip>PromptPay</MpChip> : null}
+                {activePaymentInstructions.promptPayId ? <MpChip>PromptPay</MpChip> : null}
               </div>
               <dl className="mp-spec" style={{ gridTemplateColumns: "1fr 1fr 1fr", marginBottom: 14 }}>
                 <div>
                   <div className="k">Bank</div>
-                  <div className="v">{paymentInstructions.bankName ?? "Contact support"}</div>
+                  <div className="v">{activePaymentInstructions.bankName ?? "Contact support"}</div>
                 </div>
                 <div>
                   <div className="k">Account name</div>
-                  <div className="v">{paymentInstructions.accountName ?? "YNOT"}</div>
+                  <div className="v">{activePaymentInstructions.accountName ?? "YNOT"}</div>
                 </div>
                 <div
-                  style={{ cursor: paymentInstructions.accountNumber ? "pointer" : undefined }}
+                  style={{ cursor: activePaymentInstructions.accountNumber ? "pointer" : undefined }}
                   onClick={() =>
-                    paymentInstructions.accountNumber && copyAccountNumber(paymentInstructions.accountNumber)
+                    activePaymentInstructions.accountNumber &&
+                    copyAccountNumber(activePaymentInstructions.accountNumber)
                   }
                 >
                   <div className="k">Account no. · tap to copy</div>
-                  <div className="v">{paymentInstructions.accountNumber ?? "Contact support"}</div>
+                  <div className="v">{activePaymentInstructions.accountNumber ?? "Contact support"}</div>
                 </div>
               </dl>
-              {paymentInstructions.promptPayId ? (
+              {activePaymentInstructions.promptPayId ? (
                 <p className="mp-small mp-mute" style={{ marginBottom: 14 }}>
-                  PromptPay ID <span className="mp-mono">{paymentInstructions.promptPayId}</span>
+                  PromptPay ID <span className="mp-mono">{activePaymentInstructions.promptPayId}</span>
                 </p>
               ) : null}
-              {!paymentInstructions.receiverConfigured ? (
+              {!activePaymentInstructions.receiverConfigured ? (
                 <div className="mp-alert mp-alert-rose" style={{ marginBottom: 14 }}>
                   <MpIcon name="x" size={15} />
                   <span>Payment receiver is not configured. Contact support before transfer.</span>
                 </div>
               ) : null}
 
-              {step === "pay" && paymentInstructions.receiverConfigured ? (
+              {step === "pay" && activePaymentInstructions.receiverConfigured ? (
                 <MpBtn variant="primary" size="lg" onClick={() => setStep("slip")}>
                   I&apos;ve transferred — upload slip
                 </MpBtn>
               ) : null}
 
               {(step === "slip" || step === "done") &&
-              paymentInstructions.receiverConfigured &&
+              activePaymentInstructions.receiverConfigured &&
               order?.pendingPaymentOrderId ? (
                 <SlipUploader
                   order={{

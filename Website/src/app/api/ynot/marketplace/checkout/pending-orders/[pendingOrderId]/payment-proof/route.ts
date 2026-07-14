@@ -4,7 +4,11 @@ import {
   getBuyerPendingPaymentOrder,
   submitMarketplacePaymentProof,
 } from "@/lib/marketplace/orders";
-import { assertMarketplacePaymentReceiverConfigured } from "@/lib/marketplace/payment-instructions";
+import {
+  assertMarketplacePaymentInstructionsConfigured,
+  assertMarketplacePaymentReceiverConfigured,
+  getMarketplacePaymentInstructionsFromSnapshot,
+} from "@/lib/marketplace/payment-instructions";
 import {
   marketplaceErrorResponse,
 } from "@/lib/marketplace/route-guards";
@@ -156,7 +160,6 @@ export async function POST(
   const { access, idempotencyKey, profile, requestId } = mutation;
 
   try {
-    assertMarketplacePaymentReceiverConfigured();
     if (requestExceedsUploadLimit(request)) {
       throw new MarketplaceServiceError(
         "marketplace_payment_proof_invalid",
@@ -180,6 +183,11 @@ export async function POST(
       account,
     });
     assertPendingOrderAcceptsProof(pendingOrder);
+    const paymentInstructions =
+      getMarketplacePaymentInstructionsFromSnapshot(
+        pendingOrder.shipping_snapshot,
+      ) ?? (await assertMarketplacePaymentReceiverConfigured());
+    assertMarketplacePaymentInstructionsConfigured(paymentInstructions);
 
     const form = await request.formData();
     const slipFile = getPaymentProofFile(form);
@@ -257,10 +265,10 @@ export async function POST(
           }),
           {
             amountThb: Number(pendingOrder.buyer_total_satang ?? 0) / 100,
-            promptPayId: process.env.SLIP2GO_PROMPTPAY_ID,
-            bankName: process.env.SLIP2GO_BANK_NAME,
-            bankAccountNumber: process.env.SLIP2GO_BANK_ACCOUNT_NUMBER,
-            bankAccountName: process.env.SLIP2GO_BANK_ACCOUNT_NAME,
+            promptPayId: paymentInstructions.promptPayId,
+            bankName: paymentInstructions.bankName,
+            bankAccountNumber: paymentInstructions.accountNumber,
+            bankAccountName: paymentInstructions.accountName,
           },
         ).catch((error: unknown) => {
           console.warn(

@@ -4,7 +4,7 @@
 
 **Goal:** Make one-listing Marketplace checkout resolve and verify against the same canonical core YNOTT bank-transfer receiver already used by wallet top-ups.
 
-**Architecture:** Keep Marketplace money/order storage unchanged. Resolve the active canonical core `payment_methods.code = 'bank-transfer'` row server-side, fall back to optional receiver environment values only when the core lookup is unavailable or empty, and pass one resolved instruction object through the UI, stock-reservation guard, and Slip2Go verification path.
+**Architecture:** Keep Marketplace money/order tables unchanged. Resolve the active canonical core `payment_methods.code = 'bank-transfer'` row server-side, fall back to optional receiver environment values only when the core lookup is unavailable or empty, validate that every populated destination creates its expected Slip2Go receiver check, and atomically persist a versioned receiver inside the existing `shipping_snapshot` JSON during pending-order creation. The create response, resume page, and proof route all reuse that immutable snapshot.
 
 **Tech Stack:** Next.js App Router route handlers and server components, TypeScript, Supabase service client, Node test runner, OpenNext/Cloudflare Workers.
 
@@ -13,6 +13,9 @@
 ## File map
 
 - `Website/src/lib/marketplace/payment-instructions.ts`: sole resolver and fail-closed receiver guard.
+- `Website/src/lib/marketplace/payment-receiver.ts`: pure receiver selection plus versioned snapshot serialization/parsing.
+- `Website/src/lib/marketplace/orders.ts`: persist the receiver in the order-creation RPC input and read it back for the create response and resume path.
+- `Website/src/lib/slip2go/client.ts`: expose the receiver-check readiness predicate used before reservation.
 - `Website/src/app/api/ynot/marketplace/checkout/official/route.ts`: await receiver before official stock reservation.
 - `Website/src/app/api/ynot/marketplace/checkout/user-seller/route.ts`: await receiver before seller-listing reservation.
 - `Website/src/app/api/ynot/marketplace/checkout/pending-orders/route.ts`: await receiver before canonical scalar checkout creation.
@@ -22,6 +25,13 @@
 - `Website/tools/verification/verify-production-env.mjs`: treat receiver environment values as an optional fallback, while continuing to require core Supabase and Slip2Go credentials.
 - `Website/scripts/test-marketplace-ui-checkout.mjs`: lock the receiver source, async guards, and proof-verification binding.
 - `Website/scripts/test-marketplace-payment-resume-expiry.mjs`: lock async server-page instruction loading.
+- `Website/scripts/test-marketplace-payment-receiver.mjs`: behavioral coverage for canonical selection, immutable snapshot round-trip, and malformed-receiver rejection.
+
+### Reviewer hardening: bind verification to order creation
+
+The initial resolver-only implementation was rejected because it re-read mutable receiver data on listing render, order resume, and proof upload. That creates a time-of-check/time-of-use mismatch if an administrator changes the bank receiver while an order is pending.
+
+The accepted implementation saves `paymentReceiver.version = 1` under the existing `shipping_snapshot` argument passed to the atomic create RPC. It returns the persisted value with the new order, displays it on the payment step, and reads it again for resume/proof. This compatibility location is temporary until the restore-drill gate permits a dedicated payment or checkout-group snapshot. Do not replace it with a fresh receiver lookup for newly created orders.
 
 ### Task 1: Lock the resolver and caller contract with failing tests
 

@@ -119,19 +119,30 @@ if (env.SLIP2GO_API_URL) {
   );
 }
 
-if (isProd) {
+const receiverFallbackPresent = [
+  "SLIP2GO_BANK_NAME",
+  "SLIP2GO_BANK_ACCOUNT_NAME",
+  "SLIP2GO_BANK_ACCOUNT_NUMBER",
+  "SLIP2GO_PROMPTPAY_ID",
+].some((name) => Boolean(env[name]?.trim()));
+
+if (isProd && receiverFallbackPresent) {
   check(
-    "marketplace payment receiver account name is configured",
+    "marketplace payment receiver fallback account name is configured",
     Boolean(env.SLIP2GO_BANK_ACCOUNT_NAME?.trim()),
-    "set SLIP2GO_BANK_ACCOUNT_NAME before enabling checkout",
+    "complete or remove the environment fallback",
   );
   check(
-    "marketplace payment receiver destination is configured",
+    "marketplace payment receiver fallback destination is configured",
     Boolean(
       env.SLIP2GO_BANK_ACCOUNT_NUMBER?.trim() ||
         env.SLIP2GO_PROMPTPAY_ID?.trim(),
     ),
-    "set SLIP2GO_BANK_ACCOUNT_NUMBER and/or SLIP2GO_PROMPTPAY_ID before enabling checkout",
+    "complete or remove the environment fallback",
+  );
+} else if (isProd) {
+  console.log(
+    "INFO marketplace payment receiver will be checked from core payment_methods at runtime",
   );
 }
 

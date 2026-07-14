@@ -5,6 +5,11 @@ import { type SafeMarketplaceAccount } from "./account-bridge";
 import type { MarketplaceCheckoutAddress } from "./checkout-address";
 import { marketplaceConfig } from "./config";
 import {
+  getMarketplacePaymentInstructionsFromSnapshot,
+  type MarketplacePaymentInstructions,
+} from "./payment-instructions";
+import { withMarketplacePaymentReceiverSnapshot } from "./payment-receiver";
+import {
   getActiveMarketplaceMoneyPolicy,
   marketplaceMoneyPreview,
 } from "./money";
@@ -42,6 +47,7 @@ type BuyerPendingPaymentOrder = {
   order_state: string;
   buyer_total_satang: number;
   currency: "THB";
+  shipping_snapshot: Record<string, unknown>;
   expires_at: string;
 };
 
@@ -200,6 +206,45 @@ function sanitizeBuyerPayload(value: unknown): unknown {
   return sanitized;
 }
 
+function objectValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+async function attachPersistedPaymentInstructions(
+  supabase: ReturnType<typeof createMarketplaceSupabaseClient>,
+  payload: unknown,
+  fallback: MarketplacePaymentInstructions,
+) {
+  const sanitized = sanitizeBuyerPayload(payload);
+  const sanitizedPayload = objectValue(sanitized);
+  const pendingPaymentOrderId = sanitizedPayload?.pendingPaymentOrderId;
+  if (!sanitizedPayload || typeof pendingPaymentOrderId !== "string") {
+    throw new MarketplaceServiceError(
+      "marketplace_pending_order_invalid",
+      "Marketplace order could not be loaded.",
+      500,
+    );
+  }
+
+  const result = await supabase
+    .from("marketplace_pending_payment_orders")
+    .select("shipping_snapshot")
+    .eq("id", assertUuid(pendingPaymentOrderId, "pending_order_id"))
+    .maybeSingle();
+  if (result.error) throw marketplaceRpcError(result.error);
+
+  const persistedPaymentInstructions =
+    getMarketplacePaymentInstructionsFromSnapshot(
+      result.data?.shipping_snapshot,
+    ) ?? fallback;
+  return {
+    ...sanitizedPayload,
+    paymentInstructions: persistedPaymentInstructions,
+  };
+}
+
 function mockUuid(seed: string, offset = 0) {
   const compactHex = seed.replace(/[^0-9a-f]/gi, "").padEnd(64, "0");
   const rotatedHex = `${compactHex.slice(offset)}${compactHex.slice(0, offset)}`;
@@ -217,6 +262,7 @@ function mockPendingPaymentOrder(input: {
   listingId: string;
   listingSource: "official_shop" | "user_seller";
   shippingSnapshot: MarketplaceCheckoutAddress;
+  paymentInstructions: MarketplacePaymentInstructions;
   requestHash: string;
 }) {
   const listingId = assertUuid(input.listingId, "listing_id");
@@ -249,6 +295,7 @@ function mockPendingPaymentOrder(input: {
     buyerTotalSatang: money.buyerTotalSatang,
     currency: money.currency,
     shippingSnapshot: input.shippingSnapshot,
+    paymentInstructions: input.paymentInstructions,
     expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
   });
 }
@@ -258,6 +305,7 @@ export async function createOfficialPendingPaymentOrder(input: {
   profile: ResolvedProfileSession;
   account: SafeMarketplaceAccount | null;
   shippingSnapshot: MarketplaceCheckoutAddress;
+  paymentInstructions: MarketplacePaymentInstructions;
   requestId: string;
   idempotencyKey: string;
   requestHash: string;
@@ -268,12 +316,17 @@ export async function createOfficialPendingPaymentOrder(input: {
       listingId: input.listingId,
       listingSource: "official_shop",
       shippingSnapshot: input.shippingSnapshot,
+      paymentInstructions: input.paymentInstructions,
       requestHash: input.requestHash,
     });
   }
 
   const moneyPolicy = await getActiveMarketplaceMoneyPolicy();
   const supabase = createMarketplaceSupabaseClient();
+  const checkoutSnapshot = withMarketplacePaymentReceiverSnapshot(
+    input.shippingSnapshot,
+    input.paymentInstructions,
+  );
   const result = (await supabase.rpc("marketplace_create_pending_payment_order", {
     p_listing_id: assertUuid(input.listingId, "listing_id"),
     p_buyer_marketplace_account_id: account.accountId,
@@ -284,14 +337,18 @@ export async function createOfficialPendingPaymentOrder(input: {
     p_quantity: 1,
     p_shipping_fee_satang: moneyPolicy.shippingFeeSatang,
     p_buyer_service_fee_bps: moneyPolicy.buyerServiceFeeBps,
-    p_shipping_snapshot: input.shippingSnapshot,
+    p_shipping_snapshot: checkoutSnapshot,
   })) as {
     data: unknown;
     error: { message?: string; code?: string } | null;
   };
 
   if (result.error) throw marketplaceRpcError(result.error);
-  return sanitizeBuyerPayload(result.data);
+  return attachPersistedPaymentInstructions(
+    supabase,
+    result.data,
+    input.paymentInstructions,
+  );
 }
 
 export async function createUserSellerPendingPaymentOrder(input: {
@@ -299,6 +356,7 @@ export async function createUserSellerPendingPaymentOrder(input: {
   profile: ResolvedProfileSession;
   account: SafeMarketplaceAccount | null;
   shippingSnapshot: MarketplaceCheckoutAddress;
+  paymentInstructions: MarketplacePaymentInstructions;
   requestId: string;
   idempotencyKey: string;
   requestHash: string;
@@ -309,12 +367,17 @@ export async function createUserSellerPendingPaymentOrder(input: {
       listingId: input.listingId,
       listingSource: "user_seller",
       shippingSnapshot: input.shippingSnapshot,
+      paymentInstructions: input.paymentInstructions,
       requestHash: input.requestHash,
     });
   }
 
   const moneyPolicy = await getActiveMarketplaceMoneyPolicy();
   const supabase = createMarketplaceSupabaseClient();
+  const checkoutSnapshot = withMarketplacePaymentReceiverSnapshot(
+    input.shippingSnapshot,
+    input.paymentInstructions,
+  );
   const result = (await supabase.rpc(
     "marketplace_create_user_seller_pending_payment_order",
     {
@@ -327,7 +390,7 @@ export async function createUserSellerPendingPaymentOrder(input: {
       p_quantity: 1,
       p_shipping_fee_satang: moneyPolicy.shippingFeeSatang,
       p_buyer_service_fee_bps: moneyPolicy.buyerServiceFeeBps,
-      p_shipping_snapshot: input.shippingSnapshot,
+      p_shipping_snapshot: checkoutSnapshot,
     },
   )) as {
     data: unknown;
@@ -335,7 +398,11 @@ export async function createUserSellerPendingPaymentOrder(input: {
   };
 
   if (result.error) throw marketplaceRpcError(result.error);
-  return sanitizeBuyerPayload(result.data);
+  return attachPersistedPaymentInstructions(
+    supabase,
+    result.data,
+    input.paymentInstructions,
+  );
 }
 
 export async function listBuyerOrders(account: SafeMarketplaceAccount | null) {
@@ -464,6 +531,7 @@ export async function getBuyerPendingPaymentOrder(input: {
         "order_state",
         "buyer_total_satang",
         "currency",
+        "shipping_snapshot",
         "expires_at",
       ].join(","),
     )

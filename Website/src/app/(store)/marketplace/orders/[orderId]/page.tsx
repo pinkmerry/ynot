@@ -14,8 +14,14 @@ import {
   getMockMarketplaceAccount,
 } from "@/lib/marketplace/account-bridge";
 import { marketplaceConfig } from "@/lib/marketplace/config";
-import { getBuyerOrder } from "@/lib/marketplace/orders";
-import { getMarketplacePaymentInstructions } from "@/lib/marketplace/payment-instructions";
+import {
+  getBuyerOrder,
+  getBuyerPendingPaymentOrder,
+} from "@/lib/marketplace/orders";
+import {
+  getMarketplacePaymentInstructions,
+  getMarketplacePaymentInstructionsFromSnapshot,
+} from "@/lib/marketplace/payment-instructions";
 import { MarketplaceServiceError } from "@/lib/marketplace/supabase-adapter";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 
@@ -77,6 +83,17 @@ export default async function MarketplaceOrderDetailPage({
     buyerTotalSatang: order.buyer_total_satang,
     currency: order.currency,
   };
+  const pendingOrder =
+    canResumePayment && !mockMode
+      ? await getBuyerPendingPaymentOrder({
+          pendingOrderId: order.pending_payment_order_id,
+          account,
+        })
+      : null;
+  const paymentInstructions =
+    getMarketplacePaymentInstructionsFromSnapshot(
+      pendingOrder?.shipping_snapshot,
+    ) ?? (await getMarketplacePaymentInstructions());
 
   return (
     <div className="mp-order-detail-page">
@@ -88,7 +105,7 @@ export default async function MarketplaceOrderDetailPage({
           <h1 className="mp-h1">Finish your payment</h1>
           <MarketplacePaymentProofClient
             order={paymentProofOrder}
-            paymentInstructions={getMarketplacePaymentInstructions()}
+            paymentInstructions={paymentInstructions}
             mockMode={mockMode}
           />
         </section>

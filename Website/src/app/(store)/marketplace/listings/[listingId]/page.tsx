@@ -118,6 +118,7 @@ export default async function MarketplaceListingPage({
   if (config.mockData && checkoutAddresses.length === 0) {
     checkoutAddresses.push(MOCK_MARKETPLACE_ADDRESS);
   }
+  const paymentInstructions = await getMarketplacePaymentInstructions();
 
   return (
     <>
@@ -133,7 +134,7 @@ export default async function MarketplaceListingPage({
         canUseAccountActions={Boolean(profile || config.mockData)}
         canCheckout={Boolean(profile || config.mockData)}
         checkoutEnabled={config.actions.checkout}
-        paymentInstructions={getMarketplacePaymentInstructions()}
+        paymentInstructions={paymentInstructions}
       />
     </>
   );

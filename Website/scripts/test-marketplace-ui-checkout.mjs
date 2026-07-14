@@ -81,16 +81,28 @@ test("CheckoutFlow.tsx does not render a bag/ship delivery chooser (ship-only de
   assert.doesNotMatch(source, /useState\(["']bag["']\)/, "must not default delivery state to bag");
 });
 
-test("CheckoutFlow.tsx never hardcodes a bank account number — payment instructions come from props", () => {
+test("CheckoutFlow.tsx never hardcodes a bank account number — payment instructions come from the resolved order snapshot", () => {
   const source = readApp(CHECKOUT_FLOW_PATH);
   assert.match(
     source,
     /paymentInstructions:\s*MarketplacePaymentInstructions/,
     "must type paymentInstructions as the real MarketplacePaymentInstructions shape",
   );
-  assert.match(source, /paymentInstructions\.accountNumber/, "account number must be read from the paymentInstructions prop");
-  assert.match(source, /paymentInstructions\.bankName/, "bank name must be read from the paymentInstructions prop");
-  assert.match(source, /paymentInstructions\.promptPayId/, "PromptPay id must be read from the paymentInstructions prop");
+  assert.match(
+    source,
+    /activePaymentInstructions\.accountNumber/,
+    "account number must be read from the active persisted instructions",
+  );
+  assert.match(
+    source,
+    /activePaymentInstructions\.bankName/,
+    "bank name must be read from the active persisted instructions",
+  );
+  assert.match(
+    source,
+    /activePaymentInstructions\.promptPayId/,
+    "PromptPay id must be read from the active persisted instructions",
+  );
   // The prototype's literal hardcoded digits must never appear in the real component.
   assert.doesNotMatch(source, /123-4-56789-0/, "must not hardcode the prototype's sample bank account number");
   assert.doesNotMatch(source, /0-1055-61000-88-9/, "must not hardcode the prototype's sample PromptPay id");
@@ -321,12 +333,69 @@ test("checkout cannot reserve stock until the payment receiver is configured", (
     ["user-seller checkout", userSellerRoute, "const order = await createUserSellerPendingPaymentOrder"],
     ["generic pending-order checkout", pendingOrdersRoute, "const listingId = String"],
   ]) {
-    assert.match(source, /assertMarketplacePaymentReceiverConfigured\(\)/, `${label} needs a server guard`);
+    assert.match(source, /await assertMarketplacePaymentReceiverConfigured\(\)/, `${label} needs an awaited server guard`);
     assert.ok(
-      source.indexOf("assertMarketplacePaymentReceiverConfigured()") < source.indexOf(createCall),
+      source.indexOf("await assertMarketplacePaymentReceiverConfigured()") < source.indexOf(createCall),
       `${label} must guard before creating the pending order`,
     );
   }
+});
+
+test("marketplace checkout resolves the canonical core receiver and reuses it for Slip2Go", () => {
+  const paymentInstructions = readApp("src/lib/marketplace/payment-instructions.ts");
+  const paymentProofRoute = readApp(
+    "src/app/api/ynot/marketplace/checkout/pending-orders/[pendingOrderId]/payment-proof/route.ts",
+  );
+
+  assert.match(paymentInstructions, /createServiceSupabaseClient/);
+  assert.match(paymentInstructions, /\.from\("payment_methods"\)/);
+  assert.match(paymentInstructions, /\.eq\("is_active", true\)/);
+  assert.match(paymentInstructions, /\.eq\("type", "bank_transfer"\)/);
+  assert.match(paymentInstructions, /selectMarketplaceReceiverRow/);
+  assert.match(
+    paymentInstructions,
+    /export async function getMarketplacePaymentInstructions/,
+  );
+  assert.match(
+    paymentInstructions,
+    /export async function assertMarketplacePaymentReceiverConfigured/,
+  );
+  assert.match(paymentInstructions, /hasSlip2GoReceiverCheck/);
+  assert.match(
+    paymentInstructions,
+    /getMarketplacePaymentInstructionsFromSnapshot/,
+  );
+  assert.match(
+    paymentInstructions,
+    /receiver\s*\?\s*paymentInstructions\([\s\S]*?:\s*paymentInstructions\(/,
+    "environment values must remain a fallback when no core receiver is available",
+  );
+
+  assert.match(
+    paymentProofRoute,
+    /getMarketplacePaymentInstructionsFromSnapshot\(\s*pendingOrder\.shipping_snapshot\s*,?\s*\)/,
+  );
+  assert.match(
+    paymentProofRoute,
+    /assertMarketplacePaymentInstructionsConfigured\(paymentInstructions\)/,
+  );
+  for (const property of [
+    "promptPayId",
+    "bankName",
+    "accountNumber",
+    "accountName",
+  ]) {
+    assert.match(
+      paymentProofRoute,
+      new RegExp(`paymentInstructions\\.${property}`),
+      `Slip2Go must use the resolved ${property}`,
+    );
+  }
+  assert.doesNotMatch(
+    paymentProofRoute,
+    /process\.env\.SLIP2GO_(?:PROMPTPAY_ID|BANK_NAME|BANK_ACCOUNT_NUMBER|BANK_ACCOUNT_NAME)/,
+    "payment proof verification must not resolve a different receiver from process.env",
+  );
 });
 
 test("payment proof stays blocked without receiver configuration while cancellation remains available", () => {
@@ -338,11 +407,21 @@ test("payment proof stays blocked without receiver configuration while cancellat
   assert.match(client, /paymentInstructions\.receiverConfigured/);
   assert.match(client, /Payment receiver is not configured\. Contact support before transfer\./);
   assert.match(client, /Cancel order/);
-  assert.match(route, /assertMarketplacePaymentReceiverConfigured\(\)/);
+  assert.match(route, /assertMarketplacePaymentInstructionsConfigured\(paymentInstructions\)/);
   assert.ok(
-    route.indexOf("assertMarketplacePaymentReceiverConfigured()") < route.indexOf("request.formData()"),
+    route.indexOf("assertMarketplacePaymentInstructionsConfigured(paymentInstructions)") < route.indexOf("request.formData()"),
     "receiver guard must run before accepting or storing a payment proof",
   );
+});
+
+test("created checkout returns its persisted receiver snapshot to the payment step", () => {
+  const flow = readApp("src/features/marketplace-ui/checkout/CheckoutFlow.tsx");
+  const orders = readApp("src/lib/marketplace/orders.ts");
+
+  assert.match(orders, /withMarketplacePaymentReceiverSnapshot/);
+  assert.match(orders, /p_shipping_snapshot:\s*checkoutSnapshot/);
+  assert.match(orders, /paymentInstructions:\s*persistedPaymentInstructions/);
+  assert.match(flow, /order\?\.paymentInstructions\s*\?\?\s*paymentInstructions/);
 });
 
 test("MarketplaceListingDetailPage.tsx renders CheckoutFlow instead of the old MarketplaceCheckoutClient", () => {

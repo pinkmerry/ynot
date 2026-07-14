@@ -24,7 +24,8 @@ export async function POST(request: Request) {
   const { access, body, idempotencyKey, profile, requestId } = mutation;
 
   try {
-    assertMarketplacePaymentReceiverConfigured();
+    const paymentInstructions =
+      await assertMarketplacePaymentReceiverConfigured();
     const shippingSnapshot = await assertMarketplaceCheckoutAddress({
       profileId: profile.profileId,
       shippingAddressId: body.shippingAddressId,
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
       profile,
       account,
       shippingSnapshot,
+      paymentInstructions,
       requestId,
       idempotencyKey,
       requestHash: await mutation.requestHash("pending_order.create.user_seller"),

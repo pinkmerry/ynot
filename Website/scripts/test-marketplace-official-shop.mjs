@@ -297,7 +297,8 @@ test("official shop modules validate allowed item types, official stock only, an
   assert.match(orders, /getActiveMarketplaceMoneyPolicy/);
   assert.match(orders, /p_shipping_fee_satang: moneyPolicy\.shippingFeeSatang/);
   assert.match(orders, /p_buyer_service_fee_bps: moneyPolicy\.buyerServiceFeeBps/);
-  assert.match(orders, /p_shipping_snapshot: input\.shippingSnapshot/);
+  assert.match(orders, /withMarketplacePaymentReceiverSnapshot\(/);
+  assert.match(orders, /p_shipping_snapshot: checkoutSnapshot/);
   assert.match(orders, /sellerFeeBps/);
   assert.match(orders, /sanitizeBuyerPayload\(result\.data\)/);
   assert.match(orders, /buyer_total_satang/);
