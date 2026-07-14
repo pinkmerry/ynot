@@ -147,6 +147,16 @@ test("OrdersScreen.tsx delegates per-row interactivity to the OrderActions clien
   assert.match(source, /<OrderActions/);
 });
 
+test("grouped orders prefill manual review with the aggregate checkout amount", () => {
+  const screen = readApp(ORDERS_SCREEN_PATH);
+  const adminOrders = readApp("src/lib/marketplace/admin-orders.ts");
+  assert.match(adminOrders, /payment_review_amount_satang/);
+  assert.match(
+    screen,
+    /order\.payment_review_amount_satang\s*\?\?\s*order\.buyer_total_satang/,
+  );
+});
+
 // ---------------------------------------------------------------------------
 // OrderActions + SlipModal
 // ---------------------------------------------------------------------------

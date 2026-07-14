@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { isCompleteShippingAddress } from "@/features/ynot/address-utils";
 import {
   MarketplaceCartSummaryCopy,
   MarketplaceCartWatchlistClient,
 } from "@/features/ynot/MarketplaceCartWatchlistClient";
+import { getProfileAddresses } from "@/features/ynot/server-addresses";
+import type { YnotAddress } from "@/features/ynot/types";
 import {
   resolveAdminSession,
   resolveCurrentProfile,
@@ -14,9 +17,36 @@ import {
 } from "@/lib/marketplace/account-bridge";
 import { getMarketplaceCustomerCartState } from "@/lib/marketplace/cart-watchlist";
 import { marketplaceConfig } from "@/lib/marketplace/config";
+import { MOCK_MARKETPLACE_ADDRESS } from "@/lib/marketplace/mock-data";
+import { getMarketplacePaymentInstructions } from "@/lib/marketplace/payment-instructions";
 import { isDevAuthAllowed } from "@/lib/security/dev-auth";
 
 export const dynamic = "force-dynamic";
+
+function addressSummary(address: YnotAddress) {
+  return [
+    address.addressLine1,
+    address.addressLine2,
+    address.subdistrict,
+    address.district,
+    address.province,
+    address.postalCode,
+    address.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
+function checkoutAddress(address: YnotAddress) {
+  return {
+    id: address.id,
+    label: address.label ?? null,
+    recipientName: address.recipientName ?? "",
+    phone: address.phone ?? "",
+    summary: addressSummary(address),
+    deliveryNote: address.deliveryNote ?? null,
+  };
+}
 
 export default async function MarketplaceCartPage() {
   const profile = await resolveCurrentProfile();
@@ -46,6 +76,16 @@ export default async function MarketplaceCartPage() {
     profile?.profileId ?? null,
   );
   const cart = cartState.items;
+  const addresses = profile
+    ? await getProfileAddresses(profile.profileId)
+    : [];
+  const checkoutAddresses = addresses
+    .filter(isCompleteShippingAddress)
+    .map(checkoutAddress);
+  if (mockMode && checkoutAddresses.length === 0) {
+    checkoutAddresses.push(MOCK_MARKETPLACE_ADDRESS);
+  }
+  const paymentInstructions = await getMarketplacePaymentInstructions();
 
   return (
     <div className="store-home-grid marketplace-page">
@@ -70,6 +110,9 @@ export default async function MarketplaceCartPage() {
           mode="cart"
           initialItems={cart}
           initialSummary={cartState.summary}
+          checkoutAddresses={checkoutAddresses}
+          checkoutEnabled={config.actions.checkout}
+          paymentInstructions={paymentInstructions}
         />
       </div>
     </div>

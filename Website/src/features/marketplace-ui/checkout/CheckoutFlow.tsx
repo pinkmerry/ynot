@@ -70,11 +70,13 @@ export interface CheckoutFlowAddress {
 }
 
 interface PendingOrderResponse {
+  checkoutGroupId?: string;
   pendingPaymentOrderId?: string;
   orderId?: string;
   paymentState?: string;
   fulfilmentState?: string;
   itemPriceSatang?: number;
+  itemSubtotalSatang?: number;
   shippingFeeSatang?: number;
   buyerServiceFeeSatang?: number;
   buyerTotalSatang?: number;
@@ -82,12 +84,21 @@ interface PendingOrderResponse {
   paymentInstructions?: MarketplacePaymentInstructions;
 }
 
-export interface CheckoutFlowProps {
-  listing: CheckoutFlowListing;
+type CheckoutFlowItemProps =
+  | {
+      listing: CheckoutFlowListing;
+      listings?: never;
+    }
+  | {
+      listing?: never;
+      listings: CheckoutFlowListing[];
+    };
+
+export type CheckoutFlowProps = CheckoutFlowItemProps & {
   checkoutEndpoint: string;
   shippingAddresses: CheckoutFlowAddress[];
   paymentInstructions: MarketplacePaymentInstructions;
-}
+};
 
 type FlowStep = "review" | "pay" | "slip" | "done";
 
@@ -128,12 +139,11 @@ function stepList(step: FlowStep): MpStep[] {
   ];
 }
 
-export function CheckoutFlow({
-  listing,
-  checkoutEndpoint,
-  shippingAddresses,
-  paymentInstructions,
-}: CheckoutFlowProps) {
+export function CheckoutFlow(props: CheckoutFlowProps) {
+  const { checkoutEndpoint, shippingAddresses, paymentInstructions } = props;
+  const checkoutListings = props.listings ?? [props.listing];
+  const listing = checkoutListings[0];
+  const isGroupCheckout = checkoutListings.length > 1;
   const router = useRouter();
   const { toasts, toast } = useToasts();
   const [step, setStep] = useState<FlowStep>("review");
@@ -152,7 +162,9 @@ export function CheckoutFlow({
   const total = Number(order?.buyerTotalSatang ?? 0);
   const activePaymentInstructions =
     order?.paymentInstructions ?? paymentInstructions;
-  const isUserSellerCheckout = listing.listingSource === "user_seller";
+  const isUserSellerCheckout = checkoutListings.some(
+    (item) => item.listingSource === "user_seller",
+  );
 
   async function createPendingOrder() {
     if (!selectedAddress || !addressConfirmed) return;
@@ -171,11 +183,17 @@ export function CheckoutFlow({
         headers: {
           "content-type": "application/json",
           "idempotency-key": nextIdempotencyKey(
-            isUserSellerCheckout ? "checkout:user-seller" : "checkout:official",
+            isGroupCheckout
+              ? "checkout:group"
+              : isUserSellerCheckout
+                ? "checkout:user-seller"
+                : "checkout:official",
           ),
         },
         body: JSON.stringify({
-          listingId: listing.listingId,
+          ...(isGroupCheckout
+            ? { listingIds: checkoutListings.map((item) => item.listingId) }
+            : { listingId: listing.listingId }),
           shippingAddressId: selectedAddress.id,
           addressConfirmed,
         }),
@@ -250,52 +268,58 @@ export function CheckoutFlow({
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 22, alignItems: "start" }}>
         <div className="mp-stack" style={{ gap: 16 }}>
-          {/* item snapshot */}
-          <MpPanel>
-            <div className="mp-row" style={{ gap: 16 }}>
-              <div
-                className={listing.photoUrl ? "mp-product-media" : undefined}
-                style={{
-                  width: 92,
-                  borderRadius: 10,
-                  border: "1px solid var(--mp-line)",
-                  aspectRatio: "3/4",
-                  flexShrink: 0,
-                  backgroundImage: listing.photoUrl ? `url(${listing.photoUrl})` : undefined,
-                  background: listing.photoUrl
-                    ? undefined
-                    : "repeating-linear-gradient(-45deg, #f1eee3 0 8px, #eceadf 8px 16px)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                {!listing.photoUrl ? (
-                  <span className="mp-mono" style={{ fontSize: 8.5, color: "var(--mp-mute-2)" }}>
-                    [ card ]
-                  </span>
-                ) : null}
-              </div>
-              <div className="mp-stack" style={{ gap: 5, flex: 1 }}>
-                <div className="mp-row" style={{ gap: 8 }}>
-                  <MpBadge kind={listing.isOfficial ? "official" : "community"}>
-                    {listing.isOfficial ? (
-                      <>
-                        <MpIcon name="shield" size={10} /> Official
-                      </>
-                    ) : (
-                      "Community"
-                    )}
-                  </MpBadge>
-                  <MpBadge kind="graded">{listing.gradeLabel}</MpBadge>
+          {/* immutable item snapshots */}
+          {checkoutListings.map((checkoutListing) => (
+            <MpPanel key={checkoutListing.listingId}>
+              <div className="mp-row" style={{ gap: 16 }}>
+                <div
+                  className={checkoutListing.photoUrl ? "mp-product-media" : undefined}
+                  style={{
+                    width: 92,
+                    borderRadius: 10,
+                    border: "1px solid var(--mp-line)",
+                    aspectRatio: "3/4",
+                    flexShrink: 0,
+                    backgroundImage: checkoutListing.photoUrl
+                      ? `url(${checkoutListing.photoUrl})`
+                      : undefined,
+                    background: checkoutListing.photoUrl
+                      ? undefined
+                      : "repeating-linear-gradient(-45deg, #f1eee3 0 8px, #eceadf 8px 16px)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {!checkoutListing.photoUrl ? (
+                    <span className="mp-mono" style={{ fontSize: 8.5, color: "var(--mp-mute-2)" }}>
+                      [ card ]
+                    </span>
+                  ) : null}
                 </div>
-                <span style={{ fontSize: 15, fontWeight: 700 }}>{listing.title}</span>
+                <div className="mp-stack" style={{ gap: 5, flex: 1 }}>
+                  <div className="mp-row" style={{ gap: 8 }}>
+                    <MpBadge kind={checkoutListing.isOfficial ? "official" : "community"}>
+                      {checkoutListing.isOfficial ? (
+                        <>
+                          <MpIcon name="shield" size={10} /> Official
+                        </>
+                      ) : (
+                        "Community"
+                      )}
+                    </MpBadge>
+                    <MpBadge kind="graded">{checkoutListing.gradeLabel}</MpBadge>
+                  </div>
+                  <span style={{ fontSize: 15, fontWeight: 700 }}>
+                    {checkoutListing.title}
+                  </span>
+                </div>
+                <span style={{ textAlign: "right", fontFamily: "var(--mp-mono)", fontWeight: 700 }}>
+                  {formatThb(checkoutListing.itemPriceSatang)}
+                </span>
               </div>
-              <span style={{ textAlign: "right", fontFamily: "var(--mp-mono)", fontWeight: 700 }}>
-                {formatThb(listing.itemPriceSatang)}
-              </span>
-            </div>
-          </MpPanel>
+            </MpPanel>
+          ))}
 
           {/* delivery — ship-only, single block, no alternate delivery chooser */}
           <div className="mp-stack" style={{ gap: 10 }}>
@@ -447,9 +471,16 @@ export function CheckoutFlow({
             Summary
           </span>
           <div className="mp-line-row">
-            <span className="l">Card price</span>
+            <span className="l">{isGroupCheckout ? "Item subtotal" : "Card price"}</span>
             <span className="v">
-              {formatThb(order?.itemPriceSatang ?? listing.itemPriceSatang)}
+              {formatThb(
+                order?.itemSubtotalSatang ??
+                  order?.itemPriceSatang ??
+                  checkoutListings.reduce(
+                    (subtotal, item) => subtotal + item.itemPriceSatang,
+                    0,
+                  ),
+              )}
             </span>
           </div>
           <div className="mp-line-row">
@@ -501,7 +532,7 @@ export function CheckoutFlow({
             </>
           ) : null}
 
-          {step === "pay" ? (
+          {(step === "pay" || step === "slip") ? (
             <MpBtn
               size="lg"
               style={{ marginTop: 12 }}
@@ -513,9 +544,15 @@ export function CheckoutFlow({
           ) : null}
 
           {step === "review" ? (
-            <Link href={`/marketplace/listings/${listing.listingId}`} className="mp-btn mp-btn-lg" prefetch={false}>
-              Back
-            </Link>
+            isGroupCheckout ? (
+              <Link href="/marketplace" className="mp-btn mp-btn-lg" prefetch={false}>
+                Add more items
+              </Link>
+            ) : (
+              <Link href={`/marketplace/listings/${listing.listingId}`} className="mp-btn mp-btn-lg" prefetch={false}>
+                Back
+              </Link>
+            )
           ) : null}
         </MpPanel>
       </div>

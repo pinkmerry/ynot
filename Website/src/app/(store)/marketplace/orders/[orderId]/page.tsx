@@ -72,17 +72,6 @@ export default async function MarketplaceOrderDetailPage({
   const canResumePayment =
     order.payment_state === "pending_payment" ||
     order.payment_state === "payment_submitted";
-  const paymentProofOrder: MarketplacePaymentProofOrder = {
-    pendingPaymentOrderId: order.pending_payment_order_id,
-    orderId: order.id,
-    paymentState: order.payment_state,
-    fulfilmentState: order.fulfilment_state,
-    itemPriceSatang: order.item_price_satang,
-    shippingFeeSatang: order.shipping_fee_satang,
-    buyerServiceFeeSatang: order.buyer_service_fee_satang,
-    buyerTotalSatang: order.buyer_total_satang,
-    currency: order.currency,
-  };
   const pendingOrder =
     canResumePayment && !mockMode
       ? await getBuyerPendingPaymentOrder({
@@ -90,6 +79,25 @@ export default async function MarketplaceOrderDetailPage({
           account,
         })
       : null;
+  const paymentProofOrder: MarketplacePaymentProofOrder = {
+    pendingPaymentOrderId: order.pending_payment_order_id,
+    orderId: order.id,
+    paymentState: order.payment_state,
+    fulfilmentState: order.fulfilment_state,
+    itemPriceSatang: pendingOrder?.checkout_group_id
+      ? pendingOrder.item_subtotal_satang
+      : order.item_price_satang,
+    shippingFeeSatang: pendingOrder?.checkout_group_id
+      ? pendingOrder.shipping_fee_satang
+      : order.shipping_fee_satang,
+    buyerServiceFeeSatang: pendingOrder?.checkout_group_id
+      ? pendingOrder.buyer_service_fee_satang
+      : order.buyer_service_fee_satang,
+    buyerTotalSatang: pendingOrder?.checkout_group_id
+      ? pendingOrder.buyer_total_satang
+      : order.buyer_total_satang,
+    currency: order.currency,
+  };
   const paymentInstructions =
     getMarketplacePaymentInstructionsFromSnapshot(
       pendingOrder?.shipping_snapshot,

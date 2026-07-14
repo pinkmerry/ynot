@@ -199,7 +199,9 @@ export function OrdersScreen({ orders, activeState }: OrdersScreenProps) {
                           order_id: order.order_id,
                           order_code: order.order_code,
                           payment_state: order.payment_state,
-                          buyer_total_satang: order.buyer_total_satang,
+                          buyer_total_satang:
+                            order.payment_review_amount_satang ??
+                            order.buyer_total_satang,
                         }}
                       />
                     </td>

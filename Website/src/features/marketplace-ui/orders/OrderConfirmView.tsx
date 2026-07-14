@@ -23,12 +23,13 @@ export type ConfirmOrder = OrderStepFields & {
 
 export function OrderConfirmView({ order }: { order: ConfirmOrder }) {
   const step = orderStepState(order);
+  const heading = step.ended ? step.endedLabel ?? "Order ended" : "Order placed";
   return (
     <MpPanel className="mp-order-confirm">
       <div className="mp-order-confirm-check" aria-hidden>
         <MpIcon name="check" size={28} />
       </div>
-      <h1 className="mp-h1">Order placed</h1>
+      <h1 className="mp-h1">{heading}</h1>
       <p className="mp-mute">
         {order.title ? `${order.title} · ` : ""}Order {order.id.slice(0, 8)}
       </p>

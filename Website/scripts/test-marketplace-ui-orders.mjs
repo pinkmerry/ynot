@@ -62,6 +62,16 @@ test("orders pages no longer render the legacy YnotShell", () => {
   assert.match(detailPage, /MarketplacePaymentProofClient/);
 });
 
+test("ended orders show their real outcome instead of the success heading", () => {
+  const src = readSrc(`${FEATURE}/OrderConfirmView.tsx`);
+  assert.match(
+    src,
+    /const heading = step\.ended\s*\?\s*step\.endedLabel\s*\?\?\s*"Order ended"\s*:\s*"Order placed"/,
+    "cancelled, failed, and refunded orders need an outcome-aware heading",
+  );
+  assert.match(src, /<h1 className="mp-h1">\{heading\}<\/h1>/);
+});
+
 test("orders list page loads all three datasets in one Promise.all", () => {
   const listPage = readSrc("src/app/(store)/marketplace/orders/page.tsx");
   assert.match(listPage, /Promise\.all/);

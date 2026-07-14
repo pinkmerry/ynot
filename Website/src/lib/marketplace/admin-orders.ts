@@ -20,6 +20,8 @@ export type MarketplaceAdminOrderRow = {
   buyer_account_id: string;
   seller_account_id: string | null;
   buyer_total_satang: number;
+  checkout_group_id?: string | null;
+  payment_review_amount_satang?: number;
   payment_state: string;
   fulfilment_state: string;
   created_at: string;

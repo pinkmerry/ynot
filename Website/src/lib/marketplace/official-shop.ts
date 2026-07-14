@@ -246,6 +246,33 @@ function assertUuid(value: string, label: string) {
   return value.toLowerCase();
 }
 
+async function checkoutGroupForOrder(
+  supabase: ReturnType<typeof createMarketplaceSupabaseClient>,
+  orderId: string,
+) {
+  const result = await supabase
+    .from("marketplace_checkout_items")
+    .select("checkout_group_id")
+    .eq("order_id", assertUuid(orderId, "order_id"))
+    .maybeSingle();
+  if (result.error) {
+    const material = `${result.error.code ?? ""} ${result.error.message ?? ""}`.toLowerCase();
+    if (
+      material.includes("42p01") ||
+      material.includes("pgrst205") ||
+      (material.includes("marketplace_checkout_items") &&
+        material.includes("not find"))
+    ) {
+      return null;
+    }
+    throw marketplaceRpcError(result.error);
+  }
+  const row = result.data as { checkout_group_id?: unknown } | null;
+  return typeof row?.checkout_group_id === "string"
+    ? row.checkout_group_id
+    : null;
+}
+
 function normalizeItemType(value: unknown) {
   if (typeof value !== "string" || !OFFICIAL_ITEM_TYPES.has(value)) {
     throw new MarketplaceServiceError(
@@ -758,6 +785,34 @@ export async function recordOfficialPaymentResult(input: {
   const admin = assertAdmin(input.admin);
   const evidence = paymentProviderEvidence(input.body);
   const supabase = createMarketplaceSupabaseClient();
+  const checkoutGroupId = await checkoutGroupForOrder(supabase, input.orderId);
+  if (checkoutGroupId) {
+    const result = (await supabase.rpc(
+      "marketplace_record_checkout_payment_result",
+      {
+        p_checkout_group_id: checkoutGroupId,
+        p_request_id: input.requestId,
+        p_idempotency_key: input.idempotencyKey,
+        p_request_hash: input.requestHash,
+        p_admin_profile_id: admin.profileId,
+        p_admin_role: admin.adminRole,
+        p_payment_state: evidence.paymentState,
+        p_provider_reference: evidence.providerReference,
+        p_provider_amount_satang: evidence.providerAmountSatang,
+        p_provider_currency: evidence.providerCurrency,
+        p_admin_note: optionalTextField(
+          input.body.adminNote,
+          "admin_note",
+          1000,
+        ),
+      },
+    )) as {
+      data: unknown;
+      error: { message?: string; code?: string } | null;
+    };
+    if (result.error) throw marketplaceRpcError(result.error);
+    return result.data;
+  }
   const result = (await supabase.rpc("marketplace_record_official_payment_result", {
     p_order_id: assertUuid(input.orderId, "order_id"),
     p_request_id: input.requestId,

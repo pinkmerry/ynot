@@ -20973,6 +20973,31 @@ html[data-ynot-theme="light"] .marketplace-page {
 .marketplace-cart-total small {
   grid-column: 1 / -1;
 }
+.marketplace-cart-checkout-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(15, 122, 85, 0.24);
+  border-radius: 8px;
+  background: rgba(15, 122, 85, 0.055);
+}
+.marketplace-cart-checkout-toolbar > div {
+  display: grid;
+  gap: 4px;
+}
+.marketplace-cart-checkout-toolbar p,
+.marketplace-cart-checkout-toolbar span {
+  margin: 0;
+  color: rgba(26, 26, 26, 0.64);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.marketplace-cart-checkout-toolbar span {
+  color: #0f7a55;
+  font-weight: 750;
+}
 .marketplace-cart-watchlist-grid {
   display: grid;
   gap: 12px;
@@ -21010,6 +21035,21 @@ html[data-ynot-theme="light"] .marketplace-page {
   display: grid;
   gap: 9px;
   min-width: 0;
+}
+.marketplace-cart-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  color: #0f7a55;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.marketplace-cart-select input {
+  width: 18px;
+  height: 18px;
+  accent-color: #0f7a55;
 }
 .marketplace-cart-watchlist-body h2 {
   margin: 0;
@@ -21696,6 +21736,13 @@ html[data-ynot-theme="light"] .marketplace-page {
   }
   .marketplace-cart-watchlist-card {
     grid-template-columns: 1fr;
+  }
+  .marketplace-cart-checkout-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .marketplace-cart-checkout-toolbar .btn {
+    width: 100%;
   }
   .marketplace-cart-watchlist-image {
     min-height: 220px;

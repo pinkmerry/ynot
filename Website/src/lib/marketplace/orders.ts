@@ -42,9 +42,30 @@ const PAYMENT_VERIFICATION_STATUSES = new Set([
 
 type BuyerPendingPaymentOrder = {
   id: string;
+  checkout_group_id?: string | null;
   listing_id: string;
   listing_source: "official_shop" | "user_seller";
   order_state: string;
+  item_price_satang: number;
+  item_subtotal_satang: number;
+  shipping_fee_satang: number;
+  buyer_service_fee_satang: number;
+  buyer_total_satang: number;
+  currency: "THB";
+  shipping_snapshot: Record<string, unknown>;
+  expires_at: string;
+};
+
+type CheckoutGroupMembership = {
+  checkout_group_id: string;
+};
+
+type CheckoutGroupPaymentRow = {
+  id: string;
+  payment_state: string;
+  item_subtotal_satang: number;
+  shipping_fee_satang: number;
+  buyer_service_fee_satang: number;
   buyer_total_satang: number;
   currency: "THB";
   shipping_snapshot: Record<string, unknown>;
@@ -158,6 +179,21 @@ function assertCheckoutAccount(account: SafeMarketplaceAccount | null) {
   return account;
 }
 
+function assertGroupListingIds(listingIds: string[]) {
+  const normalized = listingIds.map((listingId) =>
+    assertUuid(listingId, "listing_id"),
+  );
+  const distinct = [...new Set(normalized)];
+  if (distinct.length < 2 || distinct.length > 3) {
+    throw new MarketplaceServiceError(
+      "marketplace_checkout_group_size_invalid",
+      "Select 2 or 3 distinct marketplace listings.",
+      422,
+    );
+  }
+  return distinct;
+}
+
 function assertAccount(account: SafeMarketplaceAccount | null) {
   if (!account) {
     throw new MarketplaceServiceError(
@@ -239,10 +275,67 @@ async function attachPersistedPaymentInstructions(
     getMarketplacePaymentInstructionsFromSnapshot(
       result.data?.shipping_snapshot,
     ) ?? fallback;
+  const totals = objectValue(sanitizedPayload.totals);
   return {
     ...sanitizedPayload,
+    ...(typeof sanitizedPayload.checkoutGroupId === "string" && totals
+      ? {
+          itemSubtotalSatang: Number(totals.itemSubtotalSatang ?? 0),
+          itemPriceSatang: Number(totals.itemSubtotalSatang ?? 0),
+          shippingFeeSatang: Number(totals.shippingFeeSatang ?? 0),
+          buyerServiceFeeSatang: Number(
+            totals.buyerServiceFeeSatang ?? 0,
+          ),
+          buyerTotalSatang: Number(totals.buyerTotalSatang ?? 0),
+        }
+      : {}),
     paymentInstructions: persistedPaymentInstructions,
   };
+}
+
+function checkoutGroupSchemaUnavailable(error: {
+  code?: string;
+  message?: string;
+}) {
+  const material = `${error.code ?? ""} ${error.message ?? ""}`.toLowerCase();
+  return (
+    material.includes("42p01") ||
+    material.includes("pgrst205") ||
+    (material.includes("marketplace_checkout_items") &&
+      material.includes("not find"))
+  );
+}
+
+function checkoutGroupRpcUnavailable(error: {
+  code?: string;
+  message?: string;
+}) {
+  const material = `${error.code ?? ""} ${error.message ?? ""}`.toLowerCase();
+  return (
+    material.includes("42883") ||
+    material.includes("pgrst202") ||
+    (material.includes("marketplace_expire_checkout_groups") &&
+      material.includes("not find"))
+  );
+}
+
+async function checkoutGroupForPendingOrder(
+  supabase: ReturnType<typeof createMarketplaceSupabaseClient>,
+  pendingOrderId: string,
+) {
+  const result = await supabase
+    .from("marketplace_checkout_items")
+    .select("checkout_group_id")
+    .eq(
+      "pending_payment_order_id",
+      assertUuid(pendingOrderId, "pending_order_id"),
+    )
+    .maybeSingle();
+  if (result.error) {
+    if (checkoutGroupSchemaUnavailable(result.error)) return null;
+    throw marketplaceRpcError(result.error);
+  }
+  return (result.data as CheckoutGroupMembership | null)?.checkout_group_id ?? null;
 }
 
 function mockUuid(seed: string, offset = 0) {
@@ -294,6 +387,88 @@ function mockPendingPaymentOrder(input: {
     buyerServiceFeeSatang: money.buyerServiceFeeSatang,
     buyerTotalSatang: money.buyerTotalSatang,
     currency: money.currency,
+    shippingSnapshot: input.shippingSnapshot,
+    paymentInstructions: input.paymentInstructions,
+    expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+  });
+}
+
+function mockMultiListingCheckout(input: {
+  listingIds: string[];
+  shippingSnapshot: MarketplaceCheckoutAddress;
+  paymentInstructions: MarketplacePaymentInstructions;
+  requestHash: string;
+  shippingFeeSatang: number;
+  buyerServiceFeeBps: number;
+}) {
+  const listings = input.listingIds.map((listingId) => {
+    const listing = getMockMarketplaceListing(listingId);
+    if (
+      !listing ||
+      listing.listing_source !== "official_shop" ||
+      listing.listing_state !== "active" ||
+      listing.quantity_available_snapshot < 1
+    ) {
+      throw new MarketplaceServiceError(
+        "marketplace_listing_unavailable",
+        "Marketplace listing is not available.",
+        409,
+      );
+    }
+    return listing;
+  });
+  const items = listings.map((listing, index) => {
+    const buyerServiceFeeSatang = Math.floor(
+      (listing.item_price_satang * input.buyerServiceFeeBps) / 10_000,
+    );
+    const shippingFeeSatang = index === 0 ? input.shippingFeeSatang : 0;
+    const pendingPaymentOrderId = mockUuid(`${input.requestHash}${index}`, 8);
+    const orderId = mockUuid(`${input.requestHash}${index}`, 24);
+    return {
+      position: index + 1,
+      listingId: listing.listing_id,
+      pendingPaymentOrderId,
+      orderId,
+      itemPriceSatang: listing.item_price_satang,
+      shippingFeeSatang,
+      buyerServiceFeeSatang,
+      buyerTotalSatang:
+        listing.item_price_satang +
+        shippingFeeSatang +
+        buyerServiceFeeSatang,
+    };
+  });
+  const itemSubtotalSatang = items.reduce(
+    (sum, item) => sum + item.itemPriceSatang,
+    0,
+  );
+  const buyerServiceFeeSatang = items.reduce(
+    (sum, item) => sum + item.buyerServiceFeeSatang,
+    0,
+  );
+  const buyerTotalSatang = items.reduce(
+    (sum, item) => sum + item.buyerTotalSatang,
+    0,
+  );
+  const firstItem = items[0];
+
+  return sanitizeBuyerPayload({
+    checkoutGroupId: mockUuid(input.requestHash),
+    pendingPaymentOrderId: firstItem.pendingPaymentOrderId,
+    orderId: firstItem.orderId,
+    items,
+    totals: {
+      itemSubtotalSatang,
+      shippingFeeSatang: input.shippingFeeSatang,
+      buyerServiceFeeSatang,
+      buyerTotalSatang,
+    },
+    itemSubtotalSatang,
+    itemPriceSatang: itemSubtotalSatang,
+    shippingFeeSatang: input.shippingFeeSatang,
+    buyerServiceFeeSatang,
+    buyerTotalSatang,
+    currency: "THB",
     shippingSnapshot: input.shippingSnapshot,
     paymentInstructions: input.paymentInstructions,
     expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
@@ -393,6 +568,57 @@ export async function createUserSellerPendingPaymentOrder(input: {
       p_shipping_snapshot: checkoutSnapshot,
     },
   )) as {
+    data: unknown;
+    error: { message?: string; code?: string } | null;
+  };
+
+  if (result.error) throw marketplaceRpcError(result.error);
+  return attachPersistedPaymentInstructions(
+    supabase,
+    result.data,
+    input.paymentInstructions,
+  );
+}
+
+export async function createMultiListingCheckout(input: {
+  listingIds: string[];
+  profile: ResolvedProfileSession;
+  account: SafeMarketplaceAccount | null;
+  shippingSnapshot: MarketplaceCheckoutAddress;
+  paymentInstructions: MarketplacePaymentInstructions;
+  requestId: string;
+  idempotencyKey: string;
+  requestHash: string;
+}) {
+  const account = assertCheckoutAccount(input.account);
+  const listingIds = assertGroupListingIds(input.listingIds);
+  const moneyPolicy = await getActiveMarketplaceMoneyPolicy();
+  if (marketplaceConfig().mockData) {
+    return mockMultiListingCheckout({
+      listingIds,
+      shippingSnapshot: input.shippingSnapshot,
+      paymentInstructions: input.paymentInstructions,
+      requestHash: input.requestHash,
+      shippingFeeSatang: moneyPolicy.shippingFeeSatang,
+      buyerServiceFeeBps: moneyPolicy.buyerServiceFeeBps,
+    });
+  }
+  const supabase = createMarketplaceSupabaseClient();
+  const checkoutSnapshot = withMarketplacePaymentReceiverSnapshot(
+    input.shippingSnapshot,
+    input.paymentInstructions,
+  );
+  const result = (await supabase.rpc("marketplace_create_multi_listing_checkout", {
+    p_listing_ids: listingIds,
+    p_buyer_marketplace_account_id: account.accountId,
+    p_buyer_ynot_profile_id: input.profile.profileId,
+    p_request_id: input.requestId,
+    p_idempotency_key: input.idempotencyKey,
+    p_request_hash: input.requestHash,
+    p_shipping_fee_satang: moneyPolicy.shippingFeeSatang,
+    p_buyer_service_fee_bps: moneyPolicy.buyerServiceFeeBps,
+    p_shipping_snapshot: checkoutSnapshot,
+  })) as {
     data: unknown;
     error: { message?: string; code?: string } | null;
   };
@@ -529,6 +755,9 @@ export async function getBuyerPendingPaymentOrder(input: {
         "listing_id",
         "listing_source",
         "order_state",
+        "item_price_satang",
+        "shipping_fee_satang",
+        "buyer_service_fee_satang",
         "buyer_total_satang",
         "currency",
         "shipping_snapshot",
@@ -547,7 +776,64 @@ export async function getBuyerPendingPaymentOrder(input: {
       404,
     );
   }
-  return result.data as unknown as BuyerPendingPaymentOrder;
+  const pendingOrderRow = result.data as unknown as Omit<
+    BuyerPendingPaymentOrder,
+    "item_subtotal_satang"
+  >;
+  const pendingOrder: BuyerPendingPaymentOrder = {
+    ...pendingOrderRow,
+    item_subtotal_satang: Number(pendingOrderRow.item_price_satang),
+  };
+  const checkoutGroupId = await checkoutGroupForPendingOrder(
+    supabase,
+    pendingOrder.id,
+  );
+  if (!checkoutGroupId) return pendingOrder;
+
+  const groupResult = await supabase
+    .from("marketplace_checkout_groups")
+    .select(
+      [
+        "id",
+        "payment_state",
+        "item_subtotal_satang",
+        "shipping_fee_satang",
+        "buyer_service_fee_satang",
+        "buyer_total_satang",
+        "currency",
+        "shipping_snapshot",
+        "expires_at",
+      ].join(","),
+    )
+    .eq("id", checkoutGroupId)
+    .eq("buyer_marketplace_account_id", account.accountId)
+    .maybeSingle();
+  if (groupResult.error) throw marketplaceRpcError(groupResult.error);
+  const group = groupResult.data as CheckoutGroupPaymentRow | null;
+  if (!group) {
+    throw new MarketplaceServiceError(
+      "marketplace_checkout_group_not_found",
+      "Marketplace checkout group was not found.",
+      404,
+    );
+  }
+  return {
+    ...pendingOrder,
+    checkout_group_id: group.id,
+    item_subtotal_satang: Number(group.item_subtotal_satang),
+    shipping_fee_satang: Number(group.shipping_fee_satang),
+    buyer_service_fee_satang: Number(group.buyer_service_fee_satang),
+    buyer_total_satang: Number(group.buyer_total_satang),
+    currency: group.currency,
+    shipping_snapshot: group.shipping_snapshot,
+    expires_at: group.expires_at,
+    order_state:
+      group.payment_state === "pending_payment"
+        ? "pending_payment"
+        : group.payment_state === "payment_submitted"
+          ? "payment_submitted"
+          : pendingOrder.order_state,
+  };
 }
 
 type ReleasePendingPaymentOrderInput = {
@@ -601,6 +887,40 @@ export async function submitMarketplacePaymentProof(input: {
 }) {
   const account = assertAccount(input.account);
   const supabase = createMarketplaceSupabaseClient();
+  const checkoutGroupId = await checkoutGroupForPendingOrder(
+    supabase,
+    input.pendingOrderId,
+  );
+  if (checkoutGroupId) {
+    const result = (await supabase.rpc(
+      "marketplace_submit_checkout_payment_proof",
+      {
+        p_checkout_group_id: checkoutGroupId,
+        p_buyer_marketplace_account_id: account.accountId,
+        p_buyer_ynot_profile_id: input.profile.profileId,
+        p_request_id: input.requestId,
+        p_idempotency_key: input.idempotencyKey,
+        p_request_hash: input.requestHash,
+        p_file_sha256: input.fileSha256,
+        p_file_size_bytes: input.fileSizeBytes,
+        p_content_type: input.contentType,
+        p_proof_storage_path: input.proofStoragePath,
+        p_verification_status: paymentVerificationStatus(
+          input.verificationStatus,
+        ),
+        p_provider_code: input.providerCode,
+        p_provider_message: input.providerMessage,
+        p_provider_response: input.providerResponse,
+        p_reference_id: input.referenceId,
+        p_decoded_qr_hash: input.decodedQrHash,
+      },
+    )) as {
+      data: unknown;
+      error: { message?: string; code?: string } | null;
+    };
+    if (result.error) throw marketplaceRpcError(result.error);
+    return sanitizeBuyerPayload(result.data);
+  }
   const result = (await supabase.rpc(
     "marketplace_submit_marketplace_payment_proof",
     {
@@ -696,6 +1016,24 @@ export async function releaseMarketplacePendingPaymentOrder(
   });
   const releaseInput = { ...input, account };
 
+  if (pendingOrder.checkout_group_id) {
+    const supabase = createMarketplaceSupabaseClient();
+    const result = (await supabase.rpc("marketplace_release_checkout_group", {
+      p_checkout_group_id: pendingOrder.checkout_group_id,
+      p_actor_marketplace_account_id: account.accountId,
+      p_actor_ynot_profile_id: input.profile.profileId,
+      p_request_id: input.requestId,
+      p_idempotency_key: input.idempotencyKey,
+      p_request_hash: input.requestHash,
+      p_release_reason: input.releaseReason,
+    })) as {
+      data: unknown;
+      error: { message?: string; code?: string } | null;
+    };
+    if (result.error) throw marketplaceRpcError(result.error);
+    return sanitizeBuyerPayload(result.data);
+  }
+
   if (pendingOrder.listing_source === "user_seller") {
     return releaseUserSellerPendingPaymentOrder(releaseInput);
   }
@@ -713,10 +1051,28 @@ export async function getMarketplaceOrderProofPath(
   orderId: string,
 ): Promise<{ bucket: string; path: string } | null> {
   const supabase = createMarketplaceSupabaseClient();
-  const result = await supabase
+  const normalizedOrderId = assertUuid(orderId, "order_id");
+  const membershipResult = await supabase
+    .from("marketplace_checkout_items")
+    .select("checkout_group_id")
+    .eq("order_id", normalizedOrderId)
+    .maybeSingle();
+  if (
+    membershipResult.error &&
+    !checkoutGroupSchemaUnavailable(membershipResult.error)
+  ) {
+    throw marketplaceRpcError(membershipResult.error);
+  }
+  const checkoutGroupId = (
+    membershipResult.data as CheckoutGroupMembership | null
+  )?.checkout_group_id;
+  let proofQuery = supabase
     .from("marketplace_payment_proofs")
-    .select("proof_storage_path")
-    .eq("order_id", assertUuid(orderId, "order_id"))
+    .select("proof_storage_path");
+  proofQuery = checkoutGroupId
+    ? proofQuery.eq("checkout_group_id", checkoutGroupId)
+    : proofQuery.eq("order_id", normalizedOrderId);
+  const result = await proofQuery
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -766,6 +1122,30 @@ export async function expireMarketplacePendingPaymentOrders(input?: {
 
   const limit = Math.max(1, Math.min(Math.floor(input?.limit ?? 100), 200));
   const supabase = createMarketplaceSupabaseClient();
+  const checkoutGroupResult = (await supabase.rpc(
+    "marketplace_expire_checkout_groups",
+    {
+      p_request_id: input?.requestId ?? null,
+      p_limit: limit,
+    },
+  )) as {
+    data: unknown;
+    error: { message?: string; code?: string } | null;
+  };
+  let checkoutGroups: unknown;
+  if (checkoutGroupResult.error) {
+    if (!checkoutGroupRpcUnavailable(checkoutGroupResult.error)) {
+      throw marketplaceRpcError(checkoutGroupResult.error);
+    }
+    checkoutGroups = {
+      ok: true,
+      expiredCount: 0,
+      expiredCheckoutGroupIds: [],
+      schemaAvailable: false,
+    };
+  } else {
+    checkoutGroups = sanitizeBuyerPayload(checkoutGroupResult.data);
+  }
   const result = (await supabase.rpc("marketplace_expire_pending_payment_orders", {
     p_request_id: input?.requestId ?? null,
     p_limit: limit,
@@ -775,5 +1155,9 @@ export async function expireMarketplacePendingPaymentOrders(input?: {
   };
 
   if (result.error) throw marketplaceRpcError(result.error);
-  return sanitizeBuyerPayload(result.data);
+  const legacy = sanitizeBuyerPayload(result.data);
+  return {
+    ...(objectValue(legacy) ?? {}),
+    checkoutGroups,
+  };
 }

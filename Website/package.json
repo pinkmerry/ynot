@@ -104,6 +104,8 @@
     "test:marketplace-payment-resume-expiry": "node --test scripts/test-marketplace-payment-resume-expiry.mjs",
     "test:marketplace-snkrdunk-parity": "node scripts/test-marketplace-snkrdunk-parity.mjs",
     "test:marketplace-customer-cart": "node --test scripts/test-marketplace-customer-cart-rpc.mjs",
+    "test:marketplace-cart-checkout": "node --test scripts/test-marketplace-cart-checkout.mjs",
+    "test:marketplace-multi-listing-checkout": "node --test scripts/test-marketplace-multi-listing-checkout.mjs",
     "test:marketplace-money-policy-trust-controls": "node --test scripts/test-marketplace-money-policy-trust-controls.mjs",
     "test:marketplace-listing-reports": "node --test scripts/test-marketplace-listing-reports.mjs",
     "test:marketplace-product-alerts": "node --test scripts/test-marketplace-product-alerts.mjs",

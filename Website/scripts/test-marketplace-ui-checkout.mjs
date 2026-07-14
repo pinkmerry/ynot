@@ -139,6 +139,15 @@ test("CheckoutFlow.tsx cancels via the release route on Cancel order, and links 
   );
 });
 
+test("CheckoutFlow.tsx keeps Cancel order available after the slip uploader opens", () => {
+  const source = readApp(CHECKOUT_FLOW_PATH);
+  assert.match(
+    source,
+    /\{\(step === "pay"\s*\|\|\s*step === "slip"\)\s*\?\s*\([\s\S]{0,500}Cancel order/,
+    "buyers must be able to cancel from both the transfer and slip-upload steps",
+  );
+});
+
 test("CheckoutFlow.tsx renders MpSteps with the 3 real-contract step labels", () => {
   const source = readApp(CHECKOUT_FLOW_PATH);
   assert.match(source, /MpSteps/, "must render the shared MpSteps primitive");
