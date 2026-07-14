@@ -272,6 +272,22 @@ function normalizeSnapshotPayload(value: unknown) {
   } satisfies NonNullable<MarketplaceListingSnapshot["snapshot_payload"]>;
 }
 
+function listingStateField(
+  value: unknown,
+): MarketplaceListingSnapshot["listing_state"] {
+  switch (value) {
+    case "draft":
+    case "active":
+    case "hidden":
+    case "pending_payment":
+    case "sold":
+    case "archived":
+      return value;
+    default:
+      return "hidden";
+  }
+}
+
 function normalizeListing(value: unknown): MarketplaceListingSnapshot | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const input = value as Record<string, unknown>;
@@ -285,7 +301,7 @@ function normalizeListing(value: unknown): MarketplaceListingSnapshot | null {
     seller_public_profile_id: stringOrNull(input.sellerPublicProfileId),
     listing_source:
       input.listingSource === "user_seller" ? "user_seller" : "official_shop",
-    listing_state: "active",
+    listing_state: listingStateField(input.listingState),
     public_slug: stringOrNull(input.publicSlug),
     title:
       typeof input.title === "string" && input.title.length > 0

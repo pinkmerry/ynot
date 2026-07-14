@@ -152,6 +152,13 @@ export function CheckoutFlow({
 
   async function createPendingOrder() {
     if (!selectedAddress || !addressConfirmed) return;
+    if (!paymentInstructions.receiverConfigured) {
+      const message =
+        "Payment receiver is not configured. Contact support before checkout.";
+      setErrorMessage(message);
+      toast(message, "error");
+      return;
+    }
     setBusy("create");
     setErrorMessage(null);
     try {
@@ -389,13 +396,15 @@ export function CheckoutFlow({
                 </div>
               ) : null}
 
-              {step === "pay" ? (
+              {step === "pay" && paymentInstructions.receiverConfigured ? (
                 <MpBtn variant="primary" size="lg" onClick={() => setStep("slip")}>
                   I&apos;ve transferred — upload slip
                 </MpBtn>
               ) : null}
 
-              {(step === "slip" || step === "done") && order?.pendingPaymentOrderId ? (
+              {(step === "slip" || step === "done") &&
+              paymentInstructions.receiverConfigured &&
+              order?.pendingPaymentOrderId ? (
                 <SlipUploader
                   order={{
                     pendingPaymentOrderId: order.pendingPaymentOrderId,
@@ -461,15 +470,30 @@ export function CheckoutFlow({
           </div>
 
           {step === "review" ? (
-            <MpBtn
-              variant="primary"
-              size="lg"
-              style={{ marginTop: 12 }}
-              disabled={busy === "create" || !selectedAddress || !addressConfirmed}
-              onClick={createPendingOrder}
-            >
-              {busy === "create" ? "Creating order..." : "Continue to payment"}
-            </MpBtn>
+            <>
+              {!paymentInstructions.receiverConfigured ? (
+                <div className="mp-alert mp-alert-rose" style={{ marginTop: 12 }}>
+                  <MpIcon name="x" size={15} />
+                  <span>
+                    Payment receiver is not configured. Contact support before checkout.
+                  </span>
+                </div>
+              ) : null}
+              <MpBtn
+                variant="primary"
+                size="lg"
+                style={{ marginTop: 12 }}
+                disabled={
+                  busy === "create" ||
+                  !selectedAddress ||
+                  !addressConfirmed ||
+                  !paymentInstructions.receiverConfigured
+                }
+                onClick={createPendingOrder}
+              >
+                {busy === "create" ? "Creating order..." : "Continue to payment"}
+              </MpBtn>
+            </>
           ) : null}
 
           {step === "pay" ? (

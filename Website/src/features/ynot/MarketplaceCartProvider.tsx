@@ -18,10 +18,22 @@ export type MarketplaceCartSummaryView = {
   updatedAt: string | null;
 };
 
+export type MarketplaceListingActionState = {
+  busy: "cart" | "watch" | null;
+  status: string | null;
+  cartSaved: boolean;
+  watchSaved: boolean;
+};
+
 type MarketplaceCartContextValue = {
   summary: MarketplaceCartSummaryView;
   drawerOpen: boolean;
+  listingActionStates: Record<string, MarketplaceListingActionState>;
   setSummary: (summary: MarketplaceCartSummaryView) => void;
+  updateListingActionState: (
+    listingId: string,
+    patch: Partial<MarketplaceListingActionState>,
+  ) => void;
   refreshCartSummary: () => Promise<void>;
   openCartDrawer: () => void;
   closeCartDrawer: () => void;
@@ -34,6 +46,13 @@ const EMPTY_SUMMARY: MarketplaceCartSummaryView = {
   unavailableCount: 0,
   currency: "THB",
   updatedAt: null,
+};
+
+const EMPTY_LISTING_ACTION_STATE: MarketplaceListingActionState = {
+  busy: null,
+  status: null,
+  cartSaved: false,
+  watchSaved: false,
 };
 
 const MarketplaceCartContext =
@@ -68,10 +87,27 @@ export function MarketplaceCartProvider({
     normalizeSummary(initialSummary ?? EMPTY_SUMMARY),
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [listingActionStates, setListingActionStates] = useState<
+    Record<string, MarketplaceListingActionState>
+  >({});
 
   const setSummary = useCallback((next: MarketplaceCartSummaryView) => {
     setSummaryState(normalizeSummary(next));
   }, []);
+
+  const updateListingActionState = useCallback(
+    (listingId: string, patch: Partial<MarketplaceListingActionState>) => {
+      setListingActionStates((current) => ({
+        ...current,
+        [listingId]: {
+          ...EMPTY_LISTING_ACTION_STATE,
+          ...current[listingId],
+          ...patch,
+        },
+      }));
+    },
+    [],
+  );
 
   const refreshCartSummary = useCallback(async () => {
     const response = await fetch("/api/marketplace/cart/summary", {
@@ -91,12 +127,21 @@ export function MarketplaceCartProvider({
     () => ({
       summary,
       drawerOpen,
+      listingActionStates,
       setSummary,
+      updateListingActionState,
       refreshCartSummary,
       openCartDrawer: () => setDrawerOpen(true),
       closeCartDrawer: () => setDrawerOpen(false),
     }),
-    [drawerOpen, refreshCartSummary, setSummary, summary],
+    [
+      drawerOpen,
+      listingActionStates,
+      refreshCartSummary,
+      setSummary,
+      summary,
+      updateListingActionState,
+    ],
   );
 
   return (

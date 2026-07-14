@@ -4,6 +4,7 @@ import {
 import { assertMarketplaceCheckoutAddress } from "@/lib/marketplace/checkout-address";
 import { prepareMarketplaceMutation } from "@/lib/marketplace/mutation-guard";
 import { createOfficialPendingPaymentOrder } from "@/lib/marketplace/orders";
+import { assertMarketplacePaymentReceiverConfigured } from "@/lib/marketplace/payment-instructions";
 import { marketplaceErrorResponse } from "@/lib/marketplace/route-guards";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
   const { access, body, idempotencyKey, profile, requestId } = mutation;
 
   try {
+    assertMarketplacePaymentReceiverConfigured();
     const shippingSnapshot = await assertMarketplaceCheckoutAddress({
       profileId: profile.profileId,
       shippingAddressId: body.shippingAddressId,

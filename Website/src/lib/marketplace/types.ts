@@ -1,3 +1,11 @@
+export type MarketplaceListingState =
+  | "draft"
+  | "active"
+  | "hidden"
+  | "pending_payment"
+  | "sold"
+  | "archived";
+
 export type MarketplaceListingSnapshot = {
   listing_id: string;
   inventory_item_id: string;
@@ -5,7 +13,7 @@ export type MarketplaceListingSnapshot = {
   variant_id: string | null;
   seller_public_profile_id: string | null;
   listing_source: "official_shop" | "user_seller";
-  listing_state: "active";
+  listing_state: MarketplaceListingState;
   public_slug: string | null;
   title: string;
   item_price_satang: number;
@@ -121,7 +129,7 @@ export type MarketplacePublicListingPayload = {
   variantId: string | null;
   sellerPublicProfileId: string | null;
   listingSource: "official_shop" | "user_seller";
-  listingState: string;
+  listingState: MarketplaceListingState;
   publicSlug: string | null;
   title: string;
   itemPriceSatang: number;

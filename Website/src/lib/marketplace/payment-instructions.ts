@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { MarketplacePaymentInstructions } from "./types";
+import { MarketplaceServiceError } from "./supabase-adapter";
 export type { MarketplacePaymentInstructions } from "./types";
 
 function envText(name: string) {
@@ -25,4 +26,16 @@ export function getMarketplacePaymentInstructions(): MarketplacePaymentInstructi
     receiverConfigured: Boolean(accountName && (accountNumber || promptPayId)),
     acceptedImageTypes: ["JPG", "PNG", "WEBP"],
   };
+}
+
+export function assertMarketplacePaymentReceiverConfigured() {
+  const instructions = getMarketplacePaymentInstructions();
+  if (!instructions.receiverConfigured) {
+    throw new MarketplaceServiceError(
+      "marketplace_payment_receiver_unconfigured",
+      "Checkout is temporarily unavailable because the payment receiver is not configured.",
+      503,
+    );
+  }
+  return instructions;
 }

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { MarketplaceCartWatchlistClient } from "@/features/ynot/MarketplaceCartWatchlistClient";
-import { YnotShell } from "@/features/ynot/components";
-import { getYnotDashboardSlice } from "@/features/ynot/data";
+import {
+  MarketplaceCartSummaryCopy,
+  MarketplaceCartWatchlistClient,
+} from "@/features/ynot/MarketplaceCartWatchlistClient";
 import {
   resolveAdminSession,
   resolveCurrentProfile,
@@ -37,12 +38,9 @@ export default async function MarketplaceWatchlistPage() {
     redirect("/marketplace");
   }
 
-  const [data, account] = await Promise.all([
-    getYnotDashboardSlice({ wallet: Boolean(profile?.profileId) }),
-    profile
-      ? getMarketplaceAccountForProfile(profile, admin)
-      : Promise.resolve(getMockMarketplaceAccount(admin)),
-  ]);
+  const account = profile
+    ? await getMarketplaceAccountForProfile(profile, admin)
+    : getMockMarketplaceAccount(admin);
   const watchlistState = await getMarketplaceWatchlistState(
     account,
     profile?.profileId ?? null,
@@ -50,31 +48,30 @@ export default async function MarketplaceWatchlistPage() {
   const watchlist = watchlistState.items;
 
   return (
-    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
-      <div className="store-home-grid marketplace-page">
-        <div className="store-main-stack">
-          <div className="catalog-toolbar marketplace-toolbar">
-            <div>
-              <span className="marketplace-card-eyebrow">YNOT marketplace</span>
-              <h1>Watchlist</h1>
-              <p>{watchlist.length} watched listing{watchlist.length === 1 ? "" : "s"}</p>
-            </div>
-            <div className="marketplace-page-actions">
-              <Link href="/marketplace/cart" className="btn" prefetch={false}>
-                Cart
-              </Link>
-              <Link href="/marketplace" className="btn btn-ghost" prefetch={false}>
-                Marketplace
-              </Link>
-            </div>
+    <div className="store-home-grid marketplace-page">
+      <div className="store-main-stack">
+        <div className="catalog-toolbar marketplace-toolbar">
+          <div>
+            <span className="marketplace-card-eyebrow">YNOT marketplace</span>
+            <h1>Watchlist</h1>
+            <MarketplaceCartSummaryCopy mode="watchlist" />
           </div>
-
-          <MarketplaceCartWatchlistClient
-            mode="watchlist"
-            initialItems={watchlist}
-          />
+          <div className="marketplace-page-actions">
+            <Link href="/marketplace/cart" className="btn" prefetch={false}>
+              Cart
+            </Link>
+            <Link href="/marketplace" className="btn btn-ghost" prefetch={false}>
+              Marketplace
+            </Link>
+          </div>
         </div>
+
+        <MarketplaceCartWatchlistClient
+          mode="watchlist"
+          initialItems={watchlist}
+          initialSummary={watchlistState.summary}
+        />
       </div>
-    </YnotShell>
+    </div>
   );
 }

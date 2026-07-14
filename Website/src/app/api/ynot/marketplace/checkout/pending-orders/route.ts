@@ -11,6 +11,7 @@ import {
   createUserSellerPendingPaymentOrder,
   listBuyerPendingPaymentOrders,
 } from "@/lib/marketplace/orders";
+import { assertMarketplacePaymentReceiverConfigured } from "@/lib/marketplace/payment-instructions";
 import {
   customerMarketplaceAccess,
   marketplaceErrorResponse,
@@ -74,6 +75,7 @@ export async function POST(request: Request) {
   const { access, body, idempotencyKey, profile, requestId } = mutation;
 
   try {
+    assertMarketplacePaymentReceiverConfigured();
     const listingId = String(body.listingId ?? "");
     const shippingSnapshot = await assertMarketplaceCheckoutAddress({
       profileId: profile.profileId,

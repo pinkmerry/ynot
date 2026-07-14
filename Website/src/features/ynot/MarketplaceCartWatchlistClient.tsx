@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   MarketplaceCartItem,
   MarketplaceWatchlistItem,
@@ -11,7 +11,7 @@ import {
   useMarketplaceCart,
 } from "./MarketplaceCartProvider";
 
-type MarketplaceCartWatchlistClientProps =
+type MarketplaceCartWatchlistClientProps = (
   | {
       mode: "cart";
       initialItems: MarketplaceCartItem[];
@@ -19,7 +19,10 @@ type MarketplaceCartWatchlistClientProps =
   | {
       mode: "watchlist";
       initialItems: MarketplaceWatchlistItem[];
-    };
+    }
+) & {
+  initialSummary: MarketplaceCartSummaryView;
+};
 
 type DisplayItem = MarketplaceCartItem | MarketplaceWatchlistItem;
 type ListingDetails = {
@@ -84,22 +87,16 @@ async function parseJson(response: Response) {
 export function MarketplaceCartWatchlistClient({
   mode,
   initialItems,
+  initialSummary,
 }: MarketplaceCartWatchlistClientProps) {
-  const { setSummary } = useMarketplaceCart();
+  const { summary, setSummary, updateListingActionState } = useMarketplaceCart();
   const [items, setItems] = useState<DisplayItem[]>(initialItems);
   const [busyListingId, setBusyListingId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
-  const total = useMemo(() => {
-    if (mode !== "cart") return 0;
-    return items.reduce(
-      (sum, item) =>
-        sum +
-        item.listing.item_price_satang *
-          ("quantity" in item ? Math.max(1, item.quantity) : 1),
-      0,
-    );
-  }, [items, mode]);
+  useEffect(() => {
+    setSummary(initialSummary);
+  }, [initialSummary, setSummary]);
 
   async function removeItem(listingId: string) {
     setBusyListingId(listingId);
@@ -121,6 +118,10 @@ export function MarketplaceCartWatchlistClient({
       setItems((current) =>
         current.filter((item) => item.listingId !== listingId),
       );
+      updateListingActionState(listingId, {
+        ...(mode === "cart" ? { cartSaved: false } : { watchSaved: false }),
+        status: null,
+      });
       setStatus(
         mode === "cart"
           ? "Removed from cart."
@@ -159,7 +160,7 @@ export function MarketplaceCartWatchlistClient({
       {mode === "cart" ? (
         <div className="marketplace-cart-total" aria-label="Cart total">
           <span>Item subtotal</span>
-          <strong>{thb(total)}</strong>
+          <strong>{thb(summary.subtotalSatang)}</strong>
           <small>Shipping and service fee appear on checkout.</small>
         </div>
       ) : null}
@@ -168,6 +169,9 @@ export function MarketplaceCartWatchlistClient({
         {items.map((item) => {
           const marketHref = productMarketHref(item);
           const firstPhoto = item.listing.photo_urls?.[0] ?? null;
+          const available =
+            item.listing.listing_state === "active" &&
+            item.listing.quantity_available_snapshot > 0;
           return (
             <article
               key={item.id}
@@ -192,22 +196,32 @@ export function MarketplaceCartWatchlistClient({
                 <h2>{item.listing.title}</h2>
                 <div className="marketplace-cart-watchlist-meta">
                   <span>{conditionLabel(item)}</span>
-                  <span>{item.listing.quantity_available_snapshot} available</span>
+                  <span>
+                    {available
+                      ? `${item.listing.quantity_available_snapshot} available`
+                      : "No longer available"}
+                  </span>
                   {"quantity" in item ? <span>Qty {item.quantity}</span> : null}
                 </div>
                 <strong>{thb(item.listing.item_price_satang)}</strong>
                 <div className="marketplace-cart-watchlist-actions">
-                  <Link
-                    href={
-                      mode === "cart"
-                        ? `/marketplace/listings/${item.listingId}#marketplace-checkout`
-                        : `/marketplace/listings/${item.listingId}`
-                    }
-                    className="btn btn-primary"
-                    prefetch={false}
-                  >
-                    {mode === "cart" ? "Buy this listing" : "See listing"}
-                  </Link>
+                  {mode === "cart" && !available ? (
+                    <span className="btn btn-primary marketplace-disabled-action" aria-disabled="true">
+                      No longer available
+                    </span>
+                  ) : (
+                    <Link
+                      href={
+                        mode === "cart"
+                          ? `/marketplace/listings/${item.listingId}#marketplace-checkout`
+                          : `/marketplace/listings/${item.listingId}`
+                      }
+                      className="btn btn-primary"
+                      prefetch={false}
+                    >
+                      {mode === "cart" ? "Buy this listing" : "See listing"}
+                    </Link>
+                  )}
                   {marketHref ? (
                     <Link href={marketHref} className="btn" prefetch={false}>
                       See product market
@@ -239,5 +253,30 @@ export function MarketplaceCartWatchlistClient({
         </p>
       ) : null}
     </section>
+  );
+}
+
+export function MarketplaceCartSummaryCopy({
+  mode,
+}: {
+  mode: "cart" | "watchlist";
+}) {
+  const { summary } = useMarketplaceCart();
+  if (mode === "watchlist") {
+    return (
+      <p>
+        {summary.watchlistCount} watched listing
+        {summary.watchlistCount === 1 ? "" : "s"}
+      </p>
+    );
+  }
+  return (
+    <p>
+      {summary.cartCount} listing{summary.cartCount === 1 ? "" : "s"} saved.
+      {summary.unavailableCount > 0
+        ? ` ${summary.unavailableCount} unavailable item${summary.unavailableCount === 1 ? " is" : "s are"} excluded from checkout.`
+        : ""}{" "}
+      Stock is locked only after checkout starts.
+    </p>
   );
 }

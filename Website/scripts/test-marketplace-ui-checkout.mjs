@@ -69,7 +69,7 @@ test("CheckoutFlow.tsx follows the real contract step order: order created befor
   assert.match(source, /"review"\s*\|\s*"pay"\s*\|\s*"slip"\s*\|\s*"done"/, "must define the 4 real-contract steps in order");
   assert.match(
     source,
-    /createPendingOrder[\s\S]{0,900}setStep\("pay"\)/,
+    /createPendingOrder[\s\S]{0,1500}setStep\("pay"\)/,
     "creating the pending order must be what advances review -> pay (order exists before payment/slip)",
   );
 });
@@ -298,6 +298,53 @@ test("page.tsx no longer renders YnotShell or fetches the dashboard slice that o
   );
 });
 
+test("checkout cannot reserve stock until the payment receiver is configured", () => {
+  const flow = readApp("src/features/marketplace-ui/checkout/CheckoutFlow.tsx");
+  const officialRoute = readApp("src/app/api/ynot/marketplace/checkout/official/route.ts");
+  const userSellerRoute = readApp("src/app/api/ynot/marketplace/checkout/user-seller/route.ts");
+  const pendingOrdersRoute = readApp(
+    "src/app/api/ynot/marketplace/checkout/pending-orders/route.ts",
+  );
+  const paymentInstructions = readApp("src/lib/marketplace/payment-instructions.ts");
+
+  assert.match(paymentInstructions, /assertMarketplacePaymentReceiverConfigured/);
+  assert.match(flow, /!paymentInstructions\.receiverConfigured/);
+  assert.match(flow, /Payment receiver is not configured\. Contact support before checkout\./);
+  assert.match(
+    flow,
+    /disabled=\{[^}]*!paymentInstructions\.receiverConfigured[^}]*\}/,
+    "Continue to payment must be disabled before order creation",
+  );
+
+  for (const [label, source, createCall] of [
+    ["official checkout", officialRoute, "const order = await createOfficialPendingPaymentOrder"],
+    ["user-seller checkout", userSellerRoute, "const order = await createUserSellerPendingPaymentOrder"],
+    ["generic pending-order checkout", pendingOrdersRoute, "const listingId = String"],
+  ]) {
+    assert.match(source, /assertMarketplacePaymentReceiverConfigured\(\)/, `${label} needs a server guard`);
+    assert.ok(
+      source.indexOf("assertMarketplacePaymentReceiverConfigured()") < source.indexOf(createCall),
+      `${label} must guard before creating the pending order`,
+    );
+  }
+});
+
+test("payment proof stays blocked without receiver configuration while cancellation remains available", () => {
+  const client = readApp("src/features/ynot/MarketplacePaymentProofClient.tsx");
+  const route = readApp(
+    "src/app/api/ynot/marketplace/checkout/pending-orders/[pendingOrderId]/payment-proof/route.ts",
+  );
+
+  assert.match(client, /paymentInstructions\.receiverConfigured/);
+  assert.match(client, /Payment receiver is not configured\. Contact support before transfer\./);
+  assert.match(client, /Cancel order/);
+  assert.match(route, /assertMarketplacePaymentReceiverConfigured\(\)/);
+  assert.ok(
+    route.indexOf("assertMarketplacePaymentReceiverConfigured()") < route.indexOf("request.formData()"),
+    "receiver guard must run before accepting or storing a payment proof",
+  );
+});
+
 test("MarketplaceListingDetailPage.tsx renders CheckoutFlow instead of the old MarketplaceCheckoutClient", () => {
   const source = readApp(DETAIL_COMPONENT_PATH);
   assert.match(
@@ -341,4 +388,3 @@ test("pending-orders route confirms the real allowedFields CheckoutFlow's create
     "sanity check: the real route's allowedFields must still be exactly listingId/shippingAddressId/addressConfirmed",
   );
 });
-

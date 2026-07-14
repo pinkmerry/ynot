@@ -119,6 +119,22 @@ if (env.SLIP2GO_API_URL) {
   );
 }
 
+if (isProd) {
+  check(
+    "marketplace payment receiver account name is configured",
+    Boolean(env.SLIP2GO_BANK_ACCOUNT_NAME?.trim()),
+    "set SLIP2GO_BANK_ACCOUNT_NAME before enabling checkout",
+  );
+  check(
+    "marketplace payment receiver destination is configured",
+    Boolean(
+      env.SLIP2GO_BANK_ACCOUNT_NUMBER?.trim() ||
+        env.SLIP2GO_PROMPTPAY_ID?.trim(),
+    ),
+    "set SLIP2GO_BANK_ACCOUNT_NUMBER and/or SLIP2GO_PROMPTPAY_ID before enabling checkout",
+  );
+}
+
 if (env.LINE_SESSION_SECRET) {
   check(
     "LINE_SESSION_SECRET length >= 32 chars",

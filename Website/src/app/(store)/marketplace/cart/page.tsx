@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { MarketplaceCartWatchlistClient } from "@/features/ynot/MarketplaceCartWatchlistClient";
-import { YnotShell } from "@/features/ynot/components";
-import { getYnotDashboardSlice } from "@/features/ynot/data";
+import {
+  MarketplaceCartSummaryCopy,
+  MarketplaceCartWatchlistClient,
+} from "@/features/ynot/MarketplaceCartWatchlistClient";
 import {
   resolveAdminSession,
   resolveCurrentProfile,
@@ -37,12 +38,9 @@ export default async function MarketplaceCartPage() {
     redirect("/marketplace");
   }
 
-  const [data, account] = await Promise.all([
-    getYnotDashboardSlice({ wallet: Boolean(profile?.profileId) }),
-    profile
-      ? getMarketplaceAccountForProfile(profile, admin)
-      : Promise.resolve(getMockMarketplaceAccount(admin)),
-  ]);
+  const account = profile
+    ? await getMarketplaceAccountForProfile(profile, admin)
+    : getMockMarketplaceAccount(admin);
   const cartState = await getMarketplaceCustomerCartState(
     account,
     profile?.profileId ?? null,
@@ -50,30 +48,30 @@ export default async function MarketplaceCartPage() {
   const cart = cartState.items;
 
   return (
-    <YnotShell viewer={data.viewer} walletBalance={data.wallet.balanceCoins}>
-      <div className="store-home-grid marketplace-page">
-        <div className="store-main-stack">
-          <div className="catalog-toolbar marketplace-toolbar">
-            <div>
-              <span className="marketplace-card-eyebrow">YNOT marketplace</span>
-              <h1>Cart</h1>
-              <p>
-                {cart.length} listing{cart.length === 1 ? "" : "s"} saved. Stock is locked only after checkout starts.
-              </p>
-            </div>
-            <div className="marketplace-page-actions">
-              <Link href="/marketplace/watchlist" className="btn" prefetch={false}>
-                Watchlist
-              </Link>
-              <Link href="/marketplace" className="btn btn-ghost" prefetch={false}>
-                Marketplace
-              </Link>
-            </div>
+    <div className="store-home-grid marketplace-page">
+      <div className="store-main-stack">
+        <div className="catalog-toolbar marketplace-toolbar">
+          <div>
+            <span className="marketplace-card-eyebrow">YNOT marketplace</span>
+            <h1>Cart</h1>
+            <MarketplaceCartSummaryCopy mode="cart" />
           </div>
-
-          <MarketplaceCartWatchlistClient mode="cart" initialItems={cart} />
+          <div className="marketplace-page-actions">
+            <Link href="/marketplace/watchlist" className="btn" prefetch={false}>
+              Watchlist
+            </Link>
+            <Link href="/marketplace" className="btn btn-ghost" prefetch={false}>
+              Marketplace
+            </Link>
+          </div>
         </div>
+
+        <MarketplaceCartWatchlistClient
+          mode="cart"
+          initialItems={cart}
+          initialSummary={cartState.summary}
+        />
       </div>
-    </YnotShell>
+    </div>
   );
 }

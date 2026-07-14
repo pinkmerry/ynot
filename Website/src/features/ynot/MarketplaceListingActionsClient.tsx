@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import {
   type MarketplaceCartSummaryView,
   useMarketplaceCart,
@@ -40,16 +39,22 @@ export function MarketplaceListingActionsClient({
   cartDisabled = false,
   cartDisabledLabel = "Cart unavailable",
 }: MarketplaceListingActionsClientProps) {
-  const { openCartDrawer, setSummary } = useMarketplaceCart();
-  const [busy, setBusy] = useState<"cart" | "watch" | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-  const [cartSaved, setCartSaved] = useState(false);
-  const [watchSaved, setWatchSaved] = useState(false);
+  const {
+    listingActionStates,
+    openCartDrawer,
+    setSummary,
+    updateListingActionState,
+  } = useMarketplaceCart();
+  const {
+    busy = null,
+    status = null,
+    cartSaved = false,
+    watchSaved = false,
+  } = listingActionStates[listingId] ?? {};
 
   async function addToCart() {
     if (!canUseAccountActions || cartDisabled) return;
-    setBusy("cart");
-    setStatus(null);
+    updateListingActionState(listingId, { busy: "cart", status: null });
     try {
       const body = await parseJson(
         await fetch("/api/marketplace/cart/items", {
@@ -62,24 +67,26 @@ export function MarketplaceListingActionsClient({
         }),
       );
       if (body?.summary) setSummary(body.summary);
-      setStatus(
-        body?.cart?.status === "already_in_cart"
-          ? "Already in cart."
-          : "Added to cart.",
-      );
-      setCartSaved(true);
+      updateListingActionState(listingId, {
+        cartSaved: true,
+        status:
+          body?.cart?.status === "already_in_cart"
+            ? "Already in cart."
+            : "Added to cart.",
+      });
       openCartDrawer();
     } catch {
-      setStatus("Could not update cart. Please try again.");
+      updateListingActionState(listingId, {
+        status: "Could not update cart. Please try again.",
+      });
     } finally {
-      setBusy(null);
+      updateListingActionState(listingId, { busy: null });
     }
   }
 
   async function watchListing() {
     if (!canUseAccountActions) return;
-    setBusy("watch");
-    setStatus(null);
+    updateListingActionState(listingId, { busy: "watch", status: null });
     try {
       const body = await parseJson(
         await fetch(`/api/marketplace/watchlist/items/${listingId}`, {
@@ -90,16 +97,19 @@ export function MarketplaceListingActionsClient({
         }),
       );
       if (body?.summary) setSummary(body.summary);
-      setStatus(
-        body?.watchlist?.status === "already_watched"
-          ? "Already in watchlist."
-          : "Saved to watchlist.",
-      );
-      setWatchSaved(true);
+      updateListingActionState(listingId, {
+        watchSaved: true,
+        status:
+          body?.watchlist?.status === "already_watched"
+            ? "Already in watchlist."
+            : "Saved to watchlist.",
+      });
     } catch {
-      setStatus("Could not update watchlist. Please try again.");
+      updateListingActionState(listingId, {
+        status: "Could not update watchlist. Please try again.",
+      });
     } finally {
-      setBusy(null);
+      updateListingActionState(listingId, { busy: null });
     }
   }
 

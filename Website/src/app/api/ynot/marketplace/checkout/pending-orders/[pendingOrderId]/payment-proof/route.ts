@@ -4,6 +4,7 @@ import {
   getBuyerPendingPaymentOrder,
   submitMarketplacePaymentProof,
 } from "@/lib/marketplace/orders";
+import { assertMarketplacePaymentReceiverConfigured } from "@/lib/marketplace/payment-instructions";
 import {
   marketplaceErrorResponse,
 } from "@/lib/marketplace/route-guards";
@@ -155,6 +156,7 @@ export async function POST(
   const { access, idempotencyKey, profile, requestId } = mutation;
 
   try {
+    assertMarketplacePaymentReceiverConfigured();
     if (requestExceedsUploadLimit(request)) {
       throw new MarketplaceServiceError(
         "marketplace_payment_proof_invalid",

@@ -14,6 +14,8 @@ type DrawerItem = {
     currency: "THB";
     photoUrls: string[];
     listingSource: "official_shop" | "user_seller";
+    listingState: string;
+    quantityAvailableSnapshot: number;
   };
 };
 
@@ -46,8 +48,13 @@ function nextMutationToken(scope: string) {
 }
 
 export function MarketplaceCartDrawer() {
-  const { closeCartDrawer, drawerOpen, summary, setSummary } =
-    useMarketplaceCart();
+  const {
+    closeCartDrawer,
+    drawerOpen,
+    summary,
+    setSummary,
+    updateListingActionState,
+  } = useMarketplaceCart();
   const [items, setItems] = useState<DrawerItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyListingId, setBusyListingId] = useState<string | null>(null);
@@ -97,6 +104,7 @@ export function MarketplaceCartDrawer() {
       if (!response.ok) throw new Error("Could not remove item.");
       setItems((current) => current.filter((item) => item.listingId !== listingId));
       if (result?.summary) setSummary(result.summary);
+      updateListingActionState(listingId, { cartSaved: false, status: null });
       setNotice("Removed from cart.");
     } catch {
       setNotice("Could not remove item.");
@@ -144,6 +152,9 @@ export function MarketplaceCartDrawer() {
         <div className="marketplace-cart-drawer-list">
           {items.slice(0, 5).map((item) => {
             const image = item.listing.photoUrls?.[0] ?? "";
+            const available =
+              item.listing.listingState === "active" &&
+              item.listing.quantityAvailableSnapshot > 0;
             return (
               <div key={item.id} className="marketplace-cart-drawer-row">
                 <Link
@@ -155,9 +166,11 @@ export function MarketplaceCartDrawer() {
                   <div>
                     <strong>{item.listing.title}</strong>
                     <small>
-                      {item.listing.listingSource === "official_shop"
-                        ? "Official shop"
-                        : "User seller"}
+                      {available
+                        ? item.listing.listingSource === "official_shop"
+                          ? "Official shop"
+                          : "User seller"
+                        : "No longer available"}
                     </small>
                   </div>
                   <b>{thb(item.listing.itemPriceSatang)}</b>

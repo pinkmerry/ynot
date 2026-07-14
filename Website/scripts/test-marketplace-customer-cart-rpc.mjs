@@ -113,6 +113,21 @@ test("cart-watchlist live adapter uses RPCs and not direct table writes", () => 
   );
 });
 
+test("cart hydration preserves listing availability instead of reviving unavailable rows", () => {
+  const adapter = readApp("src/lib/marketplace/cart-watchlist.ts");
+  const types = readApp("src/lib/marketplace/types.ts");
+
+  requireSource(adapter, /input\.listingState/);
+  assert.doesNotMatch(
+    adapter,
+    /listing_state:\s*"active"/,
+    "customer cart hydration must not overwrite the database listing state",
+  );
+  for (const state of ["draft", "active", "hidden", "pending_payment", "sold", "archived"]) {
+    requireSource(types, new RegExp(`"${state}"`), `listing state type must include ${state}`);
+  }
+});
+
 test("customer cart UI modules exist and update visible state", () => {
   for (const relPath of [
     "src/features/ynot/MarketplaceCartProvider.tsx",
@@ -135,6 +150,58 @@ test("customer cart UI modules exist and update visible state", () => {
   const hasRouteLayout = existsSync(path.join(appRoot, "src/app/(store)/marketplace/layout.tsx"));
   const hasSharedShell = existsSync(path.join(appRoot, "src/features/ynot/MarketplaceShell.tsx"));
   assert.ok(hasRouteLayout || hasSharedShell, "marketplace cart provider must live in shared marketplace chrome");
+});
+
+test("cart UI is reactive, truthful about unavailable rows, and owns no duplicate shell", () => {
+  const cartPage = readApp("src/app/(store)/marketplace/cart/page.tsx");
+  const watchlistPage = readApp("src/app/(store)/marketplace/watchlist/page.tsx");
+  const client = readApp("src/features/ynot/MarketplaceCartWatchlistClient.tsx");
+  const drawer = readApp("src/features/ynot/MarketplaceCartDrawer.tsx");
+
+  for (const [label, source] of [
+    ["cart page", cartPage],
+    ["watchlist page", watchlistPage],
+  ]) {
+    assert.doesNotMatch(source, /YnotShell/, `${label} must use the marketplace layout header`);
+    assert.doesNotMatch(
+      source,
+      /getYnotDashboardSlice/,
+      `${label} must not fetch dashboard data only to render a second shell`,
+    );
+  }
+
+  assert.doesNotMatch(cartPage, /cart\.length/, "cart heading must not freeze the server item count");
+  requireSource(cartPage, /initialSummary=\{cartState\.summary\}/);
+  requireSource(watchlistPage, /initialSummary=\{watchlistState\.summary\}/);
+  requireSource(client, /useEffect/);
+  requireSource(client, /setSummary\(initialSummary\)/);
+  requireSource(client, /summary\.cartCount/);
+  requireSource(client, /summary\.subtotalSatang/);
+  requireSource(client, /No longer available/);
+  requireSource(client, /listing_state\s*===\s*"active"/);
+  requireSource(drawer, /No longer available/);
+  requireSource(drawer, /listingState/);
+  requireSource(drawer, /quantityAvailableSnapshot/);
+});
+
+test("listing action placements share provider state for the same listing", () => {
+  const provider = readApp("src/features/ynot/MarketplaceCartProvider.tsx");
+  const actions = readApp("src/features/ynot/MarketplaceListingActionsClient.tsx");
+
+  requireSource(provider, /listingActionStates/);
+  requireSource(provider, /updateListingActionState/);
+  requireSource(actions, /listingActionStates\[listingId\]/);
+  requireSource(actions, /updateListingActionState/);
+  assert.doesNotMatch(
+    actions,
+    /const \[cartSaved, setCartSaved\] = useState\(false\)/,
+    "main and sticky cart controls must not own isolated saved state",
+  );
+  assert.doesNotMatch(
+    actions,
+    /const \[watchSaved, setWatchSaved\] = useState\(false\)/,
+    "main and sticky watch controls must not own isolated saved state",
+  );
 });
 
 test("cart payloads avoid private marketplace identifiers", () => {

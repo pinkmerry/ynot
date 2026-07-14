@@ -79,7 +79,10 @@ export function MarketplacePaymentProofClient({
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState<"proof" | "release" | null>(null);
-  const canUpload = Boolean(order.pendingPaymentOrderId && paymentIsOpen(order));
+  const paymentOpen = Boolean(
+    order.pendingPaymentOrderId && paymentIsOpen(order),
+  );
+  const canUpload = paymentOpen && paymentInstructions.receiverConfigured;
   const total = Number(order.buyerTotalSatang ?? order.itemPriceSatang ?? 0);
 
   function updateOrder(nextOrder: MarketplacePaymentProofOrder) {
@@ -241,26 +244,30 @@ export function MarketplacePaymentProofClient({
         </span>
       </div>
 
-      {canUpload ? (
+      {paymentOpen ? (
         <div className="marketplace-proof-upload">
-          <label>
-            <span>Transfer slip image</span>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(event) =>
-                setProofFile(event.currentTarget.files?.[0] ?? null)
-              }
-            />
-          </label>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={!proofFile || busy === "proof"}
-            onClick={uploadProof}
-          >
-            {busy === "proof" ? "Uploading slip..." : "Upload slip"}
-          </button>
+          {canUpload ? (
+            <>
+              <label>
+                <span>Transfer slip image</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) =>
+                    setProofFile(event.currentTarget.files?.[0] ?? null)
+                  }
+                />
+              </label>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={!proofFile || busy === "proof"}
+                onClick={uploadProof}
+              >
+                {busy === "proof" ? "Uploading slip..." : "Upload slip"}
+              </button>
+            </>
+          ) : null}
           {allowCancel ? (
             <button
               type="button"
