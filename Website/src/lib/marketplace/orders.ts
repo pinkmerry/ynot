@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import type { ResolvedProfileSession } from "@/lib/auth/resolve-current-profile";
 import { type SafeMarketplaceAccount } from "./account-bridge";
 import type { MarketplaceCheckoutAddress } from "./checkout-address";
@@ -13,6 +14,15 @@ import {
   getActiveMarketplaceMoneyPolicy,
   marketplaceMoneyPreview,
 } from "./money";
+import {
+  getLocalMarketplaceMockPendingCheckout,
+  expireLocalMarketplaceMockPendingCheckouts,
+  listLocalMarketplaceMockPendingCheckouts,
+  persistLocalMarketplaceMockPendingCheckout,
+  releaseLocalMarketplaceMockPendingCheckout,
+  runLocalMarketplaceMockIdempotentCommand,
+  type LocalMarketplaceMockPendingCheckout,
+} from "./local-mock-runtime";
 import {
   getMockMarketplaceListing,
   getMockMarketplaceOrder,
@@ -339,7 +349,9 @@ async function checkoutGroupForPendingOrder(
 }
 
 function mockUuid(seed: string, offset = 0) {
-  const compactHex = seed.replace(/[^0-9a-f]/gi, "").padEnd(64, "0");
+  const compactHex = createHash("sha256")
+    .update(`${offset}:${seed}`)
+    .digest("hex");
   const rotatedHex = `${compactHex.slice(offset)}${compactHex.slice(0, offset)}`;
   const hex = rotatedHex.padEnd(32, "0").slice(0, 32);
   return [
@@ -352,10 +364,12 @@ function mockUuid(seed: string, offset = 0) {
 }
 
 function mockPendingPaymentOrder(input: {
+  buyerAccountId: string;
   listingId: string;
   listingSource: "official_shop" | "user_seller";
   shippingSnapshot: MarketplaceCheckoutAddress;
   paymentInstructions: MarketplacePaymentInstructions;
+  idempotencyKey: string;
   requestHash: string;
 }) {
   const listingId = assertUuid(input.listingId, "listing_id");
@@ -371,8 +385,42 @@ function mockPendingPaymentOrder(input: {
   const money = marketplaceMoneyPreview({
     itemPriceSatang: listing.item_price_satang,
   });
-  const pendingPaymentOrderId = mockUuid(input.requestHash);
-  const orderId = mockUuid(input.requestHash, 32);
+  const commandSeed = `${input.buyerAccountId}:${input.idempotencyKey}:${input.requestHash}`;
+  const pendingPaymentOrderId = mockUuid(commandSeed);
+  const orderId = mockUuid(commandSeed, 32);
+  const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
+
+  const persisted = persistLocalMarketplaceMockPendingCheckout({
+    buyerAccountId: input.buyerAccountId,
+    checkoutGroupId: null,
+    items: [
+      {
+        position: 1,
+        listingId,
+        listingSource: input.listingSource,
+        pendingPaymentOrderId,
+        orderId,
+        itemPriceSatang: money.itemPriceSatang,
+        shippingFeeSatang: money.shippingFeeSatang,
+        buyerServiceFeeSatang: money.buyerServiceFeeSatang,
+        buyerTotalSatang: money.buyerTotalSatang,
+      },
+    ],
+    itemSubtotalSatang: money.itemPriceSatang,
+    shippingFeeSatang: money.shippingFeeSatang,
+    buyerServiceFeeSatang: money.buyerServiceFeeSatang,
+    buyerTotalSatang: money.buyerTotalSatang,
+    currency: money.currency,
+    shippingSnapshot: input.shippingSnapshot,
+    expiresAt,
+  });
+  if (persisted.status === "listing_unavailable") {
+    throw new MarketplaceServiceError(
+      "marketplace_listing_unavailable",
+      "Marketplace listing is not available.",
+      409,
+    );
+  }
 
   return sanitizeBuyerPayload({
     pendingPaymentOrderId,
@@ -389,14 +437,16 @@ function mockPendingPaymentOrder(input: {
     currency: money.currency,
     shippingSnapshot: input.shippingSnapshot,
     paymentInstructions: input.paymentInstructions,
-    expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+    expiresAt,
   });
 }
 
 function mockMultiListingCheckout(input: {
+  buyerAccountId: string;
   listingIds: string[];
   shippingSnapshot: MarketplaceCheckoutAddress;
   paymentInstructions: MarketplacePaymentInstructions;
+  idempotencyKey: string;
   requestHash: string;
   shippingFeeSatang: number;
   buyerServiceFeeBps: number;
@@ -417,16 +467,18 @@ function mockMultiListingCheckout(input: {
     }
     return listing;
   });
+  const commandSeed = `${input.buyerAccountId}:${input.idempotencyKey}:${input.requestHash}`;
   const items = listings.map((listing, index) => {
     const buyerServiceFeeSatang = Math.floor(
       (listing.item_price_satang * input.buyerServiceFeeBps) / 10_000,
     );
     const shippingFeeSatang = index === 0 ? input.shippingFeeSatang : 0;
-    const pendingPaymentOrderId = mockUuid(`${input.requestHash}${index}`, 8);
-    const orderId = mockUuid(`${input.requestHash}${index}`, 24);
+    const pendingPaymentOrderId = mockUuid(commandSeed, 8 + index);
+    const orderId = mockUuid(commandSeed, 24 + index);
     return {
       position: index + 1,
       listingId: listing.listing_id,
+      listingSource: listing.listing_source,
       pendingPaymentOrderId,
       orderId,
       itemPriceSatang: listing.item_price_satang,
@@ -451,9 +503,31 @@ function mockMultiListingCheckout(input: {
     0,
   );
   const firstItem = items[0];
+  const checkoutGroupId = mockUuid(commandSeed, 48);
+  const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
+
+  const persisted = persistLocalMarketplaceMockPendingCheckout({
+    buyerAccountId: input.buyerAccountId,
+    checkoutGroupId,
+    items,
+    itemSubtotalSatang,
+    shippingFeeSatang: input.shippingFeeSatang,
+    buyerServiceFeeSatang,
+    buyerTotalSatang,
+    currency: "THB",
+    shippingSnapshot: input.shippingSnapshot,
+    expiresAt,
+  });
+  if (persisted.status === "listing_unavailable") {
+    throw new MarketplaceServiceError(
+      "marketplace_listing_unavailable",
+      "Marketplace listing is not available.",
+      409,
+    );
+  }
 
   return sanitizeBuyerPayload({
-    checkoutGroupId: mockUuid(input.requestHash),
+    checkoutGroupId,
     pendingPaymentOrderId: firstItem.pendingPaymentOrderId,
     orderId: firstItem.orderId,
     items,
@@ -471,7 +545,131 @@ function mockMultiListingCheckout(input: {
     currency: "THB",
     shippingSnapshot: input.shippingSnapshot,
     paymentInstructions: input.paymentInstructions,
-    expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+    expiresAt,
+  });
+}
+
+function localMockPendingOrderNotFound(): never {
+  throw new MarketplaceServiceError(
+    "marketplace_pending_order_not_found",
+    "Marketplace pending order was not found.",
+    404,
+  );
+}
+
+function runLocalMockIdempotentCommand<T>(
+  input: {
+    buyerAccountId: string;
+    scope: string;
+    idempotencyKey: string;
+    requestHash: string;
+  },
+  command: () => T,
+) {
+  const result = runLocalMarketplaceMockIdempotentCommand(input, command);
+  if (result.status === "conflict") {
+    throw new MarketplaceServiceError(
+      "marketplace_idempotency_conflict",
+      "Idempotency key was already used for a different request.",
+      409,
+    );
+  }
+  return result.response;
+}
+
+function localMockPendingOrderItem(
+  checkout: LocalMarketplaceMockPendingCheckout,
+  pendingOrderId: string,
+) {
+  return (
+    checkout.items.find(
+      (item) => item.pendingPaymentOrderId === pendingOrderId,
+    ) ?? checkout.items[0]
+  );
+}
+
+function localMockBuyerPendingPaymentOrder(
+  checkout: LocalMarketplaceMockPendingCheckout,
+  pendingOrderId: string,
+): BuyerPendingPaymentOrder {
+  const item = localMockPendingOrderItem(checkout, pendingOrderId);
+  return {
+    id: item.pendingPaymentOrderId,
+    checkout_group_id: checkout.checkoutGroupId,
+    listing_id: item.listingId,
+    listing_source: item.listingSource,
+    order_state: checkout.checkoutState,
+    item_price_satang: item.itemPriceSatang,
+    item_subtotal_satang: checkout.itemSubtotalSatang,
+    shipping_fee_satang: checkout.shippingFeeSatang,
+    buyer_service_fee_satang: checkout.buyerServiceFeeSatang,
+    buyer_total_satang: checkout.buyerTotalSatang,
+    currency: checkout.currency,
+    shipping_snapshot: checkout.shippingSnapshot as Record<string, unknown>,
+    expires_at: checkout.expiresAt,
+  };
+}
+
+function localMockPendingPaymentOrderRows(
+  checkout: LocalMarketplaceMockPendingCheckout,
+) {
+  return checkout.items.map((item) => ({
+    id: item.pendingPaymentOrderId,
+    listing_id: item.listingId,
+    listing_source: item.listingSource,
+    order_state: checkout.checkoutState,
+    item_price_satang: item.itemPriceSatang,
+    shipping_fee_satang: item.shippingFeeSatang,
+    buyer_service_fee_satang: item.buyerServiceFeeSatang,
+    buyer_total_satang: item.buyerTotalSatang,
+    currency: checkout.currency,
+    expires_at: checkout.expiresAt,
+    created_at: checkout.createdAt,
+    updated_at: checkout.updatedAt,
+  }));
+}
+
+function releaseLocalMockMarketplacePendingOrder(
+  input: ReleasePendingPaymentOrderInput,
+  account: SafeMarketplaceAccount,
+) {
+  const result = releaseLocalMarketplaceMockPendingCheckout({
+    buyerAccountId: account.accountId,
+    pendingOrderId: assertUuid(input.pendingOrderId, "pending_order_id"),
+    releaseReason: input.releaseReason,
+  });
+  if (result.status === "not_found") localMockPendingOrderNotFound();
+  if (result.status === "invalid_state") {
+    throw new MarketplaceServiceError(
+      "marketplace_payment_state_invalid",
+      "Marketplace payment state is invalid.",
+      409,
+    );
+  }
+
+  const { checkout } = result;
+  if (checkout.checkoutGroupId) {
+    return sanitizeBuyerPayload({
+      checkoutGroupId: checkout.checkoutGroupId,
+      checkoutState: checkout.checkoutState,
+      paymentState: checkout.paymentState,
+      releaseReason: checkout.releaseReason ?? input.releaseReason,
+      itemCount: checkout.items.length,
+    });
+  }
+
+  const item = checkout.items[0];
+  return sanitizeBuyerPayload({
+    pendingPaymentOrderId: item.pendingPaymentOrderId,
+    orderId: item.orderId,
+    listingSource: item.listingSource,
+    orderState: checkout.checkoutState,
+    paymentState: checkout.paymentState,
+    fulfilmentState: "cancelled",
+    ...(item.listingSource === "user_seller"
+      ? { sellerPayoutState: "cancelled" }
+      : {}),
+    releaseReason: checkout.releaseReason ?? input.releaseReason,
   });
 }
 
@@ -487,13 +685,24 @@ export async function createOfficialPendingPaymentOrder(input: {
 }) {
   const account = assertCheckoutAccount(input.account);
   if (marketplaceConfig().mockData) {
-    return mockPendingPaymentOrder({
-      listingId: input.listingId,
-      listingSource: "official_shop",
-      shippingSnapshot: input.shippingSnapshot,
-      paymentInstructions: input.paymentInstructions,
-      requestHash: input.requestHash,
-    });
+    return runLocalMockIdempotentCommand(
+      {
+        buyerAccountId: account.accountId,
+        scope: "pending_order.create",
+        idempotencyKey: input.idempotencyKey,
+        requestHash: input.requestHash,
+      },
+      () =>
+        mockPendingPaymentOrder({
+          buyerAccountId: account.accountId,
+          listingId: input.listingId,
+          listingSource: "official_shop",
+          shippingSnapshot: input.shippingSnapshot,
+          paymentInstructions: input.paymentInstructions,
+          idempotencyKey: input.idempotencyKey,
+          requestHash: input.requestHash,
+        }),
+    );
   }
 
   const moneyPolicy = await getActiveMarketplaceMoneyPolicy();
@@ -538,13 +747,24 @@ export async function createUserSellerPendingPaymentOrder(input: {
 }) {
   const account = assertCheckoutAccount(input.account);
   if (marketplaceConfig().mockData) {
-    return mockPendingPaymentOrder({
-      listingId: input.listingId,
-      listingSource: "user_seller",
-      shippingSnapshot: input.shippingSnapshot,
-      paymentInstructions: input.paymentInstructions,
-      requestHash: input.requestHash,
-    });
+    return runLocalMockIdempotentCommand(
+      {
+        buyerAccountId: account.accountId,
+        scope: "user_seller_pending_order.create",
+        idempotencyKey: input.idempotencyKey,
+        requestHash: input.requestHash,
+      },
+      () =>
+        mockPendingPaymentOrder({
+          buyerAccountId: account.accountId,
+          listingId: input.listingId,
+          listingSource: "user_seller",
+          shippingSnapshot: input.shippingSnapshot,
+          paymentInstructions: input.paymentInstructions,
+          idempotencyKey: input.idempotencyKey,
+          requestHash: input.requestHash,
+        }),
+    );
   }
 
   const moneyPolicy = await getActiveMarketplaceMoneyPolicy();
@@ -594,14 +814,25 @@ export async function createMultiListingCheckout(input: {
   const listingIds = assertGroupListingIds(input.listingIds);
   const moneyPolicy = await getActiveMarketplaceMoneyPolicy();
   if (marketplaceConfig().mockData) {
-    return mockMultiListingCheckout({
-      listingIds,
-      shippingSnapshot: input.shippingSnapshot,
-      paymentInstructions: input.paymentInstructions,
-      requestHash: input.requestHash,
-      shippingFeeSatang: moneyPolicy.shippingFeeSatang,
-      buyerServiceFeeBps: moneyPolicy.buyerServiceFeeBps,
-    });
+    return runLocalMockIdempotentCommand(
+      {
+        buyerAccountId: account.accountId,
+        scope: "checkout_group.create",
+        idempotencyKey: input.idempotencyKey,
+        requestHash: input.requestHash,
+      },
+      () =>
+        mockMultiListingCheckout({
+          buyerAccountId: account.accountId,
+          listingIds,
+          shippingSnapshot: input.shippingSnapshot,
+          paymentInstructions: input.paymentInstructions,
+          idempotencyKey: input.idempotencyKey,
+          requestHash: input.requestHash,
+          shippingFeeSatang: moneyPolicy.shippingFeeSatang,
+          buyerServiceFeeBps: moneyPolicy.buyerServiceFeeBps,
+        }),
+    );
   }
   const supabase = createMarketplaceSupabaseClient();
   const checkoutSnapshot = withMarketplacePaymentReceiverSnapshot(
@@ -713,6 +944,11 @@ export async function listBuyerPendingPaymentOrders(
   account: SafeMarketplaceAccount | null,
 ) {
   const buyerAccount = assertAccount(account);
+  if (marketplaceConfig().mockData) {
+    return listLocalMarketplaceMockPendingCheckouts(buyerAccount.accountId)
+      .flatMap(localMockPendingPaymentOrderRows)
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at));
+  }
   const supabase = createMarketplaceSupabaseClient();
   const result = await supabase
     .from("marketplace_pending_payment_orders")
@@ -746,6 +982,18 @@ export async function getBuyerPendingPaymentOrder(input: {
   account: SafeMarketplaceAccount | null;
 }): Promise<BuyerPendingPaymentOrder> {
   const account = assertAccount(input.account);
+  const pendingOrderId = assertUuid(
+    input.pendingOrderId,
+    "pending_order_id",
+  );
+  if (marketplaceConfig().mockData) {
+    const checkout = getLocalMarketplaceMockPendingCheckout(
+      account.accountId,
+      pendingOrderId,
+    );
+    if (!checkout) localMockPendingOrderNotFound();
+    return localMockBuyerPendingPaymentOrder(checkout, pendingOrderId);
+  }
   const supabase = createMarketplaceSupabaseClient();
   const result = await supabase
     .from("marketplace_pending_payment_orders")
@@ -764,7 +1012,7 @@ export async function getBuyerPendingPaymentOrder(input: {
         "expires_at",
       ].join(","),
     )
-    .eq("id", assertUuid(input.pendingOrderId, "pending_order_id"))
+    .eq("id", pendingOrderId)
     .eq("buyer_marketplace_account_id", account.accountId)
     .maybeSingle();
 
@@ -1010,6 +1258,17 @@ export async function releaseMarketplacePendingPaymentOrder(
   input: ReleasePendingPaymentOrderInput,
 ) {
   const account = assertAccount(input.account);
+  if (marketplaceConfig().mockData) {
+    return runLocalMockIdempotentCommand(
+      {
+        buyerAccountId: account.accountId,
+        scope: "checkout.release",
+        idempotencyKey: input.idempotencyKey,
+        requestHash: input.requestHash,
+      },
+      () => releaseLocalMockMarketplacePendingOrder(input, account),
+    );
+  }
   const pendingOrder = await getBuyerPendingPaymentOrder({
     pendingOrderId: input.pendingOrderId,
     account,
@@ -1110,13 +1369,22 @@ export async function expireMarketplacePendingPaymentOrders(input?: {
   limit?: number | null;
 }) {
   if (marketplaceConfig().mockData) {
+    const limit = Math.max(1, Math.min(Math.floor(input?.limit ?? 100), 200));
+    const expired = expireLocalMarketplaceMockPendingCheckouts(limit);
+    const expiredItems = expired.flatMap((checkout) => checkout.items);
     return {
       ok: true,
-      expiredCount: 0,
-      officialCount: 0,
-      userSellerCount: 0,
-      limit: Math.max(1, Math.min(Math.floor(input?.limit ?? 100), 200)),
-      expiredPendingOrderIds: [],
+      expiredCount: expiredItems.length,
+      officialCount: expiredItems.filter(
+        (item) => item.listingSource === "official_shop",
+      ).length,
+      userSellerCount: expiredItems.filter(
+        (item) => item.listingSource === "user_seller",
+      ).length,
+      limit,
+      expiredPendingOrderIds: expiredItems.map(
+        (item) => item.pendingPaymentOrderId,
+      ),
     };
   }
 

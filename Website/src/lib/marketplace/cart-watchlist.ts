@@ -6,6 +6,13 @@ import {
   getMarketplaceListing,
   type MarketplaceListingSnapshot,
 } from "./listings";
+import {
+  localMarketplaceMockCartRows,
+  localMarketplaceMockWatchlistRows,
+  touchLocalMarketplaceMockAccountState,
+  type LocalMarketplaceMockCartRow,
+  type LocalMarketplaceMockWatchlistRow,
+} from "./local-mock-runtime";
 import { mockMarketplaceListings } from "./mock-data";
 import {
   createMarketplaceSupabaseClient,
@@ -40,20 +47,8 @@ export type {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-type MarketplaceCartRow = {
-  id: string;
-  listing_id: string;
-  quantity: number;
-  created_at: string;
-  updated_at: string;
-};
-
-type MarketplaceWatchlistRow = {
-  id: string;
-  listing_id: string;
-  created_at: string;
-  updated_at: string;
-};
+type MarketplaceCartRow = LocalMarketplaceMockCartRow;
+type MarketplaceWatchlistRow = LocalMarketplaceMockWatchlistRow;
 
 export type MarketplaceCartAccount = Pick<SafeMarketplaceAccount, "accountId">;
 
@@ -80,9 +75,6 @@ const EMPTY_SUMMARY: MarketplaceCartSummary = {
   currency: "THB",
   updatedAt: null,
 };
-
-const mockCartRows = new Map<string, MarketplaceCartRow[]>();
-const mockWatchlistRows = new Map<string, MarketplaceWatchlistRow[]>();
 
 export function assertMarketplaceCartUuid(value: string, label: string) {
   if (!UUID_RE.test(value)) {
@@ -132,16 +124,20 @@ function defaultMockWatchlistRows(accountId: string): MarketplaceWatchlistRow[] 
 
 function cartRowsForMockAccount(accountId: string) {
   const normalized = assertMarketplaceCartUuid(accountId, "account_id");
+  const mockCartRows = localMarketplaceMockCartRows();
   const rows = mockCartRows.get(normalized) ?? defaultMockCartRows(normalized);
   mockCartRows.set(normalized, rows);
+  touchLocalMarketplaceMockAccountState(normalized);
   return rows;
 }
 
 function watchlistRowsForMockAccount(accountId: string) {
   const normalized = assertMarketplaceCartUuid(accountId, "account_id");
+  const mockWatchlistRows = localMarketplaceMockWatchlistRows();
   const rows =
     mockWatchlistRows.get(normalized) ?? defaultMockWatchlistRows(normalized);
   mockWatchlistRows.set(normalized, rows);
+  touchLocalMarketplaceMockAccountState(normalized);
   return rows;
 }
 

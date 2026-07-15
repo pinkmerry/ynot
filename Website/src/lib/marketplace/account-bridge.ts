@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import type {
   ResolvedAdminSession,
   ResolvedProfileSession,
@@ -174,9 +175,40 @@ export function safeMarketplaceAccountResponse(
 
 export function getMockMarketplaceAccount(admin?: ResolvedAdminSession | null) {
   const now = new Date().toISOString();
+  const digest = createHash("sha256")
+    .update("ynot:local-marketplace-account:v1\u0000anonymous-preview")
+    .digest("hex");
   return normalizeRpcAccount(
     {
-      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      id: `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-8${digest.slice(17, 20)}-${digest.slice(20, 32)}`,
+      buyerStatus: "active",
+      sellerStatus: "active",
+      payoutStatus: "verified",
+      sellerTermsVersion: "seller-terms-v1",
+      sellerTermsAcceptedAt: now,
+      buyerTermsVersion: "buyer-terms-v1",
+      buyerTermsAcceptedAt: now,
+      lastProfileVerifiedAt: now,
+      lastSeenAt: now,
+      createdAt: now,
+      updatedAt: now,
+    },
+    admin,
+  );
+}
+
+function getMockMarketplaceAccountForProfile(
+  profile: ResolvedProfileSession,
+  admin?: ResolvedAdminSession | null,
+) {
+  const now = new Date().toISOString();
+  const digest = createHash("sha256")
+    .update("ynot:local-marketplace-account:v1\u0000")
+    .update(profile.profileId)
+    .digest("hex");
+  return normalizeRpcAccount(
+    {
+      id: `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-8${digest.slice(17, 20)}-${digest.slice(20, 32)}`,
       buyerStatus: "active",
       sellerStatus: "active",
       payoutStatus: "verified",
@@ -198,7 +230,7 @@ export async function getMarketplaceAccountForProfile(
   admin?: ResolvedAdminSession | null,
 ) {
   if (marketplaceConfig().mockData) {
-    return getMockMarketplaceAccount(admin);
+    return getMockMarketplaceAccountForProfile(profile, admin);
   }
 
   const supabase = createMarketplaceSupabaseClient();
@@ -241,7 +273,7 @@ export async function ensureMarketplaceAccountForProfile(
   },
 ) {
   if (marketplaceConfig().mockData) {
-    return getMockMarketplaceAccount(options.admin);
+    return getMockMarketplaceAccountForProfile(profile, options.admin);
   }
 
   const supabase = createMarketplaceSupabaseClient();

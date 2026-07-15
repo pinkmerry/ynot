@@ -1,10 +1,91 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { registerHooks } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const appSourceRoot = path.join(appRoot, "src");
+const localMockEnvironment = {
+  MARKETPLACE_ENVIRONMENT: "local",
+  YNOT_MARKETPLACE_ENABLED: "true",
+  YNOT_MARKETPLACE_MOCK_DATA: "true",
+};
+const originalLocalMockEnvironment = Object.fromEntries(
+  Object.keys(localMockEnvironment).map((name) => [name, process.env[name]]),
+);
+
+function enableLocalMockEnvironment() {
+  Object.assign(process.env, localMockEnvironment);
+}
+
+test.afterEach(() => {
+  for (const [name, value] of Object.entries(originalLocalMockEnvironment)) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+});
+
+function isFile(candidate) {
+  try {
+    return statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+}
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === "server-only") {
+      return {
+        url: "data:text/javascript,export {};",
+        shortCircuit: true,
+      };
+    }
+    if (["next/headers", "next/navigation", "next/server"].includes(specifier)) {
+      return nextResolve(`${specifier}.js`, context);
+    }
+
+    let candidate = null;
+    if (specifier.startsWith("@/")) {
+      candidate = path.join(appSourceRoot, specifier.slice(2));
+    } else if (
+      (specifier.startsWith("./") || specifier.startsWith("../")) &&
+      context.parentURL?.startsWith("file:")
+    ) {
+      candidate = path.resolve(
+        path.dirname(fileURLToPath(context.parentURL)),
+        specifier,
+      );
+    }
+
+    if (candidate) {
+      for (const suffix of [
+        "",
+        ".ts",
+        ".tsx",
+        ".js",
+        ".mjs",
+        "/index.ts",
+        "/index.tsx",
+      ]) {
+        const resolved = `${candidate}${suffix}`;
+        if (!isFile(resolved)) continue;
+        const url = pathToFileURL(resolved);
+        if (
+          resolved.endsWith("/local-mock-runtime.ts") &&
+          context.parentURL
+        ) {
+          url.search = new URL(context.parentURL).search;
+        }
+        return { url: url.href, shortCircuit: true };
+      }
+    }
+
+    return nextResolve(specifier, context);
+  },
+});
 
 function readApp(relativePath) {
   return readFileSync(path.join(appRoot, relativePath), "utf8");
@@ -13,6 +94,64 @@ function readApp(relativePath) {
 async function importApp(relativePath) {
   return import(pathToFileURL(path.join(appRoot, relativePath)).href);
 }
+
+async function importAppInstance(relativePath, instance) {
+  const url = pathToFileURL(path.join(appRoot, relativePath));
+  url.searchParams.set("mock-bundle", instance);
+  return import(url.href);
+}
+
+function mockMarketplaceAccount(accountId) {
+  return {
+    accountId,
+    buyerStatus: "active",
+    sellerStatus: "active",
+    payoutStatus: "verified",
+    sellerTermsVersion: null,
+    sellerTermsAcceptedAt: null,
+    buyerTermsVersion: null,
+    buyerTermsAcceptedAt: null,
+    lastProfileVerifiedAt: null,
+    lastSeenAt: null,
+    createdAt: null,
+    updatedAt: null,
+    capabilities: {
+      canBrowse: true,
+      canCheckout: true,
+      canSell: true,
+      canAcceptSellerTerms: false,
+      canReceivePayout: true,
+      isMarketplaceOperator: false,
+      isMarketplaceOwner: false,
+    },
+  };
+}
+
+const mockProfile = {
+  profileId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  authSource: "supabase",
+};
+
+const mockShippingSnapshot = {
+  id: "mock-address-bangkok",
+  label: "Local mock address",
+  recipientName: "Mock Buyer",
+  phone: "0800000000",
+  summary: "Bangkok, Thailand",
+  deliveryNote: null,
+};
+
+const mockPaymentInstructions = {
+  method: "bank_transfer",
+  currency: "THB",
+  bankName: "Mock bank",
+  accountName: "YNOT Mock",
+  accountNumber: "0000000000",
+  promptPayId: null,
+  paymentWindowMinutes: 30,
+  receiverConfigured: true,
+  acceptedImageTypes: ["JPG", "PNG", "WEBP"],
+};
 
 async function loadNotifierModule() {
   const notifierModule = await importApp(
@@ -65,6 +204,989 @@ test("package exposes the scoped cart checkout regression test", () => {
   assert.equal(
     packageJson.scripts["test:marketplace-cart-checkout"],
     "node --test scripts/test-marketplace-cart-checkout.mjs",
+  );
+  assert.equal(packageJson.engines?.node, ">=22.15.0");
+  const packageLock = JSON.parse(readApp("package-lock.json"));
+  assert.equal(packageLock.packages?.[""]?.engines?.node, ">=22.15.0");
+});
+
+test("local mock accounts are stable per profile and isolate cart state", async () => {
+  enableLocalMockEnvironment();
+  const [accounts, cart] = await Promise.all([
+    importAppInstance(
+      "src/lib/marketplace/account-bridge.ts",
+      "profile-account-isolation",
+    ),
+    importAppInstance(
+      "src/lib/marketplace/cart-watchlist.ts",
+      "profile-cart-isolation",
+    ),
+  ]);
+  const firstProfile = {
+    profileId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01",
+    authSource: "supabase",
+  };
+  const secondProfile = {
+    profileId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb02",
+    authSource: "supabase",
+  };
+
+  const firstAccount = await accounts.getMarketplaceAccountForProfile(
+    firstProfile,
+  );
+  const firstAccountReplay = await accounts.ensureMarketplaceAccountForProfile(
+    firstProfile,
+    {
+      idempotencyKey: "profile-account-isolation",
+      requestHash: "profile-account-isolation",
+    },
+  );
+  const secondAccount = await accounts.getMarketplaceAccountForProfile(
+    secondProfile,
+  );
+  assert.equal(firstAccount.accountId, firstAccountReplay.accountId);
+  assert.notEqual(firstAccount.accountId, secondAccount.accountId);
+  assert.notEqual(firstAccount.accountId, firstProfile.profileId);
+  assert.notEqual(secondAccount.accountId, secondProfile.profileId);
+
+  const firstCart = await cart.getMarketplaceCustomerCartState(
+    firstAccount,
+    firstProfile.profileId,
+  );
+  await cart.removeMarketplaceCartItem({
+    account: firstAccount,
+    listingId: firstCart.items[0].listingId,
+    actorProfileId: firstProfile.profileId,
+    requestId: "profile-cart-isolation",
+    idempotencyKey: "profile-cart-isolation",
+    requestHash: "profile-cart-isolation",
+  });
+  assert.equal(
+    (
+      await cart.getMarketplaceCustomerCartState(
+        firstAccount,
+        firstProfile.profileId,
+      )
+    ).summary.cartCount,
+    1,
+  );
+  assert.equal(
+    (
+      await cart.getMarketplaceCustomerCartState(
+        secondAccount,
+        secondProfile.profileId,
+      )
+    ).summary.cartCount,
+    2,
+  );
+});
+
+test("local mock checkout locks reject overlapping groups and release atomically", async () => {
+  enableLocalMockEnvironment();
+  const [cart, orders] = await Promise.all([
+    importAppInstance("src/lib/marketplace/cart-watchlist.ts", "listing-lock-cart"),
+    importAppInstance("src/lib/marketplace/orders.ts", "listing-lock-orders"),
+  ]);
+  const firstAccount = mockMarketplaceAccount(
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7",
+  );
+  const secondAccount = mockMarketplaceAccount(
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa8",
+  );
+  const firstListingId = (
+    await cart.getMarketplaceCustomerCartState(
+      firstAccount,
+      mockProfile.profileId,
+    )
+  ).items.find((item) => item.listing.listing_source === "official_shop")
+    ?.listingId;
+  assert.ok(firstListingId);
+  const secondListingId = "14141414-1414-4141-8141-141414141403";
+
+  const firstCheckout = await orders.createOfficialPendingPaymentOrder({
+    listingId: firstListingId,
+    profile: mockProfile,
+    account: firstAccount,
+    shippingSnapshot: mockShippingSnapshot,
+    paymentInstructions: mockPaymentInstructions,
+    requestId: "listing-lock-first",
+    idempotencyKey: "listing-lock-first",
+    requestHash: "3000000000000000000000000000000000000000000000000000000000000001",
+  });
+
+  await assert.rejects(
+    orders.createMultiListingCheckout({
+      listingIds: [firstListingId, secondListingId],
+      profile: mockProfile,
+      account: secondAccount,
+      shippingSnapshot: mockShippingSnapshot,
+      paymentInstructions: mockPaymentInstructions,
+      requestId: "listing-lock-overlap",
+      idempotencyKey: "listing-lock-overlap",
+      requestHash:
+        "3000000000000000000000000000000000000000000000000000000000000002",
+    }),
+    (error) =>
+      error?.code === "marketplace_listing_unavailable" &&
+      error?.status === 409,
+  );
+
+  const independentCheckout = await orders.createOfficialPendingPaymentOrder({
+    listingId: secondListingId,
+    profile: mockProfile,
+    account: secondAccount,
+    shippingSnapshot: mockShippingSnapshot,
+    paymentInstructions: mockPaymentInstructions,
+    requestId: "listing-lock-independent",
+    idempotencyKey: "listing-lock-independent",
+    requestHash: "3000000000000000000000000000000000000000000000000000000000000003",
+  });
+  await orders.releaseMarketplacePendingPaymentOrder({
+    pendingOrderId: independentCheckout.pendingPaymentOrderId,
+    profile: mockProfile,
+    account: secondAccount,
+    requestId: "listing-lock-independent-release",
+    idempotencyKey: "listing-lock-independent-release",
+    requestHash: "listing-lock-independent-release",
+    releaseReason: "buyer_cancelled",
+  });
+
+  const releaseInput = {
+    pendingOrderId: firstCheckout.pendingPaymentOrderId,
+    profile: mockProfile,
+    account: firstAccount,
+    requestId: "listing-lock-first-release",
+    idempotencyKey: "listing-lock-first-release",
+    requestHash: "listing-lock-first-release",
+    releaseReason: "buyer_cancelled",
+  };
+  await orders.releaseMarketplacePendingPaymentOrder(releaseInput);
+  const cartAfterRelease = await cart.getMarketplaceCustomerCartState(
+    firstAccount,
+    mockProfile.profileId,
+  );
+  assert.equal(
+    cartAfterRelease.items.some((item) => item.listingId === firstListingId),
+    true,
+  );
+
+  const checkoutAfterRelease =
+    await orders.createOfficialPendingPaymentOrder({
+      listingId: firstListingId,
+      profile: mockProfile,
+      account: secondAccount,
+      shippingSnapshot: mockShippingSnapshot,
+      paymentInstructions: mockPaymentInstructions,
+      requestId: "listing-lock-after-release",
+      idempotencyKey: "listing-lock-after-release",
+      requestHash:
+        "3000000000000000000000000000000000000000000000000000000000000004",
+    });
+  await orders.releaseMarketplacePendingPaymentOrder({
+    ...releaseInput,
+    pendingOrderId: checkoutAfterRelease.pendingPaymentOrderId,
+    account: secondAccount,
+    requestId: "listing-lock-after-release-cleanup",
+    idempotencyKey: "listing-lock-after-release-cleanup",
+    requestHash: "listing-lock-after-release-cleanup",
+  });
+});
+
+test("local mock create and release commands replay by idempotency key and reject conflicts", async () => {
+  enableLocalMockEnvironment();
+  const [cart, orders] = await Promise.all([
+    importAppInstance("src/lib/marketplace/cart-watchlist.ts", "idempotency-cart"),
+    importAppInstance("src/lib/marketplace/orders.ts", "idempotency-orders"),
+  ]);
+  const account = mockMarketplaceAccount(
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa9",
+  );
+  const initial = await cart.getMarketplaceCustomerCartState(
+    account,
+    mockProfile.profileId,
+  );
+  const listingId = initial.items.find(
+    (item) => item.listing.listing_source === "official_shop",
+  )?.listingId;
+  assert.ok(listingId);
+  const createInput = {
+    listingId,
+    profile: mockProfile,
+    account,
+    shippingSnapshot: mockShippingSnapshot,
+    paymentInstructions: mockPaymentInstructions,
+    requestId: "idempotent-create",
+    idempotencyKey: "idempotent-create",
+    requestHash: "4000000000000000000000000000000000000000000000000000000000000001",
+  };
+
+  const created = await orders.createOfficialPendingPaymentOrder(createInput);
+  assert.deepEqual(
+    await orders.createOfficialPendingPaymentOrder({
+      ...createInput,
+      requestId: "idempotent-create-retry",
+    }),
+    created,
+  );
+  assert.equal(
+    (
+      await cart.getMarketplaceCustomerCartState(
+        account,
+        mockProfile.profileId,
+      )
+    ).summary.cartCount,
+    1,
+  );
+  await assert.rejects(
+    orders.createOfficialPendingPaymentOrder({
+      ...createInput,
+      requestHash:
+        "4000000000000000000000000000000000000000000000000000000000000002",
+    }),
+    (error) =>
+      error?.code === "marketplace_idempotency_conflict" &&
+      error?.status === 409,
+  );
+
+  const releaseInput = {
+    pendingOrderId: created.pendingPaymentOrderId,
+    profile: mockProfile,
+    account,
+    requestId: "idempotent-release",
+    idempotencyKey: "idempotent-release",
+    requestHash: "idempotent-release-hash",
+    releaseReason: "buyer_cancelled",
+  };
+  const released = await orders.releaseMarketplacePendingPaymentOrder(
+    releaseInput,
+  );
+  assert.deepEqual(
+    await orders.releaseMarketplacePendingPaymentOrder({
+      ...releaseInput,
+      requestId: "idempotent-release-retry",
+    }),
+    released,
+  );
+  assert.equal(
+    (
+      await cart.getMarketplaceCustomerCartState(
+        account,
+        mockProfile.profileId,
+      )
+    ).summary.cartCount,
+    2,
+  );
+  await assert.rejects(
+    orders.releaseMarketplacePendingPaymentOrder({
+      ...releaseInput,
+      requestHash: "idempotent-release-conflict",
+    }),
+    (error) =>
+      error?.code === "marketplace_idempotency_conflict" &&
+      error?.status === 409,
+  );
+
+  const recreated = await orders.createOfficialPendingPaymentOrder({
+    ...createInput,
+    requestId: "idempotent-create-new-key",
+    idempotencyKey: "idempotent-create-new-key",
+  });
+  assert.notEqual(recreated.pendingPaymentOrderId, created.pendingPaymentOrderId);
+  assert.equal(
+    (
+      await orders.getBuyerPendingPaymentOrder({
+        pendingOrderId: recreated.pendingPaymentOrderId,
+        account,
+      })
+    ).order_state,
+    "pending_payment",
+  );
+  await orders.releaseMarketplacePendingPaymentOrder({
+    ...releaseInput,
+    pendingOrderId: recreated.pendingPaymentOrderId,
+    requestId: "idempotent-create-new-key-cleanup",
+    idempotencyKey: "idempotent-create-new-key-cleanup",
+    requestHash: "idempotent-create-new-key-cleanup",
+  });
+});
+
+test("local mock expiry command fails expired checkout, restores cart, and unlocks listing", async () => {
+  enableLocalMockEnvironment();
+  const [cart, orders] = await Promise.all([
+    importAppInstance("src/lib/marketplace/cart-watchlist.ts", "expiry-cart"),
+    importAppInstance("src/lib/marketplace/orders.ts", "expiry-orders"),
+  ]);
+  const account = mockMarketplaceAccount(
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa10",
+  );
+  const initial = await cart.getMarketplaceCustomerCartState(
+    account,
+    mockProfile.profileId,
+  );
+  const listingId = initial.items.find(
+    (item) => item.listing.listing_source === "official_shop",
+  )?.listingId;
+  assert.ok(listingId);
+  const realDateNow = Date.now;
+  let clock = Date.parse("2026-07-15T00:00:00.000Z");
+  Date.now = () => clock;
+  try {
+    const created = await orders.createOfficialPendingPaymentOrder({
+      listingId,
+      profile: mockProfile,
+      account,
+      shippingSnapshot: mockShippingSnapshot,
+      paymentInstructions: mockPaymentInstructions,
+      requestId: "expiry-create",
+      idempotencyKey: "expiry-create",
+      requestHash:
+        "5000000000000000000000000000000000000000000000000000000000000001",
+    });
+    clock += 16 * 60_000;
+    const expired = await orders.expireMarketplacePendingPaymentOrders({
+      requestId: "expiry-command",
+      limit: 10,
+    });
+    assert.equal(expired.expiredCount, 1);
+    assert.deepEqual(expired.expiredPendingOrderIds, [created.pendingPaymentOrderId]);
+    assert.equal(
+      (
+        await orders.getBuyerPendingPaymentOrder({
+          pendingOrderId: created.pendingPaymentOrderId,
+          account,
+        })
+      ).order_state,
+      "expired",
+    );
+    assert.deepEqual(await orders.listBuyerPendingPaymentOrders(account), []);
+    assert.equal(
+      (
+        await cart.getMarketplaceCustomerCartState(
+          account,
+          mockProfile.profileId,
+        )
+      ).summary.cartCount,
+      2,
+    );
+
+    const terminalRelease =
+      await orders.releaseMarketplacePendingPaymentOrder({
+        pendingOrderId: created.pendingPaymentOrderId,
+        profile: mockProfile,
+        account,
+        requestId: "expiry-terminal-release",
+        idempotencyKey: "expiry-terminal-release",
+        requestHash: "expiry-terminal-release",
+        releaseReason: "buyer_cancelled",
+      });
+    assert.equal(terminalRelease.orderState, "expired");
+    assert.equal(terminalRelease.paymentState, "failed");
+    assert.equal(terminalRelease.releaseReason, "expired");
+    assert.equal(
+      (
+        await cart.getMarketplaceCustomerCartState(
+          account,
+          mockProfile.profileId,
+        )
+      ).summary.cartCount,
+      2,
+    );
+
+    const recreated = await orders.createOfficialPendingPaymentOrder({
+      listingId,
+      profile: mockProfile,
+      account,
+      shippingSnapshot: mockShippingSnapshot,
+      paymentInstructions: mockPaymentInstructions,
+      requestId: "expiry-recreate",
+      idempotencyKey: "expiry-recreate",
+      requestHash:
+        "5000000000000000000000000000000000000000000000000000000000000002",
+    });
+    await orders.releaseMarketplacePendingPaymentOrder({
+      pendingOrderId: recreated.pendingPaymentOrderId,
+      profile: mockProfile,
+      account,
+      requestId: "expiry-recreate-cleanup",
+      idempotencyKey: "expiry-recreate-cleanup",
+      requestHash: "expiry-recreate-cleanup",
+      releaseReason: "buyer_cancelled",
+    });
+  } finally {
+    Date.now = realDateNow;
+  }
+});
+
+test("local mock runtime evicts oldest terminal checkouts after its bounded history", async () => {
+  enableLocalMockEnvironment();
+  const [cart, orders] = await Promise.all([
+    importAppInstance("src/lib/marketplace/cart-watchlist.ts", "eviction-cart"),
+    importAppInstance("src/lib/marketplace/orders.ts", "eviction-orders"),
+  ]);
+  const account = mockMarketplaceAccount(
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa11",
+  );
+  const listingId = (
+    await cart.getMarketplaceCustomerCartState(
+      account,
+      mockProfile.profileId,
+    )
+  ).items.find((item) => item.listing.listing_source === "official_shop")
+    ?.listingId;
+  assert.ok(listingId);
+
+  let oldestPendingOrderId = null;
+  let newestPendingOrderId = null;
+  for (let index = 0; index <= 100; index += 1) {
+    const created = await orders.createOfficialPendingPaymentOrder({
+      listingId,
+      profile: mockProfile,
+      account,
+      shippingSnapshot: mockShippingSnapshot,
+      paymentInstructions: mockPaymentInstructions,
+      requestId: `terminal-eviction-create-${index}`,
+      idempotencyKey: `terminal-eviction-create-${index}`,
+      requestHash: index.toString(16).padStart(64, "6"),
+    });
+    oldestPendingOrderId ??= created.pendingPaymentOrderId;
+    newestPendingOrderId = created.pendingPaymentOrderId;
+    await orders.releaseMarketplacePendingPaymentOrder({
+      pendingOrderId: created.pendingPaymentOrderId,
+      profile: mockProfile,
+      account,
+      requestId: `terminal-eviction-release-${index}`,
+      idempotencyKey: `terminal-eviction-release-${index}`,
+      requestHash: `terminal-eviction-release-${index}`,
+      releaseReason: "buyer_cancelled",
+    });
+  }
+
+  await assert.rejects(
+    orders.getBuyerPendingPaymentOrder({
+      pendingOrderId: oldestPendingOrderId,
+      account,
+    }),
+    (error) =>
+      error?.code === "marketplace_pending_order_not_found" &&
+      error?.status === 404,
+  );
+  assert.equal(
+    (
+      await orders.getBuyerPendingPaymentOrder({
+        pendingOrderId: newestPendingOrderId,
+        account,
+      })
+    ).order_state,
+    "cancelled",
+  );
+});
+
+test("local mock account-state bounds evict inactive history without losing active checkout state", async () => {
+  enableLocalMockEnvironment();
+  const [cart, orders] = await Promise.all([
+    importAppInstance("src/lib/marketplace/cart-watchlist.ts", "account-bound-cart"),
+    importAppInstance("src/lib/marketplace/orders.ts", "account-bound-orders"),
+  ]);
+  const activeAccount = mockMarketplaceAccount(
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa12",
+  );
+  const activeCart = await cart.getMarketplaceCustomerCartState(
+    activeAccount,
+    mockProfile.profileId,
+  );
+  const activeListingId = activeCart.items.find(
+    (item) => item.listing.listing_source === "official_shop",
+  )?.listingId;
+  assert.ok(activeListingId);
+  const activeWatchlist = await cart.getMarketplaceWatchlistState(
+    activeAccount,
+    mockProfile.profileId,
+  );
+  await cart.removeMarketplaceWatchlistItem({
+    account: activeAccount,
+    listingId: activeWatchlist.items[0].listingId,
+    actorProfileId: mockProfile.profileId,
+    requestId: "account-bound-active-watchlist",
+    idempotencyKey: "account-bound-active-watchlist",
+    requestHash: "account-bound-active-watchlist",
+  });
+  const activeCheckout = await orders.createOfficialPendingPaymentOrder({
+    listingId: activeListingId,
+    profile: mockProfile,
+    account: activeAccount,
+    shippingSnapshot: mockShippingSnapshot,
+    paymentInstructions: mockPaymentInstructions,
+    requestId: "account-bound-active-checkout",
+    idempotencyKey: "account-bound-active-checkout",
+    requestHash:
+      "7000000000000000000000000000000000000000000000000000000000000001",
+  });
+
+  const accountForIndex = (index) =>
+    mockMarketplaceAccount(
+      `cccccccc-cccc-4ccc-8ccc-${index.toString(16).padStart(12, "0")}`,
+    );
+  const oldestInactiveAccount = accountForIndex(0);
+  const oldestCart = await cart.getMarketplaceCustomerCartState(
+    oldestInactiveAccount,
+    mockProfile.profileId,
+  );
+  const oldestWatchlist = await cart.getMarketplaceWatchlistState(
+    oldestInactiveAccount,
+    mockProfile.profileId,
+  );
+  await cart.removeMarketplaceCartItem({
+    account: oldestInactiveAccount,
+    listingId: oldestCart.items[0].listingId,
+    actorProfileId: mockProfile.profileId,
+    requestId: "account-bound-oldest-cart",
+    idempotencyKey: "account-bound-oldest-cart",
+    requestHash: "account-bound-oldest-cart",
+  });
+  await cart.removeMarketplaceWatchlistItem({
+    account: oldestInactiveAccount,
+    listingId: oldestWatchlist.items[0].listingId,
+    actorProfileId: mockProfile.profileId,
+    requestId: "account-bound-oldest-watchlist",
+    idempotencyKey: "account-bound-oldest-watchlist",
+    requestHash: "account-bound-oldest-watchlist",
+  });
+
+  for (let index = 1; index <= 110; index += 1) {
+    await cart.getMarketplaceCustomerCartState(
+      accountForIndex(index),
+      mockProfile.profileId,
+    );
+  }
+
+  await orders.releaseMarketplacePendingPaymentOrder({
+    pendingOrderId: activeCheckout.pendingPaymentOrderId,
+    profile: mockProfile,
+    account: activeAccount,
+    requestId: "account-bound-active-release",
+    idempotencyKey: "account-bound-active-release",
+    requestHash: "account-bound-active-release",
+    releaseReason: "buyer_cancelled",
+  });
+  assert.equal(
+    (
+      await cart.getMarketplaceCustomerCartState(
+        activeAccount,
+        mockProfile.profileId,
+      )
+    ).summary.cartCount,
+    2,
+  );
+  assert.equal(
+    (
+      await cart.getMarketplaceWatchlistState(
+        activeAccount,
+        mockProfile.profileId,
+      )
+    ).summary.watchlistCount,
+    1,
+  );
+  assert.equal(
+    (
+      await cart.getMarketplaceCustomerCartState(
+        oldestInactiveAccount,
+        mockProfile.profileId,
+      )
+    ).summary.cartCount,
+    2,
+  );
+  assert.equal(
+    (
+      await cart.getMarketplaceWatchlistState(
+        oldestInactiveAccount,
+        mockProfile.profileId,
+      )
+    ).summary.watchlistCount,
+    2,
+  );
+});
+
+test("local mock cart state survives separate route-bundle module evaluation", async () => {
+  enableLocalMockEnvironment();
+
+  const accountId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1";
+  const [firstBundle, secondBundle] = await Promise.all([
+    importAppInstance(
+      "src/lib/marketplace/cart-watchlist.ts",
+      "cart-state-first",
+    ),
+    importAppInstance(
+      "src/lib/marketplace/cart-watchlist.ts",
+      "cart-state-second",
+    ),
+  ]);
+  const account = mockMarketplaceAccount(accountId);
+  const initial = await firstBundle.getMarketplaceCustomerCartState(
+    account,
+    mockProfile.profileId,
+  );
+  assert.equal(initial.summary.cartCount, 2);
+
+  await firstBundle.removeMarketplaceCartItem({
+    account,
+    listingId: initial.items[0].listingId,
+    actorProfileId: mockProfile.profileId,
+    requestId: "mock-cart-state-remove",
+    idempotencyKey: "mock-cart-state-remove",
+    requestHash: "mock-cart-state-remove",
+  });
+
+  const reloaded = await secondBundle.getMarketplaceCustomerCartState(
+    account,
+    mockProfile.profileId,
+  );
+  assert.equal(reloaded.summary.cartCount, 1);
+  assert.equal(
+    reloaded.items.some((item) => item.listingId === initial.items[0].listingId),
+    false,
+  );
+
+  const initialWatchlist = await firstBundle.getMarketplaceWatchlistState(
+    account,
+    mockProfile.profileId,
+  );
+  assert.equal(initialWatchlist.summary.watchlistCount, 2);
+  await firstBundle.removeMarketplaceWatchlistItem({
+    account,
+    listingId: initialWatchlist.items[0].listingId,
+    actorProfileId: mockProfile.profileId,
+    requestId: "mock-watchlist-state-remove",
+    idempotencyKey: "mock-watchlist-state-remove",
+    requestHash: "mock-watchlist-state-remove",
+  });
+
+  const reloadedWatchlist = await secondBundle.getMarketplaceWatchlistState(
+    account,
+    mockProfile.profileId,
+  );
+  assert.equal(reloadedWatchlist.summary.watchlistCount, 1);
+  assert.equal(
+    reloadedWatchlist.items.some(
+      (item) => item.listingId === initialWatchlist.items[0].listingId,
+    ),
+    false,
+  );
+});
+
+test("local mock single official checkout persists and restores its consumed cart row", async () => {
+  enableLocalMockEnvironment();
+
+  const account = mockMarketplaceAccount(
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4",
+  );
+  const [cart, orders] = await Promise.all([
+    importAppInstance(
+      "src/lib/marketplace/cart-watchlist.ts",
+      "single-checkout-cart-route",
+    ),
+    importAppInstance(
+      "src/lib/marketplace/orders.ts",
+      "single-checkout-orders-route",
+    ),
+  ]);
+  const initial = await cart.getMarketplaceCustomerCartState(
+    account,
+    mockProfile.profileId,
+  );
+  const officialListingId = initial.items.find(
+    (item) => item.listing.listing_source === "official_shop",
+  )?.listingId;
+  assert.ok(officialListingId);
+  assert.equal(initial.summary.cartCount, 2);
+
+  const created = await orders.createOfficialPendingPaymentOrder({
+    listingId: officialListingId,
+    profile: mockProfile,
+    account,
+    shippingSnapshot: mockShippingSnapshot,
+    paymentInstructions: mockPaymentInstructions,
+    requestId: "mock-single-checkout-create",
+    idempotencyKey: "mock-single-checkout-create",
+    requestHash:
+      "111122223333444455556666777788889999aaaabbbbccccddddeeeeffff0000",
+  });
+  const afterCheckout = await cart.getMarketplaceCustomerCartState(
+    account,
+    mockProfile.profileId,
+  );
+  assert.equal(afterCheckout.summary.cartCount, 1);
+  assert.equal(
+    afterCheckout.items.some((item) => item.listingId === officialListingId),
+    false,
+  );
+
+  const pending = await orders.getBuyerPendingPaymentOrder({
+    pendingOrderId: created.pendingPaymentOrderId,
+    account,
+  });
+  assert.equal(pending.id, created.pendingPaymentOrderId);
+  assert.equal(pending.checkout_group_id, null);
+  assert.equal(pending.listing_id, officialListingId);
+  assert.deepEqual(
+    (await orders.listBuyerPendingPaymentOrders(account)).map((row) => row.id),
+    [created.pendingPaymentOrderId],
+  );
+
+  const releaseInput = {
+    pendingOrderId: created.pendingPaymentOrderId,
+    profile: mockProfile,
+    account,
+    requestId: "mock-single-checkout-release",
+    idempotencyKey: "mock-single-checkout-release",
+    requestHash: "mock-single-checkout-release",
+    releaseReason: "buyer_cancelled",
+  };
+  const released = await orders.releaseMarketplacePendingPaymentOrder(
+    releaseInput,
+  );
+  assert.equal(released.pendingPaymentOrderId, created.pendingPaymentOrderId);
+  assert.equal(released.orderState, "cancelled");
+  assert.equal(released.paymentState, "failed");
+
+  const restored = await cart.getMarketplaceCustomerCartState(
+    account,
+    mockProfile.profileId,
+  );
+  assert.equal(restored.summary.cartCount, 2);
+  assert.equal(
+    restored.items.some((item) => item.listingId === officialListingId),
+    true,
+  );
+  assert.deepEqual(await orders.listBuyerPendingPaymentOrders(account), []);
+
+  await cart.removeMarketplaceCartItem({
+    account,
+    listingId: officialListingId,
+    actorProfileId: mockProfile.profileId,
+    requestId: "mock-single-checkout-remove-restored",
+    idempotencyKey: "mock-single-checkout-remove-restored",
+    requestHash: "mock-single-checkout-remove-restored",
+  });
+  assert.deepEqual(
+    await orders.releaseMarketplacePendingPaymentOrder({
+      ...releaseInput,
+      requestId: "mock-single-checkout-release-again",
+      idempotencyKey: "mock-single-checkout-release-again",
+      requestHash: "mock-single-checkout-release-again",
+    }),
+    released,
+  );
+  assert.equal(
+    (
+      await cart.getMarketplaceCustomerCartState(
+        account,
+        mockProfile.profileId,
+      )
+    ).summary.cartCount,
+    1,
+  );
+});
+
+test("local mock pending-order reads do not cross account ownership", async () => {
+  enableLocalMockEnvironment();
+
+  const account = mockMarketplaceAccount(
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa5",
+  );
+  const intruder = mockMarketplaceAccount(
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6",
+  );
+  const [cart, orders] = await Promise.all([
+    importAppInstance(
+      "src/lib/marketplace/cart-watchlist.ts",
+      "single-ownership-cart-route",
+    ),
+    importAppInstance(
+      "src/lib/marketplace/orders.ts",
+      "single-ownership-orders-route",
+    ),
+  ]);
+  const initial = await cart.getMarketplaceCustomerCartState(
+    account,
+    mockProfile.profileId,
+  );
+  const officialListingId = initial.items.find(
+    (item) => item.listing.listing_source === "official_shop",
+  )?.listingId;
+  assert.ok(officialListingId);
+
+  const created = await orders.createOfficialPendingPaymentOrder({
+    listingId: officialListingId,
+    profile: mockProfile,
+    account,
+    shippingSnapshot: mockShippingSnapshot,
+    paymentInstructions: mockPaymentInstructions,
+    requestId: "mock-single-ownership-create",
+    idempotencyKey: "mock-single-ownership-create",
+    requestHash:
+      "22223333444455556666777788889999aaaabbbbccccddddeeeeffff00001111",
+  });
+
+  assert.deepEqual(
+    (await orders.listBuyerPendingPaymentOrders(account)).map((row) => row.id),
+    [created.pendingPaymentOrderId],
+  );
+  assert.deepEqual(await orders.listBuyerPendingPaymentOrders(intruder), []);
+  await assert.rejects(
+    orders.getBuyerPendingPaymentOrder({
+      pendingOrderId: created.pendingPaymentOrderId,
+      account: intruder,
+    }),
+    (error) =>
+      error?.code === "marketplace_pending_order_not_found" &&
+      error?.status === 404,
+  );
+  await orders.releaseMarketplacePendingPaymentOrder({
+    pendingOrderId: created.pendingPaymentOrderId,
+    profile: mockProfile,
+    account,
+    requestId: "mock-single-ownership-cleanup",
+    idempotencyKey: "mock-single-ownership-cleanup",
+    requestHash: "mock-single-ownership-cleanup",
+    releaseReason: "buyer_cancelled",
+  });
+});
+
+test("local mock cart checkout persists lookup and release across route bundles", async () => {
+  enableLocalMockEnvironment();
+
+  const account = mockMarketplaceAccount(
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2",
+  );
+  const wrongAccount = mockMarketplaceAccount(
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3",
+  );
+  const [cart, orders] = await Promise.all([
+    importAppInstance(
+      "src/lib/marketplace/cart-watchlist.ts",
+      "checkout-cart-route",
+    ),
+    importAppInstance("src/lib/marketplace/orders.ts", "checkout-orders-route"),
+  ]);
+  const initial = await cart.getMarketplaceCustomerCartState(
+    account,
+    mockProfile.profileId,
+  );
+  const firstOfficialListingId = initial.items.find(
+    (item) => item.listing.listing_source === "official_shop",
+  )?.listingId;
+  assert.ok(firstOfficialListingId);
+
+  const secondOfficialListingId =
+    "14141414-1414-4141-8141-141414141403";
+  await cart.addMarketplaceCartItem({
+    account,
+    listingId: secondOfficialListingId,
+    actorProfileId: mockProfile.profileId,
+    requestId: "mock-checkout-cart-add",
+    idempotencyKey: "mock-checkout-cart-add",
+    requestHash: "mock-checkout-cart-add",
+  });
+  const beforeCheckout = await cart.getMarketplaceCustomerCartState(
+    account,
+    mockProfile.profileId,
+  );
+  assert.equal(beforeCheckout.summary.cartCount, 3);
+
+  const created = await orders.createMultiListingCheckout({
+    listingIds: [firstOfficialListingId, secondOfficialListingId],
+    profile: mockProfile,
+    account,
+    shippingSnapshot: mockShippingSnapshot,
+    paymentInstructions: mockPaymentInstructions,
+    requestId: "mock-checkout-create",
+    idempotencyKey: "mock-checkout-create",
+    requestHash:
+      "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+  });
+  const afterCheckout = await cart.getMarketplaceCustomerCartState(
+    account,
+    mockProfile.profileId,
+  );
+  assert.equal(afterCheckout.summary.cartCount, 1);
+  const secondChildPendingOrderId = created.items[1].pendingPaymentOrderId;
+  assert.notEqual(
+    secondChildPendingOrderId,
+    created.items[0].pendingPaymentOrderId,
+  );
+
+  const pending = await orders.getBuyerPendingPaymentOrder({
+    pendingOrderId: secondChildPendingOrderId,
+    account,
+  });
+  assert.equal(pending.id, secondChildPendingOrderId);
+  assert.equal(pending.checkout_group_id, created.checkoutGroupId);
+  assert.equal(pending.buyer_total_satang, created.buyerTotalSatang);
+
+  const pendingList = await orders.listBuyerPendingPaymentOrders(account);
+  assert.deepEqual(
+    pendingList.map((row) => row.id).sort(),
+    created.items.map((item) => item.pendingPaymentOrderId).sort(),
+  );
+
+  const releaseInput = {
+    pendingOrderId: secondChildPendingOrderId,
+    profile: mockProfile,
+    account,
+    requestId: "mock-checkout-release",
+    idempotencyKey: "mock-checkout-release",
+    requestHash: "mock-checkout-release",
+    releaseReason: "buyer_cancelled",
+  };
+  for (const [pendingOrderId, releaseAccount] of [
+    [secondChildPendingOrderId, wrongAccount],
+    ["ffffffff-ffff-4fff-8fff-ffffffffffff", account],
+  ]) {
+    await assert.rejects(
+      orders.releaseMarketplacePendingPaymentOrder({
+        ...releaseInput,
+        pendingOrderId,
+        account: releaseAccount,
+      }),
+      (error) =>
+        error?.code === "marketplace_pending_order_not_found" &&
+        error?.status === 404,
+    );
+  }
+
+  const released = await orders.releaseMarketplacePendingPaymentOrder(
+    releaseInput,
+  );
+  assert.equal(released.checkoutGroupId, created.checkoutGroupId);
+  assert.equal(released.checkoutState, "cancelled");
+  assert.equal(released.paymentState, "failed");
+
+  const restored = await cart.getMarketplaceCustomerCartState(
+    account,
+    mockProfile.profileId,
+  );
+  assert.equal(restored.summary.cartCount, 3);
+  assert.deepEqual(
+    restored.items
+      .filter((item) =>
+        [firstOfficialListingId, secondOfficialListingId].includes(
+          item.listingId,
+        ),
+      )
+      .map((item) => item.listingId)
+      .sort(),
+    [firstOfficialListingId, secondOfficialListingId].sort(),
+  );
+  assert.deepEqual(await orders.listBuyerPendingPaymentOrders(account), []);
+
+  assert.deepEqual(
+    await orders.releaseMarketplacePendingPaymentOrder({
+      ...releaseInput,
+      requestId: "mock-checkout-release-again",
+      idempotencyKey: "mock-checkout-release-again",
+      requestHash: "mock-checkout-release-again",
+    }),
+    released,
   );
 });
 
