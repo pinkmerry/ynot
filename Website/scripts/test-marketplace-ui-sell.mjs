@@ -157,7 +157,7 @@ test("SellForm.tsx does not statically import the server-only catalog metadata m
   );
 });
 
-test("SellForm.tsx posts to the real submissions route with submitNow and the idempotency header", () => {
+test("SellForm.tsx creates a draft, uploads its photos, then submits the completed consignment", () => {
   const source = readApp(SELL_FORM_PATH);
   assert.match(
     source,
@@ -165,8 +165,18 @@ test("SellForm.tsx posts to the real submissions route with submitNow and the id
     "must POST to /api/marketplace/seller/submissions",
   );
   assert.match(source, /method:\s*["']POST["']/, "submission create must use method: POST");
-  assert.match(source, /submitNow:\s*true/, "create payload must set submitNow: true");
+  assert.match(source, /submitNow:\s*false/, "create payload must leave the submission as a draft for photo upload");
   assert.match(source, /["']idempotency-key["']/, "must send the idempotency-key header");
+  assert.match(
+    source,
+    /\/api\/marketplace\/seller\/submissions\/\$\{submissionId\}\/submit/,
+    "must submit only after the photos are attached",
+  );
+  assert.ok(
+    source.indexOf("for (const [index, photo] of photos.entries())") <
+      source.indexOf("/submit`"),
+    "photo uploads must occur before the final submit request",
+  );
 });
 
 test("SellForm.tsx sends every SELLER_SUBMISSION_FIELDS key the create route allows", () => {

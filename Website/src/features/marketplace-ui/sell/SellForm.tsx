@@ -384,7 +384,9 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
             language: fields.language,
             certNumber: isGraded ? fields.cert.trim() : "",
             sellerNote: "",
-            submitNow: true,
+            // Photos are attached only while a consignment is a draft. Create
+            // it first, then upload every selected photo before submitting it.
+            submitNow: false,
           }),
         }),
       );
@@ -401,6 +403,18 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
         const uploaded = await uploadPhoto(submissionId, expectedVersion, index + 1, photo.file);
         expectedVersion = uploaded.photo?.version ?? expectedVersion;
       }
+
+      setUploadProgress("Submitting consignment...");
+      await parseJson(
+        await fetch(`/api/marketplace/seller/submissions/${submissionId}/submit`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "idempotency-key": nextIdempotencyKey("seller-submission-submit"),
+          },
+          body: JSON.stringify({ expectedVersion, sellerNote: "" }),
+        }),
+      );
 
       toast(`Listed for ${formatThb(priceSatang)}`, "success");
       router.push("/marketplace/orders?tab=listings");
