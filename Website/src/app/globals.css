@@ -20762,6 +20762,10 @@ html[data-ynot-theme="light"] .marketplace-page {
 .marketplace-listing-checkout-section {
   scroll-margin-top: 96px;
 }
+.marketplace-listing-detail-page:has(#marketplace-checkout:target)
+  .marketplace-listing-action-bar {
+  display: none;
+}
 .marketplace-listing-action-bar {
   position: fixed;
   left: 50%;

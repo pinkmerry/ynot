@@ -169,7 +169,7 @@ export function MarketplaceListingActionsClient({
             </Link>
           ) : (
             <Link href="/marketplace/cart" prefetch={false}>
-              View cart
+              View cart & checkout
             </Link>
           )}
         </p>

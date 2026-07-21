@@ -23,6 +23,7 @@ const PAYMENT_PROOF_ROUTE_PATH =
 const PENDING_ORDERS_ROUTE_PATH =
   "src/app/api/ynot/marketplace/checkout/pending-orders/route.ts";
 const REQUEST_GUARD_PATH = "src/lib/marketplace/request-guard.ts";
+const GLOBAL_CSS_PATH = "src/app/globals.css";
 
 test("package exposes the scoped marketplace UI checkout test script", () => {
   const packageJson = JSON.parse(readApp("package.json"));
@@ -40,6 +41,16 @@ test("CheckoutFlow.tsx and SlipUploader.tsx exist", () => {
 test("CheckoutFlow.tsx and SlipUploader.tsx are client components", () => {
   assert.match(readApp(CHECKOUT_FLOW_PATH), /^"use client"/m, "CheckoutFlow must be a client component");
   assert.match(readApp(SLIP_UPLOADER_PATH), /^"use client"/m, "SlipUploader must be a client component");
+});
+
+test("listing checkout hides its fixed purchase bar while the required delivery confirmation is in view", () => {
+  const css = readApp(GLOBAL_CSS_PATH);
+
+  assert.match(
+    css,
+    /\.marketplace-listing-detail-page:has\(#marketplace-checkout:target\)[\s\S]{0,180}\.marketplace-listing-action-bar[\s\S]{0,180}display:\s*none/,
+    "the fixed purchase bar must not cover the delivery-confirmation checkbox on an anchored checkout",
+  );
 });
 
 test("CheckoutFlow.tsx calls the real pending-order create route with the real allowed body fields and idempotency header", () => {

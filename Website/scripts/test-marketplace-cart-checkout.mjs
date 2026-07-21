@@ -1202,6 +1202,17 @@ test("cart renders a real 1-3 item selection and Proceed to checkout action", ()
   assert.match(source, /listing\.listing_source\s*!==\s*["']official_shop["']/);
 });
 
+test("cart explains the group-checkout boundary and links shoppers directly to cart checkout after adding an item", () => {
+  const cartSource = readApp(CART_CLIENT);
+  const listingActionsSource = readApp(
+    "src/features/ynot/MarketplaceListingActionsClient.tsx",
+  );
+
+  assert.match(cartSource, /Official-shop items can be checked out together/);
+  assert.match(cartSource, /User-seller items still use individual checkout/);
+  assert.match(listingActionsSource, /View cart & checkout/);
+});
+
 test("cart server page supplies complete addresses and payment instructions to checkout", () => {
   const source = readApp(CART_PAGE);
   assert.match(source, /getProfileAddresses/);
