@@ -335,6 +335,13 @@ test("seller detail controls lock consistently after the consignment is submitte
   assert.match(identity, /options=\{options\.categoryOptions\}[\s\S]*?disabled=\{disabledIdentity\}/, "Category must lock with the submitted consignment");
 });
 
+test("controlled selects preserve an existing legacy value while new submissions use the shared options", () => {
+  const fields = readApp(FORM_FIELDS_PATH);
+
+  assert.match(fields, /options\.some\(\(option\) => option\.value === value\)/, "select must detect values absent from the current catalogue");
+  assert.match(fields, /<option value=\{value\} hidden>\{value\}<\/option>/, "select must render a selected legacy value without adding it to new choices");
+});
+
 test("SellForm.tsx supports edit mode via ?submission=ID prefill from the real GET detail route", () => {
   const detailRouteSource = readApp(SUBMISSION_DETAIL_ROUTE_PATH);
   assert.match(

@@ -63,6 +63,8 @@ export interface SellSelectProps {
 }
 
 export function SellSelect({ value, onChange, options, placeholder, id, disabled }: SellSelectProps) {
+  const hasCurrentValue = !value || options.some((option) => option.value === value);
+
   return (
     <select
       id={id}
@@ -72,6 +74,7 @@ export function SellSelect({ value, onChange, options, placeholder, id, disabled
       style={{ ...sellInputStyle, appearance: "none", cursor: disabled ? "not-allowed" : "pointer" }}
     >
       <option value="">{placeholder ?? "Select…"}</option>
+      {!hasCurrentValue ? <option value={value} hidden>{value}</option> : null}
       {options.map((option) => (
         <option key={option.value} value={option.value}>
           {option.label}
