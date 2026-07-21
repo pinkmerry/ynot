@@ -36,6 +36,24 @@ export const SELLER_SUBMISSION_FIELDS = [
   "submitNow",
 ] as const;
 
+export const SELLER_SUBMISSION_UPDATE_FIELDS = [
+  "expectedVersion",
+  "itemType",
+  "titleSnapshot",
+  "conditionCode",
+  "conditionNotes",
+  "askingPriceSatang",
+  "referenceSource",
+  "referenceCardId",
+  "referenceVariantId",
+  "variantSnapshot",
+  "referenceSnapshot",
+  "gradeLabel",
+  "language",
+  "certNumber",
+  "sellerNote",
+] as const;
+
 export const SELLER_PAYOUT_PREVIEW_FIELDS = [
   "askingPriceSatang",
 ] as const;
@@ -912,6 +930,66 @@ export async function createSellerSubmission(input: {
     p_seller_note: submission.sellerNote,
     p_submit_now: submission.submitNow,
     p_seller_marketplace_fee_bps: submission.sellerMarketplaceFeeBps,
+  })) as {
+    data: unknown;
+    error: { message?: string; code?: string } | null;
+  };
+
+  if (result.error) throw marketplaceRpcError(result.error);
+  return result.data;
+}
+
+export async function updateSellerSubmission(input: {
+  submissionId: string;
+  body: Record<string, unknown>;
+  profile: ResolvedProfileSession;
+  account: SafeMarketplaceAccount | null;
+  requestId: string;
+  idempotencyKey: string;
+  requestHash: string;
+}) {
+  const account = assertSellerAccount(input.account);
+  const policy = await getActiveMarketplaceMoneyPolicy();
+  const submission = normalizeSellerSubmissionInput(input.body, policy);
+  const expectedVersion = positiveInteger(input.body.expectedVersion, "version");
+
+  if (marketplaceConfig().mockData) {
+    const sellerMarketplaceFeeSatang = Math.floor(
+      (submission.askingPriceSatang * submission.sellerMarketplaceFeeBps) / 10_000,
+    );
+    return {
+      submissionId: assertUuid(input.submissionId, "submission_id"),
+      status: "draft",
+      askingPriceSatang: submission.askingPriceSatang,
+      sellerMarketplaceFeeSatang,
+      payoutPreviewSatang: submission.askingPriceSatang - sellerMarketplaceFeeSatang,
+      version: expectedVersion + 1,
+    };
+  }
+
+  const supabase = createMarketplaceSupabaseClient();
+  const result = (await supabase.rpc("marketplace_update_seller_submission", {
+    p_submission_id: assertUuid(input.submissionId, "submission_id"),
+    p_request_id: input.requestId,
+    p_idempotency_key: input.idempotencyKey,
+    p_request_hash: input.requestHash,
+    p_ynot_profile_id: input.profile.profileId,
+    p_marketplace_account_id: account.accountId,
+    p_expected_version: expectedVersion,
+    p_item_type: submission.itemType,
+    p_title_snapshot: submission.titleSnapshot,
+    p_condition_code: submission.conditionCode,
+    p_asking_price_satang: submission.askingPriceSatang,
+    p_reference_source: submission.referenceSource,
+    p_reference_card_id: submission.referenceCardId,
+    p_reference_variant_id: submission.referenceVariantId,
+    p_variant_snapshot: submission.variantSnapshot,
+    p_reference_snapshot: submission.referenceSnapshot,
+    p_condition_notes: submission.conditionNotes,
+    p_grade_label: submission.gradeLabel,
+    p_language: submission.language,
+    p_cert_number: submission.certNumber,
+    p_seller_note: submission.sellerNote,
   })) as {
     data: unknown;
     error: { message?: string; code?: string } | null;

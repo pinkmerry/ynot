@@ -22,6 +22,10 @@ const marketplaceIdempotencyRepairMigrationPath = path.join(
   repoRoot,
   "Database/marketplace-supabase/migrations/20260721100000_marketplace_idempotency_status_columns.sql",
 );
+const sellerSubmissionEditMigrationPath = path.join(
+  repoRoot,
+  "Database/marketplace-supabase/migrations/20260721110000_marketplace_seller_submission_edit.sql",
+);
 const forbiddenCoreMigrationPath = path.join(
   repoRoot,
   "Database/supabase/migrations/20260628110000_marketplace_seller_consignment.sql",
@@ -45,6 +49,10 @@ function readSellerPhotoPerspectiveMigration() {
 
 function readMarketplaceIdempotencyRepairMigration() {
   return readFileSync(marketplaceIdempotencyRepairMigrationPath, "utf8");
+}
+
+function readSellerSubmissionEditMigration() {
+  return readFileSync(sellerSubmissionEditMigrationPath, "utf8");
 }
 
 function compactSql(source) {
@@ -230,6 +238,37 @@ test("seller photo idempotency completion fields are present before the photo RP
   requirePattern(repairSql, /status = 'completed'/);
   requirePattern(compactSql(readSellerPhotoPerspectiveMigration()), /status = 'completed'/);
   requirePattern(compactSql(readSellerPhotoPerspectiveMigration()), /completed_at = now\(\)/);
+});
+
+test("draft seller listings can be edited with their private photos while submitted listings remain locked", () => {
+  assert.ok(
+    existsSync(sellerSubmissionEditMigrationPath),
+    "missing seller submission edit migration",
+  );
+  const editSql = compactSql(readSellerSubmissionEditMigration());
+  requirePattern(editSql, /create or replace function public\.marketplace_update_seller_submission/);
+  requirePattern(editSql, /security definer[\s\S]*set search_path = public, pg_temp/);
+  requirePattern(editSql, /submission_row\.status <> 'draft'/);
+  requirePattern(editSql, /marketplace_seller_submission_not_editable/);
+  requirePattern(editSql, /submission_row\.version <> p_expected_version/);
+  requirePattern(editSql, /seller_submission\.update/);
+  requirePattern(editSql, /version = submission_row\.version \+ 1/);
+
+  const service = readApp("src/lib/marketplace/seller-consignment.ts");
+  const detailRoute = readApp("src/app/api/ynot/marketplace/seller/submissions/[submissionId]/route.ts");
+  const privatePhotoRoute = readApp("src/app/api/ynot/marketplace/seller/submissions/[submissionId]/photos/[photoId]/file/route.ts");
+  const form = readApp("src/features/marketplace-ui/sell/SellForm.tsx");
+  const uploader = readApp("src/features/marketplace-ui/sell/PhotoUploader.tsx");
+  requirePattern(service, /SELLER_SUBMISSION_UPDATE_FIELDS/);
+  requirePattern(service, /marketplace_update_seller_submission/);
+  requirePattern(detailRoute, /export async function PATCH/);
+  requirePattern(privatePhotoRoute, /getMarketplaceAccountForProfile/);
+  requirePattern(privatePhotoRoute, /\.eq\("marketplace_account_id", account\.accountId\)/);
+  requirePattern(privatePhotoRoute, /Cache-Control": "private, no-store"/);
+  requirePattern(form, /Save draft changes/);
+  requirePattern(form, /existingPhotos/);
+  requirePattern(form, /filter\(\(photo\) => photo\.file\)/);
+  requirePattern(uploader, /photo\.file \?/);
 });
 
 test("seller modules and routes enforce account bridge, owner gate, validation, idempotency, and no trusted seller ids", () => {

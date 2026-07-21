@@ -9,7 +9,10 @@ import {
 import { marketplaceRequestId } from "@/lib/marketplace/route-utils";
 import {
   getSellerSubmissionDetail,
+  SELLER_SUBMISSION_UPDATE_FIELDS,
+  updateSellerSubmission,
 } from "@/lib/marketplace/seller-consignment";
+import { prepareMarketplaceMutation } from "@/lib/marketplace/mutation-guard";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +45,44 @@ export async function GET(
     const { submissionId } = await ctx.params;
     const account = await getMarketplaceAccountForProfile(profile, access.admin);
     const submission = await getSellerSubmissionDetail({ submissionId, account });
+    return Response.json({ ok: true, request_id: requestId, submission });
+  } catch (error) {
+    return marketplaceErrorResponse(error, requestId);
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  ctx: { params: Promise<{ submissionId: string }> },
+) {
+  const mutation = await prepareMarketplaceMutation(request, {
+    method: "PATCH",
+    action: "sellerSubmission",
+    rateLimit: {
+      key: "ynot:marketplace:seller:submissions:update",
+      limit: 12,
+      windowMs: 60_000,
+    },
+    allowedFields: SELLER_SUBMISSION_UPDATE_FIELDS,
+  });
+  if (!mutation.ok) return mutation.response;
+
+  const { access, body, idempotencyKey, profile, requestId } = mutation;
+  try {
+    const { submissionId } = await ctx.params;
+    const account = await getMarketplaceAccountForProfile(profile, access.admin);
+    const submission = await updateSellerSubmission({
+      submissionId,
+      body,
+      profile,
+      account,
+      requestId,
+      idempotencyKey,
+      requestHash: await mutation.requestHashForTarget(
+        "seller_submission.update",
+        submissionId,
+      ),
+    });
     return Response.json({ ok: true, request_id: requestId, submission });
   } catch (error) {
     return marketplaceErrorResponse(error, requestId);

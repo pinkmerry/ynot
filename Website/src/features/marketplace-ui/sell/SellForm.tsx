@@ -7,6 +7,7 @@ import { MpBtn, MpPanel, MpToasts, useToasts } from "../shared/MpPrimitives";
 import { MpIcon } from "../shared/MpIcon";
 import { formatThb } from "../shared/money";
 import {
+  createExistingSellPhotos,
   createSellPhotos,
   MAX_SELL_PHOTOS,
   PhotoUploader,
@@ -43,14 +44,9 @@ import type { SellCatalogOptions, SellFieldValues, SellPayoutPreview } from "./s
  * CUT — graded cards keep a plain cert-number text input with no autofill
  * affordance and no lookup network request.
  *
- * Edit mode (?submission=ID): there is NO update/PATCH route for seller
- * submissions in this codebase (confirmed against every route file under
- * src/app/api/ynot/marketplace/seller/submissions/ and against the seller
- * consignment SQL migration — only create / mutate-state (submit,cancel) /
- * confirm-handoff / attach-photo RPCs exist, none take an update payload).
- * So edit mode here PREFILLS from the real GET detail route and is otherwise
- * read-only with an honest inline notice, instead of guessing a save contract
- * that doesn't exist on the server.
+ * Edit mode keeps draft corrections safe: PATCH updates the stored draft and
+ * preserves its existing private photos, while submitted consignments remain
+ * immutable because their handoff/audit trail has started.
  */
 
 export type { SellCatalogOptions } from "./sellFormTypes";
@@ -62,6 +58,7 @@ export interface SellFormEditSubmission {
   submissionNumber: string;
   status: string;
   version: number;
+  itemType: "card" | "sealed_box" | "sealed_pack";
   titleSnapshot: string;
   conditionCode: string;
   askingPriceSatang: number;
@@ -74,7 +71,7 @@ export interface SellFormEditSubmission {
   referenceVariantId: string | null;
   variantSnapshot: Record<string, unknown>;
   referenceSnapshot: Record<string, unknown>;
-  photoCount: number;
+  photos: Array<{ id: string; previewUrl: string }>;
 }
 
 export interface SellFormProps {
@@ -162,9 +159,13 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
   const router = useRouter();
   const { toasts, toast } = useToasts();
   const isEdit = Boolean(editSubmission);
+  const canEdit = !isEdit || editSubmission?.status === "draft";
+  const existingPhotos = editSubmission?.photos ?? [];
 
   const [fields, setFields] = useState<SellFieldValues>(() => fieldsFromEdit(editSubmission));
-  const [photos, setPhotos] = useState<SellPhoto[]>([]);
+  const [photos, setPhotos] = useState<SellPhoto[]>(() =>
+    createExistingSellPhotos(existingPhotos),
+  );
   const [payoutQuote, setPayoutQuote] = useState<PayoutQuoteState>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
@@ -182,6 +183,7 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
   }
 
   function addPhotos(files: FileList | File[]) {
+    if (!canEdit) return;
     setPhotos((current) => {
       const room = Math.max(0, MAX_SELL_PHOTOS - current.length);
       if (room <= 0) return current;
@@ -190,6 +192,7 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
   }
 
   function removePhoto(id: string) {
+    if (!canEdit) return;
     setPhotos((current) => current.filter((photo) => photo.id !== id));
   }
 
@@ -318,7 +321,7 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
   const categoryLabel =
     options.categoryOptions.find((option) => option.value === fields.category)?.label ?? "";
   const validationReason =
-    !photos.length && !isEdit
+    !photos.length
       ? "Add at least one photo"
       : !fields.name.trim()
         ? "Add a card name"
@@ -332,7 +335,7 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
   const isValid = validationReason === null;
 
   async function handleSubmit() {
-    if (!isValid || isEdit) return;
+    if (!isValid || !canEdit) return;
     setSubmitting(true);
     setUploadProgress(null);
     try {
@@ -349,10 +352,66 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
         category: fields.category,
         categoryLabel,
       };
+      const body = {
+        itemType: editSubmission?.itemType ?? "card",
+        titleSnapshot: fields.name.trim(),
+        conditionCode: fields.condition,
+        conditionNotes: "",
+        askingPriceSatang: priceSatang,
+        referenceSource: "catalog_reference",
+        referenceCardId: "",
+        referenceVariantId: "",
+        variantSnapshot,
+        referenceSnapshot,
+        gradeLabel: isGraded ? fields.grade : "",
+        language: fields.language,
+        certNumber: isGraded ? fields.cert.trim() : "",
+        sellerNote: "",
+      };
 
       if (mockMode) {
         await new Promise((resolve) => setTimeout(resolve, 200));
-        toast(`Mock submission saved with ${photos.length} photo(s).`, "success");
+        toast(
+          isEdit
+            ? `Mock draft saved with ${photos.length} photo(s).`
+            : `Mock submission saved with ${photos.length} photo(s).`,
+          "success",
+        );
+        router.push("/marketplace/orders?tab=listings");
+        return;
+      }
+
+      if (editSubmission) {
+        const payload = await parseJson<{
+          submission?: { version?: number };
+        }>(
+          await fetch(`/api/marketplace/seller/submissions/${editSubmission.id}`, {
+            method: "PATCH",
+            headers: {
+              "content-type": "application/json",
+              "idempotency-key": nextIdempotencyKey("seller-submission-update"),
+            },
+            body: JSON.stringify({
+              ...body,
+              expectedVersion: editSubmission.version,
+            }),
+          }),
+        );
+
+        let expectedVersion = payload.submission?.version;
+        const newPhotos = photos.filter((photo) => photo.file);
+        for (const [index, photo] of newPhotos.entries()) {
+          setUploadProgress(`Uploading photo ${index + 1} of ${newPhotos.length}...`);
+          const uploaded = await uploadPhoto(
+            editSubmission.id,
+            expectedVersion,
+            existingPhotos.length + index + 1,
+            photo.file!,
+          );
+          expectedVersion = uploaded.photo?.version ?? expectedVersion;
+        }
+
+        toast("Draft changes saved", "success");
         router.push("/marketplace/orders?tab=listings");
         return;
       }
@@ -370,20 +429,7 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
             "idempotency-key": nextIdempotencyKey("seller-submission"),
           },
           body: JSON.stringify({
-            itemType: "card",
-            titleSnapshot: fields.name.trim(),
-            conditionCode: fields.condition,
-            conditionNotes: "",
-            askingPriceSatang: priceSatang,
-            referenceSource: "catalog_reference",
-            referenceCardId: "",
-            referenceVariantId: "",
-            variantSnapshot,
-            referenceSnapshot,
-            gradeLabel: isGraded ? fields.grade : "",
-            language: fields.language,
-            certNumber: isGraded ? fields.cert.trim() : "",
-            sellerNote: "",
+            ...body,
             // Photos are attached only while a consignment is a draft. Create
             // it first, then upload every selected photo before submitting it.
             submitNow: false,
@@ -399,6 +445,7 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
 
       let expectedVersion = submission?.version;
       for (const [index, photo] of photos.entries()) {
+        if (!photo.file) continue;
         setUploadProgress(`Uploading photo ${index + 1} of ${photos.length}...`);
         const uploaded = await uploadPhoto(submissionId, expectedVersion, index + 1, photo.file);
         expectedVersion = uploaded.photo?.version ?? expectedVersion;
@@ -459,7 +506,9 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
   const buttonLabel = submitting
     ? uploadProgress ?? "Saving..."
     : isEdit
-      ? "Editing is not available yet"
+      ? canEdit
+        ? "Save draft changes"
+        : "Submitted listings are locked"
       : isValid
         ? `List for ${formatThb(priceSatang)}`
         : "Complete the form to list";
@@ -496,12 +545,9 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
           <div className="mp-alert mp-alert-gold">
             <MpIcon name="tag" size={14} />
             <span>
-              Editing a saved item isn&apos;t available yet — this page shows what you submitted.
-              To change details, unlist it from{" "}
-              <Link href="/marketplace/orders?tab=listings" style={{ fontWeight: 700 }}>
-                My listings
-              </Link>{" "}
-              and create a new one.
+              {canEdit
+                ? "Update this draft before submitting it. Existing photos are preserved, and you can add more."
+                : "This submission is already in the intake workflow, so its saved details and photos are locked for audit safety."}
             </span>
           </div>
         ) : null}
@@ -525,9 +571,10 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
               photos={photos}
               onAdd={addPhotos}
               onRemove={removePhoto}
+              disabled={!canEdit}
               existingPhotoNote={
-                isEdit && editSubmission?.photoCount
-                  ? `${editSubmission.photoCount} photo(s) already attached to this submission.`
+                isEdit && existingPhotos.length
+                  ? `${existingPhotos.length} saved photo(s) are attached to this submission.`
                   : null
               }
             />
@@ -537,7 +584,7 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
             fields={fields}
             options={options}
             isGraded={isGraded}
-            disabledIdentity={isEdit}
+            disabledIdentity={!canEdit}
             setField={setField}
           />
         </div>
@@ -546,7 +593,7 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
           fields={fields}
           priceSatang={priceSatang}
           isGraded={isGraded}
-          isEdit={isEdit}
+          canEdit={canEdit}
           isValid={isValid}
           submitting={submitting}
           buttonLabel={buttonLabel}

@@ -77,6 +77,7 @@ export default async function MarketplaceSellerPage({
         submissionNumber: editDetail.submission_number,
         status: editDetail.status,
         version: editDetail.version,
+        itemType: editDetail.item_type,
         titleSnapshot: editDetail.title_snapshot,
         conditionCode: editDetail.condition_code,
         askingPriceSatang: editDetail.asking_price_satang,
@@ -89,7 +90,10 @@ export default async function MarketplaceSellerPage({
         referenceVariantId: editDetail.reference_variant_id,
         variantSnapshot: editDetail.variant_snapshot ?? {},
         referenceSnapshot: editDetail.reference_snapshot ?? {},
-        photoCount: editDetail.photos?.length ?? 0,
+        photos: (editDetail.photos ?? []).map((photo) => ({
+          id: photo.id,
+          previewUrl: `/api/marketplace/seller/submissions/${editDetail.id}/photos/${photo.id}/file`,
+        })),
       }
     : null;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { MpIcon } from "../shared/MpIcon";
 
 /**
@@ -18,7 +18,7 @@ export const MAX_SELL_PHOTOS = 10;
 
 export interface SellPhoto {
   id: string;
-  file: File;
+  file?: File;
   previewUrl: string;
 }
 
@@ -27,6 +27,7 @@ export interface PhotoUploaderProps {
   onAdd: (files: FileList | File[]) => void;
   onRemove: (id: string) => void;
   existingPhotoNote?: string | null;
+  disabled?: boolean;
 }
 
 function nextPhotoId() {
@@ -43,25 +44,35 @@ export function createSellPhotos(files: FileList | File[]): SellPhoto[] {
   }));
 }
 
+export function createExistingSellPhotos(
+  photos: Array<{ id: string; previewUrl: string }>,
+): SellPhoto[] {
+  return photos.map((photo) => ({ ...photo }));
+}
+
 export function PhotoUploader({
   photos,
   onAdd,
   onRemove,
   existingPhotoNote,
+  disabled = false,
 }: PhotoUploaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const previewUrls = useMemo(() => photos.map((photo) => photo.previewUrl), [photos]);
+  const localPreviewUrls = useRef(new Set<string>());
+  for (const photo of photos) {
+    if (photo.file) localPreviewUrls.current.add(photo.previewUrl);
+  }
 
-  // Object URLs are only released here, on unmount/replacement — never eagerly,
-  // since the cover thumbnail and live preview both read photos[0].previewUrl
-  // for as long as the photo stays selected.
+  // Existing photos use authenticated server URLs and must never be revoked.
+  // Keep local object URLs alive while the form changes, then release them when
+  // the uploader unmounts after save/cancel.
   useEffect(() => {
     return () => {
-      for (const url of previewUrls) URL.revokeObjectURL(url);
+      for (const url of localPreviewUrls.current) URL.revokeObjectURL(url);
     };
-  }, [previewUrls]);
+  }, []);
 
-  const atLimit = photos.length >= MAX_SELL_PHOTOS;
+  const atLimit = disabled || photos.length >= MAX_SELL_PHOTOS;
 
   return (
     <div className="mp-stack" style={{ gap: 10 }}>
@@ -123,6 +134,7 @@ export function PhotoUploader({
           type="file"
           accept="image/jpeg,image/png,image/webp"
           multiple
+          disabled={disabled}
           style={{ display: "none" }}
           onChange={(event) => {
             if (event.currentTarget.files?.length) onAdd(event.currentTarget.files);
@@ -161,29 +173,31 @@ export function PhotoUploader({
                   Cover
                 </span>
               ) : null}
-              <button
-                type="button"
-                onClick={() => onRemove(photo.id)}
-                aria-label={`Remove photo ${index + 1}`}
-                style={{
-                  position: "absolute",
-                  right: 3,
-                  top: 3,
-                  width: 18,
-                  height: 18,
-                  borderRadius: "50%",
-                  border: 0,
-                  background: "rgba(23,22,16,0.72)",
-                  color: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  padding: 0,
-                }}
-              >
-                <MpIcon name="x" size={11} />
-              </button>
+              {photo.file ? (
+                <button
+                  type="button"
+                  onClick={() => onRemove(photo.id)}
+                  aria-label={`Remove photo ${index + 1}`}
+                  style={{
+                    position: "absolute",
+                    right: 3,
+                    top: 3,
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    border: 0,
+                    background: "rgba(23,22,16,0.72)",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                >
+                  <MpIcon name="x" size={11} />
+                </button>
+              ) : null}
             </div>
           ))}
         </div>

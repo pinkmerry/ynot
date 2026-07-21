@@ -362,6 +362,14 @@ const SAFE_RPC_ERRORS: Record<string, { message: string; status: number }> = {
     message: "Seller terms must be accepted before submitting items.",
     status: 403,
   },
+  marketplace_seller_submission_not_editable: {
+    message: "This seller submission is already in the intake workflow and cannot be edited.",
+    status: 409,
+  },
+  marketplace_seller_submission_not_found: {
+    message: "Marketplace seller submission was not found.",
+    status: 404,
+  },
   marketplace_seller_item_type_invalid: {
     message: "Marketplace seller submissions support cards, sealed boxes, and sealed packs.",
     status: 400,

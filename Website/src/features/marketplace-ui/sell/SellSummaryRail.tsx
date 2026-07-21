@@ -23,7 +23,7 @@ export interface SellSummaryRailProps {
   fields: SellFieldValues;
   priceSatang: number;
   isGraded: boolean;
-  isEdit: boolean;
+  canEdit: boolean;
   isValid: boolean;
   submitting: boolean;
   buttonLabel: string;
@@ -38,7 +38,7 @@ export function SellSummaryRail({
   fields,
   priceSatang,
   isGraded,
-  isEdit,
+  canEdit,
   isValid,
   submitting,
   buttonLabel,
@@ -114,7 +114,7 @@ export function SellSummaryRail({
             placeholder="0"
             inputMode="numeric"
             aria-label="Asking price in THB"
-            disabled={isEdit}
+            disabled={!canEdit}
             style={{
               border: 0,
               outline: 0,
@@ -151,7 +151,7 @@ export function SellSummaryRail({
           variant="primary"
           size="lg"
           style={{ marginTop: 14 }}
-          disabled={!isValid || submitting || isEdit}
+          disabled={!isValid || submitting || !canEdit}
           onClick={onSubmit}
         >
           {buttonLabel}
