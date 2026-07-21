@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       paymentInstructions,
       requestId,
       idempotencyKey,
-      requestHash: await mutation.requestHash("checkout_group.create.official"),
+      requestHash: await mutation.requestHash("checkout_group.create"),
     });
 
     return Response.json({ ok: true, request_id: requestId, order });

@@ -94,16 +94,11 @@ function isAvailable(item: DisplayItem) {
 }
 
 function initialCartSelection(items: DisplayItem[]) {
-  const officialListingIds = items
-    .filter(
-      (item) =>
-        isAvailable(item) && item.listing.listing_source === "official_shop",
-    )
+  const availableListingIds = items
+    .filter(isAvailable)
     .slice(0, 3)
     .map((item) => item.listingId);
-  if (officialListingIds.length > 0) return officialListingIds;
-  const firstAvailable = items.find(isAvailable);
-  return firstAvailable ? [firstAvailable.listingId] : [];
+  return availableListingIds;
 }
 
 function checkoutListing(item: MarketplaceCartItem): CheckoutFlowListing {
@@ -152,17 +147,11 @@ export function MarketplaceCartWatchlistClient(
           selectedListingIds.includes(item.listingId),
         ) as MarketplaceCartItem[])
       : [];
-  const multiSelectionHasUserSeller =
-    selectedItems.length > 1 &&
-    selectedItems.some(
-      (item) => item.listing.listing_source !== "official_shop",
-    );
   const canProceedToCheckout =
     mode === "cart" &&
     Boolean(props.checkoutEnabled) &&
     selectedListingIds.length >= 1 &&
-    selectedListingIds.length <= 3 &&
-    !multiSelectionHasUserSeller;
+    selectedListingIds.length <= 3;
 
   useEffect(() => {
     setSummary(initialSummary);
@@ -220,22 +209,6 @@ export function MarketplaceCartWatchlistClient(
         setStatus("You can check out up to 3 items at once.");
         return current;
       }
-      const currentItems = items.filter((candidate) =>
-        current.includes(candidate.listingId),
-      );
-      if (
-        current.length > 0 &&
-        (item.listing.listing_source !== "official_shop" ||
-          currentItems.some(
-            (candidate) =>
-              candidate.listing.listing_source !== "official_shop",
-          ))
-      ) {
-        setStatus(
-          "User-seller items still use individual checkout. Select that item by itself.",
-        );
-        return current;
-      }
       return [...current, item.listingId];
     });
   }
@@ -272,10 +245,9 @@ export function MarketplaceCartWatchlistClient(
           </div>
           <div className="marketplace-cart-checkout-toolbar">
             <div>
-              <strong>Select up to 3 items</strong>
+              <strong>Pay once for up to 3 items</strong>
               <p>
-                Official-shop items can be checked out together. User-seller
-                items still use individual checkout.
+                Shipping is quoted for each fulfilment source before payment.
               </p>
               <span>{selectedListingIds.length} selected</span>
             </div>

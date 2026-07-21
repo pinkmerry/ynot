@@ -455,7 +455,6 @@ function mockMultiListingCheckout(input: {
     const listing = getMockMarketplaceListing(listingId);
     if (
       !listing ||
-      listing.listing_source !== "official_shop" ||
       listing.listing_state !== "active" ||
       listing.quantity_available_snapshot < 1
     ) {
@@ -468,11 +467,19 @@ function mockMultiListingCheckout(input: {
     return listing;
   });
   const commandSeed = `${input.buyerAccountId}:${input.idempotencyKey}:${input.requestHash}`;
+  const chargedShipmentKeys = new Set<string>();
   const items = listings.map((listing, index) => {
     const buyerServiceFeeSatang = Math.floor(
       (listing.item_price_satang * input.buyerServiceFeeBps) / 10_000,
     );
-    const shippingFeeSatang = index === 0 ? input.shippingFeeSatang : 0;
+    const shippingPartyKey =
+      listing.listing_source === "official_shop"
+        ? "official_shop"
+        : `user_seller:${listing.seller_public_profile_id ?? listing.listing_id}`;
+    const shippingFeeSatang = chargedShipmentKeys.has(shippingPartyKey)
+      ? 0
+      : input.shippingFeeSatang;
+    chargedShipmentKeys.add(shippingPartyKey);
     const pendingPaymentOrderId = mockUuid(commandSeed, 8 + index);
     const orderId = mockUuid(commandSeed, 24 + index);
     return {
@@ -494,6 +501,10 @@ function mockMultiListingCheckout(input: {
     (sum, item) => sum + item.itemPriceSatang,
     0,
   );
+  const shippingFeeSatang = items.reduce(
+    (sum, item) => sum + item.shippingFeeSatang,
+    0,
+  );
   const buyerServiceFeeSatang = items.reduce(
     (sum, item) => sum + item.buyerServiceFeeSatang,
     0,
@@ -511,7 +522,7 @@ function mockMultiListingCheckout(input: {
     checkoutGroupId,
     items,
     itemSubtotalSatang,
-    shippingFeeSatang: input.shippingFeeSatang,
+    shippingFeeSatang,
     buyerServiceFeeSatang,
     buyerTotalSatang,
     currency: "THB",
@@ -533,13 +544,13 @@ function mockMultiListingCheckout(input: {
     items,
     totals: {
       itemSubtotalSatang,
-      shippingFeeSatang: input.shippingFeeSatang,
+      shippingFeeSatang,
       buyerServiceFeeSatang,
       buyerTotalSatang,
     },
     itemSubtotalSatang,
     itemPriceSatang: itemSubtotalSatang,
-    shippingFeeSatang: input.shippingFeeSatang,
+    shippingFeeSatang,
     buyerServiceFeeSatang,
     buyerTotalSatang,
     currency: "THB",

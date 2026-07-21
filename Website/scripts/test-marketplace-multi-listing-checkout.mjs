@@ -14,6 +14,10 @@ const cartRestoreMigrationPath = path.join(
   repoRoot,
   "Database/marketplace-supabase/migrations/20260714120000_marketplace_restore_cancelled_checkout_cart.sql",
 );
+const mixedSourceMigrationPath = path.join(
+  repoRoot,
+  "Database/marketplace-supabase/migrations/20260721111500_marketplace_mixed_source_checkout.sql",
+);
 
 function readApp(relPath) {
   return readFileSync(path.join(appRoot, relPath), "utf8");
@@ -26,6 +30,12 @@ function readMigration() {
 function readCartRestoreMigration() {
   return existsSync(cartRestoreMigrationPath)
     ? readFileSync(cartRestoreMigrationPath, "utf8")
+    : "";
+}
+
+function readMixedSourceMigration() {
+  return existsSync(mixedSourceMigrationPath)
+    ? readFileSync(mixedSourceMigrationPath, "utf8")
     : "";
 }
 
@@ -47,6 +57,21 @@ test("package exposes the scoped multi-listing checkout contract test", () => {
 
 test("additive migration exists after the current marketplace migration ledger", () => {
   assert.equal(existsSync(migrationPath), true);
+});
+
+test("later migration lets one checkout group collect official and user-seller items safely", () => {
+  assert.equal(existsSync(mixedSourceMigrationPath), true);
+  const sql = compactSql(readMixedSourceMigration());
+
+  assert.match(sql, /create or replace function public\.marketplace_create_multi_listing_checkout\(/);
+  assert.match(sql, /marketplace_create_pending_payment_order\(/);
+  assert.match(sql, /marketplace_create_user_seller_pending_payment_order\(/);
+  assert.doesNotMatch(sql, /marketplace_group_user_seller_unsupported/);
+  assert.match(sql, /shipping_party_key/);
+  assert.match(sql, /cardinality\(charged_shipping_party_keys\)/);
+  assert.match(sql, /if not shipping_party_key = any\(charged_shipping_party_keys\) then\s+charged_shipping_party_keys := array_append/);
+  assert.match(sql, /marketplace_sync_grouped_user_seller_payout/);
+  assert.match(sql, /after update of payment_state on public\.marketplace_orders/);
 });
 
 test("migration adds checkout group and ordered child item tables without replacing single-listing orders", () => {

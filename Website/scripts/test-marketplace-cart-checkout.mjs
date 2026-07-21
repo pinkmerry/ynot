@@ -1194,22 +1194,22 @@ test("cart renders a real 1-3 item selection and Proceed to checkout action", ()
   const source = readApp(CART_CLIENT);
   assert.match(source, /selectedListingIds/);
   assert.match(source, /type=["']checkbox["']/);
-  assert.match(source, /Select up to 3 items/);
+  assert.match(source, /Pay once for up to 3 items/);
   assert.match(source, /Proceed to checkout/);
   assert.match(source, /selectedListingIds\.length\s*>=\s*1/);
   assert.match(source, /selectedListingIds\.length\s*<=\s*3/);
-  assert.match(source, /selectedItems\.length\s*>\s*1/);
-  assert.match(source, /listing\.listing_source\s*!==\s*["']official_shop["']/);
+  assert.match(source, /selectedItems\.length\s*===\s*1/);
+  assert.doesNotMatch(source, /multiSelectionHasUserSeller/);
 });
 
-test("cart explains the group-checkout boundary and links shoppers directly to cart checkout after adding an item", () => {
+test("cart allows mixed seller sources in one payment flow and links shoppers directly to checkout", () => {
   const cartSource = readApp(CART_CLIENT);
   const listingActionsSource = readApp(
     "src/features/ynot/MarketplaceListingActionsClient.tsx",
   );
 
-  assert.match(cartSource, /Official-shop items can be checked out together/);
-  assert.match(cartSource, /User-seller items still use individual checkout/);
+  assert.match(cartSource, /Pay once for up to 3 items/);
+  assert.match(cartSource, /Shipping is quoted for each fulfilment source/);
   assert.match(listingActionsSource, /View cart & checkout/);
 });
 
@@ -1309,10 +1309,10 @@ test("grouped payment resume shows the aggregate checkout amount and fee breakdo
   assert.match(detailSource, /pendingOrder\.buyer_total_satang/);
 });
 
-test("cart checkout does not silently include user-seller listings in the first rollout", () => {
+test("cart checkout does not split user-seller listings away from the selected group", () => {
   const source = readApp(CART_CLIENT);
-  assert.match(source, /Official-shop items can be checked out together/);
-  assert.match(source, /User-seller items still use individual checkout/);
+  assert.doesNotMatch(source, /User-seller items still use individual checkout/);
+  assert.match(source, /checkoutEndpoint="\/api\/marketplace\/checkout\/groups"/);
 });
 
 test("cart state notifications return void and run asynchronously", async () => {
