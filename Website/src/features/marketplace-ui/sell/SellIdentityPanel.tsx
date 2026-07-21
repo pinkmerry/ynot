@@ -52,10 +52,11 @@ export function SellIdentityPanel({
             />
           </SellField>
           <SellField label="Series">
-            <SellInput
+            <SellSelect
               value={fields.series}
-              onChange={(event) => setField("series", event.target.value)}
-              placeholder="e.g. Pokémon, One Piece"
+              onChange={(value) => setField("series", value)}
+              options={options.seriesOptions}
+              placeholder="Select series…"
               disabled={disabledIdentity}
             />
           </SellField>
@@ -65,6 +66,7 @@ export function SellIdentityPanel({
               onChange={(value) => setField("category", value)}
               options={options.categoryOptions}
               placeholder="Select category…"
+              disabled={disabledIdentity}
             />
           </SellField>
           <SellField label="Set" hint="e.g. SV-151, OP-09">
@@ -105,6 +107,7 @@ export function SellIdentityPanel({
               onChange={(value) => setField("language", value)}
               options={options.languageOptions}
               placeholder="Select language…"
+              disabled={disabledIdentity}
             />
           </SellField>
           <SellField label="Release year">
@@ -116,6 +119,7 @@ export function SellIdentityPanel({
                 label: String(year),
               }))}
               placeholder="Year…"
+              disabled={disabledIdentity}
             />
           </SellField>
         </div>
@@ -134,6 +138,7 @@ export function SellIdentityPanel({
               value={fields.condition}
               onChange={(value) => setField("condition", value as SellFieldValues["condition"])}
               options={options.conditionOptions}
+              disabled={disabledIdentity}
             />
           </SellField>
           {isGraded ? (
@@ -143,6 +148,7 @@ export function SellIdentityPanel({
                   value={fields.grader}
                   onChange={(value) => setField("grader", value)}
                   options={options.gradingServiceOptions}
+                  disabled={disabledIdentity}
                 />
               </SellField>
               <SellField label="Grade">
@@ -151,6 +157,7 @@ export function SellIdentityPanel({
                   onChange={(value) => setField("grade", value)}
                   options={options.gradeOptions.map((grade) => ({ value: grade, label: grade }))}
                   placeholder="Select grade…"
+                  disabled={disabledIdentity}
                 />
               </SellField>
               <SellField label="Cert number" wide hint="Printed on the grading company's label">
@@ -159,6 +166,7 @@ export function SellIdentityPanel({
                   onChange={(event) => setField("cert", event.target.value)}
                   placeholder="82114307"
                   maxLength={120}
+                  disabled={disabledIdentity}
                 />
               </SellField>
             </div>

@@ -7,6 +7,7 @@
 
 export interface SellCatalogOptions {
   categoryOptions: readonly { value: string; label: string }[];
+  seriesOptions: readonly { value: string; label: string }[];
   conditionOptions: readonly { value: string; label: string }[];
   gradingServiceOptions: readonly { value: string; label: string }[];
   gradeOptions: readonly string[];

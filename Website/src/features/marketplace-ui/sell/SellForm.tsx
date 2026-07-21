@@ -374,7 +374,7 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
         toast(
           isEdit
             ? `Mock draft saved with ${photos.length} photo(s).`
-            : `Mock submission saved with ${photos.length} photo(s).`,
+            : `Mock submission sent for verification with ${photos.length} photo(s).`,
           "success",
         );
         router.push("/marketplace/orders?tab=listings");
@@ -463,7 +463,7 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
         }),
       );
 
-      toast(`Listed for ${formatThb(priceSatang)}`, "success");
+      toast(`Submitted for verification at ${formatThb(priceSatang)}`, "success");
       router.push("/marketplace/orders?tab=listings");
     } catch (error) {
       toast(error instanceof Error ? error.message : "Submission failed.", "error");
@@ -510,8 +510,8 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
         ? "Save draft changes"
         : "Submitted listings are locked"
       : isValid
-        ? `List for ${formatThb(priceSatang)}`
-        : "Complete the form to list";
+        ? `Submit for verification — ${formatThb(priceSatang)}`
+        : "Complete the form to submit";
 
   return (
     <div className="mp-stack" style={{ gap: 6 }}>
@@ -535,11 +535,11 @@ export function SellForm({ sellerActive, mockMode, options, editSubmission }: Se
 
       <div className="mp-stack" style={{ gap: 6, marginBottom: 24 }}>
         <span className="mp-eyebrow">{isEdit ? "Edit listing" : "Sell a card"}</span>
-        <h1 className="mp-h1">{isEdit ? "Your listing" : "List a card for sale"}</h1>
+        <h1 className="mp-h1">{isEdit ? "Your listing" : "Submit a card for sale"}</h1>
         <p className="mp-lead">
           {isEdit
             ? `Submission ${editSubmission?.submissionNumber ?? ""} — status ${editSubmission?.status ?? ""}.`
-            : "Upload your photos and describe the card. Ship it to YNOT — we verify, photograph and vault it — then it lists to the community market with your details."}
+            : "Upload your photos and describe the card. Submit it for verification, then ship it to YNOT — we verify, photograph and vault it before it goes live on the community market."}
         </p>
         {isEdit ? (
           <div className="mp-alert mp-alert-gold">

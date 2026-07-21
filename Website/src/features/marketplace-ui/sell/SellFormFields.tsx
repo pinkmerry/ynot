@@ -59,15 +59,17 @@ export interface SellSelectProps {
   options: readonly SellSelectOption[];
   placeholder?: string;
   id?: string;
+  disabled?: boolean;
 }
 
-export function SellSelect({ value, onChange, options, placeholder, id }: SellSelectProps) {
+export function SellSelect({ value, onChange, options, placeholder, id, disabled }: SellSelectProps) {
   return (
     <select
       id={id}
       value={value}
+      disabled={disabled}
       onChange={(event: ChangeEvent<HTMLSelectElement>) => onChange(event.target.value)}
-      style={{ ...sellInputStyle, appearance: "none", cursor: "pointer" }}
+      style={{ ...sellInputStyle, appearance: "none", cursor: disabled ? "not-allowed" : "pointer" }}
     >
       <option value="">{placeholder ?? "Select…"}</option>
       {options.map((option) => (
@@ -83,17 +85,19 @@ export interface SellSegProps {
   value: string;
   onChange: (value: string) => void;
   options: readonly SellSelectOption[];
+  disabled?: boolean;
 }
 
-export function SellSeg({ value, onChange, options }: SellSegProps) {
+export function SellSeg({ value, onChange, options, disabled }: SellSegProps) {
   return (
     <div className="mp-row" style={{ gap: 7 }}>
       {options.map((option) => (
         <span
           key={option.value}
           className={"mp-chip" + (value === option.value ? " active" : "")}
-          style={{ cursor: "pointer", flex: 1, justifyContent: "center" }}
-          onClick={() => onChange(option.value)}
+          aria-disabled={disabled}
+          style={{ cursor: disabled ? "not-allowed" : "pointer", flex: 1, justifyContent: "center" }}
+          onClick={disabled ? undefined : () => onChange(option.value)}
         >
           {option.label}
         </span>

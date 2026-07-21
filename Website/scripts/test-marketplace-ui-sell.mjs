@@ -108,6 +108,7 @@ test("seller page.tsx imports catalog option arrays instead of redeclaring them"
     "cardGradeOptions",
     "cardLanguageOptions",
     "cardReleaseYearOptions",
+    "cardSeriesOptions",
   ]) {
     assert.match(source, new RegExp(escapeRegExp(symbol)), `page.tsx must reference ${symbol}`);
   }
@@ -122,6 +123,7 @@ test("card-catalog-metadata.ts still exports the exact option array names the se
     "export const cardGradeOptions",
     "export const cardLanguageOptions",
     "export const cardReleaseYearOptions",
+    "export const cardSeriesOptions",
   ]) {
     assert.match(source, new RegExp(escapeRegExp(symbol)), `sanity check: metadata module must export ${symbol}`);
   }
@@ -144,6 +146,11 @@ test("SellForm.tsx and its sub-components do not redeclare the catalog option ar
       source,
       /catalogCategoryOptions\s*=\s*\[/,
       `${relPath} must not redeclare catalogCategoryOptions — it must receive it via props`,
+    );
+    assert.doesNotMatch(
+      source,
+      /cardSeriesOptions\s*=\s*\[/,
+      `${relPath} must not redeclare cardSeriesOptions — it must receive it via props`,
     );
   }
 });
@@ -301,7 +308,31 @@ test("SellForm.tsx validates the form before enabling submit, matching the proto
   assert.match(source, /Add a series/, "must require a series");
   assert.match(source, /Set a price/, "must require price > 0");
   assert.match(source, /Select a grade/, "must require a grade when graded");
-  assert.match(source, /Complete the form to list/, "invalid state must show the prototype's button copy");
+  assert.match(source, /Complete the form to submit/, "invalid state must explain that this starts intake, not a live listing");
+  assert.match(source, /Submit for verification/, "valid state must explain the required verification step");
+});
+
+test("seller form uses the shared series catalogue and makes the consignment intake outcome clear", () => {
+  const page = readApp(SELLER_PAGE_PATH);
+  const identity = readApp(IDENTITY_PANEL_PATH);
+  const form = readApp(SELL_FORM_PATH);
+  const types = readApp(`${SELL_DIR}/sellFormTypes.ts`);
+
+  assert.match(page, /seriesOptions:\s*cardSeriesOptions/, "seller page must pass the canonical series catalogue");
+  assert.match(types, /seriesOptions:/, "sell form options must expose the shared series catalogue");
+  assert.match(identity, /<SellSelect[\s\S]*?value=\{fields\.series\}[\s\S]*?options=\{options\.seriesOptions\}/, "Series must be a controlled select");
+  assert.match(form, /Submitted for verification/, "success feedback must not claim the card is already live");
+  assert.match(form, /Ship it to YNOT/, "seller copy must state the physical intake requirement");
+});
+
+test("seller detail controls lock consistently after the consignment is submitted", () => {
+  const identity = readApp(IDENTITY_PANEL_PATH);
+  const fields = readApp(FORM_FIELDS_PATH);
+
+  assert.match(fields, /disabled\?: boolean/, "SellSelect must support the form lock state");
+  assert.match(fields, /disabled=\{disabled\}/, "SellSelect must pass the form lock state to the native select");
+  assert.match(identity, /options=\{options\.seriesOptions\}[\s\S]*?disabled=\{disabledIdentity\}/, "Series must lock with the submitted consignment");
+  assert.match(identity, /options=\{options\.categoryOptions\}[\s\S]*?disabled=\{disabledIdentity\}/, "Category must lock with the submitted consignment");
 });
 
 test("SellForm.tsx supports edit mode via ?submission=ID prefill from the real GET detail route", () => {
@@ -317,18 +348,18 @@ test("SellForm.tsx supports edit mode via ?submission=ID prefill from the real G
   assert.match(pageSource, /\.submission\b/, "seller page.tsx must read the submission search param");
 });
 
-test("SellForm.tsx does not fabricate a PATCH/update contract that does not exist on the server", () => {
+test("SellForm.tsx edits drafts through the real PATCH/update contract", () => {
   const detailRouteSource = readApp(SUBMISSION_DETAIL_ROUTE_PATH);
-  assert.doesNotMatch(
+  assert.match(
     detailRouteSource,
     /export\s+async\s+function\s+PATCH/,
-    "sanity check: no PATCH handler exists on the per-submission route today",
+    "sanity check: the per-submission route must expose PATCH for draft edits",
   );
   const formSource = readApp(SELL_FORM_PATH);
-  assert.doesNotMatch(
+  assert.match(
     formSource,
     /method:\s*["']PATCH["']/,
-    "SellForm must not send a PATCH request — no such route exists on the server",
+    "SellForm must use PATCH to save editable drafts",
   );
 });
 

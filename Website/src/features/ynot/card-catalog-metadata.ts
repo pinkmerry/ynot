@@ -36,6 +36,22 @@ export const catalogCategoryOptions: Array<{
   { value: "supplies", label: "Supplies" },
 ];
 
+// Marketplace products use these exact values for series_name. Keeping seller
+// submissions on the same controlled vocabulary prevents near-duplicate
+// browse groups such as "Pokemon", "Pokemon TCG", and "Pokémon cards".
+export const cardSeriesOptions = [
+  { value: "Pokemon Trading Card Game", label: "Pokemon Trading Card Game" },
+  { value: "One Piece Card Game", label: "One Piece Card Game" },
+  { value: "Yu-Gi-Oh! Trading Card Game", label: "Yu-Gi-Oh! Trading Card Game" },
+  { value: "Disney Lorcana", label: "Disney Lorcana" },
+  { value: "Digimon Card Game", label: "Digimon Card Game" },
+  { value: "Dragon Ball Super Card Game", label: "Dragon Ball Super Card Game" },
+  { value: "Magic: The Gathering", label: "Magic: The Gathering" },
+  { value: "Weiss Schwarz", label: "Weiss Schwarz" },
+  { value: "Union Arena", label: "Union Arena" },
+  { value: "Other Trading Card Game", label: "Other Trading Card Game" },
+] as const;
+
 export const cardConditionOptions: Array<{
   value: CardCondition;
   label: string;

@@ -8,6 +8,7 @@ import {
   cardGradeOptions,
   cardLanguageOptions,
   cardReleaseYearOptions,
+  cardSeriesOptions,
   catalogCategoryOptions,
   gradingServiceOptions,
 } from "@/features/ynot/card-catalog-metadata";
@@ -107,6 +108,7 @@ export default async function MarketplaceSellerPage({
           mockMode={mockMode}
           options={{
             categoryOptions: catalogCategoryOptions,
+            seriesOptions: cardSeriesOptions,
             conditionOptions: cardConditionOptions,
             gradingServiceOptions,
             gradeOptions: cardGradeOptions,
