@@ -14,7 +14,6 @@ import {
   normalizeSellerPhotoDisplayOrder,
   normalizeSellerPhotoRole,
 } from "@/lib/marketplace/seller-consignment";
-import { sha256Hex } from "@/lib/slip2go/client";
 import {
   allowedSlipTypes,
   extensionForVerifiedImage,
@@ -26,6 +25,13 @@ import {
 export const dynamic = "force-dynamic";
 
 const sellerPhotoBucketName = "marketplace-seller-submission-photos";
+
+async function sha256Hex(value: ArrayBuffer) {
+  const digest = await crypto.subtle.digest("SHA-256", value);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 function cleanFileName(name: string) {
   return (
@@ -158,7 +164,7 @@ export async function POST(
     }
 
     const fileBuffer = await sellerPhoto.arrayBuffer();
-    const fileSha256 = sha256Hex(fileBuffer);
+    const fileSha256 = await sha256Hex(fileBuffer);
     const fileName = cleanFileName(sellerPhoto.name);
     const extension = extensionForVerifiedImage(magicCheck.contentType);
     const orderedRole = `${String(displayOrder).padStart(2, "0")}-${photoRole}`;

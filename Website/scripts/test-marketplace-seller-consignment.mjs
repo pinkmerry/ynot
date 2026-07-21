@@ -291,6 +291,8 @@ test("seller modules and routes enforce account bridge, owner gate, validation, 
         assert.match(source, /multipart\/form-data/, `${relPath} photo upload must require multipart form data`);
         assert.match(source, /verifyImageMagicBytes/, `${relPath} photo upload must verify image magic bytes`);
         assert.match(source, /sha256Hex/, `${relPath} photo upload must hash files`);
+        assert.match(source, /crypto\.subtle\.digest\("SHA-256"/, `${relPath} photo upload must use the Worker-compatible SHA-256 API`);
+        assert.doesNotMatch(source, /@\/lib\/slip2go\/client/, `${relPath} photo upload must not use the Node Buffer hash helper`);
         assert.match(source, /marketplace-seller-submission-photos/, `${relPath} photo upload must use private marketplace bucket`);
       } else {
         assert.match(source, /allowedFields:/, `${relPath} mutation must use JSON allowlist`);
