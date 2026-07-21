@@ -18,6 +18,10 @@ const mixedSourceMigrationPath = path.join(
   repoRoot,
   "Database/marketplace-supabase/migrations/20260721111500_marketplace_mixed_source_checkout.sql",
 );
+const unboundedCheckoutMigrationPath = path.join(
+  repoRoot,
+  "Database/marketplace-supabase/migrations/20260721113000_marketplace_unbounded_checkout_groups.sql",
+);
 
 function readApp(relPath) {
   return readFileSync(path.join(appRoot, relPath), "utf8");
@@ -36,6 +40,12 @@ function readCartRestoreMigration() {
 function readMixedSourceMigration() {
   return existsSync(mixedSourceMigrationPath)
     ? readFileSync(mixedSourceMigrationPath, "utf8")
+    : "";
+}
+
+function readUnboundedCheckoutMigration() {
+  return existsSync(unboundedCheckoutMigrationPath)
+    ? readFileSync(unboundedCheckoutMigrationPath, "utf8")
     : "";
 }
 
@@ -72,6 +82,16 @@ test("later migration lets one checkout group collect official and user-seller i
   assert.match(sql, /if not shipping_party_key = any\(charged_shipping_party_keys\) then\s+charged_shipping_party_keys := array_append/);
   assert.match(sql, /marketplace_sync_grouped_user_seller_payout/);
   assert.match(sql, /after update of payment_state on public\.marketplace_orders/);
+});
+
+test("later migration removes the arbitrary checkout-group item ceiling", () => {
+  assert.equal(existsSync(unboundedCheckoutMigrationPath), true);
+  const sql = compactSql(readUnboundedCheckoutMigration());
+
+  assert.match(sql, /drop constraint if exists marketplace_checkout_groups_item_count_check/);
+  assert.match(sql, /check \(item_count >= 2\)/);
+  assert.match(sql, /pg_get_functiondef/);
+  assert.match(sql, /if listing_count < 2/);
 });
 
 test("migration adds checkout group and ordered child item tables without replacing single-listing orders", () => {

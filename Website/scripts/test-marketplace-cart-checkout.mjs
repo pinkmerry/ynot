@@ -1190,14 +1190,15 @@ test("local mock cart checkout persists lookup and release across route bundles"
   );
 });
 
-test("cart renders a real 1-3 item selection and Proceed to checkout action", () => {
+test("cart lets a shopper select every available listing for one checkout", () => {
   const source = readApp(CART_CLIENT);
   assert.match(source, /selectedListingIds/);
   assert.match(source, /type=["']checkbox["']/);
-  assert.match(source, /Pay once for up to 3 items/);
+  assert.match(source, /Pay for all selected items/);
   assert.match(source, /Proceed to checkout/);
   assert.match(source, /selectedListingIds\.length\s*>=\s*1/);
-  assert.match(source, /selectedListingIds\.length\s*<=\s*3/);
+  assert.doesNotMatch(source, /selectedListingIds\.length\s*<=\s*3/);
+  assert.doesNotMatch(source, /slice\(0, 3\)/);
   assert.match(source, /selectedItems\.length\s*===\s*1/);
   assert.doesNotMatch(source, /multiSelectionHasUserSeller/);
 });
@@ -1208,7 +1209,7 @@ test("cart allows mixed seller sources in one payment flow and links shoppers di
     "src/features/ynot/MarketplaceListingActionsClient.tsx",
   );
 
-  assert.match(cartSource, /Pay once for up to 3 items/);
+  assert.match(cartSource, /Pay for all selected items/);
   assert.match(cartSource, /Shipping is quoted for each fulfilment source/);
   assert.match(listingActionsSource, /View cart & checkout/);
 });

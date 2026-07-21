@@ -96,7 +96,6 @@ function isAvailable(item: DisplayItem) {
 function initialCartSelection(items: DisplayItem[]) {
   const availableListingIds = items
     .filter(isAvailable)
-    .slice(0, 3)
     .map((item) => item.listingId);
   return availableListingIds;
 }
@@ -150,8 +149,7 @@ export function MarketplaceCartWatchlistClient(
   const canProceedToCheckout =
     mode === "cart" &&
     Boolean(props.checkoutEnabled) &&
-    selectedListingIds.length >= 1 &&
-    selectedListingIds.length <= 3;
+    selectedListingIds.length >= 1;
 
   useEffect(() => {
     setSummary(initialSummary);
@@ -205,10 +203,6 @@ export function MarketplaceCartWatchlistClient(
       if (current.includes(item.listingId)) {
         return current.filter((listingId) => listingId !== item.listingId);
       }
-      if (current.length >= 3) {
-        setStatus("You can check out up to 3 items at once.");
-        return current;
-      }
       return [...current, item.listingId];
     });
   }
@@ -245,7 +239,7 @@ export function MarketplaceCartWatchlistClient(
           </div>
           <div className="marketplace-cart-checkout-toolbar">
             <div>
-              <strong>Pay once for up to 3 items</strong>
+              <strong>Pay for all selected items</strong>
               <p>
                 Shipping is quoted for each fulfilment source before payment.
               </p>

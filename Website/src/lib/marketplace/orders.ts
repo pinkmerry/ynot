@@ -194,10 +194,10 @@ function assertGroupListingIds(listingIds: string[]) {
     assertUuid(listingId, "listing_id"),
   );
   const distinct = [...new Set(normalized)];
-  if (distinct.length < 2 || distinct.length > 3) {
+  if (distinct.length < 2) {
     throw new MarketplaceServiceError(
       "marketplace_checkout_group_size_invalid",
-      "Select 2 or 3 distinct marketplace listings.",
+      "Select at least 2 distinct marketplace listings.",
       422,
     );
   }
