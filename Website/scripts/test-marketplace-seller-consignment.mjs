@@ -18,6 +18,10 @@ const sellerPhotoPerspectiveMigrationPath = path.join(
   repoRoot,
   "Database/marketplace-supabase/migrations/20260629170000_marketplace_seller_photo_perspectives.sql",
 );
+const marketplaceIdempotencyRepairMigrationPath = path.join(
+  repoRoot,
+  "Database/marketplace-supabase/migrations/20260721100000_marketplace_idempotency_status_columns.sql",
+);
 const forbiddenCoreMigrationPath = path.join(
   repoRoot,
   "Database/supabase/migrations/20260628110000_marketplace_seller_consignment.sql",
@@ -37,6 +41,10 @@ function readUserSellerPurchaseMigration() {
 
 function readSellerPhotoPerspectiveMigration() {
   return readFileSync(sellerPhotoPerspectiveMigrationPath, "utf8");
+}
+
+function readMarketplaceIdempotencyRepairMigration() {
+  return readFileSync(marketplaceIdempotencyRepairMigrationPath, "utf8");
 }
 
 function compactSql(source) {
@@ -208,6 +216,20 @@ test("seller consignment RPCs are fixed-search-path, idempotent, and audit submi
     /insert into public\.marketplace_listing_snapshots[\s\S]*marketplace_create_seller_submission/,
     "seller submission RPC must not create active listings",
   );
+});
+
+test("seller photo idempotency completion fields are present before the photo RPC uses them", () => {
+  assert.ok(
+    existsSync(marketplaceIdempotencyRepairMigrationPath),
+    "missing marketplace idempotency repair migration",
+  );
+  const repairSql = compactSql(readMarketplaceIdempotencyRepairMigration());
+  requirePattern(repairSql, /alter table public\.marketplace_idempotency_keys/);
+  requirePattern(repairSql, /add column if not exists status text not null default 'processing'/);
+  requirePattern(repairSql, /add column if not exists completed_at timestamptz/);
+  requirePattern(repairSql, /status = 'completed'/);
+  requirePattern(compactSql(readSellerPhotoPerspectiveMigration()), /status = 'completed'/);
+  requirePattern(compactSql(readSellerPhotoPerspectiveMigration()), /completed_at = now\(\)/);
 });
 
 test("seller modules and routes enforce account bridge, owner gate, validation, idempotency, and no trusted seller ids", () => {
