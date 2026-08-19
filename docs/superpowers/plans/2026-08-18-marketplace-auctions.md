@@ -288,6 +288,89 @@ git commit -m "chore: capture marketplace schema backup before auction migration
 
 ---
 
+## A note on the `pg_get_functiondef` technique
+
+Five migrations here patch a deployed function by reading its definition, doing a string replacement, and executing the result. That follows the precedent set by `20260721113000_marketplace_unbounded_checkout_groups.sql` and avoids keeping a second divergent copy of financial logic.
+
+It has one property worth stating plainly: **it destroys the original.** Once `execute patched` runs, the previous body exists nowhere. There is no `git revert` for a function that lives only in the database.
+
+So every patching migration must capture the pre-image first. Task 4a adds the table; each patching migration calls it before touching anything.
+
+### Task 4a: Capture function pre-images before patching
+
+**Files:**
+- Create: `Database/marketplace-supabase/migrations/20260818095900_marketplace_function_backups.sql`
+
+- [ ] **Step 1: Write the migration**
+
+```sql
+-- Rollback insurance for every migration that patches a deployed function
+-- body via pg_get_functiondef. Without this, reversing such a migration means
+-- reconstructing financial logic from memory.
+create table if not exists public.marketplace_function_backups (
+  id bigserial primary key,
+  migration_name text not null,
+  function_signature text not null,
+  definition text not null,
+  captured_at timestamptz not null default now(),
+  unique (migration_name, function_signature)
+);
+
+create or replace function public.marketplace_backup_function(
+  p_migration_name text,
+  p_signature text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  body text;
+begin
+  body := pg_get_functiondef(p_signature::regprocedure);
+  if body is null then
+    raise exception 'marketplace_function_backup_target_missing: %', p_signature;
+  end if;
+  insert into public.marketplace_function_backups (migration_name, function_signature, definition)
+  values (p_migration_name, p_signature, body)
+  on conflict (migration_name, function_signature) do nothing;   -- first capture wins
+end;
+$$;
+
+revoke all on public.marketplace_function_backups from anon, authenticated;
+revoke all on function public.marketplace_backup_function(text, text) from public, anon, authenticated;
+grant select, insert on public.marketplace_function_backups to service_role;
+grant execute on function public.marketplace_backup_function(text, text) to service_role;
+```
+
+- [ ] **Step 2: Call it from every patching migration**
+
+At the top of `20260818100100`, `20260818100200`, `20260818100500`, `20260818100600`, and Task 4d's account-response patch, before any `execute`:
+
+```sql
+select public.marketplace_backup_function('20260818100100', 'public.marketplace_create_pending_payment_order(...)');
+```
+
+`on conflict do nothing` means re-running a migration never overwrites the true original with an already-patched body.
+
+- [ ] **Step 3: Confirm the pre-images exist before applying anything downstream**
+
+```sql
+select migration_name, function_signature, length(definition)
+from public.marketplace_function_backups order by captured_at;
+```
+Expected: one row per patched function. **If a row is missing, stop** — that function cannot be rolled back.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add Database/marketplace-supabase/migrations/20260818095900_marketplace_function_backups.sql
+git commit -m "chore(db): capture function pre-images so patched migrations can be reversed"
+```
+
+---
+
 ## Phase 1 — Schema and Ledger
 
 ### Task 4: Auction foundation migration
@@ -2912,6 +2995,128 @@ git add Website/src/lib/marketplace/auctions.ts Website/src/lib/marketplace/auct
 git commit -m "feat(marketplace): add auction read and bid service modules"
 ```
 
+### Task 13c: `getViewerAuctionState` — the private half of the split
+
+Task 14b's `/me` route calls this and nothing defines it. It is the only place that may compute per-viewer facts, and the only place allowed to read the gate.
+
+**Files:**
+- Modify: `Website/src/lib/marketplace/auctions.ts`
+
+- [ ] **Step 1: Write it**
+
+```ts
+export type ViewerAuctionState = {
+  canBid: boolean;
+  cannotBidReason: string | null;
+  youAreLeading: boolean;
+  yourMaxSatang: number | null;
+  yourAlias: string | null;
+};
+
+/**
+ * Everything about THIS viewer on THIS lot. Never cached, never merged into
+ * the public payload, never broadcast.
+ *
+ * yourMaxSatang is returned only to the account that set it. It is the single
+ * most sensitive value in the feature -- knowing another bidder's maximum is
+ * knowing exactly what to bid to win.
+ */
+export async function getViewerAuctionState(input: {
+  auctionId: string;
+  accountId: string | null;
+  adminRole: string | null;
+}): Promise<ViewerAuctionState> {
+  const deny = (reason: string): ViewerAuctionState => ({
+    canBid: false, cannotBidReason: reason,
+    youAreLeading: false, yourMaxSatang: null, yourAlias: null,
+  });
+
+  if (!input.accountId) return deny("Log in to bid.");
+  if (input.adminRole) return deny("Staff accounts cannot bid.");
+
+  const supabase = createMarketplaceSupabaseClient();
+  const id = assertUuid(input.auctionId, "auction_id");
+
+  const { data: auction, error } = await supabase
+    .from("marketplace_auctions")
+    .select("auction_state, bidder_gate, seller_marketplace_account_id, leading_bidder_account_id, max_bid_satang")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw marketplaceRpcError(error);
+  if (!auction) throw new MarketplaceServiceError("auction_not_found", "Auction not found.", 404);
+
+  const { data: account } = await supabase
+    .from("marketplace_accounts")
+    .select("buyer_status, is_staff, metadata")
+    .eq("id", input.accountId)
+    .maybeSingle();
+
+  // Your own bids only -- this filter is what keeps another bidder's maximum
+  // out of the response.
+  const { data: mine } = await supabase
+    .from("marketplace_auction_bids")
+    .select("max_amount_satang, bidder_alias")
+    .eq("auction_id", id)
+    .eq("bidder_marketplace_account_id", input.accountId)
+    .order("sequence", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const youAreLeading = auction.leading_bidder_account_id === input.accountId;
+  const base = {
+    youAreLeading,
+    yourMaxSatang: mine?.max_amount_satang ?? null,
+    yourAlias: mine?.bidder_alias ?? null,
+  };
+
+  if (auction.auction_state === "scheduled") {
+    return { ...base, canBid: false, cannotBidReason: "Bidding has not opened yet." };
+  }
+  if (auction.auction_state !== "live") {
+    return { ...base, canBid: false, cannotBidReason: "This auction has ended." };
+  }
+  if (account?.is_staff) {
+    return { ...base, canBid: false, cannotBidReason: "Staff accounts cannot bid." };
+  }
+  if (account?.buyer_status !== "active") {
+    return { ...base, canBid: false, cannotBidReason: "Your account cannot bid right now. Contact support." };
+  }
+  if (auction.seller_marketplace_account_id === input.accountId) {
+    return { ...base, canBid: false, cannotBidReason: "You cannot bid on your own lot." };
+  }
+  if (String(account?.metadata?.contactVerified ?? "false") !== "true") {
+    return { ...base, canBid: false, cannotBidReason: "Verify your email before bidding, so we can reach you if you win." };
+  }
+  if (auction.bidder_gate === "kyc_required"
+      && String(account?.metadata?.kycStatus ?? "none") !== "approved") {
+    return { ...base, canBid: false, cannotBidReason: "This lot is open to verified accounts only." };
+  }
+
+  return { ...base, canBid: true, cannotBidReason: null };
+}
+```
+
+Every reason string here matches a rejection the bid RPC can raise, so the button never promises something the server will refuse. The RPC remains the authority — this is UI affordance, not authorisation.
+
+- [ ] **Step 2: Add the leak test**
+
+```js
+test("SECURITY: viewer state reads only the calling account's own bids", () => {
+  const svc = readApp("src/lib/marketplace/auctions.ts");
+  const fn = svc.slice(svc.indexOf("getViewerAuctionState"));
+  assert.match(fn, /\.eq\("bidder_marketplace_account_id", input\.accountId\)/,
+    "without this filter the response would carry another bidder's maximum");
+});
+```
+
+- [ ] **Step 3: Typecheck and commit**
+
+```bash
+cd Website && npx tsc --noEmit --pretty false
+git add Website/src/lib/marketplace/auctions.ts Website/scripts/test-marketplace-auction-schema.mjs
+git commit -m "feat(marketplace): add per-viewer auction state for the uncached /me route"
+```
+
 ### Task 13b: Give auctions their own kill switch
 
 The service-boundary analysis concluded auctions do not need a separate service *because* per-action flags already provide failure isolation. That is only true if auctions have their own flag. Without this, the bid route rides the `checkout` switch and disabling auctions also disables buying.
@@ -4035,6 +4240,146 @@ git add Website/src/features/marketplace-ui/auction Website/src/app/\(store\)/ma
 git commit -m "feat(ui): add auction room, scheduled lot, and auction list"
 ```
 
+### Task 18c: `useAuctionRealtime` — the client subscription
+
+Task 12b publishes the events table; nothing subscribes to it yet. This is the hook, and its fallback behaviour is the part that matters.
+
+**Files:**
+- Create: `Website/src/features/marketplace-ui/auction/useAuctionRealtime.ts`
+- Modify: `Website/src/features/marketplace-ui/auction/AuctionRoom.tsx`
+
+- [ ] **Step 1: Write the hook**
+
+```ts
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { createBrowserClient } from "@supabase/ssr";
+
+export type AuctionLiveEvent = {
+  auction_id: string;
+  event_type: "opened" | "bid_placed" | "extended" | "closed";
+  current_price_satang: number;
+  bid_count: number;
+  distinct_bidder_count: number;
+  effective_ends_at: string;
+  extension_count: number;
+  bidder_alias: string | null;
+};
+
+/**
+ * Subscribes to public auction events. Mirrors the pattern already used by
+ * features/lucky-draw/realtime/useLuckyDrawRealtime.ts on the core project.
+ *
+ * The channel carries NOTHING private -- no account id, no maximum. The caller
+ * infers its own status locally: if you were leading and an event arrives that
+ * you did not cause, you have been outbid.
+ *
+ * Returns `connected`. When false the caller MUST keep polling; a socket that
+ * drops silently during the final two minutes is the worst failure this
+ * feature has, so polling is never switched off, only slowed.
+ */
+export function useAuctionRealtime(
+  auctionId: string,
+  onEvent: (event: AuctionLiveEvent) => void,
+) {
+  const [connected, setConnected] = useState(false);
+  const handlerRef = useRef(onEvent);
+  handlerRef.current = onEvent;
+
+  useEffect(() => {
+    const url = process.env.NEXT_PUBLIC_MARKETPLACE_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_MARKETPLACE_SUPABASE_PUBLISHABLE_KEY;
+    if (!url || !key) return;                 // fall back to polling entirely
+
+    const supabase = createBrowserClient(url, key);
+    const channel = supabase
+      .channel(`auction:${auctionId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "marketplace_auction_events",
+          filter: `auction_id=eq.${auctionId}`,
+        },
+        (payload) => handlerRef.current(payload.new as AuctionLiveEvent),
+      )
+      .subscribe((status) => setConnected(status === "SUBSCRIBED"));
+
+    return () => {
+      setConnected(false);
+      void supabase.removeChannel(channel);
+    };
+  }, [auctionId]);
+
+  return { connected };
+}
+```
+
+- [ ] **Step 2: Add the two marketplace public env vars**
+
+The marketplace worker currently ships `NEXT_PUBLIC_SUPABASE_URL` pointing at the **core** project. The browser needs the **marketplace** project's URL and publishable key to subscribe. Add to `wrangler.marketplace.jsonc` and `wrangler.marketplace.ci.jsonc` `vars`:
+
+```jsonc
+"NEXT_PUBLIC_MARKETPLACE_SUPABASE_URL": "https://lvdikmsygdstckhektth.supabase.co",
+"NEXT_PUBLIC_MARKETPLACE_SUPABASE_PUBLISHABLE_KEY": "<marketplace anon key>"
+```
+
+This key is public by design — it is exactly why Task 12b's publication gate exists. Do **not** put the service-role key here.
+
+- [ ] **Step 3: Wire it into `AuctionRoom`, keeping polling alive**
+
+```tsx
+const { connected } = useAuctionRealtime(initial.auctionId, (event) => {
+  setData((prev) => ({
+    ...prev,
+    currentPriceSatang: event.current_price_satang,
+    bidCount: event.bid_count,
+    distinctBidderCount: event.distinct_bidder_count,
+    effectiveEndsAt: event.effective_ends_at,
+    extensionCount: event.extension_count,
+    auctionState: event.event_type === "closed" ? "closed_won" : prev.auctionState,
+  }));
+  // A price move this viewer did not cause means they are no longer leading.
+  if (viewer.youAreLeading && event.event_type !== "opened") void refreshViewer();
+});
+```
+
+`refreshViewer` is the private-route counterpart of `refresh`, defined alongside it in `AuctionRoom`:
+
+```tsx
+const [viewer, setViewer] = useState(initialViewer);
+
+const refreshViewer = useCallback(async () => {
+  try {
+    const response = await fetch(
+      `/api/ynot/marketplace/auctions/${initial.auctionId}/me`,
+      { cache: "no-store" },
+    );
+    if (response.ok) setViewer(await response.json());
+  } catch {
+    // Leave the last known viewer state in place. Clearing it here would grey
+    // out the bid button on one dropped request, mid-auction.
+  }
+}, [initial.auctionId]);
+```
+
+It is deliberately a separate fetch from `refresh`: `/live` is edge-cached and shared, `/me` never is. Merging them would poison the cache with one viewer's state.
+
+Then slow polling rather than stopping it: `connected ? 15000 : (urgent ? 2000 : 5000)`. A 15-second heartbeat while subscribed costs almost nothing and repairs any event the socket dropped.
+
+- [ ] **Step 4: Verify both transports**
+
+Open the lot in two browsers, bid in one, confirm the other updates in under a second. Then block WebSockets in devtools and confirm it still updates within 2 seconds from polling, with no error shown to the user.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Website/src/features/marketplace-ui/auction/useAuctionRealtime.ts Website/src/features/marketplace-ui/auction/AuctionRoom.tsx Website/wrangler.marketplace.jsonc Website/wrangler.marketplace.ci.jsonc
+git commit -m "feat(ui): subscribe to auction events with polling retained as fallback"
+```
+
 ### Task 19: Won-lot payment
 
 **Files:**
@@ -4305,6 +4650,107 @@ git commit -m "chore: add auction verification gate"
 ```
 
 ---
+
+## Rollback
+
+Migrations are applied to the **production** marketplace project, so each one needs a known reversal before it is applied. Reverse in the opposite order to application.
+
+| Migration | Reversal | Safe after traffic? |
+|---|---|---|
+| `095900` backups | `drop table marketplace_function_backups cascade` | Yes — do this last |
+| `100000` foundation | `drop table marketplace_auction_bids, marketplace_auction_events, marketplace_auctions cascade;` then `alter table marketplace_listing_snapshots drop column listing_format;` and `alter table marketplace_accounts drop column is_staff, drop column staff_synced_at;` | **Only if no auction has run.** Dropping the bid ledger destroys evidence |
+| `100100` fixed-price guard | Restore from `marketplace_function_backups` | Yes — but auction lots become buyable at their listing price the moment you do |
+| `100200` price override | Restore from backups | Yes if no auction award is mid-payment; otherwise the winner is charged the start price |
+| `100300` bid RPC | `drop function marketplace_place_auction_bid(...)` | Yes — bidding stops, existing bids untouched |
+| `100400` sweeps + awards | `drop function` the three sweeps; keep `marketplace_auction_awards` if any award exists | **Never drop the awards table with an unpaid award** — the buyer's obligation lives there |
+| `100500` award checkout | `drop function`; `drop trigger marketplace_listing_guard_auction_relist` | Dropping the trigger re-opens the relist hole |
+| `100600` fees | `alter table marketplace_money_policies drop column auction_buyer_premium_bps, drop column auction_seller_fee_bps;` restore `marketplace_money_policy_json` from backups | Yes — awards froze their own rates, so settled auctions are unaffected |
+| `100700` realtime | `alter publication supabase_realtime drop table marketplace_auction_events;` then drop the functions | Yes |
+| `100800` admin RPCs | `drop function` both | Yes |
+
+**The fastest rollback is not a migration at all.** Set `YNOT_MARKETPLACE_AUCTIONS_ENABLED=false` and redeploy the marketplace worker: every auction route returns "unavailable" within a minute, no schema changes, no data loss, and existing awards remain payable through the normal order flow. Reach for SQL reversal only when the schema itself is the problem.
+
+- [ ] **Before applying anything, write the reversal script for the migration you are about to apply** and keep it open in a second window. A rollback improvised at 2am against a live marketplace is how a bid ledger gets dropped.
+
+## Observability
+
+Nothing in this plan is observable today, so the first real auction would run blind.
+
+- [ ] **Step 1: Structured logs on the bid path**
+
+Every bid rejection already raises a distinct code. Log them by code, not as generic failures:
+
+```ts
+console.warn("auction_bid_rejected", { auctionId, code, accountIdHash });
+```
+
+`auction_bid_closed` spiking at close is normal. `auction_bid_below_min` spiking is not — it means the displayed price is lagging and the transport is broken.
+
+- [ ] **Step 2: The four queries to run during a live auction**
+
+```sql
+-- 1. Close lag: how long after the deadline did each lot actually close?
+select id, effective_ends_at, closed_at, closed_at - effective_ends_at as lag
+from marketplace_auctions where auction_state in ('closed_won','closed_unsold')
+order by closed_at desc limit 20;
+-- Expect sub-second for watched lots, under 60s for the rest. Minutes means
+-- the cron is not running.
+
+-- 2. The leading-bid invariant. Must always return zero rows.
+select auction_id, count(*) from marketplace_auction_bids
+where outcome = 'leading' group by 1 having count(*) <> 1;
+
+-- 3. Stranded cards: awards past due that the expire sweep has not caught.
+select id, auction_id, payment_due_at, award_state
+from marketplace_auction_awards
+where award_state in ('awaiting_payment','payment_started')
+  and payment_due_at < now();
+
+-- 4. Auctions that should have opened and did not.
+select id, starts_at from marketplace_auctions
+where auction_state = 'scheduled' and starts_at < now() - interval '2 minutes';
+```
+
+Queries 2, 3 and 4 should each return **zero rows**. Any of them returning data means a sweep or an invariant is broken.
+
+- [ ] **Step 3: Add queries 2–4 to the admin cockpit as a health strip**
+
+Three counters at the top of `AuctionsScreen`, green at zero and red otherwise. This is the difference between finding a stranded card in a week and finding it in a minute.
+
+## First-auction runbook
+
+- [ ] **Pre-flight, day before**
+  - `npm run verify:marketplace` and `verify:marketplace-auction-realtime` both pass
+  - `select * from marketplace_function_backups;` shows one row per patched function
+  - Bundle check: `npm run cf:build:marketplace && npm run verify:bundle-size`
+  - Cron confirmed at `* * * * *` on the deployed worker, not just in the file
+  - `YNOT_MARKETPLACE_AUCTIONS_ENABLED=true` and the lot is visible while `scheduled`
+  - Place a bid from a staff account and **confirm it is rejected** — this is the fraud control, verify it rather than assume it
+  - Confirm the lot's `max_bid_satang` is set to something sane
+
+- [ ] **At open**
+  - Confirm `auction_state` flips to `live` within 60s of `starts_at` (query 4)
+  - Place one real bid, confirm the price updates in a second browser in under a second
+
+- [ ] **Final two minutes**
+  - Watch `extension_count`. A lot stuck at `20/20` has hit the extension cap and will close hard
+  - Watch the bid rejection log for `auction_bid_below_min` — a spike means the transport is lagging
+
+- [ ] **At close**
+  - Query 1: close lag under a minute
+  - Query 2: exactly one winning bid
+  - Confirm the award exists with the right hammer price and a `payment_due_at` 48 hours out
+  - **Contact the winner** — v1 notification is manual, so this is a person's job, not the system's
+
+- [ ] **Next day**
+  - Query 3: no stranded awards
+  - If the winner paid, confirm the payout row and the price-history point both landed
+
+## Timezone
+
+All absolute times display in **Asia/Bangkok**, formatted server-side or with an explicit `timeZone: "Asia/Bangkok"` in `Intl.DateTimeFormat`. Never rely on the browser's local zone: a buyer travelling abroad seeing "ends 8pm" in the wrong zone is a support ticket that arrives after the lot has closed.
+
+Countdowns stay relative and are unaffected. Store everything as `timestamptz`, which the schema already does.
 
 ## Deferred to Later Phases
 
