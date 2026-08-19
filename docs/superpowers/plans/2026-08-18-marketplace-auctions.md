@@ -64,6 +64,33 @@ These come from verified repository facts. Violating any one produces a money bu
 
 ---
 
+## Execution Order
+
+Twenty-nine tasks, some with letter suffixes because they were inserted after review. Run them in **this** order — it is not the same as numeric order, and several tasks will fail if run early.
+
+**Gate — must pass before any migration touches production**
+`1` paths filter · `2` bundle headroom · `3` database backup
+
+**Schema and ledger** — each depends on the one before
+`4a` function pre-images · `4` foundation · `4c` fee rates · `4d` staff flag · `5` increment ladder in TS · `6` fixed-price guard · `7` price override · `8` bid RPC · `9` sweeps and awards · `10` award checkout · `11` apply all ten migrations · `12` behavioural test on production · `12b` realtime publication and gate
+
+**Service and API** — `13` and `13c` both edit `auctions.ts`, so run them adjacently
+`13` read/bid services · `13c` viewer state · `13b` kill switch · `14` routes · `14b` cached endpoint split · `15` cron sweeps
+
+**Frontend**
+`16` countdown · `17` bid panel · `18` auction room and list · `18c` realtime hook · `19` won-lot payment
+
+**Admin and release**
+`20` cockpit · `20b` browse badge · `21` full verification
+
+Three ordering traps worth calling out:
+
+- **`4a` before everything.** Five later migrations patch deployed function bodies, destroying the original. Run `4a` first or those become irreversible.
+- **`4c` before `9`.** The close sweep reads `auctionBuyerPremiumBps`. It `coalesce`s safely, so running out of order does not error — it silently charges the 10% fixed-price fee instead of 3%.
+- **`13c` needs `4` applied.** It reads `is_staff` and `max_bid_satang`, which the foundation migration adds.
+
+Tasks `16` through `19` are independent of each other once `14b` exists, so they can be parallelised across subagents. Everything in the schema block is strictly sequential.
+
 ## File Structure
 
 **Database — `Database/marketplace-supabase/migrations/`**
@@ -73,7 +100,7 @@ These come from verified repository facts. Violating any one produces a money bu
 - `20260818100300_marketplace_auction_bid_rpc.sql` — `marketplace_place_auction_bid`
 - `20260818100400_marketplace_auction_close_rpc.sql` — `marketplace_auction_awards`, `marketplace_close_due_auctions`
 - `20260818100500_marketplace_auction_award_checkout.sql` — `marketplace_create_auction_pending_payment_order`
-- `20260818100600_marketplace_auction_public_projection.sql` — public view + `fulfilment_method`
+- `20260818100900_marketplace_auction_public_projection.sql` — browse badge + `fulfilment_method` (Task 20b)
 
 **Backend service layer — `Website/src/lib/marketplace/`**
 - `auctions.ts` — read/list/detail projection, lazy close on read
@@ -2410,7 +2437,23 @@ The marketplace project is `lvdikmsygdstckhektth`. The core gacha project is `sz
 
 - [ ] **Step 2: Apply each migration in filename order**
 
-Apply `20260818100000` → `100100` → `100200` → `100300` → `100400` → `100500` via the Supabase Management API (`POST /v1/projects/lvdikmsygdstckhektth/database/query`, curl with a browser User-Agent).
+Apply **all ten** in filename order via the Supabase Management API (`POST /v1/projects/lvdikmsygdstckhektth/database/query`, curl with a browser User-Agent):
+
+| # | Migration | Depends on |
+|---|---|---|
+| 1 | `20260818095900_marketplace_function_backups` | — capture pre-images before anything is patched |
+| 2 | `20260818100000_marketplace_auction_foundation` | 1 |
+| 3 | `20260818100100_marketplace_auction_fixed_price_guard` | 1, 2 |
+| 4 | `20260818100200_marketplace_auction_price_override` | 1 |
+| 5 | `20260818100300_marketplace_auction_bid_rpc` | 2 (events table, increment ladder) |
+| 6 | `20260818100400_marketplace_auction_close_rpc` | 2, 4, 9 — reads the auction fee keys |
+| 7 | `20260818100500_marketplace_auction_award_checkout` | 3, 4, 6 |
+| 8 | `20260818100600_marketplace_auction_fees` | 1 |
+| 9 | `20260818100700_marketplace_auction_realtime` | 2 |
+| 10 | `20260818100800_marketplace_auction_admin_rpcs` | 2 |
+| 11 | `20260818100900_marketplace_auction_public_projection` | 2 |
+
+Migration 6 reads `auctionBuyerPremiumBps` from the money-policy JSON, which migration 8 adds. It `coalesce`s to the standard rate, so applying 6 first is **safe but silently charges the 10% fixed-price fee**. Apply 8 before running any auction.
 
 - [ ] **Step 3: Verify each applied**
 
@@ -2816,6 +2859,7 @@ import {
   marketplaceRpcError,
   MarketplaceServiceError,
 } from "./supabase-adapter";
+import { auctionIncrementSatang } from "./auction-money";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -2842,6 +2886,11 @@ export type AuctionPublicView = {
   extensionCount: number;
   maxExtensions: number;
   antiSnipeWindowSeconds: number;
+  // Derived server-side so the client never reimplements the ladder. Every
+  // bid control depends on these; the SQL remains the authority and will
+  // reject anything below minNextSatang regardless of what the UI showed.
+  incrementSatang: number;
+  minNextSatang: number;
   serverNow: string;
   // NEVER include leadingMaxSatang or leadingBidderAccountId.
 };
@@ -2882,6 +2931,8 @@ export async function getAuction(auctionId: string): Promise<AuctionPublicView> 
 
   const { data, error } = await supabase
     .from("marketplace_auctions")
+    // Explicit column list. A select("*") here would ship leading_max_satang
+    // and alias_salt to the public endpoint.
     .select(
       "id, listing_id, auction_state, bidder_gate, start_price_satang, current_price_satang," +
       " bid_count, distinct_bidder_count, starts_at, effective_ends_at, extension_count," +
@@ -2897,6 +2948,17 @@ export async function getAuction(auctionId: string): Promise<AuctionPublicView> 
     .select("title, photo_urls")
     .eq("listing_id", data.listing_id)
     .maybeSingle();
+
+  // The opening bid is the start price, or one increment on a lot that opens
+  // at 0 -- mirroring marketplace_place_auction_bid's Case A exactly. If these
+  // two ever diverge the UI offers a minimum the server rejects.
+  const incrementSatang = auctionIncrementSatang(data.current_price_satang);
+  const minNextSatang =
+    data.bid_count === 0
+      ? (data.start_price_satang > 0
+          ? data.start_price_satang
+          : auctionIncrementSatang(0))
+      : data.current_price_satang + incrementSatang;
 
   return {
     auctionId: data.id,
@@ -2914,6 +2976,8 @@ export async function getAuction(auctionId: string): Promise<AuctionPublicView> 
     extensionCount: data.extension_count,
     maxExtensions: data.max_extensions,
     antiSnipeWindowSeconds: data.anti_snipe_window_seconds,
+    incrementSatang,
+    minNextSatang,
     serverNow: new Date().toISOString(),
   };
 }
@@ -3101,6 +3165,22 @@ Every reason string here matches a rejection the bid RPC can raise, so the butto
 - [ ] **Step 2: Add the leak test**
 
 ```js
+test("the client minimum mirrors the RPC's Case A exactly", () => {
+  const svc = readApp("src/lib/marketplace/auctions.ts");
+  // start price when > 0, one increment when the lot opens at 0 -- if these
+  // drift the UI offers a minimum the server will reject
+  assert.match(svc, /data\.bid_count === 0/);
+  assert.match(svc, /auctionIncrementSatang\(0\)/);
+  assert.match(svc, /data\.current_price_satang \+ incrementSatang/);
+});
+
+test("SECURITY: the public projection never selects the hidden maximum or the salt", () => {
+  const svc = readApp("src/lib/marketplace/auctions.ts");
+  assert.doesNotMatch(svc, /select\("\*"\)/);
+  assert.doesNotMatch(svc, /leading_max_satang/);
+  assert.doesNotMatch(svc, /alias_salt/);
+});
+
 test("SECURITY: viewer state reads only the calling account's own bids", () => {
   const svc = readApp("src/lib/marketplace/auctions.ts");
   const fn = svc.slice(svc.indexOf("getViewerAuctionState"));
@@ -4614,6 +4694,107 @@ All use `prepareMarketplaceMutation` with `accessMode: "owner"` and `action: "au
 cd Website && npx tsc --noEmit --pretty false && node --test scripts/test-marketplace-auction-schema.mjs
 git add Database/marketplace-supabase/migrations/20260818100800_marketplace_auction_admin_rpcs.sql Website/src/features/marketplace-ui/admin/Auction* Website/src/app/admin/marketplace/auctions Website/src/app/api/ynot/marketplace/admin/auctions
 git commit -m "feat(admin): auction cockpit with locked create, cancel, and settle"
+```
+
+### Task 20b: Make browse aware that a lot is an auction
+
+Without this, a live auction appears in browse as an ordinary listing at its **start price**, with a working Buy button that the format guard then rejects. The guard prevents the sale; it does not prevent the confusing journey to it.
+
+`marketplace_public_listing_snapshots` selects an explicit column list that does not include `listing_format`, so browse has no way to tell the difference.
+
+**Files:**
+- Create: `Database/marketplace-supabase/migrations/20260818100900_marketplace_auction_public_projection.sql`
+- Modify: `Website/src/lib/marketplace/types.ts`
+- Modify: `Website/src/features/marketplace-ui/browse/BrowsePage.tsx`
+
+- [ ] **Step 1: Add the failing test**
+
+```js
+const projection = compact(readMigration("20260818100900_marketplace_auction_public_projection.sql"));
+
+test("browse can tell an auction from a fixed-price listing", () => {
+  assert.match(projection, /listing\.listing_format/);
+  assert.match(projection, /create or replace view public\.marketplace_public_listing_snapshots/);
+});
+
+test("the public view still exposes no auction internals", () => {
+  assert.doesNotMatch(projection, /leading_max_satang/);
+  assert.doesNotMatch(projection, /alias_salt/);
+});
+
+test("orders carry a fulfilment method for collect-in-person", () => {
+  assert.match(projection, /fulfilment_method text not null default 'ship'/);
+  assert.match(projection, /fulfilment_method in \('ship', 'collect'\)/);
+});
+```
+
+- [ ] **Step 2: Run it and watch it fail**
+
+Run: `cd Website && node --test scripts/test-marketplace-auction-schema.mjs`
+Expected: FAIL — `ENOENT ... 20260818100900_...`
+
+- [ ] **Step 3: Write the migration**
+
+```sql
+-- Browse needs to distinguish an auction from a fixed-price listing, or it
+-- renders a Buy button that cannot work.
+--
+-- Recreate the view from its deployed definition rather than retyping it: the
+-- column list has grown across four migrations and a hand-written copy would
+-- drift.
+select public.marketplace_backup_function(
+  '20260818100900', 'public.marketplace_public_listing_snapshots'
+);
+
+do $$
+declare
+  definition text;
+  patched text;
+begin
+  select pg_get_viewdef('public.marketplace_public_listing_snapshots'::regclass, true)
+    into definition;
+  if definition is null then
+    raise exception 'marketplace_public_listing_view_missing';
+  end if;
+
+  -- add the column just before the snapshot_version projection
+  patched := replace(definition, 'listing.snapshot_version',
+                     'listing.listing_format,' || chr(10) || '  listing.snapshot_version');
+  if patched = definition then
+    raise exception 'marketplace_public_listing_view_anchor_unmatched';
+  end if;
+
+  execute 'create or replace view public.marketplace_public_listing_snapshots '
+       || 'with (security_invoker = true) as ' || patched;
+end;
+$$;
+
+-- Collect in person. A new column rather than a new fulfilment_state value,
+-- because several RPCs validate against that state check constraint and
+-- widening it would mean patching each one.
+alter table public.marketplace_orders
+  add column if not exists fulfilment_method text not null default 'ship'
+    check (fulfilment_method in ('ship', 'collect'));
+```
+
+`marketplace_backup_function` takes a signature string; for a view, pass the relation name — the capture stores whatever `pg_get_functiondef` returns and will raise if the target does not resolve. If it raises for the view, capture `pg_get_viewdef` output into `marketplace_function_backups` manually before proceeding. Do not skip the capture: this view has been edited by four migrations and cannot be reconstructed from the repo alone.
+
+- [ ] **Step 4: Surface it in browse**
+
+Add `listing_format` to `MarketplaceListingSnapshot` in `types.ts`, then in `BrowsePage.tsx` render auction cards differently: a **LIVE AUCTION** chip using `--mp-gold`, the price labelled **"from ฿X"** rather than a flat price, and the primary action reading **"View auction"** linking to `/marketplace/auctions/[id]` — never Add to cart.
+
+- [ ] **Step 5: Run the test and verify browse**
+
+Run: `cd Website && node --test scripts/test-marketplace-auction-schema.mjs`
+Expected: PASS.
+
+Then open browse with one live auction present and confirm: the card shows the auction chip, no Add to cart control exists on it, and clicking through lands on the auction room.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add Database/marketplace-supabase/migrations/20260818100900_marketplace_auction_public_projection.sql Website/src/lib/marketplace/types.ts Website/src/features/marketplace-ui/browse/BrowsePage.tsx Website/scripts/test-marketplace-auction-schema.mjs
+git commit -m "feat(browse): badge live auctions and route them away from cart"
 ```
 
 ### Task 21: Full verification before merge
