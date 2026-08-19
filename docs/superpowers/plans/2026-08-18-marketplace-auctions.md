@@ -56,6 +56,9 @@ These come from verified repository facts. Violating any one produces a money bu
 | Read path | Conditional lazy close, one merged public endpoint, 1s edge cache, private `/me` route |
 | Sweeps | Three, per-lot: open, close, expire |
 | Admin writes | Cancel and edit are RPCs taking the same auction row lock as a bid |
+| No-house-bidding | Enforced by BOTH a caller argument and a stored `is_staff` flag |
+| Bid ceiling | Per lot (default 100x start, floor ฿20,000) plus an absolute ฿1,000,000 cap |
+| Bidder anonymity | Alias is HMAC-salted per auction; the salt is never projected |
 
 **Out of scope for this plan:** KYC document upload and review (own spec), seller-run auctions, deposits, bidder strikes, realtime push, LINE notifications.
 
@@ -311,6 +314,9 @@ const migrationsDir = path.join(repoRoot, "Database/marketplace-supabase/migrati
 function readMigration(name) {
   return readFileSync(path.join(migrationsDir, name), "utf8");
 }
+function readApp(relPath) {
+  return readFileSync(path.join(appRoot, relPath), "utf8");
+}
 function compact(sql) {
   return sql.replace(/\/\*[\s\S]*?\*\//g, "").replace(/--.*$/gm, "").replace(/\s+/g, " ").toLowerCase();
 }
@@ -341,6 +347,30 @@ test("bid ledger is append-only and uniquely sequenced", () => {
   assert.match(foundation, /create table if not exists public\.marketplace_auction_bids/);
   assert.match(foundation, /unique \(auction_id, sequence\)/);
   assert.match(foundation, /marketplace_auction_bids_append_only/);
+});
+
+test("SECURITY: the admin-bid block does not rely on a caller-supplied argument", () => {
+  assert.match(bidRpc, /p_actor_admin_role is not null or coalesce\(account_row\.is_staff, false\)/);
+  assert.match(foundation, /add column if not exists is_staff boolean not null default false/);
+});
+
+test("SECURITY: bids are bounded, per lot and absolutely", () => {
+  assert.match(foundation, /max_amount_satang between 0 and 100000000/);
+  assert.match(foundation, /max_bid_satang integer/);
+  assert.match(bidRpc, /auction_bid_above_ceiling/);
+});
+
+test("SECURITY: the bidder alias is salted with a per-auction secret", () => {
+  assert.match(foundation, /alias_salt uuid not null default gen_random_uuid\(\)/);
+  assert.match(bidRpc, /hmac\(/);
+  // an unsalted digest over two guessable UUIDs would be reversible
+  assert.doesNotMatch(bidRpc, /digest\(p_auction_id::text \|\| p_bidder/);
+});
+
+test("SECURITY: alias_salt is never selected into a projection", () => {
+  const serviceLayer = readApp("src/lib/marketplace/auctions.ts");
+  assert.doesNotMatch(serviceLayer, /alias_salt/);
+  assert.doesNotMatch(serviceLayer, /leading_max_satang/);
 });
 
 test("bidder maximum is never granted to anon or authenticated", () => {
@@ -381,6 +411,18 @@ begin
   end if;
 end $$;
 
+-- Staff status, mirrored from the core admin session by the account bridge on
+-- every resolve. The marketplace project has no admin table of its own, so
+-- without this the admin-bid block is enforced ONLY by a parameter the caller
+-- passes -- one forgotten argument away from letting the house bid on its own
+-- lot. Defence in depth: the bid RPC rejects on the parameter OR this flag.
+alter table public.marketplace_accounts
+  add column if not exists is_staff boolean not null default false,
+  add column if not exists staff_synced_at timestamptz;
+
+create index if not exists marketplace_accounts_staff_idx
+  on public.marketplace_accounts(is_staff) where is_staff;
+
 create table if not exists public.marketplace_auctions (
   id uuid primary key default gen_random_uuid(),
   listing_id uuid not null unique
@@ -409,6 +451,10 @@ create table if not exists public.marketplace_auctions (
   extension_count integer not null default 0 check (extension_count >= 0),
 
   current_price_satang integer not null default 0 check (current_price_satang >= 0),
+  -- Per-lot bid ceiling. v1 has no deposit and no strikes, so this is the only
+  -- thing standing between a griefer and a destroyed auction. The admin RPC
+  -- defaults it to 100x the start price, floored at THB 20,000.
+  max_bid_satang integer check (max_bid_satang is null or max_bid_satang > 0),
   -- leading_max_satang is the leading bidder's authorised maximum. It is
   -- NEVER exposed in any public projection, to any buyer, seller, or admin
   -- customer-facing surface. It exists so the bid RPC can resolve the proxy
@@ -418,6 +464,10 @@ create table if not exists public.marketplace_auctions (
   bid_count integer not null default 0 check (bid_count >= 0),
   distinct_bidder_count integer not null default 0 check (distinct_bidder_count >= 0),
   next_sequence bigint not null default 1 check (next_sequence >= 1),
+  -- Per-auction secret. Without it the alias is sha256(auction_id||account_id)
+  -- over two values an attacker may already hold, so anyone holding a target's
+  -- account id could confirm whether they bid on any lot. Never projected.
+  alias_salt uuid not null default gen_random_uuid(),
 
   closed_at timestamptz,
   close_reason text check (close_reason in ('sold', 'no_bids', 'cancelled_by_admin')),
@@ -441,11 +491,15 @@ create table if not exists public.marketplace_auction_bids (
   bid_kind text not null default 'proxy_max'
     check (bid_kind in ('proxy_max', 'system_increment')),
   -- max_amount_satang is private to the bidder. effective_amount_satang is public.
-  max_amount_satang integer not null check (max_amount_satang >= 0),
+  -- Hard ceiling. Prevents integer overflow in the proxy arithmetic
+  -- (max + increment near INT_MAX throws) and, more importantly, stops a
+  -- throwaway account destroying a lot with an absurd bid it will never pay.
+  max_amount_satang integer not null
+    check (max_amount_satang between 0 and 100000000),   -- <= THB 1,000,000
   effective_amount_satang integer not null check (effective_amount_satang >= 0),
   outcome text not null
     check (outcome in ('leading', 'outbid', 'winning', 'void')),
-  bidder_alias text not null check (length(bidder_alias) between 4 and 16),
+  bidder_alias text not null check (length(bidder_alias) between 6 and 16),
   request_id text,
   idempotency_key text not null,
   -- clock_timestamp(): the moment the bid was actually admitted under the
@@ -469,7 +523,18 @@ begin
     -- One explicit escape, for the behavioural test suite only. The purge RPC
     -- validates the auction is a test lot before setting this, and the GUC is
     -- set with SET LOCAL so it cannot outlive that transaction.
-    if coalesce(current_setting('app.auction_test_purge', true), 'off') = 'on' then
+    -- Two conditions, not one. The GUC alone would mean any future
+    -- security-definer function that sets it makes the entire bid ledger
+    -- deletable; requiring the test-data title as well keeps the escape
+    -- pinned to test lots even if the GUC leaks.
+    if coalesce(current_setting('app.auction_test_purge', true), 'off') = 'on'
+       and exists (
+         select 1
+         from public.marketplace_auctions a
+         join public.marketplace_listing_snapshots l on l.listing_id = a.listing_id
+         where a.id = old.auction_id and l.title like 'AUCTIONTEST-%'
+       )
+    then
       return old;
     end if;
     raise exception 'marketplace_auction_bids_append_only';
@@ -727,6 +792,62 @@ Expected: PASS.
 ```bash
 git add Database/marketplace-supabase/migrations/20260818100600_marketplace_auction_fees.sql Website/src/features/marketplace-ui/admin/FeesSettingsForm.tsx Website/scripts/test-marketplace-auction-schema.mjs
 git commit -m "feat(marketplace): add settable auction buyer premium and seller commission"
+```
+
+### Task 4d: Make the staff flag real
+
+Task 4 adds `marketplace_accounts.is_staff`, but a column nobody writes is worse than no column — it reads as a control while enforcing nothing. The account bridge already computes `isMarketplaceOperator` on every resolve (`src/lib/marketplace/account-bridge.ts:80`); this persists it.
+
+**Files:**
+- Modify: `Website/src/lib/marketplace/account-bridge.ts`
+- Modify: `Website/scripts/test-marketplace-auction-schema.mjs`
+
+- [ ] **Step 1: Write the failing test**
+
+```js
+test("SECURITY: the account bridge persists staff status, it does not only compute it", () => {
+  const bridge = readApp("src/lib/marketplace/account-bridge.ts");
+  assert.match(bridge, /is_staff/,
+    "is_staff must be written on every resolve, or the bid RPC's second admin check is dead weight");
+  assert.match(bridge, /staff_synced_at/);
+});
+```
+
+- [ ] **Step 2: Run it and watch it fail**
+
+Run: `cd Website && node --test scripts/test-marketplace-auction-schema.mjs`
+Expected: FAIL — `is_staff` not found in `account-bridge.ts`.
+
+- [ ] **Step 3: Persist it on every account resolve**
+
+In `getMarketplaceAccountForProfile`, after the account row is resolved, write the flag whenever it has drifted:
+
+```ts
+const isStaff = Boolean(admin?.adminRole);
+if (account.is_staff !== isStaff) {
+  // Fire-and-forget correction. Staff status is derived in the core project
+  // and mirrored here so the bid RPC can enforce the no-house-bidding rule
+  // without trusting a parameter its caller might forget to pass.
+  const sync = await supabase
+    .from("marketplace_accounts")
+    .update({ is_staff: isStaff, staff_synced_at: new Date().toISOString() })
+    .eq("id", account.id);
+  if (sync.error) console.warn("marketplace_staff_sync_failed", sync.error.message);
+}
+```
+
+**Direction matters.** Promotion to staff must land *before* they can bid, and demotion must land before they lose the block. Because this runs on every resolve and the bid route resolves the account immediately before bidding, the flag is at most one request stale — and the caller-supplied `p_actor_admin_role` covers that window. That is exactly why the RPC checks both.
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `cd Website && node --test scripts/test-marketplace-auction-schema.mjs`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Website/src/lib/marketplace/account-bridge.ts Website/scripts/test-marketplace-auction-schema.mjs
+git commit -m "fix(security): persist staff status so the no-house-bidding rule is enforceable in SQL"
 ```
 
 ### Task 5: Increment ladder in TypeScript, behaviourally tested
@@ -1269,7 +1390,8 @@ begin
   if normalized_key is null or normalized_hash is null then
     raise exception 'marketplace_idempotency_key_required';
   end if;
-  if p_max_amount_satang is null or p_max_amount_satang < 0 then
+  if p_max_amount_satang is null or p_max_amount_satang < 0
+     or p_max_amount_satang > 100000000 then
     raise exception 'auction_bid_amount_invalid';
   end if;
 
@@ -1335,7 +1457,13 @@ begin
   end if;
 
   -- 3. Who may bid.
-  if p_actor_admin_role is not null then
+  --
+  -- TWO independent sources, either one of which blocks. p_actor_admin_role
+  -- comes from the caller and can be omitted by a buggy or new route;
+  -- account_row.is_staff is stored in this database and cannot. On official
+  -- lots YNOTT is the seller, so a house bid is fraud -- this control does not
+  -- get to depend on an argument being remembered.
+  if p_actor_admin_role is not null or coalesce(account_row.is_staff, false) then
     raise exception 'auction_bid_admin_forbidden';
   end if;
   if auction_row.seller_marketplace_account_id is not null
@@ -1348,6 +1476,10 @@ begin
   end if;
   if coalesce(account_row.metadata ->> 'contactVerified', 'false') <> 'true' then
     raise exception 'auction_bid_contact_unverified';
+  end if;
+  if auction_row.max_bid_satang is not null
+     and p_max_amount_satang > auction_row.max_bid_satang then
+    raise exception 'auction_bid_above_ceiling';
   end if;
   if auction_row.bidder_gate = 'kyc_required'
      and coalesce(account_row.metadata ->> 'kycStatus', 'none') <> 'approved' then
@@ -1426,7 +1558,17 @@ begin
   -- search_path = public, pg_temp, so if pgcrypto lives in the `extensions`
   -- schema on this project, qualify this as extensions.digest(...) instead.
   -- Verify with: select extnamespace::regnamespace from pg_extension where extname = 'pgcrypto';
-  bid_alias := 'b' || substr(encode(digest(p_auction_id::text || p_bidder_marketplace_account_id::text, 'sha256'), 'hex'), 1, 4);
+  -- Salted and keyed. 6 hex chars rather than 4 also drops the birthday
+  -- collision rate from roughly 1-in-300 to 1-in-90,000 at twenty bidders.
+  bid_alias := 'b' || substr(
+    encode(
+      hmac(
+        p_bidder_marketplace_account_id::text,
+        auction_row.alias_salt::text,
+        'sha256'
+      ),
+      'hex'
+    ), 1, 6);
 
   update public.marketplace_auction_bids
   set outcome = 'outbid'
@@ -2902,7 +3044,12 @@ const CACHE_TTL_SECONDS = 1;
  */
 export async function GET(request: Request, context: { params: Promise<{ auctionId: string }> }) {
   const { auctionId } = await context.params;
-  const cacheKey = new Request(new URL(request.url).toString(), { method: "GET" });
+  // Key on origin + pathname ONLY. Including the query string lets anyone
+  // defeat the cache with ?x=1, ?x=2, ... and hammer the origin -- which also
+  // re-opens the lazy-close thundering herd at the exact closing instant, when
+  // the cache is the only thing throttling it.
+  const url = new URL(request.url);
+  const cacheKey = new Request(`${url.origin}${url.pathname}`, { method: "GET" });
   const cache = (globalThis as { caches?: { default?: Cache } }).caches?.default;
 
   const hit = await cache?.match(cacheKey);
@@ -3891,6 +4038,7 @@ create or replace function public.marketplace_update_auction_terms(
   p_anti_snipe_window_seconds integer,
   p_anti_snipe_extend_seconds integer,
   p_max_extensions integer,
+  p_max_bid_satang integer,
   p_admin_note text,
   p_request_id text
 )
@@ -3934,6 +4082,12 @@ begin
          anti_snipe_window_seconds = p_anti_snipe_window_seconds,
          anti_snipe_extend_seconds = p_anti_snipe_extend_seconds,
          max_extensions = p_max_extensions,
+         -- Griefing ceiling. Defaults to 100x the start price, floored at
+         -- THB 20,000 so a lot opening at 0 still gets a real bound.
+         max_bid_satang = coalesce(
+           p_max_bid_satang,
+           greatest(p_start_price_satang * 100, 2000000)
+         ),
          admin_note = p_admin_note,
          version = version + 1
    where id = p_auction_id;
@@ -4006,9 +4160,9 @@ begin
 end;
 $$;
 
-revoke all on function public.marketplace_update_auction_terms(uuid, uuid, text, integer, timestamptz, timestamptz, text, integer, integer, integer, text, text) from public, anon, authenticated;
+revoke all on function public.marketplace_update_auction_terms(uuid, uuid, text, integer, timestamptz, timestamptz, text, integer, integer, integer, integer, text, text) from public, anon, authenticated;
 revoke all on function public.marketplace_cancel_auction(uuid, uuid, text, text, text) from public, anon, authenticated;
-grant execute on function public.marketplace_update_auction_terms(uuid, uuid, text, integer, timestamptz, timestamptz, text, integer, integer, integer, text, text) to service_role;
+grant execute on function public.marketplace_update_auction_terms(uuid, uuid, text, integer, timestamptz, timestamptz, text, integer, integer, integer, integer, text, text) to service_role;
 grant execute on function public.marketplace_cancel_auction(uuid, uuid, text, text, text) to service_role;
 ```
 
