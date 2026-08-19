@@ -810,6 +810,10 @@ test("SECURITY: the account bridge persists staff status, it does not only compu
   assert.match(bridge, /is_staff/,
     "is_staff must be written on every resolve, or the bid RPC's second admin check is dead weight");
   assert.match(bridge, /staff_synced_at/);
+  // the drift check is only meaningful if the payload carries the field
+  const foundationSql = readMigration("20260818100000_marketplace_auction_foundation.sql");
+  assert.match(foundationSql, /'isStaff'/);
+  assert.match(bridge, /account\.isStaff/);
 });
 ```
 
@@ -818,13 +822,52 @@ test("SECURITY: the account bridge persists staff status, it does not only compu
 Run: `cd Website && node --test scripts/test-marketplace-auction-schema.mjs`
 Expected: FAIL — `is_staff` not found in `account-bridge.ts`.
 
-- [ ] **Step 3: Persist it on every account resolve**
+- [ ] **Step 3: Expose `isStaff` in the account payload first**
+
+Without this the drift check below is meaningless. `marketplace_account_response` returns `id`, `buyerStatus`, `sellerStatus`, `payoutStatus`, terms, timestamps and `capabilities` — no staff field — so `account.is_staff` reads as `undefined`, `undefined !== false` is always true, and the update fires on **every marketplace request for every user**.
+
+Add it to `Database/marketplace-supabase/migrations/20260818100000_marketplace_auction_foundation.sql`:
+
+```sql
+-- Surface staff status in the account payload so the bridge can detect drift
+-- without an extra read, and only write when it has actually changed.
+do $$
+declare
+  definition text;
+  patched text;
+begin
+  definition := pg_get_functiondef(
+    'public.marketplace_account_response(public.marketplace_accounts)'::regprocedure
+  );
+  if definition is null then
+    raise exception 'marketplace_account_response_missing';
+  end if;
+
+  patched := replace(
+    definition,
+    E'\'buyerStatus\',',
+    E'\'isStaff\', coalesce(account_row.is_staff, false),\n    \'buyerStatus\','
+  );
+  if patched = definition then
+    raise exception 'marketplace_account_response_key_unmatched';
+  end if;
+  execute patched;
+end;
+$$;
+```
+
+If the anchor does not match, print the deployed body with `select pg_get_functiondef('public.marketplace_account_response(public.marketplace_accounts)'::regprocedure);` and adjust. Check the parameter name too — this patch assumes `account_row`; if the deployed function names it differently, use that name.
+
+- [ ] **Step 4: Persist it on every account resolve**
 
 In `getMarketplaceAccountForProfile`, after the account row is resolved, write the flag whenever it has drifted:
 
 ```ts
 const isStaff = Boolean(admin?.adminRole);
-if (account.is_staff !== isStaff) {
+// account.isStaff comes from marketplace_account_response (Step 3). If that
+// field is ever removed, this comparison silently becomes always-true and
+// writes a row on every request -- Step 6 exists to catch exactly that.
+if (account.isStaff !== isStaff) {
   // Fire-and-forget correction. Staff status is derived in the core project
   // and mirrored here so the bid RPC can enforce the no-house-bidding rule
   // without trusting a parameter its caller might forget to pass.
@@ -838,15 +881,23 @@ if (account.is_staff !== isStaff) {
 
 **Direction matters.** Promotion to staff must land *before* they can bid, and demotion must land before they lose the block. Because this runs on every resolve and the bid route resolves the account immediately before bidding, the flag is at most one request stale — and the caller-supplied `p_actor_admin_role` covers that window. That is exactly why the RPC checks both.
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [ ] **Step 5: Run the test to verify it passes**
 
 Run: `cd Website && node --test scripts/test-marketplace-auction-schema.mjs`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Confirm the drift check does not fire on a steady-state request**
+
+Resolve the same non-staff account twice and confirm only the first request can write. With `isStaff` in the payload, `account.isStaff === false` matches the computed value and the update is skipped.
+
+Run: `cd Website && MARKETPLACE_SUPABASE_URL=... MARKETPLACE_SUPABASE_SERVICE_ROLE_KEY=... node -e "process.stdout.write('check staff_synced_at is unchanged across two resolves\n')"`
+Then query: `select staff_synced_at from marketplace_accounts where id = '<id>';` twice.
+Expected: identical timestamps. A moving timestamp means the drift check is still always-true — stop and fix it before shipping, or every marketplace page view writes a row.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add Website/src/lib/marketplace/account-bridge.ts Website/scripts/test-marketplace-auction-schema.mjs
+git add Database/marketplace-supabase/migrations/20260818100000_marketplace_auction_foundation.sql Website/src/lib/marketplace/account-bridge.ts Website/scripts/test-marketplace-auction-schema.mjs
 git commit -m "fix(security): persist staff status so the no-house-bidding rule is enforceable in SQL"
 ```
 
@@ -1554,9 +1605,9 @@ begin
   ) into bidder_is_new;
 
   bid_sequence := auction_row.next_sequence;
-  -- pgcrypto is created by 20260628090000. The function pins
+  -- hmac() comes from pgcrypto, created by 20260628090000. This function pins
   -- search_path = public, pg_temp, so if pgcrypto lives in the `extensions`
-  -- schema on this project, qualify this as extensions.digest(...) instead.
+  -- schema on this project, qualify this as extensions.hmac(...) instead.
   -- Verify with: select extnamespace::regnamespace from pg_extension where extname = 'pgcrypto';
   -- Salted and keyed. 6 hex chars rather than 4 also drops the birthday
   -- collision rate from roughly 1-in-300 to 1-in-90,000 at twenty bidders.
