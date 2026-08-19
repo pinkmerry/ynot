@@ -45,6 +45,17 @@ These come from verified repository facts. Violating any one produces a money bu
 | Duration | 5–7 days, per lot |
 | Zero-bid lots | Admin decides manually |
 | Deposits / strikes | Deferred to P5 |
+| Opening bid | Start price, or one increment when the lot opens at ฿0 |
+| Buyer's premium | **3%** (`auction_buyer_premium_bps = 300`), added on top of hammer |
+| Seller commission | Settable `auction_seller_fee_bps`, deducted from hammer. No seller side on official lots |
+| Fee base | Commission on hammer only, never on hammer + premium |
+| Unsold lots | No fee charged to the consignor |
+| Unpaid win | Award expires, card freed to the cockpit's expired queue |
+| Live updates | Supabase Realtime primary (~100–300ms), polling fallback |
+| Realtime safety | Only `marketplace_auction_events` is published; a CI gate fails the build if any table carrying a bidder maximum is added |
+| Read path | Conditional lazy close, one merged public endpoint, 1s edge cache, private `/me` route |
+| Sweeps | Three, per-lot: open, close, expire |
+| Admin writes | Cancel and edit are RPCs taking the same auction row lock as a bid |
 
 **Out of scope for this plan:** KYC document upload and review (own spec), seller-run auctions, deposits, bidder strikes, realtime push, LINE notifications.
 
@@ -437,9 +448,13 @@ create table if not exists public.marketplace_auction_bids (
   bidder_alias text not null check (length(bidder_alias) between 4 and 16),
   request_id text,
   idempotency_key text not null,
-  placed_at timestamptz not null default now(),
+  -- clock_timestamp(): the moment the bid was actually admitted under the
+  -- lock, not the moment its transaction began.
+  placed_at timestamptz not null default clock_timestamp(),
   unique (auction_id, sequence),
-  unique (bidder_marketplace_account_id, idempotency_key)
+  -- scoped per auction: the auction row lock only serialises retries that
+  -- share an auction, so the uniqueness that backs it must too
+  unique (auction_id, bidder_marketplace_account_id, idempotency_key)
 );
 
 create or replace function public.marketplace_auction_bids_append_only()
@@ -451,6 +466,12 @@ begin
   -- The outcome column is the single exception: a bid moves leading -> outbid
   -- or leading -> winning as later bids land. Nothing else may ever change.
   if tg_op = 'DELETE' then
+    -- One explicit escape, for the behavioural test suite only. The purge RPC
+    -- validates the auction is a test lot before setting this, and the GUC is
+    -- set with SET LOCAL so it cannot outlive that transaction.
+    if coalesce(current_setting('app.auction_test_purge', true), 'off') = 'on' then
+      return old;
+    end if;
     raise exception 'marketplace_auction_bids_append_only';
   end if;
   if new.id is distinct from old.id
@@ -475,6 +496,35 @@ drop trigger if exists marketplace_auctions_touch_updated_at on public.marketpla
 create trigger marketplace_auctions_touch_updated_at
 before update on public.marketplace_auctions
 for each row execute function public.marketplace_touch_updated_at();
+
+-- Public realtime fan-out.
+--
+-- This table exists so that marketplace_auctions and marketplace_auction_bids
+-- NEVER need to be published to Supabase Realtime. Those two carry
+-- leading_max_satang and max_amount_satang -- every bidder's hidden maximum.
+-- Realtime broadcasts to browsers holding the PUBLISHABLE key, so publishing
+-- either table would hand every bidder the exact number needed to win.
+--
+-- This table is structurally incapable of leaking: it has no account id and no
+-- maximum column. There is nothing private here to accidentally include.
+create table if not exists public.marketplace_auction_events (
+  id bigserial primary key,
+  auction_id uuid not null references public.marketplace_auctions(id) on delete restrict,
+  event_type text not null
+    check (event_type in ('opened', 'bid_placed', 'extended', 'closed')),
+  current_price_satang integer not null check (current_price_satang >= 0),
+  bid_count integer not null check (bid_count >= 0),
+  distinct_bidder_count integer not null check (distinct_bidder_count >= 0),
+  effective_ends_at timestamptz not null,
+  extension_count integer not null check (extension_count >= 0),
+  bidder_alias text check (bidder_alias is null or length(bidder_alias) between 4 and 16),
+  created_at timestamptz not null default clock_timestamp()
+);
+
+create index if not exists marketplace_auction_events_auction_idx
+  on public.marketplace_auction_events(auction_id, id desc);
+create index if not exists marketplace_auction_events_created_idx
+  on public.marketplace_auction_events(created_at);
 
 -- Increment ladder. Versioned by name so changing it later cannot retroactively
 -- alter a live auction's minimum.
@@ -506,8 +556,45 @@ create index if not exists marketplace_auction_bids_auction_seq_idx
   on public.marketplace_auction_bids(auction_id, sequence desc);
 create index if not exists marketplace_auction_bids_bidder_idx
   on public.marketplace_auction_bids(bidder_marketplace_account_id, placed_at desc);
+-- serves the "has this account bid on this lot before?" check in the bid RPC
+create index if not exists marketplace_auction_bids_auction_bidder_idx
+  on public.marketplace_auction_bids(auction_id, bidder_marketplace_account_id);
 create index if not exists marketplace_listing_format_active_idx
   on public.marketplace_listing_snapshots(listing_format, listing_state, updated_at desc);
+
+-- Teardown for test-marketplace-auction-live.mjs. The bid ledger is
+-- append-only, so a plain DELETE from the test harness fails silently and
+-- leaves AUCTIONTEST- rows in the production marketplace project forever.
+create or replace function public.marketplace_purge_test_auction(p_auction_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  listing uuid;
+  title text;
+begin
+  select a.listing_id, l.title into listing, title
+  from public.marketplace_auctions a
+  join public.marketplace_listing_snapshots l on l.listing_id = a.listing_id
+  where a.id = p_auction_id;
+
+  if title is null or title not like 'AUCTIONTEST-%' then
+    raise exception 'marketplace_purge_refused_not_test_data';
+  end if;
+
+  set local app.auction_test_purge = 'on';
+  delete from public.marketplace_auction_awards where auction_id = p_auction_id;
+  delete from public.marketplace_auction_events where auction_id = p_auction_id;
+  delete from public.marketplace_auction_bids where auction_id = p_auction_id;
+  delete from public.marketplace_auctions where id = p_auction_id;
+  return jsonb_build_object('purged', p_auction_id, 'listingId', listing);
+end;
+$$;
+
+revoke all on function public.marketplace_purge_test_auction(uuid) from public, anon, authenticated;
+grant execute on function public.marketplace_purge_test_auction(uuid) to service_role;
 
 alter table public.marketplace_auctions enable row level security;
 alter table public.marketplace_auction_bids enable row level security;
@@ -527,6 +614,119 @@ Expected: PASS, 5 tests.
 ```bash
 git add Database/marketplace-supabase/migrations/20260818100000_marketplace_auction_foundation.sql Website/scripts/test-marketplace-auction-schema.mjs
 git commit -m "feat(db): add auction listing format, terms table, and append-only bid ledger"
+```
+
+### Task 4c: Auction fee rates on the money policy
+
+Two fees, both percentages, both uniform across every auction, both set by you.
+
+- **Buyer's premium** — added **on top** of the hammer price. The winner pays it.
+- **Seller's commission** — deducted **from** the hammer price. The consignor pays it.
+
+Both mechanisms already exist: `total = item_price + shipping + service_fee` adds on top, and `payout_amount_satang = item_price_satang - seller_fee_satang` is a hard `check` constraint on `marketplace_seller_payouts`. This task only adds auction-specific *rates*.
+
+**Files:**
+- Create: `Database/marketplace-supabase/migrations/20260818100600_marketplace_auction_fees.sql`
+- Modify: `Website/src/features/marketplace-ui/admin/FeesSettingsForm.tsx`
+- Modify: `Website/scripts/test-marketplace-auction-schema.mjs`
+
+- [ ] **Step 1: Add the failing test**
+
+```js
+const fees = compact(readMigration("20260818100600_marketplace_auction_fees.sql"));
+
+test("auction fee rates are nullable and fall back to the standard rates", () => {
+  assert.match(fees, /auction_buyer_premium_bps integer/);
+  assert.match(fees, /auction_seller_fee_bps integer/);
+  assert.match(fees, /auctionbuyerpremiumbps/);
+  assert.match(fees, /auctionsellerfeebps/);
+});
+
+test("auction fee rates are basis points, bounded 0-10000", () => {
+  const bounds = fees.match(/between 0 and 10000/g) ?? [];
+  assert.ok(bounds.length >= 2, `expected bounds on both rates, found ${bounds.length}`);
+});
+```
+
+- [ ] **Step 2: Run it and watch it fail**
+
+Run: `cd Website && node --test scripts/test-marketplace-auction-schema.mjs`
+Expected: FAIL — `ENOENT ... 20260818100600_...`
+
+- [ ] **Step 3: Write the migration**
+
+```sql
+-- Auctions charge different rates from fixed-price sales. The default
+-- buyer_service_fee_bps is 1000 (10%); the auction buyer's premium is 300 (3%).
+-- Both columns are nullable and fall back to the standard rate when unset, so
+-- this migration changes nothing until someone sets a value.
+
+alter table public.marketplace_money_policies
+  add column if not exists auction_buyer_premium_bps integer
+    check (auction_buyer_premium_bps is null
+           or auction_buyer_premium_bps between 0 and 10000),
+  add column if not exists auction_seller_fee_bps integer
+    check (auction_seller_fee_bps is null
+           or auction_seller_fee_bps between 0 and 10000);
+
+-- Seed the agreed 3% buyer's premium on the active policy. Seller commission
+-- stays null (falls back to the standard seller fee) because v1 auctions are
+-- official-only, where seller_payout_satang is constrained to 0 anyway.
+update public.marketplace_money_policies
+   set auction_buyer_premium_bps = 300
+ where policy_state = 'active'
+   and auction_buyer_premium_bps is null;
+
+-- Republish the policy JSON with the two new keys. The close sweep reads
+-- auctionBuyerPremiumBps / auctionSellerFeeBps and coalesces to the standard
+-- rates, so an unset rate is always safe.
+do $$
+declare
+  definition text;
+  patched text;
+begin
+  definition := pg_get_functiondef(
+    'public.marketplace_money_policy_json(public.marketplace_money_policies)'::regprocedure
+  );
+  if definition is null then
+    raise exception 'marketplace_money_policy_json_missing';
+  end if;
+
+  patched := replace(
+    definition,
+    E'\'sellerFeeBps\',',
+    E'\'auctionBuyerPremiumBps\', policy_row.auction_buyer_premium_bps,\n    \'auctionSellerFeeBps\', policy_row.auction_seller_fee_bps,\n    \'sellerFeeBps\','
+  );
+  if patched = definition then
+    raise exception 'marketplace_money_policy_json_key_unmatched';
+  end if;
+  execute patched;
+end;
+$$;
+```
+
+If `marketplace_money_policy_json_key_unmatched` fires, print the deployed body with `select pg_get_functiondef('public.marketplace_money_policy_json(public.marketplace_money_policies)'::regprocedure);` and adjust the anchor string. Do not skip it — without these keys the close sweep silently falls back to the 10% fixed-price rate.
+
+- [ ] **Step 4: Extend `marketplace_admin_set_money_policy` to accept both rates**
+
+Follow the same `pg_get_functiondef` patch pattern: add `p_auction_buyer_premium_bps integer default null` and `p_auction_seller_fee_bps integer default null` as trailing defaulted parameters, and carry them into the new policy row alongside the existing rates.
+
+- [ ] **Step 5: Add an Auctions section to `FeesSettingsForm.tsx`**
+
+Two number inputs beside the existing fee fields, labelled **Buyer's premium (%)** and **Seller commission (%)**, entered as percentages and converted to basis points on submit (3 → 300). Under them, a live worked example that recomputes as the operator types:
+
+> Hammer ฿6,100 → winner pays ฿6,433 (premium ฿183 + shipping ฿150) · seller receives ฿5,795 · YNOTT collects ฿488
+
+- [ ] **Step 6: Run the test to verify it passes**
+
+Run: `cd Website && node --test scripts/test-marketplace-auction-schema.mjs`
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add Database/marketplace-supabase/migrations/20260818100600_marketplace_auction_fees.sql Website/src/features/marketplace-ui/admin/FeesSettingsForm.tsx Website/scripts/test-marketplace-auction-schema.mjs
+git commit -m "feat(marketplace): add settable auction buyer premium and seller commission"
 ```
 
 ### Task 5: Increment ladder in TypeScript, behaviourally tested
@@ -1039,6 +1239,11 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public, pg_temp
+-- A bid holds an exclusive lock on the auction row, so it must never be able
+-- to sit there. lock_timeout returns a clean retryable error to a queued
+-- bidder instead of hanging; statement_timeout caps the holder itself.
+set lock_timeout = '3s'
+set statement_timeout = '5s'
 as $$
 declare
   idempotency_row public.marketplace_idempotency_keys%rowtype;
@@ -1051,6 +1256,7 @@ declare
   increment_satang integer;
   bid_sequence bigint;
   bid_alias text;
+  bidder_is_new boolean;
   extended boolean := false;
   distinct_bidders integer;
   normalized_key text := nullif(trim(coalesce(p_idempotency_key, '')), '');
@@ -1066,6 +1272,17 @@ begin
   if p_max_amount_satang is null or p_max_amount_satang < 0 then
     raise exception 'auction_bid_amount_invalid';
   end if;
+
+  -- 0. Resolve the account BEFORE taking the auction lock. The bid acquires
+  -- FOR KEY SHARE on this row via three foreign keys later, so any contention
+  -- on it should be settled outside the auction's critical section. The
+  -- predicate matches every other marketplace entry point: account, profile
+  -- linkage, and profile status together.
+  select * into account_row
+  from public.marketplace_accounts
+  where id = p_bidder_marketplace_account_id
+    and ynot_profile_id = p_bidder_ynot_profile_id
+    and profile_status_snapshot = 'active';
 
   -- 1. Serialise every bid for this lot.
   --
@@ -1090,7 +1307,7 @@ begin
   select * into idempotency_row
   from public.marketplace_idempotency_keys
   where ynot_profile_id = p_bidder_ynot_profile_id
-    and scope = 'auction_bid'
+    and scope = 'auction_bid:' || p_auction_id::text
     and idempotency_key = normalized_key;
 
   if idempotency_row.id is not null then
@@ -1103,10 +1320,17 @@ begin
   end if;
 
   -- 2. THE CORRECTNESS ANCHOR.
+  --
+  -- clock_timestamp(), NOT now(). now() is transaction_timestamp() -- fixed at
+  -- BEGIN, before this transaction queued on the auction lock above. Thirty
+  -- snipers firing at 11:59:59.9 all carry that pre-deadline now() and would
+  -- each be admitted as the lock hands round past 12:00:00, with placed_at
+  -- recording the stale time so the audit trail corroborates the wrong winner.
+  -- Every time evaluation after the lock must use clock_timestamp().
   if auction_row.auction_state <> 'live' then
     raise exception 'auction_bid_closed';
   end if;
-  if now() >= auction_row.effective_ends_at then
+  if clock_timestamp() >= auction_row.effective_ends_at then
     raise exception 'auction_bid_closed';
   end if;
 
@@ -1118,10 +1342,6 @@ begin
      and auction_row.seller_marketplace_account_id = p_bidder_marketplace_account_id then
     raise exception 'auction_bid_seller_forbidden';
   end if;
-
-  select * into account_row
-  from public.marketplace_accounts
-  where id = p_bidder_marketplace_account_id;
 
   if account_row.id is null or account_row.buyer_status <> 'active' then
     raise exception 'auction_bid_account_blocked';
@@ -1140,11 +1360,17 @@ begin
   increment_satang := public.marketplace_auction_increment_v1(auction_row.current_price_satang);
 
   if previous_leader is null or auction_row.leading_max_satang is null then
-    -- Case A
-    if p_max_amount_satang < auction_row.start_price_satang then
+    -- Case A. The opening bid sits at the start price -- except on a lot that
+    -- opens at 0, where it sits at one increment instead. Otherwise the very
+    -- first thing anyone sees is "Current bid THB 0 - 1 bid", which reads as
+    -- broken.
+    resolved_price := case
+      when auction_row.start_price_satang > 0 then auction_row.start_price_satang
+      else public.marketplace_auction_increment_v1(0)
+    end;
+    if p_max_amount_satang < resolved_price then
       raise exception 'auction_bid_below_start';
     end if;
-    resolved_price := auction_row.start_price_satang;
     resolved_leader := p_bidder_marketplace_account_id;
     resolved_max := p_max_amount_satang;
 
@@ -1187,6 +1413,14 @@ begin
   end if;
 
   -- 6. Record the bid.
+  -- Must be evaluated BEFORE the insert below, or this bidder always looks
+  -- like a returning one.
+  select not exists (
+    select 1 from public.marketplace_auction_bids
+    where auction_id = p_auction_id
+      and bidder_marketplace_account_id = p_bidder_marketplace_account_id
+  ) into bidder_is_new;
+
   bid_sequence := auction_row.next_sequence;
   -- pgcrypto is created by 20260628090000. The function pins
   -- search_path = public, pg_temp, so if pgcrypto lives in the `extensions`
@@ -1221,11 +1455,17 @@ begin
       );
   end if;
 
-  select count(distinct bidder_marketplace_account_id) into distinct_bidders
-  from public.marketplace_auction_bids where auction_id = p_auction_id;
+  -- Maintained incrementally. count(distinct ...) on every bid would scan the
+  -- whole auction's bid history, and the cost grows with the bidding war it is
+  -- most likely to be running during.
+  if bidder_is_new then
+    distinct_bidders := auction_row.distinct_bidder_count + 1;
+  else
+    distinct_bidders := auction_row.distinct_bidder_count;
+  end if;
 
   -- 7. Anti-snipe.
-  if auction_row.effective_ends_at - now() < make_interval(secs => auction_row.anti_snipe_window_seconds)
+  if auction_row.effective_ends_at - clock_timestamp() < make_interval(secs => auction_row.anti_snipe_window_seconds)
      and auction_row.extension_count < auction_row.max_extensions then
     extended := true;
   end if;
@@ -1238,19 +1478,44 @@ begin
       distinct_bidder_count = distinct_bidders,
       next_sequence = next_sequence + 1,
       extension_count = extension_count + (case when extended then 1 else 0 end),
+      -- greatest(), not assignment. On a lot configured with
+      -- extend_seconds < window_seconds, a bare assignment moves the deadline
+      -- BACKWARDS and violates the effective_ends_at >= base_ends_at check.
+      -- The 120/120 defaults hide this; a 30s extend with a 120s window does not.
       effective_ends_at = case
-        when extended then now() + make_interval(secs => auction_row.anti_snipe_extend_seconds)
+        when extended then greatest(
+          effective_ends_at,
+          clock_timestamp() + make_interval(secs => auction_row.anti_snipe_extend_seconds)
+        )
         else effective_ends_at end,
       version = version + 1
   where id = p_auction_id;
 
-  -- Mirror the visible price so browse, sort, and filters stay correct.
-  -- This is DISPLAY ONLY. Money comes from the award via
-  -- p_price_override_satang; see 20260818100200.
-  update public.marketplace_listing_snapshots
-  set item_price_satang = resolved_price,
-      snapshot_version = snapshot_version + 1
-  where listing_id = auction_row.listing_id;
+  -- NOTE: the bid deliberately does NOT write marketplace_listing_snapshots.
+  --
+  -- An earlier draft mirrored the live price onto the listing for browse
+  -- sorting. That made the bid hold the auction lock while acquiring a listing
+  -- row lock -- and four routine unguarded paths take that same listing lock,
+  -- including "watch this lot", the single most likely action on an auction
+  -- page. One watch click would have serialised the entire bidding queue.
+  --
+  -- Instead the listing keeps its START price, browse shows it as "from THB X"
+  -- with a LIVE AUCTION badge, and the live price is read from
+  -- marketplace_auctions.current_price_satang through the public auction
+  -- projection. The close sweep writes the final hammer price to the listing
+  -- once, when nobody is bidding any more.
+
+  -- Public realtime fan-out. Written in the SAME transaction as the bid, so a
+  -- broadcast can never describe a price that did not commit. Carries no
+  -- account id and no maximum -- see 20260818100700.
+  insert into public.marketplace_auction_events (
+    auction_id, event_type, current_price_satang, bid_count,
+    distinct_bidder_count, effective_ends_at, extension_count, bidder_alias
+  )
+  select p_auction_id, case when extended then 'extended' else 'bid_placed' end,
+         resolved_price, auction_row.bid_count + 1, distinct_bidders,
+         a.effective_ends_at, a.extension_count, bid_alias
+  from public.marketplace_auctions a where a.id = p_auction_id;
 
   insert into public.marketplace_audit_events (
     marketplace_account_id, ynot_profile_id, actor_ynot_profile_id,
@@ -1282,7 +1547,8 @@ begin
     marketplace_account_id, ynot_profile_id, scope, idempotency_key,
     request_hash, response_payload
   ) values (
-    p_bidder_marketplace_account_id, p_bidder_ynot_profile_id, 'auction_bid',
+    p_bidder_marketplace_account_id, p_bidder_ynot_profile_id,
+    'auction_bid:' || p_auction_id::text,
     normalized_key, normalized_hash, response
   )
   on conflict (ynot_profile_id, scope, idempotency_key)
@@ -1328,9 +1594,31 @@ test("awards freeze the money policy at close", () => {
   assert.match(closeRpc, /award_rank integer not null default 1/);
 });
 
-test("close is idempotent and skips locked rows", () => {
-  assert.match(closeRpc, /for update skip locked/);
-  assert.match(closeRpc, /auction_state = 'live'/);
+test("closing is one lot per transaction, never a batch", () => {
+  assert.match(closeRpc, /auction_close_requires_target/);
+  assert.match(closeRpc, /create or replace function public\.marketplace_list_due_auctions/);
+});
+
+test("all three sweeps exist -- open, close, expire", () => {
+  assert.match(closeRpc, /marketplace_open_due_auction/);
+  assert.match(closeRpc, /marketplace_close_due_auctions/);
+  assert.match(closeRpc, /marketplace_expire_due_auction_awards/);
+});
+
+test("every post-lock time evaluation uses clock_timestamp", () => {
+  assert.doesNotMatch(closeRpc, /<= now\(\)/);
+  assert.match(closeRpc, /effective_ends_at <= clock_timestamp\(\)/);
+  assert.match(closeRpc, /starts_at <= clock_timestamp\(\)/);
+});
+
+test("an expired award frees the card instead of stranding it", () => {
+  assert.match(closeRpc, /award_state = 'expired'/);
+  assert.match(closeRpc, /listing_state = 'hidden'/);
+});
+
+test("close applies the auction fee rates, not the fixed-price ones", () => {
+  assert.match(closeRpc, /auctionBuyerPremiumBps/);
+  assert.match(closeRpc, /auctionSellerFeeBps/);
 });
 
 test("zero bids is the only unsold outcome in v1", () => {
@@ -1402,113 +1690,251 @@ alter table public.marketplace_auction_awards enable row level security;
 revoke all on public.marketplace_auction_awards from anon, authenticated;
 grant select, insert, update on public.marketplace_auction_awards to service_role;
 
+-- ONE LOT PER TRANSACTION.
+--
+-- An earlier draft looped FOR UPDATE SKIP LOCKED over up to 200 auctions and
+-- did every listing, ledger and audit write inside that one transaction. A
+-- single blocked listing update would then freeze closing AND bidding for the
+-- whole batch. Now the worker asks which lots are due and closes them one at a
+-- time, so each commits independently and a stuck lock costs exactly one lot.
+
+create or replace function public.marketplace_list_due_auctions(p_limit integer default 200)
+returns table (auction_id uuid, due_kind text)
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select id, 'open'::text from public.marketplace_auctions
+   where auction_state = 'scheduled' and starts_at <= clock_timestamp()
+  union all
+  select id, 'close'::text from public.marketplace_auctions
+   where auction_state = 'live' and effective_ends_at <= clock_timestamp()
+  limit greatest(coalesce(p_limit, 200), 1);
+$$;
+
+-- SWEEP 1 of 3: scheduled -> live.
+-- Without this nothing ever opens an auction for bidding.
+create or replace function public.marketplace_open_due_auction(
+  p_auction_id uuid,
+  p_request_id text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set lock_timeout = '3s'
+set statement_timeout = '10s'
+set search_path = public, pg_temp
+as $$
+declare
+  auction_row public.marketplace_auctions%rowtype;
+begin
+  select * into auction_row from public.marketplace_auctions
+   where id = p_auction_id for update;
+
+  if auction_row.id is null then raise exception 'auction_not_found'; end if;
+  if auction_row.auction_state <> 'scheduled'
+     or auction_row.starts_at > clock_timestamp() then
+    return jsonb_build_object('opened', false);   -- idempotent no-op
+  end if;
+
+  update public.marketplace_auctions
+     set auction_state = 'live', version = version + 1
+   where id = p_auction_id;
+
+  insert into public.marketplace_auction_events (
+    auction_id, event_type, current_price_satang, bid_count,
+    distinct_bidder_count, effective_ends_at, extension_count
+  ) values (
+    p_auction_id, 'opened', auction_row.current_price_satang, 0, 0,
+    auction_row.effective_ends_at, 0
+  );
+
+  insert into public.marketplace_audit_events (event_type, event_payload, request_id)
+  values ('auction_opened', jsonb_build_object('auctionId', p_auction_id), p_request_id);
+
+  return jsonb_build_object('opened', true);
+end;
+$$;
+
+-- SWEEP 2 of 3: live -> closed_won / closed_unsold, for ONE lot.
 create or replace function public.marketplace_close_due_auctions(
   p_request_id text default null,
-  p_limit integer default 200,
+  p_limit integer default 1,
   p_auction_id uuid default null
 )
 returns jsonb
 language plpgsql
 security definer
+set lock_timeout = '3s'
+set statement_timeout = '15s'
 set search_path = public, pg_temp
 as $$
 declare
   auction_row public.marketplace_auctions%rowtype;
   policy jsonb;
-  -- v1 decision: 48h covers a weekend bank transfer. Change here and in the
-  -- decision ledger together; it is deliberately not per-lot in v1.
+  premium_bps integer;
+  seller_bps integer;
   payment_window_hours constant integer := 48;
-  closed_won integer := 0;
-  closed_unsold integer := 0;
+  awarded boolean := false;
 begin
+  if p_auction_id is null then
+    raise exception 'auction_close_requires_target';
+  end if;
+
   policy := public.marketplace_get_active_money_policy();
+  -- Auction fees, falling back to the standard marketplace rates when unset.
+  premium_bps := coalesce(
+    (policy ->> 'auctionBuyerPremiumBps')::integer,
+    (policy ->> 'buyerServiceFeeBps')::integer
+  );
+  seller_bps := coalesce(
+    (policy ->> 'auctionSellerFeeBps')::integer,
+    (policy ->> 'sellerFeeBps')::integer
+  );
 
-  for auction_row in
-    select *
-    from public.marketplace_auctions
-    where auction_state = 'live'
-      and effective_ends_at <= now()
-      and (p_auction_id is null or id = p_auction_id)
-    order by effective_ends_at
-    limit greatest(coalesce(p_limit, 200), 1)
-    for update skip locked
-  loop
-    if auction_row.leading_bidder_account_id is null then
-      update public.marketplace_auctions
-      set auction_state = 'closed_unsold',
-          closed_at = now(),
-          close_reason = 'no_bids',
-          version = version + 1
-      where id = auction_row.id;
+  select * into auction_row from public.marketplace_auctions
+   where id = p_auction_id for update;
 
-      update public.marketplace_listing_snapshots
-      set listing_state = 'hidden', snapshot_version = snapshot_version + 1
-      where listing_id = auction_row.listing_id;
+  if auction_row.id is null then raise exception 'auction_not_found'; end if;
+  if auction_row.auction_state <> 'live'
+     or auction_row.effective_ends_at > clock_timestamp() then
+    return jsonb_build_object('closedWon', 0, 'closedUnsold', 0);  -- idempotent no-op
+  end if;
 
-      closed_unsold := closed_unsold + 1;
-    else
-      update public.marketplace_auctions
-      set auction_state = 'closed_won',
-          closed_at = now(),
-          close_reason = 'sold',
-          version = version + 1
-      where id = auction_row.id;
+  if auction_row.leading_bidder_account_id is null then
+    update public.marketplace_auctions
+       set auction_state = 'closed_unsold', closed_at = clock_timestamp(),
+           close_reason = 'no_bids', version = version + 1
+     where id = p_auction_id;
 
-      update public.marketplace_auction_bids
-      set outcome = 'winning'
-      where auction_id = auction_row.id and outcome = 'leading';
+    update public.marketplace_listing_snapshots
+       set listing_state = 'hidden', snapshot_version = snapshot_version + 1
+     where listing_id = auction_row.listing_id;
+  else
+    update public.marketplace_auctions
+       set auction_state = 'closed_won', closed_at = clock_timestamp(),
+           close_reason = 'sold', version = version + 1
+     where id = p_auction_id;
 
-      insert into public.marketplace_auction_awards (
-        auction_id, listing_id, inventory_item_id,
-        winner_marketplace_account_id, winner_ynot_profile_id,
-        award_rank, hammer_price_satang,
-        buyer_service_fee_bps, seller_fee_bps, shipping_fee_satang,
-        money_policy_id, payment_due_at
-      )
-      select
-        auction_row.id, auction_row.listing_id, auction_row.inventory_item_id,
-        auction_row.leading_bidder_account_id, bids.bidder_ynot_profile_id,
-        1, auction_row.current_price_satang,
-        (policy ->> 'buyerServiceFeeBps')::integer,
-        (policy ->> 'sellerFeeBps')::integer,
-        (policy ->> 'shippingFeeSatang')::integer,
-        nullif(policy ->> 'policyId', '')::uuid,
-        now() + make_interval(hours => payment_window_hours)
-      from public.marketplace_auction_bids bids
-      where bids.auction_id = auction_row.id
-        and bids.bidder_marketplace_account_id = auction_row.leading_bidder_account_id
-      order by bids.sequence desc
-      limit 1
-      on conflict (auction_id, award_rank) do nothing;
+    update public.marketplace_auction_bids
+       set outcome = 'winning'
+     where auction_id = p_auction_id and outcome = 'leading';
 
-      update public.marketplace_listing_snapshots
-      set listing_state = 'pending_payment', snapshot_version = snapshot_version + 1
-      where listing_id = auction_row.listing_id;
+    insert into public.marketplace_auction_awards (
+      auction_id, listing_id, inventory_item_id,
+      winner_marketplace_account_id, winner_ynot_profile_id,
+      award_rank, hammer_price_satang,
+      buyer_service_fee_bps, seller_fee_bps, shipping_fee_satang,
+      money_policy_id, payment_due_at
+    )
+    select
+      p_auction_id, auction_row.listing_id, auction_row.inventory_item_id,
+      auction_row.leading_bidder_account_id, bids.bidder_ynot_profile_id,
+      1, auction_row.current_price_satang,
+      premium_bps, seller_bps, (policy ->> 'shippingFeeSatang')::integer,
+      nullif(policy ->> 'policyId', '')::uuid,
+      clock_timestamp() + make_interval(hours => payment_window_hours)
+    from public.marketplace_auction_bids bids
+    where bids.auction_id = p_auction_id
+      and bids.bidder_marketplace_account_id = auction_row.leading_bidder_account_id
+    order by bids.sequence desc
+    limit 1
+    on conflict (auction_id, award_rank) do nothing;
 
-      -- only count a lot we actually awarded; the on-conflict path is a no-op
-      if found then
-        closed_won := closed_won + 1;
-      end if;
-    end if;
+    awarded := found;
 
-    insert into public.marketplace_audit_events (event_type, event_payload, request_id)
-    values (
-      'auction_closed',
-      jsonb_build_object(
-        'auctionId', auction_row.id,
-        'won', auction_row.leading_bidder_account_id is not null,
-        'hammerPriceSatang', auction_row.current_price_satang
-      ),
-      p_request_id
-    );
-  end loop;
+    -- The one and only time an auction writes its price to the listing: at
+    -- close, when there are no more bidders to serialise behind it.
+    update public.marketplace_listing_snapshots
+       set listing_state = 'pending_payment',
+           item_price_satang = auction_row.current_price_satang,
+           snapshot_version = snapshot_version + 1
+     where listing_id = auction_row.listing_id;
+  end if;
 
-  return jsonb_build_object('closedWon', closed_won, 'closedUnsold', closed_unsold);
+  insert into public.marketplace_auction_events (
+    auction_id, event_type, current_price_satang, bid_count,
+    distinct_bidder_count, effective_ends_at, extension_count
+  ) values (
+    p_auction_id, 'closed', auction_row.current_price_satang, auction_row.bid_count,
+    auction_row.distinct_bidder_count, auction_row.effective_ends_at,
+    auction_row.extension_count
+  );
+
+  insert into public.marketplace_audit_events (event_type, event_payload, request_id)
+  values ('auction_closed', jsonb_build_object(
+    'auctionId', p_auction_id,
+    'won', auction_row.leading_bidder_account_id is not null,
+    'hammerPriceSatang', auction_row.current_price_satang
+  ), p_request_id);
+
+  return jsonb_build_object(
+    'closedWon', case when awarded then 1 else 0 end,
+    'closedUnsold', case when auction_row.leading_bidder_account_id is null then 1 else 0 end
+  );
 end;
 $$;
 
+-- SWEEP 3 of 3: an unpaid award must free the card.
+--
+-- Without this the award sits in awaiting_payment forever, the listing sits in
+-- pending_payment forever, and the one-open-listing-per-inventory unique index
+-- keeps that inventory item locked -- the card becomes permanently unsellable
+-- by any path.
+create or replace function public.marketplace_expire_due_auction_awards(
+  p_request_id text default null,
+  p_limit integer default 100
+)
+returns jsonb
+language plpgsql
+security definer
+set statement_timeout = '15s'
+set search_path = public, pg_temp
+as $$
+declare
+  award_row public.marketplace_auction_awards%rowtype;
+  expired_count integer := 0;
+begin
+  for award_row in
+    select * from public.marketplace_auction_awards
+     where award_state in ('awaiting_payment', 'payment_started')
+       and payment_due_at <= clock_timestamp()
+     order by payment_due_at
+     limit greatest(coalesce(p_limit, 100), 1)
+     for update skip locked
+  loop
+    update public.marketplace_auction_awards
+       set award_state = 'expired', version = version + 1
+     where id = award_row.id;
+
+    -- Free the card. It surfaces in the admin cockpit's expired queue; v1
+    -- makes no automatic decision about what happens next.
+    update public.marketplace_listing_snapshots
+       set listing_state = 'hidden', snapshot_version = snapshot_version + 1
+     where listing_id = award_row.listing_id;
+
+    insert into public.marketplace_audit_events (event_type, event_payload, request_id)
+    values ('auction_award_expired', jsonb_build_object(
+      'awardId', award_row.id, 'auctionId', award_row.auction_id,
+      'winnerAccountId', award_row.winner_marketplace_account_id
+    ), p_request_id);
+
+    expired_count := expired_count + 1;
+  end loop;
+
+  return jsonb_build_object('expired', expired_count);
+end;
+$$;
+
+revoke all on function public.marketplace_list_due_auctions(integer) from public, anon, authenticated;
+revoke all on function public.marketplace_open_due_auction(uuid, text) from public, anon, authenticated;
 revoke all on function public.marketplace_close_due_auctions(text, integer, uuid) from public, anon, authenticated;
+revoke all on function public.marketplace_expire_due_auction_awards(text, integer) from public, anon, authenticated;
+grant execute on function public.marketplace_list_due_auctions(integer) to service_role;
+grant execute on function public.marketplace_open_due_auction(uuid, text) to service_role;
 grant execute on function public.marketplace_close_due_auctions(text, integer, uuid) to service_role;
+grant execute on function public.marketplace_expire_due_auction_awards(text, integer) to service_role;
 ```
 
 - [ ] **Step 4: Run the test to verify it passes**
@@ -1548,9 +1974,11 @@ test("award checkout opts in rather than mutating listing_format", () => {
   assert.doesNotMatch(awardCheckout, /set listing_state = 'active', listing_format = 'fixed_price'/);
 });
 
-test("releasing an auction pending order does not relist the lot", () => {
-  assert.match(awardCheckout, /marketplace_release_pending_payment_order/);
-  assert.match(awardCheckout, /listing_format = 'auction'/);
+test("the relist invariant is a trigger, not eleven patched writers", () => {
+  assert.match(awardCheckout, /create trigger marketplace_listing_guard_auction_relist/);
+  assert.match(awardCheckout, /before update on public\.marketplace_listing_snapshots/);
+  // rewriting, not raising: raising would abort the whole pending-order expiry sweep
+  assert.match(awardCheckout, /new\.listing_state := 'pending_payment'/);
 });
 ```
 
@@ -1641,35 +2069,44 @@ begin
 end;
 $$;
 
--- An expired slip window must NOT put a won lot back on sale. The winner
--- still owes it until payment_due_at passes.
-do $$
-declare
-  definition text;
-  patched text;
+-- An expired slip window must NOT put a won lot back on sale. The winner still
+-- owes it until payment_due_at passes.
+--
+-- ELEVEN different writers set listing_state = 'active', including the
+-- pending-order expiry sweep -- the one that actually runs when an auction
+-- winner does not pay. Patching them all with string surgery is both fragile
+-- and incomplete, so the invariant is enforced at the table instead. One
+-- trigger covers every current writer and every future one.
+create or replace function public.marketplace_guard_auction_relist()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
 begin
-  definition := pg_get_functiondef(
-    'public.marketplace_release_pending_payment_order(uuid,uuid,uuid,text,text)'::regprocedure
-  );
-  patched := replace(
-    definition,
-    E'set listing_state = ''active''',
-    E'set listing_state = case when listing_format = ''auction'' then ''pending_payment'' else ''active'' end'
-  );
-  if patched = definition then
-    raise exception 'marketplace_auction_release_branch_unmatched';
+  if new.listing_state = 'active'
+     and old.listing_state is distinct from 'active'
+     and new.listing_format = 'auction'
+     and exists (
+       select 1
+       from public.marketplace_auctions a
+       join public.marketplace_auction_awards w on w.auction_id = a.id
+       where a.listing_id = new.listing_id
+         and a.auction_state = 'closed_won'
+         and w.award_state in ('awaiting_payment', 'payment_started')
+     )
+  then
+    -- Rewrite rather than raise. Raising would abort the whole pending-order
+    -- expiry sweep and stop it expiring unrelated fixed-price orders.
+    new.listing_state := 'pending_payment';
   end if;
-  execute patched;
+  return new;
 end;
 $$;
-```
 
-If `marketplace_auction_release_branch_unmatched` fires, the deployed release function differs from the signature assumed above. Find the real one with
-
-```sql
-select p.oid::regprocedure from pg_proc p
-join pg_namespace n on n.oid = p.pronamespace
-where n.nspname = 'public' and p.proname = 'marketplace_release_pending_payment_order';
+drop trigger if exists marketplace_listing_guard_auction_relist on public.marketplace_listing_snapshots;
+create trigger marketplace_listing_guard_auction_relist
+before update on public.marketplace_listing_snapshots
+for each row execute function public.marketplace_guard_auction_relist();
 
 revoke all on function public.marketplace_create_auction_pending_payment_order(uuid, uuid, uuid, text, text, text, jsonb) from public, anon, authenticated;
 grant execute on function public.marketplace_create_auction_pending_payment_order(uuid, uuid, uuid, text, text, text, jsonb) to service_role;
@@ -1888,9 +2325,13 @@ test("zero-bid lots close unsold", async () => {
 });
 
 test.after(async () => {
-  await db.from("marketplace_auction_awards").delete().in("auction_id", created.auctions);
-  await db.from("marketplace_auction_bids").delete().in("auction_id", created.auctions);
-  await db.from("marketplace_auctions").delete().in("id", created.auctions);
+  // marketplace_auction_bids is append-only -- a direct .delete() is REJECTED
+  // by the trigger and would silently leave test rows in production. The purge
+  // RPC is the only path, and it refuses anything not titled AUCTIONTEST-.
+  for (const auctionId of created.auctions) {
+    const purge = await db.rpc("marketplace_purge_test_auction", { p_auction_id: auctionId });
+    if (purge.error) console.error("PURGE FAILED", auctionId, purge.error.message);
+  }
   await db.from("marketplace_listing_snapshots").delete().in("listing_id", created.listings);
   await db.from("marketplace_inventory_items").delete().in("id", created.inventory);
   await db.from("marketplace_inventory_sources").delete().in("id", created.sources);
@@ -1920,6 +2361,162 @@ Expected: `0`. If not, delete manually before proceeding.
 ```bash
 git add Website/scripts/test-marketplace-auction-live.mjs Website/package.json
 git commit -m "test: behavioural auction RPC coverage against the marketplace project"
+```
+
+### Task 12b: Realtime, with the leak surface closed
+
+Sub-second price updates, and the security work that has to come with them.
+
+**The threat.** Supabase Realtime broadcasts to browsers holding the **publishable** key. Anything in a published table is world-readable. Two columns would be catastrophic if published: `marketplace_auctions.leading_max_satang` and `marketplace_auction_bids.max_amount_satang` — every bidder's hidden maximum. Leak either and any bidder can compute the exact amount needed to win.
+
+**Files:**
+- Create: `Database/marketplace-supabase/migrations/20260818100700_marketplace_auction_realtime.sql`
+- Create: `Website/tools/verification/verify-marketplace-auction-realtime.mjs`
+- Modify: `Website/package.json`
+
+- [ ] **Step 1: Write the failing security gate**
+
+Create `Website/tools/verification/verify-marketplace-auction-realtime.mjs`:
+
+```js
+/**
+ * Fails the build if a table carrying a bidder's hidden maximum is ever added
+ * to the Realtime publication. This is the single check standing between the
+ * proxy-bidding model and a total information leak.
+ */
+import assert from "node:assert/strict";
+import { createClient } from "@supabase/supabase-js";
+
+const url = process.env.MARKETPLACE_SUPABASE_URL;
+const key = process.env.MARKETPLACE_SUPABASE_SERVICE_ROLE_KEY;
+if (!url || !key) {
+  console.error("skip: marketplace Supabase credentials not set");
+  process.exit(0);
+}
+const db = createClient(url, key, { auth: { persistSession: false } });
+
+const FORBIDDEN = ["marketplace_auctions", "marketplace_auction_bids", "marketplace_auction_awards"];
+
+const { data, error } = await db.rpc("marketplace_realtime_published_tables");
+assert.equal(error, null, error?.message);
+
+const published = (data ?? []).map((row) => row.table_name);
+console.log("published to supabase_realtime:", published.join(", ") || "(none)");
+
+for (const table of FORBIDDEN) {
+  assert.ok(
+    !published.includes(table),
+    `SECURITY: ${table} is in the Realtime publication. It carries bidder maximums and would be readable by every browser.`,
+  );
+}
+assert.ok(
+  published.includes("marketplace_auction_events"),
+  "marketplace_auction_events must be published or live bidding will not update",
+);
+console.log("auction realtime publication: safe");
+```
+
+- [ ] **Step 2: Run it and watch it fail**
+
+Run: `cd Website && MARKETPLACE_SUPABASE_URL=... MARKETPLACE_SUPABASE_SERVICE_ROLE_KEY=... node tools/verification/verify-marketplace-auction-realtime.mjs`
+Expected: FAIL — the `marketplace_realtime_published_tables` function does not exist.
+
+- [ ] **Step 3: Write the migration**
+
+```sql
+-- Realtime for auctions. ONLY the events table is published.
+
+alter table public.marketplace_auction_events enable row level security;
+
+-- Browsers may read events (they are public by construction) but may never
+-- write them. A forged price update would be indistinguishable from a real one
+-- in the UI.
+drop policy if exists "auction events are public read" on public.marketplace_auction_events;
+create policy "auction events are public read"
+  on public.marketplace_auction_events
+  for select
+  to anon, authenticated
+  using (true);
+
+revoke insert, update, delete on public.marketplace_auction_events from anon, authenticated;
+grant select on public.marketplace_auction_events to anon, authenticated;
+grant select, insert, delete on public.marketplace_auction_events to service_role;
+
+-- Publish exactly one table.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'marketplace_auction_events'
+  ) then
+    alter publication supabase_realtime add table public.marketplace_auction_events;
+  end if;
+end;
+$$;
+
+-- Read-only introspection so CI can assert nothing dangerous was ever added.
+create or replace function public.marketplace_realtime_published_tables()
+returns table (table_name text)
+language sql
+stable
+security definer
+set search_path = public, pg_catalog, pg_temp
+as $$
+  select tablename::text
+  from pg_publication_tables
+  where pubname = 'supabase_realtime' and schemaname = 'public';
+$$;
+
+revoke all on function public.marketplace_realtime_published_tables() from public, anon, authenticated;
+grant execute on function public.marketplace_realtime_published_tables() to service_role;
+
+-- The events table grows one row per bid forever. Prune closed auctions'
+-- events after 30 days; the bid ledger remains the permanent record.
+create or replace function public.marketplace_prune_auction_events(p_days integer default 30)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  removed integer;
+begin
+  delete from public.marketplace_auction_events e
+  using public.marketplace_auctions a
+  where a.id = e.auction_id
+    and a.auction_state in ('closed_won', 'closed_unsold', 'cancelled')
+    and e.created_at < now() - make_interval(days => greatest(coalesce(p_days, 30), 1));
+  get diagnostics removed = row_count;
+  return jsonb_build_object('pruned', removed);
+end;
+$$;
+
+revoke all on function public.marketplace_prune_auction_events(integer) from public, anon, authenticated;
+grant execute on function public.marketplace_prune_auction_events(integer) to service_role;
+```
+
+- [ ] **Step 4: Run the gate to verify it passes**
+
+Run: `cd Website && MARKETPLACE_SUPABASE_URL=... MARKETPLACE_SUPABASE_SERVICE_ROLE_KEY=... node tools/verification/verify-marketplace-auction-realtime.mjs`
+Expected: `published to supabase_realtime: marketplace_auction_events` then `auction realtime publication: safe`.
+
+- [ ] **Step 5: Add the prune call to the sweep and wire the gate into package.json**
+
+Add `marketplace_prune_auction_events` to `runAuctionSweeps` in `src/lib/worker/marketplace-scheduled-jobs.ts`, and:
+
+```json
+"verify:marketplace-auction-realtime": "node tools/verification/verify-marketplace-auction-realtime.mjs"
+```
+
+Add it to the `verify:marketplace` chain so it runs with every other marketplace gate.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add Database/marketplace-supabase/migrations/20260818100700_marketplace_auction_realtime.sql Website/tools/verification/verify-marketplace-auction-realtime.mjs Website/package.json Website/src/lib/worker/marketplace-scheduled-jobs.ts
+git commit -m "feat(realtime): publish auction events only, with a CI gate against leaking bidder maximums"
 ```
 
 ---
@@ -1982,15 +2579,29 @@ export async function getAuction(auctionId: string): Promise<AuctionPublicView> 
   const supabase = createMarketplaceSupabaseClient();
   const id = assertUuid(auctionId, "auction_id");
 
-  const closeResult = await supabase.rpc("marketplace_close_due_auctions", {
-    p_request_id: "lazy-close-on-read",
-    p_limit: 1,
-    p_auction_id: id,
-  });
-  if (closeResult.error) {
-    // A failed lazy close must never block the read — the cron sweep will
-    // catch it. Log and continue.
-    console.warn("auction_lazy_close_failed", closeResult.error.message);
+  // CONDITIONAL lazy close. An earlier draft called the close RPC on every
+  // page view -- a WRITE function taking a row lock, fired by every reader.
+  // At 100 viewers polling a closing lot that was 50 lock attempts a second
+  // competing with actual bidders, and in the normal case every one of them
+  // was wasted. Read first; only close when the lot is genuinely due.
+  const { data: due } = await supabase
+    .from("marketplace_auctions")
+    .select("auction_state, effective_ends_at, starts_at")
+    .eq("id", id)
+    .maybeSingle();
+
+  const now = Date.now();
+  if (due?.auction_state === "live" && new Date(due.effective_ends_at).getTime() <= now) {
+    const closed = await supabase.rpc("marketplace_close_due_auctions", {
+      p_request_id: "lazy-close-on-read", p_limit: 1, p_auction_id: id,
+    });
+    // A failed lazy close must never block the read -- the cron sweep catches it.
+    if (closed.error) console.warn("auction_lazy_close_failed", closed.error.message);
+  } else if (due?.auction_state === "scheduled" && new Date(due.starts_at).getTime() <= now) {
+    const opened = await supabase.rpc("marketplace_open_due_auction", {
+      p_auction_id: id, p_request_id: "lazy-open-on-read",
+    });
+    if (opened.error) console.warn("auction_lazy_open_failed", opened.error.message);
   }
 
   const { data, error } = await supabase
@@ -2252,6 +2863,119 @@ git add Website/src/app/api/ynot/marketplace/auctions Website/src/app/api/ynot/m
 git commit -m "feat(api): add auction read, bid, and server-time routes"
 ```
 
+### Task 14b: One cached public endpoint, one private endpoint
+
+The read path is 99%+ of auction traffic. This collapses it.
+
+**The split.** Anything shared goes in a cacheable public payload. Anything about *you* stays uncached and authenticated. That boundary is not just a caching detail — it is the same discipline `marketplace_public_listing_snapshots` already applies, and it is what makes the cache safe.
+
+| Public — cached 1s | Private — never cached |
+|---|---|
+| `currentPriceSatang`, `minNextSatang`, `incrementSatang` | `youAreLeading` |
+| `bidCount`, `distinctBidderCount` | `yourMaxSatang`, `yourAlias` |
+| `effectiveEndsAt`, `extensionCount`, `serverNow` | `canBid`, `cannotBidReason` |
+| masked bid history (aliases + effective amounts) | gate/verification status |
+
+**Files:**
+- Create: `Website/src/app/api/ynot/marketplace/auctions/[auctionId]/live/route.ts`
+- Create: `Website/src/app/api/ynot/marketplace/auctions/[auctionId]/me/route.ts`
+
+- [ ] **Step 1: Write the cached public route**
+
+```ts
+import { getAuction } from "@/lib/marketplace/auctions";
+import { listAuctionBids } from "@/lib/marketplace/auction-bids";
+
+export const dynamic = "force-dynamic";
+
+const CACHE_TTL_SECONDS = 1;
+
+/**
+ * Public auction state plus masked bid history, in ONE response.
+ *
+ * Two fetches per poll doubled origin load for no reason; merging them halves
+ * it. The 1-second Cloudflare edge cache then makes viewer count almost
+ * irrelevant -- 300 concurrent watchers collapse to roughly one origin request
+ * per second.
+ *
+ * Nothing viewer-specific may ever be added to this payload. See /me.
+ */
+export async function GET(request: Request, context: { params: Promise<{ auctionId: string }> }) {
+  const { auctionId } = await context.params;
+  const cacheKey = new Request(new URL(request.url).toString(), { method: "GET" });
+  const cache = (globalThis as { caches?: { default?: Cache } }).caches?.default;
+
+  const hit = await cache?.match(cacheKey);
+  if (hit) return hit;
+
+  const [auction, bids] = await Promise.all([
+    getAuction(auctionId),
+    listAuctionBids(auctionId, 30),
+  ]);
+
+  const response = Response.json(
+    { auction, bids },
+    {
+      headers: {
+        // s-maxage drives the edge cache; no-store on the browser so a client
+        // never shows a price older than its own poll interval.
+        "Cache-Control": `public, s-maxage=${CACHE_TTL_SECONDS}, max-age=0, must-revalidate`,
+      },
+    },
+  );
+
+  await cache?.put(cacheKey, response.clone());
+  return response;
+}
+```
+
+- [ ] **Step 2: Write the private per-viewer route**
+
+```ts
+import { resolveAdminSession, resolveCurrentProfile } from "@/lib/auth/resolve-current-profile";
+import { getMarketplaceAccountForProfile } from "@/lib/marketplace/account-bridge";
+import { getViewerAuctionState } from "@/lib/marketplace/auctions";
+
+export const dynamic = "force-dynamic";
+
+/** Never cached. Returns only facts about the calling viewer. */
+export async function GET(request: Request, context: { params: Promise<{ auctionId: string }> }) {
+  const { auctionId } = await context.params;
+  const profile = await resolveCurrentProfile();
+  if (!profile) {
+    return Response.json(
+      { canBid: false, cannotBidReason: "Log in to bid.", youAreLeading: false },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  const admin = await resolveAdminSession(profile);
+  const account = await getMarketplaceAccountForProfile(profile, admin);
+
+  return Response.json(
+    await getViewerAuctionState({
+      auctionId,
+      accountId: account?.id ?? null,
+      adminRole: admin?.adminRole ?? null,
+    }),
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}
+```
+
+- [ ] **Step 3: Verify the cache actually engages**
+
+Run the marketplace preview, open an auction, and confirm with two rapid requests that the second returns in single-digit milliseconds. Then confirm the private route is never cached:
+
+Run: `curl -sI "http://localhost:8788/api/ynot/marketplace/auctions/<id>/me" | grep -i cache-control`
+Expected: `cache-control: no-store`
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add Website/src/app/api/ynot/marketplace/auctions
+git commit -m "perf(api): merge auction reads into one cached public endpoint plus a private viewer route"
+```
+
 ### Task 15: Close sweep on the cron
 
 **Files:**
@@ -2264,18 +2988,63 @@ git commit -m "feat(api): add auction read, bid, and server-time routes"
 Insert alongside `expireMarketplacePendingPaymentOrders`:
 
 ```ts
-async function closeDueMarketplaceAuctions(env: MarketplaceScheduledEnv) {
+/**
+ * Three sweeps: open what is due to start, close what is due to end, expire
+ * awards nobody paid for.
+ *
+ * Each lot is closed in its OWN transaction. A batch transaction holding 200
+ * auction rows would let one stuck listing lock freeze closing and bidding for
+ * every lot in the batch.
+ */
+async function runAuctionSweeps(env: MarketplaceScheduledEnv) {
   if (!env.MARKETPLACE_ENVIRONMENT) return;
   if (!env.MARKETPLACE_SUPABASE_URL || !env.MARKETPLACE_SUPABASE_SERVICE_ROLE_KEY) return;
 
+  const requestId = `cloudflare-cron:${new Date().toISOString()}`;
+
+  let due: Array<{ auction_id: string; due_kind: string }> = [];
   try {
-    await callMarketplaceSupabaseRpc(env, "marketplace_close_due_auctions", {
-      p_request_id: `cloudflare-cron:${new Date().toISOString()}`,
+    due = (await callMarketplaceSupabaseRpc(env, "marketplace_list_due_auctions", {
       p_limit: 200,
-      p_auction_id: null,
+    })) as typeof due;
+  } catch (error) {
+    console.warn("marketplace_auction_list_due_failed", {
+      reason: error instanceof Error ? error.message.split(":").slice(0, 3).join(":") : "unknown",
+    });
+    return;
+  }
+
+  for (const row of due ?? []) {
+    try {
+      if (row.due_kind === "open") {
+        await callMarketplaceSupabaseRpc(env, "marketplace_open_due_auction", {
+          p_auction_id: row.auction_id,
+          p_request_id: requestId,
+        });
+      } else {
+        await callMarketplaceSupabaseRpc(env, "marketplace_close_due_auctions", {
+          p_request_id: requestId,
+          p_limit: 1,
+          p_auction_id: row.auction_id,
+        });
+      }
+    } catch (error) {
+      // One lot failing must never stop the rest of the sweep.
+      console.warn("marketplace_auction_sweep_lot_failed", {
+        auctionId: row.auction_id,
+        kind: row.due_kind,
+        reason: error instanceof Error ? error.message.split(":").slice(0, 3).join(":") : "unknown",
+      });
+    }
+  }
+
+  try {
+    await callMarketplaceSupabaseRpc(env, "marketplace_expire_due_auction_awards", {
+      p_request_id: requestId,
+      p_limit: 100,
     });
   } catch (error) {
-    console.warn("marketplace_auction_close_failed", {
+    console.warn("marketplace_auction_award_expiry_failed", {
       reason: error instanceof Error ? error.message.split(":").slice(0, 3).join(":") : "unknown",
     });
   }
@@ -2288,7 +3057,7 @@ and extend the exported runner:
 export async function runMarketplaceScheduledJobs(env: MarketplaceScheduledEnv) {
   await Promise.all([
     expireMarketplacePendingPaymentOrders(env),
-    closeDueMarketplaceAuctions(env),
+    runAuctionSweeps(env),
   ]);
 }
 ```
@@ -2534,6 +3303,25 @@ export function BidPanel(props: BidPanelProps) {
       {stage === "entry" && (
         <>
           <label className="auc-bid-label" htmlFor="auc-max">Your maximum</label>
+          <div className="auc-quick">
+            {[0, 3, 6].map((steps) => {
+              const amount = props.minNextSatang + steps * props.incrementSatang;
+              return (
+                <button
+                  key={steps}
+                  type="button"
+                  className="auc-quick-btn"
+                  onClick={() => {
+                    setRaw(String(Math.round(amount / 100)));
+                    idempotencyKeyRef.current ??= crypto.randomUUID();
+                    setStage("confirm");
+                  }}
+                >
+                  {formatThb(amount)}
+                </button>
+              );
+            })}
+          </div>
           <div className="auc-bid-row">
             <input
               id="auc-max"
@@ -2629,6 +3417,18 @@ export function bidErrorMessage(code: string) {
   font-weight: 700; margin-bottom: 6px;
 }
 .auc-bid-row { display: flex; gap: 8px; }
+/* Typing a number on a phone with thirty seconds left is the wrong
+   interaction. One tap bids the minimum or a few steps above it; the text
+   field stays for anyone setting a considered proxy maximum. */
+.auc-quick { display: flex; gap: 6px; margin-bottom: 8px; }
+.auc-quick-btn {
+  flex: 1; min-height: var(--auc-tap);
+  background: var(--mp-gold-tint); border: 1px solid var(--mp-gold);
+  border-radius: var(--mp-r-sm); color: var(--mp-gold-ink);
+  font-family: var(--mp-mono); font-variant-numeric: tabular-nums;
+  font-size: 13px; font-weight: 700;
+}
+.auc-quick-btn:focus-visible { outline: 2px solid var(--mp-green); outline-offset: 1px; }
 .auc-bid-input {
   flex: 1; min-width: 0; min-height: var(--auc-tap);
   border: 1px solid var(--mp-line-strong); border-radius: var(--mp-r-sm);
@@ -2716,7 +3516,11 @@ git commit -m "feat(ui): add proxy bid panel with authorise-up-to confirmation"
 
 **Layout contract, desktop (≥1024px):** two columns, `grid-template-columns: 1.05fr 1fr; gap: 22px`. Left: photo, then bid history expanded. Right: eyebrow, title, chips, price + countdown panel, bid panel, terms panel.
 
-**Polling contract:** `AuctionRoom` polls `GET /api/ynot/marketplace/auctions/[id]` every **5000ms**, tightening to **2000ms** when remaining time is under 120s. Polling stops when `auctionState !== "live"`. Every response carries `serverNow`, which re-syncs the countdown offset. On `visibilitychange` to hidden, polling pauses; on visible it fires immediately then resumes.
+**Live-update contract.** Primary transport is a Supabase Realtime subscription on `marketplace_auction_events` filtered by `auction_id` (Task 12b), giving ~100-300ms. Poll `GET /auctions/[id]/live` is the fallback and runs whenever the socket is not `SUBSCRIBED`. The private `/me` route is polled separately and never cached.
+
+Because the events table carries no account id, the client infers its own status locally: *if I was leading and a `bid_placed` event arrives that I did not cause, I have been outbid.* No per-user channel, nothing private ever crosses the public socket.
+
+**Polling fallback:** every **5000ms**, tightening to **2000ms** when remaining time is under 120s. Polling stops when `auctionState !== "live"`. Every response carries `serverNow`, which re-syncs the countdown offset. On `visibilitychange` to hidden, polling pauses; on visible it fires immediately then resumes.
 
 - [ ] **Step 1: Write `BidHistory.tsx`**
 
@@ -3054,9 +3858,12 @@ git add Website/src/features/marketplace-ui/auction/WonLotPanel.tsx Website/src/
 git commit -m "feat(ui): add won-lot payment flow"
 ```
 
-### Task 20: Admin auction screens
+### Task 20: Admin cockpit
+
+Four jobs on one screen: **create**, **monitor**, **intervene**, **settle**. It becomes the eighth screen under `admin/marketplace`, following `OfficialStockScreen` / `StockModal`.
 
 **Files:**
+- Create: `Database/marketplace-supabase/migrations/20260818100800_marketplace_auction_admin_rpcs.sql`
 - Create: `Website/src/features/marketplace-ui/admin/AuctionsScreen.tsx`
 - Create: `Website/src/features/marketplace-ui/admin/AuctionModal.tsx`
 - Create: `Website/src/app/admin/marketplace/auctions/page.tsx`
@@ -3064,28 +3871,199 @@ git commit -m "feat(ui): add won-lot payment flow"
 - Create: `Website/src/app/api/ynot/marketplace/admin/auctions/[auctionId]/route.ts`
 - Create: `Website/src/app/api/ynot/marketplace/admin/auctions/[auctionId]/cancel/route.ts`
 
-- [ ] **Step 1: Build `AuctionModal.tsx`**
+- [ ] **Step 1: Write the admin RPCs — they MUST take the same first lock as a bid**
 
-Mirror `StockModal.tsx`. Fields, all required unless noted: existing inventory item (searchable select, only items in `inspection_passed` or `listed`), start price in baht (default 0), starts at, ends at, bidder gate (`open` default / `kyc_required`), anti-snipe window seconds (default 120), extend seconds (default 120), max extensions (default 20), admin note (optional).
+Admin edit and cancel are the only other writers of `marketplace_auctions`. If they write through plain PostgREST, they bypass the row lock the entire correctness argument rests on: the `bid_count > 0` freeze check becomes a TOCTOU, a bid can commit against a lot being cancelled, and a listing-then-auction lock order would invert the bid path's auction-then-listing order and deadlock.
 
-Client validation before submit: `ends_at > starts_at`; duration between 1 hour and 30 days; start price ≥ 0.
+```sql
+-- Both functions open with the SAME lock as marketplace_place_auction_bid:
+--   select ... from marketplace_auctions where id = ? for update
+-- Then, and only then, do they touch bids and the listing -- in that order.
 
-**Editing lock:** when `bid_count > 0` every field is disabled and the modal shows "Terms are frozen — this lot has bids. You can cancel it, with a reason, but you cannot change it."
+create or replace function public.marketplace_update_auction_terms(
+  p_auction_id uuid,
+  p_admin_profile_id uuid,
+  p_admin_role text,
+  p_start_price_satang integer,
+  p_starts_at timestamptz,
+  p_base_ends_at timestamptz,
+  p_bidder_gate text,
+  p_anti_snipe_window_seconds integer,
+  p_anti_snipe_extend_seconds integer,
+  p_max_extensions integer,
+  p_admin_note text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security definer
+set lock_timeout = '3s'
+set search_path = public, pg_temp
+as $$
+declare
+  auction_row public.marketplace_auctions%rowtype;
+begin
+  if p_admin_role not in ('owner', 'admin') then
+    raise exception 'marketplace_admin_required';
+  end if;
 
-- [ ] **Step 2: Build `AuctionsScreen.tsx`**
+  select * into auction_row from public.marketplace_auctions
+   where id = p_auction_id for update;
+  if auction_row.id is null then raise exception 'auction_not_found'; end if;
 
-Columns: lot title, state, current price, bids, ends at (with countdown for live rows), gate, actions. Mobile: each row becomes a stacked card. Desktop: full table inside `overflow-x: auto`.
+  -- Checked UNDER the lock. As an unlocked application-side read this is a
+  -- plain TOCTOU: a bid landing between the read and the write lets an admin
+  -- rewrite the start price of a lot people are already bidding on.
+  if auction_row.bid_count > 0 then
+    raise exception 'auction_terms_frozen';
+  end if;
+  if auction_row.auction_state not in ('scheduled', 'live') then
+    raise exception 'auction_not_editable';
+  end if;
+  if p_base_ends_at <= p_starts_at then
+    raise exception 'auction_window_invalid';
+  end if;
 
-- [ ] **Step 3: Build the three admin routes**
+  update public.marketplace_auctions
+     set start_price_satang = p_start_price_satang,
+         current_price_satang = p_start_price_satang,
+         starts_at = p_starts_at,
+         base_ends_at = p_base_ends_at,
+         effective_ends_at = p_base_ends_at,
+         bidder_gate = p_bidder_gate,
+         anti_snipe_window_seconds = p_anti_snipe_window_seconds,
+         anti_snipe_extend_seconds = p_anti_snipe_extend_seconds,
+         max_extensions = p_max_extensions,
+         admin_note = p_admin_note,
+         version = version + 1
+   where id = p_auction_id;
 
-All use `prepareMarketplaceMutation` with `accessMode: "owner"`. The PATCH route must re-read the auction and reject with `auction_terms_frozen` when `bid_count > 0`. The cancel route requires a non-empty `reason`, sets `auction_state = 'cancelled'`, marks all bids `void`, sets the listing back to `hidden`, and writes an audit event.
+  insert into public.marketplace_audit_events (
+    actor_ynot_profile_id, actor_admin_role, event_type, event_payload, request_id
+  ) values (
+    p_admin_profile_id, p_admin_role, 'auction_terms_updated',
+    jsonb_build_object('auctionId', p_auction_id), p_request_id
+  );
 
-- [ ] **Step 4: Verify and commit**
+  return jsonb_build_object('auctionId', p_auction_id, 'updated', true);
+end;
+$$;
+
+create or replace function public.marketplace_cancel_auction(
+  p_auction_id uuid,
+  p_admin_profile_id uuid,
+  p_admin_role text,
+  p_reason text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security definer
+set lock_timeout = '3s'
+set search_path = public, pg_temp
+as $$
+declare
+  auction_row public.marketplace_auctions%rowtype;
+  voided integer;
+begin
+  if p_admin_role not in ('owner', 'admin') then
+    raise exception 'marketplace_admin_required';
+  end if;
+  if nullif(trim(coalesce(p_reason, '')), '') is null then
+    raise exception 'auction_cancel_reason_required';
+  end if;
+
+  select * into auction_row from public.marketplace_auctions
+   where id = p_auction_id for update;
+  if auction_row.id is null then raise exception 'auction_not_found'; end if;
+  if auction_row.auction_state not in ('scheduled', 'live') then
+    raise exception 'auction_not_cancellable';
+  end if;
+
+  update public.marketplace_auctions
+     set auction_state = 'cancelled', closed_at = clock_timestamp(),
+         close_reason = 'cancelled_by_admin', admin_note = p_reason,
+         version = version + 1
+   where id = p_auction_id;
+
+  update public.marketplace_auction_bids set outcome = 'void'
+   where auction_id = p_auction_id and outcome in ('leading', 'outbid');
+  get diagnostics voided = row_count;
+
+  update public.marketplace_listing_snapshots
+     set listing_state = 'hidden', snapshot_version = snapshot_version + 1
+   where listing_id = auction_row.listing_id;
+
+  insert into public.marketplace_audit_events (
+    actor_ynot_profile_id, actor_admin_role, event_type, event_payload, request_id
+  ) values (
+    p_admin_profile_id, p_admin_role, 'auction_cancelled',
+    jsonb_build_object('auctionId', p_auction_id, 'reason', p_reason, 'bidsVoided', voided),
+    p_request_id
+  );
+
+  return jsonb_build_object('auctionId', p_auction_id, 'bidsVoided', voided);
+end;
+$$;
+
+revoke all on function public.marketplace_update_auction_terms(uuid, uuid, text, integer, timestamptz, timestamptz, text, integer, integer, integer, text, text) from public, anon, authenticated;
+revoke all on function public.marketplace_cancel_auction(uuid, uuid, text, text, text) from public, anon, authenticated;
+grant execute on function public.marketplace_update_auction_terms(uuid, uuid, text, integer, timestamptz, timestamptz, text, integer, integer, integer, text, text) to service_role;
+grant execute on function public.marketplace_cancel_auction(uuid, uuid, text, text, text) to service_role;
+```
+
+- [ ] **Step 2: Add the failing test for the lock discipline**
+
+```js
+const adminRpc = compact(readMigration("20260818100800_marketplace_auction_admin_rpcs.sql"));
+
+test("admin writers take the same first lock as a bid", () => {
+  const locks = adminRpc.match(/from public\.marketplace_auctions where id = p_auction_id for update/g) ?? [];
+  assert.equal(locks.length, 2, "both update and cancel must lock the auction row first");
+});
+
+test("the terms freeze is evaluated under the lock, not in the application", () => {
+  const frozenAt = adminRpc.indexOf("auction_terms_frozen");
+  const lockAt = adminRpc.indexOf("for update");
+  assert.ok(lockAt > 0 && frozenAt > lockAt, "bid_count check must come after the lock");
+});
+
+test("cancelling requires a reason and voids every bid", () => {
+  assert.match(adminRpc, /auction_cancel_reason_required/);
+  assert.match(adminRpc, /set outcome = 'void'/);
+});
+```
+
+- [ ] **Step 3: Build `AuctionModal.tsx` — create and edit**
+
+Mirrors `StockModal.tsx`. Fields: inventory item (searchable select, restricted to `inspection_passed` or `listed`), start price in baht (default 0), opens at, ends at, bidder gate (`open` default / `kyc_required`), anti-snipe window seconds (120), extend seconds (120), max extensions (20), admin note.
+
+Client validation before submit: `ends_at > starts_at`, duration between 1 hour and 30 days, start price ≥ 0, and `extend_seconds` ≥ 1.
+
+When `bid_count > 0` every field renders disabled with: *"Terms are frozen — this lot has bids. You can cancel it with a reason, but you cannot change it."* The server enforces the same rule under the lock, so a stale tab cannot bypass it.
+
+- [ ] **Step 4: Build `AuctionsScreen.tsx` — monitor, intervene, settle**
+
+Three tabs:
+
+**Live & upcoming** — one row per lot: title, state, current price, bid count, distinct bidders, live `AuctionCountdown`, extension count `n/20`, gate badge. Sorted by soonest close. Cancel action per row, opening a reason-required confirm.
+
+**Awaiting payment** — every award in `awaiting_payment` / `payment_started` with a countdown to `payment_due_at`, the winner's masked alias, and the hammer price.
+
+**Expired & unsold** — the queue created by the expire sweep and by zero-bid closes. This is the screen that stops a stranded card disappearing: each row offers *re-auction*, *list fixed-price*, or *hold*, all of which simply route to the existing inventory screens.
+
+Mobile: each row becomes a stacked card. Desktop: a table inside `overflow-x: auto`.
+
+- [ ] **Step 5: Build the three admin routes**
+
+All use `prepareMarketplaceMutation` with `accessMode: "owner"` and `action: "auctions"`. Each calls its RPC and maps RPC error codes to messages — `auction_terms_frozen`, `auction_not_cancellable`, `auction_cancel_reason_required`. No route may write `marketplace_auctions` directly.
+
+- [ ] **Step 6: Verify and commit**
 
 ```bash
-cd Website && npx tsc --noEmit --pretty false
-git add Website/src/features/marketplace-ui/admin/Auction* Website/src/app/admin/marketplace/auctions Website/src/app/api/ynot/marketplace/admin/auctions
-git commit -m "feat(admin): add auction scheduling, monitoring, and cancellation"
+cd Website && npx tsc --noEmit --pretty false && node --test scripts/test-marketplace-auction-schema.mjs
+git add Database/marketplace-supabase/migrations/20260818100800_marketplace_auction_admin_rpcs.sql Website/src/features/marketplace-ui/admin/Auction* Website/src/app/admin/marketplace/auctions Website/src/app/api/ynot/marketplace/admin/auctions
+git commit -m "feat(admin): auction cockpit with locked create, cancel, and settle"
 ```
 
 ### Task 21: Full verification before merge
@@ -3129,7 +4107,7 @@ Not in this plan, recorded so nothing is silently dropped:
 
 - **P4 — engagement:** scheduled auction nights, simultaneous closes, outbid notification rail (email via Resend, then a LINE Messaging channel)
 - **P5 — risk:** `marketplace_bidder_standing`, strikes, second-chance offers to the runner-up, live exposure caps
-- **P6 — reach:** Supabase Realtime on a `marketplace_auction_events` table replacing polling; public browse once `OWNER_ONLY` is lifted; seller-run consignment auctions
+- **P6 — reach:** public browse once `OWNER_ONLY` is lifted; seller-run consignment auctions, which is when `auction_seller_fee_bps` starts applying. *Realtime moved into v1 — see Task 12b.*
 - **Separate spec — KYC:** ID document upload, admin review queue, PDPA retention and deletion, setting `marketplace_accounts.kyc_status`. Auctions already read the gate, so this lands independently.
 
 ## Open Question Owned by You
