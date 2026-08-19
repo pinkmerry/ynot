@@ -728,9 +728,10 @@ Append to `Website/scripts/test-marketplace-auction-schema.mjs`:
 ```js
 const guard = compact(readMigration("20260818100100_marketplace_auction_fixed_price_guard.sql"));
 
-test("every fixed-price listing lock excludes auctions", () => {
-  const locks = guard.match(/and listing_format = 'fixed_price'/g) ?? [];
+test("every fixed-price listing lock excludes auctions unless explicitly allowed", () => {
+  const locks = guard.match(/listing_format = 'fixed_price' or coalesce\(p_allow_auction_format, false\)/g) ?? [];
   assert.ok(locks.length >= 3, `expected the guard on all fixed-price locks, found ${locks.length}`);
+  assert.match(guard, /p_allow_auction_format boolean default false/);
 });
 
 test("the guard recreates the three purchase entry points", () => {
@@ -784,10 +785,23 @@ begin
     -- Every one of these functions locks the listing with
     --   ... and listing_state = 'active'
     -- (some with `for update`). Add the format predicate immediately after.
+    -- The predicate is written against a parameter rather than a bare literal
+    -- so auction settlement can reuse these same functions WITHOUT mutating
+    -- listing_format around the call. Mutating shared state and relying on
+    -- transaction isolation works, but it silently breaks the first time
+    -- anyone adds another guard to this path.
     patched := replace(
       definition,
       E'and listing_state = ''active''',
-      E'and listing_state = ''active''\n    and listing_format = ''fixed_price'''
+      E'and listing_state = ''active''\n    and (listing_format = ''fixed_price'' or coalesce(p_allow_auction_format, false))'
+    );
+
+    -- every guarded creator gains the opt-in flag, defaulted false so all
+    -- existing callers keep exactly today's behaviour
+    patched := replace(
+      patched,
+      E'p_shipping_snapshot jsonb default ''{}''::jsonb\n)',
+      E'p_shipping_snapshot jsonb default ''{}''::jsonb,\n  p_allow_auction_format boolean default false\n)'
     );
 
     if patched = definition then
@@ -977,6 +991,13 @@ test("all five proxy cases are implemented", () => {
   assert.match(bidRpc, /marketplace_auction_increment_v1/);
 });
 
+test("idempotency is resolved under the auction lock, not before it", () => {
+  const lockAt = bidRpc.indexOf("for update");
+  const idemAt = bidRpc.indexOf("scope = 'auction_bid'");
+  assert.ok(lockAt > 0 && idemAt > lockAt,
+    "the idempotency lookup must come AFTER the auction row lock or concurrent retries raise a unique violation instead of replaying");
+});
+
 test("the visible price is mirrored onto the listing", () => {
   assert.match(bidRpc, /update public\.marketplace_listing_snapshots set item_price_satang/);
 });
@@ -1046,6 +1067,24 @@ begin
     raise exception 'auction_bid_amount_invalid';
   end if;
 
+  -- 1. Serialise every bid for this lot.
+  --
+  -- The lock comes FIRST, before the idempotency lookup. If the lookup ran
+  -- first, two concurrent retries of the same key would both miss the row,
+  -- both proceed, and the second would die on the
+  -- unique (bidder_marketplace_account_id, idempotency_key) constraint --
+  -- surfacing "bid failed" for a bid that actually succeeded. Taking the lock
+  -- first means the second transaction only proceeds after the first commits,
+  -- so it sees the committed idempotency row and replays cleanly.
+  select * into auction_row
+  from public.marketplace_auctions
+  where id = p_auction_id
+  for update;
+
+  if auction_row.id is null then
+    raise exception 'auction_not_found';
+  end if;
+
   -- Idempotent replay: an identical retry returns the original result rather
   -- than placing a second bid.
   select * into idempotency_row
@@ -1061,16 +1100,6 @@ begin
     if idempotency_row.response_payload is not null then
       return idempotency_row.response_payload;
     end if;
-  end if;
-
-  -- 1. Serialise every bid for this lot.
-  select * into auction_row
-  from public.marketplace_auctions
-  where id = p_auction_id
-  for update;
-
-  if auction_row.id is null then
-    raise exception 'auction_not_found';
   end if;
 
   -- 2. THE CORRECTNESS ANCHOR.
@@ -1386,7 +1415,9 @@ as $$
 declare
   auction_row public.marketplace_auctions%rowtype;
   policy jsonb;
-  payment_window_hours integer := 48;
+  -- v1 decision: 48h covers a weekend bank transfer. Change here and in the
+  -- decision ledger together; it is deliberately not per-lot in v1.
+  payment_window_hours constant integer := 48;
   closed_won integer := 0;
   closed_unsold integer := 0;
 begin
@@ -1454,7 +1485,10 @@ begin
       set listing_state = 'pending_payment', snapshot_version = snapshot_version + 1
       where listing_id = auction_row.listing_id;
 
-      closed_won := closed_won + 1;
+      -- only count a lot we actually awarded; the on-conflict path is a no-op
+      if found then
+        closed_won := closed_won + 1;
+      end if;
     end if;
 
     insert into public.marketplace_audit_events (event_type, event_payload, request_id)
@@ -1507,6 +1541,11 @@ test("award checkout passes the hammer price as the override", () => {
 test("only the winner may pay, and only before the deadline", () => {
   assert.match(awardCheckout, /auction_award_not_winner/);
   assert.match(awardCheckout, /auction_award_expired/);
+});
+
+test("award checkout opts in rather than mutating listing_format", () => {
+  assert.match(awardCheckout, /p_allow_auction_format => true/);
+  assert.doesNotMatch(awardCheckout, /set listing_state = 'active', listing_format = 'fixed_price'/);
 });
 
 test("releasing an auction pending order does not relist the lot", () => {
@@ -1567,21 +1606,18 @@ begin
   from public.marketplace_listing_snapshots
   where listing_id = award_row.listing_id;
 
-  -- Temporarily present the lot as a purchasable fixed-price listing so the
-  -- existing creator's lock predicate matches. The transaction restores the
-  -- auction format before commit, so no other session can observe it as
-  -- fixed-price.
-  update public.marketplace_listing_snapshots
-  set listing_state = 'active', listing_format = 'fixed_price'
-  where listing_id = award_row.listing_id;
-
+  -- The creators accept p_allow_auction_format (see 20260818100100), so the
+  -- auction path opts in explicitly instead of mutating listing_format around
+  -- the call. listing_state is already 'pending_payment' from close, which is
+  -- inside the creator's lock predicate, so nothing else needs touching.
   if listing_row.listing_source = 'official_shop' then
     child := public.marketplace_create_pending_payment_order(
       award_row.listing_id, p_buyer_marketplace_account_id, p_buyer_ynot_profile_id,
       p_request_id, p_idempotency_key, p_request_hash,
       1, award_row.shipping_fee_satang, award_row.buyer_service_fee_bps,
       p_shipping_snapshot,
-      p_price_override_satang => award_row.hammer_price_satang
+      p_price_override_satang => award_row.hammer_price_satang,
+      p_allow_auction_format => true
     );
   else
     child := public.marketplace_create_user_seller_pending_payment_order(
@@ -1589,13 +1625,10 @@ begin
       p_request_id, p_idempotency_key, p_request_hash,
       1, award_row.shipping_fee_satang, award_row.buyer_service_fee_bps,
       p_shipping_snapshot,
-      p_price_override_satang => award_row.hammer_price_satang
+      p_price_override_satang => award_row.hammer_price_satang,
+      p_allow_auction_format => true
     );
   end if;
-
-  update public.marketplace_listing_snapshots
-  set listing_format = 'auction'
-  where listing_id = award_row.listing_id;
 
   update public.marketplace_auction_awards
   set award_state = 'payment_started',
@@ -2439,7 +2472,7 @@ Proxy bidding means the buyer authorises a maximum that may be spent without ask
 ```tsx
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { formatThb } from "../shared/money";
 
 type BidPanelProps = {
@@ -2456,6 +2489,10 @@ export function BidPanel(props: BidPanelProps) {
   const [raw, setRaw] = useState("");
   const [stage, setStage] = useState<"entry" | "confirm" | "sending">("entry");
   const [error, setError] = useState<string | null>(null);
+  // One key per bid attempt, NOT per submit call. A network timeout followed
+  // by a retry must replay the same bid, not place a second one. The key is
+  // minted when the buyer opens the confirm step and cleared only on success.
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   const satang = Math.round(Number(raw.replace(/[^0-9.]/g, "")) * 100);
   const valid = Number.isFinite(satang) && satang >= props.minNextSatang;
@@ -2468,7 +2505,7 @@ export function BidPanel(props: BidPanelProps) {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-idempotency-key": crypto.randomUUID(),
+          "x-idempotency-key": idempotencyKeyRef.current ?? "",
         },
         body: JSON.stringify({ maxAmountSatang: satang }),
       });
@@ -2479,6 +2516,7 @@ export function BidPanel(props: BidPanelProps) {
         return;
       }
       props.onPlaced(payload.bid);
+      idempotencyKeyRef.current = null;
       setRaw("");
       setStage("entry");
     } catch {
@@ -2510,7 +2548,10 @@ export function BidPanel(props: BidPanelProps) {
               type="button"
               className="auc-bid-btn"
               disabled={!valid}
-              onClick={() => setStage("confirm")}
+              onClick={() => {
+                idempotencyKeyRef.current ??= crypto.randomUUID();
+                setStage("confirm");
+              }}
             >
               Bid
             </button>
@@ -2832,12 +2873,16 @@ export function AuctionRoom({
       if (data.auctionState !== "live" || document.hidden) return;
       const remaining = new Date(data.effectiveEndsAt).getTime() - Date.now();
       const delay = remaining <= URGENT_WINDOW_MS ? POLL_URGENT_MS : POLL_IDLE_MS;
-      timerRef.current = window.setTimeout(() => { void refresh().then(schedule); }, delay);
+      // Only ONE driver: the timer fires refresh(), refresh() updates state,
+      // the state change re-runs this effect, and the effect re-schedules.
+      // Calling schedule() from the .then() as well would run two chains
+      // through one timerRef.
+      timerRef.current = window.setTimeout(() => { void refresh(); }, delay);
     }
     schedule();
 
     function onVisible() {
-      if (!document.hidden) void refresh().then(schedule);
+      if (!document.hidden) void refresh();
     }
     document.addEventListener("visibilitychange", onVisible);
     return () => {
