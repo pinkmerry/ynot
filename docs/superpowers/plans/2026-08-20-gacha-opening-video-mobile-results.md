@@ -1392,7 +1392,7 @@ npm run typecheck
 npm run lint
 ```
 
-Expected: all commands exit `0`; source search finds no obsolete selector or stage:
+Expected: `test:gacha-opening-video`, `test:pack-opening-flow`, and `typecheck` exit `0`. Full repository lint remains a required quality gate; if it does not exit `0`, the only acceptable visual-only baseline exception is a failure proven unchanged from the exact branch start, with the exact failure, branch-start diff proof, and focused lint for changed gacha TS/TSX files reported. Source search finds no obsolete selector or stage:
 
 ```bash
 rg -n "tierSpin|gacha-reveal-tier-spin|gacha-reveal-tier-card|gacha-tier-card-spin|gacha-tier-card-flip" Website/src/features/ynot/GachaRevealOverlay.tsx Website/src/app/globals.css
@@ -1551,7 +1551,7 @@ npm run lint
 npm run cf:build:website
 ```
 
-Expected: every command exits `0`. The Cloudflare build includes all six public delivery assets and reports no per-asset or bundle failure.
+Expected: targeted gacha suites, typecheck, rate limits, and the Cloudflare build exit `0`. The Cloudflare build includes all six public delivery assets and reports no per-asset or bundle failure. Full repository lint remains a required quality gate; if it does not exit `0`, the only acceptable visual-only baseline exception is a failure proven unchanged from the exact branch start, with the exact failure, branch-start diff proof, and focused changed-file lint result reported. Any unchanged privacy-suite failure must stay reported as a limitation/failure, not relabeled green, and must include branch-start proof for the relevant files.
 
 - [ ] **Step 8: Prove protected logic remained untouched**
 
@@ -1626,9 +1626,10 @@ npm run test:pack-opening-flow
 npm run test:pack-open-pull-contract
 npm run typecheck
 npm run lint
+npx eslint src/features/ynot/GachaRevealOverlay.tsx src/features/ynot/gacha-opening-video.ts
 ```
 
-Expected: every command exits `0` after the final diff review.
+Expected: `test:gacha-opening-video`, `test:pack-opening-flow`, `test:pack-open-pull-contract`, `typecheck`, and focused lint on the changed gacha TS/TSX files exit `0` after the final diff review. Full repository lint remains a required quality gate; if it does not exit `0`, the only acceptable visual-only baseline exception is a failure proven unchanged from exact branch start and explicitly reported with the exact file/line/rule, branch-start diff proof, and the focused changed-file lint pass. This is the binding visual-only baseline exception; it is not removal of the full lint quality gate.
 
 - [ ] **Step 4: Stop before production deployment**
 
@@ -1641,7 +1642,7 @@ Do not run a Cloudflare deploy command. Hand off:
 - confirmation that protected logic files are unchanged;
 - any browser/device path that could not be exercised.
 
-The implementation is complete only when there are no known errors, every required local test/build passes, the browser matrix proves four visible multi-result cards and reachable actions, and no protected logic file changed.
+The implementation is complete only when there are no known new errors, every required local targeted test/build passes, focused changed-file lint passes, the browser matrix proves four visible multi-result cards and reachable actions, no protected logic file changed, and any full-repository lint or privacy-suite failure is proven unchanged from exact branch start and reported as a baseline limitation rather than green.
 
 ---
 

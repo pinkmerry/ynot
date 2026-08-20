@@ -208,7 +208,7 @@ No new npm dependency is allowed.
 12. A multi-result phone summary shows four complete cards before inner scrolling; x1 remains one large centered card.
 13. All repeat and navigation controls remain reachable and clickable at `375x667`, `390x844`, and `430x932`.
 14. Normal open and Pull All continue to share the overlay without changing their settlement logic.
-15. Targeted tests, typecheck, lint, and the Cloudflare website build pass.
+15. Targeted gacha suites, typecheck, focused lint on changed gacha TS/TSX files, and the Cloudflare website build pass. Full repository lint remains a required quality gate; if it does not exit `0`, the only acceptable visual-only baseline exception is a failure proven unchanged from the exact branch start, with the exact failure, branch-start diff proof, and focused changed-file lint result explicitly reported.
 
 ## Out of Scope
 

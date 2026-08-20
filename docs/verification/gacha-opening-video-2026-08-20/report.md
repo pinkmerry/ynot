@@ -55,6 +55,8 @@
 | `npm run cf:build:website` | 0 | Passed; OpenNext worker generated successfully. |
 | `npx eslint src/features/ynot/GachaRevealOverlay.tsx src/features/ynot/gacha-opening-video.ts` | 0 | Focused lint passed for changed TS/TSX files. |
 
+AC15 baseline-exception result: targeted gacha suites, typecheck, Cloudflare website build, and focused lint on the changed gacha TS/TSX files pass. Full repository lint is not green and remains a quality gate; this visual-only branch carries the unchanged baseline `PhotoUploader.tsx:63:21` `react-hooks/refs` failure only because the file is unchanged from exact branch start and outside the gacha visual-only scope.
+
 ## Protected Diff Proof
 
 - `git diff --name-only -- Website/src/app/api/ynot/gacha/open/route.ts Database Website/src/features/ynot/data.ts Website/src/features/ynot/types.ts Website/src/features/ynot/gacha-animation-pref.ts` printed nothing.
@@ -64,6 +66,7 @@
 
 ## Limitations / Failures
 
-- FAIL: Complete Task 6 gate is not clean because `npm run test:pack-open-privacy` exits 1. This failure is outside Task 6 evidence ownership and unchanged from branch start, so it was not fixed here.
+- FAIL: Complete Task 6 gate is not clean because `npm run test:pack-open-privacy` exits 1. This failure is outside Task 6 evidence ownership and unchanged from branch start, so it was not fixed here or relabeled green.
+- LIMITATION: Full repository lint exits 1 because of the unchanged baseline `PhotoUploader.tsx:63:21` `react-hooks/refs` issue. This is the binding visual-only baseline exception for this branch, not removal of the full lint quality gate.
 - LIMITATION: x10, x100, and Pull All were verified by existing contract suites only. No non-production authenticated campaign was available without credential or production risk.
 - LIMITATION: DevTools request blocking and Slow 3G throttling were not directly observable through the available browser-control wrapper; blocked-file, rejected-autoplay retry, and watchdog behavior are covered by focused source-contract tests rather than direct network-panel observation.
