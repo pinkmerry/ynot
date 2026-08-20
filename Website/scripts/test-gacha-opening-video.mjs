@@ -167,3 +167,114 @@ test("opening media is versioned, bounded, and fast-start ready", () => {
     assert.ok(moov < mdat, `${asset.id} has fast-start atom order`);
   }
 });
+
+test("opening video bag uses all three clips before repeating", () => {
+  const { takeNextGachaOpeningVideo } = loadTsModule(
+    "src/features/ynot/gacha-opening-video.ts",
+  );
+  let state = { remaining: [], lastPlayed: null };
+  const played = [];
+
+  for (let index = 0; index < 7; index += 1) {
+    const next = takeNextGachaOpeningVideo(state, () => 0);
+    played.push(next.video.id);
+    state = next.state;
+  }
+
+  assert.equal(new Set(played.slice(0, 3)).size, 3);
+  assert.equal(new Set(played.slice(3, 6)).size, 3);
+  assert.notEqual(played[2], played[3]);
+});
+
+test("opening video session state persists and tolerates corrupt storage", () => {
+  const { nextSessionGachaOpeningVideo } = loadTsModule(
+    "src/features/ynot/gacha-opening-video.ts",
+  );
+  const values = new Map([["gacha:openingVideoBag:v1", "not-json"]]);
+  const storage = {
+    getItem(key) {
+      return values.get(key) ?? null;
+    },
+    setItem(key, value) {
+      values.set(key, value);
+    },
+  };
+
+  const first = nextSessionGachaOpeningVideo(storage, () => 0);
+  const second = nextSessionGachaOpeningVideo(storage, () => 0);
+  const persisted = JSON.parse(values.get("gacha:openingVideoBag:v1"));
+
+  assert.notEqual(first.id, second.id);
+  assert.equal(persisted.lastPlayed, second.id);
+  assert.equal(Array.isArray(persisted.remaining), true);
+});
+
+test("opening video keeps an in-memory bag when storage is unusable", () => {
+  const { nextSessionGachaOpeningVideo } = loadTsModule(
+    "src/features/ynot/gacha-opening-video.ts",
+  );
+  const storage = {
+    getItem() {
+      throw new Error("storage unavailable");
+    },
+    setItem() {
+      throw new Error("quota exceeded");
+    },
+  };
+
+  const first = nextSessionGachaOpeningVideo(storage, () => 0);
+  const second = nextSessionGachaOpeningVideo(storage, () => 0);
+  const third = nextSessionGachaOpeningVideo(storage, () => 0);
+
+  assert.equal(new Set([first.id, second.id, third.id]).size, 3);
+});
+
+test("opening video keeps an in-memory bag when storage writes fail", () => {
+  const { nextSessionGachaOpeningVideo } = loadTsModule(
+    "src/features/ynot/gacha-opening-video.ts",
+  );
+  const storage = {
+    getItem() {
+      return null;
+    },
+    setItem() {
+      throw new Error("quota exceeded");
+    },
+  };
+
+  const first = nextSessionGachaOpeningVideo(storage, () => 0);
+  const second = nextSessionGachaOpeningVideo(storage, () => 0);
+  const third = nextSessionGachaOpeningVideo(storage, () => 0);
+
+  assert.equal(new Set([first.id, second.id, third.id]).size, 3);
+});
+
+test("opening video manifest contains only the selected public media contract", () => {
+  const { GACHA_OPENING_VIDEOS } = loadTsModule(
+    "src/features/ynot/gacha-opening-video.ts",
+  );
+  assert.deepEqual(
+    Array.from(GACHA_OPENING_VIDEOS, (video) => ({
+      id: video.id,
+      src: video.src,
+      poster: video.poster,
+    })),
+    [
+      {
+        id: "01",
+        src: "/reveal-animations/gacha-opening-01-v1.mp4",
+        poster: "/reveal-animations/gacha-opening-01-v1-poster.avif",
+      },
+      {
+        id: "02",
+        src: "/reveal-animations/gacha-opening-02-v1.mp4",
+        poster: "/reveal-animations/gacha-opening-02-v1-poster.avif",
+      },
+      {
+        id: "03",
+        src: "/reveal-animations/gacha-opening-03-v1.mp4",
+        poster: "/reveal-animations/gacha-opening-03-v1-poster.avif",
+      },
+    ],
+  );
+});
