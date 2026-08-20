@@ -49,6 +49,7 @@
     "test:seo": "npm run test:seo-public-answer-contract",
     "test:gacha-open-bundle": "node --test scripts/test-gacha-open-bundle.mjs",
     "test:gacha-open-launch-safety": "node --test scripts/test-gacha-open-launch-safety.mjs",
+    "test:gacha-opening-video": "node --test scripts/test-gacha-opening-video.mjs",
     "test:random-pack-bundles": "node --test scripts/test-random-pack-bundle-quantity.mjs",
     "test:random-pack-qty-sticker": "node --test scripts/test-random-pack-qty-sticker.mjs",
     "test:production-security-regressions": "node --test scripts/test-production-security-regressions.mjs",
