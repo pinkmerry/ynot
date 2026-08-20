@@ -329,3 +329,35 @@ test("admin tier media remains a single-source override", () => {
   );
   assert.match(overlay, /Boolean\(openingVideoSource\.soundUrl\)/);
 });
+
+test("portrait opening video has explicit preload and visible states", () => {
+  const css = read("src/app/globals.css");
+  assert.match(css, /\.gacha-reveal-opening-video-stage\.is-preloading \{[\s\S]*opacity:\s*0/);
+  assert.match(css, /\.gacha-reveal-opening-video-stage\.is-visible/);
+  assert.match(css, /\.gacha-reveal-opening-video \{[\s\S]*aspect-ratio:\s*9\s*\/\s*16/);
+  assert.match(css, /\.gacha-reveal-opening-video \{[\s\S]*object-fit:\s*contain/);
+});
+
+test("multi-result summary exposes two complete phone rows before scrolling", () => {
+  const css = read("src/app/globals.css");
+  assert.match(
+    css,
+    /\.gacha-reveal-grid:not\(\[data-quantity="1"\]\) \{[\s\S]*grid-template-columns:\s*repeat\(2,[\s\S]*max-width:\s*348px[\s\S]*max-height:\s*min\(486px,\s*calc\(140vw - 46px\)\)[\s\S]*overflow-y:\s*auto/,
+  );
+  assert.match(
+    css,
+    /\.gacha-reveal-grid\[data-quantity="1"\] \{[\s\S]*grid-template-columns:\s*1fr[\s\S]*max-width:\s*280px/,
+  );
+});
+
+test("phone summary and final dock remain reachable without clipping", () => {
+  const css = read("src/app/globals.css");
+  assert.match(
+    css,
+    /@media \(max-width:\s*560px\) \{[\s\S]*\.gacha-reveal-overlay\[data-stage="summary"\][\s\S]*overflow-y:\s*auto/,
+  );
+  assert.match(
+    css,
+    /@media \(max-width:\s*560px\) \{[\s\S]*\.gacha-reveal-summary-footer \.gacha-reveal-dock[\s\S]*grid-template-columns:\s*repeat\(2,/,
+  );
+});
