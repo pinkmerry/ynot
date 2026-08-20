@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-20T16:39:38.265Z",
+  "generatedAt": "2026-08-20T16:46:09.211Z",
   "route": "http://127.0.0.1:3000/local-stock-subsku-test",
   "observations": [
     {
@@ -987,6 +987,14 @@
         "width": 375
       },
       "visibleCompleteCards": 3
+    },
+    {
+      "label": "x5-375-footer-overlay-scroll-proof",
+      "limitation": {
+        "name": "Error",
+        "message": "Browser Use cannot open http://127.0.0.1:3000/local-stock-subsku-test in tab 1285251305. Browser reported: net::ERR_BLOCKED_BY_CLIENT",
+        "stack": "Error: Browser Use cannot open http://127.0.0.1:3000/local-stock-subsku-test in tab 1285251305. Browser reported: net::ERR_BLOCKED_BY_CLIENT\n    at /Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:1014:30724\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async /Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:4095:2429\n    at async FP (/Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:4095:6993)\n    at async /Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:4095:7255\n    at async Object.WH [as withCommandTelemetry] (/Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:4095:7231)\n    at async /Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:4095:2387\n    at async Object.run (/Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:4095:3768)\n    at async Jo.executeAgentCommand (/Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:4095:2300)\n    at async Jo.send (/Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:926:523)"
+      }
     }
   ]
 }

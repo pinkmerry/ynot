@@ -32,6 +32,7 @@
 - 375x667 DOM measurement:
   - Before scroll: 5 `.gacha-reveal-card` nodes, 4 complete cards visible, 0 console errors, 0 normal-open API requests.
   - Footer reachability limitation: browser scroll attempt did not move the overlay enough to bring `Back to pack detail`, `View collection`, or the preference toggle into the 375x667 viewport. Source contract still asserts the phone overlay has `overflow-y: auto`, but this browser pass did not prove the footer row reachable on 375x667.
+  - Follow-up bounded footer proof attempt against `.gacha-reveal-overlay[data-stage="summary"]` could not reload the local route after browser finalization; Browser plugin returned `net::ERR_BLOCKED_BY_CLIENT`. No CSS or implementation change was made in Task 6.
 
 ## Automated Verification
 
