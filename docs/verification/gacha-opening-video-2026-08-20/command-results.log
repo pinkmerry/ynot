@@ -1,0 +1,657 @@
+## npm run test:gacha-opening-video
+start: 2026-08-20T16:40:41Z
+
+> lucky-draw-next@0.1.0 test:gacha-opening-video
+> node --test scripts/test-gacha-opening-video.mjs
+
+✔ gacha overlay remains downstream of one settled normal-open result (4.249625ms)
+✔ normal and Pull All keep one shared final-result overlay (1.246291ms)
+✔ final prize summary retains result, tier, Last Prize, and actions (0.270792ms)
+✔ opening media is versioned, bounded, and fast-start ready (5.99875ms)
+✔ opening video bag uses all three clips before repeating (54.09175ms)
+✔ opening video session state persists and tolerates corrupt storage (11.006125ms)
+✔ opening video keeps an in-memory bag when storage is unusable (8.314666ms)
+✔ opening video keeps an in-memory bag when storage writes fail (6.735625ms)
+✔ opening video manifest contains only the selected public media contract (6.212958ms)
+✔ overlay uses reveal, opening video, spotlight, and summary only (0.407167ms)
+✔ selected video preloads once and advances without a fixed eight-second timer (0.288833ms)
+✔ skip and non-media fallbacks preserve access to the settled result (0.245917ms)
+✔ admin tier media remains a single-source override (0.2245ms)
+✔ portrait opening video has explicit preload and visible states (5.714709ms)
+✔ multi-result summary exposes two complete phone rows before scrolling (22.665459ms)
+✔ phone summary and final dock remain reachable without clipping (4.19375ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 419.588167
+exit: 0
+end: 2026-08-20T16:40:42Z
+
+## npm run test:pack-opening-flow
+start: 2026-08-20T16:40:42Z
+
+> lucky-draw-next@0.1.0 test:pack-opening-flow
+> node --test scripts/test-pack-opening-flow.mjs
+
+✔ open confirmation creates a stable intent before auto-start reveal (3.838125ms)
+✔ pack detail renders fresh stock data and keeps arena imagery contained (4.653375ms)
+✔ open page validates and passes the intent to the client reveal panel (1.721375ms)
+✔ auto-start open uses intent-derived idempotency and strips replay URL after success (1.84375ms)
+✔ browser reload or back cannot double-charge an auto-start, while Continue Pull creates a new paid intent (2.087791ms)
+✔ first auto-start pull preserves 1, 10, and 100 quantities as one open call (2.351333ms)
+✔ invalid auto-start quantities stop the pending overlay with a visible error (1.305083ms)
+✔ repeat pull options use locally updated remaining stock from open result (1.732959ms)
+✔ reveal summary action buttons stay clickable above the auto-skip toggle (7.183584ms)
+✔ shared reveal stage order changes presentation without changing final result (0.338916ms)
+✔ customer Pull All uses the real quote/start flow and stays separate from x100 (3.017917ms)
+✔ Pull All does not replace configured normal open quantity buttons (2.306208ms)
+✔ active pack detail prize images stay in fixed-size card tracks (6.74325ms)
+✔ active pack detail fan cards open the spinning lightbox (0.74225ms)
+✔ public open quantity surfaces share final-slot helpers without exposing private logic terms (3.624042ms)
+✔ localhost preview opens land public rewards in the preview bag (2.780334ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 125.114042
+exit: 0
+end: 2026-08-20T16:40:42Z
+
+## npm run test:pack-open-pull-contract
+start: 2026-08-20T16:40:42Z
+
+> lucky-draw-next@0.1.0 test:pack-open-pull-contract
+> node --test scripts/test-pack-open-pull-contract.mjs
+
+✔ pack open API sends x1, x10, and x100 pulls to one protected RPC call (1.638417ms)
+✔ normal pack opens debit exactly quantity cost and replay before wallet mutation (0.718917ms)
+✔ preview open mock uses the same public stock-image projection as reveal hydration (0.37725ms)
+✔ first and repeated pull choices stay valid for x1, x10, and x100 while stock remains (0.56625ms)
+✔ pack open and Pull All keep wallet balance fresh without full page reload (0.35275ms)
+✔ final-prize exact-left boundaries allow x1, x10, and x100 when the request empties the pack (0.39675ms)
+✔ Last Prize stays first-class in public reveal, history, and collection display (0.459458ms)
+✔ pulled prize images use the awarded stock-unit image in animation, summary, bag, and history (1.66875ms)
+✔ awards land in user bag with exact open item, prize unit, collection item, and bundle links (0.369875ms)
+✔ Global, Main SKU, Sub-SKU, and pack-assigned stock counters stay separated (0.545375ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 342.890333
+exit: 0
+end: 2026-08-20T16:40:43Z
+
+## npm run test:gacha-open-launch-safety
+start: 2026-08-20T16:40:43Z
+
+> lucky-draw-next@0.1.0 test:gacha-open-launch-safety
+> node --test scripts/test-gacha-open-launch-safety.mjs
+
+✔ RPC proof migration marks stock-unit images without widening the public response (2.443792ms)
+✔ weighted API rate limit increments by pack quantity (0.560584ms)
+✔ pack open API has request, profile-unit, and IP-unit launch guards (0.158333ms)
+✔ 100-pack opens remain one weighted API call (0.837375ms)
+✔ CI deploy config stays free-plan deployable without paid CPU limits (0.178ms)
+✔ pack open API exposes only sanitized RPC remaining fields (0.261125ms)
+✔ idempotent replay responses include fresh remaining stock from the RPC (0.414959ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 82.303208
+exit: 0
+end: 2026-08-20T16:40:44Z
+
+## npm run test:gacha-open-performance
+start: 2026-08-20T16:40:44Z
+
+> lucky-draw-next@0.1.0 test:gacha-open-performance
+> node --test scripts/test-gacha-open-performance-shape.mjs
+
+✔ successful pack open does not hydrate after stock-image-proven RPC results (0.851541ms)
+✔ hydration fallback requires exact stock-image proof for normal awards (0.702583ms)
+✔ auto-open page uses lightweight open-entry campaign loader (0.107083ms)
+✔ lightweight open-entry loader avoids full campaign detail reads (0.198541ms)
+✔ inventory summary exposes public openable aggregates for the open-entry loader (0.1965ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 78.700541
+exit: 0
+end: 2026-08-20T16:40:44Z
+
+## npm run test:gacha-open-bundle
+start: 2026-08-20T16:40:44Z
+
+> lucky-draw-next@0.1.0 test:gacha-open-bundle
+> node --test scripts/test-gacha-open-bundle.mjs
+
+✔ open page no longer statically imports the panel from the client barrel (0.758792ms)
+✔ lazy wrapper code-splits the panel via next/dynamic (0.483459ms)
+✔ auto-open page uses the lightweight reveal-entry loader (0.127125ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 74.123792
+exit: 0
+end: 2026-08-20T16:40:44Z
+
+## npm run test:local-stock-subsku-flow
+start: 2026-08-20T16:40:44Z
+
+> lucky-draw-next@0.1.0 test:local-stock-subsku-flow
+> node --test scripts/test-local-stock-subsku-flow.mjs
+
+✔ local stock mock counts box and loose pack equivalent (0.634834ms)
+✔ selling three packs decrements total packs and creates image-backed rewards (0.288833ms)
+✔ opening a box converts exactly twenty four child packs (0.157083ms)
+✔ selling packs auto opens a box when loose packs are short (0.132042ms)
+✔ localhost page uses production-like customer and admin surfaces (0.206542ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 335.027875
+exit: 0
+end: 2026-08-20T16:40:45Z
+
+## npm run test:subsku-images
+start: 2026-08-20T16:40:45Z
+
+> lucky-draw-next@0.1.0 test:subsku-images
+> node --test scripts/test-subsku-image-routing.mjs
+
+✔ public sub-SKU image helper prefers exact stock-unit image and falls back to catalog image (79.518792ms)
+✔ public sub-SKU image helper builds server-only image maps from linked prize units (21.959834ms)
+✔ public reward open item falls back from invalid displayTier to raw tier (14.256333ms)
+✔ public pack detail prize lineups prefer linked sub-SKU images (2.057083ms)
+✔ public prize preview still strips internal stock and house fields (0.567042ms)
+✔ pack opening API resolves awarded stock-unit image without exposing internal IDs (0.664ms)
+✔ pack opening RPC returns sub-SKU image before the fast reveal skips hydration (0.248875ms)
+✔ opening reward history carries a public image URL only (1.05325ms)
+✔ shipping history images come from the won stock unit only (0.849792ms)
+✔ stock-unit enrichment uses the batched reader on customer collection, history, and shipping paths (1.922292ms)
+✔ card stock-unit batched reader contract keeps helper internals bounded (2.136ms)
+✔ collection card components render existing collection image URLs (7.226416ms)
+✔ all pulls reward history renders public image URLs (0.344292ms)
+✔ customer collection data does not expose stock cert identifiers (1.34075ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 609.668167
+exit: 0
+end: 2026-08-20T16:40:46Z
+
+## npm run test:pack-open-privacy
+start: 2026-08-20T16:40:46Z
+
+> lucky-draw-next@0.1.0 test:pack-open-privacy
+> node --test scripts/test-pack-open-privacy.mjs
+
+✔ shared customer action token secrets own production missing-secret behavior (0.829791ms)
+✔ public campaign prize previews do not expose owner odds or stock target SKUs (0.510334ms)
+✔ anon and authenticated roles cannot select raw prize metadata (0.17725ms)
+✔ admin prize lineups still request private odds and stock targets (0.16025ms)
+✔ pack-open API response is mapped through a public result shape (0.353584ms)
+✔ customer campaign props hide house logic and internal prize inventory (0.58625ms)
+✖ related public campaign feeds can show sold-out packs without widening every feed (1.539917ms)
+✔ non-admin dynamic campaign detail keeps sold-out public packs visible through public DTOs (0.159459ms)
+✔ pack-open reveal result does not expose raw internal open ids (0.249291ms)
+✔ customer pack pages do not describe stock-sensitive house logic (0.6385ms)
+✔ customer campaign detail does not use dev auth as a private data gate (0.37675ms)
+✔ pack-open browser payload uses public campaign slug and server resolves it internally (0.423083ms)
+✔ open page only renders normal auto-start reveal for openable campaigns (0.127625ms)
+✔ public campaign detail cache is bypassable for fresh openability gates (0.166541ms)
+✔ legacy campaign cards keep open route but send details to pack pages (0.64075ms)
+✔ customer pull history does not expose raw open, reward, or campaign ids (0.30625ms)
+✔ customer collection actions use opaque tokens instead of raw collection item UUIDs (1.825208ms)
+✔ customer collection loads large bags in pages instead of only the first 200 rows (0.195917ms)
+✔ customer login methods use public identity rows and opaque unlink tokens (0.194083ms)
+✔ customer addresses use opaque action tokens and hide database error details (0.33125ms)
+✔ customer wallet top-ups use public DTOs without raw payment-flow ids (0.412792ms)
+✔ customer order histories use public codes instead of raw row ids (0.312167ms)
+✔ collection display maps each collection item to its exact open item (0.142208ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 22
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 98.719958
+
+✖ failing tests:
+
+test at scripts/test-pack-open-privacy.mjs:365:1
+✖ related public campaign feeds can show sold-out packs without widening every feed (1.539917ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /campaignVisibility:\s*"public"/. Input:
+  
+  'import type { Metadata } from "next";\n' +
+    'import { PackCatalogRoute } from "@/features/ynot/PackCatalogRoute";\n' +
+    '\n' +
+    'export const dynamic = "force-dynamic";\n' +
+    '\n' +
+    'export const metadata: Metadata = {\n' +
+    '  title: "Browse YNOT Open Y-Packs",\n' +
+    '  description:\n' +
+    '    "Browse public YNOT Open Pokemon and One Piece card Y-Packs with wallet coin cost, visible stock signals, reward context, and pack detail pages.",\n' +
+    '  alternates: {\n' +
+    '    canonical: "https://www.ynotopen.com/packs",\n' +
+    '  },\n' +
+    '  openGraph: {\n' +
+    '    title: "Browse YNOT Open Y-Packs",\n' +
+    '    description:\n' +
+    '      "Browse public YNOT Open card Y-Packs with wallet coin cost, visible stock signals, reward context, and detail pages.",\n' +
+    '    url: "https://www.ynotopen.com/packs",\n' +
+    '    siteName: "YNOT Open",\n' +
+    '    type: "website",\n' +
+    '  },\n' +
+    '  twitter: {\n' +
+    '    card: "summary",\n' +
+    '    title: "Browse YNOT Open Y-Packs",\n' +
+    '    description:\n' +
+    '      "Browse Pokemon and One Piece card Y-Packs on YNOT Open with wallet coin cost and public pack detail pages.",\n' +
+    '  },\n' +
+    '};\n' +
+    '\n' +
+    'const validSeriesParams = new Set([\n' +
+    '  "all",\n' +
+    '  "pokemon",\n' +
+    '  "one_piece",\n' +
+    '  "football",\n' +
+    '  "basketball",\n' +
+    '  "soccer",\n' +
+    '  "baseball",\n' +
+    '  "magical",\n' +
+    '  "super",\n' +
+    '  "multi_sport",\n' +
+    ']);\n' +
+    '\n' +
+    'export default async function PacksPage({\n' +
+    '  searchParams,\n' +
+    '}: {\n' +
+    '  searchParams?: Promise<Record<string, string | string[] | undefined>>;\n' +
+    '}) {\n' +
+    '  const params = await searchParams;\n' +
+    '  const seriesParam = Array.isArray(params?.series)\n' +
+    '    ? params.series[0]\n' +
+    '    : params?.series;\n' +
+    '  const initialSeries =\n' +
+    '    seriesParam && validSeriesParams.has(seriesParam) ? seriesParam : "all";\n' +
+    "  // The tag filter is sourced from each pack's customer card tags\n" +
+    '  // (draw_rounds.display_tags), so any tag value is valid here — the\n' +
+    '  // experience resolves it against the tags actually present and ignores\n' +
+    '  // unknown values. Trim/cap only to keep the remount key sane.\n' +
+    '  const tagParam = Array.isArray(params?.tag) ? params.tag[0] : params?.tag;\n' +
+    '  const initialTag =\n' +
+    '    typeof tagParam === "string" && tagParam.trim()\n' +
+    '      ? tagParam.trim().slice(0, 40)\n' +
+    '      : "";\n' +
+    '\n' +
+    '  return (\n' +
+    '    <PackCatalogRoute\n' +
+    '      canonicalPath="/packs"\n' +
+    '      initialSeries={initialSeries}\n' +
+    '      initialTag={initialTag}\n' +
+    '    />\n' +
+    '  );\n' +
+    '}\n'
+  
+      at TestContext.<anonymous> (file:///Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/scripts/test-pack-open-privacy.mjs:410:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: `import type { Metadata } from "next";\nimport { PackCatalogRoute } from "@/features/ynot/PackCatalogRoute";\n\nexport const dynamic = "force-dynamic";\n\nexport const metadata: Metadata = {\n  title: "Browse YNOT Open Y-Packs",\n  description:\n    "Browse public YNOT Open Pokemon and One Piece card Y-Packs with wallet coin cost, visible stock signals, reward context, and pack detail pages.",\n  alternates: {\n    canonical: "https://www.ynotopen.com/packs",\n  },\n  openGraph: {\n    title: "Browse YNOT Open Y-Packs",\n    description:\n      "Browse public YNOT Open card Y-Packs with wallet coin cost, visible stock signals, reward context, and detail pages.",\n    url: "https://www.ynotopen.com/packs",\n    siteName: "YNOT Open",\n    type: "website",\n  },\n  twitter: {\n    card: "summary",\n    title: "Browse YNOT Open Y-Packs",\n    description:\n      "Browse Pokemon and One Piece card Y-Packs on YNOT Open with wallet coin cost and public pack detail pages.",\n  },\n};\n\nconst validSeriesParams = new Set([\n  "all",\n  "pokemon",\n  "one_piece",\n  "football",\n  "basketball",\n  "soccer",\n  "baseball",\n  "magical",\n  "super",\n  "multi_sport",\n]);\n\nexport default async function PacksPage({\n  searchParams,\n}: {\n  searchParams?: Promise<Record<string, string | string[] | undefined>>;\n}) {\n  const params = await searchParams;\n  const seriesParam = Array.isArray(params?.series)\n    ? params.series[0]\n    : params?.series;\n  const initialSeries =\n    seriesParam && validSeriesParams.has(seriesParam) ? seriesParam : "all";\n  // The tag filter is sourced from each pack's customer card tags\n  // (draw_rounds.display_tags), so any tag value is valid here — the\n  // experience resolves it against the tags actually present and ignores\n  // unknown values. Trim/cap only to keep the remount key sane.\n  const tagParam = Array.isArray(params?.tag) ? params.tag[0] : params?.tag;\n  const initialTag =\n    typeof tagParam === "string" && tagParam.trim()\n      ? tagParam.trim().slice(0, 40)\n      : "";\n\n  return (\n    <PackCatalogRoute\n      canonicalPath="/packs"\n      initialSeries={initialSeries}\n      initialTag={initialTag}\n    />\n  );\n}\n`,
+    expected: /campaignVisibility:\s*"public"/,
+    operator: 'match',
+    diff: 'simple'
+  }
+exit: 1
+end: 2026-08-20T16:40:47Z
+
+## npm run test:rate-limits
+start: 2026-08-20T16:40:47Z
+
+> lucky-draw-next@0.1.0 test:rate-limits
+> node --test scripts/test-rate-limit-config.mjs
+
+✔ customer top-up remains stricter than pack-opening request bursts (1.5635ms)
+✔ rate-limit backend failures do not expose internal details (0.300375ms)
+✔ admin catalog stock workflow supports bulk-safe operator limits (1.6045ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 122.963625
+exit: 0
+end: 2026-08-20T16:40:47Z
+
+## npm run typecheck
+start: 2026-08-20T16:40:47Z
+
+> lucky-draw-next@0.1.0 typecheck
+> tsc --noEmit
+
+exit: 0
+end: 2026-08-20T16:41:09Z
+
+## npm run lint
+start: 2026-08-20T16:41:09Z
+
+> lucky-draw-next@0.1.0 lint
+> eslint
+
+[BABEL] Note: The code generator has deoptimised the styling of /Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/features/ynot/client.tsx as it exceeds the max of 500KB.
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/scripts/test-admin-ops-api-rpc-performance.mjs
+   349:10  warning  'objectValueStarts' is defined but never used         @typescript-eslint/no-unused-vars
+  1129:10  warning  'saveMutationSuccessPaths' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/app/(store)/marketplace/sellers/[sellerPublicProfileId]/page.tsx
+  137:23  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/app/admin/marketplace/listings/[listingId]/page.tsx
+  174:19  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/app/api/ynot/admin/campaigns/lifecycle/route.ts
+  469:3  warning  'current' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/app/api/ynot/admin/campaigns/live-revisions/route.ts
+  246:3  warning  'current' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/app/api/ynot/admin/campaigns/route.ts
+  441:3  warning  '_lastPrizeCardId' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/app/api/ynot/admin/cards/route.ts
+   94:10  warning  'enumValue' is defined but never used              @typescript-eslint/no-unused-vars
+  369:16  warning  'duplicateCardResponse' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/features/marketplace-ui/sell/PhotoUploader.tsx
+  63:21  error    Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/features/marketplace-ui/sell/PhotoUploader.tsx:63:21
+  61 |   const localPreviewUrls = useRef(new Set<string>());
+  62 |   for (const photo of photos) {
+> 63 |     if (photo.file) localPreviewUrls.current.add(photo.previewUrl);
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render
+  64 |   }
+  65 |
+  66 |   // Existing photos use authenticated server URLs and must never be revoked      react-hooks/refs
+  63:21  error    Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/features/marketplace-ui/sell/PhotoUploader.tsx:63:21
+  61 |   const localPreviewUrls = useRef(new Set<string>());
+  62 |   for (const photo of photos) {
+> 63 |     if (photo.file) localPreviewUrls.current.add(photo.previewUrl);
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render
+  64 |   }
+  65 |
+  66 |   // Existing photos use authenticated server URLs and must never be revoked  react-hooks/refs
+  71:42  warning  The ref value 'localPreviewUrls.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'localPreviewUrls.current' to a variable inside the effect, and use that variable in the cleanup function                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          react-hooks/exhaustive-deps
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/features/ynot/MarketplaceListingGallery.tsx
+   46:13  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  108:15  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/features/ynot/MarketplaceListingLightbox.tsx
+   87:11  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  108:17  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/features/ynot/admin/prize-catalog/LedgerRow.tsx
+  292:9  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/features/ynot/admin/prize-catalog/MainSkuForm.tsx
+  404:13  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/features/ynot/admin/prize-catalog/VariantTable.tsx
+  127:13  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/features/ynot/client.tsx
+  4816:48  warning  '_lastPrizeCardId' is defined but never used              @typescript-eslint/no-unused-vars
+  9883:18  warning  'setIsTest' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  9884:21  warning  'setSeedRunId' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  9885:23  warning  'setAssetSource' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  9886:24  warning  'setAssetLicense' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  9887:28  warning  'setAssetManifestKey' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/src/features/ynot/components.tsx
+  1395:10  warning  'marketplaceSourceLabel' is defined but never used  @typescript-eslint/no-unused-vars
+  1432:10  warning  'marketplaceListingHref' is defined but never used  @typescript-eslint/no-unused-vars
+  1446:3   warning  'launchStatus' is defined but never used            @typescript-eslint/no-unused-vars
+
+✖ 28 problems (2 errors, 26 warnings)
+
+exit: 1
+end: 2026-08-20T16:41:35Z
+
+## npm run cf:build:website
+start: 2026-08-20T16:41:35Z
+
+> lucky-draw-next@0.1.0 cf:build:website
+> NEXT_PUBLIC_ENABLE_LINE_LOGIN=${NEXT_PUBLIC_ENABLE_LINE_LOGIN:-true} NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-https://www.ynotopen.com} node scripts/run-cloudflare-target-build.mjs website -- opennextjs-cloudflare build --config wrangler.website.jsonc
+
+[cf:target-build] website: pruned 9 route path(s) before OpenNext build
+
+┌─────────────────────────────┐
+│ OpenNext — Cloudflare build │
+└─────────────────────────────┘
+
+App directory: /Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website
+Next.js version : 16.2.6
+@opennextjs/cloudflare version: 1.19.10
+@opennextjs/aws version: 4.0.2
+workerd compatibility_date: 2026-05-17
+
+┌─────────────────────────────────┐
+│ OpenNext — Building Next.js app │
+└─────────────────────────────────┘
+
+
+> lucky-draw-next@0.1.0 build
+> next build
+
+▲ Next.js 16.2.6 (Turbopack)
+- Environments: .env.local
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 12.7s
+  Running TypeScript ...
+  Finished TypeScript in 19.4s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/31) ...
+  Generating static pages using 7 workers (7/31) 
+  Generating static pages using 7 workers (15/31) 
+  Generating static pages using 7 workers (23/31) 
+✓ Generating static pages using 7 workers (31/31) in 102ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /about
+├ ƒ /account/identities
+├ ƒ /admin
+├ ƒ /admin/audit
+├ ƒ /admin/campaigns
+├ ƒ /admin/campaigns/[id]/edit
+├ ƒ /admin/campaigns/[id]/monitor
+├ ƒ /admin/campaigns/[id]/review
+├ ƒ /admin/categories
+├ ƒ /admin/health
+├ ƒ /admin/prizes
+├ ƒ /admin/rankings
+├ ƒ /admin/seo
+├ ƒ /admin/settings
+├ ƒ /admin/shipping
+├ ƒ /admin/tier-animations
+├ ƒ /admin/top-ups
+├ ƒ /admin/users
+├ ƒ /admin/users/[profileId]
+├ ƒ /admin/ynot/live-packs/[slug]/monitor
+├ ƒ /api/auth/email-otp/send
+├ ƒ /api/auth/email-otp/verify
+├ ƒ /api/auth/google/start
+├ ƒ /api/auth/identities/unlink
+├ ƒ /api/internal/marketplace/payment-receiver
+├ ƒ /api/internal/marketplace/session
+├ ƒ /api/line/callback
+├ ƒ /api/line/login/start
+├ ƒ /api/line/session
+├ ƒ /api/lucky-draw
+├ ƒ /api/lucky-draw/admin/card-image
+├ ƒ /api/lucky-draw/admin/draw
+├ ƒ /api/lucky-draw/admin/draw/lifecycle
+├ ƒ /api/lucky-draw/admin/order
+├ ƒ /api/lucky-draw/admin/qr
+├ ƒ /api/lucky-draw/admin/slip
+├ ƒ /api/lucky-draw/admin/slip/verify-test
+├ ƒ /api/lucky-draw/picks
+├ ƒ /api/lucky-draw/profile
+├ ƒ /api/ynot/addresses
+├ ƒ /api/ynot/admin/campaigns
+├ ƒ /api/ynot/admin/campaigns/[id]/lineup
+├ ƒ /api/ynot/admin/campaigns/[id]/monitor
+├ ƒ /api/ynot/admin/campaigns/banner-image
+├ ƒ /api/ynot/admin/campaigns/cost
+├ ƒ /api/ynot/admin/campaigns/lifecycle
+├ ƒ /api/ynot/admin/campaigns/live-revisions
+├ ƒ /api/ynot/admin/campaigns/purge
+├ ƒ /api/ynot/admin/campaigns/reorder
+├ ƒ /api/ynot/admin/card-options
+├ ƒ /api/ynot/admin/card-stock
+├ ƒ /api/ynot/admin/card-stock/purge-archived
+├ ƒ /api/ynot/admin/card-stock/unit
+├ ƒ /api/ynot/admin/card-stock/units
+├ ƒ /api/ynot/admin/cards
+├ ƒ /api/ynot/admin/cards/image
+├ ƒ /api/ynot/admin/categories
+├ ƒ /api/ynot/admin/featured-packs
+├ ƒ /api/ynot/admin/gemrate-cert
+├ ƒ /api/ynot/admin/merge-requests
+├ ƒ /api/ynot/admin/payment-methods
+├ ƒ /api/ynot/admin/payment-methods/qr-image
+├ ƒ /api/ynot/admin/prizes
+├ ƒ /api/ynot/admin/prizes/odds
+├ ƒ /api/ynot/admin/shipping
+├ ƒ /api/ynot/admin/stock-skus
+├ ƒ /api/ynot/admin/stock-skus/open-container
+├ ƒ /api/ynot/admin/tier-animations
+├ ƒ /api/ynot/admin/top-ups
+├ ƒ /api/ynot/admin/users
+├ ƒ /api/ynot/admin/users/[profileId]/detail
+├ ƒ /api/ynot/collection/convert
+├ ƒ /api/ynot/collection/convert/current
+├ ƒ /api/ynot/exchange
+├ ƒ /api/ynot/gacha/bulk-open/current
+├ ƒ /api/ynot/gacha/bulk-open/highlights-seen
+├ ƒ /api/ynot/gacha/bulk-open/quote
+├ ƒ /api/ynot/gacha/bulk-open/start
+├ ƒ /api/ynot/gacha/open
+├ ƒ /api/ynot/packs/[slug]/last-prize
+├ ƒ /api/ynot/shipping
+├ ƒ /api/ynot/shipping/current
+├ ƒ /api/ynot/wallet
+├ ƒ /auth/callback
+├ ƒ /auth/sign-out
+├ ƒ /collection
+├ ƒ /complete-profile
+├ ƒ /contact
+├ ƒ /content
+├ ƒ /exchange
+├ ƒ /faq
+├ ƒ /gacha/[campaignId]
+├ ƒ /gacha/[campaignId]/open
+├ ƒ /help/[slug]
+├ ○ /icon.png
+├ ○ /llms-full.txt
+├ ○ /llms.txt
+├ ƒ /login
+├ ƒ /news
+├ ƒ /notifications
+├ ƒ /one-piece-card
+├ ƒ /online-mystery-packs-thailand
+├ ƒ /oripa
+├ ƒ /packs
+├ ƒ /packs/[slug]
+├ ƒ /packs/one-piece
+├ ƒ /packs/pokemon
+├ ƒ /pokemon-card
+├ ƒ /profile
+├ ƒ /profile/all-pulls
+├ ƒ /profile/personal-info
+├ ƒ /ranking
+├ ○ /robots.txt
+├ ƒ /shipping
+├ ƒ /signup
+├ ƒ /sitemap.xml
+├ ƒ /trading-card-marketplace-thailand
+├ ƒ /wallet
+└ ƒ /ynot
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+┌──────────────────────────────┐
+│ OpenNext — Generating bundle │
+└──────────────────────────────┘
+
+Bundling middleware function...
+Bundling static assets...
+Bundling cache assets...
+Building server function: default...
+Applying code patches: 3.524s
+# copyPackageTemplateFiles
+[35m⚙️ Bundling the OpenNext server...
+[0m
+[35mWorker saved in `.open-next/worker.js` 🚀
+[0m
+OpenNext build complete.
+[cf:target-build] website: restored pruned route path(s)
+exit: 0
+end: 2026-08-20T16:42:28Z
+

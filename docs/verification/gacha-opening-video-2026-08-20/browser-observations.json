@@ -1,0 +1,992 @@
+{
+  "generatedAt": "2026-08-20T16:39:38.265Z",
+  "route": "http://127.0.0.1:3000/local-stock-subsku-test",
+  "observations": [
+    {
+      "apiOpenRequests": [],
+      "buttons": [
+        {
+          "className": "settings-menu-button hamburger-button",
+          "disabled": false,
+          "height": 36,
+          "i": 0,
+          "text": "Menu",
+          "visible": true,
+          "width": 36,
+          "x": 9.765625,
+          "y": 17
+        },
+        {
+          "className": "store-nav-link",
+          "disabled": false,
+          "height": 0,
+          "i": 1,
+          "text": "Y-Packs",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "ynot-mega-link",
+          "disabled": false,
+          "height": 0,
+          "i": 2,
+          "text": "All Packs",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "ynot-mega-link",
+          "disabled": false,
+          "height": 0,
+          "i": 3,
+          "text": "Pokemon",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "ynot-mega-link",
+          "disabled": false,
+          "height": 0,
+          "i": 4,
+          "text": "One Piece",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "ynot-mega-card",
+          "disabled": false,
+          "height": 0,
+          "i": 5,
+          "text": "Pokemon",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "ynot-mega-card",
+          "disabled": false,
+          "height": 0,
+          "i": 6,
+          "text": "One Piece",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "brand-lockup",
+          "disabled": false,
+          "height": 40,
+          "i": 7,
+          "text": "YNOT home / หน้าแรก YNOT",
+          "visible": true,
+          "width": 137.2421875,
+          "x": 118.875,
+          "y": 15
+        },
+        {
+          "className": "store-language-toggle-trigger",
+          "disabled": false,
+          "height": 0,
+          "i": 8,
+          "text": "EN",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "store-nav-link store-nav-link--right",
+          "disabled": false,
+          "height": 0,
+          "i": 9,
+          "text": "Log in",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "secondary-action compact",
+          "disabled": false,
+          "height": 42,
+          "i": 10,
+          "text": "Readinessความพร้อม",
+          "visible": true,
+          "width": 122.5625,
+          "x": 28.375,
+          "y": 298.0703125
+        },
+        {
+          "className": "is-active",
+          "disabled": false,
+          "height": 42,
+          "i": 11,
+          "text": "Customer production flowขั้นตอนลูกค้าแบบโปรดักชัน",
+          "visible": true,
+          "width": 364.75,
+          "x": 5.125,
+          "y": 345.1953125
+        },
+        {
+          "className": "",
+          "disabled": false,
+          "height": 42,
+          "i": 12,
+          "text": "Admin production flowขั้นตอนแอดมินแบบโปรดักชัน",
+          "visible": true,
+          "width": 364.75,
+          "x": 5.125,
+          "y": 391.3203125
+        },
+        {
+          "className": "cr-dock-qty-btn ",
+          "disabled": false,
+          "height": 40,
+          "i": 13,
+          "text": "x1",
+          "visible": true,
+          "width": 56,
+          "x": 97.5,
+          "y": 538
+        },
+        {
+          "className": "cr-dock-qty-btn ",
+          "disabled": false,
+          "height": 40,
+          "i": 14,
+          "text": "x3",
+          "visible": true,
+          "width": 56,
+          "x": 159.5,
+          "y": 538
+        },
+        {
+          "className": "cr-dock-qty-btn active",
+          "disabled": false,
+          "height": 40,
+          "i": 15,
+          "text": "x5",
+          "visible": true,
+          "width": 56,
+          "x": 221.5,
+          "y": 538
+        },
+        {
+          "className": "cr-btn cr-btn-primary cr-btn-lg",
+          "disabled": false,
+          "height": 48,
+          "i": 16,
+          "text": "Open 5 packsเปิด 5 ซอง",
+          "visible": true,
+          "width": 140.40625,
+          "x": 209.59375,
+          "y": 594
+        },
+        {
+          "className": "gacha-reveal-back",
+          "disabled": false,
+          "height": 40,
+          "i": 17,
+          "text": "Pack detailรายละเอียดแพ็ก",
+          "visible": true,
+          "width": 139.84375,
+          "x": 18,
+          "y": 18
+        },
+        {
+          "className": "gacha-reveal-mute",
+          "disabled": false,
+          "height": 40,
+          "i": 18,
+          "text": "🔇",
+          "visible": true,
+          "width": 40,
+          "x": 317,
+          "y": 18
+        },
+        {
+          "className": "gacha-reveal-repeat-action",
+          "disabled": false,
+          "height": 49.34375,
+          "i": 19,
+          "text": "Pull x1120 coins",
+          "visible": true,
+          "width": 111.6640625,
+          "x": 12,
+          "y": 647.140625
+        },
+        {
+          "className": "gacha-reveal-repeat-action",
+          "disabled": false,
+          "height": 49.34375,
+          "i": 20,
+          "text": "Pull x3360 coins",
+          "visible": true,
+          "width": 111.6640625,
+          "x": 131.6640625,
+          "y": 647.140625
+        },
+        {
+          "className": "gacha-reveal-repeat-action",
+          "disabled": false,
+          "height": 49.34375,
+          "i": 21,
+          "text": "Pull x5600 coins",
+          "visible": true,
+          "width": 111.6640625,
+          "x": 251.328125,
+          "y": 647.140625
+        },
+        {
+          "className": "gacha-reveal-dock-action is-primary",
+          "disabled": false,
+          "height": 56,
+          "i": 22,
+          "text": "Back to pack detailกลับรายละเอียดแพ็กOpen again thereเปิดอีกครั้งจากหน้านั้น",
+          "visible": false,
+          "width": 171.5,
+          "x": 12,
+          "y": 704.484375
+        },
+        {
+          "className": "gacha-reveal-dock-action is-ghost",
+          "disabled": false,
+          "height": 56,
+          "i": 23,
+          "text": "View collectionดูคอลเลกชันCheck inventoryตรวจของในกระเป๋า",
+          "visible": false,
+          "width": 171.5,
+          "x": 191.5,
+          "y": 704.484375
+        },
+        {
+          "className": "gacha-reveal-toggle",
+          "disabled": false,
+          "height": 17.3984375,
+          "i": 24,
+          "text": "Skip animation next timeข้ามแอนิเมชันครั้งต่อไป",
+          "visible": false,
+          "width": 153.609375,
+          "x": 110.6953125,
+          "y": 768.484375
+        },
+        {
+          "className": "ynot-footer-link",
+          "disabled": false,
+          "height": 18,
+          "i": 25,
+          "text": "FAQFAQ",
+          "visible": false,
+          "width": 29.4140625,
+          "x": 172.7890625,
+          "y": 3859.984375
+        },
+        {
+          "className": "ynot-footer-link",
+          "disabled": false,
+          "height": 18,
+          "i": 26,
+          "text": "Contentคอนเทนต์",
+          "visible": false,
+          "width": 70.6015625,
+          "x": 152.1953125,
+          "y": 3891.984375
+        },
+        {
+          "className": "ynot-footer-link",
+          "disabled": false,
+          "height": 18,
+          "i": 27,
+          "text": "Newsข่าวสาร",
+          "visible": false,
+          "width": 43.203125,
+          "x": 165.8984375,
+          "y": 3923.984375
+        },
+        {
+          "className": "ynot-footer-link",
+          "disabled": false,
+          "height": 18,
+          "i": 28,
+          "text": "Aboutเกี่ยวกับเรา",
+          "visible": false,
+          "width": 50.34375,
+          "x": 162.328125,
+          "y": 3955.984375
+        },
+        {
+          "className": "ynot-footer-link",
+          "disabled": false,
+          "height": 18,
+          "i": 29,
+          "text": "Contactติดต่อเรา",
+          "visible": false,
+          "width": 69.71875,
+          "x": 152.640625,
+          "y": 3987.984375
+        },
+        {
+          "className": "ynot-footer-link",
+          "disabled": false,
+          "height": 18,
+          "i": 30,
+          "text": "InstagramInstagram",
+          "visible": false,
+          "width": 86.65625,
+          "x": 144.171875,
+          "y": 4019.984375
+        },
+        {
+          "className": "store-drawer-link store-drawer-link-drill",
+          "disabled": false,
+          "height": 38,
+          "i": 31,
+          "text": "Y-Packs",
+          "visible": true,
+          "width": 375,
+          "x": -375,
+          "y": 89
+        },
+        {
+          "className": "store-drawer-bottom-link",
+          "disabled": false,
+          "height": 21.6953125,
+          "i": 32,
+          "text": "Create account",
+          "visible": true,
+          "width": 327,
+          "x": -351,
+          "y": 517.109375
+        },
+        {
+          "className": "store-drawer-bottom-link",
+          "disabled": false,
+          "height": 21.6953125,
+          "i": 33,
+          "text": "Log in",
+          "visible": true,
+          "width": 327,
+          "x": -351,
+          "y": 552.8046875
+        },
+        {
+          "className": "store-drawer-lang-link active",
+          "disabled": false,
+          "height": 21.6953125,
+          "i": 34,
+          "text": "EN",
+          "visible": true,
+          "width": 24.4921875,
+          "x": -351,
+          "y": 598.6484375
+        },
+        {
+          "className": "store-drawer-lang-link",
+          "disabled": false,
+          "height": 21.6953125,
+          "i": 35,
+          "text": "TH",
+          "visible": true,
+          "width": 23.703125,
+          "x": -308.09375,
+          "y": 598.6484375
+        },
+        {
+          "className": "store-drawer-back",
+          "disabled": false,
+          "height": 38,
+          "i": 36,
+          "text": "Back",
+          "visible": true,
+          "width": 375,
+          "x": 0,
+          "y": 89
+        }
+      ],
+      "cards": [
+        {
+          "bottom": 365.140625,
+          "height": 232.3984375,
+          "i": 0,
+          "text": "",
+          "top": 132.7421875,
+          "visibleComplete": true,
+          "width": 166,
+          "x": 13.5,
+          "y": 132.7421875
+        },
+        {
+          "bottom": 365.140625,
+          "height": 232.3984375,
+          "i": 1,
+          "text": "",
+          "top": 132.7421875,
+          "visibleComplete": true,
+          "width": 166,
+          "x": 189.5,
+          "y": 132.7421875
+        },
+        {
+          "bottom": 607.5390625,
+          "height": 232.3984375,
+          "i": 2,
+          "text": "",
+          "top": 375.140625,
+          "visibleComplete": true,
+          "width": 166,
+          "x": 13.5,
+          "y": 375.140625
+        },
+        {
+          "bottom": 607.5390625,
+          "height": 232.3984375,
+          "i": 3,
+          "text": "",
+          "top": 375.140625,
+          "visibleComplete": true,
+          "width": 166,
+          "x": 189.5,
+          "y": 375.140625
+        },
+        {
+          "bottom": 849.9375,
+          "height": 232.3984375,
+          "i": 4,
+          "text": "",
+          "top": 617.5390625,
+          "visibleComplete": false,
+          "width": 166,
+          "x": 13.5,
+          "y": 617.5390625
+        }
+      ],
+      "consoleErrors": [],
+      "gridRect": {
+        "bottom": 611.7421875,
+        "height": 479,
+        "top": 132.7421875,
+        "width": 348,
+        "x": 13.5,
+        "y": 132.7421875
+      },
+      "hasSkip": false,
+      "hasSummary": true,
+      "label": "x5-375-summary-before-scroll",
+      "mediaRequests": [],
+      "scroll": {
+        "body": 4104,
+        "doc": 4104,
+        "y": 0
+      },
+      "text": "LOCAL PRODUCTION REHEARSAL\n\nCustomer and admin Sub SKU flow\n\nLocalhost-only production-style test for box stock, loose pack stock, pack opening animation, reward images, user bag rows, all-pulls history, and admin stock controls.\n\nReadiness\nCustomer production flow\nAdmin production flow\nLOCAL\n53/58\nPOKEMON\nOP16 LOCAL STOCK TEST\nPOKEMON\nBOX TO PACK\nMOCK WALLET\nLOCAL ONLY\n\nCustomer view rehearsal for buying packs from mixed stock. Box stock stays visible, loose packs decrement first, and a sealed box opens into child packs when loose stock is short.\n\nPRICE / PACK\n120\ncoins per open\nSTOCK LEFT\n53\n / 58\nBOX STOCK\n2\n48 packs inside boxes\nTHIS OPEN\n600\nx5 selected\nPRIZE LINEUP\nWhat customers see before opening\n4 mock rewards\nCharizard ex SAR\nPikachu Master Ball Reverse\nLuffy Leader Parallel\nOP16 Base Reward\nCUSTOMER BAG\nCollection and all-pulls preview\n5 owned rewards\nCharizard ex SAR\nSV4A-349 · rainbow · pull #1\nOP16-JP-PACK\nPikachu Master Ball Reverse\nSV2A-025 · gold · pull #2\nOP16-JP-PACK\nLuffy Leader Parallel\nOP16-001 · silver · pull #3\nOP16-JP-PACK\nOP16 Base Reward\nOP16-BASE · bronze · pull #4\nOP16-JP-PACK\nCharizard ex SAR\nSV4A-349 · rainbow · pull #5\nOP16-JP-PACK\nOPEN THIS PACK\nOP16 Box Break Local Test\n120 / pack · 53 left\nx1\nx3\nx5\nTOTAL\n600\nOpen 5 packs\nPACK DETAIL\n🔇\n\nRAINBOW · 5 PULLS\n\nYour Reward\n\nStock left\n53 left\n\nPull x1\n120 COINS\nPull x3\n360 COINS\nPull x5\n600 COINS\nBack to pack detail\nView collection\nSkip animation next time\nFAQ\nCONTENT\nNEWS\nABOUT\nCONTACT\nINSTAGRAM\n\n© 2026 YNOT",
+      "viewport": {
+        "height": 667,
+        "width": 375
+      },
+      "visibleCompleteCards": 4
+    },
+    {
+      "apiOpenRequests": [],
+      "buttons": [
+        {
+          "className": "settings-menu-button hamburger-button",
+          "disabled": false,
+          "height": 36,
+          "i": 0,
+          "text": "Menu",
+          "visible": true,
+          "width": 36,
+          "x": 9.765625,
+          "y": 17
+        },
+        {
+          "className": "store-nav-link",
+          "disabled": false,
+          "height": 0,
+          "i": 1,
+          "text": "Y-Packs",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "ynot-mega-link",
+          "disabled": false,
+          "height": 0,
+          "i": 2,
+          "text": "All Packs",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "ynot-mega-link",
+          "disabled": false,
+          "height": 0,
+          "i": 3,
+          "text": "Pokemon",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "ynot-mega-link",
+          "disabled": false,
+          "height": 0,
+          "i": 4,
+          "text": "One Piece",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "ynot-mega-card",
+          "disabled": false,
+          "height": 0,
+          "i": 5,
+          "text": "Pokemon",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "ynot-mega-card",
+          "disabled": false,
+          "height": 0,
+          "i": 6,
+          "text": "One Piece",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "brand-lockup",
+          "disabled": false,
+          "height": 40,
+          "i": 7,
+          "text": "YNOT home / หน้าแรก YNOT",
+          "visible": true,
+          "width": 137.2421875,
+          "x": 118.875,
+          "y": 15
+        },
+        {
+          "className": "store-language-toggle-trigger",
+          "disabled": false,
+          "height": 0,
+          "i": 8,
+          "text": "EN",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "store-nav-link store-nav-link--right",
+          "disabled": false,
+          "height": 0,
+          "i": 9,
+          "text": "Log in",
+          "visible": false,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "className": "secondary-action compact",
+          "disabled": false,
+          "height": 42,
+          "i": 10,
+          "text": "Readinessความพร้อม",
+          "visible": true,
+          "width": 122.5625,
+          "x": 28.375,
+          "y": 298.0703125
+        },
+        {
+          "className": "is-active",
+          "disabled": false,
+          "height": 42,
+          "i": 11,
+          "text": "Customer production flowขั้นตอนลูกค้าแบบโปรดักชัน",
+          "visible": true,
+          "width": 364.75,
+          "x": 5.125,
+          "y": 345.1953125
+        },
+        {
+          "className": "",
+          "disabled": false,
+          "height": 42,
+          "i": 12,
+          "text": "Admin production flowขั้นตอนแอดมินแบบโปรดักชัน",
+          "visible": true,
+          "width": 364.75,
+          "x": 5.125,
+          "y": 391.3203125
+        },
+        {
+          "className": "cr-dock-qty-btn ",
+          "disabled": false,
+          "height": 40,
+          "i": 13,
+          "text": "x1",
+          "visible": true,
+          "width": 56,
+          "x": 97.5,
+          "y": 538
+        },
+        {
+          "className": "cr-dock-qty-btn ",
+          "disabled": false,
+          "height": 40,
+          "i": 14,
+          "text": "x3",
+          "visible": true,
+          "width": 56,
+          "x": 159.5,
+          "y": 538
+        },
+        {
+          "className": "cr-dock-qty-btn active",
+          "disabled": false,
+          "height": 40,
+          "i": 15,
+          "text": "x5",
+          "visible": true,
+          "width": 56,
+          "x": 221.5,
+          "y": 538
+        },
+        {
+          "className": "cr-btn cr-btn-primary cr-btn-lg",
+          "disabled": false,
+          "height": 48,
+          "i": 16,
+          "text": "Open 5 packsเปิด 5 ซอง",
+          "visible": true,
+          "width": 140.40625,
+          "x": 209.59375,
+          "y": 594
+        },
+        {
+          "className": "gacha-reveal-back",
+          "disabled": false,
+          "height": 40,
+          "i": 17,
+          "text": "Pack detailรายละเอียดแพ็ก",
+          "visible": true,
+          "width": 139.84375,
+          "x": 18,
+          "y": 18
+        },
+        {
+          "className": "gacha-reveal-mute",
+          "disabled": false,
+          "height": 40,
+          "i": 18,
+          "text": "🔇",
+          "visible": true,
+          "width": 40,
+          "x": 317,
+          "y": 18
+        },
+        {
+          "className": "gacha-reveal-repeat-action",
+          "disabled": false,
+          "height": 49.34375,
+          "i": 19,
+          "text": "Pull x1120 coins",
+          "visible": true,
+          "width": 111.6640625,
+          "x": 12,
+          "y": 647.140625
+        },
+        {
+          "className": "gacha-reveal-repeat-action",
+          "disabled": false,
+          "height": 49.34375,
+          "i": 20,
+          "text": "Pull x3360 coins",
+          "visible": true,
+          "width": 111.6640625,
+          "x": 131.6640625,
+          "y": 647.140625
+        },
+        {
+          "className": "gacha-reveal-repeat-action",
+          "disabled": false,
+          "height": 49.34375,
+          "i": 21,
+          "text": "Pull x5600 coins",
+          "visible": true,
+          "width": 111.6640625,
+          "x": 251.328125,
+          "y": 647.140625
+        },
+        {
+          "className": "gacha-reveal-dock-action is-primary",
+          "disabled": false,
+          "height": 56,
+          "i": 22,
+          "text": "Back to pack detailกลับรายละเอียดแพ็กOpen again thereเปิดอีกครั้งจากหน้านั้น",
+          "visible": false,
+          "width": 171.5,
+          "x": 12,
+          "y": 704.484375
+        },
+        {
+          "className": "gacha-reveal-dock-action is-ghost",
+          "disabled": false,
+          "height": 56,
+          "i": 23,
+          "text": "View collectionดูคอลเลกชันCheck inventoryตรวจของในกระเป๋า",
+          "visible": false,
+          "width": 171.5,
+          "x": 191.5,
+          "y": 704.484375
+        },
+        {
+          "className": "gacha-reveal-toggle",
+          "disabled": false,
+          "height": 17.3984375,
+          "i": 24,
+          "text": "Skip animation next timeข้ามแอนิเมชันครั้งต่อไป",
+          "visible": false,
+          "width": 153.609375,
+          "x": 110.6953125,
+          "y": 768.484375
+        },
+        {
+          "className": "ynot-footer-link",
+          "disabled": false,
+          "height": 18,
+          "i": 25,
+          "text": "FAQFAQ",
+          "visible": false,
+          "width": 29.4140625,
+          "x": 172.7890625,
+          "y": 3859.984375
+        },
+        {
+          "className": "ynot-footer-link",
+          "disabled": false,
+          "height": 18,
+          "i": 26,
+          "text": "Contentคอนเทนต์",
+          "visible": false,
+          "width": 70.6015625,
+          "x": 152.1953125,
+          "y": 3891.984375
+        },
+        {
+          "className": "ynot-footer-link",
+          "disabled": false,
+          "height": 18,
+          "i": 27,
+          "text": "Newsข่าวสาร",
+          "visible": false,
+          "width": 43.203125,
+          "x": 165.8984375,
+          "y": 3923.984375
+        },
+        {
+          "className": "ynot-footer-link",
+          "disabled": false,
+          "height": 18,
+          "i": 28,
+          "text": "Aboutเกี่ยวกับเรา",
+          "visible": false,
+          "width": 50.34375,
+          "x": 162.328125,
+          "y": 3955.984375
+        },
+        {
+          "className": "ynot-footer-link",
+          "disabled": false,
+          "height": 18,
+          "i": 29,
+          "text": "Contactติดต่อเรา",
+          "visible": false,
+          "width": 69.71875,
+          "x": 152.640625,
+          "y": 3987.984375
+        },
+        {
+          "className": "ynot-footer-link",
+          "disabled": false,
+          "height": 18,
+          "i": 30,
+          "text": "InstagramInstagram",
+          "visible": false,
+          "width": 86.65625,
+          "x": 144.171875,
+          "y": 4019.984375
+        },
+        {
+          "className": "store-drawer-link store-drawer-link-drill",
+          "disabled": false,
+          "height": 38,
+          "i": 31,
+          "text": "Y-Packs",
+          "visible": true,
+          "width": 375,
+          "x": -375,
+          "y": 89
+        },
+        {
+          "className": "store-drawer-bottom-link",
+          "disabled": false,
+          "height": 21.6953125,
+          "i": 32,
+          "text": "Create account",
+          "visible": true,
+          "width": 327,
+          "x": -351,
+          "y": 517.109375
+        },
+        {
+          "className": "store-drawer-bottom-link",
+          "disabled": false,
+          "height": 21.6953125,
+          "i": 33,
+          "text": "Log in",
+          "visible": true,
+          "width": 327,
+          "x": -351,
+          "y": 552.8046875
+        },
+        {
+          "className": "store-drawer-lang-link active",
+          "disabled": false,
+          "height": 21.6953125,
+          "i": 34,
+          "text": "EN",
+          "visible": true,
+          "width": 24.4921875,
+          "x": -351,
+          "y": 598.6484375
+        },
+        {
+          "className": "store-drawer-lang-link",
+          "disabled": false,
+          "height": 21.6953125,
+          "i": 35,
+          "text": "TH",
+          "visible": true,
+          "width": 23.703125,
+          "x": -308.09375,
+          "y": 598.6484375
+        },
+        {
+          "className": "store-drawer-back",
+          "disabled": false,
+          "height": 38,
+          "i": 36,
+          "text": "Back",
+          "visible": true,
+          "width": 375,
+          "x": 0,
+          "y": 89
+        }
+      ],
+      "cards": [
+        {
+          "bottom": 127.140625,
+          "height": 232.3984375,
+          "i": 0,
+          "text": "",
+          "top": -105.2578125,
+          "visibleComplete": false,
+          "width": 166,
+          "x": 13.5,
+          "y": -105.2578125
+        },
+        {
+          "bottom": 127.140625,
+          "height": 232.3984375,
+          "i": 1,
+          "text": "",
+          "top": -105.2578125,
+          "visibleComplete": false,
+          "width": 166,
+          "x": 189.5,
+          "y": -105.2578125
+        },
+        {
+          "bottom": 369.5390625,
+          "height": 232.3984375,
+          "i": 2,
+          "text": "",
+          "top": 137.140625,
+          "visibleComplete": true,
+          "width": 166,
+          "x": 13.5,
+          "y": 137.140625
+        },
+        {
+          "bottom": 369.5390625,
+          "height": 232.3984375,
+          "i": 3,
+          "text": "",
+          "top": 137.140625,
+          "visibleComplete": true,
+          "width": 166,
+          "x": 189.5,
+          "y": 137.140625
+        },
+        {
+          "bottom": 611.9375,
+          "height": 232.3984375,
+          "i": 4,
+          "text": "",
+          "top": 379.5390625,
+          "visibleComplete": true,
+          "width": 166,
+          "x": 13.5,
+          "y": 379.5390625
+        }
+      ],
+      "consoleErrors": [],
+      "gridRect": {
+        "bottom": 611.7421875,
+        "height": 479,
+        "top": 132.7421875,
+        "width": 348,
+        "x": 13.5,
+        "y": 132.7421875
+      },
+      "hasSkip": false,
+      "hasSummary": true,
+      "label": "x5-375-summary-after-outer-scroll",
+      "mediaRequests": [],
+      "scroll": {
+        "body": 4104,
+        "doc": 4104,
+        "y": 0
+      },
+      "text": "LOCAL PRODUCTION REHEARSAL\n\nCustomer and admin Sub SKU flow\n\nLocalhost-only production-style test for box stock, loose pack stock, pack opening animation, reward images, user bag rows, all-pulls history, and admin stock controls.\n\nReadiness\nCustomer production flow\nAdmin production flow\nLOCAL\n53/58\nPOKEMON\nOP16 LOCAL STOCK TEST\nPOKEMON\nBOX TO PACK\nMOCK WALLET\nLOCAL ONLY\n\nCustomer view rehearsal for buying packs from mixed stock. Box stock stays visible, loose packs decrement first, and a sealed box opens into child packs when loose stock is short.\n\nPRICE / PACK\n120\ncoins per open\nSTOCK LEFT\n53\n / 58\nBOX STOCK\n2\n48 packs inside boxes\nTHIS OPEN\n600\nx5 selected\nPRIZE LINEUP\nWhat customers see before opening\n4 mock rewards\nCharizard ex SAR\nPikachu Master Ball Reverse\nLuffy Leader Parallel\nOP16 Base Reward\nCUSTOMER BAG\nCollection and all-pulls preview\n5 owned rewards\nCharizard ex SAR\nSV4A-349 · rainbow · pull #1\nOP16-JP-PACK\nPikachu Master Ball Reverse\nSV2A-025 · gold · pull #2\nOP16-JP-PACK\nLuffy Leader Parallel\nOP16-001 · silver · pull #3\nOP16-JP-PACK\nOP16 Base Reward\nOP16-BASE · bronze · pull #4\nOP16-JP-PACK\nCharizard ex SAR\nSV4A-349 · rainbow · pull #5\nOP16-JP-PACK\nOPEN THIS PACK\nOP16 Box Break Local Test\n120 / pack · 53 left\nx1\nx3\nx5\nTOTAL\n600\nOpen 5 packs\nPACK DETAIL\n🔇\n\nRAINBOW · 5 PULLS\n\nYour Reward\n\nStock left\n53 left\n\nPull x1\n120 COINS\nPull x3\n360 COINS\nPull x5\n600 COINS\nBack to pack detail\nView collection\nSkip animation next time\nFAQ\nCONTENT\nNEWS\nABOUT\nCONTACT\nINSTAGRAM\n\n© 2026 YNOT",
+      "viewport": {
+        "height": 667,
+        "width": 375
+      },
+      "visibleCompleteCards": 3
+    }
+  ]
+}
