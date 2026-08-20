@@ -35,6 +35,55 @@ function loadTsModule(path) {
   return cjsModule.exports;
 }
 
+function functionDeclaration(source, name) {
+  const start = source.indexOf(`function ${name}(`);
+  assert.notEqual(start, -1, `${name} helper exists`);
+  const bodyStart = source.indexOf("{", start);
+  assert.notEqual(bodyStart, -1, `${name} helper body starts`);
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "{") depth += 1;
+    if (char === "}") depth -= 1;
+    if (depth === 0) return source.slice(start, index + 1);
+  }
+  assert.fail(`${name} helper body closes`);
+}
+
+function loadOverlayPureHelpers() {
+  const source = read("src/features/ynot/GachaRevealOverlay.tsx");
+  const helperNames = [
+    "highestNonLastPrizePresentationTier",
+    "findTierAnimation",
+    "resolveOpeningVideoSource",
+  ];
+  const helperSource = helperNames
+    .map((name) => functionDeclaration(source, name))
+    .join("\n\n");
+  const { outputText } = ts.transpileModule(helperSource, {
+    compilerOptions: {
+      module: ts.ModuleKind.None,
+      target: ts.ScriptTarget.ES2022,
+    },
+  });
+  const cjsModule = { exports: {} };
+  vm.runInNewContext(
+    `
+    const OPENING_VIDEO_WATCHDOG_MS = 10_000;
+    function publicPrizeDisplayTierOrder(tier) {
+      return { last_prize: -1, rainbow: 0, gold: 1, silver: 2, bronze: 3 }[tier] ?? 99;
+    }
+    ${outputText}
+    module.exports = { ${helperNames.join(", ")} };
+    `,
+    {
+      module: cjsModule,
+      exports: cjsModule.exports,
+    },
+  );
+  return cjsModule.exports;
+}
+
 test("gacha overlay remains downstream of one settled normal-open result", () => {
   const client = read("src/features/ynot/client.tsx");
   const overlay = read("src/features/ynot/GachaRevealOverlay.tsx");
@@ -328,6 +377,72 @@ test("admin tier media remains a single-source override", () => {
     /Math\.max\(\s*OPENING_VIDEO_WATCHDOG_MS,\s*tierAsset\.durationMs \+ 2_000,?\s*\)/,
   );
   assert.match(overlay, /Boolean\(openingVideoSource\.soundUrl\)/);
+});
+
+test("mixed Last Prize and gold uses the active gold admin video instead of universal media", () => {
+  const {
+    highestNonLastPrizePresentationTier,
+    findTierAnimation,
+    resolveOpeningVideoSource,
+  } = loadOverlayPureHelpers();
+  const items = [
+    {
+      name: "Final bonus",
+      imageUrl: null,
+      displayTier: "last_prize",
+      valueThb: 9000,
+      position: 1,
+      isLastPrize: true,
+    },
+    {
+      name: "Gold pull",
+      imageUrl: "/gold.png",
+      displayTier: "gold",
+      valueThb: 1200,
+      position: 2,
+    },
+  ];
+  const animations = [
+    {
+      tier: "gold",
+      videoUrl: "/admin/gold-active.mp4",
+      posterUrl: "/admin/gold-poster.avif",
+      soundUrl: null,
+      durationMs: 12_000,
+      isActive: true,
+    },
+    {
+      tier: "rainbow",
+      videoUrl: "/admin/rainbow-active.mp4",
+      posterUrl: "/admin/rainbow-poster.avif",
+      soundUrl: null,
+      durationMs: 9_000,
+      isActive: true,
+    },
+  ];
+  const universalVideo = {
+    id: "01",
+    src: "/reveal-animations/gacha-opening-01-v1.mp4",
+    poster: "/reveal-animations/gacha-opening-01-v1-poster.avif",
+  };
+
+  const presentationTier = highestNonLastPrizePresentationTier(items);
+  const source = resolveOpeningVideoSource(
+    presentationTier ? findTierAnimation(animations, presentationTier) : null,
+    universalVideo,
+  );
+
+  assert.equal(presentationTier, "gold");
+  assert.deepEqual(JSON.parse(JSON.stringify(source)), {
+    id: "admin-gold",
+    kind: "admin",
+    src: "/admin/gold-active.mp4",
+    poster: "/admin/gold-poster.avif",
+    soundUrl: null,
+    watchdogMs: 14_000,
+  });
+  assert.notEqual(source?.kind, "universal");
+  assert.notEqual(source?.src, universalVideo.src);
 });
 
 test("portrait opening video has explicit preload and visible states", () => {

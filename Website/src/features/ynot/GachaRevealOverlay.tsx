@@ -88,6 +88,21 @@ function featuredRevealItem(items: YnotGachaOpenItem[]) {
   }, null);
 }
 
+function highestNonLastPrizePresentationTier(
+  items: YnotGachaOpenItem[],
+): PrizeDisplayTier | null {
+  return items.reduce<PrizeDisplayTier | null>((best, item) => {
+    if (item.isLastPrize === true || item.displayTier === "last_prize") {
+      return best;
+    }
+    const tier = item.displayTier;
+    if (!best) return tier;
+    return publicPrizeDisplayTierOrder(tier) < publicPrizeDisplayTierOrder(best)
+      ? tier
+      : best;
+  }, null);
+}
+
 function isUploadedQuestionPlaceholder(item: YnotGachaOpenItem | null | undefined) {
   if (!item?.imageUrl) return false;
   return (
@@ -212,8 +227,14 @@ export function GachaRevealOverlay({
   );
   const highestTierConfig = publicPrizeDisplayTierConfig(highestTier);
   const animation = highestTierConfig.animation;
-  const tierAsset =
-    highestTier === "last_prize" ? null : findTierAnimation(tierAnimations, highestTier);
+  const adminAnimationTier = useMemo(
+    () => highestNonLastPrizePresentationTier(items),
+    [items],
+  );
+  // Keep highestTier for Last Prize visuals; do not restore `highestTier === "last_prize" ? null : findTierAnimation` as the media selector.
+  const tierAsset = adminAnimationTier
+    ? findTierAnimation(tierAnimations, adminAnimationTier)
+    : null;
   const featuredItem = useMemo(() => featuredRevealItem(items), [items]);
   const featuredItemImageUrl = isUploadedQuestionPlaceholder(featuredItem)
     ? null
