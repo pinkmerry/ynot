@@ -278,3 +278,54 @@ test("opening video manifest contains only the selected public media contract", 
     ],
   );
 });
+
+test("overlay uses reveal, opening video, spotlight, and summary only", () => {
+  const overlay = read("src/features/ynot/GachaRevealOverlay.tsx");
+  assert.match(
+    overlay,
+    /type RevealStage = "reveal" \| "openingVideo" \| "spotlight" \| "summary";/,
+  );
+  assert.match(overlay, /setStage\("openingVideo"\)/);
+  assert.match(overlay, /stage !== "openingVideo"/);
+  assert.match(overlay, /setStage\("spotlight"\)/);
+  assert.doesNotMatch(overlay, /stage === "tierSpin"/);
+  assert.doesNotMatch(overlay, /stage === "tier"/);
+  assert.doesNotMatch(overlay, /TIER_SPIN_MS|TIER_RESULT_MS/);
+});
+
+test("selected video preloads once and advances without a fixed eight-second timer", () => {
+  const overlay = read("src/features/ynot/GachaRevealOverlay.tsx");
+  assert.match(overlay, /nextSessionGachaOpeningVideo\(\)/);
+  assert.match(overlay, /preload="auto"/);
+  assert.match(overlay, /playsInline/);
+  assert.match(overlay, /onEnded=\{finishOpeningVideo\}/);
+  assert.match(overlay, /onError=\{handleOpeningVideoError\}/);
+  assert.match(overlay, /OPENING_VIDEO_WATCHDOG_MS = 10_000/);
+  assert.doesNotMatch(overlay, /setTimeout\([^)]*8_000|setTimeout\([^)]*8000/);
+});
+
+test("skip and non-media fallbacks preserve access to the settled result", () => {
+  const overlay = read("src/features/ynot/GachaRevealOverlay.tsx");
+  const skip = sectionBetween(
+    overlay,
+    /function skipToSummary\b/,
+    /return \(/,
+    "skipToSummary",
+  );
+  assert.match(skip, /setStage\("summary"\)/);
+  assert.match(overlay, /video\.muted = true/);
+  assert.match(overlay, /setAutoplayMuted\(true\)/);
+  assert.match(overlay, /finishOpeningVideo/);
+});
+
+test("admin tier media remains a single-source override", () => {
+  const overlay = read("src/features/ynot/GachaRevealOverlay.tsx");
+  assert.match(overlay, /tierAsset\?\.videoUrl/);
+  assert.match(overlay, /kind: "admin"/);
+  assert.match(overlay, /kind: "universal"/);
+  assert.match(
+    overlay,
+    /Math\.max\(\s*OPENING_VIDEO_WATCHDOG_MS,\s*tierAsset\.durationMs \+ 2_000,?\s*\)/,
+  );
+  assert.match(overlay, /Boolean\(openingVideoSource\.soundUrl\)/);
+});

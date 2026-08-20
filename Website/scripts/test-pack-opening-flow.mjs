@@ -277,6 +277,18 @@ test("reveal summary action buttons stay clickable above the auto-skip toggle", 
   );
 });
 
+test("shared reveal stage order changes presentation without changing final result", () => {
+  const overlay = read("src/features/ynot/GachaRevealOverlay.tsx");
+  assert.match(
+    overlay,
+    /type RevealStage = "reveal" \| "openingVideo" \| "spotlight" \| "summary";/,
+  );
+  assert.doesNotMatch(overlay, /stage === "tierSpin"|stage === "tier"/);
+  assert.match(overlay, /\{stage === "spotlight"/);
+  assert.match(overlay, /\{stage === "summary"/);
+  assert.match(overlay, /items\.map\(\(item\)/);
+});
+
 test("customer Pull All uses the real quote/start flow and stays separate from x100", () => {
   const yPack = read("src/features/ynot/cr/YPackExperience.tsx");
   const arena = read("src/features/ynot/cr/PackDetailArena.tsx");

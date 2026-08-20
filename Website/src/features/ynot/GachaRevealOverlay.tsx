@@ -15,6 +15,10 @@ import {
   prefersReducedMotion,
   useGachaAnimationPref,
 } from "./gacha-animation-pref";
+import {
+  nextSessionGachaOpeningVideo,
+  type GachaOpeningVideo,
+} from "./gacha-opening-video";
 import type {
   YnotGachaOpenItem,
   YnotGachaOpenResult,
@@ -23,8 +27,17 @@ import type {
 import { useStoreLanguage } from "./StorePreferences";
 import { I18nText, localized, type Language } from "./i18n";
 
-type RevealStage = "reveal" | "tierSpin" | "tier" | "spotlight" | "summary";
+type RevealStage = "reveal" | "openingVideo" | "spotlight" | "summary";
 type PullRarity = "normal" | "rare" | "blackout" | "jackpot";
+
+type OpeningVideoSource = {
+  id: string;
+  kind: "admin" | "universal";
+  src: string;
+  poster: string | undefined;
+  soundUrl: string | null;
+  watchdogMs: number;
+};
 
 type Props = {
   result: YnotGachaOpenResult;
@@ -47,8 +60,7 @@ type Props = {
   forceAnimation?: boolean;
 };
 
-const TIER_SPIN_MS = 1450;
-const TIER_RESULT_MS = 1600;
+const OPENING_VIDEO_WATCHDOG_MS = 10_000;
 const SPOTLIGHT_MS = 2100;
 
 function revealRarity(tier: PublicPrizeDisplayTier): PullRarity {
@@ -113,6 +125,34 @@ function findTierAnimation(
   tier: PrizeDisplayTier,
 ): YnotTierAnimation | null {
   return animations?.find((a) => a.tier === tier && a.isActive) ?? null;
+}
+
+function resolveOpeningVideoSource(
+  tierAsset: YnotTierAnimation | null,
+  universalVideo: GachaOpeningVideo | null,
+): OpeningVideoSource | null {
+  if (tierAsset?.videoUrl) {
+    return {
+      id: `admin-${tierAsset.tier}`,
+      kind: "admin",
+      src: tierAsset.videoUrl,
+      poster: tierAsset.posterUrl ?? undefined,
+      soundUrl: tierAsset.soundUrl,
+      watchdogMs: Math.max(
+        OPENING_VIDEO_WATCHDOG_MS,
+        tierAsset.durationMs + 2_000,
+      ),
+    };
+  }
+  if (!universalVideo) return null;
+  return {
+    id: `universal-${universalVideo.id}`,
+    kind: "universal",
+    src: universalVideo.src,
+    poster: universalVideo.poster,
+    soundUrl: null,
+    watchdogMs: OPENING_VIDEO_WATCHDOG_MS,
+  };
 }
 
 function pickInitialStage(autoSkip: boolean, forceAnimation: boolean): RevealStage {
@@ -183,9 +223,7 @@ export function GachaRevealOverlay({
     : highestTierConfig.shortLabel;
   const motionRarity = revealRarity(highestTier);
   const revealInstanceKey = `${result.openId}-${quantity}-${highestTier}-${items.length}`;
-  const revealDurationMs = tierAsset?.videoUrl
-    ? Math.max(1200, tierAsset.durationMs || animation.durationMs)
-    : revealMotionDurationMs(motionRarity, quantity);
+  const revealDurationMs = revealMotionDurationMs(motionRarity, quantity);
   const remainingStockLabel =
     typeof remainingSlots === "number" && Number.isFinite(remainingSlots)
       ? localized(
@@ -199,40 +237,61 @@ export function GachaRevealOverlay({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [motionArmed, setMotionArmed] = useState(false);
-  const [videoReady, setVideoReady] = useState(false);
+  const [universalOpeningVideo, setUniversalOpeningVideo] =
+    useState<GachaOpeningVideo | null>(null);
+  const openingVideoSelectedRef = useRef(false);
+  const [autoplayMuted, setAutoplayMuted] = useState(false);
+  const [openingVideoFailed, setOpeningVideoFailed] = useState(false);
+  const effectiveMuted = pref.muted || autoplayMuted;
+  const openingVideoSource = useMemo(
+    () => resolveOpeningVideoSource(tierAsset, universalOpeningVideo),
+    [tierAsset, universalOpeningVideo],
+  );
 
   useEffect(() => {
     if (stage !== "reveal") return;
-    const timer = setTimeout(() => setStage("tierSpin"), revealDurationMs);
-    return () => clearTimeout(timer);
+    if (tierAsset?.videoUrl) return;
+    if (openingVideoSelectedRef.current) return;
+    openingVideoSelectedRef.current = true;
+    setUniversalOpeningVideo(nextSessionGachaOpeningVideo());
+  }, [stage, tierAsset?.videoUrl]);
+
+  useEffect(() => {
+    if (stage !== "reveal") return;
+    const timer = window.setTimeout(
+      () => setStage("openingVideo"),
+      revealDurationMs,
+    );
+    return () => window.clearTimeout(timer);
   }, [stage, revealDurationMs]);
 
   useEffect(() => {
-    if (stage !== "tierSpin") return;
-    const timer = setTimeout(() => setStage("tier"), TIER_SPIN_MS);
-    return () => clearTimeout(timer);
-  }, [stage]);
-
-  useEffect(() => {
-    if (stage !== "tier") return;
-    const timer = setTimeout(() => setStage("spotlight"), TIER_RESULT_MS);
-    return () => clearTimeout(timer);
-  }, [stage]);
+    if (stage !== "openingVideo") return;
+    if (!openingVideoSource || openingVideoFailed) {
+      const fallbackTimer = window.setTimeout(() => setStage("spotlight"), 0);
+      return () => window.clearTimeout(fallbackTimer);
+    }
+    const timer = window.setTimeout(
+      () => setStage("spotlight"),
+      openingVideoSource.watchdogMs,
+    );
+    return () => window.clearTimeout(timer);
+  }, [stage, openingVideoSource, openingVideoFailed]);
 
   useEffect(() => {
     if (stage !== "spotlight") return;
-    const timer = setTimeout(() => setStage("summary"), SPOTLIGHT_MS);
-    return () => clearTimeout(timer);
+    const timer = window.setTimeout(() => setStage("summary"), SPOTLIGHT_MS);
+    return () => window.clearTimeout(timer);
   }, [stage]);
 
   useEffect(() => {
-    if (stage !== "reveal") return;
-    if (!tierAsset?.soundUrl) return;
-    if (pref.muted) return;
-    const audio = new Audio(tierAsset.soundUrl);
+    if (stage !== "openingVideo") return;
+    if (!openingVideoSource?.soundUrl) return;
+    if (effectiveMuted) return;
+    const audio = new Audio(openingVideoSource.soundUrl);
     audio.volume = 0.7;
-    audio.play().catch(() => {
-      // Browser may block autoplay; nothing to do.
+    void audio.play().catch(() => {
+      // The video fallback still reaches the settled result if audio is blocked.
     });
     audioRef.current = audio;
     return () => {
@@ -240,24 +299,39 @@ export function GachaRevealOverlay({
       audio.currentTime = 0;
       audioRef.current = null;
     };
-  }, [stage, tierAsset?.soundUrl, pref.muted]);
+  }, [stage, openingVideoSource?.soundUrl, effectiveMuted]);
 
   useEffect(() => {
-    if (stage !== "reveal") return;
-    if (!tierAsset?.videoUrl) return;
+    if (stage !== "openingVideo") return;
     const video = videoRef.current;
-    if (!video) return;
-    video.pause();
+    if (!video || !openingVideoSource || openingVideoFailed) return;
+    let active = true;
     video.currentTime = 0;
-    video.load();
-    video.play().catch(() => {
-      // Browser may block autoplay; the visible frame is still reset to start.
-    });
-  }, [stage, revealInstanceKey, tierAsset?.videoUrl]);
+
+    async function startPlayback(video: HTMLVideoElement) {
+      try {
+        await video.play();
+      } catch {
+        if (!active) return;
+        setAutoplayMuted(true);
+        video.muted = true;
+        try {
+          await video.play();
+        } catch {
+          if (active) setStage("spotlight");
+        }
+      }
+    }
+
+    void startPlayback(video);
+    return () => {
+      active = false;
+      video.pause();
+    };
+  }, [stage, openingVideoSource, openingVideoFailed]);
 
   useEffect(() => {
     if (stage !== "reveal") return;
-    if (tierAsset?.videoUrl) return;
     let secondFrame = 0;
     const frame = window.requestAnimationFrame(() => {
       secondFrame = window.requestAnimationFrame(() => {
@@ -268,19 +342,33 @@ export function GachaRevealOverlay({
       window.cancelAnimationFrame(frame);
       window.cancelAnimationFrame(secondFrame);
     };
-  }, [stage, revealInstanceKey, tierAsset?.videoUrl]);
-
-  function resetRevealVideo(video: HTMLVideoElement) {
-    video.pause();
-    video.currentTime = 0;
-    setVideoReady(true);
-    video.play().catch(() => {
-      // Browser may block autoplay; the visible frame is still reset to start.
-    });
-  }
+  }, [stage, revealInstanceKey]);
 
   function skipToSummary() {
     setStage("summary");
+  }
+
+  function finishOpeningVideo() {
+    setStage((current) =>
+      current === "openingVideo" ? "spotlight" : current,
+    );
+  }
+
+  function handleOpeningVideoError() {
+    setOpeningVideoFailed(true);
+    finishOpeningVideo();
+  }
+
+  function handleMuteToggle() {
+    const nextMuted = !effectiveMuted;
+    setAutoplayMuted(false);
+    setMuted(nextMuted);
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = nextMuted || Boolean(openingVideoSource?.soundUrl);
+    if (!nextMuted && stage === "openingVideo") {
+      void video.play().catch(() => setAutoplayMuted(true));
+    }
   }
 
   return (
@@ -310,144 +398,100 @@ export function GachaRevealOverlay({
         type="button"
         className="gacha-reveal-mute"
         aria-label={
-          pref.muted
+          effectiveMuted
             ? localized({ en: "Unmute sound", th: "เปิดเสียง" }, language)
             : localized({ en: "Mute sound", th: "ปิดเสียง" }, language)
         }
-        onClick={() => setMuted(!pref.muted)}
+        onClick={handleMuteToggle}
       >
-        {pref.muted ? "🔇" : "🔊"}
+        {effectiveMuted ? "🔇" : "🔊"}
       </button>
+
+      {openingVideoSource &&
+        (stage === "reveal" || stage === "openingVideo") && (
+          <div
+            key={`opening-stage-${openingVideoSource.id}`}
+            className={`gacha-reveal-stage gacha-reveal-opening-video-stage ${
+              stage === "openingVideo" ? "is-visible" : "is-preloading"
+            }`}
+            aria-hidden={stage !== "openingVideo"}
+          >
+            <video
+              key={openingVideoSource.id}
+              ref={videoRef}
+              className="gacha-reveal-opening-video"
+              src={openingVideoSource.src}
+              poster={openingVideoSource.poster}
+              muted={effectiveMuted || Boolean(openingVideoSource.soundUrl)}
+              playsInline
+              preload="auto"
+              aria-label={localized(
+                { en: "Gacha opening animation", th: "วิดีโอเปิดกาชา" },
+                language,
+              )}
+              onEnded={finishOpeningVideo}
+              onError={handleOpeningVideoError}
+            >
+              <I18nText
+                en="Your browser cannot play this opening video."
+                th="เบราว์เซอร์ไม่สามารถเล่นวิดีโอเปิดกาชานี้ได้"
+              />
+            </video>
+          </div>
+        )}
 
       {stage === "reveal" && (
         <div
           className="gacha-reveal-stage gacha-reveal-show gacha-reveal-pack-open-stage"
           data-shake={animation.screenShake ? "1" : "0"}
         >
-          {tierAsset?.videoUrl ? (
-            <video
-              key={`video-${revealInstanceKey}`}
-              ref={videoRef}
-              className="gacha-reveal-video"
-              src={tierAsset.videoUrl}
-              poster={tierAsset.posterUrl ?? undefined}
-              autoPlay
-              data-ready={videoReady ? "1" : "0"}
-              muted={pref.muted}
-              playsInline
-              preload="metadata"
-              onLoadedData={(event) => resetRevealVideo(event.currentTarget)}
-              onLoadedMetadata={(event) => {
-                event.currentTarget.currentTime = 0;
-              }}
-              onEnded={() => setStage("tierSpin")}
-            />
-          ) : (
-            <div
-              key={`pack-${revealInstanceKey}`}
-              className={`pack-open-prototype gacha-reveal-pack-motion ${motionArmed ? "charging" : ""} ${quantity > 1 ? "batch" : "single"} phase-pull rarity-${motionRarity} speed-2`}
-              data-animation-key={revealInstanceKey}
-              role="group"
-              aria-label={localized({ en: "Opening pack animation", th: "แอนิเมชันเปิดแพ็ก" }, language)}
-            >
-              <div className="pack-open-grain" aria-hidden="true" />
-              <div className="pack-open-visual gacha-reveal-pack-motion-visual">
-                <div className="pack-open-aura" aria-hidden="true" />
-                <span className="pack-open-scanline" aria-hidden="true" />
-                <span className="pack-open-flash" aria-hidden="true" />
-                <div className="gacha-reveal-pack-motion-layer gacha-reveal-pack-motion-layer-cutout">
-                  <PackOpenCutoutMotionImage />
-                </div>
-                <div className="gacha-reveal-pack-motion-layer gacha-reveal-pack-motion-layer-shell">
-                  <div className="pack-open-pack-shell" aria-hidden="true">
-                    <div className="pack-open-pack pack-open-pack-base">
-                      <OpenPackShellImage />
-                    </div>
-                    <div className="pack-open-pack-split pack-open-pack-top">
-                      <OpenPackShellImage />
-                    </div>
-                    <div className="pack-open-pack-split pack-open-pack-body">
-                      <OpenPackShellImage />
-                    </div>
-                    <span className="pack-open-tear" />
-                    <span className="pack-open-mouth-shadow" aria-hidden="true" />
-                    <span className="pack-open-crinkles" aria-hidden="true">
-                      <span />
-                      <span />
-                      <span />
-                    </span>
-                    <span className="pack-open-sheen" />
-                  </div>
-                </div>
-                <span className="pack-open-slot" aria-hidden="true" />
-                <span className="pack-open-burst" aria-hidden="true" />
-                <span className="pack-open-rarity-ring" aria-hidden="true" />
-                <div className="gacha-reveal-pack-motion-layer gacha-reveal-pack-motion-layer-card">
-                  <div className="pack-open-card-wrap" aria-hidden="true">
-                    <div className="gacha-reveal-pack-light-card" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {stage === "tierSpin" && (
-        <div
-          className="gacha-reveal-stage gacha-reveal-tier-result"
-          style={
-            {
-              "--card-ring": highestTierConfig.animation.ringColor,
-              "--card-glow": highestTierConfig.animation.glowColor,
-            } as CSSProperties
-          }
-        >
           <div
-            className="gacha-reveal-tier-spin-card"
-            aria-label={localized({ en: "Prize card spinning", th: "การ์ดรางวัลกำลังหมุน" }, language)}
-          >
-            <div className="gacha-reveal-tier-spin-face">
-              <span>YNOT</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {stage === "tier" && (
-        <div
-          className="gacha-reveal-stage gacha-reveal-tier-result"
-          style={
-            {
-              "--card-ring": highestTierConfig.animation.ringColor,
-              "--card-glow": highestTierConfig.animation.glowColor,
-            } as CSSProperties
-          }
-        >
-          <div
-            className="gacha-reveal-tier-card"
+            key={`pack-${revealInstanceKey}`}
+            className={`pack-open-prototype gacha-reveal-pack-motion ${motionArmed ? "charging" : ""} ${quantity > 1 ? "batch" : "single"} phase-pull rarity-${motionRarity} speed-2`}
+            data-animation-key={revealInstanceKey}
+            role="group"
             aria-label={localized(
-              {
-                en: `${tierLabel(highestTier, "en")} prize tier result`,
-                th: `ผลรางวัลระดับ${tierLabel(highestTier, "th")}`,
-              },
+              { en: "Opening pack animation", th: "แอนิเมชันเปิดแพ็ก" },
               language,
             )}
           >
-            <div className="gacha-reveal-tier-face gacha-reveal-tier-face-back">
-              <span>YNOT</span>
-            </div>
-            <div className="gacha-reveal-tier-face gacha-reveal-tier-face-front">
-              <span><I18nText en="Prize tier" th="ระดับรางวัล" /></span>
-              <strong>{tierLabel(highestTier, language)}</strong>
-              <small>
-                {displayedPullCount.toLocaleString()}{" "}
-                {language === "th"
-                  ? "ครั้ง"
-                  : displayedPullCount === 1
-                    ? "pull"
-                    : "pulls"}
-              </small>
+            <div className="pack-open-grain" aria-hidden="true" />
+            <div className="pack-open-visual gacha-reveal-pack-motion-visual">
+              <div className="pack-open-aura" aria-hidden="true" />
+              <span className="pack-open-scanline" aria-hidden="true" />
+              <span className="pack-open-flash" aria-hidden="true" />
+              <div className="gacha-reveal-pack-motion-layer gacha-reveal-pack-motion-layer-cutout">
+                <PackOpenCutoutMotionImage />
+              </div>
+              <div className="gacha-reveal-pack-motion-layer gacha-reveal-pack-motion-layer-shell">
+                <div className="pack-open-pack-shell" aria-hidden="true">
+                  <div className="pack-open-pack pack-open-pack-base">
+                    <OpenPackShellImage />
+                  </div>
+                  <div className="pack-open-pack-split pack-open-pack-top">
+                    <OpenPackShellImage />
+                  </div>
+                  <div className="pack-open-pack-split pack-open-pack-body">
+                    <OpenPackShellImage />
+                  </div>
+                  <span className="pack-open-tear" />
+                  <span className="pack-open-mouth-shadow" aria-hidden="true" />
+                  <span className="pack-open-crinkles" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                  <span className="pack-open-sheen" />
+                </div>
+              </div>
+              <span className="pack-open-slot" aria-hidden="true" />
+              <span className="pack-open-burst" aria-hidden="true" />
+              <span className="pack-open-rarity-ring" aria-hidden="true" />
+              <div className="gacha-reveal-pack-motion-layer gacha-reveal-pack-motion-layer-card">
+                <div className="pack-open-card-wrap" aria-hidden="true">
+                  <div className="gacha-reveal-pack-light-card" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
