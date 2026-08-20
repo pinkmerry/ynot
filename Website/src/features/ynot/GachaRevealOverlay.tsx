@@ -231,7 +231,6 @@ export function GachaRevealOverlay({
     () => highestNonLastPrizePresentationTier(items),
     [items],
   );
-  // Keep highestTier for Last Prize visuals; do not restore `highestTier === "last_prize" ? null : findTierAnimation` as the media selector.
   const tierAsset = adminAnimationTier
     ? findTierAnimation(tierAnimations, adminAnimationTier)
     : null;

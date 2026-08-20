@@ -338,7 +338,10 @@ test("Last Prize stays first-class in public reveal, history, and collection dis
   assert.match(revealOverlay, /highestPublicPrizeDisplayTier/);
   assert.match(revealOverlay, /publicPrizeDisplayTierOrder/);
   assert.match(revealOverlay, /tier === "last_prize" \|\| tier === "rainbow"/);
-  assert.match(revealOverlay, /highestTier === "last_prize" \? null : findTierAnimation/);
+  assert.match(revealOverlay, /function highestNonLastPrizePresentationTier/);
+  assert.match(revealOverlay, /item\.isLastPrize === true \|\| item\.displayTier === "last_prize"/);
+  assert.match(revealOverlay, /const adminAnimationTier = useMemo/);
+  assert.match(revealOverlay, /findTierAnimation\(tierAnimations, adminAnimationTier\)/);
   assert.match(revealOverlay, /LAST ONE PRIZE!/);
 
   assert.match(collectionSource, /publicPrizeDisplayTierValue\(sourceOpenItem\.tier\)/);
