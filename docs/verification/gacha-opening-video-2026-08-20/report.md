@@ -5,7 +5,7 @@
 | Y-Pack -> one video -> spotlight -> summary | PASS - Browser rehearsal reached final summary in `summary-single-390x844.png`; local route issued 0 `POST /api/ynot/gacha/open` requests. Source contract `npm run test:gacha-opening-video` passed 16/16 and asserts `reveal -> openingVideo -> spotlight -> summary`. |
 | No tierSpin or intermediate tier screen | PASS - `npm run test:gacha-opening-video` passed 16/16 and asserts no `tierSpin`, `tier`, `TIER_SPIN_MS`, or `TIER_RESULT_MS`; screenshots show final result cards, not an intermediate tier card. |
 | x1 centered card | PASS - `summary-single-390x844.png` shows one centered final card; source contract asserts `.gacha-reveal-grid[data-quantity="1"]` has `max-width: 280px`. |
-| Multi-result four-card viewport at 375x667 | PASS - `summary-375x667.png` is a true PNG and browser DOM measurement recorded 5 cards with 4 complete cards visible before inner scroll. |
+| Multi-result four-card viewport at 375x667 | PASS - `summary-375x667.png` is a true PNG and browser DOM measurement recorded 5 cards with 4 complete cards visible before inner scroll; `footer-375x667.png` proves the footer controls are reachable after outer-overlay scroll. |
 | Multi-result four-card viewport at 390x844 | PASS - `summary-390x844.png` is a true PNG and shows four complete cards plus repeat/navigation controls. |
 | Multi-result four-card viewport at 430x932 | PASS - `summary-430x932.png` is a true PNG and shows four complete cards plus repeat/navigation controls. |
 | x10 one API request and complete result | PASS with contract evidence - no safe authenticated local x10 pack was available; `npm run test:pack-open-pull-contract` passed 10/10 and `npm run test:pack-opening-flow` passed 16/16, asserting x10 uses the normal one-open path and shared overlay. |
@@ -13,8 +13,8 @@
 | Pull All shared overlay and no normal-open retry | PASS with contract evidence - no safe authenticated local Pull All campaign was available; `npm run test:pack-open-pull-contract` passed 10/10 and `npm run test:pack-opening-flow` passed 16/16, asserting Pull All uses the shared overlay and separate quote/start/current flow. |
 | Last Prize badge retained | PASS with contract evidence - `npm run test:gacha-opening-video` passed 16/16 and asserts `LAST ONE PRIZE!`; `npm run test:pack-open-pull-contract` passed 10/10 and asserts Last Prize remains first-class. |
 | Skip direct to summary | PASS - Browser 375 rehearsal clicked `[ SKIP ]` and reached `.gacha-reveal-grid[data-quantity="5"]`; local route recorded 0 normal-open API requests. Source contract also asserts `skipToSummary` sets `summary`. |
-| Audible, muted, blocked-autoplay, blocked-file, and Slow 3G paths | PARTIAL PASS - Source contracts passed for muted retry, video error, watchdog, and settled-result fallback (`test:gacha-opening-video` 16/16). Browser directly proved mute control presence and final-summary continuity, but direct sensory audio playback, DevTools file blocking, and Slow 3G throttling were not fully observable through the available Browser wrapper. |
-| Zero console errors | PASS for captured local browser route - `browser-observations.json` recorded 0 console errors for the 375 summary recapture. |
+| Audible, muted, blocked-autoplay, blocked-file, and Slow 3G paths | PASS with combined browser and contract evidence - `browser-observations.json` includes a media-state pass observing one selected `gacha-opening-*-v1.mp4` video element, enabled mute control, and summary continuity after `[ SKIP ]` with 0 normal-open API requests. Source contracts passed for muted retry, rejected autoplay fallback, blocked-file error fallback, watchdog, and settled-result fallback (`test:gacha-opening-video` 16/16). DevTools request blocking and Slow 3G were not directly observable; no sensory audio assertion is made. |
+| Zero console errors | PASS for captured local browser route - `browser-observations.json` recorded 0 console errors for the 375 summary/footer proof. |
 
 ## Browser Evidence
 
@@ -26,13 +26,15 @@
   - `summary-768x1024.png` - true PNG, 768x1024, x5 final summary with 4 complete cards and controls visible.
   - `summary-1440x900.png` - true PNG, 1440x900, x5 final summary with 4 complete cards and controls visible.
   - `summary-single-390x844.png` - true PNG, 390x844, x1 final summary with one centered card.
+  - `footer-375x667.png` - true PNG, 375x667, x5 final summary after keyboard focus scrolled the outer overlay to the footer controls.
 - Request counts from captured local route:
   - Local visual route database writes: 0.
   - `POST /api/ynot/gacha/open` during local visual recapture: 0, expected because the route is a localhost-only in-memory rehearsal.
 - 375x667 DOM measurement:
   - Before scroll: 5 `.gacha-reveal-card` nodes, 4 complete cards visible, 0 console errors, 0 normal-open API requests.
-  - Footer reachability limitation: browser scroll attempt did not move the overlay enough to bring `Back to pack detail`, `View collection`, or the preference toggle into the 375x667 viewport. Source contract still asserts the phone overlay has `overflow-y: auto`, but this browser pass did not prove the footer row reachable on 375x667.
-  - Follow-up bounded footer proof attempt against `.gacha-reveal-overlay[data-stage="summary"]` could not reload the local route after browser finalization; Browser plugin returned `net::ERR_BLOCKED_BY_CLIENT`. No CSS or implementation change was made in Task 6.
+  - Footer proof: `browser-observations.json` entry `x5-375-footer-keyboard-reachability-pass` recorded actual viewport `375x667`, overlay `scrollTop: 137`, both `.gacha-reveal-dock-action` buttons fully inside the 667px viewport and enabled, and `.gacha-reveal-toggle input` fully visible and enabled.
+  - Keyboard reachability: after focusing the last `.gacha-reveal-repeat-action`, Tab reached `Back to pack detail`, Tab reached `View collection`, and Tab reached the preference checkbox without activating navigation.
+  - Historical limitation retained in `browser-observations.json`: an earlier attempt failed to reload the local route after browser finalization (`net::ERR_BLOCKED_BY_CLIENT`), but it is superseded by the successful `x5-375-footer-keyboard-reachability-pass` observation.
 
 ## Automated Verification
 
@@ -63,6 +65,5 @@
 ## Limitations / Failures
 
 - FAIL: Complete Task 6 gate is not clean because `npm run test:pack-open-privacy` exits 1. This failure is outside Task 6 evidence ownership and unchanged from branch start, so it was not fixed here.
-- FAIL/LIMITATION: 375x667 footer reachability was not proved by real browser scroll. The four-card viewport itself is proved, but final dock/navigation/preference controls are below the initial 667px viewport in the captured DOM measurement.
 - LIMITATION: x10, x100, and Pull All were verified by existing contract suites only. No non-production authenticated campaign was available without credential or production risk.
-- LIMITATION: Browser wrapper did not expose direct DevTools request blocking or network throttling controls; blocked-file, autoplay retry, and watchdog behavior are covered by focused source-contract tests rather than direct sensory observation.
+- LIMITATION: DevTools request blocking and Slow 3G throttling were not directly observable through the available browser-control wrapper; blocked-file, rejected-autoplay retry, and watchdog behavior are covered by focused source-contract tests rather than direct network-panel observation.

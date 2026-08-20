@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-20T16:46:09.211Z",
+  "generatedAt": "2026-08-20T17:04:19.980Z",
   "route": "http://127.0.0.1:3000/local-stock-subsku-test",
   "observations": [
     {
@@ -995,6 +995,751 @@
         "message": "Browser Use cannot open http://127.0.0.1:3000/local-stock-subsku-test in tab 1285251305. Browser reported: net::ERR_BLOCKED_BY_CLIENT",
         "stack": "Error: Browser Use cannot open http://127.0.0.1:3000/local-stock-subsku-test in tab 1285251305. Browser reported: net::ERR_BLOCKED_BY_CLIENT\n    at /Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:1014:30724\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async /Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:4095:2429\n    at async FP (/Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:4095:6993)\n    at async /Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:4095:7255\n    at async Object.WH [as withCommandTelemetry] (/Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:4095:7231)\n    at async /Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:4095:2387\n    at async Object.run (/Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:4095:3768)\n    at async Jo.executeAgentCommand (/Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:4095:2300)\n    at async Jo.send (/Users/pinkmerry/.codex/plugins/cache/openai-bundled/browser/26.803.61601/scripts/browser-client.mjs:926:523)"
       }
+    },
+    {
+      "label": "x5-375-footer-keyboard-reachability-pass",
+      "route": "http://127.0.0.1:3000/local-stock-subsku-test",
+      "viewport": {
+        "width": 375,
+        "height": 667
+      },
+      "screenshot": "footer-375x667.png",
+      "tool": "Chrome DevTools Protocol, disposable local profile, forced 375x667 viewport",
+      "method": "Selected x5, opened five packs, observed openingVideo, clicked [SKIP], waited for summary, focused the last repeat action, then pressed Tab through Back to pack detail, View collection, and the preference checkbox without activating navigation.",
+      "beforeFooterProof": {
+        "viewport": {
+          "width": 375,
+          "height": 667,
+          "devicePixelRatio": 1
+        },
+        "overlay": {
+          "scrollTop": 0,
+          "scrollHeight": 804,
+          "clientHeight": 667,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "top": 0,
+            "bottom": 667,
+            "left": 0,
+            "right": 375,
+            "width": 375,
+            "height": 667
+          }
+        },
+        "repeatButtons": [
+          {
+            "i": 0,
+            "text": "Pull x1120 coins",
+            "disabled": false,
+            "rect": {
+              "x": 12,
+              "y": 647.125,
+              "top": 647.125,
+              "bottom": 696.46875,
+              "left": 12,
+              "right": 123.65625,
+              "width": 111.65625,
+              "height": 49.34375
+            },
+            "fullyInViewport": false,
+            "active": false
+          },
+          {
+            "i": 1,
+            "text": "Pull x3360 coins",
+            "disabled": false,
+            "rect": {
+              "x": 131.65625,
+              "y": 647.125,
+              "top": 647.125,
+              "bottom": 696.46875,
+              "left": 131.65625,
+              "right": 243.328125,
+              "width": 111.671875,
+              "height": 49.34375
+            },
+            "fullyInViewport": false,
+            "active": false
+          },
+          {
+            "i": 2,
+            "text": "Pull x5600 coins",
+            "disabled": false,
+            "rect": {
+              "x": 251.328125,
+              "y": 647.125,
+              "top": 647.125,
+              "bottom": 696.46875,
+              "left": 251.328125,
+              "right": 362.984375,
+              "width": 111.65625,
+              "height": 49.34375
+            },
+            "fullyInViewport": false,
+            "active": false
+          }
+        ],
+        "dockButtons": [
+          {
+            "i": 0,
+            "text": "Back to pack detailกลับรายละเอียดแพ็กOpen again thereเปิดอีกครั้งจากหน้านั้น",
+            "disabled": false,
+            "rect": {
+              "x": 12,
+              "y": 704.46875,
+              "top": 704.46875,
+              "bottom": 760.46875,
+              "left": 12,
+              "right": 183.5,
+              "width": 171.5,
+              "height": 56
+            },
+            "fullyInViewport": false,
+            "active": false
+          },
+          {
+            "i": 1,
+            "text": "View collectionดูคอลเลกชันCheck inventoryตรวจของในกระเป๋า",
+            "disabled": false,
+            "rect": {
+              "x": 191.5,
+              "y": 704.46875,
+              "top": 704.46875,
+              "bottom": 760.46875,
+              "left": 191.5,
+              "right": 363,
+              "width": 171.5,
+              "height": 56
+            },
+            "fullyInViewport": false,
+            "active": false
+          }
+        ],
+        "toggleInput": {
+          "disabled": false,
+          "checked": false,
+          "rect": {
+            "x": 110.6875,
+            "y": 770.65625,
+            "top": 770.65625,
+            "bottom": 783.65625,
+            "left": 110.6875,
+            "right": 123.6875,
+            "width": 13,
+            "height": 13
+          },
+          "fullyInViewport": false,
+          "active": false
+        },
+        "cardCount": 5,
+        "normalOpenRequestCount": 0,
+        "activeTag": "BODY",
+        "activeClass": "min-h-full flex flex-col"
+      },
+      "afterFocusLastRepeat": {
+        "viewport": {
+          "width": 375,
+          "height": 667,
+          "devicePixelRatio": 1
+        },
+        "overlay": {
+          "scrollTop": 29,
+          "scrollHeight": 804,
+          "clientHeight": 667,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "top": 0,
+            "bottom": 667,
+            "left": 0,
+            "right": 375,
+            "width": 375,
+            "height": 667
+          }
+        },
+        "repeatButtons": [
+          {
+            "i": 0,
+            "text": "Pull x1120 coins",
+            "disabled": false,
+            "rect": {
+              "x": 12,
+              "y": 618.125,
+              "top": 618.125,
+              "bottom": 667.46875,
+              "left": 12,
+              "right": 123.65625,
+              "width": 111.65625,
+              "height": 49.34375
+            },
+            "fullyInViewport": false,
+            "active": false
+          },
+          {
+            "i": 1,
+            "text": "Pull x3360 coins",
+            "disabled": false,
+            "rect": {
+              "x": 131.65625,
+              "y": 618.125,
+              "top": 618.125,
+              "bottom": 667.46875,
+              "left": 131.65625,
+              "right": 243.328125,
+              "width": 111.671875,
+              "height": 49.34375
+            },
+            "fullyInViewport": false,
+            "active": false
+          },
+          {
+            "i": 2,
+            "text": "Pull x5600 coins",
+            "disabled": false,
+            "rect": {
+              "x": 251.328125,
+              "y": 618.125,
+              "top": 618.125,
+              "bottom": 667.46875,
+              "left": 251.328125,
+              "right": 362.984375,
+              "width": 111.65625,
+              "height": 49.34375
+            },
+            "fullyInViewport": false,
+            "active": true
+          }
+        ],
+        "dockButtons": [
+          {
+            "i": 0,
+            "text": "Back to pack detailกลับรายละเอียดแพ็กOpen again thereเปิดอีกครั้งจากหน้านั้น",
+            "disabled": false,
+            "rect": {
+              "x": 12,
+              "y": 675.46875,
+              "top": 675.46875,
+              "bottom": 731.46875,
+              "left": 12,
+              "right": 183.5,
+              "width": 171.5,
+              "height": 56
+            },
+            "fullyInViewport": false,
+            "active": false
+          },
+          {
+            "i": 1,
+            "text": "View collectionดูคอลเลกชันCheck inventoryตรวจของในกระเป๋า",
+            "disabled": false,
+            "rect": {
+              "x": 191.5,
+              "y": 675.46875,
+              "top": 675.46875,
+              "bottom": 731.46875,
+              "left": 191.5,
+              "right": 363,
+              "width": 171.5,
+              "height": 56
+            },
+            "fullyInViewport": false,
+            "active": false
+          }
+        ],
+        "toggleInput": {
+          "disabled": false,
+          "checked": false,
+          "rect": {
+            "x": 110.6875,
+            "y": 741.65625,
+            "top": 741.65625,
+            "bottom": 754.65625,
+            "left": 110.6875,
+            "right": 123.6875,
+            "width": 13,
+            "height": 13
+          },
+          "fullyInViewport": false,
+          "active": false
+        },
+        "cardCount": 5,
+        "normalOpenRequestCount": 0,
+        "activeTag": "BUTTON",
+        "activeClass": "gacha-reveal-repeat-action"
+      },
+      "afterTabSequence": [
+        {
+          "viewport": {
+            "width": 375,
+            "height": 667,
+            "devicePixelRatio": 1
+          },
+          "overlay": {
+            "scrollTop": 137,
+            "scrollHeight": 804,
+            "clientHeight": 667,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "top": 0,
+              "bottom": 667,
+              "left": 0,
+              "right": 375,
+              "width": 375,
+              "height": 667
+            }
+          },
+          "repeatButtons": [
+            {
+              "i": 0,
+              "text": "Pull x1120 coins",
+              "disabled": false,
+              "rect": {
+                "x": 12,
+                "y": 510.125,
+                "top": 510.125,
+                "bottom": 559.46875,
+                "left": 12,
+                "right": 123.65625,
+                "width": 111.65625,
+                "height": 49.34375
+              },
+              "fullyInViewport": true,
+              "active": false
+            },
+            {
+              "i": 1,
+              "text": "Pull x3360 coins",
+              "disabled": false,
+              "rect": {
+                "x": 131.65625,
+                "y": 510.125,
+                "top": 510.125,
+                "bottom": 559.46875,
+                "left": 131.65625,
+                "right": 243.328125,
+                "width": 111.671875,
+                "height": 49.34375
+              },
+              "fullyInViewport": true,
+              "active": false
+            },
+            {
+              "i": 2,
+              "text": "Pull x5600 coins",
+              "disabled": false,
+              "rect": {
+                "x": 251.328125,
+                "y": 510.125,
+                "top": 510.125,
+                "bottom": 559.46875,
+                "left": 251.328125,
+                "right": 362.984375,
+                "width": 111.65625,
+                "height": 49.34375
+              },
+              "fullyInViewport": true,
+              "active": false
+            }
+          ],
+          "dockButtons": [
+            {
+              "i": 0,
+              "text": "Back to pack detailกลับรายละเอียดแพ็กOpen again thereเปิดอีกครั้งจากหน้านั้น",
+              "disabled": false,
+              "rect": {
+                "x": 12,
+                "y": 567.46875,
+                "top": 567.46875,
+                "bottom": 623.46875,
+                "left": 12,
+                "right": 183.5,
+                "width": 171.5,
+                "height": 56
+              },
+              "fullyInViewport": true,
+              "active": true
+            },
+            {
+              "i": 1,
+              "text": "View collectionดูคอลเลกชันCheck inventoryตรวจของในกระเป๋า",
+              "disabled": false,
+              "rect": {
+                "x": 191.5,
+                "y": 567.46875,
+                "top": 567.46875,
+                "bottom": 623.46875,
+                "left": 191.5,
+                "right": 363,
+                "width": 171.5,
+                "height": 56
+              },
+              "fullyInViewport": true,
+              "active": false
+            }
+          ],
+          "toggleInput": {
+            "disabled": false,
+            "checked": false,
+            "rect": {
+              "x": 110.6875,
+              "y": 633.65625,
+              "top": 633.65625,
+              "bottom": 646.65625,
+              "left": 110.6875,
+              "right": 123.6875,
+              "width": 13,
+              "height": 13
+            },
+            "fullyInViewport": true,
+            "active": false
+          },
+          "cardCount": 5,
+          "normalOpenRequestCount": 0,
+          "activeTag": "BUTTON",
+          "activeClass": "gacha-reveal-dock-action is-primary"
+        },
+        {
+          "viewport": {
+            "width": 375,
+            "height": 667,
+            "devicePixelRatio": 1
+          },
+          "overlay": {
+            "scrollTop": 137,
+            "scrollHeight": 804,
+            "clientHeight": 667,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "top": 0,
+              "bottom": 667,
+              "left": 0,
+              "right": 375,
+              "width": 375,
+              "height": 667
+            }
+          },
+          "repeatButtons": [
+            {
+              "i": 0,
+              "text": "Pull x1120 coins",
+              "disabled": false,
+              "rect": {
+                "x": 12,
+                "y": 510.125,
+                "top": 510.125,
+                "bottom": 559.46875,
+                "left": 12,
+                "right": 123.65625,
+                "width": 111.65625,
+                "height": 49.34375
+              },
+              "fullyInViewport": true,
+              "active": false
+            },
+            {
+              "i": 1,
+              "text": "Pull x3360 coins",
+              "disabled": false,
+              "rect": {
+                "x": 131.65625,
+                "y": 510.125,
+                "top": 510.125,
+                "bottom": 559.46875,
+                "left": 131.65625,
+                "right": 243.328125,
+                "width": 111.671875,
+                "height": 49.34375
+              },
+              "fullyInViewport": true,
+              "active": false
+            },
+            {
+              "i": 2,
+              "text": "Pull x5600 coins",
+              "disabled": false,
+              "rect": {
+                "x": 251.328125,
+                "y": 510.125,
+                "top": 510.125,
+                "bottom": 559.46875,
+                "left": 251.328125,
+                "right": 362.984375,
+                "width": 111.65625,
+                "height": 49.34375
+              },
+              "fullyInViewport": true,
+              "active": false
+            }
+          ],
+          "dockButtons": [
+            {
+              "i": 0,
+              "text": "Back to pack detailกลับรายละเอียดแพ็กOpen again thereเปิดอีกครั้งจากหน้านั้น",
+              "disabled": false,
+              "rect": {
+                "x": 12,
+                "y": 567.46875,
+                "top": 567.46875,
+                "bottom": 623.46875,
+                "left": 12,
+                "right": 183.5,
+                "width": 171.5,
+                "height": 56
+              },
+              "fullyInViewport": true,
+              "active": false
+            },
+            {
+              "i": 1,
+              "text": "View collectionดูคอลเลกชันCheck inventoryตรวจของในกระเป๋า",
+              "disabled": false,
+              "rect": {
+                "x": 191.5,
+                "y": 567.46875,
+                "top": 567.46875,
+                "bottom": 623.46875,
+                "left": 191.5,
+                "right": 363,
+                "width": 171.5,
+                "height": 56
+              },
+              "fullyInViewport": true,
+              "active": true
+            }
+          ],
+          "toggleInput": {
+            "disabled": false,
+            "checked": false,
+            "rect": {
+              "x": 110.6875,
+              "y": 633.65625,
+              "top": 633.65625,
+              "bottom": 646.65625,
+              "left": 110.6875,
+              "right": 123.6875,
+              "width": 13,
+              "height": 13
+            },
+            "fullyInViewport": true,
+            "active": false
+          },
+          "cardCount": 5,
+          "normalOpenRequestCount": 0,
+          "activeTag": "BUTTON",
+          "activeClass": "gacha-reveal-dock-action is-ghost"
+        },
+        {
+          "viewport": {
+            "width": 375,
+            "height": 667,
+            "devicePixelRatio": 1
+          },
+          "overlay": {
+            "scrollTop": 137,
+            "scrollHeight": 804,
+            "clientHeight": 667,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "top": 0,
+              "bottom": 667,
+              "left": 0,
+              "right": 375,
+              "width": 375,
+              "height": 667
+            }
+          },
+          "repeatButtons": [
+            {
+              "i": 0,
+              "text": "Pull x1120 coins",
+              "disabled": false,
+              "rect": {
+                "x": 12,
+                "y": 510.125,
+                "top": 510.125,
+                "bottom": 559.46875,
+                "left": 12,
+                "right": 123.65625,
+                "width": 111.65625,
+                "height": 49.34375
+              },
+              "fullyInViewport": true,
+              "active": false
+            },
+            {
+              "i": 1,
+              "text": "Pull x3360 coins",
+              "disabled": false,
+              "rect": {
+                "x": 131.65625,
+                "y": 510.125,
+                "top": 510.125,
+                "bottom": 559.46875,
+                "left": 131.65625,
+                "right": 243.328125,
+                "width": 111.671875,
+                "height": 49.34375
+              },
+              "fullyInViewport": true,
+              "active": false
+            },
+            {
+              "i": 2,
+              "text": "Pull x5600 coins",
+              "disabled": false,
+              "rect": {
+                "x": 251.328125,
+                "y": 510.125,
+                "top": 510.125,
+                "bottom": 559.46875,
+                "left": 251.328125,
+                "right": 362.984375,
+                "width": 111.65625,
+                "height": 49.34375
+              },
+              "fullyInViewport": true,
+              "active": false
+            }
+          ],
+          "dockButtons": [
+            {
+              "i": 0,
+              "text": "Back to pack detailกลับรายละเอียดแพ็กOpen again thereเปิดอีกครั้งจากหน้านั้น",
+              "disabled": false,
+              "rect": {
+                "x": 12,
+                "y": 567.46875,
+                "top": 567.46875,
+                "bottom": 623.46875,
+                "left": 12,
+                "right": 183.5,
+                "width": 171.5,
+                "height": 56
+              },
+              "fullyInViewport": true,
+              "active": false
+            },
+            {
+              "i": 1,
+              "text": "View collectionดูคอลเลกชันCheck inventoryตรวจของในกระเป๋า",
+              "disabled": false,
+              "rect": {
+                "x": 191.5,
+                "y": 567.46875,
+                "top": 567.46875,
+                "bottom": 623.46875,
+                "left": 191.5,
+                "right": 363,
+                "width": 171.5,
+                "height": 56
+              },
+              "fullyInViewport": true,
+              "active": false
+            }
+          ],
+          "toggleInput": {
+            "disabled": false,
+            "checked": false,
+            "rect": {
+              "x": 110.6875,
+              "y": 633.65625,
+              "top": 633.65625,
+              "bottom": 646.65625,
+              "left": 110.6875,
+              "right": 123.6875,
+              "width": 13,
+              "height": 13
+            },
+            "fullyInViewport": true,
+            "active": true
+          },
+          "cardCount": 5,
+          "normalOpenRequestCount": 0,
+          "activeTag": "INPUT",
+          "activeClass": ""
+        }
+      ],
+      "consoleErrors": [],
+      "pass": {
+        "actualViewport375x667": true,
+        "overlayScrolled": true,
+        "dockButtonsFullyVisibleAndEnabled": true,
+        "toggleFullyVisibleAndEnabled": true,
+        "keyboardReachedBackToPackDetail": true,
+        "keyboardReachedViewCollection": true,
+        "keyboardReachedToggle": true,
+        "noNormalOpenApiRequests": true,
+        "zeroConsoleErrors": true
+      }
+    },
+    {
+      "label": "x5-opening-video-media-state-pass",
+      "route": "http://127.0.0.1:3000/local-stock-subsku-test",
+      "viewport": {
+        "width": 375,
+        "height": 667
+      },
+      "tool": "Chrome DevTools Protocol, disposable local profile",
+      "method": "Cleared gacha:animationPref, opened x5, observed openingVideo stage video element and mute control, then clicked [SKIP] and verified settled summary continuity without normal-open API requests.",
+      "videoStage": {
+        "stage": "openingVideo",
+        "videoCount": 1,
+        "videos": [
+          {
+            "i": 0,
+            "src": "http://127.0.0.1:3000/reveal-animations/gacha-opening-03-v1.mp4",
+            "muted": false,
+            "paused": false,
+            "ended": false,
+            "readyState": 4,
+            "networkState": 1,
+            "controls": false,
+            "error": null,
+            "rect": {
+              "top": 61.5,
+              "bottom": 541.5,
+              "left": 52.5,
+              "right": 322.5,
+              "width": 270,
+              "height": 480
+            }
+          }
+        ],
+        "muteButton": {
+          "disabled": false,
+          "text": "🔊",
+          "ariaLabel": "Mute sound",
+          "rect": {
+            "top": 18,
+            "bottom": 58,
+            "left": 317,
+            "right": 357,
+            "width": 40,
+            "height": 40
+          }
+        },
+        "normalOpenRequestCount": 0
+      },
+      "summaryStage": {
+        "stage": "summary",
+        "summaryCardCount": 5,
+        "normalOpenRequestCount": 0
+      },
+      "pass": {
+        "oneVideoElementDuringOpeningStage": true,
+        "videoHasSelectedPublicMp4": true,
+        "muteControlVisibleEnabled": true,
+        "finalContinuityAfterSkip": true,
+        "noNormalOpenApiRequests": true
+      },
+      "limitations": [
+        "No sensory audio assertion was made.",
+        "DevTools request blocking and Slow 3G throttling were not directly observable in this browser wrapper."
+      ]
     }
   ]
 }

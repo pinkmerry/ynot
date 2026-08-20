@@ -253,7 +253,7 @@ start: 2026-08-20T16:40:46Z
 test at scripts/test-pack-open-privacy.mjs:365:1
 ✖ related public campaign feeds can show sold-out packs without widening every feed (1.539917ms)
   AssertionError [ERR_ASSERTION]: The input did not match the regular expression /campaignVisibility:\s*"public"/. Input:
-  
+
   'import type { Metadata } from "next";\n' +
     'import { PackCatalogRoute } from "@/features/ynot/PackCatalogRoute";\n' +
     '\n' +
@@ -324,7 +324,7 @@ test at scripts/test-pack-open-privacy.mjs:365:1
     '    />\n' +
     '  );\n' +
     '}\n'
-  
+
       at TestContext.<anonymous> (file:///Users/pinkmerry/.config/superpowers/worktrees/YNOTT/gacha-opening-video-mobile-results/Website/scripts/test-pack-open-privacy.mjs:410:10)
       at Test.runInAsyncScope (node:async_hooks:226:14)
       at Test.run (node:internal/test_runner/test:1201:25)
@@ -500,9 +500,9 @@ workerd compatibility_date: 2026-05-17
   Finished TypeScript in 19.4s ...
   Collecting page data using 7 workers ...
   Generating static pages using 7 workers (0/31) ...
-  Generating static pages using 7 workers (7/31) 
-  Generating static pages using 7 workers (15/31) 
-  Generating static pages using 7 workers (23/31) 
+  Generating static pages using 7 workers (7/31)
+  Generating static pages using 7 workers (15/31)
+  Generating static pages using 7 workers (23/31)
 ✓ Generating static pages using 7 workers (31/31) in 102ms
   Finalizing page optimization ...
 
@@ -654,4 +654,3 @@ OpenNext build complete.
 [cf:target-build] website: restored pruned route path(s)
 exit: 0
 end: 2026-08-20T16:42:28Z
-
