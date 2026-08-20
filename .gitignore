@@ -4,6 +4,9 @@
 # Local DB snapshots used for one-off rollbacks (not source-of-truth)
 Database/_snapshots/
 
+# Local gacha video masters and editor exports; delivery copies live in Website/public.
+/Media/Gacha/
+
 # Website app ignores
 Website/node_modules/
 Website/.pnp
